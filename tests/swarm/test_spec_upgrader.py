@@ -359,3 +359,71 @@ def test_parse_audit_marker_no_marker():
     attempt, valid = _parse_audit_marker(comment)
     assert attempt == 0
     assert valid is True
+
+
+from unittest.mock import patch
+
+from aragora.swarm.spec_upgrader import AuditPersistence
+
+
+def test_audit_read_attempt_count_no_prior_marker():
+    ap = AuditPersistence(issue_number=5898)
+    with patch.object(
+        ap,
+        "_gh_list_comments",
+        return_value=[
+            {"id": 1, "body": "unrelated"},
+            {"id": 2, "body": "also unrelated"},
+        ],
+    ):
+        count, valid = ap.read_attempt_count()
+    assert count == 0
+    assert valid is True
+
+
+def test_audit_read_attempt_count_existing_marker():
+    ap = AuditPersistence(issue_number=5898)
+    with patch.object(
+        ap,
+        "_gh_list_comments",
+        return_value=[
+            {"id": 1, "body": "<!-- spec-upgraded:v1 attempt=1 -->\n## Upgrade audit"},
+        ],
+    ):
+        count, valid = ap.read_attempt_count()
+    assert count == 1
+    assert valid is True
+
+
+def test_audit_upsert_creates_when_missing():
+    ap = AuditPersistence(issue_number=5898)
+    with (
+        patch.object(ap, "_gh_list_comments", return_value=[]),
+        patch.object(ap, "_gh_create_comment") as cc,
+        patch.object(ap, "_gh_update_comment") as uc,
+    ):
+        ap.upsert(attempt=1, audit_markdown="## body")
+        cc.assert_called_once()
+        uc.assert_not_called()
+        posted_body = cc.call_args.kwargs.get("body")
+        assert posted_body is not None
+        assert "<!-- spec-upgraded:v1 attempt=1 -->" in posted_body
+
+
+def test_audit_upsert_updates_when_present():
+    existing_comment = {
+        "id": 42,
+        "body": "<!-- spec-upgraded:v1 attempt=1 -->\nold",
+    }
+    ap = AuditPersistence(issue_number=5898)
+    with (
+        patch.object(ap, "_gh_list_comments", return_value=[existing_comment]),
+        patch.object(ap, "_gh_create_comment") as cc,
+        patch.object(ap, "_gh_update_comment") as uc,
+    ):
+        ap.upsert(attempt=2, audit_markdown="## new body")
+        uc.assert_called_once()
+        cc.assert_not_called()
+        kwargs = uc.call_args.kwargs
+        assert kwargs.get("comment_id") == 42
+        assert "attempt=2" in (kwargs.get("body") or "")

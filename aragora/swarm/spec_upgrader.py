@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -330,3 +331,90 @@ def _parse_audit_marker(comment_body: str) -> tuple[int, bool]:
         # Marker-ish present but didn't parse -- treat as corrupted.
         return MAX_ATTEMPTS, False
     return 0, True
+
+
+class AuditPersistence:
+    """Idempotent upsert of the ``[spec-upgraded]`` audit comment on a GitHub issue."""
+
+    MARKER_PREFIX = "<!-- spec-upgraded:v1"
+
+    def __init__(self, issue_number: int, *, repo: str = "synaptent/aragora") -> None:
+        self.issue_number = issue_number
+        self.repo = repo
+
+    def read_attempt_count(self) -> tuple[int, bool]:
+        """Scan comments for the marker and return ``(attempt_count, marker_valid)``."""
+        comments = self._gh_list_comments()
+        for comment in comments:
+            body = comment.get("body") or ""
+            if self.MARKER_PREFIX in body:
+                return _parse_audit_marker(body)
+        return 0, True
+
+    def upsert(self, *, attempt: int, audit_markdown: str) -> bool:
+        """Upsert the audit comment. Returns ``True`` on success, ``False`` on ``gh`` failure."""
+        marker = f"<!-- spec-upgraded:v1 attempt={attempt} -->"
+        body = f"{marker}\n\n{audit_markdown}"
+        try:
+            existing = self._find_existing_comment()
+            if existing is None:
+                self._gh_create_comment(body=body)
+            else:
+                self._gh_update_comment(comment_id=existing["id"], body=body)
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
+    def _find_existing_comment(self) -> dict | None:
+        for comment in self._gh_list_comments():
+            if self.MARKER_PREFIX in (comment.get("body") or ""):
+                return comment
+        return None
+
+    # --- gh wrappers (seams for test mocking) ---
+
+    def _gh_list_comments(self) -> list[dict]:
+        out = subprocess.check_output(
+            [
+                "gh",
+                "issue",
+                "view",
+                str(self.issue_number),
+                "--repo",
+                self.repo,
+                "--json",
+                "comments",
+                "--jq",
+                ".comments",
+            ],
+            text=True,
+        )
+        return json.loads(out or "[]")
+
+    def _gh_create_comment(self, *, body: str) -> None:
+        subprocess.check_call(
+            [
+                "gh",
+                "issue",
+                "comment",
+                str(self.issue_number),
+                "--repo",
+                self.repo,
+                "--body",
+                body,
+            ]
+        )
+
+    def _gh_update_comment(self, *, comment_id: int, body: str) -> None:
+        # gh does not expose direct comment edit; use gh api
+        subprocess.check_call(
+            [
+                "gh",
+                "api",
+                "--method",
+                "PATCH",
+                f"/repos/{self.repo}/issues/comments/{comment_id}",
+                "-f",
+                f"body={body}",
+            ]
+        )
