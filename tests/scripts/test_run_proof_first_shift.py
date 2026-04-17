@@ -574,6 +574,68 @@ def test_restart_boss_service_fails_closed_when_launchctl_is_unavailable() -> No
     assert action == "restart_boss_loop"
 
 
+def test_launchd_service_missing_rejects_generic_launchctl_failures() -> None:
+    assert (
+        mod.launchd_service_missing(
+            mod.LaunchdServiceStatus(
+                detail="launchctl print failed for com.aragora.swarm-boss-loop"
+            )
+        )
+        is False
+    )
+    assert (
+        mod.launchd_service_missing(
+            mod.LaunchdServiceStatus(
+                detail="launchctl print timed out for com.aragora.swarm-boss-loop"
+            )
+        )
+        is False
+    )
+    assert (
+        mod.launchd_service_missing(
+            mod.LaunchdServiceStatus(
+                detail="Operation not permitted while printing com.aragora.swarm-boss-loop"
+            )
+        )
+        is False
+    )
+
+
+def test_restart_boss_service_keeps_generic_launchctl_failures_on_launchd_path() -> None:
+    inspection_failure = mod.LaunchdServiceStatus(
+        detail="launchctl print failed for com.aragora.swarm-boss-loop"
+    )
+    with (
+        patch(
+            "scripts.run_proof_first_shift.inspect_launchd_service",
+            return_value=inspection_failure,
+        ),
+        patch(
+            "scripts.run_proof_first_shift.start_detached_boss_loop",
+            side_effect=AssertionError(
+                "generic launchctl failures should not bootstrap a detached boss loop"
+            ),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.restart_service_via_launchd",
+            return_value=(False, "launchctl print failed for com.aragora.swarm-boss-loop"),
+        ) as restart_mock,
+    ):
+        ok, detail, action = mod.restart_boss_service(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            process_pattern="boss-loop",
+        )
+
+    assert ok is False
+    assert detail == "launchctl print failed for com.aragora.swarm-boss-loop"
+    assert action == "restart_boss_loop"
+    restart_mock.assert_called_once_with(
+        label=mod.DEFAULT_BOSS_LABEL,
+        process_pattern="boss-loop",
+    )
+
+
 def test_build_direct_boss_loop_command_uses_env_configuration() -> None:
     with patch.dict(
         "os.environ",

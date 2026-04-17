@@ -629,7 +629,7 @@ def should_restart_service(
 
 def launchd_service_missing(status: LaunchdServiceStatus) -> bool:
     detail = status.detail.lower()
-    return "could not find service" in detail or "launchctl print failed" in detail
+    return "could not find service" in detail
 
 
 def _env_or_default(name: str, default: str) -> str:
