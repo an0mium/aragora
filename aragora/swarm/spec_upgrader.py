@@ -6,7 +6,9 @@ Public entry point: ``upgrade_spec()``. See
 
 from __future__ import annotations
 
+import json
 import re
+import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
@@ -196,3 +198,109 @@ def _tier1_enrich(
     if candidate.is_dispatch_bounded():
         return candidate
     return None
+
+
+class _LLMLogicFailure(Exception):
+    """Internal: LLM returned malformed / ungrounded output after local retry."""
+
+
+def _build_tier2_prompt(spec: SwarmSpec, ctx: UpgradeFailureContext, repo_root: Path) -> str:
+    """Build the Tier 2 LLM prompt from the current spec + failure context."""
+    del repo_root  # reserved for future use (e.g., injecting repo tree)
+    return f"""You are upgrading an underspecified GitHub issue into a dispatchable SwarmSpec.
+
+Issue title: {ctx.issue_title}
+Issue body:
+{ctx.original_issue_body}
+
+Missing bounds: {ctx.missing_bounds}
+Preflight drift: {json.dumps(ctx.preflight_diff) if ctx.preflight_diff else "none"}
+
+Current spec state:
+- acceptance_criteria: {spec.acceptance_criteria}
+- file_scope_hints: {spec.file_scope_hints}
+- constraints: {spec.constraints}
+- work_orders: {spec.work_orders}
+
+Respond with ONLY a JSON object containing fields to ADD (not replace) to the spec:
+{{
+  "acceptance_criteria": [...],
+  "file_scope_hints": [...],
+  "constraints": [...],
+  "work_orders": [...]
+}}
+
+Rules:
+- File paths MUST exist in the repo. Do not invent paths.
+- Acceptance criteria must be specific and verifiable.
+- Constraints must be enforceable (e.g., "no changes outside listed files").
+- Omit any field you cannot responsibly fill.
+"""
+
+
+def _tier2_enrich(
+    spec: SwarmSpec,
+    ctx: UpgradeFailureContext,
+    *,
+    client: Any,
+    repo_root: Path,
+) -> SwarmSpec | None:
+    """LLM-backed enrichment.
+
+    Raises :class:`SpecUpgraderUnavailable` on transient infrastructure errors
+    (timeouts, connection errors) so the caller can skip-for-this-tick without
+    consuming an attempt. Raises :class:`_LLMLogicFailure` on malformed or
+    ungrounded output after one local retry.
+
+    Returns the upgraded ``SwarmSpec`` on success, or ``None`` if the upgrade
+    still isn't dispatch-bounded (caller escalates).
+    """
+    prompt = _build_tier2_prompt(spec, ctx, repo_root)
+    last_err: Exception | None = None
+
+    for attempt in range(2):
+        try:
+            raw = client.complete(prompt)
+        except (ConnectionError, TimeoutError) as exc:
+            raise SpecUpgraderUnavailable(str(exc)) from exc
+        except Exception as exc:  # transient infra error surfaced by client
+            last_err = exc
+            if attempt == 0:
+                time.sleep(1)
+                continue
+            raise SpecUpgraderUnavailable(str(exc)) from exc
+
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            last_err = exc
+            if attempt == 0:
+                continue
+            raise _LLMLogicFailure(f"LLM output not valid JSON: {exc}") from exc
+
+        if not isinstance(parsed, dict):
+            raise _LLMLogicFailure("LLM output not a JSON object")
+
+        added_acceptance = [str(item) for item in parsed.get("acceptance_criteria", []) if item]
+        added_file_scope = [str(item) for item in parsed.get("file_scope_hints", []) if item]
+        added_constraints = [str(item) for item in parsed.get("constraints", []) if item]
+        added_work_orders: list[dict[str, Any]] = []
+        for item in parsed.get("work_orders", []) or []:
+            if isinstance(item, dict):
+                added_work_orders.append(item)
+            elif isinstance(item, str) and item.strip():
+                added_work_orders.append({"description": item.strip()})
+
+        candidate = replace(
+            spec,
+            acceptance_criteria=[*spec.acceptance_criteria, *added_acceptance],
+            file_scope_hints=[*spec.file_scope_hints, *added_file_scope],
+            constraints=[*spec.constraints, *added_constraints],
+            work_orders=[*spec.work_orders, *added_work_orders],
+        )
+        if candidate.is_dispatch_bounded():
+            return candidate
+        # Still unbounded even after LLM enrichment -- caller escalates.
+        return None
+
+    raise _LLMLogicFailure(f"Exhausted LLM attempts: {last_err}")

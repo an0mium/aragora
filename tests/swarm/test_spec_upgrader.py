@@ -260,3 +260,64 @@ def test_tier1_returns_none_when_cannot_bound(tmp_path):
     )
     result = _tier1_enrich(spec, ctx, repo_root=Path(tmp_path))
     assert result is None
+
+
+from unittest.mock import MagicMock
+
+from aragora.swarm.spec_upgrader import _tier2_enrich
+
+
+def test_tier2_enrich_success(tmp_path):
+    spec = _make_unbounded_spec()
+    ctx = UpgradeFailureContext(
+        missing_bounds=["acceptance criterion"],
+        preflight_diff=None,
+        prior_attempts=0,
+        original_issue_body="Ambiguous task.",
+        issue_title="[CS-01] Stuff",
+        track_tag="CS-01",
+    )
+    mock_client = MagicMock()
+    mock_client.complete.return_value = (
+        '{"acceptance_criteria": ["The code produces output matching docs/examples/X.md"], '
+        '"file_scope_hints": ["aragora/swarm/boss_loop.py"], '
+        '"constraints": ["No changes outside listed files"], '
+        '"work_orders": [{"description": "Add regression test for X"}]}'
+    )
+    result = _tier2_enrich(spec, ctx, client=mock_client, repo_root=Path(tmp_path))
+    assert result is not None
+    assert result.acceptance_criteria
+
+
+def test_tier2_enrich_malformed_json_raises(tmp_path):
+    spec = _make_unbounded_spec()
+    ctx = UpgradeFailureContext(
+        missing_bounds=["acceptance criterion"],
+        preflight_diff=None,
+        prior_attempts=0,
+        original_issue_body="",
+        issue_title="",
+        track_tag=None,
+    )
+    mock_client = MagicMock()
+    mock_client.complete.return_value = "this is not json"
+    from aragora.swarm.spec_upgrader import _LLMLogicFailure
+
+    with pytest.raises(_LLMLogicFailure):
+        _tier2_enrich(spec, ctx, client=mock_client, repo_root=Path(tmp_path))
+
+
+def test_tier2_enrich_transient_raises_unavailable(tmp_path):
+    spec = _make_unbounded_spec()
+    ctx = UpgradeFailureContext(
+        missing_bounds=["acceptance criterion"],
+        preflight_diff=None,
+        prior_attempts=0,
+        original_issue_body="",
+        issue_title="",
+        track_tag=None,
+    )
+    mock_client = MagicMock()
+    mock_client.complete.side_effect = ConnectionError("api 503")
+    with pytest.raises(SpecUpgraderUnavailable):
+        _tier2_enrich(spec, ctx, client=mock_client, repo_root=Path(tmp_path))
