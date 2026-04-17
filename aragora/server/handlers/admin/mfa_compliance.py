@@ -2,7 +2,7 @@
 MFA Compliance Dashboard endpoint handler.
 
 Endpoints:
-- GET /api/v1/admin/mfa-compliance - Aggregate MFA status for all admin users
+- GET /api/v1/admin/mfa/compliance - Aggregate MFA status for all admin users
 
 SOC 2 Control: CC5-01 - Enforce MFA for administrative access.
 """
@@ -64,7 +64,7 @@ class MFAComplianceHandler(BaseHandler):
     """Handler for MFA compliance dashboard endpoints."""
 
     ROUTES = [
-        "/api/v1/admin/mfa-compliance",
+        "/api/v1/admin/mfa/compliance",
     ]
 
     def __init__(self, ctx: dict[str, Any] | None = None):
@@ -81,7 +81,7 @@ class MFAComplianceHandler(BaseHandler):
         self, path: str, query_params: dict[str, Any], handler: Any, user: Any = None
     ) -> HandlerResult | None:
         """Handle GET requests for MFA compliance endpoint."""
-        if path == "/api/v1/admin/mfa-compliance":
+        if path == "/api/v1/admin/mfa/compliance":
             return self._get_compliance(handler)
         return None
 
