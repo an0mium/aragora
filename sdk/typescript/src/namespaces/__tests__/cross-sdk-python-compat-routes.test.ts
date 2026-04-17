@@ -87,6 +87,14 @@ describe('Cross SDK Python Compatibility Routes', () => {
     await api.getAnalyticsByModel({ workspace_id: 'w1' });
     await api.getAnalyticsByDebate({ workspace_id: 'w1' });
     await api.getAnalyticsBudgetUtilization({ workspace_id: 'w1' });
+    await api.getDebateSessionCosts('debate/1');
+    await api.listDebateCostLineItems('debate/1', {
+      sort_by: 'tokens',
+      order: 'asc',
+      limit: 25,
+      offset: 5,
+    });
+    await api.getDebateCostPerformance('debate/1');
 
     expect(mockClient.request).toHaveBeenNthCalledWith(1, 'GET', '/api/v1/costs/analytics/trend', {
       params: { range: '7d' },
@@ -94,6 +102,11 @@ describe('Cross SDK Python Compatibility Routes', () => {
     expect(mockClient.request).toHaveBeenNthCalledWith(5, 'GET', '/api/v1/costs/analytics/budget-utilization', {
       params: { workspace_id: 'w1' },
     });
+    expect(mockClient.request).toHaveBeenNthCalledWith(6, 'GET', '/api/v1/costs/debates/debate%2F1');
+    expect(mockClient.request).toHaveBeenNthCalledWith(7, 'GET', '/api/v1/costs/debates/debate%2F1/line-items', {
+      params: { sort_by: 'tokens', order: 'asc', limit: 25, offset: 5 },
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(8, 'GET', '/api/v1/costs/debates/debate%2F1/performance');
   });
 
   it('maps gateway openclaw compatibility routes', async () => {

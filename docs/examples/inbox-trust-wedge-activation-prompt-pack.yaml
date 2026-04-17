@@ -1,0 +1,266 @@
+bundle_id: inbox-trust-wedge-activation-2026-04-17
+objective: >-
+  Convert the repo's inbox trust wedge from "structurally implemented" into a
+  repeatable internal proof surface with receipts, operator transferability,
+  proof-pack artifacts, and bounded design-partner readiness.
+repo:
+  name: synaptent/aragora
+  root: /Users/armand/Development/aragora
+  base_ref: origin/main
+shared_constraints:
+  report_requirements:
+    - exact commands run
+    - URLs for issues, PRs, or docs touched
+    - residual risk
+    - truthful stop reason if blocked
+  execution_rules:
+    - keep issues out of boss-ready until the canonical queue gate changes
+    - keep reply, send, and forward actions out of scope
+    - treat live inbox actioning as approval-gated until activation criteria are met
+references:
+  source_refs:
+    activation_plan:
+      kind: doc
+      url: https://github.com/synaptent/aragora/blob/main/docs/plans/INBOX_TRUST_WEDGE_ACTIVATION_PLAN.md
+      meaning: canonical activation strategy and stop conditions
+    pmf_plan:
+      kind: doc
+      url: https://github.com/synaptent/aragora/blob/main/docs/plans/PMF_DOGFOOD_EXECUTION_PLAN.md
+      meaning: PMF-critical founder and inbox dogfood plan
+    proof_ladder:
+      kind: doc
+      url: https://github.com/synaptent/aragora/blob/main/docs/strategy/PROOF_AND_EVIDENCE.md
+      meaning: evidence ladder and internal dogfood unlock bar
+    active_tree:
+      kind: doc
+      url: https://github.com/synaptent/aragora/blob/main/docs/status/ACTIVE_EXECUTION_ISSUES.md
+      meaning: canonical roadmap code mapping
+    tw04_issue:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/6159
+      state: open
+      meaning: receipt-before-action inbox guarantee
+    tw05_issue:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/6160
+      state: open
+      meaning: contracts, memory, and approval-policy reuse
+    tw06_issue:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/6161
+      state: open
+      meaning: receipt-linked operator feedback and calibration
+    tw10_issue:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/6162
+      state: open
+      meaning: internal and partner-facing inbox operating cadence
+    tw11_issue:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/6163
+      state: open
+      meaning: truthful proof-pack publication
+    tw12_issue:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/6164
+      state: open
+      meaning: wedge graduation decision
+lanes:
+  - lane_id: tw04_receipt_truth
+    owner_role: inbox_safety_engineer
+    title: Preserve receipt-before-action truth for inbox workflows
+    prompt: >-
+      Harden the inbox trust wedge so every executed inbox action is provably
+      tied to a persisted reviewable receipt and every failure stops truthfully.
+      Prefer narrow fixes on the wedge path over generalized platform work.
+    source_refs:
+      - https://github.com/synaptent/aragora/issues/6159
+      - https://github.com/synaptent/aragora/blob/main/docs/plans/INBOX_TRUST_WEDGE_ACTIVATION_PLAN.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - aragora/inbox/**
+      - aragora/cli/commands/triage.py
+      - aragora/cli/commands/inbox_wedge.py
+      - aragora/server/fastapi/routes/inbox.py
+      - tests/inbox/**
+      - tests/cli/test_triage_command.py
+      - tests/cli/test_inbox_wedge_command.py
+      - docs/plans/**
+    acceptance_criteria:
+      - No inbox action executes without a persisted valid receipt.
+      - Truthful terminal states survive dry-run, review, and execute paths.
+      - Focused validation commands are recorded in the final report.
+    constraints:
+      - Do not widen into reply/send/forward automation.
+      - Do not generalize the fix into unrelated queue or DAG work.
+    verification_commands:
+      - python3 -m pytest tests/cli/test_triage_command.py tests/cli/test_inbox_wedge_command.py tests/inbox/test_trust_wedge.py tests/inbox/test_receipt_gated_executor.py -q
+      - python3 -m ruff check aragora/cli/commands/triage.py aragora/cli/commands/inbox_wedge.py aragora/inbox tests/cli/test_triage_command.py tests/cli/test_inbox_wedge_command.py tests/inbox/test_trust_wedge.py tests/inbox/test_receipt_gated_executor.py
+    stop_conditions:
+      - Live proof requires credentials or policy inputs unavailable to the lane.
+      - The smallest credible fix lives outside the allowed wedge path.
+    expected_receipts_artifacts:
+      - issue URL
+      - PR URL or doc URL
+      - validation command transcript
+
+  - lane_id: tw05_non_code_policy_reuse
+    owner_role: non_code_policy_engineer
+    title: Reuse contracts and approval policies across non-code inbox actions
+    prompt: >-
+      Reuse the proof-first contract, memory, and approval-policy primitives on
+      the inbox wedge without broadening into generic substrate work. Keep the
+      action surface narrow and make the reuse explicit and testable.
+    source_refs:
+      - https://github.com/synaptent/aragora/issues/6160
+      - https://github.com/synaptent/aragora/blob/main/docs/plans/INBOX_TRUST_WEDGE_ACTIVATION_PLAN.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - aragora/inbox/**
+      - aragora/swarm/**
+      - aragora/cli/commands/triage.py
+      - tests/inbox/**
+      - tests/cli/test_triage_command.py
+      - docs/plans/**
+    verification_commands:
+      - python3 -m pytest tests/inbox/test_triage_runner.py tests/inbox/test_auto_approval.py tests/inbox/test_triage_instrumentation.py tests/cli/test_triage_command.py -q
+      - python3 -m ruff check aragora/inbox aragora/swarm aragora/cli/commands/triage.py tests/inbox/test_triage_runner.py tests/inbox/test_auto_approval.py tests/inbox/test_triage_instrumentation.py tests/cli/test_triage_command.py
+    stop_conditions:
+      - The change would require broad queue-governance or host-state rewrites.
+    expected_receipts_artifacts:
+      - issue URL
+      - changed paths
+      - residual risk
+
+  - lane_id: tw06_feedback_calibration
+    owner_role: feedback_calibration_engineer
+    title: Tie operator feedback and calibration to receipts
+    prompt: >-
+      Make operator feedback on inbox actions durable, receipt-linked, and
+      visible through existing queue, digest, audit, and calibration surfaces.
+      Prefer additive telemetry and reviewability over net-new dashboards.
+    source_refs:
+      - https://github.com/synaptent/aragora/issues/6161
+      - https://github.com/synaptent/aragora/blob/main/docs/templates/INBOX_TRUST_WEDGE_PROOF_PACK_TEMPLATE.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - aragora/inbox/**
+      - aragora/cli/commands/triage.py
+      - tests/inbox/**
+      - tests/cli/test_triage_command.py
+      - docs/templates/**
+      - docs/plans/**
+    verification_commands:
+      - python3 -m pytest tests/inbox/test_triage_instrumentation.py tests/inbox/test_cli_review.py tests/cli/test_triage_command.py -q
+      - python3 -m ruff check aragora/inbox/triage_instrumentation.py aragora/cli/commands/triage.py tests/inbox/test_triage_instrumentation.py tests/inbox/test_cli_review.py tests/cli/test_triage_command.py
+    stop_conditions:
+      - The lane starts inventing a parallel analytics system instead of using wedge telemetry.
+    expected_receipts_artifacts:
+      - issue URL
+      - changed paths
+      - sample calibration output
+
+  - lane_id: tw10_internal_cadence
+    owner_role: trust_wedge_operator
+    title: Establish weekly internal inbox operating cadence
+    prompt: >-
+      Produce or refine the operator-ready runbook, cadence, and acceptance
+      worksheet for repeated internal inbox trust wedge runs. Optimize for
+      transferability to two non-builder operators and leave exact commands.
+    source_refs:
+      - https://github.com/synaptent/aragora/issues/6162
+      - https://github.com/synaptent/aragora/blob/main/docs/plans/INBOX_TRUST_WEDGE_ACTIVATION_PLAN.md
+      - https://github.com/synaptent/aragora/blob/main/docs/strategy/PROOF_AND_EVIDENCE.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - docs/plans/**
+      - docs/status/**
+      - docs/templates/**
+      - docs/examples/**
+    verification_commands:
+      - python3 -m aragora.cli.main triage --help
+      - python3 -m aragora.cli.main inbox-wedge --help
+      - python3 -m aragora.cli.main swarm tranche plan --from-prompts docs/examples/inbox-trust-wedge-activation-prompt-pack.yaml --output /tmp/inbox-trust-wedge-tranche.yaml --json
+    stop_conditions:
+      - The lane assumes live credentials or real inbox access that it cannot verify.
+      - The deliverable drifts into a sales narrative instead of an operator path.
+    expected_receipts_artifacts:
+      - runbook path
+      - acceptance worksheet
+      - residual risk
+
+  - lane_id: tw11_proof_pack
+    owner_role: proof_pack_editor
+    title: Publish truthful proof-pack and before-after evidence surfaces
+    prompt: >-
+      Define and, where appropriate, automate the truthful proof-pack surface
+      for the inbox trust wedge. Keep proof assets compact, receipt-backed, and
+      narrow enough to support a bounded design-partner conversation.
+    source_refs:
+      - https://github.com/synaptent/aragora/issues/6163
+      - https://github.com/synaptent/aragora/blob/main/docs/templates/INBOX_TRUST_WEDGE_PROOF_PACK_TEMPLATE.md
+      - https://github.com/synaptent/aragora/blob/main/docs/strategy/PROOF_AND_EVIDENCE.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - docs/plans/**
+      - docs/status/**
+      - docs/templates/**
+      - docs/examples/**
+      - scripts/**
+      - tests/scripts/**
+    verification_commands:
+      - python3 -m aragora.cli.main inbox-wedge --help
+      - python3 -m aragora.cli.main triage calibrate --json
+      - python3 -m aragora.cli.main inbox-wedge report --json --limit 10
+    stop_conditions:
+      - The lane starts publishing claims broader than current internal proof.
+    expected_receipts_artifacts:
+      - proof-pack template or generator path
+      - sample artifact path
+      - residual risk
+
+  - lane_id: tw12_wedge_graduation
+    owner_role: wedge_packaging_editor
+    title: Decide if the inbox wedge graduates to packaged offering
+    prompt: >-
+      Define the bounded decision framework for whether the inbox trust wedge
+      stays internal, enters partner dry-run mode, or graduates to a packaged
+      offering. Keep the decision tied to measured proof, not narrative.
+    source_refs:
+      - https://github.com/synaptent/aragora/issues/6164
+      - https://github.com/synaptent/aragora/blob/main/docs/plans/INBOX_TRUST_WEDGE_ACTIVATION_PLAN.md
+      - https://github.com/synaptent/aragora/blob/main/docs/status/DESIGN_PARTNER_PROGRAM.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - docs/plans/**
+      - docs/status/**
+      - docs/outreach/**
+      - docs/COMMERCIAL_OVERVIEW.md
+    verification_commands:
+      - git diff --stat -- docs/plans docs/status docs/outreach docs/COMMERCIAL_OVERVIEW.md
+    stop_conditions:
+      - The lane attempts pricing or packaging certainty unsupported by wedge proof.
+    expected_receipts_artifacts:
+      - graduation memo
+      - decision rubric
+      - residual risk
+terminal_outcomes:
+  success:
+    definition: >-
+      The inbox trust wedge has a bounded execution map, issue map, proof-pack
+      shape, and operator path that are narrow enough to execute without
+      widening the live queue prematurely.
+  needs_human:
+    definition: >-
+      A lane requires live credentials, operator policy, or design-partner
+      input that cannot be truthfully simulated.
+  stop_and_replan:
+    definition: >-
+      The wedge objective drifts into generic platform expansion or conflicts
+      with the canonical short-horizon queue gate.
