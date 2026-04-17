@@ -22,6 +22,10 @@ def normalize_sdk_path(path: str) -> str:
     path = path.split("?", 1)[0].lower()
     # Strip version prefix: /api/v1, /api/v1/, /api/v2/foo -> /api, /api/, /api/foo
     path = re.sub(r"^/api/v\d+(?=/|$)", "/api", path)
+    # API-key aliases share AuthHandler dispatch and SDK helpers with the
+    # canonical plural auth route.
+    if path == "/api/api-keys" or path.startswith("/api/api-keys/"):
+        path = path.replace("/api/api-keys", "/api/auth/api-keys", 1)
     # Template literal expressions ${...} -> {param}
     path = re.sub(r"\$\{[^}]+\}", "{param}", path)
     # Express-style :param -> {param}
