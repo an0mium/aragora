@@ -99,6 +99,77 @@ def test_should_trigger_benchmark_rerun_respects_backlog_cap() -> None:
     assert reason == "automation_backlog_full"
 
 
+def test_should_trigger_benchmark_rerun_waits_for_first_run_visibility() -> None:
+    trigger, reason = mod.should_trigger_benchmark_rerun(
+        benchmark_mode="hybrid",
+        latest_run=None,
+        has_open_publication_pr=False,
+        automation_backlog=0,
+        automation_backlog_limit=12,
+        last_triggered_run_id=-1,
+    )
+
+    assert trigger is False
+    assert reason == "awaiting_first_run_visibility"
+
+
+def test_should_trigger_benchmark_rerun_waits_for_new_run_after_trigger() -> None:
+    trigger, reason = mod.should_trigger_benchmark_rerun(
+        benchmark_mode="hybrid",
+        latest_run={
+            "databaseId": 123,
+            "createdAt": "2026-04-14T00:00:00Z",
+            "status": "completed",
+            "conclusion": "success",
+        },
+        has_open_publication_pr=False,
+        automation_backlog=0,
+        automation_backlog_limit=12,
+        last_triggered_run_id=123,
+        max_age_hours=1.0,
+    )
+
+    assert trigger is False
+    assert reason == "awaiting_new_benchmark_run"
+
+
+def test_should_trigger_benchmark_rerun_skips_when_publication_pr_is_open() -> None:
+    trigger, reason = mod.should_trigger_benchmark_rerun(
+        benchmark_mode="hybrid",
+        latest_run={
+            "databaseId": 123,
+            "createdAt": "2026-04-14T00:00:00Z",
+            "status": "completed",
+            "conclusion": "success",
+        },
+        has_open_publication_pr=True,
+        automation_backlog=0,
+        automation_backlog_limit=12,
+        last_triggered_run_id=None,
+        max_age_hours=1.0,
+    )
+
+    assert trigger is False
+    assert reason == "benchmark_pr_open"
+
+
+def test_has_open_benchmark_publication_pr_matches_branch_namespace() -> None:
+    assert mod.has_open_benchmark_publication_pr(
+        [
+            {"headRefName": None},
+            {"headRefName": "codex/benchmark-truth-publication-followup"},
+            {"headRefName": "benchmark-truth-publication/24517976139"},
+        ]
+    )
+    assert not mod.has_open_benchmark_publication_pr(
+        [
+            {"headRefName": "benchmark-truth-publication-fix"},
+            {"headRefName": "codex/benchmark-truth-publication/24517976139"},
+            {"headRefName": "feature/manual"},
+        ]
+    )
+
+
 def test_count_automation_backlog_ignores_draft_prs() -> None:
     prs = [
         {"headRefName": "codex/draft", "isDraft": True},
