@@ -527,11 +527,15 @@ class AuditPersistence:
                 "gh",
                 "api",
                 "--paginate",
+                "--slurp",
                 f"/repos/{self.repo}/issues/{self.issue_number}/comments",
             ],
             text=True,
         )
-        return json.loads(out or "[]")
+        payload = json.loads(out or "[]")
+        if payload and all(isinstance(page, list) for page in payload):
+            return [comment for page in payload for comment in page]
+        return payload
 
     def _gh_create_comment(self, *, body: str) -> None:
         subprocess.check_call(
