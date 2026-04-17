@@ -34,6 +34,13 @@ DEFAULT_CORPUS_PATH = REPO_ROOT / "docs" / "benchmarks" / "corpus.json"
 DEFAULT_FRESHNESS_MAP_PATH = REPO_ROOT / "docs" / "benchmarks" / "benchmark_corpus_freshness.json"
 DEFAULT_PUBLISH_DIR = REPO_ROOT / ".aragora" / "benchmark_truth_artifacts"
 
+# Corpus expected_status values. "verified" entries gate the primary success
+# rate; "in_progress" entries track autonomy still on the hook and must not
+# count against the proven ratio until they graduate.
+EXPECTED_STATUS_VERIFIED = "verified"
+EXPECTED_STATUS_IN_PROGRESS = "in_progress"
+VALID_EXPECTED_STATUSES = frozenset({EXPECTED_STATUS_VERIFIED, EXPECTED_STATUS_IN_PROGRESS})
+
 
 def load_corpus(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -54,6 +61,24 @@ def _corpus_issue_numbers(corpus: dict[str, Any]) -> list[int]:
         if issue_number > 0:
             issue_numbers.append(issue_number)
     return sorted(issue_numbers)
+
+
+def _corpus_expected_status(corpus: dict[str, Any]) -> dict[int, str]:
+    mapping: dict[int, str] = {}
+    for item in list(corpus.get("issues") or []):
+        if not isinstance(item, dict):
+            continue
+        issue_number = int(item.get("issue_id", 0) or 0)
+        if issue_number <= 0:
+            continue
+        status = str(item.get("expected_status") or EXPECTED_STATUS_VERIFIED).strip().lower()
+        if status not in VALID_EXPECTED_STATUSES:
+            raise ValueError(
+                f"corpus issue #{issue_number} has invalid expected_status={status!r}; "
+                f"must be one of {sorted(VALID_EXPECTED_STATUSES)}"
+            )
+        mapping[issue_number] = status
+    return mapping
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -124,15 +149,39 @@ def _failure_distributions(
     return dict(sorted(failure_counts.items())), dict(sorted(rescue_counts.items()))
 
 
-def _missing_corpus_issue_numbers(aggregates: list[IssueMetricsAggregate]) -> list[int]:
+def _missing_corpus_issue_numbers(
+    aggregates: list[IssueMetricsAggregate],
+    *,
+    expected_by_number: dict[int, str] | None = None,
+) -> list[int]:
+    # Only verified-expected issues count toward missing coverage. In-progress
+    # entries are allowed to have zero metrics rows until autonomy attempts them.
+    expected_by_number = expected_by_number or {}
     return [
         aggregate.issue_number
         for aggregate in aggregates
-        if aggregate.issue_number > 0 and aggregate.row_count <= 0
+        if aggregate.issue_number > 0
+        and aggregate.row_count <= 0
+        and expected_by_number.get(aggregate.issue_number, EXPECTED_STATUS_VERIFIED)
+        == EXPECTED_STATUS_VERIFIED
     ]
 
 
-def _corpus_freshness(records: list[IssueTruthRecord]) -> dict[str, Any]:
+def _corpus_freshness(
+    records: list[IssueTruthRecord],
+    *,
+    expected_by_number: dict[int, str] | None = None,
+) -> dict[str, Any]:
+    expected_by_number = expected_by_number or {}
+
+    def _is_verified(record: IssueTruthRecord) -> bool:
+        return (
+            expected_by_number.get(record.issue_number, EXPECTED_STATUS_VERIFIED)
+            == EXPECTED_STATUS_VERIFIED
+        )
+
+    # Stale-closed and linkage-incomplete checks apply only to verified-expected
+    # issues. In-progress entries are explicitly tracked as not-yet-verified.
     stale_closed_issues = [
         {
             "issue_number": record.issue_number,
@@ -145,7 +194,7 @@ def _corpus_freshness(records: list[IssueTruthRecord]) -> dict[str, Any]:
             "stale_corpus_reason": record.stale_corpus_reason,
         }
         for record in records
-        if record.stale_corpus_issue
+        if record.stale_corpus_issue and _is_verified(record)
     ]
     linkage_errors = [
         {
@@ -160,7 +209,7 @@ def _corpus_freshness(records: list[IssueTruthRecord]) -> dict[str, Any]:
             "linkage_error": record.linkage_error,
         }
         for record in records
-        if record.linkage_verification_incomplete
+        if record.linkage_verification_incomplete and _is_verified(record)
     ]
     status = "fresh"
     if stale_closed_issues:
@@ -722,6 +771,7 @@ def build_benchmark_truth_artifact(
     rows = load_metrics_rows(metrics_file)
     corpus = load_corpus(corpus_path)
     membership_issue_numbers = _corpus_issue_numbers(corpus)
+    expected_by_number = _corpus_expected_status(corpus)
     aggregates = aggregate_corpus_issues(rows, corpus)
     truth_client = client or GitHubTruthClient()
     records: list[IssueTruthRecord] = []
@@ -740,20 +790,50 @@ def build_benchmark_truth_artifact(
             )
             continue
         records.append(reconcile_issue_truth(repo, aggregate, truth_client))
+
+    def _is_verified_number(issue_number: int) -> bool:
+        return (
+            expected_by_number.get(issue_number, EXPECTED_STATUS_VERIFIED)
+            == EXPECTED_STATUS_VERIFIED
+        )
+
+    verified_records = [record for record in records if _is_verified_number(record.issue_number)]
+    in_progress_records = [
+        record for record in records if not _is_verified_number(record.issue_number)
+    ]
+
     corpus_issue_count = len(aggregates)
+    verified_expected_count = len(verified_records)
+    in_progress_expected_count = len(in_progress_records)
     attempted_issue_count = sum(1 for aggregate in aggregates if aggregate.row_count > 0)
     truth_success_issue_count = sum(1 for record in records if record.truth_success)
+    verified_success_count = sum(1 for record in verified_records if record.truth_success)
+    in_progress_attempted_count = sum(
+        1
+        for aggregate in aggregates
+        if aggregate.row_count > 0 and not _is_verified_number(aggregate.issue_number)
+    )
+    in_progress_success_count = sum(1 for record in in_progress_records if record.truth_success)
     no_rescue_truth_success_issue_count = sum(
         1 for record in records if record.no_rescue_truth_success
     )
     merged_issue_count = sum(1 for record in records if record.truth_state == "merged_pr")
     proxy_pr_signal_issue_count = sum(1 for aggregate in aggregates if aggregate.proxy_pr_signal)
-    missing_issue_numbers = _missing_corpus_issue_numbers(aggregates)
+    missing_issue_numbers = _missing_corpus_issue_numbers(
+        aggregates, expected_by_number=expected_by_number
+    )
     run_complete = not missing_issue_numbers
     failure_class_distribution, rescue_counts_by_type = _failure_distributions(
         rows,
         corpus_issue_numbers={aggregate.issue_number for aggregate in aggregates},
     )
+    issue_records: list[dict[str, Any]] = []
+    for record in records:
+        payload = record.to_dict()
+        payload["expected_status"] = expected_by_number.get(
+            record.issue_number, EXPECTED_STATUS_VERIFIED
+        )
+        issue_records.append(payload)
     artifact = {
         "generated_at": normalized_generated_at,
         "repo": repo,
@@ -768,6 +848,8 @@ def build_benchmark_truth_artifact(
             "membership_sha256": _corpus_membership_sha256(membership_issue_numbers),
             "membership_issue_numbers": membership_issue_numbers,
             "issue_count": corpus_issue_count,
+            "verified_expected_count": verified_expected_count,
+            "in_progress_expected_count": in_progress_expected_count,
         },
         "run_status": "complete" if run_complete else "incomplete",
         "coverage": {
@@ -781,6 +863,11 @@ def build_benchmark_truth_artifact(
             "truth_success_rate": round(truth_success_issue_count / corpus_issue_count, 4)
             if corpus_issue_count
             else 0.0,
+            "truth_success_rate_verified": round(
+                verified_success_count / verified_expected_count, 4
+            )
+            if verified_expected_count
+            else 0.0,
             "no_rescue_truth_success_rate": round(
                 no_rescue_truth_success_issue_count / corpus_issue_count,
                 4,
@@ -790,6 +877,24 @@ def build_benchmark_truth_artifact(
             "merged_only_rate": round(merged_issue_count / corpus_issue_count, 4)
             if corpus_issue_count
             else 0.0,
+        },
+        "in_flight_metrics": {
+            "in_progress_expected_count": in_progress_expected_count,
+            "in_progress_attempted_count": in_progress_attempted_count,
+            "in_progress_success_count": in_progress_success_count,
+            "in_progress_graduation_rate": round(
+                in_progress_success_count / in_progress_expected_count, 4
+            )
+            if in_progress_expected_count
+            else 0.0,
+            "in_progress_issue_numbers": sorted(
+                record.issue_number for record in in_progress_records
+            ),
+            "note": (
+                "In-flight corpus issues are bounded open tasks autonomy is "
+                "on the hook to resolve. Graduation occurs when a merged PR "
+                "closes them; they then move to verified via a corpus revision."
+            ),
         },
         "proxy_metrics": {
             "attempted_issue_count": attempted_issue_count,
@@ -804,8 +909,8 @@ def build_benchmark_truth_artifact(
         },
         "failure_class_distribution": failure_class_distribution,
         "rescue_counts_by_type": rescue_counts_by_type,
-        "corpus_freshness": _corpus_freshness(records),
-        "issues": [record.to_dict() for record in records],
+        "corpus_freshness": _corpus_freshness(records, expected_by_number=expected_by_number),
+        "issues": issue_records,
     }
     if freshness_map_path is not None:
         return attach_corpus_freshness_follow_up(

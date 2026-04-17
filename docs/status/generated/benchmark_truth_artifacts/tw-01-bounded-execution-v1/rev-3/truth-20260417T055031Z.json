@@ -36,18 +36,24 @@
     "unlinked_issue_count": 0
   },
   "coverage": {
-    "attempted_issue_count": 6,
-    "is_complete": true,
-    "missing_issue_count": 0,
-    "missing_issue_numbers": [],
-    "status": "complete"
+    "attempted_issue_count": 1,
+    "is_complete": false,
+    "missing_issue_count": 4,
+    "missing_issue_numbers": [
+      1064,
+      1641,
+      2712,
+      5756
+    ],
+    "status": "incomplete"
   },
   "failure_class_distribution": {
-    "blocked_not_dispatch_bounded": 3
+    "blocked_sanitation_failed": 1,
+    "rescue_no_deliverable": 1
   },
-  "generated_at": "2026-04-17T06:04:39Z",
+  "generated_at": "2026-04-17T05:50:31Z",
   "in_flight_metrics": {
-    "in_progress_attempted_count": 1,
+    "in_progress_attempted_count": 0,
     "in_progress_expected_count": 3,
     "in_progress_graduation_rate": 0.0,
     "in_progress_issue_numbers": [
@@ -61,7 +67,7 @@
   "issues": [
     {
       "expected_status": "verified",
-      "had_rescue": false,
+      "had_rescue": true,
       "issue_closed_at": "2026-03-19T15:24:06Z",
       "issue_number": 873,
       "issue_state": "CLOSED",
@@ -183,7 +189,7 @@
           "url": "https://github.com/synaptent/aragora/pull/1059"
         }
       ],
-      "no_rescue_truth_success": true,
+      "no_rescue_truth_success": false,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
@@ -193,130 +199,82 @@
     {
       "expected_status": "verified",
       "had_rescue": false,
-      "issue_closed_at": "2026-03-19T17:21:17Z",
+      "issue_closed_at": null,
       "issue_number": 1064,
-      "issue_state": "CLOSED",
-      "issue_state_reason": "COMPLETED",
+      "issue_state": "",
+      "issue_state_reason": "",
       "issue_title": "Boss-loop execution: bump @supabase/supabase-js from 2.99.1 to 2.99.3 in /aragora/live",
-      "issue_url": "https://github.com/synaptent/aragora/issues/1064",
+      "issue_url": "",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [
-        {
-          "is_draft": false,
-          "merge_state_status": "UNKNOWN",
-          "mergeable": "UNKNOWN",
-          "merged_at": "2026-03-19T17:21:15Z",
-          "number": 1066,
-          "state": "MERGED",
-          "title": "fix(live): bump @supabase/supabase-js from 2.99.1 to 2.99.3",
-          "truth_state": "merged_pr",
-          "url": "https://github.com/synaptent/aragora/pull/1066"
-        }
-      ],
-      "no_rescue_truth_success": true,
+      "linked_prs": [],
+      "no_rescue_truth_success": false,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "merged_pr",
-      "truth_success": true
+      "truth_state": "not_attempted",
+      "truth_success": false
     },
     {
       "expected_status": "verified",
       "had_rescue": false,
-      "issue_closed_at": "2026-03-30T18:37:52Z",
+      "issue_closed_at": null,
       "issue_number": 1641,
-      "issue_state": "CLOSED",
-      "issue_state_reason": "COMPLETED",
+      "issue_state": "",
+      "issue_state_reason": "",
       "issue_title": "Wire prompt refiner env",
-      "issue_url": "https://github.com/synaptent/aragora/issues/1641",
+      "issue_url": "",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [
-        {
-          "is_draft": false,
-          "merge_state_status": "UNKNOWN",
-          "mergeable": "UNKNOWN",
-          "merged_at": "2026-03-30T18:37:50Z",
-          "number": 1714,
-          "state": "MERGED",
-          "title": "feat(swarm): pass prompt-refiner hints via worker env",
-          "truth_state": "merged_pr",
-          "url": "https://github.com/synaptent/aragora/pull/1714"
-        }
-      ],
-      "no_rescue_truth_success": true,
+      "linked_prs": [],
+      "no_rescue_truth_success": false,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "merged_pr",
-      "truth_success": true
+      "truth_state": "not_attempted",
+      "truth_success": false
     },
     {
       "expected_status": "verified",
       "had_rescue": false,
-      "issue_closed_at": "2026-04-15T05:27:50Z",
+      "issue_closed_at": null,
       "issue_number": 2712,
-      "issue_state": "CLOSED",
-      "issue_state_reason": "COMPLETED",
+      "issue_state": "",
+      "issue_state_reason": "",
       "issue_title": "Fail closed on string booleans in QualityPipelineConfig.from_dict",
-      "issue_url": "https://github.com/synaptent/aragora/issues/2712",
+      "issue_url": "",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [
-        {
-          "is_draft": false,
-          "merge_state_status": "UNKNOWN",
-          "mergeable": "UNKNOWN",
-          "merged_at": "2026-04-15T05:27:49Z",
-          "number": 5763,
-          "state": "MERGED",
-          "title": "fix(debate): fail closed on string booleans in QualityPipelineConfig.from_dict",
-          "truth_state": "merged_pr",
-          "url": "https://github.com/synaptent/aragora/pull/5763"
-        }
-      ],
-      "no_rescue_truth_success": true,
+      "linked_prs": [],
+      "no_rescue_truth_success": false,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "merged_pr",
-      "truth_success": true
+      "truth_state": "not_attempted",
+      "truth_success": false
     },
     {
       "expected_status": "verified",
       "had_rescue": false,
-      "issue_closed_at": "2026-04-15T05:35:35Z",
+      "issue_closed_at": null,
       "issue_number": 5756,
-      "issue_state": "CLOSED",
-      "issue_state_reason": "COMPLETED",
+      "issue_state": "",
+      "issue_state_reason": "",
       "issue_title": "Fail closed on 8 silent except-Exception-pass in boss_loop.py",
-      "issue_url": "https://github.com/synaptent/aragora/issues/5756",
+      "issue_url": "",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [
-        {
-          "is_draft": false,
-          "merge_state_status": "UNKNOWN",
-          "mergeable": "UNKNOWN",
-          "merged_at": "2026-04-15T05:35:33Z",
-          "number": 5766,
-          "state": "MERGED",
-          "title": "fix(swarm): replace 8 silent except-Exception-pass in boss_loop.py",
-          "truth_state": "merged_pr",
-          "url": "https://github.com/synaptent/aragora/pull/5766"
-        }
-      ],
-      "no_rescue_truth_success": true,
+      "linked_prs": [],
+      "no_rescue_truth_success": false,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "merged_pr",
-      "truth_success": true
+      "truth_state": "not_attempted",
+      "truth_success": false
     },
     {
       "expected_status": "in_progress",
@@ -343,10 +301,10 @@
       "had_rescue": false,
       "issue_closed_at": null,
       "issue_number": 5818,
-      "issue_state": "OPEN",
+      "issue_state": "",
       "issue_state_reason": "",
       "issue_title": "Add unit tests for utils/error_sanitizer.py",
-      "issue_url": "https://github.com/synaptent/aragora/issues/5818",
+      "issue_url": "",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
@@ -355,7 +313,7 @@
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "no_linked_pr",
+      "truth_state": "not_attempted",
       "truth_success": false
     },
     {
@@ -381,18 +339,20 @@
   ],
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "primary_metrics": {
-    "merged_only_rate": 0.625,
-    "no_rescue_truth_success_rate": 0.625,
-    "truth_success_rate": 0.625,
-    "truth_success_rate_verified": 1.0
+    "merged_only_rate": 0.125,
+    "no_rescue_truth_success_rate": 0.0,
+    "truth_success_rate": 0.125,
+    "truth_success_rate_verified": 0.2
   },
   "proxy_metrics": {
-    "attempted_issue_count": 6,
+    "attempted_issue_count": 1,
     "note": "Proxy metrics are secondary. Truth metrics remain mergeable_pr OR merged_pr.",
     "proxy_pr_signal_issue_count": 0,
     "proxy_pr_signal_issue_rate": 0.0
   },
   "repo": "synaptent/aragora",
-  "rescue_counts_by_type": {},
-  "run_status": "complete"
+  "rescue_counts_by_type": {
+    "rescue_no_deliverable": 1
+  },
+  "run_status": "incomplete"
 }
