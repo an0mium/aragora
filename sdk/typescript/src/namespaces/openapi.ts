@@ -886,10 +886,6 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/audit/workflow/states', { params });
   }
 
-  async requestGetApiV1AuthApiKey(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/auth/api-key', { params });
-  }
-
   async requestPostApiV1AuthApiKey(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/auth/api-key', { body, params });
   }

@@ -957,6 +957,43 @@ class TestSDKAlias:
 
 
 # =========================================================================
+# Settings alias: /api/v1/api-keys -> /api/auth/api-keys
+# =========================================================================
+
+
+class TestSettingsApiKeyAlias:
+    """Test settings-panel API key aliases dispatch to auth API key handlers."""
+
+    @patch("aragora.server.handlers.auth.handler.handle_list_api_keys")
+    def test_settings_api_keys_list(self, mock_fn, handler):
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
+        http = MockHTTPHandler(method="GET")
+        _run(handler.handle("/api/v1/api-keys", {}, http, "GET"))
+        mock_fn.assert_called_once()
+
+    @patch("aragora.server.handlers.auth.handler.handle_generate_api_key")
+    def test_settings_api_keys_post(self, mock_fn, handler):
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
+        http = MockHTTPHandler(method="POST")
+        _run(handler.handle("/api/v1/api-keys", {}, http, "POST"))
+        mock_fn.assert_called_once()
+
+    @patch("aragora.server.handlers.auth.handler.handle_revoke_api_key")
+    def test_settings_api_keys_delete(self, mock_fn, handler):
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
+        http = MockHTTPHandler(method="DELETE")
+        _run(handler.handle("/api/v1/api-keys", {}, http, "DELETE"))
+        mock_fn.assert_called_once()
+
+    @patch("aragora.server.handlers.auth.handler.handle_revoke_api_key_prefix")
+    def test_settings_api_keys_delete_prefix(self, mock_fn, handler):
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
+        http = MockHTTPHandler(method="DELETE")
+        _run(handler.handle("/api/v1/api-keys/prefix123", {}, http, "DELETE"))
+        mock_fn.assert_called_once_with(handler, http, "prefix123")
+
+
+# =========================================================================
 # MFA endpoints
 # =========================================================================
 

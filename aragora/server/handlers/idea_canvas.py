@@ -615,6 +615,8 @@ class IdeaCanvasHandler(SecureHandler):
             if not edge:
                 return error_response("Canvas or nodes not found", 404)
             return json_response(edge.to_dict(), status=201)
+        except InvalidRequestError as e:
+            return error_response(str(e), 400)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to add idea edge: %s", e)
             return error_response("Edge addition failed", 500)
@@ -694,6 +696,8 @@ class IdeaCanvasHandler(SecureHandler):
                 },
                 status=201,
             )
+        except InvalidRequestError as e:
+            return error_response(str(e), 400)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to promote idea nodes: %s", e)
             return error_response("Promotion failed", 500)
