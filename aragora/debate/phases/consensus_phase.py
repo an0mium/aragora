@@ -480,6 +480,8 @@ class ConsensusPhase:
             await self._handle_byzantine_consensus(ctx)
         elif consensus_mode == "prover_estimator":
             await self._handle_prover_estimator_consensus(ctx)
+        elif consensus_mode == "crux_finder":
+            await self._handle_crux_finder_consensus(ctx)
         else:
             logger.warning("Unknown consensus mode: %s, using none", consensus_mode)
             await self._handle_none_consensus(ctx)
@@ -1264,6 +1266,78 @@ class ConsensusPhase:
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.error("prover_estimator_error: %s", e, exc_info=True)
             await self._handle_majority_consensus(ctx)
+
+    async def _handle_crux_finder_consensus(self, ctx: "DebateContext") -> None:
+        """Handle `crux_finder` consensus mode.
+
+        Extracts load-bearing disagreements from the populated belief network
+        and stores a ConsensusProof whose ``final_claim`` is the
+        ``__CRUX_MAP__`` sentinel so downstream consumers can detect
+        "no verdict by design" and route to the crux surface. On missing
+        belief network — an explicit design choice to fail closed — we fall
+        back to majority consensus to preserve the debate's protocol
+        compatibility.
+        """
+        from aragora.debate.consensus import build_proof_from_crux_finder
+        from aragora.debate.crux_mode import build_crux_finder_result
+
+        result = ctx.result
+        belief_network = getattr(ctx, "belief_network", None)
+
+        if belief_network is None:
+            logger.warning("crux_finder_skipped reason=no_belief_network falling_back=majority")
+            await self._handle_majority_consensus(ctx)
+            return
+
+        question = ctx.env.task if ctx.env else ""
+        agent_names = [getattr(a, "name", "unknown") for a in ctx.agents]
+
+        try:
+            crux_result = build_crux_finder_result(
+                belief_network=belief_network,
+                protocol=self.protocol,
+                debate_id=ctx.debate_id or result.debate_id or "",
+                question=question,
+                agents=agent_names,
+                rounds=getattr(result, "rounds_used", 0) or self.protocol.rounds,
+            )
+            proof = build_proof_from_crux_finder(crux_result)
+        except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+            logger.error("crux_finder_error: %s", exc, exc_info=True)
+            await self._handle_majority_consensus(ctx)
+            return
+
+        result.consensus_proof = proof
+        result.consensus_reached = False
+        result.final_answer = proof.final_claim
+        result.consensus_strength = "weak"
+
+        if result.formal_verification is None:
+            result.formal_verification = {}
+        result.formal_verification["crux_finder"] = {
+            "crux_count": len(crux_result.analysis.cruxes),
+            "convergence_barrier": round(crux_result.analysis.convergence_barrier, 4),
+            "recommended_focus": list(crux_result.analysis.recommended_focus),
+            "counterfactual_validation_enabled": bool(
+                self.protocol.crux_finder_counterfactual_validation
+            ),
+        }
+
+        logger.info(
+            "crux_finder_complete cruxes=%s convergence_barrier=%.3f",
+            len(crux_result.analysis.cruxes),
+            crux_result.analysis.convergence_barrier,
+        )
+
+        if self._notify_spectator:
+            self._notify_spectator(
+                "consensus",
+                details=(
+                    f"Crux-finder: {len(crux_result.analysis.cruxes)} cruxes, "
+                    f"barrier={crux_result.analysis.convergence_barrier:.2f}"
+                ),
+                metric=float(crux_result.analysis.convergence_barrier),
+            )
 
     async def _collect_votes(self, ctx: "DebateContext") -> list["Vote"]:
         """Collect votes from all agents with outer timeout protection."""
