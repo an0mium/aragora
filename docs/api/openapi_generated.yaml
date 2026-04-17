@@ -2079,6 +2079,8 @@ paths:
                   comparison:
                     type: object
       deprecated: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: deprecated
   /api/agent/{name}/accuracy:
     get:
@@ -5403,7 +5405,6 @@ paths:
       - Password
       summary: Request password reset (legacy route)
       description: Compatibility alias for requesting a password reset email.
-      security: []
       requestBody:
         required: true
         content:
@@ -5612,7 +5613,6 @@ paths:
       summary: Login user
       description: Authenticate user with email and password. Returns session tokens. If MFA is enabled, returns mfa_required
         flag.
-      security: []
       requestBody:
         required: true
         content:
@@ -7296,7 +7296,6 @@ paths:
       - Authentication
       summary: Register new user
       description: Create a new user account. Returns user info and session tokens.
-      security: []
       requestBody:
         required: true
         content:
@@ -9725,8 +9724,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContrarianViewsResponse'
-      security:
-      - bearerAuth: []
       deprecated: true
       x-aragora-stability: deprecated
   /api/consensus/detect:
@@ -9857,8 +9854,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DissentingViewsResponse'
-      security:
-      - bearerAuth: []
       deprecated: true
       x-aragora-stability: deprecated
   /api/consensus/domain:
@@ -9962,8 +9957,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RiskWarningsResponse'
-      security:
-      - bearerAuth: []
       deprecated: true
       x-aragora-stability: deprecated
   /api/consensus/seed-demo:
@@ -10040,8 +10033,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SettledQuestionsResponse'
-      security:
-      - bearerAuth: []
       deprecated: true
       x-aragora-stability: deprecated
   /api/consensus/similar:
@@ -10094,8 +10085,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SimilarDebatesResponse'
-      security:
-      - bearerAuth: []
       deprecated: true
       x-aragora-stability: deprecated
   /api/consensus/stats:
@@ -10132,8 +10121,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConsensusStats'
-      security:
-      - bearerAuth: []
       deprecated: true
       x-aragora-stability: deprecated
   /api/consensus/status/{debate_id}:
@@ -16439,6 +16426,8 @@ paths:
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
       deprecated: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: deprecated
   /api/debates/{id}/broadcast:
     post:
@@ -25288,8 +25277,6 @@ paths:
                     format: date-time
                   pending_improvements:
                     type: integer
-      security:
-      - bearerAuth: []
       deprecated: true
       x-aragora-stability: deprecated
   /api/nomic/witness/status:
@@ -27050,6 +27037,8 @@ paths:
                         description:
                           type: string
       deprecated: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: deprecated
   /api/plugins/installed:
     get:
@@ -36156,7 +36145,7 @@ paths:
           description: User service unavailable
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/admin/nomic/circuit-breakers:
     get:
       tags:
@@ -37234,7 +37223,7 @@ paths:
           description: Admin privileges required
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/admin/system-health/adapters:
     get:
       tags:
@@ -37260,7 +37249,7 @@ paths:
           description: Admin privileges required
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/admin/system-health/agents:
     get:
       tags:
@@ -37286,7 +37275,7 @@ paths:
           description: Admin privileges required
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/admin/system-health/budget:
     get:
       tags:
@@ -37312,7 +37301,7 @@ paths:
           description: Admin privileges required
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/admin/system-health/circuit-breakers:
     get:
       tags:
@@ -37338,7 +37327,7 @@ paths:
           description: Admin privileges required
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/admin/system-health/slos:
     get:
       tags:
@@ -37364,7 +37353,7 @@ paths:
           description: Admin privileges required
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/admin/system/metrics:
     get:
       tags:
@@ -42664,7 +42653,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/analytics/spend/by-agent:
     get:
       tags:
@@ -42760,7 +42749,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/analytics/spend/by-decision:
     get:
       tags:
@@ -42858,7 +42847,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/analytics/spend/summary:
     get:
       tags:
@@ -42968,7 +42957,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/analytics/spend/trends:
     get:
       tags:
@@ -43075,7 +43064,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/analytics/summary:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -45764,7 +45753,7 @@ paths:
                     code: INVALID_VALUE
                     field: rounds
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/api-key:
     post:
       tags:
@@ -46069,7 +46058,7 @@ paths:
           description: Service unavailable
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     delete:
       tags:
       - Authentication
@@ -46246,7 +46235,7 @@ paths:
                     trace_id: req_abc123xyz
         '503':
           description: Service unavailable
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/health:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -46383,7 +46372,7 @@ paths:
                     code: NOT_OWNER
                     resource_type: debate
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/login:
     post:
       tags:
@@ -46869,7 +46858,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/mfa/backup-codes:
     post:
       tags:
@@ -47250,7 +47239,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: stable
+      x-aragora-stability: experimental
   /api/v1/auth/oauth/github/callback:
     get:
       tags:
@@ -47326,7 +47315,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: stable
+      x-aragora-stability: experimental
   /api/v1/auth/oauth/google:
     get:
       tags:
@@ -47414,7 +47403,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: stable
+      x-aragora-stability: experimental
   /api/v1/auth/oauth/google/callback:
     get:
       tags:
@@ -47496,7 +47485,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: stable
+      x-aragora-stability: experimental
   /api/v1/auth/oauth/link:
     post:
       tags:
@@ -48120,7 +48109,7 @@ paths:
                     code: INVALID_VALUE
                     field: rounds
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/reset-password:
     post:
       tags:
@@ -48194,7 +48183,7 @@ paths:
                     trace_id: req_abc123xyz
         '503':
           description: Service unavailable
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/revoke:
     post:
       tags:
@@ -48466,7 +48455,7 @@ paths:
                     error: Invalid or expired authentication token
                     code: INVALID_TOKEN
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/stats:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -48558,7 +48547,7 @@ paths:
                     code: INVALID_VALUE
                     field: rounds
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/verify-email/resend:
     post:
       tags:
@@ -48624,7 +48613,7 @@ paths:
                     code: INVALID_VALUE
                     field: rounds
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/autonomous/monitoring/anomalies:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -50305,7 +50294,7 @@ paths:
                     error: Invalid or expired authentication token
                     code: INVALID_TOKEN
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/bots/slack/events:
     post:
       tags:
@@ -50397,7 +50386,7 @@ paths:
                     error: Invalid or expired authentication token
                     code: INVALID_TOKEN
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/bots/slack/interactions:
     post:
       tags:
@@ -50532,7 +50521,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/bots/teams/messages:
     post:
       tags:
@@ -50587,7 +50576,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-      x-aragora-stability: stable
+      x-aragora-stability: experimental
   /api/v1/bots/teams/status:
     get:
       tags:
@@ -50738,7 +50727,7 @@ paths:
               description: Server processing time in milliseconds
               schema:
                 type: integer
-      x-aragora-stability: stable
+      x-aragora-stability: experimental
   /api/v1/bots/telegram/webhook/{token}:
     post:
       tags:
@@ -50920,7 +50909,7 @@ paths:
               description: Server processing time in milliseconds
               schema:
                 type: integer
-      x-aragora-stability: stable
+      x-aragora-stability: experimental
     get:
       tags:
       - Bots - WhatsApp
@@ -50993,7 +50982,7 @@ paths:
               description: Server processing time in milliseconds
               schema:
                 type: integer
-      x-aragora-stability: stable
+      x-aragora-stability: experimental
   /api/v1/bots/zoom/status:
     get:
       tags:
@@ -52130,7 +52119,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/advance:
     post:
       tags:
@@ -52310,7 +52299,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/auto-run:
     post:
       tags:
@@ -52396,7 +52385,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/demo:
     post:
       tags:
@@ -52448,7 +52437,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/extract-goals:
     post:
       tags:
@@ -52632,7 +52621,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/from-braindump:
     post:
       tags:
@@ -52718,7 +52707,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/from-debate:
     post:
       tags:
@@ -52948,7 +52937,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/from-template:
     post:
       tags:
@@ -53030,7 +53019,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/run:
     post:
       tags:
@@ -53106,7 +53095,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/{id}:
     get:
       tags:
@@ -53343,7 +53332,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/{id}/execute:
     post:
       tags:
@@ -53435,7 +53424,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/{id}/explanations:
     get:
       tags:
@@ -53484,7 +53473,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/{id}/graph:
     get:
       tags:
@@ -53587,7 +53576,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/{id}/precedents:
     get:
       tags:
@@ -53636,7 +53625,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/{id}/receipt:
     get:
       tags:
@@ -53753,7 +53742,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/canvas/pipeline/{id}/stage/{stage}:
     get:
       tags:
@@ -56495,7 +56484,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/audit:
     post:
       tags:
@@ -56599,7 +56588,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/audit/{audit_id}:
     get:
       tags:
@@ -56668,7 +56657,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/callgraph:
     get:
       tags:
@@ -56716,7 +56705,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/deadcode:
     get:
       tags:
@@ -56764,7 +56753,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/duplicates:
     get:
       tags:
@@ -56864,7 +56853,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/hotspots:
     get:
       tags:
@@ -56964,7 +56953,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/impact:
     post:
       tags:
@@ -57060,7 +57049,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/metrics:
     get:
       tags:
@@ -57166,7 +57155,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/metrics/analyze:
     post:
       tags:
@@ -57309,7 +57298,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/metrics/file/{file_path}:
     get:
       tags:
@@ -57420,7 +57409,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/metrics/history:
     get:
       tags:
@@ -57520,7 +57509,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/metrics/{analysis_id}:
     get:
       tags:
@@ -57631,7 +57620,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/sast/findings:
     get:
       tags:
@@ -57739,7 +57728,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/sast/owasp-summary:
     get:
       tags:
@@ -57829,7 +57818,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/scan:
     post:
       tags:
@@ -57964,7 +57953,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/scan/latest:
     get:
       tags:
@@ -58070,7 +58059,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/scan/sast:
     post:
       tags:
@@ -58205,7 +58194,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/scan/sast/{scan_id}:
     get:
       tags:
@@ -58316,7 +58305,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/scan/secrets:
     post:
       tags:
@@ -58440,7 +58429,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/scan/secrets/latest:
     get:
       tags:
@@ -58546,7 +58535,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/scan/secrets/{scan_id}:
     get:
       tags:
@@ -58657,7 +58646,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/scan/{scan_id}:
     get:
       tags:
@@ -58768,7 +58757,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/scans:
     get:
       tags:
@@ -58872,7 +58861,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/scans/secrets:
     get:
       tags:
@@ -58962,7 +58951,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/secrets:
     get:
       tags:
@@ -59052,7 +59041,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/symbols:
     get:
       tags:
@@ -59100,7 +59089,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/understand:
     post:
       tags:
@@ -59196,7 +59185,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/codebase/{repo}/vulnerabilities:
     get:
       tags:
@@ -59308,7 +59297,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/compliance/audit-events:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -60044,7 +60033,7 @@ paths:
         '500': *id407
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/computer-use/actions:
     get:
       tags:
@@ -60285,7 +60274,7 @@ paths:
         '500': *id410
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/computer-use/actions/stats:
     get:
       tags:
@@ -60363,7 +60352,7 @@ paths:
                     support_url: https://github.com/synaptent/aragora/issues
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/computer-use/actions/{action_id}:
     get:
       tags:
@@ -60503,7 +60492,7 @@ paths:
         '500': *id415
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/computer-use/approvals:
     get:
       tags:
@@ -60868,7 +60857,7 @@ paths:
                     support_url: https://github.com/synaptent/aragora/issues
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/computer-use/approvals/{request_id}/deny:
     post:
       tags:
@@ -60988,7 +60977,7 @@ paths:
                     support_url: https://github.com/synaptent/aragora/issues
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/computer-use/policies:
     get:
       tags:
@@ -61411,7 +61400,7 @@ paths:
         '500': *id426
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     delete:
       tags:
       - Computer Use
@@ -61443,7 +61432,7 @@ paths:
         '500': *id426
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/computer-use/tasks:
     get:
       tags:
@@ -61872,7 +61861,7 @@ paths:
         '500': *id434
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/computer-use/tasks/{task_id}/cancel:
     post:
       tags:
@@ -62010,7 +61999,7 @@ paths:
                     support_url: https://github.com/synaptent/aragora/issues
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/connectors:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -62364,7 +62353,7 @@ paths:
                 $ref: '#/components/schemas/ConsensusDetectionResponse'
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/consensus/dissents:
     get:
       tags:
@@ -62741,7 +62730,7 @@ paths:
                 $ref: '#/components/schemas/ConsensusStatusResponse'
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/context/budget:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -64268,7 +64257,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/control-plane/stream:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -65008,7 +64997,7 @@ paths:
       x-aragora-stability: stable
   /api/v1/coordination/approve/{request_id}:
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Approve coordination request
       tags:
       - Undocumented
       responses:
@@ -65026,6 +65015,19 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Approve a pending coordination execution request.
+      requestBody:
+        description: Coordination approval request.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                approved_by:
+                  type: string
       parameters:
       - name: request_id
         in: path
@@ -65054,9 +65056,11 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Grant coordination consent
       tags:
       - Undocumented
       responses:
@@ -65074,6 +65078,38 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Grant data-sharing consent between workspaces.
+      requestBody:
+        description: Coordination consent request.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                source_workspace_id:
+                  type: string
+                target_workspace_id:
+                  type: string
+                scope:
+                  type: string
+                data_types:
+                  type: array
+                  items:
+                    type: string
+                operations:
+                  type: array
+                  items:
+                    type: string
+                granted_by:
+                  type: string
+                expires_in_days:
+                  type: integer
+              required:
+              - source_workspace_id
+              - target_workspace_id
       x-aragora-stability: experimental
   /api/v1/coordination/consent/{consent_id}:
     delete:
@@ -65092,6 +65128,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       parameters:
       - name: consent_id
         in: path
@@ -65102,7 +65140,7 @@ paths:
       x-aragora-stability: experimental
   /api/v1/coordination/execute:
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Execute cross-workspace request
       tags:
       - Undocumented
       responses:
@@ -65120,6 +65158,36 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Execute an approved cross-workspace coordination request.
+      requestBody:
+        description: Cross-workspace execution request.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operation:
+                  type: string
+                source_workspace_id:
+                  type: string
+                target_workspace_id:
+                  type: string
+                payload:
+                  type: object
+                  additionalProperties: true
+                timeout_seconds:
+                  type: number
+                requester_id:
+                  type: string
+                consent_id:
+                  type: string
+              required:
+              - operation
+              - source_workspace_id
+              - target_workspace_id
       x-aragora-stability: experimental
   /api/v1/coordination/executions:
     get:
@@ -65141,6 +65209,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
   /api/v1/coordination/federation:
     get:
@@ -65162,9 +65232,11 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Create coordination federation policy
       tags:
       - Undocumented
       responses:
@@ -65182,6 +65254,43 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Create a federation policy for cross-workspace coordination.
+      requestBody:
+        description: Federation policy creation request.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                mode:
+                  type: string
+                sharing_scope:
+                  type: string
+                allowed_operations:
+                  type: array
+                  items:
+                    type: string
+                max_requests_per_hour:
+                  type: integer
+                require_approval:
+                  type: boolean
+                audit_all_requests:
+                  type: boolean
+                workspace_id:
+                  type: string
+                source_workspace_id:
+                  type: string
+                target_workspace_id:
+                  type: string
+              required:
+              - name
       x-aragora-stability: experimental
   /api/v1/coordination/fleet/claims:
     get:
@@ -65370,6 +65479,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
   /api/v1/coordination/swarm/integrator:
     get:
@@ -65528,9 +65639,11 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Register coordination workspace
       tags:
       - Undocumented
       responses:
@@ -65548,6 +65661,36 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Register a workspace for cross-workspace coordination.
+      requestBody:
+        description: Workspace registration request.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                org_id:
+                  type: string
+                federation_mode:
+                  type: string
+                endpoint_url:
+                  type: string
+                  format: uri
+                supports_agent_execution:
+                  type: boolean
+                supports_workflow_execution:
+                  type: boolean
+                supports_knowledge_query:
+                  type: boolean
+              required:
+              - id
       x-aragora-stability: experimental
   /api/v1/coordination/workspaces/{workspace_id}:
     delete:
@@ -65566,6 +65709,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       parameters:
       - name: workspace_id
         in: path
@@ -66854,7 +66999,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/costs/debates/{debate_id}/line-items:
     get:
       tags:
@@ -67027,7 +67172,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/costs/debates/{debate_id}/performance:
     get:
       tags:
@@ -67180,7 +67325,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/costs/efficiency:
     get:
       tags:
@@ -69062,7 +69207,7 @@ paths:
           description: Prometheus-format metrics text
           content:
             text/plain: {}
-      x-aragora-stability: stable
+      x-aragora-stability: experimental
   /api/v1/cross-pollination/reset:
     post:
       tags:
@@ -69584,7 +69729,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/dashboard/export:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -70115,7 +70260,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/dashboard/quality-metrics:
     get:
       tags:
@@ -70353,7 +70498,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/dashboard/search:
     get:
       tags:
@@ -70769,7 +70914,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/dashboard/top-senders:
     get:
       tags:
@@ -71015,7 +71160,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/dashboard/{param}:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -71289,7 +71434,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates:
     get:
       tags:
@@ -71605,7 +71750,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/analytics/consensus:
     delete:
       summary: Autogenerated placeholder (spec pending)
@@ -72531,7 +72676,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/health:
     delete:
       summary: Autogenerated placeholder (spec pending)
@@ -72769,7 +72914,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/matrix/{matrix_id}/conclusions:
     get:
       summary: Get matrix debate conclusions
@@ -73004,7 +73149,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/statistics:
     delete:
       summary: Autogenerated placeholder (spec pending)
@@ -73532,7 +73677,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{debate_id}/intervention/log:
     get:
       tags:
@@ -73601,7 +73746,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{debate_id}/intervention/pause:
     post:
       tags:
@@ -73693,7 +73838,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{debate_id}/intervention/resume:
     post:
       tags:
@@ -73789,7 +73934,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{debate_id}/intervention/state:
     get:
       tags:
@@ -73859,7 +74004,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{debate_id}/intervention/threshold:
     post:
       tags:
@@ -74292,7 +74437,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     get:
       tags:
       - Debates
@@ -74346,7 +74491,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     patch:
       summary: Update debate metadata
       tags:
@@ -74452,7 +74597,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/bridge:
     post:
       summary: Bridge a debate plan to external tools
@@ -74716,7 +74861,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/consensus:
     get:
       tags:
@@ -74776,7 +74921,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/convergence:
     get:
       tags:
@@ -75073,7 +75218,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/events:
     get:
       summary: Poll debate events (fallback for missed WebSocket events)
@@ -75229,7 +75374,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/explainability/counterfactual:
     get:
       tags:
@@ -75288,7 +75433,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     post:
       tags:
       - Explainability
@@ -75353,7 +75498,7 @@ paths:
                     field: rounds
                     trace_id: req_abc123xyz
         '404': *id539
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/explainability/factors:
     get:
       tags:
@@ -75416,7 +75561,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/explainability/narrative:
     get:
       tags:
@@ -75472,7 +75617,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/explainability/provenance:
     get:
       tags:
@@ -75535,7 +75680,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/export/{format}:
     get:
       tags:
@@ -76294,7 +76439,7 @@ paths:
                     type: array
                     items:
                       type: string
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/resume:
     post:
       tags:
@@ -76346,7 +76491,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/rhetorical:
     get:
       tags:
@@ -76402,7 +76547,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/start:
     post:
       tags:
@@ -76454,7 +76599,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/stop:
     post:
       tags:
@@ -76506,7 +76651,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/suggest:
     post:
       tags:
@@ -76671,7 +76816,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/trickster:
     get:
       tags:
@@ -76733,7 +76878,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/update:
     put:
       tags:
@@ -76922,7 +77067,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/verification-report:
     get:
       tags:
@@ -77094,7 +77239,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/debates/{id}/vote:
     post:
       tags:
@@ -82623,7 +82768,7 @@ paths:
       security:
       - bearerAuth:
         - admin
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/feedback-hub/stats:
     get:
       tags:
@@ -82746,7 +82891,7 @@ paths:
       security:
       - bearerAuth:
         - admin
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/feedback/general:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -82939,7 +83084,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/gallery:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -86562,7 +86707,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/github/audit/pr:
     post:
       tags:
@@ -86676,7 +86821,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/github/audit/sync/{session_id}:
     get:
       tags:
@@ -86903,7 +87048,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/github/pr/review/{review_id}:
     get:
       tags:
@@ -90765,6 +90910,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
   /api/v1/inbox/accounts/{account_id}:
     delete:
@@ -90783,6 +90930,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       parameters:
       - name: account_id
         in: path
@@ -90793,7 +90942,7 @@ paths:
       x-aragora-stability: experimental
   /api/v1/inbox/actions:
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Execute inbox quick action
       tags:
       - Inbox
       responses:
@@ -90811,10 +90960,37 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Execute an inbox command-center action against selected email IDs.
+      requestBody:
+        description: Inbox quick-action request.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                emailIds:
+                  type: array
+                  items:
+                    type: string
+                params:
+                  type: object
+                  additionalProperties: true
+                receipt_id:
+                  type: string
+                actor_id:
+                  type: string
+              required:
+              - action
+              - emailIds
       x-aragora-stability: experimental
   /api/v1/inbox/bulk-action:
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Execute unified inbox bulk action
       tags:
       - Inbox
       responses:
@@ -90832,10 +91008,32 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Execute a bulk action against specific unified inbox messages.
+      requestBody:
+        description: Unified inbox bulk-action request.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message_ids:
+                  type: array
+                  items:
+                    type: string
+                action:
+                  type: string
+                receipt_id:
+                  type: string
+              required:
+              - message_ids
+              - action
       x-aragora-stability: experimental
   /api/v1/inbox/bulk-actions:
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Execute inbox bulk action by filter
       tags:
       - Inbox
       responses:
@@ -90853,6 +91051,31 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Execute an inbox command-center bulk action against messages selected by filter.
+      requestBody:
+        description: Inbox bulk-action-by-filter request.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                filter:
+                  type: string
+                params:
+                  type: object
+                  additionalProperties: true
+                receipt_id:
+                  type: string
+                actor_id:
+                  type: string
+              required:
+              - action
+              - filter
       x-aragora-stability: experimental
   /api/v1/inbox/command:
     get:
@@ -90874,10 +91097,12 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
   /api/v1/inbox/connect:
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Connect unified inbox account
       tags:
       - Inbox
       responses:
@@ -90895,6 +91120,30 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Exchange an OAuth authorization code for a Gmail or Outlook inbox account.
+      requestBody:
+        description: Unified inbox connection request.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  enum:
+                  - gmail
+                  - outlook
+                auth_code:
+                  type: string
+                redirect_uri:
+                  type: string
+                  format: uri
+              required:
+              - provider
+              - auth_code
       x-aragora-stability: experimental
   /api/v1/inbox/daily-digest:
     get:
@@ -90916,6 +91165,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
   /api/v1/inbox/mentions:
     get:
@@ -91065,6 +91316,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
   /api/v1/inbox/messages/{message_id}:
     get:
@@ -91086,6 +91339,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       parameters:
       - name: message_id
         in: path
@@ -91096,7 +91351,7 @@ paths:
       x-aragora-stability: experimental
   /api/v1/inbox/messages/{message_id}/debate:
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Create inbox message debate
       tags:
       - Inbox
       responses:
@@ -91114,6 +91369,31 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Stage a receipt-backed review or trust-wedge debate for a unified inbox message.
+      requestBody:
+        description: Optional trust-wedge debate configuration.
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                allowed_actions:
+                  type: array
+                  items:
+                    type: string
+                label_id:
+                  type: string
+                provider_route:
+                  type: string
+                expires_in_hours:
+                  type: integer
+                auto_approve:
+                  type: boolean
+                auto_execute:
+                  type: boolean
       parameters:
       - name: message_id
         in: path
@@ -91142,6 +91422,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
   /api/v1/inbox/oauth/outlook:
     get:
@@ -91163,10 +91445,12 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
   /api/v1/inbox/reprioritize:
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Reprioritize inbox
       tags:
       - Inbox
       responses:
@@ -91184,6 +91468,25 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Trigger inbox reprioritization, optionally scoped to selected emails.
+      requestBody:
+        description: Inbox reprioritization request.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailIds:
+                  type: array
+                  items:
+                    type: string
+                force_tier:
+                  type: string
+                auto_debate:
+                  type: boolean
       x-aragora-stability: experimental
   /api/v1/inbox/routing/rules:
     post:
@@ -91665,6 +91968,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
   /api/v1/inbox/shared:
     post:
@@ -91783,7 +92088,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     get:
       tags:
       - Inbox
@@ -92582,6 +92887,8 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
   /api/v1/inbox/trends:
     get:
@@ -92603,10 +92910,12 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
       x-aragora-stability: experimental
   /api/v1/inbox/triage:
     post:
-      summary: Autogenerated placeholder (spec pending)
+      summary: Run unified inbox triage
       tags:
       - Inbox
       responses:
@@ -92624,6 +92933,26 @@ paths:
                     type: boolean
       x-autogenerated: true
       x-method-inferred: true
+      security:
+      - bearerAuth: []
+      description: Run multi-agent triage across one or more unified inbox messages.
+      requestBody:
+        description: Unified inbox triage request.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message_ids:
+                  type: array
+                  items:
+                    type: string
+                context:
+                  type: object
+                  additionalProperties: true
+              required:
+              - message_ids
       x-aragora-stability: experimental
   /api/v1/inbox/wedge/receipts:
     get:
@@ -94638,7 +94967,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/integrations/slack/status:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -94724,7 +95053,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/integrations/slack/workspaces:
     get:
       tags:
@@ -94797,7 +95126,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/integrations/slack/workspaces/{param}:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -101610,7 +101939,7 @@ paths:
           minimum: 0
           maximum: 10000
           default: 0
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/marketplace/listings/featured:
     get:
       tags:
@@ -101764,7 +102093,7 @@ paths:
           minimum: 1
           maximum: 50
           default: 10
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/marketplace/listings/stats:
     get:
       tags:
@@ -101887,7 +102216,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/marketplace/listings/{listing_id}:
     get:
       tags:
@@ -102048,7 +102377,7 @@ paths:
           type: string
           maxLength: 128
         description: Marketplace listing ID.
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/marketplace/listings/{listing_id}/install:
     post:
       tags:
@@ -102800,7 +103129,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/matches/{match_id}:
     get:
       tags:
@@ -102832,7 +103161,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/matrix-debates:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -106726,7 +107055,7 @@ paths:
       security:
       - bearerAuth:
         - admin
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     post:
       tags:
       - Observability
@@ -106803,7 +107132,7 @@ paths:
                     trace_id: req_abc123xyz
         '429': *id775
       security: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/observability/crashes/stats:
     get:
       tags:
@@ -106906,7 +107235,7 @@ paths:
       security:
       - bearerAuth:
         - admin
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/observability/dashboard:
     get:
       tags:
@@ -107009,7 +107338,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/observability/metrics:
     get:
       tags:
@@ -107096,7 +107425,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/onboarding/analytics:
     get:
       tags:
@@ -112331,7 +112660,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/outlook/search:
     get:
       tags:
@@ -112402,7 +112731,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/outlook/send:
     post:
       tags:
@@ -112530,7 +112859,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/outlook/status:
     get:
       tags:
@@ -114308,7 +114637,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/pipeline/{id}/agents/{agent_id}/approve:
     post:
       tags:
@@ -114347,7 +114676,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/pipeline/{id}/agents/{agent_id}/reject:
     post:
       tags:
@@ -114425,7 +114754,7 @@ paths:
                     code: INVALID_VALUE
                     field: rounds
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/plans:
     put:
       summary: Autogenerated placeholder (spec pending)
@@ -114693,7 +115022,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/playbooks/{id}:
     get:
       tags:
@@ -114895,7 +115224,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/playbooks/{id}/run:
     post:
       tags:
@@ -115141,7 +115470,7 @@ paths:
                     support_url: https://github.com/synaptent/aragora/issues
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/playground/assess:
     post:
       tags:
@@ -115188,7 +115517,7 @@ paths:
                   code: *id852
                   retry_after:
                     type: integer
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/playground/debate:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -115279,7 +115608,7 @@ paths:
                 properties:
                   ok:
                     type: boolean
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/playground/landing/events/summary:
     get:
       tags:
@@ -115321,7 +115650,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/playground/landing/feedback:
     get:
       tags:
@@ -115365,7 +115694,7 @@ paths:
                 type: object
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     post:
       tags:
       - Debates
@@ -115385,7 +115714,7 @@ paths:
                     type: boolean
                   report_id:
                     type: string
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/playground/landing/feedback/review:
     post:
       tags:
@@ -115427,7 +115756,7 @@ paths:
                     - 'null'
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/playground/status:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -116496,7 +116825,7 @@ paths:
                     code: NOT_OWNER
                     resource_type: debate
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/privacy/data-inventory:
     get:
       tags:
@@ -116768,7 +117097,7 @@ paths:
                     field: rounds
                     trace_id: req_abc123xyz
         '401': *id869
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/probes/capability:
     post:
       tags:
@@ -116950,7 +117279,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/prompt-engine/interrogate:
     post:
       tags:
@@ -117035,7 +117364,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/prompt-engine/research:
     post:
       tags:
@@ -117119,7 +117448,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/prompt-engine/run:
     post:
       tags:
@@ -117247,7 +117576,7 @@ paths:
                     support_url: https://github.com/synaptent/aragora/issues
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/prompt-engine/runs:
     get:
       tags:
@@ -117307,7 +117636,7 @@ paths:
                       additionalProperties: true
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/prompt-engine/runs/{run_id}:
     get:
       tags:
@@ -117361,7 +117690,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/prompt-engine/specify:
     post:
       tags:
@@ -117448,7 +117777,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/prompt-engine/validate:
     post:
       tags:
@@ -117529,7 +117858,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/provenance/{param}/claims/{param_2}/support:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -117574,7 +117903,6 @@ paths:
       description: Return the public status, onboarding, spectate, OpenAPI, and memory surfaces exposed by this deployment,
         including readiness and backend-conditional flags for each surface.
       operationId: getPublicSurfaces
-      security: []
       responses:
         '200':
           description: Public surface readiness inventory
@@ -117649,7 +117977,7 @@ paths:
                             type: integer
                           partial:
                             type: integer
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/pulse/analytics:
     patch:
       summary: Autogenerated placeholder (spec pending)
@@ -118819,7 +119147,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/quotas/usage:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -118931,7 +119259,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/ralph/campaigns:
     get:
       tags:
@@ -119026,7 +119354,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/ralph/overview:
     get:
       tags:
@@ -119117,7 +119445,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/ranking/stats:
     get:
       tags:
@@ -119443,7 +119771,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/receipts:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -119567,7 +119895,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/receipts/recent-anchors:
     get:
       tags:
@@ -119647,7 +119975,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/receipts/{receipt_id}/anchor-status:
     get:
       tags:
@@ -119742,7 +120070,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/receipts/{receipt_id}/deliver:
     post:
       tags:
@@ -119898,7 +120226,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/reconciliation/demo:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -121105,7 +121433,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/reputation/history:
     get:
       tags:
@@ -121132,7 +121460,7 @@ paths:
                 type: array
                 items:
                   type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/reputation/{agent_id}:
     get:
       tags:
@@ -121164,7 +121492,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/retention/expiring:
     get:
       tags:
@@ -122645,7 +122973,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/self-improve/feedback:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -122875,7 +123203,7 @@ paths:
                     type: string
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/self-improve/improvement-queue/{id}:
     delete:
       tags:
@@ -122995,7 +123323,7 @@ paths:
                     type: string
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/self-improve/improvement-queue/{id}/priority:
     put:
       tags:
@@ -123157,7 +123485,7 @@ paths:
                     type: string
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/self-improve/learning/insights:
     get:
       tags:
@@ -123231,7 +123559,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/self-improve/meta-planner/goals:
     get:
       tags:
@@ -123306,7 +123634,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/self-improve/metrics/comparison:
     get:
       tags:
@@ -123380,7 +123708,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/self-improve/metrics/summary:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -123616,7 +123944,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/self-improve/worktrees:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -123816,7 +124144,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/services/{service_id}/metrics:
     get:
       tags:
@@ -123848,7 +124176,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/shared:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -125440,7 +125768,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/spectate/recent:
     get:
       tags:
@@ -125559,7 +125887,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: beta
+      x-aragora-stability: stable
   /api/v1/spend/analytics:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -126539,7 +126867,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/tasks/leases/{lease_id}/complete:
     post:
       tags:
@@ -126716,7 +127044,7 @@ paths:
                 additionalProperties: true
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/tasks/leases/{lease_id}/heartbeat:
     post:
       tags:
@@ -126822,7 +127150,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/tasks/leases/{lease_id}/release:
     post:
       tags:
@@ -126919,7 +127247,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/tasks/queue:
     get:
       tags:
@@ -127044,7 +127372,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/tasks/queue/stats:
     get:
       tags:
@@ -127118,7 +127446,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/tasks/queue/sync:
     post:
       tags:
@@ -127223,7 +127551,7 @@ paths:
                     support_url: https://github.com/synaptent/aragora/issues
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/tasks/queue/{task_id}:
     get:
       tags:
@@ -127320,7 +127648,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/tasks/queue/{task_id}/claim:
     post:
       tags:
@@ -127477,7 +127805,7 @@ paths:
                 additionalProperties: true
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/tasks/salvage:
     get:
       tags:
@@ -127555,7 +127883,7 @@ paths:
                     trace_id: req_abc123xyz
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/team-selection:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -127828,7 +128156,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/tenants:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -127968,7 +128296,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/threat/hash/{hash_value}:
     get:
       tags:
@@ -128036,7 +128364,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/threat/hashes:
     post:
       tags:
@@ -128147,7 +128475,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/threat/ip/{ip_address}:
     get:
       tags:
@@ -128215,7 +128543,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/threat/ips:
     post:
       tags:
@@ -128320,7 +128648,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/threat/status:
     get:
       tags:
@@ -128382,7 +128710,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/threat/url:
     post:
       tags:
@@ -128485,7 +128813,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/threat/urls:
     post:
       tags:
@@ -128590,7 +128918,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/tournaments:
     get:
       tags:
@@ -130063,7 +130391,7 @@ paths:
                 type: array
                 items:
                   type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/verification/status:
     get:
       tags:
@@ -130122,7 +130450,7 @@ paths:
             application/json:
               schema:
                 type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/verify/batch:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -131084,7 +131412,7 @@ paths:
                 type: integer
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     delete:
       tags:
       - Webhooks
@@ -131789,7 +132117,7 @@ paths:
                 type: integer
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     patch:
       tags:
       - Webhooks
@@ -131867,7 +132195,7 @@ paths:
           headers: *id958
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     delete:
       tags:
       - Webhooks
@@ -131888,7 +132216,7 @@ paths:
           headers: *id958
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/webhooks/{id}/test:
     post:
       tags:
@@ -131944,7 +132272,7 @@ paths:
                 type: integer
       security:
       - bearerAuth: []
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/workflow-approvals:
     get:
       tags:
@@ -132507,7 +132835,7 @@ paths:
                     resource_type: debate
                     resource_id: deb_abc123
                     trace_id: req_abc123xyz
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/workflow/pattern-templates/{pattern_id}/instantiate:
     post:
       tags:
@@ -137612,7 +137940,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/marketplace/status:
     get:
       tags:
@@ -137643,7 +137971,7 @@ paths:
                     type: string
                   circuit_breaker:
                     type: object
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/marketplace/templates:
     get:
       tags:
@@ -138116,7 +138444,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     delete:
       tags:
       - Marketplace
@@ -138280,7 +138608,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/marketplace/templates/{template_id}/ratings:
     get:
       tags:
@@ -138620,7 +138948,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/orchestration/deliberate:
     post:
       tags:
@@ -138867,7 +139195,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/orchestration/deliberate/sync:
     post:
       tags:
@@ -139104,7 +139432,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/orchestration/status/{request_id}:
     get:
       tags:
@@ -139254,7 +139582,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/orchestration/templates:
     get:
       tags:
@@ -139399,7 +139727,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/receipts:
     get:
       tags:
@@ -139480,7 +139808,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/receipts/search:
     get:
       tags:
@@ -139552,7 +139880,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/receipts/share/{token}:
     get:
       tags:
@@ -139709,7 +140037,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/receipts/{receipt_id}:
     get:
       tags:
@@ -139807,7 +140135,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/receipts/{receipt_id}/export:
     get:
       tags:
@@ -139899,7 +140227,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/receipts/{receipt_id}/formatted/{channel_type}:
     get:
       tags:
@@ -140035,7 +140363,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/receipts/{receipt_id}/send-to-channel:
     post:
       tags:
@@ -140196,7 +140524,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-      x-aragora-stability: experimental
+      security:
+      - bearerAuth: []
+      x-aragora-stability: stable
   /api/v2/receipts/{receipt_id}/share:
     post:
       tags:
@@ -140319,7 +140649,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/receipts/{receipt_id}/verify:
     get:
       tags:
@@ -140541,7 +140871,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/synaptent/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v2/slo/status:
     get:
       summary: Autogenerated placeholder (spec pending)

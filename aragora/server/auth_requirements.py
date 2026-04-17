@@ -41,6 +41,232 @@ class EndpointAuth:
     openapi_security: list[str] = field(default_factory=lambda: ["bearerAuth"])
 
 
+INBOX_PERMISSION_ENDPOINTS = [
+    EndpointAuth(
+        "/api/v1/inbox/oauth/gmail",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Get Gmail inbox OAuth URL",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/oauth/outlook",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Get Outlook inbox OAuth URL",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/connect",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Connect a unified inbox account",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/accounts",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="List unified inbox accounts",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/accounts/{account_id}",
+        "delete",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Disconnect a unified inbox account",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/messages",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="List unified inbox messages",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/messages/{message_id}",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Get unified inbox message details",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/messages/{message_id}/debate",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Create a trust-wedge debate for an inbox message",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/triage",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Run unified inbox triage",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/bulk-action",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Execute a unified inbox bulk action",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/stats",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Get unified inbox statistics",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/trends",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Get unified inbox trends",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/command",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Fetch the inbox command center view",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/actions",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="inbox:write",
+        description="Execute an inbox quick action",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/bulk-actions",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="inbox:write",
+        description="Execute an inbox bulk action by filter",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/sender-profile",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Get an inbox sender profile",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/daily-digest",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="inbox:read",
+        description="Get the inbox daily digest",
+    ),
+    EndpointAuth(
+        "/api/v1/inbox/reprioritize",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="inbox:write",
+        description="Trigger inbox reprioritization",
+    ),
+]
+
+COORDINATION_PUBLIC_ENDPOINTS = [
+    EndpointAuth(
+        "/api/v1/coordination/health",
+        "get",
+        AuthLevel.PUBLIC,
+        description="Cross-workspace coordination health",
+    ),
+]
+
+COORDINATION_PERMISSION_ENDPOINTS = [
+    EndpointAuth(
+        "/api/v1/coordination/workspaces",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="coordination:read",
+        description="List registered coordination workspaces",
+    ),
+    EndpointAuth(
+        "/api/v1/coordination/workspaces",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="coordination:write",
+        description="Register a coordination workspace",
+    ),
+    EndpointAuth(
+        "/api/v1/coordination/workspaces/{workspace_id}",
+        "delete",
+        AuthLevel.PERMISSION,
+        permission="coordination:delete",
+        description="Unregister a coordination workspace",
+    ),
+    EndpointAuth(
+        "/api/v1/coordination/federation",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="coordination:read",
+        description="List coordination federation policies",
+    ),
+    EndpointAuth(
+        "/api/v1/coordination/federation",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="coordination:write",
+        description="Create a coordination federation policy",
+    ),
+    EndpointAuth(
+        "/api/v1/coordination/execute",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="coordination:execute",
+        description="Execute a cross-workspace coordination request",
+    ),
+    EndpointAuth(
+        "/api/v1/coordination/executions",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="coordination:read",
+        description="List pending coordination executions",
+    ),
+    EndpointAuth(
+        "/api/v1/coordination/consent",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="coordination:read",
+        description="List coordination consents",
+    ),
+    EndpointAuth(
+        "/api/v1/coordination/consent",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="coordination:write",
+        description="Grant coordination consent",
+    ),
+    EndpointAuth(
+        "/api/v1/coordination/consent/{consent_id}",
+        "delete",
+        AuthLevel.PERMISSION,
+        permission="coordination:delete",
+        description="Revoke coordination consent",
+    ),
+    EndpointAuth(
+        "/api/v1/coordination/approve/{request_id}",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="coordination:admin",
+        description="Approve a pending coordination execution",
+    ),
+    EndpointAuth(
+        "/api/v1/coordination/stats",
+        "get",
+        AuthLevel.PERMISSION,
+        permission="coordination:read",
+        description="Get coordination statistics",
+    ),
+]
+
+
 # =============================================================================
 # Public Endpoints - No authentication required
 # =============================================================================
@@ -178,6 +404,7 @@ PUBLIC_ENDPOINTS = [
         AuthLevel.PUBLIC,
         description="Access a shared receipt via public token",
     ),
+    *COORDINATION_PUBLIC_ENDPOINTS,
 ]
 
 # =============================================================================
@@ -239,6 +466,8 @@ AUTHENTICATED_ENDPOINTS = [
 # =============================================================================
 
 PERMISSION_ENDPOINTS = [
+    *INBOX_PERMISSION_ENDPOINTS,
+    *COORDINATION_PERMISSION_ENDPOINTS,
     # Plugin management
     EndpointAuth(
         "/api/plugins",

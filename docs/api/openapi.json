@@ -940,11 +940,6 @@
             }
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "deprecated": true,
         "x-aragora-stability": "deprecated"
       }
@@ -3582,7 +3577,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/agents": {
@@ -7123,6 +7118,11 @@
           }
         },
         "deprecated": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "deprecated"
       }
     },
@@ -9221,6 +9221,11 @@
           }
         },
         "deprecated": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "deprecated"
       }
     },
@@ -9316,7 +9321,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "get": {
         "tags": [
@@ -9437,7 +9442,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/debates/slug/{slug}": {
@@ -9607,7 +9612,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/debates/{id}/messages": {
@@ -11838,7 +11843,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/graph-debates/{debate_id}": {
@@ -12462,7 +12467,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/consensus": {
@@ -12567,7 +12572,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/explainability": {
@@ -12669,7 +12674,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/explainability/factors": {
@@ -12779,7 +12784,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/explainability/narrative": {
@@ -12878,7 +12883,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/explainability/provenance": {
@@ -12988,7 +12993,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/explainability/counterfactual": {
@@ -13092,7 +13097,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "post": {
         "tags": [
@@ -13252,7 +13257,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/rhetorical": {
@@ -13351,7 +13356,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/trickster": {
@@ -13459,7 +13464,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debate/{id}/meta-critique": {
@@ -13579,7 +13584,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/archive": {
@@ -13669,7 +13674,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/clone": {
@@ -13776,7 +13781,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/pause": {
@@ -13962,7 +13967,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/start": {
@@ -14055,7 +14060,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/stop": {
@@ -14148,7 +14153,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/user-input": {
@@ -14320,7 +14325,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/verify": {
@@ -14504,7 +14509,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/cancel": {
@@ -15217,7 +15222,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/matrix/{id}": {
@@ -15331,7 +15336,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/diagnostics": {
@@ -15588,7 +15593,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/analytics/disagreements": {
@@ -17332,7 +17337,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/analytics/spend/trends": {
@@ -17516,7 +17521,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/analytics/spend/by-agent": {
@@ -17684,7 +17689,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/analytics/spend/by-decision": {
@@ -17856,7 +17861,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/analytics/spend/budget": {
@@ -18070,7 +18075,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/analytics/usage/tokens": {
@@ -18298,11 +18303,6 @@
             }
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "deprecated": true,
         "x-aragora-stability": "deprecated"
       }
@@ -18430,11 +18430,6 @@
             }
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "deprecated": true,
         "x-aragora-stability": "deprecated"
       }
@@ -18540,11 +18535,6 @@
             }
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "deprecated": true,
         "x-aragora-stability": "deprecated"
       }
@@ -18639,11 +18629,6 @@
             }
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "deprecated": true,
         "x-aragora-stability": "deprecated"
       }
@@ -18738,11 +18723,6 @@
             }
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "deprecated": true,
         "x-aragora-stability": "deprecated"
       }
@@ -18824,11 +18804,6 @@
             }
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "deprecated": true,
         "x-aragora-stability": "deprecated"
       }
@@ -19177,7 +19152,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/consensus/status/{debate_id}": {
@@ -19285,7 +19260,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/relationships/summary": {
@@ -23953,6 +23928,11 @@
           }
         },
         "deprecated": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "deprecated"
       }
     },
@@ -29605,7 +29585,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/oauth/google/callback": {
@@ -29871,7 +29851,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/oauth/github": {
@@ -30179,7 +30159,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/oauth/github/callback": {
@@ -30429,7 +30409,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/auth/oauth/link": {
@@ -31961,7 +31941,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/privacy/preferences": {
@@ -32246,7 +32226,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/workspaces": {
@@ -42619,7 +42599,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/cross-pollination/reset": {
@@ -51450,7 +51430,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/workflow/pattern-templates/{pattern_id}/instantiate": {
@@ -57683,7 +57663,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/control-plane/health": {
@@ -61377,7 +61357,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/scan/latest": {
@@ -61589,7 +61569,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/scan/{scan_id}": {
@@ -61809,7 +61789,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/scans": {
@@ -62007,7 +61987,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/vulnerabilities": {
@@ -62219,7 +62199,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/package/{ecosystem}/{package}/vulnerabilities": {
@@ -63936,7 +63916,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/scan/secrets/latest": {
@@ -64148,7 +64128,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/scan/secrets/{scan_id}": {
@@ -64368,7 +64348,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/secrets": {
@@ -64543,7 +64523,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/scans/secrets": {
@@ -64718,7 +64698,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/scan/sast": {
@@ -64973,7 +64953,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/scan/sast/{scan_id}": {
@@ -65193,7 +65173,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/sast/findings": {
@@ -65398,7 +65378,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/sast/owasp-summary": {
@@ -65573,7 +65553,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/metrics/analyze": {
@@ -65840,7 +65820,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/metrics": {
@@ -66052,7 +66032,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/metrics/{analysis_id}": {
@@ -66272,7 +66252,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/metrics/history": {
@@ -66463,7 +66443,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/hotspots": {
@@ -66654,7 +66634,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/duplicates": {
@@ -66845,7 +66825,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/metrics/file/{file_path}": {
@@ -67065,7 +67045,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/analyze": {
@@ -67232,7 +67212,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/symbols": {
@@ -67319,7 +67299,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/callgraph": {
@@ -67406,7 +67386,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/deadcode": {
@@ -67493,7 +67473,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/impact": {
@@ -67663,7 +67643,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/understand": {
@@ -67833,7 +67813,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/audit": {
@@ -68012,7 +67992,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/codebase/{repo}/audit/{audit_id}": {
@@ -68144,7 +68124,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/codebase/{repo}/analyze": {
@@ -70203,7 +70183,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/github/pr/{pr_number}": {
@@ -71580,7 +71560,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/github/audit/pr": {
@@ -71788,7 +71768,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/github/audit/sync/{session_id}": {
@@ -77513,7 +77493,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/costs/debates/{debate_id}/line-items": {
@@ -77823,7 +77803,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/costs/debates/{debate_id}/performance": {
@@ -78102,7 +78082,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/inbox/shared": {
@@ -78330,7 +78310,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "get": {
         "tags": [
@@ -87857,7 +87837,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/outlook/reply": {
@@ -88062,7 +88042,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/outlook/search": {
@@ -88198,7 +88178,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/outlook/messages/{message_id}/read": {
@@ -97362,7 +97342,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/threat/urls": {
@@ -97560,7 +97540,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/threat/ip/{ip_address}": {
@@ -97692,7 +97672,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/threat/ips": {
@@ -97890,7 +97870,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/threat/hash/{hash_value}": {
@@ -98022,7 +98002,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/threat/hashes": {
@@ -98228,7 +98208,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/threat/email": {
@@ -98446,7 +98426,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/threat/status": {
@@ -98568,7 +98548,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/budgets": {
@@ -100388,7 +100368,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/bots/teams/status": {
@@ -100793,7 +100773,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "patch": {
         "tags": [
@@ -100923,7 +100903,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "delete": {
         "tags": [
@@ -100972,7 +100952,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/webhooks/{id}/test": {
@@ -101060,7 +101040,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/webhooks/slo/status": {
@@ -101302,7 +101282,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "delete": {
         "tags": [
@@ -105093,7 +105073,12 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/receipts/{receipt_id}/deliver": {
@@ -105366,7 +105351,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/receipts/{receipt_id}/formatted/{channel_type}": {
@@ -105606,7 +105591,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/integrations/slack/install": {
@@ -106400,7 +106385,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/integrations/slack/preview": {
@@ -106630,7 +106615,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/integrations/slack/workspaces": {
@@ -106878,7 +106863,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/integrations/discord/install": {
@@ -108830,7 +108815,7 @@
             ]
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/feedback-hub/history": {
@@ -109354,7 +109339,7 @@
             ]
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/nomic/witness/status": {
@@ -110023,7 +110008,6 @@
         ],
         "summary": "Register new user",
         "description": "Create a new user account. Returns user info and session tokens.",
-        "security": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -110227,7 +110211,6 @@
         ],
         "summary": "Login user",
         "description": "Authenticate user with email and password. Returns session tokens. If MFA is enabled, returns mfa_required flag.",
-        "security": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -112835,7 +112818,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/auth/mfa/setup": {
@@ -116357,7 +116340,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "delete": {
         "tags": [
@@ -117793,7 +117776,6 @@
         ],
         "summary": "Request password reset (legacy route)",
         "description": "Compatibility alias for requesting a password reset email.",
-        "security": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -117992,7 +117974,7 @@
             "description": "Service unavailable"
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/auth/reset-password": {
@@ -118210,7 +118192,7 @@
             "description": "Service unavailable"
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/auth/verify-email": {
@@ -118422,7 +118404,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/auth/verify-email/resend": {
@@ -118618,7 +118600,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/auth/resend-verification": {
@@ -118814,7 +118796,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/auth/setup-organization": {
@@ -119132,7 +119114,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/auth/invite": {
@@ -119532,7 +119514,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/auth/accept-invite": {
@@ -119740,7 +119722,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/admin/mfa/compliance": {
@@ -119816,7 +119798,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/admin/mfa/compliance": {
@@ -119935,7 +119917,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/admin/system-health": {
@@ -120019,7 +120001,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/admin/system-health/circuit-breakers": {
@@ -120103,7 +120085,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/admin/system-health/slos": {
@@ -120187,7 +120169,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/admin/system-health/adapters": {
@@ -120271,7 +120253,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/admin/system-health/agents": {
@@ -120355,7 +120337,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/admin/system-health/budget": {
@@ -124249,7 +124231,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/backups": {
@@ -128979,7 +128961,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/bots/slack/interactions": {
@@ -129196,7 +129178,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/bots/slack/status": {
@@ -129297,7 +129279,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/bots/discord/interactions": {
@@ -129569,7 +129551,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/bots/telegram/webhook/{token}": {
@@ -129827,7 +129809,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       },
       "get": {
         "tags": [
@@ -130190,7 +130172,7 @@
             }
           }
         },
-        "x-aragora-stability": "stable"
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/bots/zoom/status": {
@@ -132813,7 +132795,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/tasks/queue/stats": {
@@ -132951,7 +132933,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/tasks/queue/{task_id}": {
@@ -133137,7 +133119,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/tasks/queue/sync": {
@@ -133335,7 +133317,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/tasks/queue/{task_id}/claim": {
@@ -133610,7 +133592,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/tasks/leases": {
@@ -133754,7 +133736,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/tasks/leases/{lease_id}/heartbeat": {
@@ -133955,7 +133937,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/tasks/leases/{lease_id}/release": {
@@ -134141,7 +134123,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/tasks/leases/{lease_id}/complete": {
@@ -134447,7 +134429,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/tasks/salvage": {
@@ -134591,7 +134573,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/devices/register": {
@@ -137741,7 +137723,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/playground/landing/events": {
@@ -137784,7 +137766,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/playground/landing/events/summary": {
@@ -137846,7 +137828,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/playground/landing/feedback": {
@@ -137913,7 +137895,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "post": {
         "tags": [
@@ -137957,7 +137939,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/playground/landing/feedback/review": {
@@ -138024,7 +138006,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/spectate/recent": {
@@ -138208,7 +138190,7 @@
             }
           }
         },
-        "x-aragora-stability": "beta"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/spectate/emit": {
@@ -138279,7 +138261,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/computer-use/actions": {
@@ -138747,7 +138729,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/computer-use/actions/{action_id}": {
@@ -139097,7 +139079,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/computer-use/policies": {
@@ -140003,7 +139985,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "delete": {
         "tags": [
@@ -140209,7 +140191,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/computer-use/tasks": {
@@ -141125,7 +141107,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/computer-use/tasks/{task_id}/cancel": {
@@ -141383,7 +141365,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/computer-use/actions/stats": {
@@ -141515,7 +141497,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/computer-use/approvals": {
@@ -142185,7 +142167,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/computer-use/approvals/{request_id}/deny": {
@@ -142408,7 +142390,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/gateway/channels": {
@@ -152673,7 +152655,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/verification/validate": {
@@ -152749,7 +152731,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/calibration/curve": {
@@ -153005,7 +152987,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/services/{service_id}/metrics": {
@@ -153103,7 +153085,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/flips/{flip_id}": {
@@ -153201,7 +153183,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/ecommerce/connect": {
@@ -153901,7 +153883,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/matches/{match_id}": {
@@ -153999,7 +153981,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/quotas/request-increase": {
@@ -154075,7 +154057,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/reputation/domain": {
@@ -154151,7 +154133,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/reputation/history": {
@@ -154233,7 +154215,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/reputation/{agent_id}": {
@@ -154331,7 +154313,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/templates/registry/{listing_id}": {
@@ -154494,7 +154476,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/join": {
@@ -155435,7 +155417,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/debates/{debate_id}/intervention/resume": {
@@ -155777,7 +155759,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/debates/{debate_id}/intervention/inject": {
@@ -156131,7 +156113,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/debates/{debate_id}/intervention/weights": {
@@ -157075,7 +157057,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/debates/{debate_id}/intervention/log": {
@@ -157315,7 +157297,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/estimate-cost": {
@@ -158751,7 +158733,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/dashboard/inbox-summary": {
@@ -159363,7 +159345,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/dashboard/quality-metrics": {
@@ -159823,7 +159805,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/dashboard/search": {
@@ -160471,7 +160453,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/dashboard/top-senders": {
@@ -160943,7 +160925,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/receipts": {
@@ -161094,7 +161076,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/receipts/search": {
@@ -161231,7 +161213,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/receipts/stats": {
@@ -161375,7 +161357,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/receipts/deliveries": {
@@ -161560,7 +161542,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/receipts/recent-anchors": {
@@ -161709,7 +161691,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/receipts/{receipt_id}/anchor-status": {
@@ -161894,7 +161876,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/receipts/{receipt_id}": {
@@ -162084,7 +162066,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/receipts/{receipt_id}/export": {
@@ -162265,7 +162247,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/receipts/{receipt_id}/share": {
@@ -162508,7 +162490,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/receipts/share/{token}": {
@@ -163204,7 +163186,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline": {
@@ -163258,7 +163240,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/from-ideas": {
@@ -163701,7 +163683,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/from-template": {
@@ -163837,7 +163819,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/demo": {
@@ -163917,7 +163899,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/advance": {
@@ -164209,7 +164191,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/run": {
@@ -164603,7 +164585,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/auto-run": {
@@ -164744,7 +164726,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/from-system-metrics": {
@@ -164816,7 +164798,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/convert/debate": {
@@ -165131,7 +165113,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/{id}": {
@@ -165951,7 +165933,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/{id}/intelligence": {
@@ -166025,7 +166007,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/{id}/beliefs": {
@@ -166099,7 +166081,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/{id}/explanations": {
@@ -166173,7 +166155,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/{id}/precedents": {
@@ -166247,7 +166229,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/canvas/pipeline/{id}/self-improve": {
@@ -166352,7 +166334,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/{id}/to-pipeline": {
@@ -166480,7 +166462,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/pipeline/{id}/agents": {
@@ -166517,7 +166499,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/pipeline/{id}/agents/{agent_id}/approve": {
@@ -166578,7 +166560,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/pipeline/{id}/agents/{agent_id}/reject": {
@@ -166695,7 +166677,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/playbooks": {
@@ -167012,7 +166994,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/playbooks/{id}": {
@@ -167299,7 +167281,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/playbooks/{id}/run": {
@@ -167688,7 +167670,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/marketplace/listings": {
@@ -168024,7 +168006,7 @@
             }
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/marketplace/listings/featured": {
@@ -168307,7 +168289,7 @@
             }
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/marketplace/listings/stats": {
@@ -168544,7 +168526,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/marketplace/listings/{listing_id}": {
@@ -168851,7 +168833,7 @@
             "description": "Marketplace listing ID."
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/marketplace/listings/{listing_id}/install": {
@@ -172329,7 +172311,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/marketplace/status": {
@@ -172376,7 +172358,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/marketplace/templates/import": {
@@ -173311,7 +173293,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/marketplace/templates/{template_id}": {
@@ -173519,7 +173501,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "delete": {
         "tags": [
@@ -174069,7 +174051,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/orchestration/deliberate": {
@@ -174482,7 +174464,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/orchestration/deliberate/sync": {
@@ -174878,7 +174860,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/orchestration/status/{request_id}": {
@@ -175158,7 +175140,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v2/orchestration/templates": {
@@ -175418,7 +175400,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/observability/dashboard": {
@@ -175836,7 +175818,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/observability/metrics": {
@@ -176176,7 +176158,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/observability/crashes": {
@@ -176791,7 +176773,7 @@
             ]
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       },
       "post": {
         "tags": [
@@ -176984,7 +176966,7 @@
           }
         },
         "security": [],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/observability/crashes/stats": {
@@ -177402,7 +177384,7 @@
             ]
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/prompt-engine/runs": {
@@ -177604,7 +177586,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/prompt-engine/runs/{run_id}": {
@@ -177798,7 +177780,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/prompt-engine/run": {
@@ -178348,7 +178330,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/prompt-engine/decompose": {
@@ -178638,7 +178620,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/prompt-engine/interrogate": {
@@ -178936,7 +178918,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/prompt-engine/research": {
@@ -179224,7 +179206,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/prompt-engine/specify": {
@@ -179542,7 +179524,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/prompt-engine/validate": {
@@ -179834,7 +179816,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/ralph/campaigns": {
@@ -180198,7 +180180,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/ralph/overview": {
@@ -180550,7 +180532,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/ralph/blockers": {
@@ -180902,7 +180884,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/self-improve/meta-planner/goals": {
@@ -181178,7 +181160,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/self-improve/execution/timeline": {
@@ -181454,7 +181436,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/self-improve/learning/insights": {
@@ -181730,7 +181712,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/self-improve/metrics/comparison": {
@@ -182006,7 +181988,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/self-improve/trends/cycles": {
@@ -182322,7 +182304,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/self-improve/improvement-queue": {
@@ -182836,7 +182818,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/self-improve/improvement-queue/{id}/priority": {
@@ -183428,7 +183410,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/self-improve/improvement-queue/{id}": {
@@ -183872,7 +183854,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/public/surfaces": {
@@ -183885,7 +183867,6 @@
         "summary": "List public surface readiness",
         "description": "Return the public status, onboarding, spectate, OpenAPI, and memory surfaces exposed by this deployment, including readiness and backend-conditional flags for each surface.",
         "operationId": "getPublicSurfaces",
-        "security": [],
         "responses": {
           "200": {
             "description": "Public surface readiness inventory",
@@ -183999,7 +183980,7 @@
             }
           }
         },
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/debates/graph": {
@@ -197052,7 +197033,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/decision-analytics/trends": {
@@ -197078,7 +197059,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/decision-analytics/outcomes": {
@@ -197104,7 +197085,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/decision-analytics/agents": {
@@ -197130,7 +197111,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/decision-analytics/domains": {
@@ -197156,7 +197137,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/outcomes/search": {
@@ -214066,12 +214047,17 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/inbox/actions": {
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Execute inbox quick action",
         "tags": [
           "Inbox"
         ],
@@ -214098,12 +214084,54 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Execute an inbox command-center action against selected email IDs.",
+        "requestBody": {
+          "description": "Inbox quick-action request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string"
+                  },
+                  "emailIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "params": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "receipt_id": {
+                    "type": "string"
+                  },
+                  "actor_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "action",
+                  "emailIds"
+                ]
+              }
+            }
+          }
+        },
         "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/inbox/bulk-actions": {
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Execute inbox bulk action by filter",
         "tags": [
           "Inbox"
         ],
@@ -214130,6 +214158,45 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Execute an inbox command-center bulk action against messages selected by filter.",
+        "requestBody": {
+          "description": "Inbox bulk-action-by-filter request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string"
+                  },
+                  "filter": {
+                    "type": "string"
+                  },
+                  "params": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "receipt_id": {
+                    "type": "string"
+                  },
+                  "actor_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "action",
+                  "filter"
+                ]
+              }
+            }
+          }
+        },
         "x-aragora-stability": "experimental"
       }
     },
@@ -214162,6 +214229,11 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       }
     },
@@ -214194,12 +214266,17 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/inbox/reprioritize": {
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Reprioritize inbox",
         "tags": [
           "Inbox"
         ],
@@ -214226,6 +214303,37 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Trigger inbox reprioritization, optionally scoped to selected emails.",
+        "requestBody": {
+          "description": "Inbox reprioritization request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "emailIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "force_tier": {
+                    "type": "string"
+                  },
+                  "auto_debate": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
         "x-aragora-stability": "experimental"
       }
     },
@@ -214258,6 +214366,11 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       }
     },
@@ -214290,12 +214403,17 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/inbox/connect": {
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Connect unified inbox account",
         "tags": [
           "Inbox"
         ],
@@ -214322,6 +214440,43 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Exchange an OAuth authorization code for a Gmail or Outlook inbox account.",
+        "requestBody": {
+          "description": "Unified inbox connection request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "gmail",
+                      "outlook"
+                    ]
+                  },
+                  "auth_code": {
+                    "type": "string"
+                  },
+                  "redirect_uri": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "auth_code"
+                ]
+              }
+            }
+          }
+        },
         "x-aragora-stability": "experimental"
       }
     },
@@ -214354,6 +214509,11 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       }
     },
@@ -214386,12 +214546,17 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/inbox/triage": {
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Run unified inbox triage",
         "tags": [
           "Inbox"
         ],
@@ -214418,12 +214583,44 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Run multi-agent triage across one or more unified inbox messages.",
+        "requestBody": {
+          "description": "Unified inbox triage request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "context": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "required": [
+                  "message_ids"
+                ]
+              }
+            }
+          }
+        },
         "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/inbox/bulk-action": {
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Execute unified inbox bulk action",
         "tags": [
           "Inbox"
         ],
@@ -214450,6 +214647,41 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Execute a bulk action against specific unified inbox messages.",
+        "requestBody": {
+          "description": "Unified inbox bulk-action request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "action": {
+                    "type": "string"
+                  },
+                  "receipt_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "message_ids",
+                  "action"
+                ]
+              }
+            }
+          }
+        },
         "x-aragora-stability": "experimental"
       }
     },
@@ -214482,6 +214714,11 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       }
     },
@@ -214514,6 +214751,11 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       }
     },
@@ -214542,6 +214784,11 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "account_id",
@@ -214585,6 +214832,11 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "message_id",
@@ -214601,7 +214853,7 @@
     },
     "/api/v1/inbox/messages/{message_id}/debate": {
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Create inbox message debate",
         "tags": [
           "Inbox"
         ],
@@ -214628,6 +214880,46 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Stage a receipt-backed review or trust-wedge debate for a unified inbox message.",
+        "requestBody": {
+          "description": "Optional trust-wedge debate configuration.",
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "allowed_actions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "label_id": {
+                    "type": "string"
+                  },
+                  "provider_route": {
+                    "type": "string"
+                  },
+                  "expires_in_hours": {
+                    "type": "integer"
+                  },
+                  "auto_approve": {
+                    "type": "boolean"
+                  },
+                  "auto_execute": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "message_id",
@@ -243204,10 +243496,15 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       },
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Register coordination workspace",
         "tags": [
           "Undocumented"
         ],
@@ -243234,6 +243531,53 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Register a workspace for cross-workspace coordination.",
+        "requestBody": {
+          "description": "Workspace registration request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "org_id": {
+                    "type": "string"
+                  },
+                  "federation_mode": {
+                    "type": "string"
+                  },
+                  "endpoint_url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "supports_agent_execution": {
+                    "type": "boolean"
+                  },
+                  "supports_workflow_execution": {
+                    "type": "boolean"
+                  },
+                  "supports_knowledge_query": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          }
+        },
         "x-aragora-stability": "experimental"
       }
     },
@@ -243266,10 +243610,15 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       },
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Create coordination federation policy",
         "tags": [
           "Undocumented"
         ],
@@ -243296,12 +243645,70 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Create a federation policy for cross-workspace coordination.",
+        "requestBody": {
+          "description": "Federation policy creation request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string"
+                  },
+                  "sharing_scope": {
+                    "type": "string"
+                  },
+                  "allowed_operations": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "max_requests_per_hour": {
+                    "type": "integer"
+                  },
+                  "require_approval": {
+                    "type": "boolean"
+                  },
+                  "audit_all_requests": {
+                    "type": "boolean"
+                  },
+                  "workspace_id": {
+                    "type": "string"
+                  },
+                  "source_workspace_id": {
+                    "type": "string"
+                  },
+                  "target_workspace_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
         "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/coordination/execute": {
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Execute cross-workspace request",
         "tags": [
           "Undocumented"
         ],
@@ -243328,6 +243735,52 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Execute an approved cross-workspace coordination request.",
+        "requestBody": {
+          "description": "Cross-workspace execution request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "type": "string"
+                  },
+                  "source_workspace_id": {
+                    "type": "string"
+                  },
+                  "target_workspace_id": {
+                    "type": "string"
+                  },
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "timeout_seconds": {
+                    "type": "number"
+                  },
+                  "requester_id": {
+                    "type": "string"
+                  },
+                  "consent_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "source_workspace_id",
+                  "target_workspace_id"
+                ]
+              }
+            }
+          }
+        },
         "x-aragora-stability": "experimental"
       }
     },
@@ -243360,6 +243813,11 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       }
     },
@@ -243392,10 +243850,15 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       },
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Grant coordination consent",
         "tags": [
           "Undocumented"
         ],
@@ -243422,6 +243885,56 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Grant data-sharing consent between workspaces.",
+        "requestBody": {
+          "description": "Coordination consent request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "source_workspace_id": {
+                    "type": "string"
+                  },
+                  "target_workspace_id": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "string"
+                  },
+                  "data_types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "operations": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "granted_by": {
+                    "type": "string"
+                  },
+                  "expires_in_days": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "source_workspace_id",
+                  "target_workspace_id"
+                ]
+              }
+            }
+          }
+        },
         "x-aragora-stability": "experimental"
       }
     },
@@ -243454,6 +243967,11 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-aragora-stability": "experimental"
       }
     },
@@ -243514,6 +244032,11 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "workspace_id",
@@ -243530,7 +244053,7 @@
     },
     "/api/v1/coordination/approve/{request_id}": {
       "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
+        "summary": "Approve coordination request",
         "tags": [
           "Undocumented"
         ],
@@ -243557,6 +244080,28 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Approve a pending coordination execution request.",
+        "requestBody": {
+          "description": "Coordination approval request.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "approved_by": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "request_id",
@@ -243596,6 +244141,11 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": true,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "consent_id",

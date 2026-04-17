@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from aragora.server.auth_requirements import AuthLevel, get_requirement
 from aragora.server.handlers import ALL_HANDLERS
 from aragora.server.handlers.coordination import CoordinationHandler
 from aragora.server.handlers.features.unified_inbox.handler import UnifiedInboxHandler
@@ -12,6 +13,10 @@ HTTP_METHODS = {"get", "post", "put", "patch", "delete", "head", "options"}
 
 def _operation_methods(path_spec: dict[str, object]) -> set[str]:
     return {method for method in path_spec if method in HTTP_METHODS}
+
+
+def _operation(path: str, method: str) -> dict[str, object]:
+    return generate_openapi_schema()["paths"][path][method]
 
 
 def test_inbox_and_coordination_handlers_participate_in_all_handlers() -> None:
@@ -41,6 +46,85 @@ def test_coordination_routes_export_exact_methods() -> None:
     for path, methods in expected_methods.items():
         assert path in paths
         assert _operation_methods(paths[path]) == methods
+
+
+def test_inbox_and_coordination_routes_export_security_contracts() -> None:
+    protected_routes = [
+        ("post", "/api/v1/inbox/connect"),
+        ("post", "/api/v1/inbox/triage"),
+        ("post", "/api/v1/inbox/bulk-action"),
+        ("get", "/api/v1/inbox/command"),
+        ("post", "/api/v1/inbox/actions"),
+        ("post", "/api/v1/inbox/bulk-actions"),
+        ("post", "/api/v1/inbox/reprioritize"),
+        ("get", "/api/v1/coordination/workspaces"),
+        ("post", "/api/v1/coordination/workspaces"),
+        ("post", "/api/v1/coordination/execute"),
+        ("post", "/api/v1/coordination/approve/{request_id}"),
+    ]
+
+    for method, path in protected_routes:
+        operation = _operation(path, method)
+        assert operation["security"] == [{"bearerAuth": []}]
+
+    assert "security" not in _operation("/api/v1/coordination/health", "get")
+
+
+def test_inbox_and_coordination_routes_export_request_bodies() -> None:
+    request_body_routes = [
+        "/api/v1/inbox/connect",
+        "/api/v1/inbox/messages/{message_id}/debate",
+        "/api/v1/inbox/triage",
+        "/api/v1/inbox/bulk-action",
+        "/api/v1/inbox/actions",
+        "/api/v1/inbox/bulk-actions",
+        "/api/v1/inbox/reprioritize",
+        "/api/v1/coordination/workspaces",
+        "/api/v1/coordination/federation",
+        "/api/v1/coordination/execute",
+        "/api/v1/coordination/consent",
+        "/api/v1/coordination/approve/{request_id}",
+    ]
+
+    for path in request_body_routes:
+        operation = _operation(path, "post")
+        assert "requestBody" in operation
+        request_body = operation["requestBody"]
+        assert request_body["content"]["application/json"]["schema"]["type"] == "object"
+
+    connect_schema = _operation("/api/v1/inbox/connect", "post")["requestBody"]["content"][
+        "application/json"
+    ]["schema"]
+    assert connect_schema["required"] == ["provider", "auth_code"]
+
+    execute_schema = _operation("/api/v1/coordination/execute", "post")["requestBody"]["content"][
+        "application/json"
+    ]["schema"]
+    assert execute_schema["required"] == [
+        "operation",
+        "source_workspace_id",
+        "target_workspace_id",
+    ]
+
+
+def test_inbox_and_coordination_auth_manifest_matches_live_contracts() -> None:
+    required_permissions = {
+        ("POST", "/api/v1/inbox/connect"): "inbox:read",
+        ("POST", "/api/v1/inbox/actions"): "inbox:write",
+        ("GET", "/api/v1/coordination/workspaces"): "coordination:read",
+        ("POST", "/api/v1/coordination/workspaces"): "coordination:write",
+        ("POST", "/api/v1/coordination/approve/{request_id}"): "coordination:admin",
+    }
+
+    for (method, path), permission in required_permissions.items():
+        requirement = get_requirement(path, method)
+        assert requirement is not None
+        assert requirement.level == AuthLevel.PERMISSION
+        assert requirement.permission == permission
+
+    health_requirement = get_requirement("/api/v1/coordination/health", "GET")
+    assert health_requirement is not None
+    assert health_requirement.level == AuthLevel.PUBLIC
 
 
 def test_unified_inbox_routes_export_exact_methods() -> None:

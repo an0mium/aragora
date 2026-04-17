@@ -29,6 +29,8 @@ from pathlib import Path
 from typing import Any
 
 # Import schemas and helpers from submodules
+from aragora.server.auth_requirements import AuthLevel, get_requirement
+from aragora.server.openapi.route_contract_overrides import ROUTE_CONTRACT_OVERRIDES
 from aragora.server.openapi.schemas import COMMON_SCHEMAS
 
 # Import all endpoint definitions from endpoints subpackage
@@ -713,6 +715,39 @@ def _apply_handler_api_metadata(paths: dict[str, Any]) -> dict[str, Any]:
     return paths
 
 
+def _apply_auth_manifest(paths: dict[str, Any]) -> dict[str, Any]:
+    methods = {"get", "post", "put", "patch", "delete", "head", "options"}
+    for path, path_spec in paths.items():
+        if not isinstance(path_spec, dict):
+            continue
+        for method, operation in path_spec.items():
+            method_key = method.lower()
+            if method_key not in methods or not isinstance(operation, dict):
+                continue
+            requirement = get_requirement(path, method_key)
+            if requirement is None:
+                continue
+            if requirement.level == AuthLevel.PUBLIC:
+                operation.pop("security", None)
+                continue
+            if "security" not in operation:
+                operation["security"] = [{scheme: [] for scheme in requirement.openapi_security}]
+    return paths
+
+
+def _apply_route_contract_overrides(paths: dict[str, Any]) -> dict[str, Any]:
+    for path, method_overrides in ROUTE_CONTRACT_OVERRIDES.items():
+        path_spec = paths.get(path)
+        if not isinstance(path_spec, dict):
+            continue
+        for method, override in method_overrides.items():
+            operation = path_spec.get(method)
+            if not isinstance(operation, dict):
+                continue
+            operation.update(copy.deepcopy(override))
+    return paths
+
+
 def _drop_decision_analytics_legacy_placeholders(paths: dict[str, Any]) -> dict[str, Any]:
     """Remove legacy decision-analytics placeholders when versioned metadata exists."""
     methods = {"get", "post", "put", "patch", "delete", "options", "head", "trace"}
@@ -1167,6 +1202,8 @@ def generate_openapi_schema() -> dict[str, Any]:
     paths = _filter_unhandled_paths(paths)
     paths = _autogenerate_missing_paths(paths)
     paths = _apply_handler_api_metadata(paths)
+    paths = _apply_auth_manifest(paths)
+    paths = _apply_route_contract_overrides(paths)
     paths = _align_legacy_paths_with_versioned(paths)
     paths = _mark_legacy_paths_deprecated(_add_v1_aliases(paths))
     paths = _drop_decision_analytics_legacy_placeholders(paths)
