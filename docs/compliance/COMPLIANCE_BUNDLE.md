@@ -8,7 +8,7 @@ Unified entry point for all Aragora compliance documentation, controls mappings,
 |-----------|--------|------------------|
 | SOC 2 Type II | Production-ready (60+ controls) | [SOC 2 Controls](#soc-2-controls-mapping) |
 | GDPR | Supported | [GDPR Section](#gdpr-data-processing-impact-assessment) |
-| HIPAA | Configurable | [HIPAA Section](#hipaa-baa-outline) |
+| HIPAA | Configurable | [HIPAA Section](#hipaa-business-associate-agreement-outline) |
 | EU AI Act | Supported (Aug 2026 deadline) | [EU AI Act Section](#eu-ai-act) |
 | CCPA/CPRA | Supported | [DSAR Workflow](../enterprise/DSAR_WORKFLOW.md) |
 | ISO 27001 | Mappable | Controls align with Annex A |

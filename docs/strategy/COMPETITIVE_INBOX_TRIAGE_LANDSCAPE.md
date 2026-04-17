@@ -10,7 +10,7 @@ solutions by features, feedback/learning mechanisms, pricing, and user reception
 1. [Product-by-Product Profiles](#product-by-product-profiles)
 2. [Feature Inventory by Category](#feature-inventory-by-category)
 3. [Feedback & Learning Mechanisms](#feedback--learning-mechanisms)
-4. [Gmail Priority Inbox / Gemini AI Internals](#gmail-priority-inbox--gemini-ai-internals)
+4. [Gmail Priority Inbox / Gemini AI Internals](#how-gmail-priority-inbox-learns-technical-detail)
 5. [Pricing Comparison Table](#pricing-comparison-table)
 6. [User Ratings Summary](#user-ratings-summary)
 7. [Key Takeaways for Aragora](#key-takeaways-for-aragora)

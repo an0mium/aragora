@@ -285,7 +285,7 @@ Aragora's core value proposition is **real and defensible**: multi-agent adversa
 - The CLI works.
 - The API works.
 - The enterprise security works.
-- 208,000+ tests prove it.
+- 210,000+ tests prove it.
 
 This combination is unique. No funded competitor does it. It represents a new category -- Decision Integrity -- not a feature added to an existing category.
 

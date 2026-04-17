@@ -329,4 +329,4 @@ curl https://your-domain/api/v2/receipts/{receipt_id}/verify
 - [Microsoft Teams Integration](../integrations/CHANNELS.md)
 - [Enterprise Connectors](./enterprise-connectors.md)
 - [OAuth Setup Guide](../enterprise/OAUTH_SETUP.md)
-- [Decision Receipts API](../api/API_REFERENCE.md#receipts)
+- [Decision Receipts API](../api/API_REFERENCE.md#gauntlet-receipts-api)
