@@ -18,6 +18,7 @@ import { BotsAPI } from '../bots';
 interface MockClient {
   post: Mock;
   get: Mock;
+  request: Mock;
 }
 
 describe('BotsAPI Namespace', () => {
@@ -28,6 +29,7 @@ describe('BotsAPI Namespace', () => {
     mockClient = {
       post: vi.fn(),
       get: vi.fn(),
+      request: vi.fn(),
     };
     api = new BotsAPI(mockClient as any);
   });
@@ -302,6 +304,24 @@ describe('BotsAPI Namespace', () => {
       expect(mockClient.get).toHaveBeenCalledWith('/api/v1/bots/slack/status');
       expect(result.workspaces).toBe(10);
       expect(result.channels).toBe(150);
+    });
+
+    it.each([
+      ['slackCommands', '/api/v1/bots/slack/commands'],
+      ['slackEvents', '/api/v1/bots/slack/events'],
+      ['slackInteractions', '/api/v1/bots/slack/interactions'],
+    ] as const)('should route %s webhook payloads', async (methodName, path) => {
+      const payload = {
+        team_id: 'T123',
+        event: { type: 'app_mention' },
+      };
+      const mockResponse = { ok: true };
+      mockClient.request.mockResolvedValue(mockResponse);
+
+      const result = await api[methodName](payload);
+
+      expect(mockClient.request).toHaveBeenCalledWith('POST', path, { json: payload });
+      expect(result).toBe(mockResponse);
     });
   });
 

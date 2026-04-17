@@ -29,6 +29,15 @@ class BotsAPI:
         """Get Slack integration status."""
         return self._client.request("GET", "/api/v1/bots/slack/status")
 
+    def slack_commands(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._client.request("POST", "/api/v1/bots/slack/commands", json=payload)
+
+    def slack_events(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._client.request("POST", "/api/v1/bots/slack/events", json=payload)
+
+    def slack_interactions(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._client.request("POST", "/api/v1/bots/slack/interactions", json=payload)
+
     def discord_interactions(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._client.request("POST", "/api/v1/bots/discord/interactions", json=payload)
 
@@ -75,6 +84,15 @@ class AsyncBotsAPI:
     async def slack_status(self) -> dict[str, Any]:
         """Get Slack integration status."""
         return await self._client.request("GET", "/api/v1/bots/slack/status")
+
+    async def slack_commands(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._client.request("POST", "/api/v1/bots/slack/commands", json=payload)
+
+    async def slack_events(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._client.request("POST", "/api/v1/bots/slack/events", json=payload)
+
+    async def slack_interactions(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._client.request("POST", "/api/v1/bots/slack/interactions", json=payload)
 
     async def discord_interactions(self, payload: dict[str, Any]) -> dict[str, Any]:
         return await self._client.request("POST", "/api/v1/bots/discord/interactions", json=payload)
