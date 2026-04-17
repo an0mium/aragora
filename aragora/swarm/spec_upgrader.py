@@ -505,18 +505,15 @@ class AuditPersistence:
     # --- gh wrappers (seams for test mocking) ---
 
     def _gh_list_comments(self) -> list[dict]:
+        # Use REST API directly so `id` is the numeric comment ID the PATCH endpoint
+        # expects. `gh issue view --json comments` returns GraphQL node IDs
+        # (e.g. `IC_kwDO...`) which 404 when passed to `/repos/.../issues/comments/{id}`.
         out = subprocess.check_output(
             [
                 "gh",
-                "issue",
-                "view",
-                str(self.issue_number),
-                "--repo",
-                self.repo,
-                "--json",
-                "comments",
-                "--jq",
-                ".comments",
+                "api",
+                "--paginate",
+                f"/repos/{self.repo}/issues/{self.issue_number}/comments",
             ],
             text=True,
         )
