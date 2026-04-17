@@ -406,6 +406,20 @@ class AuditPersistence:
             ]
         )
 
+    def _gh_update_comment(self, *, comment_id: int, body: str) -> None:
+        # gh does not expose direct comment edit; use gh api
+        subprocess.check_call(
+            [
+                "gh",
+                "api",
+                "--method",
+                "PATCH",
+                f"/repos/{self.repo}/issues/comments/{comment_id}",
+                "-f",
+                f"body={body}",
+            ]
+        )
+
 
 def emit_upgrade_telemetry(
     *,
@@ -447,20 +461,6 @@ def emit_upgrade_telemetry(
     with metrics_path.open("a") as f:
         f.write(json.dumps(record) + "\n")
     return upgrade_id
-
-    def _gh_update_comment(self, *, comment_id: int, body: str) -> None:
-        # gh does not expose direct comment edit; use gh api
-        subprocess.check_call(
-            [
-                "gh",
-                "api",
-                "--method",
-                "PATCH",
-                f"/repos/{self.repo}/issues/comments/{comment_id}",
-                "-f",
-                f"body={body}",
-            ]
-        )
 
 
 class Escalator:
@@ -531,3 +531,174 @@ class Escalator:
                 body,
             ]
         )
+
+
+def _derive_questions(ctx: UpgradeFailureContext) -> list[str]:
+    """Convert ``missing_bounds`` into reviewer-facing clarifying questions."""
+    questions: list[str] = []
+    if "acceptance criterion" in ctx.missing_bounds:
+        questions.append("What observable behaviour proves this issue is resolved?")
+    if "file-scope hint" in ctx.missing_bounds:
+        questions.append("Which files (exact paths) should be modified?")
+    if "constraint" in ctx.missing_bounds:
+        questions.append("Are there files, APIs, or behaviours that must NOT change?")
+    if "explicit work order" in ctx.missing_bounds:
+        questions.append("What concrete steps should an implementer take?")
+    return questions
+
+
+def _summarise_failure(ctx: UpgradeFailureContext) -> str:
+    parts = [f"missing: {', '.join(ctx.missing_bounds)}"] if ctx.missing_bounds else []
+    if ctx.preflight_diff:
+        parts.append("preflight contract drift detected")
+    return "; ".join(parts) or "underspecified"
+
+
+def _render_audit(
+    attempt: int,
+    path: UpgradePath | None,
+    ctx: UpgradeFailureContext,
+    *,
+    escalated: bool,
+) -> str:
+    verdict = "ESCALATED" if escalated else "UPGRADED"
+    return (
+        "## Upgrade audit\n\n"
+        f"- **Attempt:** {attempt}\n"
+        f"- **Path:** {path or 'n/a'}\n"
+        f"- **Verdict:** {verdict}\n"
+        f"- **Missing bounds on entry:** {', '.join(ctx.missing_bounds) or 'none'}\n"
+        f"- **Preflight drift:** {'yes' if ctx.preflight_diff else 'no'}\n"
+    )
+
+
+def upgrade_spec(
+    spec: SwarmSpec,
+    failure_context: UpgradeFailureContext,
+    *,
+    issue_number: int,
+    seam: Literal["A", "B"],
+    repo_root: Path,
+    metrics_path: Path,
+    llm_client: Any = None,
+    max_attempts: int = MAX_ATTEMPTS,
+) -> UpgradeResult:
+    """Upgrade a weak ``SwarmSpec`` into a dispatchable one.
+
+    See ``docs/plans/2026-04-17-spec-upgrader-design.md`` for the full
+    architecture. Raises :class:`SpecUpgraderUnavailable` on transient
+    infrastructure failure; the caller should skip-for-this-tick without
+    consuming an attempt.
+    """
+    start = time.monotonic()
+
+    audit = AuditPersistence(issue_number=issue_number)
+    prior_attempts, marker_valid = audit.read_attempt_count()
+
+    # Marker corrupted OR budget exhausted -> escalate immediately.
+    if not marker_valid or prior_attempts >= max_attempts:
+        questions = _derive_questions(failure_context)
+        summary = _summarise_failure(failure_context)
+        esc = Escalator(issue_number=issue_number)
+        escalated_ok = esc.escalate(
+            unresolved_questions=questions,
+            failure_context_summary=summary,
+        )
+        elapsed = int((time.monotonic() - start) * 1000)
+        emit_upgrade_telemetry(
+            metrics_path=metrics_path,
+            issue_number=issue_number,
+            seam=seam,
+            attempt_count=prior_attempts,
+            status="escalated",
+            upgrade_path=None,
+            wall_clock_ms=elapsed,
+            audit_failed=False,
+            escalation_failed=not escalated_ok,
+            llm_tokens_in=0,
+            llm_tokens_out=0,
+            failure_reasons=list(failure_context.missing_bounds),
+        )
+        return UpgradeResult(
+            status="escalated",
+            upgraded_spec=None,
+            audit_markdown="Budget exhausted or marker corrupted.",
+            attempt_count=prior_attempts,
+            upgrade_path=None,
+            failure_context=failure_context,
+            unresolved_questions=questions,
+        )
+
+    attempt = prior_attempts + 1
+    path_taken: UpgradePath = "deterministic"
+
+    # Tier 1 deterministic enrichment.
+    upgraded = _tier1_enrich(spec, failure_context, repo_root=repo_root)
+
+    # Tier 2 LLM fallback if Tier 1 was insufficient.
+    if upgraded is None and llm_client is not None:
+        try:
+            upgraded = _tier2_enrich(spec, failure_context, client=llm_client, repo_root=repo_root)
+            path_taken = "deterministic+llm"
+        except _LLMLogicFailure:
+            upgraded = None
+
+    elapsed = int((time.monotonic() - start) * 1000)
+
+    if upgraded is None:
+        questions = _derive_questions(failure_context)
+        summary = _summarise_failure(failure_context)
+        esc = Escalator(issue_number=issue_number)
+        escalated_ok = esc.escalate(
+            unresolved_questions=questions,
+            failure_context_summary=summary,
+        )
+        emit_upgrade_telemetry(
+            metrics_path=metrics_path,
+            issue_number=issue_number,
+            seam=seam,
+            attempt_count=attempt,
+            status="escalated",
+            upgrade_path=path_taken,
+            wall_clock_ms=elapsed,
+            audit_failed=False,
+            escalation_failed=not escalated_ok,
+            llm_tokens_in=0,
+            llm_tokens_out=0,
+            failure_reasons=list(failure_context.missing_bounds),
+        )
+        return UpgradeResult(
+            status="escalated",
+            upgraded_spec=None,
+            audit_markdown=_render_audit(attempt, path_taken, failure_context, escalated=True),
+            attempt_count=attempt,
+            upgrade_path=path_taken,
+            failure_context=failure_context,
+            unresolved_questions=questions,
+        )
+
+    audit_md = _render_audit(attempt, path_taken, failure_context, escalated=False)
+    audit_ok = audit.upsert(attempt=attempt, audit_markdown=audit_md)
+    emit_upgrade_telemetry(
+        metrics_path=metrics_path,
+        issue_number=issue_number,
+        seam=seam,
+        attempt_count=attempt,
+        status="upgraded",
+        upgrade_path=path_taken,
+        wall_clock_ms=elapsed,
+        audit_failed=not audit_ok,
+        escalation_failed=False,
+        llm_tokens_in=0,
+        llm_tokens_out=0,
+        failure_reasons=list(failure_context.missing_bounds),
+    )
+    return UpgradeResult(
+        status="upgraded",
+        upgraded_spec=upgraded,
+        audit_markdown=audit_md,
+        attempt_count=attempt,
+        upgrade_path=path_taken,
+        failure_context=failure_context,
+        unresolved_questions=[],
+    )

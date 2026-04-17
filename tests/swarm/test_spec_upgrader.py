@@ -542,3 +542,100 @@ def test_emit_upgrade_telemetry_appends(tmp_path):
     recs = [json.loads(lin) for lin in lines]
     assert recs[0]["issue_number"] == 1
     assert recs[1]["issue_number"] == 2
+
+
+from aragora.swarm.spec_upgrader import MAX_ATTEMPTS, upgrade_spec
+
+
+def test_upgrade_spec_tier1_success(tmp_path, monkeypatch):
+    (tmp_path / "aragora" / "swarm").mkdir(parents=True)
+    (tmp_path / "aragora" / "swarm" / "boss_loop.py").write_text("")
+    metrics = tmp_path / "boss_metrics.jsonl"
+
+    spec = _make_unbounded_spec()
+    ctx = UpgradeFailureContext(
+        missing_bounds=["acceptance criterion", "file-scope hint"],
+        preflight_diff=None,
+        prior_attempts=0,
+        original_issue_body="Fix `aragora/swarm/boss_loop.py` behaviour.",
+        issue_title="[TW-02] Fix boss loop",
+        track_tag="TW-02",
+    )
+
+    with patch("aragora.swarm.spec_upgrader.AuditPersistence") as AP:
+        AP.return_value.read_attempt_count.return_value = (0, True)
+        AP.return_value.upsert.return_value = True
+        result = upgrade_spec(
+            spec,
+            ctx,
+            issue_number=5898,
+            seam="A",
+            repo_root=Path(tmp_path),
+            metrics_path=metrics,
+            llm_client=None,
+        )
+
+    assert result.status == "upgraded"
+    assert result.attempt_count == 1
+    assert result.upgrade_path == "deterministic"
+    assert metrics.exists()
+
+
+def test_upgrade_spec_escalates_on_max_attempts(tmp_path):
+    spec = _make_unbounded_spec()
+    ctx = UpgradeFailureContext(
+        missing_bounds=["acceptance criterion"],
+        preflight_diff=None,
+        prior_attempts=0,
+        original_issue_body="",
+        issue_title="[CS-01] stuck",
+        track_tag="CS-01",
+    )
+    metrics = tmp_path / "boss_metrics.jsonl"
+
+    with (
+        patch("aragora.swarm.spec_upgrader.AuditPersistence") as AP,
+        patch("aragora.swarm.spec_upgrader.Escalator") as ESC,
+    ):
+        AP.return_value.read_attempt_count.return_value = (MAX_ATTEMPTS, True)
+        ESC.return_value.escalate.return_value = True
+        result = upgrade_spec(
+            spec,
+            ctx,
+            issue_number=5903,
+            seam="A",
+            repo_root=Path(tmp_path),
+            metrics_path=metrics,
+            llm_client=None,
+        )
+
+    assert result.status == "escalated"
+    ESC.return_value.escalate.assert_called_once()
+
+
+def test_upgrade_spec_llm_unavailable_bubbles(tmp_path):
+    spec = _make_unbounded_spec()
+    ctx = UpgradeFailureContext(
+        missing_bounds=["acceptance criterion"],
+        preflight_diff=None,
+        prior_attempts=0,
+        original_issue_body="ambiguous",
+        issue_title="[CS-01] x",
+        track_tag="CS-01",
+    )
+    metrics = tmp_path / "boss_metrics.jsonl"
+    mock_client = MagicMock()
+    mock_client.complete.side_effect = ConnectionError("timeout")
+
+    with patch("aragora.swarm.spec_upgrader.AuditPersistence") as AP:
+        AP.return_value.read_attempt_count.return_value = (0, True)
+        with pytest.raises(SpecUpgraderUnavailable):
+            upgrade_spec(
+                spec,
+                ctx,
+                issue_number=5903,
+                seam="A",
+                repo_root=Path(tmp_path),
+                metrics_path=metrics,
+                llm_client=mock_client,
+            )
