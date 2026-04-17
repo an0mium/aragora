@@ -162324,7 +162324,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         anchors?: Record<string, never>[];
-                        count?: number;
+                        total?: number;
+                        limit?: number;
                     };
                 };
             };

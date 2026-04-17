@@ -714,7 +714,8 @@ _RECEIPT_ENDPOINTS = {
                     "Recently anchored receipts",
                     {
                         "anchors": {"type": "array", "items": {"type": "object"}},
-                        "count": {"type": "integer"},
+                        "total": {"type": "integer"},
+                        "limit": {"type": "integer"},
                     },
                 ),
                 "401": STANDARD_ERRORS["401"],

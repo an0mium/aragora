@@ -51,13 +51,14 @@ describe('ReceiptsAPI Namespace', () => {
   });
 
   it('lists recent receipt anchors', async () => {
-    mockClient.request.mockResolvedValue({ anchors: [], count: 0 });
+    mockClient.request.mockResolvedValue({ anchors: [], total: 0, limit: 7 });
 
-    await api.listRecentAnchors({ limit: 7 });
+    const response = await api.listRecentAnchors({ limit: 7 });
 
     expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/receipts/recent-anchors', {
       params: { limit: 7 },
     });
+    expect(response).toEqual({ anchors: [], total: 0, limit: 7 });
   });
 
   it('gets receipt anchor status', async () => {

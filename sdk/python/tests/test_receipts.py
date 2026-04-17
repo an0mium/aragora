@@ -182,16 +182,17 @@ class TestReceiptsDeliveryBridge:
     def test_list_recent_anchors(self) -> None:
         """List recently anchored receipts."""
         with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"anchors": [], "count": 0}
+            mock_request.return_value = {"anchors": [], "total": 0, "limit": 7}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
-            client.receipts.list_recent_anchors(limit=7)
+            response = client.receipts.list_recent_anchors(limit=7)
 
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/receipts/recent-anchors",
                 params={"limit": 7},
             )
+            assert response == {"anchors": [], "total": 0, "limit": 7}
             client.close()
 
     def test_get_anchor_status_encodes_receipt_id(self) -> None:

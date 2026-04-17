@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import json
+
+from aragora.blockchain.receipt_anchor import ReceiptAnchor
 from aragora.server.handlers import ALL_HANDLERS
 from aragora.server.handlers.gauntlet import GauntletHandler
+from aragora.server.handlers.gauntlet.receipts import GauntletReceiptsMixin
 from aragora.server.handlers.receipts import ReceiptsHandler
 from aragora.server.openapi import generate_openapi_schema
 
@@ -34,3 +38,21 @@ def test_receipt_delivery_anchor_routes_match_handler_methods() -> None:
     assert set(paths["/api/v1/receipts/deliveries"]) & {"get"} == {"get"}
     assert set(paths["/api/v1/receipts/recent-anchors"]) & {"get"} == {"get"}
     assert set(paths["/api/v1/receipts/{receipt_id}/anchor-status"]) & {"get"} == {"get"}
+
+
+def test_recent_anchor_response_contract_matches_handler_fields() -> None:
+    schema = generate_openapi_schema()["paths"]["/api/v1/receipts/recent-anchors"]["get"][
+        "responses"
+    ]["200"]["content"]["application/json"]["schema"]
+    properties = schema["properties"]
+
+    mixin = GauntletReceiptsMixin.__new__(GauntletReceiptsMixin)
+    mixin._receipt_anchor = ReceiptAnchor()
+    result = GauntletReceiptsMixin._get_recent_anchors.__wrapped__(mixin, {"limit": "7"})
+    body = json.loads(result.body)
+
+    assert result.status_code == 200
+    assert {"anchors", "total", "limit"} <= set(properties)
+    assert "count" not in properties
+    assert {"anchors", "total", "limit"} <= set(body)
+    assert body["limit"] == 7

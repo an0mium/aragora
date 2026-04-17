@@ -111395,7 +111395,9 @@ paths:
                     type: array
                     items:
                       type: object
-                  count:
+                  total:
+                    type: integer
+                  limit:
                     type: integer
         '401':
           $ref: '#/components/responses/UnauthorizedError'

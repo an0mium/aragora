@@ -198820,7 +198820,10 @@
                         "type": "object"
                       }
                     },
-                    "count": {
+                    "total": {
+                      "type": "integer"
+                    },
+                    "limit": {
                       "type": "integer"
                     }
                   }
