@@ -173,11 +173,14 @@ def expected_issue_linkage_actions(rows: list[dict[str, Any]]) -> list[dict[str,
         target = str(row.get("target") or "").strip()
         url = str(row.get("url") or "").strip()
         error = str(row.get("error") or "").strip()
+        rendered_target = ""
+        if not error:
+            rendered_target = target if url else (target or "n/a")
         expected.append(
             {
                 "action": str(row.get("action") or "").strip(),
                 "class": str(row.get("class") or "").strip(),
-                "target": target if (url or target or not error) else "",
+                "target": rendered_target,
                 "url": url,
                 "error": error,
             }
