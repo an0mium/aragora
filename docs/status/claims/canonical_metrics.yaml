@@ -1,0 +1,97 @@
+schema_version: 1
+manifest_id: canonical_metrics
+description: >
+  Executable claims about the headline canonical metrics stated in
+  docs/CANONICAL_GOALS.md. Each claim is verified by a small repo-local
+  script that recomputes the value from the actual code/tests and compares
+  against what the doc claims. This manifest dogfoods the DIC-14 ClaimVerifier
+  doctrine on the project's own truth-surface, per TCP-1 in
+  docs/plans/2026-04-17-trust-compound-plan.md.
+
+  First-class goal: drift between a claim in docs and its actual value in code
+  is a CI failure, not a footnote discovered months later by a cold reviewer.
+claims:
+  - claim_id: canonical.km_adapters.count
+    statement: "CANONICAL_GOALS.md's stated Knowledge Mound adapter count matches the live registry."
+    owner: trust-compound-plan
+    scope: repo
+    confidence: high
+    evidence:
+      - path: docs/CANONICAL_GOALS.md
+      - path: aragora/knowledge/mound/adapters/
+      - path: scripts/doc_stats.py
+    freshness_sla_hours: 24
+    verification:
+      kind: command
+      command: "python3 scripts/check_canonical_metrics.py --claim canonical.km_adapters.count"
+      expected_result: "exit 0 with JSON {status: pass} when the doc claim matches the live count"
+    failure:
+      severity: warning
+      allowed_action: report_only
+      repair_note: "Either update CANONICAL_GOALS.md to match the live count, or fix the adapter registration path if adapters are missing."
+    receipts:
+      - type: canonical_metrics_check
+        path: docs/status/generated/canonical_metrics/latest.json
+
+  - claim_id: canonical.python_modules.count
+    statement: "CANONICAL_GOALS.md's stated Python-module count is within tolerance of the live file count under aragora/."
+    owner: trust-compound-plan
+    scope: repo
+    confidence: medium
+    evidence:
+      - path: docs/CANONICAL_GOALS.md
+      - path: aragora/
+    freshness_sla_hours: 168
+    verification:
+      kind: command
+      command: "python3 scripts/check_canonical_metrics.py --claim canonical.python_modules.count"
+      expected_result: "exit 0 when the claimed count is within the configured tolerance of the live count"
+    failure:
+      severity: info
+      allowed_action: report_only
+      repair_note: "Module count grows naturally. Refresh CANONICAL_GOALS.md when drift exceeds 10%."
+    receipts:
+      - type: canonical_metrics_check
+        path: docs/status/generated/canonical_metrics/latest.json
+
+  - claim_id: canonical.test_definitions.count
+    statement: "CANONICAL_GOALS.md's stated test-definition count is within tolerance of `grep -c 'def test_'` across tests/."
+    owner: trust-compound-plan
+    scope: repo
+    confidence: medium
+    evidence:
+      - path: docs/CANONICAL_GOALS.md
+      - path: tests/
+    freshness_sla_hours: 168
+    verification:
+      kind: command
+      command: "python3 scripts/check_canonical_metrics.py --claim canonical.test_definitions.count"
+      expected_result: "exit 0 when the claimed count is within tolerance of the live count"
+    failure:
+      severity: info
+      allowed_action: report_only
+      repair_note: "Test count grows naturally. Refresh CANONICAL_GOALS.md when drift exceeds 10%."
+    receipts:
+      - type: canonical_metrics_check
+        path: docs/status/generated/canonical_metrics/latest.json
+
+  - claim_id: canonical.version.matches_pyproject
+    statement: "CANONICAL_GOALS.md's stated version matches the version in pyproject.toml."
+    owner: trust-compound-plan
+    scope: repo
+    confidence: high
+    evidence:
+      - path: docs/CANONICAL_GOALS.md
+      - path: pyproject.toml
+    freshness_sla_hours: 24
+    verification:
+      kind: command
+      command: "python3 scripts/check_canonical_metrics.py --claim canonical.version.matches_pyproject"
+      expected_result: "exit 0 when the two strings match exactly"
+    failure:
+      severity: blocking
+      allowed_action: report_only
+      repair_note: "Version drift between docs and pyproject is a release-readiness bug. Fix immediately."
+    receipts:
+      - type: canonical_metrics_check
+        path: docs/status/generated/canonical_metrics/latest.json
