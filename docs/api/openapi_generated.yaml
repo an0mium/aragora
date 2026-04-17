@@ -1854,6 +1854,174 @@ paths:
       - bearerAuth: []
       deprecated: true
       x-aragora-stability: deprecated
+  /api/admin/system-health:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health overview
+      operationId: adminGetSystemHealthOverviewLegacy
+      description: Returns the aggregated admin system-health overview.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      x-aragora-stability: deprecated
+  /api/admin/system-health/adapters:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health adapters
+      operationId: adminGetSystemHealthAdaptersLegacy
+      description: Returns adapter health for admin system-health views.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      x-aragora-stability: deprecated
+  /api/admin/system-health/agents:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health agents
+      operationId: adminGetSystemHealthAgentsLegacy
+      description: Returns agent-pool health for admin system-health views.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      x-aragora-stability: deprecated
+  /api/admin/system-health/budget:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health budget
+      operationId: adminGetSystemHealthBudgetLegacy
+      description: Returns budget health for admin system-health views.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      x-aragora-stability: deprecated
+  /api/admin/system-health/circuit-breakers:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health circuit breakers
+      operationId: adminGetSystemHealthCircuitBreakersLegacy
+      description: Returns circuit-breaker health for admin system-health views.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      x-aragora-stability: deprecated
+  /api/admin/system-health/slos:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health SLOs
+      operationId: adminGetSystemHealthSlosLegacy
+      description: Returns SLO compliance health for admin system-health views.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      deprecated: true
+      x-preserve-legacy-operation-id: true
+      x-aragora-stability: deprecated
   /api/agent/compare:
     get:
       tags:
@@ -34226,6 +34394,162 @@ paths:
       security:
       - bearerAuth: []
       x-aragora-stability: stable
+  /api/v1/admin/system-health:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health overview
+      operationId: adminGetSystemHealthOverview
+      description: Returns the aggregated admin system-health overview.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      x-aragora-stability: experimental
+  /api/v1/admin/system-health/adapters:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health adapters
+      operationId: adminGetSystemHealthAdapters
+      description: Returns adapter health for admin system-health views.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      x-aragora-stability: experimental
+  /api/v1/admin/system-health/agents:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health agents
+      operationId: adminGetSystemHealthAgents
+      description: Returns agent-pool health for admin system-health views.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      x-aragora-stability: experimental
+  /api/v1/admin/system-health/budget:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health budget
+      operationId: adminGetSystemHealthBudget
+      description: Returns budget health for admin system-health views.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      x-aragora-stability: experimental
+  /api/v1/admin/system-health/circuit-breakers:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health circuit breakers
+      operationId: adminGetSystemHealthCircuitBreakers
+      description: Returns circuit-breaker health for admin system-health views.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      x-aragora-stability: experimental
+  /api/v1/admin/system-health/slos:
+    get:
+      tags:
+      - Admin
+      - System
+      summary: Get admin system health SLOs
+      operationId: adminGetSystemHealthSlos
+      description: Returns SLO compliance health for admin system-health views.
+      responses:
+        '200':
+          description: System health payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin privileges required
+      security:
+      - bearerAuth: []
+      x-aragora-stability: experimental
   /api/v1/admin/system/metrics:
     get:
       tags:
