@@ -35,6 +35,59 @@ class Stats:
     agent_types_allowlisted: int
 
 
+@dataclass(frozen=True)
+class CanonicalMetric:
+    value: int
+    has_plus: bool
+
+
+def _canonical_metrics() -> dict[str, CanonicalMetric]:
+    """Read public baseline metric floors from the canonical goals table."""
+    path = ROOT / "docs" / "CANONICAL_GOALS.md"
+    if not path.exists():
+        return {}
+
+    key_for = {
+        "python modules": "modules",
+        "automated tests": "tests",
+        "api operations": "api_operations",
+        "knowledge mound adapters": "adapters",
+        "agent types": "agent_types",
+    }
+    metrics: dict[str, CanonicalMetric] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip().strip("*") for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        key = key_for.get(cells[0].lower())
+        if not key:
+            continue
+        num = re.search(r"\d+(?:,\d+)*", cells[1])
+        if not num:
+            continue
+        first_token = cells[1].split()[0] if cells[1].split() else ""
+        metrics[key] = CanonicalMetric(
+            value=int(num.group(0).replace(",", "")),
+            has_plus="+" in first_token,
+        )
+    return metrics
+
+
+def _canonical_count(canonical: dict[str, CanonicalMetric], key: str, measured: str) -> str:
+    metric = canonical.get(key)
+    if not metric:
+        return measured
+    suffix = "+" if metric.has_plus else ""
+    return f"{metric.value:,}{suffix}"
+
+
+def _canonical_int(canonical: dict[str, CanonicalMetric], key: str, measured: int) -> int:
+    metric = canonical.get(key)
+    return metric.value if metric else measured
+
+
 def _run_rg_count(pattern: str, globs: Iterable[str], exclude_globs: Iterable[str]) -> int:
     cmd = ["rg", pattern]
     for glob in globs:
@@ -200,66 +253,74 @@ def _apply_patterns(
 
 
 def patch_docs(stats: Stats, write: bool) -> int:
-    modules_approx = _approx(stats.python_modules, 1000)
-    tests_approx = _approx(stats.test_count, 1000)
+    canonical = _canonical_metrics()
+    modules_approx = _canonical_count(canonical, "modules", _approx(stats.python_modules, 1000))
+    tests_approx = _canonical_count(canonical, "tests", _approx(stats.test_count, 1000))
     test_files_approx = _approx(stats.test_files, 1000)
-    api_ops_approx = _approx(stats.api_operations, 1000)
+    api_ops_approx = _canonical_count(
+        canonical, "api_operations", _approx(stats.api_operations, 1000)
+    )
     api_paths_approx = _approx(stats.api_paths, 100)
     ws_events_approx = _approx(stats.ws_event_types, 10)
     templates_approx = _approx(stats.workflow_templates, 10)
-    agent_types_approx = _approx(stats.agent_types_allowlisted, 10)
+    agent_types_approx = _canonical_count(
+        canonical,
+        "agent_types",
+        _approx(stats.agent_types_allowlisted, 10),
+    )
+    km_adapters_registered = _canonical_int(canonical, "adapters", stats.km_adapters_registered)
 
     replacements = {
         "README.md": [
             (
-                r"orchestrates\s+\d[\d,]*\+\s+agent types",
+                r"orchestrates\s+\d[\d,]*(?:\+)?\s+agent types",
                 f"orchestrates {agent_types_approx} agent types",
                 0,
             ),
             (
                 r"Knowledge Mound with\s+\d+\s+registered adapters",
-                f"Knowledge Mound with {stats.km_adapters_registered} registered adapters",
+                f"Knowledge Mound with {km_adapters_registered} registered adapters",
                 0,
             ),
-            (r"\d[\d,]*\+\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\d[\d,]*\+\s+paths", f"{api_paths_approx} paths", 0),
+            (r"\d[\d,]*(?:\+)?\s+API operations", f"{api_ops_approx} API operations", 0),
+            (r"\d[\d,]*(?:\+)?\s+paths", f"{api_paths_approx} paths", 0),
             (
-                r"\d[\d,]*\+\s+WebSocket event types",
+                r"\d[\d,]*(?:\+)?\s+WebSocket event types",
                 f"{ws_events_approx} WebSocket event types",
                 0,
             ),
-            (r"\d[\d,]*\+\s+templates", f"{templates_approx} templates", 0),
-            (r"\d[\d,]*\+\s+Python modules", f"{modules_approx} Python modules", 0),
-            (r"\d[\d,]*\+\s+tests", f"{tests_approx} tests", 0),
+            (r"\d[\d,]*(?:\+)?\s+templates", f"{templates_approx} templates", 0),
+            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
+            (r"\d[\d,]*(?:\+)?\s+tests", f"{tests_approx} tests", 0),
             (r"\(\d[\d,]*\s+namespaces\)", f"({stats.ts_namespaces} namespaces)", 0),
         ],
         "docs/EXTENDED_README.md": [
             (
-                r"AGENT LAYER \(\d[\d,]*\+\s+Agent Types\)",
+                r"AGENT LAYER \(\d[\d,]*(?:\+)?\s+Agent Types\)",
                 f"AGENT LAYER ({agent_types_approx} Agent Types)",
                 0,
             ),
-            (r"\d[\d,]*\+\s+agent types", f"{agent_types_approx} agent types", 0),
+            (r"\d[\d,]*(?:\+)?\s+agent types", f"{agent_types_approx} agent types", 0),
             (
                 r"\d+\s+registered adapters",
-                f"{stats.km_adapters_registered} registered adapters",
+                f"{km_adapters_registered} registered adapters",
                 0,
             ),
-            (r"\d[\d,]*\+\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\d[\d,]*\+\s+paths", f"{api_paths_approx} paths", 0),
+            (r"\d[\d,]*(?:\+)?\s+API operations", f"{api_ops_approx} API operations", 0),
+            (r"\d[\d,]*(?:\+)?\s+paths", f"{api_paths_approx} paths", 0),
             (
-                r"\d[\d,]*\+\s+WebSocket event types",
+                r"\d[\d,]*(?:\+)?\s+WebSocket event types",
                 f"{ws_events_approx} WebSocket event types",
                 0,
             ),
-            (r"\d[\d,]*\+\s+templates", f"{templates_approx} templates", 0),
-            (r"\d[\d,]*\+\s+Python modules", f"{modules_approx} Python modules", 0),
+            (r"\d[\d,]*(?:\+)?\s+templates", f"{templates_approx} templates", 0),
+            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
             (
-                r"(\*\*Scale:\*\*[^\n]*?)\d[\d,]*\+\s+tests",
+                r"(\*\*Scale:\*\*[^\n]*?)\d[\d,]*(?:\+)?\s+tests",
                 lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
                 0,
             ),
-            (r"\d[\d,]*\+\s+test files", f"{test_files_approx} test files", 0),
+            (r"\d[\d,]*(?:\+)?\s+test files", f"{test_files_approx} test files", 0),
             (
                 r"\d[\d,]*\s+TypeScript SDK namespaces",
                 f"{stats.ts_namespaces} TypeScript SDK namespaces",
@@ -268,35 +329,39 @@ def patch_docs(stats: Stats, write: bool) -> int:
         ],
         "docs/COMMERCIAL_OVERVIEW.md": [
             (
-                r"orchestrating\s+\d[\d,]*\+\s+agent types",
+                r"orchestrating\s+\d[\d,]*(?:\+)?\s+agent types",
                 f"orchestrating {agent_types_approx} agent types",
                 0,
             ),
             (
                 r"\d+\s+registered adapters",
-                f"{stats.km_adapters_registered} registered adapters",
+                f"{km_adapters_registered} registered adapters",
                 0,
             ),
-            (r"\d[\d,]*\+\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\d[\d,]*\+\s+agent types", f"{agent_types_approx} agent types", 0),
+            (r"\d[\d,]*(?:\+)?\s+API operations", f"{api_ops_approx} API operations", 0),
+            (r"\d[\d,]*(?:\+)?\s+agent types", f"{agent_types_approx} agent types", 0),
         ],
         "docs/FEATURE_DISCOVERY.md": [
-            (r"\d[\d,]*\+\s+Python modules", f"{modules_approx} Python modules", 0),
+            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
             (
-                r"(\*\*Total\*\*:[^\n]*?)\d[\d,]*\+\s+tests",
+                r"(\*\*Total\*\*:[^\n]*?)\d[\d,]*(?:\+)?\s+tests",
                 lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
                 0,
             ),
-            (r"\d[\d,]*\+\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\d[\d,]*\+\s+pre-built templates", f"{templates_approx} pre-built templates", 0),
+            (r"\d[\d,]*(?:\+)?\s+API operations", f"{api_ops_approx} API operations", 0),
             (
-                r"Supported Providers \(\d[\d,]*\+\s+agent types\)",
+                r"\d[\d,]*(?:\+)?\s+pre-built templates",
+                f"{templates_approx} pre-built templates",
+                0,
+            ),
+            (
+                r"Supported Providers \(\d[\d,]*(?:\+)?\s+agent types\)",
                 f"Supported Providers ({agent_types_approx} agent types)",
                 0,
             ),
         ],
         "docs/FEATURE_PARITY_MATRIX.md": [
-            (r"\d[\d,]*\+\s+operations", f"{api_ops_approx} operations", 0),
+            (r"\d[\d,]*(?:\+)?\s+operations", f"{api_ops_approx} operations", 0),
         ],
         "docs/WEBSOCKET_EVENTS.md": [
             (r"\(\d+ event types", f"({stats.ws_event_types} event types", 0),
@@ -304,54 +369,54 @@ def patch_docs(stats: Stats, write: bool) -> int:
         "docs/KNOWLEDGE_MOUND.md": [
             (
                 r"\d+\s+registered adapters",
-                f"{stats.km_adapters_registered} registered adapters",
+                f"{km_adapters_registered} registered adapters",
                 0,
             ),
         ],
         "docs/DOCUMENTATION_HUB.md": [
             (
                 r"\d+\s+registered adapters",
-                f"{stats.km_adapters_registered} registered adapters",
+                f"{km_adapters_registered} registered adapters",
                 0,
             ),
         ],
         "CLAUDE.md": [
-            (r"\d[\d,]*\+\s+Python modules", f"{modules_approx} Python modules", 0),
+            (r"\d[\d,]*(?:\+)?\s+Python modules", f"{modules_approx} Python modules", 0),
             (
-                r"(\*\*Codebase Scale:\*\*[^\n]*?)\d[\d,]*\+\s+tests",
+                r"(\*\*Codebase Scale:\*\*[^\n]*?)\d[\d,]*(?:\+)?\s+tests",
                 lambda m, value=tests_approx: f"{m.group(1)}{value} tests",
                 0,
             ),
             (
-                r"(\*\*Codebase Scale:\*\*[^\n]*?)\d[\d,]*\+\s+test files",
+                r"(\*\*Codebase Scale:\*\*[^\n]*?)\d[\d,]*(?:\+)?\s+test files",
                 lambda m, value=test_files_approx: f"{m.group(1)}{value} test files",
                 0,
             ),
             (
-                r"\*\*Test Suite:\*\*\s*\d[\d,]*\+\s+tests\s+across\s+\d[\d,]*\+\s+test files",
+                r"\*\*Test Suite:\*\*\s*\d[\d,]*(?:\+)?\s+tests\s+across\s+\d[\d,]*(?:\+)?\s+test files",
                 f"**Test Suite:** {tests_approx} tests across {test_files_approx} test files",
                 0,
             ),
-            (r"\d[\d,]*\+\s+API operations", f"{api_ops_approx} API operations", 0),
-            (r"\d[\d,]*\+\s+paths", f"{api_paths_approx} paths", 0),
-            (r"\d+\s+KM adapters", f"{stats.km_adapters_registered} KM adapters", 0),
+            (r"\d[\d,]*(?:\+)?\s+API operations", f"{api_ops_approx} API operations", 0),
+            (r"\d[\d,]*(?:\+)?\s+paths", f"{api_paths_approx} paths", 0),
+            (r"\d+\s+KM adapters", f"{km_adapters_registered} KM adapters", 0),
             (r"\d[\d,]*\s+SDK namespaces", f"{stats.ts_namespaces} SDK namespaces", 0),
         ],
         "docs/architecture/system-overview.md": [
             (
-                r"Agents Layer \(\d[\d,]*\+\s+Agent Types\)",
+                r"Agents Layer \(\d[\d,]*(?:\+)?\s+Agent Types\)",
                 f"Agents Layer ({agent_types_approx} Agent Types)",
                 0,
             ),
             (
-                r"\d[\d,]*\+\s+agent-type integrations",
+                r"\d[\d,]*(?:\+)?\s+agent-type integrations",
                 f"{agent_types_approx} agent-type integrations",
                 0,
             ),
         ],
         "docs/landing/hero.md": [
             (
-                r"\*\*\d[\d,]*\+\s+agent types\*\*",
+                r"\*\*\d[\d,]*(?:\+)?\s+agent types\*\*",
                 f"**{agent_types_approx} agent types**",
                 0,
             ),

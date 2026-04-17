@@ -1,0 +1,188 @@
+"""CLI verb for the crux-finder debate mode (Crux A3 / #6039).
+
+Thin wrapper around the A1 consensus mode + A2 receipt export:
+
+    aragora crux "Should we adopt X?"
+
+runs a debate with ``consensus="crux_finder"`` and prints the signed
+crux map as markdown (or JSON). Optional flags control the top-k /
+min-score thresholds, the agent roster, the output format, and writing
+the receipt to disk.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import logging
+import sys
+from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_AGENTS = ("claude", "codex")
+DEFAULT_ROUNDS = 3
+
+
+async def _run_crux_debate(
+    question: str,
+    *,
+    agents: list[str],
+    rounds: int,
+    top_k: int,
+    min_score: float,
+    counterfactual_validation: bool,
+) -> Any:
+    """Run a crux-finder debate and return the Arena ``DebateResult``."""
+    from aragora import Arena, Environment
+    from aragora.agents import get_default_agents
+    from aragora.debate.protocol import DebateProtocol
+
+    protocol = DebateProtocol(
+        rounds=rounds,
+        consensus="crux_finder",
+        crux_finder_top_k=top_k,
+        crux_finder_min_score=min_score,
+        crux_finder_counterfactual_validation=counterfactual_validation,
+        use_structured_phases=False,
+    )
+
+    resolved_agents = get_default_agents(agent_names=agents) if agents else get_default_agents()
+
+    env = Environment(task=question)
+    arena = Arena(env, resolved_agents, protocol)
+    return await arena.run()
+
+
+def _receipt_from_debate_result(
+    result: Any,
+    *,
+    question: str,
+    agents: list[str],
+    rounds: int,
+) -> Any:
+    """Build a ``CruxReceipt`` from a crux-finder debate result.
+
+    Raises RuntimeError if the result does not carry a crux-finder proof
+    (debate did not run in crux-finder mode, or the belief-analysis phase
+    was not populated).
+    """
+    from aragora.gauntlet.receipt import build_crux_receipt_from_proof
+
+    proof = getattr(result, "consensus_proof", None)
+    if proof is None:
+        raise RuntimeError(
+            "Debate returned no consensus_proof — crux-finder mode did not run "
+            "to completion. Inspect debate logs for the underlying failure."
+        )
+
+    raw_claims = list(getattr(result, "proposals", {}).values()) if result else []
+    # Wrap raw text proposals as dicts so the provenance hash is stable.
+    raw_claim_records: list[dict[str, Any]] = []
+    for index, content in enumerate(raw_claims):
+        raw_claim_records.append({"index": index, "content": str(content)})
+
+    return build_crux_receipt_from_proof(
+        proof,
+        question=question,
+        agents=agents,
+        rounds=rounds,
+        raw_claims=raw_claim_records,
+    )
+
+
+def _render_receipt(receipt: Any, *, output_format: str) -> str:
+    if output_format == "json":
+        return json.dumps(receipt.to_dict(), indent=2, sort_keys=True)
+    from aragora.gauntlet.receipt import crux_receipt_to_markdown
+
+    return crux_receipt_to_markdown(receipt)
+
+
+def _save_receipt_artifact(receipt: Any, path: str) -> Path:
+    """Write the raw receipt (always JSON) to disk for audit."""
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(receipt.to_dict(), indent=2, sort_keys=True) + "\n")
+    return target
+
+
+def _save_rendered_output(content: str, path: str) -> Path:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    suffix = "" if content.endswith("\n") else "\n"
+    target.write_text(content + suffix)
+    return target
+
+
+def _parse_agents(raw: str | None) -> list[str]:
+    if not raw:
+        return list(DEFAULT_AGENTS)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def cmd_crux(args: argparse.Namespace) -> None:
+    """Handle the `aragora crux` subcommand."""
+    question = getattr(args, "question", None)
+    if not question or not str(question).strip():
+        print("Usage: aragora crux 'your question here'", file=sys.stderr)
+        sys.exit(1)
+
+    agents = _parse_agents(getattr(args, "agents", None))
+    rounds = int(getattr(args, "rounds", DEFAULT_ROUNDS) or DEFAULT_ROUNDS)
+    top_k = int(getattr(args, "top_k", 5) or 5)
+    min_score = float(getattr(args, "min_score", 0.3) or 0.3)
+    counterfactual_validation = not bool(getattr(args, "no_counterfactuals", False))
+    output_format = getattr(args, "format", "markdown") or "markdown"
+    dry_run = bool(getattr(args, "dry_run", False))
+
+    if dry_run:
+        print(
+            "[dry-run] aragora crux: would run a crux-finder debate with "
+            f"agents={agents}, rounds={rounds}, top_k={top_k}, "
+            f"min_score={min_score}, counterfactuals="
+            f"{'on' if counterfactual_validation else 'off'} — "
+            "then emit a signed CruxReceipt."
+        )
+        return
+
+    try:
+        result = asyncio.run(
+            _run_crux_debate(
+                question,
+                agents=agents,
+                rounds=rounds,
+                top_k=top_k,
+                min_score=min_score,
+                counterfactual_validation=counterfactual_validation,
+            )
+        )
+    except RuntimeError as exc:
+        print(f"crux: debate failed: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        receipt = _receipt_from_debate_result(
+            result,
+            question=question,
+            agents=agents,
+            rounds=rounds,
+        )
+    except (RuntimeError, ValueError) as exc:
+        print(f"crux: could not build receipt: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    rendered = _render_receipt(receipt, output_format=output_format)
+    print(rendered)
+
+    receipt_path = getattr(args, "receipt", None)
+    if receipt_path:
+        saved = _save_receipt_artifact(receipt, receipt_path)
+        print(f"\nReceipt saved to: {saved}", file=sys.stderr)
+
+    output_path = getattr(args, "output", None)
+    if output_path:
+        saved = _save_rendered_output(rendered, output_path)
+        print(f"Rendered output saved to: {saved}", file=sys.stderr)

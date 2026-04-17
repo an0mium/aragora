@@ -266,6 +266,9 @@ class TestCanHandle:
         assert handler.can_handle("/api/auth/mfa/verify")
         assert handler.can_handle("/api/auth/mfa/backup-codes")
         assert handler.can_handle("/api/auth/mfa")
+        assert handler.can_handle("/api/admin/mfa/compliance")
+        assert handler.can_handle("/api/v1/admin/mfa/compliance")
+        assert not handler.can_handle("/api/v1/admin/mfa-compliance")
 
     def test_password_routes(self, handler):
         assert handler.can_handle("/api/auth/password")
@@ -1009,6 +1012,13 @@ class TestMFA:
         http = MockHTTPHandler(method="POST")
         _run(handler.handle("/api/auth/mfa/backup-codes", {}, http, "POST"))
         mock_fn.assert_called_once()
+
+    @patch("aragora.server.handlers.auth.handler.handle_mfa_compliance")
+    def test_mfa_compliance_versioned(self, mock_fn, handler):
+        mock_fn.return_value = MagicMock(status_code=200, body=b"{}")
+        http = MockHTTPHandler(method="GET")
+        _run(handler.handle("/api/v1/admin/mfa/compliance", {}, http, "GET"))
+        mock_fn.assert_called_once_with(handler, http)
 
 
 # =========================================================================

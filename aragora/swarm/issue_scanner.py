@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from aragora.swarm.github_app_auth import github_cli_env
+from aragora.swarm.github_app_auth import gh_subprocess_run
 from aragora.swarm.outcome_learner import load_category_success_rates
 from aragora.swarm.terminal_truth import classify_from_metrics
 
@@ -114,12 +114,9 @@ def _fetch_issue_titles(
         )
         query = f'query {{ repository(owner: "{owner}", name: "{name}") {{\n{aliases}\n}} }}'
         try:
-            result = subprocess.run(
-                ["gh", "api", "graphql", "-f", f"query={query}"],
-                capture_output=True,
-                text=True,
+            result = gh_subprocess_run(
+                ["api", "graphql", "-f", f"query={query}"],
                 timeout=20,
-                env=github_cli_env(),
             )
         except (OSError, subprocess.TimeoutExpired):
             return {}

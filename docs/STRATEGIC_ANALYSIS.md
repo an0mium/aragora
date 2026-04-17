@@ -156,7 +156,7 @@ If individual AI models become so reliable that adversarial debate is unnecessar
 - *Who*: Organizations wanting AI-curated knowledge that's been adversarially validated
 - *Why Aragora*: Knowledge Mound + cross-debate learning + contradiction detection
 - *Competition*: Notion AI, Glean, Guru (but none do adversarial vetting)
-- *Moat*: 45 adapters, institutional memory accumulation, confidence decay
+- *Moat*: 42 adapters, institutional memory accumulation, confidence decay
 
 **E. Code Review / Decision Review Platform**
 - *Who*: Engineering teams wanting multi-model code review
@@ -378,7 +378,7 @@ git push -u origin reconcile/2026-02-12
 | ADRs | 16 (high quality, consistent format) |
 | Code-to-docs ratio | 1:0.13 |
 
-**Key finding**: Documentation is **honest but stale** — claims consistently *understate* the actual implementation rather than overstate it. As of March 2026: 3,790 Python modules, 45 KM adapters, 43 agent types, 360+ RBAC permissions, 5,000+ test files, 208,000+ tests. Stale counts have been systematically updated across all docs.
+**Key finding**: Documentation is **honest but stale** — claims consistently *understate* the actual implementation rather than overstate it. As of March 2026: 3,790 Python modules, 45 KM adapters, 43 agent types, 360+ RBAC permissions, 5,000+ test files, 210,000+ tests. Stale counts have been systematically updated across all docs.
 
 **Status**: Stale counts in CLAUDE.md, STATUS.md, and CAPABILITY_MATRIX.md have been updated to reflect current reality.
 

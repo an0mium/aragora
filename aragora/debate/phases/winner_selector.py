@@ -386,6 +386,37 @@ class WinnerSelector:
                 )
                 logger.info("belief_cruxes_identified count=%s", len(analysis.cruxes))
 
+                # AGT-01: optionally emit a signed CruxSet alongside the legacy
+                # `cruxes` list. Dormant unless ARAGORA_CRUXSET_EMISSION_ENABLED
+                # is set; the emitter swallows its own errors so a CruxSet
+                # build failure cannot crash the debate.
+                try:
+                    from aragora.reasoning.cruxset_emission import maybe_emit_cruxset
+
+                    question_text = ""
+                    debate_id = ""
+                    env = getattr(ctx, "env", None)
+                    if env is not None:
+                        question_text = str(getattr(env, "task", "") or "")
+                    debate_id = str(getattr(ctx, "debate_id", "") or "")
+
+                    if question_text:
+                        cruxset = maybe_emit_cruxset(
+                            question=question_text,
+                            analysis_payload=analysis.to_dict(),
+                            decision=str(getattr(result, "winner", "") or "") or None,
+                            provenance={"debate_id": debate_id} if debate_id else None,
+                        )
+                        if cruxset is not None:
+                            setattr(result, "cruxset", cruxset.to_json())
+                            logger.info(
+                                "cruxset_emitted cruxset_id=%s cruxes=%d",
+                                cruxset.cruxset_id,
+                                len(cruxset.cruxes),
+                            )
+                except (RuntimeError, AttributeError, ImportError, ValueError) as exc:  # noqa: BLE001
+                    logger.debug("CruxSet emission skipped: %s", exc)
+
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001
             logger.debug("Belief network analysis failed: %s", e)
 

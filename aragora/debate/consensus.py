@@ -1128,6 +1128,86 @@ def build_proof_from_prover_estimator(pe_result: Any) -> ConsensusProof:
     return proof
 
 
+def build_proof_from_crux_finder(result: Any) -> ConsensusProof:
+    """Build a ConsensusProof from a ``CruxFinderResult``.
+
+    Crux-finder runs are *not* verdicts: the deliverable is a ranked map of
+    load-bearing disagreements. The proof exists so downstream pipelines
+    (receipts, dashboards) see a ConsensusProof regardless of mode. Key
+    signals for consumers:
+
+    - ``final_claim`` is the ``CRUX_MAP_SENTINEL`` string — this is how a
+      caller detects "no verdict by design" and routes to the crux surface.
+    - ``consensus_reached`` is ``False`` — strictly honest about the lack
+      of a verdict.
+    - ``unresolved_tensions`` lists one tension per crux, so Arena and
+      downstream auditors can iterate the disagreements without parsing
+      the ``CruxFinderResult`` object directly.
+    - ``metadata["consensus_mode"] == "crux_finder"`` and
+      ``metadata["cruxes"]`` carries the serialized crux claims.
+    """
+    from aragora.debate.crux_mode import CRUX_MAP_SENTINEL, CruxFinderResult
+
+    if not isinstance(result, CruxFinderResult):  # pragma: no cover - defensive
+        raise TypeError(
+            f"build_proof_from_crux_finder expects a CruxFinderResult, got {type(result).__name__}"
+        )
+
+    builder = ConsensusBuilder(debate_id=result.debate_id, task=result.question)
+
+    for crux in result.analysis.cruxes:
+        claim = builder.add_claim(
+            statement=crux.statement,
+            author=crux.author,
+            confidence=float(crux.uncertainty_score),
+        )
+        builder.record_tension(
+            description=(
+                f"Crux: {crux.statement} "
+                f"(score={crux.crux_score:.3f}, "
+                f"influence={crux.influence_score:.3f}, "
+                f"disagreement={crux.disagreement_score:.3f})"
+            ),
+            agents=list(crux.contesting_agents),
+            options=[
+                f"Accept: {crux.statement}",
+                f"Reject: {crux.statement}",
+            ],
+            impact=(
+                f"Resolving this crux reduces network uncertainty by {crux.resolution_impact:.3f}."
+            ),
+            followup=(
+                f"Gather decisive evidence for claim {claim.claim_id} "
+                "or route to a specialist debate."
+            ),
+        )
+
+    proof = builder.build(
+        final_claim=CRUX_MAP_SENTINEL,
+        confidence=0.0,
+        consensus_reached=False,
+        reasoning_summary=(
+            f"crux_finder: identified {len(result.analysis.cruxes)} load-bearing "
+            f"disagreement(s) with convergence_barrier="
+            f"{result.analysis.convergence_barrier:.3f}. No verdict by design; "
+            f"see CruxReceipt for the map."
+        ),
+        rounds=result.rounds,
+    )
+
+    proof.metadata["consensus_mode"] = "crux_finder"
+    proof.metadata["approach"] = "A"
+    proof.metadata["crux_count"] = len(result.analysis.cruxes)
+    proof.metadata["convergence_barrier"] = round(result.analysis.convergence_barrier, 4)
+    proof.metadata["cruxes"] = [crux.to_dict() for crux in result.analysis.cruxes]
+    proof.metadata["counterfactuals"] = list(result.counterfactuals)
+    proof.metadata["recommended_focus"] = list(result.analysis.recommended_focus)
+    if result.metadata:
+        proof.metadata.update(result.metadata)
+
+    return proof
+
+
 def _is_actionable(text: str) -> bool:
     """Check if a statement is actionable (implementation-oriented)."""
     action_keywords = [

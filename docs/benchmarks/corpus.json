@@ -1,16 +1,33 @@
 {
   "corpus_id": "tw-01-bounded-execution-v1",
-  "revision": 2,
-  "recorded_on": "2026-04-15",
+  "revision": 3,
+  "recorded_on": "2026-04-17",
   "success_contract": "mergeable_pr_or_merged_pr",
   "run_cadence": "weekly_or_better",
   "change_control": "Issue membership stays fixed until an explicit corpus revision edits this file.",
   "membership_criteria": ["bounded", "single_pr_resolution", "no_external_dependency_chain"],
+  "expected_status_legend": {
+    "verified": "Autonomy has already landed a merged PR closing this issue. Primary proof surface.",
+    "in_progress": "Issue is open and bounded; autonomy is on the hook to resolve it. Excluded from the verified-success rate until it graduates."
+  },
+  "revision_log": [
+    {
+      "revision": 3,
+      "recorded_on": "2026-04-17",
+      "change": "Introduce expected_status bucketing; seed 3 open test-authoring issues so the primary metric measures real autonomy, not an already-resolved snapshot."
+    },
+    {
+      "revision": 2,
+      "recorded_on": "2026-04-15",
+      "change": "Replace #1733 (no_linked_pr) with #5756 (fail_closed_hardening) to keep every entry verifiable."
+    }
+  ],
   "issues": [
     {
       "issue_id": 1064,
       "title": "Boss-loop execution: bump @supabase/supabase-js from 2.99.1 to 2.99.3 in /aragora/live",
       "execution_class": "dependency_bump",
+      "expected_status": "verified",
       "scope_hint": ["aragora/live/package.json", "aragora/live/package-lock.json"],
       "known_constraints": ["single package bump", "bounded to aragora/live", "validation contract required"],
       "source_reference": "docs/examples/boss-lane-manifest-2026-03-19.yaml"
@@ -19,6 +36,7 @@
       "issue_id": 873,
       "title": "Bump @eslint/eslintrc from 3.2.0 to 3.3.0 in /aragora/live",
       "execution_class": "version_upgrade",
+      "expected_status": "verified",
       "scope_hint": ["aragora/live", "@eslint/eslintrc"],
       "known_constraints": ["semver-minor update", "single package only", "scope hints must stay inside aragora/live"],
       "source_reference": "tests/nomic/test_decomposer_bounded_issues.py"
@@ -27,6 +45,7 @@
       "issue_id": 1641,
       "title": "Wire prompt refiner env",
       "execution_class": "single_config_change",
+      "expected_status": "verified",
       "scope_hint": ["aragora/swarm/boss_loop.py", "tests/swarm/test_boss_loop.py"],
       "known_constraints": ["env wiring only", "preserve issue header in worker goal", "targeted pytest acceptance"],
       "source_reference": "tests/swarm/test_boss_loop.py"
@@ -35,6 +54,7 @@
       "issue_id": 5756,
       "title": "Fail closed on 8 silent except-Exception-pass in boss_loop.py",
       "execution_class": "fail_closed_hardening",
+      "expected_status": "verified",
       "scope_hint": ["aragora/swarm/boss_loop.py"],
       "known_constraints": ["replace silent catches with logger.debug", "no behavioral changes beyond error visibility", "targeted pytest acceptance"],
       "source_reference": "tests/swarm/test_boss_loop.py",
@@ -44,9 +64,64 @@
       "issue_id": 2712,
       "title": "Fail closed on string booleans in QualityPipelineConfig.from_dict",
       "execution_class": "single_file_fix",
+      "expected_status": "verified",
       "scope_hint": ["aragora/debate/quality_pipeline.py", "tests/debate/test_quality_pipeline.py"],
       "known_constraints": ["core fix centered on one source file", "paired regression test allowed", "fail-closed boolean parsing"],
       "source_reference": "tests/swarm/test_supervisor.py"
+    },
+    {
+      "issue_id": 5814,
+      "title": "Add unit tests for server/handlers/admin/health/liveness.py",
+      "execution_class": "test_authoring",
+      "expected_status": "in_progress",
+      "scope_hint": [
+        "aragora/server/handlers/admin/health/liveness.py",
+        "tests/server/handlers/admin/health/test_liveness.py"
+      ],
+      "known_constraints": [
+        "target module exists",
+        "no paired test file yet",
+        "pytest acceptance on the new test file",
+        "single-file deliverable"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5814",
+      "added_in_revision": 3
+    },
+    {
+      "issue_id": 5818,
+      "title": "Add unit tests for utils/error_sanitizer.py",
+      "execution_class": "test_authoring",
+      "expected_status": "in_progress",
+      "scope_hint": [
+        "aragora/utils/error_sanitizer.py",
+        "tests/utils/test_error_sanitizer.py"
+      ],
+      "known_constraints": [
+        "target module exists",
+        "no paired test file yet",
+        "pytest acceptance on the new test file",
+        "single-file deliverable"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5818",
+      "added_in_revision": 3
+    },
+    {
+      "issue_id": 5820,
+      "title": "Add unit tests for billing/jwt_auth.py",
+      "execution_class": "test_authoring",
+      "expected_status": "in_progress",
+      "scope_hint": [
+        "aragora/billing/jwt_auth.py",
+        "tests/billing/test_jwt_auth.py"
+      ],
+      "known_constraints": [
+        "target module exists",
+        "no paired test file yet",
+        "pytest acceptance on the new test file",
+        "single-file deliverable"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5820",
+      "added_in_revision": 3
     }
   ]
 }

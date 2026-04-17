@@ -177,6 +177,27 @@ class TestSwarmParser:
         assert args.run_id == "run-123"
         assert args.json is True
 
+    def test_swarm_shift_status_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "shift-status",
+                "--shift-ledger",
+                ".aragora/custom/shift.jsonl",
+                "--max-age-hours",
+                "48",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "shift-status"
+        assert args.shift_ledger == ".aragora/custom/shift.jsonl"
+        assert args.max_age_hours == 48.0
+        assert args.json is True
+
     def test_swarm_preflight_parser(self):
         from aragora.cli.parser import build_parser
 

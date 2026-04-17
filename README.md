@@ -234,7 +234,7 @@ Individual LLMs exhibit persona instability -- their outputs shift based on fram
 
 ### 5. Self-Healing and Self-Extending
 
-The Nomic Loop is Aragora's autonomous self-improvement system: agents debate improvements to the codebase, design solutions, implement code, run tests, and verify changes -- with human approval gates and automatic rollback on failure. This is how Aragora grew from a debate engine to 3,200+ modules. Red-team mode stress-tests the platform's own specs. The Gauntlet runs adversarial attacks against proposed changes. The system hardens itself.
+The Nomic Loop is Aragora's autonomous self-improvement system: agents debate improvements to the codebase, design solutions, implement code, run tests, and verify changes -- with human approval gates and automatic rollback on failure. This is how Aragora grew from a debate engine to 3,800+ modules. Red-team mode stress-tests the platform's own specs. The Gauntlet runs adversarial attacks against proposed changes. The system hardens itself.
 
 ---
 
@@ -397,7 +397,7 @@ aragora/
 ├── gauntlet/       # Adversarial stress testing
 ├── knowledge/      # Knowledge Mound with 42 registered adapter specs
 ├── memory/         # 4-tier memory (fast/medium/slow/glacial)
-├── server/         # 3,000+ API operations, 270+ WebSocket event types
+├── server/         # 3,100+ API operations, 270+ WebSocket event types
 ├── pipeline/       # Decision-to-PR generation
 ├── genesis/        # Fractal debates, agent evolution
 ├── sandbox/        # Docker-based safe execution
@@ -406,7 +406,7 @@ aragora/
 └── workflow/       # DAG-based automation engine
 ```
 
-**Scale:** 3,000+ Python modules | 155,000+ tests across 5,000+ test files
+**Scale:** 3,800+ Python modules | 210,000+ tests across 5,000+ test files
 
 ### Performance and Costs
 
