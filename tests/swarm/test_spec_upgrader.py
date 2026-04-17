@@ -88,3 +88,34 @@ def test_upgrade_result_escalated_shape():
 def test_spec_upgrader_unavailable_is_exception():
     with pytest.raises(SpecUpgraderUnavailable):
         raise SpecUpgraderUnavailable("LLM client timed out")
+
+
+from aragora.swarm.spec_upgrader import _classify_missing_bounds
+
+
+def test_classify_missing_bounds_all_categories():
+    bounds = [
+        "acceptance criterion",
+        "file-scope hint",
+        "constraint",
+        "explicit work order",
+    ]
+    result = _classify_missing_bounds(bounds)
+    assert result == {
+        "needs_acceptance": True,
+        "needs_file_scope": True,
+        "needs_constraint": True,
+        "needs_work_order": True,
+    }
+
+
+def test_classify_missing_bounds_partial():
+    bounds = ["acceptance criterion"]
+    result = _classify_missing_bounds(bounds)
+    assert result["needs_acceptance"] is True
+    assert result["needs_file_scope"] is False
+
+
+def test_classify_missing_bounds_empty():
+    result = _classify_missing_bounds([])
+    assert all(v is False for v in result.values())

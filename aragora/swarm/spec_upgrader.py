@@ -46,3 +46,25 @@ class UpgradeResult:
     upgrade_path: UpgradePath | None
     failure_context: UpgradeFailureContext
     unresolved_questions: list[str] = field(default_factory=list)
+
+
+# Labels emitted by ``SwarmSpec.missing_dispatch_bounds()`` mapped to actionable
+# enrichment flags. Keep the keys in sync with ``aragora/swarm/spec.py`` -- in
+# particular ``"explicit work order"`` matches the label returned by the spec
+# (not ``"work order"``).
+_BOUND_LABELS = {
+    "acceptance criterion": "needs_acceptance",
+    "file-scope hint": "needs_file_scope",
+    "constraint": "needs_constraint",
+    "explicit work order": "needs_work_order",
+}
+
+
+def _classify_missing_bounds(missing_bounds: list[str]) -> dict[str, bool]:
+    """Map ``missing_dispatch_bounds()`` labels to actionable flags for enrichment."""
+    classified = {flag: False for flag in _BOUND_LABELS.values()}
+    for label in missing_bounds:
+        flag = _BOUND_LABELS.get(label)
+        if flag is not None:
+            classified[flag] = True
+    return classified
