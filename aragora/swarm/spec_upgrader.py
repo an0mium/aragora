@@ -418,3 +418,73 @@ class AuditPersistence:
                 f"body={body}",
             ]
         )
+
+
+class Escalator:
+    """Apply ``needs-clarification`` label + post unresolved-questions comment.
+
+    Fail-closed: returns ``False`` if either label or comment mutation fails;
+    caller must NOT dispatch the issue in that case.
+    """
+
+    LABEL = "needs-clarification"
+
+    def __init__(self, issue_number: int, *, repo: str = "synaptent/aragora") -> None:
+        self.issue_number = issue_number
+        self.repo = repo
+
+    def escalate(
+        self,
+        *,
+        unresolved_questions: list[str],
+        failure_context_summary: str,
+    ) -> bool:
+        try:
+            self._gh_add_label()
+        except subprocess.CalledProcessError:
+            return False
+        body = self._render_comment(unresolved_questions, failure_context_summary)
+        try:
+            self._gh_create_comment(body=body)
+        except subprocess.CalledProcessError:
+            return False
+        return True
+
+    def _render_comment(self, questions: list[str], summary: str) -> str:
+        q_block = "\n".join(f"- {q}" for q in questions) if questions else "- (none specified)"
+        return (
+            "## Needs clarification\n\n"
+            "The autonomous spec upgrader could not bound this issue after the maximum "
+            "attempts. Human review required.\n\n"
+            f"**Failure summary:** {summary}\n\n"
+            f"**Unresolved questions:**\n{q_block}\n\n"
+            "_Posted by SpecUpgrader._"
+        )
+
+    def _gh_add_label(self) -> None:
+        subprocess.check_call(
+            [
+                "gh",
+                "issue",
+                "edit",
+                str(self.issue_number),
+                "--repo",
+                self.repo,
+                "--add-label",
+                self.LABEL,
+            ]
+        )
+
+    def _gh_create_comment(self, *, body: str) -> None:
+        subprocess.check_call(
+            [
+                "gh",
+                "issue",
+                "comment",
+                str(self.issue_number),
+                "--repo",
+                self.repo,
+                "--body",
+                body,
+            ]
+        )

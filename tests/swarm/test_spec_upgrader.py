@@ -427,3 +427,50 @@ def test_audit_upsert_updates_when_present():
         kwargs = uc.call_args.kwargs
         assert kwargs.get("comment_id") == 42
         assert "attempt=2" in (kwargs.get("body") or "")
+
+
+import subprocess
+
+from aragora.swarm.spec_upgrader import Escalator
+
+
+def test_escalator_success():
+    esc = Escalator(issue_number=5898)
+    with (
+        patch.object(esc, "_gh_add_label") as al,
+        patch.object(esc, "_gh_create_comment") as cc,
+    ):
+        success = esc.escalate(
+            unresolved_questions=["What file scope?", "What acceptance criterion?"],
+            failure_context_summary="Missing all bounds",
+        )
+    assert success is True
+    al.assert_called_once()
+    cc.assert_called_once()
+
+
+def test_escalator_label_failure_is_fail_closed():
+    esc = Escalator(issue_number=5898)
+    with (
+        patch.object(esc, "_gh_add_label", side_effect=subprocess.CalledProcessError(1, "gh")),
+        patch.object(esc, "_gh_create_comment") as cc,
+    ):
+        success = esc.escalate(
+            unresolved_questions=["Q1"],
+            failure_context_summary="summary",
+        )
+    assert success is False
+    cc.assert_not_called()
+
+
+def test_escalator_comment_failure_is_fail_closed():
+    esc = Escalator(issue_number=5898)
+    with (
+        patch.object(esc, "_gh_add_label"),
+        patch.object(esc, "_gh_create_comment", side_effect=subprocess.CalledProcessError(1, "gh")),
+    ):
+        success = esc.escalate(
+            unresolved_questions=["Q1"],
+            failure_context_summary="summary",
+        )
+    assert success is False
