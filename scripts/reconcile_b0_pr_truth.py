@@ -456,7 +456,22 @@ def aggregate_b0_issues(rows: list[dict[str, Any]]) -> list[IssueMetricsAggregat
     return [issues[number] for number in sorted(issues)]
 
 
-def extract_pr_numbers_from_issue(repo: str, issue_payload: dict[str, Any]) -> list[int]:
+def extract_pr_numbers_from_issue(
+    repo: str, issue_payload: dict[str, Any], *, strict: bool = False
+) -> list[int]:
+    """Return PR numbers linked to ``issue_payload``.
+
+    In strict mode (``strict=True``), only PRs on GitHub's
+    ``closedByPullRequestsReferences`` GraphQL edge count as closure evidence.
+    This is the honesty-audit-mandated linkage source for the benchmark truth
+    surface: it ensures forensic-reference PRs (unrelated merged PRs that
+    merely cite the issue in their bodies or comments) are not credited as
+    success signals. See ``docs/benchmarks/corpus_honesty_audit_2026-04-17.md``.
+
+    In non-strict mode (default; used by the B0 cohort reconciliation flow),
+    we also fall back to parsing PR URLs out of issue comments.
+    """
+
     expected_repo = repo.lower()
     found: set[int] = set()
     for pr_payload in issue_payload.get("closedByPullRequestsReferences", []):
@@ -472,6 +487,8 @@ def extract_pr_numbers_from_issue(repo: str, issue_payload: dict[str, Any]) -> l
         pr_number = pr_payload.get("number")
         if isinstance(pr_number, int):
             found.add(pr_number)
+    if strict:
+        return sorted(found)
     for comment in issue_payload.get("comments", []):
         if not isinstance(comment, dict):
             continue
@@ -500,7 +517,20 @@ def reconcile_issue_truth(
     repo: str,
     aggregate: IssueMetricsAggregate,
     client: GitHubTruthClient,
+    *,
+    strict_linkage: bool = False,
 ) -> IssueTruthRecord:
+    """Reconcile autonomy truth for ``aggregate`` against live GitHub state.
+
+    When ``strict_linkage`` is True, the only linkage source is GitHub's
+    ``closedByPullRequestsReferences`` GraphQL edge — i.e. PRs that
+    actually closed the issue. Comment-body PR URLs and cross-referenced
+    timeline events are ignored. This mode is used by the benchmark truth
+    artifact (see ``scripts/build_benchmark_truth_artifact.py``) per the
+    2026-04-17 honesty audit: forensic-reference PRs must not count as
+    closure evidence.
+    """
+
     try:
         issue_payload = client.get_issue(repo, aggregate.issue_number)
     except RuntimeError as error:
@@ -524,8 +554,12 @@ def reconcile_issue_truth(
     linkage_status = "verified"
     linkage_error = ""
 
-    pr_numbers = extract_pr_numbers_from_issue(repo, issue_payload)
-    if not pr_numbers:
+    pr_numbers = extract_pr_numbers_from_issue(repo, issue_payload, strict=strict_linkage)
+    if not pr_numbers and not strict_linkage:
+        # Lenient (non-benchmark) path: if the GraphQL edge and the comment
+        # body both had no PR references, fall back to the cross-referenced
+        # timeline. Strict mode deliberately skips this — it would re-admit
+        # forensic references that happen to be "mentioned in timeline".
         try:
             pr_numbers = sorted(
                 set(client.get_cross_referenced_pr_numbers(repo, aggregate.issue_number))
@@ -536,7 +570,7 @@ def reconcile_issue_truth(
             linkage_status = "cross_reference_lookup_failed"
             linkage_error = str(error)
             pr_numbers = []
-    if not pr_numbers and comments_lookup_error:
+    if not pr_numbers and comments_lookup_error and not strict_linkage:
         if linkage_status == "verified":
             linkage_status = "issue_comments_lookup_failed"
             linkage_error = comments_lookup_error

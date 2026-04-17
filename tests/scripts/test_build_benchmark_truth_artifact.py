@@ -88,6 +88,17 @@ def test_build_benchmark_truth_artifact_links_corpus_revision_and_truth_metrics(
         issues={
             1064: {
                 "title": "Dependency bump",
+                # Benchmark truth uses strict linkage: only the GraphQL
+                # closedByPullRequestsReferences edge counts as closure.
+                "closedByPullRequestsReferences": [
+                    {
+                        "number": 6001,
+                        "repository": {
+                            "name": "aragora",
+                            "owner": {"login": "synaptent"},
+                        },
+                    }
+                ],
                 "comments": [{"body": "PR: https://github.com/synaptent/aragora/pull/6001"}],
             },
             2712: {"title": "Boolean parsing fix", "comments": []},
@@ -172,6 +183,15 @@ def test_build_benchmark_truth_artifact_marks_partial_corpus_runs_incomplete(
         issues={
             1064: {
                 "title": "Dependency bump",
+                "closedByPullRequestsReferences": [
+                    {
+                        "number": 6001,
+                        "repository": {
+                            "name": "aragora",
+                            "owner": {"login": "synaptent"},
+                        },
+                    }
+                ],
                 "comments": [{"body": "PR: https://github.com/synaptent/aragora/pull/6001"}],
             },
             873: {"title": "ESLint bump", "comments": []},
@@ -332,11 +352,23 @@ def test_build_benchmark_truth_artifact_does_not_graduate_open_in_progress_issue
                 "title": "Verified dependency bump",
                 "state": "CLOSED",
                 "closedAt": "2026-04-16T12:00:00Z",
+                "closedByPullRequestsReferences": [
+                    {
+                        "number": 6001,
+                        "repository": {
+                            "name": "aragora",
+                            "owner": {"login": "synaptent"},
+                        },
+                    }
+                ],
                 "comments": [{"body": "PR: https://github.com/synaptent/aragora/pull/6001"}],
             },
             5814: {
                 "title": "Open in-progress test task",
                 "state": "OPEN",
+                # Strict linkage: the forensic 'seeded by' comment is NOT
+                # credited; the corpus-creation PR #6079 is a forensic
+                # reference, not a closer.
                 "comments": [{"body": "Seeded by https://github.com/synaptent/aragora/pull/6079"}],
             },
         },
@@ -485,6 +517,9 @@ def test_build_benchmark_truth_artifact_surfaces_linkage_warnings_without_stale_
             }
         },
         prs={},
+        # Under strict linkage the cross-ref fallback is no longer consulted
+        # for the benchmark truth surface — failing it must not mask the
+        # fact that the issue has no closing PR on the GraphQL edge.
         cross_refs={1733: RuntimeError("error connecting to api.github.com")},
     )
 
@@ -496,12 +531,16 @@ def test_build_benchmark_truth_artifact_surfaces_linkage_warnings_without_stale_
         generated_at="2026-04-14T01:00:00Z",
     )
 
-    assert artifact["corpus_freshness"]["status"] == "linkage_verification_incomplete"
-    assert artifact["corpus_freshness"]["stale_closed_issue_count"] == 0
-    assert artifact["corpus_freshness"]["linkage_error_count"] == 1
-    assert artifact["corpus_freshness"]["linkage_errors"][0]["issue_number"] == 1733
-    assert artifact["issues"][0]["linkage_verification_incomplete"] is True
-    assert artifact["issues"][0]["stale_corpus_issue"] is False
+    # Strict linkage means a CLOSED issue with an empty
+    # closedByPullRequestsReferences edge is immediately flagged as stale,
+    # regardless of what the (unused) cross-ref lookup would have returned.
+    # Forensic-reference PRs no longer get a second chance to mask the gap.
+    assert artifact["corpus_freshness"]["status"] == "stale_closed_issues_detected"
+    assert artifact["corpus_freshness"]["stale_closed_issue_numbers"] == [1733]
+    assert artifact["corpus_freshness"]["linkage_error_count"] == 0
+    assert artifact["issues"][0]["stale_corpus_issue"] is True
+    assert artifact["issues"][0]["truth_state"] == "no_linked_pr"
+    assert artifact["issues"][0]["linkage_verification_incomplete"] is False
 
 
 def test_build_benchmark_truth_artifact_surfaces_freshness_issue_draft(
