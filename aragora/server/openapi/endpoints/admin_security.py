@@ -5,11 +5,94 @@ Security administration endpoints for encryption key management,
 health checks, and user impersonation.
 """
 
+from typing import Any
+
 from aragora.server.openapi.helpers import (
     STANDARD_ERRORS,
 )
 
+
+def _rotation_status_response_schema() -> dict[str, Any]:
+    """Schema for the admin key-rotation status report."""
+    return {
+        "type": "object",
+        "properties": {
+            "data": {
+                "type": "object",
+                "properties": {
+                    "timestamp": {"type": "string", "format": "date-time"},
+                    "secrets": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": True,
+                            "properties": {
+                                "secret_id": {"type": "string"},
+                                "secret_type": {"type": "string"},
+                                "is_due": {"type": "boolean"},
+                                "pending_rotation": {"type": "boolean"},
+                            },
+                        },
+                    },
+                    "scheduler": {
+                        "type": "object",
+                        "additionalProperties": True,
+                    },
+                    "summary": {
+                        "type": "object",
+                        "properties": {
+                            "total_tracked": {"type": "integer"},
+                            "due_for_rotation": {"type": "integer"},
+                            "pending_rotation": {"type": "integer"},
+                            "healthy": {"type": "boolean"},
+                        },
+                    },
+                },
+            }
+        },
+    }
+
+
+def _rotation_status_operation(*, operation_id: str) -> dict[str, Any]:
+    """OpenAPI operation for the admin key-rotation status report."""
+    return {
+        "tags": ["Admin", "Security"],
+        "summary": "Get key rotation status",
+        "operationId": operation_id,
+        "description": (
+            "Returns the current key-rotation status for managed secrets, scheduler health, "
+            "and rotation summary counts."
+        ),
+        "responses": {
+            "200": {
+                "description": "Key rotation status report",
+                "content": {
+                    "application/json": {
+                        "schema": _rotation_status_response_schema(),
+                    }
+                },
+            },
+            "401": STANDARD_ERRORS["401"],
+            "403": STANDARD_ERRORS["403"],
+            "429": STANDARD_ERRORS["429"],
+            "500": STANDARD_ERRORS["500"],
+            "503": {"description": "Security access control service unavailable"},
+        },
+        "security": [{"bearerAuth": []}],
+    }
+
+
 ADMIN_SECURITY_ENDPOINTS = {
+    "/api/v1/admin/security/rotation-status": {
+        "get": _rotation_status_operation(operation_id="adminGetRotationStatus")
+    },
+    "/api/admin/security/rotation-status": {
+        "get": {
+            **_rotation_status_operation(operation_id="adminGetRotationStatusLegacy"),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        }
+    },
     "/api/v1/admin/security/status": {
         "get": {
             "tags": ["Admin", "Security"],
