@@ -53,7 +53,7 @@ ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN")
 
 # Log at debug level for unconfigured optional integrations
 if not ZOOM_SECRET_TOKEN:
-    logger.debug("ZOOM_SECRET_TOKEN not configured - webhook signature verification disabled")
+    logger.debug("ZOOM_SECRET_TOKEN not configured - webhook signature verification will fail")
 
 
 class ZoomHandler(BotHandlerMixin, SecureHandler):

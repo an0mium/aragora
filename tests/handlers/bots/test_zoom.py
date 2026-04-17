@@ -462,6 +462,29 @@ class TestSignatureVerification:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
+    async def test_configured_bot_without_secret_rejects_signed_event(self, handler):
+        """A real bot without ZOOM_SECRET_TOKEN must not accept arbitrary signatures."""
+        from aragora.bots.zoom_bot import AragoraZoomBot
+
+        event = _bot_notification_event()
+        http_handler = _make_event_handler(event, signature="v0=anything", timestamp="123")
+        bot = AragoraZoomBot(
+            client_id="cid",
+            client_secret="csec",
+            secret_token=None,
+        )
+        bot.handle_event = AsyncMock(return_value={"ok": True})
+
+        handler._bot_initialized = True
+        handler._bot = bot
+        result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
+
+        assert _status(result) == 401
+        body = _body(result)
+        assert "Invalid signature" in body.get("error", "")
+        bot.handle_event.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_signature_present_but_no_bot_returns_503(self, handler, handler_module):
         """Signature present but bot not configured returns 503."""
         event = _bot_notification_event()
