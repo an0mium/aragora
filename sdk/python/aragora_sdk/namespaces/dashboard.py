@@ -326,6 +326,20 @@ class DashboardAPI:
         """
         return self._client.request("GET", "/api/v1/dashboard/gastown/metrics")
 
+    # --- Ralph Campaign Dashboard ---
+
+    def list_ralph_campaigns(self) -> dict[str, Any]:
+        """List Ralph campaign supervisor states."""
+        return self._client.request("GET", "/api/v1/ralph/campaigns")
+
+    def get_ralph_overview(self) -> dict[str, Any]:
+        """Get aggregate Ralph campaign dashboard metrics."""
+        return self._client.request("GET", "/api/v1/ralph/overview")
+
+    def get_ralph_blockers(self) -> dict[str, Any]:
+        """Get aggregate Ralph blocker breakdown."""
+        return self._client.request("GET", "/api/v1/ralph/blockers")
+
     # --- Write Operations ---
 
     def execute_quick_action(
@@ -862,6 +876,20 @@ class AsyncDashboardAPI:
     async def get_gastown_metrics(self) -> dict[str, Any]:
         """Get Gastown detailed metrics."""
         return await self._client.request("GET", "/api/v1/dashboard/gastown/metrics")
+
+    # --- Ralph Campaign Dashboard ---
+
+    async def list_ralph_campaigns(self) -> dict[str, Any]:
+        """List Ralph campaign supervisor states."""
+        return await self._client.request("GET", "/api/v1/ralph/campaigns")
+
+    async def get_ralph_overview(self) -> dict[str, Any]:
+        """Get aggregate Ralph campaign dashboard metrics."""
+        return await self._client.request("GET", "/api/v1/ralph/overview")
+
+    async def get_ralph_blockers(self) -> dict[str, Any]:
+        """Get aggregate Ralph blocker breakdown."""
+        return await self._client.request("GET", "/api/v1/ralph/blockers")
 
     # --- Write Operations ---
 

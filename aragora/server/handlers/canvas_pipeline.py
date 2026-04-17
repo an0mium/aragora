@@ -789,14 +789,62 @@ class CanvasPipelineHandler:
     @staticmethod
     def _get_request_body(handler: Any) -> dict[str, Any]:
         """Extract JSON body from the request handler."""
+        request = getattr(handler, "request", None)
+        if request is not None:
+            raw = getattr(request, "body", None)
+            if raw and not callable(raw):
+                return CanvasPipelineHandler._decode_request_body(raw)
+
+        if hasattr(handler, "_body"):
+            return CanvasPipelineHandler._decode_request_body(getattr(handler, "_body", None))
+
+        content_length = CanvasPipelineHandler._get_content_length(handler)
+        if content_length <= 0:
+            return {}
+
+        rfile = getattr(handler, "rfile", None)
+        if rfile is None:
+            return {}
+
         try:
-            if hasattr(handler, "request") and hasattr(handler.request, "body"):
-                raw = handler.request.body
-                if raw:
-                    return json.loads(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
-        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
-            pass
-        return {}
+            return CanvasPipelineHandler._decode_request_body(rfile.read(content_length))
+        except (OSError, ValueError):
+            return {}
+
+    @staticmethod
+    def _decode_request_body(raw: Any) -> dict[str, Any]:
+        if not raw:
+            return {}
+
+        try:
+            if isinstance(raw, bytearray):
+                raw = bytes(raw)
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+            if isinstance(raw, dict):
+                return raw
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+
+    @staticmethod
+    def _get_content_length(handler: Any) -> int:
+        raw_length: Any = None
+        get_header = getattr(handler, "get_header", None)
+        if callable(get_header):
+            raw_length = get_header("Content-Length")
+
+        headers = getattr(handler, "headers", None)
+        if raw_length is None and headers is not None:
+            get = getattr(headers, "get", None)
+            if callable(get):
+                raw_length = get("Content-Length") or get("content-length")
+
+        try:
+            return int(raw_length or 0)
+        except (TypeError, ValueError):
+            return 0
 
     async def handle_from_debate(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/from-debate
