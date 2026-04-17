@@ -13,7 +13,7 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -349,7 +349,7 @@ def gh_subprocess_run(
     max_retries: int = 3,
     base_backoff: float = 5.0,
     max_backoff: float = 600.0,
-    sleep: "callable[[float], None] | None" = None,
+    sleep: Callable[[float], None] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run ``gh <args>`` with App-token preference and rate-limit-aware retry.
 
