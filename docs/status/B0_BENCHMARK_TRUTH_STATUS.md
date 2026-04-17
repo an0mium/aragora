@@ -11,6 +11,8 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 - Revision: `3`
 - Recorded on: `2026-04-17`
 - Success contract: `mergeable_pr_or_merged_pr`
+- Verified expected issues: `5`
+- In-progress expected issues: `3`
 - Coverage status: `complete`
 - Coverage: `6`/`8` issues attempted
 
@@ -25,9 +27,20 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 
 | Metric | Value |
 | --- | --- |
-| Truth success rate | 62.5% |
+| Verified truth success rate (primary) | 100.0% |
+| Full-corpus truth success rate (legacy/context) | 62.5% |
 | No-rescue truth success rate | 62.5% |
 | Merged-only rate | 62.5% |
+
+## In-Flight Graduation Metrics
+
+| Metric | Value |
+| --- | --- |
+| In-progress expected issues | 3 |
+| In-progress attempted issues | 1 |
+| In-progress successful issues | 0 |
+| In-progress graduation rate | 0.0% |
+| In-progress issue numbers | `#5814`, `#5818`, `#5820` |
 
 ## Proxy Metrics
 
