@@ -88,6 +88,44 @@ def _mfa_compliance_operation(*, operation_id: str) -> dict[str, Any]:
     }
 
 
+def _system_health_response_schema() -> dict[str, Any]:
+    """Admin system health envelope schema."""
+    return {
+        "type": "object",
+        "properties": {
+            "data": {
+                "type": "object",
+                "additionalProperties": True,
+            }
+        },
+    }
+
+
+def _system_health_operation(
+    *, operation_id: str, summary: str, description: str
+) -> dict[str, Any]:
+    """OpenAPI operation for admin system-health routes."""
+    return {
+        "tags": ["Admin", "System"],
+        "summary": summary,
+        "operationId": operation_id,
+        "description": description,
+        "responses": {
+            "200": {
+                "description": "System health payload",
+                "content": {
+                    "application/json": {
+                        "schema": _system_health_response_schema(),
+                    }
+                },
+            },
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Admin privileges required"},
+        },
+        "security": [{"bearerAuth": []}],
+    }
+
+
 ADMIN_ENDPOINTS = {
     # =========================================================================
     # Admin MFA Compliance
@@ -98,6 +136,117 @@ ADMIN_ENDPOINTS = {
     "/api/admin/mfa/compliance": {
         "get": {
             **_mfa_compliance_operation(operation_id="adminGetMfaComplianceLegacy"),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        }
+    },
+    # =========================================================================
+    # Admin System Health
+    # =========================================================================
+    "/api/v1/admin/system-health": {
+        "get": _system_health_operation(
+            operation_id="adminGetSystemHealthOverview",
+            summary="Get admin system health overview",
+            description="Returns the aggregated admin system-health overview.",
+        )
+    },
+    "/api/admin/system-health": {
+        "get": {
+            **_system_health_operation(
+                operation_id="adminGetSystemHealthOverviewLegacy",
+                summary="Get admin system health overview",
+                description="Returns the aggregated admin system-health overview.",
+            ),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        }
+    },
+    "/api/v1/admin/system-health/circuit-breakers": {
+        "get": _system_health_operation(
+            operation_id="adminGetSystemHealthCircuitBreakers",
+            summary="Get admin system health circuit breakers",
+            description="Returns circuit-breaker health for admin system-health views.",
+        )
+    },
+    "/api/admin/system-health/circuit-breakers": {
+        "get": {
+            **_system_health_operation(
+                operation_id="adminGetSystemHealthCircuitBreakersLegacy",
+                summary="Get admin system health circuit breakers",
+                description="Returns circuit-breaker health for admin system-health views.",
+            ),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        }
+    },
+    "/api/v1/admin/system-health/slos": {
+        "get": _system_health_operation(
+            operation_id="adminGetSystemHealthSlos",
+            summary="Get admin system health SLOs",
+            description="Returns SLO compliance health for admin system-health views.",
+        )
+    },
+    "/api/admin/system-health/slos": {
+        "get": {
+            **_system_health_operation(
+                operation_id="adminGetSystemHealthSlosLegacy",
+                summary="Get admin system health SLOs",
+                description="Returns SLO compliance health for admin system-health views.",
+            ),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        }
+    },
+    "/api/v1/admin/system-health/adapters": {
+        "get": _system_health_operation(
+            operation_id="adminGetSystemHealthAdapters",
+            summary="Get admin system health adapters",
+            description="Returns adapter health for admin system-health views.",
+        )
+    },
+    "/api/admin/system-health/adapters": {
+        "get": {
+            **_system_health_operation(
+                operation_id="adminGetSystemHealthAdaptersLegacy",
+                summary="Get admin system health adapters",
+                description="Returns adapter health for admin system-health views.",
+            ),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        }
+    },
+    "/api/v1/admin/system-health/agents": {
+        "get": _system_health_operation(
+            operation_id="adminGetSystemHealthAgents",
+            summary="Get admin system health agents",
+            description="Returns agent-pool health for admin system-health views.",
+        )
+    },
+    "/api/admin/system-health/agents": {
+        "get": {
+            **_system_health_operation(
+                operation_id="adminGetSystemHealthAgentsLegacy",
+                summary="Get admin system health agents",
+                description="Returns agent-pool health for admin system-health views.",
+            ),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        }
+    },
+    "/api/v1/admin/system-health/budget": {
+        "get": _system_health_operation(
+            operation_id="adminGetSystemHealthBudget",
+            summary="Get admin system health budget",
+            description="Returns budget health for admin system-health views.",
+        )
+    },
+    "/api/admin/system-health/budget": {
+        "get": {
+            **_system_health_operation(
+                operation_id="adminGetSystemHealthBudgetLegacy",
+                summary="Get admin system health budget",
+                description="Returns budget health for admin system-health views.",
+            ),
             "deprecated": True,
             "x-preserve-legacy-operation-id": True,
         }

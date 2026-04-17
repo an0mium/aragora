@@ -157,7 +157,11 @@ class TestRoutes:
     def test_routes_contains_expected(self):
         expected = [
             "/api/admin/system-health",
-            "/api/admin/system-health/*",
+            "/api/admin/system-health/circuit-breakers",
+            "/api/admin/system-health/slos",
+            "/api/admin/system-health/adapters",
+            "/api/admin/system-health/agents",
+            "/api/admin/system-health/budget",
         ]
         for route in expected:
             assert route in SystemHealthDashboardHandler.ROUTES, f"Missing route: {route}"
@@ -176,10 +180,23 @@ class TestRoutes:
         for path in sub_paths:
             assert handler.can_handle(path), f"Should handle: {path}"
 
+    def test_can_handle_versioned_aliases(self, handler):
+        versioned_paths = [
+            "/api/v1/admin/system-health",
+            "/api/v1/admin/system-health/circuit-breakers",
+            "/api/v1/admin/system-health/slos",
+            "/api/v1/admin/system-health/adapters",
+            "/api/v1/admin/system-health/agents",
+            "/api/v1/admin/system-health/budget",
+        ]
+        for path in versioned_paths:
+            assert handler.can_handle(path), f"Should handle versioned alias: {path}"
+
     def test_can_handle_rejects_unknown_paths(self, handler):
         assert not handler.can_handle("/api/admin/system-health-other")
         assert not handler.can_handle("/api/admin/other")
         assert not handler.can_handle("/api/v1/system-health")
+        assert not handler.can_handle("/api/v1/admin/system-health-other")
 
     def test_can_handle_only_accepts_get(self, handler):
         assert handler.can_handle("/api/admin/system-health", "GET")

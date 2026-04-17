@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -36,6 +37,17 @@ DEFAULT_MERGE_LABEL = "com.aragora.swarm-merge-arbiter"
 DEFAULT_BOSS_PROCESS_PATTERN = r"aragora\.cli\.main swarm boss-loop|run_boss_cycle\.sh"
 DEFAULT_MERGE_PROCESS_PATTERN = r"aragora\.cli\.main swarm merge-arbiter"
 DEFAULT_LAUNCHD_START_TIMEOUT_SECONDS = 45.0
+DEFAULT_BOSS_TARGET_BRANCH = "main"
+DEFAULT_BOSS_WORKER_MODEL = "codex"
+DEFAULT_BOSS_REVIEW_MODEL = "codex"
+DEFAULT_BOSS_LABELS = ("autonomous", "boss-ready")
+DEFAULT_BOSS_MAX_TICKS = "200"
+DEFAULT_BOSS_INTERVAL_SECONDS = "90"
+DEFAULT_BOSS_MAX_CONSECUTIVE_FAILURES = "12"
+DEFAULT_BOSS_MAX_HOURS = "8"
+DEFAULT_BOSS_MAX_PARALLEL_DISPATCHES = "1"
+DEFAULT_BOSS_AUTONOMY_MODE = "full-auto"
+DEFAULT_BOSS_BOOTSTRAP_LOG = ".aragora/overnight/proof-first-boss-loop-bootstrap.log"
 LAUNCHD_THROTTLE_GRACE_SECONDS = 60.0
 AUTH_FAILURE_STOP_AFTER = 2
 PUBLICATION_FAILURE_STOP_AFTER = 2
@@ -613,6 +625,105 @@ def should_restart_service(
     return (not is_running) and pending_count > 0 and restart_count < restart_limit
 
 
+def launchd_service_missing(status: LaunchdServiceStatus) -> bool:
+    detail = status.detail.lower()
+    return "could not find service" in detail or "launchctl print failed" in detail
+
+
+def _env_or_default(name: str, default: str) -> str:
+    value = os.getenv(name, "").strip()
+    return value or default
+
+
+def _boss_labels_from_env() -> list[str]:
+    raw = os.getenv("BOSS_LABELS", "").strip()
+    if not raw:
+        return list(DEFAULT_BOSS_LABELS)
+    labels = [label.strip() for label in raw.split(",") if label.strip()]
+    return labels or list(DEFAULT_BOSS_LABELS)
+
+
+def build_direct_boss_loop_command(*, repo: str) -> list[str]:
+    python_bin = sys.executable or shutil.which("python3") or "python3"
+    command = [
+        python_bin,
+        "-u",
+        "-m",
+        "aragora.cli.main",
+        "swarm",
+        "boss-loop",
+        "--boss-repo",
+        _env_or_default("BOSS_REPO", repo),
+        "--target-branch",
+        _env_or_default("TARGET_BRANCH", DEFAULT_BOSS_TARGET_BRANCH),
+        "--worker-model",
+        _env_or_default("WORKER_MODEL", DEFAULT_BOSS_WORKER_MODEL),
+        "--review-model",
+        _env_or_default("REVIEW_MODEL", DEFAULT_BOSS_REVIEW_MODEL),
+    ]
+    for label in _boss_labels_from_env():
+        command.extend(["--label", label])
+    command.extend(
+        [
+            "--max-ticks",
+            _env_or_default("BOSS_MAX_TICKS", DEFAULT_BOSS_MAX_TICKS),
+            "--interval",
+            _env_or_default("BOSS_INTERVAL_SECONDS", DEFAULT_BOSS_INTERVAL_SECONDS),
+            "--max-consecutive-failures",
+            _env_or_default(
+                "BOSS_MAX_CONSECUTIVE_FAILURES",
+                DEFAULT_BOSS_MAX_CONSECUTIVE_FAILURES,
+            ),
+            "--autonomy",
+            _env_or_default("BOSS_AUTONOMY_MODE", DEFAULT_BOSS_AUTONOMY_MODE),
+            "--max-hours",
+            _env_or_default("BOSS_MAX_HOURS", DEFAULT_BOSS_MAX_HOURS),
+            "--boss-max-parallel-dispatches",
+            _env_or_default(
+                "BOSS_MAX_PARALLEL_DISPATCHES",
+                DEFAULT_BOSS_MAX_PARALLEL_DISPATCHES,
+            ),
+        ]
+    )
+    return command
+
+
+def start_detached_boss_loop(
+    *,
+    repo_root: Path,
+    repo: str,
+    process_pattern: str,
+    start_timeout_seconds: float = DEFAULT_LAUNCHD_START_TIMEOUT_SECONDS,
+) -> tuple[bool, str]:
+    log_path = repo_root / DEFAULT_BOSS_BOOTSTRAP_LOG
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    command = build_direct_boss_loop_command(repo=repo)
+    try:
+        with log_path.open("ab") as log_handle:
+            proc = subprocess.Popen(
+                command,
+                cwd=repo_root,
+                env=os.environ.copy(),
+                stdin=subprocess.DEVNULL,
+                stdout=log_handle,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+    except OSError as exc:
+        return False, f"direct boss-loop bootstrap failed: {exc}"
+
+    if wait_for_process(process_pattern, timeout_seconds=start_timeout_seconds):
+        return (
+            True,
+            f"launchd service missing; bootstrapped direct boss loop pid={proc.pid} log={log_path}",
+        )
+    return (
+        False,
+        f"launchd service missing; launched direct boss loop pid={proc.pid}, but process pattern "
+        f"{process_pattern!r} is still not running",
+    )
+
+
 def kickstart_launchd(label: str) -> tuple[bool, str]:
     uid = os.getuid()
     try:
@@ -671,6 +782,27 @@ def restart_service_via_launchd(
     if state_detail:
         return False, f"{detail}; {state_detail}"
     return False, detail
+
+
+def restart_boss_service(
+    *,
+    repo_root: Path,
+    repo: str,
+    process_pattern: str,
+) -> tuple[bool, str, str]:
+    initial_status = inspect_launchd_service(DEFAULT_BOSS_LABEL)
+    if launchd_service_missing(initial_status):
+        restarted, detail = start_detached_boss_loop(
+            repo_root=repo_root,
+            repo=repo,
+            process_pattern=process_pattern,
+        )
+        return restarted, detail, "bootstrap_boss_loop_direct"
+    restarted, detail = restart_service_via_launchd(
+        label=DEFAULT_BOSS_LABEL,
+        process_pattern=process_pattern,
+    )
+    return restarted, detail, "restart_boss_loop"
 
 
 def _read_launchd_failure_detail(label: str) -> str:
@@ -878,8 +1010,9 @@ def run_shift_cycle(
         pending_count=canonical_queue_count,
         restart_count=runtime_state.boss_restart_count,
     ):
-        restarted, detail = restart_service_via_launchd(
-            label=DEFAULT_BOSS_LABEL,
+        restarted, detail, boss_restart_action = restart_boss_service(
+            repo_root=repo_root,
+            repo=repo,
             process_pattern=DEFAULT_BOSS_PROCESS_PATTERN,
         )
         runtime_state.boss_restart_count += 1
@@ -887,17 +1020,17 @@ def run_shift_cycle(
             ledger,
             runtime_state,
             failure_class=BOSS_RESTART_FAILURE,
-            action="restart_boss_loop",
+            action=boss_restart_action,
             success=restarted,
             detail=detail,
         )
         if restarted:
             boss_running = True
-            actions.append("restart_boss_loop")
+            actions.append(boss_restart_action)
             if ledger:
-                ledger.record_service_restart(service="boss_loop", success=True)
+                ledger.record_service_restart(service="boss_loop", success=True, detail=detail)
         else:
-            actions.append("restart_boss_loop_failed")
+            actions.append(f"{boss_restart_action}_failed")
             stop_reason = f"BossRestartFailed: {detail or 'boss loop restart did not produce a running process'}"
             service_failures.append(stop_reason)
             if ledger:
