@@ -256,6 +256,13 @@ class NotificationTemplatesHandler(BaseHandler):
         "/api/v1/notifications/templates/{id}/reset",
         "/api/v1/notifications/templates/{id}/preview",
     ]
+    _ROUTE_MAP = {
+        "GET /api/v1/notifications/templates": "handle",
+        "GET /api/v1/notifications/templates/{id}": "handle",
+        "PUT /api/v1/notifications/templates/{id}": "handle_put",
+        "POST /api/v1/notifications/templates/{id}/reset": "handle_post",
+        "POST /api/v1/notifications/templates/{id}/preview": "handle_post",
+    }
     ROUTE_PREFIXES = [
         "/api/notifications/templates",
         "/api/v1/notifications/templates",

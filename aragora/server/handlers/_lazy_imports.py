@@ -161,6 +161,7 @@ HANDLER_MODULES: dict[str, str] = {
     # notifications/ directory
     "NotificationHistoryHandler": "aragora.server.handlers.notifications.history",
     "NotificationPreferencesHandler": "aragora.server.handlers.notifications.preferences",
+    "NotificationTemplatesHandler": "aragora.server.handlers.notifications.templates",
     # pipeline/ directory
     "PipelineGraphHandler": "aragora.server.handlers.pipeline_graph",
     "PipelineTransitionsHandler": "aragora.server.handlers.pipeline.transitions",
@@ -635,6 +636,7 @@ ALL_HANDLER_NAMES: list[str] = [
     # notifications
     "NotificationHistoryHandler",
     "NotificationPreferencesHandler",
+    "NotificationTemplatesHandler",
     # payments
     "PaymentRoutesHandler",
     # pipeline

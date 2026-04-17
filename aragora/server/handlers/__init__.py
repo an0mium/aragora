@@ -338,6 +338,7 @@ if TYPE_CHECKING:
     from .nomic import NomicHandler
     from .notifications.history import NotificationHistoryHandler
     from .notifications.preferences import NotificationPreferencesHandler
+    from .notifications.templates import NotificationTemplatesHandler
     from .oauth import OAuthHandler
     from .oauth_wizard import OAuthWizardHandler
     from .onboarding import (
@@ -834,6 +835,7 @@ __all__ = [
     # notifications
     "NotificationHistoryHandler",
     "NotificationPreferencesHandler",
+    "NotificationTemplatesHandler",
     # payments
     "PaymentRoutesHandler",
     # pipeline
