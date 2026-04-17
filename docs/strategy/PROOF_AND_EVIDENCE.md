@@ -183,6 +183,12 @@ Aragora should **not** yet say:
 4. Add stricter high-impact policy gates: external verification, stronger model
    attestation, and key-custody enforcement.
 
+The bounded execution contract for proof agenda item `1` lives in
+`docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md`, with the automation
+prompt pack at `docs/examples/decision-quality-delta-benchmark-prompt-pack.yaml`
+and the compact reporting shape at
+`docs/templates/DECISION_QUALITY_DELTA_BENCHMARK_REPORT_TEMPLATE.md`.
+
 #### Metrics that matter
 
 - bug and finding catch-rate delta vs strong single-model baseline

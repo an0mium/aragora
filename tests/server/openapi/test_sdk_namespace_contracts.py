@@ -32,6 +32,14 @@ NAMESPACE_CONTRACTS = {
             ("post", "/api/v1/integrations/teams/notify"),
         ],
     },
+    "receipts": {
+        "file": "sdk/typescript/src/namespaces/receipts.ts",
+        "endpoints": [
+            ("get", "/api/v1/receipts/deliveries"),
+            ("get", "/api/v1/receipts/recent-anchors"),
+            ("get", "/api/v1/receipts/{param}/anchor-status"),
+        ],
+    },
     "webhooks": {
         "file": "sdk/typescript/src/namespaces/webhooks.ts",
         "endpoints": [

@@ -51,6 +51,30 @@ export interface StatusSummary {
   updated_at: string;
 }
 
+/** Public surface readiness state */
+export interface PublicSurfaceReadiness {
+  id: string;
+  name: string;
+  readiness: 'live' | 'partial';
+  paths: string[];
+  message: string;
+  backend_conditional: boolean;
+  placeholder_backed: boolean;
+  details: Record<string, unknown>;
+}
+
+/** Public surface readiness inventory response */
+export interface PublicSurfacesResponse {
+  data: {
+    surfaces: PublicSurfaceReadiness[];
+    summary: {
+      total: number;
+      live: number;
+      partial: number;
+    };
+  };
+}
+
 /**
  * Status namespace for platform health monitoring.
  *
@@ -102,5 +126,10 @@ export class StatusNamespace {
   /** Get uptime summary and historical uptime periods. */
   async getUptime(): Promise<Record<string, unknown>> {
     return this.client.request<Record<string, unknown>>('GET', '/api/v1/status/uptime');
+  }
+
+  /** Get public surface readiness inventory. */
+  async getPublicSurfaces(): Promise<PublicSurfacesResponse> {
+    return this.client.request<PublicSurfacesResponse>('GET', '/api/v1/public/surfaces');
   }
 }

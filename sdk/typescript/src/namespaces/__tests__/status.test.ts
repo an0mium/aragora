@@ -33,4 +33,18 @@ describe('StatusNamespace', () => {
     expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/status/uptime');
     expect((result as any).data.current.status).toBe('operational');
   });
+
+  it('should get public surface readiness inventory', async () => {
+    mockClient.request.mockResolvedValue({
+      data: {
+        surfaces: [{ id: 'status_page', readiness: 'live' }],
+        summary: { total: 1, live: 1, partial: 0 },
+      },
+    });
+
+    const result = await api.getPublicSurfaces();
+
+    expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/public/surfaces');
+    expect(result.data.summary.live).toBe(1);
+  });
 });

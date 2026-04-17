@@ -2,6 +2,75 @@
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS, AUTH_REQUIREMENTS
 
+_DEBATE_ID_PARAM = {
+    "name": "debate_id",
+    "in": "path",
+    "required": True,
+    "schema": {"type": "string"},
+    "description": "Debate session ID.",
+}
+
+_DEBATE_COST_SUMMARY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "data": {
+            "type": "object",
+            "properties": {
+                "debate_id": {"type": "string"},
+                "total_cost_usd": {"type": "number"},
+                "total_tokens_in": {"type": "integer"},
+                "total_tokens_out": {"type": "integer"},
+                "api_calls": {"type": "integer"},
+                "avg_latency_ms": {"type": "number"},
+                "by_agent": {"type": "array", "items": {"type": "object"}},
+                "by_model": {"type": "array", "items": {"type": "object"}},
+                "budget": {"type": "object", "additionalProperties": True},
+            },
+        }
+    },
+}
+
+_DEBATE_COST_LINE_ITEMS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "data": {
+            "type": "object",
+            "properties": {
+                "debate_id": {"type": "string"},
+                "line_items": {"type": "array", "items": {"type": "object"}},
+                "total_count": {"type": "integer"},
+                "returned_count": {"type": "integer"},
+                "offset": {"type": "integer"},
+                "limit": {"type": "integer"},
+                "page_total_cost_usd": {"type": "number"},
+                "page_total_tokens": {"type": "integer"},
+            },
+        }
+    },
+}
+
+_DEBATE_COST_PERFORMANCE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "data": {
+            "type": "object",
+            "properties": {
+                "debate_id": {"type": "string"},
+                "api_calls": {"type": "integer"},
+                "total_cost_usd": {"type": "number"},
+                "total_tokens": {"type": "integer"},
+                "duration_seconds": {"type": "number"},
+                "throughput": {"type": "object", "additionalProperties": True},
+                "latency": {"type": "object", "additionalProperties": True},
+                "cost_efficiency": {"type": "object", "additionalProperties": True},
+                "by_operation": {"type": "array", "items": {"type": "object"}},
+                "time_range": {"type": "object", "additionalProperties": True},
+                "message": {"type": "string"},
+            },
+        }
+    },
+}
+
 COSTS_ENDPOINTS = {
     "/api/costs": {
         "get": {
@@ -479,6 +548,86 @@ COSTS_ENDPOINTS = {
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/costs/debates/{debate_id}": {
+        "get": {
+            "tags": ["Costs"],
+            "summary": "Get debate session costs",
+            "operationId": "getDebateSessionCosts",
+            "description": "Get total cost, token usage, model breakdowns, and budget status for a debate session.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_DEBATE_ID_PARAM],
+            "responses": {
+                "200": _ok_response("Debate session costs", _DEBATE_COST_SUMMARY_SCHEMA),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "503": {"description": "Cost tracker unavailable"},
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/costs/debates/{debate_id}/line-items": {
+        "get": {
+            "tags": ["Costs"],
+            "summary": "Get debate cost line items",
+            "operationId": "listDebateCostLineItems",
+            "description": "List individual API-call cost line items for a debate session.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                _DEBATE_ID_PARAM,
+                {
+                    "name": "sort_by",
+                    "in": "query",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["cost", "timestamp", "tokens"],
+                        "default": "timestamp",
+                    },
+                },
+                {
+                    "name": "order",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["asc", "desc"], "default": "desc"},
+                },
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 500, "default": 100},
+                },
+                {
+                    "name": "offset",
+                    "in": "query",
+                    "schema": {"type": "integer", "minimum": 0, "default": 0},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Debate cost line items", _DEBATE_COST_LINE_ITEMS_SCHEMA),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "503": {"description": "Cost tracker unavailable"},
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/costs/debates/{debate_id}/performance": {
+        "get": {
+            "tags": ["Costs"],
+            "summary": "Get debate cost performance",
+            "operationId": "getDebateCostPerformance",
+            "description": "Get latency, throughput, and cost-efficiency metrics for a debate session's API usage.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [_DEBATE_ID_PARAM],
+            "responses": {
+                "200": _ok_response("Debate cost performance", _DEBATE_COST_PERFORMANCE_SCHEMA),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "503": {"description": "Cost tracker unavailable"},
                 "500": STANDARD_ERRORS["500"],
             },
         }

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import builtins
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
@@ -194,6 +195,69 @@ class ReceiptsAPI:
             "POST",
             f"/api/v1/receipts/{receipt_id}/deliver",
             json=payload,
+        )
+
+    def list_deliveries(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        receipt_id: str | None = None,
+        channel_type: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        List recent receipt delivery attempts.
+
+        Args:
+            limit: Maximum deliveries to return.
+            offset: Pagination offset.
+            receipt_id: Optional receipt ID filter.
+            channel_type: Optional delivery channel filter.
+            status: Optional delivery status filter.
+
+        Returns:
+            Delivery history with pagination metadata.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if receipt_id:
+            params["receipt_id"] = receipt_id
+        if channel_type:
+            params["channel_type"] = channel_type
+        if status:
+            params["status"] = status
+        return self._client.request("GET", "/api/v1/receipts/deliveries", params=params)
+
+    def list_recent_anchors(self, *, limit: int = 10) -> dict[str, Any]:
+        """
+        List recently anchored receipt hashes.
+
+        Args:
+            limit: Maximum anchors to return.
+
+        Returns:
+            Recent anchor records with receipt metadata.
+        """
+        return self._client.request(
+            "GET",
+            "/api/v1/receipts/recent-anchors",
+            params={"limit": limit},
+        )
+
+    def get_anchor_status(self, receipt_id: str) -> dict[str, Any]:
+        """
+        Get blockchain anchor status for a receipt.
+
+        Args:
+            receipt_id: Receipt identifier.
+
+        Returns:
+            Anchor verification status.
+        """
+        encoded_receipt_id = quote(receipt_id, safe="")
+        return self._client.request(
+            "GET",
+            f"/api/v1/receipts/{encoded_receipt_id}/anchor-status",
         )
 
     def share(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
@@ -652,6 +716,41 @@ class AsyncReceiptsAPI:
             "POST",
             f"/api/v1/receipts/{receipt_id}/deliver",
             json=payload,
+        )
+
+    async def list_deliveries(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        receipt_id: str | None = None,
+        channel_type: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        """List recent receipt delivery attempts."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if receipt_id:
+            params["receipt_id"] = receipt_id
+        if channel_type:
+            params["channel_type"] = channel_type
+        if status:
+            params["status"] = status
+        return await self._client.request("GET", "/api/v1/receipts/deliveries", params=params)
+
+    async def list_recent_anchors(self, *, limit: int = 10) -> dict[str, Any]:
+        """List recently anchored receipt hashes."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/receipts/recent-anchors",
+            params={"limit": limit},
+        )
+
+    async def get_anchor_status(self, receipt_id: str) -> dict[str, Any]:
+        """Get blockchain anchor status for a receipt."""
+        encoded_receipt_id = quote(receipt_id, safe="")
+        return await self._client.request(
+            "GET",
+            f"/api/v1/receipts/{encoded_receipt_id}/anchor-status",
         )
 
     async def share(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:

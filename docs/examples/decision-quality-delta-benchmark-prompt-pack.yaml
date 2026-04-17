@@ -1,0 +1,245 @@
+bundle_id: decision-quality-delta-benchmark-2026-04-17
+objective: >-
+  Build the bounded benchmark needed to measure whether Aragora's multi-agent
+  review path produces a meaningful quality delta over the strongest realistic
+  single-model baseline on real review tasks, then extend the same contract to
+  a smaller gauntlet corpus.
+repo:
+  name: synaptent/aragora
+  root: /Users/armand/Development/aragora
+  base_ref: origin/main
+shared_constraints:
+  report_requirements:
+    - exact commands run
+    - corpus revision and git SHA
+    - raw artifact paths and adjudication paths
+    - residual risk
+    - truthful stop reason if blocked
+  execution_rules:
+    - keep the benchmark bounded to review and gauntlet CLI paths
+    - do not widen into inbox, partner, or full autonomy proof
+    - freeze corpus and roster before the first counted run
+    - do not publish a final delta without blind adjudication
+references:
+  source_refs:
+    benchmark_spec:
+      kind: doc
+      url: https://github.com/synaptent/aragora/blob/main/docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md
+      meaning: canonical benchmark question, thresholds, and stop conditions
+    proof_ladder:
+      kind: doc
+      url: https://github.com/synaptent/aragora/blob/main/docs/strategy/PROOF_AND_EVIDENCE.md
+      meaning: proof agenda and evidence ladder
+    pmf_plan:
+      kind: doc
+      url: https://github.com/synaptent/aragora/blob/main/docs/plans/PMF_DOGFOOD_EXECUTION_PLAN.md
+      meaning: PMF-critical proof metrics and outcome-advantage framing
+    active_tree:
+      kind: doc
+      url: https://github.com/synaptent/aragora/blob/main/docs/status/ACTIVE_EXECUTION_ISSUES.md
+      meaning: canonical roadmap tree including DIC-02 and TW-11
+    review_help:
+      kind: doc
+      url: https://github.com/synaptent/aragora/blob/main/README.md#quick-start
+      meaning: public review and review-pr entrypoint documentation
+    proof_pack_template:
+      kind: doc
+      url: https://github.com/synaptent/aragora/blob/main/docs/templates/DECISION_QUALITY_DELTA_BENCHMARK_REPORT_TEMPLATE.md
+      meaning: compact benchmark report contract
+lanes:
+  - lane_id: dqb01_bench_readiness
+    owner_role: benchmark_harness_engineer
+    title: Freeze bench-readiness and artifact contract
+    prompt: >-
+      Make the review and gauntlet benchmark paths reproducible. Freeze the
+      environment, corpus revision contract, roster recording, artifact layout,
+      and minimal runner expectations without widening into product cleanup.
+    source_refs:
+      - https://github.com/synaptent/aragora/blob/main/docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md
+      - https://github.com/synaptent/aragora/blob/main/docs/strategy/PROOF_AND_EVIDENCE.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - docs/plans/**
+      - docs/examples/**
+      - docs/templates/**
+      - scripts/**
+      - tests/scripts/**
+    acceptance_criteria:
+      - Review and gauntlet benchmark runs have a fixed artifact root and schema.
+      - Corpus revision, git SHA, and roster are recorded for every counted run.
+      - The benchmark stops truthfully when roster or environment is incomplete.
+    verification_commands:
+      - python3 -m aragora.cli.main review --help
+      - python3 -m aragora.cli.main gauntlet --help
+      - python3 -m aragora.cli.main swarm tranche plan --from-prompts docs/examples/decision-quality-delta-benchmark-prompt-pack.yaml --output /tmp/decision-quality-delta-benchmark-tranche.yaml --json
+    stop_conditions:
+      - The lane starts refactoring debate orchestration instead of making the current surface benchmarkable.
+    expected_receipts_artifacts:
+      - benchmark artifact schema path
+      - sample output directory path
+      - residual risk
+
+  - lane_id: dqb02_review_corpus
+    owner_role: review_benchmark_curator
+    title: Build the primary 12-task review corpus and answer key
+    prompt: >-
+      Curate the smallest honest review corpus that can answer the benchmark
+      question. Prefer real diffs or PR heads, balance issue-catching and
+      clean-task behavior, and create adjudication-ready answer keys.
+    source_refs:
+      - https://github.com/synaptent/aragora/blob/main/docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md
+      - https://github.com/synaptent/aragora/blob/main/docs/strategy/PROOF_AND_EVIDENCE.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - docs/benchmarks/**
+      - docs/plans/**
+      - docs/examples/**
+      - scripts/**
+      - tests/benchmarks/**
+    verification_commands:
+      - python3 -m pytest tests/benchmarks -q
+      - python3 -m aragora.cli.main review --help
+    stop_conditions:
+      - The lane adds or removes tasks after reviewing benchmark outputs.
+      - The lane drifts into synthetic-only tasks when real bounded diffs are available.
+    expected_receipts_artifacts:
+      - corpus manifest path
+      - answer-key path
+      - residual risk
+
+  - lane_id: dqb03_gauntlet_corpus
+    owner_role: gauntlet_benchmark_curator
+    title: Build the secondary 8-task gauntlet corpus and answer key
+    prompt: >-
+      Curate the smaller gauntlet benchmark corpus for spec, architecture,
+      policy, or contract inputs. Keep it secondary to the review benchmark and
+      make blocker inflation on clean tasks visible.
+    source_refs:
+      - https://github.com/synaptent/aragora/blob/main/docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - docs/benchmarks/**
+      - docs/plans/**
+      - docs/examples/**
+      - scripts/**
+      - tests/benchmarks/**
+    verification_commands:
+      - python3 -m aragora.cli.main gauntlet --help
+      - python3 -m pytest tests/benchmarks -q
+    stop_conditions:
+      - The lane tries to use gauntlet results as the primary proof before the review corpus exists.
+    expected_receipts_artifacts:
+      - corpus manifest path
+      - answer-key path
+      - residual risk
+
+  - lane_id: dqb04_runner_and_artifacts
+    owner_role: benchmark_runner_engineer
+    title: Run single-model and Aragora-team legs with cost and latency capture
+    prompt: >-
+      Build or refine the bounded runner that executes the frozen benchmark
+      corpus across the single-model legs and the Aragora-team leg, then writes
+      raw outputs, normalized outputs, timing, and cost data without yet making
+      final quality claims.
+    source_refs:
+      - https://github.com/synaptent/aragora/blob/main/docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md
+      - https://github.com/synaptent/aragora/blob/main/docs/templates/DECISION_QUALITY_DELTA_BENCHMARK_REPORT_TEMPLATE.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - scripts/**
+      - tests/scripts/**
+      - docs/plans/**
+      - docs/examples/**
+      - docs/templates/**
+      - docs/benchmarks/**
+    verification_commands:
+      - python3 -m aragora.cli.main review --help
+      - python3 -m aragora.cli.main gauntlet --help
+      - python3 -m pytest tests/scripts -q
+    stop_conditions:
+      - The lane publishes automatic scores as final truth without adjudication.
+      - The lane weakens the best-single comparator for convenience.
+    expected_receipts_artifacts:
+      - runner path
+      - sample run bundle
+      - residual risk
+
+  - lane_id: dqb05_blind_adjudication
+    owner_role: benchmark_adjudication_editor
+    title: Blind-adjudicate the result bundles and compute the delta truthfully
+    prompt: >-
+      Build the adjudication sheet, identity stripping, disagreement resolution,
+      and metric calculation needed to score the benchmark truthfully. Keep the
+      process blind to model identity and publish agreement rates.
+    source_refs:
+      - https://github.com/synaptent/aragora/blob/main/docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md
+      - https://github.com/synaptent/aragora/blob/main/docs/templates/DECISION_QUALITY_DELTA_BENCHMARK_REPORT_TEMPLATE.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - scripts/**
+      - tests/scripts/**
+      - docs/plans/**
+      - docs/templates/**
+      - docs/examples/**
+      - docs/benchmarks/**
+    verification_commands:
+      - python3 -m pytest tests/scripts -q
+      - python3 -V
+    stop_conditions:
+      - The lane drops blind adjudication or agreement reporting.
+      - The lane changes the answer key after seeing outputs.
+    expected_receipts_artifacts:
+      - adjudication sheet path
+      - metric output path
+      - agreement summary
+
+  - lane_id: dqb06_proof_pack
+    owner_role: benchmark_proof_editor
+    title: Publish the compact benchmark proof pack and gate decision
+    prompt: >-
+      Assemble the benchmark proof pack, publish the go / conditional_go /
+      no_go decision, and keep the interpretation narrow. The report must say
+      what Aragora did better, what it did worse, and what should happen next.
+    source_refs:
+      - https://github.com/synaptent/aragora/blob/main/docs/templates/DECISION_QUALITY_DELTA_BENCHMARK_REPORT_TEMPLATE.md
+      - https://github.com/synaptent/aragora/blob/main/docs/strategy/PROOF_AND_EVIDENCE.md
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - docs/benchmarks/**
+      - docs/status/**
+      - docs/plans/**
+      - docs/templates/**
+      - docs/examples/**
+      - scripts/**
+      - tests/scripts/**
+    verification_commands:
+      - python3 -m aragora.cli.main review --help
+      - python3 -m aragora.cli.main gauntlet --help
+      - python3 -m aragora.cli.main swarm tranche plan --from-prompts docs/examples/decision-quality-delta-benchmark-prompt-pack.yaml --output /tmp/decision-quality-delta-benchmark-proof-tranche.yaml --json
+    stop_conditions:
+      - The lane widens the claim beyond measured review and gauntlet tasks.
+      - The lane hides a no-go or conditional_go result behind narrative.
+    expected_receipts_artifacts:
+      - proof-pack path
+      - benchmark decision
+      - residual risk
+terminal_outcomes:
+  success:
+    definition: >-
+      The repo has a bounded, automation-ready benchmark that can truthfully
+      answer whether Aragora beats the strongest realistic single-model
+      baseline on real review tasks, with gauntlet as a secondary extension.
+  needs_human:
+    definition: >-
+      The next step requires live provider credentials, adjudicator time, or
+      fixed benchmark inputs that cannot be truthfully simulated.
+  stop_and_replan:
+    definition: >-
+      The work drifts into generic platform refactor, leaderboard theater, or
+      unadjudicated quality claims.

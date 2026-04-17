@@ -643,6 +643,117 @@ _RECEIPT_ENDPOINTS = {
             },
         }
     },
+    "/api/v1/receipts/deliveries": {
+        "get": {
+            "tags": ["Receipts", "Delivery"],
+            "summary": "List receipt delivery history",
+            "operationId": "listReceiptDeliveries",
+            "description": "List recent receipt delivery attempts for operator decision-integrity surfaces.",
+            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "parameters": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 50, "minimum": 1, "maximum": 100},
+                },
+                {
+                    "name": "offset",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 0, "minimum": 0},
+                },
+                {
+                    "name": "receipt_id",
+                    "in": "query",
+                    "description": "Filter delivery history to one receipt.",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "channel_type",
+                    "in": "query",
+                    "description": "Filter by delivery channel type.",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "status",
+                    "in": "query",
+                    "description": "Filter by delivery status.",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Receipt delivery history",
+                    {
+                        "deliveries": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                        "limit": {"type": "integer"},
+                        "offset": {"type": "integer"},
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/receipts/recent-anchors": {
+        "get": {
+            "tags": ["Receipts", "Blockchain"],
+            "summary": "List recently anchored receipts",
+            "operationId": "listRecentReceiptAnchors",
+            "description": "List recently anchored receipt hashes and verification metadata.",
+            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "parameters": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 10, "minimum": 1, "maximum": 100},
+                },
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Recently anchored receipts",
+                    {
+                        "anchors": {"type": "array", "items": {"type": "object"}},
+                        "total": {"type": "integer"},
+                        "limit": {"type": "integer"},
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/receipts/{receipt_id}/anchor-status": {
+        "get": {
+            "tags": ["Receipts", "Blockchain"],
+            "summary": "Get receipt anchor status",
+            "operationId": "getReceiptAnchorStatus",
+            "description": "Verify whether a decision receipt has an on-chain or local anchor.",
+            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "parameters": [
+                {
+                    "name": "receipt_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Receipt ID to verify.",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Receipt anchor verification status",
+                    {
+                        "receipt_id": {"type": "string"},
+                        "anchored": {"type": "boolean"},
+                        "anchors": {"type": "array", "items": {"type": "object"}},
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
     "/api/v2/receipts/{receipt_id}": {
         "get": {
             "tags": ["Receipts"],

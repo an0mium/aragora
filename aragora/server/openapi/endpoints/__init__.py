@@ -54,6 +54,7 @@ from aragora.server.openapi.endpoints.budgets import BUDGET_ENDPOINTS
 from aragora.server.openapi.endpoints.teams import TEAMS_ENDPOINTS
 from aragora.server.openapi.endpoints.webhooks import WEBHOOK_ENDPOINTS
 from aragora.server.openapi.endpoints.integrations import INTEGRATION_ENDPOINTS
+from aragora.server.openapi.endpoints.feedback_hub import FEEDBACK_HUB_ENDPOINTS
 from aragora.server.openapi.endpoints.nomic import NOMIC_ENDPOINTS
 from aragora.server.openapi.endpoints.deliberations import DELIBERATIONS_ENDPOINTS
 from aragora.server.openapi.endpoints.auth import AUTH_ENDPOINTS
@@ -81,6 +82,7 @@ from aragora.server.openapi.endpoints.orchestration import ORCHESTRATION_ENDPOIN
 from aragora.server.openapi.endpoints.observability import OBSERVABILITY_ENDPOINTS
 from aragora.server.openapi.endpoints.prompt_engine import PROMPT_ENGINE_ENDPOINTS
 from aragora.server.openapi.endpoints.ralph import RALPH_ENDPOINTS
+from aragora.server.openapi.endpoints.status import STATUS_ENDPOINTS
 
 
 import logging
@@ -153,6 +155,7 @@ ALL_ENDPOINTS = {
     **TEAMS_ENDPOINTS,
     **WEBHOOK_ENDPOINTS,
     **INTEGRATION_ENDPOINTS,
+    **FEEDBACK_HUB_ENDPOINTS,
     **NOMIC_ENDPOINTS,
     **DELIBERATIONS_ENDPOINTS,
     **AUTH_ENDPOINTS,
@@ -180,6 +183,7 @@ ALL_ENDPOINTS = {
     **OBSERVABILITY_ENDPOINTS,
     **PROMPT_ENGINE_ENDPOINTS,
     **RALPH_ENDPOINTS,
+    **STATUS_ENDPOINTS,
 }
 
 # Deep merge decorator endpoints: manual specs take precedence over decorator
@@ -238,6 +242,7 @@ __all__ = [
     "TEAMS_ENDPOINTS",
     "WEBHOOK_ENDPOINTS",
     "INTEGRATION_ENDPOINTS",
+    "FEEDBACK_HUB_ENDPOINTS",
     "NOMIC_ENDPOINTS",
     "DELIBERATIONS_ENDPOINTS",
     "AUTH_ENDPOINTS",
@@ -265,5 +270,6 @@ __all__ = [
     "OBSERVABILITY_ENDPOINTS",
     "PROMPT_ENGINE_ENDPOINTS",
     "RALPH_ENDPOINTS",
+    "STATUS_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

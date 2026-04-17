@@ -131,6 +131,24 @@ class FeedbackAPI:
         """Get feedback prompts configuration."""
         return self._client.request("GET", "/api/v1/feedback/prompts")
 
+    # ===========================================================================
+    # Feedback Hub
+    # ===========================================================================
+
+    def get_hub_stats(self) -> dict[str, Any]:
+        """Get unified feedback-hub routing statistics."""
+        return self._client.request("GET", "/api/v1/feedback-hub/stats")
+
+    def list_hub_history(self, limit: int | None = None) -> dict[str, Any]:
+        """List recent feedback-hub routing history."""
+        if limit is None:
+            return self._client.request("GET", "/api/v1/feedback-hub/history")
+        return self._client.request(
+            "GET",
+            "/api/v1/feedback-hub/history",
+            params={"limit": limit},
+        )
+
 
 class AsyncFeedbackAPI:
     """
@@ -234,3 +252,21 @@ class AsyncFeedbackAPI:
     async def get_prompts(self) -> dict[str, Any]:
         """Get feedback prompts configuration."""
         return await self._client.request("GET", "/api/v1/feedback/prompts")
+
+    # ===========================================================================
+    # Feedback Hub
+    # ===========================================================================
+
+    async def get_hub_stats(self) -> dict[str, Any]:
+        """Get unified feedback-hub routing statistics."""
+        return await self._client.request("GET", "/api/v1/feedback-hub/stats")
+
+    async def list_hub_history(self, limit: int | None = None) -> dict[str, Any]:
+        """List recent feedback-hub routing history."""
+        if limit is None:
+            return await self._client.request("GET", "/api/v1/feedback-hub/history")
+        return await self._client.request(
+            "GET",
+            "/api/v1/feedback-hub/history",
+            params={"limit": limit},
+        )
