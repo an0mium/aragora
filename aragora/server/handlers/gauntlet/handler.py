@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, unquote
 
 from aragora.observability.metrics import track_handler
 from aragora.server.validation.entities import validate_gauntlet_id
@@ -138,7 +138,7 @@ class GauntletHandler(
             parts = path.rstrip("/").split("/")
             # /api/receipts/{receipt_id}/anchor-status => ['', 'api', 'receipts', '{id}', 'anchor-status']
             if len(parts) >= 5:
-                receipt_id = parts[3]
+                receipt_id = unquote(parts[3])
                 return self._get_receipt_anchor_status(receipt_id, query_params)
 
         # POST /api/gauntlet/{id}/receipt/verify

@@ -428,6 +428,17 @@ class TestHandleParameterizedRoute:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
+    async def test_get_receipt_anchor_status_decodes_receipt_id(self, handler):
+        """Routes percent-encoded receipt IDs to anchor lookup with the decoded value."""
+        handler._get_receipt_anchor_status = MagicMock(
+            return_value=HandlerResult(status_code=200, content_type="application/json", body=b"{}")
+        )
+        path = "/api/receipts/r%2F123/anchor-status"
+        result = await handler._handle_parameterized_route(path, "GET", {}, None)
+        assert result is not None
+        handler._get_receipt_anchor_status.assert_called_once_with("r/123", {})
+
+    @pytest.mark.asyncio
     async def test_get_receipt(self, handler):
         """Routes GET /receipt to _get_receipt."""
         handler._get_receipt = AsyncMock(
