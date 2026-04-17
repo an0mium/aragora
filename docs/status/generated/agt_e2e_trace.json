@@ -1,0 +1,455 @@
+{
+  "agent_receipt": {
+    "cruxset": {
+      "checksum": "80d12b59d74dedf8f7502cd5fa550ffeb90197439acb0ab662dabd1147d648fe",
+      "counterfactual_notes": [
+        "avg_uncertainty=0.52",
+        "convergence_barrier=0.41"
+      ],
+      "created_at": "2026-04-17T12:00:00Z",
+      "cruxes": [
+        {
+          "candidate_verifier": "docs/status/BC12_SOAK_POLICY.md (not yet written)",
+          "counterfactual": "If one productive soak is sufficient, flip order of AGT activation vs soak",
+          "crux_id": "c_benchmark_evidence",
+          "evidence_gaps": [
+            "no settled policy on productive-vs-idle soak equivalence"
+          ],
+          "load_bearing_score": 0.82,
+          "positions": [
+            {
+              "agents": [
+                "codex-strategic"
+              ],
+              "rationale": "substrate-first discipline",
+              "side": "for"
+            },
+            {
+              "agents": [
+                "claude-sonnet"
+              ],
+              "rationale": "productive soak is stronger evidence",
+              "side": "against"
+            }
+          ],
+          "statement": "Is three consecutive green BC-12 soaks the right evidence standard before flipping the upper-layer flags?"
+        },
+        {
+          "candidate_verifier": "",
+          "counterfactual": "Without a policy, AGT-05 flows cannot accept new-agent submissions",
+          "crux_id": "c_reputation_bootstrap",
+          "evidence_gaps": [
+            "no cold-start policy specified"
+          ],
+          "load_bearing_score": 0.65,
+          "positions": [
+            {
+              "agents": [
+                "claude-sonnet"
+              ],
+              "rationale": "sandbox reputation with reduced stake caps",
+              "side": "for_sandbox"
+            },
+            {
+              "agents": [
+                "codex-strategic"
+              ],
+              "rationale": "bootstrap from trusted oracle delegations",
+              "side": "for_oracle"
+            }
+          ],
+          "statement": "How do new agents earn initial reputation without prior settled claims?"
+        },
+        {
+          "candidate_verifier": "",
+          "counterfactual": "",
+          "crux_id": "c_tangential_detail",
+          "evidence_gaps": [],
+          "load_bearing_score": 0.18,
+          "positions": [
+            {
+              "agents": [
+                "claude-sonnet"
+              ],
+              "rationale": "",
+              "side": "info"
+            }
+          ],
+          "statement": "Which logger level should DIC-17 use for proposal-filing events?"
+        }
+      ],
+      "cruxset_id": "crxset_84ca9b3cb5bd263d",
+      "decision": null,
+      "evidence_gaps": [
+        "BC-12 policy gap",
+        "cold-start reputation policy gap"
+      ],
+      "provenance": {
+        "arena_run_id": "run_001",
+        "debate_id": "debate_e2e_synthetic"
+      },
+      "question": "Should Aragora activate the AGT-* upper-layer flags now?",
+      "receipt_id": "rcpt_e2e_synthetic",
+      "schema_version": "1.0",
+      "verifier_candidates": [
+        "c_benchmark_evidence",
+        "c_reputation_bootstrap"
+      ]
+    },
+    "dissent": [
+      {
+        "agent_id": "codex-strategic",
+        "confidence": 0.7,
+        "statement": "Three consecutive green soaks remain the right bar"
+      },
+      {
+        "agent_id": "claude-sonnet",
+        "confidence": 0.6,
+        "statement": "Productive soak is sufficient evidence"
+      }
+    ],
+    "freshness_sla_seconds": 86400,
+    "issued_at": "2026-04-17T12:00:00Z",
+    "issuer": "aragora.ai",
+    "provenance": {
+      "debate_id": "debate_e2e_synthetic"
+    },
+    "receipt_id": "rcpt_a_c0f1f74c2a4a6a0a",
+    "reputation_deltas_applied": [],
+    "schema_version": "1.0",
+    "settlement_window_seconds": 604800,
+    "signature": "p2B7aSY5WvL6aIj/q9MZ3lgT4i49b08Uj6BYJ07DYS+ic31N69jFAZD7CrBbbRVVV4LbvtsYJCRr+IBII+4QCw==",
+    "signature_algorithm": "ed25519",
+    "signature_key_id": "default",
+    "subject": {
+      "cruxset_id": "crxset_84ca9b3cb5bd263d",
+      "decision": null,
+      "question": "Should Aragora activate the AGT-* upper-layer flags now?"
+    },
+    "subject_kind": "debate_outcome",
+    "verification_key_sha256": "da8317fcaed070c92ccc93a34f8e1c7337dde11ec981d4b866e601d911559316"
+  },
+  "anchor_receipt": {
+    "agent_id": 42,
+    "dry_run": true,
+    "error": null,
+    "feedback_hash_hex": "df55948e4c2aafc9f5dd9d64962d5310df7c5a99d9956476422e62287d079b2a",
+    "feedback_uri": "",
+    "provenance": {
+      "agent_id_string": "alice-predictor",
+      "claim_id": "clm_ee70d4144a36c15c",
+      "delta_id": "rep_7ab0bf297436",
+      "domain": "prediction_market",
+      "resolution_id": "mkt_pr_merge_80fdf5b50479705e",
+      "scoring_rule": "brier_proper"
+    },
+    "submitted_at": "2026-04-17T12:00:00Z",
+    "tag1": "prediction_market",
+    "tag2": "brier_proper",
+    "tx_hash": null,
+    "value": 49360000,
+    "value_decimals": 6
+  },
+  "claim": {
+    "agent_id": "alice-predictor",
+    "claim_id": "clm_ee70d4144a36c15c",
+    "created_at": "2026-04-14T00:00:00Z",
+    "domain": "prediction_market",
+    "position": "yes",
+    "predicted_probability": 0.92,
+    "provenance": {
+      "market_id": "mkt_pr_merge_80fdf5b50479705e",
+      "position_id": "pos_953063247dd02a66",
+      "question_kind": "pr_merge",
+      "submitted_at": "2026-04-14T00:00:00Z",
+      "target": {
+        "number": 6116,
+        "repo": "synaptent/aragora"
+      }
+    },
+    "resolution_id": "mkt_pr_merge_80fdf5b50479705e",
+    "resolution_source": "synthetic_github",
+    "stake_policy": "forfeit_on_loss",
+    "stake_units": 50,
+    "statement": "Will the AGT CLI verbs PR merge within 3 days?"
+  },
+  "cruxset": {
+    "checksum": "80d12b59d74dedf8f7502cd5fa550ffeb90197439acb0ab662dabd1147d648fe",
+    "counterfactual_notes": [
+      "avg_uncertainty=0.52",
+      "convergence_barrier=0.41"
+    ],
+    "created_at": "2026-04-17T12:00:00Z",
+    "cruxes": [
+      {
+        "candidate_verifier": "docs/status/BC12_SOAK_POLICY.md (not yet written)",
+        "counterfactual": "If one productive soak is sufficient, flip order of AGT activation vs soak",
+        "crux_id": "c_benchmark_evidence",
+        "evidence_gaps": [
+          "no settled policy on productive-vs-idle soak equivalence"
+        ],
+        "load_bearing_score": 0.82,
+        "positions": [
+          {
+            "agents": [
+              "codex-strategic"
+            ],
+            "rationale": "substrate-first discipline",
+            "side": "for"
+          },
+          {
+            "agents": [
+              "claude-sonnet"
+            ],
+            "rationale": "productive soak is stronger evidence",
+            "side": "against"
+          }
+        ],
+        "statement": "Is three consecutive green BC-12 soaks the right evidence standard before flipping the upper-layer flags?"
+      },
+      {
+        "candidate_verifier": "",
+        "counterfactual": "Without a policy, AGT-05 flows cannot accept new-agent submissions",
+        "crux_id": "c_reputation_bootstrap",
+        "evidence_gaps": [
+          "no cold-start policy specified"
+        ],
+        "load_bearing_score": 0.65,
+        "positions": [
+          {
+            "agents": [
+              "claude-sonnet"
+            ],
+            "rationale": "sandbox reputation with reduced stake caps",
+            "side": "for_sandbox"
+          },
+          {
+            "agents": [
+              "codex-strategic"
+            ],
+            "rationale": "bootstrap from trusted oracle delegations",
+            "side": "for_oracle"
+          }
+        ],
+        "statement": "How do new agents earn initial reputation without prior settled claims?"
+      },
+      {
+        "candidate_verifier": "",
+        "counterfactual": "",
+        "crux_id": "c_tangential_detail",
+        "evidence_gaps": [],
+        "load_bearing_score": 0.18,
+        "positions": [
+          {
+            "agents": [
+              "claude-sonnet"
+            ],
+            "rationale": "",
+            "side": "info"
+          }
+        ],
+        "statement": "Which logger level should DIC-17 use for proposal-filing events?"
+      }
+    ],
+    "cruxset_id": "crxset_84ca9b3cb5bd263d",
+    "decision": null,
+    "evidence_gaps": [
+      "BC-12 policy gap",
+      "cold-start reputation policy gap"
+    ],
+    "provenance": {
+      "arena_run_id": "run_001",
+      "debate_id": "debate_e2e_synthetic"
+    },
+    "question": "Should Aragora activate the AGT-* upper-layer flags now?",
+    "receipt_id": "rcpt_e2e_synthetic",
+    "schema_version": "1.0",
+    "verifier_candidates": [
+      "c_benchmark_evidence",
+      "c_reputation_bootstrap"
+    ]
+  },
+  "dic17_proposals_from_cruxset": [
+    {
+      "labels": [
+        "crux",
+        "epistemic"
+      ],
+      "provenance": {
+        "crux_id": "c_benchmark_evidence",
+        "cruxset_id": "crxset_84ca9b3cb5bd263d",
+        "load_bearing_score": 0.82
+      },
+      "rationale": "load_bearing_score=0.820 >= 0.600",
+      "source_key": "crux_22e117e8b6bc",
+      "title": "[DIC-17] Resolve load-bearing crux: Is three consecutive green BC-12 soaks the right evidence standard before flippi"
+    },
+    {
+      "labels": [
+        "crux",
+        "epistemic"
+      ],
+      "provenance": {
+        "crux_id": "c_reputation_bootstrap",
+        "cruxset_id": "crxset_84ca9b3cb5bd263d",
+        "load_bearing_score": 0.65
+      },
+      "rationale": "load_bearing_score=0.650 >= 0.600",
+      "source_key": "crux_19f1c55d4b07",
+      "title": "[DIC-17] Resolve load-bearing crux: How do new agents earn initial reputation without prior settled claims?"
+    }
+  ],
+  "failure_branch": {
+    "dic17_proposal_for_failed_claim": {
+      "labels": [
+        "epistemic",
+        "failed-claim"
+      ],
+      "rationale": "delta=-40.250 <= -10.0 (agent bob-overconfident in prediction_market)",
+      "source_key": "failed_claim_933afbf1e337",
+      "title": "[DIC-17] Investigate high-loss prediction: bob-overconfident/prediction_market"
+    },
+    "losing_claim": {
+      "agent_id": "bob-overconfident",
+      "claim_id": "clm_489118545c69bc5e",
+      "created_at": "2026-04-14T12:00:00Z",
+      "domain": "prediction_market",
+      "position": "yes",
+      "predicted_probability": 0.95,
+      "provenance": {
+        "market_id": "mkt_pr_merge_9b4f84e154e18de5",
+        "position_id": "pos_447854693a4b7a83",
+        "question_kind": "pr_merge",
+        "submitted_at": "2026-04-14T12:00:00Z",
+        "target": {
+          "number": 9999,
+          "repo": "synaptent/aragora"
+        }
+      },
+      "resolution_id": "mkt_pr_merge_9b4f84e154e18de5",
+      "resolution_source": "synthetic_github",
+      "stake_policy": "forfeit_on_loss",
+      "stake_units": 50,
+      "statement": "Will a non-existent PR merge?"
+    },
+    "losing_delta": {
+      "agent_id": "bob-overconfident",
+      "applied_at": "2026-04-17T12:00:00Z",
+      "claim_id": "clm_489118545c69bc5e",
+      "decay_half_life_days": 30.0,
+      "delta": -40.25,
+      "delta_id": "rep_0754e7febbb9",
+      "domain": "prediction_market",
+      "reason": {
+        "brier": 0.9025,
+        "claim_id": "clm_489118545c69bc5e",
+        "outcome": "no",
+        "payout_fraction": -0.8049999999999999,
+        "resolution_id": "mkt_pr_merge_9b4f84e154e18de5",
+        "resolution_source": "synthetic_github",
+        "scoring_rule": "brier_proper",
+        "stake_units": 50
+      },
+      "resolution_id": "mkt_pr_merge_9b4f84e154e18de5",
+      "scoring_rule": "brier_proper"
+    },
+    "losing_resolved": {
+      "claim_id": "clm_489118545c69bc5e",
+      "evidence": {
+        "merged": false,
+        "state": "CLOSED"
+      },
+      "outcome": "no",
+      "resolution_source": "github_pr_state",
+      "resolved_at": "2026-04-17T12:00:00Z"
+    }
+  },
+  "generated_at": "2026-04-17T12:00:00Z",
+  "market": {
+    "created_at": "2026-04-13T12:00:00Z",
+    "description": "Will the AGT CLI verbs PR merge within 3 days?",
+    "expires_at": "2026-04-16T12:00:00Z",
+    "market_id": "mkt_pr_merge_80fdf5b50479705e",
+    "question_kind": "pr_merge",
+    "target": {
+      "number": 6116,
+      "repo": "synaptent/aragora"
+    }
+  },
+  "pipeline": "agt_e2e_dry_run",
+  "position": {
+    "agent_id": "alice-predictor",
+    "market_id": "mkt_pr_merge_80fdf5b50479705e",
+    "position_id": "pos_953063247dd02a66",
+    "probability": 0.92,
+    "rationale": "PR has all 5 checks green and admin privileges available",
+    "stake": 50,
+    "submitted_at": "2026-04-14T00:00:00Z"
+  },
+  "reputation_delta": {
+    "agent_id": "alice-predictor",
+    "applied_at": "2026-04-17T12:00:00Z",
+    "claim_id": "clm_ee70d4144a36c15c",
+    "decay_half_life_days": 30.0,
+    "delta": 49.36,
+    "delta_id": "rep_7ab0bf297436",
+    "domain": "prediction_market",
+    "reason": {
+      "brier": 0.006399999999999993,
+      "claim_id": "clm_ee70d4144a36c15c",
+      "outcome": "yes",
+      "payout_fraction": 0.9872,
+      "resolution_id": "mkt_pr_merge_80fdf5b50479705e",
+      "resolution_source": "synthetic_github",
+      "scoring_rule": "brier_proper",
+      "stake_units": 50
+    },
+    "resolution_id": "mkt_pr_merge_80fdf5b50479705e",
+    "scoring_rule": "brier_proper"
+  },
+  "resolution": {
+    "evidence": {
+      "merged": true,
+      "merged_at": "2026-04-17T05:22:00Z",
+      "state": "MERGED"
+    },
+    "market_id": "mkt_pr_merge_80fdf5b50479705e",
+    "outcome": "yes",
+    "resolution_source": "github_pr_state",
+    "resolved_at": "2026-04-17T12:00:00Z"
+  },
+  "resolved_claim": {
+    "claim_id": "clm_ee70d4144a36c15c",
+    "evidence": {
+      "merged": true,
+      "merged_at": "2026-04-17T05:22:00Z",
+      "state": "MERGED"
+    },
+    "outcome": "yes",
+    "resolution_source": "github_pr_state",
+    "resolved_at": "2026-04-17T12:00:00Z"
+  },
+  "viah_report": {
+    "agent_hours": 3.0,
+    "coefficients": {
+      "crux_weight": 0.5,
+      "failed_claim_weight": 1.0,
+      "merged_pr_weight": 1.0,
+      "prediction_weight": 0.5,
+      "rescue_weight": 0.5
+    },
+    "cruxes_correctly_detected": 0,
+    "failed_claims_promoted_without_repair": 0,
+    "inputs": {
+      "entries_in_window": 5,
+      "ledger_path": "<pinned:shift_ledger.jsonl>"
+    },
+    "merged_autonomous_prs": 2,
+    "predictions_above_brier_threshold": 0,
+    "rescues_required": 0,
+    "viah": 0.6666666666666666,
+    "window_end": "2026-04-17T12:00:00Z",
+    "window_hours": 24.0,
+    "window_start": "2026-04-16T12:00:00Z"
+  }
+}

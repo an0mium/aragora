@@ -565,12 +565,12 @@ class TestDebateCostRoutes:
     def test_routes_registered(self):
         """All debate cost routes are in the ROUTES list."""
         routes = CostHandler.ROUTES
-        assert "/api/v1/costs/debates/*" in routes
-        assert "/api/v1/costs/debates/*/line-items" in routes
-        assert "/api/v1/costs/debates/*/performance" in routes
-        assert "/api/costs/debates/*" in routes
-        assert "/api/costs/debates/*/line-items" in routes
-        assert "/api/costs/debates/*/performance" in routes
+        assert "/api/v1/costs/debates/{debate_id}" in routes
+        assert "/api/v1/costs/debates/{debate_id}/line-items" in routes
+        assert "/api/v1/costs/debates/{debate_id}/performance" in routes
+        assert "/api/costs/debates/{debate_id}" in routes
+        assert "/api/costs/debates/{debate_id}/line-items" in routes
+        assert "/api/costs/debates/{debate_id}/performance" in routes
 
     def test_can_handle_debate_paths(self):
         """CostHandler.can_handle returns True for debate cost paths."""
