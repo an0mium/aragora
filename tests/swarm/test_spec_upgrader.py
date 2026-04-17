@@ -639,3 +639,183 @@ def test_upgrade_spec_llm_unavailable_bubbles(tmp_path):
                 metrics_path=metrics,
                 llm_client=mock_client,
             )
+
+
+# -------- extract_drift_diagnostic tests (Seam B v1.1) --------
+
+from aragora.swarm.spec_upgrader import extract_drift_diagnostic
+
+
+def _gate_result_with_failed_checks(
+    failed_checks: list[dict],
+    *,
+    check_type: str = "scratch",
+    outcome: str = "blocked",
+) -> dict:
+    """Build a realistic ``dispatch_contract_gate`` failure result."""
+    return {
+        "status": "needs_human",
+        "outcome": outcome,
+        "reasons": ["synthetic drift"],
+        "next_actions": ["retry"],
+        "dispatch_contract": {
+            "target_agent": "codex",
+            "contract_valid": True,
+            "missing_slices": [],
+            "credential_envelope": {},
+            "required_receipts": [check_type],
+            "preflight_receipts": [
+                {
+                    "check_type": check_type,
+                    "receipt_id": "rcpt-1",
+                    "passed": False,
+                    "expires_at": "",
+                    "failure_terminal_class": "BLOCKED_NOT_DISPATCH_BOUNDED",
+                    "failed_checks": failed_checks,
+                }
+            ],
+        },
+    }
+
+
+def test_extract_drift_diagnostic_checksum_drift():
+    gate = _gate_result_with_failed_checks(
+        [
+            {
+                "name": "worker_contract_checksum",
+                "detail": "abc123 != expected def456",
+            }
+        ]
+    )
+    diag = extract_drift_diagnostic(gate)
+    assert diag is not None
+    assert "expected" in diag and "actual" in diag
+    # Shape compatibility with _drift_to_acceptance_criterion.
+    assert isinstance(diag["expected"], dict)
+    assert isinstance(diag["actual"], dict)
+    # Drift signal captured.
+    signals = diag.get("drift_signals") or []
+    assert any(s.get("check") == "worker_contract_checksum" for s in signals)
+
+
+def test_extract_drift_diagnostic_dispatch_gate_drift():
+    gate = _gate_result_with_failed_checks(
+        [
+            {
+                "name": "dispatch_gate",
+                "detail": "verdict=BLOCKED failure_class=contract_drift",
+            }
+        ]
+    )
+    diag = extract_drift_diagnostic(gate)
+    assert diag is not None
+    signals = diag["drift_signals"]
+    assert any(s["check"] == "dispatch_gate" for s in signals)
+
+
+def test_extract_drift_diagnostic_contract_preflight_drift_detail():
+    gate = _gate_result_with_failed_checks(
+        [
+            {
+                "name": "contract_preflight",
+                "detail": "Preflight worker emitted a contract that drifted from the expected contract.",
+            }
+        ]
+    )
+    diag = extract_drift_diagnostic(gate)
+    assert diag is not None
+    assert diag["drift_signals"]
+
+
+def test_extract_drift_diagnostic_no_drift_signals_returns_none():
+    # A receipt with failed checks that are auth-related, not drift.
+    gate = _gate_result_with_failed_checks(
+        [
+            {
+                "name": "worker_commit",
+                "detail": "worker produced no commit",
+            }
+        ]
+    )
+    assert extract_drift_diagnostic(gate) is None
+
+
+def test_extract_drift_diagnostic_all_receipts_passed_returns_none():
+    # When every receipt passed, there is no drift to surface.
+    gate = _gate_result_with_failed_checks([])
+    gate["dispatch_contract"]["preflight_receipts"][0]["passed"] = True
+    assert extract_drift_diagnostic(gate) is None
+
+
+def test_extract_drift_diagnostic_no_dispatch_contract_returns_none():
+    gate = {"status": "needs_human", "outcome": "blocked"}
+    assert extract_drift_diagnostic(gate) is None
+
+
+def test_extract_drift_diagnostic_non_dict_returns_none():
+    assert extract_drift_diagnostic(None) is None  # type: ignore[arg-type]
+    assert extract_drift_diagnostic("not a dict") is None  # type: ignore[arg-type]
+    assert extract_drift_diagnostic([1, 2, 3]) is None  # type: ignore[arg-type]
+
+
+def test_extract_drift_diagnostic_malformed_receipts_returns_none():
+    gate = {
+        "status": "needs_human",
+        "dispatch_contract": {"preflight_receipts": "not a list"},
+    }
+    assert extract_drift_diagnostic(gate) is None
+
+
+def test_extract_drift_diagnostic_missing_failed_checks_returns_none():
+    gate = {
+        "status": "needs_human",
+        "dispatch_contract": {
+            "preflight_receipts": [
+                {"check_type": "scratch", "passed": False, "failed_checks": "bogus"}
+            ]
+        },
+    }
+    assert extract_drift_diagnostic(gate) is None
+
+
+def test_extract_drift_diagnostic_multiple_signals_aggregated():
+    gate = _gate_result_with_failed_checks(
+        [
+            {"name": "worker_contract_checksum", "detail": "mismatch"},
+            {"name": "dispatch_gate", "detail": "verdict=BLOCKED"},
+            {"name": "worker_commit", "detail": "no commit"},  # not a drift signal
+        ]
+    )
+    diag = extract_drift_diagnostic(gate)
+    assert diag is not None
+    checks = {s["check"] for s in diag["drift_signals"]}
+    assert checks == {"worker_contract_checksum", "dispatch_gate"}
+
+
+def test_extract_drift_diagnostic_missing_slices_only_returns_none():
+    # Missing slices are auth/credential issues -- not spec drift.
+    gate = {
+        "status": "needs_human",
+        "outcome": "blocked_auth_failure",
+        "dispatch_contract": {
+            "missing_slices": ["runner"],
+            "preflight_receipts": [],
+        },
+    }
+    assert extract_drift_diagnostic(gate) is None
+
+
+def test_drift_to_acceptance_criterion_accepts_drift_signals():
+    """Drift dicts without explicit files but with drift_signals should still yield a criterion."""
+    from aragora.swarm.spec_upgrader import _drift_to_acceptance_criterion
+
+    drift = {
+        "expected": {"files": ["aragora/swarm/boss_loop.py"]},
+        "actual": {"files": []},
+        "drift_signals": [
+            {"check": "worker_contract_checksum", "detail": "mismatch"},
+        ],
+    }
+    crit = _drift_to_acceptance_criterion(drift)
+    assert crit is not None
+    assert "aragora/swarm/boss_loop.py" in crit

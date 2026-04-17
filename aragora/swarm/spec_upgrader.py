@@ -7,6 +7,7 @@ Public entry point: ``upgrade_spec()``. See
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
 import time
@@ -16,6 +17,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from aragora.swarm.spec import SwarmSpec
+
+logger = logging.getLogger(__name__)
 
 UpgradePath = Literal["deterministic", "llm", "deterministic+llm"]
 UpgradeStatus = Literal["upgraded", "escalated"]
@@ -124,21 +127,148 @@ def _infer_track_scope(track_tag: str | None, *, issue_body: str, repo_root: Pat
 def _drift_to_acceptance_criterion(drift: dict | None) -> str | None:
     """Translate preflight contract drift into an actionable acceptance criterion.
 
-    Returns ``None`` if drift is absent or the expected and actual files match.
+    Returns ``None`` when drift is absent or no actionable signal is present.
+    The criterion is produced when either:
+    1. ``expected.files`` and ``actual.files`` mismatch (Seam-B plan shape), or
+    2. ``drift_signals`` is non-empty and ``expected.files`` is populated
+       (Seam-B v1.1 shape -- file-level diff is not surfaced, but the caller
+       has seeded ``expected.files`` from the spec's scope hints so we can
+       still emit a scoping criterion).
     """
     if not drift:
         return None
     expected = drift.get("expected", {}) or {}
     actual = drift.get("actual", {}) or {}
-    expected_files = list(expected.get("files", []))
-    actual_files = set(actual.get("files", []))
-    if not expected_files or set(expected_files) == actual_files:
+    expected_files = [str(f) for f in expected.get("files", []) if str(f).strip()]
+    actual_files = {str(f) for f in actual.get("files", []) if str(f).strip()}
+    drift_signals = drift.get("drift_signals") or []
+
+    files_mismatch = bool(expected_files) and set(expected_files) != actual_files
+    has_signals = bool(expected_files) and bool(drift_signals)
+    if not (files_mismatch or has_signals):
         return None
     files_str = ", ".join(f"`{f}`" for f in expected_files)
     return (
         f"Worker must scope changes strictly to: {files_str}. "
         "Reject any edits to files outside this list during preflight."
     )
+
+
+# Check names in ``preflight_receipts[].failed_checks[].name`` that indicate
+# contract drift rather than credential/runner/commit problems. ``contract_preflight``
+# is a catch-all for RuntimeError strings bubbled from ``_enforce_expected_contract``
+# in ``aragora/swarm/preflight.py`` -- we filter by ``detail`` substring as well.
+_DRIFT_CHECK_NAMES = frozenset(
+    {
+        "worker_contract_checksum",
+        "dispatch_gate",
+        "contract_preflight",
+    }
+)
+_DRIFT_DETAIL_SUBSTRINGS = ("drift", "drifted", "mismatch", "contract_drift")
+
+
+def _is_drift_check(name: str, detail: str) -> bool:
+    """Return True when a failed preflight check signals contract drift."""
+    normalized_name = (name or "").strip()
+    normalized_detail = (detail or "").strip().lower()
+    if normalized_name in _DRIFT_CHECK_NAMES:
+        # ``contract_preflight`` is a generic exception bucket. Require a
+        # drift-related substring in the detail to avoid over-triggering
+        # (e.g. unrelated runtime errors should not masquerade as drift).
+        if normalized_name == "contract_preflight":
+            return any(s in normalized_detail for s in _DRIFT_DETAIL_SUBSTRINGS)
+        return True
+    return False
+
+
+def extract_drift_diagnostic(contract_gate_result: Any) -> dict | None:
+    """Extract a drift diagnostic from a ``dispatch_contract_gate`` failure result.
+
+    The concrete shape of the gate result is defined in
+    ``aragora/swarm/dispatch_contract_gate.py`` -- the failure path returns::
+
+        {
+          "status": "needs_human",
+          "outcome": "blocked" | "blocked_auth_failure" | "blocked_no_runner",
+          "reasons": [...],
+          "next_actions": [...],
+          "dispatch_contract": {
+              "target_agent": str,
+              "contract_valid": bool,
+              "missing_slices": [...],
+              "credential_envelope": {...},
+              "required_receipts": [...],
+              "preflight_receipts": [
+                  {
+                      "check_type": str,
+                      "receipt_id": str,
+                      "passed": bool,
+                      "failure_terminal_class": str,
+                      "failed_checks": [{"name": str, "detail": str}, ...],
+                  },
+                  ...
+              ],
+          },
+        }
+
+    Contract drift is not surfaced as an explicit expected/actual file diff;
+    it surfaces as failed checks inside ``preflight_receipts`` -- specifically
+    ``worker_contract_checksum`` (checksum mismatch), ``dispatch_gate``
+    (admission verdict drift) and ``contract_preflight`` RuntimeError strings
+    mentioning "drifted" emitted by ``_enforce_expected_contract()`` in
+    ``aragora/swarm/preflight.py``.
+
+    Returns a dict with at least ``{"expected": {...}, "actual": {...}}`` shape
+    -- compatible with :func:`_drift_to_acceptance_criterion` -- plus
+    ``drift_signals`` summarising each surfaced signal. Returns ``None`` when
+    the input is malformed or no drift signals are present.
+    """
+    if not isinstance(contract_gate_result, dict):
+        logger.debug("extract_drift_diagnostic: non-dict input (%s)", type(contract_gate_result))
+        return None
+    dispatch_contract = contract_gate_result.get("dispatch_contract")
+    if not isinstance(dispatch_contract, dict):
+        logger.debug("extract_drift_diagnostic: no dispatch_contract section")
+        return None
+    preflight_receipts = dispatch_contract.get("preflight_receipts")
+    if not isinstance(preflight_receipts, list):
+        logger.debug(
+            "extract_drift_diagnostic: preflight_receipts is %s, expected list",
+            type(preflight_receipts),
+        )
+        return None
+
+    signals: list[dict[str, str]] = []
+    actual_details: list[str] = []
+    for receipt in preflight_receipts:
+        if not isinstance(receipt, dict) or bool(receipt.get("passed", False)):
+            continue
+        failed_checks = receipt.get("failed_checks")
+        if not isinstance(failed_checks, list):
+            logger.debug(
+                "extract_drift_diagnostic: failed_checks is %s, expected list",
+                type(failed_checks),
+            )
+            return None
+        for check in failed_checks:
+            if not isinstance(check, dict):
+                continue
+            name = str(check.get("name", "") or "").strip()
+            detail = str(check.get("detail", "") or "").strip()
+            if _is_drift_check(name, detail):
+                signals.append({"check": name, "detail": detail})
+                if detail:
+                    actual_details.append(detail)
+
+    if not signals:
+        return None
+
+    return {
+        "expected": {"files": []},
+        "actual": {"files": [], "details": actual_details},
+        "drift_signals": signals,
+    }
 
 
 def _tier1_enrich(
