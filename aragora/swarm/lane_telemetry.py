@@ -94,7 +94,7 @@ class LaneTelemetryCollector:
         if db_path is None:
             data_dir = get_default_data_dir()
             data_dir.mkdir(parents=True, exist_ok=True)
-            db_path = str(data_dir / "swarm_lane_telemetry.db")
+            db_path = str((data_dir / "swarm_lane_telemetry.db").resolve())
 
         self.db_path = db_path
         self._persistent_conn: sqlite3.Connection | None = None
@@ -266,6 +266,8 @@ class LaneTelemetryCollector:
             """.format(canonical_outcomes=canonical_outcomes),
             window_days,
         )
+        if row is None:
+            return 0.0
         total = int(row["total"] or 0)
         successes = int(row["successes"] or 0)
         return successes / total if total else 0.0
@@ -295,6 +297,8 @@ class LaneTelemetryCollector:
             """.format(canonical_outcomes=canonical_outcomes),
             window_days,
         )
+        if row is None:
+            return 0.0
         total = int(row["total"] or 0)
         human_required = int(row["human_required"] or 0)
         return human_required / total if total else 0.0
@@ -310,6 +314,8 @@ class LaneTelemetryCollector:
             """,
             window_days,
         )
+        if row is None:
+            return 0.0
         deliverable_count = int(row["deliverable_count"] or 0)
         merged_count = int(row["merged_count"] or 0)
         return merged_count / deliverable_count if deliverable_count else 0.0
@@ -342,7 +348,7 @@ class LaneTelemetryCollector:
             return 0
         return row[0]
 
-    def _aggregate_row(self, query: str, window_days: int) -> sqlite3.Row | tuple[Any, ...] | None:
+    def _aggregate_row(self, query: str, window_days: int) -> sqlite3.Row | None:
         cutoff = time.time() - (window_days * 86400)
         conn = self._get_conn()
         conn.row_factory = sqlite3.Row

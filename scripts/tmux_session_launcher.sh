@@ -29,16 +29,57 @@ mkdir -p "${LOG_DIR}"
 send_prompt_to_target() {
     local target="$1"
     local prompt="$2"
-    if [[ "$(echo "${prompt}" | wc -l)" -gt 1 ]]; then
-        local buffer_name="aragora-prompt-launch-${NAME}-$$-$(date +%s%N)"
-        tmux set-buffer -b "${buffer_name}" "${prompt}"
-        tmux paste-buffer -b "${buffer_name}" -t "${target}"
-        tmux send-keys -t "${target}" "" Enter
-        tmux delete-buffer -b "${buffer_name}" 2>/dev/null || true
+    local line_count method
+    line_count="$(echo "${prompt}" | wc -l | tr -d ' ')"
+    # For multi-line prompts, match the proven pattern used by
+    # aragora/swarm/session_mux.py send_prompt():
+    #   load-buffer -  (stdin)  → paste-buffer -d (auto-delete)  → send-keys Enter
+    # An earlier version used `set-buffer -b <name>` + `paste-buffer -b <name>`
+    # which had a timing issue where the trailing Enter was consumed as part
+    # of the input buffer rather than registered as a submit; the affected
+    # Codex pane showed "[Pasted Content N chars]" sitting in its input until
+    # a user manually pressed Enter. The session_mux.py pattern works.
+    if [[ "${line_count}" -gt 1 ]]; then
+        printf '%s' "${prompt}" | tmux load-buffer -
+        tmux paste-buffer -d -t "${target}"
+        tmux send-keys -t "${target}" Enter
+        method="paste-buffer"
     else
         tmux send-keys -t "${target}" "${prompt}" Enter
+        method="send-keys"
     fi
-    echo "Prompt sent to '${NAME}' (${#prompt} chars)"
+
+    # Append a JSON record to the per-session prompt audit log.
+    local audit_log="${LOG_DIR}/${NAME}.prompts.log"
+    local timestamp prompt_id preview source_kind
+    timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    prompt_id="$(printf '%s\n%s' "${prompt}" "${timestamp}" | shasum -a 256 | cut -c1-16)"
+    preview="$(printf '%s' "${prompt}" | head -c 200 | tr '\n' ' ')"
+    source_kind="inline"
+    if [[ -n "${PROMPT_FILE:-}" ]]; then
+        source_kind="file"
+    fi
+    python3 - "${audit_log}" "${NAME}" "${prompt_id}" "${timestamp}" "${#prompt}" "${line_count}" "launcher" "${source_kind}" "${PROMPT_FILE:-}" "${method}" "${target}" "${preview}" <<'PYEOF'
+import json, sys
+audit_log, name, prompt_id, timestamp, chars, lines, source_tag, source_kind, prompt_file, method, target, preview = sys.argv[1:13]
+record = {
+    "prompt_id": prompt_id,
+    "timestamp": timestamp,
+    "name": name,
+    "target": target,
+    "chars": int(chars),
+    "lines": int(lines),
+    "source": source_tag or None,
+    "source_kind": source_kind,
+    "prompt_file": prompt_file or None,
+    "dispatch_method": method,
+    "preview": preview,
+}
+with open(audit_log, "a", encoding="utf-8") as f:
+    f.write(json.dumps(record) + "\n")
+PYEOF
+
+    echo "Prompt sent to '${NAME}' (${#prompt} chars, prompt_id=${prompt_id})"
 }
 
 wait_for_agent_ready() {
