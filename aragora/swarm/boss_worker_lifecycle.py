@@ -805,6 +805,23 @@ async def dispatch_issue(
         repo_root=Path.cwd(),
     )
     if not spec.is_dispatch_bounded():
+        try:
+            upgraded = dispatch_followups_mod.upgrade_unbounded_spec(
+                spec,
+                issue_number=int(issue.number),
+                issue_title=str(issue.title or ""),
+                issue_body=sanitized_issue_body,
+                repo_root=Path.cwd(),
+                metrics_path=Path(
+                    loop.config.metrics_jsonl_path or ".aragora/overnight/boss_metrics.jsonl"
+                ),
+                llm_client=None,
+            )
+        except dispatch_followups_mod.SpecUpgraderUnavailable:
+            upgraded = None
+        if upgraded is not None:
+            spec = upgraded
+    if not spec.is_dispatch_bounded():
         return with_sanitizer_metadata(
             blocked_pre_dispatch_result(
                 reasons=[
