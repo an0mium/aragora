@@ -118,6 +118,30 @@ def _marketplace_listing_summary_schema() -> dict[str, Any]:
     }
 
 
+def _marketplace_template_summary_schema() -> dict[str, Any]:
+    """Schema for a marketplace template recommendation summary object."""
+    return {
+        "type": "object",
+        "additionalProperties": True,
+        "properties": {
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "category": {"type": "string"},
+            "pattern": {"type": "string"},
+            "author_name": {"type": "string"},
+            "version": {"type": "string"},
+            "tags": {"type": "array", "items": {"type": "string"}},
+            "rating": {"type": "number"},
+            "rating_count": {"type": "integer"},
+            "download_count": {"type": "integer"},
+            "is_featured": {"type": "boolean"},
+            "is_verified": {"type": "boolean"},
+            "created_at": {"type": "number"},
+        },
+    }
+
+
 def _marketplace_list_response_schema() -> dict[str, Any]:
     """Schema for listing and featured responses."""
     return _marketplace_data_schema(
@@ -131,6 +155,20 @@ def _marketplace_list_response_schema() -> dict[str, Any]:
             "offset": {"type": "integer"},
         }
     )
+
+
+def _marketplace_recommendations_response_schema() -> dict[str, Any]:
+    """Schema for marketplace recommendations payloads."""
+    return {
+        "type": "object",
+        "properties": {
+            "recommendations": {
+                "type": "array",
+                "items": _marketplace_template_summary_schema(),
+            },
+            "total": {"type": "integer"},
+        },
+    }
 
 
 def _marketplace_stats_response_schema() -> dict[str, Any]:
@@ -223,6 +261,26 @@ MARKETPLACE_ENDPOINTS = {
             summary="Get marketplace listing stats",
             description="Return marketplace listing counts grouped by type. Requires `marketplace:read`.",
             response_schema=_marketplace_stats_response_schema(),
+            security=AUTH_REQUIREMENTS["required"]["security"],
+        )
+    },
+    "/api/v1/marketplace/recommendations": {
+        "get": _marketplace_listing_operation(
+            operation_id="marketplaceGetRecommendations",
+            summary="Get marketplace recommendations",
+            description=(
+                "Return featured marketplace template recommendations ranked by marketplace "
+                "signals. Requires `marketplace:read`."
+            ),
+            response_schema=_marketplace_recommendations_response_schema(),
+            parameters=[
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "description": "Maximum number of recommendations to return.",
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 20, "default": 5},
+                }
+            ],
             security=AUTH_REQUIREMENTS["required"]["security"],
         )
     },
