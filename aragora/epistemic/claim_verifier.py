@@ -148,10 +148,7 @@ class ClaimVerifier:
         payload = {
             "schema_version": 1,
             "results": [r.to_dict() for r in results],
-            "summary": {
-                s.value: sum(1 for r in results if r.status == s)
-                for s in ClaimStatus
-            },
+            "summary": {s.value: sum(1 for r in results if r.status == s) for s in ClaimStatus},
         }
         return json.dumps(payload, indent=indent)
 

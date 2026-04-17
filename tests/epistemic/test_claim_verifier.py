@@ -20,6 +20,7 @@ from aragora.epistemic.claim_verifier import ClaimResult, ClaimStatus, ClaimVeri
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _stub_pass(args: list[str]) -> tuple[int, str, str]:
     return 0, "ok", ""
 
@@ -59,6 +60,7 @@ def _make_claim(
 # ---------------------------------------------------------------------------
 # Status outcome tests
 # ---------------------------------------------------------------------------
+
 
 class TestClaimStatus:
     def test_pass_on_zero_exit(self) -> None:
@@ -113,12 +115,14 @@ class TestClaimStatus:
 # Freshness / staleness tests
 # ---------------------------------------------------------------------------
 
+
 class TestFreshnessCheck:
     def test_stale_when_file_exceeds_sla(self, tmp_path: Path) -> None:
         old_file = tmp_path / "old.json"
         old_file.write_text("{}")
         past = time.time() - 3601  # 1 hour 1 second ago
         import os
+
         os.utime(old_file, (past, past))
 
         claim = _make_claim(
@@ -166,6 +170,7 @@ class TestFreshnessCheck:
 # Severity and metadata propagation
 # ---------------------------------------------------------------------------
 
+
 class TestResultMetadata:
     def test_severity_propagated_on_fail(self) -> None:
         verifier = ClaimVerifier(command_runner=_stub_fail)
@@ -191,6 +196,7 @@ class TestResultMetadata:
 # ---------------------------------------------------------------------------
 # JSON report
 # ---------------------------------------------------------------------------
+
 
 class TestReportJson:
     def test_json_structure(self) -> None:
@@ -222,6 +228,7 @@ class TestReportJson:
 # Manifest loading
 # ---------------------------------------------------------------------------
 
+
 class TestVerifyManifest:
     def test_verify_manifest_from_yaml(self, tmp_path: Path) -> None:
         manifest = {
@@ -246,11 +253,7 @@ class TestVerifyManifest:
     def test_verify_real_proof_first_claims(self) -> None:
         """Smoke test: the DIC-13 manifest parses and every claim returns a result."""
         manifest_path = (
-            Path(__file__).parents[2]
-            / "docs"
-            / "status"
-            / "claims"
-            / "proof_first_claims.yaml"
+            Path(__file__).parents[2] / "docs" / "status" / "claims" / "proof_first_claims.yaml"
         )
         if not manifest_path.exists():
             pytest.skip("proof_first_claims.yaml not found")
