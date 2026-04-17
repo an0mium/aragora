@@ -224,6 +224,54 @@ This track preserves Aragora's core differentiation from generic agent platforms
 
 Design brief: [Epistemic CI, Crux Engine, and Epistemic Runtime Plan](EPISTEMIC_CI_AND_CRUX_ENGINE.md).
 
+### Track G — Agent-as-Consumer Substrate (Vision-Layer Planning)
+
+This track extends the Decision Integrity Core into a consumer surface that serves software agents as first-rate consumers alongside humans. It is **planning truth only** until queue governance permits it; it does not enter the live `boss-ready` queue. Detailed plan: [AGENT_CIVILIZATION_SUBSTRATE](AGENT_CIVILIZATION_SUBSTRATE.md).
+
+#### G1. Agent Consumer Surface (`AGT-02`)
+
+- A2A registration endpoint backed by `aragora/blockchain/contracts/identity.py`
+- capability discovery endpoint backed by `aragora/marketplace/`
+- compute-budget billing with chargeback receipts
+- agent-readable decision receipt schema with parseable CruxSet, dissent, and provenance
+- reputation read endpoints (write path lives in G3)
+- operator-parity surfaces so humans can do everything agents can do, and vice versa
+
+Detailed plan: [AGENT_CONSUMER_SURFACE](AGENT_CONSUMER_SURFACE.md).
+
+#### G2. External Truth Oracles via Prediction Markets (`AGT-03`, `AGT-04`)
+
+- Manifold Markets adapter for play-money calibration
+- Synthetic GitHub markets for high-volume internal calibration on PR/issue/CI outcomes
+- Metaculus integration following bot-policy compliance
+- per-agent rolling Brier scoring with calibration curves
+- explicit deferral of real-money venues until calibration is stable
+
+Detailed plan: [2026-04-17-prediction-market-validation](2026-04-17-prediction-market-validation.md).
+
+#### G3. Skin-in-the-Game Reputation Flow (`AGT-05`)
+
+- unified `claim → stake → resolution → settlement → reputation Δ → dispatch update` flow
+- per-domain reputation slices (prediction calibration, debate truthfulness, code-PR success, KM contribution, crux resolution)
+- soft dispatch downweighting by default; hard suspension only on explicit policy
+- settlement-window enforcement, dispute path, and reversal handling for re-opened resolutions
+
+Detailed plan: [SKIN_IN_THE_GAME_REPUTATION](SKIN_IN_THE_GAME_REPUTATION.md).
+
+#### G4. Productivity Metric Replacing Empty-Queue Idle Soaks (`AGT-06`)
+
+- "verifiable improvements per agent-hour" (VIAH) computed weekly from ShiftLedger entries
+- merged autonomous PRs and correctly detected pre-resolution cruxes contribute positive
+- rescues required and failed claims promoted without repair contribute negative
+- supplements (does not replace) TW-02 no-rescue success rate
+- replaces empty-queue stability soaks as the gating productivity proof once substrate stability is sustained
+
+#### G5. CruxDetector Activation in Live Debates (`AGT-01`)
+
+- promote `aragora/reasoning/crux_detector.py` from latent capability to first-class debate goal
+- emit ranked CruxSet on production debate path under flag, then default-on
+- bridges to DIC-15 (CruxSet contract) and Issue [#6035](https://github.com/synaptent/aragora/issues/6035) (crux-finder mode epic)
+
 ### Track F — Trust-Wedge Productization and GTM
 
 This track converts technical proof into market proof.
@@ -263,6 +311,9 @@ This track converts technical proof into market proof.
 - Cruxes should identify load-bearing disagreement, not merely summarize dissent.
 - Broad vertical and enterprise expansion follows wedge proof; it does not replace it.
 - External claims should always lag measured internal proof.
+- Every consumer surface ships in agent-readable and human-readable form, backed by the same runtime truth.
+- Reputation only changes via external truth resolution, never via internal agreement.
+- Vision-layer planning tracks (Track G `AGT-*`) advance in planning truth without entering the live `boss-ready` queue until queue governance permits the upper-layer tranche, in line with the same rule that governs `DIC-13..22`.
 
 ## Stage Exit Criteria
 
