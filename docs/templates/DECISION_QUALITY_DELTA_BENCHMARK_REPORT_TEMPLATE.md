@@ -133,15 +133,15 @@ python3 -m aragora.cli.main gauntlet <input.md> --input-type spec --profile quic
 
 ### What Aragora did better
 
-- 
+-
 
 ### What Aragora did worse
 
-- 
+-
 
 ### What remains ambiguous
 
-- 
+-
 
 ## 11. Gate Decision
 
