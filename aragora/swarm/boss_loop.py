@@ -1394,6 +1394,17 @@ class BossLoop:
         if not issue:
             return
 
+        # Idempotency guard — if the issue is already marked boss-stuck, skip.
+        # Without this, stale feed caches or concurrent boss-loop instances can
+        # re-enter this function and post duplicate "exhausted N attempts..."
+        # comments (see issue #5894 for field observation).
+        if "boss-stuck" in (issue.labels or []):
+            logger.debug(
+                "Skipping auto-decomposition for #%s: already marked boss-stuck.",
+                issue.number,
+            )
+            return
+
         lineage_root, decomposition_depth = self._decomposition_lineage(issue)
         roadmap_priority = self._roadmap_priority_match_for_issue_lineage(
             issue=issue,
@@ -1637,6 +1648,11 @@ class BossLoop:
                         f"- Under 100 lines of new or changed code\n"
                         f"- Estimated complexity: {subtask.estimated_complexity}\n"
                     )
+                    # Child issues are created without `boss-ready` to respect
+                    # the canonical queue policy (see NEXT_STEPS_CANONICAL.md):
+                    # only CS-01..03 carry `boss-ready` until Foreman reliability
+                    # is proven. A separate promotion step adds the label when
+                    # the lane is opened.
                     try:
                         proc = subprocess.run(
                             [
@@ -1649,8 +1665,6 @@ class BossLoop:
                                 title,
                                 "--body",
                                 body,
-                                "--label",
-                                "boss-ready",
                             ],
                             capture_output=True,
                             text=True,
@@ -1669,7 +1683,7 @@ class BossLoop:
         if sub_issues_created > 0:
             comment = (
                 f"Boss loop exhausted {self.config.max_retries_per_issue} attempts. "
-                f"Auto-decomposed into {sub_issues_created} smaller sub-issues with `boss-ready` label."
+                f"Auto-decomposed into {sub_issues_created} smaller sub-issues."
             )
         elif decomposition_candidates > 0 and covered_candidates == decomposition_candidates:
             comment = (

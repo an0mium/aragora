@@ -416,7 +416,7 @@ export class AdminAPI {
 
   /** Get MFA compliance status. */
   async getMfaCompliance(): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/admin/mfa-compliance');
+    return this.client.request('GET', '/api/v1/admin/mfa/compliance');
   }
 
   // ===========================================================================

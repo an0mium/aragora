@@ -22,6 +22,7 @@
 interface BotsClientInterface {
   post<T>(path: string, body?: unknown): Promise<T>;
   get<T>(path: string): Promise<T>;
+  request<T = unknown>(method: string, path: string, options?: Record<string, unknown>): Promise<T>;
 }
 
 /**
@@ -246,6 +247,27 @@ export class BotsAPI {
    */
   async slackStatus(): Promise<SlackStatus> {
     return this.client.get('/api/v1/bots/slack/status');
+  }
+
+  /**
+   * Handle Slack slash command payloads.
+   */
+  async slackCommands(payload: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/bots/slack/commands', { json: payload });
+  }
+
+  /**
+   * Handle Slack Events API payloads.
+   */
+  async slackEvents(payload: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/bots/slack/events', { json: payload });
+  }
+
+  /**
+   * Handle Slack interaction payloads.
+   */
+  async slackInteractions(payload: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/bots/slack/interactions', { json: payload });
   }
 
   // ===========================================================================

@@ -512,6 +512,21 @@ describe('AdminAPI Namespace', () => {
       expect(result.mfa_enforcement).toBe('required');
     });
 
+    it('should get MFA compliance from the runtime-supported route', async () => {
+      const mockCompliance = {
+        total_admins: 2,
+        mfa_enabled_count: 1,
+        mfa_disabled_count: 1,
+        compliance_pct: 50,
+      };
+      mockClient.request.mockResolvedValue(mockCompliance);
+
+      const result = await api.getMfaCompliance();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/admin/mfa/compliance');
+      expect(result.compliance_pct).toBe(50);
+    });
+
     it('should rotate security key', async () => {
       const mockResult = { success: true, new_key_id: 'key_new_123' };
       mockClient.rotateSecurityKey.mockResolvedValue(mockResult);

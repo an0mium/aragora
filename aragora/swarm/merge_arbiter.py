@@ -20,6 +20,8 @@ import time
 from dataclasses import dataclass, field
 from functools import lru_cache
 
+from aragora.swarm.github_app_auth import gh_subprocess_run
+
 logger = logging.getLogger(__name__)
 
 REQUIRED_CHECKS: list[str] = [
@@ -203,14 +205,21 @@ def _ready_suite_check_names(
     return sorted(name for name in checks if name not in ignored)
 
 
-def _run_gh(args: list[str], *, timeout: float = 30.0) -> subprocess.CompletedProcess[str]:
-    """Run a ``gh`` CLI command and return the result."""
-    return subprocess.run(
-        ["gh", *args],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
+def _run_gh(
+    args: list[str],
+    *,
+    timeout: float = 30.0,
+    write_op: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    """Run a ``gh`` CLI command with App-token preference and rate-limit-aware retry.
+
+    Read-only calls go through the GitHub App installation token to isolate
+    quota from the user PAT. Write operations (PR ready, PR merge) force the
+    user PAT because the App installation has narrow write scopes here.
+    Retries on primary or secondary rate-limit errors with exponential backoff
+    or until the relevant bucket resets.
+    """
+    return gh_subprocess_run(args, timeout=timeout, write_op=write_op)
 
 
 def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
@@ -274,7 +283,11 @@ def _get_check_status(pr_number: int, repo: str) -> dict[str, str]:
 
 def _promote_draft(pr_number: int, repo: str) -> bool:
     """Mark a draft PR as ready for review."""
-    result = _run_gh(["pr", "ready", str(pr_number), "--repo", repo], timeout=30.0)
+    result = _run_gh(
+        ["pr", "ready", str(pr_number), "--repo", repo],
+        timeout=30.0,
+        write_op=True,
+    )
     return result.returncode == 0
 
 
@@ -296,7 +309,7 @@ def _merge_pr(
     ]
     if head_sha:
         args.extend(["--match-head-commit", head_sha])
-    result = _run_gh(args)
+    result = _run_gh(args, write_op=True)
     if result.returncode != 0:
         reason = result.stderr.strip() or "unknown error"
         return False, reason

@@ -1135,17 +1135,23 @@ class TestCoreTypes:
         assert result.task == "Test"
         assert result.confidence == 0.0
         assert result.consensus_reached is False
-        assert result.status == "completed"
+        assert result.status == "pending"
         assert result.messages == []
         assert result.debate_id != ""  # auto-generated
 
     def test_debate_result_consensus_status(self):
         """DebateResult auto-sets status based on consensus."""
         result = DebateResult(task="Test", consensus_reached=True)
-        assert result.status == "consensus_reached"
+        assert result.status == "pending"
 
         result2 = DebateResult(task="Test2", consensus_reached=False)
-        assert result2.status == "completed"
+        assert result2.status == "pending"
+
+        result3 = DebateResult(task="Test3", consensus_reached=False, debate_status="completed")
+        assert result3.status == "completed"
+
+        result4 = DebateResult(task="Test4", consensus_reached=True, debate_status="completed")
+        assert result4.status == "consensus_reached"
 
     def test_debate_result_round_sync(self):
         """DebateResult syncs rounds_used and rounds_completed."""

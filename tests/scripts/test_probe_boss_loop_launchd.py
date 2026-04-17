@@ -37,6 +37,7 @@ SAMPLE_OUTPUT = """gui/501/com.aragora.swarm-boss-loop = {
 \tdefault environment = {
 \t}
 
+\tenvironment = {
 \t\tOSLogRateLimit => 64
 \t}
 
@@ -51,6 +52,29 @@ SAMPLE_OUTPUT = """gui/501/com.aragora.swarm-boss-loop = {
 \tproperties = keepalive | runatload | inferred program
 }
 """
+
+SAMPLE_OUTPUT_WITH_NESTED_ACTIVE_COALITIONS = SAMPLE_OUTPUT.replace(
+    "\tspawn type = daemon (3)\n\tproperties = keepalive | runatload | inferred program\n",
+    """\tresource coalition = {
+\t\tID = 266983
+\t\ttype = resource
+\t\tstate = active
+\t\tactive count = 1
+\t\tname = com.aragora.swarm-boss-loop
+\t}
+
+\tjetsam coalition = {
+\t\tID = 266984
+\t\ttype = jetsam
+\t\tstate = active
+\t\tactive count = 1
+\t\tname = com.aragora.swarm-boss-loop
+\t}
+
+\tspawn type = daemon (3)
+\tproperties = keepalive | runatload | inferred program
+""",
+)
 
 
 def test_parse_launchd_state_extracts_safe_fields() -> None:
@@ -72,6 +96,18 @@ def test_parse_launchd_state_redacts_inherited_environment() -> None:
     assert "PRETEND-SECRET" not in serialized
     assert "sk-" not in serialized
     assert "OPENAI_API_KEY" not in serialized
+
+
+def test_parse_launchd_state_ignores_nested_coalition_state() -> None:
+    state = probe.parse_launchd_state(
+        SAMPLE_OUTPUT_WITH_NESTED_ACTIVE_COALITIONS,
+        label="com.aragora.swarm-boss-loop",
+    )
+    assert state is not None
+    assert state.state == "spawn scheduled"
+    assert state.active_count == 0
+    assert state.is_running is False
+    assert state.is_spawn_scheduled is True
 
 
 def test_parse_launchd_state_returns_none_when_unloaded() -> None:

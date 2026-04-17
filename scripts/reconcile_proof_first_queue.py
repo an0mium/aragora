@@ -13,7 +13,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from aragora.swarm.github_app_auth import github_cli_env  # noqa: E402
+from aragora.swarm.github_app_auth import gh_subprocess_run, github_cli_env  # noqa: E402
 from aragora.swarm.proof_first_queue import classify_proof_first_queue_issue  # noqa: E402
 
 DEFAULT_REPO = "synaptent/aragora"
@@ -50,9 +50,8 @@ def github_write_env() -> dict[str, str]:
 
 
 def list_open_queue_issues(*, repo: str, label: str) -> list[dict[str, Any]]:
-    result = subprocess.run(
+    result = gh_subprocess_run(
         [
-            "gh",
             "issue",
             "list",
             "--repo",
@@ -66,11 +65,7 @@ def list_open_queue_issues(*, repo: str, label: str) -> list[dict[str, Any]]:
             "--limit",
             "200",
         ],
-        capture_output=True,
-        text=True,
         timeout=30,
-        check=False,
-        env=github_read_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue list failed")
@@ -81,9 +76,8 @@ def list_open_queue_issues(*, repo: str, label: str) -> list[dict[str, Any]]:
 
 
 def remove_queue_label(*, repo: str, issue_number: int, label: str) -> None:
-    result = subprocess.run(
+    result = gh_subprocess_run(
         [
-            "gh",
             "issue",
             "edit",
             str(issue_number),
@@ -92,11 +86,8 @@ def remove_queue_label(*, repo: str, issue_number: int, label: str) -> None:
             "--remove-label",
             label,
         ],
-        capture_output=True,
-        text=True,
         timeout=30,
-        check=False,
-        env=github_write_env(),
+        write_op=True,
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue edit failed")
@@ -167,9 +158,8 @@ def build_docs_proof_drift_issue(report: dict[str, Any]) -> dict[str, Any] | Non
 
 
 def find_existing_open_issue_by_title(*, repo: str, title: str) -> dict[str, Any] | None:
-    result = subprocess.run(
+    result = gh_subprocess_run(
         [
-            "gh",
             "issue",
             "list",
             "--repo",
@@ -183,11 +173,7 @@ def find_existing_open_issue_by_title(*, repo: str, title: str) -> dict[str, Any
             "--limit",
             "100",
         ],
-        capture_output=True,
-        text=True,
         timeout=30,
-        check=False,
-        env=github_read_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue list failed")
@@ -203,17 +189,10 @@ def find_existing_open_issue_by_title(*, repo: str, title: str) -> dict[str, Any
 
 
 def create_issue(*, repo: str, title: str, body: str, labels: list[str]) -> dict[str, Any]:
-    cmd = ["gh", "issue", "create", "--repo", repo, "--title", title, "--body", body]
+    cmd = ["issue", "create", "--repo", repo, "--title", title, "--body", body]
     for label in labels:
         cmd.extend(["--label", label])
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-        env=github_write_env(),
-    )
+    result = gh_subprocess_run(cmd, timeout=30, write_op=True)
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue create failed")
     url = str(result.stdout or "").strip().splitlines()[-1].strip()

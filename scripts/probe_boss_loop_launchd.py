@@ -91,34 +91,42 @@ def parse_launchd_state(text: str, *, label: str) -> LaunchdState | None:
         return None
 
     fields: dict[str, Any] = {}
-    skip_block_depth = 0
+    entered_service = False
+    block_depth = 0
     for raw_line in text.splitlines():
         line = raw_line.strip()
-        if skip_block_depth > 0:
-            if line.endswith("{"):
-                skip_block_depth += 1
-            elif line == "}":
-                skip_block_depth -= 1
+        if not line:
             continue
-        if line.startswith("inherited environment") or line.startswith("default environment"):
-            if line.endswith("{"):
-                skip_block_depth = 1
+
+        if line == "}":
+            if entered_service:
+                block_depth = max(0, block_depth - 1)
+                if block_depth == 0:
+                    break
             continue
-        match = re.match(r"^([^=]+?)\s*=\s*(.+?)\s*$", line)
-        if not match:
-            continue
-        key = match.group(1).strip().lower()
-        value = match.group(2).strip().rstrip(",")
-        if key in _INT_FIELDS:
-            try:
-                fields[_INT_FIELDS[key]] = int(value)
-            except ValueError:
-                continue
-        elif key == "state":
-            fields["state"] = value
-        elif key == "spawn type":
-            spawn = value.split(" ", 1)[0]
-            fields["spawn_type"] = spawn or None
+
+        if entered_service and block_depth == 1:
+            match = re.match(r"^([^=]+?)\s*=\s*(.+?)\s*$", line)
+            if match:
+                key = match.group(1).strip().lower()
+                value = match.group(2).strip().rstrip(",")
+                if key in _INT_FIELDS:
+                    try:
+                        fields[_INT_FIELDS[key]] = int(value)
+                    except ValueError:
+                        pass
+                elif key == "state":
+                    fields["state"] = value
+                elif key == "spawn type":
+                    spawn = value.split(" ", 1)[0]
+                    fields["spawn_type"] = spawn or None
+
+        opens = line.count("{")
+        closes = line.count("}")
+        if opens:
+            entered_service = True
+        if entered_service:
+            block_depth = max(0, block_depth + opens - closes)
 
     if "state" not in fields:
         return None
