@@ -12,9 +12,14 @@ Provides methods for cost tracking and management:
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
+
+
+def _encode_path_segment(value: str) -> str:
+    return quote(value, safe="")
 
 
 class CostsAPI:
@@ -611,7 +616,8 @@ class CostsAPI:
 
     def get_debate_session_costs(self, debate_id: str) -> dict[str, Any]:
         """Get cost summary for one debate session."""
-        return self._client.request("GET", f"/api/v1/costs/debates/{debate_id}")
+        encoded_debate_id = _encode_path_segment(debate_id)
+        return self._client.request("GET", f"/api/v1/costs/debates/{encoded_debate_id}")
 
     def list_debate_cost_line_items(
         self,
@@ -631,15 +637,17 @@ class CostsAPI:
             params["limit"] = limit
         if offset is not None:
             params["offset"] = offset
+        encoded_debate_id = _encode_path_segment(debate_id)
         return self._client.request(
             "GET",
-            f"/api/v1/costs/debates/{debate_id}/line-items",
+            f"/api/v1/costs/debates/{encoded_debate_id}/line-items",
             params=params,
         )
 
     def get_debate_cost_performance(self, debate_id: str) -> dict[str, Any]:
         """Get performance and cost-efficiency metrics for one debate session."""
-        return self._client.request("GET", f"/api/v1/costs/debates/{debate_id}/performance")
+        encoded_debate_id = _encode_path_segment(debate_id)
+        return self._client.request("GET", f"/api/v1/costs/debates/{encoded_debate_id}/performance")
 
     def get_budget_utilization(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get budget utilization percentage and remaining budget.
@@ -1012,7 +1020,8 @@ class AsyncCostsAPI:
 
     async def get_debate_session_costs(self, debate_id: str) -> dict[str, Any]:
         """Get cost summary for one debate session."""
-        return await self._client.request("GET", f"/api/v1/costs/debates/{debate_id}")
+        encoded_debate_id = _encode_path_segment(debate_id)
+        return await self._client.request("GET", f"/api/v1/costs/debates/{encoded_debate_id}")
 
     async def list_debate_cost_line_items(
         self,
@@ -1032,15 +1041,19 @@ class AsyncCostsAPI:
             params["limit"] = limit
         if offset is not None:
             params["offset"] = offset
+        encoded_debate_id = _encode_path_segment(debate_id)
         return await self._client.request(
             "GET",
-            f"/api/v1/costs/debates/{debate_id}/line-items",
+            f"/api/v1/costs/debates/{encoded_debate_id}/line-items",
             params=params,
         )
 
     async def get_debate_cost_performance(self, debate_id: str) -> dict[str, Any]:
         """Get performance and cost-efficiency metrics for one debate session."""
-        return await self._client.request("GET", f"/api/v1/costs/debates/{debate_id}/performance")
+        encoded_debate_id = _encode_path_segment(debate_id)
+        return await self._client.request(
+            "GET", f"/api/v1/costs/debates/{encoded_debate_id}/performance"
+        )
 
     async def get_budget_utilization(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get budget utilization percentage and remaining budget."""
