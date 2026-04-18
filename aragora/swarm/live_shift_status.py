@@ -75,6 +75,8 @@ def _count_live_queue_depth(repo_root: Path, *, repo_name: str | None) -> int | 
                 repo_name,
                 "--label",
                 "boss-ready",
+                "--label",
+                "autonomous",
                 "--state",
                 "open",
                 "--limit",
