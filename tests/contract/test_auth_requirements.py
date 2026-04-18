@@ -87,6 +87,7 @@ class TestAuthManifestIntegrity:
                 "/api/consensus",
                 "/api/v1/playground",
                 "/api/v1/public",
+                "/api/v1/coordination/health",
                 "/api/v1/spectate",
                 "/api/v1/onboarding",
                 "/api/v2/receipts/share",
