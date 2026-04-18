@@ -18,6 +18,8 @@ from .permissions import (
     PERM_DEBATE_RUN,
     PERM_DEBATE_STOP,
     PERM_DEBATE_FORK,
+    PERM_SETTLEMENT_READ,
+    PERM_SETTLEMENT_WRITE,
     # Agent
     PERM_AGENT_CREATE,
     PERM_AGENT_READ,
@@ -291,6 +293,8 @@ ROLE_ADMIN = Role(
         PERM_DEBATE_RUN.key,
         PERM_DEBATE_STOP.key,
         PERM_DEBATE_FORK.key,
+        PERM_SETTLEMENT_READ.key,
+        PERM_SETTLEMENT_WRITE.key,
         # All agent operations
         PERM_AGENT_CREATE.key,
         PERM_AGENT_READ.key,
@@ -515,6 +519,7 @@ ROLE_DEBATE_CREATOR = Role(
         PERM_DEBATE_RUN.key,
         PERM_DEBATE_STOP.key,
         PERM_DEBATE_FORK.key,
+        PERM_SETTLEMENT_READ.key,
         PERM_AGENT_READ.key,
         PERM_MEMORY_READ.key,
         PERM_MEMORY_UPDATE.key,
@@ -569,6 +574,7 @@ ROLE_ANALYST = Role(
     description="View debates, analytics, and reports. Cannot create or modify resources.",
     permissions={
         PERM_DEBATE_READ.key,
+        PERM_SETTLEMENT_READ.key,
         PERM_AGENT_READ.key,
         PERM_MEMORY_READ.key,
         PERM_WORKFLOW_READ.key,
@@ -597,6 +603,7 @@ ROLE_VIEWER = Role(
     description="View debates and basic information. No modification rights.",
     permissions={
         PERM_DEBATE_READ.key,
+        PERM_SETTLEMENT_READ.key,
         PERM_AGENT_READ.key,
         PERM_ORG_READ.key,
         PERM_FINDINGS_READ.key,
@@ -619,6 +626,7 @@ ROLE_MEMBER = Role(
         PERM_DEBATE_RUN.key,
         PERM_DEBATE_STOP.key,
         PERM_DEBATE_FORK.key,
+        PERM_SETTLEMENT_READ.key,
         PERM_AGENT_READ.key,
         PERM_MEMORY_READ.key,
         PERM_WORKFLOW_CREATE.key,
@@ -761,6 +769,7 @@ ROLE_TEAM_LEAD = Role(
         PERM_DEBATE_RUN.key,
         PERM_DEBATE_STOP.key,
         PERM_DEBATE_FORK.key,
+        PERM_SETTLEMENT_READ.key,
         PERM_AGENT_READ.key,
         PERM_MEMORY_READ.key,
         PERM_MEMORY_UPDATE.key,

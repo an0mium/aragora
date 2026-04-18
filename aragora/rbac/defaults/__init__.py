@@ -20,6 +20,8 @@ from .permissions import (  # noqa: F401
     PERM_DEBATE_RUN,
     PERM_DEBATE_STOP,
     PERM_DEBATE_FORK,
+    PERM_SETTLEMENT_READ,
+    PERM_SETTLEMENT_WRITE,
     # Agent
     PERM_AGENT_CREATE,
     PERM_AGENT_READ,

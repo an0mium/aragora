@@ -20,6 +20,7 @@ class ResourceType(str, Enum):
     """Resource types that can be protected by permissions."""
 
     DEBATE = "debates"
+    SETTLEMENT = "settlements"
     AGENT = "agents"
     USER = "users"
     ORGANIZATION = "organization"

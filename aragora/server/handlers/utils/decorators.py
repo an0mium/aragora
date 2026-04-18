@@ -469,6 +469,8 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     "debates:update": ["admin", "owner"],
     "debates:delete": ["admin", "owner"],
     "debates:export": ["member", "admin", "owner"],
+    "settlements:read": ["member", "admin", "owner"],
+    "settlements:write": ["admin", "owner"],
     # Agent permissions
     "agents:read": ["member", "admin", "owner"],
     "agents:create": ["admin", "owner"],

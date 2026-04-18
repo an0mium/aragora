@@ -341,6 +341,28 @@ class TestAuthConsistency:
         assert get_req.level == AuthLevel.PUBLIC
         assert not requires_auth("/api/v2/receipts/share/share-token", "get")
 
+    def test_settlement_paths_use_template_matching(self) -> None:
+        """Settlement manifest entries should resolve for versioned and legacy routes."""
+        from aragora.server.auth_requirements import AuthLevel, get_requirement, requires_auth
+
+        versioned_list = get_requirement("/api/v1/settlements", "get")
+        assert versioned_list is not None
+        assert versioned_list.level == AuthLevel.PERMISSION
+        assert versioned_list.permission == "settlements:read"
+        assert requires_auth("/api/v1/settlements", "get")
+
+        legacy_detail = get_requirement("/api/settlements/settlement-123", "get")
+        assert legacy_detail is not None
+        assert legacy_detail.level == AuthLevel.PERMISSION
+        assert legacy_detail.permission == "settlements:read"
+        assert requires_auth("/api/settlements/settlement-123", "get")
+
+        settle_post = get_requirement("/api/v1/settlements/settlement-123/settle", "post")
+        assert settle_post is not None
+        assert settle_post.level == AuthLevel.PERMISSION
+        assert settle_post.permission == "settlements:write"
+        assert requires_auth("/api/v1/settlements/settlement-123/settle", "post")
+
     def test_get_required_permission_helper(self) -> None:
         """The get_required_permission helper should work correctly."""
         from aragora.server.auth_requirements import get_required_permission
@@ -351,10 +373,26 @@ class TestAuthConsistency:
             get_required_permission("/api/v2/receipts/rcpt_test123/share", "post")
             == "receipts:share"
         )
+        assert get_required_permission("/api/v1/settlements/history", "get") == "settlements:read"
+        assert (
+            get_required_permission("/api/v1/settlements/settlement-123/settle", "post")
+            == "settlements:write"
+        )
 
         # Non-permission endpoints should return None
         assert get_required_permission("/api/health", "get") is None
         assert get_required_permission("/api/debates", "get") is None
+
+    def test_settlement_permissions_granted_to_expected_legacy_roles(self) -> None:
+        """Settlement handler decorators should align with the legacy permission matrix."""
+        from aragora.server.handlers.utils.decorators import has_permission
+
+        assert has_permission("member", "settlements:read")
+        assert not has_permission("member", "settlements:write")
+        assert has_permission("admin", "settlements:read")
+        assert has_permission("admin", "settlements:write")
+        assert has_permission("owner", "settlements:read")
+        assert has_permission("owner", "settlements:write")
 
 
 # =============================================================================
