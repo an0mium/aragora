@@ -1,4 +1,4 @@
-"""Epistemic CI and crux-engine helpers (DIC-13..22 tranche).
+"""Epistemic CI and crux-engine helpers (DIC-13..22 + DIC-26 tranche).
 
 Exposes:
 - DIC-14: executable claim verification (:class:`ClaimVerifier`)
@@ -8,8 +8,13 @@ Exposes:
   sharply-losing claims (:class:`FollowupProposal`,
   :func:`propose_followup_for_crux`, :func:`propose_followup_for_cruxset`,
   :func:`propose_followup_for_failed_claim`)
+- DIC-18: organizational truth map report (:class:`OrgTruthMapReport`,
+  :func:`build_truth_map`, :func:`build_truth_map_from_manifests`)
 - DIC-20: epistemic decay monitor (:class:`DecaySignal`,
   :class:`DecayReason`, :func:`evaluate_unit`)
+- DIC-21: fail-closed quarantine policy (:class:`QuarantineDecision`,
+  :class:`QuarantinePolicy`, :func:`apply_quarantine_policy`,
+  :func:`quarantine_policy_enabled`)
 - DIC-26: belief coherence monitor (:class:`BeliefEntry`,
   :class:`CoherenceReport`, :func:`scan_coherence`)
 
@@ -48,6 +53,17 @@ from .followup import (
     propose_followup_for_cruxset,
     propose_followup_for_failed_claim,
 )
+from .quarantine_policy import (
+    QuarantineDecision,
+    QuarantinePolicy,
+    apply_quarantine_policy,
+    quarantine_policy_enabled,
+)
+from .truth_map import (
+    OrgTruthMapReport,
+    build_truth_map,
+    build_truth_map_from_manifests,
+)
 
 __all__ = [
     "BeliefEntry",
@@ -63,8 +79,14 @@ __all__ = [
     "DecayReason",
     "DecaySignal",
     "FollowupProposal",
+    "OrgTruthMapReport",
+    "QuarantineDecision",
+    "QuarantinePolicy",
     "IncoherenceKind",
+    "apply_quarantine_policy",
     "build_crux_receipt",
+    "build_truth_map",
+    "build_truth_map_from_manifests",
     "coherence_monitor_enabled",
     "crux_receipt_enabled",
     "enable_crux_receipt",
@@ -75,6 +97,7 @@ __all__ = [
     "propose_followup_for_crux",
     "propose_followup_for_cruxset",
     "propose_followup_for_failed_claim",
+    "quarantine_policy_enabled",
     "scan_coherence",
 ]
 
