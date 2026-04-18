@@ -148,6 +148,7 @@ TAG_INFERENCE_RULES: list[tuple[str, str]] = [
     ("budgets", "Budgets"),
     ("receipts", "Gauntlet"),
     # Analytics & monitoring
+    ("decision-analytics", "Analytics"),
     ("analytics", "Analytics"),
     ("dashboard", "Analytics"),
     ("endpoint-analytics", "Analytics"),
@@ -646,9 +647,14 @@ def _filter_unhandled_paths(paths: dict[str, Any]) -> dict[str, Any]:
 
 def _operation_from_api_metadata(attr_name: str, metadata: dict[str, Any]) -> dict[str, Any]:
     summary = metadata.get("summary") or attr_name.replace("_", " ").title()
+    path = metadata.get("path")
     tags = metadata.get("tags")
-    if not isinstance(tags, list):
+    if isinstance(tags, list):
+        tags = [tag for tag in tags if isinstance(tag, str) and tag]
+    else:
         tags = []
+    if not tags and isinstance(path, str) and path.startswith("/"):
+        tags = [_infer_tag_for_path(path)]
 
     operation: dict[str, Any] = {
         "summary": summary,
