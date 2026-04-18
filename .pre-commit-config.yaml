@@ -34,18 +34,28 @@ repos:
         types_or: [python, pyi]
         exclude: ^sdk/python/aragora/generated_types\.py$  # Auto-generated, must stay stable
 
-  # Type checking with mypy
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+  # Type checking with mypy (filtered through mypy-baseline).
+  # The repo carries ~4k pre-existing mypy errors tracked in `.mypy-baseline`.
+  # This hook runs mypy against `aragora/` and `scripts/` and fails the push
+  # only on NEW errors — existing debt is accepted. Regenerate the baseline
+  # via: `python scripts/ci/mypy_with_baseline.py --sync` (see
+  # `docs/plans/2026-04-18-mypy-debt-audit.md` for the operator workflow).
+  - repo: local
     hooks:
-      - id: mypy
-        args: [--config-file=pyproject.toml, --ignore-missing-imports]
+      - id: mypy-baseline
+        name: mypy (baseline-filtered)
+        entry: python scripts/ci/mypy_with_baseline.py
+        language: python
+        pass_filenames: false
         additional_dependencies:
+          - mypy==1.10.0
+          - mypy-baseline==0.7.4
           - types-requests
           - types-python-dateutil
-        # Only run on staged Python files in key directories
+        # Only trigger when Python files under aragora/ or scripts/ change.
+        # (Full-tree mypy still runs — the filter just gates when it runs.)
         files: ^(aragora/|scripts/).*\.py$
-        # Run on pre-push to catch type errors before they hit CI
+        # Run on pre-push to catch type errors before they hit CI.
         stages: [pre-push]
 
   # Secret detection with gitleaks - also runs at commit-time (not just pre-push)
@@ -98,5 +108,5 @@ ci:
   autoupdate_commit_msg: |
     [pre-commit.ci] pre-commit autoupdate
   skip:
-    - mypy  # Run separately in CI for better caching
+    - mypy-baseline  # Run separately in CI for better caching
     - bandit  # Run separately in CI
