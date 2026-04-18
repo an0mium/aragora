@@ -45,6 +45,14 @@ PYPROJECT = REPO_ROOT / "pyproject.toml"
 ADAPTERS_DIR = REPO_ROOT / "aragora" / "knowledge" / "mound" / "adapters"
 OUTPUT_PATH = REPO_ROOT / "docs" / "status" / "generated" / "canonical_metrics" / "latest.json"
 
+PRECOMMIT_CONFIG = REPO_ROOT / ".pre-commit-config.yaml"
+MODEL_PINS = REPO_ROOT / "aragora" / "config" / "model_pins.py"
+INCIDENT_LOG = REPO_ROOT / "benchmarks" / "bench_readiness" / "incident_2026-04-07_high-gravity.md"
+ROTATION_SCHEDULE = REPO_ROOT / "benchmarks" / "bench_readiness" / "rotation-schedule.yaml"
+ANTHROPIC_AGENT = REPO_ROOT / "aragora" / "agents" / "api_agents" / "anthropic.py"
+OPENAI_AGENT = REPO_ROOT / "aragora" / "agents" / "api_agents" / "openai.py"
+GEMINI_AGENT = REPO_ROOT / "aragora" / "agents" / "api_agents" / "gemini.py"
+
 
 @dataclass
 class ClaimCheck:
@@ -321,11 +329,171 @@ def _check_version_matches_pyproject() -> ClaimCheck:
     )
 
 
+# ---------------------------------------------------------------------------
+# Security claim checks — added in Phase 14c, see docs/status/claims/canonical_metrics.yaml.
+# These checks are tolerant of the underlying artefacts being missing (they
+# report fail/warn rather than raising) so the manifest stays evaluable on any
+# commit; missing artefacts are themselves drift to surface, not a script bug.
+# ---------------------------------------------------------------------------
+
+
+def _check_gitleaks_dual_stage() -> ClaimCheck:
+    claim_id = "security.gitleaks.dual_stage"
+    if not PRECOMMIT_CONFIG.is_file():
+        return ClaimCheck(
+            claim_id=claim_id,
+            status="fail",
+            claimed="gitleaks at [pre-commit, pre-push]",
+            observed="<.pre-commit-config.yaml missing>",
+            tolerance="exact",
+            message=".pre-commit-config.yaml is missing — restore from PR #6194 (Droid foundation).",
+        )
+    text = PRECOMMIT_CONFIG.read_text(encoding="utf-8")
+    # Match the gitleaks block and look for both stages within ~10 lines.
+    pattern = re.compile(
+        r"(?m)^\s*-\s*id:\s*gitleaks\b[\s\S]{0,400}?stages:\s*\[\s*pre-commit\s*,\s*pre-push\s*\]",
+    )
+    if pattern.search(text):
+        return ClaimCheck(
+            claim_id=claim_id,
+            status="pass",
+            claimed="gitleaks at [pre-commit, pre-push]",
+            observed="gitleaks block declares both stages",
+            tolerance="exact",
+            message="gitleaks runs at both pre-commit and pre-push — bypass via --no-verify is caught at push time.",
+        )
+    return ClaimCheck(
+        claim_id=claim_id,
+        status="fail",
+        claimed="gitleaks at [pre-commit, pre-push]",
+        observed="gitleaks block missing one of the required stages",
+        tolerance="exact",
+        message=(
+            "gitleaks is not configured for both pre-commit AND pre-push. "
+            "This regresses the 2026-04-07 incident response — restore the dual-stage config."
+        ),
+    )
+
+
+def _check_model_pins_frontier_aligned() -> ClaimCheck:
+    claim_id = "security.model_pins.frontier_aligned"
+    if not MODEL_PINS.is_file():
+        return ClaimCheck(
+            claim_id=claim_id,
+            status="fail",
+            claimed="OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO exported",
+            observed="<aragora/config/model_pins.py missing>",
+            tolerance="exact",
+            message="aragora/config/model_pins.py is missing — likely PR #6194 has not merged yet.",
+        )
+    text = MODEL_PINS.read_text(encoding="utf-8")
+    required = ("OPUS_4_7", "GPT_5_4", "GEMINI_3_1_PRO")
+    missing = [
+        name for name in required if not re.search(rf"^\s*{name}\s*[:=]", text, re.MULTILINE)
+    ]
+    if not missing:
+        return ClaimCheck(
+            claim_id=claim_id,
+            status="pass",
+            claimed="OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO exported",
+            observed="all three frontier constants present",
+            tolerance="exact",
+            message="model_pins registry exports the three canonical frontier IDs.",
+        )
+    return ClaimCheck(
+        claim_id=claim_id,
+        status="fail",
+        claimed="OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO exported",
+        observed=f"missing: {', '.join(missing)}",
+        tolerance="exact",
+        message=(
+            f"model_pins.py is missing exports: {', '.join(missing)}. "
+            "Restore them — consumers across 66+ files import from this single registry."
+        ),
+    )
+
+
+def _check_incident_log_present() -> ClaimCheck:
+    claim_id = "security.incident_log.present"
+    missing = [p.name for p in (INCIDENT_LOG, ROTATION_SCHEDULE) if not p.is_file()]
+    if not missing:
+        return ClaimCheck(
+            claim_id=claim_id,
+            status="pass",
+            claimed="incident log + rotation schedule present",
+            observed="both files present",
+            tolerance="exact",
+            message="2026-04-07 incident write-up and 90-day rotation schedule are intact.",
+        )
+    return ClaimCheck(
+        claim_id=claim_id,
+        status="fail" if len(missing) == 2 else "warn",
+        claimed="incident log + rotation schedule present",
+        observed=f"missing: {', '.join(missing)}",
+        tolerance="exact",
+        message=(
+            f"Audit-trail file(s) missing: {', '.join(missing)}. "
+            "These document the 2026-04-07 Anthropic-key leak response and rotation cadence — do not delete."
+        ),
+    )
+
+
+def _check_openrouter_fallback_wired() -> ClaimCheck:
+    claim_id = "security.openrouter_fallback.wired"
+    targets = {"anthropic": ANTHROPIC_AGENT, "openai": OPENAI_AGENT, "gemini": GEMINI_AGENT}
+    missing_files = [name for name, path in targets.items() if not path.is_file()]
+    if missing_files:
+        return ClaimCheck(
+            claim_id=claim_id,
+            status="fail",
+            claimed="QuotaFallbackMixin on anthropic/openai/gemini agents",
+            observed=f"agent file(s) missing: {', '.join(missing_files)}",
+            tolerance="exact",
+            message=f"Provider agent file(s) missing — repo layout regression: {', '.join(missing_files)}.",
+        )
+    # Either QuotaFallbackMixin directly OR OpenAICompatibleMixin (which itself
+    # inherits from QuotaFallbackMixin) in the class declaration line counts as
+    # wired — both routes give the agent the OpenRouter quota-fallback path.
+    pattern = re.compile(
+        r"^class\s+\w+\s*\([^)]*(?:QuotaFallbackMixin|OpenAICompatibleMixin)",
+        re.MULTILINE,
+    )
+    not_wired = [
+        name
+        for name, path in targets.items()
+        if not pattern.search(path.read_text(encoding="utf-8"))
+    ]
+    if not not_wired:
+        return ClaimCheck(
+            claim_id=claim_id,
+            status="pass",
+            claimed="QuotaFallbackMixin on anthropic/openai/gemini agents",
+            observed="all three frontier-provider agents inherit QuotaFallbackMixin",
+            tolerance="exact",
+            message="OpenRouter universal fallback is wired on all three frontier providers.",
+        )
+    return ClaimCheck(
+        claim_id=claim_id,
+        status="fail",
+        claimed="QuotaFallbackMixin on anthropic/openai/gemini agents",
+        observed=f"missing on: {', '.join(not_wired)}",
+        tolerance="exact",
+        message=(
+            f"QuotaFallbackMixin not declared on: {', '.join(not_wired)}. "
+            "Removing it re-introduces the 'missing direct key blocks debates' failure mode."
+        ),
+    )
+
+
 CHECKS: dict[str, Callable[[], ClaimCheck]] = {
     "canonical.km_adapters.count": _check_km_adapters_count,
     "canonical.python_modules.count": _check_python_modules_count,
     "canonical.test_definitions.count": _check_test_definitions_count,
     "canonical.version.matches_pyproject": _check_version_matches_pyproject,
+    "security.gitleaks.dual_stage": _check_gitleaks_dual_stage,
+    "security.model_pins.frontier_aligned": _check_model_pins_frontier_aligned,
+    "security.incident_log.present": _check_incident_log_present,
+    "security.openrouter_fallback.wired": _check_openrouter_fallback_wired,
 }
 
 

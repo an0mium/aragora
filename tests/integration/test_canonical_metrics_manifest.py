@@ -142,3 +142,44 @@ class TestReceiptWriteOption:
         assert receipt_path.exists()
         content = json.loads(receipt_path.read_text(encoding="utf-8"))
         assert content["manifest_id"] == "canonical_metrics"
+
+
+class TestSecurityClaimsRegistered:
+    """The Phase-14c security.* claims must be wired into the verifier."""
+
+    SECURITY_CLAIM_IDS = (
+        "security.gitleaks.dual_stage",
+        "security.model_pins.frontier_aligned",
+        "security.incident_log.present",
+        "security.openrouter_fallback.wired",
+    )
+
+    def test_security_claims_appear_in_manifest(self) -> None:
+        import yaml
+
+        payload = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8"))
+        manifest_ids = {claim["claim_id"] for claim in payload["claims"]}
+        for claim_id in self.SECURITY_CLAIM_IDS:
+            assert claim_id in manifest_ids, f"security claim {claim_id} missing from manifest"
+
+    def test_security_claims_are_individually_runnable(self) -> None:
+        for claim_id in self.SECURITY_CLAIM_IDS:
+            rc, payload = _run_check("--claim", claim_id)
+            assert rc in {0, 1}, f"verifier crashed on {claim_id} (rc={rc})"
+            assert len(payload["results"]) == 1
+            assert payload["results"][0]["claim_id"] == claim_id
+
+    def test_openrouter_fallback_currently_passes(self) -> None:
+        """OpenRouter wiring must hold on every commit — it's a blocking claim.
+
+        Removing QuotaFallbackMixin (or OpenAICompatibleMixin, which inherits
+        from it) regresses the failure mode the OpenRouter-first policy was
+        put in place to prevent. If this test fails, the regression is in
+        aragora/agents/api_agents/, not in the verifier.
+        """
+        rc, payload = _run_check("--claim", "security.openrouter_fallback.wired")
+        result = payload["results"][0]
+        assert result["status"] == "pass", (
+            "QuotaFallbackMixin coverage regressed on a frontier provider agent. "
+            f"Details: {result['message']}"
+        )
