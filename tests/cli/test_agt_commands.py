@@ -58,7 +58,7 @@ class TestMetricsViah:
         # ``datetime.now(UTC)`` internally). Previously this test pinned
         # ``now`` to a fixed date, causing it to break after that date
         # fell outside the 24h window.
-        now = datetime.now(tz=UTC)
+        now = datetime.now(tz=UTC).replace(microsecond=0)
         _seed_ledger(
             ledger_path,
             [
