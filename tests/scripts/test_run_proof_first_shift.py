@@ -149,6 +149,27 @@ def test_should_trigger_benchmark_rerun_waits_for_new_run_after_trigger() -> Non
     assert reason == "awaiting_new_benchmark_run"
 
 
+def test_should_trigger_benchmark_rerun_when_truth_state_drift_detected() -> None:
+    trigger, reason = mod.should_trigger_benchmark_rerun(
+        benchmark_mode="hybrid",
+        latest_run={
+            "databaseId": 123,
+            "createdAt": "2026-04-18T00:00:00Z",
+            "status": "completed",
+            "conclusion": "success",
+        },
+        has_open_publication_pr=False,
+        automation_backlog=0,
+        automation_backlog_limit=12,
+        last_triggered_run_id=None,
+        truth_state_drift_detected=True,
+        max_age_hours=24.0,
+    )
+
+    assert trigger is True
+    assert reason == "post_generation_issue_state_drift"
+
+
 def test_should_trigger_benchmark_rerun_skips_when_publication_pr_is_open() -> None:
     trigger, reason = mod.should_trigger_benchmark_rerun(
         benchmark_mode="hybrid",

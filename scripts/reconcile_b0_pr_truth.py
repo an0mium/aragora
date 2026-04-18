@@ -267,7 +267,7 @@ class GitHubTruthClient:
                 "--repo",
                 repo,
                 "--json",
-                "number,title,url,state,stateReason,closedAt,closedByPullRequestsReferences",
+                "number,title,url,state,stateReason,closedAt,updatedAt,closedByPullRequestsReferences",
             ]
         )
         try:

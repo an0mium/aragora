@@ -23,6 +23,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.nomic.checkpoints import load_latest_checkpoint  # noqa: E402
 from aragora.nomic.shift_controller import ShiftConfig, ShiftController, ShiftState  # noqa: E402
 from aragora.swarm.shift_ledger import ShiftLedger  # noqa: E402
+from scripts.build_benchmark_truth_artifact import detect_post_generation_issue_state_drift  # noqa: E402
 from scripts.reconcile_proof_first_queue import reconcile_proof_first_queue  # noqa: E402
 from scripts.watch_boss_lane import collect_snapshot  # noqa: E402
 
@@ -48,6 +49,9 @@ DEFAULT_BOSS_MAX_HOURS = "8"
 DEFAULT_BOSS_MAX_PARALLEL_DISPATCHES = "1"
 DEFAULT_BOSS_AUTONOMY_MODE = "full-auto"
 DEFAULT_BOSS_BOOTSTRAP_LOG = ".aragora/overnight/proof-first-boss-loop-bootstrap.log"
+DEFAULT_BENCHMARK_TRUTH_ARTIFACT = Path(
+    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/latest.json"
+)
 LAUNCHD_THROTTLE_GRACE_SECONDS = 60.0
 AUTH_FAILURE_STOP_AFTER = 2
 PUBLICATION_FAILURE_STOP_AFTER = 2
@@ -413,6 +417,24 @@ def _parse_timestamp(value: str | None) -> datetime | None:
     return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(UTC)
 
 
+def load_latest_benchmark_truth_artifact(*, repo_root: Path) -> dict[str, Any] | None:
+    artifact_path = repo_root / DEFAULT_BENCHMARK_TRUTH_ARTIFACT
+    if not artifact_path.exists():
+        return None
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else None
+
+
+def benchmark_truth_state_drift(*, repo_root: Path, repo: str) -> dict[str, Any]:
+    artifact = load_latest_benchmark_truth_artifact(repo_root=repo_root)
+    if artifact is None:
+        return {"status": "missing_artifact", "issue_count": 0, "issues": []}
+    try:
+        return detect_post_generation_issue_state_drift(artifact=artifact, repo=repo)
+    except (RuntimeError, OSError, json.JSONDecodeError, ValueError) as exc:
+        return {"status": "error", "issue_count": 0, "issues": [], "error": str(exc)}
+
+
 def should_trigger_benchmark_rerun(
     *,
     benchmark_mode: str,
@@ -421,6 +443,7 @@ def should_trigger_benchmark_rerun(
     automation_backlog: int,
     automation_backlog_limit: int,
     last_triggered_run_id: int | None,
+    truth_state_drift_detected: bool = False,
     max_age_hours: float = 24.0,
 ) -> tuple[bool, str]:
     if benchmark_mode != "hybrid":
@@ -446,6 +469,10 @@ def should_trigger_benchmark_rerun(
     conclusion = str(latest_run.get("conclusion") or "").strip().lower()
     if conclusion == "failure" and run_id != int(last_triggered_run_id or 0):
         return True, "retry_after_failed_run"
+    if truth_state_drift_detected:
+        if run_id and run_id == int(last_triggered_run_id or 0):
+            return False, "awaiting_new_benchmark_run"
+        return True, "post_generation_issue_state_drift"
     return False, "fresh_enough"
 
 
@@ -1091,6 +1118,7 @@ def run_shift_cycle(
                 ledger.record_pr_merged(pr_number=int(num))
 
     latest_run = latest_benchmark_run(repo_root=repo_root, repo=repo)
+    benchmark_truth_drift = benchmark_truth_state_drift(repo_root=repo_root, repo=repo)
     latest_failure_class = ""
     latest_failure_detail = ""
     if latest_run is not None:
@@ -1163,6 +1191,7 @@ def run_shift_cycle(
         automation_backlog=automation_backlog,
         automation_backlog_limit=automation_backlog_limit,
         last_triggered_run_id=runtime_state.last_triggered_benchmark_run_id,
+        truth_state_drift_detected=bool(int(benchmark_truth_drift.get("issue_count", 0) or 0)),
         max_age_hours=max_hours,
     )
     stop_reason = ""
@@ -1278,6 +1307,7 @@ def run_shift_cycle(
         "total_open_pr_count": len(prs),
         "automation_backlog": automation_backlog,
         "latest_benchmark_run": latest_run,
+        "benchmark_truth_state_drift": benchmark_truth_drift,
         "actions": actions,
         "stop_reason": stop_reason,
         "failure_policy": failure_policy,
