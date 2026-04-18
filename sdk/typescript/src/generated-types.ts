@@ -1839,6 +1839,124 @@ export interface RoutingRuleTestRequest {
   workspace_id: string;
 }
 
+export interface InboxTrustWedgePersistedReceipt {
+  receipt_id: string;
+  intent_hash: string;
+  signature: string;
+  signing_key_id: string;
+  state: "created" | "approved" | "executed" | "expired";
+  created_at: string;
+  expires_at?: string | null;
+  approved_at?: string | null;
+  executed_at?: string | null;
+  execution_count: number;
+  last_error?: string | null;
+  canonical_receipt_id?: string | null;
+}
+
+export interface InboxTrustWedgeActionIntent {
+  provider: string;
+  message_id: string;
+  action: "archive" | "star" | "label" | "ignore";
+  content_hash: string;
+  synthesized_rationale: string;
+  confidence: number;
+  provider_route: string;
+  debate_id?: string | null;
+  label_id?: string | null;
+  user_id?: string | null;
+  email_subject?: string;
+  email_from?: string;
+  email_snippet?: string;
+}
+
+export interface InboxTrustWedgeTriageDecision {
+  final_action: "archive" | "star" | "label" | "ignore";
+  confidence: number;
+  dissent_summary: string;
+  receipt_id?: string | null;
+  auto_approval_eligible: boolean;
+  receipt_state: string;
+  provider_route: string;
+  label_id?: string | null;
+  blocked_by_policy: boolean;
+  cost_usd?: number | null;
+  latency_seconds?: number | null;
+  execution_tier: string;
+  escalation_reasons: string[];
+  suppressed_diagnostics_count: number;
+  intent?: InboxTrustWedgeActionIntent;
+}
+
+export interface InboxTrustWedgeEnvelope {
+  intent: InboxTrustWedgeActionIntent;
+  decision: InboxTrustWedgeTriageDecision;
+  receipt: InboxTrustWedgePersistedReceipt;
+  signed_receipt: Record<string, any>;
+  provider_route: string;
+  debate_id?: string | null;
+  review_choice?: string | null;
+  execution_result?: Record<string, any> | null;
+}
+
+export interface InboxTrustWedgeReceiptListResponse {
+  receipts: InboxTrustWedgeEnvelope[];
+  count: number;
+  requested_by?: string | null;
+}
+
+export interface InboxTrustWedgeActionResponse {
+  message_id: string;
+  action: string;
+  success: boolean;
+  receipt: InboxTrustWedgePersistedReceipt;
+  intent: InboxTrustWedgeActionIntent;
+  decision: InboxTrustWedgeTriageDecision;
+  provider_route: string;
+  debate_id?: string | null;
+  requires_approval: boolean;
+  executed: boolean;
+  execution_result?: Record<string, any> | null;
+}
+
+export interface InboxTrustWedgeCreateReceiptRequest {
+  provider?: string;
+  user_id?: string;
+  message_id: string;
+  action: "archive" | "star" | "label" | "ignore";
+  content_hash?: string;
+  subject?: string;
+  snippet?: string;
+  body?: string;
+  preview?: string;
+  message_text?: string;
+  synthesized_rationale?: string;
+  rationale?: string;
+  reason?: string;
+  confidence?: number;
+  debate_confidence?: number;
+  provider_route?: string;
+  debate_id?: string;
+  label_id?: string;
+  labels?: string[];
+  blocked_by_policy?: boolean;
+  cost_usd?: number;
+  latency_seconds?: number;
+  expires_in_hours?: number;
+  auto_approve?: boolean;
+  auto_execute?: boolean;
+}
+
+export interface InboxTrustWedgeReviewRequest {
+  choice: "approve" | "reject" | "edit" | "skip";
+  action?: "archive" | "star" | "label" | "ignore";
+  synthesized_rationale?: string;
+  rationale?: string;
+  label_id?: string;
+  labels?: string[];
+  execute?: boolean;
+}
+
 export interface MemoryStats {
   total_entries?: number;
   by_tier?: {
@@ -2506,122 +2624,4 @@ export interface WebSocketResumeToken {
   last_seq: number;
   /** When this resume token expires */
   expires_at?: string;
-}
-
-export interface InboxTrustWedgePersistedReceipt {
-  receipt_id: string;
-  intent_hash: string;
-  signature: string;
-  signing_key_id: string;
-  state: "created" | "approved" | "executed" | "expired";
-  created_at: string;
-  expires_at?: string | null;
-  approved_at?: string | null;
-  executed_at?: string | null;
-  execution_count: number;
-  last_error?: string | null;
-  canonical_receipt_id?: string | null;
-}
-
-export interface InboxTrustWedgeActionIntent {
-  provider: string;
-  message_id: string;
-  action: "archive" | "star" | "label" | "ignore";
-  content_hash: string;
-  synthesized_rationale: string;
-  confidence: number;
-  provider_route: string;
-  debate_id?: string | null;
-  label_id?: string | null;
-  user_id?: string | null;
-  email_subject?: string;
-  email_from?: string;
-  email_snippet?: string;
-}
-
-export interface InboxTrustWedgeTriageDecision {
-  final_action: "archive" | "star" | "label" | "ignore";
-  confidence: number;
-  dissent_summary: string;
-  receipt_id?: string | null;
-  auto_approval_eligible: boolean;
-  receipt_state: string;
-  provider_route: string;
-  label_id?: string | null;
-  blocked_by_policy: boolean;
-  cost_usd?: number | null;
-  latency_seconds?: number | null;
-  execution_tier: string;
-  escalation_reasons: string[];
-  suppressed_diagnostics_count: number;
-  intent?: InboxTrustWedgeActionIntent;
-}
-
-export interface InboxTrustWedgeEnvelope {
-  intent: InboxTrustWedgeActionIntent;
-  decision: InboxTrustWedgeTriageDecision;
-  receipt: InboxTrustWedgePersistedReceipt;
-  signed_receipt: Record<string, any>;
-  provider_route: string;
-  debate_id?: string | null;
-  review_choice?: string | null;
-  execution_result?: Record<string, any> | null;
-}
-
-export interface InboxTrustWedgeReceiptListResponse {
-  receipts: InboxTrustWedgeEnvelope[];
-  count: number;
-  requested_by?: string | null;
-}
-
-export interface InboxTrustWedgeActionResponse {
-  message_id: string;
-  action: string;
-  success: boolean;
-  receipt: InboxTrustWedgePersistedReceipt;
-  intent: InboxTrustWedgeActionIntent;
-  decision: InboxTrustWedgeTriageDecision;
-  provider_route: string;
-  debate_id?: string | null;
-  requires_approval: boolean;
-  executed: boolean;
-  execution_result?: Record<string, any> | null;
-}
-
-export interface InboxTrustWedgeCreateReceiptRequest {
-  provider?: string;
-  user_id?: string;
-  message_id: string;
-  action: "archive" | "star" | "label" | "ignore";
-  content_hash?: string;
-  subject?: string;
-  snippet?: string;
-  body?: string;
-  preview?: string;
-  message_text?: string;
-  synthesized_rationale?: string;
-  rationale?: string;
-  reason?: string;
-  confidence?: number;
-  debate_confidence?: number;
-  provider_route?: string;
-  debate_id?: string;
-  label_id?: string;
-  labels?: string[];
-  blocked_by_policy?: boolean;
-  cost_usd?: number;
-  latency_seconds?: number;
-  expires_in_hours?: number;
-  auto_approve?: boolean;
-  auto_execute?: boolean;
-}
-
-export interface InboxTrustWedgeReviewRequest {
-  choice: "approve" | "reject" | "edit" | "skip";
-  action?: "archive" | "star" | "label" | "ignore";
-  synthesized_rationale?: string;
-  rationale?: string;
-  label_id?: string;
-  labels?: string[];
-  execute?: boolean;
 }
