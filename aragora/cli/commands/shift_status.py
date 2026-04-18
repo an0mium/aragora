@@ -60,6 +60,19 @@ def render_shift_status(payload: dict[str, Any]) -> str:
                 reason=failure_policy.get("reason") or "-",
             )
         )
+    observer_bits: list[str] = []
+    if payload.get("observer_branch"):
+        observer_bits.append(f"branch={payload.get('observer_branch')}")
+    if payload.get("observer_has_uncommitted_changes") is not None:
+        observer_bits.append(f"dirty={payload.get('observer_has_uncommitted_changes')}")
+    if payload.get("observer_behind_origin_main") is not None:
+        observer_bits.append(f"behind_origin_main={payload.get('observer_behind_origin_main')}")
+    if payload.get("observer_ahead_of_origin_main") is not None:
+        observer_bits.append(f"ahead_of_origin_main={payload.get('observer_ahead_of_origin_main')}")
+    if observer_bits:
+        lines.append("observer=" + " ".join(observer_bits))
+    if payload.get("observer_warning"):
+        lines.append(f"observer_warning={payload.get('observer_warning')}")
     return "\n".join(lines)
 
 

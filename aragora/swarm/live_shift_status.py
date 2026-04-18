@@ -20,16 +20,24 @@ def _has_repo_metadata(repo_root: Path) -> bool:
     return (repo_root / ".git").exists()
 
 
-def _infer_repo_name(repo_root: Path) -> str | None:
+def _run_git_command(
+    repo_root: Path, *args: str, timeout: int = 5
+) -> subprocess.CompletedProcess[str] | None:
     try:
-        proc = subprocess.run(
-            ["git", "-C", str(repo_root), "remote", "get-url", "origin"],
+        return subprocess.run(
+            ["git", "-C", str(repo_root), *args],
             text=True,
             capture_output=True,
-            timeout=5,
+            timeout=timeout,
             check=False,
         )
     except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def _infer_repo_name(repo_root: Path) -> str | None:
+    proc = _run_git_command(repo_root, "remote", "get-url", "origin")
+    if proc is None:
         return None
     remote = (proc.stdout or "").strip()
     if remote.startswith("git@github.com:"):
@@ -135,6 +143,69 @@ def _count_live_open_prs(repo_root: Path, *, repo_name: str | None) -> int | Non
     return len(payload) if isinstance(payload, list) else None
 
 
+def _detect_observer_state(repo_root: Path) -> dict[str, Any]:
+    if not _has_repo_metadata(repo_root):
+        return {}
+    payload: dict[str, Any] = {}
+    branch_proc = _run_git_command(repo_root, "rev-parse", "--abbrev-ref", "HEAD")
+    head_proc = _run_git_command(repo_root, "rev-parse", "HEAD")
+    origin_main_proc = _run_git_command(repo_root, "rev-parse", "origin/main")
+    rev_list_proc = _run_git_command(
+        repo_root, "rev-list", "--left-right", "--count", "origin/main...HEAD"
+    )
+    status_proc = _run_git_command(repo_root, "status", "--short")
+
+    branch = (
+        (branch_proc.stdout or "").strip() if branch_proc and branch_proc.returncode == 0 else ""
+    )
+    if branch:
+        payload["observer_branch"] = branch
+
+    head = (head_proc.stdout or "").strip() if head_proc and head_proc.returncode == 0 else ""
+    if head:
+        payload["observer_head"] = head
+
+    origin_main = (
+        (origin_main_proc.stdout or "").strip()
+        if origin_main_proc and origin_main_proc.returncode == 0
+        else ""
+    )
+    if origin_main:
+        payload["observer_origin_main_head"] = origin_main
+
+    if rev_list_proc and rev_list_proc.returncode == 0:
+        counts = (rev_list_proc.stdout or "").strip().split()
+        if len(counts) == 2:
+            behind_count: int | None
+            ahead_count: int | None
+            try:
+                behind_count = int(counts[0])
+                ahead_count = int(counts[1])
+            except ValueError:
+                behind_count = ahead_count = None
+            else:
+                payload["observer_behind_origin_main"] = behind_count
+                payload["observer_ahead_of_origin_main"] = ahead_count
+
+    has_uncommitted_changes = bool((status_proc.stdout or "").strip()) if status_proc else None
+    if has_uncommitted_changes is not None:
+        payload["observer_has_uncommitted_changes"] = has_uncommitted_changes
+
+    warning_parts: list[str] = []
+    if payload.get("observer_has_uncommitted_changes"):
+        warning_parts.append("dirty checkout")
+    payload_behind = payload.get("observer_behind_origin_main")
+    if isinstance(payload_behind, int) and payload_behind > 0:
+        warning_parts.append(f"{payload_behind} behind origin/main")
+    payload_ahead = payload.get("observer_ahead_of_origin_main")
+    if isinstance(payload_ahead, int) and payload_ahead > 0:
+        warning_parts.append(f"{payload_ahead} ahead of origin/main")
+    if warning_parts:
+        payload["observer_warning"] = "observer checkout is " + ", ".join(warning_parts)
+
+    return payload
+
+
 def _load_live_shift_truth(repo_root: Path) -> dict[str, Any]:
     if not _has_repo_metadata(repo_root):
         return {}
@@ -152,6 +223,7 @@ def _load_live_shift_truth(repo_root: Path) -> dict[str, Any]:
     open_prs = _count_live_open_prs(repo_root, repo_name=repo_name)
     if open_prs is not None:
         live_truth["current_open_prs"] = open_prs
+    live_truth.update(_detect_observer_state(repo_root))
     return live_truth
 
 

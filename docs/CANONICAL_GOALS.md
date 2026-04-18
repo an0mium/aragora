@@ -54,6 +54,15 @@ If a roadmap item does not strengthen one or more of those layers, it is probabl
 
 **Current focus:** move from early `Teammate` behavior to reliable `Foreman` behavior without losing the broader thesis.
 
+## 60-Day Operating Focus
+
+The full eight-pillar thesis stays canonical. The active operating focus for the next 60 days is intentionally narrower:
+
+1. **Reliable Autonomous Execution** must become boringly trustworthy on bounded backlogs.
+2. **Cryptographic Receipts and Auditability** must make the operator proof surfaces, benchmark publication, and runtime truth legible enough that external claims can be kept narrower than measured proof.
+
+All other pillars remain planning truth unless a change directly improves one of those two active focus areas. This is a sequencing rule, not a retreat from the broader roadmap.
+
 ## Eight Foundational Pillars
 
 ### 1. Adversarial Heterogeneous Consensus
