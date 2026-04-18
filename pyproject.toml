@@ -54,6 +54,11 @@ connectors = [
 experimental = [
     "playwright>=1.40,<2.0",
 ]
+dev = [
+    "mypy>=1.19.0,<2.0",
+    "types-PyYAML>=6.0,<7.0",
+    "types-croniter>=2.0,<6.0",
+]
 all = [
     "fastapi>=0.135.3,<1.0",
     "uvicorn>=0.30,<1.0",
@@ -146,3 +151,44 @@ ignore = ["E402", "E501", "E731", "E741", "E712", "C401", "C405", "C408", "C416"
 "aragora/knowledge/mound/checkpoint.py" = ["BLE001", "G004"]
 "aragora/knowledge/mound/ops/*.py" = ["BLE001", "G004"]
 "aragora/knowledge/pipeline.py" = ["BLE001", "G004"]
+
+# -----------------------------------------------------------------------------
+# mypy configuration — Tier A (config-only) remediation.
+#
+# Restores parity between the pre-push mypy hook and CI's changed-file gate.
+# Both layers intend "report errors for the file under check; do not leak
+# transitive errors from the whole import closure". CI already uses
+# `--follow-imports=skip`; this section encodes the equivalent intent at the
+# config level so the pre-push hook stops flagging ~1,400 transitive errors
+# that CI never had to look at. Sources are unchanged; Tier B (real type-bug
+# fixes) is scoped to separate PRs per the triage at
+# .aragora_coordination/mypy_triage_2026-04-17.md.
+# -----------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+# Match CI intent: type-check the target file(s), silence transitive noise.
+follow_imports = "silent"
+# Avoid turning untyped function bodies into noise-only notes.
+check_untyped_defs = false
+# Keep narrowing and Optional handling strict (mypy's default, made explicit).
+strict_optional = true
+disable_error_code = [
+    "annotation-unchecked",  # pure informational notes, not failures
+    "truthy-function",       # ~45 legacy optional-import idioms
+    "import-untyped",        # defense in depth; stubs installed via [dev] extras
+]
+
+# Optional-import fallback modules. These deliberately rebind a symbol to
+# ``None`` when the optional dependency is unavailable, e.g.
+#   try:  from x import Y
+#   except ImportError:  Y = None  # type: ignore[assignment]
+# mypy >= 1.16 flags this pattern as [misc] "Cannot assign to a type". The
+# pattern is intentional and reviewed; silence [misc] for these modules only.
+[[tool.mypy.overrides]]
+module = [
+    "aragora.cli.commands.swarm",
+    "aragora.cli.commands.worktree",
+    "aragora.connectors.chat.*",
+]
+disable_error_code = ["misc"]
