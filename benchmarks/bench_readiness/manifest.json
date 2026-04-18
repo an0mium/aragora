@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "generated_at": "2026-04-17T18:20:00-05:00",
+    "purpose": "Reproducibility + security-posture snapshot after HIGH-GRAVITY incident response and AWS-first hardening pass",
+    "hardening_pass": true
+  },
+  "repo": {
+    "git_sha": "dda5581b2717b9df6f5abb194caac08d6b900c38",
+    "clean_working_tree": false,
+    "dirty_files": [
+      "aragora/config/secrets.py (LLM keys added to CRITICAL_SECRETS)"
+    ],
+    "branch": "main"
+  },
+  "venv": {
+    "python_version": "3.11.11",
+    "packages_count": 327,
+    "pin_hash_sha256": "8a2620ec4e401cc2",
+    "notes": "uv-managed venv; no pip in venv"
+  },
+  "declared_model_pins": {
+    "anthropic_frontier": "claude-opus-4-7",
+    "anthropic_openrouter_fallback": "anthropic/claude-opus-4.7",
+    "openai_frontier": "gpt-5.4",
+    "openai_openrouter_fallback": "openai/gpt-5.4",
+    "gemini_frontier": "gemini-3.1-pro-preview",
+    "gemini_openrouter_fallback": "google/gemini-3.1-pro",
+    "openrouter_universal_fallback": true
+  },
+  "security_posture_2026-04-17": {
+    "threat_model": "local machine assumed compromised",
+    "policy": "AWS Secrets Manager is the source of truth; local .env is blank for critical LLM keys",
+    "strict_mode_default": true,
+    "critical_secrets_include_llm_keys": true,
+
+    "key_rotations_this_session": {
+      "OPENAI_API_KEY": {
+        "rotated_at": "2026-04-17T14:57",
+        "backends": ["local_env", "aws_us_east_1", "aws_us_east_2", "github_secrets"]
+      },
+      "OPENROUTER_API_KEY": {
+        "rotated_at": "2026-04-17T15:02",
+        "backends": ["local_env", "aws_us_east_1", "aws_us_east_2", "github_secrets"]
+      },
+      "ANTHROPIC_API_KEY": {
+        "rotated_at": "2026-04-17T17:45",
+        "backends": ["local_env", "aws_us_east_1", "aws_us_east_2", "github_secrets"],
+        "live_verified_via": "claude-opus-4-7 SDK ping returned Pong!"
+      }
+    },
+
+    "local_plaintext_eliminated": {
+      "files_deleted": ["/Users/armand/.claude/.api_key"],
+      "aliases_removed": ["use-api in ~/.zshrc"],
+      "env_keys_blanked_in_aragora_env": [
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GEMINI_API_KEY",
+        "KIMI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "ELEVENLABS_API_KEY"
+      ],
+      "env_keys_still_populated_due_to_drift": [
+        "XAI_API_KEY",
+        "GROK_API_KEY",
+        "MISTRAL_API_KEY",
+        "FAL_API_KEY"
+      ]
+    },
+
+    "defense_in_depth": {
+      "gitleaks_pre_commit": "v8.30.0 at pre-commit AND pre-push stages",
+      "public_repo_scan": "19 repos scanned, 0 real credential leaks (20 gitleaks hits all placeholders)",
+      "actions_log_scan_last_30_runs": "0 key-shaped patterns in 30k log lines",
+      "github_secret_scanning_alerts": "all 9 false-positives dismissed"
+    },
+
+    "verification": {
+      "awsfirst_get_secret_returns_aws_value": true,
+      "strict_mode_fails_loud_when_aws_blocked": true,
+      "live_anthropic_claude_opus_4_7_call": "Pong!",
+      "aragora_demo_offline": "< 1 s, Consensus verdict",
+      "convergence_tests": "49 passing",
+      "smoke_tests": "62 passing",
+      "gitleaks_full_tree_scan": "pass at commit + push stages"
+    }
+  },
+
+  "bench_readiness_verdict": {
+    "tier1_standalone_ablation": "ready",
+    "tier2_full_platform_e2e": "ready (AWS-sourced keys verified working)",
+    "open_blockers": [
+      "Factory.app still holds revoked VgAA Anthropic key - manual UI fix required",
+      "aragora gauntlet --local exits 1 at 25% silently (pre-existing bug, not security)",
+      "21 callsites read ANTHROPIC_API_KEY directly from os.environ - follow-up migration to legacy.get_api_key()"
+    ],
+    "recommended_next_steps": [
+      "User: delete Factory.app Anthropic integration in the Factory UI",
+      "Engineering: migrate direct os.environ callsites to AWS-first helpers",
+      "Engineering: sync drifting keys (XAI/GROK/MISTRAL/FAL) and blank in .env",
+      "Engineering: run SWE-bench-lite harness on full Arena using rotated keys"
+    ]
+  },
+
+  "safety_snapshots": {
+    "location": "/Users/armand/.aragora_hardening_snapshot_2026-04-17/",
+    "contents": [
+      "zshrc.bak",
+      "claude_api_key.bak",
+      "aragora_env.bak",
+      "aragora_envrc.bak",
+      "aragora_config_secrets.py.bak"
+    ],
+    "purpose": "Revert point for all destructive changes in this hardening pass"
+  }
+}

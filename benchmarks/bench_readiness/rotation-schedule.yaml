@@ -1,0 +1,177 @@
+# Aragora secret rotation schedule
+# Generated: 2026-04-17 (post-hardening)
+# Source of truth: scripts/secrets_manager.py (SECRETS_REGISTRY) + AWS bundle
+#                  aragora/production in us-east-1 (primary) + us-east-2 (replica)
+#
+# This file is a human-readable snapshot of the rotation policy and a
+# calendar of next-due dates. It is NOT the authoritative source; values
+# live in AWS Secrets Manager. To rotate any key:
+#
+#   python scripts/secrets_manager.py rotate <NAME>
+#
+# To check live status:
+#
+#   python scripts/secrets_manager.py status
+
+meta:
+  generated: "2026-04-17"
+  git_sha: dda5581b2717b9df6f5abb194caac08d6b900c38
+  hardening_pass: true
+  local_env_posture: "AWS-first, strict mode enabled, LLM keys blanked in .env"
+
+  # Rotations completed during incident response (HIGH-GRAVITY 2026-04-07):
+  session_rotations:
+    - env_var: OPENAI_API_KEY
+      rotated_at: "2026-04-17T14:57"
+      trigger: "proactive post-HIGH-GRAVITY"
+      propagated_to: [local_env, aws_us_east_1, aws_us_east_2, github_secrets]
+    - env_var: OPENROUTER_API_KEY
+      rotated_at: "2026-04-17T15:02"
+      trigger: "proactive post-HIGH-GRAVITY"
+      propagated_to: [local_env, aws_us_east_1, aws_us_east_2, github_secrets]
+    - env_var: ANTHROPIC_API_KEY
+      rotated_at: "2026-04-17T17:45"
+      trigger: "regained account access; replaces auto-revoked VgAA-tailed key"
+      propagated_to: [local_env, aws_us_east_1, aws_us_east_2, github_secrets]
+      live_verified: "claude-opus-4-7 SDK call returned Pong! at 18:20"
+
+rotation_policy:
+
+  # P0 critical — LLM API keys
+  # 90-day cadence; now also in CRITICAL_SECRETS so strict mode refuses
+  # env-var fallback for them.
+  llm_api_keys:
+    rotation_days: 90
+    owners: [armand@synaptent.com]
+    storage: AWS Secrets Manager (aragora/production bundle)
+    strict_mode_enforced: true
+    keys:
+      - env_var: ANTHROPIC_API_KEY
+        last_rotated: "2026-04-17"
+        next_due: "2026-07-16"
+        status: ACTIVE
+        priority: P1
+      - env_var: OPENAI_API_KEY
+        last_rotated: "2026-04-17"
+        next_due: "2026-07-16"
+        status: ACTIVE
+        priority: P1
+      - env_var: OPENROUTER_API_KEY
+        last_rotated: "2026-04-17"
+        next_due: "2026-07-16"
+        status: ACTIVE
+        priority: P1
+        notes: "Also serves as universal frontier fallback when other keys are missing"
+      - env_var: GEMINI_API_KEY
+        last_rotated: null
+        next_due: "2026-07-16"  # aligned with other LLM keys
+        status: ACTIVE
+        priority: P2
+        notes: "Verified NOT in HIGH-GRAVITY dump (tail QuOglZ6zuc not present)"
+
+  # P2 — other LLM keys (not in CRITICAL_SECRETS; may still fall back to env)
+  llm_secondary:
+    rotation_days: 90
+    keys:
+      - env_var: MISTRAL_API_KEY
+        status: LOCAL_DRIFT_VS_AWS
+        action: "Run secrets_manager.py sync MISTRAL_API_KEY, then blank in .env"
+      - env_var: XAI_API_KEY
+        status: LOCAL_DRIFT_VS_AWS
+        action: "Run secrets_manager.py sync XAI_API_KEY, then blank in .env"
+      - env_var: GROK_API_KEY
+        status: ALIAS_OF_XAI  # same value locally; AWS has no GROK_API_KEY key
+        action: "Delete GROK_API_KEY from .env; aragora uses XAI_API_KEY"
+      - env_var: KIMI_API_KEY
+        last_rotated: null
+        status: ACTIVE_BLANK_IN_ENV
+      - env_var: DEEPSEEK_API_KEY
+        last_rotated: null
+        status: ACTIVE_BLANK_IN_ENV
+      - env_var: ELEVENLABS_API_KEY
+        last_rotated: null
+        status: ACTIVE_BLANK_IN_ENV
+      - env_var: FAL_API_KEY
+        status: NOT_IN_AWS
+        action: "Run secrets_manager.py sync FAL_API_KEY to push local to AWS"
+
+  # Infrastructure / authentication — already CRITICAL_SECRETS
+  internal_secrets:
+    keys:
+      - env_var: ARAGORA_JWT_SECRET
+        rotation_days: 30
+        priority: P1
+        followup: "Audit: still in .env plaintext"
+      - env_var: ARAGORA_ENCRYPTION_KEY
+        rotation_days: 365
+        priority: P0
+        followup: "Still in .env plaintext; rotation requires data migration"
+      - env_var: ARAGORA_AUDIT_SIGNING_KEY
+        rotation_days: 90
+      - env_var: ARAGORA_RECEIPT_SIGNING_KEY
+        rotation_days: 90
+
+  # Database / Infrastructure
+  infrastructure:
+    rotation_days: 365
+    keys:
+      - env_var: DATABASE_URL
+      - env_var: ARAGORA_POSTGRES_DSN
+      - env_var: SUPABASE_POSTGRES_DSN
+      - env_var: SUPABASE_DB_PASSWORD
+      - env_var: SUPABASE_KEY
+      - env_var: REDIS_URL
+
+  # OAuth
+  oauth_secrets:
+    rotation_days: 90
+    keys:
+      - env_var: GOOGLE_OAUTH_CLIENT_SECRET
+      - env_var: GITHUB_OAUTH_CLIENT_SECRET
+      - env_var: SLACK_CLIENT_SECRET
+      - env_var: SLACK_SIGNING_SECRET
+      - env_var: SLACK_BOT_TOKEN
+      - env_var: SLACK_REFRESH_TOKEN
+      - env_var: GMAIL_CLIENT_SECRET
+
+  # Developer access tokens
+  dev_tokens:
+    rotation_days: 90
+    keys:
+      - env_var: GITHUB_PERSONAL_ACCESS_TOKEN
+        notes: "Still in .env plaintext; consider moving to macOS Keychain"
+
+  # Billing (if/when Stripe is active)
+  billing:
+    rotation_days: 90
+    priority: P0
+    keys:
+      - env_var: STRIPE_SECRET_KEY
+      - env_var: STRIPE_WEBHOOK_SECRET
+
+# Next-scheduled rotation calendar
+calendar:
+  2026-07-16:
+    - ANTHROPIC_API_KEY   # 90 days from 2026-04-17
+    - OPENAI_API_KEY
+    - OPENROUTER_API_KEY
+    - GEMINI_API_KEY
+  2026-05-17:
+    - ARAGORA_JWT_SECRET  # 30-day cadence
+  2027-04-17:
+    - ARAGORA_ENCRYPTION_KEY  # 365-day cadence
+
+# Follow-up actions (not yet scheduled)
+follow_ups:
+  - priority: P0
+    task: "Delete Factory.app Anthropic integration (holds revoked VgAA key)"
+    owner: manual-ui-only
+  - priority: P1
+    task: "Migrate 21 direct os.environ.get('ANTHROPIC_API_KEY') callsites to legacy.get_api_key()"
+    owner: engineering
+  - priority: P1
+    task: "Blank remaining infrastructure keys in .env after verifying AWS sync"
+    owner: engineering
+  - priority: P2
+    task: "Audit and close 11-13 unused Anthropic accounts"
+    owner: manual
