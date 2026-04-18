@@ -93,16 +93,18 @@ def build_truth_map(
     for cr in claim_results:
         m = meta.get(cr.claim_id, {})
         verif: dict[str, Any] = m.get("verification", {})
-        rows.append(ClaimRow(
-            claim_id=cr.claim_id,
-            statement=m.get("statement", cr.detail.get("statement", "")),
-            owner=m.get("owner", cr.detail.get("owner", "")),
-            status=cr.status.value if isinstance(cr.status, ClaimStatus) else str(cr.status),
-            evidence_age_hours=cr.detail.get("evidence_age_hours"),
-            verifier_kind=verif.get("kind", cr.detail.get("verifier_kind", "")),
-            verifier_command=verif.get("command", cr.detail.get("verifier_command", "")),
-            follow_up_link=cr.detail.get("follow_up_link", ""),
-        ))
+        rows.append(
+            ClaimRow(
+                claim_id=cr.claim_id,
+                statement=m.get("statement", cr.detail.get("statement", "")),
+                owner=m.get("owner", cr.detail.get("owner", "")),
+                status=cr.status.value if isinstance(cr.status, ClaimStatus) else str(cr.status),
+                evidence_age_hours=cr.detail.get("evidence_age_hours"),
+                verifier_kind=verif.get("kind", cr.detail.get("verifier_kind", "")),
+                verifier_command=verif.get("command", cr.detail.get("verifier_command", "")),
+                follow_up_link=cr.detail.get("follow_up_link", ""),
+            )
+        )
 
     counts: dict[ClaimStatus, int] = {s: 0 for s in ClaimStatus}
     for row in rows:
@@ -118,14 +120,16 @@ def build_truth_map(
             1 for c in cfr.analysis.cruxes if c.crux_score >= open_crux_score_threshold
         )
         open_crux_total += open_count
-        crux_rows.append(CruxSummaryRow(
-            debate_id=cfr.debate_id,
-            question=cfr.question,
-            convergence_barrier=cfr.convergence_barrier(),
-            top_cruxes=[c.to_dict() for c in cfr.top_cruxes()[:top_k_cruxes]],
-            crux_count=len(cfr.analysis.cruxes),
-            open_cruxes=open_count,
-        ))
+        crux_rows.append(
+            CruxSummaryRow(
+                debate_id=cfr.debate_id,
+                question=cfr.question,
+                convergence_barrier=cfr.convergence_barrier(),
+                top_cruxes=[c.to_dict() for c in cfr.top_cruxes()[:top_k_cruxes]],
+                crux_count=len(cfr.analysis.cruxes),
+                open_cruxes=open_count,
+            )
+        )
 
     return OrgTruthMapReport(
         generated_at=datetime.datetime.utcnow().isoformat() + "Z",

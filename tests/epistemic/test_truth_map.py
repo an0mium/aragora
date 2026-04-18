@@ -15,7 +15,9 @@ def _cr(cid: str, status: ClaimStatus, detail: dict | None = None) -> ClaimResul
     return ClaimResult(claim_id=cid, status=status, message="", detail=detail or {})
 
 
-def _mock_cfr(debate_id: str, question: str, scores: list[float], barrier: float = 0.5) -> MagicMock:
+def _mock_cfr(
+    debate_id: str, question: str, scores: list[float], barrier: float = 0.5
+) -> MagicMock:
     cruxes = []
     for i, s in enumerate(scores):
         c = MagicMock()
@@ -41,8 +43,10 @@ class TestBuildTruthMap:
 
     def test_mixed_status_counts(self) -> None:
         results = [
-            _cr("a", ClaimStatus.PASS), _cr("b", ClaimStatus.FAIL),
-            _cr("c", ClaimStatus.STALE), _cr("d", ClaimStatus.UNSUPPORTED),
+            _cr("a", ClaimStatus.PASS),
+            _cr("b", ClaimStatus.FAIL),
+            _cr("c", ClaimStatus.STALE),
+            _cr("d", ClaimStatus.UNSUPPORTED),
             _cr("e", ClaimStatus.ERROR),
         ]
         r = build_truth_map(claim_results=results)
@@ -54,7 +58,13 @@ class TestBuildTruthMap:
         assert r.claims[0].status == "fail"
 
     def test_metadata_populates_fields(self) -> None:
-        meta = {"m": {"statement": "OK", "owner": "team", "verification": {"kind": "command", "command": "pytest"}}}
+        meta = {
+            "m": {
+                "statement": "OK",
+                "owner": "team",
+                "verification": {"kind": "command", "command": "pytest"},
+            }
+        }
         r = build_truth_map(claim_results=[_cr("m", ClaimStatus.PASS)], claim_metadata=meta)
         row = r.claims[0]
         assert row.statement == "OK" and row.owner == "team"
@@ -65,9 +75,15 @@ class TestBuildTruthMap:
         assert r.claims[0].statement == "" and r.claims[0].owner == ""
 
     def test_detail_evidence_age_and_follow_up_link(self) -> None:
-        r = build_truth_map(claim_results=[
-            _cr("x", ClaimStatus.STALE, {"evidence_age_hours": 36.5, "follow_up_link": "https://gh/1"})
-        ])
+        r = build_truth_map(
+            claim_results=[
+                _cr(
+                    "x",
+                    ClaimStatus.STALE,
+                    {"evidence_age_hours": 36.5, "follow_up_link": "https://gh/1"},
+                )
+            ]
+        )
         assert r.claims[0].evidence_age_hours == pytest.approx(36.5)
         assert r.claims[0].follow_up_link == "https://gh/1"
 
@@ -97,8 +113,15 @@ class TestBuildTruthMap:
         d = build_truth_map(claim_results=results).to_dict()
         assert {"generated_at", "claims", "crux_summaries", "summary"} <= d.keys()
         assert d["summary"].keys() == {
-            "total_claims", "passing", "failing", "stale", "unsupported", "error", "open_crux_count"
+            "total_claims",
+            "passing",
+            "failing",
+            "stale",
+            "unsupported",
+            "error",
+            "open_crux_count",
         }
+
 
 class TestBuildTruthMapFromManifests:
     def test_real_manifest_dry_run(self) -> None:
