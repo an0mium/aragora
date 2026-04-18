@@ -244,6 +244,7 @@ class SettlementHandler(BaseHandler):
 
         return None
 
+    @require_permission("settlements:write")
     @handle_errors("settle claim")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
