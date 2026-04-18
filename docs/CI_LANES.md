@@ -102,3 +102,46 @@ concurrency:
 ### Meta-Workflow
 
 `required-check-priority.yml` coordinates the required checks to ensure they get runner priority.
+
+## Reading main-branch CI telemetry
+
+Reviewers and dashboards sometimes look at `gh run list --branch main` and conclude CI is broken because most runs show as `skipped`. **This is a misread of the telemetry, not a real failure mode.** Where actual test signal lives:
+
+| Where you look | What you see | What it means |
+|----------------|--------------|---------------|
+| `gh run list --branch main` | ~70% skipped | Background watchdog workflows correctly self-gating |
+| `gh run list --event pull_request` | ~90% success, isolated failures | The real lint / test / type-check / SDK-parity signal |
+| Branch protection on `main` | 5 required checks, all run on PRs | What actually gates a merge |
+
+**Why main-branch runs look mostly-skipped:**
+
+1. **`Main Required Checks Auto Revert`** triggers via `workflow_run` (every completion of `Lint` / `SDK Parity Check` / `OpenAPI Spec` / `SDK Tests`). Its job has an `if:` gate that only fires for `push` events on `main`. Every PR-event upstream completion creates a workflow_run that the job correctly skips. This generates the bulk of the apparent skip rate (~57 of 100 runs in a typical week).
+
+2. **`TestFixer Auto`** is explicitly disabled in code (`if: github.event_name == 'workflow_dispatch'`) because the auto-fix loop caused CI thrash (push → cancel → restart). Re-enable via manual `workflow_dispatch` for targeted fix runs only. Generates ~14 skipped runs per 100.
+
+3. **The actual test pipeline** (`Tests`, `Lint`, `SDK Parity Check`, etc.) triggers on `pull_request`, not `push`, and is gated to specific paths (`aragora/**`, `tests/**`, `pyproject.toml`, etc.). A docs-only PR will correctly skip `Tests` because no code changed. This is a feature, not a bug.
+
+**Healthy main-branch CI looks like:**
+
+- A small number of `success` runs from deploy/publish workflows (`Branch Discipline`, `Docs Consistency`, `Deploy Frontend`, etc.)
+- A larger number of `skipped` runs from `Main Required Checks Auto Revert` (when triggering events weren't pushes to main)
+- Zero or near-zero `failure` runs (failures here mean main is actually broken)
+
+**Where to look for real regressions instead:**
+
+```bash
+# PR-time CI signal — this is what gates merges
+gh run list --event pull_request --limit 100
+
+# Failed runs only (across all events)
+gh run list --status failure --limit 20
+
+# Check a specific PR's required checks
+gh pr checks <PR-NUMBER>
+```
+
+**Outlier patterns worth investigating:**
+
+- `failure` on `Main Required Checks Auto Revert` — the auto-revert script itself broke
+- Sustained `failure` on PR-time `Lint` / `SDK Parity Check` — actual quality regression
+- `Tests` workflow not running for a PR that touches `aragora/**` — path filter or trigger drift
