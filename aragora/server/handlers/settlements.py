@@ -400,6 +400,8 @@ class SettlementHandler(BaseHandler):
         validated_body, error = self._validate_single_settlement_body(body)
         if error is not None:
             return error
+        if validated_body is None:
+            return error_response("Invalid settlement body", 400)
 
         tracker = self._get_tracker()
 
@@ -432,6 +434,8 @@ class SettlementHandler(BaseHandler):
         validated_body, error = self._validate_batch_settlement_body(body)
         if error is not None:
             return error
+        if validated_body is None:
+            return error_response("Invalid settlement batch body", 400)
 
         tracker = self._get_tracker()
         results = tracker.settle_batch(
