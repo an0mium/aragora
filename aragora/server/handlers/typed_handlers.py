@@ -325,9 +325,27 @@ class TypedHandler(BaseHandler):
         if "owner" in roles or role == "owner":
             return user, None
 
-        # Check specific permission
-        if permission in permissions:
+        permission_set = set(permissions)
+
+        # Check specific permission or wildcard
+        if permission in permission_set or "*" in permission_set:
             return user, None
+
+        # Accept equivalent dot/colon aliases for the same RBAC permission.
+        try:
+            from aragora.rbac.defaults import get_permission
+
+            required_permission = get_permission(permission)
+            if required_permission is not None:
+                for granted_permission in permission_set:
+                    resolved_permission = get_permission(granted_permission)
+                    if (
+                        resolved_permission is not None
+                        and resolved_permission.id == required_permission.id
+                    ):
+                        return user, None
+        except ImportError:
+            pass
 
         # Check using PERMISSION_MATRIX from decorators
         try:

@@ -1546,7 +1546,7 @@ class TestPermissions:
         with (
             patch(
                 "aragora.billing.jwt_auth.extract_user_from_request",
-                return_value=_auth_context("inbox:read"),
+                return_value=_auth_context("inbox:read", role="viewer"),
             ),
             patch.object(handler, "_handle_connect", new=mock_connect),
         ):
@@ -1556,7 +1556,7 @@ class TestPermissions:
         mock_connect.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_write_permission_allows_mutation_route(self, handler):
+    async def test_update_permission_allows_mutation_route(self, handler):
         req = _req(
             method="POST",
             path="/api/v1/inbox/connect",
@@ -1568,7 +1568,7 @@ class TestPermissions:
         with (
             patch(
                 "aragora.billing.jwt_auth.extract_user_from_request",
-                return_value=_auth_context("inbox:write"),
+                return_value=_auth_context("inbox:update"),
             ),
             patch.object(handler, "_handle_connect", new=mock_connect),
         ):
@@ -1577,6 +1577,46 @@ class TestPermissions:
         assert _status(result) == 200
         assert _body(result)["connected"] is True
         mock_connect.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("method", "path", "body", "handler_attr"),
+        [
+            (
+                "POST",
+                "/api/v1/inbox/connect",
+                {"provider": "gmail", "auth_code": "code"},
+                "_handle_connect",
+            ),
+            ("DELETE", "/api/v1/inbox/accounts/acct-1", {}, "_handle_disconnect"),
+            ("POST", "/api/v1/inbox/messages/msg-1/debate", {}, "_handle_auto_debate"),
+            ("POST", "/api/v1/inbox/triage", {"message_ids": ["msg-1"]}, "_handle_triage"),
+            (
+                "POST",
+                "/api/v1/inbox/bulk-action",
+                {"message_ids": ["msg-1"], "action": "archive"},
+                "_handle_bulk_action",
+            ),
+        ],
+    )
+    async def test_member_role_allows_mutation_routes_without_explicit_write_permission(
+        self, handler, method, path, body, handler_attr
+    ):
+        req = _req(method=method, path=path, body=body)
+        req.headers = {"Authorization": "Bearer test-token"}
+        mock_handler = AsyncMock(return_value={"status_code": 200, "body": {"ok": True}})
+
+        with (
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=_auth_context(role="member"),
+            ),
+            patch.object(handler, handler_attr, new=mock_handler),
+        ):
+            result = await handler.handle_request(req, path, method)
+
+        assert _status(result) == 200
+        mock_handler.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_runtime_error_returns_500(self, handler, mock_store):

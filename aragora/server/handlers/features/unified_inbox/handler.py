@@ -221,17 +221,17 @@ class UnifiedInboxHandler(BaseHandler):
             "/api/v1/inbox/triage",
             "/api/v1/inbox/bulk-action",
         }:
-            return "inbox:write"
+            return "inbox:update"
 
         if (
             method == "POST"
             and path.startswith("/api/v1/inbox/messages/")
             and path.endswith("/debate")
         ):
-            return "inbox:write"
+            return "inbox:update"
 
         if method == "DELETE" and path.startswith("/api/v1/inbox/accounts/"):
-            return "inbox:write"
+            return "inbox:update"
 
         return None
 
