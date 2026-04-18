@@ -42,7 +42,7 @@ In every case:
 ### 2.1 Issue → SwarmSpec
 
 `aragora.swarm.boss_worker_lifecycle.dispatch_issue` builds a
-[`SwarmSpec`](../aragora/swarm/spec.py) from a sanitized issue body:
+[`SwarmSpec`](../../aragora/swarm/spec.py) from a sanitized issue body:
 
 ```python
 # aragora/swarm/boss_worker_lifecycle.py (excerpted)
