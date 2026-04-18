@@ -1,12 +1,9 @@
 """Unit tests for DIC-20 decay monitor (aragora.epistemic.decay_monitor)."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from aragora.epistemic.claim_verifier import ClaimResult, ClaimStatus
 from aragora.epistemic.decay_monitor import (
-    DecayReason,
-    DecaySignal,
     evaluate_unit,
 )
 from aragora.epistemic.proof_unit import (

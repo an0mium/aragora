@@ -17,6 +17,7 @@ control escalation to ``repair_required`` or ``fail_closed``.  This module
 never mutates state, creates issues, or routes to live dispatch (DIC-21 and
 DIC-22 add quarantine and repair on top).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
