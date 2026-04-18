@@ -32,8 +32,8 @@ _BUILD_INFO_RESPONSE = _ok_response(
 )
 
 
-def _build_info_operation(operation_id: str, *, deprecated: bool = False) -> dict:
-    operation = {
+def _build_info_operation(operation_id: str, *, deprecated: bool = False) -> dict[str, object]:
+    operation: dict[str, object] = {
         "tags": ["System"],
         "summary": "Get build information",
         "description": """Return build SHA, build time, and deploy version.
