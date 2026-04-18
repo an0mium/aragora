@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from aragora.swarm.dispatch_followups import (
+    _extract_acceptance_criteria,
     annotate_result_with_conductor,
     collect_worker_changed_paths,
     enforce_acceptance_binding,
@@ -115,6 +116,19 @@ def test_maybe_upgrade_dispatch_spec_preserves_upgraded_acceptance_criteria() ->
         "Keep the lane scoped to `aragora/swarm/helper.py`.",
     ]
     assert "aragora/swarm/helper.py" in result.file_scope_hints
+
+
+def test_extract_acceptance_criteria_accepts_acceptance_heading_alias() -> None:
+    body = (
+        "## Acceptance\n"
+        "- `ruff check aragora/swarm/helper.py` passes\n"
+        "- Keep the lane scoped to `aragora/swarm/helper.py`.\n"
+    )
+
+    assert _extract_acceptance_criteria(body) == [
+        "`ruff check aragora/swarm/helper.py` passes",
+        "Keep the lane scoped to `aragora/swarm/helper.py`.",
+    ]
 
 
 def test_maybe_upgrade_dispatch_spec_leaves_bounded_spec_unchanged() -> None:
@@ -275,6 +289,28 @@ def test_enforce_acceptance_binding_rejects_tangential_delivery(tmp_path: Path) 
     assert "expected_file_not_created" in result["failure_classes"]
     assert "closes_issue_number" not in result
     assert result["reasons"], "gate should populate human-readable reasons"
+
+
+def test_enforce_acceptance_binding_falls_back_to_issue_acceptance_heading(
+    tmp_path: Path,
+) -> None:
+    spec = SwarmSpec(raw_goal="tests", refined_goal="Add tests")
+    worker_result = _worker_result_with_changed_paths(["aragora/swarm/dispatch_followups.py"])
+    issue_body = "## Acceptance\n- pytest tests/swarm/test_dispatch_followups.py -q\n"
+
+    result = enforce_acceptance_binding(
+        issue_number=5904,
+        issue_body=issue_body,
+        spec=spec,
+        worker_result=worker_result,
+        metrics_path=tmp_path / "m.jsonl",
+    )
+
+    assert result["acceptance_gate_passed"] is False
+    assert result["status"] == "needs_human"
+    assert result["acceptance_gate"]["checks_run"] == ["test_presence", "file_creation"]
+    assert "test_presence_missing" in result["failure_classes"]
+    assert "expected_file_not_created" in result["failure_classes"]
 
 
 def test_enforce_acceptance_binding_skips_when_no_deliverable() -> None:

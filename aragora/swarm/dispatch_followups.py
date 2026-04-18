@@ -29,6 +29,7 @@ from aragora.swarm.spec_upgrader import (
 logger = logging.getLogger(__name__)
 
 _MARKDOWN_BULLET_RE = re.compile(r"^[-*]\s+(?:\[[ xX]\]\s+)?(?P<text>.+)$")
+_ACCEPTANCE_SECTION_HEADINGS = {"acceptance", "acceptance criteria"}
 
 
 def _ordered_unique(values: list[str]) -> list[str]:
@@ -50,7 +51,7 @@ def _extract_acceptance_criteria(markdown: str) -> list[str]:
         stripped = raw_line.strip()
         if stripped.startswith("#"):
             heading = stripped.lstrip("#").strip().rstrip(":").lower()
-            in_acceptance_section = heading == "acceptance criteria"
+            in_acceptance_section = heading in _ACCEPTANCE_SECTION_HEADINGS
             continue
         if not in_acceptance_section or not stripped:
             continue
@@ -387,6 +388,8 @@ def enforce_acceptance_binding(
         return worker_result
 
     acceptance_criteria = list(getattr(spec, "acceptance_criteria", []) or [])
+    if not acceptance_criteria:
+        acceptance_criteria = _extract_acceptance_criteria(issue_body)
     file_scope_hints = list(getattr(spec, "file_scope_hints", []) or [])
 
     gate_result = evaluate_acceptance(
