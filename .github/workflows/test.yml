@@ -89,6 +89,21 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Detect PR scope
+        if: github.event_name == 'pull_request'
+        id: pr_scope
+        uses: ./.github/actions/pr-scope-classifier
+
+      - name: Decide OpenAPI alignment scope
+        id: openapi_scope
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "run_openapi=${{ steps.pr_scope.outputs.openapi }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_openapi=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install OpenAPI generation dependencies
         run: |
           python -m pip install --upgrade pip
@@ -100,6 +115,7 @@ jobs:
         run: python scripts/guard_repo_clean.py --check-working-tree
 
       - name: Check OpenAPI spec is up to date
+        if: steps.openapi_scope.outputs.run_openapi == 'true'
         run: |
           TMPDIR=$(mktemp -d)
           python scripts/generate_openapi.py --output "$TMPDIR/openapi_generated.json"
