@@ -83,6 +83,11 @@ def test_can_handle_tool_detail_path() -> None:
     assert h.can_handle("/api/v1/mcp/tools/run_debate", "GET") is True
 
 
+def test_routes_cover_list_and_detail_paths() -> None:
+    assert "GET /api/v1/mcp/tools" in MCPToolsHandler.ROUTES
+    assert "GET /api/v1/mcp/tools/{name}" in MCPToolsHandler.ROUTES
+
+
 def test_cannot_handle_post() -> None:
     h = _make_handler()
     assert h.can_handle("/api/v1/mcp/tools", "POST") is False

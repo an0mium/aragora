@@ -58,6 +58,7 @@ class MCPToolsHandler(BaseHandler):
 
     ROUTES = [
         "GET /api/v1/mcp/tools",
+        "GET /api/v1/mcp/tools/{name}",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

@@ -1,56 +1,77 @@
 /**
  * Settlements Namespace API
  *
- * Provides methods for managing debate claim settlements.
+ * Provides access to debate settlement and calibration routes.
  */
 
 interface SettlementsClientInterface {
-  request<T = unknown>(method: string, path: string, options?: Record<string, unknown>): Promise<T>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; body?: unknown; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
-export class SettlementsAPI {
+export interface SettlementBatchItem {
+  settlement_id: string;
+  outcome: 'correct' | 'incorrect' | 'partial';
+  evidence?: string;
+  [key: string]: unknown;
+}
+
+export class SettlementAPI {
   constructor(private client: SettlementsClientInterface) {}
 
-  /** List pending settlements. */
-  async listPending(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/settlements', { params });
+  async list(params?: { debate_id?: string; domain?: string; limit?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/settlements', {
+      params: params as Record<string, unknown> | undefined,
+    });
   }
 
-  /** Get settlement history. */
-  async getHistory(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/settlements/history', { params });
+  async listPending(params?: { debate_id?: string; domain?: string; limit?: number }): Promise<Record<string, unknown>> {
+    return this.list(params);
   }
 
-  /** Get settlement summary statistics. */
+  async getHistory(params?: { debate_id?: string; domain?: string; limit?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/settlements/history', {
+      params: params as Record<string, unknown> | undefined,
+    });
+  }
+
   async getSummary(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/settlements/summary');
   }
 
-  /** Get a settlement by ID. */
   async get(settlementId: string): Promise<Record<string, unknown>> {
     return this.client.request('GET', `/api/v1/settlements/${encodeURIComponent(settlementId)}`);
   }
 
-  /** Get accuracy statistics for an agent. */
-  async getAgentAccuracy(agent: string): Promise<Record<string, unknown>> {
+  async settle(
+    settlementId: string,
+    body: { outcome: 'correct' | 'incorrect' | 'partial'; evidence?: string; settled_by?: string }
+  ): Promise<Record<string, unknown>> {
     return this.client.request(
-      'GET',
-      `/api/v1/settlements/agent/${encodeURIComponent(agent)}/accuracy`
+      'POST',
+      `/api/v1/settlements/${encodeURIComponent(settlementId)}/settle`,
+      { body }
     );
   }
 
-  /** Submit a settlement outcome. */
-  async settle(
-    settlementId: string,
-    body: Record<string, unknown>
+  async settleBatch(
+    settlements: SettlementBatchItem[],
+    settledBy = 'api'
   ): Promise<Record<string, unknown>> {
-    return this.client.request('POST', `/api/v1/settlements/${encodeURIComponent(settlementId)}/settle`, {
-      body,
+    return this.client.request('POST', '/api/v1/settlements/batch', {
+      body: { settlements, settled_by: settledBy },
     });
   }
 
-  /** Settle multiple claims in one request. */
-  async settleBatch(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/settlements/batch', { body });
+  async getAgentAccuracy(agentName: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/settlements/agent/${encodeURIComponent(agentName)}/accuracy`
+    );
   }
 }
+
+export class SettlementsAPI extends SettlementAPI {}

@@ -18,6 +18,7 @@ from aragora.server.openapi.endpoints.metrics import METRICS_ENDPOINTS
 from aragora.server.openapi.endpoints.verification import VERIFICATION_ENDPOINTS
 from aragora.server.openapi.endpoints.documents import DOCUMENT_ENDPOINTS
 from aragora.server.openapi.endpoints.plugins import PLUGIN_ENDPOINTS
+from aragora.server.openapi.endpoints.mcp import MCP_ENDPOINTS
 from aragora.server.openapi.endpoints.additional import ADDITIONAL_ENDPOINTS
 from aragora.server.openapi.endpoints.oauth import OAUTH_ENDPOINTS
 from aragora.server.openapi.endpoints.privacy import PRIVACY_ENDPOINTS
@@ -126,6 +127,7 @@ ALL_ENDPOINTS = {
     **VERIFICATION_ENDPOINTS,
     **DOCUMENT_ENDPOINTS,
     **PLUGIN_ENDPOINTS,
+    **MCP_ENDPOINTS,
     **ADDITIONAL_ENDPOINTS,
     **OAUTH_ENDPOINTS,
     **PRIVACY_ENDPOINTS,
@@ -214,6 +216,7 @@ __all__ = [
     "VERIFICATION_ENDPOINTS",
     "DOCUMENT_ENDPOINTS",
     "PLUGIN_ENDPOINTS",
+    "MCP_ENDPOINTS",
     "ADDITIONAL_ENDPOINTS",
     "OAUTH_ENDPOINTS",
     "PRIVACY_ENDPOINTS",

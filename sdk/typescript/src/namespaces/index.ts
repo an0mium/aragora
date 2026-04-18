@@ -144,6 +144,7 @@ export {
   type TemplateDeployment,
   type TemplateRatings,
 } from './marketplace';
+export { MCPAPI } from './mcp';
 
 export {
   PromptEngineAPI,
@@ -213,6 +214,7 @@ export {
   type RecordMetricOptions,
   type GetAnomaliesOptions,
 } from './monitoring';
+export { SettlementAPI, type SettlementBatchItem } from './settlements';
 
 // System Administration
 export {
