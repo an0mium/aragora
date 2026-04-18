@@ -45,9 +45,13 @@ class TestSyncParityRoutes:
             client.orchestration.get_status_v1_compat("req_legacy")
             client.orchestration.list_templates_v1_compat()
             client.marketplace.list_templates(category="ops", limit=5, offset=2)
+            client.marketplace.list_listing_templates_legacy(category="ops", limit=5, offset=2)
             client.marketplace.search_templates("risk", limit=3, offset=1)
             client.marketplace.get_template("tpl_123")
+            client.marketplace.get_listing_legacy("tpl_123")
             client.marketplace.get_template_reviews("tpl_123", limit=10, offset=0)
+            client.marketplace.get_featured_listings_legacy()
+            client.marketplace.get_listing_stats_legacy()
             client.marketplace.list_categories()
             client.marketplace.submit_review("tpl_123", 5, "Great template")
             client.marketplace.star_template("tpl_123")
@@ -117,15 +121,23 @@ class TestSyncParityRoutes:
                 ),
                 call(
                     "GET",
+                    "/api/marketplace/listings",
+                    params={"limit": 5, "offset": 2, "category": "ops"},
+                ),
+                call(
+                    "GET",
                     "/api/v2/marketplace/templates",
                     params={"q": "risk", "limit": 3, "offset": 1},
                 ),
                 call("GET", "/api/v2/marketplace/templates/tpl_123"),
+                call("GET", "/api/marketplace/listings/tpl_123"),
                 call(
                     "GET",
                     "/api/v2/marketplace/templates/tpl_123/ratings",
                     params={"limit": 10, "offset": 0},
                 ),
+                call("GET", "/api/marketplace/listings/featured"),
+                call("GET", "/api/marketplace/listings/stats"),
                 call("GET", "/api/v2/marketplace/categories"),
                 call(
                     "POST",
@@ -207,9 +219,13 @@ class TestAsyncParityRoutes:
                 await orchestration.get_status_v1_compat("req_legacy")
                 await orchestration.list_templates_v1_compat()
                 await marketplace.list_templates(category="ops", limit=5, offset=2)
+                await marketplace.list_listing_templates_legacy(category="ops", limit=5, offset=2)
                 await marketplace.search_templates("risk", limit=3, offset=1)
                 await marketplace.get_template("tpl_123")
+                await marketplace.get_listing_legacy("tpl_123")
                 await marketplace.get_template_reviews("tpl_123", limit=10, offset=0)
+                await marketplace.get_featured_listings_legacy()
+                await marketplace.get_listing_stats_legacy()
                 await marketplace.list_categories()
                 await marketplace.submit_review("tpl_123", 5, "Great template")
                 await marketplace.star_template("tpl_123")
@@ -282,15 +298,23 @@ class TestAsyncParityRoutes:
                     ),
                     call(
                         "GET",
+                        "/api/marketplace/listings",
+                        params={"limit": 5, "offset": 2, "category": "ops"},
+                    ),
+                    call(
+                        "GET",
                         "/api/v2/marketplace/templates",
                         params={"q": "risk", "limit": 3, "offset": 1},
                     ),
                     call("GET", "/api/v2/marketplace/templates/tpl_123"),
+                    call("GET", "/api/marketplace/listings/tpl_123"),
                     call(
                         "GET",
                         "/api/v2/marketplace/templates/tpl_123/ratings",
                         params={"limit": 10, "offset": 0},
                     ),
+                    call("GET", "/api/marketplace/listings/featured"),
+                    call("GET", "/api/marketplace/listings/stats"),
                     call("GET", "/api/v2/marketplace/categories"),
                     call(
                         "POST",

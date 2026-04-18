@@ -629,6 +629,41 @@ describe('Core Namespace APIs', () => {
       expect(result.templates).toHaveLength(1);
     });
 
+    it('should call legacy marketplace listing aliases via namespace', async () => {
+      const client = createClient({ baseUrl: 'https://api.example.com' });
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ templates: [] })),
+      });
+
+      await client.marketplace.listListingsLegacy({ category: 'ops', limit: 5, offset: 2 });
+      await client.marketplace.getFeaturedListingsLegacy();
+      await client.marketplace.getListingStatsLegacy();
+      await client.marketplace.getListingLegacy('template-123');
+
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        'https://api.example.com/api/marketplace/listings?category=ops&limit=5&offset=2',
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        'https://api.example.com/api/marketplace/listings/featured',
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        3,
+        'https://api.example.com/api/marketplace/listings/stats',
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        4,
+        'https://api.example.com/api/marketplace/listings/template-123',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
     it('should get template via namespace', async () => {
       const client = createClient({ baseUrl: 'https://api.example.com' });
 
