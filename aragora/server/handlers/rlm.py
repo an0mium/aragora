@@ -53,18 +53,21 @@ class RLMContextHandler(BaseHandler):
     """
 
     ROUTES = {
-        "/api/v1/rlm/stats": "handle_stats",
-        "/api/v1/rlm/strategies": "handle_strategies",
-        "/api/v1/rlm/compress": "handle_compress",
-        "/api/v1/rlm/query": "handle_query",
-        "/api/v1/rlm/contexts": "handle_list_contexts",
-        "/api/v1/rlm/stream": "handle_stream",
-        "/api/v1/rlm/stream/modes": "handle_stream_modes",
-        "/api/v1/rlm/codebase/health": "handle_codebase_health",
+        "/api/v1/rlm/stats": ["GET"],
+        "/api/v1/rlm/strategies": ["GET"],
+        "/api/v1/rlm/compress": ["POST"],
+        "/api/v1/rlm/query": ["POST"],
+        "/api/v1/rlm/contexts": ["GET"],
+        "/api/v1/rlm/stream": ["POST"],
+        "/api/v1/rlm/stream/modes": ["GET"],
+        "/api/v1/rlm/codebase/health": ["GET"],
     }
 
     # Dynamic routes for context operations
     CONTEXT_ROUTE_PREFIX = "/api/v1/rlm/context/"
+    DYNAMIC_ROUTES = {
+        "/api/v1/rlm/context/{context_id}": ["GET", "DELETE"],
+    }
 
     def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
