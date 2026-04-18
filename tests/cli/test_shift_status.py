@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -10,6 +11,7 @@ from aragora.cli.commands.shift_status import (
     load_shift_status,
     render_shift_status,
 )
+from aragora.swarm.live_shift_status import _count_live_queue_depth
 from aragora.swarm.shift_ledger import ShiftLedger
 
 
@@ -95,6 +97,38 @@ def test_load_shift_status_reconciles_live_truth_when_repo_available(tmp_path: P
     assert payload["current_boss_running"] is True
     assert payload["current_merge_running"] is False
     assert payload["prs_merged"] == 1
+
+
+def test_count_live_queue_depth_uses_canonical_boss_ready_queue_only(tmp_path: Path) -> None:
+    commands: list[list[str]] = []
+
+    def _fake_run(cmd: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        commands.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout='[{"number": 101}]', stderr="")
+
+    with (
+        patch("aragora.swarm.live_shift_status.shutil.which", return_value="/usr/bin/gh"),
+        patch("aragora.swarm.live_shift_status.subprocess.run", side_effect=_fake_run),
+    ):
+        assert _count_live_queue_depth(tmp_path, repo_name="synaptent/aragora") == 1
+
+    assert commands == [
+        [
+            "/usr/bin/gh",
+            "issue",
+            "list",
+            "--repo",
+            "synaptent/aragora",
+            "--label",
+            "boss-ready",
+            "--state",
+            "open",
+            "--limit",
+            "500",
+            "--json",
+            "number",
+        ]
+    ]
 
 
 def test_load_shift_status_keeps_ledger_truth_when_live_probe_unavailable(tmp_path: Path) -> None:
