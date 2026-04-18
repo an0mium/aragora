@@ -2500,6 +2500,42 @@ class BossLoop:
             }
             worker_result["pr_url"] = pr_url
             worker_result["pr_number"] = self._pr_number_from_url(pr_url)
+            # v1.3 — auto-inject `Closes #<issue_number>` into the PR body when
+            # the Phase 2 acceptance gate has passed.  This lets the corpus
+            # honesty gate register genuine closures via GitHub's
+            # ``closedByPullRequestsReferences`` edge.
+            if worker_result.get("acceptance_gate_passed") is True:
+                closes_number = int(worker_result.get("closes_issue_number") or issue.number or 0)
+                if closes_number > 0:
+                    try:
+                        from aragora.swarm.dispatch_followups import (
+                            inject_closes_into_published_pr,
+                        )
+
+                        inject_result = inject_closes_into_published_pr(
+                            pr_url=pr_url,
+                            issue_number=closes_number,
+                            repo_root=repo_root,
+                        )
+                        worker_result["closes_injection"] = dict(inject_result)
+                        if inject_result.get("injected"):
+                            logger.info(
+                                "closes_injected issue=#%s pr=%s",
+                                closes_number,
+                                pr_url,
+                            )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "closes_injection_failed issue=#%s pr=%s error=%s",
+                            closes_number,
+                            pr_url,
+                            exc,
+                        )
+                        worker_result["closes_injection"] = {
+                            "action": "error",
+                            "injected": False,
+                            "detail": f"{type(exc).__name__}: {exc}",
+                        }
         return dict(publish_result)
 
     def _list_open_boss_harvest_prs(self) -> list[dict[str, Any]]:

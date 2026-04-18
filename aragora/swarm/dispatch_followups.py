@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.acceptance_gate import (
+    AcceptanceGateResult,
+    evaluate_acceptance,
+    inject_closes_into_pr_body,
+    pr_body_already_closes,
+)
 from aragora.swarm.issue_scanner import infer_issue_category_from_title
 from aragora.swarm.issue_upgrader import upgrade_issue_heuristic
 from aragora.swarm.spec import SwarmSpec
@@ -245,11 +254,324 @@ def maybe_upgrade_on_contract_drift(
 __all__ = [
     "SpecUpgraderUnavailable",
     "annotate_result_with_conductor",
+    "collect_worker_changed_paths",
+    "enforce_acceptance_binding",
+    "inject_closes_into_published_pr",
     "maybe_upgrade_dispatch_spec",
     "maybe_upgrade_on_contract_drift",
     "upgrade_on_contract_drift",
     "upgrade_unbounded_spec",
 ]
+
+
+# ---------------------------------------------------------------------------
+# v1.3 — post-delivery acceptance-criteria binding
+# ---------------------------------------------------------------------------
+
+
+def collect_worker_changed_paths(worker_result: dict[str, Any]) -> list[str]:
+    """Union of ``changed_paths`` across a worker result's run + deliverable."""
+    paths: list[str] = []
+    seen: set[str] = set()
+
+    def _add(candidate: Any) -> None:
+        text = str(candidate or "").strip()
+        if not text or text in seen:
+            return
+        seen.add(text)
+        paths.append(text)
+
+    run = worker_result.get("run") if isinstance(worker_result, dict) else None
+    if isinstance(run, dict):
+        for work_order in run.get("work_orders", []) or []:
+            if not isinstance(work_order, dict):
+                continue
+            for path in work_order.get("changed_paths", []) or []:
+                _add(path)
+
+    deliverable = worker_result.get("deliverable") if isinstance(worker_result, dict) else None
+    if isinstance(deliverable, dict):
+        for path in deliverable.get("changed_paths", []) or []:
+            _add(path)
+
+    return paths
+
+
+def _append_spec_upgrade_telemetry(
+    metrics_path: Path | None,
+    *,
+    issue_number: int,
+    gate_result: AcceptanceGateResult,
+    changed_paths: list[str],
+) -> None:
+    """Emit a ``spec_upgrade``-style JSONL row for the Stage-Gate Conductor.
+
+    This is best-effort: any I/O exception is swallowed so the gate outcome
+    takes precedence over telemetry failures.
+    """
+    if metrics_path is None:
+        return
+    try:
+        metrics_path = Path(metrics_path)
+        metrics_path.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "event": "acceptance_gate",
+            "issue_number": int(issue_number),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "passed": bool(gate_result.passed),
+            "failure_classes": list(gate_result.failure_classes),
+            "reasons": list(gate_result.reasons),
+            "checks_run": list(gate_result.checks_run),
+            "changed_paths": list(changed_paths),
+            "out_of_scope_paths": list(gate_result.out_of_scope_paths),
+            "missing_expected_files": list(gate_result.missing_expected_files),
+        }
+        with metrics_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+    except (OSError, ValueError):
+        logger.debug("acceptance_gate_telemetry_write_failed path=%s", metrics_path, exc_info=True)
+
+
+def enforce_acceptance_binding(
+    *,
+    issue_number: int,
+    issue_body: str,
+    spec: SwarmSpec,
+    worker_result: dict[str, Any],
+    metrics_path: Path | None = None,
+) -> dict[str, Any]:
+    """Run the post-delivery acceptance-criteria gate on a worker result.
+
+    Mutates ``worker_result`` in-place with one of:
+
+    * ``acceptance_gate`` → serialized :class:`AcceptanceGateResult`
+    * ``acceptance_gate_passed`` → True / False
+    * ``closes_issue_number`` → ``issue_number`` when the gate passes and an
+      explicit originating issue is available.  The publish path reads this
+      to inject ``Closes #<issue_number>`` into the PR body.
+
+    On gate **failure**, the result's ``status`` is transformed to
+    ``"needs_human"`` with a structured ``outcome`` = ``"acceptance_gate_failed"``
+    and the failure reasons are merged into the existing ``reasons`` list.
+    The deliverable is NOT removed from the worker result — downstream
+    tooling may still need it for forensic inspection — but auto-publish
+    is expected to skip on ``needs_human`` results without a confirmed
+    deliverable type, and the Closes #N injection will not fire.
+
+    The function is a no-op when:
+
+    * The worker result is not in a terminal successful state
+      (``completed`` or ``needs_human`` with a deliverable).
+    * The spec has no acceptance criteria, no scope hints, and no
+      pytest targets to seed expected files from.
+    """
+    if not isinstance(worker_result, dict):
+        return worker_result
+
+    status = str(worker_result.get("status", "")).strip().lower()
+    # Only run the gate when the worker produced something publishable.
+    if status not in {"completed", "needs_human"}:
+        return worker_result
+
+    deliverable = worker_result.get("deliverable")
+    # No deliverable → nothing to bind.  Let existing pathways handle it.
+    if not isinstance(deliverable, dict):
+        return worker_result
+
+    changed_paths = collect_worker_changed_paths(worker_result)
+    # Also surface deliverable changed_paths when the run didn't include them.
+    if not changed_paths:
+        # An adopted_pr or type=pr deliverable has no concrete path list.
+        # In that case we can't evaluate file-scope or test-presence, so we
+        # skip the gate rather than raise a false alarm.
+        return worker_result
+
+    acceptance_criteria = list(getattr(spec, "acceptance_criteria", []) or [])
+    file_scope_hints = list(getattr(spec, "file_scope_hints", []) or [])
+
+    gate_result = evaluate_acceptance(
+        acceptance_criteria=acceptance_criteria,
+        file_scope_hints=file_scope_hints,
+        changed_paths=changed_paths,
+        issue_body=issue_body,
+    )
+
+    worker_result["acceptance_gate"] = gate_result.to_dict()
+    worker_result["acceptance_gate_passed"] = bool(gate_result.passed)
+
+    # Telemetry — best-effort, never blocks the gate decision.
+    _append_spec_upgrade_telemetry(
+        metrics_path,
+        issue_number=issue_number,
+        gate_result=gate_result,
+        changed_paths=changed_paths,
+    )
+
+    if gate_result.passed:
+        # Signal to the publish path that ``Closes #<issue_number>`` may be
+        # injected on this deliverable's PR body (idempotent downstream).
+        if int(issue_number) > 0:
+            worker_result["closes_issue_number"] = int(issue_number)
+        return worker_result
+
+    # Gate failed — mark the run as needing human review and merge the
+    # failure reasons into the worker result.  We do NOT strip the
+    # deliverable or PR URL so forensic tooling can still inspect it.
+    existing_reasons = worker_result.get("reasons")
+    reasons: list[str] = (
+        [str(item).strip() for item in existing_reasons if str(item).strip()]
+        if isinstance(existing_reasons, list)
+        else []
+    )
+    for reason in gate_result.reasons:
+        if reason and reason not in reasons:
+            reasons.append(reason)
+    worker_result["reasons"] = reasons
+    worker_result["status"] = "needs_human"
+    worker_result["outcome"] = "acceptance_gate_failed"
+    existing_failure_classes = worker_result.get("failure_classes")
+    failure_classes: list[str] = (
+        [str(item).strip() for item in existing_failure_classes if str(item).strip()]
+        if isinstance(existing_failure_classes, list)
+        else []
+    )
+    for fc in gate_result.failure_classes:
+        if fc and fc not in failure_classes:
+            failure_classes.append(fc)
+    worker_result["failure_classes"] = failure_classes
+
+    logger.info(
+        "acceptance_gate_failed issue=#%s failure_classes=%s checks_run=%s",
+        issue_number,
+        ",".join(gate_result.failure_classes),
+        ",".join(gate_result.checks_run),
+    )
+
+    return worker_result
+
+
+def _gh_pr_view_body(pr_url: str, *, repo_root: Path | None = None) -> str | None:
+    """Fetch the current PR body via ``gh pr view --json body``.
+
+    Returns ``None`` on any failure so callers can safely abort injection.
+    """
+    if not pr_url:
+        return None
+    cwd = str(repo_root) if repo_root is not None else None
+    try:
+        proc = subprocess.run(
+            ["gh", "pr", "view", pr_url, "--json", "body"],
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            timeout=20,
+            check=False,
+        )
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        payload = json.loads(proc.stdout or "")
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    body = payload.get("body")
+    return str(body or "")
+
+
+def _gh_pr_edit_body(pr_url: str, new_body: str, *, repo_root: Path | None = None) -> bool:
+    """Update the PR body via ``gh pr edit --body``.
+
+    Returns True on success.  Never raises.
+    """
+    if not pr_url:
+        return False
+    cwd = str(repo_root) if repo_root is not None else None
+    try:
+        proc = subprocess.run(
+            ["gh", "pr", "edit", pr_url, "--body", new_body],
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            timeout=30,
+            check=False,
+        )
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+        return False
+    return proc.returncode == 0
+
+
+def inject_closes_into_published_pr(
+    *,
+    pr_url: str,
+    issue_number: int,
+    repo_root: Path | None = None,
+    body_fetcher: Any = None,
+    body_setter: Any = None,
+) -> dict[str, Any]:
+    """Inject ``Closes #<issue_number>`` into an already-published PR body.
+
+    This is the Phase 3 auto-close step.  It runs only after the Phase 2
+    acceptance gate has *passed*; callers are expected to check
+    ``worker_result["acceptance_gate_passed"]`` before invoking.
+
+    Idempotent: if the PR body already contains ``Closes/Fixes/Resolves
+    #<issue_number>`` (or any variant), the body is left unchanged.
+
+    ``body_fetcher`` and ``body_setter`` are injectable for testing.
+    Their production defaults call the ``gh`` CLI.
+
+    Returns a status dict with keys ``{"action", "injected", "detail"}``.
+    """
+    fetcher = body_fetcher or (lambda: _gh_pr_view_body(pr_url, repo_root=repo_root))
+    setter = body_setter or (
+        lambda new_body: _gh_pr_edit_body(pr_url, new_body, repo_root=repo_root)
+    )
+
+    if not pr_url or int(issue_number) <= 0:
+        return {
+            "action": "skipped",
+            "injected": False,
+            "detail": "pr_url and positive issue_number required",
+        }
+
+    current_body = fetcher()
+    if current_body is None:
+        return {
+            "action": "fetch_failed",
+            "injected": False,
+            "detail": "could not read current PR body via gh pr view",
+        }
+
+    if pr_body_already_closes(current_body, issue_number=issue_number):
+        return {
+            "action": "already_closes",
+            "injected": False,
+            "detail": "PR body already references Closes/Fixes/Resolves for this issue",
+        }
+
+    new_body = inject_closes_into_pr_body(current_body, issue_number=issue_number)
+    if new_body == current_body:
+        return {
+            "action": "already_closes",
+            "injected": False,
+            "detail": "no change required",
+        }
+
+    updated = setter(new_body)
+    if not updated:
+        return {
+            "action": "edit_failed",
+            "injected": False,
+            "detail": "gh pr edit failed; PR body not updated",
+        }
+    return {
+        "action": "injected",
+        "injected": True,
+        "detail": f"Prepended 'Closes #{int(issue_number)}' to PR body",
+    }
 
 
 def annotate_result_with_conductor(

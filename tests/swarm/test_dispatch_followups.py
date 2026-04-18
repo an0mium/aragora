@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from aragora.swarm.dispatch_followups import (
     annotate_result_with_conductor,
+    collect_worker_changed_paths,
+    enforce_acceptance_binding,
+    inject_closes_into_published_pr,
     maybe_upgrade_dispatch_spec,
 )
 from aragora.swarm.issue_upgrader import UpgradedIssue
@@ -164,4 +168,249 @@ def test_annotate_result_with_conductor_ignores_completed_result() -> None:
             repo_root=Path("/repo"),
         )
         is result
+    )
+
+
+# ---------------------------------------------------------------------------
+# v1.3 — acceptance binding wiring tests
+# ---------------------------------------------------------------------------
+
+
+def _worker_result_with_changed_paths(
+    changed_paths: list[str],
+    *,
+    status: str = "completed",
+    deliverable_type: str = "branch",
+) -> dict[str, object]:
+    return {
+        "status": status,
+        "deliverable": {
+            "type": deliverable_type,
+            "branch": "aragora/boss-harvest/issue-99-demo",
+            "commit_shas": ["abc123"],
+        },
+        "run": {
+            "work_orders": [
+                {
+                    "work_order_id": "wo-1",
+                    "changed_paths": list(changed_paths),
+                }
+            ],
+        },
+    }
+
+
+def test_collect_worker_changed_paths_merges_run_and_deliverable_paths() -> None:
+    worker_result = {
+        "run": {
+            "work_orders": [
+                {"changed_paths": ["a.py", "b.py"]},
+                {"changed_paths": ["b.py", "c.py"]},
+            ],
+        },
+        "deliverable": {"changed_paths": ["c.py", "d.py"]},
+    }
+    assert collect_worker_changed_paths(worker_result) == ["a.py", "b.py", "c.py", "d.py"]
+
+
+def test_enforce_acceptance_binding_passes_for_satisfying_delivery(tmp_path: Path) -> None:
+    spec = SwarmSpec(
+        raw_goal="tests",
+        refined_goal="Add tests",
+        acceptance_criteria=["pytest tests/scripts/test_reconcile_b0_pr_truth.py -v passes"],
+        file_scope_hints=["scripts/reconcile_b0_pr_truth.py"],
+    )
+    worker_result = _worker_result_with_changed_paths(
+        [
+            "scripts/reconcile_b0_pr_truth.py",
+            "tests/scripts/test_reconcile_b0_pr_truth.py",
+        ]
+    )
+    metrics_path = tmp_path / "metrics.jsonl"
+    issue_body = (
+        "## Files\n- `tests/scripts/test_reconcile_b0_pr_truth.py` (new)\n\n"
+        "## Acceptance\n- pytest tests/scripts/test_reconcile_b0_pr_truth.py -v passes\n"
+    )
+    result = enforce_acceptance_binding(
+        issue_number=5899,
+        issue_body=issue_body,
+        spec=spec,
+        worker_result=worker_result,
+        metrics_path=metrics_path,
+    )
+    assert result["acceptance_gate_passed"] is True
+    assert result["closes_issue_number"] == 5899
+    assert result["status"] == "completed"
+    # telemetry row written
+    rows = [json.loads(line) for line in metrics_path.read_text().splitlines() if line.strip()]
+    assert rows and rows[0]["event"] == "acceptance_gate"
+    assert rows[0]["passed"] is True
+
+
+def test_enforce_acceptance_binding_rejects_tangential_delivery(tmp_path: Path) -> None:
+    """Cycle 1 #5899 replay: worker edited prod only; no test file."""
+    spec = SwarmSpec(
+        raw_goal="tests",
+        refined_goal="Add tests",
+        acceptance_criteria=["pytest tests/scripts/test_reconcile_b0_pr_truth.py -v passes"],
+        file_scope_hints=["scripts/reconcile_b0_pr_truth.py"],
+    )
+    worker_result = _worker_result_with_changed_paths(["scripts/reconcile_b0_pr_truth.py"])
+    issue_body = (
+        "## Files\n- `tests/scripts/test_reconcile_b0_pr_truth.py` (new)\n\n"
+        "## Acceptance\n- pytest tests/scripts/test_reconcile_b0_pr_truth.py -v passes\n"
+    )
+    result = enforce_acceptance_binding(
+        issue_number=5899,
+        issue_body=issue_body,
+        spec=spec,
+        worker_result=worker_result,
+        metrics_path=tmp_path / "m.jsonl",
+    )
+    assert result["acceptance_gate_passed"] is False
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "acceptance_gate_failed"
+    # Both test_presence_missing AND expected_file_not_created should flag.
+    assert "test_presence_missing" in result["failure_classes"]
+    assert "expected_file_not_created" in result["failure_classes"]
+    assert "closes_issue_number" not in result
+    assert result["reasons"], "gate should populate human-readable reasons"
+
+
+def test_enforce_acceptance_binding_skips_when_no_deliverable() -> None:
+    """No deliverable → gate is a no-op; the result passes through unchanged."""
+    spec = SwarmSpec(raw_goal="x", refined_goal="x", acceptance_criteria=["pytest foo.py"])
+    worker_result: dict[str, object] = {"status": "completed"}
+    out = enforce_acceptance_binding(
+        issue_number=1,
+        issue_body="",
+        spec=spec,
+        worker_result=worker_result,
+    )
+    assert out is worker_result
+    assert "acceptance_gate" not in out
+
+
+def test_enforce_acceptance_binding_skips_for_in_flight_result() -> None:
+    spec = SwarmSpec(raw_goal="x", refined_goal="x")
+    wr = _worker_result_with_changed_paths(["aragora/x.py"], status="running")
+    out = enforce_acceptance_binding(
+        issue_number=1,
+        issue_body="",
+        spec=spec,
+        worker_result=wr,
+    )
+    assert "acceptance_gate" not in out
+
+
+def test_enforce_acceptance_binding_skips_when_no_changed_paths() -> None:
+    spec = SwarmSpec(
+        raw_goal="x",
+        refined_goal="x",
+        acceptance_criteria=["pytest tests/foo.py"],
+    )
+    wr = _worker_result_with_changed_paths([])  # empty changed paths
+    out = enforce_acceptance_binding(
+        issue_number=1,
+        issue_body="",
+        spec=spec,
+        worker_result=wr,
+    )
+    assert "acceptance_gate" not in out
+
+
+# ---------------------------------------------------------------------------
+# Closes #N injection — uses injected fetcher/setter stubs
+# ---------------------------------------------------------------------------
+
+
+def test_inject_closes_into_published_pr_prepends_closer() -> None:
+    captured: dict[str, str] = {}
+
+    def fetcher() -> str:
+        return "Existing body."
+
+    def setter(new_body: str) -> bool:
+        captured["body"] = new_body
+        return True
+
+    result = inject_closes_into_published_pr(
+        pr_url="https://github.com/org/repo/pull/1",
+        issue_number=42,
+        body_fetcher=fetcher,
+        body_setter=setter,
+    )
+    assert result["injected"] is True
+    assert captured["body"] == "Closes #42\n\nExisting body."
+
+
+def test_inject_closes_into_published_pr_is_idempotent() -> None:
+    def fetcher() -> str:
+        return "Closes #42\n\nAlready references."
+
+    def setter(new_body: str) -> bool:  # pragma: no cover — should not be called
+        raise AssertionError("setter should not be invoked")
+
+    result = inject_closes_into_published_pr(
+        pr_url="https://github.com/org/repo/pull/1",
+        issue_number=42,
+        body_fetcher=fetcher,
+        body_setter=setter,
+    )
+    assert result["injected"] is False
+    assert result["action"] == "already_closes"
+
+
+def test_inject_closes_into_published_pr_handles_fetch_failure() -> None:
+    def fetcher() -> None:
+        return None
+
+    def setter(new_body: str) -> bool:  # pragma: no cover
+        raise AssertionError("setter should not be invoked on fetch failure")
+
+    result = inject_closes_into_published_pr(
+        pr_url="https://github.com/org/repo/pull/1",
+        issue_number=42,
+        body_fetcher=fetcher,
+        body_setter=setter,
+    )
+    assert result["injected"] is False
+    assert result["action"] == "fetch_failed"
+
+
+def test_inject_closes_into_published_pr_handles_edit_failure() -> None:
+    def fetcher() -> str:
+        return "Body"
+
+    def setter(new_body: str) -> bool:
+        return False
+
+    result = inject_closes_into_published_pr(
+        pr_url="https://github.com/org/repo/pull/1",
+        issue_number=42,
+        body_fetcher=fetcher,
+        body_setter=setter,
+    )
+    assert result["injected"] is False
+    assert result["action"] == "edit_failed"
+
+
+def test_inject_closes_into_published_pr_refuses_invalid_inputs() -> None:
+    assert (
+        inject_closes_into_published_pr(
+            pr_url="",
+            issue_number=42,
+            body_fetcher=lambda: "body",
+            body_setter=lambda b: True,
+        )["action"]
+        == "skipped"
+    )
+    assert (
+        inject_closes_into_published_pr(
+            pr_url="https://github.com/org/repo/pull/1",
+            issue_number=0,
+            body_fetcher=lambda: "body",
+            body_setter=lambda b: True,
+        )["action"]
+        == "skipped"
     )

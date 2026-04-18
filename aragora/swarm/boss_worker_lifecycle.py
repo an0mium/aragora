@@ -1018,6 +1018,26 @@ async def dispatch_issue(
         error = str(result.get("error", "")).strip()
         if error:
             logger.warning("Boss dispatch failed for issue #%d: %s", issue.number, error)
+    # v1.3 acceptance-criteria binding gate — reject deliverables that do not
+    # satisfy the spec's acceptance criteria before they become a PR.  This
+    # happens BEFORE the conductor annotation so that downstream classification
+    # reflects the gate verdict.
+    try:
+        result = dispatch_followups_mod.enforce_acceptance_binding(
+            issue_number=int(issue.number),
+            issue_body=sanitized_issue_body,
+            spec=spec,
+            worker_result=result,
+            metrics_path=Path(
+                loop.config.metrics_jsonl_path or ".aragora/overnight/boss_metrics.jsonl"
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001 — acceptance gate must never crash dispatch
+        logger.warning(
+            "acceptance_gate_unavailable issue=#%s error=%s",
+            issue.number,
+            exc,
+        )
     result = dispatch_followups_mod.annotate_result_with_conductor(
         issue_number=issue.number,
         result=result,
