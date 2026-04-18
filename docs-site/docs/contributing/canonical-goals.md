@@ -6,8 +6,9 @@ description: "Aragora: Canonical Goals & Foundational Thesis"
 # Aragora: Canonical Goals & Foundational Thesis
 
 **Single source of truth for WHAT Aragora is and WHY it exists.**
-**The [Evolution Roadmap](./aragora-evolution-roadmap) defines HOW we get there.**
-**Last updated: April 16, 2026**
+**The [Evolution Roadmap](./aragora-evolution-roadmap) defines HOW we get there in outcome terms.**
+**The [3-Horizon Execution Roadmap](plans/2026-04-18-3-horizon-roadmap.md) operationalizes the next 30/90/365 days of concrete deliverables.**
+**Last updated: April 18, 2026**
 
 ## Canonical Metrics (March 2026 baseline)
 
@@ -58,7 +59,7 @@ If a roadmap item does not strengthen one or more of those layers, it is probabl
 
 **Current focus:** move from early `Teammate` behavior to reliable `Foreman` behavior without losing the broader thesis.
 
-## Seven Foundational Pillars
+## Eight Foundational Pillars
 
 ### 1. Adversarial Heterogeneous Consensus
 
@@ -74,9 +75,13 @@ Reasoning alone is not enough. The system must execute bounded work with explici
 
 Ideas, goals, actions, and orchestration must live on one graph with shared provenance. Users should be able to interact at any level: stay high-level, review a stage transition, or inspect a leaf task. This pillar serves prompt-to-spec, DAG operations, approvals, and the workbench.
 
+The human-facing surface should be a genuinely elegant, intuitive GUI over the unified DAG — not a dashboard, not a marketing shell, not a collection of disconnected panels. Users should be able to see the full idea → goal → action → orchestration flow at a glance and drill into any node's receipt chain, debate history, dissent map, and execution evidence without context switching. The GUI's job is to make a complex autonomous system feel legible and controllable, not to hide complexity behind slick visuals. Optional interactivity means: stay high-level when you trust the system, intervene precisely when you don't.
+
 ### 4. Permissioned Memory and Large Context
 
 Memory is only useful if it is permissioned, attributable, and relevance-ranked. Broad ingestion matters when it improves decisions and execution quality, not when it becomes a write-only storage lake. This pillar serves Knowledge Mound, context packing, provenance tracking, and shared knowledge.
+
+Leading-edge memory is a differentiator when it is private, portable, and diverse. The goal is for users to bring their own knowledge across many sources and streams — repos, docs, APIs, chat, inbox, telemetry, decision history — with source-level provenance, trust tiers, and export/deletion preserved. That means no lock-in to a single memory provider, no loss of institutional knowledge across agent handoffs, and no opaque ingestion that a user cannot inspect or revoke. Large-context packing exists to serve this: make big, diverse, trustworthy context available to heterogeneous agents without forcing the user into one vendor's memory substrate.
 
 ### 5. Cryptographic Receipts and Auditability
 
@@ -86,9 +91,13 @@ Important organizational claims should also become executable, evidence-linked o
 
 The same trust model should eventually apply to code paths themselves. Proof-carrying code units should link functions, routes, scripts, and policies to the claims, assumptions, receipts, verifiers, and fallback rules that justify them. When the evidence behind a code path decays, Aragora should detect that decay, fail safely, and produce a verified repair candidate before any opt-in runtime replacement is considered.
 
+The decision-integrity layer should also close the loop between those primitives so code behaves less like static text and more like a continuous, inspectable argument between an organisation's intent and the world it operates in. That means: decay signals, crux-finder debates, quarantine policy, and verified replacements must be joinable into a single receipt-carrying lineage, operator judgment on persistent cruxes must be a first-class reversible receipt rather than tribal knowledge, and the system must be able to probe its own fragility against plausible-future world states before reality invalidates it. The additive synthesis plan for this layer lives in [plans/2026-04-18-dialectical-runtime-synthesis.md](plans/2026-04-18-dialectical-runtime-synthesis.md); it extends the Decision Integrity Core tranche without replacing any of it and remains planning truth until the proof-first Foreman and DIC-20/21/22 gates open.
+
 ### 6. SMB Operator Leverage
 
 Aragora must be useful to founders, operators, and small teams with limited time, uneven specs, and real consequences. The product should not require elite prompt discipline to be valuable. That constraint shapes UX, packaging, and scope decisions.
+
+The long-horizon positioning is an **operating system for SMBs and operators**: a substrate that translates the relevant data and ideas in a small business into actions, with optional detailed control over the agents doing the work. SMB OS does not mean enterprise features watered down — it means a coherent core tier (`aragora-core`) that installs in under ten minutes, runs a real workflow on founder time, and leaves the enterprise tier (`aragora-enterprise`) as an additive upgrade for compliance, federation, scale, and SSO. SMB OS is what makes the decision-integrity platform democratically useful rather than an enterprise-only premium product.
 
 ### 7. Self-Improvement on a Shared Substrate
 
@@ -99,6 +108,8 @@ Nomic, swarm, and user-facing execution should converge on the same contract, le
 Software agents are about to become first-rate consumers of decisionmaking, memory, capability marketplaces, and reputation surfaces — alongside humans, not replacing them. Every consumer surface (registration, capability discovery, billing, decision receipts, reputation reads) ships in two forms, agent-readable and human-readable, backed by the same runtime truth.
 
 This pillar pulls the existing identity, reputation, staking, validation, A2A, marketplace, and receipt primitives into a unified consumer surface so the substrate Aragora is building can serve the emerging agent population without forking into a separate stack. The design constraint is parity: nothing humans can do through the platform should be unavailable to agents, and nothing agents can do should be unavailable to humans.
+
+Heterogeneous agent support means both the incumbent foundation-model agents (Claude, Codex/GPT, Gemini, Grok, DeepSeek, Qwen, Mistral, Llama, Kimi, Yi) and external frameworks and agents (OpenClaw, Nous Hermes, Pi Agent, Anthropic Agent Framework, LangGraph, AutoGen, CrewAI, plus future entrants) interoperate with the same debate, memory, contract, and receipt substrate. No one agent vendor should be a critical dependency. The marketplace should let users opt into their preferred mix — for detailed control over what agents run, what memory they touch, and what evidence they leave — without forcing them to rebuild the substrate for each choice.
 
 The vision-layer planning for this pillar lives in [plans/AGENT_CIVILIZATION_SUBSTRATE.md](plans/AGENT_CIVILIZATION_SUBSTRATE.md) with sibling specs [plans/AGENT_CONSUMER_SURFACE.md](plans/AGENT_CONSUMER_SURFACE.md), [plans/SKIN_IN_THE_GAME_REPUTATION.md](plans/SKIN_IN_THE_GAME_REPUTATION.md), and [plans/2026-04-17-prediction-market-validation.md](plans/2026-04-17-prediction-market-validation.md). Live queue scope continues to follow the substrate-first gate in [status/NEXT_STEPS_CANONICAL.md](./next-steps-canonical); these plans are planning truth, not active dispatch scope.
 
