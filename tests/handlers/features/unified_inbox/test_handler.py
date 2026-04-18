@@ -93,6 +93,16 @@ def _req(
     return MockRequest(method=method, path=path, query=query or {}, _body=body or {})
 
 
+def _auth_context(*permissions: str, role: str = "member"):
+    """Build an authenticated user context with explicit permissions."""
+    from aragora.billing.auth.context import UserAuthContext
+
+    ctx = UserAuthContext(authenticated=True, user_id="user-1", role=role)
+    ctx.permissions = list(permissions)
+    ctx.roles = [role]
+    return ctx
+
+
 # ---------------------------------------------------------------------------
 # Sample store records
 # ---------------------------------------------------------------------------
@@ -1504,18 +1514,94 @@ class TestTopLevelExceptionHandler:
         result = await handler.handle_request(req, "/api/v1/inbox/accounts", "GET")
         assert _status(result) == 500
 
+
+@pytest.mark.no_auto_auth
+class TestPermissions:
+    """Tests for route-specific unified inbox permissions."""
+
+    @pytest.mark.asyncio
+    async def test_read_permission_allows_read_route(self, handler, mock_store):
+        mock_store.list_accounts.return_value = []
+        req = _req(path="/api/v1/inbox/accounts")
+        req.headers = {"Authorization": "Bearer test-token"}
+
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=_auth_context("inbox:read"),
+        ):
+            result = await handler.handle_request(req, "/api/v1/inbox/accounts", "GET")
+
+        assert _status(result) == 200
+
+    @pytest.mark.asyncio
+    async def test_read_permission_cannot_hit_mutation_route(self, handler):
+        req = _req(
+            method="POST",
+            path="/api/v1/inbox/connect",
+            body={"provider": "gmail", "auth_code": "code"},
+        )
+        req.headers = {"Authorization": "Bearer test-token"}
+        mock_connect = AsyncMock(return_value={"ok": True})
+
+        with (
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=_auth_context("inbox:read"),
+            ),
+            patch.object(handler, "_handle_connect", new=mock_connect),
+        ):
+            result = await handler.handle_request(req, "/api/v1/inbox/connect", "POST")
+
+        assert _status(result) == 403
+        mock_connect.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_write_permission_allows_mutation_route(self, handler):
+        req = _req(
+            method="POST",
+            path="/api/v1/inbox/connect",
+            body={"provider": "gmail", "auth_code": "code"},
+        )
+        req.headers = {"Authorization": "Bearer test-token"}
+        mock_connect = AsyncMock(return_value={"status_code": 200, "body": {"connected": True}})
+
+        with (
+            patch(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=_auth_context("inbox:write"),
+            ),
+            patch.object(handler, "_handle_connect", new=mock_connect),
+        ):
+            result = await handler.handle_request(req, "/api/v1/inbox/connect", "POST")
+
+        assert _status(result) == 200
+        assert _body(result)["connected"] is True
+        mock_connect.assert_awaited_once()
+
     @pytest.mark.asyncio
     async def test_runtime_error_returns_500(self, handler, mock_store):
         mock_store.list_accounts.side_effect = RuntimeError("runtime error")
         req = _req(path="/api/v1/inbox/accounts")
-        result = await handler.handle_request(req, "/api/v1/inbox/accounts", "GET")
+        req.headers = {"Authorization": "Bearer test-token"}
+
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=_auth_context("inbox:read"),
+        ):
+            result = await handler.handle_request(req, "/api/v1/inbox/accounts", "GET")
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_os_error_returns_500(self, handler, mock_store):
         mock_store.list_accounts.side_effect = OSError("disk error")
         req = _req(path="/api/v1/inbox/accounts")
-        result = await handler.handle_request(req, "/api/v1/inbox/accounts", "GET")
+        req.headers = {"Authorization": "Bearer test-token"}
+
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=_auth_context("inbox:read"),
+        ):
+            result = await handler.handle_request(req, "/api/v1/inbox/accounts", "GET")
         assert _status(result) == 500
 
 
