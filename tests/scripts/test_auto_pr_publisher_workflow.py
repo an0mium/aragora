@@ -84,7 +84,8 @@ def test_auto_pr_publisher_stops_when_automation_backlog_hits_cap() -> None:
 
     script = str((publish_step.get("with") or {}).get("script", ""))
     assert "const backlogLimit = 12;" in script
-    assert "if (automationBacklog >= backlogLimit)" in script
+    assert "const isBenchmarkPublicationHead = isBenchmarkPublicationBranch(branch);" in script
+    assert "if (!isBenchmarkPublicationHead && automationBacklog >= backlogLimit)" in script
     assert 'core.setOutput("status", "backlog_full")' in script
 
 
@@ -94,4 +95,16 @@ def test_auto_pr_publisher_treats_benchmark_publication_branches_as_automation()
         step for step in steps if step.get("name") == "Publish draft PR for automation branch"
     )
     script = str((publish_step.get("with") or {}).get("script", ""))
-    assert 'ref.startsWith("benchmark-truth-publication/")' in script
+    assert "function isBenchmarkPublicationBranch(ref)" in script
+    assert "isBenchmarkPublicationBranch(ref)" in script
+
+
+def test_auto_pr_publisher_skips_duplicate_benchmark_publication_prs() -> None:
+    steps = _auto_pr_publisher_steps()
+    publish_step = next(
+        step for step in steps if step.get("name") == "Publish draft PR for automation branch"
+    )
+
+    script = str((publish_step.get("with") or {}).get("script", ""))
+    assert "const benchmarkPublicationOpen = openPulls.some" in script
+    assert 'core.setOutput("status", "benchmark_publication_pr_open")' in script

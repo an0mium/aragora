@@ -427,8 +427,6 @@ def should_trigger_benchmark_rerun(
         return False, "benchmark_mode_disabled"
     if has_open_publication_pr:
         return False, "benchmark_pr_open"
-    if automation_backlog >= automation_backlog_limit:
-        return False, "automation_backlog_full"
     if latest_run is None:
         if int(last_triggered_run_id or 0) == -1:
             return False, "awaiting_first_run_visibility"

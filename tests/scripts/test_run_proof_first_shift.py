@@ -101,7 +101,7 @@ def test_should_trigger_benchmark_rerun_when_latest_run_is_stale() -> None:
     assert reason == "stale_publication_window"
 
 
-def test_should_trigger_benchmark_rerun_respects_backlog_cap() -> None:
+def test_should_trigger_benchmark_rerun_ignores_generic_backlog_cap() -> None:
     trigger, reason = mod.should_trigger_benchmark_rerun(
         benchmark_mode="hybrid",
         latest_run=None,
@@ -111,8 +111,8 @@ def test_should_trigger_benchmark_rerun_respects_backlog_cap() -> None:
         last_triggered_run_id=None,
     )
 
-    assert trigger is False
-    assert reason == "automation_backlog_full"
+    assert trigger is True
+    assert reason == "no_prior_run"
 
 
 def test_should_trigger_benchmark_rerun_waits_for_first_run_visibility() -> None:
