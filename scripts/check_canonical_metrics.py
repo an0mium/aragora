@@ -53,6 +53,9 @@ ANTHROPIC_AGENT = REPO_ROOT / "aragora" / "agents" / "api_agents" / "anthropic.p
 OPENAI_AGENT = REPO_ROOT / "aragora" / "agents" / "api_agents" / "openai.py"
 GEMINI_AGENT = REPO_ROOT / "aragora" / "agents" / "api_agents" / "gemini.py"
 
+CRUX_DETECTOR = REPO_ROOT / "aragora" / "reasoning" / "crux_detector.py"
+BELIEF_NETWORK = REPO_ROOT / "aragora" / "reasoning" / "belief.py"
+
 
 @dataclass
 class ClaimCheck:
@@ -485,6 +488,99 @@ def _check_openrouter_fallback_wired() -> ClaimCheck:
     )
 
 
+# ---------------------------------------------------------------------------
+# Proof-carrying claim checks — folded in from the Epistemic Runtime vision.
+# These verify that the substrate required by DIC-13/14 (Epistemic CI),
+# DIC-15 (Crux Engine), and DIC-23..28 (Dialectical Runtime synthesis) is
+# importable with the public API those downstream plans depend on. Small,
+# concrete, executable — not a new subsystem.
+# ---------------------------------------------------------------------------
+
+
+def _check_crux_detector_wired() -> ClaimCheck:
+    claim_id = "proof_carrying.crux_detector.wired"
+    if not CRUX_DETECTOR.is_file():
+        return ClaimCheck(
+            claim_id=claim_id,
+            status="fail",
+            claimed="CruxDetector + CruxClaim importable with detect_cruxes()",
+            observed="<aragora/reasoning/crux_detector.py missing>",
+            tolerance="exact",
+            message="crux_detector.py missing — the Crux Engine (DIC-15) substrate is gone.",
+        )
+    text = CRUX_DETECTOR.read_text(encoding="utf-8")
+    has_crux_claim = re.search(r"^class\s+CruxClaim\b", text, re.MULTILINE) is not None
+    has_detector = re.search(r"^class\s+CruxDetector\b", text, re.MULTILINE) is not None
+    has_detect_cruxes = (
+        re.search(r"^\s*(?:async\s+)?def\s+detect_cruxes\b", text, re.MULTILINE) is not None
+    )
+    missing = []
+    if not has_crux_claim:
+        missing.append("CruxClaim")
+    if not has_detector:
+        missing.append("CruxDetector")
+    if not has_detect_cruxes:
+        missing.append("detect_cruxes()")
+    if not missing:
+        return ClaimCheck(
+            claim_id=claim_id,
+            status="pass",
+            claimed="CruxDetector + CruxClaim importable with detect_cruxes()",
+            observed="all three symbols present",
+            tolerance="exact",
+            message="Crux Engine substrate is wired — CruxDetector.detect_cruxes and CruxClaim dataclass both exist.",
+        )
+    return ClaimCheck(
+        claim_id=claim_id,
+        status="fail",
+        claimed="CruxDetector + CruxClaim importable with detect_cruxes()",
+        observed=f"missing: {', '.join(missing)}",
+        tolerance="exact",
+        message=(
+            f"Crux substrate incomplete — missing: {', '.join(missing)}. "
+            "DIC-15 (Crux Engine) and DIC-23..28 (Dialectical Runtime loop) both assume these."
+        ),
+    )
+
+
+def _check_belief_network_wired() -> ClaimCheck:
+    claim_id = "proof_carrying.belief_network.wired"
+    if not BELIEF_NETWORK.is_file():
+        return ClaimCheck(
+            claim_id=claim_id,
+            status="fail",
+            claimed="BeliefNetwork, BeliefNode, BeliefStatus importable",
+            observed="<aragora/reasoning/belief.py missing>",
+            tolerance="exact",
+            message="belief.py missing — provenance substrate for Epistemic CI + Dialectical Runtime is gone.",
+        )
+    text = BELIEF_NETWORK.read_text(encoding="utf-8")
+    required = ("BeliefNetwork", "BeliefNode", "BeliefStatus")
+    missing = [
+        name for name in required if not re.search(rf"^class\s+{name}\b", text, re.MULTILINE)
+    ]
+    if not missing:
+        return ClaimCheck(
+            claim_id=claim_id,
+            status="pass",
+            claimed="BeliefNetwork, BeliefNode, BeliefStatus importable",
+            observed="all three symbols present",
+            tolerance="exact",
+            message="Provenance substrate is wired — belief.py exports the three claim-graph primitives.",
+        )
+    return ClaimCheck(
+        claim_id=claim_id,
+        status="fail",
+        claimed="BeliefNetwork, BeliefNode, BeliefStatus importable",
+        observed=f"missing: {', '.join(missing)}",
+        tolerance="exact",
+        message=(
+            f"belief.py missing: {', '.join(missing)}. "
+            "DIC-13/14 ClaimVerifier + DIC-24 genealogy ledger both depend on this."
+        ),
+    )
+
+
 CHECKS: dict[str, Callable[[], ClaimCheck]] = {
     "canonical.km_adapters.count": _check_km_adapters_count,
     "canonical.python_modules.count": _check_python_modules_count,
@@ -494,6 +590,8 @@ CHECKS: dict[str, Callable[[], ClaimCheck]] = {
     "security.model_pins.frontier_aligned": _check_model_pins_frontier_aligned,
     "security.incident_log.present": _check_incident_log_present,
     "security.openrouter_fallback.wired": _check_openrouter_fallback_wired,
+    "proof_carrying.crux_detector.wired": _check_crux_detector_wired,
+    "proof_carrying.belief_network.wired": _check_belief_network_wired,
 }
 
 

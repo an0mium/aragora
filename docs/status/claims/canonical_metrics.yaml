@@ -179,3 +179,45 @@ claims:
     receipts:
       - type: canonical_metrics_check
         path: docs/status/generated/canonical_metrics/latest.json
+
+  - claim_id: proof_carrying.crux_detector.wired
+    statement: "CruxDetector + CruxClaim are importable from aragora.reasoning.crux_detector with the public API (detect_cruxes) that the Crux Engine (DIC-15) and Dialectical Runtime synthesis (DIC-23..28) depend on."
+    owner: epistemic-runtime
+    scope: repo
+    confidence: high
+    evidence:
+      - path: aragora/reasoning/crux_detector.py
+      - path: docs/plans/2026-04-16-crux-mode-design.md
+    freshness_sla_hours: 168
+    verification:
+      kind: command
+      command: "python3 scripts/check_canonical_metrics.py --claim proof_carrying.crux_detector.wired"
+      expected_result: "exit 0 when CruxDetector class exposes detect_cruxes() and CruxClaim is a frozen dataclass"
+    failure:
+      severity: warning
+      allowed_action: report_only
+      repair_note: "Restore aragora/reasoning/crux_detector.py with CruxDetector.detect_cruxes() and CruxClaim. Downstream plans (Crux Engine CruxReceipt, Dialectical Runtime loop orchestrator) assume this substrate. Removing it regresses to 'answers without showing where reasonable people diverge' which is exactly the positioning the DIC-15 plan was introduced to own."
+    receipts:
+      - type: canonical_metrics_check
+        path: docs/status/generated/canonical_metrics/latest.json
+
+  - claim_id: proof_carrying.belief_network.wired
+    statement: "BeliefNetwork, BeliefNode, and BeliefStatus are importable from aragora.reasoning.belief — the provenance substrate that Dialectical Runtime (DIC-24 genealogy ledger) and DIC-13/14 ClaimVerifier both depend on."
+    owner: epistemic-runtime
+    scope: repo
+    confidence: high
+    evidence:
+      - path: aragora/reasoning/belief.py
+      - path: docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md
+    freshness_sla_hours: 168
+    verification:
+      kind: command
+      command: "python3 scripts/check_canonical_metrics.py --claim proof_carrying.belief_network.wired"
+      expected_result: "exit 0 when BeliefNetwork, BeliefNode, and BeliefStatus are all exported from aragora.reasoning.belief"
+    failure:
+      severity: warning
+      allowed_action: report_only
+      repair_note: "Restore aragora/reasoning/belief.py with BeliefNetwork / BeliefNode / BeliefStatus. The Epistemic CI and Dialectical Runtime tranches both ground their provenance story in this module; removing it leaves those plans without a substrate."
+    receipts:
+      - type: canonical_metrics_check
+        path: docs/status/generated/canonical_metrics/latest.json
