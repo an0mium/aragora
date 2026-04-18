@@ -66,6 +66,67 @@ def test_load_shift_status_reads_ledger_summary(tmp_path: Path) -> None:
     assert payload["last_stop_reason"] == "completed"
 
 
+def test_load_shift_status_reconciles_live_truth_when_repo_available(tmp_path: Path) -> None:
+    _seed_shift_ledger(tmp_path)
+    (tmp_path / ".git").mkdir()
+
+    with (
+        patch(
+            "aragora.cli.commands.shift_status._infer_repo_name",
+            return_value="synaptent/aragora",
+        ),
+        patch(
+            "aragora.cli.commands.shift_status._detect_swarm_process",
+            side_effect=[True, False],
+        ),
+        patch(
+            "aragora.cli.commands.shift_status._count_live_queue_depth",
+            return_value=7,
+        ),
+        patch(
+            "aragora.cli.commands.shift_status._count_live_open_prs",
+            return_value=9,
+        ),
+    ):
+        payload = load_shift_status(tmp_path, max_age_hours=48.0)
+
+    assert payload["current_queue_size"] == 7
+    assert payload["current_open_prs"] == 9
+    assert payload["current_boss_running"] is True
+    assert payload["current_merge_running"] is False
+    assert payload["prs_merged"] == 1
+
+
+def test_load_shift_status_keeps_ledger_truth_when_live_probe_unavailable(tmp_path: Path) -> None:
+    _seed_shift_ledger(tmp_path)
+    (tmp_path / ".git").mkdir()
+
+    with (
+        patch(
+            "aragora.cli.commands.shift_status._infer_repo_name",
+            return_value="synaptent/aragora",
+        ),
+        patch(
+            "aragora.cli.commands.shift_status._detect_swarm_process",
+            return_value=None,
+        ),
+        patch(
+            "aragora.cli.commands.shift_status._count_live_queue_depth",
+            return_value=None,
+        ),
+        patch(
+            "aragora.cli.commands.shift_status._count_live_open_prs",
+            return_value=None,
+        ),
+    ):
+        payload = load_shift_status(tmp_path, max_age_hours=48.0)
+
+    assert payload["current_queue_size"] == 2
+    assert payload["current_open_prs"] == 4
+    assert payload["current_boss_running"] is False
+    assert payload["current_merge_running"] is True
+
+
 def test_load_shift_status_reports_missing_ledger_without_creating_it(tmp_path: Path) -> None:
     ledger_path = tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl"
 
