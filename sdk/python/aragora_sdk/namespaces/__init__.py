@@ -99,6 +99,7 @@ from .learning import AsyncLearningAPI, LearningAPI
 from .marketplace import AsyncMarketplaceAPI, MarketplaceAPI
 from .matches import AsyncMatchesAPI, MatchesAPI
 from .matrix_debates import AsyncMatrixDebatesAPI, MatrixDebatesAPI
+from .mcp import MCPAPI, AsyncMCPAPI
 from .media import AsyncMediaAPI, MediaAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
 from .metrics import AsyncMetricsAPI, MetricsAPI
@@ -153,6 +154,7 @@ from .security import AsyncSecurityAPI, SecurityAPI
 from .selection import AsyncSelectionAPI, SelectionAPI
 from .self_improve import AsyncSelfImproveAPI, SelfImproveAPI
 from .services import AsyncServicesAPI, ServicesAPI
+from .settlements import AsyncSettlementAPI, SettlementAPI
 from .shared_inbox import AsyncSharedInboxAPI, SharedInboxAPI
 from .skills import AsyncSkillsAPI, SkillsAPI
 from .slo import SLOAPI, AsyncSLOAPI
@@ -372,6 +374,8 @@ __all__ = [
     "AsyncMarketplaceAPI",
     "MatchesAPI",
     "AsyncMatchesAPI",
+    "MCPAPI",
+    "AsyncMCPAPI",
     "MatrixDebatesAPI",
     "AsyncMatrixDebatesAPI",
     "MediaAPI",
@@ -480,6 +484,8 @@ __all__ = [
     "AsyncSelectionAPI",
     "SelfImproveAPI",
     "AsyncSelfImproveAPI",
+    "SettlementAPI",
+    "AsyncSettlementAPI",
     "ServicesAPI",
     "AsyncServicesAPI",
     "SharedInboxAPI",

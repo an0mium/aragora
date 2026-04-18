@@ -180,10 +180,12 @@ import {
   WorkspacesAPI,
   IntegrationsAPI,
   MarketplaceAPI,
+  MCPAPI,
   CodebaseAPI,
   ConsensusAPI,
   OAuthAPI,
   MonitoringAPI,
+  SettlementAPI,
   SystemAPI,
   NomicAPI,
   CrossPollinationAPI,
@@ -537,6 +539,9 @@ export class AragoraClient {
    */
   readonly marketplace: MarketplaceAPI;
 
+  /** MCP API - Tool discovery surface. */
+  readonly mcp: MCPAPI;
+
   /**
    * Codebase Analysis API namespace.
    * Provides methods for security scanning, dependency analysis, metrics, and code intelligence.
@@ -560,6 +565,9 @@ export class AragoraClient {
    * Provides methods for metric recording, trend analysis, and anomaly detection.
    */
   readonly monitoring: MonitoringAPI;
+
+  /** Settlements API - Debate settlement and accuracy routes. */
+  readonly settlements: SettlementAPI;
 
   /**
    * System API namespace.
@@ -1048,10 +1056,12 @@ export class AragoraClient {
     this.workspaces = new WorkspacesAPI(this);
     this.integrations = new IntegrationsAPI(this);
     this.marketplace = new MarketplaceAPI(this);
+    this.mcp = new MCPAPI(this);
     this.codebase = new CodebaseAPI(this);
     this.consensus = new ConsensusAPI(this);
     this.oauth = new OAuthAPI(this);
     this.monitoring = new MonitoringAPI(this);
+    this.settlements = new SettlementAPI(this);
     this.system = new SystemAPI(this);
     this.nomic = new NomicAPI(this);
     this.crossPollination = new CrossPollinationAPI(this);
