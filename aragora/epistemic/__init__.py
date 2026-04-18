@@ -6,6 +6,8 @@ Exposes:
   sharply-losing claims (:class:`FollowupProposal`,
   :func:`propose_followup_for_crux`, :func:`propose_followup_for_cruxset`,
   :func:`propose_followup_for_failed_claim`)
+- DIC-20: epistemic decay monitor (:class:`DecaySignal`,
+  :class:`DecayReason`, :func:`evaluate_unit`)
 
 See ``docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md`` for the full
 DIC-13..22 sequence and ``docs/status/NEXT_STEPS_CANONICAL.md`` for
@@ -17,6 +19,7 @@ from __future__ import annotations
 import os
 
 from .claim_verifier import ClaimResult, ClaimStatus, ClaimVerifier
+from .decay_monitor import DecayReason, DecaySignal, evaluate_unit
 from .followup import (
     DEFAULT_CRUX_LOAD_BEARING_THRESHOLD,
     DEFAULT_DELTA_LOSS_THRESHOLD,
@@ -32,9 +35,12 @@ __all__ = [
     "ClaimVerifier",
     "DEFAULT_CRUX_LOAD_BEARING_THRESHOLD",
     "DEFAULT_DELTA_LOSS_THRESHOLD",
+    "DecayReason",
+    "DecaySignal",
     "FollowupProposal",
     "enable_epistemic_followup",
     "epistemic_followup_enabled",
+    "evaluate_unit",
     "propose_followup_for_crux",
     "propose_followup_for_cruxset",
     "propose_followup_for_failed_claim",
