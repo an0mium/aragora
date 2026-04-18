@@ -404,12 +404,12 @@ export class AccountingAPI {
   }
 
   /**
-   * Update invoice processing status.
+   * Guard unsupported write access until the API contract publishes this route.
    */
-  async updateInvoiceStatus(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/accounting/invoices/status', {
-      json: body,
-    });
+  async updateInvoiceStatus(_body: Record<string, unknown>): Promise<never> {
+    throw new Error(
+      'POST /api/v1/accounting/invoices/status is not part of the current Aragora API contract.'
+    );
   }
 
   // ===========================================================================
