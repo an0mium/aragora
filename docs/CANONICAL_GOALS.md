@@ -81,6 +81,8 @@ Important organizational claims should also become executable, evidence-linked o
 
 The same trust model should eventually apply to code paths themselves. Proof-carrying code units should link functions, routes, scripts, and policies to the claims, assumptions, receipts, verifiers, and fallback rules that justify them. When the evidence behind a code path decays, Aragora should detect that decay, fail safely, and produce a verified repair candidate before any opt-in runtime replacement is considered.
 
+The decision-integrity layer should also close the loop between those primitives so code behaves less like static text and more like a continuous, inspectable argument between an organisation's intent and the world it operates in. That means: decay signals, crux-finder debates, quarantine policy, and verified replacements must be joinable into a single receipt-carrying lineage, operator judgment on persistent cruxes must be a first-class reversible receipt rather than tribal knowledge, and the system must be able to probe its own fragility against plausible-future world states before reality invalidates it. The additive synthesis plan for this layer lives in [plans/2026-04-18-dialectical-runtime-synthesis.md](plans/2026-04-18-dialectical-runtime-synthesis.md); it extends the Decision Integrity Core tranche without replacing any of it and remains planning truth until the proof-first Foreman and DIC-20/21/22 gates open.
+
 ### 6. SMB Operator Leverage
 
 Aragora must be useful to founders, operators, and small teams with limited time, uneven specs, and real consequences. The product should not require elite prompt discipline to be valuable. That constraint shapes UX, packaging, and scope decisions.

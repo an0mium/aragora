@@ -39,6 +39,7 @@ What is already true:
 - proof-first shifts now fail closed after repeated recovery failures for the implemented failure classes via [#5867](https://github.com/synaptent/aragora/pull/5867)
 - `swarm status`, FastAPI swarm-status routes, and `studio-health.sh` now prefer ledger-backed operator truth on `main` via [#5861](https://github.com/synaptent/aragora/pull/5861) and [#5868](https://github.com/synaptent/aragora/pull/5868)
 - the future Decision Integrity expansion is now tracked as an additive Epistemic CI / Crux Engine / Epistemic Runtime tranche in [EPISTEMIC_CI_AND_CRUX_ENGINE](../plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md) and issues [#6023](https://github.com/synaptent/aragora/issues/6023)-[#6028](https://github.com/synaptent/aragora/issues/6028) plus [#6030](https://github.com/synaptent/aragora/issues/6030)-[#6033](https://github.com/synaptent/aragora/issues/6033); it is planning truth, not current live queue scope
+- the Dialectical Runtime synthesis layer (DIC-23..28) is tracked as an additive extension of the same tranche in [2026-04-18-dialectical-runtime-synthesis](../plans/2026-04-18-dialectical-runtime-synthesis.md); it is planning truth only, activation-gated on DIC-20/21/22 production-green, and no issues under it may carry `boss-ready` until the proof-first Foreman gate opens
 
 What is still missing:
 

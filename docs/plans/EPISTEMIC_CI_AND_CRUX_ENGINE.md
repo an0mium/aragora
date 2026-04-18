@@ -287,6 +287,48 @@ Acceptance shape:
 - default output is a patch, PR, or shadow candidate, not in-memory production hot-swap
 - tests prove the no-hot-swap guardrail
 
+## DIC-23..28: Dialectical Runtime Synthesis Layer (Planning Only)
+
+DIC-13..22 ships the primitives. The additive synthesis layer DIC-23..28 ties those primitives into a single observable loop so code paths evolve as inspectable, receipt-carrying arguments rather than static text. Full design doc: [2026-04-18-dialectical-runtime-synthesis.md](2026-04-18-dialectical-runtime-synthesis.md). Epic: [#6223](https://github.com/synaptent/aragora/issues/6223).
+
+This section is **strictly additive** to DIC-13..22. It does not reorder, re-scope, or replace any existing DIC item. It is planning truth only; no live queue scope; activation gate is the same as DIC-13..22 plus DIC-20/21/22 being production-green.
+
+### DIC-23: Dialectical Runtime Loop Orchestrator
+
+Issue: [#6217](https://github.com/synaptent/aragora/issues/6217)
+
+Thin event-driven orchestrator joining decay signals, crux-finder debates, quarantine policy, and verified-replacement proposals into one chained receipt stream. Default is report-only telemetry; every escalation is flag-gated. Module: `aragora/epistemic/runtime_loop.py`.
+
+### DIC-24: Epistemic Genealogy Ledger
+
+Issue: [#6218](https://github.com/synaptent/aragora/issues/6218)
+
+Read-only ancestry view over existing receipt, claim, and CruxSet stores — "why does this code unit look the way it does today?" Answers with the full decision → decay → crux → repair → new decision chain. Module: `aragora/epistemic/genealogy.py`.
+
+### DIC-25: Adversarial World-State Stress-Test
+
+Issue: [#6219](https://github.com/synaptent/aragora/issues/6219)
+
+Operator-curated catalog of plausible-future perturbations (CVE drops, API rate-limit shifts, corpus revisions) that probe proof-carrying code units offline and report fragility deltas before reality invalidates them. Module: `aragora/epistemic/stress_test.py`.
+
+### DIC-26: Belief Coherence Monitor
+
+Issue: [#6220](https://github.com/synaptent/aragora/issues/6220)
+
+Uses the existing `BeliefNetwork` to detect hard contradictions, evidence conflicts, and confidence rot across the organisation's claim ledger. Report-only; feeds DIC-17 bridge only when explicitly enabled. Module: `aragora/epistemic/coherence.py`.
+
+### DIC-27: Operator Crux Arbitration
+
+Issue: [#6221](https://github.com/synaptent/aragora/issues/6221)
+
+First-class receipt type for human resolution of persistent cruxes — cruxes that stay load-bearing across N consecutive debates on the same question family. Arbitrations pin priors, carry expiry, and are reversible with their own receipts. CLI: `aragora crux arbitrate`. Module: `aragora/epistemic/arbitration.py`.
+
+### DIC-28: Proactive Crux Gardening
+
+Issue: [#6222](https://github.com/synaptent/aragora/issues/6222)
+
+Scheduled re-examination of resolved and outstanding cruxes: is the evidence still fresh, have contradicting claims emerged, have fragility scores shifted? Report-only by default; optional DIC-17 feed. Module: `aragora/epistemic/gardening.py`.
+
 ## Relationship To The Current Roadmap
 
 This tranche belongs under **Decision Integrity Core**, not the immediate Reliability Substrate lane.
@@ -309,6 +351,8 @@ Good initial crux questions:
 - whether B2 guard expansion may begin before three consecutive green shifts
 - whether failed claim reports should create issues automatically or remain operator-only
 - whether CruxSet belongs as a consensus mode or a standalone subsystem
+- whether dialectical runtime events should ever mutate live queue state or remain report-only indefinitely (DIC-23)
+- whether operator arbitrations should carry a hard expiry or a periodic revalidation (DIC-27)
 
 Good initial proof-carrying code units:
 

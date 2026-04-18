@@ -85,6 +85,7 @@
 | STOP N-candidate for Nomic Loop | Design only | Multi-plan generation before committing to self-improvement path. |
 | Meta-improver for debate protocols | Design only | A/B test protocol variants using Nomic Loop. |
 | Obsidian bidirectional sync | **Shipped** | `ObsidianAdapter` with `ReverseFlowMixin` for KM→Obsidian writeback. Forward sync, conflict detection, filesystem watcher. |
+| Dialectical Runtime synthesis layer (DIC-23..28) | Planning only | Additive tranche that closes the loop between DIC-20 decay signals, DIC-15 crux-finder, DIC-21 quarantine, and DIC-22 repair proposals. Adds a report-only runtime loop orchestrator (DIC-23 / [#6217](https://github.com/synaptent/aragora/issues/6217)), epistemic genealogy ledger (DIC-24 / [#6218](https://github.com/synaptent/aragora/issues/6218)), adversarial world-state stress-test (DIC-25 / [#6219](https://github.com/synaptent/aragora/issues/6219)), belief coherence monitor (DIC-26 / [#6220](https://github.com/synaptent/aragora/issues/6220)), operator crux arbitration receipts (DIC-27 / [#6221](https://github.com/synaptent/aragora/issues/6221)), and proactive crux gardening (DIC-28 / [#6222](https://github.com/synaptent/aragora/issues/6222)). Epic: [#6223](https://github.com/synaptent/aragora/issues/6223). Activation gated on DIC-20/21/22 production-green plus the proof-first Foreman gate. Design: [docs/plans/2026-04-18-dialectical-runtime-synthesis.md](plans/2026-04-18-dialectical-runtime-synthesis.md). Planning-only labels; no `boss-ready` until the gate opens. |
 
 ---
 
