@@ -72,19 +72,19 @@ def test_load_shift_status_reconciles_live_truth_when_repo_available(tmp_path: P
 
     with (
         patch(
-            "aragora.cli.commands.shift_status._infer_repo_name",
+            "aragora.swarm.live_shift_status._infer_repo_name",
             return_value="synaptent/aragora",
         ),
         patch(
-            "aragora.cli.commands.shift_status._detect_swarm_process",
+            "aragora.swarm.live_shift_status._detect_swarm_process",
             side_effect=[True, False],
         ),
         patch(
-            "aragora.cli.commands.shift_status._count_live_queue_depth",
+            "aragora.swarm.live_shift_status._count_live_queue_depth",
             return_value=7,
         ),
         patch(
-            "aragora.cli.commands.shift_status._count_live_open_prs",
+            "aragora.swarm.live_shift_status._count_live_open_prs",
             return_value=9,
         ),
     ):
@@ -103,19 +103,19 @@ def test_load_shift_status_keeps_ledger_truth_when_live_probe_unavailable(tmp_pa
 
     with (
         patch(
-            "aragora.cli.commands.shift_status._infer_repo_name",
+            "aragora.swarm.live_shift_status._infer_repo_name",
             return_value="synaptent/aragora",
         ),
         patch(
-            "aragora.cli.commands.shift_status._detect_swarm_process",
+            "aragora.swarm.live_shift_status._detect_swarm_process",
             return_value=None,
         ),
         patch(
-            "aragora.cli.commands.shift_status._count_live_queue_depth",
+            "aragora.swarm.live_shift_status._count_live_queue_depth",
             return_value=None,
         ),
         patch(
-            "aragora.cli.commands.shift_status._count_live_open_prs",
+            "aragora.swarm.live_shift_status._count_live_open_prs",
             return_value=None,
         ),
     ):

@@ -146,6 +146,35 @@ def test_load_operator_status_prefers_ledger_truth_for_queue_depth(tmp_path: Pat
     assert payload["ledger_status"]["prs_merged"] == 1
 
 
+def test_load_operator_status_uses_live_shift_truth_without_ledger(tmp_path: Path) -> None:
+    metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    _write_metrics(metrics_path, [])
+
+    with (
+        patch(
+            "aragora.cli.commands.swarm_status.load_shift_status",
+            return_value={
+                "available": False,
+                "ledger_path": str(tmp_path / "missing-ledger.jsonl"),
+                "current_queue_size": 2,
+                "current_open_prs": 5,
+                "current_boss_running": True,
+                "current_merge_running": True,
+                "current_benchmark_fresh": False,
+                "prs_merged": 0,
+                "last_stop_reason": "completed",
+                "green_shift": {"is_green": False},
+            },
+        ),
+        patch("aragora.cli.commands.swarm_status._boss_ready_queue_depth", return_value=9),
+    ):
+        payload = load_operator_status(tmp_path, metrics_path=metrics_path)
+
+    assert payload["summary"]["queue_depth"] == 2
+    assert payload["ledger_status"]["current_queue_size"] == 2
+    assert payload["ledger_status"]["current_boss_running"] is True
+
+
 def test_render_operator_status_includes_recent_iterations() -> None:
     text = render_operator_status(
         {
