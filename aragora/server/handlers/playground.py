@@ -874,7 +874,7 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
     },
     {
         "provider": "openai",
-        "model": "gpt-4.1",
+        "model": "gpt-5.4",
         "name": "gpt",
         "env": "OPENAI_API_KEY",
         "openrouter_model": "openai/gpt-4.1",
@@ -888,10 +888,10 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
     },
     {
         "provider": "google",
-        "model": "gemini-2.5-pro",
+        "model": "gemini-3.1-pro",
         "name": "gemini",
         "env": "GEMINI_API_KEY",
-        "openrouter_model": "google/gemini-2.5-pro-preview",
+        "openrouter_model": "google/gemini-3.1-pro",
     },
     {
         "provider": "openrouter",
@@ -3269,7 +3269,7 @@ class PlaygroundHandler(BaseHandler):
 
                 agent = _OpenRouter(
                     name="tldr-synth",
-                    model="anthropic/claude-sonnet-4.6",
+                    model="anthropic/claude-opus-4.7",
                 )
             except (ImportError, RuntimeError, ValueError, OSError) as exc:
                 logger.debug("OpenRouter agent unavailable for TL;DR: %s", exc)

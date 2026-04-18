@@ -457,7 +457,7 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
                     "content-type": "application/json",
                 }
                 payload = {
-                    "model": "claude-sonnet-4-20250514",
+                    "model": "claude-opus-4-7",
                     "max_tokens": 2048,
                     "messages": [{"role": "user", "content": prompt}],
                 }
@@ -723,7 +723,7 @@ Examples of MATCHING:
                     "content-type": "application/json",
                 }
                 payload = {
-                    "model": "claude-sonnet-4-20250514",
+                    "model": "claude-opus-4-7",
                     "max_tokens": 512,
                     "messages": [{"role": "user", "content": prompt}],
                 }

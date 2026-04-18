@@ -462,7 +462,7 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
 
         try:
             response = self.client.messages.create(
-                model="claude-haiku-4-20250514",
+                model="claude-opus-4-7",
                 max_tokens=200,
                 messages=[{"role": "user", "content": prompt}],
             )

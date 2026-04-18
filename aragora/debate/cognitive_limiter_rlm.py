@@ -962,7 +962,7 @@ def create_rlm_limiter(
         # Create limiter with real RLM support
         limiter = create_rlm_limiter(
             stress_level="elevated",
-            rlm_model="claude-3-5-sonnet-20241022"
+            rlm_model="claude-opus-4-7"
         )
 
         # Check if real RLM is available

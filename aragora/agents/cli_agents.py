@@ -200,29 +200,29 @@ class CLIAgent(CritiqueMixin, Agent):
     # Map CLI agent models to OpenRouter model identifiers
     OPENROUTER_MODEL_MAP: dict[str, str] = {
         # Claude models
-        "claude": "anthropic/claude-sonnet-4.6",  # Default claude CLI
+        "claude": "anthropic/claude-opus-4.7",  # Default claude CLI
         "claude-opus-4-7": "anthropic/claude-opus-4.7",
-        "claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
-        "claude-opus-4-5-20251101": "anthropic/claude-opus-4.5",
-        "claude-sonnet-4-20250514": "anthropic/claude-sonnet-4",
-        "claude-3-opus-20240229": "anthropic/claude-3-opus",
-        "claude-3-sonnet-20240229": "anthropic/claude-3-sonnet",
+        "claude-sonnet-4-6": "anthropic/claude-opus-4.7",
+        "claude-opus-4-5-20251101": "anthropic/claude-opus-4.7",
+        "claude-sonnet-4-20250514": "anthropic/claude-opus-4.7",
+        "claude-3-opus-20240229": "anthropic/claude-opus-4.7",
+        "claude-3-sonnet-20240229": "anthropic/claude-opus-4.7",
         # OpenAI/Codex models
         "gpt-5.4": "openai/gpt-5.4",
         "gpt-5.3": "openai/gpt-5.3-chat",
         "gpt-5.3-codex": "openai/gpt-5.3-codex",
         "gpt-5.3-chat-latest": "openai/gpt-5.3-chat",
-        "gpt-4.1-codex": "openai/gpt-4.1",
-        "gpt-4.1": "openai/gpt-4.1",
-        "gpt-4.1-mini": "openai/gpt-4.1-mini",
-        "gpt-4o": "openai/gpt-4o",
+        "gpt-4.1-codex": "openai/gpt-5.4",
+        "gpt-4.1": "openai/gpt-5.4",
+        "gpt-4.1-mini": "openai/gpt-5.4",
+        "gpt-4o": "openai/gpt-5.4",
         "gpt-4-turbo": "openai/gpt-4-turbo",
         "gpt-4": "openai/gpt-4",
         # Gemini models
-        "gemini-3.1-pro-preview": "google/gemini-3.1-pro-preview",
-        "gemini-3.1-pro": "google/gemini-3.1-pro-preview",
-        "gemini-3-pro-preview": "google/gemini-3.1-pro-preview",
-        "gemini-3-pro": "google/gemini-3.1-pro-preview",
+        "gemini-3.1-pro-preview": "google/gemini-3.1-pro",
+        "gemini-3.1-pro": "google/gemini-3.1-pro",
+        "gemini-3-pro-preview": "google/gemini-3.1-pro",
+        "gemini-3-pro": "google/gemini-3.1-pro",
         "gemini-3-flash-preview": "google/gemini-3-flash-preview",
         "gemini-3-flash": "google/gemini-3-flash-preview",
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
@@ -325,7 +325,7 @@ class CLIAgent(CritiqueMixin, Agent):
                     else:
                         openrouter_model = self.model
                 else:
-                    openrouter_model = "anthropic/claude-sonnet-4.6"  # Default fallback model
+                    openrouter_model = "anthropic/claude-opus-4.7"  # Default fallback model
 
             self._fallback_agent = OpenRouterAgent(
                 name=f"{self.name}_fallback",
@@ -848,13 +848,13 @@ class KiloCodeAgent(CLIAgent):
     via direct API or OpenRouter.
 
     Provider IDs should be in provider/model format for the `kilo run` CLI.
-    Example: openrouter/google/gemini-3.1-pro-preview
+    Example: google/gemini-3.1-pro
     """
 
     def __init__(
         self,
         name: str,
-        provider_id: str = "openrouter/google/gemini-3.1-pro-preview",
+        provider_id: str = "google/gemini-3.1-pro",
         model: str | None = None,
         role: AgentRole = "proposer",
         timeout: int = 600,

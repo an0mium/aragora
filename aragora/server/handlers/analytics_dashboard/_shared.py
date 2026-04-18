@@ -170,7 +170,7 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                 "cost_by_model": {
                     "claude-opus-4": 5.82,
                     "gpt-4o": 3.91,
-                    "claude-sonnet-4": 1.64,
+                    "claude-opus-4-7": 1.64,
                     "gemini-1.5-pro": 0.78,
                     "mistral-large": 0.32,
                 },
@@ -245,7 +245,7 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                 "claude-opus-4": 168200,
                 "gpt-4o-2024-11": 124600,
                 "gemini-1.5-pro": 72400,
-                "claude-sonnet-4": 38900,
+                "claude-opus-4-7": 38900,
                 "mistral-large-latest": 22700,
             },
         },

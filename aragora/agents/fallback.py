@@ -124,10 +124,10 @@ class QuotaFallbackMixin:
     Usage:
         class MyAgent(APIAgent, QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gpt-4o": "openai/gpt-4o",
+                "gpt-4o": "openai/gpt-5.4",
                 "gpt-4": "openai/gpt-4",
             }
-            DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+            DEFAULT_FALLBACK_MODEL = "openai/gpt-5.4"
 
             async def generate(self, prompt, context):
                 # ... make API call ...
@@ -140,7 +140,7 @@ class QuotaFallbackMixin:
 
     # Override these in subclasses for provider-specific model mappings
     OPENROUTER_MODEL_MAP: dict[str, str] = {}
-    DEFAULT_FALLBACK_MODEL: str = "anthropic/claude-sonnet-4.6"
+    DEFAULT_FALLBACK_MODEL: str = "anthropic/claude-opus-4.7"
 
     # Instance-level cached fallback agent (set by _get_cached_fallback_agent)
     _fallback_agent: OpenRouterAgent | None = None

@@ -113,21 +113,24 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
 
     # Model mapping from Gemini to OpenRouter format (used by QuotaFallbackMixin)
     OPENROUTER_MODEL_MAP = {
-        "gemini-3.1-pro-preview": "google/gemini-3.1-pro-preview",
-        "gemini-3.1-pro": "google/gemini-3.1-pro-preview",
-        "gemini-3-flash-preview": "google/gemini-3-flash-preview",
-        "gemini-3-flash": "google/gemini-3-flash-preview",
-        "gemini-3-pro-preview": "google/gemini-3.1-pro-preview",
-        "gemini-3-pro": "google/gemini-3.1-pro-preview",
-        "gemini-2.5-pro": "google/gemini-3.1-pro-preview",
-        "gemini-2.5-flash": "google/gemini-3-flash-preview",
-        "gemini-2.0-flash": "google/gemini-2.0-flash-001",
-        "gemini-2.0-flash-001": "google/gemini-2.0-flash-001",
-        "gemini-1.5-pro": "google/gemini-pro-1.5",
-        "gemini-1.5-flash": "google/gemini-flash-1.5",
-        "gemini-pro": "google/gemini-pro",
+        # Every Gemini ID maps to Gemini 3.1 Pro via OpenRouter so weaker
+        # historical models are transparently upgraded and a missing
+        # GEMINI_API_KEY / GOOGLE_API_KEY never blocks a debate.
+        "gemini-3.1-pro-preview": "google/gemini-3.1-pro",
+        "gemini-3.1-pro": "google/gemini-3.1-pro",
+        "gemini-3-flash-preview": "google/gemini-3.1-pro",
+        "gemini-3-flash": "google/gemini-3.1-pro",
+        "gemini-3-pro-preview": "google/gemini-3.1-pro",
+        "gemini-3-pro": "google/gemini-3.1-pro",
+        "gemini-2.5-pro": "google/gemini-3.1-pro",
+        "gemini-2.5-flash": "google/gemini-3.1-pro",
+        "gemini-2.0-flash": "google/gemini-3.1-pro",
+        "gemini-2.0-flash-001": "google/gemini-3.1-pro",
+        "gemini-1.5-pro": "google/gemini-3.1-pro",
+        "gemini-1.5-flash": "google/gemini-3.1-pro",
+        "gemini-pro": "google/gemini-3.1-pro",
     }
-    DEFAULT_FALLBACK_MODEL = "google/gemini-3.1-pro-preview"
+    DEFAULT_FALLBACK_MODEL = "google/gemini-3.1-pro"
 
     def __init__(
         self,

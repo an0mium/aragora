@@ -53,24 +53,28 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     Uses OpenAICompatibleMixin for standard OpenAI API implementation.
     """
 
+    # Every OpenAI ID maps to the current frontier (GPT-5.4) via OpenRouter
+    # so weaker historical models are transparently upgraded and a missing
+    # OPENAI_API_KEY never blocks a debate. Distinct OpenRouter model IDs
+    # are kept only where the Pro tier is explicitly requested.
     OPENROUTER_MODEL_MAP = {
         "gpt-5.4": "openai/gpt-5.4",
         "gpt-5.4-pro": "openai/gpt-5.4-pro",
-        "gpt-5.3": "openai/gpt-5.3-chat",
-        "gpt-5.3-chat-latest": "openai/gpt-5.3-chat",
-        "gpt-5.3-codex": "openai/gpt-5.3-codex",
-        "gpt-4.1": "openai/gpt-4.1",
-        "gpt-4.1-mini": "openai/gpt-4.1-mini",
-        "gpt-4.1-nano": "openai/gpt-4.1-nano",
-        "gpt-4o": "openai/gpt-4o",
-        "gpt-4o-mini": "openai/gpt-4o-mini",
-        "gpt-4-turbo": "openai/gpt-4-turbo",
-        "gpt-4": "openai/gpt-4",
-        "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
-        "gpt-4o-search-preview": "openai/gpt-4o",  # Search model fallback
-        "o3": "openai/o3",
-        "o3-mini": "openai/o3-mini",
-        "o4-mini": "openai/o4-mini",
+        "gpt-5.3": "openai/gpt-5.4",
+        "gpt-5.3-chat-latest": "openai/gpt-5.4",
+        "gpt-5.3-codex": "openai/gpt-5.4",
+        "gpt-4.1": "openai/gpt-5.4",
+        "gpt-4.1-mini": "openai/gpt-5.4",
+        "gpt-4.1-nano": "openai/gpt-5.4",
+        "gpt-4o": "openai/gpt-5.4",
+        "gpt-4o-mini": "openai/gpt-5.4",
+        "gpt-4-turbo": "openai/gpt-5.4",
+        "gpt-4": "openai/gpt-5.4",
+        "gpt-3.5-turbo": "openai/gpt-5.4",
+        "gpt-4o-search-preview": "openai/gpt-5.4",
+        "o3": "openai/gpt-5.4",
+        "o3-mini": "openai/gpt-5.4",
+        "o4-mini": "openai/gpt-5.4",
     }
     DEFAULT_FALLBACK_MODEL = "openai/gpt-5.4"
 

@@ -55,14 +55,14 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "qwen/qwen3.5-plus-02-15": "deepseek/deepseek-chat",
     # DeepSeek -> GPT-5.2-chat (fast, reliable)
     "deepseek/deepseek-chat": "openai/gpt-5.3-chat",
-    "deepseek/deepseek-chat-v3-0324": "anthropic/claude-haiku-4.5",
+    "deepseek/deepseek-chat-v3-0324": "anthropic/claude-opus-4.7",
     "deepseek/deepseek-v3.2": "openai/gpt-5.3-chat",
     "deepseek/deepseek-v3.2-exp": "openai/gpt-5.3-chat",
     "deepseek/deepseek-chat-v3.1": "openai/gpt-5.3-chat",
     # Kimi -> Claude Haiku 4.5
-    "moonshotai/kimi-k2-0905": "anthropic/claude-haiku-4.5",
-    "moonshotai/kimi-k2-thinking": "anthropic/claude-haiku-4.5",
-    "moonshot/moonshot-v1-128k": "anthropic/claude-haiku-4.5",
+    "moonshotai/kimi-k2-0905": "anthropic/claude-opus-4.7",
+    "moonshotai/kimi-k2-thinking": "anthropic/claude-opus-4.7",
+    "moonshot/moonshot-v1-128k": "anthropic/claude-opus-4.7",
     # Mistral -> GPT-5.2-chat
     "mistralai/mistral-large-2411": "openai/gpt-5.3-chat",
     "mistralai/mistral-large-2512": "openai/gpt-5.3-chat",
@@ -99,8 +99,8 @@ class OpenRouterAgent(APIAgent):
     - qwen/qwen3-max (Qwen3 Max)
     - qwen/qwen3.5-plus-02-15 (Qwen3.5 Plus)
     - moonshotai/kimi-k2-0905 (Kimi K2)
-    - google/gemini-3.1-pro-preview (Gemini 3.1 Pro)
-    - anthropic/claude-sonnet-4.6
+    - google/gemini-3.1-pro (Gemini 3.1 Pro)
+    - anthropic/claude-opus-4.7
     - openai/gpt-5.3
     """
 

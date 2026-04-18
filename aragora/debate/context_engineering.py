@@ -180,7 +180,7 @@ def _make_explorer_agents(
                         "kilocode-gemini",
                         KiloCodeAgent(
                             name="kilocode_gemini_explorer",
-                            provider_id="openrouter/google/gemini-3.1-pro-preview",
+                            provider_id="google/gemini-3.1-pro",
                             role="analyst",
                             timeout=config.per_explorer_timeout_seconds,
                             mode="architect",

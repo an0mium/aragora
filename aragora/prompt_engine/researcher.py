@@ -97,7 +97,7 @@ class PromptResearcher:
             if os.environ.get("OPENROUTER_API_KEY", "").strip():
                 from aragora.agents.api_agents.openrouter import OpenRouterAgent
 
-                self._agent = OpenRouterAgent(name="researcher", model="anthropic/claude-sonnet-4")
+                self._agent = OpenRouterAgent(name="researcher", model="anthropic/claude-opus-4.7")
                 return self._agent
         except (ImportError, RuntimeError, ValueError) as e:
             logger.warning("Could not create OpenRouter agent: %s", e)

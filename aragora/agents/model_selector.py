@@ -176,7 +176,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # OpenAI
     "gpt4": ModelProfile(
-        model_id="gpt-4.1",
+        model_id="gpt-5.4",
         display_name="GPT-4.1",
         provider="openai",
         capabilities={
@@ -223,8 +223,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         reliability_score=0.97,
         supports_vision=True,
     ),
-    "gpt-4.1-mini": ModelProfile(
-        model_id="gpt-4.1-mini",
+    "gpt-5.4": ModelProfile(
+        model_id="gpt-5.4",
         display_name="GPT-4.1 Mini",
         provider="openai",
         capabilities={

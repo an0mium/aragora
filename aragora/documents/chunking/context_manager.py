@@ -114,7 +114,7 @@ class ContextManager:
         "gemini-3.1-pro-preview",
         "gemini-3-pro",
         "gemini-3-pro-preview",
-        "gemini-2.5-pro",
+        "gemini-3.1-pro",
         "gemini-1.5-pro",  # 2M tokens
     }
 
@@ -554,7 +554,7 @@ class ContextManager:
             "gemini-3.1-pro-preview": {"input": 2.00, "output": 12.00},
             "gemini-3-pro": {"input": 1.25, "output": 5.00},
             "gemini-3-pro-preview": {"input": 1.25, "output": 5.00},
-            "gemini-2.5-pro": {"input": 1.25, "output": 5.00},
+            "gemini-3.1-pro": {"input": 1.25, "output": 5.00},
             "gpt-4-turbo": {"input": 10.00, "output": 30.00},
             "gpt-4o": {"input": 2.50, "output": 10.00},
             "claude-3.5-sonnet": {"input": 3.00, "output": 15.00},

@@ -376,7 +376,13 @@ class TestAnthropicModelMapping:
         assert "claude-3-opus-20240229" in agent.OPENROUTER_MODEL_MAP
 
     def test_fallback_uses_correct_model(self):
-        """Test fallback agent uses mapped model via mixin."""
+        """Test fallback agent upgrades legacy Anthropic IDs to the frontier.
+
+        The OPENROUTER_MODEL_MAP intentionally routes every legacy Claude ID
+        to the current frontier (Opus 4.7) via OpenRouter so weaker historical
+        models are transparently upgraded and a missing direct-provider key
+        never blocks functionality.
+        """
         agent = AnthropicAPIAgent(
             api_key="test-key",
             model="claude-3-opus-20240229",
@@ -384,7 +390,7 @@ class TestAnthropicModelMapping:
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):
             fallback = agent._get_cached_fallback_agent()
-            assert fallback.model == "anthropic/claude-3-opus"
+            assert fallback.model == "anthropic/claude-opus-4.7"
 
 
 if __name__ == "__main__":

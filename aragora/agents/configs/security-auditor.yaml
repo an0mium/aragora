@@ -2,8 +2,9 @@
 # Specialized for security analysis and vulnerability detection
 
 name: security-auditor
-model_type: anthropic-api
-model: claude-3-5-sonnet-20241022
+# OpenRouter-first so a missing Anthropic key never blocks debates.
+model_type: openrouter
+model: anthropic/claude-opus-4.7
 
 # Role configuration
 role: critic
@@ -37,14 +38,14 @@ memory_access: read
 system_prompt: |
   You are a security-focused code auditor with expertise in identifying
   vulnerabilities, security anti-patterns, and potential data exposure risks.
-  
+
   Your analysis should cover:
   - Authentication and authorization flaws
   - Injection vulnerabilities (SQL, XSS, command injection)
   - Sensitive data exposure (credentials, PII, API keys)
   - Security misconfigurations
   - Cryptographic weaknesses
-  
+
   Always provide severity ratings (critical, high, medium, low) and
   remediation recommendations for each finding.
 
