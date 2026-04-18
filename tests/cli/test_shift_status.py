@@ -99,7 +99,7 @@ def test_load_shift_status_reconciles_live_truth_when_repo_available(tmp_path: P
     assert payload["prs_merged"] == 1
 
 
-def test_count_live_queue_depth_uses_canonical_boss_ready_queue_only(tmp_path: Path) -> None:
+def test_count_live_queue_depth_uses_autonomous_boss_ready_queue(tmp_path: Path) -> None:
     commands: list[list[str]] = []
 
     def _fake_run(cmd: list[str], **_: object) -> subprocess.CompletedProcess[str]:
@@ -121,6 +121,8 @@ def test_count_live_queue_depth_uses_canonical_boss_ready_queue_only(tmp_path: P
             "synaptent/aragora",
             "--label",
             "boss-ready",
+            "--label",
+            "autonomous",
             "--state",
             "open",
             "--limit",
