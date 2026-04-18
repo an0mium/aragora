@@ -316,6 +316,14 @@ def _run_json(args: list[str], *, cwd: Path, timeout: int = 30) -> Any:
     return json.loads(proc.stdout or "{}")
 
 
+def _timeout_output_text(value: str | bytes | None) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace").strip()
+    if isinstance(value, str):
+        return value.strip()
+    return ""
+
+
 def restore_shift_controller(
     controller: ShiftController,
     *,
@@ -766,8 +774,8 @@ def kickstart_launchd(label: str) -> tuple[bool, str]:
     except OSError as exc:
         return False, f"launchctl unavailable for {label}: {exc}"
     except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout.strip() if isinstance(exc.stdout, str) else ""
-        stderr = exc.stderr.strip() if isinstance(exc.stderr, str) else ""
+        stdout = _timeout_output_text(exc.stdout)
+        stderr = _timeout_output_text(exc.stderr)
         detail = stderr or stdout or f"launchctl kickstart timed out for {label}"
         return False, detail
     if proc.returncode != 0:
@@ -970,9 +978,9 @@ def run_shift_cycle(
         runtime_state.github_outage_count += 1
         if ledger:
             ledger.record_failure(failure_type=GITHUB_OUTAGE_FAILURE, detail=detail)
-        actions: list[str] = []
+        outage_actions: list[str] = []
         stop_reason = ""
-        repeated_failure_classes: list[str] = []
+        outage_repeated_failure_classes: list[str] = []
         if recovery_budget_remaining(runtime_state, GITHUB_OUTAGE_FAILURE) > 0:
             record_recovery_attempt(
                 ledger,
@@ -982,10 +990,10 @@ def run_shift_cycle(
                 success=False,
                 detail=detail,
             )
-            actions.append("retry_github_outage_next_cycle")
+            outage_actions.append("retry_github_outage_next_cycle")
         else:
             stop_reason = RECOVERY_STOP_REASONS[GITHUB_OUTAGE_FAILURE]
-            repeated_failure_classes.append(GITHUB_OUTAGE_FAILURE)
+            outage_repeated_failure_classes.append(GITHUB_OUTAGE_FAILURE)
         failure_policy = build_failure_policy_status(runtime_state)
         if ledger:
             ledger.record_cycle_tick(
@@ -995,7 +1003,7 @@ def run_shift_cycle(
                 boss_running=False,
                 merge_running=False,
                 benchmark_fresh=False,
-                actions=actions,
+                actions=outage_actions,
                 stop_reason=stop_reason,
             )
         return {
@@ -1004,7 +1012,7 @@ def run_shift_cycle(
             "open_pr_count": 0,
             "automation_backlog": 0,
             "latest_benchmark_run": None,
-            "actions": actions,
+            "actions": outage_actions,
             "stop_reason": stop_reason,
             "failure_policy": failure_policy,
             "green_shift_evaluation": evaluate_green_shift(
@@ -1018,7 +1026,7 @@ def run_shift_cycle(
                 runtime_state=runtime_state,
                 max_age_hours=max_hours,
                 stop_reason=stop_reason,
-                repeated_failure_classes=repeated_failure_classes,
+                repeated_failure_classes=outage_repeated_failure_classes,
             ),
         }
     snapshot = collect_boss_lane_snapshot(repo_root=repo_root, repo=repo)
