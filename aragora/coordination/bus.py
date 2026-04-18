@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from uuid import uuid4
@@ -26,6 +27,25 @@ logger = logging.getLogger(__name__)
 
 _COORD_DIR = ".aragora_coordination"
 _EVENTS_DIR = "events"
+
+
+def _coerce_payload(value: object) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {str(key): item for key, item in value.items()}
+
+
+def _coerce_float(value: object, default: float = 0.0) -> float:
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
 
 
 @dataclass(frozen=True)
@@ -46,8 +66,8 @@ class CoordinationEvent:
         return cls(
             event_id=str(data.get("event_id", "")),
             event_type=str(data.get("event_type", "")),
-            payload=dict(data.get("payload", {})),  # type: ignore[arg-type]
-            timestamp=float(data.get("timestamp", 0)),
+            payload=_coerce_payload(data.get("payload")),
+            timestamp=_coerce_float(data.get("timestamp"), 0.0),
             source_session=str(data.get("source_session", "")),
         )
 
