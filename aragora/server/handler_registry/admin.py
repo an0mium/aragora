@@ -346,6 +346,7 @@ MonitoringHandler = _safe_import(
 UnifiedApprovalsHandler = _safe_import(
     "aragora.server.handlers.approvals_inbox", "UnifiedApprovalsHandler"
 )
+ReviewQueueHandler = _safe_import("aragora.server.handlers.review_queue", "ReviewQueueHandler")
 RBACHandler = _safe_import("aragora.server.handlers.rbac", "RBACHandler")
 
 # Federation status
@@ -623,6 +624,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_monitoring_handler", MonitoringHandler),
     # Approvals, RBAC, and management
     ("_unified_approvals_handler", UnifiedApprovalsHandler),
+    ("_review_queue_handler", ReviewQueueHandler),
     ("_rbac_handler", RBACHandler),
     ("_feature_flag_admin_handler", FeatureFlagAdminHandler),
     ("_emergency_access_handler", EmergencyAccessHandler),
