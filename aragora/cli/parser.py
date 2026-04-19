@@ -1356,6 +1356,13 @@ def _add_review_pr_parser(subparsers) -> None:
         action="store_true",
         help="Print the final run summary as JSON",
     )
+    parser.add_argument(
+        "--no-publish-review",
+        dest="publish_review",
+        action="store_false",
+        help="Persist artifacts without posting any GitHub review output.",
+    )
+    parser.set_defaults(publish_review=True)
     parser.set_defaults(func=_lazy("aragora.cli.commands.review_pr", "cmd_review_pr"))
 
     # Audit command (compliance audit logs)
