@@ -541,9 +541,10 @@ class TestStrictMode:
         assert is_critical_secret("JWT_SECRET_KEY") is True
         assert is_critical_secret("DATABASE_URL") is True
         assert is_critical_secret("STRIPE_SECRET_KEY") is True
+        assert is_critical_secret("OPENAI_API_KEY") is True
+        assert is_critical_secret("ANTHROPIC_API_KEY") is True
 
         # Non-critical secrets
-        assert is_critical_secret("OPENAI_API_KEY") is False
         assert is_critical_secret("SENTRY_DSN") is False
         assert is_critical_secret("RANDOM_CONFIG") is False
 
