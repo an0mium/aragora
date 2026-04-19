@@ -30,7 +30,7 @@ on:
 
 concurrency:
   group: tests-${{ github.event.pull_request.number || github.ref }}${{ startsWith(github.ref, 'refs/heads/dev/') && format('-{0}', github.sha) || '' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
 
 jobs:
   # ============================================================
