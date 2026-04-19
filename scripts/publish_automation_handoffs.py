@@ -56,6 +56,7 @@ BLOCK_POSITION_KEY = "__block_position"
 BLOCK_TIMESTAMP_PATTERN = re.compile(
     r"(?m)(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)"
 )
+PR_REFERENCE_PATTERN = re.compile(r"(?i)\b(?:PR|pull request)\s*#(\d+)\b")
 STOPWORDS = {
     "a",
     "an",
@@ -399,6 +400,52 @@ def _existing_pr(repo_root: Path, repo: str, title: str) -> dict[str, Any] | Non
     return None
 
 
+def _referenced_pr_numbers(handoff: Handoff) -> list[int]:
+    seen: set[int] = set()
+    numbers: list[int] = []
+    for match in PR_REFERENCE_PATTERN.finditer(f"{handoff.task_title}\n{handoff.body}"):
+        try:
+            number = int(match.group(1))
+        except (TypeError, ValueError):
+            continue
+        if number in seen:
+            continue
+        seen.add(number)
+        numbers.append(number)
+    return numbers
+
+
+def _pr_by_number(repo_root: Path, repo: str, number: int) -> dict[str, Any] | None:
+    proc = _run(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(number),
+            "--repo",
+            repo,
+            "--json",
+            "number,title,url,state",
+        ],
+        cwd=repo_root,
+    )
+    if proc.returncode != 0:
+        stderr = (proc.stderr or proc.stdout or "").lower()
+        if "could not resolve to a pull request" in stderr or "not found" in stderr:
+            return None
+        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "failed to view PR")
+    payload = json.loads(proc.stdout or "{}")
+    return payload if isinstance(payload, dict) else None
+
+
+def _target_open_pr(repo_root: Path, repo: str, handoff: Handoff) -> dict[str, Any] | None:
+    for number in _referenced_pr_numbers(handoff):
+        pr = _pr_by_number(repo_root, repo, number)
+        if isinstance(pr, dict) and str(pr.get("state") or "").upper() == "OPEN":
+            return pr
+    return None
+
+
 def _open_boss_ready_count(repo_root: Path, repo: str, labels: list[str]) -> int:
     args = [
         "gh",
@@ -502,6 +549,18 @@ def decide_handoffs(
                     eligible=False,
                     reason="existing_issue",
                     existing_issue_url=str(existing.get("url") or ""),
+                )
+            )
+            continue
+        target_pr = _target_open_pr(repo_root, repo, handoff)
+        if target_pr:
+            decisions.append(
+                PublishDecision(
+                    task_title=handoff.task_title,
+                    source_file=handoff.source_file,
+                    eligible=False,
+                    reason="target_open_pr",
+                    existing_pr_url=str(target_pr.get("url") or ""),
                 )
             )
             continue

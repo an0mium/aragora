@@ -20,6 +20,8 @@ For local Codex app automation branches, `scripts/publish_codex_automation_branc
 
 For local Codex app automation handoffs, `scripts/publish_automation_handoffs.py --apply` reads structured memory blocks, deduplicates them against existing GitHub issues and PRs, and creates missing `boss-ready` issues from a normal shell with working `gh` access. Scout automations should leave structured handoffs in memory/inbox when GitHub writes fail instead of using browser fallback for issue or PR creation.
 
+If a handoff explicitly targets an already-open pull request (for example `PR #6288` in the task title or evidence block), the handoff publisher should treat it as PR follow-up work instead of minting a new `boss-ready` issue. PR-targeted follow-ups must not consume boss-ready issue capacity.
+
 For Aragora boss-loop workers, run the same script against the worker branch before merge arbitration:
 
 ```bash
