@@ -776,7 +776,7 @@ def main(argv: list[str] | None = None) -> int:
 
     github_health = check_github_cli_health(repo_root)
     if not github_health.ready:
-        payload: dict[str, Any] = {
+        unavailable_payload: dict[str, Any] = {
             "repo": str(repo_root),
             "base": args.base,
             "cutoff": cutoff.isoformat(),
@@ -786,7 +786,7 @@ def main(argv: list[str] | None = None) -> int:
             "decisions": [],
         }
         if args.json:
-            print(json.dumps(payload, indent=2))
+            print(json.dumps(unavailable_payload, indent=2))
         else:
             print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
         return 1
