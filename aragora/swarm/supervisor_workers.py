@@ -1618,10 +1618,13 @@ def _lease_work_order(
 
 def _release_terminal_lease(self, item: dict[str, Any]) -> None:
     # BC-01: Record terminal session state
+    qualification = qualify_work_order_terminal_state(item)
     wo_status = str(item.get("status", "")).strip().lower()
     terminal_status = "completed" if wo_status in {"completed", "merged"} else "failed"
+    if qualification.terminal_outcome == "needs_human":
+        terminal_status = "needs_human"
     blocker_evidence = None
-    if terminal_status == "failed" or wo_status == "needs_human":
+    if terminal_status in {"failed", "needs_human"}:
         blocker_evidence = _persist_terminal_blocker_evidence(item)
     _record_session_state(
         item,

@@ -14,6 +14,7 @@ import pytest
 from aragora.nomic.dev_coordination import DevCoordinationStore, FileScopeViolationError
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 from aragora.swarm.spec import SwarmSpec
+from aragora.swarm.session_state import SessionStateStore
 from aragora.swarm.supervisor_probes import _finalize_completed_work_order_result
 from aragora.swarm.supervisor import (
     CAMPAIGN_OUTCOME_METADATA_KEY,
@@ -4478,6 +4479,42 @@ def test_finalize_completed_work_order_preserves_salvage_outcome_on_merge_gate_f
     assert item["worker_outcome"] == salvage_outcome
     assert item["failure_reason"] == "merge_gate_failed"
     assert item["receipt_id"] is None
+
+
+def test_release_terminal_lease_persists_needs_human_for_merge_gate_failure(
+    repo: Path, store: DevCoordinationStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    item = {
+        "work_order_id": "wo-acceptance-bind",
+        "issue_number": 6260,
+        "status": "completed",
+        "worker_outcome": "merge_gate_failed",
+        "target_agent": "codex",
+        "branch": "codex/session-state-retry-persistence-20260418",
+        "worktree_path": str(repo),
+        "review_status": "changes_requested",
+        "dispatch_error": "merge gate blocked: verification failed: pytest tests/swarm/test_supervisor.py -q",
+        "blockers": [
+            "merge gate blocked: verification failed: pytest tests/swarm/test_supervisor.py -q"
+        ],
+        "metadata": {},
+    }
+
+    supervisor._release_terminal_lease(item)
+
+    session_data = item["metadata"]["session_state"]
+    assert session_data["status"] == "needs_human"
+    assert session_data["blocker_evidence"] == item["dispatch_error"]
+    assert session_data["attempts"][-1]["worker_outcome"] == "merge_gate_failed"
+
+    store = SessionStateStore()
+    restored = store.load(session_data["session_id"])
+    assert restored is not None
+    assert restored.status == "needs_human"
+    assert restored.blocker_evidence == item["dispatch_error"]
+    assert restored.last_attempt()["worker_outcome"] == "merge_gate_failed"
 
 
 @pytest.mark.asyncio
