@@ -1098,6 +1098,47 @@ class BaseHandler:
 
     # Maximum request body size (10MB default)
     MAX_BODY_SIZE = 10 * 1024 * 1024
+    _INVALID_JSON_BODY = object()
+
+    def _read_json_body_value(self, handler: Any, max_size: int | None = None) -> Any:
+        """Read and parse a JSON request body while preserving non-object payloads."""
+        max_size = max_size or self.MAX_BODY_SIZE
+        try:
+            for raw_body in (
+                getattr(handler, "body", None),
+                getattr(getattr(handler, "request", None), "body", None),
+            ):
+                if isinstance(raw_body, str):
+                    raw_body = raw_body.encode("utf-8")
+                if isinstance(raw_body, (bytes, bytearray)):
+                    if len(raw_body) > max_size:
+                        return self._INVALID_JSON_BODY
+                    if not raw_body:
+                        return {}
+                    return json.loads(bytes(raw_body))
+
+            content_length = int(handler.headers.get("Content-Length", 0))
+            is_chunked = "chunked" in (handler.headers.get("Transfer-Encoding", "") or "").lower()
+
+            if content_length > max_size:
+                return self._INVALID_JSON_BODY
+
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+            elif is_chunked or content_length == 0:
+                # Missing or zero Content-Length: read available data up to max_size.
+                # This handles Cloudflare HTTP/2 -> HTTP/1.1 proxy scenarios.
+                body = handler.rfile.read(max_size)
+            else:
+                return {}
+
+            if not body:
+                return {}
+            if len(body) > max_size:
+                return self._INVALID_JSON_BODY
+            return json.loads(body)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return self._INVALID_JSON_BODY
 
     def read_json_body(self, handler: Any, max_size: int | None = None) -> dict[str, Any] | None:
         """Read and parse JSON body from request handler.
@@ -1115,45 +1156,8 @@ class BaseHandler:
             Parsed JSON dict, empty dict for no content, or None for parse errors
             or non-object JSON payloads
         """
-        max_size = max_size or self.MAX_BODY_SIZE
-        try:
-            for raw_body in (
-                getattr(handler, "body", None),
-                getattr(getattr(handler, "request", None), "body", None),
-            ):
-                if isinstance(raw_body, str):
-                    raw_body = raw_body.encode("utf-8")
-                if isinstance(raw_body, (bytes, bytearray)):
-                    if len(raw_body) > max_size:
-                        return None
-                    if not raw_body:
-                        return {}
-                    parsed = json.loads(bytes(raw_body))
-                    return parsed if isinstance(parsed, dict) else None
-
-            content_length = int(handler.headers.get("Content-Length", 0))
-            is_chunked = "chunked" in (handler.headers.get("Transfer-Encoding", "") or "").lower()
-
-            if content_length > max_size:
-                return None  # Body too large
-
-            if content_length > 0:
-                body = handler.rfile.read(content_length)
-            elif is_chunked or content_length == 0:
-                # Missing or zero Content-Length: read available data up to max_size.
-                # This handles Cloudflare HTTP/2 -> HTTP/1.1 proxy scenarios.
-                body = handler.rfile.read(max_size)
-            else:
-                return {}
-
-            if not body:
-                return {}
-            if len(body) > max_size:
-                return None  # Body too large after read
-            parsed = json.loads(body)
-            return parsed if isinstance(parsed, dict) else None
-        except (json.JSONDecodeError, ValueError, TypeError):
-            return None
+        parsed = self._read_json_body_value(handler, max_size)
+        return parsed if isinstance(parsed, dict) else None
 
     def validate_content_length(self, handler: Any, max_size: int | None = None) -> int | None:
         """Validate Content-Length header.
@@ -1227,8 +1231,8 @@ class BaseHandler:
             return None, content_type_error
 
         # Read and parse body
-        body = self.read_json_body(handler, max_size)
-        if body is None:
+        body = self._read_json_body_value(handler, max_size)
+        if body is self._INVALID_JSON_BODY:
             return None, error_response("Invalid or too large JSON body", 400)
         if not isinstance(body, dict):
             return None, error_response("Request body must be a JSON object", 400)
