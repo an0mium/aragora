@@ -641,6 +641,7 @@ class BossLoop:
         self._failed_issues: list[dict[str, Any]] = []
         self._iteration_statuses: list[BossIterationStatus] = []
         self._consecutive_failures = 0
+        self._consecutive_empty_iterations = 0
         self._issue_attempt_counts: dict[int | str, int] = {}
         self._pending_handoff_prompts: dict[int, tuple[str, str | None]] = {}
         self._stop_reason: str | None = None
@@ -1135,6 +1136,47 @@ class BossLoop:
             self._last_sanitation_summary = sanitation
         else:
             self._last_sanitation_summary = []
+
+    def _maybe_autofill_queue(
+        self,
+        *,
+        candidate_issues: list[GitHubIssue],
+    ) -> dict[str, Any] | None:
+        """Optionally restock the queue when it stays empty for N consecutive ticks.
+
+        Default-off behaviour: unless ``ARAGORA_QUEUE_AUTOFILL`` is truthy in
+        the environment the call is a no-op.  On success we bump the empty-tick
+        counter back to zero so we don't immediately re-enter autofill on the
+        next idle tick.
+        """
+        self._consecutive_empty_iterations += 1
+        try:
+            from aragora.swarm.queue_autofill import (
+                maybe_autofill_queue,
+                queue_autofill_enabled,
+            )
+        except Exception:  # pragma: no cover - defensive import guard
+            logger.debug("Queue autofill module unavailable", exc_info=True)
+            return None
+
+        if not queue_autofill_enabled(self._env):
+            return None
+
+        try:
+            result = maybe_autofill_queue(
+                repo_root=Path.cwd(),
+                consecutive_empty_ticks=self._consecutive_empty_iterations,
+                existing_candidates=candidate_issues,
+                env=self._env,
+            )
+        except Exception:  # pragma: no cover - defensive guard
+            logger.warning("Queue autofill attempt raised", exc_info=True)
+            return None
+
+        payload = result.to_dict()
+        if payload.get("attempted") and payload.get("reason") in {"created", "created_dry_run"}:
+            self._consecutive_empty_iterations = 0
+        return payload
 
     def _no_suitable_issue_guidance(
         self,
@@ -3722,6 +3764,15 @@ class BossLoop:
                     already_maxed=already_maxed,
                     report=eligibility_report,
                 )
+            autofill_payload = self._maybe_autofill_queue(
+                candidate_issues=candidate_issues,
+            )
+            if autofill_payload and autofill_payload.get("attempted"):
+                autofill_reason = autofill_payload.get("reason")
+                created_count = autofill_payload.get("created_count") or 0
+                next_actions.append(
+                    f"Queue autofill: reason={autofill_reason} created={created_count}"
+                )
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -3734,6 +3785,10 @@ class BossLoop:
                 next_actions=next_actions,
                 elapsed_seconds=time.monotonic() - iter_start,
             )
+
+        # An eligible issue was found — reset the empty-tick counter so the
+        # autofill does not fire on the next idle round.
+        self._consecutive_empty_iterations = 0
 
         # Step 3: Check runner freshness only when there is eligible work to dispatch
         # Circuit breaker: skip decomposed issues if budget exhausted or fast-fail detected
@@ -3972,6 +4027,15 @@ class BossLoop:
                     already_maxed=already_maxed,
                     report=eligibility_report,
                 )
+            autofill_payload = self._maybe_autofill_queue(
+                candidate_issues=candidate_issues,
+            )
+            if autofill_payload and autofill_payload.get("attempted"):
+                autofill_reason = autofill_payload.get("reason")
+                created_count = autofill_payload.get("created_count") or 0
+                next_actions.append(
+                    f"Queue autofill: reason={autofill_reason} created={created_count}"
+                )
             return [
                 BossIterationStatus(
                     iteration=iteration,
@@ -3986,6 +4050,9 @@ class BossLoop:
                     elapsed_seconds=time.monotonic() - iter_start,
                 )
             ]
+
+        # Eligible issues were found — reset the empty-tick counter.
+        self._consecutive_empty_iterations = 0
 
         freshness = self._freshness_checker(
             freshness_ttl_seconds=self.config.freshness_ttl_seconds,
