@@ -63539,7 +63539,7 @@
             "bearerAuth": []
           }
         ],
-        "x-aragora-stability": "experimental"
+        "x-aragora-stability": "stable"
       }
     },
     "/api/v1/admin/impersonate": {

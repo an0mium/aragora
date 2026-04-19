@@ -406,9 +406,13 @@ export class AdminAPI {
         }
       }
       if (rollbackFailures.length > 0) {
-        throw new Error(
-          'Bulk feature flag update failed and rollback did not restore all prior values: ' +
-            rollbackFailures.join('; '),
+        const failureCause = error instanceof Error ? error : new Error(String(error));
+        throw Object.assign(
+          new Error(
+            'Bulk feature flag update failed and rollback did not restore all prior values: ' +
+              rollbackFailures.join('; '),
+          ),
+          { cause: failureCause },
         );
       }
       throw error;
