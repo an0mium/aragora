@@ -474,8 +474,22 @@ class AuditPersistence:
         self.repo = repo
 
     def read_attempt_count(self) -> tuple[int, bool]:
-        """Scan comments for the marker and return ``(attempt_count, marker_valid)``."""
-        comments = self._gh_list_comments()
+        """Scan comments for the marker and return ``(attempt_count, marker_valid)``.
+
+        GitHub reads are advisory in degraded automation contexts. If ``gh`` cannot
+        read issue comments, continue with a fresh local attempt budget instead of
+        aborting the entire retry lane.
+        """
+        try:
+            comments = self._gh_list_comments()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            logger.warning(
+                "Spec upgrader audit read failed for issue #%s in %s; "
+                "continuing without persisted attempt count.",
+                self.issue_number,
+                self.repo,
+            )
+            return 0, True
         for comment in comments:
             body = comment.get("body") or ""
             if self.MARKER_PREFIX in body:
