@@ -64,6 +64,24 @@ The goal is to remove review friction without removing human inspection.
 - Forcing humans to read every diff line when the risk packet is obviously low.
 - Broad workflow restocking or queue widening.
 
+## Productization Opportunity
+
+The batched triage path is not only an internal operator improvement. It is the
+substrate for a differentiated external product surface: a receipt-backed
+**PR intelligence brief**.
+
+That surface should present a batched decision brief for code changes:
+
+- one brief per PR, keyed to the exact head SHA
+- heterogeneous review with explicit dissent
+- validation and risk summarized before raw diff reading
+- one human settlement action after skim-first review
+
+This is a better product shape than "faster PR review bot" because the value is
+decision compression with auditability, not just more comments.
+
+Design brief: [PR Intelligence Brief](2026-04-19-pr-intelligence-brief.md).
+
 ## Operating Principle
 
 The automation boundary is:

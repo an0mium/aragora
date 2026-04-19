@@ -1,6 +1,6 @@
 # Aragora Evolution Roadmap
 
-> **Last updated:** 2026-04-18
+> **Last updated:** 2026-04-19
 > **Current transition:** early `Teammate` -> reliable `Foreman`
 > **Planning rule:** preserve the maximalist vision; sequence through a narrow reliability wedge first.
 > **Concrete execution overlay:** [2026-04-18 3-Horizon Execution Roadmap](2026-04-18-3-horizon-roadmap.md) operationalizes this doc's outcome map into bounded 30/90/365-day deliverables.
@@ -114,6 +114,15 @@ This track makes runtime truth inspectable and operable.
 - unify host, runner, lane, publication, and merge-readiness state into one operator model
 - expose pause, resume, retry, salvage, and quarantine operations against live state
 - make the status surface match reality even when the system is degraded
+
+#### B3a. PR Intelligence Brief Surface
+
+- turn the review queue into a receipt-backed settlement brief rather than a comment bot
+- use heterogeneous review to surface disagreement, not just a single model verdict
+- optimize for skim-first human settlement with drill-down on dissent, evidence, and risky files
+- keep machine review advisory and preserve the human settlement gate on merge
+
+Design brief: [2026-04-19 PR Intelligence Brief](2026-04-19-pr-intelligence-brief.md).
 
 #### B4. Multi-Host Soak and Unattended Criteria
 

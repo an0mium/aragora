@@ -8,7 +8,7 @@ Consolidated from:
 - `docs/outreach/STAKEHOLDER_NARRATIVE_VARIANTS.md`
 - `docs/outreach/FOUNDER_STORY_VARIANTS.md`
 
-Last updated: 2026-03-25
+Last updated: 2026-04-19
 
 ---
 
@@ -250,6 +250,19 @@ The clean line is:
 
 **Review bots are good at fast comments. Aragora is for review decisions that
 need dissent, receipts, and truthful blocker handling.**
+
+For code review specifically, the stronger product language is not "PR review
+bot." It is:
+
+**receipt-backed intelligence brief for consequential code changes**
+
+That framing matters because the user problem is shifting from "how do I get
+more review comments?" to "how do I settle more AI-generated PRs safely
+without reading every diff line first?"
+
+If automated review becomes table stakes, the wedge is not detection alone.
+The wedge is heterogeneous judgment, provenance, explicit dissent, and
+human-settled merge decisions.
 
 ### 3. Aragora Vs Workflow Tools
 
