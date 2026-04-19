@@ -272,6 +272,8 @@ class SecurityDebateHandler(SecureHandler):
             {
                 "debate_id": "uuid",
                 "status": "completed|not_found",
+                "debate_status": "completed|pending",
+                "debate_status_source": "live|receipt|cached",
                 "message": "Status message"
             }
         """

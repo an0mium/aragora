@@ -1324,7 +1324,13 @@ class TestResponseStructure:
             mock_http_handler,
         )
         data = _body(result)
-        assert set(data.keys()) == {"debate_id", "status", "message"}
+        assert set(data.keys()) == {
+            "debate_id",
+            "status",
+            "debate_status",
+            "debate_status_source",
+            "message",
+        }
 
     def test_post_success_response_keys(self, handler):
         body = _minimal_findings_body()
