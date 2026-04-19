@@ -124,12 +124,14 @@ def _detect_contradictions(entries: list[BeliefEntry], gap: float) -> list[Coher
         ids = tuple(e.belief_id for e in high + low)
         hi_s = ", ".join(f"{e.belief_id}({e.confidence:.2f})" for e in high)
         lo_s = ", ".join(f"{e.belief_id}({e.confidence:.2f})" for e in low)
-        issues.append(CoherenceIssue(
-            kind=IncoherenceKind.CONTRADICTION,
-            belief_ids=ids,
-            detail=f"Subject {subject!r}: high [{hi_s}] contradicts low [{lo_s}].",
-            severity="error",
-        ))
+        issues.append(
+            CoherenceIssue(
+                kind=IncoherenceKind.CONTRADICTION,
+                belief_ids=ids,
+                detail=f"Subject {subject!r}: high [{hi_s}] contradicts low [{lo_s}].",
+                severity="error",
+            )
+        )
     return issues
 
 
@@ -145,15 +147,17 @@ def _detect_evidence_conflicts(entries: list[BeliefEntry]) -> list[CoherenceIssu
         statuses = {e.status for e in group}
         if statuses & _PASSING and statuses & _FAILING:
             ids = tuple(e.belief_id for e in group)
-            issues.append(CoherenceIssue(
-                kind=IncoherenceKind.EVIDENCE_CONFLICT,
-                belief_ids=ids,
-                detail=(
-                    f"Evidence {path!r} cited by {len(ids)} beliefs with "
-                    f"conflicting outcomes: {sorted(statuses)}."
-                ),
-                severity="warning",
-            ))
+            issues.append(
+                CoherenceIssue(
+                    kind=IncoherenceKind.EVIDENCE_CONFLICT,
+                    belief_ids=ids,
+                    detail=(
+                        f"Evidence {path!r} cited by {len(ids)} beliefs with "
+                        f"conflicting outcomes: {sorted(statuses)}."
+                    ),
+                    severity="warning",
+                )
+            )
     return issues
 
 
@@ -164,15 +168,17 @@ def _detect_confidence_rot(
     for e in entries:
         if e.confidence < min_confidence:
             severity = "error" if e.confidence < min_confidence / 2 else "warning"
-            issues.append(CoherenceIssue(
-                kind=IncoherenceKind.CONFIDENCE_ROT,
-                belief_ids=(e.belief_id,),
-                detail=(
-                    f"Belief {e.belief_id!r} confidence {e.confidence:.2f} "
-                    f"below minimum {min_confidence:.2f}."
-                ),
-                severity=severity,
-            ))
+            issues.append(
+                CoherenceIssue(
+                    kind=IncoherenceKind.CONFIDENCE_ROT,
+                    belief_ids=(e.belief_id,),
+                    detail=(
+                        f"Belief {e.belief_id!r} confidence {e.confidence:.2f} "
+                        f"below minimum {min_confidence:.2f}."
+                    ),
+                    severity=severity,
+                )
+            )
     return issues
 
 

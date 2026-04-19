@@ -135,7 +135,9 @@ def test_report_not_coherent_with_issues() -> None:
 def test_coherence_issue_to_dict() -> None:
     issue = CoherenceIssue(IncoherenceKind.CONTRADICTION, ("a", "b"), "test", "error")
     d = issue.to_dict()
-    assert d["kind"] == "contradiction" and d["belief_ids"] == ["a", "b"] and d["severity"] == "error"
+    assert (
+        d["kind"] == "contradiction" and d["belief_ids"] == ["a", "b"] and d["severity"] == "error"
+    )
 
 
 def test_belief_entry_invalid_confidence() -> None:
