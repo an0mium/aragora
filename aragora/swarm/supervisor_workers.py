@@ -24,8 +24,6 @@ DEFAULT_BREAKER_FAILURE_THRESHOLD = _supervisor.DEFAULT_BREAKER_FAILURE_THRESHOL
 DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS = _supervisor.DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS
 LAUNCHER_CONFIG_METADATA_KEY = _supervisor.LAUNCHER_CONFIG_METADATA_KEY
 SESSION_LOCK_FILES = _supervisor.SESSION_LOCK_FILES
-SupervisorRun = _supervisor.SupervisorRun
-SwarmApprovalPolicy = _supervisor.SwarmApprovalPolicy
 WORKER_TYPE_CIRCUIT_BREAKERS_KEY = _supervisor.WORKER_TYPE_CIRCUIT_BREAKERS_KEY
 WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY = _supervisor.WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY
 WorkerOutcome = _supervisor.WorkerOutcome
@@ -455,7 +453,9 @@ def refresh_run(self, run_id: str) -> SupervisorRun:
                     work_order=item,
                     work_orders=work_orders,
                     managed_dir_pattern=managed_dir_pattern,
-                    approval_policy=SwarmApprovalPolicy.from_dict(record.get("approval_policy")),
+                    approval_policy=_supervisor.SwarmApprovalPolicy.from_dict(
+                        record.get("approval_policy")
+                    ),
                 )
                 if leased:
                     active_count += 1
@@ -469,7 +469,7 @@ def refresh_run(self, run_id: str) -> SupervisorRun:
                             work_order=item,
                             work_orders=work_orders,
                             managed_dir_pattern=managed_dir_pattern,
-                            approval_policy=SwarmApprovalPolicy.from_dict(
+                            approval_policy=_supervisor.SwarmApprovalPolicy.from_dict(
                                 record.get("approval_policy")
                             ),
                         )
@@ -510,7 +510,7 @@ def refresh_run(self, run_id: str) -> SupervisorRun:
         work_orders=work_orders,
         metadata=final_metadata,
     )
-    return SupervisorRun.from_record(refreshed)
+    return _supervisor.SupervisorRun.from_record(refreshed)
 
 
 def _collect_finished_workers_sync(self, run_id: str) -> None:
@@ -966,7 +966,7 @@ def reset_worker_type_circuit_breaker(
             circuit_breakers,
         ),
     )
-    return SupervisorRun.from_record(updated)
+    return _supervisor.SupervisorRun.from_record(updated)
 
 
 async def dispatch_workers(self, run_id: str) -> list[WorkerProcess]:
