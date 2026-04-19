@@ -103,6 +103,27 @@ class TestSummarizeChecks:
         assert not has_fail
         assert "1 pending" in summary
 
+    def test_state_based_green_rollups_are_counted_as_green(self) -> None:
+        checks = [
+            {"context": "lint", "state": "SUCCESS"},
+            {"context": "ci/unit", "state": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "2/2 green"
+        assert not has_fail
+        assert not has_pending
+
+    def test_state_based_pending_and_failure_rollups_are_preserved(self) -> None:
+        checks = [
+            {"context": "lint", "state": "SUCCESS"},
+            {"context": "ci/unit", "state": "PENDING"},
+            {"context": "security", "state": "FAILURE"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1 failing / 3 total"
+        assert has_fail
+        assert has_pending
+
     def test_skipped_excluded_from_meaningful_total(self) -> None:
         checks = [
             {"status": "COMPLETED", "conclusion": "SUCCESS"},
@@ -132,6 +153,16 @@ class TestSummarizeChecks:
 class TestClassifyPR:
     def test_ready_now_when_all_green_small_diff(self) -> None:
         pr = _make_pr()
+        item = _classify_pr(pr)
+        assert item.lane == "ready_now"
+
+    def test_state_based_green_rollups_are_ready_now(self) -> None:
+        pr = _make_pr(
+            checks=[
+                {"context": "lint", "state": "SUCCESS"},
+                {"context": "ci/unit", "state": "SUCCESS"},
+            ]
+        )
         item = _classify_pr(pr)
         assert item.lane == "ready_now"
 
@@ -171,6 +202,24 @@ class TestClassifyPR:
         )
         item = _classify_pr(pr)
         assert item.lane == "needs_attention"
+
+    def test_state_based_pending_check_needs_attention(self) -> None:
+        pr = _make_pr(
+            checks=[
+                {"context": "ci/unit", "state": "PENDING"},
+            ]
+        )
+        item = _classify_pr(pr)
+        assert item.lane == "needs_attention"
+
+    def test_state_based_failure_is_repairable(self) -> None:
+        pr = _make_pr(
+            checks=[
+                {"context": "ci/unit", "state": "FAILURE"},
+            ]
+        )
+        item = _classify_pr(pr)
+        assert item.lane == "repairable"
 
     def test_large_diff_needs_attention(self) -> None:
         pr = _make_pr(additions=LARGE_DIFF_THRESHOLD + 100, deletions=10)
@@ -350,6 +399,25 @@ class TestBuildQueueAndPacket:
         assert "tests/cli" in packet.touched_subsystems
         assert packet.high_risk_paths_touched == []
 
+    def test_build_packet_accepts_state_based_green_rollups(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=6280,
+            checks=[
+                {"context": "lint", "state": "SUCCESS"},
+                {"context": "ci/unit", "state": "SUCCESS"},
+            ],
+            files=["aragora/cli/commands/review_pr.py"],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("6280", repo_override=None)
+        assert packet.machine_recommendation == "approve_candidate"
+        assert packet.checks_summary == "2/2 green"
+
     def test_build_packet_flags_high_risk_paths(self, monkeypatch: pytest.MonkeyPatch) -> None:
         pr_payload = _make_pr(
             number=42,
@@ -405,6 +473,21 @@ class TestBuildQueueAndPacket:
         pr_payload = _make_pr(
             number=100,
             checks=[{"status": "IN_PROGRESS", "conclusion": ""}],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("100", repo_override=None)
+        assert packet.machine_recommendation == "needs_human_attention"
+        assert "checks still pending" in packet.machine_recommendation_reason
+
+    def test_build_packet_state_based_pending_checks_need_attention(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=100,
+            checks=[{"context": "ci/unit", "state": "PENDING"}],
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",

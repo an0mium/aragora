@@ -336,8 +336,23 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     for check in checks:
         if not isinstance(check, dict):
             continue
-        status = str(check.get("status", "")).upper()
-        conclusion = str(check.get("conclusion", "")).upper()
+        status = str(check.get("status") or check.get("state") or "").upper()
+        conclusion = str(check.get("conclusion") or "").upper()
+        # Status-context rollups use ``state`` without a separate conclusion.
+        # Normalize those terminal states into the same summary buckets.
+        if not conclusion and status in {
+            "SUCCESS",
+            "FAILURE",
+            "TIMED_OUT",
+            "ACTION_REQUIRED",
+            "CANCELLED",
+            "SKIPPED",
+            "NEUTRAL",
+            "STALE",
+        }:
+            conclusion = status
+        elif not conclusion and status in {"ERROR", "FAILED"}:
+            conclusion = "FAILURE"
         if conclusion == "SUCCESS":
             success += 1
         elif conclusion in ("FAILURE", "TIMED_OUT", "ACTION_REQUIRED"):
@@ -346,7 +361,7 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
             # Treat skipped/cancelled as not-meaningful for the summary; they
             # are correct gating behavior in this repo (see docs/CI_LANES.md).
             continue
-        elif status in ("IN_PROGRESS", "QUEUED", "PENDING") or not conclusion:
+        elif status in ("IN_PROGRESS", "QUEUED", "PENDING", "EXPECTED") or not conclusion:
             pending += 1
     total = success + failure + pending
     if failure > 0:
