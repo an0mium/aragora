@@ -254,7 +254,7 @@ class BreakpointsHandler(BaseHandler):
             body: Request body with resolution details:
                 - action: "continue" | "abort" | "redirect" | "inject"
                 - message: Human guidance message
-                - redirect_task: New task if redirecting (optional)
+                - redirect_task: New task if redirecting (required for "redirect")
 
         Returns:
             Resolution confirmation
