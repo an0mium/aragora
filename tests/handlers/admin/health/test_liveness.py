@@ -135,13 +135,12 @@ class TestLivenessHandlerInit:
         assert h.ctx["storage"] == "fake_storage"
         assert h.ctx["key"] == 42
 
-    def test_ctx_with_empty_dict_creates_new_dict(self):
-        """Empty dict is falsy, so `ctx or {}` creates a new empty dict."""
+    def test_ctx_with_empty_dict_is_preserved(self):
+        """Explicit empty ctx should be preserved, not replaced."""
         ctx = {}
         h = LivenessHandler(ctx=ctx)
         assert h.ctx == {}
-        # Because empty dict is falsy, `ctx or {}` creates a fresh dict
-        assert h.ctx is not ctx
+        assert h.ctx is ctx
 
 
 # ===========================================================================
