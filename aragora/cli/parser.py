@@ -1377,10 +1377,106 @@ def _add_review_pr_parser(subparsers) -> None:
 
 
 def _add_review_queue_parser(subparsers) -> None:
-    """Register read-only review-queue (Phase 2a of #6279)."""
-    from aragora.cli.commands.review_queue import add_review_queue_parser
+    """Register review-queue lazily so unrelated CLI paths stay lightweight."""
+    parser = subparsers.add_parser(
+        "review-queue",
+        help="PR review queue + advisory packets + human settlement",
+        description=(
+            "Build a prioritized queue of open PRs, generate an advisory packet, "
+            "or record an explicit human settlement action."
+        ),
+    )
+    queue_subparsers = parser.add_subparsers(dest="review_queue_command")
 
-    add_review_queue_parser(subparsers)
+    build_parser = queue_subparsers.add_parser(
+        "build",
+        help="Build prioritized review queue from open PRs",
+    )
+    build_parser.add_argument("--limit", type=int, default=100, help="Max PRs to fetch")
+    build_parser.add_argument(
+        "--ready-only",
+        action="store_true",
+        help="Show only ready_now lane",
+    )
+    build_parser.add_argument(
+        "--include-parked",
+        action="store_true",
+        help="Include parked lane",
+    )
+    build_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output as JSON",
+    )
+    build_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
+
+    packet_parser = queue_subparsers.add_parser(
+        "packet",
+        help="Generate advisory review packet for one PR",
+    )
+    packet_parser.add_argument("pr", help="PR number")
+    packet_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    packet_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output as JSON",
+    )
+    packet_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
+
+    run_parser = queue_subparsers.add_parser(
+        "run",
+        help="Interactively settle a prioritized PR queue",
+    )
+    run_parser.add_argument("--limit", type=int, default=30, help="Max PRs to walk")
+    run_parser.add_argument(
+        "--ready-only",
+        action="store_true",
+        help="Restrict the session to ready_now items",
+    )
+    run_parser.add_argument(
+        "--include-parked",
+        action="store_true",
+        help="Include parked items in the session",
+    )
+    run_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    run_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
+
+    act_parser = queue_subparsers.add_parser(
+        "act",
+        help="Settle one PR with a human action",
+    )
+    act_parser.add_argument("pr", help="PR number")
+    act_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    action_group = act_parser.add_mutually_exclusive_group(required=True)
+    action_group.add_argument("--approve", action="store_true", help="Post a human APPROVE review")
+    action_group.add_argument(
+        "--request-changes",
+        action="store_true",
+        help="Post a human REQUEST_CHANGES review",
+    )
+    action_group.add_argument("--defer", action="store_true", help="Leave a human defer comment")
+    act_parser.add_argument("--reason", default="", help="One-line human reason")
+    act_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output settlement receipt as JSON",
+    )
+    act_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
 
 
 def _add_codebase_audit_parser(subparsers) -> None:

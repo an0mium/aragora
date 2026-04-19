@@ -68,3 +68,38 @@ def test_build_parser_keeps_triage_status_free_of_heavy_review_imports(monkeypat
     assert imported == []
     assert args.command == "triage"
     assert args.triage_command == "status"
+
+
+def test_build_parser_keeps_review_queue_runtime_lazy(monkeypatch):
+    sys.modules.pop("aragora.cli.commands.review_queue", None)
+    imported: list[str] = []
+    real_import = builtins.__import__
+
+    def tracking_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "aragora.cli.commands.review_queue":
+            imported.append(name)
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", tracking_import)
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "review-queue",
+            "act",
+            "6280",
+            "--request-changes",
+            "--reason",
+            "needs a test",
+            "--json",
+        ]
+    )
+
+    assert imported == []
+    assert args.command == "review-queue"
+    assert args.review_queue_command == "act"
+    assert args.pr == "6280"
+    assert args.request_changes is True
+    assert args.reason == "needs a test"
+    assert args.json_output is True
+    assert args.func.__name__ == "cmd_review_queue"

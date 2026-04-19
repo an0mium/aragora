@@ -1,16 +1,19 @@
-"""Read-only PR review queue + advisory packets (Phase 2a of #6279).
+"""PR review queue, advisory packets, and human settlement (Phases 2a/2b).
 
-Phase 2a is **strictly read-only**: builds a prioritized queue of open PRs and
-generates advisory packets for individual PRs. The packet is explicitly
-advisory — it does not approve, block, or otherwise settle a PR. Settlement
-remains a human action via GitHub UI or ``gh`` directly.
+This command keeps machine review advisory-only while making the human
+settlement step fast and receipt-backed:
 
-Out of scope for Phase 2a (intentionally not implemented):
+- ``build`` prioritizes open PRs for founder review
+- ``packet`` builds the advisory packet for one live PR head
+- ``run`` walks a human through approve/request-changes/defer in one loop
+- ``act`` performs one explicit human settlement action with freshness checks
 
-- ``review-queue run`` (interactive review session)
-- ``review-queue act --approve|--request-changes|--defer`` (settlement actions)
+Out of scope (intentionally still not implemented):
+
 - ``review-queue digest`` (rolled-up activity report)
-- Any GitHub write API call
+- ``merge_arbiter`` enforcement of settlement receipts
+- Bot-only merge on green CI
+- Any hidden merge path that bypasses explicit human action
 
 See docs/plans/2026-04-19-batched-pr-review-triage.md for the full design.
 """
@@ -18,12 +21,17 @@ See docs/plans/2026-04-19-batched-pr-review-triage.md for the full design.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
+
+from aragora.worktree.fleet import resolve_repo_root
 
 UTC = timezone.utc
 
@@ -54,6 +62,13 @@ LANE_ORDER: dict[str, int] = {
 
 ADVISORY_NOTE = (
     "This packet is advisory only. It does not approve or block merge. Human settlement required."
+)
+REVIEW_QUEUE_ARTIFACT_DIR = ".aragora/review-queue"
+REQUEST_CHANGES_REASON_REQUIRED = (
+    "request-changes requires a one-line human reason so the repair loop stays bounded."
+)
+DEFER_REASON_REQUIRED = (
+    "defer requires a one-line human reason so the PR does not disappear silently."
 )
 
 
@@ -89,20 +104,48 @@ class ReviewPacket:
     title: str
     url: str
     head_sha: str
+    base_sha: str
     author: str
     is_draft: bool
     additions: int
     deletions: int
     changed_files: int
+    queue_bucket: str
     touched_subsystems: list[str]
     high_risk_paths_touched: list[str]
+    validation: list[str]
     checks_summary: str
     risk_flags: list[str]
     machine_recommendation: str
     machine_recommendation_reason: str
+    packet_sha: str
     generated_at: str
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class SettlementReceipt:
+    """Persisted human settlement receipt for one PR/head/packet tuple."""
+
+    session_id: str
+    reviewed_at: str
+    actor: str
+    action: str
+    reason: str
+    pr_number: int
+    pr_url: str
+    head_sha: str
+    base_sha: str
+    packet_sha: str
+    queue_bucket: str
+    machine_recommendation: str
+    github_event: str
+    elapsed_seconds: float | None = None
+    receipt_path: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -112,15 +155,16 @@ class ReviewPacket:
 
 
 def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
-    """Register 'review-queue' with read-only build/packet sub-actions."""
+    """Register review-queue build/packet/run/act sub-actions."""
     parser = subparsers.add_parser(
         "review-queue",
-        help="Read-only PR review queue + advisory packets (Phase 2a)",
+        help="PR review queue + advisory packets + human settlement",
         description=(
             "Build a prioritized queue of open PRs ready for human review, or\n"
-            "generate an advisory packet for one PR.\n\n"
-            "Phase 2a is strictly read-only: no approve/request-changes/defer\n"
-            "actions, no GitHub writes. See\n"
+            "generate an advisory packet for one PR, or settle one PR with an\n"
+            "explicit human action.\n\n"
+            "Machine review remains advisory only. Settlement writes are human\n"
+            "GitHub reviews/comments plus local founder-review receipts. See\n"
             "docs/plans/2026-04-19-batched-pr-review-triage.md for the design."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -150,6 +194,46 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     packet_p.add_argument("--json", action="store_true", help="Output as JSON")
 
+    run_p = sub.add_parser("run", help="Interactively settle a prioritized PR queue")
+    run_p.add_argument("--limit", type=int, default=30, help="Max PRs to walk (default: 30)")
+    run_p.add_argument(
+        "--ready-only",
+        action="store_true",
+        help="Restrict the session to ready_now items",
+    )
+    run_p.add_argument(
+        "--include-parked",
+        action="store_true",
+        help="Include parked items in the session",
+    )
+    run_p.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+
+    act_p = sub.add_parser("act", help="Settle one PR with a human action")
+    act_p.add_argument("pr", help="PR number")
+    act_p.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    act_group = act_p.add_mutually_exclusive_group(required=True)
+    act_group.add_argument("--approve", action="store_true", help="Post a human APPROVE review")
+    act_group.add_argument(
+        "--request-changes",
+        action="store_true",
+        help="Post a human REQUEST_CHANGES review",
+    )
+    act_group.add_argument("--defer", action="store_true", help="Leave a human defer comment")
+    act_p.add_argument(
+        "--reason",
+        default="",
+        help="One-line human reason (required for --request-changes and --defer)",
+    )
+    act_p.add_argument("--json", action="store_true", help="Output settlement receipt as JSON")
+
     parser.set_defaults(func=cmd_review_queue)
 
 
@@ -160,9 +244,13 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_build(args)
     if command == "packet":
         return _cmd_packet(args)
+    if command == "run":
+        return _cmd_run(args)
+    if command == "act":
+        return _cmd_act(args)
     print(
-        "Usage: aragora review-queue {build,packet} [...]\n"
-        "Phase 2a is read-only. Run 'aragora review-queue build --help' for options.",
+        "Usage: aragora review-queue {build,packet,run,act} [...]\n"
+        "Run 'aragora review-queue run --help' for the human settlement loop.",
         file=sys.stderr,
     )
     return 2
@@ -172,6 +260,7 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
 
 
 def _cmd_build(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
     try:
         items = _build_queue(limit=args.limit)
     except _GhError as exc:
@@ -182,7 +271,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
         ready_only=bool(getattr(args, "ready_only", False)),
         include_parked=bool(getattr(args, "include_parked", False)),
     )
-    if getattr(args, "json", False):
+    if json_output:
         print(json.dumps([item.to_dict() for item in items], indent=2))
     else:
         _render_table(items)
@@ -190,15 +279,148 @@ def _cmd_build(args: argparse.Namespace) -> int:
 
 
 def _cmd_packet(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
     try:
         packet = _build_packet(args.pr, repo_override=args.repo)
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    if getattr(args, "json", False):
+    if json_output:
         print(json.dumps(packet.to_dict(), indent=2))
     else:
         _render_packet(packet)
+    return 0
+
+
+def _cmd_run(args: argparse.Namespace) -> int:
+    repo_root = resolve_repo_root(Path.cwd())
+    try:
+        _require_clean_worktree(repo_root)
+        items = _build_queue(limit=args.limit)
+    except _GhError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    items = _filter_lanes(
+        items,
+        ready_only=bool(getattr(args, "ready_only", False)),
+        include_parked=bool(getattr(args, "include_parked", False)),
+    )
+    if not items:
+        print("(no PRs in scope)")
+        return 0
+
+    session_id = _session_id()
+    started_at = datetime.now(UTC).isoformat()
+    session_receipt: dict[str, Any] = {
+        "session_id": session_id,
+        "started_at": started_at,
+        "completed_at": None,
+        "reviewed_prs": [],
+        "queue_size": len(items),
+        "ready_only": bool(getattr(args, "ready_only", False)),
+        "include_parked": bool(getattr(args, "include_parked", False)),
+    }
+    session_path = _session_receipt_path(repo_root, session_id)
+    _write_json(session_path, session_receipt)
+
+    for index, item in enumerate(items, start=1):
+        try:
+            packet = _build_packet(str(item.number), repo_override=getattr(args, "repo", None))
+        except _GhError as exc:
+            print(f"\n! skipped PR #{item.number}: {exc}", file=sys.stderr)
+            continue
+        _render_session_packet(packet, item=item, index=index, total=len(items))
+        decision_started = time.monotonic()
+
+        while True:
+            choice = input(
+                "[a]pprove [r]equest-changes [d]efer [o]pen-files [p]acket-json [q]uit: "
+            )
+            normalized = choice.strip().lower()
+            if normalized == "o":
+                _render_changed_files(packet.pr_number, repo_override=getattr(args, "repo", None))
+                continue
+            if normalized == "p":
+                print(json.dumps(packet.to_dict(), indent=2))
+                continue
+            if normalized == "q":
+                session_receipt["completed_at"] = datetime.now(UTC).isoformat()
+                _write_json(session_path, session_receipt)
+                print(f"Session saved: {session_path}")
+                return 0
+            if normalized not in {"a", "r", "d"}:
+                print("Choose one of: a, r, d, o, p, q")
+                continue
+
+            action = {
+                "a": "approve",
+                "r": "request_changes",
+                "d": "defer",
+            }[normalized]
+            reason = ""
+            if action == "approve":
+                reason = input("approve note (optional): ").strip()
+            else:
+                while not reason:
+                    prompt = "reason (required): "
+                    reason = input(prompt).strip()
+            try:
+                receipt = _settle_packet(
+                    packet=packet,
+                    action=action,
+                    reason=reason,
+                    repo_root=repo_root,
+                    repo_override=getattr(args, "repo", None),
+                    session_id=session_id,
+                    elapsed_seconds=round(time.monotonic() - decision_started, 3),
+                )
+            except _GhError as exc:
+                print(f"! could not settle PR #{packet.pr_number}: {exc}", file=sys.stderr)
+                continue
+            session_receipt["reviewed_prs"].append(receipt.to_dict())
+            _write_json(session_path, session_receipt)
+            print(
+                f"{action} recorded for PR #{packet.pr_number} "
+                f"(packet {packet.packet_sha}, head {packet.head_sha})"
+            )
+            break
+
+    session_receipt["completed_at"] = datetime.now(UTC).isoformat()
+    _write_json(session_path, session_receipt)
+    print(f"Session complete: {session_path}")
+    return 0
+
+
+def _cmd_act(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
+    action = _requested_action(args)
+    reason = str(getattr(args, "reason", "") or "").strip()
+    if action == "request_changes" and not reason:
+        print(f"error: {REQUEST_CHANGES_REASON_REQUIRED}", file=sys.stderr)
+        return 2
+    if action == "defer" and not reason:
+        print(f"error: {DEFER_REASON_REQUIRED}", file=sys.stderr)
+        return 2
+
+    repo_root = resolve_repo_root(Path.cwd())
+    try:
+        _require_clean_worktree(repo_root)
+        packet = _build_packet(args.pr, repo_override=getattr(args, "repo", None))
+        receipt = _settle_packet(
+            packet=packet,
+            action=action,
+            reason=reason,
+            repo_root=repo_root,
+            repo_override=getattr(args, "repo", None),
+            session_id=_session_id(),
+        )
+    except _GhError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if json_output:
+        print(json.dumps(receipt.to_dict(), indent=2))
+    else:
+        _render_settlement_receipt(receipt)
     return 0
 
 
@@ -207,6 +429,20 @@ def _cmd_packet(args: argparse.Namespace) -> int:
 
 class _GhError(RuntimeError):
     """Raised when a 'gh' invocation fails or returns malformed JSON."""
+
+
+def _gh_text(args: list[str]) -> str:
+    """Run a 'gh' command and return plain stdout."""
+    proc = subprocess.run(
+        ["gh", *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        stderr = proc.stderr.strip() or "no stderr"
+        raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
+    return proc.stdout.strip()
 
 
 def _gh_json(args: list[str]) -> Any:
@@ -378,8 +614,8 @@ def _build_packet(pr_ref: str, *, repo_override: str | None) -> ReviewPacket:
             "number",
             "title",
             "url",
-            "headRefName",
             "headRefOid",
+            "baseRefOid",
             "isDraft",
             "mergeable",
             "reviewDecision",
@@ -390,6 +626,7 @@ def _build_packet(pr_ref: str, *, repo_override: str | None) -> ReviewPacket:
             "changedFiles",
             "statusCheckRollup",
             "files",
+            "body",
         ]
     )
     args = ["pr", "view", str(number), "--json", fields]
@@ -418,6 +655,8 @@ def _build_packet(pr_ref: str, *, repo_override: str | None) -> ReviewPacket:
     deletions = int(pr.get("deletions", 0) or 0)
     is_draft = bool(pr.get("isDraft", False))
     mergeable = str(pr.get("mergeable", "")).strip().upper()
+    queue_item = _classify_pr(pr)
+    validation = _extract_validation_commands(str(pr.get("body", "") or ""))
 
     risk_flags: list[str] = []
     if is_draft:
@@ -461,24 +700,30 @@ def _build_packet(pr_ref: str, *, repo_override: str | None) -> ReviewPacket:
     if isinstance(author_payload, dict):
         author = str(author_payload.get("login", "")).strip()
 
-    return ReviewPacket(
+    packet = ReviewPacket(
         pr_number=number,
         title=str(pr.get("title", "")).strip(),
         url=str(pr.get("url", "")).strip(),
         head_sha=str(pr.get("headRefOid", "")).strip(),
+        base_sha=str(pr.get("baseRefOid", "")).strip(),
         author=author,
         is_draft=is_draft,
         additions=additions,
         deletions=deletions,
         changed_files=int(pr.get("changedFiles", 0) or 0),
+        queue_bucket=queue_item.lane,
         touched_subsystems=touched,
         high_risk_paths_touched=high_risk,
+        validation=validation,
         checks_summary=checks_summary,
         risk_flags=risk_flags,
         machine_recommendation=recommendation,
         machine_recommendation_reason=recommendation_reason,
+        packet_sha="",
         generated_at=datetime.now(UTC).isoformat(),
     )
+    packet.packet_sha = _packet_sha(packet)
+    return packet
 
 
 def _subsystem_for(path: str) -> str:
@@ -512,6 +757,210 @@ def _parse_pr_number(pr_ref: str) -> int:
         raise _GhError(f"invalid PR ref: {pr_ref!r}") from exc
 
 
+def _extract_validation_commands(body: str) -> list[str]:
+    """Parse bullet lines from a conventional PR `## Validation` section."""
+    lines: list[str] = []
+    in_validation = False
+    for raw_line in body.splitlines():
+        line = raw_line.strip()
+        lower = line.lower()
+        if lower.startswith("## "):
+            in_validation = lower == "## validation"
+            continue
+        if not in_validation:
+            continue
+        if line.startswith("### "):
+            break
+        if line.startswith("- ") or line.startswith("* "):
+            lines.append(line[2:].strip())
+    return lines
+
+
+def _requested_action(args: argparse.Namespace) -> str:
+    if bool(getattr(args, "approve", False)):
+        return "approve"
+    if bool(getattr(args, "request_changes", False)):
+        return "request_changes"
+    if bool(getattr(args, "defer", False)):
+        return "defer"
+    raise _GhError("no settlement action selected")
+
+
+def _packet_sha(packet: ReviewPacket) -> str:
+    payload = packet.to_dict()
+    payload.pop("packet_sha", None)
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _session_id() -> str:
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+
+
+def _review_queue_root(repo_root: Path) -> Path:
+    return repo_root / REVIEW_QUEUE_ARTIFACT_DIR
+
+
+def _session_receipt_path(repo_root: Path, session_id: str) -> Path:
+    return _review_queue_root(repo_root) / "sessions" / f"{session_id}.json"
+
+
+def _settlement_receipt_path(
+    repo_root: Path,
+    *,
+    session_id: str,
+    pr_number: int,
+    action: str,
+) -> Path:
+    filename = f"pr-{pr_number}-{session_id}-{action}.json"
+    return _review_queue_root(repo_root) / "receipts" / filename
+
+
+def _write_json(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def _require_clean_worktree(repo_root: Path) -> None:
+    proc = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        stderr = proc.stderr.strip() or "no stderr"
+        raise _GhError(f"git status failed in {repo_root}: {stderr}")
+    if proc.stdout.strip():
+        raise _GhError(
+            "review-queue settlement requires a clean worktree so receipts match the reviewed truth"
+        )
+
+
+def _current_head_sha(pr_number: int, *, repo_override: str | None) -> str:
+    args = ["pr", "view", str(pr_number), "--json", "headRefOid"]
+    if repo_override:
+        args.extend(["--repo", repo_override])
+    payload = _gh_json(args)
+    if not isinstance(payload, dict):
+        raise _GhError(f"PR #{pr_number} not found while verifying packet freshness")
+    return str(payload.get("headRefOid", "")).strip()
+
+
+def _github_actor() -> str:
+    try:
+        payload = _gh_json(["api", "user"])
+    except _GhError:
+        return "unknown"
+    if not isinstance(payload, dict):
+        return "unknown"
+    return str(payload.get("login", "unknown") or "unknown").strip()
+
+
+def _github_settlement_event(action: str) -> str:
+    if action == "approve":
+        return "APPROVE"
+    if action == "request_changes":
+        return "REQUEST_CHANGES"
+    return "COMMENT"
+
+
+def _settlement_body(packet: ReviewPacket, *, action: str, reason: str) -> str:
+    lines = [
+        "Human settlement via `aragora review-queue`.",
+        "",
+        f"- Action: `{action}`",
+        f"- Packet SHA: `{packet.packet_sha}`",
+        f"- Head SHA: `{packet.head_sha}`",
+        f"- Base SHA: `{packet.base_sha}`",
+        f"- Queue bucket: `{packet.queue_bucket}`",
+        f"- Machine recommendation: `{packet.machine_recommendation}`",
+    ]
+    if reason:
+        lines.append(f"- Reason: {reason}")
+    lines.extend(
+        [
+            "",
+            ADVISORY_NOTE,
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _settle_packet(
+    *,
+    packet: ReviewPacket,
+    action: str,
+    reason: str,
+    repo_root: Path,
+    repo_override: str | None,
+    session_id: str,
+    elapsed_seconds: float | None = None,
+) -> SettlementReceipt:
+    current_head_sha = _current_head_sha(packet.pr_number, repo_override=repo_override)
+    if current_head_sha != packet.head_sha:
+        raise _GhError(
+            f"PR #{packet.pr_number} head changed from {packet.head_sha} to {current_head_sha}; "
+            "refresh the packet before settlement"
+        )
+
+    body = _settlement_body(packet, action=action, reason=reason)
+    if action == "approve":
+        gh_args = ["pr", "review", str(packet.pr_number), "--approve", "--body", body]
+    elif action == "request_changes":
+        gh_args = ["pr", "review", str(packet.pr_number), "--request-changes", "--body", body]
+    else:
+        gh_args = ["pr", "comment", str(packet.pr_number), "--body", body]
+    if repo_override:
+        gh_args.extend(["--repo", repo_override])
+    _gh_text(gh_args)
+
+    reviewed_at = datetime.now(UTC).isoformat()
+    receipt = SettlementReceipt(
+        session_id=session_id,
+        reviewed_at=reviewed_at,
+        actor=_github_actor(),
+        action=action,
+        reason=reason,
+        pr_number=packet.pr_number,
+        pr_url=packet.url,
+        head_sha=packet.head_sha,
+        base_sha=packet.base_sha,
+        packet_sha=packet.packet_sha,
+        queue_bucket=packet.queue_bucket,
+        machine_recommendation=packet.machine_recommendation,
+        github_event=_github_settlement_event(action),
+        elapsed_seconds=elapsed_seconds,
+    )
+    receipt_path = _settlement_receipt_path(
+        repo_root,
+        session_id=session_id,
+        pr_number=packet.pr_number,
+        action=action,
+    )
+    receipt.receipt_path = str(receipt_path)
+    _write_json(receipt_path, receipt.to_dict())
+    return receipt
+
+
+def _render_changed_files(pr_number: int, *, repo_override: str | None) -> None:
+    args = ["pr", "view", str(pr_number), "--json", "files"]
+    if repo_override:
+        args.extend(["--repo", repo_override])
+    payload = _gh_json(args)
+    files = []
+    if isinstance(payload, dict):
+        for item in payload.get("files") or []:
+            if isinstance(item, dict) and item.get("path"):
+                files.append(str(item["path"]).strip())
+    print("changed files:")
+    for path in files:
+        print(f"  - {path}")
+    if not files:
+        print("  (no changed files reported)")
+
+
 # --- Rendering -------------------------------------------------------------
 
 
@@ -538,8 +987,8 @@ def _render_table(items: list[QueueItem]) -> None:
         print(f"        {item.url}  [{item.lane_reason}]")
     print()
     print(
-        "Note: this queue is advisory only. Settlement (approve/request-changes/defer) "
-        "requires human action via GitHub UI or `gh pr review` / `gh pr merge`."
+        "Note: machine review remains advisory only. Settlement writes are explicit "
+        "human `gh pr review` / `gh pr comment` actions with local receipts."
     )
 
 
@@ -549,8 +998,11 @@ def _render_packet(packet: ReviewPacket) -> None:
     print(f"# {packet.url}")
     print()
     print(f"head SHA:        {packet.head_sha}")
+    print(f"base SHA:        {packet.base_sha}")
+    print(f"packet SHA:      {packet.packet_sha}")
     print(f"author:          {packet.author}")
     print(f"draft:           {packet.is_draft}")
+    print(f"queue bucket:    {packet.queue_bucket}")
     print(
         f"diff:            +{packet.additions}/-{packet.deletions} "
         f"across {packet.changed_files} files"
@@ -567,6 +1019,11 @@ def _render_packet(packet: ReviewPacket) -> None:
         for path in packet.high_risk_paths_touched:
             print(f"  - {path}")
         print()
+    if packet.validation:
+        print("validation:")
+        for line in packet.validation:
+            print(f"  - {line}")
+        print()
     if packet.risk_flags:
         print("risk flags:")
         for flag in packet.risk_flags:
@@ -578,3 +1035,30 @@ def _render_packet(packet: ReviewPacket) -> None:
     print(f"generated at: {packet.generated_at}")
     print()
     print(f"-- {packet.settlement_note}")
+
+
+def _render_session_packet(
+    packet: ReviewPacket,
+    *,
+    item: QueueItem,
+    index: int,
+    total: int,
+) -> None:
+    print()
+    print(f"[{index}/{total}] lane={item.lane}  reason={item.lane_reason}")
+    _render_packet(packet)
+
+
+def _render_settlement_receipt(receipt: SettlementReceipt) -> None:
+    print(f"Recorded {receipt.action} for PR #{receipt.pr_number}")
+    print(f"  actor:        {receipt.actor}")
+    print(f"  reviewed at:  {receipt.reviewed_at}")
+    print(f"  head SHA:     {receipt.head_sha}")
+    print(f"  packet SHA:   {receipt.packet_sha}")
+    print(f"  queue bucket: {receipt.queue_bucket}")
+    print(f"  event:        {receipt.github_event}")
+    if receipt.reason:
+        print(f"  reason:       {receipt.reason}")
+    if receipt.elapsed_seconds is not None:
+        print(f"  elapsed:      {receipt.elapsed_seconds:.3f}s")
+    print(f"  receipt:      {receipt.receipt_path}")

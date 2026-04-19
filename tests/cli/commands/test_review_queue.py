@@ -1,4 +1,4 @@
-"""Tests for aragora review-queue (Phase 2a, read-only)."""
+"""Tests for aragora review-queue packet + settlement flows."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import argparse
 import io
 import json
 from contextlib import redirect_stdout
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -20,10 +21,13 @@ from aragora.cli.commands.review_queue import (
     _build_packet,
     _build_queue,
     _classify_pr,
+    _extract_validation_commands,
     _filter_lanes,
     _GhError,
     _is_high_risk_path,
     _parse_pr_number,
+    _requested_action,
+    _settle_packet,
     _subsystem_for,
     _summarize_checks,
     add_review_queue_parser,
@@ -48,6 +52,7 @@ def _make_pr(
     checks: list[dict[str, Any]] | None = None,
     files: list[str] | None = None,
     author: str = "an0mium",
+    body: str = "",
 ) -> dict[str, Any]:
     """Build a synthetic gh-pr-list-style payload."""
     return {
@@ -56,6 +61,7 @@ def _make_pr(
         "url": f"https://github.com/synaptent/aragora/pull/{number}",
         "headRefName": f"branch-{number}",
         "headRefOid": f"sha{number:08d}",
+        "baseRefOid": "basesha0001",
         "isDraft": is_draft,
         "mergeable": mergeable,
         "reviewDecision": review_decision,
@@ -67,6 +73,7 @@ def _make_pr(
         "statusCheckRollup": checks
         or [{"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"}],
         "files": [{"path": p} for p in (files or [])],
+        "body": body,
     }
 
 
@@ -302,6 +309,25 @@ class TestParsePRNumber:
             _parse_pr_number("not a number")
 
 
+class TestValidationExtraction:
+    def test_extracts_validation_bullets(self) -> None:
+        body = """
+## Summary
+- one
+
+## Validation
+- `python3 -m pytest tests/cli/commands/test_review_queue.py -q`
+- `bash scripts/automation_pr_preflight.sh origin/main HEAD`
+
+## Notes
+- later
+"""
+        assert _extract_validation_commands(body) == [
+            "`python3 -m pytest tests/cli/commands/test_review_queue.py -q`",
+            "`bash scripts/automation_pr_preflight.sh origin/main HEAD`",
+        ]
+
+
 # --- _build_queue + _build_packet (with mocked gh) -------------------------
 
 
@@ -336,6 +362,11 @@ class TestBuildQueueAndPacket:
         pr_payload = _make_pr(
             number=6280,
             files=["aragora/cli/commands/review_pr.py", "tests/cli/commands/test_review_pr.py"],
+            body=(
+                "## Validation\n"
+                "- `python3 -m pytest tests/cli/commands/test_review_pr.py -q`\n"
+                "- `bash scripts/automation_pr_preflight.sh origin/main HEAD`\n"
+            ),
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
@@ -346,9 +377,16 @@ class TestBuildQueueAndPacket:
         assert packet.advisory_only is True
         assert packet.settlement_note == ADVISORY_NOTE
         assert packet.machine_recommendation == "approve_candidate"
+        assert packet.queue_bucket == "ready_now"
+        assert packet.base_sha == "basesha0001"
+        assert packet.packet_sha.startswith("sha256:")
         assert "aragora/cli" in packet.touched_subsystems
         assert "tests/cli" in packet.touched_subsystems
         assert packet.high_risk_paths_touched == []
+        assert packet.validation == [
+            "`python3 -m pytest tests/cli/commands/test_review_pr.py -q`",
+            "`bash scripts/automation_pr_preflight.sh origin/main HEAD`",
+        ]
 
     def test_build_packet_flags_high_risk_paths(self, monkeypatch: pytest.MonkeyPatch) -> None:
         pr_payload = _make_pr(
@@ -460,17 +498,21 @@ class TestJsonOutput:
             "title",
             "url",
             "head_sha",
+            "base_sha",
             "author",
             "is_draft",
             "additions",
             "deletions",
             "changed_files",
+            "queue_bucket",
             "touched_subsystems",
             "high_risk_paths_touched",
+            "validation",
             "checks_summary",
             "risk_flags",
             "machine_recommendation",
             "machine_recommendation_reason",
+            "packet_sha",
             "generated_at",
             "advisory_only",
             "settlement_note",
@@ -494,7 +536,7 @@ class TestJsonOutput:
 
 
 class TestCommandDispatch:
-    def test_parser_registers_build_and_packet(self) -> None:
+    def test_parser_registers_build_packet_run_and_act(self) -> None:
         root = argparse.ArgumentParser()
         sub = root.add_subparsers()
         add_review_queue_parser(sub)
@@ -507,11 +549,134 @@ class TestCommandDispatch:
         ns_packet = root.parse_args(["review-queue", "packet", "6280", "--json"])
         assert ns_packet.review_queue_command == "packet"
         assert ns_packet.pr == "6280"
+        # run invocation parses
+        ns_run = root.parse_args(["review-queue", "run", "--limit", "3", "--ready-only"])
+        assert ns_run.review_queue_command == "run"
+        assert ns_run.limit == 3
+        assert ns_run.ready_only is True
+        # act invocation parses
+        ns_act = root.parse_args(
+            ["review-queue", "act", "6280", "--request-changes", "--reason", "needs a test"]
+        )
+        assert ns_act.review_queue_command == "act"
+        assert ns_act.pr == "6280"
+        assert ns_act.request_changes is True
+        assert ns_act.reason == "needs a test"
 
     def test_cmd_review_queue_with_no_subcommand_returns_2(self) -> None:
         ns = argparse.Namespace(review_queue_command=None)
         rc = cmd_review_queue(ns)
         assert rc == 2
+
+
+class TestSettlementHelpers:
+    def test_requested_action(self) -> None:
+        assert (
+            _requested_action(argparse.Namespace(approve=True, request_changes=False, defer=False))
+            == "approve"
+        )
+        assert (
+            _requested_action(argparse.Namespace(approve=False, request_changes=True, defer=False))
+            == "request_changes"
+        )
+        assert (
+            _requested_action(argparse.Namespace(approve=False, request_changes=False, defer=True))
+            == "defer"
+        )
+
+    def test_settle_packet_writes_receipt(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        recorded: list[list[str]] = []
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._current_head_sha",
+            lambda pr_number, repo_override=None: "headsha123",
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_text",
+            lambda args: recorded.append(args) or "",
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._github_actor",
+            lambda: "an0mium",
+        )
+        packet = ReviewPacket(
+            pr_number=6294,
+            title="route PR-targeted handoffs out of boss queue",
+            url="https://github.com/synaptent/aragora/pull/6294",
+            head_sha="headsha123",
+            base_sha="basesha123",
+            author="codex",
+            is_draft=False,
+            additions=10,
+            deletions=2,
+            changed_files=1,
+            queue_bucket="ready_now",
+            touched_subsystems=["scripts"],
+            high_risk_paths_touched=[],
+            validation=["`python3 -m pytest -q tests/scripts/test_publish_automation_handoffs.py`"],
+            checks_summary="5/5 green",
+            risk_flags=[],
+            machine_recommendation="approve_candidate",
+            machine_recommendation_reason="all green, bounded diff, no high-risk paths",
+            packet_sha="sha256:testpacket",
+            generated_at="2026-04-19T05:00:00+00:00",
+        )
+        receipt = _settle_packet(
+            packet=packet,
+            action="approve",
+            reason="looks bounded",
+            repo_root=tmp_path,
+            repo_override=None,
+            session_id="session-1",
+            elapsed_seconds=1.25,
+        )
+        assert recorded and "--approve" in recorded[0]
+        assert receipt.actor == "an0mium"
+        assert receipt.github_event == "APPROVE"
+        assert receipt.receipt_path.endswith("pr-6294-session-1-approve.json")
+        saved = json.loads(Path(receipt.receipt_path).read_text())
+        assert saved["packet_sha"] == "sha256:testpacket"
+        assert saved["reason"] == "looks bounded"
+
+    def test_settle_packet_rejects_stale_head(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._current_head_sha",
+            lambda pr_number, repo_override=None: "new-head",
+        )
+        packet = ReviewPacket(
+            pr_number=1,
+            title="stale",
+            url="https://github.com/synaptent/aragora/pull/1",
+            head_sha="old-head",
+            base_sha="basesha123",
+            author="codex",
+            is_draft=False,
+            additions=1,
+            deletions=1,
+            changed_files=1,
+            queue_bucket="ready_now",
+            touched_subsystems=["aragora/cli"],
+            high_risk_paths_touched=[],
+            validation=[],
+            checks_summary="1/1 green",
+            risk_flags=[],
+            machine_recommendation="approve_candidate",
+            machine_recommendation_reason="clean",
+            packet_sha="sha256:testpacket",
+            generated_at="2026-04-19T05:00:00+00:00",
+        )
+        with pytest.raises(_GhError, match="refresh the packet"):
+            _settle_packet(
+                packet=packet,
+                action="approve",
+                reason="",
+                repo_root=tmp_path,
+                repo_override=None,
+                session_id="session-2",
+            )
 
     def test_build_command_renders_table(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
@@ -572,3 +737,17 @@ class TestCommandDispatch:
         assert payload["pr_number"] == 42
         assert payload["advisory_only"] is True
         assert payload["settlement_note"] == ADVISORY_NOTE
+
+    def test_act_command_requires_reason_for_request_changes(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="act",
+            pr="42",
+            repo=None,
+            approve=False,
+            request_changes=True,
+            defer=False,
+            reason="",
+            json=False,
+        )
+        rc = cmd_review_queue(ns)
+        assert rc == 2
