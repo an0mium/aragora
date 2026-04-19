@@ -76,7 +76,8 @@ async def test_run_review_pr_loop_review_only_writes_artifact(
         published.update(kwargs)
         return {
             "posted": True,
-            "event": "APPROVE",
+            "event": "COMMENT",
+            "mode": "advisory",
             "url": "https://github.com/review/1",
             "error": None,
         }
@@ -94,8 +95,10 @@ async def test_run_review_pr_loop_review_only_writes_artifact(
     assert result["fix_run"] is None
     assert len(result["review_runs"]) == 1
     assert result["github_review"]["posted"] is True
-    assert result["github_review"]["event"] == "APPROVE"
+    assert result["github_review"]["event"] == "COMMENT"
+    assert result["github_review"]["mode"] == "advisory"
     assert published["final_status"] == "passed"
+    assert published["advisory_only"] is True
 
     run_path = Path(result["artifact_dir"]) / "run.json"
     assert run_path.exists()
@@ -103,6 +106,7 @@ async def test_run_review_pr_loop_review_only_writes_artifact(
     assert persisted["final_status"] == "passed"
     assert persisted["pr"]["number"] == 1137
     assert persisted["github_review"]["posted"] is True
+    assert persisted["github_review_mode"] == "advisory"
 
 
 @pytest.mark.asyncio
@@ -169,7 +173,7 @@ async def test_run_review_pr_loop_auto_reruns_after_fix(
 
     async def _fake_publish(**kwargs: object) -> dict[str, object]:
         published.update(kwargs)
-        return {"posted": True, "event": "APPROVE", "url": None, "error": None}
+        return {"posted": True, "event": "COMMENT", "mode": "advisory", "url": None, "error": None}
 
     monkeypatch.setattr(review_pr, "_publish_review_outcome", _fake_publish)
 
@@ -187,8 +191,10 @@ async def test_run_review_pr_loop_auto_reruns_after_fix(
     assert result["fix_run"]["status"] == "applied"
     assert result["pr"]["head_sha"] == "def456"
     assert result["github_review"]["posted"] is True
+    assert result["github_review"]["event"] == "COMMENT"
     assert published["final_status"] == "passed"
     assert published["fix_run"]["status"] == "applied"
+    assert published["advisory_only"] is True
 
 
 def test_build_github_review_body_includes_fix_and_findings(
@@ -218,13 +224,31 @@ def test_build_github_review_body_includes_fix_and_findings(
         },
         final_status="changes_requested",
         review_run_count=2,
+        advisory_only=True,
     )
 
-    assert "## Aragora review-pr: changes requested" in body
+    assert "## Aragora review-pr: advisory findings" in body
+    assert "- Review mode: `advisory comment only`" in body
+    assert "machine review is advisory only" in body
     assert "- Final status: `changes_requested`" in body
     assert "- Review route: `claude:max-01`" in body
     assert "### Fix Loop" in body
     assert "- [P1] Crash (aragora/cli/commands/review_pr.py): Guard the empty branch path." in body
+
+
+def test_github_review_event_defaults_to_comment_in_advisory_mode() -> None:
+    assert review_pr._github_review_event("passed", advisory_only=True) == "COMMENT"
+    assert review_pr._github_review_event("changes_requested", advisory_only=True) == "COMMENT"
+    assert review_pr._github_review_event("blocked_nonreviewable", advisory_only=True) == "COMMENT"
+
+
+def test_github_review_event_preserves_status_reviews_when_not_advisory() -> None:
+    assert review_pr._github_review_event("passed", advisory_only=False) == "APPROVE"
+    assert (
+        review_pr._github_review_event("changes_requested", advisory_only=False)
+        == "REQUEST_CHANGES"
+    )
+    assert review_pr._github_review_event("blocked_nonreviewable", advisory_only=False) == "COMMENT"
 
 
 def test_cleanup_worktree_uses_safe_cleanup_helper(

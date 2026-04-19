@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 UTC = timezone.utc
 MAX_DIFF_CHARS = 60000
 _VALID_REVIEW_STATUSES = {"passed", "changes_requested", "blocked_nonreviewable"}
-_GITHUB_REVIEW_EVENT_BY_STATUS = {
+_STATUS_REVIEW_EVENT_BY_STATUS = {
     "passed": "APPROVE",
     "changes_requested": "REQUEST_CHANGES",
     "blocked_nonreviewable": "COMMENT",
@@ -163,6 +163,7 @@ async def run_review_pr_loop(
     auto_rerun: bool = False,
     artifact_root: Path | None = None,
     keep_worktree: bool = False,
+    advisory_only: bool = True,
 ) -> dict[str, Any]:
     target = _fetch_pr_target(pr_ref, repo_override=repo_override, repo_root=repo_root)
     run_dir = _artifact_run_dir(repo_root, target.number, artifact_root=artifact_root)
@@ -219,6 +220,7 @@ async def run_review_pr_loop(
         "reviewer": reviewer,
         "fixer": fixer,
         "auto_rerun": auto_rerun,
+        "github_review_mode": "advisory" if advisory_only else "status",
         "artifact_dir": str(run_dir),
         "review_runs": review_runs,
         "fix_run": fix_run,
@@ -229,6 +231,7 @@ async def run_review_pr_loop(
         review_runs=review_runs,
         fix_run=fix_run,
         final_status=final_status,
+        advisory_only=advisory_only,
     )
     _write_json(run_dir / "run.json", payload)
     return payload
@@ -692,9 +695,10 @@ async def _publish_review_outcome(
     review_runs: list[dict[str, Any]],
     fix_run: dict[str, Any] | None,
     final_status: str,
+    advisory_only: bool = True,
 ) -> dict[str, Any]:
     latest_review = review_runs[-1] if review_runs else {}
-    event = _GITHUB_REVIEW_EVENT_BY_STATUS.get(final_status, "COMMENT")
+    event = _github_review_event(final_status, advisory_only=advisory_only)
     pr_url = target.url or (
         f"https://github.com/{target.repo}/pull/{target.number}" if target.repo else ""
     )
@@ -704,6 +708,7 @@ async def _publish_review_outcome(
         fix_run=fix_run,
         final_status=final_status,
         review_run_count=len(review_runs),
+        advisory_only=advisory_only,
     )
     connector = GitHubConnector(repo=target.repo or None)
     try:
@@ -724,6 +729,7 @@ async def _publish_review_outcome(
     return {
         "posted": bool(submission.get("success")),
         "event": event,
+        "mode": "advisory" if advisory_only else "status",
         "url": review_url or None,
         "error": str(submission.get("error", "")).strip() or None,
     }
@@ -736,23 +742,27 @@ def _build_github_review_body(
     fix_run: dict[str, Any] | None,
     final_status: str,
     review_run_count: int,
+    advisory_only: bool = True,
 ) -> str:
-    status_title = {
-        "passed": "approved",
-        "changes_requested": "changes requested",
-        "blocked_nonreviewable": "commented",
-    }.get(final_status, final_status or "commented")
+    status_title = _review_title(final_status, advisory_only=advisory_only)
     summary = str(latest_review.get("summary", "")).strip() or _default_review_summary(final_status)
     lines = [
         f"## Aragora review-pr: {status_title}",
         "",
         summary,
         "",
+        f"- Review mode: `{'advisory comment only' if advisory_only else 'status review'}`",
         f"- Final status: `{final_status}`",
         f"- Reviewer: `{latest_review.get('reviewer', 'unknown')}`",
         f"- Reviewed at: `{latest_review.get('reviewed_at', 'unknown')}`",
         f"- Head SHA: `{target.head_sha or 'unknown'}`",
     ]
+    if advisory_only:
+        lines.extend(
+            [
+                "- Settlement note: machine review is advisory only; it does not approve or block merge on its own.",
+            ]
+        )
     candidate = latest_review.get("candidate")
     if isinstance(candidate, dict):
         candidate_label = str(candidate.get("label", "")).strip()
@@ -799,6 +809,26 @@ def _default_review_summary(final_status: str) -> str:
     if final_status == "changes_requested":
         return "The latest PR head has blocking issues that should be addressed before merge."
     return "Aragora could not produce a reviewable pass/fail result for the latest PR head."
+
+
+def _github_review_event(final_status: str, *, advisory_only: bool) -> str:
+    if advisory_only:
+        return "COMMENT"
+    return _STATUS_REVIEW_EVENT_BY_STATUS.get(final_status, "COMMENT")
+
+
+def _review_title(final_status: str, *, advisory_only: bool) -> str:
+    if advisory_only:
+        return {
+            "passed": "advisory pass",
+            "changes_requested": "advisory findings",
+            "blocked_nonreviewable": "advisory blocked",
+        }.get(final_status, final_status or "advisory comment")
+    return {
+        "passed": "approved",
+        "changes_requested": "changes requested",
+        "blocked_nonreviewable": "commented",
+    }.get(final_status, final_status or "commented")
 
 
 def _print_run_summary(result: dict[str, Any]) -> None:
