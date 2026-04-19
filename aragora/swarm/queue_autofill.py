@@ -1,8 +1,8 @@
 """Automatic restock of the boss-loop queue when it goes empty.
 
 When the boss loop picks up no eligible issue for ``N`` consecutive ticks
-(default 3) we call back into the issue scanner to mint a small batch of
-well-proven candidates.  This keeps the autonomous loop from idling while
+(default 3) we call back into the issue scanner to surface a small batch of
+well-proven candidates. This keeps the autonomous loop from idling while
 waiting for a human to re-label work.
 
 Design constraints (from the mission brief)
@@ -13,11 +13,11 @@ Design constraints (from the mission brief)
   ``skipped`` result without touching GitHub.
 * **Well-proven categories only** — we only scan ``test_coverage`` and
   ``broad_exception`` (high historical success).  Anything else is ignored.
-* **Small batches** — never create more than ``max_issues`` (default 3) in
-  one invocation.
+* **Small batches** — never surface more than ``max_issues`` (default 3)
+  advisory candidates in one invocation.
 * **Filter-aligned** — every candidate is routed through
   :func:`classify_proof_first_queue_issue` with the current roadmap policy
-  *before* it is created.  If the filter would reject it, we drop it.
+  *before* it is surfaced. If the filter would reject it, we drop it.
 * **Rate limited** — at most one autofill per ``min_interval_seconds``
   (default 3600).  The last-run timestamp is persisted in a small JSON
   sentinel inside ``.aragora/overnight/`` so it survives process restarts.
@@ -186,7 +186,7 @@ def maybe_autofill_queue(
     validate_body_fn: Callable[[str], tuple[bool, str]] | None = None,
     format_body_fn: Callable[[Any], str] | None = None,
 ) -> AutofillResult:
-    """Decide whether to restock the queue and, if so, create small bounded issues.
+    """Decide whether to surface advisory restock candidates.
 
     ``existing_candidates`` is the list of boss-loop-visible candidates the
     caller already rejected (because they didn't meet the filter).  We use
@@ -194,10 +194,9 @@ def maybe_autofill_queue(
     existing candidates *would* pass the canonical filter today we skip the
     autofill entirely to avoid duplicating tracked work.
 
-    ``create_issue`` is a thin callback provided by the caller (typically a
-    wrapper around ``gh issue create``).  We call it once per candidate that
-    survives every gate.  Returning ``False`` is treated as a failed create
-    and is surfaced via :attr:`AutofillResult.errors`.
+    ``create_issue`` is retained for backward compatibility but is ignored.
+    Queue autofill is advisory-only and does not create GitHub issues; any
+    actual queue widening must flow through explicit human settlement.
     """
     threshold = max(1, int(threshold))
     max_issues = max(0, int(max_issues))
@@ -362,48 +361,20 @@ def maybe_autofill_queue(
         return _finalize(result, metrics_jsonl_path)
 
     trimmed = eligible[:max_issues]
-    created: list[AutofillCandidate] = []
-
-    if create_issue is None:
-        # Dry-run style: report what *would* be created but don't call GitHub.
-        for candidate, _body, lane in trimmed:
-            created.append(_as_autofill_candidate(candidate, lane))
-        result = AutofillResult(
-            attempted=True,
-            reason="created_dry_run",
-            consecutive_empty_ticks=consecutive_empty_ticks,
-            threshold=threshold,
-            seconds_since_last=seconds_since_last,
-            scanned_count=len(scanned),
-            eligible_count=len(eligible),
-            filtered_out=filtered_out,
-            created=tuple(created),
-        )
-        _write_last_run(sentinel_path, timestamp)
-        return _finalize(result, metrics_jsonl_path)
-
-    for candidate, _body, lane in trimmed:
-        autofill = _as_autofill_candidate(candidate, lane)
-        try:
-            ok = bool(create_issue(autofill))
-        except Exception as exc:
-            errors.append(f"{autofill.title}: {exc}")
-            continue
-        if ok:
-            created.append(autofill)
-        else:
-            errors.append(f"{autofill.title}: create_issue returned False")
+    created = tuple(_as_autofill_candidate(candidate, lane) for candidate, _body, lane in trimmed)
+    if create_issue is not None:
+        errors.append("create_issue callback ignored; queue autofill is advisory-only")
 
     result = AutofillResult(
         attempted=True,
-        reason=("created" if created else "create_failed"),
+        reason="created_dry_run",
         consecutive_empty_ticks=consecutive_empty_ticks,
         threshold=threshold,
         seconds_since_last=seconds_since_last,
         scanned_count=len(scanned),
         eligible_count=len(eligible),
         filtered_out=filtered_out,
-        created=tuple(created),
+        created=created,
         errors=tuple(errors),
     )
     _write_last_run(sentinel_path, timestamp)

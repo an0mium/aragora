@@ -1181,7 +1181,7 @@ class BossLoop:
             return None
 
         payload = result.to_dict()
-        if payload.get("attempted") and payload.get("reason") in {"created", "created_dry_run"}:
+        if payload.get("attempted") and payload.get("reason") == "created_dry_run":
             self._consecutive_empty_iterations = 0
         return payload
 

@@ -181,7 +181,6 @@ def test_ignores_candidates_outside_allowed_categories(tmp_path: Path) -> None:
         _FakeCandidate(category="silent_exception", title="drop silent excepts"),
         _FakeCandidate(category="type_annotation", title="add return types"),
     ]
-    created: list[AutofillCandidate] = []
 
     result = maybe_autofill_queue(
         repo_root=tmp_path,
@@ -190,7 +189,6 @@ def test_ignores_candidates_outside_allowed_categories(tmp_path: Path) -> None:
         scan_fn=_make_scan(candidates),
         classify_fn=_make_classify(),
         validate_body_fn=_make_validate(),
-        create_issue=lambda candidate: (created.append(candidate) or True),
         sentinel_path=tmp_path / "sentinel.json",
         metrics_jsonl_path=tmp_path / "metrics.jsonl",
     )
@@ -199,7 +197,6 @@ def test_ignores_candidates_outside_allowed_categories(tmp_path: Path) -> None:
     # should even surface in the scanner output, and no issues get created.
     assert result.attempted is True
     assert result.reason == "no_eligible_candidates"
-    assert created == []
     assert "silent_exception" not in ALLOWED_CATEGORIES
 
 
@@ -260,7 +257,6 @@ def test_passes_rate_limit_when_interval_elapsed(tmp_path: Path) -> None:
         description="Add unit tests.",
         file_scope=["aragora/foo.py"],
     )
-    created: list[AutofillCandidate] = []
 
     result = maybe_autofill_queue(
         repo_root=tmp_path,
@@ -270,13 +266,12 @@ def test_passes_rate_limit_when_interval_elapsed(tmp_path: Path) -> None:
         scan_fn=_make_scan([candidate]),
         classify_fn=_make_classify(),
         validate_body_fn=_make_validate(),
-        create_issue=lambda item: (created.append(item) or True),
         sentinel_path=sentinel,
         metrics_jsonl_path=tmp_path / "metrics.jsonl",
     )
     assert result.attempted is True
-    assert result.reason == "created"
-    assert len(created) == 1
+    assert result.reason == "created_dry_run"
+    assert result.created_count == 1
     # Sentinel bumped forward to now=5000.0
     payload = json.loads(sentinel.read_text(encoding="utf-8"))
     assert payload == {"last_run_ts": 5000.0}
@@ -287,7 +282,7 @@ def test_passes_rate_limit_when_interval_elapsed(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_creates_up_to_max_issues(tmp_path: Path) -> None:
+def test_surfaces_up_to_max_issues(tmp_path: Path) -> None:
     candidates = [
         _FakeCandidate(
             category="test_coverage",
@@ -297,8 +292,6 @@ def test_creates_up_to_max_issues(tmp_path: Path) -> None:
         )
         for i in range(5)
     ]
-    created: list[AutofillCandidate] = []
-
     result = maybe_autofill_queue(
         repo_root=tmp_path,
         consecutive_empty_ticks=10,
@@ -307,15 +300,13 @@ def test_creates_up_to_max_issues(tmp_path: Path) -> None:
         scan_fn=_make_scan(candidates),
         classify_fn=_make_classify(),
         validate_body_fn=_make_validate(),
-        create_issue=lambda item: (created.append(item) or True),
         sentinel_path=tmp_path / "sentinel.json",
         metrics_jsonl_path=tmp_path / "metrics.jsonl",
     )
 
     assert result.attempted is True
-    assert result.reason == "created"
+    assert result.reason == "created_dry_run"
     assert result.created_count == 2
-    assert len(created) == 2
 
 
 def test_classifier_rejection_is_filtered_out(tmp_path: Path) -> None:
@@ -401,12 +392,11 @@ def test_metrics_row_includes_created_titles(tmp_path: Path) -> None:
         scan_fn=_make_scan([candidate]),
         classify_fn=_make_classify(),
         validate_body_fn=_make_validate(),
-        create_issue=lambda _c: True,
         sentinel_path=tmp_path / "sentinel.json",
         metrics_jsonl_path=metrics,
     )
     assert result.attempted is True
-    assert result.reason == "created"
+    assert result.reason == "created_dry_run"
     assert result.created_count == 1
 
     rows = [json.loads(line) for line in metrics.read_text(encoding="utf-8").splitlines()]
@@ -438,15 +428,17 @@ def test_scan_failure_reports_error(tmp_path: Path) -> None:
     assert result.errors and "boom" in result.errors[0]
 
 
-def test_create_issue_failure_surfaces_in_errors(tmp_path: Path) -> None:
+def test_create_issue_callback_is_ignored(tmp_path: Path) -> None:
     candidate = _FakeCandidate(
         category="test_coverage",
         title="Add unit tests",
         file_scope=["aragora/foo.py"],
     )
+    invoked: list[AutofillCandidate] = []
 
-    def flaky_create(_: AutofillCandidate) -> bool:
-        return False
+    def should_not_run(item: AutofillCandidate) -> bool:
+        invoked.append(item)
+        return True
 
     result = maybe_autofill_queue(
         repo_root=tmp_path,
@@ -455,14 +447,15 @@ def test_create_issue_failure_surfaces_in_errors(tmp_path: Path) -> None:
         scan_fn=_make_scan([candidate]),
         classify_fn=_make_classify(),
         validate_body_fn=_make_validate(),
-        create_issue=flaky_create,
+        create_issue=should_not_run,
         sentinel_path=tmp_path / "sentinel.json",
         metrics_jsonl_path=tmp_path / "metrics.jsonl",
     )
 
     assert result.attempted is True
-    assert result.reason == "create_failed"
-    assert result.created_count == 0
+    assert result.reason == "created_dry_run"
+    assert result.created_count == 1
+    assert invoked == []
     assert result.errors
 
 
