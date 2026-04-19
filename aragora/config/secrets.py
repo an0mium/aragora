@@ -167,6 +167,11 @@ CRITICAL_SECRETS = frozenset(
         "OPENAI_API_KEY",
         "OPENROUTER_API_KEY",
         "GEMINI_API_KEY",
+        "XAI_API_KEY",
+        "GROK_API_KEY",
+        "MISTRAL_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "KIMI_API_KEY",
     }
 )
 
