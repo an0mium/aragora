@@ -855,7 +855,10 @@ async def dispatch_issue(
     requested_target_agent = (
         str(pending_handoff[1]).strip().lower()
         if pending_handoff is not None and str(pending_handoff[1]).strip()
-        else loop._requested_target_agent_for_issue(issue.number)
+        else loop._requested_target_agent_for_issue(
+            issue.number,
+            repo_slug=loop._repo_slug_for_issue(issue),
+        )
     )
 
     backbone_run_id = None

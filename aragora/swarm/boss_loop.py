@@ -875,6 +875,24 @@ class BossLoop:
             normalized.append(runner_type)
         return normalized
 
+    def _hydrate_issue_attempt_count(
+        self,
+        issue_number: int,
+        *,
+        repo_slug: str | None = None,
+    ) -> int:
+        if issue_number <= 0:
+            return 0
+        current = max(0, int(self._issue_attempt_counts.get(issue_number, 0) or 0))
+        state = self._session_state_for_issue(issue_number, repo_slug=repo_slug)
+        persisted = 0
+        if state is not None:
+            persisted = max(0, int(state.retry_count or 0), len(state.attempts))
+        if persisted > current:
+            self._issue_attempt_counts[issue_number] = persisted
+            return persisted
+        return current
+
     def _selected_issues_need_retry_routing(self, issues: list[GitHubIssue]) -> bool:
         for issue in issues:
             issue_number = int(getattr(issue, "number", 0) or 0)
@@ -882,7 +900,13 @@ class BossLoop:
                 continue
             if issue_number in self._pending_handoff_prompts:
                 return True
-            if int(self._issue_attempt_counts.get(issue_number, 0) or 0) > 0:
+            if (
+                self._hydrate_issue_attempt_count(
+                    issue_number,
+                    repo_slug=self._repo_slug_for_issue(issue),
+                )
+                > 0
+            ):
                 return True
         return False
 
@@ -914,6 +938,14 @@ class BossLoop:
 
     def _already_maxed_issue_numbers(self, issues: list[GitHubIssue]) -> set[int]:
         already_maxed: set[int] = set()
+        for issue in issues:
+            issue_number = int(getattr(issue, "number", 0) or 0)
+            if issue_number <= 0:
+                continue
+            self._hydrate_issue_attempt_count(
+                issue_number,
+                repo_slug=self._repo_slug_for_issue(issue),
+            )
         for num, count in self._issue_attempt_counts.items():
             if count >= self.config.max_retries_per_issue:
                 try:
@@ -1017,8 +1049,13 @@ class BossLoop:
             except Exception:
                 logger.debug("Failed to refresh heartbeat for runner %s", runner_id, exc_info=True)
 
-    def _requested_target_agent_for_issue(self, issue_number: int) -> str | None:
-        attempt_count = max(0, int(self._issue_attempt_counts.get(issue_number, 0) or 0))
+    def _requested_target_agent_for_issue(
+        self,
+        issue_number: int,
+        *,
+        repo_slug: str | None = None,
+    ) -> str | None:
+        attempt_count = self._hydrate_issue_attempt_count(issue_number, repo_slug=repo_slug)
         default_target = str(self.config.default_target_agent or "").strip().lower() or None
         if attempt_count <= 1:
             return default_target
@@ -4122,7 +4159,10 @@ class BossLoop:
         )
         requested_target_agent = (
             self._pending_handoff_prompts.get(selected.number, (None, None))[1]
-            or self._requested_target_agent_for_issue(selected.number)
+            or self._requested_target_agent_for_issue(
+                selected.number,
+                repo_slug=self._repo_slug_for_issue(selected),
+            )
             or self.config.default_target_agent
             or ""
         )
@@ -4363,7 +4403,10 @@ class BossLoop:
             )
             requested_target_agent = (
                 self._pending_handoff_prompts.get(issue.number, (None, None))[1]
-                or self._requested_target_agent_for_issue(issue.number)
+                or self._requested_target_agent_for_issue(
+                    issue.number,
+                    repo_slug=self._repo_slug_for_issue(issue),
+                )
                 or self.config.default_target_agent
                 or ""
             )
@@ -4418,7 +4461,10 @@ class BossLoop:
                     )
                     requested_target_agent = (
                         self._pending_handoff_prompts.get(next_issue.number, (None, None))[1]
-                        or self._requested_target_agent_for_issue(next_issue.number)
+                        or self._requested_target_agent_for_issue(
+                            next_issue.number,
+                            repo_slug=self._repo_slug_for_issue(next_issue),
+                        )
                         or self.config.default_target_agent
                         or ""
                     )

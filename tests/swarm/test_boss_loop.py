@@ -4359,6 +4359,7 @@ def test_maxed_issue_needs_human_includes_session_blocker_summary(tmp_path: Path
     store = SessionStateStore(state_dir=tmp_path)
     store.record_attempt(
         issue_number=1736,
+        repo_slug="synaptent/aragora",
         status="needs_human",
         outcome="blocked",
         exit_code=1,
@@ -4372,16 +4373,33 @@ def test_maxed_issue_needs_human_includes_session_blocker_summary(tmp_path: Path
             },
         },
     )
+    store.record_attempt(
+        issue_number=1736,
+        repo_slug="other/repo",
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=["other/repo.py"],
+        resume_hint="other repo should not leak",
+        metadata={"failure_reason": "other repo should not leak"},
+    )
 
     loop = BossLoop(
-        config=_boss_config(max_iterations=1, max_retries_per_issue=1),
+        config=_boss_config(
+            max_iterations=1,
+            max_retries_per_issue=1,
+            repo="synaptent/aragora",
+        ),
         issue_feed=feed,
         freshness_checker=lambda **kw: (_ for _ in ()).throw(
             AssertionError("freshness should not be checked for maxed issues")
         ),
         session_state_store=store,
     )
-    loop._issue_attempt_counts[1736] = 1
+
+    assert loop._issue_attempt_counts == {}
+    assert loop._selected_issues_need_retry_routing([issue]) is True
+    assert loop._issue_attempt_counts[1736] == 1
 
     result = asyncio.run(loop.run())
 
@@ -4393,6 +4411,45 @@ def test_maxed_issue_needs_human_includes_session_blocker_summary(tmp_path: Path
     assert any(
         "pytest -q tests/swarm/test_boss_loop.py" in reason for reason in result.needs_human_reasons
     )
+    assert all("other repo should not leak" not in reason for reason in result.needs_human_reasons)
+
+
+def test_requested_target_agent_hydrates_repo_scoped_retry_count(tmp_path: Path) -> None:
+    store = SessionStateStore(state_dir=tmp_path)
+    store.record_attempt(
+        issue_number=1737,
+        repo_slug="synaptent/aragora",
+        status="needs_human",
+        outcome="blocked",
+        target_agent="claude",
+    )
+    store.record_attempt(
+        issue_number=1737,
+        repo_slug="synaptent/aragora",
+        status="needs_human",
+        outcome="blocked",
+        target_agent="codex",
+    )
+    store.record_attempt(
+        issue_number=1737,
+        repo_slug="other/repo",
+        status="needs_human",
+        outcome="blocked",
+        target_agent="gemini",
+    )
+
+    loop = BossLoop(
+        config=_boss_config(
+            repo="synaptent/aragora",
+            default_target_agent="claude",
+            model_rotation=["claude", "codex", "gemini"],
+        ),
+        session_state_store=store,
+    )
+
+    assert loop._issue_attempt_counts == {}
+    assert loop._requested_target_agent_for_issue(1737, repo_slug="synaptent/aragora") == "codex"
+    assert loop._issue_attempt_counts[1737] == 2
 
 
 @pytest.mark.asyncio
