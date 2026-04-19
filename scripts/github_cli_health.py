@@ -57,6 +57,10 @@ def is_github_connectivity_error(message: str) -> bool:
     return any(token in lowered for token in CONNECTIVITY_ERROR_TOKENS)
 
 
+def _command_error(proc: subprocess.CompletedProcess[str], fallback: str) -> str:
+    return proc.stderr.strip() or proc.stdout.strip() or fallback
+
+
 def _run(args: list[str], *, cwd: Path, timeout_seconds: int) -> subprocess.CompletedProcess[str]:
     env = github_cli_env(os.environ) if args and args[0] == "gh" else None
     try:
@@ -93,10 +97,23 @@ def check_github_cli_health(
             repo=repo_label,
         )
 
+    api_proc = _run(["gh", "api", "rate_limit"], cwd=repo_root, timeout_seconds=timeout_seconds)
+    if api_proc.returncode == 0:
+        return GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=repo_label,
+        )
+
+    api_error = _command_error(api_proc, "gh api rate_limit failed")
     auth_proc = _run(["gh", "auth", "status"], cwd=repo_root, timeout_seconds=timeout_seconds)
     if auth_proc.returncode != 0:
-        error = auth_proc.stderr.strip() or auth_proc.stdout.strip() or "gh auth status failed"
-        mode = "connectivity_failed" if is_github_connectivity_error(error) else "auth_failed"
+        auth_error = _command_error(auth_proc, "gh auth status failed")
+        mode = "connectivity_failed" if is_github_connectivity_error(api_error) else "auth_failed"
+        error = api_error if mode == "connectivity_failed" else auth_error
         return GitHubCLIHealth(
             ready=False,
             auth_ok=False,
@@ -106,25 +123,13 @@ def check_github_cli_health(
             repo=repo_label,
         )
 
-    api_proc = _run(["gh", "api", "rate_limit"], cwd=repo_root, timeout_seconds=timeout_seconds)
-    if api_proc.returncode != 0:
-        error = api_proc.stderr.strip() or api_proc.stdout.strip() or "gh api rate_limit failed"
-        mode = "connectivity_failed" if is_github_connectivity_error(error) else "api_failed"
-        return GitHubCLIHealth(
-            ready=False,
-            auth_ok=True,
-            api_ok=False,
-            mode=mode,
-            error=error,
-            repo=repo_label,
-        )
-
+    mode = "connectivity_failed" if is_github_connectivity_error(api_error) else "api_failed"
     return GitHubCLIHealth(
-        ready=True,
+        ready=False,
         auth_ok=True,
-        api_ok=True,
-        mode="ready",
-        error="",
+        api_ok=False,
+        mode=mode,
+        error=api_error,
         repo=repo_label,
     )
 

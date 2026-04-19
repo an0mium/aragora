@@ -42,20 +42,53 @@ def test_check_github_cli_health_ready(monkeypatch) -> None:
     assert health.api_ok is True
 
 
+def test_check_github_cli_health_ready_with_app_env_auth_even_if_auth_status_is_stale(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
+
+    calls: list[list[str]] = []
+
+    def fake_run(
+        args: list[str], *, cwd: Path, timeout_seconds: int
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        if args[:3] == ["gh", "api", "rate_limit"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="ok", stderr="")
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=1,
+            stdout="",
+            stderr="the token in default is invalid",
+        )
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    health = mod.check_github_cli_health(Path("."))
+
+    assert health.ready is True
+    assert health.mode == "ready"
+    assert health.auth_ok is True
+    assert health.api_ok is True
+    assert calls == [["gh", "api", "rate_limit"]]
+
+
 def test_check_github_cli_health_detects_connectivity_failure(monkeypatch) -> None:
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 
     def fake_run(
         args: list[str], *, cwd: Path, timeout_seconds: int
     ) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "api", "rate_limit"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="error connecting to api.github.com",
+            )
         if args[:3] == ["gh", "auth", "status"]:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="ok", stderr="")
-        return subprocess.CompletedProcess(
-            args=args,
-            returncode=1,
-            stdout="",
-            stderr="error connecting to api.github.com",
-        )
+        raise AssertionError(f"unexpected args: {args}")
 
     monkeypatch.setattr(mod, "_run", fake_run)
 
@@ -68,17 +101,66 @@ def test_check_github_cli_health_detects_connectivity_failure(monkeypatch) -> No
     assert mod.is_github_connectivity_error(health.error) is True
 
 
+def test_check_github_cli_health_prefers_connectivity_error_when_auth_status_is_stale(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
+
+    def fake_run(
+        args: list[str], *, cwd: Path, timeout_seconds: int
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "api", "rate_limit"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="error connecting to api.github.com",
+            )
+        if args[:3] == ["gh", "auth", "status"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="the token in default is invalid",
+            )
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    health = mod.check_github_cli_health(Path("."))
+
+    assert health.ready is False
+    assert health.mode == "connectivity_failed"
+    assert health.auth_ok is False
+    assert health.api_ok is False
+    assert health.error == "error connecting to api.github.com"
+
+
 def test_check_github_cli_health_detects_auth_failure(monkeypatch) -> None:
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 
     def fake_run(
         args: list[str], *, cwd: Path, timeout_seconds: int
     ) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "api", "rate_limit"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="HTTP 401: Requires authentication",
+            )
+        if args[:3] == ["gh", "auth", "status"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="You are not logged into any GitHub hosts. Run gh auth login.",
+            )
         return subprocess.CompletedProcess(
             args=args,
             returncode=1,
             stdout="",
-            stderr="You are not logged into any GitHub hosts. Run gh auth login.",
+            stderr="unexpected args",
         )
 
     monkeypatch.setattr(mod, "_run", fake_run)
