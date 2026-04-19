@@ -76,7 +76,7 @@ STOPWORDS = {
 }
 
 try:
-    from aragora.swarm.github_app_auth import github_cli_env
+    from aragora.swarm.github_app_auth import gh_subprocess_run, github_cli_env
 except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
 
     def github_cli_env(
@@ -85,6 +85,25 @@ except Exception:  # pragma: no cover - fallback for partially bootstrapped scri
         prefer_app: bool = True,
     ) -> dict[str, str]:
         return dict(os.environ if base_env is None else base_env)
+
+    def gh_subprocess_run(
+        args: list[str],
+        *,
+        timeout: float = 30.0,
+        prefer_app: bool = True,
+        write_op: bool = False,
+        env: dict[str, str] | None = None,
+        max_retries: int = 0,
+    ) -> subprocess.CompletedProcess[str]:
+        del prefer_app, write_op, max_retries
+        return subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=dict(os.environ if env is None else env),
+            check=False,
+        )
 
 
 @dataclass(frozen=True)
@@ -108,8 +127,25 @@ class PublishDecision:
     created_issue_url: str | None = None
 
 
+def _gh_write_op(args: list[str]) -> bool:
+    return len(args) >= 2 and (args[0], args[1]) in {
+        ("issue", "create"),
+        ("issue", "edit"),
+        ("issue", "comment"),
+    }
+
+
 def _run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     env = github_cli_env(os.environ) if args and args[0] == "gh" else None
+    if args and args[0] == "gh":
+        return gh_subprocess_run(
+            args[1:],
+            timeout=DEFAULT_COMMAND_TIMEOUT_SECONDS,
+            prefer_app=True,
+            write_op=_gh_write_op(args[1:]),
+            env=dict(os.environ if env is None else env),
+            max_retries=0,
+        )
     try:
         return subprocess.run(
             args,

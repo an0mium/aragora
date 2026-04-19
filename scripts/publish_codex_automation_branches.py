@@ -67,7 +67,7 @@ ACTIVE_SESSION_FILES = (
 )
 
 try:
-    from aragora.swarm.github_app_auth import github_cli_env
+    from aragora.swarm.github_app_auth import gh_subprocess_run, github_cli_env
 except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
 
     def github_cli_env(
@@ -76,6 +76,25 @@ except Exception:  # pragma: no cover - fallback for partially bootstrapped scri
         prefer_app: bool = True,
     ) -> dict[str, str]:
         return dict(os.environ if base_env is None else base_env)
+
+    def gh_subprocess_run(
+        args: list[str],
+        *,
+        timeout: float = 30.0,
+        prefer_app: bool = True,
+        write_op: bool = False,
+        env: dict[str, str] | None = None,
+        max_retries: int = 0,
+    ) -> subprocess.CompletedProcess[str]:
+        del prefer_app, write_op, max_retries
+        return subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=dict(os.environ if env is None else env),
+            check=False,
+        )
 
 
 @dataclass(frozen=True)
@@ -110,6 +129,13 @@ class PublishDecision:
     worktree_paths: list[str]
 
 
+def _gh_write_op(args: list[str]) -> bool:
+    return len(args) >= 2 and (args[0], args[1]) in {
+        ("pr", "create"),
+        ("pr", "edit"),
+    }
+
+
 def _run(
     args: list[str],
     *,
@@ -127,6 +153,14 @@ def _run(
                 "ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS",
                 str(DEFAULT_COMMAND_TIMEOUT_SECONDS),
             )
+        )
+        return gh_subprocess_run(
+            args[1:],
+            timeout=timeout,
+            prefer_app=True,
+            write_op=_gh_write_op(args[1:]),
+            env=dict(os.environ if env is None else env),
+            max_retries=0,
         )
     else:
         timeout = int(

@@ -166,6 +166,36 @@ def test_decide_handoffs_marks_duplicate_issue(monkeypatch: Any, tmp_path: Path)
     ]
 
 
+def test_run_uses_user_auth_for_issue_create(monkeypatch: Any, tmp_path: Path) -> None:
+    recorded: dict[str, Any] = {}
+
+    def fake_gh_run(
+        args: list[str],
+        *,
+        timeout: float,
+        prefer_app: bool,
+        write_op: bool,
+        env: dict[str, str],
+        max_retries: int,
+    ) -> subprocess.CompletedProcess[str]:
+        recorded["args"] = args
+        recorded["prefer_app"] = prefer_app
+        recorded["write_op"] = write_op
+        recorded["env"] = env
+        recorded["max_retries"] = max_retries
+        return subprocess.CompletedProcess(args=["gh", *args], returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod, "gh_subprocess_run", fake_gh_run)
+
+    result = mod._run(["gh", "issue", "create", "--title", "Example"], cwd=tmp_path)
+
+    assert result.returncode == 0
+    assert recorded["args"][:2] == ["issue", "create"]
+    assert recorded["prefer_app"] is True
+    assert recorded["write_op"] is True
+    assert recorded["max_retries"] == 0
+
+
 def test_decide_handoffs_marks_duplicate_pr(monkeypatch: Any, tmp_path: Path) -> None:
     handoff = Handoff(
         source_file=str(tmp_path / "memory.md"),
