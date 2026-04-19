@@ -6,6 +6,24 @@ from pathlib import Path
 import scripts.github_cli_health as mod
 
 
+def test_run_uses_github_cli_env_for_gh(monkeypatch) -> None:
+    monkeypatch.setattr(mod, "github_cli_env", lambda env: {"GH_TOKEN": "app-token"})
+
+    captured: dict[str, object] = {}
+
+    def fake_subprocess_run(*args, **kwargs):
+        captured["env"] = kwargs.get("env")
+        return subprocess.CompletedProcess(
+            args=kwargs.get("args", args[0]), returncode=0, stdout="", stderr=""
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+
+    mod._run(["gh", "auth", "status"], cwd=Path("."), timeout_seconds=5)
+
+    assert captured["env"] == {"GH_TOKEN": "app-token"}
+
+
 def test_check_github_cli_health_ready(monkeypatch) -> None:
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 

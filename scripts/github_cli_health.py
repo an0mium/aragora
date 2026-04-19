@@ -5,11 +5,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+try:
+    from aragora.swarm.github_app_auth import github_cli_env
+except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
+
+    def github_cli_env(
+        base_env: dict[str, str] | None = None,
+        *,
+        prefer_app: bool = True,
+    ) -> dict[str, str]:
+        return dict(os.environ if base_env is None else base_env)
+
 
 DEFAULT_TIMEOUT_SECONDS = 20
 CONNECTIVITY_ERROR_TOKENS = (
@@ -45,6 +58,7 @@ def is_github_connectivity_error(message: str) -> bool:
 
 
 def _run(args: list[str], *, cwd: Path, timeout_seconds: int) -> subprocess.CompletedProcess[str]:
+    env = github_cli_env(os.environ) if args and args[0] == "gh" else None
     try:
         return subprocess.run(
             args,
@@ -53,6 +67,7 @@ def _run(args: list[str], *, cwd: Path, timeout_seconds: int) -> subprocess.Comp
             capture_output=True,
             check=False,
             timeout=timeout_seconds,
+            env=env,
         )
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout if isinstance(exc.stdout, str) else ""
