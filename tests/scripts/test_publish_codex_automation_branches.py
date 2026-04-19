@@ -199,6 +199,22 @@ def test_open_pr_heads_counts_only_codex_branches(monkeypatch: Any, tmp_path: Pa
     }
 
 
+def test_run_uses_env_overrides_for_git_timeout(monkeypatch: Any, tmp_path: Path) -> None:
+    recorded: dict[str, Any] = {}
+
+    def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        recorded["timeout"] = kwargs["timeout"]
+        return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+
+    monkeypatch.setenv("ARAGORA_AUTOMATION_GIT_TIMEOUT_SECONDS", "90")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    result = mod._run(["git", "status"], cwd=tmp_path)
+
+    assert result.returncode == 0
+    assert recorded["timeout"] == 90
+
+
 def test_worktree_is_dirty_ignores_untracked_files(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()

@@ -30,7 +30,7 @@ DEFAULT_SINCE_HOURS = 72
 DEFAULT_PUBLISH_LIMIT = 1
 DEFAULT_MAX_OPEN_PRS = 1
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
-DEFAULT_GIT_TIMEOUT_SECONDS = 15
+DEFAULT_GIT_TIMEOUT_SECONDS = 60
 DEFAULT_SCAN_LIMIT = 12
 CODEX_BRANCH_PREFIX = "codex/"
 DEFAULT_PREFLIGHT_SCRIPT = "scripts/automation_pr_preflight.sh"
@@ -116,9 +116,20 @@ def _run(
     check: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     env = github_cli_env(os.environ) if args and args[0] == "gh" else None
-    timeout = (
-        DEFAULT_COMMAND_TIMEOUT_SECONDS if args and args[0] == "gh" else DEFAULT_GIT_TIMEOUT_SECONDS
-    )
+    if args and args[0] == "gh":
+        timeout = int(
+            os.environ.get(
+                "ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS",
+                str(DEFAULT_COMMAND_TIMEOUT_SECONDS),
+            )
+        )
+    else:
+        timeout = int(
+            os.environ.get(
+                "ARAGORA_AUTOMATION_GIT_TIMEOUT_SECONDS",
+                str(DEFAULT_GIT_TIMEOUT_SECONDS),
+            )
+        )
     try:
         return subprocess.run(
             args,
