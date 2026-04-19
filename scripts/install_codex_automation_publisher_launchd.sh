@@ -5,6 +5,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LABEL="com.aragora.codex-automation-publisher"
+LAUNCHD_DOMAIN="gui/$(id -u)"
 INTERVAL_SECONDS=300
 LOG_PATH="${REPO_ROOT}/.aragora/overnight/codex-automation-publisher.log"
 
@@ -77,10 +78,13 @@ cat >"${PLIST_PATH}" <<EOF
 </plist>
 EOF
 
-launchctl unload "${PLIST_PATH}" >/dev/null 2>&1 || true
-launchctl load "${PLIST_PATH}"
+launchctl bootout "${LAUNCHD_DOMAIN}" "${PLIST_PATH}" >/dev/null 2>&1 || true
+launchctl bootstrap "${LAUNCHD_DOMAIN}" "${PLIST_PATH}"
+launchctl kickstart -k "${LAUNCHD_DOMAIN}/${LABEL}" >/dev/null 2>&1 || true
 
 echo "Installed launchd job: ${LABEL}"
 echo "Plist: ${PLIST_PATH}"
 echo "Interval: ${INTERVAL_SECONDS}s"
 echo "Log: ${LOG_PATH}"
+echo "--- launchctl ---"
+launchctl print "${LAUNCHD_DOMAIN}/${LABEL}" | sed -n '1,20p'
