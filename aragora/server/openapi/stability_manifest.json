@@ -1837,7 +1837,7 @@
     "POST /api/v2/receipts/{param}/verify-signature",
     "POST /scim/v2/Groups",
     "POST /scim/v2/Users",
-    "PUT /api/v1/admin/feature-flags",
+    "PUT /api/v1/admin/feature-flags/{param}",
     "PUT /api/v1/advertising/{param}/campaigns/{param}",
     "PUT /api/v1/agent/{param}/persona",
     "PUT /api/v1/audit/actor",
