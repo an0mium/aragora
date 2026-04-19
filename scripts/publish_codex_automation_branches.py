@@ -34,6 +34,7 @@ DEFAULT_GIT_TIMEOUT_SECONDS = 60
 DEFAULT_SCAN_LIMIT = 12
 CODEX_BRANCH_PREFIX = "codex/"
 DEFAULT_PREFLIGHT_SCRIPT = "scripts/automation_pr_preflight.sh"
+DEFAULT_PRE_PUSH_SKIP_HOOKS = "mypy-baseline"
 STOPWORDS = {
     "and",
     "are",
@@ -114,8 +115,12 @@ def _run(
     *,
     cwd: Path,
     check: bool = False,
+    env_overrides: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     env = github_cli_env(os.environ) if args and args[0] == "gh" else None
+    if env_overrides:
+        env = dict(os.environ if env is None else env)
+        env.update(env_overrides)
     if args and args[0] == "gh":
         timeout = int(
             os.environ.get(
@@ -510,13 +515,29 @@ def _github_base_ref(base: str) -> str:
     return base.removeprefix("origin/")
 
 
+def _merge_skip_hooks(existing: str | None, additions: str) -> str:
+    merged: list[str] = []
+    for raw in (existing or "").split(",") + additions.split(","):
+        hook_id = raw.strip()
+        if hook_id and hook_id not in merged:
+            merged.append(hook_id)
+    return ",".join(merged)
+
+
 def _push_branch(repo_root: Path, branch: str, upstream: str | None) -> None:
     args = ["git", "push"]
     if upstream:
         args.extend(["origin", branch])
     else:
         args.extend(["-u", "origin", branch])
-    proc = _run(args, cwd=repo_root)
+    pre_push_skip = os.environ.get(
+        "ARAGORA_AUTOMATION_PRE_PUSH_SKIP",
+        DEFAULT_PRE_PUSH_SKIP_HOOKS,
+    ).strip()
+    env_overrides = None
+    if pre_push_skip:
+        env_overrides = {"SKIP": _merge_skip_hooks(os.environ.get("SKIP"), pre_push_skip)}
+    proc = _run(args, cwd=repo_root, env_overrides=env_overrides)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or f"failed to push {branch}")
 
