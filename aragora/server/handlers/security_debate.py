@@ -204,7 +204,8 @@ class SecurityDebateHandler(SecureHandler):
             logger.exception("Security debate failed")
             return error_response("Debate operation failed", 500)
         else:
-            debate_coro.close()
+            if debate_coro is not None:
+                debate_coro.close()
 
         end_time = datetime.now(timezone.utc)
         duration_ms = (end_time - start_time).total_seconds() * 1000
@@ -228,7 +229,8 @@ class SecurityDebateHandler(SecureHandler):
                     "Failed to persist security debate result for %s", response_debate_id
                 )
             finally:
-                store_coro.close()
+                if store_coro is not None:
+                    store_coro.close()
 
         # Build response
         response = {
@@ -292,7 +294,8 @@ class SecurityDebateHandler(SecureHandler):
                 if isinstance(cached, dict):
                     cached_result = dict(cached)
             finally:
-                fetch_coro.close()
+                if fetch_coro is not None:
+                    fetch_coro.close()
 
         if cached_result is not None:
             cached_result.setdefault("debate_id", debate_id)
