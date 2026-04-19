@@ -415,7 +415,9 @@ describe('AdminAPI Namespace', () => {
 
     it('should update feature flags through the detail route', async () => {
       mockClient.request
+        .mockResolvedValueOnce({ name: 'enable_checkpointing', value: false })
         .mockResolvedValueOnce({ name: 'enable_checkpointing', updated: true })
+        .mockResolvedValueOnce({ name: 'max_agent_retries', value: 3 })
         .mockResolvedValueOnce({ name: 'max_agent_retries', updated: true });
 
       const result = await api.updateFeatureFlags({
@@ -425,12 +427,22 @@ describe('AdminAPI Namespace', () => {
 
       expect(mockClient.request).toHaveBeenNthCalledWith(
         1,
+        'GET',
+        '/api/v1/admin/feature-flags/enable_checkpointing',
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        2,
         'PUT',
         '/api/v1/admin/feature-flags/enable_checkpointing',
         { body: { value: true } },
       );
       expect(mockClient.request).toHaveBeenNthCalledWith(
-        2,
+        3,
+        'GET',
+        '/api/v1/admin/feature-flags/max_agent_retries',
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        4,
         'PUT',
         '/api/v1/admin/feature-flags/max_agent_retries',
         { body: { value: 7 } },
@@ -439,6 +451,69 @@ describe('AdminAPI Namespace', () => {
         enable_checkpointing: { name: 'enable_checkpointing', updated: true },
         max_agent_retries: { name: 'max_agent_retries', updated: true },
       });
+    });
+
+    it('should roll back applied feature flags when a later update fails', async () => {
+      mockClient.request
+        .mockResolvedValueOnce({ name: 'enable_checkpointing', value: false })
+        .mockResolvedValueOnce({ name: 'enable_checkpointing', updated: true })
+        .mockResolvedValueOnce({ name: 'max_agent_retries', value: 3 })
+        .mockRejectedValueOnce(new Error('simulated second write failure'))
+        .mockResolvedValueOnce({ name: 'enable_checkpointing', updated: true });
+
+      await expect(
+        api.updateFeatureFlags({
+          enable_checkpointing: true,
+          max_agent_retries: 7,
+        }),
+      ).rejects.toThrow('simulated second write failure');
+
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        1,
+        'GET',
+        '/api/v1/admin/feature-flags/enable_checkpointing',
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        2,
+        'PUT',
+        '/api/v1/admin/feature-flags/enable_checkpointing',
+        { body: { value: true } },
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        3,
+        'GET',
+        '/api/v1/admin/feature-flags/max_agent_retries',
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        4,
+        'PUT',
+        '/api/v1/admin/feature-flags/max_agent_retries',
+        { body: { value: 7 } },
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        5,
+        'PUT',
+        '/api/v1/admin/feature-flags/enable_checkpointing',
+        { body: { value: false } },
+      );
+    });
+
+    it('should surface rollback failures explicitly', async () => {
+      mockClient.request
+        .mockResolvedValueOnce({ name: 'enable_checkpointing', value: false })
+        .mockResolvedValueOnce({ name: 'enable_checkpointing', updated: true })
+        .mockResolvedValueOnce({ name: 'max_agent_retries', value: 3 })
+        .mockRejectedValueOnce(new Error('simulated second write failure'))
+        .mockRejectedValueOnce(new Error('simulated rollback failure'));
+
+      await expect(
+        api.updateFeatureFlags({
+          enable_checkpointing: true,
+          max_agent_retries: 7,
+        }),
+      ).rejects.toThrow(
+        'Bulk feature flag update failed and rollback did not restore all prior values: enable_checkpointing: simulated rollback failure',
+      );
     });
 
     it('should get a feature flag by name', async () => {

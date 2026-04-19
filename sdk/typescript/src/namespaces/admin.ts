@@ -7,6 +7,10 @@
 
 import type { PaginationParams } from '../types';
 
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 // Admin-specific types
 export interface Organization {
   id: string;
@@ -381,13 +385,36 @@ export class AdminAPI {
 
   /** Update feature flags. */
   async updateFeatureFlags(data: Record<string, unknown>): Promise<Record<string, unknown>> {
-    const results = await Promise.all(
-      Object.entries(data).map(async ([name, value]) => [
-        name,
-        await this.setFeatureFlag(name, value),
-      ] as const),
-    );
-    return Object.fromEntries(results);
+    const originalValues = new Map<string, unknown>();
+    const results: Record<string, unknown> = {};
+    const appliedFlags: string[] = [];
+
+    try {
+      for (const [name, value] of Object.entries(data)) {
+        const currentFlag = await this.getFeatureFlag(name);
+        originalValues.set(name, currentFlag.value);
+        results[name] = await this.setFeatureFlag(name, value);
+        appliedFlags.push(name);
+      }
+    } catch (error) {
+      const rollbackFailures: string[] = [];
+      for (const name of appliedFlags.reverse()) {
+        try {
+          await this.setFeatureFlag(name, originalValues.get(name));
+        } catch (rollbackError) {
+          rollbackFailures.push(`${name}: ${formatError(rollbackError)}`);
+        }
+      }
+      if (rollbackFailures.length > 0) {
+        throw new Error(
+          'Bulk feature flag update failed and rollback did not restore all prior values: ' +
+            rollbackFailures.join('; '),
+        );
+      }
+      throw error;
+    }
+
+    return results;
   }
 
   /** Get a specific feature flag by name. */
