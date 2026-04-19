@@ -14,7 +14,7 @@ import os
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -322,11 +322,12 @@ class ReviewQueueHandler(BaseHandler):
             if _receipt_local_date(receipt.get("reviewed_at")) == today_local
         ]
 
-        elapsed = sorted(
-            float(item.get("elapsed_seconds"))
-            for item in todays_receipts
-            if isinstance(item.get("elapsed_seconds"), (int, float))
-        )
+        elapsed: list[float] = []
+        for item in todays_receipts:
+            elapsed_seconds = item.get("elapsed_seconds")
+            if isinstance(elapsed_seconds, (int, float)):
+                elapsed.append(float(elapsed_seconds))
+        elapsed.sort()
         median = 0.0
         if elapsed:
             mid = len(elapsed) // 2
@@ -465,7 +466,7 @@ def _load_receipts(repo_root: Path) -> list[dict[str, Any]]:
     return receipts
 
 
-def _receipt_local_date(value: Any) -> datetime.date | None:
+def _receipt_local_date(value: Any) -> date | None:
     if not isinstance(value, str) or not value.strip():
         return None
     try:
