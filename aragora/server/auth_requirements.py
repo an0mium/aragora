@@ -60,7 +60,7 @@ INBOX_PERMISSION_ENDPOINTS = [
         "/api/v1/inbox/connect",
         "post",
         AuthLevel.PERMISSION,
-        permission="inbox:read",
+        permission="inbox:update",
         description="Connect a unified inbox account",
     ),
     EndpointAuth(
@@ -74,7 +74,7 @@ INBOX_PERMISSION_ENDPOINTS = [
         "/api/v1/inbox/accounts/{account_id}",
         "delete",
         AuthLevel.PERMISSION,
-        permission="inbox:read",
+        permission="inbox:update",
         description="Disconnect a unified inbox account",
     ),
     EndpointAuth(
@@ -95,21 +95,21 @@ INBOX_PERMISSION_ENDPOINTS = [
         "/api/v1/inbox/messages/{message_id}/debate",
         "post",
         AuthLevel.PERMISSION,
-        permission="inbox:read",
+        permission="inbox:update",
         description="Create a trust-wedge debate for an inbox message",
     ),
     EndpointAuth(
         "/api/v1/inbox/triage",
         "post",
         AuthLevel.PERMISSION,
-        permission="inbox:read",
+        permission="inbox:update",
         description="Run unified inbox triage",
     ),
     EndpointAuth(
         "/api/v1/inbox/bulk-action",
         "post",
         AuthLevel.PERMISSION,
-        permission="inbox:read",
+        permission="inbox:update",
         description="Execute a unified inbox bulk action",
     ),
     EndpointAuth(

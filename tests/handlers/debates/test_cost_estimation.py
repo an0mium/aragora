@@ -372,42 +372,46 @@ class TestEstimateDebateCostPricingAccuracy:
     """Tests verifying pricing matches PROVIDER_PRICING."""
 
     @pytest.mark.parametrize(
-        "model,provider",
+        "model,provider,price_key",
         [
-            ("claude-opus-4", "anthropic"),
-            ("claude-sonnet-4", "anthropic"),
-            ("gpt-4o", "openai"),
-            ("gpt-4o-mini", "openai"),
-            ("gemini-pro", "google"),
-            ("deepseek-v3", "deepseek"),
+            ("claude-opus-4", "anthropic", "claude-opus-4"),
+            ("claude-opus-4-7", "anthropic", "claude-opus-4.7"),
+            ("claude-sonnet-4", "anthropic", "claude-sonnet-4"),
+            ("claude-sonnet-4-6", "anthropic", "claude-sonnet-4.6"),
+            ("gpt-4o", "openai", "gpt-4o"),
+            ("gpt-4o-mini", "openai", "gpt-4o-mini"),
+            ("gemini-pro", "google", "gemini-pro"),
+            ("deepseek-v3", "deepseek", "deepseek-v3"),
         ],
     )
-    def test_known_model_input_cost(self, model, provider):
+    def test_known_model_input_cost(self, model, provider, price_key):
         """Input cost matches PROVIDER_PRICING for each known model."""
         result = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=[model])
         entry = result["breakdown_by_model"][0]
         input_tokens = SYSTEM_PROMPT_TOKENS + AVG_INPUT_TOKENS_PER_ROUND
-        price = PROVIDER_PRICING[provider][model]
+        price = PROVIDER_PRICING[provider][price_key]
         expected = float(round((Decimal(input_tokens) / Decimal("1000000")) * price, 6))
         assert entry["input_cost_usd"] == expected
 
     @pytest.mark.parametrize(
-        "model,provider",
+        "model,provider,price_key",
         [
-            ("claude-opus-4", "anthropic"),
-            ("claude-sonnet-4", "anthropic"),
-            ("gpt-4o", "openai"),
-            ("gpt-4o-mini", "openai"),
-            ("gemini-pro", "google"),
-            ("deepseek-v3", "deepseek"),
+            ("claude-opus-4", "anthropic", "claude-opus-4"),
+            ("claude-opus-4-7", "anthropic", "claude-opus-4.7"),
+            ("claude-sonnet-4", "anthropic", "claude-sonnet-4"),
+            ("claude-sonnet-4-6", "anthropic", "claude-sonnet-4.6"),
+            ("gpt-4o", "openai", "gpt-4o"),
+            ("gpt-4o-mini", "openai", "gpt-4o-mini"),
+            ("gemini-pro", "google", "gemini-pro"),
+            ("deepseek-v3", "deepseek", "deepseek-v3"),
         ],
     )
-    def test_known_model_output_cost(self, model, provider):
+    def test_known_model_output_cost(self, model, provider, price_key):
         """Output cost matches PROVIDER_PRICING for each known model."""
         result = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=[model])
         entry = result["breakdown_by_model"][0]
         output_tokens = AVG_OUTPUT_TOKENS_PER_ROUND
-        price = PROVIDER_PRICING[provider][f"{model}-output"]
+        price = PROVIDER_PRICING[provider][f"{price_key}-output"]
         expected = float(round((Decimal(output_tokens) / Decimal("1000000")) * price, 6))
         assert entry["output_cost_usd"] == expected
 

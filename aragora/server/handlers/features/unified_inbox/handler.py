@@ -137,10 +137,15 @@ class UnifiedInboxHandler(BaseHandler):
 
         return True
 
-    @require_permission("inbox:read")
     async def handle_request(self, request: Any, path: str, method: str) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
+            required_permission = self._required_permission(path, method)
+            if required_permission is not None:
+                _, permission_error = self.require_permission_or_error(request, required_permission)
+                if permission_error is not None:
+                    return permission_error
+
             # Extract tenant context
             tenant_id = self._get_tenant_id(request)
 
@@ -194,6 +199,41 @@ class UnifiedInboxHandler(BaseHandler):
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Error in unified inbox handler: %s", e)
             return error_response("Internal server error", 500)
+
+    @staticmethod
+    def _required_permission(path: str, method: str) -> str | None:
+        """Return the permission required for a specific unified inbox route."""
+        if method == "GET":
+            if path in {
+                "/api/v1/inbox/oauth/gmail",
+                "/api/v1/inbox/oauth/outlook",
+                "/api/v1/inbox/accounts",
+                "/api/v1/inbox/messages",
+                "/api/v1/inbox/stats",
+                "/api/v1/inbox/trends",
+            }:
+                return "inbox:read"
+            if path.startswith("/api/v1/inbox/messages/") and not path.endswith("/debate"):
+                return "inbox:read"
+
+        if method == "POST" and path in {
+            "/api/v1/inbox/connect",
+            "/api/v1/inbox/triage",
+            "/api/v1/inbox/bulk-action",
+        }:
+            return "inbox:update"
+
+        if (
+            method == "POST"
+            and path.startswith("/api/v1/inbox/messages/")
+            and path.endswith("/debate")
+        ):
+            return "inbox:update"
+
+        if method == "DELETE" and path.startswith("/api/v1/inbox/accounts/"):
+            return "inbox:update"
+
+        return None
 
     def _get_tenant_id(self, request: Any) -> str:
         """Extract tenant ID from request context."""

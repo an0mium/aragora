@@ -283,6 +283,31 @@ class TestPermissionRequirements:
 
         assert len(matches) == 1
 
+    def test_unified_inbox_permissions_are_declared(self) -> None:
+        """Unified inbox routes should declare the read/write split explicitly."""
+        from aragora.server.auth_requirements import AuthLevel, get_requirement
+
+        expected_permissions = {
+            ("GET", "/api/v1/inbox/oauth/gmail"): "inbox:read",
+            ("GET", "/api/v1/inbox/oauth/outlook"): "inbox:read",
+            ("POST", "/api/v1/inbox/connect"): "inbox:update",
+            ("GET", "/api/v1/inbox/accounts"): "inbox:read",
+            ("DELETE", "/api/v1/inbox/accounts/{account_id}"): "inbox:update",
+            ("GET", "/api/v1/inbox/messages"): "inbox:read",
+            ("GET", "/api/v1/inbox/messages/{message_id}"): "inbox:read",
+            ("POST", "/api/v1/inbox/messages/{message_id}/debate"): "inbox:update",
+            ("POST", "/api/v1/inbox/triage"): "inbox:update",
+            ("POST", "/api/v1/inbox/bulk-action"): "inbox:update",
+            ("GET", "/api/v1/inbox/stats"): "inbox:read",
+            ("GET", "/api/v1/inbox/trends"): "inbox:read",
+        }
+
+        for (method, path), permission in expected_permissions.items():
+            requirement = get_requirement(path, method)
+            assert requirement is not None
+            assert requirement.level == AuthLevel.PERMISSION
+            assert requirement.permission == permission
+
 
 # =============================================================================
 # Consistency Tests

@@ -649,6 +649,7 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     "gateway.uninstall": ["admin", "owner"],
     # Inbox permissions
     "inbox:read": ["member", "admin", "owner"],
+    "inbox:update": ["member", "admin", "owner"],
     "inbox:write": ["admin", "owner"],
     # Cross-workspace coordination permissions
     "coordination:read": ["member", "admin", "owner"],
