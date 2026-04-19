@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK_DIR="${TMPDIR:-/tmp}/com.aragora.codex-automation-publisher.lock"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export CODEX_HOME="${CODEX_HOME:-${HOME}/.codex}"
 STAMP() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
@@ -23,6 +24,22 @@ cd "$REPO_ROOT"
 if ! command -v gh >/dev/null 2>&1; then
   echo "$(STAMP) [codex-automation-publisher] gh CLI not found"
   exit 1
+fi
+
+echo "$(STAMP) [codex-automation-publisher] checking GitHub CLI health"
+HEALTH_JSON="$(python3 scripts/github_cli_health.py --repo "${REPO_ROOT}" --json 2>/dev/null || true)"
+HEALTH_READY="$(
+  printf '%s' "${HEALTH_JSON}" \
+    | python3 -c 'import json,sys; print("true" if json.load(sys.stdin).get("ready") else "false")' \
+      2>/dev/null \
+    || echo "false"
+)"
+if [[ "${HEALTH_READY}" != "true" ]]; then
+  echo "$(STAMP) [codex-automation-publisher] GitHub unavailable; leaving automations in handoff-only mode"
+  if [[ -n "${HEALTH_JSON}" ]]; then
+    printf '%s\n' "${HEALTH_JSON}"
+  fi
+  exit 0
 fi
 
 if ! git fetch --no-write-fetch-head --prune origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1; then

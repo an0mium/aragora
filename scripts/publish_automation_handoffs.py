@@ -14,10 +14,16 @@ import json
 import os
 import re
 import subprocess
+import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.github_cli_health import check_github_cli_health
 
 UTC = timezone.utc
 DEFAULT_CODEX_HOME = Path("/Users/armand/.codex")
@@ -297,9 +303,9 @@ def load_handoffs(
 
 
 def _ensure_gh_auth(repo_root: Path) -> None:
-    proc = _run(["gh", "auth", "status"], cwd=repo_root)
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh auth failed")
+    health = check_github_cli_health(repo_root)
+    if not health.ready:
+        raise RuntimeError(health.error or health.mode)
 
 
 def _title_tokens(title: str) -> set[str]:
@@ -630,9 +636,35 @@ def main(argv: list[str] | None = None) -> int:
     codex_home = _codex_home(args.codex_home)
     labels = list(dict.fromkeys(args.labels))
     automation_ids = set(args.automation_ids or DEFAULT_AUTOMATION_IDS)
-
-    _ensure_gh_auth(repo_root)
     handoffs = load_handoffs(codex_home, automation_ids=automation_ids)
+    github_health = check_github_cli_health(repo_root)
+    if not github_health.ready:
+        payload = {
+            "repo": str(repo_root),
+            "codex_home": str(codex_home),
+            "github_repo": args.github_repo,
+            "labels": labels,
+            "automation_ids": sorted(automation_ids),
+            "handoff_count": len(handoffs),
+            "github_health": github_health.to_dict(),
+            "decisions": [
+                asdict(
+                    PublishDecision(
+                        task_title=handoff.task_title,
+                        source_file=handoff.source_file,
+                        eligible=False,
+                        reason="github_unavailable",
+                    )
+                )
+                for handoff in handoffs
+            ],
+        }
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
+        return 1
+
     decisions = decide_handoffs(
         handoffs,
         repo_root=repo_root,
@@ -660,6 +692,7 @@ def main(argv: list[str] | None = None) -> int:
         "labels": labels,
         "automation_ids": sorted(automation_ids),
         "handoff_count": len(handoffs),
+        "github_health": github_health.to_dict(),
         "decisions": [asdict(item) for item in results],
     }
     if args.json:

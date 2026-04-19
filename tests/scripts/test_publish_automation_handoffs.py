@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from scripts.github_cli_health import GitHubCLIHealth
 import scripts.publish_automation_handoffs as mod
 from scripts.publish_automation_handoffs import Handoff, PublishDecision
 
@@ -292,6 +293,40 @@ def test_publish_handoffs_creates_issue_with_labels(monkeypatch: Any, tmp_path: 
         "--add-label",
         "boss-ready,autonomous",
     ]
+
+
+def test_main_reports_github_health_when_unavailable(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "memory.md"),
+        task_title="Fix tmux readiness detection for named Claude lanes",
+        priority="MEDIUM",
+        body="body",
+        labels={},
+        expires_at=None,
+    )
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [handoff])
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=True,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--codex-home", str(tmp_path), "--json"])
+
+    assert exit_code == 1
+    out = capsys.readouterr().out
+    assert '"mode": "connectivity_failed"' in out
+    assert '"reason": "github_unavailable"' in out
 
 
 def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path) -> None:

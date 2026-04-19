@@ -20,6 +20,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.github_cli_health import check_github_cli_health
+
 UTC = timezone.utc
 DEFAULT_SINCE_HOURS = 72
 DEFAULT_PUBLISH_LIMIT = 1
@@ -485,9 +490,9 @@ def select_publishable_branches(
 
 
 def _ensure_gh_auth(repo_root: Path) -> None:
-    proc = _run(["gh", "auth", "status"], cwd=repo_root)
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh auth failed")
+    health = check_github_cli_health(repo_root)
+    if not health.ready:
+        raise RuntimeError(health.error or health.mode)
 
 
 def _github_base_ref(base: str) -> str:
@@ -769,6 +774,23 @@ def main(argv: list[str] | None = None) -> int:
         for branch in branches
     ]
 
+    github_health = check_github_cli_health(repo_root)
+    if not github_health.ready:
+        payload: dict[str, Any] = {
+            "repo": str(repo_root),
+            "base": args.base,
+            "cutoff": cutoff.isoformat(),
+            "open_pr_count": 0,
+            "max_open_prs": args.max_open_prs,
+            "github_health": github_health.to_dict(),
+            "decisions": [],
+        }
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
+        return 1
+
     open_pr_heads = _open_pr_heads(repo_root, args.github_repo)
     historical_pr_branches = _branches_with_pr_history(
         repo_root,
@@ -798,6 +820,7 @@ def main(argv: list[str] | None = None) -> int:
         "cutoff": cutoff.isoformat(),
         "open_pr_count": len(open_pr_heads),
         "max_open_prs": args.max_open_prs,
+        "github_health": github_health.to_dict(),
         "decisions": [asdict(decision) for decision in decisions],
     }
 
