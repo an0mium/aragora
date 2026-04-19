@@ -41,9 +41,17 @@ _breakpoints_limiter = RateLimiter(requests_per_minute=60)
 HumanGuidance: Any = None
 BreakpointManager: Any = None
 try:
-    from aragora.debate.breakpoints import HumanGuidance, BreakpointManager
+    from aragora.debate.breakpoints import (
+        BreakpointManager as _BreakpointManager,
+    )
+    from aragora.debate.breakpoints import (
+        HumanGuidance as _HumanGuidance,
+    )
 except ImportError:
     pass
+else:
+    HumanGuidance = _HumanGuidance
+    BreakpointManager = _BreakpointManager
 
 
 class BreakpointsHandler(BaseHandler):
