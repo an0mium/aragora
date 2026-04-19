@@ -35,7 +35,7 @@ Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / s
 
 ### 3. Extensible and Modular
 
-Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript (186 Python / 185 TypeScript namespaces). 3,100+ API operations across 2,900+ paths and 270+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 60+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack.
+Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript (186 Python / 185 TypeScript namespaces). 3,100+ API operations across 2,800+ paths and 270+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 60+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack.
 
 ### 4. Multi-Agent Robustness
 
@@ -681,7 +681,7 @@ aragora serve --api-port 8080 --ws-port 8765
 
 ## API Endpoints
 
-The server exposes 3,100+ API operations across 2,900+ paths. Key categories:
+The server exposes 3,100+ API operations across 2,800+ paths. Key categories:
 
 | Category | Description |
 |----------|-------------|
