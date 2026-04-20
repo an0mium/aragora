@@ -19,6 +19,7 @@ import {
   BudgetScope,
   DissentPosition,
   EvidenceKind,
+  ProviderSlotStatus,
   QueueLane,
   Recommendation,
   REVIEW_BRIEF_ADVISORY_NOTE,
@@ -38,6 +39,8 @@ import {
   type PRReviewBinding,
   type PRReviewFinding,
   type PRReviewProtocolPacket,
+  type ProtocolCostEstimate,
+  type ProtocolValidationSummary,
   type ProviderSlotResolution,
   type QueueItem,
   type ReviewBrief,
@@ -149,6 +152,14 @@ describe("canonical string discipline — enums match aragora/review/*.py", () =
     expect(QueueLane.NEEDS_ATTENTION).toBe("needs_attention");
     expect(QueueLane.REPAIRABLE).toBe("repairable");
     expect(QueueLane.PARKED).toBe("parked");
+  });
+
+  test("ProviderSlotStatus values match aragora/swarm/pr_review_protocol.py", () => {
+    // Producer emits exactly these two strings in
+    // ``PRReviewProtocol._resolve_slot``; drift would cause successor
+    // UI code to branch on values the backend never sends.
+    expect(ProviderSlotStatus.AVAILABLE).toBe("available");
+    expect(ProviderSlotStatus.UNAVAILABLE).toBe("unavailable");
   });
 });
 
@@ -556,44 +567,102 @@ describe("python-json payloads parse as TS types", () => {
       base_sha: "1857a9192",
       head_sha: "72a79cc74",
     };
+    // PRReviewFinding severity mirrors the strings Python emits in
+    // ``_build_findings``: "low" | "medium" | "high" (RiskClass-ish).
     const finding: PRReviewFinding = {
-      finding_id: "f1",
-      category: "correctness",
-      severity: "info",
-      summary: "No regressions found in changed paths.",
-      evidence: ["aragora/live/src/lib/review/types.ts:1-100"],
+      finding_id: "bounded-green",
+      category: "summary",
+      severity: "low",
+      summary: "No blocking metadata signals detected for this PR.",
+      evidence: ["Example PR", "24/24 green"],
       source: "metadata_heuristic",
     };
+    // Slot status is narrowed to ProviderSlotStatus; values match the
+    // exact strings Python's _resolve_slot emits.
     const slot: ProviderSlotResolution = {
       slot_id: "logic",
-      review_role: "logic_reviewer",
+      review_role: ReviewRole.LOGIC,
       lens: "core",
       family: "claude",
       selected_provider: "claude",
-      status: "selected",
-      detail: "",
+      status: ProviderSlotStatus.AVAILABLE,
+      detail: "claude CLI available",
       candidates: ["claude", "anthropic-api"],
+    };
+    const validation_summary: ProtocolValidationSummary = {
+      checks_summary: "24/24 green",
+      has_failures: false,
+      has_pending: false,
+      mergeable: "MERGEABLE",
+      review_decision: "REVIEW_REQUIRED",
+      validation_commands: ["npx jest", "npx tsc --noEmit"],
+      changed_files: 3,
+      diffstat: { additions: 656, deletions: 0 },
+    };
+    const cost_estimate: ProtocolCostEstimate = {
+      currency: "USD",
+      low: 3.0,
+      high: 5.0,
+      basis: "bounded heterogeneous metadata-first protocol",
     };
     const protocol: PRReviewProtocolPacket = {
       protocol_version: "pr_review_protocol.v1",
       status: "metadata_heuristic",
       binding,
-      review_roles: ["logic_reviewer", "security_reviewer"],
+      review_roles: [ReviewRole.LOGIC, ReviewRole.SECURITY],
       provider_slots: [slot],
       recommendation_class: Recommendation.APPROVE_CANDIDATE,
       recommendation_reason: "All gates green.",
       confidence: 0.9,
-      confidence_basis: "heuristic",
+      confidence_basis: "metadata_heuristic",
       dissent_summary: "unanimous",
       dissenting_views: [],
-      validation_summary: {},
+      validation_summary,
       top_findings: [finding],
-      cost_estimate: {},
+      cost_estimate,
     };
     // recommendation_class is typed to Recommendation — cannot be a stray string.
     expect(protocol.recommendation_class).toBe(Recommendation.APPROVE_CANDIDATE);
     expect(protocol.binding.head_sha).toBe("72a79cc74");
-    expect(protocol.top_findings[0].finding_id).toBe("f1");
+    expect(protocol.top_findings[0].finding_id).toBe("bounded-green");
+    // Narrow discriminators: slot status and review role are real enum values.
+    expect(protocol.provider_slots[0].status).toBe(ProviderSlotStatus.AVAILABLE);
+    expect(protocol.provider_slots[0].review_role).toBe(ReviewRole.LOGIC);
+    expect(protocol.review_roles).toContain(ReviewRole.SECURITY);
+    // Typed validation summary + cost estimate preserve field-level access.
+    expect(protocol.validation_summary.diffstat.additions).toBe(656);
+    expect(protocol.cost_estimate.currency).toBe("USD");
+  });
+
+  test("ProviderSlotResolution rejects drift values at compile time", () => {
+    // Regression guard (codex #6361 rev 4): status and review_role must
+    // not be raw string. If the Python producer is ever extended, the
+    // enum must be extended first — TS should fail to compile on drift
+    // values like "selected" or "skipped_missing_env" that were in the
+    // earlier (now-corrected) UI comment.
+    // @ts-expect-error — "selected" is not a ProviderSlotStatus.
+    const badStatus: ProviderSlotResolution = {
+      slot_id: "logic",
+      review_role: ReviewRole.LOGIC,
+      lens: "core",
+      family: "claude",
+      selected_provider: "claude",
+      status: "selected",
+      detail: "",
+      candidates: [],
+    };
+    // @ts-expect-error — "auditor" is not a ReviewRole.
+    const badRole: ProviderSlotResolution = {
+      slot_id: "logic",
+      review_role: "auditor",
+      lens: "core",
+      family: "claude",
+      selected_provider: "claude",
+      status: ProviderSlotStatus.AVAILABLE,
+      detail: "",
+      candidates: [],
+    };
+    expect([badStatus, badRole]).toHaveLength(2);
   });
 
   test("ReviewPacket protocol field accepts empty-object default", () => {

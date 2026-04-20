@@ -136,6 +136,25 @@ export const QueueLane = {
 } as const;
 export type QueueLane = (typeof QueueLane)[keyof typeof QueueLane];
 
+/**
+ * Provider-slot resolution status.
+ *
+ * Mirrors the literal strings emitted by
+ * ``aragora.swarm.pr_review_protocol.PRReviewProtocol._resolve_slot``:
+ * a slot is either ``available`` (a configured provider was found) or
+ * ``unavailable`` (no configured provider for that family/role).
+ *
+ * The Python producer emits exactly these two strings and nothing else
+ * today; narrowing the TS field lets the UI branch safely on lane
+ * presence without allowing drift values.
+ */
+export const ProviderSlotStatus = {
+  AVAILABLE: "available",
+  UNAVAILABLE: "unavailable",
+} as const;
+export type ProviderSlotStatus =
+  (typeof ProviderSlotStatus)[keyof typeof ProviderSlotStatus];
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -365,18 +384,68 @@ export interface PRReviewFinding {
 
 /**
  * A resolved provider-slot assignment for one review role.
- * Mirrors ``ProviderSlotResolution``.  ``status`` typical values:
- * ``"selected"``, ``"skipped_missing_env"``, ``"skipped_missing_binary"``.
+ * Mirrors ``ProviderSlotResolution``.
+ *
+ * ``status`` is narrowed to ``ProviderSlotStatus`` because the Python
+ * producer only emits ``"available"`` or ``"unavailable"`` today; any
+ * UI branching on status is thus exhaustive.  ``review_role`` is
+ * narrowed to ``ReviewRole`` because the slot catalog in
+ * ``aragora.swarm.pr_review_protocol._SLOT_CATALOG`` only assigns roles
+ * drawn from the canonical ``REVIEW_ROLES`` tuple.
  */
 export interface ProviderSlotResolution {
   readonly slot_id: string;
-  readonly review_role: string;
+  readonly review_role: ReviewRole;
   readonly lens: string;
   readonly family: string;
   readonly selected_provider: string | null;
-  readonly status: string;
+  readonly status: ProviderSlotStatus;
   readonly detail: string;
   readonly candidates: readonly string[];
+}
+
+/**
+ * Diff-size summary inside ``ProtocolValidationSummary``.  Mirrors the
+ * ``diffstat`` dict Python emits: ``{additions, deletions}``.
+ */
+export interface ProtocolDiffstat {
+  readonly additions: number;
+  readonly deletions: number;
+}
+
+/**
+ * Validation summary embedded in ``PRReviewProtocolPacket.validation_summary``.
+ *
+ * Mirrors the concrete dict built in
+ * ``aragora.swarm.pr_review_protocol.PRReviewProtocol.build_packet``:
+ * checks, mergeability, review decision, validation commands, diff
+ * stats.  Typed explicitly rather than left as an opaque record so
+ * successor UI code can index the fields safely.
+ */
+export interface ProtocolValidationSummary {
+  readonly checks_summary: string;
+  readonly has_failures: boolean;
+  readonly has_pending: boolean;
+  readonly mergeable: string;
+  readonly review_decision: string;
+  readonly validation_commands: readonly string[];
+  readonly changed_files: number;
+  readonly diffstat: ProtocolDiffstat;
+}
+
+/**
+ * Cost estimate embedded in ``PRReviewProtocolPacket.cost_estimate``.
+ *
+ * Mirrors the dict Python emits: ``{currency, low, high, basis}`` where
+ * ``low``/``high`` are a bounded USD range and ``basis`` is a short
+ * explanation of how the bound was derived (always
+ * ``"bounded heterogeneous metadata-first protocol"`` today).
+ */
+export interface ProtocolCostEstimate {
+  readonly currency: string;
+  readonly low: number;
+  readonly high: number;
+  readonly basis: string;
 }
 
 /**
@@ -396,7 +465,7 @@ export interface PRReviewProtocolPacket {
   readonly protocol_version: string;
   readonly status: string;
   readonly binding: PRReviewBinding;
-  readonly review_roles: readonly string[];
+  readonly review_roles: readonly ReviewRole[];
   readonly provider_slots: readonly ProviderSlotResolution[];
   readonly recommendation_class: Recommendation;
   readonly recommendation_reason: string;
@@ -404,9 +473,9 @@ export interface PRReviewProtocolPacket {
   readonly confidence_basis: string;
   readonly dissent_summary: string;
   readonly dissenting_views: readonly Readonly<Record<string, unknown>>[];
-  readonly validation_summary: Readonly<Record<string, unknown>>;
+  readonly validation_summary: ProtocolValidationSummary;
   readonly top_findings: readonly PRReviewFinding[];
-  readonly cost_estimate: Readonly<Record<string, unknown>>;
+  readonly cost_estimate: ProtocolCostEstimate;
 }
 
 /**
