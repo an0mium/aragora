@@ -158,6 +158,21 @@ def _render_stale_closed_issues(issues: list[dict[str, Any]]) -> list[str]:
     return lines or ["- none"]
 
 
+def _render_closure_hygiene_issues(issues: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for issue in issues:
+        issue_number = _format_value(issue.get("issue_number"))
+        title = _format_value(issue.get("issue_title"))
+        issue_state = _format_value(issue.get("issue_state"))
+        state_reason = _format_value(issue.get("issue_state_reason"))
+        truth_state = _format_value(issue.get("truth_state"))
+        lines.append(
+            f"- `#{issue_number}` `{title}`: state `{issue_state}`, "
+            f"reason `{state_reason}`, truth `{truth_state}`"
+        )
+    return lines or ["- none"]
+
+
 def _render_linkage_errors(issues: list[dict[str, Any]]) -> list[str]:
     lines: list[str] = []
     for issue in issues:
@@ -268,6 +283,11 @@ def render_status_markdown(
     stale_closed_issues = [
         item
         for item in list(corpus_freshness.get("stale_closed_issues") or [])
+        if isinstance(item, dict)
+    ]
+    closure_hygiene_issues = [
+        item
+        for item in list(corpus_freshness.get("closure_hygiene_issues") or [])
         if isinstance(item, dict)
     ]
     linkage_errors = [
@@ -448,6 +468,17 @@ def render_status_markdown(
                         *_render_issue_drafts(issue_drafts),
                     ]
                 )
+    if closure_hygiene_issues:
+        lines.extend(
+            [
+                "",
+                "## Closure Hygiene Alerts",
+                "",
+                "These verified corpus issues show deliverable or PR-shaped signals in automation metrics, but strict benchmark linkage still resolves to `no_linked_pr`.",
+                "",
+                *_render_closure_hygiene_issues(closure_hygiene_issues),
+            ]
+        )
     if linkage_errors:
         lines.extend(
             [
