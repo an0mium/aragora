@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import {
   useReviewQueue,
   useReviewQueueStats,
@@ -46,40 +47,30 @@ export default function ReviewQueuePage() {
   };
 
   return (
-    <div
-      className="mx-auto max-w-4xl px-6"
-      style={{
-        color: 'var(--text)',
-        paddingTop: 'calc(var(--topbar-height, 48px) + 2.5rem)',
-        paddingBottom: '4rem',
-      }}
-    >
-      <header style={{ marginBottom: '2.5rem' }}>
-        <div
-          className="flex items-baseline"
-          style={{ gap: '0.75rem', marginBottom: '0.5rem' }}
-        >
-          <h1
-            className="font-theme-data"
-            style={{ color: 'var(--text)', fontSize: '1.875rem', lineHeight: 1.2 }}
-          >
-            Review queue
-          </h1>
-          <span
-            style={{
-              fontSize: '11px',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--text-muted)',
-            }}
-          >
-            PDB UI v0
-          </span>
+    <div className="min-h-screen bg-bg text-text relative overflow-hidden">
+      <Scanlines />
+      <CRTVignette />
+      <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
+        <div className="mb-8">
+          <div className="flex items-baseline gap-3 mb-2">
+            <h1 className="text-xl font-theme-data font-bold text-[var(--accent)]">
+              Review queue
+            </h1>
+            <span
+              className="text-xs font-theme-data"
+              style={{
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+              }}
+            >
+              PDB UI v0
+            </span>
+          </div>
+          <p className="text-text-muted font-theme-data text-sm">
+            Presidential-brief-style PR settlement. Scan, decide, move on.
+          </p>
         </div>
-        <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-          Presidential-brief-style PR settlement. Scan, decide, move on.
-        </p>
-      </header>
 
       <StatsHeader
         visible={visible}
@@ -140,6 +131,7 @@ export default function ReviewQueuePage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
