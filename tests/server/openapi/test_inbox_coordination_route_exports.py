@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 from aragora.server.auth_requirements import AuthLevel, get_requirement
 from aragora.server.handlers import ALL_HANDLERS
 from aragora.server.handlers.coordination import CoordinationHandler
@@ -89,17 +91,19 @@ def test_inbox_and_coordination_routes_export_request_bodies() -> None:
     for path in request_body_routes:
         operation = _operation(path, "post")
         assert "requestBody" in operation
-        request_body = operation["requestBody"]
+        request_body = cast(dict[str, Any], operation["requestBody"])
         assert request_body["content"]["application/json"]["schema"]["type"] == "object"
 
-    connect_schema = _operation("/api/v1/inbox/connect", "post")["requestBody"]["content"][
-        "application/json"
-    ]["schema"]
+    connect_request_body = cast(
+        dict[str, Any], _operation("/api/v1/inbox/connect", "post")["requestBody"]
+    )
+    connect_schema = connect_request_body["content"]["application/json"]["schema"]
     assert connect_schema["required"] == ["provider", "auth_code"]
 
-    execute_schema = _operation("/api/v1/coordination/execute", "post")["requestBody"]["content"][
-        "application/json"
-    ]["schema"]
+    execute_request_body = cast(
+        dict[str, Any], _operation("/api/v1/coordination/execute", "post")["requestBody"]
+    )
+    execute_schema = execute_request_body["content"]["application/json"]["schema"]
     assert execute_schema["required"] == [
         "operation",
         "source_workspace_id",
@@ -109,7 +113,7 @@ def test_inbox_and_coordination_routes_export_request_bodies() -> None:
 
 def test_inbox_and_coordination_auth_manifest_matches_live_contracts() -> None:
     required_permissions = {
-        ("POST", "/api/v1/inbox/connect"): "inbox:read",
+        ("POST", "/api/v1/inbox/connect"): "inbox:update",
         ("POST", "/api/v1/inbox/actions"): "inbox:write",
         ("GET", "/api/v1/coordination/workspaces"): "coordination:read",
         ("POST", "/api/v1/coordination/workspaces"): "coordination:write",

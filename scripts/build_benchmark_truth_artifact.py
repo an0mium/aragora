@@ -212,9 +212,31 @@ def _corpus_freshness(
         for record in records
         if record.linkage_verification_incomplete and _is_verified(record)
     ]
+    closure_hygiene_issues = [
+        {
+            "issue_number": record.issue_number,
+            "issue_title": record.issue_title,
+            "issue_url": record.issue_url,
+            "issue_state": record.issue_state,
+            "issue_state_reason": record.issue_state_reason,
+            "issue_closed_at": record.issue_closed_at,
+            "truth_state": record.truth_state,
+            "proxy_pr_signal": record.proxy_pr_signal,
+        }
+        for record in records
+        if (
+            record.proxy_pr_signal
+            and record.truth_state == "no_linked_pr"
+            and not record.linkage_verification_incomplete
+            and not record.stale_corpus_issue
+            and _is_verified(record)
+        )
+    ]
     status = "fresh"
     if stale_closed_issues:
         status = "stale_closed_issues_detected"
+    elif closure_hygiene_issues:
+        status = "closure_hygiene_drift_detected"
     elif linkage_errors:
         status = "linkage_verification_incomplete"
     return {
@@ -224,6 +246,11 @@ def _corpus_freshness(
             item["issue_number"] for item in stale_closed_issues if item["issue_number"] > 0
         ],
         "stale_closed_issues": stale_closed_issues,
+        "closure_hygiene_issue_count": len(closure_hygiene_issues),
+        "closure_hygiene_issue_numbers": [
+            item["issue_number"] for item in closure_hygiene_issues if item["issue_number"] > 0
+        ],
+        "closure_hygiene_issues": closure_hygiene_issues,
         "linkage_error_count": len(linkage_errors),
         "linkage_errors": linkage_errors,
     }

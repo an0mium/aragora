@@ -376,6 +376,7 @@ if TYPE_CHECKING:
     from .receipts import ReceiptsHandler
     from .replays import ReplaysHandler
     from .repository import RepositoryHandler
+    from .review_queue import ReviewQueueHandler
     from .reviews import ReviewsHandler
     from .rlm import RLMContextHandler
     from .routing import RoutingHandler
@@ -682,6 +683,7 @@ __all__ = [
     "GauntletHeatmapExportHandler",
     "GauntletValidateReceiptHandler",
     "GAUNTLET_V1_HANDLERS",
+    "ReviewQueueHandler",
     "ReviewsHandler",
     "FormalVerificationHandler",
     "SlackHandler",

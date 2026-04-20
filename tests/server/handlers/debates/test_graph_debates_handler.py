@@ -462,7 +462,7 @@ class TestStorageErrors:
 
     @pytest.mark.asyncio
     async def test_no_storage_configured(self, handler, mock_http_handler, mock_auth_context):
-        """Should return 503 when storage not configured."""
+        """Should return 404 when storage is unavailable and nothing is cached."""
         mock_http_handler.storage = None
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
@@ -473,12 +473,12 @@ class TestStorageErrors:
                 )
                 body, status = parse_result(result)
 
-        assert status == 503
-        assert "Storage not configured" in body.get("error", "")
+        assert status == 404
+        assert "Graph debate not found" in body.get("error", "")
 
     @pytest.mark.asyncio
     async def test_storage_exception(self, handler, mock_http_handler, mock_auth_context):
-        """Should return 500 on storage exception."""
+        """Should fall back to cache and return 404 when storage lookup fails."""
         mock_http_handler.storage.get_graph_debate = AsyncMock(
             side_effect=ValueError("Database error")
         )
@@ -491,4 +491,4 @@ class TestStorageErrors:
                 )
                 body, status = parse_result(result)
 
-        assert status == 500
+        assert status == 404

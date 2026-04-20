@@ -26,11 +26,12 @@ import json
 import subprocess
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.pr_review_protocol import default_pr_review_protocol
 from aragora.worktree.fleet import resolve_repo_root
 
 UTC = timezone.utc
@@ -120,6 +121,7 @@ class ReviewPacket:
     machine_recommendation_reason: str
     packet_sha: str
     generated_at: str
+    protocol: dict[str, Any] = field(default_factory=dict)
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
 
@@ -715,6 +717,28 @@ def _build_packet(pr_ref: str, *, repo_override: str | None) -> ReviewPacket:
     if isinstance(author_payload, dict):
         author = str(author_payload.get("login", "")).strip()
 
+    repo = _repo_from_url(str(pr.get("url", "")).strip())
+    protocol = default_pr_review_protocol().build_packet(
+        repo=repo,
+        pr_number=number,
+        title=str(pr.get("title", "")).strip(),
+        base_sha=str(pr.get("baseRefOid", "")).strip(),
+        head_sha=str(pr.get("headRefOid", "")).strip(),
+        mergeable=mergeable,
+        review_decision=str(pr.get("reviewDecision", "")).strip().upper(),
+        checks_summary=checks_summary,
+        has_failures=has_failures,
+        has_pending=has_pending,
+        additions=additions,
+        deletions=deletions,
+        changed_files=int(pr.get("changedFiles", 0) or 0),
+        labels=labels,
+        high_risk_paths=high_risk,
+        validation_commands=validation,
+        machine_recommendation=recommendation,
+        machine_recommendation_reason=recommendation_reason,
+    )
+
     packet = ReviewPacket(
         pr_number=number,
         title=str(pr.get("title", "")).strip(),
@@ -736,6 +760,7 @@ def _build_packet(pr_ref: str, *, repo_override: str | None) -> ReviewPacket:
         machine_recommendation_reason=recommendation_reason,
         packet_sha="",
         generated_at=datetime.now(UTC).isoformat(),
+        protocol=protocol.to_dict(),
     )
     packet.packet_sha = _packet_sha(packet)
     return packet
@@ -770,6 +795,14 @@ def _parse_pr_number(pr_ref: str) -> int:
         return int(text)
     except ValueError as exc:
         raise _GhError(f"invalid PR ref: {pr_ref!r}") from exc
+
+
+def _repo_from_url(url: str) -> str:
+    text = str(url).strip().rstrip("/")
+    parts = text.split("/")
+    if len(parts) >= 5 and parts[2] == "github.com":
+        return f"{parts[3]}/{parts[4]}"
+    return ""
 
 
 def _extract_validation_commands(body: str) -> list[str]:
@@ -1046,6 +1079,49 @@ def _render_packet(packet: ReviewPacket) -> None:
         print()
     print(f"machine recommendation: {packet.machine_recommendation}")
     print(f"  reason: {packet.machine_recommendation_reason}")
+    if packet.protocol:
+        protocol = packet.protocol
+        binding = protocol.get("binding") or {}
+        cost_estimate = protocol.get("cost_estimate") or {}
+        print()
+        print("protocol:")
+        print(
+            f"  {protocol.get('protocol_version', 'unknown')} [{protocol.get('status', 'unknown')}]"
+        )
+        print(
+            f"  binding: {binding.get('repo', '')} "
+            f"PR #{binding.get('pr_number', packet.pr_number)} "
+            f"{binding.get('base_sha', packet.base_sha)}..{binding.get('head_sha', packet.head_sha)}"
+        )
+        print(
+            f"  confidence: {protocol.get('confidence', 0):.2f} "
+            f"({protocol.get('confidence_basis', 'unknown')})"
+        )
+        print(f"  dissent: {protocol.get('dissent_summary', '')}")
+        print(
+            f"  cost estimate: ${cost_estimate.get('low', 0):.2f}"
+            f"-${cost_estimate.get('high', 0):.2f}"
+        )
+        top_findings = protocol.get("top_findings") or []
+        if top_findings:
+            print("  top findings:")
+            for finding in top_findings[:3]:
+                if not isinstance(finding, dict):
+                    continue
+                severity = str(finding.get("severity", "")).strip()
+                summary = str(finding.get("summary", "")).strip()
+                print(f"    - [{severity}] {summary}")
+        provider_slots = protocol.get("provider_slots") or []
+        if provider_slots:
+            print("  provider slots:")
+            for slot in provider_slots:
+                if not isinstance(slot, dict):
+                    continue
+                selected = slot.get("selected_provider") or "unresolved"
+                print(
+                    f"    - {slot.get('slot_id')}: {selected} "
+                    f"({slot.get('family')}/{slot.get('lens')})"
+                )
     print()
     print(f"generated at: {packet.generated_at}")
     print()

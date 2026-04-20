@@ -277,6 +277,7 @@ import {
   SocialAPI,
   SecurityAPI,
   ReviewsAPI,
+  ReviewQueueAPI,
   CheckpointsAPI,
   UncertaintyAPI,
   AudioAPI,
@@ -897,6 +898,8 @@ export class AragoraClient {
 
   /** Reviews API - Debate and decision review management. */
   readonly reviews: ReviewsAPI;
+  /** Review Queue API - Browser-based PR settlement triage for PDB briefs. */
+  readonly reviewQueue: ReviewQueueAPI;
 
   /** Checkpoints API - Debate checkpoint and pause/resume management. */
   readonly checkpoints: CheckpointsAPI;
@@ -1161,6 +1164,7 @@ export class AragoraClient {
     this.social = new SocialAPI(this);
     this.security = new SecurityAPI(this);
     this.reviews = new ReviewsAPI(this);
+    this.reviewQueue = new ReviewQueueAPI(this);
     this.checkpoints = new CheckpointsAPI(this);
     this.uncertainty = new UncertaintyAPI(this);
     this.audio = new AudioAPI(this);

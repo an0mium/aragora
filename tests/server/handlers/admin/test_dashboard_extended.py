@@ -49,6 +49,25 @@ def _parse_body(result) -> dict:
     return body
 
 
+def _set_debate_rows(cursor: MagicMock, rows: list[dict[str, Any]]) -> None:
+    """Configure a mock cursor with rows compatible with load_debate_records()."""
+    columns = [
+        "id",
+        "domain",
+        "consensus_reached",
+        "confidence",
+        "created_at",
+        "completed_at",
+        "status",
+        "artifact_json",
+        "result",
+        "rounds_used",
+        "task",
+    ]
+    cursor.description = [(column,) for column in columns]
+    cursor.fetchall.return_value = [tuple(row.get(column) for column in columns) for row in rows]
+
+
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -387,6 +406,28 @@ class TestGetDashboardDebate:
 
     def test_returns_debate_detail(self, handler):
         """Returns debate detail for valid debate_id."""
+        storage = MagicMock()
+        cursor = MagicMock()
+        storage.connection.return_value.__enter__ = MagicMock(
+            return_value=MagicMock(cursor=MagicMock(return_value=cursor))
+        )
+        storage.connection.return_value.__exit__ = MagicMock(return_value=False)
+        storage.connection.return_value.__enter__.return_value.cursor.return_value = cursor
+        _set_debate_rows(
+            cursor,
+            [
+                {
+                    "id": "debate-123",
+                    "domain": "technology",
+                    "consensus_reached": True,
+                    "confidence": 0.91,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "status": "completed",
+                    "task": "Test debate",
+                }
+            ],
+        )
+        handler.get_storage = MagicMock(return_value=storage)
         result = handler._get_dashboard_debate("debate-123")
         data = _parse_body(result)
         assert data["debate_id"] == "debate-123"
@@ -408,10 +449,10 @@ class TestExecuteQuickAction:
 
     def test_returns_success_for_valid_action(self, handler):
         """Returns success response with action_id and timestamp."""
-        result = handler._execute_quick_action("archive_read")
+        result = handler._execute_quick_action("review_needs_attention")
         data = _parse_body(result)
         assert data["success"] is True
-        assert data["action_id"] == "archive_read"
+        assert data["action_id"] == "review_needs_attention"
         assert "executed_at" in data
 
     def test_empty_action_id_returns_400(self, handler):
@@ -444,7 +485,7 @@ class TestDismissUrgentItem:
     def test_dismiss_not_found(self, handler, mock_storage):
         """Dismiss returns 404 when item is not found."""
         storage, cursor = mock_storage
-        cursor.rowcount = 0
+        cursor.fetchone.return_value = None
         handler.get_storage = MagicMock(return_value=storage)
 
         result = handler._dismiss_urgent_item("nonexistent")
@@ -499,7 +540,7 @@ class TestCompletePendingAction:
     def test_complete_not_found(self, handler, mock_storage):
         """Complete returns 404 when action not found or already completed."""
         storage, cursor = mock_storage
-        cursor.rowcount = 0
+        cursor.fetchone.return_value = None
         handler.get_storage = MagicMock(return_value=storage)
 
         result = handler._complete_pending_action("nonexistent")
@@ -540,20 +581,40 @@ class TestGetLabels:
     """Tests for _get_labels method."""
 
     def test_returns_labels_from_storage(self, handler, mock_storage):
-        """Returns label counts from debate storage."""
+        """Returns label counts from normalized debate records."""
         storage, cursor = mock_storage
         handler.get_storage = MagicMock(return_value=storage)
-        cursor.fetchall.return_value = [
-            ("technology", 15),
-            ("finance", 8),
-            (None, 3),
-        ]
+        _set_debate_rows(
+            cursor,
+            [
+                {
+                    "id": "debate-1",
+                    "domain": "technology",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+                {
+                    "id": "debate-2",
+                    "domain": "technology",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+                {
+                    "id": "debate-3",
+                    "domain": "finance",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+                {
+                    "id": "debate-4",
+                    "domain": None,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+            ],
+        )
 
         result = handler._get_labels()
         data = _parse_body(result)
         assert len(data["labels"]) == 3
         assert data["labels"][0]["name"] == "technology"
-        assert data["labels"][0]["count"] == 15
+        assert data["labels"][0]["count"] == 2
         # Null domain mapped to "general"
         assert data["labels"][2]["name"] == "general"
 
@@ -574,19 +635,44 @@ class TestGetTopSenders:
     """Tests for _get_top_senders method."""
 
     def test_returns_senders_from_storage(self, handler, mock_storage):
-        """Returns top senders ranked by debate count."""
+        """Returns top grouped debate domains with derived stats."""
         storage, cursor = mock_storage
         handler.get_storage = MagicMock(return_value=storage)
-        cursor.fetchall.return_value = [
-            ("technology", 20),
-            (None, 5),
-        ]
+        _set_debate_rows(
+            cursor,
+            [
+                {
+                    "id": "debate-1",
+                    "domain": "technology",
+                    "consensus_reached": True,
+                    "confidence": 0.9,
+                    "status": "completed",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+                {
+                    "id": "debate-2",
+                    "domain": "technology",
+                    "consensus_reached": False,
+                    "confidence": 0.6,
+                    "status": "pending",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+                {
+                    "id": "debate-3",
+                    "domain": None,
+                    "consensus_reached": False,
+                    "confidence": None,
+                    "status": "completed",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+            ],
+        )
 
         result = handler._get_top_senders(10, 0)
         data = _parse_body(result)
         assert len(data["senders"]) == 2
         assert data["senders"][0]["domain"] == "technology"
-        assert data["senders"][0]["debate_count"] == 20
+        assert data["senders"][0]["debate_count"] == 2
         # Null domain mapped to "general"
         assert data["senders"][1]["domain"] == "general"
 
@@ -611,12 +697,13 @@ class TestGetQuickActions:
         """Returns the full list of quick actions."""
         result = handler._get_quick_actions()
         data = _parse_body(result)
-        assert data["total"] == 6
-        assert len(data["actions"]) == 6
+        assert data["total"] == 4
+        assert len(data["actions"]) == 4
         action_ids = [a["id"] for a in data["actions"]]
-        assert "archive_read" in action_ids
-        assert "ai_respond" in action_ids
-        assert "sync_inbox" in action_ids
+        assert "review_needs_attention" in action_ids
+        assert "resume_in_progress" in action_ids
+        assert "complete_pending" in action_ids
+        assert "inspect_low_confidence" in action_ids
 
     def test_actions_have_required_fields(self, handler):
         """Each quick action has id, name, description, icon, available."""

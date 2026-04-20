@@ -24,11 +24,12 @@ def _branch(
     hours_ago: int = 1,
     unique_commit_count: int = 1,
     upstream: str | None = None,
+    head_sha: str = "abc1234",
 ) -> BranchSnapshot:
     return BranchSnapshot(
         branch=name,
         upstream=upstream,
-        head_sha="abc1234",
+        head_sha=head_sha,
         committed_at=datetime.now(UTC) - timedelta(hours=hours_ago),
         subject=f"subject for {name}",
         unique_commit_count=unique_commit_count,
@@ -132,6 +133,20 @@ def test_select_publishable_branches_skips_dirty_and_active_worktrees() -> None:
     by_branch = {decision.branch: decision for decision in decisions}
     assert by_branch["codex/dirty"].reason == "dirty_worktree"
     assert by_branch["codex/active"].reason == "active_session"
+
+
+def test_select_publishable_branches_skips_remote_branch_conflicts() -> None:
+    decisions = select_publishable_branches(
+        [_branch("codex/conflict", head_sha="abc1234")],
+        [],
+        set(),
+        cutoff=datetime.now(UTC) - timedelta(hours=24),
+        base="main",
+        is_merged={"codex/conflict": False},
+        remote_head_lookup={"codex/conflict": "def5678"},
+    )
+
+    assert decisions[0].reason == "remote_branch_conflict"
 
 
 def test_select_publishable_branches_skips_branches_with_historical_prs() -> None:
@@ -514,3 +529,128 @@ def test_publish_decisions_uses_remaining_open_pr_capacity(
 
     assert [item["branch"] for item in results] == ["codex/ready-1"]
     assert calls == ["push:codex/ready-1", "label:2001"]
+
+
+def test_publish_decisions_records_publish_failures_and_continues(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    calls: list[str] = []
+
+    def fake_push(repo_root: Path, branch: str, upstream: str | None) -> None:
+        calls.append(f"push:{branch}")
+        if branch == "codex/bad-branch":
+            raise RuntimeError("non-fast-forward")
+
+    monkeypatch.setattr(mod, "_ensure_gh_auth", lambda repo_root: None)
+    monkeypatch.setattr(mod, "_push_branch", fake_push)
+    monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
+    monkeypatch.setattr(mod, "_create_pr", lambda repo_root, repo, branch, base: 2001)
+    monkeypatch.setattr(
+        mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
+    )
+
+    results = mod._publish_decisions(
+        tmp_path,
+        "synaptent/aragora",
+        "main",
+        [
+            mod.PublishDecision(
+                branch="codex/bad-branch",
+                eligible=True,
+                reason="eligible",
+                subject="bad branch",
+                head_sha="abc1234",
+                unique_commit_count=1,
+                upstream=None,
+                committed_at=datetime.now(UTC).isoformat(),
+                worktree_paths=[],
+            ),
+            mod.PublishDecision(
+                branch="codex/good-branch",
+                eligible=True,
+                reason="eligible",
+                subject="good branch",
+                head_sha="def5678",
+                unique_commit_count=1,
+                upstream=None,
+                committed_at=datetime.now(UTC).isoformat(),
+                worktree_paths=[],
+            ),
+        ],
+        limit=5,
+        open_pr_count=0,
+        max_open_prs=3,
+        labels=["codex"],
+    )
+
+    assert results == [
+        {
+            "branch": "codex/bad-branch",
+            "status": "publish_failed",
+            "subject": "bad branch",
+            "head_sha": "abc1234",
+            "reason": "non-fast-forward",
+        },
+        {
+            "branch": "codex/good-branch",
+            "status": "published",
+            "pr_number": 2001,
+            "subject": "good branch",
+            "head_sha": "def5678",
+        },
+    ]
+    assert calls == ["push:codex/bad-branch", "push:codex/good-branch", "label:2001"]
+
+
+def test_main_pauses_apply_when_open_codex_queue_is_unhealthy(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(mod, "_branches_with_pr_history", lambda repo_root, repo, branches: set())
+    monkeypatch.setattr(
+        mod,
+        "_branches_with_resolved_related_work",
+        lambda repo_root, repo, branches: set(),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: [
+            {"headRefName": "codex/a", "mergeStateStatus": "BLOCKED"},
+            {"headRefName": "codex/b", "mergeStateStatus": "DIRTY"},
+        ],
+    )
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    publish_called = False
+
+    def fake_publish(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        nonlocal publish_called
+        publish_called = True
+        return []
+
+    monkeypatch.setattr(mod, "_publish_decisions", fake_publish)
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--apply", "--json"])
+
+    assert exit_code == 0
+    assert publish_called is False
+    out = capsys.readouterr().out
+    assert '"publish_paused_reason": "open_pr_queue_unhealthy"' in out

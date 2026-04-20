@@ -302,6 +302,7 @@ class AragoraClient:
         from .namespaces.repository import RepositoryAPI
         from .namespaces.reputation import ReputationAPI
         from .namespaces.retention import RetentionAPI
+        from .namespaces.review_queue import ReviewQueueAPI
         from .namespaces.reviews import ReviewsAPI
         from .namespaces.rlm import RLMAPI
         from .namespaces.routing import RoutingAPI
@@ -491,6 +492,7 @@ class AragoraClient:
         self.reviews = ReviewsAPI(self)
         self.relationships = RelationshipsAPI(self)
         self.replays = ReplaysAPI(self)
+        self.review_queue = ReviewQueueAPI(self)
         self.repository = RepositoryAPI(self)
         self.rlm = RLMAPI(self)
         self.routing = RoutingAPI(self)
@@ -952,6 +954,7 @@ class AragoraAsyncClient:
         from .namespaces.repository import AsyncRepositoryAPI
         from .namespaces.reputation import AsyncReputationAPI
         from .namespaces.retention import AsyncRetentionAPI
+        from .namespaces.review_queue import AsyncReviewQueueAPI
         from .namespaces.reviews import AsyncReviewsAPI
         from .namespaces.rlm import AsyncRLMAPI
         from .namespaces.routing import AsyncRoutingAPI
@@ -1128,6 +1131,7 @@ class AragoraAsyncClient:
         self.reviews = AsyncReviewsAPI(self)
         self.relationships = AsyncRelationshipsAPI(self)
         self.replays = AsyncReplaysAPI(self)
+        self.review_queue = AsyncReviewQueueAPI(self)
         self.repository = AsyncRepositoryAPI(self)
         self.rlm = AsyncRLMAPI(self)
         self.routing = AsyncRoutingAPI(self)

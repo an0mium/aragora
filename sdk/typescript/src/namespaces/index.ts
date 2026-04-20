@@ -1482,6 +1482,13 @@ export {
   type Review,
 } from './reviews';
 
+export {
+  ReviewQueueAPI,
+  type ReviewQueuePR,
+  type ReviewQueueStats,
+  type BriefVerdict,
+} from './review-queue';
+
 // Checkpoints (Debate Pause/Resume)
 export {
   CheckpointsAPI,

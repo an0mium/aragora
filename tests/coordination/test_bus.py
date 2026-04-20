@@ -31,6 +31,11 @@ class TestCoordinationEvent:
         assert ev.event_id == ""
         assert ev.timestamp == 0.0
 
+    def test_from_dict_coerces_invalid_payload_shape(self):
+        ev = CoordinationEvent.from_dict({"payload": object(), "timestamp": object()})
+        assert ev.payload == {}
+        assert ev.timestamp == 0.0
+
 
 class TestCoordinationBus:
     def test_publish_creates_file(self, tmp_path):
