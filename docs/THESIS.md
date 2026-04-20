@@ -1,7 +1,9 @@
 # The Aragora Thesis
 
 > Canonical source of authority. Every other strategic doc links up to this.
-> Last updated: 2026-04-20. Status: v1 draft, under review.
+> Last updated: 2026-04-20. Status: v1 draft, revised in response to
+> codex adversarial review (REQUEST_CHANGES verdict, 5 required changes
+> applied); awaiting second review before merge.
 
 ---
 
@@ -25,7 +27,8 @@ to a volume and form that informed consent, rejection, or feedback
 becomes possible in the time a human actually has.
 
 Aragora is that infrastructure. Its first domain is its own codebase.
-Its endpoint is wherever the pattern generalizes.
+Whether the pattern generalizes beyond software execution is a
+load-bearing assumption, not a promise (see § Load-bearing assumptions).
 
 ---
 
@@ -62,9 +65,13 @@ four coordinated components:
    dependencies, and scope — before it is evaluated. Unstructured intent
    becomes a structured object that can be reasoned about.
 2. **Adversarial cross-checking.** Heterogeneous-model ensembles — each
-   with different training, architectures, and blind spots — surface
-   what single models miss. Dissent is first-class and preserved, not
-   collapsed into a false consensus.
+   with different training, architectures, and blind spots — combined
+   with actively engineered input-diversification (rotated prompts,
+   separate retrieval paths, provider-differentiated tooling) and
+   explicit dissent incentives, surface what single models miss.
+   Formal heterogeneity without input diversity is fake heterogeneity
+   and does not satisfy premise 3. Dissent is first-class and
+   preserved, not collapsed into a false consensus.
 3. **Outcome-weighted feedback.** Claims, agents, and decisions carry
    track records. Calibration is measured. What proved harmful or false
    gets downweighted; what proved beneficial or true gets upweighted.
@@ -110,15 +117,22 @@ less wrong" rather than a metaphysical one. Four tiers of claim, each
 with a different evidential basis, each separately expressible in a
 decision receipt:
 
-1. **Truth for agent A** — internal model output that reduces A's
-   surprise and improves A's decisions under A's goals and constraints.
+1. **Agent-relative belief quality** — internal model output that
+   reduces A's surprise and improves A's decisions under A's goals and
+   constraints. Colloquially "truth for A," but strictly this is
+   instrumental fit, not truth in the correspondence sense. Naming it
+   precisely avoids relativist drift.
 2. **Convergent truth** — the subset of agent-relative truths that
    remain stable under heterogeneous adversarial cross-checking by
    agents with different priors, different evidence, and active
    incentive to dissent.
 3. **Operational objective truth** — the subset of convergent truth
    that continues to predict successfully under out-of-distribution
-   interventions and over long time horizons.
+   interventions and over long time horizons. Today, Aragora can
+   plausibly emit tier-3 claims only in narrow domains with short
+   feedback loops and observable interventions (bounded software
+   tasks). Tier-3 claims in broad or long-horizon domains are
+   aspirational and must be flagged as such.
 4. **Metaphysical objective truth** — the hypothesized structure of
    reality that best explains why (3) continues to hold. The product
    does not claim direct access to this tier; it bets that (3)
@@ -131,11 +145,17 @@ saying *"convergent across five heterogeneous lenses with dissent
 preserved"* is a weaker and more honest claim than *"true,"* and also
 a more actionable one.
 
-This position is Peirce-adjacent (convergent inquiry in the long run)
-rather than Tarski-style correspondence. It shares instincts with
-predictive-processing (Friston) and pragmatism (James, Dewey). The
-relevant innovation is architectural, not philosophical: building it
-as shipping software rather than essay.
+This position has precedent in pragmatism and convergent-inquiry
+epistemology; the innovation is architectural, not philosophical,
+namely building it as shipping software rather than essay. Readers
+who want the academic mapping can see the footnote at the bottom of
+this document.
+
+[^philosophy]: Closest precedent: Charles Sanders Peirce's long-run
+convergent inquiry (1878). Shares instincts with pragmatism (James,
+Dewey) and predictive-processing (Friston). Explicitly not Tarski-style
+correspondence — Aragora does not claim agent-independent access to
+truth, only convergence under adversarial constraints.
 
 ---
 
@@ -166,6 +186,15 @@ Honest edges — regions the thesis does not claim to cover today:
   works on claims testable under genuine intervention pressure and
   out-of-distribution prediction; it does not adjudicate beliefs that
   survive by being unfalsifiable.
+- **Fake heterogeneity from shared context.** Multiple frontier models
+  can share correlated failure modes, especially when they consume the
+  same context bundle, retrieval sources, tool outputs, or prompt-
+  injection vectors. The heterogeneity required by premise 3 degrades
+  into theater if the agents are formally diverse but epistemically
+  collapsed by shared inputs. Genuinely independent challenge must be
+  actively engineered (separate retrieval, rotated prompts, provider-
+  differentiated tooling, adversarial prompting across lenses), not
+  assumed from the provider list.
 
 Naming the edges honestly is part of the thesis. A truth-seeking
 substrate that pretends to cover everything fails premise 2 on itself.
@@ -182,8 +211,9 @@ product fails on its own terms:
 | Heterogeneous AI ensembles detect what individual models miss | Per-model vs panel accuracy on benchmark corpus; dissent-surfacing rate | H1 |
 | Humans given distilled advisory packets make better decisions than raw output | Decision-quality A/B on matched PR populations; override-correlated-with-outcome rate | H1–H2 |
 | Structural decomposition is tractable for most consequential decisions | Percent of intent objects that decompose to testable cruxes; incompletions per class | H1–H2 |
-| Cryptographic receipts produce trust that matters to buyers | Design-partner willingness-to-pay conditional on receipt presence | H2 |
-| The pattern generalizes beyond software execution | Cross-domain benchmark once a software-execution wedge is proven | H3 |
+| Ensembles produce genuinely independent challenge in practice, not just formal heterogeneity | Shared-context contamination probe: feed poisoned / adversarial context to a panel; measure percent of lenses that catch it vs correlate on failure. Success: >60% of lenses independently flag; <30% catastrophic correlation | H1–H2 |
+| Cryptographic receipts produce trust that matters to buyers | Controlled with-receipt vs without-receipt A/B on identical decisions: approval-latency delta, pilot continuation rate, willingness-to-deploy under matched evidence. Willingness-to-pay alone is confounded and not sufficient. | H2 |
+| The pattern generalizes beyond software execution | Success: at least one non-software domain wedge reaches tier-3 (operational objective truth, see § "What we mean by true") under its domain's intervention schedule, without domain-specific hand-tuning that fails to transfer. Failure: wedges either fail to converge or converge only via per-domain engineering that blocks generalization. | H3 |
 
 If any of these fail under test, the corresponding component is wrong
 or overreaching and the thesis has to be revised. The point of naming
@@ -242,25 +272,31 @@ being validated, not assumed.
 Every load-bearing subsystem should answer a premise. If it doesn't,
 it's either redundant or should be reframed.
 
+Each substrate item is tagged `[shipped]`, `[scaffolded]`, `[docs-only]`,
+or `[planned]`. The table must survive skeptical reading; status is
+explicit rather than implied.
+
 | Premise | Existing Aragora substrate | Measurable property |
 |---------|----------------------------|---------------------|
-| Bandwidth | Batched-triage advisory packets (#6279); review-queue CLI + UI (#6280 / #6288 / #6328); settlement loop (#6297) | PRs settled per session; time-per-settlement |
-| Trust | Heterogeneous-model ensembles; Arena debate engine; circuit breaker; airlock; task sanitizer; trickster; cross-verification | Dissent-surfacing rate; hallucination-catch rate |
-| No safe delegation | Human settlement gate in merge-arbiter; EU AI Act Article 14 wedge (H1-05); advisory-only machine review (#6279) | Percent of merges with human settlement; override-correlated-with-outcome rate |
-| Structure | Belief network (claims + provenance); reasoning module; PR review protocol scaffold (#6355); planned Brief schema | Percent of decisions with decomposed cruxes; structure-completeness score |
-| Outcomes | ELO tracking; persona evolution; calibration tracker; outcome feedback; selection feedback; receipt store | Calibration error; per-agent track record; outcome-weight half-life |
-| Tested against reality | Benchmark corpus rev-4; B0 truth publication; proof-first queue; gauntlet receipts; evidence staleness | Zero-rescue rate on bounded tasks; claim verification rate |
-| Adversarial cross-check | Arena topologies; Prover-Estimator consensus; rhetorical observer; trickster; Recursive Language Models | Ensemble-vs-single-model delta; dissent preservation rate |
-| Distillation | PDB UI v0 (#6328); batched review-queue (#6288); progressive disclosure (brief A/B/C densities); receipt summaries | Time-to-decision; brief-coverage-of-load-bearing-structure |
-| Informed consent / feedback | Settlement signals (#6297); BriefReceipt + SettlementLinkage (#6353); dissent preservation in receipts | Signal-to-settlement rate; human-override outcome correlation |
-| Self-test on own codebase | Nomic loop; self-develop CLI; H1 dogfood wedge; this review-queue rollout | H1 exit criteria; dogfood session cadence |
+| Bandwidth | Batched-triage advisory packets (#6279) `[shipped]`; review-queue CLI (#6280, #6288) `[shipped]`; PDB UI v0 (#6328) `[scaffolded]`; settlement loop (#6297) `[shipped]` | PRs settled per session; time-per-settlement |
+| Trust | Heterogeneous-model ensembles `[shipped]`; Arena debate engine `[shipped]`; circuit breaker, airlock, task sanitizer, trickster, cross-verification `[shipped]` | Dissent-surfacing rate; hallucination-catch rate |
+| No safe delegation | Human settlement gate in merge-arbiter `[shipped]`; advisory-only machine review (#6279) `[shipped]`; EU AI Act Article 14 wedge (H1-05) `[docs-only]` | Percent of review-queue-path merges with human settlement; override-correlated-with-outcome rate |
+| Structure | Belief network (claims + provenance) `[shipped]`; reasoning module `[shipped]`; `ReviewBrief` schema in `aragora/review/protocol.py` `[shipped]`; `BriefReceipt` + `SettlementLinkage` (#6353) `[shipped]`; PR review protocol packet scaffold (#6355) `[scaffolded]` | Percent of decisions with decomposed cruxes; structure-completeness score |
+| Outcomes | ELO tracking `[shipped]`; persona evolution `[shipped]`; calibration tracker `[shipped]`; outcome feedback loop `[shipped]`; selection feedback `[shipped]`; receipt store `[shipped]` | Calibration error; per-agent track record; outcome-weight half-life |
+| Tested against reality | Benchmark corpus rev-4 `[shipped]`; B0 truth publication `[shipped]`; proof-first queue `[shipped]`; gauntlet receipts `[shipped]`; evidence staleness `[shipped]` | Zero-rescue rate on bounded tasks; claim verification rate |
+| Adversarial cross-check | Arena topologies `[shipped]`; Prover-Estimator consensus `[shipped]`; rhetorical observer `[shipped]`; trickster `[shipped]`; Recursive Language Models `[shipped]` | Ensemble-vs-single-model delta; dissent preservation rate |
+| Distillation | Batched review-queue (#6288) `[shipped]`; PDB UI v0 (#6328) `[scaffolded]`; receipt summaries `[shipped]`; progressive disclosure (brief A/B/C densities) `[planned]` | Time-to-decision; brief-coverage-of-load-bearing-structure |
+| Informed consent / feedback | Settlement signals (#6297) `[shipped]`; `BriefReceipt` + `SettlementLinkage` (#6353) `[shipped]`; dissent preservation in receipts `[shipped]` | Signal-to-settlement rate; human-override outcome correlation |
+| Self-test on own codebase | Nomic loop `[shipped]`; self-develop CLI `[shipped]`; H1 dogfood wedge `[in progress]`; this review-queue rollout `[in progress]` | H1 exit criteria; dogfood session cadence |
 
 **The strongest proof point is that the product is being applied to
 itself.** The arc from problem statement → heterogeneous critique →
 declaw of the auto-approver → design-doc-first discipline → settlement-
 loop rollout is a worked example of the thesis in action. This very
-document was produced by the same loop: three AI agents in adversarial
-dialogue, human arbitration, structured output, committed as evidence.
+document was produced by the same loop: multiple AI agents in
+adversarial dialogue (including a codex review that requested changes
+and was applied as a third commit), human arbitration, structured
+output, committed as evidence.
 
 ---
 
@@ -268,16 +304,37 @@ dialogue, human arbitration, structured output, committed as evidence.
 
 Four concrete commitments follow from taking the thesis seriously:
 
-1. **No auto-merge of substantive code without human settlement.**
-   Removing the human gate defeats premise 3. EU AI Act Article 14
-   alignment falls out of this as a natural consequence, not a bolt-on.
+1. **No auto-merge of substantive code from the thesis-conformant
+   review-queue path without human settlement.** Removing the human
+   gate on the heterogeneous review path defeats premise 3. EU AI Act
+   Article 14 alignment falls out of this as a natural consequence,
+   not a bolt-on.
+
+   **Known exceptions, named honestly:** the repo currently retains
+   two pre-thesis auto-merge paths that this commitment does *not*
+   yet cover: (a) `fire_and_forget` low-risk auto-merge in
+   `aragora/swarm/tranche_integrate.py` and (b) `admin_merge_allowed`
+   admin-merge bypass documented in `docs/STATUS.md`. These are
+   grandfathered legacy paths from before #6279. They are not
+   endorsed by this thesis. Their scope, usage, and continued
+   existence is itself a load-bearing product question that must be
+   resolved (either by gating them behind human settlement or by
+   removing them) before the thesis's Commitment #1 can be claimed
+   without qualification. Failure to resolve this contradicts the
+   thesis on its own first commitment.
 2. **Dissent is preserved in receipts, not collapsed into majority.**
    Majority rule without a dissent trail is indistinguishable from
    false consensus.
 3. **Outcome feedback is the measurement of whether the thesis holds.**
-   If calibration scores do not improve over time, or if heterogeneous
-   ensembles do not surface dissent that changes decisions, the product
-   has failed its own test and must be revised rather than shipped.
+   Specifically: if per-agent calibration error does not decrease over
+   any rolling 30-day window on the benchmark corpus, or if the
+   fraction of panel decisions where dissent materially changes the
+   human verdict drops below 15% over a rolling 30-day window, the
+   product has failed its own test on that window and must be revised
+   (either architecturally, via input-diversification; or
+   operationally, via expanded panel heterogeneity) before shipping
+   further capability on top. Thresholds are provisional and subject
+   to recalibration after 30 days of real settlement data.
 4. **The limits named in "Where this thesis does NOT yet apply" are
    respected in product scope.** Aragora will not claim to arbitrate
    what it cannot arbitrate, even when asked.
