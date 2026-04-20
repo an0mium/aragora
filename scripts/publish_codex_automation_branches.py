@@ -35,6 +35,7 @@ DEFAULT_SCAN_LIMIT = 12
 CODEX_BRANCH_PREFIX = "codex/"
 DEFAULT_PREFLIGHT_SCRIPT = "scripts/automation_pr_preflight.sh"
 DEFAULT_PRE_PUSH_SKIP_HOOKS = "mypy-baseline"
+UNHEALTHY_OPEN_PR_MERGE_STATES = {"BLOCKED", "DIRTY"}
 STOPWORDS = {
     "and",
     "are",
@@ -316,7 +317,7 @@ def _list_worktrees(
     return snapshots
 
 
-def _open_pr_heads(repo_root: Path, repo: str) -> set[str]:
+def _open_codex_prs(repo_root: Path, repo: str) -> list[dict[str, Any]]:
     proc = _run(
         [
             "gh",
@@ -329,20 +330,36 @@ def _open_pr_heads(repo_root: Path, repo: str) -> set[str]:
             "--limit",
             "200",
             "--json",
-            "headRefName",
+            "headRefName,mergeStateStatus",
         ],
         cwd=repo_root,
     )
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or "failed to list open PRs")
     payload = json.loads(proc.stdout or "[]")
-    return {
-        item["headRefName"]
+    return [
+        item
         for item in payload
         if isinstance(item, dict)
         and isinstance(item.get("headRefName"), str)
         and item["headRefName"].startswith(CODEX_BRANCH_PREFIX)
+    ]
+
+
+def _open_pr_heads(repo_root: Path, repo: str) -> set[str]:
+    return {
+        item["headRefName"]
+        for item in _open_codex_prs(repo_root, repo)
+        if isinstance(item.get("headRefName"), str)
     }
+
+
+def _branch_remote_head(repo_root: Path, branch: str) -> str | None:
+    proc = _run(["git", "rev-parse", f"refs/remotes/origin/{branch}"], cwd=repo_root)
+    if proc.returncode != 0:
+        return None
+    remote_head = proc.stdout.strip()
+    return remote_head or None
 
 
 def _branches_with_pr_history(repo_root: Path, repo: str, branches: list[str]) -> set[str]:
@@ -487,6 +504,7 @@ def select_publishable_branches(
     is_patch_equivalent: dict[str, bool] | None = None,
     historical_pr_branches: set[str] | None = None,
     resolved_related_branches: set[str] | None = None,
+    remote_head_lookup: dict[str, str | None] | None = None,
 ) -> list[PublishDecision]:
     worktrees_by_branch: dict[str, list[WorktreeSnapshot]] = {}
     for worktree in worktrees:
@@ -497,6 +515,7 @@ def select_publishable_branches(
     patch_equivalent_lookup = is_patch_equivalent or {}
     historical_lookup = historical_pr_branches or set()
     resolved_related_lookup = resolved_related_branches or set()
+    remote_lookup = remote_head_lookup or {}
     decisions: list[PublishDecision] = []
 
     for branch in sorted(branches, key=lambda item: item.committed_at, reverse=True):
@@ -517,6 +536,8 @@ def select_publishable_branches(
             reason = "open_pr_exists"
         elif branch.branch in historical_lookup:
             reason = "historical_pr_exists"
+        elif remote_lookup.get(branch.branch) not in (None, "", branch.head_sha):
+            reason = "remote_branch_conflict"
         elif any(worktree.active_session for worktree in attached):
             reason = "active_session"
         elif any(worktree.dirty for worktree in attached):
@@ -706,11 +727,23 @@ def _publish_decisions(
                 )
                 continue
 
-        _push_branch(repo_root, decision.branch, decision.upstream)
-        number = _existing_pr_number(repo_root, repo, decision.branch, base)
-        if number is None:
-            number = _create_pr(repo_root, repo, decision.branch, base)
-        _add_labels(repo_root, repo, number, labels)
+        try:
+            _push_branch(repo_root, decision.branch, decision.upstream)
+            number = _existing_pr_number(repo_root, repo, decision.branch, base)
+            if number is None:
+                number = _create_pr(repo_root, repo, decision.branch, base)
+            _add_labels(repo_root, repo, number, labels)
+        except RuntimeError as exc:
+            results.append(
+                {
+                    "branch": decision.branch,
+                    "status": "publish_failed",
+                    "subject": decision.subject,
+                    "head_sha": decision.head_sha,
+                    "reason": str(exc)[:2000],
+                }
+            )
+            continue
         published += 1
         results.append(
             {
@@ -857,7 +890,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
         return 1
 
-    open_pr_heads = _open_pr_heads(repo_root, args.github_repo)
+    open_codex_prs = _open_codex_prs(repo_root, args.github_repo)
+    open_pr_heads = {
+        item["headRefName"] for item in open_codex_prs if isinstance(item.get("headRefName"), str)
+    }
     historical_pr_branches = _branches_with_pr_history(
         repo_root,
         args.github_repo,
@@ -878,6 +914,18 @@ def main(argv: list[str] | None = None) -> int:
         is_patch_equivalent=patch_equivalent_lookup,
         historical_pr_branches=historical_pr_branches,
         resolved_related_branches=resolved_related_branches,
+        remote_head_lookup={
+            branch.branch: _branch_remote_head(repo_root, branch.branch)
+            for branch in hydrated_branches
+        },
+    )
+    merge_state_counts: dict[str, int] = {}
+    for item in open_codex_prs:
+        state = str(item.get("mergeStateStatus") or "UNKNOWN").upper()
+        merge_state_counts[state] = merge_state_counts.get(state, 0) + 1
+    all_open_prs_unhealthy = bool(open_codex_prs) and all(
+        str(item.get("mergeStateStatus") or "UNKNOWN").upper() in UNHEALTHY_OPEN_PR_MERGE_STATES
+        for item in open_codex_prs
     )
 
     payload: dict[str, Any] = {
@@ -886,23 +934,32 @@ def main(argv: list[str] | None = None) -> int:
         "cutoff": cutoff.isoformat(),
         "open_pr_count": len(open_pr_heads),
         "max_open_prs": args.max_open_prs,
+        "queue_health": {
+            "open_codex_pr_count": len(open_codex_prs),
+            "merge_state_counts": merge_state_counts,
+            "all_open_prs_unhealthy": all_open_prs_unhealthy,
+        },
         "github_health": github_health.to_dict(),
         "decisions": [asdict(decision) for decision in decisions],
     }
 
     if args.apply:
-        published = _publish_decisions(
-            repo_root,
-            args.github_repo,
-            args.base,
-            decisions,
-            limit=args.limit,
-            open_pr_count=len(open_pr_heads),
-            max_open_prs=args.max_open_prs,
-            labels=list(dict.fromkeys(args.labels)),
-            preflight_script=None if args.skip_preflight else str(args.preflight_script),
-        )
-        payload["published"] = published
+        if all_open_prs_unhealthy:
+            payload["published"] = []
+            payload["publish_paused_reason"] = "open_pr_queue_unhealthy"
+        else:
+            published = _publish_decisions(
+                repo_root,
+                args.github_repo,
+                args.base,
+                decisions,
+                limit=args.limit,
+                open_pr_count=len(open_pr_heads),
+                max_open_prs=args.max_open_prs,
+                labels=list(dict.fromkeys(args.labels)),
+                preflight_script=None if args.skip_preflight else str(args.preflight_script),
+            )
+            payload["published"] = published
 
     if args.json:
         print(json.dumps(payload, indent=2))
