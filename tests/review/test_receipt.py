@@ -425,6 +425,29 @@ class TestSettlementLinkage:
         assert roundtrip["advisory_only"] is False
         assert roundtrip["settlement_receipt_id"] == "settlement-sha-abc"
 
+    def test_settlement_receipt_id_preimage_is_documented(self) -> None:
+        # Introducing portable IDs without a derivation contract would
+        # mean different producers generate different IDs for the same
+        # receipt. This test locks the preimage rule in the docstring
+        # parallel to ReviewBrief.packet_sha and BriefReceipt.receipt_id.
+        from aragora.review.receipt import SettlementLinkage as SL
+
+        doc = SL.__doc__ or ""
+        assert "Settlement-receipt-ID preimage" in doc
+        assert 'Remove the ``"receipt_path"`` key' in doc
+        assert "canonical JSON" in doc
+        assert "sha256" in doc.lower()
+
+    def test_repair_receipt_id_preimage_is_documented(self) -> None:
+        # Repair receipts use the same rule; guard that the docstring
+        # says so explicitly so the future repair lane can't pick a
+        # different derivation strategy silently.
+        from aragora.review.receipt import SettlementLinkage as SL
+
+        doc = SL.__doc__ or ""
+        assert "Repair-receipt-ID preimage" in doc
+        assert "same rule" in doc.lower()
+
 
 # --- Cross-module contract coherence --------------------------------------
 

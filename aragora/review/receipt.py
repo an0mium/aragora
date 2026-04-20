@@ -202,11 +202,8 @@ class SettlementLinkage:
 
     Stable IDs (``settlement_receipt_id``, ``repair_receipt_ids``) are
     the portable linkage keys — an exported payload can dereference
-    them on a different machine via a content-addressable lookup
-    (typically SHA-256 of the canonical receipt payload, with the
-    exact preimage rule living on whoever produces the settlement
-    receipt — the review-queue ``act`` command today, a successor PR
-    tomorrow). Consumers doing external export MUST use the IDs.
+    them on a different machine via content-addressable lookup.
+    Consumers doing external export MUST use the IDs.
 
     Filesystem paths (``settlement_receipt_path``, ``repair_receipt_paths``)
     are kept alongside for backwards compatibility with existing
@@ -216,6 +213,28 @@ class SettlementLinkage:
     Neither field alone is sufficient: a linkage with only a path is
     not exportable; a linkage with only an ID loses the local-read
     fast-path while existing tools are still migrating.
+
+    Settlement-receipt-ID preimage (deterministic, implementation
+    guidance for the review-queue ``act`` writer in
+    ``aragora/cli/commands/review_queue.py`` and any successor):
+      1. Take the ``SettlementReceipt`` payload from ``to_dict()``.
+      2. Remove the ``"receipt_path"`` key (filesystem-dependent,
+         not portable).
+      3. Remove the ``"receipt_id"`` key if present (would be
+         self-referential; parallel to the packet_sha rule).
+      4. Serialize the remainder as canonical JSON:
+         ``json.dumps(d, sort_keys=True, separators=(",", ":"), ensure_ascii=False)``.
+      5. UTF-8 encode, take ``hashlib.sha256(bytes).hexdigest()``.
+      ``settlement_receipt_id`` is exactly this hex digest.
+
+    Repair-receipt-ID preimage: same rule applied to whatever payload
+    the repair lane emits (the repair lane is a future successor PR
+    and will produce a dataclass with its own ``to_dict()``; the rule
+    above applies verbatim once that payload exists).
+
+    Both preimage rules live in this docstring (not in code) because
+    the schema module is intentionally behavior-free; the review-queue
+    ``act`` writer implements them and holds them under test.
     """
 
     brief_receipt_id: str  # BriefReceipt.receipt_id; empty if no prior brief
