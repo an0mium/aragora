@@ -20,15 +20,25 @@ from aragora.review.protocol import (
     RoleFinding,
     SynthesisPolicy,
 )
+from aragora.review.receipt import (
+    BriefReceipt,
+    EvidenceRef,
+    SettlementLinkage,
+    ValidationRef,
+)
 
 __all__ = [
     "ADVISORY_NOTE",
+    "BriefReceipt",
     "DissentingView",
     "DissentPosition",
+    "EvidenceRef",
     "PRReviewProtocol",
     "Recommendation",
     "ReviewBrief",
     "ReviewRole",
     "RoleFinding",
+    "SettlementLinkage",
     "SynthesisPolicy",
+    "ValidationRef",
 ]
