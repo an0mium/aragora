@@ -329,8 +329,8 @@ requires-dist = [
     { name = "twine", marker = "extra == 'test'", specifier = ">=6.2.0,<7.0" },
     { name = "types-croniter", marker = "extra == 'dev'", specifier = ">=2.0,<6.0" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0,<7.0" },
-    { name = "uvicorn", marker = "extra == 'all'", specifier = ">=0.30,<1.0" },
-    { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30,<1.0" },
+    { name = "uvicorn", marker = "extra == 'all'", specifier = ">=0.44.0,<1.0" },
+    { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.44.0,<1.0" },
     { name = "web3", marker = "extra == 'all'", specifier = ">=6.0,<8.0" },
     { name = "web3", marker = "extra == 'blockchain'", specifier = ">=6.0,<8.0" },
 ]
