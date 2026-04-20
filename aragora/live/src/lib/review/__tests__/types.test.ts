@@ -35,6 +35,10 @@ import {
   type CostMeter,
   type DissentingView,
   type EvidenceRef,
+  type PRReviewBinding,
+  type PRReviewFinding,
+  type PRReviewProtocolPacket,
+  type ProviderSlotResolution,
   type QueueItem,
   type ReviewBrief,
   type ReviewBudget,
@@ -306,7 +310,7 @@ describe("python-json payloads parse as TS types", () => {
       packet_sha: "h",
       pr_number: 6304,
       repo: "synaptent/aragora",
-      action: "approve" as SettlementAction,
+      action: SettlementAction.APPROVE,
       settled_at: "2026-04-20T15:00:00+00:00",
       repair_receipt_ids: [],
       repair_receipt_paths: [],
@@ -387,13 +391,13 @@ describe("python-json payloads parse as TS types", () => {
       additions: 656,
       deletions: 0,
       changed_files: 3,
-      queue_bucket: "ready_now",
+      queue_bucket: QueueLane.READY_NOW,
       touched_subsystems: ["aragora/live"],
       high_risk_paths_touched: [],
       validation: ["jest: 24 passed", "tsc: exit 0"],
       checks_summary: "24/24 green",
       risk_flags: [],
-      machine_recommendation: "approve_candidate",
+      machine_recommendation: Recommendation.APPROVE_CANDIDATE,
       machine_recommendation_reason: "Bounded TS foundation; no behavior change",
       packet_sha: "packet-hash-xyz",
       generated_at: "2026-04-20T15:00:00+00:00",
@@ -407,20 +411,20 @@ describe("python-json payloads parse as TS types", () => {
     expect(packet.settlement_note).not.toBe(REVIEW_BRIEF_ADVISORY_NOTE);
   });
 
-  test("SettlementReceipt shape (SHA-bound record)", () => {
+  test("SettlementReceipt shape (SHA-bound record + typed discriminators)", () => {
     const receipt: SettlementReceipt = {
       session_id: "session-001",
       reviewed_at: "2026-04-20T15:00:00+00:00",
       actor: "armand",
-      action: "approve" as SettlementAction,
+      action: SettlementAction.APPROVE,
       reason: "",
       pr_number: 6361,
       pr_url: "https://github.com/synaptent/aragora/pull/6361",
       head_sha: "72a79cc74",
       base_sha: "1857a9192",
       packet_sha: "packet-hash-xyz",
-      queue_bucket: "ready_now",
-      machine_recommendation: "approve_candidate",
+      queue_bucket: QueueLane.READY_NOW,
+      machine_recommendation: Recommendation.APPROVE_CANDIDATE,
       github_event: "REVIEW_SUBMITTED",
       elapsed_seconds: 4.2,
       receipt_path: ".aragora/review-queue/receipts/pr-6361-session-001-approve.json",
@@ -430,6 +434,9 @@ describe("python-json payloads parse as TS types", () => {
     expect(receipt.head_sha).toBe("72a79cc74");
     expect(receipt.packet_sha).toBe("packet-hash-xyz");
     expect(receipt.action).toBe(SettlementAction.APPROVE);
+    // Discriminator fields typed narrowly (not raw string).
+    expect(receipt.queue_bucket).toBe(QueueLane.READY_NOW);
+    expect(receipt.machine_recommendation).toBe(Recommendation.APPROVE_CANDIDATE);
   });
 
   test("SettlementActionRequest APPROVE may omit reason", () => {
@@ -508,15 +515,15 @@ describe("python-json payloads parse as TS types", () => {
       session_id: "session-001",
       reviewed_at: "2026-04-20T15:00:00+00:00",
       actor: "armand",
-      action: "approve" as SettlementAction,
+      action: SettlementAction.APPROVE,
       reason: "",
       pr_number: 6361,
       pr_url: "https://github.com/synaptent/aragora/pull/6361",
       head_sha: "72a79cc74",
       base_sha: "1857a9192",
       packet_sha: "packet-hash-xyz",
-      queue_bucket: "ready_now",
-      machine_recommendation: "approve_candidate",
+      queue_bucket: QueueLane.READY_NOW,
+      machine_recommendation: Recommendation.APPROVE_CANDIDATE,
       github_event: "REVIEW_SUBMITTED",
       elapsed_seconds: 4.2,
       receipt_path: ".aragora/review-queue/receipts/pr-6361-session-001-approve.json",
@@ -540,6 +547,156 @@ describe("python-json payloads parse as TS types", () => {
     expect(resp.success).toBe(false);
     expect(resp.receipt).toBeUndefined();
     expect(resp.error).toContain("stale_packet_sha");
+  });
+
+  test("ReviewPacket protocol field narrows to PRReviewProtocolPacket when populated", () => {
+    const binding: PRReviewBinding = {
+      repo: "synaptent/aragora",
+      pr_number: 6361,
+      base_sha: "1857a9192",
+      head_sha: "72a79cc74",
+    };
+    const finding: PRReviewFinding = {
+      finding_id: "f1",
+      category: "correctness",
+      severity: "info",
+      summary: "No regressions found in changed paths.",
+      evidence: ["aragora/live/src/lib/review/types.ts:1-100"],
+      source: "metadata_heuristic",
+    };
+    const slot: ProviderSlotResolution = {
+      slot_id: "logic",
+      review_role: "logic_reviewer",
+      lens: "core",
+      family: "claude",
+      selected_provider: "claude",
+      status: "selected",
+      detail: "",
+      candidates: ["claude", "anthropic-api"],
+    };
+    const protocol: PRReviewProtocolPacket = {
+      protocol_version: "pr_review_protocol.v1",
+      status: "metadata_heuristic",
+      binding,
+      review_roles: ["logic_reviewer", "security_reviewer"],
+      provider_slots: [slot],
+      recommendation_class: Recommendation.APPROVE_CANDIDATE,
+      recommendation_reason: "All gates green.",
+      confidence: 0.9,
+      confidence_basis: "heuristic",
+      dissent_summary: "unanimous",
+      dissenting_views: [],
+      validation_summary: {},
+      top_findings: [finding],
+      cost_estimate: {},
+    };
+    // recommendation_class is typed to Recommendation — cannot be a stray string.
+    expect(protocol.recommendation_class).toBe(Recommendation.APPROVE_CANDIDATE);
+    expect(protocol.binding.head_sha).toBe("72a79cc74");
+    expect(protocol.top_findings[0].finding_id).toBe("f1");
+  });
+
+  test("ReviewPacket protocol field accepts empty-object default", () => {
+    // Python producer emits {} when the protocol has not run yet; TS
+    // must accept that without a cast.  Narrowing is via presence of
+    // "protocol_version".
+    const packet: ReviewPacket = {
+      pr_number: 6361,
+      title: "",
+      url: "",
+      head_sha: "a",
+      base_sha: "b",
+      author: "an0mium",
+      is_draft: false,
+      additions: 0,
+      deletions: 0,
+      changed_files: 0,
+      queue_bucket: QueueLane.READY_NOW,
+      touched_subsystems: [],
+      high_risk_paths_touched: [],
+      validation: [],
+      checks_summary: "",
+      risk_flags: [],
+      machine_recommendation: Recommendation.APPROVE_CANDIDATE,
+      machine_recommendation_reason: "",
+      packet_sha: "",
+      generated_at: "",
+      protocol: {},
+      advisory_only: true,
+      settlement_note: REVIEW_PACKET_ADVISORY_NOTE,
+    };
+    // Narrow by presence of protocol_version.
+    if ("protocol_version" in packet.protocol) {
+      // TS knows this is PRReviewProtocolPacket here.
+      expect(packet.protocol.protocol_version).toBeDefined();
+    } else {
+      // empty-object path.
+      expect(packet.protocol).toEqual({});
+    }
+  });
+
+  test("ReviewPacket discriminator fields reject invalid strings at compile time", () => {
+    // P1 regression guard (codex #6361 rev 3): queue_bucket and
+    // machine_recommendation must be narrowed to QueueLane /
+    // Recommendation, not raw string. If a UI tries to read a PR with
+    // an unknown lane name, the cast must fail. @ts-expect-error
+    // confirms the compiler refuses invalid values.
+
+    // @ts-expect-error — "nonsense_lane" is not a QueueLane.
+    const badPacketQueue: ReviewPacket = {
+      pr_number: 1,
+      title: "",
+      url: "",
+      head_sha: "",
+      base_sha: "",
+      author: "",
+      is_draft: false,
+      additions: 0,
+      deletions: 0,
+      changed_files: 0,
+      queue_bucket: "nonsense_lane",
+      touched_subsystems: [],
+      high_risk_paths_touched: [],
+      validation: [],
+      checks_summary: "",
+      risk_flags: [],
+      machine_recommendation: Recommendation.APPROVE_CANDIDATE,
+      machine_recommendation_reason: "",
+      packet_sha: "",
+      generated_at: "",
+      protocol: {},
+      advisory_only: true,
+      settlement_note: REVIEW_PACKET_ADVISORY_NOTE,
+    };
+    // @ts-expect-error — "looks_good" is not a Recommendation.
+    const badPacketRec: ReviewPacket = {
+      pr_number: 1,
+      title: "",
+      url: "",
+      head_sha: "",
+      base_sha: "",
+      author: "",
+      is_draft: false,
+      additions: 0,
+      deletions: 0,
+      changed_files: 0,
+      queue_bucket: QueueLane.READY_NOW,
+      touched_subsystems: [],
+      high_risk_paths_touched: [],
+      validation: [],
+      checks_summary: "",
+      risk_flags: [],
+      machine_recommendation: "looks_good",
+      machine_recommendation_reason: "",
+      packet_sha: "",
+      generated_at: "",
+      protocol: {},
+      advisory_only: true,
+      settlement_note: REVIEW_PACKET_ADVISORY_NOTE,
+    };
+    // Reference both so unused-var lint doesn't fire; the @ts-expect-error
+    // above is what actually enforces the contract.
+    expect([badPacketQueue, badPacketRec]).toHaveLength(2);
   });
 
   test("CostMeter with multi-pool headroom and binding_scope", () => {

@@ -336,6 +336,79 @@ export interface QueueItem {
   readonly lane_reason: string;
 }
 
+// --- Nested protocol packet (mirror aragora/swarm/pr_review_protocol.py) ---
+
+/**
+ * Which PR a protocol run was bound to, preserved in the packet for
+ * settlement verification.  Mirrors ``PRReviewBinding``.
+ */
+export interface PRReviewBinding {
+  readonly repo: string;
+  readonly pr_number: number;
+  readonly base_sha: string;
+  readonly head_sha: string;
+}
+
+/**
+ * One finding produced by a reviewer role.  Mirrors ``PRReviewFinding``.
+ * ``source`` is usually ``"metadata_heuristic"`` until the real debate
+ * engine runs; UI may badge findings accordingly.
+ */
+export interface PRReviewFinding {
+  readonly finding_id: string;
+  readonly category: string;
+  readonly severity: string;
+  readonly summary: string;
+  readonly evidence: readonly string[];
+  readonly source: string;
+}
+
+/**
+ * A resolved provider-slot assignment for one review role.
+ * Mirrors ``ProviderSlotResolution``.  ``status`` typical values:
+ * ``"selected"``, ``"skipped_missing_env"``, ``"skipped_missing_binary"``.
+ */
+export interface ProviderSlotResolution {
+  readonly slot_id: string;
+  readonly review_role: string;
+  readonly lens: string;
+  readonly family: string;
+  readonly selected_provider: string | null;
+  readonly status: string;
+  readonly detail: string;
+  readonly candidates: readonly string[];
+}
+
+/**
+ * The nested heterogeneous-protocol packet embedded in ``ReviewPacket.protocol``.
+ *
+ * Mirrors ``aragora.swarm.pr_review_protocol.PRReviewProtocolPacket``.
+ * The Python producer emits an empty object (``{}``) when the protocol
+ * has not run yet; the TS side reflects that with a union on
+ * ``ReviewPacket.protocol`` so consumers can narrow by presence of
+ * ``protocol_version``.
+ *
+ * ``recommendation_class`` is narrowed to ``Recommendation`` (not raw
+ * string) because the Python producer uses exactly
+ * ``approve_candidate`` / ``needs_human_attention`` / ``repair_first``.
+ */
+export interface PRReviewProtocolPacket {
+  readonly protocol_version: string;
+  readonly status: string;
+  readonly binding: PRReviewBinding;
+  readonly review_roles: readonly string[];
+  readonly provider_slots: readonly ProviderSlotResolution[];
+  readonly recommendation_class: Recommendation;
+  readonly recommendation_reason: string;
+  readonly confidence: number;
+  readonly confidence_basis: string;
+  readonly dissent_summary: string;
+  readonly dissenting_views: readonly Readonly<Record<string, unknown>>[];
+  readonly validation_summary: Readonly<Record<string, unknown>>;
+  readonly top_findings: readonly PRReviewFinding[];
+  readonly cost_estimate: Readonly<Record<string, unknown>>;
+}
+
 /**
  * Advisory packet for one PR — rendered when the operator expands a card.
  *
@@ -346,6 +419,14 @@ export interface QueueItem {
  * is the deeper heterogeneous-debate output the #6306 successor produces.
  * Both ship into the UI — packet for the default case, brief when the
  * protocol has run.
+ *
+ * Discriminator fields (``queue_bucket``, ``machine_recommendation``) are
+ * typed narrowly to the canonical enums so the UI's grouping / badges /
+ * default actions cannot silently see an unrecognized string.
+ *
+ * ``protocol`` is typed as either the full ``PRReviewProtocolPacket`` (when
+ * the protocol has run) or ``Record<string, never>`` (when Python's empty-dict
+ * default is emitted).  Consumers narrow with ``"protocol_version" in packet.protocol``.
  */
 export interface ReviewPacket {
   readonly pr_number: number;
@@ -358,17 +439,17 @@ export interface ReviewPacket {
   readonly additions: number;
   readonly deletions: number;
   readonly changed_files: number;
-  readonly queue_bucket: string;
+  readonly queue_bucket: QueueLane;
   readonly touched_subsystems: readonly string[];
   readonly high_risk_paths_touched: readonly string[];
   readonly validation: readonly string[];
   readonly checks_summary: string;
   readonly risk_flags: readonly string[];
-  readonly machine_recommendation: string;
+  readonly machine_recommendation: Recommendation;
   readonly machine_recommendation_reason: string;
   readonly packet_sha: string;
   readonly generated_at: string;
-  readonly protocol: Readonly<Record<string, unknown>>;
+  readonly protocol: PRReviewProtocolPacket | Record<string, never>;
   readonly advisory_only: boolean;
   readonly settlement_note: string;
 }
@@ -396,8 +477,8 @@ export interface SettlementReceipt {
   readonly head_sha: string;
   readonly base_sha: string;
   readonly packet_sha: string;
-  readonly queue_bucket: string;
-  readonly machine_recommendation: string;
+  readonly queue_bucket: QueueLane;
+  readonly machine_recommendation: Recommendation;
   readonly github_event: string;
   readonly elapsed_seconds: number | null;
   readonly receipt_path: string;
