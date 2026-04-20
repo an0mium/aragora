@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 
 import { KeyboardHelp } from '@/components/review-queue/KeyboardHelp';
-import { ReviewQueueCard } from '@/components/review-queue/ReviewQueueCard';
+import { ReviewQueueList } from '@/components/review-queue/ReviewQueueList';
 import { StatsHeader } from '@/components/review-queue/StatsHeader';
 import type { ReviewQueueItem } from '@/components/review-queue/types';
 import { formatRelativeAge, riskRank, subsystemKey } from '@/components/review-queue/utils';
@@ -296,32 +296,27 @@ export default function ReviewQueuePage() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-4">
-                {sortedItems.map((item) => (
-                  <ReviewQueueCard
-                    key={item.number}
-                    item={item}
-                    selected={selectedNumber === item.number}
-                    expanded={expandedNumber === item.number}
-                    detail={details[item.number] || null}
-                    detailLoading={Boolean(detailLoading[item.number])}
-                    requestChangesOpen={requestChangesOpenFor === item.number}
-                    requestChangesDraft={requestChangesDrafts[item.number] || ''}
-                    actionLoading={actionLoading[item.number] || null}
-                    onSelect={() => setSelectedNumber(item.number)}
-                    onToggleExpand={() => void toggleExpand(item.number)}
-                    onApprove={() => void handleApprove(item)}
-                    onDefer={() => void handleDefer(item.number)}
-                    onOpenDiff={() => window.open(item.diff_url, '_blank', 'noopener,noreferrer')}
-                    onOpenRequestChanges={() => openRequestChanges(item.number)}
-                    onRequestChangesDraftChange={(value) =>
-                      setRequestChangesDrafts((current) => ({ ...current, [item.number]: value }))
-                    }
-                    onRequestChangesSubmit={() => void handleRequestChangesSubmit(item.number)}
-                    onRequestChangesCancel={() => setRequestChangesOpenFor(null)}
-                  />
-                ))}
-              </div>
+              <ReviewQueueList
+                items={sortedItems}
+                selectedNumber={selectedNumber}
+                expandedNumber={expandedNumber}
+                details={details}
+                detailLoading={detailLoading}
+                requestChangesOpenFor={requestChangesOpenFor}
+                requestChangesDrafts={requestChangesDrafts}
+                actionLoading={actionLoading}
+                onSelect={setSelectedNumber}
+                onToggleExpand={(number) => void toggleExpand(number)}
+                onApprove={(item) => void handleApprove(item)}
+                onDefer={(number) => void handleDefer(number)}
+                onOpenDiff={(item) => window.open(item.diff_url, '_blank', 'noopener,noreferrer')}
+                onOpenRequestChanges={openRequestChanges}
+                onRequestChangesDraftChange={(number, value) =>
+                  setRequestChangesDrafts((current) => ({ ...current, [number]: value }))
+                }
+                onRequestChangesSubmit={(number) => void handleRequestChangesSubmit(number)}
+                onRequestChangesCancel={() => setRequestChangesOpenFor(null)}
+              />
             )}
           </PanelErrorBoundary>
         </div>
