@@ -1,9 +1,12 @@
 # The Aragora Thesis
 
 > Canonical source of authority. Every other strategic doc links up to this.
-> Last updated: 2026-04-20. Status: v1 draft, revised in response to
-> codex adversarial review (REQUEST_CHANGES verdict, 5 required changes
-> applied); awaiting second review before merge.
+> Last updated: 2026-04-20. Status: v3 draft. v1 → v2 applied codex's
+> 5 required changes (contradictions, capabilities map, weak tests, fake
+> heterogeneity, epistemology). v2 → v3 added premise 6 (Triage) and
+> reframed commitments to reflect Pareto-efficient attention allocation
+> after founder arbitration on v2 framing. Awaiting third review before
+> merge.
 
 ---
 
@@ -32,18 +35,25 @@ load-bearing assumption, not a promise (see § Load-bearing assumptions).
 
 ---
 
-## The five premises
+## The six premises
 
 1. **Bandwidth.** AI produces more output than humans can meaningfully process.
 2. **Trust.** AI output is systematically untrustworthy — from adversarial
    inputs, biased or poisoned training data, spiky capabilities,
    hallucinations, knowledge cutoffs, and individual-model blind spots.
-3. **No safe delegation.** Neither humans nor AI agents can safely defer
-   to any single other agent's judgment, including their own.
-   Convergence across agents only counts as evidence when the agents
-   have *different priors*, *different evidence*, and *active incentive
-   to dissent* — homogeneous convergence (multiple models trained on
-   similar data agreeing) is spurious.
+3. **No safe single-agent delegation.** Neither humans nor AI agents can
+   safely defer to any *single* other agent's judgment, including their
+   own. But this does not mean every decision must go to a human.
+   Heterogeneous adversarial ensembles with input-diversification and
+   dissent preservation can handle decision classes where outcome
+   feedback has validated the ensemble's reliability. Where convergence
+   is strong and outcomes are well-tracked, auto-handling is preferred;
+   where convergence is weak, stakes are high, novelty is high, or
+   outcomes are not observable, escalation to human weigh-in is
+   required. Convergence across agents only counts as evidence when the
+   agents have *different priors*, *different evidence*, and *active
+   incentive to dissent* — homogeneous convergence (multiple models
+   trained on similar data agreeing) is spurious.
 4. **Structure.** Claims, conclusions, and decisions are tractable in
    terms of their inputs, outputs, assumptions, values, cruxes,
    dependencies, and scopes — and making that structure explicit is the
@@ -52,6 +62,56 @@ load-bearing assumption, not a promise (see § Load-bearing assumptions).
    Claims that prove harmful or false get downweighted; claims that
    prove beneficial or true get upweighted. The weights are observable,
    auditable, and subject to revision.
+6. **Triage.** Human attention is a scarce, imperfect, and unevenly
+   distributed resource — normal humans are time-limited, distracted,
+   cognitively bounded, and not equally competent on every decision.
+   The substrate's job is not to drag every decision through human
+   settlement, which would be productivity-killing red tape that
+   violates premise 1 on the very agent — the human — whose bandwidth
+   it is supposed to protect. Its job is to triage: route decisions
+   to the human only when the human's weigh-in actually adds value,
+   and auto-handle (with dissent preserved in receipts) decisions
+   where AI ensemble convergence plus outcome history is a better
+   allocation.
+
+   The goal is operation on or near the **Pareto-efficient frontier**
+   of three core tradeoffs visible to the operator:
+
+   - **Decision velocity vs decision quality** — how fast the system
+     decides vs how likely those decisions are to be right and not
+     need backtracking. Rushing produces errors; over-deliberating
+     produces paralysis.
+   - **Autonomy vs human-attention cost** — how much the ensemble
+     handles independently vs how often the human is pulled in.
+     Under-escalation wastes oversight on the wrong decisions;
+     over-escalation wastes oversight on the wrong decisions.
+   - **Information density vs information completeness** — how
+     distilled the brief is vs how much supporting context it
+     preserves. Too dense and the human decides blind; too complete
+     and the human doesn't decide at all.
+
+   Three further tradeoffs operate at the system-learning level and
+   are optimized by the outcome-feedback loop rather than directly
+   by operator preference:
+
+   - **Accuracy vs cost of accuracy** — compute, latency, and
+     human-time spent per decision against accuracy achieved per
+     decision. (Parameters: panel size, verification depth, re-run
+     count.)
+   - **Coverage vs confidence** — auto-handling a broad decision
+     class at higher error rate vs auto-handling only high-confidence
+     decisions at higher escalation load. (Parameters: escalation
+     threshold, decision-class allowlist.)
+   - **Exploration vs exploitation** — trying new panel compositions,
+     triage thresholds, or brief formats (gains learning) vs using
+     known-good configurations (gains reliability). (Parameters:
+     config-rotation frequency, A/B-test fraction.)
+
+   A Pareto-efficient point is one where any further improvement on
+   one axis necessarily costs another. The operator's job is to
+   express where on the frontier they want to operate; the system's
+   job is to stay on the frontier given that choice, and to flag
+   when it has fallen off it.
 
 ---
 
@@ -88,6 +148,56 @@ does. The substrate serves both populations.
 
 ---
 
+## When does the human actually need to weigh in?
+
+Operationalizing premise 6. A decision escalates to human settlement
+when **any** of the following triggers fire; otherwise the AI ensemble
+auto-handles it with dissent preserved in the receipt.
+
+- **Value tradeoff.** The decision involves contested values or
+  priorities where no ensemble can legitimately substitute for the
+  principal's preferences (product strategy pivots, hiring, brand
+  voice, pricing policy, public commitments).
+- **Personal impact.** The decision directly affects the human or
+  their stakeholders (compensation, termination, external
+  communication, legal exposure, equity dilution).
+- **Low ensemble convergence or high unresolved dissent.** The
+  heterogeneous panel disagrees materially and cannot resolve via
+  evidence. The disagreement itself is a signal the human should
+  arbitrate; collapsing it into majority vote defeats premise 3.
+- **Sparse or negative outcome history.** The decision class has not
+  yet accumulated enough outcome-validated auto-handling data, or
+  prior auto-handled decisions in this class have been invalidated
+  by outcomes. Ensembles do not get to self-certify on novel classes.
+- **Irreversibility threshold.** The decision produces consequences
+  that cannot be cheaply rolled back (production deploys affecting
+  external users, signed contracts, paid announcements, schema
+  migrations, privacy-affecting data changes).
+- **Regulatory requirement.** EU AI Act Article 14 and analogous
+  regimes mandate human oversight for defined high-risk classes.
+  Compliance is not optional.
+
+Outside these triggers, auto-handling is not only permitted, it is
+the **correct** allocation. Forcing human review on every mechanical
+chore-bump or low-risk dependency upgrade would violate premise 1
+(bandwidth) on the one agent — the human — whose bandwidth the
+product is built to protect. The triage layer's failure modes are
+symmetric and equally costly:
+
+- **Under-escalation** (missing a decision the human should have
+  seen) → bad outcomes, lost trust, regulatory exposure.
+- **Over-escalation** (wasting human attention on decisions the
+  ensemble could have handled) → review fatigue, lost productivity,
+  rubber-stamp drift as the human satisficing heuristic takes over.
+
+The triage layer itself is therefore subject to the outcome feedback
+loop of premise 5: its routing decisions are measurable, auditable,
+and revisable. An escalation-rate that trends monotonically in
+either direction over a rolling window without an explaining
+outcome-history change is a signal the layer needs recalibration.
+
+---
+
 ## What Aragora is NOT
 
 Anti-claims — things the thesis explicitly does *not* commit to:
@@ -95,12 +205,20 @@ Anti-claims — things the thesis explicitly does *not* commit to:
 - **Not an oracle.** Aragora does not claim to know what is true. It
   claims to structure a process that approaches *relatively more true,
   less wrong* through evidence and outcome tests.
-- **Not a rubber stamp.** Approving bot-generated work on "CI green"
-  alone defeats the thesis. Human settlement remains the final gate for
-  consequential decisions.
-- **Not a replacement for human judgment.** The goal is to make human
-  decisions faster, more informed, and more structured — not to remove
-  them.
+- **Not a rubber stamp for consequential decisions.** Approving
+  high-stakes, value-laden, or low-confidence bot-generated work on
+  "CI green" alone defeats the thesis. For decisions the triage layer
+  (premise 6) escalates, human settlement remains the final gate.
+  For decision classes where ensemble convergence plus outcome-history
+  calibration supports auto-handling, CI-green plus dissent-preserving
+  receipts *is* the settlement — by explicit design, not by omission.
+- **Not a replacement for human judgment on decisions that actually
+  need it.** The goal is to make human decisions faster, more
+  informed, and more structured — and to stop wasting human attention
+  on decisions that do not actually need it. Removing human judgment
+  from the routine and reversible is a feature; removing it from the
+  consequential is a bug. The triage layer's job is to know the
+  difference.
 - **Not value-neutral.** Truth-seeking requires a stance: some outputs
   are worse than others, and the system must take a position by
   downweighting, surfacing dissent, or refusing to proceed.
@@ -288,6 +406,7 @@ explicit rather than implied.
 | Distillation | Batched review-queue (#6288) `[shipped]`; PDB UI v0 (#6328) `[scaffolded]`; receipt summaries `[shipped]`; progressive disclosure (brief A/B/C densities) `[planned]` | Time-to-decision; brief-coverage-of-load-bearing-structure |
 | Informed consent / feedback | Settlement signals (#6297) `[shipped]`; `BriefReceipt` + `SettlementLinkage` (#6353) `[shipped]`; dissent preservation in receipts `[shipped]` | Signal-to-settlement rate; human-override outcome correlation |
 | Self-test on own codebase | Nomic loop `[shipped]`; self-develop CLI `[shipped]`; H1 dogfood wedge `[in progress]`; this review-queue rollout `[in progress]` | H1 exit criteria; dogfood session cadence |
+| Triage (premise 6) | Review-queue triage buckets (`ready_now`, `needs_attention`, `repairable`, `parked`) in review-queue CLI `[shipped]`; machine recommendation packets (#6279) `[shipped]`; `fire_and_forget` low-risk auto-handle path in `aragora/swarm/tranche_integrate.py` `[shipped]`; `admin_merge_allowed` green-CI path in `docs/STATUS.md` `[shipped]`; `merge_arbiter` human-settlement gate `[shipped]`; triage-drift metrics per commitment #5 `[planned]` | Escalation rate; auto-handle override rate; human-override-outcome correlation; time-per-settlement; drift per rolling window |
 
 **The strongest proof point is that the product is being applied to
 itself.** The arc from problem statement → heterogeneous critique →
@@ -302,42 +421,71 @@ output, committed as evidence.
 
 ## Commitments this thesis makes
 
-Four concrete commitments follow from taking the thesis seriously:
+Five concrete commitments follow from taking the thesis seriously:
 
-1. **No auto-merge of substantive code from the thesis-conformant
-   review-queue path without human settlement.** Removing the human
-   gate on the heterogeneous review path defeats premise 3. EU AI Act
-   Article 14 alignment falls out of this as a natural consequence,
-   not a bolt-on.
+1. **Decisions are routed by a triage layer, not uniformly by the
+   human.** The thesis is not "always involve the human." The thesis
+   is "allocate human attention where it actually helps." Concretely:
 
-   **Known exceptions, named honestly:** the repo currently retains
-   two pre-thesis auto-merge paths that this commitment does *not*
-   yet cover: (a) `fire_and_forget` low-risk auto-merge in
-   `aragora/swarm/tranche_integrate.py` and (b) `admin_merge_allowed`
-   admin-merge bypass documented in `docs/STATUS.md`. These are
-   grandfathered legacy paths from before #6279. They are not
-   endorsed by this thesis. Their scope, usage, and continued
-   existence is itself a load-bearing product question that must be
-   resolved (either by gating them behind human settlement or by
-   removing them) before the thesis's Commitment #1 can be claimed
-   without qualification. Failure to resolve this contradicts the
-   thesis on its own first commitment.
+   - **High-stakes, novel, value-laden, low-confidence, or
+     irreversibility-threshold-crossing decisions → human settlement
+     required.** Ensemble outcome history is not yet a substitute for
+     human judgment in these classes.
+   - **Low-stakes, well-tracked, high-confidence, mechanical,
+     reversible decisions → AI ensemble auto-handles with dissent
+     preserved in receipts.** The `fire_and_forget` low-risk path in
+     `aragora/swarm/tranche_integrate.py` and the
+     `admin_merge_allowed` green-CI path documented in
+     `docs/STATUS.md` are implementations of this commitment, not
+     exceptions to it, provided they operate only on decision
+     classes where ensemble + outcome-history calibration supports
+     auto-handling and where the triage layer can audit drift.
+   - **The triage layer itself is auditable and revisable.** It must
+     report, per rolling window: percent of decisions auto-handled,
+     escalated, and human-overridden; which decision classes are
+     drifting toward under- or over-escalation; and which outcomes
+     validated or invalidated prior triage choices.
+
+   EU AI Act Article 14 alignment continues to follow: human
+   oversight applies to the decision classes the triage layer
+   escalates, not uniformly to every mechanical chore-bump. The
+   commitment is about *correct routing*, not *maximal human
+   involvement*.
 2. **Dissent is preserved in receipts, not collapsed into majority.**
    Majority rule without a dissent trail is indistinguishable from
    false consensus.
 3. **Outcome feedback is the measurement of whether the thesis holds.**
-   Specifically: if per-agent calibration error does not decrease over
-   any rolling 30-day window on the benchmark corpus, or if the
-   fraction of panel decisions where dissent materially changes the
-   human verdict drops below 15% over a rolling 30-day window, the
-   product has failed its own test on that window and must be revised
-   (either architecturally, via input-diversification; or
-   operationally, via expanded panel heterogeneity) before shipping
-   further capability on top. Thresholds are provisional and subject
-   to recalibration after 30 days of real settlement data.
+   Specifically, over any rolling 30-day window on the benchmark
+   corpus:
+   - if per-agent calibration error does not decrease; or
+   - if, among decisions the triage layer *escalates to a human*, the
+     fraction where dissent materially changes the human's verdict
+     drops below 15% (suggesting the panel is converging on the human's
+     prior rather than adding independent signal); or
+   - if, among decisions the triage layer *auto-handles*, the
+     outcome-invalidation rate rises above 5% (suggesting
+     auto-handling has drifted outside its validated scope),
+   the product has failed its own test on that window and must be
+   revised (architecturally via input-diversification; operationally
+   via expanded panel heterogeneity; or in triage policy via tighter
+   auto-handle gating) before shipping further capability on top.
+   Thresholds are provisional and subject to recalibration after 30
+   days of real settlement data.
 4. **The limits named in "Where this thesis does NOT yet apply" are
    respected in product scope.** Aragora will not claim to arbitrate
    what it cannot arbitrate, even when asked.
+5. **The triage layer is itself subject to outcome feedback.** The
+   product's decisions about what to auto-handle vs escalate must be
+   tracked and revised on the same basis as any other claim. A triage
+   layer that under-escalates (misses decisions the human should have
+   seen) or over-escalates (wastes human attention on decisions the
+   ensemble could have handled) is failing the Pareto goal and must
+   be recalibrated. Specifically: escalation rate, auto-handle
+   override rate, human-override-outcome correlation, and time-per-
+   settlement are all first-class metrics emitted per rolling window,
+   and drift in any of them without a matching change in decision
+   mix is a revision trigger. The triage layer does not get a free
+   pass on the commitments the rest of the system is held to.
 
 ---
 
@@ -356,9 +504,11 @@ Four concrete commitments follow from taking the thesis seriously:
 
 ## Single sentence
 
-**Aragora is infrastructure for truth-seeking when AI output outpaces
-human review and cannot be safely trusted — decomposing claims into
-structure, cross-checking them adversarially across heterogeneous
-lenses, weighting them by outcomes, and distilling the result to a form
-humans and AI agents can actually use — starting with its own
-codebase and ending wherever the pattern generalizes.**
+**Aragora is infrastructure for truth-seeking and Pareto-efficient
+attention allocation when AI output outpaces human review and cannot
+be safely trusted — decomposing claims into structure, cross-checking
+them adversarially across heterogeneous lenses, weighting them by
+outcomes, triaging which decisions need human weigh-in and which can
+be auto-handled with dissent preserved, and distilling the result to
+a form humans and AI agents can actually use — starting with its own
+codebase and generalizing on evidence, not promise.**
