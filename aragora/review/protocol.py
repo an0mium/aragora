@@ -153,23 +153,38 @@ class ReviewBrief:
     Brief-level confidence and disagreement are first-class because the UI
     (#6304), budget/escalation policy (#6305), and receipt extension (#6307)
     all need an aggregate signal — not just per-finding scores.
+
+    Immutability: sequence fields are ``tuple[...]``, not ``list[...]``,
+    because ``frozen=True`` only prevents attribute reassignment — it does
+    not stop ``brief.role_findings.append(...)`` mid-flight. Tuples make
+    the brief a stable artifact suitable for hashing and receipt storage.
+
+    Packet-SHA preimage (deterministic, implementation guidance for #6307):
+      1. Call ``ReviewBrief.to_dict()``.
+      2. Remove the ``"packet_sha"`` key from the result.
+      3. Serialize the remainder as canonical JSON:
+         ``json.dumps(d, sort_keys=True, separators=(",", ":"), ensure_ascii=False)``.
+      4. UTF-8 encode, take ``hashlib.sha256(bytes).hexdigest()``.
+      This rule lives in the docstring (not in code) because the schema
+      module is intentionally behavior-free; #6307 implements the hash and
+      holds it under test.
     """
 
     pr_number: int
     repo: str  # owner/name
     head_sha: str
     base_sha: str
-    packet_sha: str  # SHA-256 of the canonical brief payload
+    packet_sha: str  # SHA-256 over to_dict() minus this key; see docstring
     recommendation: Recommendation
     top_line: str  # 1-3 sentence executive summary
-    role_findings: list[RoleFinding]
-    dissent: list[DissentingView]
+    role_findings: tuple[RoleFinding, ...]
+    dissent: tuple[DissentingView, ...]
     validation_summary: str  # one-paragraph validation evidence summary
     overall_confidence: float  # 0.0..1.0; aggregate across role_findings
     disagreement_score: float  # 0.0..1.0; how far apart the panel was
     total_cost_usd: float
     total_wall_clock_ms: int
-    agent_roster: list[str]  # ordered list of contributing agent ids
+    agent_roster: tuple[str, ...]  # ordered sequence of contributing agent ids
     generated_at: str  # ISO-8601 with timezone
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
@@ -179,6 +194,7 @@ class ReviewBrief:
         d["recommendation"] = self.recommendation.value
         d["role_findings"] = [f.to_dict() for f in self.role_findings]
         d["dissent"] = [v.to_dict() for v in self.dissent]
+        d["agent_roster"] = list(self.agent_roster)
         return d
 
 
@@ -202,7 +218,7 @@ class PRReviewProtocol:
     belongs in a later layer.
     """
 
-    model_panel: list[str]  # heterogeneous model ids participating
+    model_panel: tuple[str, ...]  # heterogeneous model ids participating; immutable
     rounds: int = 1  # debate rounds; 1 = single-pass parallel
     synthesis_policy: SynthesisPolicy = SynthesisPolicy.WEIGHTED
     require_heterogeneous_models: bool = True  # at least two model families in panel
@@ -211,4 +227,5 @@ class PRReviewProtocol:
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["synthesis_policy"] = self.synthesis_policy.value
+        d["model_panel"] = list(self.model_panel)
         return d

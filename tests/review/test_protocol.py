@@ -143,14 +143,14 @@ class TestReviewBrief:
             packet_sha="abc123def456",
             recommendation=Recommendation.APPROVE_CANDIDATE,
             top_line="Bounded foundation PR; all gates green; no high-risk paths.",
-            role_findings=[],
-            dissent=[],
+            role_findings=(),
+            dissent=(),
             validation_summary="32 unit tests pass; pre-commit clean.",
             overall_confidence=0.88,
             disagreement_score=0.05,
             total_cost_usd=0.18,
             total_wall_clock_ms=4200,
-            agent_roster=["claude-opus-4-7", "gpt-5-4", "gemini-3-1-pro"],
+            agent_roster=("claude-opus-4-7", "gpt-5-4", "gemini-3-1-pro"),
             generated_at=datetime.now(UTC).isoformat(),
         )
         defaults.update(overrides)
@@ -191,7 +191,7 @@ class TestReviewBrief:
 
     def test_to_dict_serializes_nested_findings_and_dissent(self) -> None:
         brief = self._brief(
-            role_findings=[
+            role_findings=(
                 RoleFinding(
                     role=ReviewRole.LOGIC,
                     agent="claude-opus-4-7",
@@ -199,18 +199,66 @@ class TestReviewBrief:
                     confidence=0.9,
                     finding_text="OK.",
                 ),
-            ],
-            dissent=[
+            ),
+            dissent=(
                 DissentingView(
                     agent="grok-3",
                     position=DissentPosition.REQUEST_CHANGES,
                     reason="Edge case unconsidered.",
                 ),
-            ],
+            ),
         )
         d = brief.to_dict()
         assert d["role_findings"][0]["role"] == "logic_reviewer"
         assert d["dissent"][0]["position"] == "request_changes"
+
+    def test_sequence_fields_are_immutable_tuples(self) -> None:
+        # frozen=True only blocks attribute reassignment; without tuple
+        # types, callers could `brief.role_findings.append(...)` mid-flight
+        # and break receipt stability + SHA binding. Tuples make the brief
+        # a hashable, stable artifact suitable for receipt storage.
+        brief = self._brief(
+            role_findings=(
+                RoleFinding(
+                    role=ReviewRole.LOGIC,
+                    agent="claude-opus-4-7",
+                    model="claude-opus-4-7-1m",
+                    confidence=0.9,
+                    finding_text="OK.",
+                ),
+            ),
+            dissent=(),
+            agent_roster=("claude-opus-4-7", "gpt-5-4"),
+        )
+        assert isinstance(brief.role_findings, tuple)
+        assert isinstance(brief.dissent, tuple)
+        assert isinstance(brief.agent_roster, tuple)
+        # Mutation attempts must fail; tuples have no append/extend.
+        with pytest.raises(AttributeError):
+            brief.role_findings.append(  # type: ignore[attr-defined]
+                RoleFinding(
+                    role=ReviewRole.SECURITY,
+                    agent="x",
+                    model="y",
+                    confidence=0.0,
+                    finding_text="z",
+                )
+            )
+        with pytest.raises(AttributeError):
+            brief.agent_roster.append("nope")  # type: ignore[attr-defined]
+
+    def test_packet_sha_preimage_is_documented(self) -> None:
+        # The preimage rule lives in the docstring (not in code) because
+        # this module is intentionally behavior-free. #6307 will implement
+        # the hash. This test guards that the rule is documented so #6307
+        # cannot drift silently.
+        from aragora.review.protocol import ReviewBrief as RB
+
+        doc = RB.__doc__ or ""
+        assert "Packet-SHA preimage" in doc
+        assert 'Remove the ``"packet_sha"`` key' in doc
+        assert "canonical JSON" in doc
+        assert "sha256" in doc.lower()
 
     def test_json_roundtrip(self) -> None:
         brief = self._brief()
@@ -245,10 +293,16 @@ class TestReviewBrief:
 class TestPRReviewProtocol:
     def _protocol(self, **overrides) -> PRReviewProtocol:
         defaults = dict(
-            model_panel=["claude-opus-4-7-1m", "gpt-5-4", "grok-3"],
+            model_panel=("claude-opus-4-7-1m", "gpt-5-4", "grok-3"),
         )
         defaults.update(overrides)
         return PRReviewProtocol(**defaults)
+
+    def test_model_panel_is_immutable_tuple(self) -> None:
+        protocol = self._protocol()
+        assert isinstance(protocol.model_panel, tuple)
+        with pytest.raises(AttributeError):
+            protocol.model_panel.append("extra-model")  # type: ignore[attr-defined]
 
     def test_advisory_only_is_invariant(self) -> None:
         # The configuration cannot ship with advisory_only=False because
@@ -308,6 +362,7 @@ class TestPRReviewProtocol:
         protocol = self._protocol(synthesis_policy=SynthesisPolicy.UNANIMOUS_OR_ESCALATE)
         d = protocol.to_dict()
         assert d["synthesis_policy"] == "unanimous_or_escalate"
+        # Tuple field serializes to JSON-compatible list.
         assert d["model_panel"] == ["claude-opus-4-7-1m", "gpt-5-4", "grok-3"]
         assert d["rounds"] == 1
         assert d["require_heterogeneous_models"] is True
