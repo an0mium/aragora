@@ -216,9 +216,25 @@ class PRReviewProtocol:
     Defaults here are deliberately structural-only. Anything that smells
     like policy (cost caps, escalation thresholds, model preferences)
     belongs in a later layer.
+
+    Output role contract: ``output_roles`` declares which ``ReviewRole``
+    sections a brief produced under this protocol MUST cover (one
+    ``RoleFinding`` per output role, in any order). The runner is free to
+    assign each output role to any panel member — possibly the same model
+    for two roles, possibly different models for the same role across
+    rounds — but a brief that omits a declared role is non-conformant.
+    Default coverage is the four substantive reviewer roles (LOGIC,
+    SECURITY, MAINTAINABILITY, SKEPTIC); SYNTHESIZER is opt-in via
+    ``SynthesisPolicy.SYNTHESIZER_AGENT``.
     """
 
     model_panel: tuple[str, ...]  # heterogeneous model ids participating; immutable
+    output_roles: tuple[ReviewRole, ...] = (
+        ReviewRole.LOGIC,
+        ReviewRole.SECURITY,
+        ReviewRole.MAINTAINABILITY,
+        ReviewRole.SKEPTIC,
+    )
     rounds: int = 1  # debate rounds; 1 = single-pass parallel
     synthesis_policy: SynthesisPolicy = SynthesisPolicy.WEIGHTED
     require_heterogeneous_models: bool = True  # at least two model families in panel
@@ -228,4 +244,5 @@ class PRReviewProtocol:
         d = asdict(self)
         d["synthesis_policy"] = self.synthesis_policy.value
         d["model_panel"] = list(self.model_panel)
+        d["output_roles"] = [r.value for r in self.output_roles]
         return d

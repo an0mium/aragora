@@ -316,10 +316,63 @@ class TestPRReviewProtocol:
         # one model to one role. The runner is free to assign roles to
         # panel members dynamically. If a future refactor reintroduces
         # `role_to_model` as a config field, this test fails loudly.
+        # Note: `output_roles` IS expected (declares required role coverage
+        # in the brief, distinct from the rejected `role_to_model` shape
+        # which fixed one model per role).
         protocol = self._protocol()
         assert hasattr(protocol, "model_panel")
         assert not hasattr(protocol, "role_to_model")
-        assert not hasattr(protocol, "roles")  # no fixed role list at config
+        assert hasattr(protocol, "output_roles")  # declared role coverage, OK
+        assert not hasattr(protocol, "roles")  # no anonymous role list
+
+    def test_output_roles_declared_for_brief_coverage(self) -> None:
+        # Without an explicit output_roles contract, downstream consumers
+        # (#6307 receipts, #6304 UI, #6305 policy) cannot tell whether a
+        # missing role section in a brief is a bug or an acceptable
+        # omission. This test guards the contract so they can rely on it.
+        protocol = self._protocol()
+        assert isinstance(protocol.output_roles, tuple)
+        assert len(protocol.output_roles) >= 1
+        # Every entry must be a ReviewRole, not a bare string.
+        for role in protocol.output_roles:
+            assert isinstance(role, ReviewRole)
+
+    def test_default_output_roles_cover_four_substantive_reviewers(self) -> None:
+        # Default coverage is the four substantive reviewer roles.
+        # SYNTHESIZER is opt-in via SynthesisPolicy.SYNTHESIZER_AGENT;
+        # it should NOT be in the default output_roles tuple.
+        protocol = self._protocol()
+        assert protocol.output_roles == (
+            ReviewRole.LOGIC,
+            ReviewRole.SECURITY,
+            ReviewRole.MAINTAINABILITY,
+            ReviewRole.SKEPTIC,
+        )
+        assert ReviewRole.SYNTHESIZER not in protocol.output_roles
+
+    def test_output_roles_is_immutable_tuple(self) -> None:
+        protocol = self._protocol()
+        assert isinstance(protocol.output_roles, tuple)
+        with pytest.raises(AttributeError):
+            protocol.output_roles.append(ReviewRole.SYNTHESIZER)  # type: ignore[attr-defined]
+
+    def test_output_roles_serialized_as_strings_in_to_dict(self) -> None:
+        protocol = self._protocol()
+        d = protocol.to_dict()
+        assert d["output_roles"] == [
+            "logic_reviewer",
+            "security_reviewer",
+            "maintainability_reviewer",
+            "skeptic",
+        ]
+
+    def test_output_roles_can_be_overridden(self) -> None:
+        protocol = self._protocol(
+            output_roles=(ReviewRole.LOGIC, ReviewRole.SECURITY),
+        )
+        assert protocol.output_roles == (ReviewRole.LOGIC, ReviewRole.SECURITY)
+        d = protocol.to_dict()
+        assert d["output_roles"] == ["logic_reviewer", "security_reviewer"]
 
     def test_heterogeneity_required_by_default(self) -> None:
         protocol = self._protocol()
