@@ -38,6 +38,7 @@ export function ReviewQueueCard({
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefFetched, setBriefFetched] = useState(false);
   const [briefError, setBriefError] = useState<string | null>(null);
+  const [hovered, setHovered] = useState(false);
 
   const loadBrief = useCallback(async () => {
     if (briefFetched || briefLoading) return;
@@ -130,13 +131,25 @@ export function ReviewQueueCard({
       tabIndex={selected ? 0 : -1}
       role="option"
       onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className="cursor-pointer rounded-xl border text-sm transition-all hover:-translate-y-px"
       style={{
         backgroundColor: 'var(--surface)',
-        borderColor: selected ? 'var(--accent)' : 'var(--border)',
+        // Selected wins over hover (thicker accent border + glow).
+        // Hover on non-selected cards picks up a subtle accent glow border.
+        borderColor: selected
+          ? 'var(--accent)'
+          : hovered
+          ? 'var(--accent)'
+          : 'var(--border)',
         borderWidth: selected ? '2px' : '1px',
         padding: selected ? 'calc(1.5rem - 1px)' : '1.5rem',
-        boxShadow: selected ? '0 0 0 1px var(--accent-glow)' : 'var(--shadow-panel)',
+        boxShadow: selected
+          ? '0 0 0 1px var(--accent-glow)'
+          : hovered
+          ? '0 0 0 1px var(--accent-glow), 0 4px 12px rgba(0, 0, 0, 0.08)'
+          : 'var(--shadow-panel)',
       }}
     >
       {/* Headline row: number badge + title + diff stats */}
