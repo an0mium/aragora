@@ -252,35 +252,55 @@ is hidden (renders as a disabled "Coming soon" state).
 
 ## Rollout order
 
-### Step 1 — backend types + state machine (~2 days)
+**Revision (2026-04-20 evening, post-Codex review):** The original plan
+bundled budget enforcement + panel config into Step 1. Codex correctly
+noted those only matter once the executor is calling models, and that
+a tighter PR 1 scope is more reviewable. Revised below. The cumulative
+work is unchanged; only the PR boundaries shifted.
+
+### PR 1 — storage + state machine only (~1.5 days)
 
 Files:
 - `aragora/pdb/__init__.py`
 - `aragora/pdb/brief_state.py` — `BriefLifecycleState` enum + transitions
 - `aragora/pdb/storage.py` — read/write to `.aragora/review-queue/briefs/` and subdirs
-- `aragora/pdb/budget.py` — per-brief + per-day budget enforcement
-- `aragora/pdb/panel_config.py` — load `pdb_panel.yaml`, resolve slots to provider+model
-- Tests: `tests/pdb/test_brief_state.py`, `test_storage.py`, `test_budget.py`
+- `aragora/server/handlers/review_queue.py` — refactor the existing
+  `/brief` read path to use the new storage layer (pure refactor, no
+  behavior change; proves the abstraction works with real code)
+- Tests: `tests/pdb/test_brief_state.py`, `tests/pdb/test_storage.py`,
+  existing `tests/server/handlers/test_review_queue.py` continues to pass
 
-No execution yet. Just the plumbing.
+Acceptance: existing page doesn't regress; all 6 states representable
+on disk; stale detection moves ready briefs to `invalidated/` on SHA
+change; writes are atomic via `os.replace`.
 
-### Step 2 — Protocol B implementation (~3 days)
+No execution, no endpoints, no UI, no budget, no panel config.
 
+### PR 2 — Protocol B executor + panel config + budget (~3 days)
+
+- `aragora/pdb/panel_config.py` — loads `aragora/config/pdb_panel.yaml`,
+  resolves slots to provider+model
+- `aragora/config/pdb_panel.yaml` — default panel config
+- `aragora/pdb/budget.py` — per-brief + per-day budget enforcement,
+  UTC-midnight rollover
 - `aragora/pdb/protocol.py` — `PRReviewProtocol.run()` that orchestrates
-  findings round + critique round + synthesis
-- Uses existing agent adapters from `aragora/agents/api_agents/`
-- Signs output via `DurableFileSigner`
-- Writes ledger event
-- Tests: `tests/pdb/test_protocol.py` with mocked agents
+  findings round + critique round + synthesis, uses existing agent
+  adapters from `aragora/agents/api_agents/`, signs output via
+  `DurableFileSigner`, writes ledger event
+- Tests: `tests/pdb/test_panel_config.py`, `test_budget.py`,
+  `test_protocol.py` (with mocked agents)
 
-### Step 3 — backend endpoints (~2 days)
+Budget + panel config land here because this is the first PR where
+model calls actually happen. No endpoints yet.
+
+### PR 3 — backend endpoints + in-process worker (~2 days)
 
 - `aragora/server/handlers/review_queue_brief.py` — the 4 new endpoints
   (generate, state, cancel, get) layered on top of existing handler
 - In-process `BriefGenerationWorker` with `asyncio.Semaphore(max_concurrent)`
 - Tests: `tests/server/handlers/test_review_queue_brief.py` with fake protocol
 
-### Step 4 — UI integration (~2 days)
+### PR 4 — UI integration + polish (~3 days, folds Step 5 into UI PR)
 
 - `useReviewQueue` hook adds `generateBrief`, `getBriefState`, polling helpers
 - `ApproveDecisionModal` component with 3 options
@@ -288,14 +308,17 @@ No execution yet. Just the plumbing.
 - `ReviewQueueCard` badge pulse animation while generating
 - Tests: `aragora/live/__tests__/ApproveDecisionModal.test.tsx`
 
-### Step 5 — polish + docs (~1 day)
+*(Step 5 polish folded into PR 4: user guide, feature-flag instructions,
+screenshot, end-to-end dogfood verification all land with the UI PR.)*
 
-- `docs/guides/PDB_BRIEFS.md` — user-facing guide
-- Feature-flag instructions
-- Screenshot of full ready-state rendering
-- Post-merge, enable flag in dev and verify end-to-end on a real PR
+**Total: ~9.5 days focused engineering time** for Mode 3 v0.3 across
+4 reviewable PRs.
 
-**Total: ~10 days focused engineering time** for Mode 3 v0.3.
+**Branch naming convention** (per Codex's recommendation):
+- PR 1: `codex/pdb-mode3-storage`
+- PR 2: `codex/pdb-mode3-executor`
+- PR 3: `codex/pdb-mode3-endpoints`
+- PR 4: `codex/pdb-mode3-ui`
 
 ## Open questions
 
