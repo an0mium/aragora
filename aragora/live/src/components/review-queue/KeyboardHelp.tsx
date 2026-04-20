@@ -43,29 +43,59 @@ export function KeyboardHelp({ open, onClose }: KeyboardHelpProps) {
       onClick={onClose}
     >
       <div
-        className="max-w-md rounded border border-slate-700 bg-slate-900 p-4 text-sm text-slate-200 shadow-xl"
+        className="max-w-md rounded-xl border p-6 text-sm shadow-xl"
+        style={{
+          borderColor: 'var(--border)',
+          backgroundColor: 'var(--surface)',
+          color: 'var(--text)',
+          boxShadow: 'var(--shadow-floating)',
+        }}
         onClick={(ev) => ev.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+        <div
+          className="flex items-center justify-between border-b pb-3"
+          style={{ borderColor: 'var(--border)' }}
+        >
           <h2 id="review-queue-help-title" className="font-theme-data text-base">
             Keyboard shortcuts
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-300 hover:bg-slate-800"
+            className="rounded-lg border px-3 py-1.5 text-xs font-theme-data uppercase tracking-wider hover:opacity-80"
+            style={{
+              borderColor: 'var(--border)',
+              color: 'var(--text-muted)',
+            }}
           >
             close
           </button>
         </div>
-        <table className="mt-3 w-full">
+        <table className="mt-4 w-full">
           <tbody>
             {SHORTCUTS.map((row) => (
-              <tr key={row.keys} className="border-t border-slate-800">
-                <td className="py-1 pr-3 font-mono text-xs text-slate-400">
-                  <kbd className="rounded border border-slate-600 px-1">{row.keys}</kbd>
+              <tr
+                key={row.keys}
+                className="border-t"
+                style={{ borderColor: 'var(--border)' }}
+              >
+                <td className="py-2 pr-4">
+                  <kbd
+                    className="rounded-md border font-theme-data"
+                    style={{
+                      padding: '0.25rem 0.625rem',
+                      fontSize: '11px',
+                      borderColor: 'var(--border)',
+                      backgroundColor: 'var(--surface-elevated)',
+                      color: 'var(--text)',
+                    }}
+                  >
+                    {row.keys}
+                  </kbd>
                 </td>
-                <td className="py-1 text-slate-200">{row.description}</td>
+                <td className="py-2" style={{ color: 'var(--text-muted)' }}>
+                  {row.description}
+                </td>
               </tr>
             ))}
           </tbody>

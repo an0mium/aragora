@@ -130,44 +130,106 @@ export function ReviewQueueCard({
       tabIndex={selected ? 0 : -1}
       role="option"
       onClick={onSelect}
-      className={
-        'rounded border px-3 py-2 text-sm transition-colors ' +
-        (selected
-          ? 'border-green-500/60 bg-slate-900/80'
-          : 'border-slate-700/40 bg-slate-900/40 hover:border-slate-600')
-      }
+      className="cursor-pointer rounded-xl border text-sm transition-all hover:-translate-y-px"
+      style={{
+        backgroundColor: 'var(--surface)',
+        borderColor: selected ? 'var(--accent)' : 'var(--border)',
+        borderWidth: selected ? '2px' : '1px',
+        padding: selected ? 'calc(1.5rem - 1px)' : '1.5rem',
+        boxShadow: selected ? '0 0 0 1px var(--accent-glow)' : 'var(--shadow-panel)',
+      }}
     >
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="font-mono text-xs text-slate-400">#{pr.number}</span>
-        <span className={`font-theme-data text-base ${toneColor(verdict.tone)}`} title={verdict.label}>
-          {verdict.glyph}
-        </span>
-        <span className={`font-mono text-sm ${toneColor(ci.tone)}`} title={ci.label}>
-          {ci.glyph} {ci.label}
-        </span>
-        <span className="truncate text-slate-200">{pr.title}</span>
-        <span className="ml-auto text-xs text-slate-400">
-          by {pr.author || 'unknown'} · {formatAge(pr.age_seconds)}
-        </span>
-      </div>
-      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-        {pr.touched_subsystems.slice(0, 6).map((sub) => (
-          <span
-            key={sub}
-            className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px]"
+      {/* Headline row: number badge + title + diff stats */}
+      <div className="flex items-start gap-5">
+        {/* Number badge, tone-colored by verdict if brief exists, else by CI */}
+        <div
+          className="flex shrink-0 flex-col items-center justify-center rounded-lg px-3 py-2 font-theme-data"
+          style={{
+            minWidth: '4rem',
+            backgroundColor: (pr.brief_present ? verdict.tone : ci.tone) === 'ok' ? 'rgba(57, 255, 20, 0.14)'
+              : (pr.brief_present ? verdict.tone : ci.tone) === 'warn' ? 'rgba(218, 165, 32, 0.14)'
+              : (pr.brief_present ? verdict.tone : ci.tone) === 'fail' ? 'rgba(255, 0, 64, 0.12)'
+              : 'var(--surface-elevated)',
+            color: (pr.brief_present ? verdict.tone : ci.tone) === 'ok' ? 'var(--accent)'
+              : (pr.brief_present ? verdict.tone : ci.tone) === 'warn' ? 'var(--warning)'
+              : (pr.brief_present ? verdict.tone : ci.tone) === 'fail' ? 'var(--crimson)'
+              : 'var(--text-muted)',
+            border: `1px solid ${(pr.brief_present ? verdict.tone : ci.tone) === 'ok' ? 'rgba(57, 255, 20, 0.25)'
+              : (pr.brief_present ? verdict.tone : ci.tone) === 'warn' ? 'rgba(255, 255, 0, 0.25)'
+              : (pr.brief_present ? verdict.tone : ci.tone) === 'fail' ? 'rgba(255, 0, 64, 0.25)'
+              : 'var(--border)'}`,
+          }}
+          title={pr.brief_present ? verdict.label : ci.label}
+        >
+          <div className="text-[10px] uppercase tracking-wider opacity-60">PR</div>
+          <div className="text-lg leading-tight">{pr.number}</div>
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div
+            className="text-base font-medium leading-snug"
+            style={{ color: 'var(--text)' }}
           >
-            {sub}
-          </span>
-        ))}
-        {pr.touched_subsystems.length > 6 && (
-          <span className="text-slate-500">+{pr.touched_subsystems.length - 6} more</span>
-        )}
-        <span className="ml-auto font-mono text-slate-500">
-          +{pr.additions} / -{pr.deletions}
-        </span>
+            {pr.title}
+          </div>
+          <div
+            className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <span>by {pr.author || 'unknown'}</span>
+            <span aria-hidden="true">·</span>
+            <span>{formatAge(pr.age_seconds)}</span>
+            <span aria-hidden="true">·</span>
+            <span className={toneColor(ci.tone)} title={ci.label}>
+              {ci.glyph} {ci.label}
+            </span>
+            {pr.brief_present && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className={toneColor(verdict.tone)} title={verdict.label}>
+                  brief: {verdict.glyph} {verdict.label}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div
+          className="shrink-0 text-right font-theme-data text-xs leading-tight"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          <div>
+            <span style={{ color: 'var(--accent)' }}>+{pr.additions}</span>
+          </div>
+          <div>
+            <span style={{ color: 'var(--crimson)' }}>−{pr.deletions}</span>
+          </div>
+        </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      {/* Subsystem tags — flattened: just a muted inline list, no borders */}
+      {pr.touched_subsystems.length > 0 && (
+        <div
+          className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          {pr.touched_subsystems.slice(0, 6).map((sub, i) => (
+            <span key={sub}>
+              {i > 0 && <span className="mr-2" aria-hidden="true">·</span>}
+              <span className="font-theme-data">{sub}</span>
+            </span>
+          ))}
+          {pr.touched_subsystems.length > 6 && (
+            <span>
+              <span className="mr-2" aria-hidden="true">·</span>
+              +{pr.touched_subsystems.length - 6} more
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Action row — Approve is the only emphasized action. Rest are muted text links. */}
+      <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2">
         <button
           type="button"
           data-testid={`review-queue-approve-${pr.number}`}
@@ -176,7 +238,14 @@ export function ReviewQueueCard({
             handleApprove();
           }}
           disabled={pendingAction !== null}
-          className="rounded border border-green-500/40 bg-green-500/10 px-2 py-0.5 text-xs text-green-300 hover:bg-green-500/20 disabled:opacity-40"
+          className="rounded-lg border font-theme-data uppercase tracking-wider transition-colors hover:opacity-80 disabled:opacity-40"
+          style={{
+            padding: '0.5rem 1rem',
+            fontSize: '11px',
+            borderColor: 'var(--accent)',
+            backgroundColor: 'rgba(57, 255, 20, 0.14)',
+            color: 'var(--accent)',
+          }}
         >
           {pendingAction === 'approve' ? 'approving…' : 'Approve'}
         </button>
@@ -188,7 +257,8 @@ export function ReviewQueueCard({
             handleRequestChanges();
           }}
           disabled={pendingAction !== null}
-          className="rounded border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-xs text-red-300 hover:bg-red-500/20 disabled:opacity-40"
+          className="text-xs underline-offset-4 transition-opacity hover:underline hover:opacity-100 disabled:opacity-40"
+          style={{ color: 'var(--text-muted)' }}
         >
           {pendingAction === 'request-changes' ? 'requesting…' : 'Request changes'}
         </button>
@@ -200,7 +270,8 @@ export function ReviewQueueCard({
             handleDefer();
           }}
           disabled={pendingAction !== null}
-          className="rounded border border-slate-500/40 bg-slate-500/10 px-2 py-0.5 text-xs text-slate-300 hover:bg-slate-500/20 disabled:opacity-40"
+          className="text-xs underline-offset-4 transition-opacity hover:underline hover:opacity-100 disabled:opacity-40"
+          style={{ color: 'var(--text-muted)' }}
         >
           {pendingAction === 'defer' ? 'deferring…' : 'Defer'}
         </button>
@@ -211,9 +282,10 @@ export function ReviewQueueCard({
             ev.stopPropagation();
             handleOpenDiff();
           }}
-          className="rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-300 hover:bg-slate-800"
+          className="text-xs underline-offset-4 transition-opacity hover:underline hover:opacity-100"
+          style={{ color: 'var(--text-muted)' }}
         >
-          Open diff
+          Open diff ↗
         </button>
         <button
           type="button"
@@ -222,10 +294,11 @@ export function ReviewQueueCard({
             ev.stopPropagation();
             handleExpand();
           }}
-          className="ml-auto rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-300 hover:bg-slate-800"
+          className="ml-auto text-xs underline-offset-4 transition-opacity hover:underline hover:opacity-100"
+          style={{ color: 'var(--text-muted)' }}
           aria-expanded={expanded}
         >
-          {expanded ? 'Collapse' : 'Expand'}
+          {expanded ? 'Collapse ▲' : 'Expand ▼'}
         </button>
       </div>
 
@@ -233,7 +306,12 @@ export function ReviewQueueCard({
         <div
           role="alert"
           data-testid={`review-queue-error-${pr.number}`}
-          className="mt-2 rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs text-red-200"
+          className="mt-3 rounded-lg border px-3 py-2 text-xs"
+          style={{
+            borderColor: 'var(--crimson)',
+            backgroundColor: 'rgba(255, 0, 64, 0.12)',
+            color: 'var(--crimson)',
+          }}
         >
           {error}
         </div>
@@ -242,9 +320,17 @@ export function ReviewQueueCard({
       {reasonForAction === 'request-changes' && (
         <div
           data-testid={`review-queue-reason-${pr.number}`}
-          className="mt-2 flex flex-col gap-2 rounded border border-slate-700 bg-slate-800/40 p-2"
+          className="mt-3 flex flex-col gap-2 rounded-lg border p-3"
+          style={{
+            borderColor: 'var(--border)',
+            backgroundColor: 'var(--surface-elevated)',
+          }}
         >
-          <label className="text-xs text-slate-300" htmlFor={`reason-${pr.number}`}>
+          <label
+            className="text-xs"
+            style={{ color: 'var(--text-muted)' }}
+            htmlFor={`reason-${pr.number}`}
+          >
             Reason (required). Kept bounded so the repair loop converges.
           </label>
           <textarea
@@ -253,21 +339,35 @@ export function ReviewQueueCard({
             value={reasonDraft}
             onChange={(ev) => setReasonDraft(ev.target.value)}
             rows={2}
-            className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+            className="rounded-lg border px-2 py-1.5 text-sm focus:outline-none"
+            style={{
+              borderColor: 'var(--border)',
+              backgroundColor: 'var(--bg)',
+              color: 'var(--text)',
+            }}
           />
           <div className="flex gap-2">
             <button
               type="button"
               onClick={submitReason}
               data-testid={`review-queue-reason-submit-${pr.number}`}
-              className="rounded border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-xs text-red-200"
+              className="rounded-lg border px-3 py-1.5 text-xs font-theme-data uppercase tracking-wider hover:opacity-80"
+              style={{
+                borderColor: 'var(--crimson)',
+                backgroundColor: 'rgba(255, 0, 64, 0.12)',
+                color: 'var(--crimson)',
+              }}
             >
               Send request-changes
             </button>
             <button
               type="button"
               onClick={() => setReasonForAction(null)}
-              className="rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-300"
+              className="rounded-lg border px-3 py-1.5 text-xs font-theme-data uppercase tracking-wider hover:opacity-80"
+              style={{
+                borderColor: 'var(--border)',
+                color: 'var(--text-muted)',
+              }}
             >
               Cancel
             </button>
@@ -276,10 +376,22 @@ export function ReviewQueueCard({
       )}
 
       {expanded && (
-        <div className="mt-3 space-y-2">
+        <div className="mt-4 space-y-3">
           <BriefPanel brief={brief} loading={briefLoading} error={briefError} />
-          <div className="rounded border border-slate-700/40 bg-slate-900/40 px-3 py-2 text-xs text-slate-300">
-            <div className="mb-1 font-theme-data uppercase text-slate-400">CI detail</div>
+          <div
+            className="rounded-lg border px-4 py-3 text-xs"
+            style={{
+              borderColor: 'var(--border)',
+              backgroundColor: 'var(--surface-elevated)',
+              color: 'var(--text)',
+            }}
+          >
+            <div
+              className="mb-1 font-theme-data uppercase tracking-wider"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              CI detail
+            </div>
             <div>
               {pr.ci.total === 0
                 ? 'no checks on this PR'

@@ -16,11 +16,20 @@ export interface BriefPanelProps {
  * that are missing simply render "—" rather than breaking the layout.
  */
 export function BriefPanel({ brief, loading, error }: BriefPanelProps) {
+  const panelStyle = {
+    borderColor: 'var(--border)',
+    backgroundColor: 'var(--surface-elevated)',
+  };
+
   if (loading) {
     return (
       <div
         data-testid="brief-panel-loading"
-        className="rounded border border-slate-700/40 px-3 py-2 text-xs text-slate-400"
+        className="rounded-lg border px-4 py-3 text-xs"
+        style={{
+          ...panelStyle,
+          color: 'var(--text-muted)',
+        }}
       >
         Loading brief…
       </div>
@@ -32,7 +41,12 @@ export function BriefPanel({ brief, loading, error }: BriefPanelProps) {
       <div
         data-testid="brief-panel-error"
         role="alert"
-        className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+        className="rounded-lg border px-4 py-3 text-xs"
+        style={{
+          borderColor: 'var(--crimson)',
+          backgroundColor: 'rgba(255, 0, 64, 0.08)',
+          color: 'var(--crimson)',
+        }}
       >
         {error}
       </div>
@@ -43,9 +57,14 @@ export function BriefPanel({ brief, loading, error }: BriefPanelProps) {
     return (
       <div
         data-testid="brief-panel-empty"
-        className="rounded border border-slate-700/40 bg-slate-800/40 px-3 py-2 text-xs text-slate-400"
+        className="rounded-lg border px-4 py-3 text-xs italic"
+        style={{
+          ...panelStyle,
+          color: 'var(--text-muted)',
+        }}
       >
-        No brief generated yet. Use the CLI or wait for the PDB protocol to populate one.
+        No brief generated yet. Run <code className="font-theme-data not-italic">aragora review-queue build</code> or wait
+        for the PDB protocol to populate one.
       </div>
     );
   }
@@ -60,32 +79,58 @@ export function BriefPanel({ brief, loading, error }: BriefPanelProps) {
   return (
     <div
       data-testid="brief-panel"
-      className="space-y-3 rounded border border-slate-700/40 bg-slate-900/40 px-3 py-3 text-sm"
+      className="rounded-lg border px-4 py-4 text-sm"
+      style={{
+        ...panelStyle,
+        color: 'var(--text)',
+      }}
     >
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-700/40 pb-2">
-        <span className="font-theme-data text-xs uppercase text-slate-400">Verdict</span>
+      <div
+        className="flex flex-wrap items-center gap-3 border-b pb-3"
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <span
+          className="font-theme-data uppercase tracking-wider"
+          style={{ fontSize: '10px', color: 'var(--text-muted)' }}
+        >
+          Verdict
+        </span>
         <span className="font-theme-data text-sm" data-testid="brief-verdict">
           {brief.verdict || '—'}
         </span>
         {brief.confidence !== null && brief.confidence !== undefined && (
-          <span className="text-xs text-slate-400" data-testid="brief-confidence">
+          <span
+            className="text-xs"
+            style={{ color: 'var(--text-muted)' }}
+            data-testid="brief-confidence"
+          >
             confidence {brief.confidence}/5
           </span>
         )}
-        <span className="ml-auto font-mono text-xs text-slate-500">
+        <span
+          className="ml-auto font-theme-data text-xs"
+          style={{ color: 'var(--text-muted)' }}
+        >
           head {brief.head_sha?.slice(0, 12) || '—'}
         </span>
       </div>
-      {sections.map(({ key, label }) => {
-        const value = brief[key];
-        const text = typeof value === 'string' && value.trim() ? value : '—';
-        return (
-          <div key={key} data-testid={`brief-section-${key}`}>
-            <div className="font-theme-data text-xs uppercase text-slate-400">{label}</div>
-            <div className="whitespace-pre-wrap text-slate-200">{text}</div>
-          </div>
-        );
-      })}
+      <div className="mt-3 space-y-4">
+        {sections.map(({ key, label }) => {
+          const value = brief[key];
+          const text = typeof value === 'string' && value.trim() ? value : '—';
+          return (
+            <div key={key} data-testid={`brief-section-${key}`}>
+              <div
+                className="mb-1 font-theme-data uppercase tracking-wider"
+                style={{ fontSize: '10px', color: 'var(--text-muted)' }}
+              >
+                {label}
+              </div>
+              <div className="whitespace-pre-wrap leading-relaxed">{text}</div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

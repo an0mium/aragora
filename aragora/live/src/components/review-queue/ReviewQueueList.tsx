@@ -203,7 +203,7 @@ export function ReviewQueueList({
       role="listbox"
       aria-label="Open PRs"
       data-testid="review-queue-list"
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-8"
     >
       {visible.map((pr, index) => (
         <ReviewQueueCard
@@ -220,13 +220,18 @@ export function ReviewQueueList({
           }}
         />
       ))}
-      <div className="mt-2 text-center text-xs text-slate-500">
+      <div
+        className="mt-4 text-center text-xs"
+        style={{ color: 'var(--text-muted)' }}
+      >
         {selectedPr ? (
           <>
-            selected PR #{selectedPr.number} · {selectedIndex + 1} of {visible.length}
+            selected <span style={{ color: 'var(--text)' }}>PR #{selectedPr.number}</span>
+            {' · '}
+            {selectedIndex + 1} of {visible.length}
           </>
         ) : (
-          'no selection'
+          'press j/k to navigate · a approve · r request-changes · d defer · o open diff · ? help'
         )}
       </div>
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
@@ -238,8 +243,16 @@ export function ReviewQueueList({
           data-testid="review-queue-reason-prompt"
           className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4"
         >
-          <div className="w-full max-w-md rounded border border-slate-700 bg-slate-900 p-4 text-sm">
-            <h3 className="mb-2 font-theme-data text-base">
+          <div
+            className="w-full max-w-md rounded-xl border p-6 text-sm"
+            style={{
+              borderColor: 'var(--border)',
+              backgroundColor: 'var(--surface)',
+              color: 'var(--text)',
+              boxShadow: 'var(--shadow-floating)',
+            }}
+          >
+            <h3 className="mb-3 font-theme-data text-base">
               Request changes on PR #{promptState.prNumber}
             </h3>
             <textarea
@@ -250,12 +263,21 @@ export function ReviewQueueList({
                 setPromptState((s) => (s ? { ...s, draft: ev.target.value } : s))
               }
               rows={3}
-              className="w-full rounded border border-slate-600 bg-slate-950 px-2 py-1 text-slate-100"
+              className="w-full rounded-lg border px-3 py-2 focus:outline-none"
+              style={{
+                borderColor: 'var(--border)',
+                backgroundColor: 'var(--bg)',
+                color: 'var(--text)',
+              }}
             />
-            <div className="mt-2 flex justify-end gap-2">
+            <div className="mt-3 flex justify-end gap-2">
               <button
                 type="button"
-                className="rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-300"
+                className="rounded-lg border px-3 py-1.5 text-xs font-theme-data uppercase tracking-wider hover:opacity-80"
+                style={{
+                  borderColor: 'var(--border)',
+                  color: 'var(--text-muted)',
+                }}
                 onClick={() => setPromptState(null)}
               >
                 Cancel
@@ -263,7 +285,12 @@ export function ReviewQueueList({
               <button
                 type="button"
                 data-testid="review-queue-reason-keyboard-submit"
-                className="rounded border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-xs text-red-200"
+                className="rounded-lg border px-3 py-1.5 text-xs font-theme-data uppercase tracking-wider hover:opacity-80"
+                style={{
+                  borderColor: 'var(--crimson)',
+                  backgroundColor: 'rgba(255, 0, 64, 0.08)',
+                  color: 'var(--crimson)',
+                }}
                 onClick={() => {
                   const reason = promptState.draft.trim();
                   if (!reason) return;
