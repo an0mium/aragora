@@ -79,6 +79,18 @@ class ReviewPolicyDecision(str, Enum):
     ESCALATE = "escalate"  # require human approval before running
 
 
+class BudgetScope(str, Enum):
+    """Which pool a budget cap / headroom line item applies to.
+
+    Used by ``BudgetHeadroom`` and ``CostMeter.binding_scope`` so a
+    packet-reader can tell which pool bound a DEGRADE/DENY decision.
+    """
+
+    PER_PR = "per_pr"
+    PER_REPO_DAILY = "per_repo_daily"
+    PER_ORG_DAILY = "per_org_daily"
+
+
 # --- Depth rules ----------------------------------------------------------
 
 
@@ -122,19 +134,30 @@ class ReviewBudget:
     The generic BudgetPolicy tracks monthly/daily/per-debate workspace spend;
     ReviewBudget carves out the review slice with per-PR and per-repo/org caps.
 
-    Defaults (per-PR $25, 80% alert threshold) are the dogfood-safe
-    posture for Aragora's own PRs. Wider rollout requires an explicit
-    override — tests lock the defaults so silent drift fails loudly.
+    Depth scoping (#6305 AC: "Per-repo / per-org caps for deep review
+    runs"): daily repo/org pools only count runs at or above
+    ``daily_caps_apply_at_or_above_depth``. This prevents a flood of
+    TRIVIAL typo-only reviews from exhausting the daily pool and then
+    denying a legitimate DEEP review later in the day. The per-PR cap
+    has no depth scoping — it always applies to every single run.
+
+    Defaults (per-PR $25, 80% alert threshold, daily caps apply at
+    STANDARD+) are the dogfood-safe posture for Aragora's own PRs.
+    Wider rollout requires an explicit override — tests lock the
+    defaults so silent drift fails loudly.
     """
 
-    per_pr_usd_cap: float = 25.0  # market anchor: Anthropic ~$25/PR
-    per_repo_usd_daily_cap: float = 0.0  # 0 = unlimited
-    per_org_usd_daily_cap: float = 0.0  # 0 = unlimited
+    per_pr_usd_cap: float = 25.0  # market anchor: Anthropic ~$25/PR; applies to ALL depths
+    per_repo_usd_daily_cap: float = 0.0  # 0 = unlimited; depth-scoped
+    per_org_usd_daily_cap: float = 0.0  # 0 = unlimited; depth-scoped
+    daily_caps_apply_at_or_above_depth: ReviewDepth = ReviewDepth.STANDARD
     alert_threshold_pct: float = 80.0
     hard_limit: bool = True  # deny when cap reached; mirrors billing.BudgetPolicy
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        d["daily_caps_apply_at_or_above_depth"] = self.daily_caps_apply_at_or_above_depth.value
+        return d
 
 
 # --- Policy ---------------------------------------------------------------
@@ -170,6 +193,28 @@ class ReviewPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class BudgetHeadroom:
+    """Remaining/cap pair for one budget pool at decision time.
+
+    Enables a packet-reader to answer "which pool was binding?" and
+    "how much headroom did we have in each pool?" — not just a single
+    anonymous remainder.
+    """
+
+    scope: BudgetScope
+    cap_usd: float  # configured cap for this pool; 0.0 = unlimited
+    remaining_usd: float  # headroom after this run; negative if over
+    applies_at_or_above_depth: ReviewDepth | None = None  # None for per_pr (all depths)
+
+    def to_dict(self) -> dict[str, Any]:
+        d = asdict(self)
+        d["scope"] = self.scope.value
+        if self.applies_at_or_above_depth is not None:
+            d["applies_at_or_above_depth"] = self.applies_at_or_above_depth.value
+        return d
+
+
+@dataclass(frozen=True, slots=True)
 class CostMeter:
     """Cost-and-budget context embedded in a review packet.
 
@@ -177,22 +222,32 @@ class CostMeter:
     used and budget context." Consumed by the UI (#6304) for the
     "packet cost:" line in the rendered brief, and by exporters so an
     operator reading an exported brief on another machine can still see
-    whether the run was under budget.
+    whether the run was under budget AND which pool constrained it.
 
-    All four numeric fields are USD; units are implicit-by-convention
-    because mixing currencies is out of scope for the foundation.
+    Multi-pool disclosure (#6305 AC "bound deep-review spend without
+    disabling the feature entirely"): when a DEGRADE or DENY decision
+    is issued because a specific budget pool is exhausted, ``binding_scope``
+    names which pool was binding and ``headroom_by_scope`` carries the
+    per-pool remaining/cap tuple so the UI can explain to the operator
+    exactly why the decision went the way it did.
+
+    All cost fields are USD; units are implicit-by-convention because
+    mixing currencies is out of scope for the foundation.
     """
 
     depth_chosen: ReviewDepth
     decision: ReviewPolicyDecision
     estimated_cost_usd: float  # what the runner estimated BEFORE running
     actual_cost_usd: float  # what the run actually spent (0 if pre-run)
-    budget_remaining_usd: float  # how much of the cap is left, post-this-run
-    per_pr_cap_usd: float  # the cap this run was evaluated against
-    alert_triggered: bool = False  # True if usage_pct crossed alert threshold
+    headroom_by_scope: tuple[BudgetHeadroom, ...]  # per-pool remaining+cap
+    binding_scope: BudgetScope | None = None  # which pool bound the decision; None if unbounded
+    alert_triggered: bool = False  # True if any pool's usage_pct crossed alert threshold
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["depth_chosen"] = self.depth_chosen.value
         d["decision"] = self.decision.value
+        d["headroom_by_scope"] = [h.to_dict() for h in self.headroom_by_scope]
+        if self.binding_scope is not None:
+            d["binding_scope"] = self.binding_scope.value
         return d

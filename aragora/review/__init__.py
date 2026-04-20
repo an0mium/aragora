@@ -21,6 +21,8 @@ from aragora.review.protocol import (
     SynthesisPolicy,
 )
 from aragora.review.policy import (
+    BudgetHeadroom,
+    BudgetScope,
     CostMeter,
     DepthTrigger,
     ReviewBudget,
@@ -43,6 +45,8 @@ from aragora.review.receipt import (
 __all__ = [
     "ADVISORY_NOTE",
     "BriefReceipt",
+    "BudgetHeadroom",
+    "BudgetScope",
     "CostMeter",
     "DepthTrigger",
     "DissentingView",

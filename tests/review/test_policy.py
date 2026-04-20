@@ -7,6 +7,8 @@ import json
 import pytest
 
 from aragora.review import (
+    BudgetHeadroom,
+    BudgetScope,
     CostMeter,
     DepthTrigger,
     ReviewBudget,
@@ -110,6 +112,35 @@ class TestReviewBudget:
         assert budget.per_repo_usd_daily_cap == 0.0  # 0 = unlimited
         assert budget.per_org_usd_daily_cap == 0.0
 
+    def test_daily_caps_are_depth_scoped_by_default(self) -> None:
+        # Per #6305 AC: "Per-repo / per-org caps for deep review runs."
+        # Default scoping: daily caps apply at STANDARD+; TRIVIAL
+        # reviews don't count against the daily pool. Prevents a flood
+        # of typo-only reviews from exhausting the daily budget and
+        # then denying a legitimate DEEP review later in the day.
+        budget = ReviewBudget()
+        assert budget.daily_caps_apply_at_or_above_depth == ReviewDepth.STANDARD
+
+    def test_daily_cap_scoping_is_configurable(self) -> None:
+        # Teams that want the daily pools to cover STANDARD reviews too
+        # can set this to STANDARD; teams that only want DEEP runs to
+        # count against the daily pool can set it to DEEP.
+        budget = ReviewBudget(daily_caps_apply_at_or_above_depth=ReviewDepth.DEEP)
+        assert budget.daily_caps_apply_at_or_above_depth == ReviewDepth.DEEP
+
+    def test_per_pr_cap_is_not_depth_scoped(self) -> None:
+        # Per-PR cap applies to EVERY run regardless of depth. Only the
+        # daily repo/org pools carry the depth scoping. If a future
+        # refactor tries to add `per_pr_applies_at_or_above_depth`, this
+        # test fails loudly.
+        budget = ReviewBudget()
+        assert not hasattr(budget, "per_pr_applies_at_or_above_depth")
+
+    def test_to_dict_serializes_depth_enum(self) -> None:
+        budget = ReviewBudget(daily_caps_apply_at_or_above_depth=ReviewDepth.DEEP)
+        d = budget.to_dict()
+        assert d["daily_caps_apply_at_or_above_depth"] == "deep"
+
     def test_frozen(self) -> None:
         budget = ReviewBudget()
         with pytest.raises((AttributeError, TypeError)):
@@ -125,6 +156,7 @@ class TestReviewBudget:
         assert roundtrip["per_pr_usd_cap"] == 50.0
         assert roundtrip["per_repo_usd_daily_cap"] == 500.0
         assert roundtrip["alert_threshold_pct"] == 75.0
+        assert roundtrip["daily_caps_apply_at_or_above_depth"] == "standard"
 
 
 # --- ReviewPolicy --------------------------------------------------------
@@ -179,30 +211,80 @@ class TestReviewPolicy:
         assert roundtrip["budget"]["per_pr_usd_cap"] == 25.0
 
 
+# --- BudgetScope + BudgetHeadroom -----------------------------------------
+
+
+class TestBudgetScope:
+    def test_values(self) -> None:
+        assert BudgetScope.PER_PR.value == "per_pr"
+        assert BudgetScope.PER_REPO_DAILY.value == "per_repo_daily"
+        assert BudgetScope.PER_ORG_DAILY.value == "per_org_daily"
+
+    def test_three_scopes_match_review_budget_pools(self) -> None:
+        # BudgetScope must cover exactly the pools ReviewBudget defines.
+        # If a future ReviewBudget adds a fourth pool without extending
+        # BudgetScope, CostMeter would lose the ability to identify it.
+        budget = ReviewBudget()
+        pool_fields = {"per_pr_usd_cap", "per_repo_usd_daily_cap", "per_org_usd_daily_cap"}
+        for field_name in pool_fields:
+            assert hasattr(budget, field_name)
+        assert len(list(BudgetScope)) == 3
+
+
+class TestBudgetHeadroom:
+    def test_frozen(self) -> None:
+        h = BudgetHeadroom(scope=BudgetScope.PER_PR, cap_usd=25.0, remaining_usd=20.0)
+        with pytest.raises((AttributeError, TypeError)):
+            h.remaining_usd = 0.0  # type: ignore[misc]
+
+    def test_to_dict_serializes_scope(self) -> None:
+        h = BudgetHeadroom(
+            scope=BudgetScope.PER_REPO_DAILY,
+            cap_usd=500.0,
+            remaining_usd=350.0,
+            applies_at_or_above_depth=ReviewDepth.STANDARD,
+        )
+        d = h.to_dict()
+        assert d["scope"] == "per_repo_daily"
+        assert d["applies_at_or_above_depth"] == "standard"
+        assert d["cap_usd"] == 500.0
+        assert d["remaining_usd"] == 350.0
+
+    def test_per_pr_scope_has_no_depth_scoping(self) -> None:
+        # Per-PR cap applies to all depths; applies_at_or_above_depth=None
+        # is the canonical representation.
+        h = BudgetHeadroom(scope=BudgetScope.PER_PR, cap_usd=25.0, remaining_usd=15.0)
+        assert h.applies_at_or_above_depth is None
+
+
 # --- CostMeter ------------------------------------------------------------
 
 
 class TestCostMeter:
-    def test_frozen(self) -> None:
-        meter = CostMeter(
+    def _meter(self, **overrides) -> CostMeter:
+        defaults = dict(
             depth_chosen=ReviewDepth.STANDARD,
             decision=ReviewPolicyDecision.ALLOW,
             estimated_cost_usd=0.25,
             actual_cost_usd=0.24,
-            budget_remaining_usd=24.76,
-            per_pr_cap_usd=25.0,
+            headroom_by_scope=(
+                BudgetHeadroom(scope=BudgetScope.PER_PR, cap_usd=25.0, remaining_usd=24.76),
+            ),
         )
+        defaults.update(overrides)
+        return CostMeter(**defaults)
+
+    def test_frozen(self) -> None:
+        meter = self._meter()
         with pytest.raises((AttributeError, TypeError)):
             meter.depth_chosen = ReviewDepth.DEEP  # type: ignore[misc]
 
-    def test_to_dict_serializes_enums_as_strings(self) -> None:
-        meter = CostMeter(
+    def test_to_dict_serializes_enums(self) -> None:
+        meter = self._meter(
             depth_chosen=ReviewDepth.DEEP,
             decision=ReviewPolicyDecision.DEGRADE,
             estimated_cost_usd=8.0,
             actual_cost_usd=7.5,
-            budget_remaining_usd=17.5,
-            per_pr_cap_usd=25.0,
             alert_triggered=True,
         )
         d = meter.to_dict()
@@ -212,36 +294,63 @@ class TestCostMeter:
 
     def test_addresses_packet_cost_meter_acceptance_criterion(self) -> None:
         # Per #6305 acceptance: "Packet output includes cost used and
-        # budget context." CostMeter is the exact shape the future packet
-        # renderer will embed.
-        meter = CostMeter(
-            depth_chosen=ReviewDepth.STANDARD,
-            decision=ReviewPolicyDecision.ALLOW,
-            estimated_cost_usd=0.25,
-            actual_cost_usd=0.24,
-            budget_remaining_usd=24.76,
-            per_pr_cap_usd=25.0,
-        )
+        # budget context." CostMeter is the exact shape the future
+        # packet renderer will embed.
+        meter = self._meter()
         d = meter.to_dict()
         # "cost used" — actual_cost_usd
         assert "actual_cost_usd" in d
-        # "budget context" — budget_remaining_usd + per_pr_cap_usd
-        assert "budget_remaining_usd" in d
-        assert "per_pr_cap_usd" in d
+        # "budget context" — per-pool headroom (not just one number)
+        assert "headroom_by_scope" in d
+        assert isinstance(d["headroom_by_scope"], list)
+
+    def test_binding_scope_identifies_which_pool_was_limiting(self) -> None:
+        # Per codex's P1 finding on #6359: packet-readers must be able
+        # to tell which pool forced a DEGRADE/DENY decision. binding_scope
+        # is that dimension.
+        meter = self._meter(
+            depth_chosen=ReviewDepth.STANDARD,  # runner wanted DEEP but degraded
+            decision=ReviewPolicyDecision.DEGRADE,
+            headroom_by_scope=(
+                BudgetHeadroom(scope=BudgetScope.PER_PR, cap_usd=25.0, remaining_usd=24.0),
+                BudgetHeadroom(
+                    scope=BudgetScope.PER_REPO_DAILY,
+                    cap_usd=50.0,
+                    remaining_usd=2.0,  # nearly exhausted
+                    applies_at_or_above_depth=ReviewDepth.STANDARD,
+                ),
+            ),
+            binding_scope=BudgetScope.PER_REPO_DAILY,
+        )
+        d = meter.to_dict()
+        assert d["binding_scope"] == "per_repo_daily"
+        # Per-pool fields preserved so UI can show "repo pool: $2 left of $50"
+        assert len(d["headroom_by_scope"]) == 2
+        assert d["headroom_by_scope"][1]["scope"] == "per_repo_daily"
+        assert d["headroom_by_scope"][1]["remaining_usd"] == 2.0
+
+    def test_binding_scope_optional_for_allow_decisions(self) -> None:
+        # When a run is ALLOWED with no pool near its cap, binding_scope
+        # is None — there's no "limit that made the call."
+        meter = self._meter()
+        assert meter.binding_scope is None
+        d = meter.to_dict()
+        assert d.get("binding_scope") is None
+
+    def test_headroom_by_scope_is_immutable_tuple(self) -> None:
+        meter = self._meter()
+        assert isinstance(meter.headroom_by_scope, tuple)
+        with pytest.raises(AttributeError):
+            meter.headroom_by_scope.append(  # type: ignore[attr-defined]
+                BudgetHeadroom(scope=BudgetScope.PER_ORG_DAILY, cap_usd=1000.0, remaining_usd=500.0)
+            )
 
     def test_json_roundtrip(self) -> None:
-        meter = CostMeter(
-            depth_chosen=ReviewDepth.STANDARD,
-            decision=ReviewPolicyDecision.ALLOW,
-            estimated_cost_usd=0.5,
-            actual_cost_usd=0.45,
-            budget_remaining_usd=24.55,
-            per_pr_cap_usd=25.0,
-        )
+        meter = self._meter()
         roundtrip = json.loads(json.dumps(meter.to_dict()))
         assert roundtrip["depth_chosen"] == "standard"
         assert roundtrip["decision"] == "allow"
-        assert roundtrip["per_pr_cap_usd"] == 25.0
+        assert roundtrip["headroom_by_scope"][0]["scope"] == "per_pr"
 
 
 # --- Cross-module composition -------------------------------------------
