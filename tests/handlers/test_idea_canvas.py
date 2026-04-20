@@ -624,7 +624,7 @@ class TestUpdateCanvas:
         store.update_canvas.side_effect = TypeError("bad type")
         mock_get_store.return_value = store
 
-        result = handler._update_canvas(_ctx(), "ic-1", {}, "u1")
+        result = handler._update_canvas(_ctx(), "ic-1", {"name": "Updated"}, "u1")
         assert _status(result) == 500
 
 
