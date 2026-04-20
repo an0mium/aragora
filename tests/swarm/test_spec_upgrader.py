@@ -433,6 +433,20 @@ def test_audit_list_comments_accepts_plain_array_payload():
     assert comments == [{"id": 1, "body": "first"}]
 
 
+def test_audit_list_comments_flattens_newline_delimited_pages():
+    ap = AuditPersistence(issue_number=5898)
+    with patch(
+        "aragora.swarm.spec_upgrader.subprocess.check_output",
+        return_value='[{"id": 1, "body": "first"}]\n[{"id": 2, "body": "second"}]\n',
+    ):
+        comments = ap._gh_list_comments()
+
+    assert comments == [
+        {"id": 1, "body": "first"},
+        {"id": 2, "body": "second"},
+    ]
+
+
 def test_audit_upsert_creates_when_missing():
     ap = AuditPersistence(issue_number=5898)
     with (

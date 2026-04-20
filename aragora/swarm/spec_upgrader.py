@@ -532,7 +532,20 @@ class AuditPersistence:
             ],
             text=True,
         )
-        payload = json.loads(out or "[]")
+        try:
+            payload = json.loads(out or "[]")
+        except json.JSONDecodeError:
+            comments: list[dict] = []
+            for raw_page in out.splitlines():
+                raw_page = raw_page.strip()
+                if not raw_page:
+                    continue
+                page = json.loads(raw_page)
+                if isinstance(page, list):
+                    comments.extend(comment for comment in page if isinstance(comment, dict))
+                elif isinstance(page, dict):
+                    comments.append(page)
+            return comments
         if payload and all(isinstance(page, list) for page in payload):
             return [comment for page in payload for comment in page]
         return payload
