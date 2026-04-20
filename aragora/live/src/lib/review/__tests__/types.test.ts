@@ -15,12 +15,14 @@
  */
 
 import {
-  ADVISORY_NOTE,
+  BRIEF_RECEIPT_ADVISORY_NOTE,
   BudgetScope,
   DissentPosition,
   EvidenceKind,
   QueueLane,
   Recommendation,
+  REVIEW_BRIEF_ADVISORY_NOTE,
+  REVIEW_PACKET_ADVISORY_NOTE,
   ReviewDepth,
   ReviewPolicyDecision,
   ReviewRole,
@@ -150,19 +152,33 @@ describe("canonical string discipline — enums match aragora/review/*.py", () =
 // ADVISORY_NOTE contract
 // ---------------------------------------------------------------------------
 
-describe("ADVISORY_NOTE", () => {
-  test("exact byte-for-byte match with Python canonical", () => {
-    // The Python-side value is defined in aragora/review/protocol.py:
-    //   ADVISORY_NOTE = (
-    //       "This brief is advisory only. It does not approve or block merge. "
-    //       "Human settlement required."
-    //   )
-    // Any drift here breaks cross-side consistency of the copy the
-    // operator sees. This test hard-codes the canonical value so either
-    // side updating without the other fails loudly.
-    expect(ADVISORY_NOTE).toBe(
+describe("advisory-note constants — distinct per backend payload", () => {
+  test("REVIEW_BRIEF_ADVISORY_NOTE exact match (aragora/review/protocol.py)", () => {
+    expect(REVIEW_BRIEF_ADVISORY_NOTE).toBe(
       "This brief is advisory only. It does not approve or block merge. Human settlement required.",
     );
+  });
+
+  test("REVIEW_PACKET_ADVISORY_NOTE exact match (aragora/cli/commands/review_queue.py)", () => {
+    expect(REVIEW_PACKET_ADVISORY_NOTE).toBe(
+      "This packet is advisory only. It does not approve or block merge. Human settlement required.",
+    );
+  });
+
+  test("BRIEF_RECEIPT_ADVISORY_NOTE exact match (aragora/review/receipt.py)", () => {
+    expect(BRIEF_RECEIPT_ADVISORY_NOTE).toBe(
+      "This receipt records an advisory brief. It does not approve or block merge. " +
+        "Human settlement required.",
+    );
+  });
+
+  test("all three strings are distinct (not reused)", () => {
+    // The drift bug codex flagged on revision 1 was the result of one
+    // shared string. Explicitly assert that all three are genuinely
+    // different so a future refactor can't collapse them by accident.
+    expect(REVIEW_BRIEF_ADVISORY_NOTE).not.toBe(REVIEW_PACKET_ADVISORY_NOTE);
+    expect(REVIEW_BRIEF_ADVISORY_NOTE).not.toBe(BRIEF_RECEIPT_ADVISORY_NOTE);
+    expect(REVIEW_PACKET_ADVISORY_NOTE).not.toBe(BRIEF_RECEIPT_ADVISORY_NOTE);
   });
 });
 
@@ -218,7 +234,7 @@ describe("python-json payloads parse as TS types", () => {
       agent_roster: ["claude-opus-4-7", "gpt-5-4"],
       generated_at: "2026-04-20T15:00:00+00:00",
       advisory_only: true,
-      settlement_note: ADVISORY_NOTE,
+      settlement_note: REVIEW_BRIEF_ADVISORY_NOTE,
     };
     expect(payload.advisory_only).toBe(true);
     expect(payload.recommendation).toBe(Recommendation.APPROVE_CANDIDATE);
@@ -266,7 +282,7 @@ describe("python-json payloads parse as TS types", () => {
       agent_roster: [],
       generated_at: "",
       advisory_only: true,
-      settlement_note: ADVISORY_NOTE,
+      settlement_note: REVIEW_BRIEF_ADVISORY_NOTE,
     };
     const receipt: BriefReceipt = {
       brief,
@@ -275,7 +291,7 @@ describe("python-json payloads parse as TS types", () => {
       receipt_id: "receipt-sha",
       created_at: "2026-04-20T15:00:00+00:00",
       advisory_only: true,
-      settlement_note: ADVISORY_NOTE,
+      settlement_note: BRIEF_RECEIPT_ADVISORY_NOTE,
     };
     expect(receipt.advisory_only).toBe(true);
     expect(receipt.brief.advisory_only).toBe(true);
@@ -383,10 +399,12 @@ describe("python-json payloads parse as TS types", () => {
       generated_at: "2026-04-20T15:00:00+00:00",
       protocol: {},
       advisory_only: true,
-      settlement_note: ADVISORY_NOTE,
+      settlement_note: REVIEW_PACKET_ADVISORY_NOTE,
     };
     expect(packet.advisory_only).toBe(true);
-    expect(packet.settlement_note).toBe(ADVISORY_NOTE);
+    expect(packet.settlement_note).toBe(REVIEW_PACKET_ADVISORY_NOTE);
+    // Verify the packet string is distinct from the brief string.
+    expect(packet.settlement_note).not.toBe(REVIEW_BRIEF_ADVISORY_NOTE);
   });
 
   test("SettlementReceipt shape (SHA-bound record)", () => {
@@ -414,29 +432,75 @@ describe("python-json payloads parse as TS types", () => {
     expect(receipt.action).toBe(SettlementAction.APPROVE);
   });
 
-  test("SettlementActionRequest requires SHA binding", () => {
+  test("SettlementActionRequest APPROVE may omit reason", () => {
+    // action=approve: reason is optional.
     const req: SettlementActionRequest = {
       pr_number: 6361,
       head_sha: "72a79cc74",
       packet_sha: "packet-hash-xyz",
-      action: "approve" as SettlementAction,
+      action: SettlementAction.APPROVE,
     };
     expect(req.head_sha).toBe("72a79cc74");
-    expect(req.packet_sha).toBe("packet-hash-xyz");
-    // reason is optional for approve
+    expect(req.action).toBe(SettlementAction.APPROVE);
     expect(req.reason).toBeUndefined();
   });
 
-  test("SettlementActionRequest for request_changes carries reason", () => {
+  test("SettlementActionRequest APPROVE may also include reason", () => {
     const req: SettlementActionRequest = {
       pr_number: 6361,
       head_sha: "72a79cc74",
       packet_sha: "packet-hash-xyz",
-      action: "request_changes" as SettlementAction,
+      action: SettlementAction.APPROVE,
+      reason: "All checks green, docs synced.",
+    };
+    expect(req.reason).toBe("All checks green, docs synced.");
+  });
+
+  test("SettlementActionRequest REQUEST_CHANGES requires reason (discriminated union)", () => {
+    const req: SettlementActionRequest = {
+      pr_number: 6361,
+      head_sha: "72a79cc74",
+      packet_sha: "packet-hash-xyz",
+      action: SettlementAction.REQUEST_CHANGES,
       reason: "Missing edge-case coverage in policy evaluator.",
     };
     expect(req.action).toBe(SettlementAction.REQUEST_CHANGES);
     expect(req.reason).toBe("Missing edge-case coverage in policy evaluator.");
+  });
+
+  test("SettlementActionRequest DEFER requires reason (discriminated union)", () => {
+    const req: SettlementActionRequest = {
+      pr_number: 6361,
+      head_sha: "72a79cc74",
+      packet_sha: "packet-hash-xyz",
+      action: SettlementAction.DEFER,
+      reason: "Waiting on upstream dep update.",
+    };
+    expect(req.action).toBe(SettlementAction.DEFER);
+    expect(req.reason).toBe("Waiting on upstream dep update.");
+  });
+
+  test("SettlementActionRequest REQUEST_CHANGES without reason is a compile error", () => {
+    // P1 regression guard (codex #6361 rev 2): the discriminated union
+    // MUST reject REQUEST_CHANGES and DEFER without reason at compile
+    // time.  @ts-expect-error confirms the compiler refuses each.
+    // @ts-expect-error — REQUEST_CHANGES requires reason.
+    const bad1: SettlementActionRequest = {
+      pr_number: 6361,
+      head_sha: "72a79cc74",
+      packet_sha: "packet-hash-xyz",
+      action: SettlementAction.REQUEST_CHANGES,
+    };
+    // @ts-expect-error — DEFER requires reason.
+    const bad2: SettlementActionRequest = {
+      pr_number: 6361,
+      head_sha: "72a79cc74",
+      packet_sha: "packet-hash-xyz",
+      action: SettlementAction.DEFER,
+    };
+    // Reference bad1 and bad2 so lint doesn't flag them as unused while
+    // still exercising the @ts-expect-error on the declarations above.
+    expect([bad1, bad2]).toHaveLength(2);
   });
 
   test("SettlementActionResponse success carries the receipt", () => {
@@ -533,7 +597,7 @@ describe("readonly discipline (compile-time)", () => {
       agent_roster: ["model-a"],
       generated_at: "",
       advisory_only: true,
-      settlement_note: ADVISORY_NOTE,
+      settlement_note: REVIEW_BRIEF_ADVISORY_NOTE,
     };
     // @ts-expect-error — agent_roster is readonly; push must fail type-check.
     brief.agent_roster.push("model-b");

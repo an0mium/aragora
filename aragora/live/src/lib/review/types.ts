@@ -141,15 +141,31 @@ export type QueueLane = (typeof QueueLane)[keyof typeof QueueLane];
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical advisory-note string.
+ * Advisory-note strings — distinct per backend payload type.
  *
- * MUST match the Python constant exported from
- * ``aragora.review.protocol.ADVISORY_NOTE`` **byte-for-byte**. Tests
- * assert the exact value so any refactor touching one side fails loudly
- * if the other is not updated.
+ * The Python side has three different default settlement_note strings
+ * because each shape is advisory for a slightly different reason:
+ *   - ReviewBrief  (aragora/review/protocol.py)       → "This brief is advisory only..."
+ *   - ReviewPacket (aragora/cli/commands/review_queue.py) → "This packet is advisory only..."
+ *   - BriefReceipt (aragora/review/receipt.py)        → "This receipt records an advisory brief..."
+ *
+ * Each TS constant below MUST match its Python counterpart
+ * **byte-for-byte**; tests assert each value exactly so drift on
+ * either side fails loudly.
+ *
+ * A generic ``ADVISORY_NOTE`` constant is deliberately NOT exported,
+ * because reusing one string across three distinct shapes is exactly
+ * the bug codex flagged on #6361 revision 1.
  */
-export const ADVISORY_NOTE =
+export const REVIEW_BRIEF_ADVISORY_NOTE =
   "This brief is advisory only. It does not approve or block merge. Human settlement required.";
+
+export const REVIEW_PACKET_ADVISORY_NOTE =
+  "This packet is advisory only. It does not approve or block merge. Human settlement required.";
+
+export const BRIEF_RECEIPT_ADVISORY_NOTE =
+  "This receipt records an advisory brief. It does not approve or block merge. " +
+  "Human settlement required.";
 
 // ---------------------------------------------------------------------------
 // Brief + debate shapes (mirror aragora/review/protocol.py)
@@ -394,17 +410,45 @@ export interface SettlementReceipt {
  * packet the operator was shown.  The backend uses these to detect
  * stale settlement attempts (packet generated at T0, operator clicks at
  * T1, a new commit landed in between → the server refuses the action
- * rather than silently settling against the new head).  ``reason`` is
- * required for ``REQUEST_CHANGES`` and ``DEFER`` actions; optional for
- * ``APPROVE``.
+ * rather than silently settling against the new head).
+ *
+ * ``reason`` handling is enforced at the TYPE level via a discriminated
+ * union on ``action``:
+ *   - ``APPROVE`` may omit reason (``reason?: string``)
+ *   - ``REQUEST_CHANGES`` and ``DEFER`` MUST carry a reason
+ *     (``reason: string`` required)
+ *
+ * This matches the backend validation in
+ * ``aragora/cli/commands/review_queue.py::_cmd_act`` which rejects
+ * REQUEST_CHANGES or DEFER without a reason.  With the union below, TS
+ * compile-time rejects the invalid payload too, so the UI cannot even
+ * build a request the backend would refuse.
  */
-export interface SettlementActionRequest {
+interface SettlementActionRequestBase {
   readonly pr_number: number;
   readonly head_sha: string;
   readonly packet_sha: string;
-  readonly action: SettlementAction;
+}
+
+export interface SettlementApproveRequest extends SettlementActionRequestBase {
+  readonly action: typeof SettlementAction.APPROVE;
   readonly reason?: string;
 }
+
+export interface SettlementRequestChangesRequest extends SettlementActionRequestBase {
+  readonly action: typeof SettlementAction.REQUEST_CHANGES;
+  readonly reason: string;
+}
+
+export interface SettlementDeferRequest extends SettlementActionRequestBase {
+  readonly action: typeof SettlementAction.DEFER;
+  readonly reason: string;
+}
+
+export type SettlementActionRequest =
+  | SettlementApproveRequest
+  | SettlementRequestChangesRequest
+  | SettlementDeferRequest;
 
 /**
  * Response payload for a settlement action.
