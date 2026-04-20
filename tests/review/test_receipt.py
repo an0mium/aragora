@@ -11,13 +11,17 @@ from aragora.review import (
     BriefReceipt,
     DissentingView,
     DissentPosition,
+    EvidenceKind,
     EvidenceRef,
     Recommendation,
     ReviewBrief,
     ReviewRole,
     RoleFinding,
+    SettlementAction,
     SettlementLinkage,
+    ValidationKind,
     ValidationRef,
+    ValidationResult,
 )
 
 UTC = timezone.utc
@@ -66,13 +70,13 @@ def _minimal_receipt(**overrides) -> BriefReceipt:
 
 class TestEvidenceRef:
     def test_frozen(self) -> None:
-        ref = EvidenceRef(kind="file", path="aragora/review/receipt.py")
+        ref = EvidenceRef(kind=EvidenceKind.FILE, path="aragora/review/receipt.py")
         with pytest.raises((AttributeError, TypeError)):
             ref.path = "elsewhere"  # type: ignore[misc]
 
     def test_line_range_serializes_as_list(self) -> None:
         ref = EvidenceRef(
-            kind="file",
+            kind=EvidenceKind.FILE,
             path="aragora/review/receipt.py",
             line_range=(42, 58),
             quote="def to_dict(self) -> dict[str, Any]:",
@@ -83,13 +87,28 @@ class TestEvidenceRef:
         assert d["path"] == "aragora/review/receipt.py"
 
     def test_line_range_omitted_when_none(self) -> None:
-        ref = EvidenceRef(kind="commit", path="main@f1a640ee2", sha="f1a640ee2")
+        ref = EvidenceRef(kind=EvidenceKind.COMMIT, path="main@f1a640ee2", sha="f1a640ee2")
         d = ref.to_dict()
         assert d["line_range"] is None
 
+    def test_kind_enum_values_match_canonical_strings(self) -> None:
+        # These are the canonical serialized strings consumers branch on.
+        # Drift breaks the orchestrator / UI / export contract silently.
+        assert EvidenceKind.FILE.value == "file"
+        assert EvidenceKind.TEST.value == "test"
+        assert EvidenceKind.COMMIT.value == "commit"
+        assert EvidenceKind.ARTIFACT.value == "artifact"
+        assert EvidenceKind.ISSUE.value == "issue"
+        assert EvidenceKind.PR.value == "pr"
+        assert EvidenceKind.EXTERNAL.value == "external"
+
+    def test_kind_serialized_as_string(self) -> None:
+        ref = EvidenceRef(kind=EvidenceKind.FILE, path="x.py")
+        assert ref.to_dict()["kind"] == "file"
+
     def test_json_roundtrip(self) -> None:
         ref = EvidenceRef(
-            kind="file",
+            kind=EvidenceKind.FILE,
             path="aragora/cli/commands/review_queue.py",
             line_range=(130, 151),
             quote="class SettlementReceipt: ...",
@@ -104,15 +123,43 @@ class TestEvidenceRef:
 
 class TestValidationRef:
     def test_frozen(self) -> None:
-        ref = ValidationRef(kind="ci_check", name="lint", result="success")
+        ref = ValidationRef(
+            kind=ValidationKind.CI_CHECK, name="lint", result=ValidationResult.SUCCESS
+        )
         with pytest.raises((AttributeError, TypeError)):
-            ref.result = "failure"  # type: ignore[misc]
+            ref.result = ValidationResult.FAILURE  # type: ignore[misc]
+
+    def test_kind_enum_values(self) -> None:
+        assert ValidationKind.CI_CHECK.value == "ci_check"
+        assert ValidationKind.TEST_SUITE.value == "test_suite"
+        assert ValidationKind.RECEIPT.value == "receipt"
+        assert ValidationKind.BENCHMARK.value == "benchmark"
+        assert ValidationKind.MANUAL_REVIEW.value == "manual_review"
+
+    def test_result_enum_values(self) -> None:
+        # Mirror the GitHub Actions conclusion vocabulary; this is the
+        # contract the orchestrator / UI / export share.
+        assert ValidationResult.SUCCESS.value == "success"
+        assert ValidationResult.FAILURE.value == "failure"
+        assert ValidationResult.SKIPPED.value == "skipped"
+        assert ValidationResult.CANCELLED.value == "cancelled"
+        assert ValidationResult.PENDING.value == "pending"
+
+    def test_enum_fields_serialize_as_strings(self) -> None:
+        ref = ValidationRef(
+            kind=ValidationKind.CI_CHECK,
+            name="Version Alignment",
+            result=ValidationResult.SUCCESS,
+        )
+        d = ref.to_dict()
+        assert d["kind"] == "ci_check"
+        assert d["result"] == "success"
 
     def test_to_dict_roundtrip(self) -> None:
         ref = ValidationRef(
-            kind="ci_check",
+            kind=ValidationKind.CI_CHECK,
             name="Version Alignment",
-            result="success",
+            result=ValidationResult.SUCCESS,
             url="https://github.com/synaptent/aragora/actions/runs/12345",
         )
         roundtrip = json.loads(json.dumps(ref.to_dict()))
@@ -138,8 +185,12 @@ class TestBriefReceipt:
 
     def test_to_dict_nests_brief_and_refs(self) -> None:
         receipt = _minimal_receipt(
-            evidence_refs=(EvidenceRef(kind="file", path="aragora/review/protocol.py"),),
-            validation_refs=(ValidationRef(kind="ci_check", name="lint", result="success"),),
+            evidence_refs=(EvidenceRef(kind=EvidenceKind.FILE, path="aragora/review/protocol.py"),),
+            validation_refs=(
+                ValidationRef(
+                    kind=ValidationKind.CI_CHECK, name="lint", result=ValidationResult.SUCCESS
+                ),
+            ),
         )
         d = receipt.to_dict()
         assert d["brief"]["pr_number"] == 6307
@@ -157,16 +208,22 @@ class TestBriefReceipt:
         # blocked, but without tuple types `receipt.evidence_refs.append(...)`
         # would still be possible mid-flight and break receipt_id binding.
         receipt = _minimal_receipt(
-            evidence_refs=(EvidenceRef(kind="file", path="x.py"),),
-            validation_refs=(ValidationRef(kind="ci_check", name="lint", result="success"),),
+            evidence_refs=(EvidenceRef(kind=EvidenceKind.FILE, path="x.py"),),
+            validation_refs=(
+                ValidationRef(
+                    kind=ValidationKind.CI_CHECK, name="lint", result=ValidationResult.SUCCESS
+                ),
+            ),
         )
         assert isinstance(receipt.evidence_refs, tuple)
         assert isinstance(receipt.validation_refs, tuple)
         with pytest.raises(AttributeError):
-            receipt.evidence_refs.append(EvidenceRef(kind="file", path="y.py"))  # type: ignore[attr-defined]
+            receipt.evidence_refs.append(EvidenceRef(kind=EvidenceKind.FILE, path="y.py"))  # type: ignore[attr-defined]
         with pytest.raises(AttributeError):
             receipt.validation_refs.append(  # type: ignore[attr-defined]
-                ValidationRef(kind="ci_check", name="x", result="success")
+                ValidationRef(
+                    kind=ValidationKind.CI_CHECK, name="x", result=ValidationResult.SUCCESS
+                )
             )
 
     def test_dissent_survives_in_receipt(self) -> None:
@@ -235,12 +292,13 @@ class TestSettlementLinkage:
     def _minimal_linkage(self, **overrides) -> SettlementLinkage:
         defaults = dict(
             brief_receipt_id="receipt-sha-xyz",
+            settlement_receipt_id="settlement-sha-abc",
             settlement_receipt_path=".aragora/review-queue/settlements/pr-6307-f1a640ee2def-approve.json",
             head_sha="f1a640ee2deadbeef",
             packet_sha="packet-sha-locked",
             pr_number=6307,
             repo="synaptent/aragora",
-            action="approve",
+            action=SettlementAction.APPROVE,
             settled_at=datetime.now(UTC).isoformat(),
         )
         defaults.update(overrides)
@@ -253,10 +311,27 @@ class TestSettlementLinkage:
         linkage = self._minimal_linkage()
         assert linkage.advisory_only is False
 
+    def test_action_enum_values(self) -> None:
+        # These three are the only valid settlement actions; they match
+        # the review-queue `act` CLI so locking them in the contract
+        # prevents UI/export from inventing new strings.
+        assert SettlementAction.APPROVE.value == "approve"
+        assert SettlementAction.REQUEST_CHANGES.value == "request_changes"
+        assert SettlementAction.DEFER.value == "defer"
+
+    def test_action_is_an_enum_not_string(self) -> None:
+        # P1 regression guard: `action` must be typed, not raw str.
+        linkage = self._minimal_linkage()
+        assert isinstance(linkage.action, SettlementAction)
+
+    def test_action_serialized_as_string(self) -> None:
+        linkage = self._minimal_linkage(action=SettlementAction.REQUEST_CHANGES)
+        assert linkage.to_dict()["action"] == "request_changes"
+
     def test_frozen(self) -> None:
         linkage = self._minimal_linkage()
         with pytest.raises((AttributeError, TypeError)):
-            linkage.action = "request_changes"  # type: ignore[misc]
+            linkage.action = SettlementAction.REQUEST_CHANGES  # type: ignore[misc]
 
     def test_repair_receipt_paths_is_immutable_tuple(self) -> None:
         linkage = self._minimal_linkage(
@@ -268,14 +343,46 @@ class TestSettlementLinkage:
                 ".aragora/repair/pr-6307-attempt-2.json"
             )
 
-    def test_to_dict_serializes_repair_paths_as_list(self) -> None:
+    def test_repair_receipt_ids_is_immutable_tuple(self) -> None:
         linkage = self._minimal_linkage(
+            repair_receipt_ids=("repair-sha-001",),
+        )
+        assert isinstance(linkage.repair_receipt_ids, tuple)
+        with pytest.raises(AttributeError):
+            linkage.repair_receipt_ids.append("repair-sha-002")  # type: ignore[attr-defined]
+
+    def test_portable_ids_alongside_paths(self) -> None:
+        # P2 regression guard: export-portable IDs must exist alongside
+        # local-only paths. An exported payload dereferences by ID on
+        # another machine; a local consumer may fast-path via the path.
+        linkage = self._minimal_linkage(
+            settlement_receipt_id="settlement-content-sha-01",
+            settlement_receipt_path=".aragora/review-queue/settlements/pr-6307-approve.json",
+            repair_receipt_ids=("repair-content-sha-01", "repair-content-sha-02"),
+            repair_receipt_paths=(
+                ".aragora/repair/pr-6307-attempt-1.json",
+                ".aragora/repair/pr-6307-attempt-2.json",
+            ),
+        )
+        assert linkage.settlement_receipt_id == "settlement-content-sha-01"
+        assert len(linkage.repair_receipt_ids) == 2
+        assert len(linkage.repair_receipt_paths) == 2
+        # Both fields survive the JSON trip so external consumers can pick
+        # the one appropriate to their address space.
+        d = linkage.to_dict()
+        assert d["settlement_receipt_id"] == "settlement-content-sha-01"
+        assert d["repair_receipt_ids"] == ["repair-content-sha-01", "repair-content-sha-02"]
+
+    def test_to_dict_serializes_both_id_and_path_lists(self) -> None:
+        linkage = self._minimal_linkage(
+            repair_receipt_ids=("repair-sha-01", "repair-sha-02"),
             repair_receipt_paths=(
                 ".aragora/repair/pr-6307-attempt-1.json",
                 ".aragora/repair/pr-6307-attempt-2.json",
             ),
         )
         d = linkage.to_dict()
+        assert d["repair_receipt_ids"] == ["repair-sha-01", "repair-sha-02"]
         assert d["repair_receipt_paths"] == [
             ".aragora/repair/pr-6307-attempt-1.json",
             ".aragora/repair/pr-6307-attempt-2.json",
@@ -292,17 +399,22 @@ class TestSettlementLinkage:
         # settlement, and later repair receipts."
         linkage = self._minimal_linkage(
             brief_receipt_id="brief-001",
+            settlement_receipt_id="settlement-001",
             settlement_receipt_path=".aragora/review-queue/settlements/pr-6307-request_changes.json",
-            action="request_changes",
+            action=SettlementAction.REQUEST_CHANGES,
+            repair_receipt_ids=("repair-001", "repair-002"),
             repair_receipt_paths=(
                 ".aragora/repair/pr-6307-attempt-1.json",
                 ".aragora/repair/pr-6307-attempt-2.json",
             ),
         )
         d = linkage.to_dict()
-        # All three audit-trail elements are present and connected.
+        # All three audit-trail elements are present and connected,
+        # both by portable ID and local path.
         assert d["brief_receipt_id"] == "brief-001"
+        assert d["settlement_receipt_id"] == "settlement-001"
         assert "settlements/" in d["settlement_receipt_path"]
+        assert d["repair_receipt_ids"] == ["repair-001", "repair-002"]
         assert len(d["repair_receipt_paths"]) == 2
 
     def test_json_roundtrip(self) -> None:
@@ -311,6 +423,7 @@ class TestSettlementLinkage:
         assert roundtrip["pr_number"] == 6307
         assert roundtrip["action"] == "approve"
         assert roundtrip["advisory_only"] is False
+        assert roundtrip["settlement_receipt_id"] == "settlement-sha-abc"
 
 
 # --- Cross-module contract coherence --------------------------------------

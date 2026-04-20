@@ -27,9 +27,66 @@ Acceptance-criteria linkage (from #6307 body):
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from enum import Enum
 from typing import Any
 
 from aragora.review.protocol import ReviewBrief
+
+
+# --- Discriminator enums (strict typing across orchestrator / UI / export) ---
+
+
+class EvidenceKind(str, Enum):
+    """What kind of thing an ``EvidenceRef`` points to.
+
+    Enum values are the canonical serialized strings consumers must use;
+    downstream code branches on these so drift silently breaks exports.
+    """
+
+    FILE = "file"
+    TEST = "test"
+    COMMIT = "commit"
+    ARTIFACT = "artifact"
+    ISSUE = "issue"
+    PR = "pr"
+    EXTERNAL = "external"
+
+
+class ValidationKind(str, Enum):
+    """What kind of automated check a ``ValidationRef`` points to."""
+
+    CI_CHECK = "ci_check"
+    TEST_SUITE = "test_suite"
+    RECEIPT = "receipt"
+    BENCHMARK = "benchmark"
+    MANUAL_REVIEW = "manual_review"
+
+
+class ValidationResult(str, Enum):
+    """Pass/fail outcome for a ``ValidationRef``.
+
+    Values mirror the GitHub Actions conclusion vocabulary plus explicit
+    ``PENDING`` for not-yet-resolved runs.
+    """
+
+    SUCCESS = "success"
+    FAILURE = "failure"
+    SKIPPED = "skipped"
+    CANCELLED = "cancelled"
+    PENDING = "pending"
+
+
+class SettlementAction(str, Enum):
+    """The human action recorded by a settlement.
+
+    Same three actions the existing review-queue ``act`` CLI already
+    accepts; locking them into the contract layer prevents the UI and
+    export from inventing new strings.
+    """
+
+    APPROVE = "approve"
+    REQUEST_CHANGES = "request_changes"
+    DEFER = "defer"
 
 
 # --- Evidence and validation references -----------------------------------
@@ -44,7 +101,7 @@ class EvidenceRef:
     location so the operator (or UI) can expand on demand.
     """
 
-    kind: str  # "file" | "test" | "commit" | "artifact" | "issue" | "pr" | "external"
+    kind: EvidenceKind
     path: str  # for file/test: repo-relative path; for commit/pr/issue: canonical ref; for external: URL
     sha: str = ""  # git SHA or artifact hash where applicable
     line_range: tuple[int, int] | None = None
@@ -52,6 +109,7 @@ class EvidenceRef:
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
+        d["kind"] = self.kind.value
         if self.line_range is not None:
             d["line_range"] = list(self.line_range)
         return d
@@ -65,13 +123,16 @@ class ValidationRef:
     pass/fail outcome and link to a live run (not a static artifact).
     """
 
-    kind: str  # "ci_check" | "test_suite" | "receipt" | "benchmark" | "manual_review"
+    kind: ValidationKind
     name: str  # human-readable check name (e.g. "Version Alignment", "test-fast (server)")
-    result: str  # "success" | "failure" | "skipped" | "cancelled" | "pending"
+    result: ValidationResult
     url: str = ""  # link to the live run or artifact
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        d["kind"] = self.kind.value
+        d["result"] = self.result.value
+        return d
 
 
 # --- Brief receipt --------------------------------------------------------
@@ -137,25 +198,42 @@ class SettlementLinkage:
     brief (e.g. legacy PR settled via the pre-#6306 review-queue loop)
     does not force consumers to synthesize a fake brief receipt.
 
-    Storage handoff: the existing SettlementReceipt on disk is referenced
-    by path (``settlement_receipt_path``), not by re-embedding its
-    fields. That keeps backwards compatibility with settlement receipts
-    already on disk from the pre-#6307 review-queue loop. Consumers that
-    need the full settlement payload read the file at that path.
+    Storage handoff: two-address-space design for portability.
+
+    Stable IDs (``settlement_receipt_id``, ``repair_receipt_ids``) are
+    the portable linkage keys — an exported payload can dereference
+    them on a different machine via a content-addressable lookup
+    (typically SHA-256 of the canonical receipt payload, with the
+    exact preimage rule living on whoever produces the settlement
+    receipt — the review-queue ``act`` command today, a successor PR
+    tomorrow). Consumers doing external export MUST use the IDs.
+
+    Filesystem paths (``settlement_receipt_path``, ``repair_receipt_paths``)
+    are kept alongside for backwards compatibility with existing
+    settlement receipts on disk from the pre-#6307 review-queue loop.
+    Local consumers doing a one-machine read MAY use the paths.
+
+    Neither field alone is sufficient: a linkage with only a path is
+    not exportable; a linkage with only an ID loses the local-read
+    fast-path while existing tools are still migrating.
     """
 
     brief_receipt_id: str  # BriefReceipt.receipt_id; empty if no prior brief
-    settlement_receipt_path: str  # filesystem path to existing SettlementReceipt JSON
+    settlement_receipt_id: str  # portable ID for the settlement receipt; see docstring
+    settlement_receipt_path: str  # filesystem path (backwards-compat); see docstring
     head_sha: str  # duplicated from settlement for fast-lookup / cross-validation
     packet_sha: str  # duplicated from brief for fast-lookup / cross-validation
     pr_number: int
     repo: str  # owner/name
-    action: str  # "approve" | "request_changes" | "defer"
+    action: SettlementAction
     settled_at: str  # ISO-8601 with timezone
-    repair_receipt_paths: tuple[str, ...] = ()  # filesystem paths to repair receipts, growing
+    repair_receipt_ids: tuple[str, ...] = ()  # portable IDs for repair receipts, growing
+    repair_receipt_paths: tuple[str, ...] = ()  # filesystem paths (backwards-compat), growing
     advisory_only: bool = False  # settlement is a human action; not advisory
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
+        d["action"] = self.action.value
+        d["repair_receipt_ids"] = list(self.repair_receipt_ids)
         d["repair_receipt_paths"] = list(self.repair_receipt_paths)
         return d
