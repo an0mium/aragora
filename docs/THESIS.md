@@ -37,6 +37,10 @@ Its endpoint is wherever the pattern generalizes.
    hallucinations, knowledge cutoffs, and individual-model blind spots.
 3. **No safe delegation.** Neither humans nor AI agents can safely defer
    to any single other agent's judgment, including their own.
+   Convergence across agents only counts as evidence when the agents
+   have *different priors*, *different evidence*, and *active incentive
+   to dissent* — homogeneous convergence (multiple models trained on
+   similar data agreeing) is spurious.
 4. **Structure.** Claims, conclusions, and decisions are tractable in
    terms of their inputs, outputs, assumptions, values, cruxes,
    dependencies, and scopes — and making that structure explicit is the
@@ -99,6 +103,42 @@ Anti-claims — things the thesis explicitly does *not* commit to:
 
 ---
 
+## What we mean by "true"
+
+This thesis commits to an operational meaning of "relatively more true,
+less wrong" rather than a metaphysical one. Four tiers of claim, each
+with a different evidential basis, each separately expressible in a
+decision receipt:
+
+1. **Truth for agent A** — internal model output that reduces A's
+   surprise and improves A's decisions under A's goals and constraints.
+2. **Convergent truth** — the subset of agent-relative truths that
+   remain stable under heterogeneous adversarial cross-checking by
+   agents with different priors, different evidence, and active
+   incentive to dissent.
+3. **Operational objective truth** — the subset of convergent truth
+   that continues to predict successfully under out-of-distribution
+   interventions and over long time horizons.
+4. **Metaphysical objective truth** — the hypothesized structure of
+   reality that best explains why (3) continues to hold. The product
+   does not claim direct access to this tier; it bets that (3)
+   approximates it.
+
+A finite system can emit claims at tiers (1)–(3). It cannot emit (4).
+Aragora commits to labeling which tier any given output occupies
+rather than marketing all outputs as unqualified "truth." A receipt
+saying *"convergent across five heterogeneous lenses with dissent
+preserved"* is a weaker and more honest claim than *"true,"* and also
+a more actionable one.
+
+This position is Peirce-adjacent (convergent inquiry in the long run)
+rather than Tarski-style correspondence. It shares instincts with
+predictive-processing (Friston) and pragmatism (James, Dewey). The
+relevant innovation is architectural, not philosophical: building it
+as shipping software rather than essay.
+
+---
+
 ## Where this thesis does NOT yet apply
 
 Honest edges — regions the thesis does not claim to cover today:
@@ -119,6 +159,13 @@ Honest edges — regions the thesis does not claim to cover today:
   structural decomposition exceeds the value of the decision. The
   product's internal rule: structure-first applies to consequential
   decisions; trivial decisions get a fast path.
+- **Closed belief systems that maintain surprise-reduction through
+  hermeneutic reinterpretation rather than prediction.** A framework
+  that explains away anomalies after they occur is not the same as a
+  framework that predicts them in advance. Truth-seeking machinery
+  works on claims testable under genuine intervention pressure and
+  out-of-distribution prediction; it does not adjudicate beliefs that
+  survive by being unfalsifiable.
 
 Naming the edges honestly is part of the thesis. A truth-seeking
 substrate that pretends to cover everything fails premise 2 on itself.
