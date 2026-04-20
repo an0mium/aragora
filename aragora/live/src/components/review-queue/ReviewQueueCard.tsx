@@ -81,16 +81,16 @@ export function ReviewQueueCard({
   );
 
   const handleApprove = useCallback(() => {
+    // The brief-generation pipeline isn't operational yet (#6306 landed type
+    // contracts only; Mode 1/2/3 execution paths are not built). Until briefs
+    // actually exist, there's no point warning the user that they're absent —
+    // the warning would fire on every approve and train the user to ignore it.
+    // Only warn when a brief IS present and its verdict disagrees with approval.
     if (pr.brief_present && pr.verdict && pr.verdict !== 'approve_candidate') {
       const ok = typeof window !== 'undefined'
         ? window.confirm(
             `Brief verdict is ${pr.verdict}. Approve anyway?`,
           )
-        : true;
-      if (!ok) return;
-    } else if (!pr.brief_present) {
-      const ok = typeof window !== 'undefined'
-        ? window.confirm('No brief on file. Approve without PDB brief?')
         : true;
       if (!ok) return;
     }

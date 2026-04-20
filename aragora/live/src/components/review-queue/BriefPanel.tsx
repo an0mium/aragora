@@ -63,8 +63,10 @@ export function BriefPanel({ brief, loading, error }: BriefPanelProps) {
           color: 'var(--text-muted)',
         }}
       >
-        No brief generated yet. Run <code className="font-theme-data not-italic">aragora review-queue build</code> or wait
-        for the PDB protocol to populate one.
+        Brief generation is not enabled yet. The PDB pipeline — heterogeneous
+        debate, synthesis, and signed brief output — is on the roadmap (see
+        <code className="font-theme-data not-italic"> #6306 </code>).
+        Approve decisions currently rely on CI status + your own reading of the diff.
       </div>
     );
   }
