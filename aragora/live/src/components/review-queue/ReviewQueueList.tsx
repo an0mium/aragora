@@ -203,7 +203,8 @@ export function ReviewQueueList({
       role="listbox"
       aria-label="Open PRs"
       data-testid="review-queue-list"
-      className="flex flex-col gap-8"
+      className="flex flex-col"
+      style={{ gap: '2rem' }}
     >
       {visible.map((pr, index) => (
         <ReviewQueueCard

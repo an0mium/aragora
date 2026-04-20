@@ -283,10 +283,18 @@
   }
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* Universal reset — wrapped in @layer base so Tailwind utility classes
+ * (.px-5, .py-4, .mb-10, .gap-8, etc.) retain higher cascade priority.
+ * Without the layer, this unlayered * selector beats every Tailwind
+ * utility because unlayered CSS sits above all @layer blocks in the
+ * cascade. Moving it into `base` puts it below `utilities`, so padding
+ * and margin utilities now apply as intended. */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 }
 
 body {

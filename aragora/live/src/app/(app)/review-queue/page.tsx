@@ -54,19 +54,29 @@ export default function ReviewQueuePage() {
         paddingBottom: '4rem',
       }}
     >
-      <header className="mb-10">
-        <div className="mb-2 flex items-baseline gap-3">
-          <h1 className="font-theme-data text-3xl" style={{ color: 'var(--text)' }}>
+      <header style={{ marginBottom: '2.5rem' }}>
+        <div
+          className="flex items-baseline"
+          style={{ gap: '0.75rem', marginBottom: '0.5rem' }}
+        >
+          <h1
+            className="font-theme-data"
+            style={{ color: 'var(--text)', fontSize: '1.875rem', lineHeight: 1.2 }}
+          >
             Review queue
           </h1>
           <span
-            className="text-xs uppercase tracking-wider"
-            style={{ color: 'var(--text-muted)' }}
+            style={{
+              fontSize: '11px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+            }}
           >
             PDB UI v0
           </span>
         </div>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+        <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
           Presidential-brief-style PR settlement. Scan, decide, move on.
         </p>
       </header>
