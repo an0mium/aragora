@@ -120,13 +120,36 @@ export const BudgetScope = {
 } as const;
 export type BudgetScope = (typeof BudgetScope)[keyof typeof BudgetScope];
 
+/**
+ * Queue lane classification for the ranked review-queue cards.
+ *
+ * Values match the canonical strings produced by
+ * ``aragora.cli.commands.review_queue._classify_pr`` in ``QueueItem.lane``.
+ * The UI uses lane ordering to group cards: ``ready_now`` on top,
+ * ``parked`` off by default.
+ */
+export const QueueLane = {
+  READY_NOW: "ready_now",
+  NEEDS_ATTENTION: "needs_attention",
+  REPAIRABLE: "repairable",
+  PARKED: "parked",
+} as const;
+export type QueueLane = (typeof QueueLane)[keyof typeof QueueLane];
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
+/**
+ * Canonical advisory-note string.
+ *
+ * MUST match the Python constant exported from
+ * ``aragora.review.protocol.ADVISORY_NOTE`` **byte-for-byte**. Tests
+ * assert the exact value so any refactor touching one side fails loudly
+ * if the other is not updated.
+ */
 export const ADVISORY_NOTE =
-  "Aragora review brief is advisory only. It does not approve or block merge. " +
-  "Human settlement required.";
+  "This brief is advisory only. It does not approve or block merge. Human settlement required.";
 
 // ---------------------------------------------------------------------------
 // Brief + debate shapes (mirror aragora/review/protocol.py)
@@ -264,4 +287,138 @@ export interface CostMeter {
   readonly headroom_by_scope: readonly BudgetHeadroom[];
   readonly binding_scope?: BudgetScope | null;
   readonly alert_triggered: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Queue-card + packet shapes (mirror aragora/cli/commands/review_queue.py)
+//
+// These are the payloads the #6304 UI actually renders and settles against,
+// not just the deeper debate contracts.  Kept in this module so successor
+// UI components have a single ``@/lib/review`` import surface.
+// ---------------------------------------------------------------------------
+
+/**
+ * One row in the prioritized review queue — the card payload.
+ *
+ * Mirrors ``aragora.cli.commands.review_queue.QueueItem``.
+ */
+export interface QueueItem {
+  readonly number: number;
+  readonly title: string;
+  readonly url: string;
+  readonly head_sha: string;
+  readonly author: string;
+  readonly is_draft: boolean;
+  readonly mergeable: string;
+  readonly review_decision: string;
+  readonly labels: readonly string[];
+  readonly additions: number;
+  readonly deletions: number;
+  readonly changed_files: number;
+  readonly checks_summary: string;
+  readonly lane: QueueLane;
+  readonly lane_reason: string;
+}
+
+/**
+ * Advisory packet for one PR — rendered when the operator expands a card.
+ *
+ * Mirrors ``aragora.cli.commands.review_queue.ReviewPacket``.  NEVER
+ * counts as a GitHub approval (``advisory_only`` is required-true by
+ * construction).  Distinct from ``ReviewBrief`` above: ``ReviewPacket``
+ * is the lightweight packet the review-queue produces today; ``ReviewBrief``
+ * is the deeper heterogeneous-debate output the #6306 successor produces.
+ * Both ship into the UI — packet for the default case, brief when the
+ * protocol has run.
+ */
+export interface ReviewPacket {
+  readonly pr_number: number;
+  readonly title: string;
+  readonly url: string;
+  readonly head_sha: string;
+  readonly base_sha: string;
+  readonly author: string;
+  readonly is_draft: boolean;
+  readonly additions: number;
+  readonly deletions: number;
+  readonly changed_files: number;
+  readonly queue_bucket: string;
+  readonly touched_subsystems: readonly string[];
+  readonly high_risk_paths_touched: readonly string[];
+  readonly validation: readonly string[];
+  readonly checks_summary: string;
+  readonly risk_flags: readonly string[];
+  readonly machine_recommendation: string;
+  readonly machine_recommendation_reason: string;
+  readonly packet_sha: string;
+  readonly generated_at: string;
+  readonly protocol: Readonly<Record<string, unknown>>;
+  readonly advisory_only: boolean;
+  readonly settlement_note: string;
+}
+
+/**
+ * Persisted human settlement receipt — the SHA-bound record emitted by
+ * ``aragora review-queue act``.  Mirrors
+ * ``aragora.cli.commands.review_queue.SettlementReceipt``.
+ *
+ * Critically SHA-bound: the ``head_sha`` and ``packet_sha`` on the
+ * receipt MUST match the PR's current head and the packet the operator
+ * was shown when they settled; merge_arbiter refuses to merge on a
+ * receipt whose SHAs have since moved.  The UI must send
+ * ``head_sha`` and ``packet_sha`` in the action request and then match
+ * them in the returned receipt before claiming the settlement landed.
+ */
+export interface SettlementReceipt {
+  readonly session_id: string;
+  readonly reviewed_at: string;
+  readonly actor: string;
+  readonly action: SettlementAction;
+  readonly reason: string;
+  readonly pr_number: number;
+  readonly pr_url: string;
+  readonly head_sha: string;
+  readonly base_sha: string;
+  readonly packet_sha: string;
+  readonly queue_bucket: string;
+  readonly machine_recommendation: string;
+  readonly github_event: string;
+  readonly elapsed_seconds: number | null;
+  readonly receipt_path: string;
+}
+
+/**
+ * Request payload for a settlement action from the UI.
+ *
+ * The ``head_sha`` and ``packet_sha`` are REQUIRED and MUST match the
+ * packet the operator was shown.  The backend uses these to detect
+ * stale settlement attempts (packet generated at T0, operator clicks at
+ * T1, a new commit landed in between → the server refuses the action
+ * rather than silently settling against the new head).  ``reason`` is
+ * required for ``REQUEST_CHANGES`` and ``DEFER`` actions; optional for
+ * ``APPROVE``.
+ */
+export interface SettlementActionRequest {
+  readonly pr_number: number;
+  readonly head_sha: string;
+  readonly packet_sha: string;
+  readonly action: SettlementAction;
+  readonly reason?: string;
+}
+
+/**
+ * Response payload for a settlement action.
+ *
+ * On success, ``receipt`` is the landed ``SettlementReceipt``;
+ * consumers MUST verify ``receipt.head_sha === request.head_sha`` and
+ * ``receipt.packet_sha === request.packet_sha`` before claiming the
+ * action took effect — mismatch means the server settled against a
+ * different snapshot than the UI showed.
+ *
+ * On failure, ``error`` is a short human-readable reason.
+ */
+export interface SettlementActionResponse {
+  readonly success: boolean;
+  readonly receipt?: SettlementReceipt;
+  readonly error?: string;
 }

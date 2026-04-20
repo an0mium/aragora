@@ -19,6 +19,7 @@ import {
   BudgetScope,
   DissentPosition,
   EvidenceKind,
+  QueueLane,
   Recommendation,
   ReviewDepth,
   ReviewPolicyDecision,
@@ -32,11 +33,16 @@ import {
   type CostMeter,
   type DissentingView,
   type EvidenceRef,
+  type QueueItem,
   type ReviewBrief,
   type ReviewBudget,
+  type ReviewPacket,
   type ReviewPolicy,
   type RoleFinding,
+  type SettlementActionRequest,
+  type SettlementActionResponse,
   type SettlementLinkage,
+  type SettlementReceipt,
   type ValidationRef,
 } from "../types";
 
@@ -129,6 +135,15 @@ describe("canonical string discipline — enums match aragora/review/*.py", () =
     expect(BudgetScope.PER_REPO_DAILY).toBe("per_repo_daily");
     expect(BudgetScope.PER_ORG_DAILY).toBe("per_org_daily");
   });
+
+  test("QueueLane values", () => {
+    // Must match canonical strings in aragora.cli.commands.review_queue
+    // LANE_ORDER dict. A drift here silently breaks card grouping.
+    expect(QueueLane.READY_NOW).toBe("ready_now");
+    expect(QueueLane.NEEDS_ATTENTION).toBe("needs_attention");
+    expect(QueueLane.REPAIRABLE).toBe("repairable");
+    expect(QueueLane.PARKED).toBe("parked");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -136,9 +151,18 @@ describe("canonical string discipline — enums match aragora/review/*.py", () =
 // ---------------------------------------------------------------------------
 
 describe("ADVISORY_NOTE", () => {
-  test("mentions advisory-only and human-settlement semantics", () => {
-    expect(ADVISORY_NOTE.toLowerCase()).toContain("advisory");
-    expect(ADVISORY_NOTE.toLowerCase()).toContain("human settlement");
+  test("exact byte-for-byte match with Python canonical", () => {
+    // The Python-side value is defined in aragora/review/protocol.py:
+    //   ADVISORY_NOTE = (
+    //       "This brief is advisory only. It does not approve or block merge. "
+    //       "Human settlement required."
+    //   )
+    // Any drift here breaks cross-side consistency of the copy the
+    // operator sees. This test hard-codes the canonical value so either
+    // side updating without the other fails loudly.
+    expect(ADVISORY_NOTE).toBe(
+      "This brief is advisory only. It does not approve or block merge. Human settlement required.",
+    );
   });
 });
 
@@ -311,6 +335,147 @@ describe("python-json payloads parse as TS types", () => {
     };
     expect(policy.depth_rules).toHaveLength(1);
     expect(policy.depth_rules[0].target_depth).toBe(ReviewDepth.DEEP);
+  });
+
+  test("QueueItem shape (the card payload)", () => {
+    const card: QueueItem = {
+      number: 6361,
+      title: "[#6304] feat(live): TypeScript contracts for PR intelligence brief UI",
+      url: "https://github.com/synaptent/aragora/pull/6361",
+      head_sha: "72a79cc74",
+      author: "an0mium",
+      is_draft: true,
+      mergeable: "MERGEABLE",
+      review_decision: "REVIEW_REQUIRED",
+      labels: ["autonomous"],
+      additions: 656,
+      deletions: 0,
+      changed_files: 3,
+      checks_summary: "24/24 green",
+      lane: "ready_now" as QueueLane,
+      lane_reason: "24/24 green",
+    };
+    expect(card.lane).toBe(QueueLane.READY_NOW);
+    expect(card.additions).toBe(656);
+  });
+
+  test("ReviewPacket shape (the expandable packet)", () => {
+    const packet: ReviewPacket = {
+      pr_number: 6361,
+      title: "Example",
+      url: "https://github.com/synaptent/aragora/pull/6361",
+      head_sha: "72a79cc74",
+      base_sha: "1857a9192",
+      author: "an0mium",
+      is_draft: true,
+      additions: 656,
+      deletions: 0,
+      changed_files: 3,
+      queue_bucket: "ready_now",
+      touched_subsystems: ["aragora/live"],
+      high_risk_paths_touched: [],
+      validation: ["jest: 24 passed", "tsc: exit 0"],
+      checks_summary: "24/24 green",
+      risk_flags: [],
+      machine_recommendation: "approve_candidate",
+      machine_recommendation_reason: "Bounded TS foundation; no behavior change",
+      packet_sha: "packet-hash-xyz",
+      generated_at: "2026-04-20T15:00:00+00:00",
+      protocol: {},
+      advisory_only: true,
+      settlement_note: ADVISORY_NOTE,
+    };
+    expect(packet.advisory_only).toBe(true);
+    expect(packet.settlement_note).toBe(ADVISORY_NOTE);
+  });
+
+  test("SettlementReceipt shape (SHA-bound record)", () => {
+    const receipt: SettlementReceipt = {
+      session_id: "session-001",
+      reviewed_at: "2026-04-20T15:00:00+00:00",
+      actor: "armand",
+      action: "approve" as SettlementAction,
+      reason: "",
+      pr_number: 6361,
+      pr_url: "https://github.com/synaptent/aragora/pull/6361",
+      head_sha: "72a79cc74",
+      base_sha: "1857a9192",
+      packet_sha: "packet-hash-xyz",
+      queue_bucket: "ready_now",
+      machine_recommendation: "approve_candidate",
+      github_event: "REVIEW_SUBMITTED",
+      elapsed_seconds: 4.2,
+      receipt_path: ".aragora/review-queue/receipts/pr-6361-session-001-approve.json",
+    };
+    // SHA-bound property: head_sha + packet_sha are both part of the
+    // record so merge_arbiter can refuse stale settlements.
+    expect(receipt.head_sha).toBe("72a79cc74");
+    expect(receipt.packet_sha).toBe("packet-hash-xyz");
+    expect(receipt.action).toBe(SettlementAction.APPROVE);
+  });
+
+  test("SettlementActionRequest requires SHA binding", () => {
+    const req: SettlementActionRequest = {
+      pr_number: 6361,
+      head_sha: "72a79cc74",
+      packet_sha: "packet-hash-xyz",
+      action: "approve" as SettlementAction,
+    };
+    expect(req.head_sha).toBe("72a79cc74");
+    expect(req.packet_sha).toBe("packet-hash-xyz");
+    // reason is optional for approve
+    expect(req.reason).toBeUndefined();
+  });
+
+  test("SettlementActionRequest for request_changes carries reason", () => {
+    const req: SettlementActionRequest = {
+      pr_number: 6361,
+      head_sha: "72a79cc74",
+      packet_sha: "packet-hash-xyz",
+      action: "request_changes" as SettlementAction,
+      reason: "Missing edge-case coverage in policy evaluator.",
+    };
+    expect(req.action).toBe(SettlementAction.REQUEST_CHANGES);
+    expect(req.reason).toBe("Missing edge-case coverage in policy evaluator.");
+  });
+
+  test("SettlementActionResponse success carries the receipt", () => {
+    const receipt: SettlementReceipt = {
+      session_id: "session-001",
+      reviewed_at: "2026-04-20T15:00:00+00:00",
+      actor: "armand",
+      action: "approve" as SettlementAction,
+      reason: "",
+      pr_number: 6361,
+      pr_url: "https://github.com/synaptent/aragora/pull/6361",
+      head_sha: "72a79cc74",
+      base_sha: "1857a9192",
+      packet_sha: "packet-hash-xyz",
+      queue_bucket: "ready_now",
+      machine_recommendation: "approve_candidate",
+      github_event: "REVIEW_SUBMITTED",
+      elapsed_seconds: 4.2,
+      receipt_path: ".aragora/review-queue/receipts/pr-6361-session-001-approve.json",
+    };
+    const resp: SettlementActionResponse = {
+      success: true,
+      receipt,
+    };
+    expect(resp.success).toBe(true);
+    // The UI contract: consumers MUST verify head_sha + packet_sha match
+    // what they sent. This test documents that property at the type level.
+    expect(resp.receipt?.head_sha).toBe("72a79cc74");
+    expect(resp.receipt?.packet_sha).toBe("packet-hash-xyz");
+  });
+
+  test("SettlementActionResponse failure carries an error", () => {
+    const resp: SettlementActionResponse = {
+      success: false,
+      error: "stale_packet_sha: request head_sha=abc, current head_sha=def",
+    };
+    expect(resp.success).toBe(false);
+    expect(resp.receipt).toBeUndefined();
+    expect(resp.error).toContain("stale_packet_sha");
   });
 
   test("CostMeter with multi-pool headroom and binding_scope", () => {
