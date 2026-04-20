@@ -10,21 +10,25 @@ Tracking: #6306
 """
 
 from aragora.review.protocol import (
+    ADVISORY_NOTE,
+    DissentingView,
+    DissentPosition,
     PRReviewProtocol,
     Recommendation,
     ReviewBrief,
     ReviewRole,
     RoleFinding,
-    DissentingView,
-    ADVISORY_NOTE,
+    SynthesisPolicy,
 )
 
 __all__ = [
+    "ADVISORY_NOTE",
+    "DissentingView",
+    "DissentPosition",
     "PRReviewProtocol",
     "Recommendation",
     "ReviewBrief",
     "ReviewRole",
     "RoleFinding",
-    "DissentingView",
-    "ADVISORY_NOTE",
+    "SynthesisPolicy",
 ]

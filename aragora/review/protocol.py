@@ -128,6 +128,20 @@ class DissentingView:
 # --- Brief and protocol ---------------------------------------------------
 
 
+class SynthesisPolicy(str, Enum):
+    """How a panel's per-role findings get aggregated into a brief.
+
+    The runner (a successor PR, not this module) picks one policy. Policies
+    are values in the contract layer so #6307/#6305/#6304 can branch on them
+    without re-defining the enum.
+    """
+
+    MAJORITY = "majority"  # plurality across role_findings
+    WEIGHTED = "weighted"  # weight by per-finding confidence
+    SYNTHESIZER_AGENT = "synthesizer"  # one panel agent acts as synthesizer
+    UNANIMOUS_OR_ESCALATE = "unanimous_or_escalate"  # require unanimity, else escalate
+
+
 @dataclass(frozen=True, slots=True)
 class ReviewBrief:
     """A heterogeneous PR review brief.
@@ -135,6 +149,10 @@ class ReviewBrief:
     Bound to an exact ``head_sha`` so settlement can verify the brief still
     matches what the operator approved. ``advisory_only`` is a frozen field
     so downstream consumers can mechanically check the no-approval property.
+
+    Brief-level confidence and disagreement are first-class because the UI
+    (#6304), budget/escalation policy (#6305), and receipt extension (#6307)
+    all need an aggregate signal — not just per-finding scores.
     """
 
     pr_number: int
@@ -147,6 +165,8 @@ class ReviewBrief:
     role_findings: list[RoleFinding]
     dissent: list[DissentingView]
     validation_summary: str  # one-paragraph validation evidence summary
+    overall_confidence: float  # 0.0..1.0; aggregate across role_findings
+    disagreement_score: float  # 0.0..1.0; how far apart the panel was
     total_cost_usd: float
     total_wall_clock_ms: int
     agent_roster: list[str]  # ordered list of contributing agent ids
@@ -166,26 +186,29 @@ class ReviewBrief:
 class PRReviewProtocol:
     """Configuration for one PR review protocol run.
 
-    Captures the settings a successor PR (#6306 follow-up) will pass into
-    the orchestrator. This module does not run the orchestrator; it only
-    defines what configuring it looks like.
+    Panel-oriented topology: a heterogeneous ``model_panel`` participates
+    over ``rounds`` debate rounds, and ``synthesis_policy`` determines how
+    per-role findings get aggregated into a brief. **Roles are output tags
+    on findings, not input constraints binding one model to one role** —
+    the runner is free to assign roles to panel members dynamically.
 
-    Heterogeneity rule: when ``require_heterogeneous_models`` is True, the
-    runner must pick at least two model **families** (not just two model
-    instances) across the role assignments. The brief's
-    ``DissentingView`` list is meaningless if all roles share one model.
+    What this module is NOT:
+      - a budget/cost policy (lives in #6305)
+      - an orchestrator (lives in a #6306 successor PR)
+      - a receipt extension (lives in #6307)
+
+    Defaults here are deliberately structural-only. Anything that smells
+    like policy (cost caps, escalation thresholds, model preferences)
+    belongs in a later layer.
     """
 
-    roles: list[ReviewRole]
-    role_to_model: dict[ReviewRole, str]  # role -> pinned model id
-    require_heterogeneous_models: bool = True
-    max_cost_usd: float = 25.0  # market anchor: Anthropic ~$25/PR
-    max_wall_seconds: int = 600
-    max_findings_per_role: int = 3
+    model_panel: list[str]  # heterogeneous model ids participating
+    rounds: int = 1  # debate rounds; 1 = single-pass parallel
+    synthesis_policy: SynthesisPolicy = SynthesisPolicy.WEIGHTED
+    require_heterogeneous_models: bool = True  # at least two model families in panel
     advisory_only: bool = True  # invariant; cannot be flipped here
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
-        d["roles"] = [r.value for r in self.roles]
-        d["role_to_model"] = {r.value: m for r, m in self.role_to_model.items()}
+        d["synthesis_policy"] = self.synthesis_policy.value
         return d

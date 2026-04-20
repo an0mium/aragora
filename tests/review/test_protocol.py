@@ -10,13 +10,14 @@ import pytest
 from aragora.review import (
     ADVISORY_NOTE,
     DissentingView,
+    DissentPosition,
     PRReviewProtocol,
     Recommendation,
     ReviewBrief,
     ReviewRole,
     RoleFinding,
+    SynthesisPolicy,
 )
-from aragora.review.protocol import DissentPosition
 
 UTC = timezone.utc
 
@@ -145,6 +146,8 @@ class TestReviewBrief:
             role_findings=[],
             dissent=[],
             validation_summary="32 unit tests pass; pre-commit clean.",
+            overall_confidence=0.88,
+            disagreement_score=0.05,
             total_cost_usd=0.18,
             total_wall_clock_ms=4200,
             agent_roster=["claude-opus-4-7", "gpt-5-4", "gemini-3-1-pro"],
@@ -152,6 +155,18 @@ class TestReviewBrief:
         )
         defaults.update(overrides)
         return ReviewBrief(**defaults)
+
+    def test_brief_level_confidence_and_disagreement_are_first_class(self) -> None:
+        # The UI (#6304), budget/escalation policy (#6305), and receipt
+        # extension (#6307) all need an aggregate signal — not just per-finding
+        # scores. This test is the contract guard against future refactors
+        # that try to derive these from role_findings on the fly.
+        brief = self._brief(overall_confidence=0.72, disagreement_score=0.41)
+        assert brief.overall_confidence == 0.72
+        assert brief.disagreement_score == 0.41
+        d = brief.to_dict()
+        assert d["overall_confidence"] == 0.72
+        assert d["disagreement_score"] == 0.41
 
     def test_advisory_only_default_is_true(self) -> None:
         # SAFETY INVARIANT: a brief is never an approval.
@@ -230,16 +245,7 @@ class TestReviewBrief:
 class TestPRReviewProtocol:
     def _protocol(self, **overrides) -> PRReviewProtocol:
         defaults = dict(
-            roles=[
-                ReviewRole.LOGIC,
-                ReviewRole.SECURITY,
-                ReviewRole.SKEPTIC,
-            ],
-            role_to_model={
-                ReviewRole.LOGIC: "claude-opus-4-7-1m",
-                ReviewRole.SECURITY: "gpt-5-4",
-                ReviewRole.SKEPTIC: "grok-3",
-            },
+            model_panel=["claude-opus-4-7-1m", "gpt-5-4", "grok-3"],
         )
         defaults.update(overrides)
         return PRReviewProtocol(**defaults)
@@ -251,33 +257,68 @@ class TestPRReviewProtocol:
         protocol = self._protocol()
         assert protocol.advisory_only is True
 
-    def test_default_max_cost_anchors_to_market(self) -> None:
-        # $25 is Anthropic's per-PR review price as of 2026-04-19; any
-        # heterogeneous brief that exceeds this without explicit operator
-        # opt-in is unjustifiable on cost grounds.
+    def test_panel_oriented_topology_not_role_to_model(self) -> None:
+        # Roles are output tags on findings, not input constraints binding
+        # one model to one role. The runner is free to assign roles to
+        # panel members dynamically. If a future refactor reintroduces
+        # `role_to_model` as a config field, this test fails loudly.
         protocol = self._protocol()
-        assert protocol.max_cost_usd == 25.0
+        assert hasattr(protocol, "model_panel")
+        assert not hasattr(protocol, "role_to_model")
+        assert not hasattr(protocol, "roles")  # no fixed role list at config
 
     def test_heterogeneity_required_by_default(self) -> None:
         protocol = self._protocol()
         assert protocol.require_heterogeneous_models is True
 
-    def test_to_dict_serializes_roles_and_role_to_model(self) -> None:
+    def test_no_cost_or_budget_in_contract_layer(self) -> None:
+        # Cost caps and budget defaults belong in #6305 (cost-aware policy),
+        # not in this cross-cutting foundation type. If a future refactor
+        # tries to bake `max_cost_usd` or similar back into the contract,
+        # this test fails loudly.
         protocol = self._protocol()
+        for forbidden in (
+            "max_cost_usd",
+            "max_wall_seconds",
+            "max_findings_per_role",
+            "budget_usd",
+            "cost_cap",
+        ):
+            assert not hasattr(protocol, forbidden), (
+                f"PRReviewProtocol carries a policy field `{forbidden}`; "
+                f"policy belongs in #6305, not the foundation contract."
+            )
+
+    def test_synthesis_policy_default_is_weighted(self) -> None:
+        protocol = self._protocol()
+        assert protocol.synthesis_policy == SynthesisPolicy.WEIGHTED
+
+    def test_synthesis_policy_enum_values(self) -> None:
+        assert SynthesisPolicy.MAJORITY.value == "majority"
+        assert SynthesisPolicy.WEIGHTED.value == "weighted"
+        assert SynthesisPolicy.SYNTHESIZER_AGENT.value == "synthesizer"
+        assert SynthesisPolicy.UNANIMOUS_OR_ESCALATE.value == "unanimous_or_escalate"
+
+    def test_rounds_default_is_one(self) -> None:
+        # Single-pass parallel by default; multi-round is opt-in.
+        protocol = self._protocol()
+        assert protocol.rounds == 1
+
+    def test_to_dict_serializes_synthesis_policy(self) -> None:
+        protocol = self._protocol(synthesis_policy=SynthesisPolicy.UNANIMOUS_OR_ESCALATE)
         d = protocol.to_dict()
-        assert d["roles"] == ["logic_reviewer", "security_reviewer", "skeptic"]
-        assert d["role_to_model"] == {
-            "logic_reviewer": "claude-opus-4-7-1m",
-            "security_reviewer": "gpt-5-4",
-            "skeptic": "grok-3",
-        }
+        assert d["synthesis_policy"] == "unanimous_or_escalate"
+        assert d["model_panel"] == ["claude-opus-4-7-1m", "gpt-5-4", "grok-3"]
+        assert d["rounds"] == 1
+        assert d["require_heterogeneous_models"] is True
+        assert d["advisory_only"] is True
 
     def test_json_roundtrip(self) -> None:
         protocol = self._protocol()
         roundtrip = json.loads(json.dumps(protocol.to_dict()))
-        assert "logic_reviewer" in roundtrip["roles"]
-        assert roundtrip["max_cost_usd"] == 25.0
-        assert roundtrip["max_wall_seconds"] == 600
+        assert roundtrip["model_panel"] == ["claude-opus-4-7-1m", "gpt-5-4", "grok-3"]
+        assert roundtrip["synthesis_policy"] == "weighted"
+        assert roundtrip["advisory_only"] is True
 
     def test_frozen(self) -> None:
         protocol = self._protocol()
