@@ -42,6 +42,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.pdb import storage as brief_storage
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import BaseHandler, HandlerResult, error_response, json_response
@@ -84,10 +85,6 @@ def _review_queue_root() -> Path:
 
 # Exported for tests so they can patch a single value.
 REVIEW_QUEUE_ROOT = _review_queue_root
-
-
-def _briefs_dir() -> Path:
-    return REVIEW_QUEUE_ROOT() / "briefs"
 
 
 def _deferred_path() -> Path:
@@ -222,26 +219,18 @@ def _run_gh(args: list[str], *, input_text: str | None = None) -> tuple[int, str
 
 
 def _load_brief(pr_number: int) -> dict[str, Any] | None:
-    """Read a brief JSON from ``briefs/pr-{n}-*.json``.
+    """Read the latest ready brief for ``pr_number`` via the PDB storage layer.
 
-    If multiple files match (multiple head SHAs seen), returns the most
-    recently modified one. Returns ``None`` when nothing is on disk.
+    Delegates to :func:`aragora.pdb.storage.load_latest_ready_brief`.
+    Returns ``None`` when no ready brief is on disk.
+
+    Note: the eventual (Mode 3) brief generation API is SHA-aware and
+    keys on ``(pr_number, head_sha)``; the legacy response shape used
+    here is preserved deliberately to avoid breaking the current UI.
+    PR 3 of the Mode 3 rollout adds a SHA-aware ``/brief/state``
+    endpoint alongside this one.
     """
-    root = _briefs_dir()
-    if not root.exists():
-        return None
-    candidates = sorted(
-        root.glob(f"pr-{pr_number}-*.json"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    if not candidates:
-        return None
-    try:
-        return json.loads(candidates[0].read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as exc:
-        logger.warning("review-queue: could not read brief %s: %s", candidates[0], exc)
-        return None
+    return brief_storage.load_latest_ready_brief(pr_number)
 
 
 def _load_stats(when: datetime | None = None) -> dict[str, Any]:
