@@ -858,7 +858,7 @@ class BaseHandler:
 
         is_valid, err_msg = validate_path_segment(value, param_name, pattern)
         if not is_valid:
-            return None, error_response(err_msg, 400)
+            return None, error_response(err_msg or f"Invalid {param_name}", 400)
 
         return value, None
 
@@ -1022,6 +1022,8 @@ class BaseHandler:
         user, err = self.require_auth_or_error(handler)
         if err:
             return None, err
+        if user is None:
+            raise RuntimeError("authenticated user missing after auth check")
 
         # Check for admin role or permission
         roles = getattr(user, "roles", []) or []
@@ -1065,6 +1067,8 @@ class BaseHandler:
         user, err = self.require_auth_or_error(handler)
         if err:
             return None, err
+        if user is None:
+            raise RuntimeError("authenticated user missing after auth check")
 
         # Check permission using role and permissions
         roles = getattr(user, "roles", []) or []

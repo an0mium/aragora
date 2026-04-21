@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
+from collections.abc import Mapping
 from pathlib import Path
 
 try:
@@ -17,7 +18,7 @@ try:
 except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
 
     def github_cli_env(
-        base_env: dict[str, str] | None = None,
+        base_env: Mapping[str, str] | None = None,
         *,
         prefer_app: bool = True,
     ) -> dict[str, str]:

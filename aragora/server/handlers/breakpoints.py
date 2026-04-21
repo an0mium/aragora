@@ -38,6 +38,9 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 # Rate limiter for breakpoints endpoints (60 requests per minute - debug feature)
 _breakpoints_limiter = RateLimiter(requests_per_minute=60)
 
+ImportedHumanGuidance: Any
+ImportedBreakpointManager: Any
+
 try:
     from aragora.debate.breakpoints import (
         BreakpointManager as ImportedBreakpointManager,
@@ -120,7 +123,7 @@ class BreakpointsHandler(BaseHandler):
             # Validate breakpoint ID
             is_valid, err = validate_path_segment(breakpoint_id, "breakpoint_id", SAFE_ID_PATTERN)
             if not is_valid:
-                return error_response(err, 400)
+                return error_response(err or "Invalid breakpoint_id", 400)
 
             if action == "status":
                 return self._get_breakpoint_status(breakpoint_id)
@@ -147,7 +150,7 @@ class BreakpointsHandler(BaseHandler):
         # Validate breakpoint ID
         is_valid, err = validate_path_segment(breakpoint_id, "breakpoint_id", SAFE_ID_PATTERN)
         if not is_valid:
-            return error_response(err, 400)
+            return error_response(err or "Invalid breakpoint_id", 400)
 
         if action == "resolve":
             return self._resolve_breakpoint(breakpoint_id, body)

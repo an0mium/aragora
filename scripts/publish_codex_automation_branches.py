@@ -17,6 +17,7 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -72,24 +73,27 @@ try:
 except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
 
     def github_cli_env(
-        base_env: dict[str, str] | None = None,
+        base_env: Mapping[str, str] | None = None,
         *,
         prefer_app: bool = True,
     ) -> dict[str, str]:
         return dict(os.environ if base_env is None else base_env)
 
     def gh_subprocess_run(
-        args: list[str],
+        args: Sequence[str],
         *,
         timeout: float = 30.0,
         prefer_app: bool = True,
         write_op: bool = False,
-        env: dict[str, str] | None = None,
+        env: Mapping[str, str] | None = None,
         max_retries: int = 0,
+        base_backoff: float = 5.0,
+        max_backoff: float = 600.0,
+        sleep: Callable[[float], None] | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        del prefer_app, write_op, max_retries
+        del prefer_app, write_op, max_retries, base_backoff, max_backoff, sleep
         return subprocess.run(
-            ["gh", *args],
+            ["gh", *list(args)],
             capture_output=True,
             text=True,
             timeout=timeout,
