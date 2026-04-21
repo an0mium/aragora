@@ -61,18 +61,38 @@ describe('ReviewQueueCard', () => {
       />,
     );
     expect(screen.getByTestId('review-queue-card-42')).toHaveAttribute('data-selected', 'true');
-    expect(screen.getByText(/#42/)).toBeInTheDocument();
+    expect(screen.getByText('PR')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText(/Improve queue triage/)).toBeInTheDocument();
     expect(screen.getByText('aragora/server')).toBeInTheDocument();
     expect(screen.getByText(/by armand/)).toBeInTheDocument();
   });
 
-  it('prompts before approving a PR without brief', () => {
+  it('approves silently when no brief exists yet', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+    const onSettle = jest.fn().mockResolvedValue(undefined);
+    render(
+      <ReviewQueueCard
+        pr={makePR()}
+        selected={false}
+        expanded={false}
+        onSelect={jest.fn()}
+        onToggleExpand={jest.fn()}
+        onSettle={onSettle}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('review-queue-approve-42'));
+    await waitFor(() => expect(onSettle).toHaveBeenCalledWith('approve', undefined));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('prompts before approving when a present brief disagrees', () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
     const onSettle = jest.fn();
     render(
       <ReviewQueueCard
-        pr={makePR()}
+        pr={makePR({ brief_present: true, verdict: 'repair_first' })}
         selected={false}
         expanded={false}
         onSelect={jest.fn()}
