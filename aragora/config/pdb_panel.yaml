@@ -1,0 +1,96 @@
+# PDB Mode 3 default panel configuration.
+#
+# Transport-neutral default roster and budget caps for Protocol B. The
+# shape is validated by :mod:`aragora.pdb.panel_config`; the executor in
+# :mod:`aragora.pdb.protocol` consumes the validated structure.
+#
+# This file is committed configuration — NOT a secret store. Credentials
+# (API keys, CLI binaries) are resolved at runtime via the provider-slot
+# resolver, not hard-coded here.
+#
+# Required shape (see
+# docs/plans/2026-04-21-pdb-mode3-pr2-spec.md):
+#   - ``version`` must be 1
+#   - ``default_panel`` must match a ``panels`` entry
+#   - ``synthesizer_slot`` must match a ``slots`` entry
+#   - each slot must define ``review_role``, ``lens``, ``family``,
+#     ``candidates``
+#   - the default panel must include both required core slots and at
+#     least one non-core lens
+#   - budgets are in USD; ``per_brief_usd`` is the maximum a single
+#     Protocol B run may reserve, ``per_day_usd`` is the rolling 24h
+#     cap across all briefs.
+version: 1
+default_panel: protocol_b_default
+default_prompt_set: protocol_b_v1
+budgets:
+  per_brief_usd: 8.0
+  per_day_usd: 200.0
+  reserve_for_manual_escalation_usd: 40.0
+slots:
+  claude_core:
+    review_role: logic_reviewer
+    lens: core
+    family: claude
+    candidates: [claude, anthropic-api]
+    required: true
+  gpt_core:
+    review_role: security_reviewer
+    lens: core
+    family: gpt
+    candidates: [codex, openai-api, openai]
+    required: true
+  gemini_heterodox:
+    review_role: maintainability_reviewer
+    lens: heterodox
+    family: gemini
+    candidates: [gemini-cli, gemini]
+    required: false
+  grok_heterodox:
+    review_role: skeptic
+    lens: heterodox
+    family: grok
+    candidates: [grok-cli, grok]
+    required: false
+  deepseek_heterodox:
+    review_role: skeptic
+    lens: heterodox
+    family: deepseek
+    candidates: [deepseek-cli, deepseek]
+    required: false
+  kimi_heterodox:
+    review_role: skeptic
+    lens: heterodox
+    family: kimi
+    candidates: [kimi]
+    required: false
+  qwen_heterodox:
+    review_role: skeptic
+    lens: heterodox
+    family: qwen
+    candidates: [qwen-cli, qwen]
+    required: false
+  mistral_regulatory:
+    review_role: skeptic
+    lens: regulatory
+    family: mistral
+    candidates: [mistral-api, mistral]
+    required: false
+panels:
+  protocol_b_default:
+    findings_slots:
+      - claude_core
+      - gpt_core
+      - gemini_heterodox
+      - grok_heterodox
+      - deepseek_heterodox
+      - kimi_heterodox
+      - qwen_heterodox
+      - mistral_regulatory
+    critique_slots: same_as_findings
+    synthesizer_slot: claude_core
+prompt_sets:
+  protocol_b_v1:
+    findings_prompt: protocol_b_findings
+    critique_prompt: protocol_b_critique
+    synthesis_prompt: protocol_b_synthesis
