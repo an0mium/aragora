@@ -200,6 +200,39 @@ class TestReviewerOutput:
         assert roundtrip["top_findings"][0]["claim"] == "Cache invalidation misses head SHA drift."
         assert roundtrip["evidence_refs"][0]["path"] == "aragora/review/cache.py"
 
+    def test_from_dict_rejects_non_mapping_items_in_nested_arrays(self) -> None:
+        with pytest.raises(ValueError, match=r"top_findings\[1\] must be an object"):
+            ReviewerOutput.from_dict(
+                {
+                    "reviewer_id": "gpt_core",
+                    "slot_id": "security",
+                    "provider": "openai-api",
+                    "lens": "core",
+                    "family": "gpt",
+                    "recommendation_class": "repair_first",
+                    "confidence": 0.91,
+                    "summary": "Auth check missing on one route.",
+                    "top_findings": [
+                        {
+                            "category": "security",
+                            "severity": "high",
+                            "claim": "Route omits authorization guard.",
+                            "evidence": ["guard decorator absent"],
+                            "files": ["aragora/server/handlers/runs.py"],
+                        },
+                        "junk-finding",
+                    ],
+                    "evidence_refs": [
+                        {
+                            "kind": "file",
+                            "path": "aragora/server/handlers/runs.py",
+                            "line_range": [42, 65],
+                            "quote": "@router.get('/runs')",
+                        }
+                    ],
+                }
+            )
+
     def test_validate_rejects_missing_required_fields(self) -> None:
         output = self._output(summary="")
         with pytest.raises(ValueError, match="missing required fields: summary"):

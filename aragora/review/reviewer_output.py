@@ -93,6 +93,16 @@ def _evidence_ref_from_dict(data: Mapping[str, Any]) -> EvidenceRef:
     )
 
 
+def _strict_mapping_items(values: Any, field_name: str) -> tuple[Mapping[str, Any], ...]:
+    items = list(values or [])
+    normalized: list[Mapping[str, Any]] = []
+    for index, item in enumerate(items):
+        if not isinstance(item, Mapping):
+            raise ValueError(f"{field_name}[{index}] must be an object")
+        normalized.append(item)
+    return tuple(normalized)
+
+
 @dataclass(frozen=True, slots=True)
 class ReviewerFinding:
     """One structured finding from a reviewer output."""
@@ -177,6 +187,12 @@ class ReviewerOutput:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ReviewerOutput":
+        """Parse one reviewer payload and reject malformed nested arrays strictly.
+
+        ``top_findings`` and ``evidence_refs`` are contract-bearing object arrays.
+        Any non-mapping item is a schema violation and raises ``ValueError``
+        instead of being silently dropped.
+        """
         output = cls(
             schema_version=str(
                 data.get("schema_version", REVIEWER_OUTPUT_SCHEMA_VERSION)
@@ -196,13 +212,11 @@ class ReviewerOutput:
             summary=str(data.get("summary", "") or "").strip(),
             top_findings=tuple(
                 ReviewerFinding.from_dict(item)
-                for item in list(data.get("top_findings", []) or [])
-                if isinstance(item, Mapping)
+                for item in _strict_mapping_items(data.get("top_findings"), "top_findings")
             ),
             evidence_refs=tuple(
                 _evidence_ref_from_dict(item)
-                for item in list(data.get("evidence_refs", []) or [])
-                if isinstance(item, Mapping)
+                for item in _strict_mapping_items(data.get("evidence_refs"), "evidence_refs")
             ),
             risk_flags=_normalize_string_items(data.get("risk_flags")),
             open_questions=_normalize_string_items(data.get("open_questions")),
