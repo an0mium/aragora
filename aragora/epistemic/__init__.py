@@ -2,6 +2,8 @@
 
 Exposes:
 - DIC-14: executable claim verification (:class:`ClaimVerifier`)
+- DIC-16: signed CruxReceipt for crux-finder debate runs
+  (:class:`CruxEntry`, :class:`CruxReceipt`, :func:`build_crux_receipt`)
 - DIC-17: follow-up-issue bridge for load-bearing cruxes and
   sharply-losing claims (:class:`FollowupProposal`,
   :func:`propose_followup_for_crux`, :func:`propose_followup_for_cruxset`,
@@ -30,6 +32,13 @@ from .coherence import (
     from_belief_node,
     scan_coherence,
 )
+from .crux_receipt import (
+    CruxEntry,
+    CruxReceipt,
+    build_crux_receipt,
+    crux_receipt_enabled,
+    enable_crux_receipt,
+)
 from .decay_monitor import DecayReason, DecaySignal, evaluate_unit
 from .followup import (
     DEFAULT_CRUX_LOAD_BEARING_THRESHOLD,
@@ -47,13 +56,18 @@ __all__ = [
     "ClaimVerifier",
     "CoherenceIssue",
     "CoherenceReport",
+    "CruxEntry",
+    "CruxReceipt",
     "DEFAULT_CRUX_LOAD_BEARING_THRESHOLD",
     "DEFAULT_DELTA_LOSS_THRESHOLD",
     "DecayReason",
     "DecaySignal",
     "FollowupProposal",
     "IncoherenceKind",
+    "build_crux_receipt",
     "coherence_monitor_enabled",
+    "crux_receipt_enabled",
+    "enable_crux_receipt",
     "enable_epistemic_followup",
     "epistemic_followup_enabled",
     "evaluate_unit",
