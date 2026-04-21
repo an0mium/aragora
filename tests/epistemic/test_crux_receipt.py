@@ -51,12 +51,16 @@ _S = [(0.8, 0.60, 0.40), (0.7, 0.55, 0.35), (0.6, 0.50, 0.30)]
 
 def _r(n: int = 2) -> _Result:
     return _Result(
-        debate_id="d_x", question="Expand now?",
+        debate_id="d_x",
+        question="Expand now?",
         _cruxes=[
             _Claim(f"c{i}", f"s{i}", _S[i][0], _S[i][1], ["ag_a"], [f"dep{i}"], _S[i][2])
             for i in range(n)
         ],
-        _barrier=0.73, agents=["ag_a", "ag_b"], rounds=3, metadata={"mode": "crux_finder"},
+        _barrier=0.73,
+        agents=["ag_a", "ag_b"],
+        rounds=3,
+        metadata={"mode": "crux_finder"},
     )
 
 
