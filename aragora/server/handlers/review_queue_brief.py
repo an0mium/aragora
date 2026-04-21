@@ -12,6 +12,13 @@ All three are gated by the feature flag
 the existing ``GET /brief`` read path and the ``/review-queue`` list are
 unaffected (they live in ``review_queue.py``).
 
+Authentication: each handler function receives ``user`` from the
+dispatching :class:`ReviewQueueHandler.handle_post` / ``handle_get`` /
+``handle_delete`` methods, which call ``self.require_auth_or_error``
+on the request before routing here. As defense-in-depth, each handler
+below re-checks ``user is not None`` and returns 401 if the caller
+somehow reaches this module without an authenticated session.
+
 Invariants:
 
 - On ``POST``, the caller's current head SHA is refreshed from ``gh``
@@ -233,6 +240,9 @@ def handle_generate(
     - Writes the queued record atomically; submits to the worker.
     - Returns ``{state: "queued"}`` + estimated completion seconds.
     """
+    if user is None:
+        return error_response("Authentication required", status=401)
+
     if not feature_enabled():
         return _feature_disabled_response()
 
@@ -401,6 +411,9 @@ def handle_cancel(
       record if one is still present. Running state transitions to
       ``failed`` by the worker when cancel propagates.
     """
+    if user is None:
+        return error_response("Authentication required", status=401)
+
     if not feature_enabled():
         return _feature_disabled_response()
 
