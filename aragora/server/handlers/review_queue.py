@@ -43,6 +43,8 @@ from pathlib import Path
 from typing import Any
 
 from aragora.pdb import storage as brief_storage
+from aragora.pdb import worker as brief_worker
+from aragora.server.handlers import review_queue_brief
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import BaseHandler, HandlerResult, error_response, json_response
@@ -413,6 +415,8 @@ class ReviewQueueHandler(BaseHandler):
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests under ``/api/v1/review-queue``."""
         method = (getattr(handler, "command", None) or "GET").upper()
+        if method == "DELETE":
+            return self.handle_delete(path, query_params, handler)
         if method != "GET":
             return self.handle_post(path, query_params, handler)
 
@@ -441,12 +445,17 @@ class ReviewQueueHandler(BaseHandler):
                 if pr_number is None:
                     return error_response("Invalid PR number", 400)
                 return self._get_brief(pr_number)
+            if len(segments) == 3 and segments[1] == "brief" and segments[2] == "state":
+                pr_number = _parse_pr_number(segments[0])
+                if pr_number is None:
+                    return error_response("Invalid PR number", 400)
+                return review_queue_brief.handle_state(pr_number)
         return error_response("Not found", 404)
 
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
-        """Route POST requests (approve / request-changes / defer)."""
+        """Route POST requests (approve / request-changes / defer / brief-generate)."""
         client_ip = get_client_ip(handler) if handler else "unknown"
         if not _review_queue_limiter.is_allowed(client_ip):
             return error_response("Rate limit exceeded", 429)
@@ -468,6 +477,20 @@ class ReviewQueueHandler(BaseHandler):
             return error_response("Not found", 404)
         tail = subpath[len("/prs/") :]
         segments = [seg for seg in tail.split("/") if seg]
+
+        # /prs/{n}/brief/generate → Mode 3 on-demand generation
+        if len(segments) == 3 and segments[1] == "brief" and segments[2] == "generate":
+            pr_number = _parse_pr_number(segments[0])
+            if pr_number is None:
+                return error_response("Invalid PR number", 400)
+            body = self.read_json_body(handler) or {}
+            return review_queue_brief.handle_generate(
+                pr_number,
+                body,
+                user,
+                worker=brief_worker.get_worker(),
+            )
+
         if len(segments) != 2:
             return error_response("Not found", 404)
         pr_number = _parse_pr_number(segments[0])
@@ -483,6 +506,39 @@ class ReviewQueueHandler(BaseHandler):
             return self._post_request_changes(pr_number, body, user)
         if action == "defer":
             return self._post_defer(pr_number, body, user)
+        return error_response("Not found", 404)
+
+    def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Route DELETE /api/v1/review-queue/prs/{n}/brief/generate."""
+        client_ip = get_client_ip(handler) if handler else "unknown"
+        if not _review_queue_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded", 429)
+
+        user, err = self.require_auth_or_error(handler)
+        if err is not None:
+            return err
+
+        normalized = strip_version_prefix(path).rstrip("/")
+        subpath = (
+            normalized[len("/api/review-queue") :]
+            if normalized.startswith("/api/review-queue")
+            else ""
+        )
+        if not subpath.startswith("/prs/"):
+            return error_response("Not found", 404)
+        tail = subpath[len("/prs/") :]
+        segments = [seg for seg in tail.split("/") if seg]
+        if len(segments) == 3 and segments[1] == "brief" and segments[2] == "generate":
+            pr_number = _parse_pr_number(segments[0])
+            if pr_number is None:
+                return error_response("Invalid PR number", 400)
+            return review_queue_brief.handle_cancel(
+                pr_number,
+                user,
+                worker=brief_worker.get_worker(),
+            )
         return error_response("Not found", 404)
 
     # ------------------------------------------------------------------
