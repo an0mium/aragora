@@ -53,6 +53,14 @@ from aragora.review.provider_slots import (
     ProviderSlotResolution,
     ProviderSlotResolver,
 )
+from aragora.review.reviewer_output import (
+    FindingCategory,
+    FindingSeverity,
+    REVIEWER_OUTPUT_SCHEMA_VERSION,
+    ReviewerFinding,
+    ReviewerOutput,
+    validate_reviewer_outputs,
+)
 
 __all__ = [
     "ADVISORY_NOTE",
@@ -65,6 +73,8 @@ __all__ = [
     "DissentPosition",
     "EvidenceKind",
     "EvidenceRef",
+    "FindingCategory",
+    "FindingSeverity",
     "PRReviewProtocol",
     "ProviderCandidateCheck",
     "ProviderSlotAvailabilitySummary",
@@ -72,10 +82,13 @@ __all__ = [
     "ProviderSlotResolution",
     "ProviderSlotResolver",
     "PanelVote",
+    "REVIEWER_OUTPUT_SCHEMA_VERSION",
     "Recommendation",
     "ReviewBrief",
     "ReviewBudget",
     "ReviewDepth",
+    "ReviewerFinding",
+    "ReviewerOutput",
     "ReviewPolicy",
     "ReviewPolicyDecision",
     "ReviewRole",
@@ -89,4 +102,5 @@ __all__ = [
     "ValidationResult",
     "build_brief",
     "compute_packet_sha",
+    "validate_reviewer_outputs",
 ]
