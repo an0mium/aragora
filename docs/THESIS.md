@@ -1,12 +1,14 @@
 # The Aragora Thesis
 
 > Canonical source of authority. Every other strategic doc links up to this.
-> Last updated: 2026-04-20. Status: v3 draft. v1 → v2 applied codex's
-> 5 required changes (contradictions, capabilities map, weak tests, fake
-> heterogeneity, epistemology). v2 → v3 added premise 6 (Triage) and
-> reframed commitments to reflect Pareto-efficient attention allocation
-> after founder arbitration on v2 framing. Awaiting third review before
-> merge.
+> Last updated: 2026-04-20. Status: v4 draft. v1 → v2 applied codex's
+> 5 required changes. v2 → v3 added premise 6 (Triage) and reframed
+> commitments around Pareto-efficient attention allocation after
+> founder arbitration. v3 → v4 applied codex round-3 findings with
+> founder's normative-vs-descriptive reframe: the thesis describes
+> the target shape of the product; category-B findings (where code
+> does not meet thesis) are named as Implementation gaps rather than
+> thesis errors. Awaiting fourth review before merge.
 
 ---
 
@@ -81,10 +83,12 @@ load-bearing assumption, not a promise (see § Load-bearing assumptions).
      decides vs how likely those decisions are to be right and not
      need backtracking. Rushing produces errors; over-deliberating
      produces paralysis.
-   - **Autonomy vs human-attention cost** — how much the ensemble
-     handles independently vs how often the human is pulled in.
-     Under-escalation wastes oversight on the wrong decisions;
-     over-escalation wastes oversight on the wrong decisions.
+   - **Autonomy vs human-attention cost** — the *operating point*.
+     At any given configuration, what total fraction of decisions
+     flows to the human vs gets auto-handled. Under-escalation
+     misses decisions the human should have seen; over-escalation
+     wastes human attention on decisions the ensemble could have
+     handled. (Parameter: overall escalation-rate target.)
    - **Information density vs information completeness** — how
      distilled the brief is vs how much supporting context it
      preserves. Too dense and the human decides blind; too complete
@@ -98,10 +102,15 @@ load-bearing assumption, not a promise (see § Load-bearing assumptions).
      human-time spent per decision against accuracy achieved per
      decision. (Parameters: panel size, verification depth, re-run
      count.)
-   - **Coverage vs confidence** — auto-handling a broad decision
-     class at higher error rate vs auto-handling only high-confidence
-     decisions at higher escalation load. (Parameters: escalation
-     threshold, decision-class allowlist.)
+   - **Coverage vs confidence** — the *selectivity mechanism*. At
+     a given operating point (set by autonomy-vs-attention above),
+     the tradeoff between handling a broad decision class with
+     higher uncertainty (broad coverage, more errors) vs handling
+     only a narrow high-confidence subset (narrow coverage, fewer
+     errors). Autonomy-vs-attention sets *how much* flows to the
+     human; coverage-vs-confidence determines *which decisions
+     specifically*. (Parameters: confidence threshold per class,
+     decision-class allowlist.)
    - **Exploration vs exploitation** — trying new panel compositions,
      triage thresholds, or brief formats (gains learning) vs using
      known-good configurations (gains reliability). (Parameters:
@@ -195,6 +204,18 @@ loop of premise 5: its routing decisions are measurable, auditable,
 and revisable. An escalation-rate that trends monotonically in
 either direction over a rolling window without an explaining
 outcome-history change is a signal the layer needs recalibration.
+
+The six triggers above are **principle-level categories**.
+Operator-level implementations (e.g., `docs/plans/2026-04-19-pr-
+intelligence-brief-addendum.md`) specify concrete operational
+triggers such as high-consequence path touches, manual `escalate-pdb`
+commands, stale briefs, low synthesis confidence or cross-lens
+dissent, and repeated flaky CI. Each operational trigger must map
+to at least one principle-level category above. If an operational
+trigger cannot be so mapped, either the principle-level list is
+incomplete (amend this thesis) or the operational trigger is not
+well-founded (amend the operator doc). The mapping itself is
+auditable.
 
 ---
 
@@ -321,7 +342,7 @@ substrate that pretends to cover everything fails premise 2 on itself.
 
 ## Load-bearing assumptions (testable)
 
-The thesis rests on five claims that must prove true in practice or the
+The thesis rests on six claims that must prove true in practice or the
 product fails on its own terms:
 
 | Claim | How to test | Horizon |
@@ -385,14 +406,64 @@ being validated, not assumed.
 
 ---
 
+## Implementation gaps (thesis target vs current code)
+
+This thesis is normative. It describes the target shape of the
+product. The current code does not yet fully implement that target.
+This section names gaps honestly. **They are not reasons to weaken
+the thesis; they are engineering work items that must be completed
+for the code to realize the thesis.** Thesis commitments are
+evaluated against the target, not the current implementation.
+
+- **Auto-handle path calibration.** `fire_and_forget` in
+  `aragora/swarm/tranche_integrate.py` and `admin_merge_allowed` in
+  `aragora/ralph/supervisor.py` currently use static low-risk
+  heuristics only. Commitment 1 requires them to be governed by
+  outcome-history calibration and drift gating. Work needed: add a
+  calibration layer that bounds each path's decision class from
+  observed outcomes; wire drift detection; gate auto-handle
+  continuation on calibration health.
+
+- **Triage metrics.** Commitment 5 requires rolling-window triage
+  metrics (escalation rate, auto-handle override rate, human-
+  override-outcome correlation, time-per-settlement). The current
+  code (`aragora/server/handlers/review_queue.py`) emits only daily
+  counts plus total decision seconds. Work needed: extend telemetry
+  to rolling windows; compute drift per window; surface in the
+  dashboard and settlement receipts.
+
+- **Heterogeneous PR review.** Premise 3 requires heterogeneous
+  adversarial cross-check with different priors, different evidence,
+  and active dissent. The shipped PR review protocol
+  (`aragora/swarm/pr_review_protocol.py`, `PROTOCOL_STATUS =
+  "metadata_heuristic"`) emits packets with `dissenting_views=[]`
+  and self-describes as *"No heterogeneous dissent recorded yet."*
+  Work needed: wire actual heterogeneous agents through the
+  protocol; populate `dissenting_views` with real per-reviewer
+  output; upgrade `PROTOCOL_STATUS` when the path exercises live
+  ensembles.
+
+- **Empirical threshold grounding.** Commitment 3's 5% auto-handle
+  outcome-invalidation threshold is a placeholder for "substantially
+  lower than baseline human-settled invalidation rate." Work needed:
+  measure the baseline once enough settled decisions accumulate;
+  replace the placeholder with baseline + safety margin; recalibrate
+  per rolling window.
+
+Each gap is a tracked product backlog item. The gap-closing work is
+what the product roadmap is for; it is not a reason to update the
+thesis.
+
+---
+
 ## How existing capabilities map
 
 Every load-bearing subsystem should answer a premise. If it doesn't,
 it's either redundant or should be reframed.
 
 Each substrate item is tagged `[shipped]`, `[scaffolded]`, `[docs-only]`,
-or `[planned]`. The table must survive skeptical reading; status is
-explicit rather than implied.
+`[planned]`, or `[in progress]`. The table must survive skeptical
+reading; status is explicit rather than implied.
 
 | Premise | Existing Aragora substrate | Measurable property |
 |---------|----------------------------|---------------------|
@@ -435,11 +506,19 @@ Five concrete commitments follow from taking the thesis seriously:
      reversible decisions → AI ensemble auto-handles with dissent
      preserved in receipts.** The `fire_and_forget` low-risk path in
      `aragora/swarm/tranche_integrate.py` and the
-     `admin_merge_allowed` green-CI path documented in
-     `docs/STATUS.md` are implementations of this commitment, not
-     exceptions to it, provided they operate only on decision
-     classes where ensemble + outcome-history calibration supports
-     auto-handling and where the triage layer can audit drift.
+     `admin_merge_allowed` green-CI path in `aragora/ralph/supervisor.py`
+     (documented in `docs/STATUS.md`) are the current implementations
+     of this commitment. In their target form they are governed by
+     (a) outcome-history calibration that bounds each path's decision
+     class from observed outcomes and (b) drift gating that tightens
+     the class when outcome-invalidation rises. Today both paths use
+     static low-risk heuristics (single-lane, review tier,
+     cross-model-review flag, changed-file count, protected-path
+     exclusion for `fire_and_forget`; green CI plus policy flag for
+     `admin_merge_allowed`). Acquiring the full calibration + drift
+     governance is a tracked implementation gap (see § Implementation
+     gaps); the thesis's target for these paths is the governed form,
+     not the static-heuristic form.
    - **The triage layer itself is auditable and revisable.** It must
      report, per rolling window: percent of decisions auto-handled,
      escalated, and human-overridden; which decision classes are
@@ -463,8 +542,11 @@ Five concrete commitments follow from taking the thesis seriously:
      drops below 15% (suggesting the panel is converging on the human's
      prior rather than adding independent signal); or
    - if, among decisions the triage layer *auto-handles*, the
-     outcome-invalidation rate rises above 5% (suggesting
-     auto-handling has drifted outside its validated scope),
+     outcome-invalidation rate rises above 5% — a placeholder for
+     "substantially lower than baseline human-settled invalidation
+     rate," pending empirical baseline measurement per § Implementation
+     gaps — suggesting auto-handling has drifted outside its
+     validated scope,
    the product has failed its own test on that window and must be
    revised (architecturally via input-diversification; operationally
    via expanded panel heterogeneity; or in triage policy via tighter
@@ -480,12 +562,15 @@ Five concrete commitments follow from taking the thesis seriously:
    layer that under-escalates (misses decisions the human should have
    seen) or over-escalates (wastes human attention on decisions the
    ensemble could have handled) is failing the Pareto goal and must
-   be recalibrated. Specifically: escalation rate, auto-handle
-   override rate, human-override-outcome correlation, and time-per-
-   settlement are all first-class metrics emitted per rolling window,
-   and drift in any of them without a matching change in decision
-   mix is a revision trigger. The triage layer does not get a free
-   pass on the commitments the rest of the system is held to.
+   be recalibrated. The triage layer MUST emit, per rolling window:
+   escalation rate, auto-handle override rate, human-override-outcome
+   correlation, and time-per-settlement. Drift in any of them without
+   a matching change in decision mix is a revision trigger. The
+   current code (`aragora/server/handlers/review_queue.py`) emits
+   only daily counts plus total decision seconds; the full rolling-
+   window metric set is a tracked implementation gap (see
+   § Implementation gaps). The triage layer does not get a free pass
+   on the commitments the rest of the system is held to.
 
 ---
 
