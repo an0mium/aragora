@@ -208,9 +208,9 @@ outcome-history change is a signal the layer needs recalibration.
 The six triggers above are **principle-level categories**.
 Operator-level implementations (e.g., `docs/plans/2026-04-19-pr-
 intelligence-brief-addendum.md`) specify concrete operational
-triggers such as high-consequence path touches, manual `escalate-pdb`
-commands, stale briefs, low synthesis confidence or cross-lens
-dissent, and repeated flaky CI. Each operational trigger must map
+triggers such as high-consequence path touches, the manual
+`escalate-pdb` label, stale briefs, low synthesis confidence or
+cross-lens dissent, and repeated flaky CI. Each operational trigger must map
 to at least one principle-level category above. If an operational
 trigger cannot be so mapped, either the principle-level list is
 incomplete (amend this thesis) or the operational trigger is not

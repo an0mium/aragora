@@ -61,7 +61,7 @@ Steps 1–3 identical to B. Then:
 1. Diff touches high-consequence paths: `.github/workflows/`, `aragora/auth/`, `aragora/rbac/`, `aragora/security/`, `aragora/privacy/`, `aragora/compliance/`, `aragora/swarm/merge_arbiter.py`, `aragora/cli/commands/review_pr.py`, `aragora/cli/commands/review_queue.py`.
 2. Broad blast radius: `scripts/export_openapi.py`, SDK generation paths, repo-wide generated artifacts, policy/config files under `aragora/config/`.
 3. Large diff (>500 lines) combined with multi-subsystem scope (≥2 top-level `aragora/` subdirectories). Size alone is **not** enough.
-4. Manual label: `escalate-pdb`.
+4. Manual label: `escalate-pdb`. Applying this label is an operator assertion that at least one principle-level triage trigger from `docs/THESIS.md` § "When does the human actually need to weigh in?" applies to this PR. The asserting operator is recorded in the receipt; if later review finds no principle-level trigger applied, that signals either a mis-applied label or an incompleteness in the thesis's principle-level list.
 5. Low confidence from B synthesis: final confidence < 3/5, or dissent spans ≥ 2 lenses.
 6. Stale brief: cached brief exists but `head_sha` has changed.
 7. Repeated flaky CI: more than 2 retried/cancelled required-check cycles on the same head SHA.
