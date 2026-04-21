@@ -276,7 +276,7 @@ from aragora.server.handlers.mixins import (
 logger = logging.getLogger(__name__)
 
 # Default host from environment (used when Host header is missing)
-_DEFAULT_HOST = os.environ.get("ARAGORA_DEFAULT_HOST", "localhost:8080")
+_DEFAULT_HOST: str = os.environ.get("ARAGORA_DEFAULT_HOST") or "localhost:8080"
 
 # Re-export DB_TIMEOUT_SECONDS for backwards compatibility
 __all__ = [
@@ -414,11 +414,11 @@ def get_host_header(handler: HTTPRequestHandler | None, default: str | None = No
         # After:
         host = get_host_header(handler)
     """
-    if default is None:
-        default = _DEFAULT_HOST
-    if handler is None:
-        return default
-    return handler.headers.get("Host", default) if hasattr(handler, "headers") else default
+    fallback = default if default is not None else _DEFAULT_HOST
+    if handler is None or not hasattr(handler, "headers"):
+        return fallback
+    host = handler.headers.get("Host")
+    return host if host is not None else fallback
 
 
 def get_agent_name(agent: dict[str, Any] | AgentRating | Any | None) -> str | None:
