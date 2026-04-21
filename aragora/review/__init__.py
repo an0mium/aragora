@@ -9,6 +9,11 @@ Design brief: docs/plans/2026-04-19-pr-intelligence-brief.md
 Tracking: #6306
 """
 
+from aragora.review.builder import (
+    PanelVote,
+    build_brief,
+    compute_packet_sha,
+)
 from aragora.review.protocol import (
     ADVISORY_NOTE,
     DissentingView,
@@ -66,6 +71,7 @@ __all__ = [
     "ProviderSlotDefinition",
     "ProviderSlotResolution",
     "ProviderSlotResolver",
+    "PanelVote",
     "Recommendation",
     "ReviewBrief",
     "ReviewBudget",
@@ -81,4 +87,6 @@ __all__ = [
     "ValidationKind",
     "ValidationRef",
     "ValidationResult",
+    "build_brief",
+    "compute_packet_sha",
 ]
