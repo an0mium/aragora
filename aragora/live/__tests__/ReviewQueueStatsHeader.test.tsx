@@ -20,7 +20,7 @@ function stats(partial: Partial<ReviewQueueStats> = {}): ReviewQueueStats {
 }
 
 describe('StatsHeader', () => {
-  it('renders visible/total/deferred counts and median decision time', () => {
+  it('renders visible/deferred counts and median decision time', () => {
     render(
       <StatsHeader
         visible={3}
@@ -34,8 +34,9 @@ describe('StatsHeader', () => {
     expect(screen.getByTestId('review-queue-deferred-count')).toHaveTextContent('2 deferred');
     expect(screen.getByTestId('review-queue-median')).toHaveTextContent('18.0s');
     expect(screen.getByTestId('review-queue-streak')).toHaveTextContent('4');
-    expect(screen.getByTestId('review-queue-approved-today')).toHaveTextContent('7 approved today');
-    expect(screen.getByText(/5 total/)).toBeInTheDocument();
+    expect(screen.getByTestId('review-queue-approved-today')).toHaveTextContent('7');
+    expect(screen.getByText('Approved today')).toBeInTheDocument();
+    expect(screen.queryByText(/5 total/)).not.toBeInTheDocument();
   });
 
   it('shows degraded banner when degraded is true', () => {
