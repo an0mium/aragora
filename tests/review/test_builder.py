@@ -196,6 +196,29 @@ class TestWeightedPolicy:
         brief = _build(votes, policy=SynthesisPolicy.WEIGHTED)
         assert brief.recommendation is Recommendation.APPROVE_CANDIDATE
 
+    def test_above_one_confidence_is_capped_so_cannot_overpower_in_range_vote(self) -> None:
+        # Codex C rev 1 finding P2: _weighted previously only clamped the
+        # lower bound, so a 1.5 confidence vote could overpower a 1.0
+        # opposite vote — inconsistent with the brief's [0,1] clamping.
+        # With per-input clamping in place, both votes now compete at 1.0
+        # weight and the tie escalates to NEEDS_HUMAN_ATTENTION.
+        votes = [
+            _vote(
+                role=ReviewRole.LOGIC,
+                agent="a1",
+                position=DissentPosition.APPROVE,
+                confidence=1.5,
+            ),
+            _vote(
+                role=ReviewRole.SECURITY,
+                agent="a2",
+                position=DissentPosition.REQUEST_CHANGES,
+                confidence=1.0,
+            ),
+        ]
+        brief = _build(votes, policy=SynthesisPolicy.WEIGHTED)
+        assert brief.recommendation is Recommendation.NEEDS_HUMAN_ATTENTION
+
 
 # --- SYNTHESIZER_AGENT policy --------------------------------------------
 

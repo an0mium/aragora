@@ -188,10 +188,21 @@ def _majority(votes: tuple[PanelVote, ...]) -> Recommendation:
     return _winner_or_escalate(counts)
 
 
+def _clamp_confidence(value: float) -> float:
+    """Clamp a per-finding confidence into ``[0.0, 1.0]``.
+
+    Used by both ``_weighted`` (for recommendation policy) and
+    ``_aggregate_confidence`` (for the emitted brief), so a malformed
+    upstream confidence value cannot make the recommendation and the
+    brief disagree on what counts as "in range."
+    """
+    return min(1.0, max(0.0, value))
+
+
 def _weighted(votes: tuple[PanelVote, ...]) -> Recommendation:
     weights: dict[DissentPosition, float] = {}
     for v in votes:
-        weights[v.position] = weights.get(v.position, 0.0) + max(0.0, v.finding.confidence)
+        weights[v.position] = weights.get(v.position, 0.0) + _clamp_confidence(v.finding.confidence)
     return _winner_or_escalate(weights)
 
 
@@ -245,10 +256,10 @@ def _aggregate_confidence(votes: tuple[PanelVote, ...]) -> float:
 
     ``ReviewBrief.overall_confidence`` is documented as 0.0..1.0; raw
     means could escape that range if upstream emits malformed values.
-    Per-input clamping mirrors the defensive treatment in ``_weighted``
-    so the recommendation policy and the emitted brief stay consistent.
+    Shares ``_clamp_confidence`` with ``_weighted`` so the recommendation
+    policy and the emitted brief use the same definition of "in range."
     """
-    return sum(min(1.0, max(0.0, v.finding.confidence)) for v in votes) / len(votes)
+    return sum(_clamp_confidence(v.finding.confidence) for v in votes) / len(votes)
 
 
 def _validate_output_role_coverage(
