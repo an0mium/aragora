@@ -22,7 +22,7 @@ The three harnesses that matter all now expose **native resumable-session CLI AP
 - `codex exec resume <thread_id>` (OpenAI Codex CLI)
 - `droid exec -s <session_id>` (Factory Droid CLI)
 
-Each call is a subprocess with clean stdin/stdout. Context is persisted server-side (per harness), addressed by UUID/thread_id. No tmux gymnastics.
+Each call is a subprocess with clean stdin/stdout. Context is persisted by the harness/CLI (via its own session storage — location varies: `~/.codex/sessions/`, `~/.factory/sessions/`, `~/.claude/projects/`), addressed by UUID/thread_id. No tmux gymnastics.
 
 ## Empirical validation (2026-04-21)
 
@@ -93,12 +93,12 @@ Three initial adapters: `claude.py`, `codex.py`, `droid.py`.
 
 **Codex adapter:**
 - Start: `codex exec "<prompt>"`
-- Session ID discovery: parse `session id: <uuid>` from stdout header. Prefer `--output-format json` if it emits a clean `thread_id` field — verify in implementation. Fall back to header parsing (stable across versions observed to date).
+- Session ID discovery: parse `session id: <uuid>` from stdout header. Prefer `codex exec --json` (NOT `--output-format json` — that flag does not exist on codex exec) if it emits a clean `thread_id` field — verify in implementation. Fall back to header parsing (stable across codex ≥ 0.121 observed to date).
 - Resume: `codex exec resume <session_id> "<prompt>"`
 
 **Droid adapter:**
 - Start: `droid exec --auto low "<prompt>"`
-- Session ID discovery: check if `droid exec --output-format json` emits `sessionId` in stdout. If not, read `~/.factory/sessions/<cwd-mangled>/last.settings.json` (filesystem-stable per 2026-04-21 observation).
+- Session ID discovery: check if `droid exec --output-format json` emits `sessionId` in stdout (droid exec DOES document `--output-format`, unlike codex exec which uses `--json`). If not, read `~/.factory/sessions/<cwd-mangled>/last.settings.json` (filesystem-stable per 2026-04-21 observation).
 - Resume: `droid exec --auto low -s <session_id> "<prompt>"`
 
 ### Persistence layout (repo-local, not home-scoped)
@@ -182,8 +182,8 @@ Explicitly **out of scope** for v0:
 ### PR 1 (this doc): no code, fixture harvesting
 
 - Include the four-turn cross-harness test transcript above as reproducible evidence.
-- Capture sample Codex `--output-format json` output for one turn (manual pre-flight).
-- Capture sample Droid `--output-format json` output for one turn (manual pre-flight).
+- Capture sample Codex `exec --json` output for one turn (manual pre-flight; codex exec uses `--json`, not `--output-format`).
+- Capture sample Droid `exec --output-format json` output for one turn (manual pre-flight).
 - Fixtures land under `tests/fixtures/agent_bridge/` to be consumed by PR 2's adapter tests.
 
 ### PR 2: broker core
@@ -201,8 +201,8 @@ Explicitly **out of scope** for v0:
 
 ## Open questions (for PR 2 author)
 
-1. Codex `--output-format json`: does it emit `thread_id` as a first-class field, or must the broker parse it from the header line?
-2. Droid `--output-format json`: does it emit `sessionId` to stdout, or only to the filesystem settings file?
+1. Codex `exec --json` (the real flag is `--json`, NOT `--output-format json`): does it emit `thread_id` as a first-class field, or must the broker parse it from the header line?
+2. Droid `exec --output-format json`: does it emit `sessionId` to stdout, or only to the filesystem settings file?
 3. Claude Code `--session-id`: does broker-assigned UUID survive across machine restarts / `--resume` on a separate day? (Likely yes per `~/.claude/projects/` layout, but verify.)
 4. Footer contract: should the broker inject the footer template into every outgoing prompt, or rely on each agent to know the contract via their system prompt? (Leaning inject — less surprise, more reliable on fresh sessions.)
 5. Worktree cleanup: automatic on run completion, or operator-triggered? (Leaning operator-triggered for v0 — safer against partial-run salvage.)
