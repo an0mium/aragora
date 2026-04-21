@@ -17,19 +17,13 @@ class FakeRunner:
         return subprocess.CompletedProcess(command, 0, stdout=self.stdout, stderr="")
 
 
+def _fixture_text(name: str) -> str:
+    root = Path(__file__).resolve().parents[3]
+    return (root / "tests" / "fixtures" / "agent_bridge" / name).read_text(encoding="utf-8")
+
+
 def test_claude_launch_assigns_uuid4_and_resume_uses_resume_flag(tmp_path: Path) -> None:
-    message = (
-        "Reviewed the patch.\n\n"
-        "---BRIDGE-FOOTER---\n"
-        "summary: Reviewed the patch\n"
-        "next_actor: reviewer\n"
-        "needs_human: false\n"
-        "done: false\n"
-        "artifacts: []\n"
-        "tests_run: []\n"
-        "---BRIDGE-FOOTER-END---"
-    )
-    fake_runner = FakeRunner(message)
+    fake_runner = FakeRunner(_fixture_text("claude_start.txt"))
     session_id = uuid.UUID("123e4567-e89b-42d3-a456-426614174000")
     transport = ClaudeTransport(
         cwd=tmp_path,
@@ -40,6 +34,7 @@ def test_claude_launch_assigns_uuid4_and_resume_uses_resume_flag(tmp_path: Path)
     )
 
     launched = transport.launch("Review this", allowed_roles={"reviewer"})
+    fake_runner.stdout = _fixture_text("claude_resume.txt")
     resumed = transport.resume(str(session_id), "Repair this", allowed_roles={"reviewer"})
 
     assert launched.session_id == str(session_id)

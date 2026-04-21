@@ -44,6 +44,7 @@ def create_transport(
 
 
 register("claude", ClaudeTransport)
+register("claude_code", ClaudeTransport)
 register("codex", CodexTransport)
 register("droid", DroidTransport)
 

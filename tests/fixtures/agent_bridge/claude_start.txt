@@ -1,0 +1,10 @@
+Reviewed the patch.
+
+---BRIDGE-FOOTER---
+summary: Reviewed the patch
+next_actor: reviewer
+needs_human: false
+done: false
+artifacts: []
+tests_run: []
+---BRIDGE-FOOTER-END---

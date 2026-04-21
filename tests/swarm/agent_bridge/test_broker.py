@@ -6,10 +6,9 @@ from typing import Any
 
 from aragora.swarm.agent_bridge.broker import AgentBridgeBroker
 from aragora.swarm.agent_bridge.footer import extract_footer
+from aragora.swarm.agent_bridge.harnesses.base import TransportResult
 from aragora.swarm.agent_bridge.store import BridgeStore
 from aragora.swarm.agent_bridge.types import BridgeSession
-from aragora.swarm.agent_bridge.types import SessionRegistry
-from aragora.swarm.agent_bridge.harnesses.base import TransportResult
 
 
 def _make_transport_result(
@@ -45,25 +44,35 @@ class FakeTransport:
         return self.queues[self.role].pop(0)
 
 
-def _registry(tmp_path: Path) -> SessionRegistry:
-    return SessionRegistry(
-        roles={
-            "reviewer": BridgeSession(
-                harness="codex",
-                session_id=None,
-                created_at="2026-04-21T20:00:00Z",
-                last_turn_at=None,
-                harness_options={"role": "reviewer", "worktree_path": str(tmp_path)},
-            ),
-            "implementer": BridgeSession(
-                harness="claude",
-                session_id=None,
-                created_at="2026-04-21T20:00:00Z",
-                last_turn_at=None,
-                harness_options={"role": "implementer", "worktree_path": str(tmp_path)},
-            ),
-        }
-    )
+def _sessions(tmp_path: Path) -> dict[str, BridgeSession]:
+    return {
+        "reviewer": BridgeSession(
+            role="reviewer",
+            harness="codex",
+            model="gpt-5.4",
+            session_id=None,
+            worktree_agent_slug="bridge-reviewer",
+            worktree_path=str(tmp_path),
+            branch="codex/reviewer",
+            session_status="not_started",
+            started_at=None,
+            last_turn_index=0,
+            last_completed_at=None,
+        ),
+        "implementer": BridgeSession(
+            role="implementer",
+            harness="claude",
+            model="claude-opus-4-7",
+            session_id=None,
+            worktree_agent_slug="bridge-implementer",
+            worktree_path=str(tmp_path),
+            branch="codex/implementer",
+            session_status="not_started",
+            started_at=None,
+            last_turn_index=0,
+            last_completed_at=None,
+        ),
+    }
 
 
 def _transport_factory(queues: dict[str, list[TransportResult]]):
@@ -75,8 +84,10 @@ def _transport_factory(queues: dict[str, list[TransportResult]]):
         harness_options: dict[str, Any] | None,
     ) -> FakeTransport:
         del harness_name, cwd, model
-        assert harness_options is not None
-        return FakeTransport(str(harness_options["role"]), queues)
+        role = (
+            "reviewer" if harness_options is None else str(harness_options.get("role", "reviewer"))
+        )
+        return FakeTransport(role, queues)
 
     return factory
 
@@ -104,14 +115,18 @@ def test_broker_dispatches_by_role_and_advances_baton(tmp_path: Path) -> None:
             ]
         },
     )
+    sessions = _sessions(tmp_path)
+    sessions["reviewer"].harness_options["role"] = "reviewer"
+    sessions["implementer"].harness_options["role"] = "implementer"
     broker = AgentBridgeBroker(
         tmp_path,
         store=BridgeStore(tmp_path),
         transport_factory=_transport_factory(queues),
     )
     run = broker.start_run(
-        roles=_registry(tmp_path).roles,
-        active_role="reviewer",
+        task="Review it",
+        sessions=sessions,
+        next_actor="reviewer",
         run_id="bridge_broker_role",
         worktree_path=str(tmp_path),
         worktree_agent_slug="codex",
@@ -121,13 +136,13 @@ def test_broker_dispatches_by_role_and_advances_baton(tmp_path: Path) -> None:
 
     persisted_run = broker.load_run(run.run_id)
     persisted_sessions = broker.load_sessions(run.run_id)
-    event_types = [event.type for event in broker.load_events(run.run_id)]
+    event_types = [event.event_type for event in broker.load_events(run.run_id)]
 
-    assert persisted_run.active_role == "implementer"
-    assert persisted_run.turn_count == 1
+    assert persisted_run.next_actor == "implementer"
+    assert persisted_run.last_turn_index == 1
     assert persisted_run.status == "running"
-    assert persisted_sessions.roles["reviewer"].session_id == "review-session"
-    assert event_types == ["run_started", "turn_started", "turn_completed", "footer_ok"]
+    assert persisted_sessions.sessions["reviewer"].session_id == "review-session"
+    assert event_types == ["run_started", "turn.started", "turn.result", "footer_ok"]
 
 
 def test_broker_uses_data_driven_repair_routing(tmp_path: Path) -> None:
@@ -157,14 +172,18 @@ def test_broker_uses_data_driven_repair_routing(tmp_path: Path) -> None:
             ]
         },
     )
+    sessions = _sessions(tmp_path)
+    sessions["reviewer"].harness_options["role"] = "reviewer"
+    sessions["implementer"].harness_options["role"] = "implementer"
     broker = AgentBridgeBroker(
         tmp_path,
         store=BridgeStore(tmp_path),
         transport_factory=_transport_factory(queues),
     )
     run = broker.start_run(
-        roles=_registry(tmp_path).roles,
-        active_role="reviewer",
+        task="Review it",
+        sessions=sessions,
+        next_actor="reviewer",
         run_id="bridge_broker_repair",
         worktree_path=str(tmp_path),
         worktree_agent_slug="codex",
@@ -173,17 +192,27 @@ def test_broker_uses_data_driven_repair_routing(tmp_path: Path) -> None:
     broker.dispatch_turn(run_id=run.run_id, role="reviewer", prompt="Review it")
 
     persisted_run = broker.load_run(run.run_id)
-    event_types = [event.type for event in broker.load_events(run.run_id)]
+    event_types = [event.event_type for event in broker.load_events(run.run_id)]
+    transcript = (
+        tmp_path
+        / ".aragora"
+        / "agent_bridge"
+        / "runs"
+        / run.run_id
+        / "turns"
+        / "001-codex-reviewer.md"
+    ).read_text(encoding="utf-8")
 
-    assert persisted_run.active_role == "implementer"
+    assert persisted_run.next_actor == "implementer"
     assert persisted_run.status == "running"
+    assert "## Repair Attempt 1" in transcript
     assert event_types == [
         "run_started",
-        "turn_started",
-        "turn_completed",
+        "turn.started",
+        "turn.result",
         "footer_missing",
-        "footer_repair_requested",
-        "turn_completed",
+        "turn.repair_requested",
+        "turn.completed",
         "footer_ok",
     ]
 
@@ -215,14 +244,18 @@ def test_broker_surfaces_for_human_after_repair_exhaustion(tmp_path: Path) -> No
             ]
         },
     )
+    sessions = _sessions(tmp_path)
+    sessions["reviewer"].harness_options["role"] = "reviewer"
+    sessions["implementer"].harness_options["role"] = "implementer"
     broker = AgentBridgeBroker(
         tmp_path,
         store=BridgeStore(tmp_path),
         transport_factory=_transport_factory(queues),
     )
     run = broker.start_run(
-        roles=_registry(tmp_path).roles,
-        active_role="reviewer",
+        task="Review it",
+        sessions=sessions,
+        next_actor="reviewer",
         run_id="bridge_broker_surface",
         worktree_path=str(tmp_path),
         worktree_agent_slug="codex",
@@ -231,18 +264,18 @@ def test_broker_surfaces_for_human_after_repair_exhaustion(tmp_path: Path) -> No
     result = broker.dispatch_turn(run_id=run.run_id, role="reviewer", prompt="Review it")
 
     persisted_run = broker.load_run(run.run_id)
-    event_types = [event.type for event in broker.load_events(run.run_id)]
+    event_types = [event.event_type for event in broker.load_events(run.run_id)]
 
-    assert result.type == "footer_malformed"
+    assert result.event_type == "footer_malformed"
     assert persisted_run.status == "awaiting_human"
-    assert persisted_run.active_role == "reviewer"
+    assert persisted_run.next_actor == "reviewer"
     assert "run_failed" not in event_types
     assert event_types == [
         "run_started",
-        "turn_started",
-        "turn_completed",
+        "turn.started",
+        "turn.result",
         "footer_missing",
-        "footer_repair_requested",
-        "turn_completed",
+        "turn.repair_requested",
+        "turn.completed",
         "footer_malformed",
     ]

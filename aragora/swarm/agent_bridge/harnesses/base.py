@@ -67,6 +67,9 @@ class Transport(ABC):
         self._runner = runner
         self._binary_resolver = binary_resolver
 
+    def healthcheck(self) -> bool:
+        return self._binary_resolver(self.harness) is not None
+
     def launch(self, prompt: str, *, allowed_roles: set[str]) -> TransportResult:
         self._ensure_available()
         command, session_id = self._build_launch_command(prompt)
@@ -137,7 +140,7 @@ class Transport(ABC):
         raise NotImplementedError
 
     def _ensure_available(self) -> None:
-        if self._binary_resolver(self.harness) is None:
+        if not self.healthcheck():
             raise TransportNotAvailableError(f"{self.harness} is not installed")
 
     def _run_command(self, command: list[str]) -> subprocess.CompletedProcess[str]:
