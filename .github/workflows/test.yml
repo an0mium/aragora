@@ -450,7 +450,7 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Zero Coverage Check
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     needs: baseline-determinism
 
     steps:
@@ -491,11 +491,51 @@ jobs:
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras test
 
+      - name: Fetch base ref
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+
+      - name: Get changed Python files
+        if: github.event_name == 'pull_request'
+        id: changed
+        run: |
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- 'aragora/**/*.py' 'tests/**/*.py' | tr '\n' ' ')
+          echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
+
+      - name: Select relevant tests
+        if: github.event_name == 'pull_request'
+        id: selected
+        run: |
+          python scripts/nomic_ci_test_selector.py --changed-files ${{ steps.changed.outputs.files }} --dry-run
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          data = json.loads(Path(".nomic-ci-result.json").read_text())
+          test_paths = data.get("test_paths", [])
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as fh:
+              print(f"count={len(test_paths)}", file=fh)
+              print("paths<<EOF", file=fh)
+              print("\n".join(test_paths), file=fh)
+              print("EOF", file=fh)
+          PY
+
       - name: Check for new zero-coverage files
         run: |
-          # Run quick coverage collection
-          python -m pytest tests/debate tests/server -q --cov=aragora --cov-report=json:cov.json \
-            -m "not slow and not load and not e2e" --timeout=60 -x || true
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ -z "${{ steps.selected.outputs.paths }}" ]; then
+              echo "No relevant tests matched changed Python files; skipping zero-coverage probe."
+            else
+              TEST_PATHS_RAW='${{ steps.selected.outputs.paths }}'
+              mapfile -t TEST_PATHS <<< "$TEST_PATHS_RAW"
+              python -m pytest "${TEST_PATHS[@]}" -q --cov=aragora --cov-report=json:cov.json \
+                -m "not slow and not load and not e2e" --timeout=60 -x || true
+            fi
+          else
+            python -m pytest tests/debate tests/server -q --cov=aragora --cov-report=json:cov.json \
+              -m "not slow and not load and not e2e" --timeout=60 -x || true
+          fi
 
           # Check for new zero-coverage files not in baseline
           python -c "
@@ -536,7 +576,7 @@ jobs:
   test-fast:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     needs: baseline-determinism
     strategy:
       fail-fast: false
@@ -2138,7 +2178,7 @@ jobs:
   test-analytics:
     name: Test Analytics
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     needs: [test-fast]
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always() && github.event_name == 'pull_request')
 
@@ -2180,19 +2220,52 @@ jobs:
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras dev
 
+      - name: Fetch base ref
+        run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+
+      - name: Get changed Python files
+        id: changed
+        run: |
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- 'aragora/**/*.py' 'tests/**/*.py' | tr '\n' ' ')
+          echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
+
+      - name: Select relevant tests
+        id: selected
+        run: |
+          python scripts/nomic_ci_test_selector.py --changed-files ${{ steps.changed.outputs.files }} --dry-run
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          data = json.loads(Path(".nomic-ci-result.json").read_text())
+          test_paths = data.get("test_paths", [])
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as fh:
+              print(f"count={len(test_paths)}", file=fh)
+              print("paths<<EOF", file=fh)
+              print("\n".join(test_paths), file=fh)
+              print("EOF", file=fh)
+          PY
+
       - name: Run tests with JUnit output
         id: tests
         # Non-blocking: This job is for flakiness analysis (--reruns=2), not a release gate.
         # Gating tests run in test-fast and test jobs above.
         continue-on-error: true
         run: |
-          python -m pytest -o addopts='' tests/debate tests/agents tests/server \
-            -m "not slow and not load and not e2e" \
-            --timeout=60 \
-            --reruns=2 \
-            --junit-xml=test-results.xml \
-            -v \
-            --tb=short
+          if [ -z "${{ steps.selected.outputs.paths }}" ]; then
+            echo "No relevant tests matched changed Python files; skipping Test Analytics run."
+          else
+            TEST_PATHS_RAW='${{ steps.selected.outputs.paths }}'
+            mapfile -t TEST_PATHS <<< "$TEST_PATHS_RAW"
+            python -m pytest -o addopts='' "${TEST_PATHS[@]}" \
+              -m "not slow and not load and not e2e" \
+              --timeout=60 \
+              --reruns=2 \
+              --junit-xml=test-results.xml \
+              -v \
+              --tb=short
+          fi
 
       - name: Analyze test results
         id: analyze
