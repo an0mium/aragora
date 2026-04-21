@@ -300,6 +300,7 @@ class TestInvalidateIfHeadChanged:
         events = [e for e in _index_events(briefs_dir) if e["event"] == "stale"]
         assert len(events) == 1
         assert events[0]["reason"] == "head_advanced"
+        assert events[0]["head_sha"] == old_sha
         assert events[0]["new_head_sha_short"] == new_sha[:12]
 
     def test_no_move_when_sha_unchanged(self, briefs_dir):

@@ -557,10 +557,18 @@ def invalidate_if_head_changed(pr_number: int, current_head_sha: str) -> bool:
     for path in find_ready_briefs_for_pr(pr_number):
         if path.name == current_filename:
             continue
+        prior_payload = _safe_read_json(path)
         # Extract the SHA-short from the filename for the event record.
         # Filename shape: pr-{n}-{sha12}.json
         stem = path.stem  # e.g., "pr-6328-6a7dfc5e5135"
         prior_sha_short = stem.split("-", 2)[-1] if stem.count("-") >= 2 else ""
+        prior_head_sha = str((prior_payload or {}).get("head_sha") or "")
+        if not prior_head_sha:
+            logger.warning(
+                "pdb.storage: ready brief %s missing full head_sha; using filename short SHA in stale event",
+                path,
+            )
+            prior_head_sha = prior_sha_short
         destination = path.parent / INVALIDATED_SUBDIR / path.name
         try:
             _atomic_move(path, destination)
@@ -570,7 +578,7 @@ def invalidate_if_head_changed(pr_number: int, current_head_sha: str) -> bool:
         moved_any = True
         append_index_event(
             pr_number,
-            prior_sha_short,
+            prior_head_sha,
             "stale",
             {
                 "reason": "head_advanced",
