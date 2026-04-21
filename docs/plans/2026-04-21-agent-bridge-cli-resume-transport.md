@@ -89,17 +89,31 @@ Three initial adapters: `claude.py`, `codex.py`, `droid.py`.
 **Claude Code adapter:**
 - Start: `claude -p --session-id <broker-assigned-uuid> "<prompt>"`
 - Resume: `claude -p --resume <uuid> "<prompt>"`
-- Broker assigns UUID (claude supports this).
+- Broker assigns UUID. **Must be a valid UUID** (claude help: `--session-id <uuid>  Use a specific session ID ... (must be a valid UUID)`). Use `uuid.uuid4()` or equivalent — arbitrary strings are rejected.
+- **Session persistence verified**: sessions are stored as `~/.claude/projects/<cwd-mangled>/<session-uuid>.jsonl` (standard disk files). Confirmed present across multiple days / machine state changes on this machine (oldest session observed: 2025-12-10). Resume survives restarts by virtue of filesystem persistence.
 
 **Codex adapter:**
-- Start: `codex exec "<prompt>"`
-- Session ID discovery: parse `session id: <uuid>` from stdout header. Prefer `codex exec --json` (NOT `--output-format json` — that flag does not exist on codex exec) if it emits a clean `thread_id` field — verify in implementation. Fall back to header parsing (stable across codex ≥ 0.121 observed to date).
-- Resume: `codex exec resume <session_id> "<prompt>"`
+- Start: `codex exec --json "<prompt>"` (NOT `--output-format json` — that flag does not exist on codex exec)
+- Session ID discovery: **verified** — `--json` emits JSONL with the first event being `{"type":"thread.started","thread_id":"<uuid>"}`. Parse that line; fall back to `session id:` header in plain-text mode.
+- Resume: `codex exec resume <thread_id> "<prompt>"`
+- Sample first-turn JSONL (captured 2026-04-21, codex v0.121):
+  ```
+  {"type":"thread.started","thread_id":"019db172-4d01-7072-860c-99114afe8792"}
+  {"type":"turn.started"}
+  {"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"OK"}}
+  {"type":"turn.completed","usage":{"input_tokens":27138,...}}
+  ```
 
 **Droid adapter:**
-- Start: `droid exec --auto low "<prompt>"`
-- Session ID discovery: check if `droid exec --output-format json` emits `sessionId` in stdout (droid exec DOES document `--output-format`, unlike codex exec which uses `--json`). If not, read `~/.factory/sessions/<cwd-mangled>/last.settings.json` (filesystem-stable per 2026-04-21 observation).
+- Start: `droid exec --auto low --output-format json "<prompt>"`
+- Session ID discovery: **verified** — `--output-format json` emits a single JSON object on stdout with `session_id` as a first-class field. Filesystem fallback (`~/.factory/sessions/<cwd-mangled>/last.settings.json`) remains available if `--output-format json` is unavailable in future versions.
 - Resume: `droid exec --auto low -s <session_id> "<prompt>"`
+- Sample first-turn JSON (captured 2026-04-21, droid v0.103):
+  ```json
+  {"type":"result","subtype":"success","is_error":false,"duration_ms":4637,
+   "num_turns":1,"result":"OK","session_id":"0cd2d3a0-81ef-47d1-9216-9beaeba60455",
+   "usage":{"input_tokens":6,"output_tokens":6,...}}
+  ```
 
 ### Persistence layout (repo-local, not home-scoped)
 
@@ -140,6 +154,8 @@ Repair budget: 1 retry. After that, the turn is surfaced for human review.
 ### Worktree reuse
 
 Each logical agent gets its own worktree via the existing `scripts/codex_worktree_autopilot.py` before the first turn. Broker stores `worktree_path` and `branch` alongside the session ID in `sessions.json`. This keeps agent file edits isolated and enables `git worktree remove` on run completion.
+
+**Impedance note for PR 2 implementers**: `codex_worktree_autopilot.py` exposes `--agent <name>` (defaults to `codex`) and is keyed on the *harness track*, not on the *logical role* (reviewer / synthesizer / etc.). The broker must invoke it N times with distinct slugs per role (e.g., `--agent bridge-reviewer-a`, `--agent bridge-reviewer-b`), or add a thin wrapper. This is NOT a drop-in call.
 
 ## Delivery sequence
 
@@ -199,13 +215,18 @@ Explicitly **out of scope** for v0:
 - API tests: run list, run detail, event stream.
 - UI tests: run list renders, run detail shows interleaved turns per agent, pending-human gates render distinctly.
 
-## Open questions (for PR 2 author)
+## Resolved spikes (2026-04-21)
 
-1. Codex `exec --json` (the real flag is `--json`, NOT `--output-format json`): does it emit `thread_id` as a first-class field, or must the broker parse it from the header line?
-2. Droid `exec --output-format json`: does it emit `sessionId` to stdout, or only to the filesystem settings file?
-3. Claude Code `--session-id`: does broker-assigned UUID survive across machine restarts / `--resume` on a separate day? (Likely yes per `~/.claude/projects/` layout, but verify.)
-4. Footer contract: should the broker inject the footer template into every outgoing prompt, or rely on each agent to know the contract via their system prompt? (Leaning inject — less surprise, more reliable on fresh sessions.)
-5. Worktree cleanup: automatic on run completion, or operator-triggered? (Leaning operator-triggered for v0 — safer against partial-run salvage.)
+Questions 1–3 from the original draft are resolved inline via the per-harness adapter sections above. Briefly:
+
+1. **Codex `exec --json`**: emits `{"type":"thread.started","thread_id":"<uuid>"}` as the first JSONL event. First-class field. Parse this; fall back to `session id:` header.
+2. **Droid `exec --output-format json`**: emits a single JSON object with `session_id` as a first-class field. First-class. Filesystem fallback still available.
+3. **Claude `--session-id` survival**: sessions persist as `~/.claude/projects/<cwd-mangled>/<session-uuid>.jsonl`. Disk-backed, survives restarts by filesystem persistence (oldest session observed on primary dev machine: 2025-12-10).
+
+## Remaining open questions (for PR 2 author)
+
+1. Footer contract: should the broker inject the footer template into every outgoing prompt, or rely on each agent to know the contract via their system prompt? (Leaning inject — less surprise, more reliable on fresh sessions.)
+2. Worktree cleanup: automatic on run completion, or operator-triggered? (Leaning operator-triggered for v0 — safer against partial-run salvage.)
 
 ## Amendments applied from Codex's original plan
 
