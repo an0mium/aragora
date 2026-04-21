@@ -514,7 +514,11 @@ jobs:
 
           data = json.loads(Path(".nomic-ci-result.json").read_text())
           test_paths = data.get("test_paths", [])
+          status = data.get("status", "")
+          changed_python_files = data.get("changed_python_files", [])
           with Path(os.environ["GITHUB_OUTPUT"]).open("a") as fh:
+              print(f"status={status}", file=fh)
+              print(f"changed_python_count={len(changed_python_files)}", file=fh)
               print(f"count={len(test_paths)}", file=fh)
               print("paths<<EOF", file=fh)
               print("\n".join(test_paths), file=fh)
@@ -524,8 +528,11 @@ jobs:
       - name: Check for new zero-coverage files
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if [ -z "${{ steps.selected.outputs.paths }}" ]; then
-              echo "No relevant tests matched changed Python files; skipping zero-coverage probe."
+            if [ "${{ steps.selected.outputs.status }}" = "skipped" ]; then
+              echo "No changed Python files required PR-scoped zero-coverage probing; skipping."
+            elif [ -z "${{ steps.selected.outputs.paths }}" ]; then
+              echo "::error::PR-scoped coverage selector returned no tests for changed Python files"
+              exit 1
             else
               TEST_PATHS_RAW='${{ steps.selected.outputs.paths }}'
               mapfile -t TEST_PATHS <<< "$TEST_PATHS_RAW"
