@@ -114,8 +114,8 @@ def main(
             return 0
 
         if args.command == "list-runs":
-            status = args.status if isinstance(args.status, str) else None
-            runs = broker.list_runs(status=status if status is not None else None)
+            status: RunStatus | None = args.status
+            runs = broker.list_runs(status=status)
             _emit({"runs": [run.to_dict() for run in runs]}, as_json=args.json)
             return 0
     except ValueError as exc:
