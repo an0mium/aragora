@@ -415,3 +415,180 @@ class TestValidation:
     def test_empty_votes_raise(self) -> None:
         with pytest.raises(ValueError, match="non-empty"):
             _build([])
+
+
+# --- output_roles coverage (codex rev 1 finding P1) ----------------------
+
+
+class TestOutputRoleCoverage:
+    """``output_roles`` enforces ``PRReviewProtocol.output_roles`` contract:
+    each declared role must appear in exactly one vote. Panel members with
+    roles outside ``output_roles`` are tolerated as extras (e.g., a
+    SYNTHESIZER panelist not declared as an output section).
+    """
+
+    def test_default_none_skips_coverage_check(self) -> None:
+        # Backwards-compatible: existing callers that don't pass
+        # output_roles get no enforcement (matches pre-revision behavior).
+        votes = [
+            _vote(role=ReviewRole.LOGIC, agent="a1", position=DissentPosition.APPROVE),
+        ]
+        brief = _build(votes)
+        assert brief.recommendation is Recommendation.APPROVE_CANDIDATE
+
+    def test_full_coverage_passes(self) -> None:
+        votes = [
+            _vote(role=ReviewRole.LOGIC, agent="a1", position=DissentPosition.APPROVE),
+            _vote(role=ReviewRole.SECURITY, agent="a2", position=DissentPosition.APPROVE),
+            _vote(role=ReviewRole.MAINTAINABILITY, agent="a3", position=DissentPosition.APPROVE),
+            _vote(role=ReviewRole.SKEPTIC, agent="a4", position=DissentPosition.APPROVE),
+        ]
+        brief = build_brief(
+            votes=votes,
+            pr_number=6306,
+            repo="synaptent/aragora",
+            head_sha="x",
+            base_sha="y",
+            top_line="",
+            validation_summary="",
+            generated_at="2026-04-20T12:00:00+00:00",
+            synthesis_policy=SynthesisPolicy.MAJORITY,
+            output_roles=(
+                ReviewRole.LOGIC,
+                ReviewRole.SECURITY,
+                ReviewRole.MAINTAINABILITY,
+                ReviewRole.SKEPTIC,
+            ),
+        )
+        assert brief.recommendation is Recommendation.APPROVE_CANDIDATE
+
+    def test_missing_required_role_raises(self) -> None:
+        votes = [
+            _vote(role=ReviewRole.LOGIC, agent="a1", position=DissentPosition.APPROVE),
+            _vote(role=ReviewRole.SECURITY, agent="a2", position=DissentPosition.APPROVE),
+        ]
+        with pytest.raises(ValueError, match="missing roles.*maintainability_reviewer"):
+            build_brief(
+                votes=votes,
+                pr_number=6306,
+                repo="synaptent/aragora",
+                head_sha="x",
+                base_sha="y",
+                top_line="",
+                validation_summary="",
+                generated_at="2026-04-20T12:00:00+00:00",
+                synthesis_policy=SynthesisPolicy.MAJORITY,
+                output_roles=(
+                    ReviewRole.LOGIC,
+                    ReviewRole.SECURITY,
+                    ReviewRole.MAINTAINABILITY,
+                ),
+            )
+
+    def test_duplicated_required_role_raises(self) -> None:
+        # Two LOGIC votes in the panel; the brief can't decide which one to
+        # render in the LOGIC section.
+        votes = [
+            _vote(role=ReviewRole.LOGIC, agent="a1", position=DissentPosition.APPROVE),
+            _vote(role=ReviewRole.LOGIC, agent="a2", position=DissentPosition.APPROVE),
+            _vote(role=ReviewRole.SECURITY, agent="a3", position=DissentPosition.APPROVE),
+        ]
+        with pytest.raises(ValueError, match="duplicated roles.*logic_reviewer"):
+            build_brief(
+                votes=votes,
+                pr_number=6306,
+                repo="synaptent/aragora",
+                head_sha="x",
+                base_sha="y",
+                top_line="",
+                validation_summary="",
+                generated_at="2026-04-20T12:00:00+00:00",
+                synthesis_policy=SynthesisPolicy.MAJORITY,
+                output_roles=(ReviewRole.LOGIC, ReviewRole.SECURITY),
+            )
+
+    def test_extra_panel_role_tolerated(self) -> None:
+        # SYNTHESIZER is in the panel (e.g., for SYNTHESIZER_AGENT policy)
+        # but NOT in output_roles. Should not raise.
+        votes = [
+            _vote(role=ReviewRole.LOGIC, agent="a1", position=DissentPosition.APPROVE),
+            _vote(role=ReviewRole.SECURITY, agent="a2", position=DissentPosition.APPROVE),
+            _vote(role=ReviewRole.SYNTHESIZER, agent="syn", position=DissentPosition.APPROVE),
+        ]
+        brief = build_brief(
+            votes=votes,
+            pr_number=6306,
+            repo="synaptent/aragora",
+            head_sha="x",
+            base_sha="y",
+            top_line="",
+            validation_summary="",
+            generated_at="2026-04-20T12:00:00+00:00",
+            synthesis_policy=SynthesisPolicy.SYNTHESIZER_AGENT,
+            output_roles=(ReviewRole.LOGIC, ReviewRole.SECURITY),
+        )
+        assert brief.recommendation is Recommendation.APPROVE_CANDIDATE
+        # The SYNTHESIZER finding still appears in role_findings — extras
+        # are not stripped, only validated against output_roles.
+        assert any(f.role is ReviewRole.SYNTHESIZER for f in brief.role_findings)
+
+
+# --- confidence clamping (codex rev 1 finding P2) ------------------------
+
+
+class TestConfidenceClamping:
+    """``overall_confidence`` is documented as 0.0..1.0. Per-input clamping
+    in ``_aggregate_confidence`` mirrors ``_weighted``'s defensive treatment
+    so the brief stays within contract even if upstream emits malformed
+    confidence values.
+    """
+
+    def test_negative_confidence_clamped_to_zero(self) -> None:
+        votes = [
+            _vote(
+                role=ReviewRole.LOGIC, agent="a1", position=DissentPosition.APPROVE, confidence=-0.5
+            ),
+            _vote(
+                role=ReviewRole.SECURITY,
+                agent="a2",
+                position=DissentPosition.APPROVE,
+                confidence=0.8,
+            ),
+        ]
+        brief = _build(votes)
+        # -0.5 clamps to 0.0, so mean = (0.0 + 0.8) / 2 = 0.4 (not -0.35 / 2 = +0.15).
+        assert brief.overall_confidence == pytest.approx(0.4)
+        assert 0.0 <= brief.overall_confidence <= 1.0
+
+    def test_above_one_confidence_clamped_to_one(self) -> None:
+        votes = [
+            _vote(
+                role=ReviewRole.LOGIC, agent="a1", position=DissentPosition.APPROVE, confidence=1.5
+            ),
+            _vote(
+                role=ReviewRole.SECURITY,
+                agent="a2",
+                position=DissentPosition.APPROVE,
+                confidence=0.6,
+            ),
+        ]
+        brief = _build(votes)
+        # 1.5 clamps to 1.0, so mean = (1.0 + 0.6) / 2 = 0.8 (not 1.05).
+        assert brief.overall_confidence == pytest.approx(0.8)
+        assert 0.0 <= brief.overall_confidence <= 1.0
+
+    def test_in_range_confidence_unchanged(self) -> None:
+        # Clamping must be a no-op for well-formed input.
+        votes = [
+            _vote(
+                role=ReviewRole.LOGIC, agent="a1", position=DissentPosition.APPROVE, confidence=0.7
+            ),
+            _vote(
+                role=ReviewRole.SECURITY,
+                agent="a2",
+                position=DissentPosition.APPROVE,
+                confidence=0.5,
+            ),
+        ]
+        brief = _build(votes)
+        assert brief.overall_confidence == pytest.approx(0.6)

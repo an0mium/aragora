@@ -85,6 +85,7 @@ def build_brief(
     validation_summary: str,
     generated_at: str,
     synthesis_policy: SynthesisPolicy,
+    output_roles: tuple[ReviewRole, ...] | None = None,
     total_cost_usd: float = 0.0,
     total_wall_clock_ms: int = 0,
 ) -> ReviewBrief:
@@ -95,14 +96,25 @@ def build_brief(
     panel; this layer does not enforce heterogeneity (lives in the
     orchestrator successor PR).
 
+    ``output_roles`` enforces ``PRReviewProtocol.output_roles`` coverage
+    when provided: each declared role MUST appear in exactly one vote.
+    Panel members carrying roles NOT in ``output_roles`` (e.g., a
+    ``SYNTHESIZER`` panelist used by ``SYNTHESIZER_AGENT`` policy) are
+    permitted as extras and still appear in ``role_findings``. Pass
+    ``None`` (default) to skip the coverage check.
+
     Raises:
       ValueError: if ``votes`` is empty.
       ValueError: if ``synthesis_policy`` is ``SYNTHESIZER_AGENT`` and
         the panel does not contain exactly one ``ReviewRole.SYNTHESIZER``.
+      ValueError: if ``output_roles`` is provided and any declared role
+        is missing or appears in more than one vote.
     """
     votes_tuple = tuple(votes)
     if not votes_tuple:
         raise ValueError("votes must be non-empty")
+    if output_roles is not None:
+        _validate_output_role_coverage(votes_tuple, output_roles)
 
     recommendation = _resolve_recommendation(votes_tuple, synthesis_policy)
     dissent = _build_dissent(votes_tuple, recommendation)
@@ -229,7 +241,38 @@ def _build_dissent(
 
 
 def _aggregate_confidence(votes: tuple[PanelVote, ...]) -> float:
-    return sum(v.finding.confidence for v in votes) / len(votes)
+    """Mean of per-finding confidence, clamped per-input to [0.0, 1.0].
+
+    ``ReviewBrief.overall_confidence`` is documented as 0.0..1.0; raw
+    means could escape that range if upstream emits malformed values.
+    Per-input clamping mirrors the defensive treatment in ``_weighted``
+    so the recommendation policy and the emitted brief stay consistent.
+    """
+    return sum(min(1.0, max(0.0, v.finding.confidence)) for v in votes) / len(votes)
+
+
+def _validate_output_role_coverage(
+    votes: tuple[PanelVote, ...],
+    output_roles: tuple[ReviewRole, ...],
+) -> None:
+    """Enforce ``PRReviewProtocol.output_roles``: one finding per declared role.
+
+    Per the protocol docstring, a brief MUST cover every declared role
+    exactly once. Missing → non-conformant; duplicated → ambiguous which
+    finding to render in the role section.
+    """
+    counts: dict[ReviewRole, int] = {}
+    for v in votes:
+        counts[v.finding.role] = counts.get(v.finding.role, 0) + 1
+    missing = [r for r in output_roles if counts.get(r, 0) == 0]
+    duplicated = [r for r in output_roles if counts.get(r, 0) > 1]
+    if missing or duplicated:
+        parts = []
+        if missing:
+            parts.append(f"missing roles: {[r.value for r in missing]}")
+        if duplicated:
+            parts.append(f"duplicated roles: {[r.value for r in duplicated]}")
+        raise ValueError("PRReviewProtocol.output_roles coverage violated — " + "; ".join(parts))
 
 
 def _disagreement_score(votes: tuple[PanelVote, ...]) -> float:
