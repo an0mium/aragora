@@ -97,6 +97,8 @@ def ensure_worktree(
         else:
             session["last_seen_at"] = module._utc_now().isoformat()
 
+    if session is None:
+        raise RuntimeError("agent-bridge worktree session was not assigned")
     module._annotate_session(
         resolved_repo_root,
         session,
