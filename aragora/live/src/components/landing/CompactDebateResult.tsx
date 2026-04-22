@@ -212,7 +212,6 @@ export function CompactDebateResult({ result, onWrongAnswer, onShare }: CompactD
               const displayName = agentDisplayName(agent);
               const round = proposalRound(agent);
               const isExpanded = expandedAgent === agent;
-              const proposalText = getProposalText(agent);
 
               return (
                 <button

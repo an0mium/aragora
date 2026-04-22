@@ -159,7 +159,6 @@ export function ReviewQueueCard({
       if (status === 503) {
         // Feature flag off mid-session. Fall back to legacy confirm.
         if (typeof window !== 'undefined') {
-          // eslint-disable-next-line no-console
           console.info('brief generation is disabled on this backend');
         }
       } else {
