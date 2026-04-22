@@ -456,6 +456,8 @@ class TestSystemRoles:
             "debate_creator",
             "team_lead",
             "analyst",
+            "developer",
+            "ops_reviewer",
             "viewer",
             "member",
         }

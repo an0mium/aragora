@@ -1312,6 +1312,172 @@ AGENT_BRIDGE_TRANSCRIPT_RESPONSE_SCHEMA: dict[str, Any] = {
 
 
 # ---------------------------------------------------------------------------
+# Review-queue triage metrics (gap #6373, Commitment 5 of docs/THESIS.md)
+# ---------------------------------------------------------------------------
+
+# Every rate-style field is nullable so the caller can distinguish
+# "zero data / sparse window" from "zero events". Counts are always
+# populated so clients can render the denominator next to the rate.
+
+_TRIAGE_WINDOW_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "window_label",
+        "window_days",
+        "window_start",
+        "window_end",
+        "total_decisions",
+        "escalation_rate",
+        "auto_handle_override_rate",
+        "human_override_outcome_correlation",
+        "settlement_duration_median_s",
+        "settlement_duration_p95_s",
+        "counts",
+        "notes",
+    ],
+    "properties": {
+        "window_label": {
+            "type": "string",
+            "description": "Human-readable window width (e.g. '7d', '30d')",
+        },
+        "window_days": {"type": "integer", "minimum": 1},
+        "window_start": {"type": "string", "format": "date-time"},
+        "window_end": {"type": "string", "format": "date-time"},
+        "total_decisions": {"type": "integer", "minimum": 0},
+        "escalation_rate": {
+            "type": ["number", "null"],
+            "description": "escalations_to_human / total_decisions (nullable when sparse)",
+        },
+        "auto_handle_override_rate": {
+            "type": ["number", "null"],
+            "description": (
+                "overridden_auto_handles / auto_handled. Null when no auto-handle "
+                "lane is active or the window is sparse."
+            ),
+        },
+        "human_override_outcome_correlation": {
+            "type": ["number", "null"],
+            "minimum": -1,
+            "maximum": 1,
+            "description": (
+                "For human-override decisions with a recorded final_outcome, the "
+                "fraction that confirmed the ensemble minus the fraction that "
+                "disagreed. Currently null until settlement receipts carry "
+                "post-merge outcome data (follow-up to #6373)."
+            ),
+        },
+        "settlement_duration_median_s": {
+            "type": ["number", "null"],
+            "description": "Median settlement duration (seconds) for escalated decisions.",
+        },
+        "settlement_duration_p95_s": {
+            "type": ["number", "null"],
+            "description": "p95 settlement duration (seconds) for escalated decisions.",
+        },
+        "counts": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "escalations",
+                "auto_handled",
+                "auto_handle_overrides",
+                "human_overrides",
+                "human_overrides_with_outcome",
+                "settlement_samples",
+            ],
+            "properties": {
+                "escalations": {"type": "integer", "minimum": 0},
+                "auto_handled": {"type": "integer", "minimum": 0},
+                "auto_handle_overrides": {"type": "integer", "minimum": 0},
+                "human_overrides": {"type": "integer", "minimum": 0},
+                "human_overrides_with_outcome": {"type": "integer", "minimum": 0},
+                "settlement_samples": {"type": "integer", "minimum": 0},
+            },
+        },
+        "notes": {
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+            "description": (
+                "Explanations keyed by metric name for any null-valued metric "
+                "above. Empty when no metrics were suppressed."
+            ),
+        },
+    },
+}
+
+
+_TRIAGE_DRIFT_ENTRY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["current", "previous", "delta", "exceeded_threshold"],
+    "properties": {
+        "current": {"type": ["number", "null"]},
+        "previous": {"type": ["number", "null"]},
+        "delta": {"type": ["number", "null"]},
+        "exceeded_threshold": {"type": "boolean"},
+    },
+}
+
+
+_REVIEW_QUEUE_TRIAGE_METRICS_ENDPOINTS: dict[str, Any] = {
+    "/api/v1/review-queue/triage-metrics": {
+        "get": {
+            "tags": ["Review Queue"],
+            "summary": "Rolling-window triage metrics",
+            "operationId": "getReviewQueueTriageMetrics",
+            "description": (
+                "Returns rolling 7-day and 30-day aggregates for the four "
+                "Commitment-5 metrics named in docs/THESIS.md: escalation "
+                "rate, auto-handle override rate, human-override-outcome "
+                "correlation, and time-per-settlement (median + p95). "
+                "The response also includes advisory drift detection "
+                "between the two windows. Metrics that cannot be computed "
+                "from the current receipt schema are returned as null "
+                "with an explanation in the window's ``notes`` block. "
+                "Supports ETag / If-None-Match conditional GETs."
+            ),
+            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "responses": {
+                "200": _ok_response(
+                    "Rolling-window triage metrics",
+                    {
+                        "windows": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["7d", "30d"],
+                            "properties": {
+                                "7d": _TRIAGE_WINDOW_SCHEMA,
+                                "30d": _TRIAGE_WINDOW_SCHEMA,
+                            },
+                        },
+                        "drift": {
+                            "type": "object",
+                            "additionalProperties": _TRIAGE_DRIFT_ENTRY_SCHEMA,
+                            "description": (
+                                "Advisory drift between the latest and "
+                                "previous window, keyed by metric name."
+                            ),
+                        },
+                        "generated_at": {"type": "string", "format": "date-time"},
+                        "commitment": {
+                            "type": "string",
+                            "description": "Source of authority (docs/THESIS.md Commitment 5).",
+                        },
+                    },
+                ),
+                "304": {"description": "Not Modified — ETag matched If-None-Match."},
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "429": STANDARD_ERRORS["429"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    }
+}
+
+
+# ---------------------------------------------------------------------------
 # Combined export
 # ---------------------------------------------------------------------------
 RESPONSE_SCHEMA_ENDPOINTS = {
@@ -1320,6 +1486,7 @@ RESPONSE_SCHEMA_ENDPOINTS = {
     **_SYSTEM_SCHEMA_ENDPOINTS,
     **_MONITORING_SCHEMA_ENDPOINTS,
     **_MEDIA_SCHEMA_ENDPOINTS,
+    **_REVIEW_QUEUE_TRIAGE_METRICS_ENDPOINTS,
 }
 
 __all__ = [
