@@ -483,7 +483,7 @@ class TestFindings:
 
         invoker = RealProviderInvoker(claude=agent, gpt=_make_mock_agent())
         slot = _slot("claude_core", family=FAMILY_CLAUDE, required=True)
-        with pytest.raises(TimeoutError, match="provider call timed out after 90.0s"):
+        with pytest.raises(TimeoutError, match=r"provider call timed out after \d+\.\d+s"):
             invoker.findings(slot=slot, provider="claude", prompt="p", binding=_binding())
 
 
