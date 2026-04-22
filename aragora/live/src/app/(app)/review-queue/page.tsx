@@ -10,6 +10,7 @@ import {
   ReviewQueueList,
   StatsHeader,
 } from '@/components/review-queue';
+import { Mode3LiveBanner } from '@/components/review-queue/Mode3LiveBanner';
 
 /**
  * PDB UI v0 — browser-based PR review queue.
@@ -71,6 +72,8 @@ export default function ReviewQueuePage() {
             Presidential-brief-style PR settlement. Scan, decide, move on.
           </p>
         </div>
+
+        <Mode3LiveBanner />
 
       <StatsHeader
         visible={visible}
