@@ -102,9 +102,7 @@ except Exception:  # noqa: BLE001 — never block CLI startup on hydration issue
     # If Secrets Manager isn't reachable, the CLI still works with plain env
     # vars set in the parent shell. _build_invoker() will surface a clear
     # error if no keys are available for the required core slots.
-    logging.getLogger(__name__).debug(
-        "hydrate_env_from_secrets unavailable; falling back to env"
-    )
+    logging.getLogger(__name__).debug("hydrate_env_from_secrets unavailable; falling back to env")
 
 from aragora.pdb import storage
 from aragora.pdb.brief_state import BriefLifecycleState
