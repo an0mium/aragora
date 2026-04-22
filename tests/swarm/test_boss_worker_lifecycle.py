@@ -859,9 +859,7 @@ class TestDispatchIssueSanitizerBlocking:
         sanitization = _make_sanitization(SanitizationOutcome.DROPPED)
 
         with _patch_sanitizer_and_module(SanitizationOutcome.DROPPED, sanitization, loop):
-            result = asyncio.get_event_loop().run_until_complete(
-                dispatch_issue(loop, issue, _fresh_result())
-            )
+            result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert result["status"] == "needs_human"
         assert result["outcome"] == "sanitation_failed"
@@ -872,9 +870,7 @@ class TestDispatchIssueSanitizerBlocking:
         sanitization = _make_sanitization(SanitizationOutcome.DROPPED)
 
         with _patch_sanitizer_and_module(SanitizationOutcome.DROPPED, sanitization, loop):
-            result = asyncio.get_event_loop().run_until_complete(
-                dispatch_issue(loop, issue, _fresh_result())
-            )
+            result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert "sanitizer_outcome" in result
         assert result["sanitizer_outcome"] == "dropped"
@@ -889,9 +885,7 @@ class TestDispatchIssueSanitizerBlocking:
         )
 
         with _patch_sanitizer_and_module(SanitizationOutcome.DROPPED, sanitization, loop):
-            result = asyncio.get_event_loop().run_until_complete(
-                dispatch_issue(loop, issue, _fresh_result())
-            )
+            result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert result["outcome"] == "verification_target_missing"
 
@@ -1009,9 +1003,7 @@ class TestDispatchIssuePreDispatchGate:
                 "aragora.swarm.dispatch_followups.maybe_upgrade_dispatch_spec",
                 side_effect=lambda **kw: kw.get("spec"),
             ):
-                result = asyncio.get_event_loop().run_until_complete(
-                    dispatch_issue(loop, issue, _fresh_result())
-                )
+                result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert result["status"] == "needs_human"
         assert result["outcome"] == "sanitation_failed"
@@ -1028,9 +1020,7 @@ class TestDispatchIssuePreDispatchGate:
                 "aragora.swarm.dispatch_followups.maybe_upgrade_dispatch_spec",
                 side_effect=lambda **kw: kw.get("spec"),
             ):
-                result = asyncio.get_event_loop().run_until_complete(
-                    dispatch_issue(loop, issue, _fresh_result())
-                )
+                result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert result["status"] == "needs_human"
         assert result["outcome"] == "verification_target_missing"
@@ -1092,9 +1082,7 @@ class TestDispatchIssueDispatchDisabled:
                     "aragora.swarm.dispatch_followups.maybe_upgrade_dispatch_spec",
                     return_value=spec_mock,
                 ):
-                    result = asyncio.get_event_loop().run_until_complete(
-                        dispatch_issue(loop, issue, _fresh_result())
-                    )
+                    result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert result["status"] == "needs_human"
         assert result["outcome"] == "preview_only"
@@ -1113,9 +1101,7 @@ class TestDispatchIssueUnderClaim:
         issue = _make_issue(number=5)
         freshness = _fresh_result()
 
-        result = asyncio.get_event_loop().run_until_complete(
-            dispatch_issue_under_claim(loop, issue, freshness)
-        )
+        result = asyncio.run(dispatch_issue_under_claim(loop, issue, freshness))
 
         loop._release_issue_dispatch_claim.assert_called_once_with(5)
         loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
@@ -1132,9 +1118,7 @@ class TestDispatchIssueUnderClaim:
 
         loop._dispatch_issue = AsyncMock(side_effect=_raise)
         with pytest.raises(RuntimeError, match="dispatch error"):
-            asyncio.get_event_loop().run_until_complete(
-                dispatch_issue_under_claim(loop, issue, freshness)
-            )
+            asyncio.run(dispatch_issue_under_claim(loop, issue, freshness))
 
         loop._release_issue_dispatch_claim.assert_called_once_with(6)
         loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
@@ -1147,9 +1131,7 @@ class TestDispatchIssueUnderClaim:
         freshness = _fresh_result()
 
         loop._dispatch_issue = AsyncMock(return_value=expected)
-        result = asyncio.get_event_loop().run_until_complete(
-            dispatch_issue_under_claim(loop, issue, freshness)
-        )
+        result = asyncio.run(dispatch_issue_under_claim(loop, issue, freshness))
 
         loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
         assert result == expected
