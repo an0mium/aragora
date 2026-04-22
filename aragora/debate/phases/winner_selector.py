@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 from aragora.agents.errors import _build_error_action
+from aragora.debate.phases._phase_invariant import require_phase_result
 
 if TYPE_CHECKING:
     from aragora.core import Agent
@@ -81,7 +82,7 @@ class WinnerSelector:
             normalize_choice: Function to normalize choice to agent name
             threshold_override: Optional override for consensus threshold
         """
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
 
         if not vote_counts:
@@ -183,7 +184,7 @@ class WinnerSelector:
         if not self.calibration_tracker:
             return
 
-        result = ctx.result
+        result = require_phase_result(ctx)
         try:
             debate_id = (
                 result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
@@ -224,7 +225,7 @@ class WinnerSelector:
             total_voters: Total number of voters
             count: Number of votes for winner
         """
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
 
         result.final_answer = proposals.get(
@@ -301,7 +302,7 @@ class WinnerSelector:
             count: Number of votes for winner
             choice_mapping: Mapping from choices to canonical choices
         """
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
         vote_counts: Counter[str] = Counter()
         for v in result.votes:
@@ -345,7 +346,7 @@ class WinnerSelector:
         if not self._get_belief_analyzer:
             return
 
-        result = ctx.result
+        result = require_phase_result(ctx)
         if not result.messages:
             return
 
