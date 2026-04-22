@@ -69,7 +69,6 @@ expand the panel beyond the core Claude + GPT roster:
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import os
 import sys
@@ -105,7 +104,6 @@ except Exception:  # noqa: BLE001 — never block CLI startup on hydration issue
     logging.getLogger(__name__).debug("hydrate_env_from_secrets unavailable; falling back to env")
 
 from aragora.pdb import storage
-from aragora.pdb.brief_state import BriefLifecycleState
 from aragora.pdb.input_loader import (
     InputLoaderError,
     InputLoaderErrorReason,
@@ -175,13 +173,14 @@ def _summarize_result(result: PDBExecutionResult, *, quiet: bool) -> None:
         return
 
     print(f"\nverdict:       {brief.recommendation.value}")
-    print(f"confidence:    {brief.overall_confidence}/5")
+    print(f"confidence:    {_format_confidence(brief.overall_confidence)}")
     print(f"disagreement:  {brief.disagreement_score:.2f}")
     print(f"top line:      {brief.top_line}")
     if brief.dissent:
         print(f"\ndissent ({len(brief.dissent)} view(s)):")
         for view in brief.dissent:
-            print(f"  - {view.slot_id}: {view.position.value} ({view.confidence}/5)")
+            dissent_conf = _format_confidence(view.confidence, include_raw=False)
+            print(f"  - {view.slot_id}: {view.position.value} ({dissent_conf})")
             print(f"    {view.reason[:200]}")
 
     if quiet:
@@ -189,7 +188,33 @@ def _summarize_result(result: PDBExecutionResult, *, quiet: bool) -> None:
 
     print("\nrole findings:")
     for rf in brief.role_findings[:3]:
-        print(f"  - {rf.role} ({rf.agent}): {rf.summary[:200]}")
+        role_name = getattr(rf.role, "value", rf.role)
+        text = getattr(rf, "finding_text", "") or getattr(rf, "summary", "")
+        print(f"  - {role_name} ({rf.agent}): {text[:200]}")
+
+
+def _format_confidence(raw: float | int, *, include_raw: bool = True) -> str:
+    """Return a ``n/5``-shaped string for a confidence value.
+
+    Briefs carry confidence as a float in the ``0.0..1.0`` range; the
+    previous CLI printed the raw float next to ``/5`` which made it
+    look like a 5-point scale (e.g. ``0.82/5``). This helper buckets
+    the float into a 1..5 integer and, when ``include_raw`` is true,
+    appends the original float in parentheses so the underlying score
+    remains visible. Values outside the unit range are printed
+    verbatim as ``<raw>/5`` to surface unexpected inputs rather than
+    silently clip them.
+    """
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return f"{raw}/5"
+    if 0.0 <= value <= 1.0:
+        bucket = max(1, min(5, round(value * 5)))
+        if include_raw:
+            return f"{bucket}/5 (raw={value:.2f})"
+        return f"{bucket}/5"
+    return f"{raw}/5"
 
 
 def main() -> int:
@@ -245,7 +270,7 @@ def main() -> int:
     print("\nrunning protocol B (findings → critique → synthesis)...")
     t0 = time.monotonic()
     try:
-        result = run_protocol_b(input=loaded.execution_input, invoker=invoker)
+        result = run_protocol_b(input=loaded.input, invoker=invoker)
     except Exception as exc:
         print(f"error: execution failed: {exc}", file=sys.stderr)
         return 3
@@ -254,31 +279,24 @@ def main() -> int:
     print(f"execution:     {elapsed:.1f}s wall-clock")
     _summarize_result(result, quiet=args.quiet)
 
-    if result.status is not PDBExecutionStatus.READY or result.brief is None:
+    successful_statuses = (PDBExecutionStatus.SUCCESS, PDBExecutionStatus.DEGRADED)
+    if result.status not in successful_statuses or result.brief is None:
         return 3
 
     if not args.no_persist:
-        brief_dict = json.loads(
-            json.dumps(result.brief, default=lambda o: getattr(o, "__dict__", str(o)))
-        )
-        storage.mark_ready(
-            pr_number=args.pr_number,
-            head_sha=loaded.head_sha,
-            brief_json=brief_dict,
-            signature="cli-local-run",  # local dogfood; not cryptographically signed
-        )
-        storage.append_index_event(
-            pr_number=args.pr_number,
-            head_sha=loaded.head_sha,
-            event_type="pdb_brief_generated",
-            fields={
-                "source": "scripts/generate_one_brief.py",
-                "cost_usd": result.actual_cost_usd,
-                "wall_clock_ms": int(elapsed * 1000),
-            },
-        )
-        ready_path = storage._ready_path(args.pr_number, loaded.head_sha)
-        print(f"\nbrief saved:   {ready_path}")
+        try:
+            ready_path = storage.persist_ready_from_executor(
+                result,
+                pr_number=args.pr_number,
+                head_sha=loaded.head_sha,
+                source="scripts/generate_one_brief.py",
+                signature="cli-local-run",
+                cost_usd=result.actual_cost_usd,
+                wall_clock_ms=int(elapsed * 1000),
+            )
+            print(f"\nbrief saved:   {ready_path}")
+        except Exception as exc:  # noqa: BLE001 — surface but don't abort
+            print(f"warning: brief display OK but persist failed: {exc}", file=sys.stderr)
 
     return 0
 

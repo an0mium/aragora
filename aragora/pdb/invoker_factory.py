@@ -75,7 +75,13 @@ MISTRAL_MODEL_ENV = "ARAGORA_PDB_MISTRAL_MODEL"
 CLAUDE_MODEL_DEFAULT = "claude-sonnet-4-6"
 OPENAI_MODEL_DEFAULT = "gpt-5.4"
 GEMINI_MODEL_DEFAULT = "gemini-3.1-pro-preview"
-GROK_MODEL_DEFAULT = "grok-4.2"
+# Grok default pins the reasoning-capable 4.20 snapshot. The prior default
+# ``grok-4.2`` was never a valid xAI model id and every Mode 3 brief that
+# tried to use the ``grok_heterodox`` slot failed with
+# ``Model not found: grok-4.2``. ``grok-4.20-0309-reasoning`` is published
+# on xAI's models page (https://docs.x.ai/developers/models) and matches
+# the panel's role — the heterodox slot does adversarial code review.
+GROK_MODEL_DEFAULT = "grok-4.20-0309-reasoning"
 # The mission brief anchors these to specific OpenRouter model ids.
 DEEPSEEK_MODEL_DEFAULT = "deepseek/deepseek-chat"
 KIMI_MODEL_DEFAULT = "moonshotai/kimi-k2-0905"

@@ -61,6 +61,9 @@ __all__ = [
     "invalidate_if_head_changed",
     "cancel_generation",
     "append_index_event",
+    "ready_path",
+    "brief_to_dict",
+    "persist_ready_from_executor",
 ]
 
 import json
@@ -654,3 +657,195 @@ def cancel_generation(pr_number: int, head_sha: str) -> BriefLifecycleState:
         {"previous_state": source.value},
     )
     return BriefLifecycleState.ABSENT
+
+
+# ---------------------------------------------------------------------------
+# Public convenience helpers (callers should use these instead of reaching
+# into the underscore-prefixed internals).
+# ---------------------------------------------------------------------------
+
+
+def ready_path(
+    pr_number: int,
+    head_sha: str,
+    *,
+    namespace: str = DEFAULT_NAMESPACE,
+) -> Path:
+    """Return the on-disk path of the ready brief for ``(pr_number, head_sha)``.
+
+    This is the public equivalent of the module-private ``_ready_path``
+    helper. Callers that need to know where a ready brief lives on disk
+    (e.g., the ``scripts/generate_one_brief.py`` dogfood CLI) should use
+    this function so they do not depend on underscore-prefixed internals
+    whose signatures can change without notice.
+    """
+    if namespace == DEFAULT_NAMESPACE:
+        return _ready_path(pr_number, head_sha)
+    return briefs_root(namespace) / _filename(pr_number, head_sha)
+
+
+def brief_to_dict(brief: Any) -> dict[str, Any]:
+    """Return the canonical JSON-ready dict for a brief-like object.
+
+    Accepts any of:
+
+    - a :class:`aragora.review.protocol.ReviewBrief` (has ``to_dict``)
+    - any object that exposes a no-arg ``to_dict`` returning a mapping
+    - a plain mapping — returned as ``dict(brief)``
+
+    Raises ``TypeError`` otherwise. The helper exists so CLI / receipt /
+    persistence callers never reach for
+    ``json.dumps(brief, default=lambda o: getattr(o, "__dict__", str(o)))``
+    (which silently stringifies enums and drops the canonical brief
+    schema).
+    """
+    if brief is None:
+        raise TypeError("brief_to_dict: brief must not be None")
+
+    to_dict = getattr(brief, "to_dict", None)
+    if callable(to_dict):
+        result = to_dict()
+        if not isinstance(result, Mapping):
+            raise TypeError(
+                f"brief_to_dict: {type(brief).__name__}.to_dict() must return a Mapping, "
+                f"got {type(result).__name__}"
+            )
+        return dict(result)
+
+    if isinstance(brief, Mapping):
+        return dict(brief)
+
+    raise TypeError(
+        "brief_to_dict: expected a brief dataclass with .to_dict() or a "
+        f"Mapping, got {type(brief).__name__}"
+    )
+
+
+def persist_ready_from_executor(
+    result: Any,
+    *,
+    pr_number: int,
+    head_sha: str,
+    source: str = "cli",
+    signature: str = "unsigned",
+    panel_models: Mapping[str, str] | list[str] | tuple[str, ...] | None = None,
+    cost_usd: float | None = None,
+    wall_clock_ms: int | None = None,
+) -> Path:
+    """Persist a completed executor result to the ready-brief directory.
+
+    Performs the full ``queued → running → ready`` state-machine
+    transitions internally, produces a valid brief dict via the
+    canonical :func:`brief_to_dict` serializer, and returns the path at
+    which the ready brief was written.
+
+    Parameters
+    ----------
+    result:
+        Any object with a non-``None`` ``brief`` attribute whose
+        :meth:`to_dict` method returns a JSON-ready mapping. In
+        practice this is a
+        :class:`aragora.brief_engine.protocol.BriefExecutionResult`.
+    pr_number, head_sha:
+        Identifiers for the PR this brief belongs to.
+    source:
+        Free-form string recorded on the generated-event index entry.
+        Defaults to ``"cli"`` for the dogfood flow; server callers
+        should pass their handler name.
+    signature:
+        Value to stamp on the persisted brief's ``signature`` field.
+        Defaults to ``"unsigned"`` — in-process CLI runs are not
+        cryptographically signed.
+    panel_models:
+        Optional roster passed to :func:`queue_generation`. When the
+        caller has an :class:`active_roster` tuple on the executor
+        result, pass it through so the queued record reflects reality.
+    cost_usd, wall_clock_ms:
+        Optional observability fields merged into the
+        ``pdb_brief_generated`` index event. Keep them best-effort —
+        pass ``None`` to omit. ``result.actual_cost_usd`` is a common
+        value for ``cost_usd``.
+
+    Raises
+    ------
+    ValueError:
+        When ``result.brief`` is ``None``.
+    TypeError:
+        When ``result.brief`` is not a recognized brief shape (see
+        :func:`brief_to_dict`).
+
+    Returns
+    -------
+    Path
+        The on-disk ``ready`` brief path, e.g.
+        ``.aragora/review-queue/briefs/pr-6421-<sha12>.json``.
+    """
+    brief = getattr(result, "brief", None)
+    if brief is None:
+        raise ValueError(
+            "persist_ready_from_executor: result.brief must not be None; "
+            "the executor either did not produce a brief or failed closed"
+        )
+
+    brief_dict = brief_to_dict(brief)
+
+    # Coerce caller-supplied panel_models to a list[str] for queue_generation's
+    # shape contract.
+    if panel_models is None:
+        # Try to infer from the executor result. ``active_roster`` is a
+        # ``tuple[str, ...]`` on :class:`BriefExecutionResult`; fall back
+        # to an empty tuple if absent.
+        inferred = getattr(result, "active_roster", None)
+        models_list: list[str] = list(inferred) if inferred else []
+    elif isinstance(panel_models, Mapping):
+        models_list = [str(v) for v in panel_models.values()]
+    else:
+        models_list = [str(m) for m in panel_models]
+
+    # Drive the state machine through the legal transitions. For single
+    # in-process runs (the dogfood CLI) the initial state is ABSENT.
+    current = get_state(pr_number, head_sha)
+    if current == BriefLifecycleState.ABSENT:
+        queue_generation(pr_number, head_sha, models_list)
+        mark_running(pr_number, head_sha, phase="findings")
+    elif current == BriefLifecycleState.QUEUED:
+        mark_running(pr_number, head_sha, phase="findings")
+    elif current == BriefLifecycleState.RUNNING:
+        # Already running (worker may have staged the record); fall
+        # through to mark_ready.
+        pass
+    elif current == BriefLifecycleState.READY:
+        # Idempotent re-publish: return the existing path without
+        # re-writing. Callers that want to overwrite should invalidate
+        # first.
+        return ready_path(pr_number, head_sha)
+    else:
+        raise RuntimeError(
+            f"persist_ready_from_executor: cannot persist from state {current.value!r}; "
+            "caller should invalidate_if_head_changed or mark_failed first"
+        )
+
+    mark_ready(
+        pr_number=pr_number,
+        head_sha=head_sha,
+        brief_json=brief_dict,
+        signature=signature,
+    )
+
+    fields: dict[str, Any] = {"source": str(source)}
+    if cost_usd is None:
+        inferred_cost = getattr(result, "actual_cost_usd", None)
+        if isinstance(inferred_cost, (int, float)):
+            fields["cost_usd"] = float(inferred_cost)
+    else:
+        fields["cost_usd"] = float(cost_usd)
+    if wall_clock_ms is not None:
+        fields["wall_clock_ms"] = int(wall_clock_ms)
+
+    append_index_event(
+        pr_number=pr_number,
+        head_sha=head_sha,
+        event_type="pdb_brief_generated",
+        fields=fields,
+    )
+    return ready_path(pr_number, head_sha)
