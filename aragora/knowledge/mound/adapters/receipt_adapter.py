@@ -327,7 +327,9 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
         for finding in findings:
             # Handle both object findings and dict findings (from gauntlet receipts)
             if isinstance(finding, dict):
-                severity = finding.get("severity", finding.get("severity_level", "")).upper()
+                severity = str(
+                    finding.get("severity") or finding.get("severity_level") or ""
+                ).upper()
             else:
                 severity = getattr(finding, "severity", "")
             if severity not in ("CRITICAL", "HIGH"):
@@ -463,7 +465,9 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
             finding_id = finding.get("id", finding.get("finding_id", ""))
             title = finding.get("title", "")
             description = finding.get("description", "")
-            severity = finding.get("severity", finding.get("severity_level", "MEDIUM")).upper()
+            severity = str(
+                finding.get("severity") or finding.get("severity_level") or "MEDIUM"
+            ).upper()
             category = finding.get("category", "unknown")
             source = finding.get("source", "")
             verified = finding.get("verified", False)
