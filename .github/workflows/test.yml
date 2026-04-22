@@ -127,11 +127,20 @@ jobs:
           diff -u "$TMPDIR/openapi_generated.yaml" docs/api/openapi_generated.yaml
 
       - name: Check TypeScript SDK types are up to date
-        run: python scripts/generate_sdk_types.py --openapi docs/api/openapi_generated.json --check
+        if: steps.openapi_scope.outputs.run_openapi == 'true'
+        run: |
+          TMP_OPENAPI=$(mktemp)
+          cp docs/api/openapi_generated.json "$TMP_OPENAPI"
+          python scripts/add_openapi_operation_ids.py --spec "$TMP_OPENAPI"
+          python scripts/generate_sdk_types.py --openapi "$TMP_OPENAPI" --check
 
       - name: Check Python SDK types are up to date
+        if: steps.openapi_scope.outputs.run_openapi == 'true'
         run: |
-          python scripts/generate_python_sdk_types.py --openapi docs/api/openapi_generated.json --check
+          TMP_OPENAPI=$(mktemp)
+          cp docs/api/openapi_generated.json "$TMP_OPENAPI"
+          python scripts/add_openapi_operation_ids.py --spec "$TMP_OPENAPI"
+          python scripts/generate_python_sdk_types.py --openapi "$TMP_OPENAPI" --check
 
       - name: Check capability matrix is up to date
         run: python scripts/check_capability_matrix_sync.py
@@ -2284,9 +2293,16 @@ jobs:
             --exit-zero
 
           # Store summary for PR comment
-          echo "summary<<EOF" >> $GITHUB_OUTPUT
-          cat test-summary.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          SUMMARY_DELIM="SUMMARY_$(python - <<'PY'
+          import uuid
+          print(uuid.uuid4().hex)
+          PY
+          )"
+          {
+            echo "summary<<$SUMMARY_DELIM"
+            cat test-summary.md
+            echo "$SUMMARY_DELIM"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
