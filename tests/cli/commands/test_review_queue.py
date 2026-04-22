@@ -33,6 +33,16 @@ from aragora.cli.commands.review_queue import (
     add_review_queue_parser,
     cmd_review_queue,
 )
+from aragora.review import (
+    EvidenceKind,
+    EvidenceRef,
+    FindingCategory,
+    FindingSeverity,
+    Recommendation,
+    ReviewerFinding,
+    ReviewerOutput,
+)
+from aragora.swarm.pr_review_protocol import EXECUTED_PROTOCOL_STATUS
 
 
 # --- Synthetic PR payload builder ------------------------------------------
@@ -75,6 +85,47 @@ def _make_pr(
         "files": [{"path": p} for p in (files or [])],
         "body": body,
     }
+
+
+def _make_reviewer_output(
+    *,
+    slot_id: str,
+    provider: str,
+    family: str,
+    recommendation: Recommendation,
+) -> ReviewerOutput:
+    return ReviewerOutput(
+        reviewer_id=f"{provider}:{slot_id}",
+        slot_id=slot_id,
+        provider=provider,
+        lens="core" if slot_id in {"logic", "security"} else "heterodox",
+        family=family,
+        recommendation_class=recommendation,
+        confidence=0.63,
+        summary=f"{slot_id} summary",
+        top_findings=(
+            ReviewerFinding(
+                category=FindingCategory.VALIDATION,
+                severity=FindingSeverity.MEDIUM,
+                claim=f"{slot_id} reviewed the diff",
+                evidence=(f"{slot_id} evidence",),
+                files=(),
+            ),
+        ),
+        evidence_refs=(
+            EvidenceRef(
+                kind=EvidenceKind.FILE,
+                path=f"aragora/{slot_id}.py",
+                line_range=(1, 2),
+                quote="example",
+            ),
+        ),
+        risk_flags=(),
+        open_questions=(),
+        round_index=1,
+        latency_ms=100,
+        cost_usd=0.2,
+    )
 
 
 # --- _summarize_checks -----------------------------------------------------
@@ -547,6 +598,50 @@ class TestBuildQueueAndPacket:
         with pytest.raises(_GhError, match="not found"):
             _build_packet("9999", repo_override=None)
 
+    def test_build_packet_can_execute_live_reviewers(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        pr_payload = _make_pr(
+            number=6280,
+            files=["aragora/cli/commands/review_pr.py"],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_text",
+            lambda args: "diff --git a/aragora/cli/commands/review_pr.py b/aragora/cli/commands/review_pr.py",
+        )
+        outputs = [
+            _make_reviewer_output(
+                slot_id="logic",
+                provider="claude",
+                family="claude",
+                recommendation=Recommendation.APPROVE_CANDIDATE,
+            ),
+            _make_reviewer_output(
+                slot_id="security",
+                provider="openai-api",
+                family="gpt",
+                recommendation=Recommendation.REPAIR_FIRST,
+            ),
+            _make_reviewer_output(
+                slot_id="maintainability",
+                provider="gemini-cli",
+                family="gemini",
+                recommendation=Recommendation.APPROVE_CANDIDATE,
+            ),
+        ]
+        monkeypatch.setattr(
+            "aragora.swarm.pr_review_protocol.PRReviewProtocol.execute_live_reviewers",
+            lambda self, **kwargs: (outputs, []),
+        )
+
+        packet = _build_packet("6280", repo_override=None, execute_reviewers=True)
+
+        assert packet.protocol["status"] == EXECUTED_PROTOCOL_STATUS
+        assert packet.protocol["validation_summary"]["reviewer_execution"]["reviewer_count"] == 3
+        assert len(packet.protocol["dissenting_views"]) == 1
+
 
 # --- JSON output schema ----------------------------------------------------
 
@@ -636,9 +731,12 @@ class TestCommandDispatch:
         assert ns_build.limit == 5
         assert ns_build.json is True
         # packet invocation parses
-        ns_packet = root.parse_args(["review-queue", "packet", "6280", "--json"])
+        ns_packet = root.parse_args(
+            ["review-queue", "packet", "6280", "--execute-reviewers", "--json"]
+        )
         assert ns_packet.review_queue_command == "packet"
         assert ns_packet.pr == "6280"
+        assert ns_packet.execute_reviewers is True
         # run invocation parses
         ns_run = root.parse_args(["review-queue", "run", "--limit", "3", "--ready-only"])
         assert ns_run.review_queue_command == "run"
