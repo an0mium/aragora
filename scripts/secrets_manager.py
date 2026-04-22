@@ -1585,26 +1585,33 @@ class BrowserRotator:
 
 
 
-def _clear_session_traces() -> None:
-    """Clear terminal scrollback and shell history file post-rotation.
+def _clear_terminal_scrollback() -> None:
+    """Clear terminal scrollback via ANSI escape sequences.
 
-    Minimizes on-disk + on-screen lingering of paste echoes and previous
-    key values. Two layers:
-      1. Terminal scrollback cleared via ANSI escape sequences
-         (ESC[2J clears screen, ESC[3J clears scrollback, ESC[H homes cursor).
-      2. Shell history FILE truncated ($HISTFILE or conventional paths).
-
-    In-memory shell history CANNOT be cleared from a subprocess — the parent
-    shell still has its session history in RAM. The user must run
-    ``history -c`` in their shell to also purge that. We print a reminder.
+    Purely visual — no file is touched. Safe to call by default.
+    ESC[2J clears screen, ESC[3J clears scrollback, ESC[H homes cursor.
     """
-    import sys, os
+    import sys
     sys.stdout.write("\x1b[2J\x1b[3J\x1b[H")
     sys.stdout.flush()
+
+
+def _truncate_shell_history_file() -> list[str]:
+    """Truncate the shell history FILE. DESTRUCTIVE — months of history lost.
+
+    Returns the list of paths that were truncated. Caller is responsible
+    for informing the user. Caller MUST require explicit opt-in — never
+    call this by default.
+
+    Handles $HISTFILE / ~/.zsh_history / ~/.bash_history. Silently ignores
+    missing files and permission errors.
+    """
+    import os
     home = os.path.expanduser("~")
     histfile = os.environ.get("HISTFILE")
     candidates = [histfile] if histfile else []
     candidates += [os.path.join(home, ".zsh_history"), os.path.join(home, ".bash_history")]
+    truncated: list[str] = []
     seen: set[str] = set()
     for path in candidates:
         if not path or path in seen:
@@ -1612,10 +1619,12 @@ def _clear_session_traces() -> None:
         seen.add(path)
         if os.path.exists(path):
             try:
-                with open(path, "w", encoding="utf-8") as f:
+                with open(path, "w", encoding="utf-8"):
                     pass
+                truncated.append(path)
             except OSError:
                 pass
+    return truncated
 
 
 class SecretsManager:
@@ -1893,10 +1902,22 @@ class SecretsManager:
                 print(f"  {RED}✗{RESET} {name}: {e}")
 
         print(f"\n{GREEN}Rotation complete!{RESET}")
-        if not getattr(args, "no_clear_traces", False):
-            _clear_session_traces()
-            print(f"{GREEN}Rotation complete.{RESET} Scrollback + history file cleared.")
-            print(f"  Run {CYAN}history -c{RESET} in your shell to purge in-memory history.")
+        # Default-on: clear terminal scrollback (safe, purely visual).
+        if not getattr(args, "no_clear_scrollback", False):
+            _clear_terminal_scrollback()
+            print(f"{GREEN}Rotation complete.{RESET} Terminal scrollback cleared.")
+        else:
+            print(f"{GREEN}Rotation complete.{RESET}")
+
+        # Default-off: truncate shell history file (DESTRUCTIVE, opt-in).
+        if getattr(args, "clear_history_file", False):
+            truncated = _truncate_shell_history_file()
+            if truncated:
+                print(f"  {YELLOW}Truncated (destructive):{RESET} {', '.join(truncated)}")
+            else:
+                print(f"  (no history files matched)")
+
+        print(f"  Run {CYAN}history -c{RESET} in your shell to also clear in-memory history.")
         return 0
 
     def cmd_sync(self, args: argparse.Namespace) -> int:
@@ -2096,8 +2117,12 @@ Why manual rotation? See: %(prog)s --explain
         help="Do not write new secret to local .env — AWS + GitHub only"
     )
     rotate_parser.add_argument(
-        "--no-clear-traces", action="store_true",
-        help="Don't clear terminal scrollback + shell history file after rotation"
+        "--no-clear-scrollback", action="store_true",
+        help="Don't clear terminal scrollback after rotation (scrollback clear is default-on because it is purely visual and recoverable; pass this flag to opt out for debugging)"
+    )
+    rotate_parser.add_argument(
+        "--clear-history-file", action="store_true",
+        help="ALSO truncate $HISTFILE / ~/.zsh_history / ~/.bash_history after rotation. Destructive and irreversible — default OFF. Rotation clears only the terminal scrollback unless you pass this flag."
     )
 
     # sync
