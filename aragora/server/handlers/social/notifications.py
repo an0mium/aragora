@@ -19,7 +19,6 @@ import logging
 import os
 from typing import Any
 
-from aragora.billing.auth.context import UserAuthContext
 from aragora.integrations.email import EmailConfig, EmailIntegration, EmailRecipient
 from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
 from aragora.server.handlers.base import (
@@ -368,17 +367,12 @@ class NotificationsHandler(SecureHandler):
             logger.warning("Rate limit exceeded for notifications endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # SECURITY: Use SecureHandler's auth method for consistent RBAC
-        user, err = self.require_auth_or_error(handler)
-        if err:
-            return err
-
-        # SECURITY: Require 'notifications.read' permission for all GET endpoints
-        user_ctx: UserAuthContext | None
-        perm_err: HandlerResult | None
-        user_ctx, perm_err = self.require_permission_or_error(handler, "read")
-        if perm_err:
-            return perm_err
+        # SECURITY: Require authentication + 'notifications.read' permission.
+        # `require_user` collapses the legacy two-step auth/permission tuple
+        # pattern into a single call whose return type narrows cleanly for mypy.
+        user = self.require_user(handler, permission="read")
+        if isinstance(user, HandlerResult):
+            return user
 
         if path == "/api/v1/notifications/status":
             # SECURITY: Log access with org context for audit trail
@@ -409,17 +403,12 @@ class NotificationsHandler(SecureHandler):
             logger.warning("Rate limit exceeded for notifications endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # Require authentication for all POST endpoints
-        user, err = self.require_auth_or_error(handler)
-        if err:
-            return err
-
-        # SECURITY: Require 'notifications.write' permission for configuration changes
-        user_ctx: UserAuthContext | None
-        perm_err: HandlerResult | None
-        user_ctx, perm_err = self.require_permission_or_error(handler, "write")
-        if perm_err:
-            return perm_err
+        # SECURITY: Require authentication + 'notifications.write' permission
+        # for every POST endpoint. See `require_user` for why this replaces
+        # the legacy ``(user, err), (user_ctx, perm_err)`` tuple ceremony.
+        user = self.require_user(handler, permission="write")
+        if isinstance(user, HandlerResult):
+            return user
 
         if path == "/api/v1/notifications/email/config":
             logger.info("Email config modified by user %s in org %s", user.user_id, user.org_id)
@@ -451,16 +440,10 @@ class NotificationsHandler(SecureHandler):
 
         SECURITY: All DELETE endpoints require authentication and RBAC permissions.
         """
-        user, err = self.require_auth_or_error(handler)
-        if err:
-            return err
-
-        # SECURITY: Require 'notifications.delete' permission
-        user_ctx: UserAuthContext | None
-        perm_err: HandlerResult | None
-        user_ctx, perm_err = self.require_permission_or_error(handler, "delete")
-        if perm_err:
-            return perm_err
+        # SECURITY: Require authentication + 'notifications.delete' permission.
+        user = self.require_user(handler, permission="delete")
+        if isinstance(user, HandlerResult):
+            return user
 
         if path == "/api/v1/notifications/email/recipient":
             logger.info("Email recipient removed by user %s in org %s", user.user_id, user.org_id)

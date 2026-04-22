@@ -1116,6 +1116,44 @@ class BaseHandler:
 
         return None, error_response("Permission denied", 403)
 
+    def require_user(
+        self,
+        handler: HTTPRequestHandler,
+        permission: str | None = None,
+    ) -> UserAuthContext | HandlerResult:
+        """Require authentication (and optionally a permission) with narrow typing.
+
+        Thin wrapper around :meth:`require_auth_or_error` / :meth:`require_permission_or_error`
+        that collapses the ``(user | None, err | None)`` tuple into a single
+        return value amenable to mypy narrowing at the call site.
+
+        Args:
+            handler: HTTP request handler with headers.
+            permission: Optional required permission string (e.g. ``"read"``).
+                When ``None``, only authentication is required.
+
+        Returns:
+            ``UserAuthContext`` on success, or a ``HandlerResult`` error
+            response (401/403) on failure.
+
+        Example:
+            def handle_post(self, path, query_params, handler):
+                user = self.require_user(handler, permission="write")
+                if isinstance(user, HandlerResult):
+                    return user
+                # mypy narrows `user` to UserAuthContext here.
+                return json_response({"user_id": user.user_id})
+        """
+        if permission is None:
+            user, err = self.require_auth_or_error(handler)
+        else:
+            user, err = self.require_permission_or_error(handler, permission)
+        if err is not None:
+            return err
+        if user is None:  # pragma: no cover - defensive, the helpers guarantee this
+            raise RuntimeError("authenticated user missing after auth check")
+        return user
+
     # === POST Body Parsing Support ===
 
     # Maximum request body size (10MB default)
