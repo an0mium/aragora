@@ -438,6 +438,12 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                 "workspace_id": workspace_id or "",
                 "tags": tags + ["verified_claim", f"method:{verification.method}"],
                 "item_type": "verified_claim",
+                # DIC-16: epistemic provenance — present only when set by caller
+                "claim_id": getattr(verification, "claim_id", None),
+                "crux_id": getattr(verification, "crux_id", None),
+                "evidence_ids": list(getattr(verification, "evidence_ids", []) or []),
+                "verification_status": getattr(verification, "verification_status", None),
+                "source_receipt_id": getattr(verification, "source_receipt_id", None),
             },
         )
 
