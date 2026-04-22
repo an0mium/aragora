@@ -1090,6 +1090,7 @@ _MEDIA_SCHEMA_ENDPOINTS = {
 # ---------------------------------------------------------------------------
 _NULLABLE_STRING = {"type": ["string", "null"]}
 _SCHEMA_VERSION_FIELD = {"type": "integer", "enum": [1]}
+_NULLABLE_DATE_TIME_FIELD = {"type": ["string", "null"], "format": "date-time"}
 
 AGENT_BRIDGE_FOOTER_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -1111,25 +1112,45 @@ AGENT_BRIDGE_RUN_SUMMARY_SCHEMA: dict[str, Any] = {
     "required": [
         "schema_version",
         "run_id",
+        "task",
+        "status",
         "created_at",
         "updated_at",
-        "status",
-        "active_role",
+        "completed_at",
+        "last_turn_index",
+        "next_actor",
+        "repair_budget_per_turn",
         "footer_mode",
+        "worktree_cleanup_mode",
         "participants",
-        "turn_count",
         "last_event_id",
     ],
     "properties": {
         "schema_version": _SCHEMA_VERSION_FIELD,
         "run_id": {"type": "string"},
+        "task": {"type": "string"},
+        "status": {"type": "string"},
         "created_at": {"type": "string", "format": "date-time"},
         "updated_at": {"type": "string", "format": "date-time"},
-        "status": {"type": "string"},
-        "active_role": _NULLABLE_STRING,
+        "completed_at": _NULLABLE_DATE_TIME_FIELD,
+        "last_turn_index": {"type": "integer"},
+        "next_actor": _NULLABLE_STRING,
+        "repair_budget_per_turn": {"type": "integer"},
         "footer_mode": {"type": "string"},
-        "participants": {"type": "array", "items": {"type": "string"}},
-        "turn_count": {"type": "integer"},
+        "worktree_cleanup_mode": {"type": "string"},
+        "participants": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["role", "harness", "model"],
+                "properties": {
+                    "role": {"type": "string"},
+                    "harness": {"type": "string"},
+                    "model": {"type": "string"},
+                },
+            },
+        },
         "last_event_id": _NULLABLE_STRING,
     },
 }
@@ -1137,12 +1158,34 @@ AGENT_BRIDGE_RUN_SUMMARY_SCHEMA: dict[str, Any] = {
 AGENT_BRIDGE_SESSION_ENTRY_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["harness", "session_id", "created_at", "last_turn_at", "harness_options"],
+    "required": [
+        "role",
+        "harness",
+        "model",
+        "session_id",
+        "worktree_agent_slug",
+        "worktree_path",
+        "branch",
+        "session_status",
+        "started_at",
+        "last_turn_index",
+        "last_completed_at",
+    ],
     "properties": {
-        "harness": {"type": "string", "enum": ["claude", "codex", "droid"]},
+        "role": {"type": "string"},
+        "harness": {"type": "string"},
+        "model": {"type": "string"},
         "session_id": _NULLABLE_STRING,
-        "created_at": _NULLABLE_STRING,
-        "last_turn_at": _NULLABLE_STRING,
+        "worktree_agent_slug": _NULLABLE_STRING,
+        "worktree_path": _NULLABLE_STRING,
+        "branch": _NULLABLE_STRING,
+        "session_status": {
+            "type": "string",
+            "enum": ["not_started", "active", "completed", "failed"],
+        },
+        "started_at": _NULLABLE_DATE_TIME_FIELD,
+        "last_turn_index": {"type": "integer"},
+        "last_completed_at": _NULLABLE_DATE_TIME_FIELD,
         "harness_options": {"type": "object", "additionalProperties": True},
     },
 }
@@ -1170,11 +1213,25 @@ AGENT_BRIDGE_RUN_DETAIL_SCHEMA: dict[str, Any] = {
 AGENT_BRIDGE_EVENT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["event_id", "turn_index", "type", "role", "parse_status", "at", "payload"],
+    "required": [
+        "schema_version",
+        "event_id",
+        "run_id",
+        "ts",
+        "event_type",
+        "turn_index",
+        "role",
+        "harness",
+        "session_id",
+        "parse_status",
+        "payload",
+    ],
     "properties": {
+        "schema_version": _SCHEMA_VERSION_FIELD,
         "event_id": {"type": "string"},
-        "turn_index": {"type": "integer"},
-        "type": {
+        "run_id": {"type": "string"},
+        "ts": {"type": "string", "format": "date-time"},
+        "event_type": {
             "type": "string",
             "enum": [
                 "run_started",
@@ -1189,9 +1246,11 @@ AGENT_BRIDGE_EVENT_SCHEMA: dict[str, Any] = {
                 "footer_missing",
             ],
         },
+        "turn_index": {"type": "integer"},
         "role": {"type": "string"},
+        "harness": {"type": "string"},
+        "session_id": _NULLABLE_STRING,
         "parse_status": {"type": ["string", "null"], "enum": ["ok", "missing", "malformed", None]},
-        "at": {"type": "string", "format": "date-time"},
         "payload": {"type": "object", "additionalProperties": True},
     },
 }

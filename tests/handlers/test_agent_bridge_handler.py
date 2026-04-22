@@ -201,6 +201,14 @@ def test_list_runs_paginates_newest_first_and_roundtrips_cursor(
     first_runs = first_payload["runs"]
     assert isinstance(first_runs, list)
     assert [item["run_id"] for item in first_runs] == ["bridge-newest", "bridge-middle"]
+    assert first_runs[0]["next_actor"] == "reviewer"
+    assert first_runs[0]["last_turn_index"] == 0
+    assert first_runs[0]["participants"] == [
+        {"role": "implementer", "harness": "codex", "model": "gpt-5.4"},
+        {"role": "reviewer", "harness": "claude", "model": "claude-opus-4-7"},
+    ]
+    assert "active_role" not in first_runs[0]
+    assert "turn_count" not in first_runs[0]
     assert isinstance(first_payload["next_cursor"], str)
 
     second = handler.handle(
@@ -272,15 +280,28 @@ def test_get_run_returns_role_keyed_detail_and_etag(
 
     payload = _parse_json_body(result)
     assert payload["run_id"] == "bridge-detail"
-    assert payload["turn_count"] == 2
+    assert payload["task"] == "Task for bridge-detail"
+    assert payload["last_turn_index"] == 2
+    assert payload["next_actor"] == "reviewer"
+    assert payload["repair_budget_per_turn"] == 1
+    assert payload["worktree_cleanup_mode"] == "operator_triggered"
+    assert payload["participants"] == [
+        {"role": "implementer", "harness": "codex", "model": "gpt-5.4"},
+        {"role": "reviewer", "harness": "claude", "model": "claude-opus-4-7"},
+    ]
     assert "sessions" not in payload
 
     roles = payload["roles"]
     assert isinstance(roles, dict)
     assert set(roles) == {"implementer", "reviewer"}
+    assert roles["implementer"]["role"] == "implementer"
+    assert roles["implementer"]["model"] == "gpt-5.4"
+    assert roles["implementer"]["last_turn_index"] == 2
     assert roles["implementer"]["session_id"] == "sess-impl"
+    assert roles["implementer"]["started_at"] == "2026-04-21T21:00:00Z"
     assert roles["reviewer"]["session_id"] is None
-    assert roles["reviewer"]["created_at"] is None
+    assert roles["reviewer"]["started_at"] is None
+    assert roles["reviewer"]["session_status"] == "not_started"
     assert roles["reviewer"]["harness_options"] == {"resume": True}
 
 
@@ -346,6 +367,13 @@ def test_get_events_supports_cursor_stability_and_if_none_match(
     first_events = first_payload["events"]
     assert isinstance(first_events, list)
     assert [item["event_id"] for item in first_events] == [events[0].event_id, events[1].event_id]
+    assert first_events[0]["schema_version"] == 1
+    assert first_events[0]["run_id"] == run.run_id
+    assert first_events[0]["event_type"] == "run_started"
+    assert first_events[0]["ts"] == "2026-04-21T22:00:00Z"
+    assert first_events[0]["harness"] == "broker"
+    assert first_events[0]["session_id"] is None
+    assert first_events[1]["event_type"] == "turn.started"
     assert isinstance(first_payload["next_cursor"], str)
 
     second = handler.handle(
@@ -360,6 +388,7 @@ def test_get_events_supports_cursor_stability_and_if_none_match(
     second_events = second_payload["events"]
     assert isinstance(second_events, list)
     assert [item["event_id"] for item in second_events] == [events[2].event_id]
+    assert second_events[0]["event_type"] == "footer_ok"
 
     not_modified = handler.handle(
         "/api/v1/agent-bridge/runs/bridge-events/events",
@@ -559,6 +588,29 @@ def test_get_transcript_reconstructs_turns_from_events(
 def test_unknown_run_returns_404(handler: AgentBridgeHandler) -> None:
     result = handler.handle(
         "/api/v1/agent-bridge/runs/missing-run",
+        {},
+        _mock_http_handler(),
+    )
+
+    assert result is not None
+    assert result.status_code == 404
+    assert _parse_json_body(result) == {"error": "Bridge run not found"}
+
+
+def test_get_run_returns_404_when_sessions_are_missing(
+    handler: AgentBridgeHandler,
+    store: BridgeStore,
+) -> None:
+    run = _write_run(
+        store,
+        run_id="bridge-missing-sessions",
+        created_at="2026-04-21T20:00:00Z",
+        updated_at="2026-04-21T20:01:00Z",
+    )
+    store.sessions_path(run.run_id).unlink()
+
+    result = handler.handle(
+        "/api/v1/agent-bridge/runs/bridge-missing-sessions",
         {},
         _mock_http_handler(),
     )

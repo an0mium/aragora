@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from aragora.rbac.defaults.permissions import PERM_AGENT_BRIDGE_READ
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_caching import etag_matches
 from aragora.server.validation import validate_path_segment
@@ -36,7 +37,6 @@ from .base import (
 
 logger = logging.getLogger(__name__)
 
-AGENT_BRIDGE_READ_PERMISSION = "agent_bridge:read"
 _DEFAULT_PAGE_SIZE = 100
 _MAX_PAGE_SIZE = 500
 _RUNS_PATH = "/api/agent-bridge/runs"
@@ -153,7 +153,7 @@ class AgentBridgeHandler(BaseHandler):
         return normalized == _RUNS_PATH or normalized.startswith(_RUNS_PREFIX)
 
     @handle_errors("agent bridge read API")  # type: ignore[untyped-decorator]
-    @require_permission(AGENT_BRIDGE_READ_PERMISSION)
+    @require_permission(PERM_AGENT_BRIDGE_READ.key)
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         normalized = strip_version_prefix(path).rstrip("/")
         if normalized == _RUNS_PATH:
@@ -210,9 +210,9 @@ class AgentBridgeHandler(BaseHandler):
                 return _not_modified(etag)
 
             sessions = self._store.load_sessions(run_id)
-        except Exception as exc:
-            if isinstance(exc, FileNotFoundError):
-                return self._bridge_store_unavailable()
+        except FileNotFoundError:
+            return self._not_found()
+        except Exception:
             return self._bridge_store_unavailable()
 
         detail = self._serialize_run_detail(run, sessions)
@@ -306,17 +306,22 @@ class AgentBridgeHandler(BaseHandler):
         return ok
 
     def _serialize_run_summary(self, run: BridgeRun) -> dict[str, Any]:
+        payload = run.to_dict()
         return {
-            "schema_version": run.schema_version,
-            "run_id": run.run_id,
-            "created_at": run.created_at,
-            "updated_at": run.updated_at,
-            "status": run.status,
-            "active_role": run.next_actor,
-            "footer_mode": run.footer_mode,
-            "participants": [participant.role for participant in run.participants],
-            "turn_count": run.last_turn_index,
-            "last_event_id": run.last_event_id,
+            "schema_version": payload["schema_version"],
+            "run_id": payload["run_id"],
+            "task": payload["task"],
+            "status": payload["status"],
+            "created_at": payload["created_at"],
+            "updated_at": payload["updated_at"],
+            "completed_at": payload["completed_at"],
+            "last_turn_index": payload["last_turn_index"],
+            "next_actor": payload["next_actor"],
+            "repair_budget_per_turn": payload["repair_budget_per_turn"],
+            "footer_mode": payload["footer_mode"],
+            "worktree_cleanup_mode": payload["worktree_cleanup_mode"],
+            "participants": payload["participants"],
+            "last_event_id": payload["last_event_id"],
         }
 
     def _serialize_run_detail(
@@ -324,34 +329,18 @@ class AgentBridgeHandler(BaseHandler):
         run: BridgeRun,
         sessions: SessionRegistry,
     ) -> dict[str, Any]:
-        detail = self._serialize_run_summary(run)
+        detail = run.to_dict()
         detail["roles"] = {
             role: self._serialize_session_entry(session)
             for role, session in sessions.sessions.items()
         }
-        detail["worktree_path"] = run.worktree_path
-        detail["worktree_agent_slug"] = run.worktree_agent_slug
         return detail
 
     def _serialize_session_entry(self, session: BridgeSession) -> dict[str, Any]:
-        return {
-            "harness": session.harness,
-            "session_id": session.session_id,
-            "created_at": session.started_at,
-            "last_turn_at": session.last_completed_at,
-            "harness_options": dict(session.harness_options),
-        }
+        return session.to_dict()
 
     def _serialize_event(self, event: TurnRecord) -> dict[str, Any]:
-        return {
-            "event_id": event.event_id,
-            "turn_index": event.turn_index,
-            "type": event.event_type,
-            "role": event.role,
-            "parse_status": event.parse_status,
-            "at": event.ts,
-            "payload": dict(event.payload),
-        }
+        return event.to_dict()
 
     def _reconstruct_transcript(
         self,

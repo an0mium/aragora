@@ -68074,13 +68074,17 @@
                         "required": [
                           "schema_version",
                           "run_id",
+                          "task",
+                          "status",
                           "created_at",
                           "updated_at",
-                          "status",
-                          "active_role",
+                          "completed_at",
+                          "last_turn_index",
+                          "next_actor",
+                          "repair_budget_per_turn",
                           "footer_mode",
+                          "worktree_cleanup_mode",
                           "participants",
-                          "turn_count",
                           "last_event_id"
                         ],
                         "properties": {
@@ -68093,6 +68097,12 @@
                           "run_id": {
                             "type": "string"
                           },
+                          "task": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
                           "created_at": {
                             "type": "string",
                             "format": "date-time"
@@ -68101,26 +68111,53 @@
                             "type": "string",
                             "format": "date-time"
                           },
-                          "status": {
-                            "type": "string"
+                          "completed_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
                           },
-                          "active_role": {
+                          "last_turn_index": {
+                            "type": "integer"
+                          },
+                          "next_actor": {
                             "type": [
                               "string",
                               "null"
                             ]
                           },
+                          "repair_budget_per_turn": {
+                            "type": "integer"
+                          },
                           "footer_mode": {
+                            "type": "string"
+                          },
+                          "worktree_cleanup_mode": {
                             "type": "string"
                           },
                           "participants": {
                             "type": "array",
                             "items": {
-                              "type": "string"
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "role",
+                                "harness",
+                                "model"
+                              ],
+                              "properties": {
+                                "role": {
+                                  "type": "string"
+                                },
+                                "harness": {
+                                  "type": "string"
+                                },
+                                "model": {
+                                  "type": "string"
+                                }
+                              }
                             }
-                          },
-                          "turn_count": {
-                            "type": "integer"
                           },
                           "last_event_id": {
                             "type": [
@@ -68379,13 +68416,17 @@
                   "required": [
                     "schema_version",
                     "run_id",
+                    "task",
+                    "status",
                     "created_at",
                     "updated_at",
-                    "status",
-                    "active_role",
+                    "completed_at",
+                    "last_turn_index",
+                    "next_actor",
+                    "repair_budget_per_turn",
                     "footer_mode",
+                    "worktree_cleanup_mode",
                     "participants",
-                    "turn_count",
                     "last_event_id",
                     "roles",
                     "worktree_path",
@@ -68401,6 +68442,12 @@
                     "run_id": {
                       "type": "string"
                     },
+                    "task": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
                     "created_at": {
                       "type": "string",
                       "format": "date-time"
@@ -68409,26 +68456,53 @@
                       "type": "string",
                       "format": "date-time"
                     },
-                    "status": {
-                      "type": "string"
+                    "completed_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
                     },
-                    "active_role": {
+                    "last_turn_index": {
+                      "type": "integer"
+                    },
+                    "next_actor": {
                       "type": [
                         "string",
                         "null"
                       ]
                     },
+                    "repair_budget_per_turn": {
+                      "type": "integer"
+                    },
                     "footer_mode": {
+                      "type": "string"
+                    },
+                    "worktree_cleanup_mode": {
                       "type": "string"
                     },
                     "participants": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "role",
+                          "harness",
+                          "model"
+                        ],
+                        "properties": {
+                          "role": {
+                            "type": "string"
+                          },
+                          "harness": {
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
+                          }
+                        }
                       }
-                    },
-                    "turn_count": {
-                      "type": "integer"
                     },
                     "last_event_id": {
                       "type": [
@@ -68442,20 +68516,27 @@
                         "type": "object",
                         "additionalProperties": false,
                         "required": [
+                          "role",
                           "harness",
+                          "model",
                           "session_id",
-                          "created_at",
-                          "last_turn_at",
-                          "harness_options"
+                          "worktree_agent_slug",
+                          "worktree_path",
+                          "branch",
+                          "session_status",
+                          "started_at",
+                          "last_turn_index",
+                          "last_completed_at"
                         ],
                         "properties": {
+                          "role": {
+                            "type": "string"
+                          },
                           "harness": {
-                            "type": "string",
-                            "enum": [
-                              "claude",
-                              "codex",
-                              "droid"
-                            ]
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
                           },
                           "session_id": {
                             "type": [
@@ -68463,17 +68544,49 @@
                               "null"
                             ]
                           },
-                          "created_at": {
+                          "worktree_agent_slug": {
                             "type": [
                               "string",
                               "null"
                             ]
                           },
-                          "last_turn_at": {
+                          "worktree_path": {
                             "type": [
                               "string",
                               "null"
                             ]
+                          },
+                          "branch": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "session_status": {
+                            "type": "string",
+                            "enum": [
+                              "not_started",
+                              "active",
+                              "completed",
+                              "failed"
+                            ]
+                          },
+                          "started_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "last_turn_index": {
+                            "type": "integer"
+                          },
+                          "last_completed_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
                           },
                           "harness_options": {
                             "type": "object",
@@ -68779,22 +68892,36 @@
                         "type": "object",
                         "additionalProperties": false,
                         "required": [
+                          "schema_version",
                           "event_id",
+                          "run_id",
+                          "ts",
+                          "event_type",
                           "turn_index",
-                          "type",
                           "role",
+                          "harness",
+                          "session_id",
                           "parse_status",
-                          "at",
                           "payload"
                         ],
                         "properties": {
+                          "schema_version": {
+                            "type": "integer",
+                            "enum": [
+                              1
+                            ]
+                          },
                           "event_id": {
                             "type": "string"
                           },
-                          "turn_index": {
-                            "type": "integer"
+                          "run_id": {
+                            "type": "string"
                           },
-                          "type": {
+                          "ts": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "event_type": {
                             "type": "string",
                             "enum": [
                               "run_started",
@@ -68809,8 +68936,20 @@
                               "footer_missing"
                             ]
                           },
+                          "turn_index": {
+                            "type": "integer"
+                          },
                           "role": {
                             "type": "string"
+                          },
+                          "harness": {
+                            "type": "string"
+                          },
+                          "session_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "parse_status": {
                             "type": [
@@ -68823,10 +68962,6 @@
                               "malformed",
                               null
                             ]
-                          },
-                          "at": {
-                            "type": "string",
-                            "format": "date-time"
                           },
                           "payload": {
                             "type": "object",
