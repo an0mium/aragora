@@ -694,10 +694,20 @@ class TestNewFamilyCostTracking:
         ) == pytest.approx(1.25)
 
     def test_grok_4_cost_nonzero(self) -> None:
-        # grok-4 / 4.2: (3.00, 15.00) → 18.0 at 1M/1M
+        # grok-4 legacy tier: (3.00, 15.00) → 18.0 at 1M/1M
         assert estimate_cost_usd(
-            model="grok-4.2", tokens_in=1_000_000, tokens_out=1_000_000
+            model="grok-4", tokens_in=1_000_000, tokens_out=1_000_000
         ) == pytest.approx(18.0)
+
+    def test_grok_4_20_reasoning_cost_matches_published_rate(self) -> None:
+        # grok-4.20-0309-reasoning (the new panel default): (2.00, 6.00)
+        # → $8.00 at 1M/1M. Verified against
+        # https://docs.x.ai/developers/models (April 2026).
+        assert estimate_cost_usd(
+            model="grok-4.20-0309-reasoning",
+            tokens_in=1_000_000,
+            tokens_out=1_000_000,
+        ) == pytest.approx(8.0)
 
     def test_deepseek_chat_cost_with_prefix(self) -> None:
         assert (
