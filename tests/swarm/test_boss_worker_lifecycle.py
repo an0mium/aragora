@@ -1109,52 +1109,49 @@ class TestDispatchIssueUnderClaim:
     def test_releases_claim_on_success(self):
         loop = _make_loop()
         loop._release_issue_dispatch_claim = MagicMock()
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
         issue = _make_issue(number=5)
+        freshness = _fresh_result()
 
-        with patch(
-            "aragora.swarm.boss_worker_lifecycle.dispatch_issue",
-            new=AsyncMock(return_value={"status": "completed"}),
-        ):
-            result = asyncio.get_event_loop().run_until_complete(
-                dispatch_issue_under_claim(loop, issue, _fresh_result())
-            )
+        result = asyncio.get_event_loop().run_until_complete(
+            dispatch_issue_under_claim(loop, issue, freshness)
+        )
 
         loop._release_issue_dispatch_claim.assert_called_once_with(5)
+        loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
         assert result["status"] == "completed"
 
     def test_releases_claim_on_exception(self):
         loop = _make_loop()
         loop._release_issue_dispatch_claim = MagicMock()
         issue = _make_issue(number=6)
+        freshness = _fresh_result()
 
         async def _raise(*args: Any, **kwargs: Any) -> dict[str, Any]:
             raise RuntimeError("dispatch error")
 
-        with patch(
-            "aragora.swarm.boss_worker_lifecycle.dispatch_issue",
-            new=_raise,
-        ):
-            with pytest.raises(RuntimeError, match="dispatch error"):
-                asyncio.get_event_loop().run_until_complete(
-                    dispatch_issue_under_claim(loop, issue, _fresh_result())
-                )
+        loop._dispatch_issue = AsyncMock(side_effect=_raise)
+        with pytest.raises(RuntimeError, match="dispatch error"):
+            asyncio.get_event_loop().run_until_complete(
+                dispatch_issue_under_claim(loop, issue, freshness)
+            )
 
         loop._release_issue_dispatch_claim.assert_called_once_with(6)
+        loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
 
     def test_returns_dispatch_issue_result(self):
         loop = _make_loop()
         loop._release_issue_dispatch_claim = MagicMock()
         issue = _make_issue(number=7)
         expected = {"status": "running", "run_id": "run-123"}
+        freshness = _fresh_result()
 
-        with patch(
-            "aragora.swarm.boss_worker_lifecycle.dispatch_issue",
-            new=AsyncMock(return_value=expected),
-        ):
-            result = asyncio.get_event_loop().run_until_complete(
-                dispatch_issue_under_claim(loop, issue, _fresh_result())
-            )
+        loop._dispatch_issue = AsyncMock(return_value=expected)
+        result = asyncio.get_event_loop().run_until_complete(
+            dispatch_issue_under_claim(loop, issue, freshness)
+        )
 
+        loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
         assert result == expected
 
 

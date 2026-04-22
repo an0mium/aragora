@@ -1061,6 +1061,6 @@ async def dispatch_issue_under_claim(
     freshness: RunnerFreshnessResult,
 ) -> dict[str, Any]:
     try:
-        return await dispatch_issue(loop, issue, freshness)
+        return await loop._dispatch_issue(issue, freshness)
     finally:
         loop._release_issue_dispatch_claim(issue.number)
