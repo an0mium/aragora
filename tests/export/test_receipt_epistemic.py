@@ -70,7 +70,9 @@ class TestReceiptVerificationFromClaimResult:
     @pytest.mark.parametrize("status", ["fail", "stale", "unsupported", "error"])
     def test_non_pass_status_sets_verified_false(self, status: str) -> None:
         rv = receipt_verification_from_claim_result(
-            claim_id="some.claim", statement="stmt", status=status  # type: ignore[arg-type]
+            claim_id="some.claim",
+            statement="stmt",
+            status=status,  # type: ignore[arg-type]
         )
         assert rv.verified is False
         assert rv.verification_status == status
@@ -84,28 +86,32 @@ class TestReceiptVerificationFromClaimResult:
 
     def test_explicit_proof_hash_overrides_computed(self) -> None:
         rv = receipt_verification_from_claim_result(
-            claim_id="claim.x", statement="s", status="pass",
+            claim_id="claim.x",
+            statement="s",
+            status="pass",
             proof_hash="custom_hash",
         )
         assert rv.proof_hash == "custom_hash"
 
     def test_evidence_ids_preserved(self) -> None:
         rv = receipt_verification_from_claim_result(
-            claim_id="c", statement="s", status="pass",
+            claim_id="c",
+            statement="s",
+            status="pass",
             evidence_ids=["docs/status/B0.md", "workflow:benchmark_truth"],
         )
         assert rv.evidence_ids == ["docs/status/B0.md", "workflow:benchmark_truth"]
 
     def test_empty_claim_id_raises(self) -> None:
         with pytest.raises(ValueError, match="claim_id"):
-            receipt_verification_from_claim_result(
-                claim_id="", statement="s", status="pass"
-            )
+            receipt_verification_from_claim_result(claim_id="", statement="s", status="pass")
 
     def test_unknown_status_raises(self) -> None:
         with pytest.raises(ValueError, match="unknown status"):
             receipt_verification_from_claim_result(
-                claim_id="c", statement="s", status="unknown"  # type: ignore[arg-type]
+                claim_id="c",
+                statement="s",
+                status="unknown",  # type: ignore[arg-type]
             )
 
 
@@ -130,27 +136,19 @@ class TestReceiptVerificationFromCrux:
 
     def test_empty_crux_id_raises(self) -> None:
         with pytest.raises(ValueError, match="crux_id"):
-            receipt_verification_from_crux(
-                crux_id="", question="q", load_bearing_score=0.5
-            )
+            receipt_verification_from_crux(crux_id="", question="q", load_bearing_score=0.5)
 
     def test_load_bearing_score_below_zero_raises(self) -> None:
         with pytest.raises(ValueError, match="load_bearing_score"):
-            receipt_verification_from_crux(
-                crux_id="c", question="q", load_bearing_score=-0.1
-            )
+            receipt_verification_from_crux(crux_id="c", question="q", load_bearing_score=-0.1)
 
     def test_load_bearing_score_above_one_raises(self) -> None:
         with pytest.raises(ValueError, match="load_bearing_score"):
-            receipt_verification_from_crux(
-                crux_id="c", question="q", load_bearing_score=1.1
-            )
+            receipt_verification_from_crux(crux_id="c", question="q", load_bearing_score=1.1)
 
     def test_boundary_scores_accepted(self) -> None:
         for score in [0.0, 1.0]:
-            rv = receipt_verification_from_crux(
-                crux_id="c", question="q", load_bearing_score=score
-            )
+            rv = receipt_verification_from_crux(crux_id="c", question="q", load_bearing_score=score)
             assert rv.crux_id == "c"
 
 

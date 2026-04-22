@@ -557,9 +557,9 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                 if hasattr(r, "risk_summary") and r.risk_summary
                 else 0
             ),
-            "risk_score": lambda r: 1.0 - r.robustness_score
-            if hasattr(r, "robustness_score")
-            else 0.5,
+            "risk_score": lambda r: (
+                1.0 - r.robustness_score if hasattr(r, "robustness_score") else 0.5
+            ),
             "checksum": lambda r: getattr(r, "artifact_hash", None),
             "findings": lambda r: getattr(r, "vulnerability_details", []),
             "verified_claims": lambda r: [],  # Gauntlet receipts don't have verified_claims
@@ -568,9 +568,9 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                 if hasattr(r, "consensus_proof") and r.consensus_proof
                 else []
             ),
-            "duration_seconds": lambda r: r.config_used.get("duration_seconds", 0)
-            if hasattr(r, "config_used")
-            else 0,
+            "duration_seconds": lambda r: (
+                r.config_used.get("duration_seconds", 0) if hasattr(r, "config_used") else 0
+            ),
             "audit_trail_id": lambda r: None,
         }
 

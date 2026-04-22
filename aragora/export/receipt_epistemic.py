@@ -87,9 +87,7 @@ def receipt_verification_from_crux(
     if not crux_id.strip():
         raise ValueError("crux_id must be non-empty")
     if not (0.0 <= load_bearing_score <= 1.0):
-        raise ValueError(
-            f"load_bearing_score must be in [0, 1]; got {load_bearing_score}"
-        )
+        raise ValueError(f"load_bearing_score must be in [0, 1]; got {load_bearing_score}")
     return ReceiptVerification(
         claim=question,
         verified=False,
