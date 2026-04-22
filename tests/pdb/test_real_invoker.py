@@ -35,8 +35,16 @@ from aragora.pdb.protocol import (
 )
 from aragora.pdb.real_invoker import (
     FAMILY_CLAUDE,
+    FAMILY_DEEPSEEK,
+    FAMILY_GEMINI,
     FAMILY_GPT,
+    FAMILY_GROK,
+    FAMILY_KIMI,
+    FAMILY_MISTRAL,
+    FAMILY_QWEN,
     HETERODOX_FAMILIES,
+    OPENROUTER_BACKED_FAMILIES,
+    WIRED_FAMILIES,
     ProviderUnavailableError,
     RealProviderInvoker,
     estimate_cost_usd,
@@ -270,6 +278,148 @@ class TestFindings:
         assert result.position is DissentPosition.REQUEST_CHANGES
         assert result.cost_usd > 0
 
+    def test_gemini_findings_dispatch(self) -> None:
+        agent = _make_mock_agent(
+            model="gemini-3.1-pro-preview",
+            response_text=_findings_payload_json("approve", slot_id="gemini_heterodox"),
+            tokens_in=1200,
+            tokens_out=600,
+        )
+        invoker = RealProviderInvoker(
+            claude=_make_mock_agent(),
+            gpt=_make_mock_agent(),
+            gemini=agent,
+        )
+        slot = _slot(
+            "gemini_heterodox",
+            family=FAMILY_GEMINI,
+            review_role="maintainability_reviewer",
+            lens="heterodox",
+        )
+        result = invoker.findings(slot=slot, provider="gemini", prompt="p", binding=_binding())
+        assert isinstance(result, SlotFindingsResponse)
+        assert result.model == "gemini-3.1-pro-preview"
+        assert result.slot_id == "gemini_heterodox"
+        assert result.position is DissentPosition.APPROVE
+        assert result.cost_usd > 0
+        assert result.latency_ms >= 0
+        agent.generate.assert_called_once()
+
+    def test_grok_findings_dispatch(self) -> None:
+        agent = _make_mock_agent(
+            model="grok-4.2",
+            response_text=_findings_payload_json("request_changes", slot_id="grok_heterodox"),
+            tokens_in=800,
+            tokens_out=400,
+        )
+        invoker = RealProviderInvoker(
+            claude=_make_mock_agent(),
+            gpt=_make_mock_agent(),
+            grok=agent,
+        )
+        slot = _slot(
+            "grok_heterodox",
+            family=FAMILY_GROK,
+            review_role="skeptic",
+            lens="heterodox",
+        )
+        result = invoker.findings(slot=slot, provider="grok", prompt="p", binding=_binding())
+        assert isinstance(result, SlotFindingsResponse)
+        assert result.model == "grok-4.2"
+        assert result.position is DissentPosition.REQUEST_CHANGES
+        assert result.cost_usd > 0
+
+    def test_deepseek_findings_dispatch(self) -> None:
+        agent = _make_mock_agent(
+            model="deepseek/deepseek-chat",
+            response_text=_findings_payload_json("approve", slot_id="deepseek_heterodox"),
+            tokens_in=1000,
+            tokens_out=500,
+        )
+        invoker = RealProviderInvoker(
+            claude=_make_mock_agent(),
+            gpt=_make_mock_agent(),
+            deepseek=agent,
+        )
+        slot = _slot(
+            "deepseek_heterodox",
+            family=FAMILY_DEEPSEEK,
+            review_role="skeptic",
+            lens="heterodox",
+        )
+        result = invoker.findings(slot=slot, provider="deepseek", prompt="p", binding=_binding())
+        assert result.model == "deepseek/deepseek-chat"
+        # Provider-prefixed models resolve through the price table too.
+        assert result.cost_usd > 0
+
+    def test_kimi_findings_dispatch(self) -> None:
+        agent = _make_mock_agent(
+            model="moonshotai/kimi-k2-0905",
+            response_text=_findings_payload_json("approve", slot_id="kimi_heterodox"),
+            tokens_in=1500,
+            tokens_out=700,
+        )
+        invoker = RealProviderInvoker(
+            claude=_make_mock_agent(),
+            gpt=_make_mock_agent(),
+            kimi=agent,
+        )
+        slot = _slot(
+            "kimi_heterodox",
+            family=FAMILY_KIMI,
+            review_role="skeptic",
+            lens="heterodox",
+        )
+        result = invoker.findings(slot=slot, provider="kimi", prompt="p", binding=_binding())
+        assert result.model == "moonshotai/kimi-k2-0905"
+        assert result.cost_usd > 0
+
+    def test_qwen_findings_dispatch(self) -> None:
+        agent = _make_mock_agent(
+            model="qwen/qwen3-235b-a22b",
+            response_text=_findings_payload_json("approve", slot_id="qwen_heterodox"),
+            tokens_in=2000,
+            tokens_out=1000,
+        )
+        invoker = RealProviderInvoker(
+            claude=_make_mock_agent(),
+            gpt=_make_mock_agent(),
+            qwen=agent,
+        )
+        slot = _slot(
+            "qwen_heterodox",
+            family=FAMILY_QWEN,
+            review_role="skeptic",
+            lens="heterodox",
+        )
+        result = invoker.findings(slot=slot, provider="qwen", prompt="p", binding=_binding())
+        assert result.model == "qwen/qwen3-235b-a22b"
+        assert result.cost_usd > 0
+
+    def test_mistral_findings_dispatch(self) -> None:
+        agent = _make_mock_agent(
+            model="mistral-large-2512",
+            response_text=_findings_payload_json("request_changes", slot_id="mistral_regulatory"),
+            tokens_in=1800,
+            tokens_out=900,
+        )
+        invoker = RealProviderInvoker(
+            claude=_make_mock_agent(),
+            gpt=_make_mock_agent(),
+            mistral=agent,
+        )
+        slot = _slot(
+            "mistral_regulatory",
+            family=FAMILY_MISTRAL,
+            review_role="skeptic",
+            lens="regulatory",
+        )
+        result = invoker.findings(slot=slot, provider="mistral-api", prompt="p", binding=_binding())
+        assert isinstance(result, SlotFindingsResponse)
+        assert result.model == "mistral-large-2512"
+        assert result.position is DissentPosition.REQUEST_CHANGES
+        assert result.cost_usd > 0
+
     def test_malformed_response_yields_safe_dataclass(self) -> None:
         agent = _make_mock_agent(
             model="claude-sonnet-4-6",
@@ -327,6 +477,47 @@ class TestCritique:
         assert result.position is DissentPosition.REQUEST_CHANGES
         assert result.confidence == 0.7
 
+    def test_heterodox_families_critique_dispatch(self) -> None:
+        # Parametrized structural test: every family's agent is invoked
+        # via the critique path and the response is parsed into a
+        # valid SlotCritiqueResponse.
+        fixtures = [
+            (FAMILY_GEMINI, "gemini-3.1-pro-preview", "gemini"),
+            (FAMILY_GROK, "grok-4.2", "grok"),
+            (FAMILY_DEEPSEEK, "deepseek/deepseek-chat", "deepseek"),
+            (FAMILY_KIMI, "moonshotai/kimi-k2-0905", "kimi"),
+            (FAMILY_QWEN, "qwen/qwen3-235b-a22b", "qwen"),
+            (FAMILY_MISTRAL, "mistral-large-2512", "mistral"),
+        ]
+        for family, model, provider in fixtures:
+            agent = _make_mock_agent(
+                model=model,
+                response_text=_critique_payload_json("approve"),
+                tokens_in=800,
+                tokens_out=300,
+            )
+            invoker = RealProviderInvoker(
+                claude=_make_mock_agent(),
+                gpt=_make_mock_agent(),
+                **{family: agent},  # type: ignore[arg-type]
+            )
+            slot = _slot(
+                f"{family}_slot",
+                family=family,
+                lens="heterodox" if family != FAMILY_MISTRAL else "regulatory",
+            )
+            result = invoker.critique(
+                slot=slot,
+                provider=provider,
+                prompt="p",
+                peer_findings={},
+                binding=_binding(),
+            )
+            assert isinstance(result, SlotCritiqueResponse), family
+            assert result.position is DissentPosition.APPROVE, family
+            assert result.cost_usd >= 0, family  # non-negative; > 0 for known models
+            agent.generate.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # Synthesis
@@ -380,6 +571,173 @@ class TestSynthesize:
         assert "consensus" in result.top_line.lower() or "approve" in result.top_line.lower()
         assert result.position is DissentPosition.APPROVE
         assert result.cost_usd > 0
+
+    def test_mistral_synthesize_dispatch(self) -> None:
+        # Mistral is registered as a potential synthesizer only in
+        # exotic configurations, but the invoker must still route a
+        # synthesize() call to it if the panel yaml selects that slot.
+        agent = _make_mock_agent(
+            model="mistral-large-2512",
+            response_text=_synthesis_payload_json(),
+            tokens_in=2000,
+            tokens_out=600,
+        )
+        invoker = RealProviderInvoker(
+            claude=_make_mock_agent(),
+            gpt=_make_mock_agent(),
+            mistral=agent,
+        )
+        slot = _slot(
+            "mistral_regulatory",
+            family=FAMILY_MISTRAL,
+            lens="regulatory",
+        )
+        votes = (
+            PanelVote(
+                finding=RoleFinding(
+                    role=ReviewRole.LOGIC,
+                    agent="claude_core:claude",
+                    model="claude-sonnet-4-6",
+                    confidence=0.8,
+                    finding_text="",
+                ),
+                position=DissentPosition.APPROVE,
+                reason="ok",
+            ),
+        )
+        result = invoker.synthesize(
+            synthesizer_slot=slot,
+            provider="mistral-api",
+            prompt="s",
+            votes=votes,
+            binding=_binding(),
+        )
+        assert isinstance(result, SynthesisResponse)
+        assert result.model == "mistral-large-2512"
+        assert result.cost_usd > 0
+
+
+# ---------------------------------------------------------------------------
+# Availability wiring
+# ---------------------------------------------------------------------------
+
+
+class TestAvailabilityWiring:
+    def test_heterodox_families_are_all_wired_in_phase_b(self) -> None:
+        # Phase B contract: every heterodox family now lives in
+        # WIRED_FAMILIES. The invoker's family-level blocking lives in
+        # the agent-None check, not the family set.
+        for family in HETERODOX_FAMILIES:
+            assert family in WIRED_FAMILIES, family
+
+    def test_openrouter_backed_families_disjoint_from_direct(self) -> None:
+        assert OPENROUTER_BACKED_FAMILIES.issubset(HETERODOX_FAMILIES)
+        assert OPENROUTER_BACKED_FAMILIES == {
+            FAMILY_DEEPSEEK,
+            FAMILY_KIMI,
+            FAMILY_QWEN,
+        }
+
+    def test_missing_gemini_agent_raises(self) -> None:
+        invoker = RealProviderInvoker(
+            claude=_make_mock_agent(),
+            gpt=_make_mock_agent(),
+            gemini=None,
+        )
+        slot = _slot("gemini_heterodox", family=FAMILY_GEMINI, lens="heterodox")
+        with pytest.raises(ProviderUnavailableError) as exc:
+            invoker.findings(slot=slot, provider="gemini", prompt="p", binding=_binding())
+        assert exc.value.family == FAMILY_GEMINI
+        assert "no agent instance" in exc.value.reason
+
+    def test_unavailable_slots_override_blocks_wired_heterodox(self) -> None:
+        # Even with the agent registered, an unavailable_slots entry
+        # still wins — that's how the factory degrades an OpenRouter
+        # slot when OPENROUTER_API_KEY is absent.
+        agent = _make_mock_agent(model="qwen/qwen3-235b-a22b")
+        invoker = RealProviderInvoker(
+            claude=_make_mock_agent(),
+            gpt=_make_mock_agent(),
+            qwen=agent,
+            unavailable_slots=frozenset({"qwen_heterodox"}),
+        )
+        slot = _slot("qwen_heterodox", family=FAMILY_QWEN, lens="heterodox")
+        with pytest.raises(ProviderUnavailableError) as exc:
+            invoker.findings(slot=slot, provider="qwen", prompt="p", binding=_binding())
+        assert "no API key" in exc.value.reason
+
+    def test_unknown_family_raises(self) -> None:
+        # A panel yaml typo ('clade' instead of 'claude') must surface
+        # as a slot-level degrade, never silently dispatch to the
+        # wrong agent.
+        invoker = RealProviderInvoker(
+            claude=_make_mock_agent(),
+            gpt=_make_mock_agent(),
+        )
+        slot = _slot("oops", family="clade", lens="core")
+        with pytest.raises(ProviderUnavailableError) as exc:
+            invoker.findings(slot=slot, provider="x", prompt="p", binding=_binding())
+        assert "no wiring" in exc.value.reason
+
+
+# ---------------------------------------------------------------------------
+# Cost tracking for the new families
+# ---------------------------------------------------------------------------
+
+
+class TestNewFamilyCostTracking:
+    def test_gemini_3_1_pro_cost_nonzero(self) -> None:
+        assert estimate_cost_usd(
+            model="gemini-3.1-pro-preview",
+            tokens_in=1_000_000,
+            tokens_out=0,
+        ) == pytest.approx(1.25)
+
+    def test_grok_4_cost_nonzero(self) -> None:
+        # grok-4 / 4.2: (3.00, 15.00) → 18.0 at 1M/1M
+        assert estimate_cost_usd(
+            model="grok-4.2", tokens_in=1_000_000, tokens_out=1_000_000
+        ) == pytest.approx(18.0)
+
+    def test_deepseek_chat_cost_with_prefix(self) -> None:
+        assert (
+            estimate_cost_usd(
+                model="deepseek/deepseek-chat",
+                tokens_in=1_000_000,
+                tokens_out=1_000_000,
+            )
+            == pytest.approx(1.37)  # 0.27 + 1.10
+        )
+
+    def test_kimi_k2_cost(self) -> None:
+        assert (
+            estimate_cost_usd(
+                model="moonshotai/kimi-k2-0905",
+                tokens_in=1_000_000,
+                tokens_out=1_000_000,
+            )
+            == pytest.approx(2.87)  # 0.57 + 2.30
+        )
+
+    def test_qwen3_235b_cost(self) -> None:
+        assert (
+            estimate_cost_usd(
+                model="qwen/qwen3-235b-a22b",
+                tokens_in=1_000_000,
+                tokens_out=1_000_000,
+            )
+            == pytest.approx(0.42)  # 0.14 + 0.28
+        )
+
+    def test_mistral_large_cost(self) -> None:
+        assert (
+            estimate_cost_usd(
+                model="mistral-large-2512",
+                tokens_in=1_000_000,
+                tokens_out=1_000_000,
+            )
+            == pytest.approx(8.0)  # 2.00 + 6.00
+        )
 
 
 # ---------------------------------------------------------------------------

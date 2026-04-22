@@ -1,23 +1,29 @@
 """Real :class:`ProviderInvoker` wiring for PDB Mode 3 Protocol B.
 
-This module ships the first non-mock invoker: it dispatches findings,
+This module ships the non-mock invoker: it dispatches findings,
 critique, and synthesis calls to the real class-based agent
 instances in :mod:`aragora.agents.api_agents` and coerces their
 free-form text output into the structured response shapes the
 :mod:`aragora.pdb.protocol` executor consumes.
 
-Phase A scope (what this PR delivers):
+Phase A scope:
 
 - :data:`FAMILY_CLAUDE` → :class:`AnthropicAPIAgent`
 - :data:`FAMILY_GPT` → :class:`OpenAIAPIAgent`
-- every other family (gemini / grok / deepseek / kimi / qwen / mistral)
-  is marked **unavailable** and raises :class:`ProviderUnavailableError`
-  when the executor tries to invoke it. The executor treats the raise
-  as a per-slot degrade per its existing contract.
 
-Phase B (intentionally deferred): wiring the heterodox slots so the
-full eight-slot panel runs on real providers, rate-limit retries,
-caching, and prompt-engineering refinement. See the mission brief.
+Phase B scope (this PR extends the invoker to cover the rest of the
+panel roster):
+
+- :data:`FAMILY_GEMINI` → :class:`GeminiAgent` (direct Google API)
+- :data:`FAMILY_GROK` → :class:`GrokAgent` (xAI API)
+- :data:`FAMILY_DEEPSEEK` → :class:`OpenRouterAgent` with DeepSeek model
+- :data:`FAMILY_KIMI` → :class:`OpenRouterAgent` with Moonshot Kimi model
+- :data:`FAMILY_QWEN` → :class:`OpenRouterAgent` with Qwen model
+- :data:`FAMILY_MISTRAL` → :class:`MistralAPIAgent` (regulatory lens)
+
+With all eight families wired, a fully-configured environment produces
+the heterogeneous two-core + five-heterodox + one-regulatory brief as
+designed.
 
 The class holds a pre-initialized agent per family (not per call) so
 each invocation reuses the underlying HTTP session setup the base
@@ -28,7 +34,9 @@ Token + cost tracking. Every call wraps the underlying agent in
 ``last_tokens_out`` off the agent after ``generate`` returns, then
 looks up a conservative per-model rate to compute ``cost_usd``.
 Unknown models log a warning and record ``0.0`` so the budget layer
-still receives a valid float.
+still receives a valid float. Rate-limit / retry / fallback logic
+lives in the base :class:`APIAgent` classes — the invoker stays a
+thin dispatch layer.
 """
 
 from __future__ import annotations
@@ -56,9 +64,16 @@ from aragora.swarm.pr_review_protocol import PRReviewBinding, PRReviewFinding
 
 __all__ = [
     "FAMILY_CLAUDE",
+    "FAMILY_DEEPSEEK",
+    "FAMILY_GEMINI",
     "FAMILY_GPT",
+    "FAMILY_GROK",
+    "FAMILY_KIMI",
+    "FAMILY_MISTRAL",
+    "FAMILY_QWEN",
     "WIRED_FAMILIES",
     "HETERODOX_FAMILIES",
+    "OPENROUTER_BACKED_FAMILIES",
     "ProviderUnavailableError",
     "RealProviderInvoker",
     "estimate_cost_usd",
@@ -69,19 +84,67 @@ logger = logging.getLogger(__name__)
 
 FAMILY_CLAUDE = "claude"
 FAMILY_GPT = "gpt"
+FAMILY_GEMINI = "gemini"
+FAMILY_GROK = "grok"
+FAMILY_DEEPSEEK = "deepseek"
+FAMILY_KIMI = "kimi"
+FAMILY_QWEN = "qwen"
+FAMILY_MISTRAL = "mistral"
 
-WIRED_FAMILIES: frozenset[str] = frozenset({FAMILY_CLAUDE, FAMILY_GPT})
-"""Families the Phase A invoker actually dispatches to real agents."""
+WIRED_FAMILIES: frozenset[str] = frozenset(
+    {
+        FAMILY_CLAUDE,
+        FAMILY_GPT,
+        FAMILY_GEMINI,
+        FAMILY_GROK,
+        FAMILY_DEEPSEEK,
+        FAMILY_KIMI,
+        FAMILY_QWEN,
+        FAMILY_MISTRAL,
+    }
+)
+"""Families the Phase B invoker dispatches to real agents.
+
+A family appears in ``WIRED_FAMILIES`` whenever the module knows *how*
+to dispatch to it. Whether the slot is actually live for a given brief
+is the product of ``WIRED_FAMILIES`` × ``unavailable_slots`` × the
+runtime agent registration in :class:`RealProviderInvoker`.
+"""
 
 HETERODOX_FAMILIES: frozenset[str] = frozenset(
-    {"gemini", "grok", "deepseek", "kimi", "qwen", "mistral"}
+    {
+        FAMILY_GEMINI,
+        FAMILY_GROK,
+        FAMILY_DEEPSEEK,
+        FAMILY_KIMI,
+        FAMILY_QWEN,
+        FAMILY_MISTRAL,
+    }
 )
-"""Families the Phase A invoker treats as unavailable by design."""
+"""Families considered heterodox/regulatory (everything but Claude+GPT).
+
+Preserved as a public set so the factory and tests can reason about
+which slots are optional vs. required, even though the invoker no
+longer short-circuits them automatically — a heterodox slot is live
+iff its family's API key is set *and* an agent instance is registered.
+"""
+
+OPENROUTER_BACKED_FAMILIES: frozenset[str] = frozenset({FAMILY_DEEPSEEK, FAMILY_KIMI, FAMILY_QWEN})
+"""Families that share a single :data:`OPENROUTER_API_KEY` credential."""
 
 
 # Conservative per-model rates (USD per 1M tokens). Kept minimal and
 # self-contained rather than reusing the full billing pipeline so the
 # invoker has a predictable, test-friendly cost surface.
+#
+# Sources consulted (April 2026):
+# - Anthropic pricing page (Claude Opus / Sonnet / Haiku tiers)
+# - OpenAI pricing page (GPT-5 / GPT-4.1 family)
+# - Google Gemini API pricing (Gemini 3.1 Pro / 3 Flash)
+# - xAI docs (Grok 4 / 4.2 pricing)
+# - OpenRouter model catalog (DeepSeek chat, Moonshot Kimi K2,
+#   Qwen3-235B-A22B and Qwen3 Max variants)
+# - Mistral La Plateforme pricing (Mistral Large 2411 / 2512)
 _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # Anthropic
     "claude-opus-4-7": (5.00, 25.00),
@@ -100,6 +163,59 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "gpt-4.1-mini": (0.40, 1.60),
     "gpt-4o": (2.50, 10.00),
     "gpt-4o-mini": (0.15, 0.60),
+    # Google Gemini (direct API). Gemini 3.1 Pro Preview ≈ Gemini 2.5 Pro
+    # tier; Flash derivatives cheaper.
+    "gemini-3.1-pro-preview": (1.25, 10.00),
+    "gemini-3.1-pro": (1.25, 10.00),
+    "gemini-3-pro-preview": (1.25, 10.00),
+    "gemini-3-pro": (1.25, 10.00),
+    "gemini-3-flash-preview": (0.30, 2.50),
+    "gemini-3-flash": (0.30, 2.50),
+    "gemini-2.5-pro": (1.25, 10.00),
+    "gemini-2.5-flash": (0.30, 2.50),
+    "gemini-2.0-flash": (0.15, 0.60),
+    "gemini-2.0-flash-001": (0.15, 0.60),
+    "gemini-1.5-pro": (1.25, 5.00),
+    "gemini-1.5-flash": (0.075, 0.30),
+    # xAI Grok
+    "grok-4.2": (3.00, 15.00),
+    "grok-4-2": (3.00, 15.00),
+    "grok-4": (3.00, 15.00),
+    "grok-4-latest": (3.00, 15.00),
+    "grok-4-0709": (3.00, 15.00),
+    "grok-4-fast": (0.20, 0.50),
+    "grok-4-1-fast": (0.20, 0.50),
+    "grok-4-1-fast-reasoning": (0.20, 0.50),
+    "grok-3": (2.00, 10.00),
+    # OpenRouter-routed families. Prices are what OpenRouter passes
+    # through (plus the standard platform markup); both the ``family/``
+    # and un-prefixed forms below work because ``estimate_cost_usd``
+    # strips provider prefixes before lookup.
+    "deepseek-chat": (0.27, 1.10),
+    "deepseek-chat-v3-0324": (0.27, 1.10),
+    "deepseek-chat-v3.1": (0.27, 1.10),
+    "deepseek-v3.2": (0.27, 1.10),
+    "deepseek-v3.2-exp": (0.27, 1.10),
+    "deepseek-r1": (0.55, 2.19),
+    "deepseek-reasoner": (0.55, 2.19),
+    "kimi-k2": (0.57, 2.30),
+    "kimi-k2-0905": (0.57, 2.30),
+    "kimi-k2-thinking": (0.57, 2.30),
+    "moonshot-v1-128k": (0.57, 2.30),
+    "qwen3-235b-a22b": (0.14, 0.28),
+    "qwen3-max": (0.60, 1.80),
+    "qwen3.5-plus-02-15": (0.60, 1.80),
+    "qwen-2.5-72b-instruct": (0.30, 0.80),
+    # Mistral (direct API)
+    "mistral-large-2512": (2.00, 6.00),
+    "mistral-large-2411": (2.00, 6.00),
+    "mistral-large-latest": (2.00, 6.00),
+    "mistral-medium-latest": (0.40, 2.00),
+    "mistral-small-latest": (0.10, 0.30),
+    "codestral-latest": (0.30, 0.90),
+    "codestral-2501": (0.30, 0.90),
+    "ministral-8b-latest": (0.10, 0.10),
+    "ministral-3b-latest": (0.04, 0.04),
 }
 
 
@@ -191,7 +307,7 @@ class _AgentCallResult:
 
 
 class RealProviderInvoker:
-    """Phase A :class:`aragora.pdb.protocol.ProviderInvoker` implementation.
+    """Phase A + B :class:`aragora.pdb.protocol.ProviderInvoker` implementation.
 
     Parameters
     ----------
@@ -201,6 +317,22 @@ class RealProviderInvoker:
     gpt:
         An :class:`OpenAIAPIAgent`-like object, or ``None`` if the
         OpenAI core slot should be treated as unavailable.
+    gemini:
+        A :class:`GeminiAgent`-like object for the ``gemini_heterodox``
+        slot, or ``None`` if Gemini should be treated as unavailable.
+    grok:
+        A :class:`GrokAgent`-like object, or ``None``.
+    deepseek:
+        An :class:`OpenRouterAgent`-like object targeting a DeepSeek
+        model, or ``None``.
+    kimi:
+        An :class:`OpenRouterAgent`-like object targeting a Moonshot
+        Kimi model, or ``None``.
+    qwen:
+        An :class:`OpenRouterAgent`-like object targeting a Qwen model,
+        or ``None``.
+    mistral:
+        A :class:`MistralAPIAgent`-like object, or ``None``.
     unavailable_slots:
         Optional override marking specific slot ids as unavailable
         regardless of family routing (used by the factory when a
@@ -212,11 +344,23 @@ class RealProviderInvoker:
         *,
         claude: _AgentLike | None = None,
         gpt: _AgentLike | None = None,
+        gemini: _AgentLike | None = None,
+        grok: _AgentLike | None = None,
+        deepseek: _AgentLike | None = None,
+        kimi: _AgentLike | None = None,
+        qwen: _AgentLike | None = None,
+        mistral: _AgentLike | None = None,
         unavailable_slots: frozenset[str] = frozenset(),
     ) -> None:
         self._agents: dict[str, _AgentLike | None] = {
             FAMILY_CLAUDE: claude,
             FAMILY_GPT: gpt,
+            FAMILY_GEMINI: gemini,
+            FAMILY_GROK: grok,
+            FAMILY_DEEPSEEK: deepseek,
+            FAMILY_KIMI: kimi,
+            FAMILY_QWEN: qwen,
+            FAMILY_MISTRAL: mistral,
         }
         self._unavailable_slots = frozenset(unavailable_slots)
 
@@ -338,24 +482,28 @@ class RealProviderInvoker:
     # ------------------------------------------------------------------
 
     def _assert_available(self, slot: PDBPanelSlot) -> None:
-        """Raise :class:`ProviderUnavailableError` if ``slot`` is not wired."""
+        """Raise :class:`ProviderUnavailableError` if ``slot`` is not wired.
+
+        Order of checks:
+
+        1. Slot id is on the factory-supplied ``unavailable_slots`` set
+           (the env-var did not surface an API key for this slot).
+        2. The family has no wiring in this module at all — that's a
+           config bug, not a missing key.
+        3. The family is wired but no agent instance was registered
+           at construction time.
+        """
         if slot.slot_id in self._unavailable_slots:
             raise ProviderUnavailableError(
                 slot_id=slot.slot_id,
                 family=slot.family,
                 reason="slot marked unavailable by invoker factory (no API key)",
             )
-        if slot.family in HETERODOX_FAMILIES:
-            raise ProviderUnavailableError(
-                slot_id=slot.slot_id,
-                family=slot.family,
-                reason="heterodox family not wired in Phase A (Claude + GPT only)",
-            )
         if slot.family not in WIRED_FAMILIES:
             raise ProviderUnavailableError(
                 slot_id=slot.slot_id,
                 family=slot.family,
-                reason=f"family {slot.family!r} has no Phase A wiring",
+                reason=f"family {slot.family!r} has no wiring in RealProviderInvoker",
             )
         if self._agents.get(slot.family) is None:
             raise ProviderUnavailableError(
