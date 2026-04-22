@@ -53,9 +53,11 @@ class MetaculusQuestion:
         except (TypeError, ValueError) as exc:
             raise MetaculusError(f"Metaculus question 'id' is not an integer: {qid!r}") from exc
         community_q2: float | None = None
-        full = (payload.get("community_prediction") or {}).get("full") if isinstance(
-            payload.get("community_prediction"), dict
-        ) else None
+        full = (
+            (payload.get("community_prediction") or {}).get("full")
+            if isinstance(payload.get("community_prediction"), dict)
+            else None
+        )
         if isinstance(full, dict) and full.get("q2") is not None:
             try:
                 community_q2 = float(full["q2"])
@@ -68,19 +70,23 @@ class MetaculusQuestion:
             except (TypeError, ValueError):
                 pass
         return cls(
-            question_id=qid, title=str(payload.get("title") or ""),
+            question_id=qid,
+            title=str(payload.get("title") or ""),
             question_type=str(payload.get("question_type") or "binary"),
-            created_time=payload.get("created_time"), close_time=payload.get("close_time"),
+            created_time=payload.get("created_time"),
+            close_time=payload.get("close_time"),
             resolve_time=payload.get("resolve_time"),
             active_state=str(payload.get("active_state") or "active"),
-            resolution=resolution, community_q2=community_q2, raw=dict(payload),
+            resolution=resolution,
+            community_q2=community_q2,
+            raw=dict(payload),
         )
 
 
 @dataclass(frozen=True)
 class MetaculusResolution:
     question_id: int
-    outcome: str       # "yes" | "no" | "inconclusive"
+    outcome: str  # "yes" | "no" | "inconclusive"
     resolved_at: str | None
     community_q2: float | None
     raw: dict[str, Any] = field(default_factory=dict)
@@ -122,8 +128,14 @@ class MetaculusAdapter:
             raise MetaculusError(f"metaculus questions/{qid}/ returned non-object payload")
         return MetaculusQuestion.from_api_payload(payload)
 
-    def list_questions(self, *, limit: int = 50, status: str | None = None,
-                       question_type: str = "binary", offset: int = 0) -> list[MetaculusQuestion]:
+    def list_questions(
+        self,
+        *,
+        limit: int = 50,
+        status: str | None = None,
+        question_type: str = "binary",
+        offset: int = 0,
+    ) -> list[MetaculusQuestion]:
         if limit < 1 or limit > 100:
             raise MetaculusError("limit must be in [1, 100]")
         path = f"questions/?limit={int(limit)}&offset={int(offset)}"
@@ -147,8 +159,9 @@ class MetaculusAdapter:
                     logger.debug("skipping malformed metaculus question entry")
         return out
 
-    def discover_open_binary_questions(self, *, limit: int = 50,
-                                       now: datetime | None = None) -> list[MetaculusQuestion]:
+    def discover_open_binary_questions(
+        self, *, limit: int = 50, now: datetime | None = None
+    ) -> list[MetaculusQuestion]:
         """Return open binary questions with at least min_window_days until close."""
         questions = self.list_questions(limit=limit, status="active", question_type="binary")
         reference = now or datetime.now(tz=UTC)
@@ -170,14 +183,17 @@ class MetaculusAdapter:
         if not question.is_resolved:
             return None
         return MetaculusResolution(
-            question_id=question.question_id, outcome=_normalize_outcome(question.resolution),
-            resolved_at=question.resolve_time, community_q2=question.community_q2,
+            question_id=question.question_id,
+            outcome=_normalize_outcome(question.resolution),
+            resolved_at=question.resolve_time,
+            community_q2=question.community_q2,
             raw={"resolution": question.resolution, "question_type": question.question_type},
         )
 
 
-def metaculus_to_market_resolution(resolution: MetaculusResolution, *,
-                                   resolved_at: datetime | None = None) -> Any:
+def metaculus_to_market_resolution(
+    resolution: MetaculusResolution, *, resolved_at: datetime | None = None
+) -> Any:
     """Bridge to the AGT-04 ResolutionEvent shape (lazy import)."""
     from aragora.markets.types import ResolutionEvent as MR
 
@@ -192,13 +208,17 @@ def metaculus_to_market_resolution(resolution: MetaculusResolution, *,
     if resolution.community_q2 is not None:
         evidence["community_q2"] = resolution.community_q2
     factory = {"yes": MR.yes, "no": MR.no}.get(resolution.outcome, MR.inconclusive)
-    return factory(market_id=market_id, resolution_source="metaculus",
-                   evidence=evidence, resolved_at=when)
+    return factory(
+        market_id=market_id, resolution_source="metaculus", evidence=evidence, resolved_at=when
+    )
 
 
 __all__ = [
-    "DEFAULT_MIN_WINDOW_DAYS", "METACULUS_API_BASE",
-    "MetaculusAdapter", "MetaculusError",
-    "MetaculusQuestion", "MetaculusResolution",
+    "DEFAULT_MIN_WINDOW_DAYS",
+    "METACULUS_API_BASE",
+    "MetaculusAdapter",
+    "MetaculusError",
+    "MetaculusQuestion",
+    "MetaculusResolution",
     "metaculus_to_market_resolution",
 ]
