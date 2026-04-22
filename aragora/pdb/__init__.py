@@ -1,26 +1,31 @@
-"""PDB — PR Decision Brief lifecycle package.
+"""PDB — PR Decision Brief lifecycle package (Mode 3).
 
-This package hosts the storage + state machine that back the Mode 3
-on-demand PR brief generation pipeline described in
-``docs/plans/2026-04-20-pdb-brief-generation-mode3-design.md``.
+This package hosts the Mode-3-specific wiring for PR Decision Briefs:
 
-Public surface:
+- :mod:`aragora.pdb.prompts` — PR-review prompt templates
+- :mod:`aragora.pdb.input_loader` — ``gh``-backed PR input builder
+- :mod:`aragora.pdb.panel_config` — wraps
+  :mod:`aragora.brief_engine.panel_config` with the committed PDB
+  default yaml path (``aragora/config/pdb_panel.yaml``)
+- :mod:`aragora.pdb.protocol` — wraps
+  :mod:`aragora.brief_engine.protocol` with the PDB prompt renderer +
+  default panel config
+- :mod:`aragora.pdb.storage`, :mod:`aragora.pdb.worker`,
+  :mod:`aragora.pdb.brief_state`, :mod:`aragora.pdb.budget` — back-
+  compat shims that re-export the generic primitives from
+  :mod:`aragora.brief_engine` under their legacy ``PDB*`` names.
 
-- :class:`BriefLifecycleState` — the six canonical lifecycle states
-  (``absent``, ``queued``, ``running``, ``ready``, ``failed``, ``stale``)
-- :class:`StateTransitionError` — raised when an illegal transition is
-  attempted or when asserting into the same state
-- :func:`validate_transition` — assert a transition is legal
-- :mod:`aragora.pdb.storage` — flat-file storage layer under
-  ``.aragora/review-queue/briefs/`` (see module docstring)
-
-Subsequent PRs layer on executor, panel config, budget enforcement, and
-backend endpoints. This package is storage + state only.
+The generic brief-engine primitives (storage, lifecycle, budget,
+worker, executor) were extracted in Phase 1 — see
+``docs/plans/2026-04-22-security-report-brief-design.md`` §Phase 1 —
+to make future brief variants (SecurityReportBrief, license audit,
+compliance review) buildable without copy-paste. Mode 3 PDB remains
+the reference consumer; nothing below the surface changed.
 """
 
 from __future__ import annotations
 
-from aragora.pdb.brief_state import (
+from aragora.brief_engine.lifecycle import (
     BriefLifecycleState,
     LEGAL_TRANSITIONS,
     StateTransitionError,
