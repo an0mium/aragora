@@ -190,7 +190,7 @@ def _validate_anthropic(key: str) -> bool:
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-3-haiku-20240307",
+                "model": "claude-haiku-4-5-20251001",
                 "max_tokens": 1,
                 "messages": [{"role": "user", "content": "hi"}],
             },
@@ -1584,6 +1584,40 @@ class BrowserRotator:
 # =============================================================================
 
 
+
+def _clear_session_traces() -> None:
+    """Clear terminal scrollback and shell history file post-rotation.
+
+    Minimizes on-disk + on-screen lingering of paste echoes and previous
+    key values. Two layers:
+      1. Terminal scrollback cleared via ANSI escape sequences
+         (ESC[2J clears screen, ESC[3J clears scrollback, ESC[H homes cursor).
+      2. Shell history FILE truncated ($HISTFILE or conventional paths).
+
+    In-memory shell history CANNOT be cleared from a subprocess — the parent
+    shell still has its session history in RAM. The user must run
+    ``history -c`` in their shell to also purge that. We print a reminder.
+    """
+    import sys, os
+    sys.stdout.write("\x1b[2J\x1b[3J\x1b[H")
+    sys.stdout.flush()
+    home = os.path.expanduser("~")
+    histfile = os.environ.get("HISTFILE")
+    candidates = [histfile] if histfile else []
+    candidates += [os.path.join(home, ".zsh_history"), os.path.join(home, ".bash_history")]
+    seen: set[str] = set()
+    for path in candidates:
+        if not path or path in seen:
+            continue
+        seen.add(path)
+        if os.path.exists(path):
+            try:
+                with open(path, "w", encoding="utf-8") as f:
+                    pass
+            except OSError:
+                pass
+
+
 class SecretsManager:
     """Main secrets manager."""
 
@@ -1833,7 +1867,11 @@ class SecretsManager:
 
         # Update all backends
         print(f"\n{BOLD}Initializing backends...{RESET}")
-        self.init_backends()
+        include = None
+        if getattr(args, "skip_local", False):
+            include = ["aws-us-east-2", "aws-us-east-1", "github"]
+            print(f"  {YELLOW}skipping local .env (--skip-local){RESET}")
+        self.init_backends(include=include)
 
         print(f"\n{BOLD}Updating backends...{RESET}")
         for name, backend in self.backends.items():
@@ -1855,6 +1893,10 @@ class SecretsManager:
                 print(f"  {RED}✗{RESET} {name}: {e}")
 
         print(f"\n{GREEN}Rotation complete!{RESET}")
+        if not getattr(args, "no_clear_traces", False):
+            _clear_session_traces()
+            print(f"{GREEN}Rotation complete.{RESET} Scrollback + history file cleared.")
+            print(f"  Run {CYAN}history -c{RESET} in your shell to purge in-memory history.")
         return 0
 
     def cmd_sync(self, args: argparse.Namespace) -> int:
@@ -2048,6 +2090,14 @@ Why manual rotation? See: %(prog)s --explain
     rotate_parser.add_argument("--browser", action="store_true", help="Use browser automation")
     rotate_parser.add_argument(
         "--headless", action="store_true", help="Run browser in headless mode"
+    )
+    rotate_parser.add_argument(
+        "--skip-local", action="store_true",
+        help="Do not write new secret to local .env — AWS + GitHub only"
+    )
+    rotate_parser.add_argument(
+        "--no-clear-traces", action="store_true",
+        help="Don't clear terminal scrollback + shell history file after rotation"
     )
 
     # sync
