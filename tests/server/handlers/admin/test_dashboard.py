@@ -214,17 +214,30 @@ class TestSummaryMetrics:
 
     def test_get_summary_metrics_sql(self, handler, mock_storage):
         """SQL summary returns correct aggregates."""
-        storage, cursor = mock_storage
+        storage, _cursor = mock_storage
+        now = datetime.now(timezone.utc)
+        records = [
+            _dashboard_record("d1", "tech", created_at=now - timedelta(hours=1), confidence=0.9),
+            _dashboard_record(
+                "d2",
+                "finance",
+                created_at=now - timedelta(days=1),
+                consensus_reached=False,
+                confidence=0.4,
+            ),
+            _dashboard_record("d3", "ops", created_at=now - timedelta(days=2), confidence=0.7),
+        ]
 
-        # Mock SQL result: total=100, consensus=75, avg_conf=0.78
-        cursor.fetchone.return_value = (100, 75, 0.78)
+        with patch(
+            "aragora.server.handlers.admin.dashboard_metrics.load_debate_records",
+            return_value=records,
+        ):
+            result = handler._get_summary_metrics_sql(storage, None)
 
-        result = handler._get_summary_metrics_sql(storage, None)
-
-        assert result["total_debates"] == 100
-        assert result["consensus_reached"] == 75
-        assert result["consensus_rate"] == 0.75
-        assert result["avg_confidence"] == 0.78
+        assert result["total_debates"] == 3
+        assert result["consensus_reached"] == 2
+        assert result["consensus_rate"] == pytest.approx(0.667, rel=0.001)
+        assert result["avg_confidence"] == pytest.approx(0.667, rel=0.001)
 
     def test_get_summary_metrics_sql_empty(self, handler, mock_storage):
         """SQL summary handles empty results."""
@@ -273,13 +286,28 @@ class TestRecentActivity:
 
     def test_get_recent_activity_sql(self, handler, mock_storage):
         """SQL activity returns correct counts."""
-        storage, cursor = mock_storage
-        cursor.fetchone.return_value = (25, 18)
+        storage, _cursor = mock_storage
+        now = datetime.now(timezone.utc)
+        records = [
+            _dashboard_record("d1", "tech", created_at=now - timedelta(hours=1), confidence=0.9),
+            _dashboard_record(
+                "d2",
+                "finance",
+                created_at=now - timedelta(hours=3),
+                consensus_reached=False,
+                confidence=0.4,
+            ),
+            _dashboard_record("d3", "ops", created_at=now - timedelta(days=3), confidence=0.7),
+        ]
 
-        result = handler._get_recent_activity_sql(storage, 24)
+        with patch(
+            "aragora.server.handlers.admin.dashboard_metrics.load_debate_records",
+            return_value=records,
+        ):
+            result = handler._get_recent_activity_sql(storage, 24)
 
-        assert result["debates_last_period"] == 25
-        assert result["consensus_last_period"] == 18
+        assert result["debates_last_period"] == 2
+        assert result["consensus_last_period"] == 1
         assert result["period_hours"] == 24
 
     def test_get_recent_activity_legacy(self, handler, mock_debates):
@@ -946,24 +974,66 @@ def _parse_body(result):
     return body
 
 
+def _dashboard_record(
+    debate_id: str,
+    domain: str,
+    *,
+    created_at: datetime,
+    status: str = "completed",
+    consensus_reached: bool = True,
+    confidence: float = 0.8,
+    needs_attention: bool = False,
+    task: str | None = None,
+    total_tokens: int = 0,
+    artifact_bytes: int = 0,
+    duration_seconds: float | None = None,
+    rounds_used: int | None = None,
+):
+    return {
+        "id": debate_id,
+        "domain": domain,
+        "domain_label": domain,
+        "status": status,
+        "consensus_reached": consensus_reached,
+        "confidence": confidence,
+        "created_at": created_at.isoformat(),
+        "_sort_created_at": created_at,
+        "needs_attention": needs_attention,
+        "task": task or f"{domain} task",
+        "total_tokens": total_tokens,
+        "artifact_bytes": artifact_bytes,
+        "duration_seconds": duration_seconds,
+        "rounds_used": rounds_used,
+    }
+
+
 class TestDashboardDebates:
     """Tests for _get_dashboard_debates (wired to storage)."""
 
     def test_returns_debates_from_storage(self, handler, mock_storage):
         """Fetches debates from storage with pagination."""
-        storage, cursor = mock_storage
+        storage, _cursor = mock_storage
         handler.get_storage = MagicMock(return_value=storage)
 
-        # Mock count query then fetch
-        cursor.fetchone.side_effect = [(5,)]
-        cursor.fetchall.return_value = [
-            ("d1", "tech", "completed", True, 0.9, "2026-01-01T00:00:00"),
-            ("d2", "finance", "completed", False, 0.4, "2026-01-02T00:00:00"),
+        now = datetime.now(timezone.utc)
+        records = [
+            _dashboard_record("d1", "tech", created_at=now, confidence=0.9),
+            _dashboard_record(
+                "d2",
+                "finance",
+                created_at=now - timedelta(days=1),
+                consensus_reached=False,
+                confidence=0.4,
+            ),
         ]
 
-        result = handler._get_dashboard_debates(10, 0, None)
+        with patch(
+            "aragora.server.handlers.admin.dashboard_views.load_debate_records",
+            return_value=records,
+        ):
+            result = handler._get_dashboard_debates(10, 0, None)
         data = _parse_body(result)
-        assert data["total"] == 5
+        assert data["total"] == 2
         assert len(data["debates"]) == 2
         assert data["debates"][0]["id"] == "d1"
 
@@ -981,31 +1051,64 @@ class TestDashboardStats:
 
     def test_returns_stats_from_storage(self, handler, mock_storage):
         """Stats includes debate counts and performance."""
-        storage, cursor = mock_storage
+        storage, _cursor = mock_storage
         handler.get_storage = MagicMock(return_value=storage)
         handler.get_elo_system = MagicMock(return_value=None)
         handler.ctx = {}
 
-        # _get_summary_metrics_sql uses fetchone, then _get_dashboard_stats
-        # calls additional queries for today/week/month/by_status
-        cursor.fetchone.side_effect = [
-            (100, 75, 0.82),  # _get_summary_metrics_sql
-            (10,),  # today
-            (40,),  # this_week
-            (90,),  # this_month
+        now = datetime.now(timezone.utc)
+        records = [
+            _dashboard_record(
+                "d1",
+                "tech",
+                created_at=now - timedelta(hours=1),
+                confidence=0.9,
+                total_tokens=120,
+                artifact_bytes=200,
+            ),
+            _dashboard_record(
+                "d2",
+                "finance",
+                created_at=now - timedelta(days=2),
+                status="pending",
+                consensus_reached=False,
+                confidence=0.4,
+                needs_attention=True,
+                total_tokens=40,
+                artifact_bytes=80,
+            ),
+            _dashboard_record(
+                "d3",
+                "ops",
+                created_at=now - timedelta(days=12),
+                confidence=0.7,
+                total_tokens=60,
+                artifact_bytes=150,
+            ),
         ]
-        cursor.fetchall.return_value = [
-            ("completed", 80),
-            ("pending", 20),
-        ]
+        summary = {
+            "total_debates": 3,
+            "consensus_reached": 2,
+            "consensus_rate": 0.667,
+            "avg_confidence": 0.667,
+        }
 
-        with patch.object(handler, "_get_performance_metrics", return_value={}):
+        with (
+            patch(
+                "aragora.server.handlers.admin.dashboard_views.load_debate_records",
+                return_value=records,
+            ),
+            patch.object(handler, "_get_summary_metrics_sql", return_value=summary),
+            patch.object(handler, "_get_performance_metrics", return_value={}),
+        ):
             result = handler._get_dashboard_stats()
         data = _parse_body(result)
-        assert data["debates"]["total"] == 100
-        assert data["debates"]["today"] == 10
-        assert data["debates"]["this_week"] == 40
-        assert data["performance"]["consensus_rate"] == 0.75
+        assert data["debates"]["total"] == 3
+        assert data["debates"]["today"] == 1
+        assert data["debates"]["this_week"] == 2
+        assert data["debates"]["this_month"] == 3
+        assert data["debates"]["by_status"] == {"completed": 2, "pending": 1}
+        assert data["performance"]["consensus_rate"] == 0.667
 
     def test_returns_defaults_without_storage(self, handler):
         """Stats returns defaults when no storage."""
@@ -1100,17 +1203,25 @@ class TestActivity:
 
     def test_returns_activity_from_storage(self, handler, mock_storage):
         """Activity feed includes recent debates."""
-        storage, cursor = mock_storage
+        storage, _cursor = mock_storage
         handler.get_storage = MagicMock(return_value=storage)
 
-        cursor.fetchone.return_value = (3,)
-        cursor.fetchall.return_value = [
-            ("d1", "tech", True, 0.9, "2026-01-01T12:00:00"),
+        records = [
+            _dashboard_record(
+                "d1",
+                "tech",
+                created_at=datetime.now(timezone.utc) - timedelta(hours=1),
+                confidence=0.9,
+            )
         ]
 
-        result = handler._get_activity(10, 0)
+        with patch(
+            "aragora.server.handlers.admin.dashboard_views.load_debate_records",
+            return_value=records,
+        ):
+            result = handler._get_activity(10, 0)
         data = _parse_body(result)
-        assert data["total"] == 3
+        assert data["total"] == 1
         assert len(data["activity"]) == 1
         assert data["activity"][0]["type"] == "debate"
 
@@ -1120,14 +1231,24 @@ class TestSearchDashboard:
 
     def test_returns_matching_debates(self, handler, mock_storage):
         """Search returns debates matching query."""
-        storage, cursor = mock_storage
+        storage, _cursor = mock_storage
         handler.get_storage = MagicMock(return_value=storage)
 
-        cursor.fetchall.return_value = [
-            ("d1", "tech", True, 0.9, "2026-01-01T12:00:00"),
+        records = [
+            _dashboard_record(
+                "d1",
+                "tech",
+                created_at=datetime.now(timezone.utc) - timedelta(hours=1),
+                confidence=0.9,
+                task="Tech readiness review",
+            )
         ]
 
-        result = handler._search_dashboard("tech")
+        with patch(
+            "aragora.server.handlers.admin.dashboard_actions.load_debate_records",
+            return_value=records,
+        ):
+            result = handler._search_dashboard("tech")
         data = _parse_body(result)
         assert data["total"] == 1
         assert data["results"][0]["domain"] == "tech"
@@ -1197,21 +1318,53 @@ class TestOverviewWired:
 
     def test_overview_with_storage(self, handler, mock_storage):
         """Overview populates from storage."""
-        storage, cursor = mock_storage
+        storage, _cursor = mock_storage
         handler.get_storage = MagicMock(return_value=storage)
         handler.get_elo_system = MagicMock(return_value=None)
 
-        # _get_summary_metrics_sql fetchone, then today count
-        cursor.fetchone.side_effect = [
-            (50, 30, 0.8),  # _get_summary_metrics_sql
-            (5,),  # today count
+        now = datetime.now(timezone.utc)
+        records = [
+            _dashboard_record(
+                "d1",
+                "tech",
+                created_at=now - timedelta(hours=1),
+                confidence=0.9,
+                rounds_used=3,
+                duration_seconds=2.5,
+            ),
+            _dashboard_record(
+                "d2",
+                "finance",
+                created_at=now - timedelta(days=2),
+                status="pending",
+                consensus_reached=False,
+                confidence=0.4,
+                needs_attention=True,
+                rounds_used=2,
+            ),
         ]
+        summary = {
+            "total_debates": 2,
+            "open_debates": 1,
+            "consensus_rate": 0.5,
+            "avg_confidence": 0.65,
+            "avg_duration_ms": 2500.0,
+            "needs_attention_debates": 1,
+        }
 
-        result = handler._get_overview({}, MagicMock())
+        with (
+            patch(
+                "aragora.server.handlers.admin.dashboard_views.load_debate_records",
+                return_value=records,
+            ),
+            patch.object(handler, "_get_summary_metrics_sql", return_value=summary),
+        ):
+            result = handler._get_overview({}, MagicMock())
         data = _parse_body(result)
-        assert data["consensus_rate"] == 0.6
-        assert data["total_debates_today"] == 5
-        assert len(data["stats"]) == 2
+        assert data["consensus_rate"] == 0.5
+        assert data["total_debates_today"] == 1
+        assert len(data["stats"]) == 4
+        assert data["system_health"] == "degraded"
 
     def test_overview_without_storage(self, handler):
         """Overview returns defaults without storage."""
