@@ -463,6 +463,7 @@ from .permissions import (
     PERM_PLAN_APPROVE,
     PERM_PLAN_REJECT,
     # Route permissions (middleware-referenced resources)
+    PERM_AGENT_BRIDGE_READ,
     PERM_AUDITING_READ,
     PERM_AUDITING_CREATE,
     PERM_BELIEF_READ,
@@ -783,6 +784,7 @@ _ALL_PERMISSIONS = [
     PERM_ORCHESTRATION_EXECUTE,
     PERM_SYSTEM_HEALTH_READ,
     # Verticals
+    PERM_AGENT_BRIDGE_READ,
     PERM_VERTICALS_READ,
     PERM_VERTICALS_WRITE,
     # Canvas
@@ -959,6 +961,7 @@ _ALL_PERMISSIONS = [
     PERM_PLAN_APPROVE,
     PERM_PLAN_REJECT,
     # Route permissions (middleware-referenced resources)
+    PERM_AGENT_BRIDGE_READ,
     PERM_AUDITING_READ,
     PERM_AUDITING_CREATE,
     PERM_BELIEF_READ,

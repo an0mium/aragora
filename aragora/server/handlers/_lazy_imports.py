@@ -363,6 +363,7 @@ HANDLER_MODULES: dict[str, str] = {
     # Accounting handlers
     "ARAutomationHandler": "aragora.server.handlers.ar_automation",
     "APAutomationHandler": "aragora.server.handlers.ap_automation",
+    "AgentBridgeHandler": "aragora.server.handlers.agent_bridge",
     # RBAC management
     "RBACHandler": "aragora.server.handlers.rbac",
     # Self-improvement
@@ -593,6 +594,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "ComplianceHandler",
     "DecisionPipelineHandler",
     "OrchestrationHandler",
+    "AgentBridgeHandler",
     # --- Newly registered handlers ---
     # admin/ sub-handlers
     "CreditsAdminHandler",

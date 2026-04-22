@@ -87,6 +87,7 @@ from aragora.server.openapi.endpoints.self_improve_details import (
     SELF_IMPROVE_DETAILS_ENDPOINTS,
 )
 from aragora.server.openapi.endpoints.status import STATUS_ENDPOINTS
+from aragora.server.openapi.endpoints.agent_bridge import AGENT_BRIDGE_ENDPOINTS
 
 
 import logging
@@ -190,6 +191,7 @@ ALL_ENDPOINTS = {
     **RALPH_ENDPOINTS,
     **SELF_IMPROVE_DETAILS_ENDPOINTS,
     **STATUS_ENDPOINTS,
+    **AGENT_BRIDGE_ENDPOINTS,
 }
 
 # Deep merge decorator endpoints: manual specs take precedence over decorator
@@ -279,5 +281,6 @@ __all__ = [
     "RALPH_ENDPOINTS",
     "SELF_IMPROVE_DETAILS_ENDPOINTS",
     "STATUS_ENDPOINTS",
+    "AGENT_BRIDGE_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

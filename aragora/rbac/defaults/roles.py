@@ -260,6 +260,7 @@ from .permissions import (
     PERM_ALERTS_READ,
     PERM_ALERTS_WRITE,
     PERM_ALERTS_ADMIN,
+    PERM_AGENT_BRIDGE_READ,
 )
 
 
@@ -561,6 +562,7 @@ ROLE_DEBATE_CREATOR = Role(
         PERM_CANVAS_RUN.key,
         PERM_VERIFICATION_READ.key,
         PERM_CODEBASE_READ.key,
+        PERM_AGENT_BRIDGE_READ.key,
     },
     priority=50,
     is_system=True,
@@ -703,6 +705,30 @@ ROLE_MEMBER = Role(
     is_system=True,
 )
 
+# Developer - Member-level access with agent-bridge visibility
+ROLE_DEVELOPER = Role(
+    id="developer",
+    name="developer",
+    display_name="Developer",
+    description="Engineering-focused role with standard member access and agent bridge visibility.",
+    permissions={PERM_AGENT_BRIDGE_READ.key},
+    parent_roles=["member"],
+    priority=45,
+    is_system=True,
+)
+
+# Ops Reviewer - Analyst-level access with agent-bridge visibility
+ROLE_OPS_REVIEWER = Role(
+    id="ops_reviewer",
+    name="ops_reviewer",
+    display_name="Ops Reviewer",
+    description="Operational reviewer with analyst access and agent bridge visibility.",
+    permissions={PERM_AGENT_BRIDGE_READ.key},
+    parent_roles=["analyst"],
+    priority=35,
+    is_system=True,
+)
+
 # Compliance Officer - Enterprise compliance and data governance
 ROLE_COMPLIANCE_OFFICER = Role(
     id="compliance_officer",
@@ -814,6 +840,8 @@ SYSTEM_ROLES: dict[str, Role] = {
         ROLE_DEBATE_CREATOR,
         ROLE_TEAM_LEAD,
         ROLE_ANALYST,
+        ROLE_DEVELOPER,
+        ROLE_OPS_REVIEWER,
         ROLE_VIEWER,
         ROLE_MEMBER,
     ]
@@ -827,6 +855,8 @@ ROLE_HIERARCHY: dict[str, list[str]] = {
     "debate_creator": ["team_lead"],
     "team_lead": ["member"],
     "analyst": ["viewer"],
+    "developer": ["member"],
+    "ops_reviewer": ["analyst"],
     "member": ["viewer"],
     "viewer": [],
 }

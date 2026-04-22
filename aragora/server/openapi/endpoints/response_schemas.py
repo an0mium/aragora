@@ -8,6 +8,8 @@ _autogenerate_missing_paths re-adds them without schemas).
 These definitions use /api/v1/ versioned paths to survive the pipeline.
 """
 
+from typing import Any
+
 from aragora.server.openapi.helpers import (
     AUTH_REQUIREMENTS,
     STANDARD_ERRORS,
@@ -1084,6 +1086,173 @@ _MEDIA_SCHEMA_ENDPOINTS = {
 
 
 # ---------------------------------------------------------------------------
+# Agent Bridge read API schemas
+# ---------------------------------------------------------------------------
+_NULLABLE_STRING = {"type": ["string", "null"]}
+_SCHEMA_VERSION_FIELD = {"type": "integer", "enum": [1]}
+
+AGENT_BRIDGE_FOOTER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["summary", "next_actor", "needs_human", "done", "artifacts", "tests_run"],
+    "properties": {
+        "summary": {"type": "string"},
+        "next_actor": _NULLABLE_STRING,
+        "needs_human": {"type": "boolean"},
+        "done": {"type": "boolean"},
+        "artifacts": {"type": "array", "items": {"type": "string"}},
+        "tests_run": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
+AGENT_BRIDGE_RUN_SUMMARY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schema_version",
+        "run_id",
+        "created_at",
+        "updated_at",
+        "status",
+        "active_role",
+        "footer_mode",
+        "participants",
+        "turn_count",
+        "last_event_id",
+    ],
+    "properties": {
+        "schema_version": _SCHEMA_VERSION_FIELD,
+        "run_id": {"type": "string"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "updated_at": {"type": "string", "format": "date-time"},
+        "status": {"type": "string"},
+        "active_role": _NULLABLE_STRING,
+        "footer_mode": {"type": "string"},
+        "participants": {"type": "array", "items": {"type": "string"}},
+        "turn_count": {"type": "integer"},
+        "last_event_id": _NULLABLE_STRING,
+    },
+}
+
+AGENT_BRIDGE_SESSION_ENTRY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["harness", "session_id", "created_at", "last_turn_at", "harness_options"],
+    "properties": {
+        "harness": {"type": "string", "enum": ["claude", "codex", "droid"]},
+        "session_id": _NULLABLE_STRING,
+        "created_at": _NULLABLE_STRING,
+        "last_turn_at": _NULLABLE_STRING,
+        "harness_options": {"type": "object", "additionalProperties": True},
+    },
+}
+
+AGENT_BRIDGE_RUN_DETAIL_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        *AGENT_BRIDGE_RUN_SUMMARY_SCHEMA["required"],
+        "roles",
+        "worktree_path",
+        "worktree_agent_slug",
+    ],
+    "properties": {
+        **AGENT_BRIDGE_RUN_SUMMARY_SCHEMA["properties"],
+        "roles": {
+            "type": "object",
+            "additionalProperties": AGENT_BRIDGE_SESSION_ENTRY_SCHEMA,
+        },
+        "worktree_path": _NULLABLE_STRING,
+        "worktree_agent_slug": _NULLABLE_STRING,
+    },
+}
+
+AGENT_BRIDGE_EVENT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["event_id", "turn_index", "type", "role", "parse_status", "at", "payload"],
+    "properties": {
+        "event_id": {"type": "string"},
+        "turn_index": {"type": "integer"},
+        "type": {
+            "type": "string",
+            "enum": [
+                "run_started",
+                "run_failed",
+                "run_completed",
+                "turn.started",
+                "turn.result",
+                "turn.completed",
+                "turn.repair_requested",
+                "footer_ok",
+                "footer_malformed",
+                "footer_missing",
+            ],
+        },
+        "role": {"type": "string"},
+        "parse_status": {"type": ["string", "null"], "enum": ["ok", "missing", "malformed", None]},
+        "at": {"type": "string", "format": "date-time"},
+        "payload": {"type": "object", "additionalProperties": True},
+    },
+}
+
+AGENT_BRIDGE_TURN_RECORD_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "turn_index",
+        "author_role",
+        "started_at",
+        "completed_at",
+        "parse_status",
+        "footer",
+        "body_markdown",
+    ],
+    "properties": {
+        "turn_index": {"type": "integer"},
+        "author_role": {"type": "string"},
+        "started_at": {"type": "string", "format": "date-time"},
+        "completed_at": _NULLABLE_STRING,
+        "parse_status": {"type": "string", "enum": ["ok", "missing", "malformed"]},
+        "footer": {"oneOf": [AGENT_BRIDGE_FOOTER_SCHEMA, {"type": "null"}]},
+        "body_markdown": {"type": "string"},
+    },
+}
+
+AGENT_BRIDGE_RUN_LIST_RESPONSE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["schema_version", "runs"],
+    "properties": {
+        "schema_version": _SCHEMA_VERSION_FIELD,
+        "runs": {"type": "array", "items": AGENT_BRIDGE_RUN_SUMMARY_SCHEMA},
+        "next_cursor": _NULLABLE_STRING,
+    },
+}
+
+AGENT_BRIDGE_EVENTS_RESPONSE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["schema_version", "events"],
+    "properties": {
+        "schema_version": _SCHEMA_VERSION_FIELD,
+        "events": {"type": "array", "items": AGENT_BRIDGE_EVENT_SCHEMA},
+        "next_cursor": _NULLABLE_STRING,
+    },
+}
+
+AGENT_BRIDGE_TRANSCRIPT_RESPONSE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["schema_version", "turns"],
+    "properties": {
+        "schema_version": _SCHEMA_VERSION_FIELD,
+        "turns": {"type": "array", "items": AGENT_BRIDGE_TURN_RECORD_SCHEMA},
+    },
+}
+
+
+# ---------------------------------------------------------------------------
 # Combined export
 # ---------------------------------------------------------------------------
 RESPONSE_SCHEMA_ENDPOINTS = {
@@ -1094,4 +1263,15 @@ RESPONSE_SCHEMA_ENDPOINTS = {
     **_MEDIA_SCHEMA_ENDPOINTS,
 }
 
-__all__ = ["RESPONSE_SCHEMA_ENDPOINTS"]
+__all__ = [
+    "AGENT_BRIDGE_EVENTS_RESPONSE_SCHEMA",
+    "AGENT_BRIDGE_EVENT_SCHEMA",
+    "AGENT_BRIDGE_FOOTER_SCHEMA",
+    "AGENT_BRIDGE_RUN_DETAIL_SCHEMA",
+    "AGENT_BRIDGE_RUN_LIST_RESPONSE_SCHEMA",
+    "AGENT_BRIDGE_RUN_SUMMARY_SCHEMA",
+    "AGENT_BRIDGE_SESSION_ENTRY_SCHEMA",
+    "AGENT_BRIDGE_TRANSCRIPT_RESPONSE_SCHEMA",
+    "AGENT_BRIDGE_TURN_RECORD_SCHEMA",
+    "RESPONSE_SCHEMA_ENDPOINTS",
+]
