@@ -13,6 +13,7 @@ from aragora.server.handlers.playground import (
     _reset_oracle_sessions,
     _reset_rate_limits,
 )
+from aragora.storage.debate_store import get_debate_store, normalize_cache_key
 
 
 class _MockHeaders:
@@ -164,6 +165,42 @@ def test_demo_source_can_replay_cached_live_results(handler):
             "aragora.storage.debate_store.DebateResultStore.get_by_cache_key",
             return_value=cached_live,
         ),
+        patch("aragora.server.handlers.playground._try_oracle_tentacles") as mock_tentacles,
+    ):
+        result = handler.handle_post("/api/v1/playground/debate", {}, request)
+
+    body, status = _parse_result(result)
+    assert status == 200
+    assert body["id"] == "cached-live-result"
+    assert body["is_live"] is True
+    assert body["cached"] is True
+    mock_tentacles.assert_not_called()
+
+
+def test_demo_source_can_replay_cached_live_results_without_live_agents(handler):
+    request = _make_http_handler(
+        {
+            "topic": "Should we require AI code review in CI?",
+            "question": "Should we require AI code review in CI?",
+            "source": "demo",
+        }
+    )
+    cached_live = _live_result("cached-live-result")
+    store = get_debate_store()
+    store.save(cached_live["id"], cached_live["topic"], cached_live)
+
+    model_ids = ["anthropic/claude-sonnet-4", "openai/gpt-4o", "google/gemini-2.0-flash-001"]
+    cache_key = normalize_cache_key(cached_live["topic"], model_ids, 2)
+    store.save_cache_index(
+        cache_key=cache_key,
+        debate_id=cached_live["id"],
+        topic_normalized=cached_live["topic"].strip().lower(),
+        model_ids="|".join(sorted(model_ids)),
+        rounds=2,
+    )
+
+    with (
+        patch("aragora.server.handlers.playground._get_available_live_agents", return_value=[]),
         patch("aragora.server.handlers.playground._try_oracle_tentacles") as mock_tentacles,
     ):
         result = handler.handle_post("/api/v1/playground/debate", {}, request)

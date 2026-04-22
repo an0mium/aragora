@@ -187,6 +187,45 @@ class DebateResultStore(SQLiteStore):
 
         return result
 
+    def get_latest_live_by_topic(self, topic: str, rounds: int) -> dict[str, Any] | None:
+        """Return the newest live cached debate for a topic/round count.
+
+        This supports replaying an already-persisted live result even when the
+        current process has no live debate agents configured locally.
+        """
+        topic_normalized = re.sub(r"\s+", " ", topic.strip().lower())
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT cache_key, debate_id FROM debate_cache_index
+                WHERE topic_normalized = ? AND rounds = ?
+                ORDER BY created_at DESC
+                """,
+                (topic_normalized, rounds),
+            ).fetchall()
+
+        for cache_key, debate_id in rows:
+            result = self.get(debate_id)
+            if result is None:
+                with self.connection() as conn:
+                    conn.execute(
+                        "DELETE FROM debate_cache_index WHERE cache_key = ?",
+                        (cache_key,),
+                    )
+                continue
+
+            if result.get("is_live") is not True:
+                continue
+
+            with self.connection() as conn:
+                conn.execute(
+                    "UPDATE debate_cache_index SET hit_count = hit_count + 1 WHERE cache_key = ?",
+                    (cache_key,),
+                )
+            return result
+
+        return None
+
     def cleanup_expired(self) -> int:
         """Delete expired entries. Returns count of deleted rows."""
         now = time.time()

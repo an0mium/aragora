@@ -352,12 +352,12 @@ class TestSigningSecret:
     """Tests for signing secret variations."""
 
     def test_empty_signing_secret(self):
-        """Verification should work (or at least not crash) with an empty secret."""
+        """Verification should reject an empty signing secret without crashing."""
         ts = _current_timestamp()
         body = b"test body"
         sig = _make_signature(body, ts, "")
 
-        assert verify_slack_signature(body, ts, sig, "") is True
+        assert verify_slack_signature(body, ts, sig, "") is False
 
     def test_long_signing_secret(self):
         """Verification should work with a very long signing secret."""
@@ -417,10 +417,14 @@ class TestModuleExports:
         assert "verify_slack_signature" in signature.__all__
 
     def test_all_exports_length(self):
-        """__all__ should contain exactly one export."""
+        """__all__ should expose the documented signature helpers."""
         from aragora.server.handlers.bots.slack import signature
 
-        assert len(signature.__all__) == 1
+        assert signature.__all__ == [
+            "TIMESTAMP_TOLERANCE_SECONDS",
+            "compute_slack_signature",
+            "verify_slack_signature",
+        ]
 
 
 # ---------------------------------------------------------------------------
