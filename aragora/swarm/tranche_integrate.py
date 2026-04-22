@@ -198,6 +198,7 @@ def assess_lane_integration(
     approve: bool = False,
     calibration_store: AutoHandleCalibrationStore | Any | None = None,
     precomputed_calibration_gate: dict[str, Any] | None = None,
+    precomputed_low_risk_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     normalized_checks = str(checks or "").strip().lower()
     normalized_review = str(review_status or "").strip().lower()
@@ -230,7 +231,8 @@ def assess_lane_integration(
     normalized_autonomy = str(delivery_policy.get("effective_autonomy_mode", "adaptive")).strip()
     merge_class = str(delivery_policy.get("effective_merge_class", "manual")).strip()
     low_risk_policy = (
-        _evaluate_low_risk_merge_policy(manifest=manifest, artifact=artifact)
+        (precomputed_low_risk_policy if precomputed_low_risk_policy is not None else None)
+        or _evaluate_low_risk_merge_policy(manifest=manifest, artifact=artifact)
         if merge_class == "low_risk"
         else None
     )
@@ -687,12 +689,14 @@ async def integrate_lane(
     normalized_autonomy = str(delivery_policy.get("effective_autonomy_mode", "adaptive")).strip()
     merge_class = str(delivery_policy.get("effective_merge_class", "manual")).strip()
     precomputed_calibration_gate: dict[str, Any] | None = None
+    precomputed_low_risk_policy: dict[str, Any] | None = None
     if (
         merge_class == "low_risk"
         and normalized_autonomy == "fire_and_forget"
         and normalized_policy == "auto"
     ):
         low_risk_policy = _evaluate_low_risk_merge_policy(manifest=manifest, artifact=artifact)
+        precomputed_low_risk_policy = low_risk_policy
         precomputed_calibration_gate = await asyncio.to_thread(
             _evaluate_low_risk_calibration_gate,
             manifest=manifest,
@@ -712,6 +716,7 @@ async def integrate_lane(
         approve=approve,
         calibration_store=calibration_store,
         precomputed_calibration_gate=precomputed_calibration_gate,
+        precomputed_low_risk_policy=precomputed_low_risk_policy,
     )
     if not pr_url:
         detail = (

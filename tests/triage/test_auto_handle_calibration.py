@@ -185,3 +185,39 @@ def test_record_outcome_rejects_conflicting_duplicate_decision_id() -> None:
             outcome=OUTCOME_HUMAN_OVERRIDE,
             pr_url="https://example.com/pr/1",
         )
+
+
+def test_failure_does_not_clear_active_alert_even_if_rate_recovers(tmp_path: Path) -> None:
+    store = AutoHandleCalibrationStore(
+        db_path=":memory:",
+        min_samples=2,
+        min_success_rate=0.50,
+        drift_threshold=0.05,
+    )
+    decision_class = "tier=1|lanes=1|files=2-3|scope=aragora+tests"
+    _seed_successes(store, count=2, decision_class=decision_class, repo_root=tmp_path)
+
+    store.record_outcome(
+        decision_id="fire_and_forget:https://example.com/pr/first-failure",
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+        outcome=OUTCOME_HUMAN_OVERRIDE,
+        pr_url="https://example.com/pr/first-failure",
+        repo_root=tmp_path,
+    )
+    second = store.record_outcome(
+        decision_id="fire_and_forget:https://example.com/pr/second-failure",
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+        outcome=OUTCOME_HUMAN_OVERRIDE,
+        pr_url="https://example.com/pr/second-failure",
+        repo_root=tmp_path,
+    )
+
+    blocked = store.evaluate_gate(
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+    )
+    assert second["recovered"] is False
+    assert blocked.allowed is False
+    assert blocked.active_drift_alert is True

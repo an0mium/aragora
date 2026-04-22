@@ -25,7 +25,7 @@ import time
 import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from aragora.persistence.db_config import get_default_data_dir
 
@@ -188,6 +188,7 @@ class AutoHandleCalibrationStore:
         self.min_success_rate = float(min_success_rate)
         self.drift_threshold = float(drift_threshold)
         self._persistent_conn: sqlite3.Connection | None = None
+        self._owner_thread_ident = threading.get_ident()
         self._thread_local = threading.local()
         if db_path == ":memory:":
             self._persistent_conn = sqlite3.connect(":memory:", check_same_thread=False)
@@ -198,12 +199,16 @@ class AutoHandleCalibrationStore:
     def _get_conn(self) -> sqlite3.Connection:
         if self._persistent_conn is not None:
             return self._persistent_conn
-        conn = getattr(self._thread_local, "conn", None)
-        if conn is None:
-            conn = sqlite3.connect(self.db_path, timeout=30.0)
-            self._configure_conn(conn)
-            self._thread_local.conn = conn
-        return conn
+        if threading.get_ident() != self._owner_thread_ident:
+            worker_conn = sqlite3.connect(self.db_path, timeout=30.0)
+            self._configure_conn(worker_conn)
+            return worker_conn
+        thread_conn = cast(sqlite3.Connection | None, getattr(self._thread_local, "conn", None))
+        if thread_conn is None:
+            thread_conn = sqlite3.connect(self.db_path, timeout=30.0)
+            self._configure_conn(thread_conn)
+            self._thread_local.conn = thread_conn
+        return thread_conn
 
     def _configure_conn(self, conn: sqlite3.Connection) -> None:
         conn.row_factory = sqlite3.Row
@@ -541,6 +546,7 @@ class AutoHandleCalibrationStore:
         )
         recovered = (
             active_alert is not None
+            and outcome == OUTCOME_SUCCESS
             and current_summary.total_samples >= self.min_samples
             and current_rate is not None
             and current_rate >= self.min_success_rate

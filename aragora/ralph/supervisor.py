@@ -960,13 +960,12 @@ class RalphSupervisor:
             ):
                 target = self._merge_target(state) or target
                 if not target.get("auto_merge_requested"):
-                    calibration_gate = self._evaluate_admin_merge_calibration_gate(
+                    calibration_gate = self._get_or_record_admin_merge_calibration_gate(
                         target=target,
                         pr_url=pr_url,
                         snapshot=snapshot,
+                        state=state,
                     )
-                    target["auto_handle_calibration"] = calibration_gate
-                    self._set_merge_target(state, target)
                     if not calibration_gate["allowed"]:
                         return StepResult(
                             action=SupervisorAction.PR_CHECKED.value,
@@ -1024,13 +1023,12 @@ class RalphSupervisor:
                     status=SupervisorStatus.WAITING_FOR_MERGE.value,
                     detail=f"Merge already requested for {pr_url}; waiting for GitHub to confirm.",
                 )
-            calibration_gate = self._evaluate_admin_merge_calibration_gate(
+            calibration_gate = self._get_or_record_admin_merge_calibration_gate(
                 target=target,
                 pr_url=pr_url,
                 snapshot=snapshot,
+                state=state,
             )
-            target["auto_handle_calibration"] = calibration_gate
-            self._set_merge_target(state, target)
             if not calibration_gate["allowed"]:
                 return StepResult(
                     action=SupervisorAction.PR_CHECKED.value,
@@ -1503,16 +1501,35 @@ class RalphSupervisor:
         result["decision_class"] = decision_class
         return result
 
+    def _get_or_record_admin_merge_calibration_gate(
+        self,
+        *,
+        target: dict[str, Any],
+        pr_url: str,
+        snapshot: Any,
+        state: SupervisorState,
+    ) -> dict[str, Any]:
+        existing = target.get("auto_handle_calibration")
+        if isinstance(existing, dict):
+            decision_id = _optional_text(existing.get("decision_id"))
+            decision_class = _optional_text(existing.get("decision_class"))
+            if decision_id and decision_class:
+                return existing
+        calibration_gate = self._evaluate_admin_merge_calibration_gate(
+            target=target,
+            pr_url=pr_url,
+            snapshot=snapshot,
+        )
+        target["auto_handle_calibration"] = calibration_gate
+        self._set_merge_target(state, target)
+        return calibration_gate
+
     def _record_confirmed_admin_merge(
         self, *, target: dict[str, Any], pr_url: str, snapshot: Any
     ) -> None:
         calibration = target.get("auto_handle_calibration")
         if not isinstance(calibration, dict):
-            calibration = self._evaluate_admin_merge_calibration_gate(
-                target=target,
-                pr_url=pr_url,
-                snapshot=snapshot,
-            )
+            return
         decision_id = _optional_text(calibration.get("decision_id"))
         decision_class = _optional_text(calibration.get("decision_class"))
         if not decision_id or not decision_class:
