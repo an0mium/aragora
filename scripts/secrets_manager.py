@@ -1584,7 +1584,6 @@ class BrowserRotator:
 # =============================================================================
 
 
-
 def _clear_terminal_scrollback() -> None:
     """Clear terminal scrollback via ANSI escape sequences.
 
@@ -1592,6 +1591,7 @@ def _clear_terminal_scrollback() -> None:
     ESC[2J clears screen, ESC[3J clears scrollback, ESC[H homes cursor.
     """
     import sys
+
     sys.stdout.write("\x1b[2J\x1b[3J\x1b[H")
     sys.stdout.flush()
 
@@ -1607,6 +1607,7 @@ def _truncate_shell_history_file() -> list[str]:
     missing files and permission errors.
     """
     import os
+
     home = os.path.expanduser("~")
     histfile = os.environ.get("HISTFILE")
     candidates = [histfile] if histfile else []
@@ -1915,7 +1916,7 @@ class SecretsManager:
             if truncated:
                 print(f"  {YELLOW}Truncated (destructive):{RESET} {', '.join(truncated)}")
             else:
-                print(f"  (no history files matched)")
+                print("  (no history files matched)")
 
         print(f"  Run {CYAN}history -c{RESET} in your shell to also clear in-memory history.")
         return 0
@@ -2113,16 +2114,19 @@ Why manual rotation? See: %(prog)s --explain
         "--headless", action="store_true", help="Run browser in headless mode"
     )
     rotate_parser.add_argument(
-        "--skip-local", action="store_true",
-        help="Do not write new secret to local .env — AWS + GitHub only"
+        "--skip-local",
+        action="store_true",
+        help="Do not write new secret to local .env — AWS + GitHub only",
     )
     rotate_parser.add_argument(
-        "--no-clear-scrollback", action="store_true",
-        help="Don't clear terminal scrollback after rotation (scrollback clear is default-on because it is purely visual and recoverable; pass this flag to opt out for debugging)"
+        "--no-clear-scrollback",
+        action="store_true",
+        help="Don't clear terminal scrollback after rotation (scrollback clear is default-on because it is purely visual and recoverable; pass this flag to opt out for debugging)",
     )
     rotate_parser.add_argument(
-        "--clear-history-file", action="store_true",
-        help="ALSO truncate $HISTFILE / ~/.zsh_history / ~/.bash_history after rotation. Destructive and irreversible — default OFF. Rotation clears only the terminal scrollback unless you pass this flag."
+        "--clear-history-file",
+        action="store_true",
+        help="ALSO truncate $HISTFILE / ~/.zsh_history / ~/.bash_history after rotation. Destructive and irreversible — default OFF. Rotation clears only the terminal scrollback unless you pass this flag.",
     )
 
     # sync
