@@ -2027,7 +2027,12 @@ class WorkerLauncher:
         pytest_args = cls._pytest_command_args(normalized)
         if not pytest_args:
             return normalized
-        serialized_args = ", ".join(repr(arg) for arg in pytest_args)
+        prepared_args = list(pytest_args)
+        # Keep verification replays off pytest-rerunfailures' socket-based state
+        # so merge-gate checks behave the same in disposable worktrees and CI.
+        if "no:rerunfailures" not in prepared_args:
+            prepared_args = ["-p", "no:rerunfailures", *prepared_args]
+        serialized_args = ", ".join(repr(arg) for arg in prepared_args)
         return (
             f"{shlex.quote(sys.executable)} - <<'PY'\n"
             "import pytest\n"

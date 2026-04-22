@@ -165,6 +165,14 @@ def test_demo_source_can_replay_cached_live_results(handler):
             "aragora.storage.debate_store.DebateResultStore.get_by_cache_key",
             return_value=cached_live,
         ),
+        patch(
+            "aragora.server.handlers.playground._get_available_live_agents",
+            return_value=[
+                "openrouter:anthropic/claude-sonnet-4",
+                "openrouter:openai/gpt-4o",
+                "openrouter:google/gemini-2.0-flash-001",
+            ],
+        ),
         patch("aragora.server.handlers.playground._try_oracle_tentacles") as mock_tentacles,
     ):
         result = handler.handle_post("/api/v1/playground/debate", {}, request)
