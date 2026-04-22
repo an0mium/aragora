@@ -84,7 +84,22 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 _SLOT_TIMEOUT_ENV = "ARAGORA_PDB_SLOT_TIMEOUT_SECONDS"
-_DEFAULT_SLOT_TIMEOUT_SECONDS = 90.0
+# Default per-slot provider-call timeout.
+#
+# Deliberately generous (5 minutes). The goal of this timeout is to
+# surface a genuinely-hung provider — never to cap a legitimately
+# slow reasoning response. Empirically:
+#   - Haiku:     typical 5-15s, worst ~30s
+#   - Sonnet:    typical 20-45s, worst ~90s
+#   - Opus:      typical 60s, worst 120-180s on large diffs
+#   - Gemini / Grok / DeepSeek / Kimi / Qwen via OpenRouter: wide variance
+#
+# Earlier iterations set this to 20s and then 90s, both of which
+# false-positive tripped on legitimately-long Opus reviews during
+# Mode 3 dogfood. 300s ensures timeout is only a last-resort safety
+# net, not a review-blocking heuristic. Operators who want tighter
+# bounds (e.g. CI) can override via ARAGORA_PDB_SLOT_TIMEOUT_SECONDS.
+_DEFAULT_SLOT_TIMEOUT_SECONDS = 300.0
 
 FAMILY_CLAUDE = "claude"
 FAMILY_GPT = "gpt"
