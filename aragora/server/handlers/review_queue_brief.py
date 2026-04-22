@@ -56,6 +56,7 @@ from aragora.pdb.input_loader import (
     LoadedExecutionInput,
     load_execution_input,
 )
+from aragora.pdb.invoker_factory import InvokerFactoryError, build_default_invoker
 from aragora.pdb.protocol import ProviderInvoker
 from aragora.pdb.worker import (
     AlreadyRunningError,
@@ -166,10 +167,18 @@ def _resolve_invoker_factory() -> Callable[[], ProviderInvoker]:
         return _INVOKER_FACTORY_OVERRIDE
 
     def _default_factory() -> ProviderInvoker:
-        raise NotImplementedError(
-            "default ProviderInvoker is not yet wired — tests inject via "
-            "set_test_invoker_factory(). PR 4+ will install the real one."
-        )
+        # Phase A: builds a RealProviderInvoker with Claude + GPT
+        # wired. Heterodox slots (gemini / grok / deepseek / kimi /
+        # qwen / mistral) degrade gracefully via the executor's
+        # per-slot unavailable path. See
+        # :mod:`aragora.pdb.invoker_factory`.
+        try:
+            return build_default_invoker()
+        except InvokerFactoryError as exc:
+            # Re-raise with the factory's message; the handler turns
+            # this into a 503 so the UI explains which env var is
+            # missing.
+            raise NotImplementedError(str(exc)) from exc
 
     return _default_factory
 
