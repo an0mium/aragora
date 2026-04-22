@@ -177,15 +177,25 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "gemini-2.0-flash-001": (0.15, 0.60),
     "gemini-1.5-pro": (1.25, 5.00),
     "gemini-1.5-flash": (0.075, 0.30),
-    # xAI Grok
-    "grok-4.2": (3.00, 15.00),
-    "grok-4-2": (3.00, 15.00),
+    # xAI Grok. Prices verified against https://docs.x.ai/developers/models
+    # (April 2026). Grok 4.20 tier is $2.00/$6.00 per 1M tokens; the
+    # fast-reasoning tier is $0.20/$0.50. ``grok-4.2`` is NOT a valid
+    # model id — it is retained only as a legacy alias for callers that
+    # still reference the old default.
+    "grok-4.20-0309-reasoning": (2.00, 6.00),
+    "grok-4.20-0309-non-reasoning": (2.00, 6.00),
+    "grok-4.20-multi-agent-0309": (2.00, 6.00),
+    "grok-4.20": (2.00, 6.00),
+    "grok-4.2": (2.00, 6.00),
+    "grok-4-2": (2.00, 6.00),
     "grok-4": (3.00, 15.00),
     "grok-4-latest": (3.00, 15.00),
     "grok-4-0709": (3.00, 15.00),
     "grok-4-fast": (0.20, 0.50),
     "grok-4-1-fast": (0.20, 0.50),
     "grok-4-1-fast-reasoning": (0.20, 0.50),
+    "grok-4-1-fast-non-reasoning": (0.20, 0.50),
+    "grok-4-fast-reasoning": (0.20, 0.50),
     "grok-3": (2.00, 10.00),
     # OpenRouter-routed families. Prices are what OpenRouter passes
     # through (plus the standard platform markup); both the ``family/``
