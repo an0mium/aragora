@@ -3079,7 +3079,11 @@ class TestSwarmCommand:
         with (
             patch("aragora.worktree.fleet.resolve_repo_root") as resolve_repo_root,
             patch("aragora.cli.commands.swarm._load_integrator_view") as load_view,
-            patch("aragora.nomic.dev_coordination.DevCoordinationStore", return_value=mock_store),
+            # The swarm module binds ``DevCoordinationStore`` once at import
+            # time (see Tier B PR 4 optional-import restructure), so patching
+            # the upstream symbol is no longer enough — we must patch the
+            # local binding used by ``cmd_swarm``.
+            patch("aragora.cli.commands.swarm.DevCoordinationStore", return_value=mock_store),
         ):
             resolve_repo_root.return_value = Path("/tmp/repo")
             load_view.return_value = {
