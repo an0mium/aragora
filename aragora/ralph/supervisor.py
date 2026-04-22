@@ -132,6 +132,14 @@ class SupervisorState:
         if not isinstance(active_merge_target, dict) or not active_merge_target:
             active_merge_target = _synthesize_merge_target_from_legacy_fields(data)
         compat = _compat_repair_fields_from_target(active_merge_target)
+        compat_pr = _optional_text(compat.get("pr_url"))
+        compat_branch = _optional_text(compat.get("branch"))
+        compat_task = compat.get("task")
+        if not isinstance(compat_task, dict):
+            compat_task = None
+        active_repair_task = data.get("active_repair_task")
+        if not isinstance(active_repair_task, dict):
+            active_repair_task = None
         return cls(
             supervisor_id=str(data.get("supervisor_id", "")),
             campaign_manifest_path=str(data.get("campaign_manifest_path", "")),
@@ -145,9 +153,9 @@ class SupervisorState:
             repair_attempts=int(data.get("repair_attempts", 0)),
             max_repair_attempts=int(data.get("max_repair_attempts", _DEFAULT_MAX_REPAIR_ATTEMPTS)),
             active_merge_target=active_merge_target,
-            active_repair_pr=data.get("active_repair_pr") or compat["pr_url"],
-            active_repair_branch=data.get("active_repair_branch") or compat["branch"],
-            active_repair_task=data.get("active_repair_task") or compat["task"],
+            active_repair_pr=_optional_text(data.get("active_repair_pr")) or compat_pr,
+            active_repair_branch=_optional_text(data.get("active_repair_branch")) or compat_branch,
+            active_repair_task=active_repair_task or compat_task,
             merge_commit_sha=data.get("merge_commit_sha"),
             resume_attempts=int(data.get("resume_attempts", 0)),
             resume_cursor=data.get("resume_cursor"),
@@ -1475,6 +1483,7 @@ class RalphSupervisor:
         result["decision_id"] = auto_handle_decision_id(
             auto_handle_path=AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED,
             pr_url=pr_url,
+            decision_class=decision_class,
         )
         result["decision_class"] = decision_class
         return result

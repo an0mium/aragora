@@ -17,8 +17,10 @@ It deliberately stays narrow:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
+import threading
 import time
 import uuid
 from dataclasses import asdict, dataclass
@@ -149,12 +151,22 @@ def fingerprint_admin_merge_class(
     )
 
 
-def auto_handle_decision_id(*, auto_handle_path: str, pr_url: str) -> str:
-    return f"{auto_handle_path}:{str(pr_url or '').strip()}"
+def auto_handle_decision_id(*, auto_handle_path: str, pr_url: str, decision_class: str) -> str:
+    payload = "\x1f".join(
+        (
+            str(auto_handle_path or "").strip(),
+            str(pr_url or "").strip(),
+            str(decision_class or "").strip(),
+        )
+    )
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
+    return f"{str(auto_handle_path or '').strip()}:{digest}"
 
 
 class AutoHandleCalibrationStore:
     """SQLite-backed decision/outcome history for auto-handle paths."""
+
+    _schema_lock = threading.Lock()
 
     def __init__(
         self,
@@ -175,17 +187,39 @@ class AutoHandleCalibrationStore:
         self.min_success_rate = float(min_success_rate)
         self.drift_threshold = float(drift_threshold)
         self._persistent_conn: sqlite3.Connection | None = None
+        self._thread_local = threading.local()
         if db_path == ":memory:":
-            self._persistent_conn = sqlite3.connect(":memory:")
-        self._init_schema()
+            self._persistent_conn = sqlite3.connect(":memory:", check_same_thread=False)
+            self._configure_conn(self._persistent_conn)
+        with self._schema_lock:
+            self._init_schema()
 
     def _get_conn(self) -> sqlite3.Connection:
         if self._persistent_conn is not None:
             return self._persistent_conn
-        return sqlite3.connect(self.db_path)
+        conn = getattr(self._thread_local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            self._configure_conn(conn)
+            self._thread_local.conn = conn
+        return conn
+
+    def _configure_conn(self, conn: sqlite3.Connection) -> None:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout = 30000")
+        if self.db_path != ":memory:":
+            try:
+                conn.execute("PRAGMA journal_mode=WAL")
+            except sqlite3.DatabaseError:
+                # Older SQLite builds can reject WAL transitions; keep the store usable.
+                pass
 
     def _close_conn(self, conn: sqlite3.Connection) -> None:
-        if conn is not self._persistent_conn:
+        if conn is self._persistent_conn:
+            return
+        if conn is getattr(self._thread_local, "conn", None):
+            return
+        if conn is not None:
             conn.close()
 
     def _init_schema(self) -> None:
@@ -246,7 +280,6 @@ class AutoHandleCalibrationStore:
         days = int(window_days or self.window_days)
         cutoff = time.time() - (days * 86400)
         conn = self._get_conn()
-        conn.row_factory = sqlite3.Row
         try:
             row = conn.execute(
                 """
@@ -293,7 +326,6 @@ class AutoHandleCalibrationStore:
         decision_class: str,
     ) -> AutoHandleDriftAlert | None:
         conn = self._get_conn()
-        conn.row_factory = sqlite3.Row
         try:
             row = conn.execute(
                 """
@@ -309,7 +341,6 @@ class AutoHandleCalibrationStore:
 
     def list_active_alerts(self, *, limit: int = 5) -> list[AutoHandleDriftAlert]:
         conn = self._get_conn()
-        conn.row_factory = sqlite3.Row
         try:
             rows = conn.execute(
                 """

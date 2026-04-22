@@ -92,6 +92,7 @@ def _seed_low_risk_class(
             decision_id=auto_handle_decision_id(
                 auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
                 pr_url=f"https://example.com/pr/{idx}",
+                decision_class=decision_class,
             ),
             auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
             decision_class=decision_class,
@@ -418,6 +419,7 @@ def test_low_risk_auto_handle_deactivates_until_class_recovers() -> None:
         decision_id=auto_handle_decision_id(
             auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
             pr_url="https://example.com/pr/bad",
+            decision_class=decision_class,
         ),
         auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
         decision_class=decision_class,
@@ -440,6 +442,7 @@ def test_low_risk_auto_handle_deactivates_until_class_recovers() -> None:
         decision_id=auto_handle_decision_id(
             auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
             pr_url="https://example.com/pr/recovery",
+            decision_class=decision_class,
         ),
         auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
         decision_class=decision_class,

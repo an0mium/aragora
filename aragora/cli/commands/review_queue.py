@@ -1177,7 +1177,8 @@ def _render_settlement_receipt(receipt: SettlementReceipt) -> None:
 def _render_active_auto_handle_alerts() -> None:
     try:
         alerts = AutoHandleCalibrationStore().list_active_alerts(limit=3)
-    except (OSError, RuntimeError, sqlite3.Error, ValueError, TypeError):
+    except (OSError, RuntimeError, sqlite3.Error, ValueError, TypeError) as exc:
+        print(f"warning: auto-handle calibration unavailable: {exc}", file=sys.stderr)
         return
     if not alerts:
         return

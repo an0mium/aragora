@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
 
@@ -833,6 +833,35 @@ class TestSettlementHelpers:
         out = buf.getvalue()
         assert "ACTIVE AUTO-HANDLE DRIFT ALERTS" in out
         assert "fire_and_forget" in out
+
+    def test_build_command_warns_when_calibration_store_unavailable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: [_make_pr(number=1)],
+        )
+
+        def _raise_store_error(self, limit=3):
+            raise RuntimeError("db unavailable")
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue.AutoHandleCalibrationStore.list_active_alerts",
+            _raise_store_error,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="build",
+            limit=10,
+            ready_only=False,
+            include_parked=False,
+            json=False,
+        )
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = cmd_review_queue(ns)
+        assert rc == 0
+        assert "warning: auto-handle calibration unavailable: db unavailable" in err_buf.getvalue()
 
     def test_build_command_json_output(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(

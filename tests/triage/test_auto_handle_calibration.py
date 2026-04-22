@@ -10,6 +10,7 @@ from aragora.triage.auto_handle_calibration import (
     AutoHandleCalibrationStore,
     OUTCOME_HUMAN_OVERRIDE,
     OUTCOME_SUCCESS,
+    auto_handle_decision_id,
 )
 
 
@@ -57,6 +58,21 @@ def test_gate_rejects_below_threshold_classes() -> None:
     assert "drift gating" in gate.reason
     assert gate.summary.total_samples == 2
     assert gate.summary.failures == 1
+
+
+def test_decision_ids_are_scoped_by_decision_class() -> None:
+    decision_a = auto_handle_decision_id(
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        pr_url="https://example.com/pr/1",
+        decision_class="tier=1|lanes=1|files=1|scope=aragora",
+    )
+    decision_b = auto_handle_decision_id(
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        pr_url="https://example.com/pr/1",
+        decision_class="tier=1|lanes=1|files=2-3|scope=aragora+tests",
+    )
+
+    assert decision_a != decision_b
 
 
 def test_drift_detector_emits_receipt_and_blocks_until_recovery(tmp_path: Path) -> None:
