@@ -1,3 +1,43 @@
+"""PR review protocol schema + types.
+
+This module defines the packet shape and role catalog for PR reviews
+(:class:`PRReviewProtocolPacket`, :class:`PRReviewBinding`,
+:data:`REVIEW_ROLES`, slot catalog). It is a **schema module** — it
+does not itself invoke reviewers or produce the active ensemble state.
+
+Two-state model
+---------------
+The protocol now operates with two distinct status values:
+
+* :data:`PROTOCOL_STATUS` (module-level) — the *fallback default* for
+  packets constructed without explicit status. Remains
+  ``"metadata_heuristic"`` to accurately label packets that emerge
+  from this schema module alone without an active ensemble run.
+
+* Per-packet ``status`` field — set by the **active realization** when
+  real reviewers execute. The :mod:`aragora.pdb` path (worker +
+  real_invoker + invoker_factory + response_parser + protocol)
+  invokes Claude, GPT, Gemini, Grok, DeepSeek, Kimi, Qwen, and
+  Mistral, populates ``dissenting_views`` with per-lens votes, and
+  emits packets with status reflecting the real heterogeneous
+  ensemble execution.
+
+The test contract (:mod:`tests.pdb.test_protocol`) explicitly verifies
+this distinction: when PDB runs, the resulting packet's status is
+*different* from :data:`PROTOCOL_STATUS`, precisely so that callers
+can tell a fallback/heuristic packet apart from a real
+heterogeneous-ensemble run.
+
+Active realization status (as of 2026-04-22):
+    PR #6404 wired Claude + GPT ProviderInvoker; PR #6425 completed
+    Phase B with gemini/grok/deepseek/kimi/qwen/mistral slots; PR #6421
+    shipped the single-PR dogfood CLI. Packets emitted via
+    :mod:`aragora.pdb.protocol` carry a status reflecting the real
+    ensemble run, not the fallback.
+
+See also: ``docs/THESIS.md`` § Implementation gaps, issue #6374.
+"""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -11,6 +51,9 @@ from aragora.review.provider_slots import (
 )
 
 PROTOCOL_VERSION = "pr_review_protocol.v1"
+# Fallback default for packets constructed without explicit status.
+# Packets produced by the active aragora.pdb ensemble path carry their
+# own status that differs from this value — see module docstring.
 PROTOCOL_STATUS = "metadata_heuristic"
 
 RECOMMEND_APPROVE = "approve_candidate"
