@@ -192,3 +192,20 @@ module = [
     "aragora.connectors.chat.*",
 ]
 disable_error_code = ["misc"]
+
+# ``scripts.nomic_loop`` is the self-improvement orchestrator and the
+# largest consumer of the optional-import fallback pattern (40+ soft
+# dependencies rebound to ``None`` when a feature module is unavailable).
+# mypy emits three paired diagnostics on each such line:
+#   * [misc] "Cannot assign to a type"            (same as above)
+#   * [assignment] "Incompatible types in assignment
+#     (expression has type 'None', variable has type 'type[X]')"
+#   * [no-redef] when the fallback function is *redefined* at module scope
+#     after an aliased import already bound the name.
+# The pattern is intentional, reviewed, and exercised by CI via the
+# ``_X_AVAILABLE`` guard flag before each dereference. Silencing the
+# paired codes here keeps the baseline honest (real bugs in other codes
+# still surface) without requiring module-wide ``# type: ignore`` noise.
+[[tool.mypy.overrides]]
+module = ["scripts.nomic_loop"]
+disable_error_code = ["misc", "assignment", "no-redef"]
