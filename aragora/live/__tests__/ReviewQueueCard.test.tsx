@@ -27,7 +27,7 @@ jest.mock('../src/hooks/useReviewQueue', () => ({
 
 import { ReviewQueueCard } from '../src/components/review-queue/ReviewQueueCard';
 import type { ReviewQueuePR } from '../src/hooks/useReviewQueue';
-import { fetchBrief, useBriefState } from '../src/hooks/useReviewQueue';
+import { fetchBrief } from '../src/hooks/useReviewQueue';
 
 function makePR(overrides: Partial<ReviewQueuePR> = {}): ReviewQueuePR {
   return {

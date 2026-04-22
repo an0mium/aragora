@@ -10,15 +10,55 @@ Primary use case: dogfooding the Mode 3 pipeline without starting
 ``aragora serve``. Useful for founder-facing end-to-end validation
 of the first real heterogeneous-panel brief.
 
-Requires (as env vars):
-    ANTHROPIC_API_KEY    — for claude_core slot
-    OPENAI_API_KEY       — for gpt_core slot
-    ARAGORA_PDB_BRIEF_GENERATION_ENABLED=1  — feature flag
+## Credential sources (pick one)
 
-Optional:
+**AWS Secrets Manager** (recommended — keys never in shell history):
+
+    # One-time: store keys in AWS Secrets Manager, configure AWS creds:
+    aws secretsmanager create-secret --name aragora/ANTHROPIC_API_KEY --secret-string "..."
+    aws secretsmanager create-secret --name aragora/OPENAI_API_KEY --secret-string "..."
+    aws configure  # or SSO/IAM role
+
+    # Each run:
+    export ARAGORA_USE_SECRETS_MANAGER=true
+    export ARAGORA_PDB_BRIEF_GENERATION_ENABLED=1
+    python scripts/generate_one_brief.py synaptent/aragora <pr>
+
+The CLI calls ``hydrate_env_from_secrets`` before building the invoker,
+which fetches the keys from Secrets Manager and sets them on the
+process's env (not exported to the parent shell). Keys never touch
+shell history or disk outside the OS's credential store for
+``aws configure``.
+
+**macOS Keychain** (simplest for a laptop):
+
+    security add-generic-password -a "$USER" -s "aragora-anthropic-api-key" -w
+    security add-generic-password -a "$USER" -s "aragora-openai-api-key" -w
+
+    export ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s "aragora-anthropic-api-key" -w)
+    export OPENAI_API_KEY=$(security find-generic-password -a "$USER" -s "aragora-openai-api-key" -w)
+    export ARAGORA_PDB_BRIEF_GENERATION_ENABLED=1
+
+**Plain env vars** (dev-only; keys visible in shell history):
+
+    export ANTHROPIC_API_KEY=... OPENAI_API_KEY=...
+    export ARAGORA_PDB_BRIEF_GENERATION_ENABLED=1
+
+## Optional slots (heterodox + regulatory panel)
+
+Set any of these in env (or Secrets Manager under the same name) to
+expand the panel beyond the core Claude + GPT roster:
+
+    GEMINI_API_KEY, GROK_API_KEY (or XAI_API_KEY),
+    OPENROUTER_API_KEY, MISTRAL_API_KEY
+
+## Optional config
+
     ARAGORA_PDB_PANEL_ID (default: protocol_b_default)
+    ARAGORA_USE_SECRETS_MANAGER=true  (to enable Secrets Manager path)
 
-Exit codes:
+## Exit codes
+
     0  brief generated successfully
     1  input loader failure (PR not found, gh CLI issue)
     2  provider not configured (missing API keys for required slots)
@@ -30,6 +70,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 import time
@@ -39,8 +80,29 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Offline-friendly — don't reach out to Secrets Manager during a local run.
-os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
+# Hydrate credentials from the configured source BEFORE importing aragora
+# modules that snapshot env at import time. ``hydrate_env_from_secrets`` is
+# best-effort: if ``ARAGORA_USE_SECRETS_MANAGER`` is unset or false, this is
+# a no-op and plain env vars are used. If it IS set, the keys get pulled
+# from AWS Secrets Manager into the process's env (not the parent shell's).
+_CREDENTIAL_KEYS = [
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "GROK_API_KEY",
+    "XAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "MISTRAL_API_KEY",
+]
+try:
+    from aragora.config.secrets import hydrate_env_from_secrets
+
+    hydrate_env_from_secrets(_CREDENTIAL_KEYS)
+except Exception:  # noqa: BLE001 — never block CLI startup on hydration issues
+    # If Secrets Manager isn't reachable, the CLI still works with plain env
+    # vars set in the parent shell. _build_invoker() will surface a clear
+    # error if no keys are available for the required core slots.
+    logging.getLogger(__name__).debug("hydrate_env_from_secrets unavailable; falling back to env")
 
 from aragora.pdb import storage
 from aragora.pdb.brief_state import BriefLifecycleState
