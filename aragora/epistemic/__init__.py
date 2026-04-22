@@ -33,6 +33,19 @@ from __future__ import annotations
 
 import os
 
+from .arbitration import (
+    PERSISTENT_CRUX_MIN_CONSECUTIVE,
+    PERSISTENT_CRUX_MIN_SCORE,
+    DEFAULT_EXPIRY_DAYS,
+    ArbitrationSide,
+    CruxArbitration,
+    CruxArbitrationReversal,
+    PersistentCrux,
+    build_arbitration,
+    build_reversal,
+    crux_arbitration_enabled,
+    enable_crux_arbitration,
+)
 from .claim_verifier import ClaimResult, ClaimStatus, ClaimVerifier
 from .coherence import (
     BeliefEntry,
@@ -85,10 +98,21 @@ from .truth_map import (
 )
 
 __all__ = [
+    "ArbitrationSide",
     "BeliefEntry",
     "ClaimResult",
     "ClaimStatus",
     "ClaimVerifier",
+    "CruxArbitration",
+    "CruxArbitrationReversal",
+    "DEFAULT_EXPIRY_DAYS",
+    "PERSISTENT_CRUX_MIN_CONSECUTIVE",
+    "PERSISTENT_CRUX_MIN_SCORE",
+    "PersistentCrux",
+    "build_arbitration",
+    "build_reversal",
+    "crux_arbitration_enabled",
+    "enable_crux_arbitration",
     "CoherenceIssue",
     "CoherenceReport",
     "CruxEntry",
