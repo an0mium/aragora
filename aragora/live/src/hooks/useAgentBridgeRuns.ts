@@ -45,12 +45,13 @@ export function useAgentBridgeRuns(): UseAgentBridgeRunsResult {
   const query = useSWRFetch<AgentBridgeRunListResponse>(buildRunsEndpoint(requestCursor));
 
   useEffect(() => {
-    if (!query.data) {
+    const data = query.data;
+    if (!data) {
       return;
     }
 
     setPages((previousPages) => {
-      const nextPage = { cursor: requestCursor, response: query.data };
+      const nextPage: LoadedBridgeRunPage = { cursor: requestCursor, response: data };
       if (requestCursor === null) {
         return [nextPage];
       }
