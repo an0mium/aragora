@@ -1033,7 +1033,7 @@ def _evaluate_low_risk_calibration_gate(
         auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
         decision_class=decision_class,
     )
-    result = gate.to_dict() if hasattr(gate, "to_dict") else dict(gate)
+    result = gate.to_dict()
     result["decision_class"] = decision_class
     return result
 
