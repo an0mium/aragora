@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol as _TypingProtocol, Sequence
@@ -81,6 +82,9 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
+
+_SLOT_TIMEOUT_ENV = "ARAGORA_PDB_SLOT_TIMEOUT_SECONDS"
+_DEFAULT_SLOT_TIMEOUT_SECONDS = 90.0
 
 FAMILY_CLAUDE = "claude"
 FAMILY_GPT = "gpt"
@@ -536,8 +540,17 @@ class RealProviderInvoker:
     def _call_agent(self, agent: _AgentLike, prompt: str) -> _AgentCallResult:
         """Invoke ``agent.generate`` synchronously with latency + cost tracking."""
         start = time.monotonic()
+        timeout_seconds = _slot_timeout_seconds()
         try:
-            text = _run_sync(agent.generate(prompt))
+            text = _run_sync(agent.generate(prompt), timeout_seconds=timeout_seconds)
+        except TimeoutError as exc:
+            latency_ms = int((time.monotonic() - start) * 1000)
+            logger.warning(
+                "pdb.real_invoker: agent call timed out after %.1fs (model=%r)",
+                timeout_seconds,
+                getattr(agent, "model", "unknown"),
+            )
+            raise TimeoutError(f"provider call timed out after {timeout_seconds:.1f}s") from exc
         except Exception:
             latency_ms = int((time.monotonic() - start) * 1000)
             logger.warning(
@@ -566,7 +579,39 @@ class RealProviderInvoker:
 # ---------------------------------------------------------------------------
 
 
-def _run_sync(coro: Any) -> str:
+def _slot_timeout_seconds() -> float:
+    """Return the per-slot timeout for live provider calls.
+
+    The default keeps a single slow provider from wedging the entire
+    Protocol B run indefinitely. Operators can tune the bound via
+    ``ARAGORA_PDB_SLOT_TIMEOUT_SECONDS`` when dogfooding or running
+    in production-like environments.
+    """
+    raw = os.environ.get(_SLOT_TIMEOUT_ENV, "").strip()
+    if not raw:
+        return _DEFAULT_SLOT_TIMEOUT_SECONDS
+    try:
+        parsed = float(raw)
+    except ValueError:
+        logger.warning(
+            "pdb.real_invoker: invalid %s=%r; using default %.1fs",
+            _SLOT_TIMEOUT_ENV,
+            raw,
+            _DEFAULT_SLOT_TIMEOUT_SECONDS,
+        )
+        return _DEFAULT_SLOT_TIMEOUT_SECONDS
+    if parsed <= 0:
+        logger.warning(
+            "pdb.real_invoker: non-positive %s=%r; using default %.1fs",
+            _SLOT_TIMEOUT_ENV,
+            raw,
+            _DEFAULT_SLOT_TIMEOUT_SECONDS,
+        )
+        return _DEFAULT_SLOT_TIMEOUT_SECONDS
+    return parsed
+
+
+def _run_sync(coro: Any, *, timeout_seconds: float) -> str:
     """Run ``coro`` on a fresh event loop and return its string result.
 
     The worker's :func:`asyncio.to_thread` already ensures this helper
@@ -574,7 +619,11 @@ def _run_sync(coro: Any) -> str:
     :func:`asyncio.run` is safe here. Returning an empty string on
     ``None`` keeps the downstream parsers happy.
     """
-    result = asyncio.run(coro)
+
+    async def _runner() -> Any:
+        return await asyncio.wait_for(coro, timeout=timeout_seconds)
+
+    result = asyncio.run(_runner())
     if result is None:
         return ""
     return str(result)
