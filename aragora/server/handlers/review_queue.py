@@ -11,6 +11,9 @@ Endpoints (all under ``/api/v1/review-queue/``):
 - ``POST /api/v1/review-queue/prs/{number}/request-changes`` — REQUEST_CHANGES
 - ``POST /api/v1/review-queue/prs/{number}/defer``      — LOCAL defer (4h)
 - ``GET  /api/v1/review-queue/stats``                   — session stats
+- ``GET  /api/v1/review-queue/triage-metrics``          — rolling-window
+  triage metrics (#6373 — Commitment 5 of docs/THESIS.md). Requires the
+  ``review_queue:read`` permission.
 
 Safety boundaries (v0):
 
@@ -34,6 +37,7 @@ __all__ = [
     "MAX_PR_NUMBER",
 ]
 
+import hashlib
 import json
 import logging
 import os
@@ -46,6 +50,8 @@ from aragora.pdb import storage as brief_storage
 from aragora.pdb import worker as brief_worker
 from aragora.server.handlers import review_queue_brief
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.triage import compute_window, detect_drift
+from aragora.triage.event_source import iter_events_from_store
 
 from .base import BaseHandler, HandlerResult, error_response, json_response
 from .utils.rate_limit import RateLimiter, get_client_ip
@@ -437,6 +443,8 @@ class ReviewQueueHandler(BaseHandler):
             return self._list_prs()
         if subpath == "/stats":
             return self._get_stats()
+        if subpath == "/triage-metrics":
+            return self._get_triage_metrics(query_params, handler)
         if subpath.startswith("/prs/"):
             tail = subpath[len("/prs/") :]
             segments = [seg for seg in tail.split("/") if seg]
@@ -635,6 +643,94 @@ class ReviewQueueHandler(BaseHandler):
             }
         )
 
+    def _get_triage_metrics(
+        self,
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult:
+        """Return rolling-window triage metrics (#6373, Commitment 5).
+
+        Computes 7-day and 30-day windows over the existing settlement
+        receipts on disk and returns the four Commitment-5 metrics plus
+        advisory drift between them. Auth is required via
+        ``review_queue:read`` so dashboards can be scoped per role.
+        Honors the ``If-None-Match`` header for ETag round-trip.
+
+        Metrics that cannot be computed from the current receipt schema
+        (``human_override_outcome_correlation`` is the notable one —
+        settlement receipts do not record merge outcomes) are returned
+        as ``null`` with an explanatory entry in the ``notes`` block
+        rather than synthesized. This follows the honest-partial-
+        coverage principle: a ``null`` with a documented gap is
+        strictly better than a false-precision value.
+        """
+        user, err = self.require_permission_or_error(handler, "review_queue:read")
+        if err is not None:
+            return err
+        _ = user  # permission check is the only thing we need here
+
+        now = datetime.now(UTC)
+        try:
+            events = list(iter_events_from_store())
+        except OSError as exc:
+            logger.warning("review-queue: could not read settlement receipts: %s", exc)
+            events = []
+
+        seven = compute_window(events, window_end=now, window_days=7)
+        thirty = compute_window(events, window_end=now, window_days=30)
+
+        # Drift is advisory: 7d vs 30d is the simplest within-one-request
+        # comparison available without persisting prior snapshots. A
+        # future enhancement can persist the previous window and compare
+        # window-to-window across time.
+        drift = detect_drift(seven, thirty)
+
+        windows_payload = {
+            "7d": seven.to_dict(),
+            "30d": thirty.to_dict(),
+        }
+        payload: dict[str, Any] = {
+            "windows": windows_payload,
+            "drift": drift,
+            "generated_at": now.isoformat(),
+            "commitment": "docs/THESIS.md Commitment 5",
+        }
+
+        # ETag is computed from the *content-addressable* portion of
+        # the response: the metrics themselves (counts + rates) plus
+        # the drift verdict, with per-request timestamps stripped.
+        # Two requests that observe the same settlement-receipt tree
+        # within the same logical window get the same ETag, enabling
+        # 304 responses on re-poll.
+        etag_basis = {
+            "7d": _etag_window_basis(seven.to_dict()),
+            "30d": _etag_window_basis(thirty.to_dict()),
+            "drift": drift,
+        }
+        etag_bytes = json.dumps(etag_basis, default=str, sort_keys=True).encode("utf-8")
+        etag = '"' + hashlib.sha256(etag_bytes).hexdigest()[:32] + '"'
+        body_bytes = json.dumps(payload, default=str, sort_keys=True).encode("utf-8")
+
+        if_none_match = None
+        if handler is not None:
+            hdrs = getattr(handler, "headers", None)
+            if hdrs is not None:
+                if_none_match = hdrs.get("If-None-Match") if hasattr(hdrs, "get") else None
+        if if_none_match and if_none_match.strip() == etag:
+            return HandlerResult(
+                status_code=304,
+                content_type="application/json",
+                body=b"",
+                headers={"ETag": etag, "Cache-Control": "no-cache"},
+            )
+
+        return HandlerResult(
+            status_code=200,
+            content_type="application/json",
+            body=body_bytes,
+            headers={"ETag": etag, "Cache-Control": "no-cache"},
+        )
+
     # ------------------------------------------------------------------
     # POST endpoints
     # ------------------------------------------------------------------
@@ -735,6 +831,27 @@ class ReviewQueueHandler(BaseHandler):
                 "stats": stats,
             }
         )
+
+
+def _etag_window_basis(window: dict[str, Any]) -> dict[str, Any]:
+    """Return a stable slice of a window dict for ETag hashing.
+
+    Strips per-request timestamps (``window_start``, ``window_end``)
+    so two requests that see the same settlement data within the same
+    logical window width produce the same ETag. Keeps everything that
+    actually reflects the state of the receipts on disk.
+    """
+    return {
+        "window_label": window.get("window_label"),
+        "window_days": window.get("window_days"),
+        "total_decisions": window.get("total_decisions"),
+        "escalation_rate": window.get("escalation_rate"),
+        "auto_handle_override_rate": window.get("auto_handle_override_rate"),
+        "human_override_outcome_correlation": window.get("human_override_outcome_correlation"),
+        "settlement_duration_median_s": window.get("settlement_duration_median_s"),
+        "settlement_duration_p95_s": window.get("settlement_duration_p95_s"),
+        "counts": window.get("counts"),
+    }
 
 
 def _coerce_float(value: Any) -> float | None:

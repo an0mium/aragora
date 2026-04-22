@@ -4,6 +4,16 @@
 ## [Unreleased] - v2.9.0
 
 ### Added
+- **Rolling-window triage metrics (#6373):** New `aragora.triage` package and
+  `GET /api/v1/review-queue/triage-metrics` endpoint emit the four Commitment-5
+  metrics named in `docs/THESIS.md` (escalation rate, auto-handle override
+  rate, human-override-outcome correlation, time-per-settlement median+p95)
+  over rolling 7-day and 30-day windows, with advisory drift detection and
+  ETag support. Pure-function aggregator in `aragora/triage/metrics.py` is
+  testable with synthetic event sequences; the on-disk adapter in
+  `aragora/triage/event_source.py` reads existing settlement receipts without
+  modifying their schema. Legacy `/api/v1/review-queue/stats` (daily counters)
+  remains unchanged.
 - **205K+ test suite:** Test count grew from 129K to 205K+; 19,776 handler tests across 130+ files
 - **Oracle stream observability:** Added TTFT/phase/stall metrics collection, dashboard wiring, and stream-recovery E2E coverage for Oracle flows
 - **Main branch discipline workflow:** Added CI guard to flag direct pushes to `main` without associated PRs (supports explicit emergency override tag)
