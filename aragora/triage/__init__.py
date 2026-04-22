@@ -25,6 +25,20 @@ The HTTP surface for these metrics lives in
 
 from __future__ import annotations
 
+from aragora.triage.auto_handle_calibration import (
+    AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED,
+    AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+    AutoHandleCalibrationStore,
+    AutoHandleDriftAlert,
+    AutoHandleGateDecision,
+    OUTCOME_HUMAN_OVERRIDE,
+    OUTCOME_INCIDENT,
+    OUTCOME_REVERT,
+    OUTCOME_SUCCESS,
+    auto_handle_decision_id,
+    fingerprint_admin_merge_class,
+    fingerprint_low_risk_class,
+)
 from aragora.triage.metrics import (
     MIN_EVENTS_FOR_METRICS,
     TriageDecisionEvent,
@@ -37,6 +51,18 @@ __all__ = [
     "MIN_EVENTS_FOR_METRICS",
     "TriageDecisionEvent",
     "TriageWindowMetrics",
+    "AutoHandleCalibrationStore",
+    "AutoHandleDriftAlert",
+    "AutoHandleGateDecision",
+    "AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED",
+    "AUTO_HANDLE_PATH_FIRE_AND_FORGET",
+    "OUTCOME_SUCCESS",
+    "OUTCOME_HUMAN_OVERRIDE",
+    "OUTCOME_REVERT",
+    "OUTCOME_INCIDENT",
+    "auto_handle_decision_id",
+    "fingerprint_admin_merge_class",
+    "fingerprint_low_risk_class",
     "compute_window",
     "detect_drift",
 ]

@@ -1,9 +1,24 @@
 # Aragora Project Status
 
-*Last updated: April 21, 2026*
+*Last updated: April 22, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](../INDEX.md) for the curated technical reference map.
 > For roadmap extraction, doc drift, and partial-feature tracking, see [DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md](DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md).
+
+## April 22, 2026 — Auto-Handle Calibration Gate Shipped
+
+### Canonical Current Reality
+
+- `#6372` is now represented in code rather than only in the thesis:
+  - `aragora/triage/auto_handle_calibration.py` adds a SQLite-backed calibration store for auto-handle paths.
+  - `fire_and_forget` low-risk auto-merge in `aragora/swarm/tranche_integrate.py` now consults calibrated decision classes before executing.
+  - The `wait_for_review` + `admin_merge_allowed` bypass in `aragora/ralph/supervisor.py` now consults the same calibration gate before issuing an admin merge.
+  - Per-event drift detection can narrow a class, emit a JSON drift receipt under `.aragora/review-queue/drift/`, and keep the class human-gated until recovery.
+  - `aragora review-queue` now surfaces active auto-handle drift alerts directly in CLI output.
+- This closes the broad “static heuristics only” gap for Commitment 1. Remaining work is refinement:
+  - richer post-merge invalidation producers
+  - richer decision-class fingerprints once more samples exist
+  - continued empirical tuning of thresholds
 
 ## April 21, 2026 — Thesis Landed, PDB Execution Is Shipping, Canonical Triage Still Needs Closure
 
@@ -33,7 +48,7 @@
   - the newer PDB execution path is shipping alongside it
   - therefore the canonical PR review packet path is not yet fully upgraded to the thesis's heterogeneous-ensemble standard
 - The thesis implementation-gap issues are now explicit and open:
-  - [#6372](https://github.com/synaptent/aragora/issues/6372) auto-handle calibration + drift gating
+  - [#6372](https://github.com/synaptent/aragora/issues/6372) auto-handle calibration + drift gating `[shipped on this branch; close on merge]`
   - [#6373](https://github.com/synaptent/aragora/issues/6373) rolling-window triage metrics
   - [#6374](https://github.com/synaptent/aragora/issues/6374) upgrade PR review from `metadata_heuristic` to `heterogeneous_ensemble_v1`
   - [#6375](https://github.com/synaptent/aragora/issues/6375) empirical threshold grounding
@@ -57,7 +72,7 @@ The frontier is now:
 
 - **finish the canonical heterogeneous PR-review upgrade** — close [#6374](https://github.com/synaptent/aragora/issues/6374) by making the primary packet path genuinely ensemble-backed and dissent-preserving
 - **ship rolling-window triage metrics** — close [#6373](https://github.com/synaptent/aragora/issues/6373) so the triage layer is measured by outcomes, not daily counts only
-- **add auto-handle calibration + drift gating** — close [#6372](https://github.com/synaptent/aragora/issues/6372) so low-stakes automation is constrained by real outcome history
+- **refine auto-handle calibration + invalidation sources** — build on [#6372](https://github.com/synaptent/aragora/issues/6372) now that the base calibration gate is implemented
 - **ground threshold claims empirically** — close [#6375](https://github.com/synaptent/aragora/issues/6375) after the metrics layer exists
 - **keep queue growth bounded** — continue the single-slice cadence in the PDB lane rather than opening large successor chains in parallel
 
@@ -67,7 +82,7 @@ The current bounded queue should be treated in this order:
 
 1. close [#6374](https://github.com/synaptent/aragora/issues/6374) on the canonical PR-review path
 2. close [#6373](https://github.com/synaptent/aragora/issues/6373) with rolling-window metrics and outcome linkage
-3. close [#6372](https://github.com/synaptent/aragora/issues/6372) with calibration + drift gating for auto-handle paths
+3. refine [#6372](https://github.com/synaptent/aragora/issues/6372) with richer invalidation producers and class fingerprints
 4. close [#6375](https://github.com/synaptent/aragora/issues/6375) using the metrics substrate above
 5. keep the agent-bridge lane scoped to bounded, observable increments rather than a parallel subsystem explosion
 

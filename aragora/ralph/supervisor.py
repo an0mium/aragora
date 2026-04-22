@@ -22,6 +22,13 @@ import yaml
 from aragora.ralph.github_control import GitHubControl, GitHubControlError
 from aragora.ralph.classifier import BlockerKind, classify_blocker
 from aragora.ralph.repair import RepairTask, generate_repair_task
+from aragora.triage.auto_handle_calibration import (
+    AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED,
+    AutoHandleCalibrationStore,
+    OUTCOME_SUCCESS,
+    auto_handle_decision_id,
+    fingerprint_admin_merge_class,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -266,6 +273,7 @@ class RalphSupervisor:
         repo_root: Path | None = None,
         merge_policy: str = "manual_review_required",
         repair_budget_usd: float = 2.0,
+        auto_handle_calibration_store: AutoHandleCalibrationStore | Any | None = None,
     ) -> None:
         self.state_path = state_path.resolve()
         self.repo_root = (repo_root or Path.cwd()).resolve()
@@ -273,6 +281,9 @@ class RalphSupervisor:
         self.repair_budget_usd = repair_budget_usd
         self.github = GitHubControl(repo_root=self.repo_root)
         self._pr_registry: Any = None  # lazy PullRequestRegistry
+        self._auto_handle_calibration_store = (
+            auto_handle_calibration_store or AutoHandleCalibrationStore()
+        )
 
     def _get_pr_registry(self) -> Any:
         """Lazily create and return the shared PullRequestRegistry."""
@@ -883,6 +894,7 @@ class RalphSupervisor:
         self._set_merge_target(state, target)
 
         if snapshot.disposition == "merged":
+            self._record_confirmed_admin_merge(target=target, pr_url=pr_url, snapshot=snapshot)
             state.merge_commit_sha = snapshot.merge_commit_sha
             if target.get("kind") == "repair":
                 state.status = SupervisorStatus.RESUMING.value
@@ -940,12 +952,27 @@ class RalphSupervisor:
             ):
                 target = self._merge_target(state) or target
                 if not target.get("auto_merge_requested"):
+                    calibration_gate = self._evaluate_admin_merge_calibration_gate(
+                        target=target,
+                        pr_url=pr_url,
+                        snapshot=snapshot,
+                    )
+                    if not calibration_gate["allowed"]:
+                        return StepResult(
+                            action=SupervisorAction.PR_CHECKED.value,
+                            status=SupervisorStatus.WAITING_FOR_MERGE.value,
+                            detail=(
+                                "Admin merge blocked by calibration gate: "
+                                + str(calibration_gate["reason"])
+                            ),
+                        )
                     merge_result = self._merge_pr(
                         pr_url,
                         required_checks_green=True,
                         allow_admin=True,
                     )
                     target["auto_merge_requested"] = True
+                    target["auto_handle_calibration"] = calibration_gate
                     target["last_merge_action"] = merge_result.to_dict()
                     self._set_merge_target(state, target)
                     if merge_result.merged:
@@ -1426,6 +1453,53 @@ class RalphSupervisor:
             pr_url,
             required_checks_green=required_checks_green,
             allow_admin=allow_admin,
+        )
+
+    def _evaluate_admin_merge_calibration_gate(
+        self,
+        *,
+        target: dict[str, Any],
+        pr_url: str,
+        snapshot: Any,
+    ) -> dict[str, Any]:
+        decision_class = fingerprint_admin_merge_class(
+            base_branch=getattr(snapshot, "base_branch", None),
+            required_checks_count=len(getattr(snapshot, "required_checks", []) or []),
+            target_kind=target.get("kind"),
+        )
+        gate = self._auto_handle_calibration_store.evaluate_gate(
+            auto_handle_path=AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED,
+            decision_class=decision_class,
+        )
+        result = gate.to_dict() if hasattr(gate, "to_dict") else dict(gate)
+        result["decision_id"] = auto_handle_decision_id(
+            auto_handle_path=AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED,
+            pr_url=pr_url,
+        )
+        result["decision_class"] = decision_class
+        return result
+
+    def _record_confirmed_admin_merge(
+        self, *, target: dict[str, Any], pr_url: str, snapshot: Any
+    ) -> None:
+        calibration = target.get("auto_handle_calibration")
+        if not isinstance(calibration, dict):
+            return
+        decision_id = _optional_text(calibration.get("decision_id"))
+        decision_class = _optional_text(calibration.get("decision_class"))
+        if not decision_id or not decision_class:
+            return
+        self._auto_handle_calibration_store.record_outcome(
+            decision_id=decision_id,
+            auto_handle_path=AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED,
+            decision_class=decision_class,
+            outcome=OUTCOME_SUCCESS,
+            pr_url=pr_url,
+            metadata={
+                "base_branch": getattr(snapshot, "base_branch", None),
+                "target_kind": target.get("kind"),
+            },
+            repo_root=self.repo_root,
         )
 
     def _check_pr_merged(self, pr_url: str) -> tuple[bool, str | None]:

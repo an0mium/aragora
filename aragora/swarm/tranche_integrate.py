@@ -12,6 +12,13 @@ from aragora.ralph.github_control import (
     _check_is_green,
     _partition_checks,
 )
+from aragora.triage.auto_handle_calibration import (
+    AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+    AutoHandleCalibrationStore,
+    OUTCOME_SUCCESS,
+    auto_handle_decision_id,
+    fingerprint_low_risk_class,
+)
 from aragora.swarm.delivery_policy import apply_delivery_policy
 from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.pr_registry import PullRequestRegistry
@@ -187,6 +194,7 @@ def assess_lane_integration(
     merge_policy: str = "confirm",
     autonomy_mode: str = "adaptive",
     approve: bool = False,
+    calibration_store: AutoHandleCalibrationStore | Any | None = None,
 ) -> dict[str, Any]:
     normalized_checks = str(checks or "").strip().lower()
     normalized_review = str(review_status or "").strip().lower()
@@ -230,6 +238,7 @@ def assess_lane_integration(
     recommendation = "request_changes"
     executed = False
     rationale = "Review requested changes."
+    calibration_gate: dict[str, Any] | None = None
 
     if merge_class == "low_risk":
         if normalized_review not in {"passed", "approved"}:
@@ -248,9 +257,25 @@ def assess_lane_integration(
                 + _format_low_risk_reasons(low_risk_policy)
             )
         elif normalized_autonomy == "fire_and_forget" and normalized_policy == "auto":
-            recommendation = "merge"
-            executed = True
-            rationale = "Low-risk auto-merge policy passed and fire-and-forget executed the merge."
+            calibration_gate = _evaluate_low_risk_calibration_gate(
+                manifest=manifest,
+                artifact=artifact,
+                low_risk_policy=low_risk_policy or {},
+                store=calibration_store,
+            )
+            if calibration_gate["allowed"]:
+                recommendation = "merge"
+                executed = True
+                rationale = (
+                    "Low-risk auto-merge policy passed, fire-and-forget is enabled, and "
+                    "the calibrated decision class remains healthy."
+                )
+            else:
+                recommendation = "needs_human"
+                executed = False
+                rationale = "Low-risk auto-merge calibration gate blocked auto-handle: " + str(
+                    calibration_gate["reason"]
+                )
         elif approve and normalized_policy in {"auto", "confirm"}:
             recommendation = "merge"
             executed = True
@@ -299,6 +324,7 @@ def assess_lane_integration(
         "rationale": rationale,
         "low_risk_policy": low_risk_policy,
         "delivery_policy": delivery_policy,
+        "auto_handle_calibration": calibration_gate if merge_class == "low_risk" else None,
         "lane_id": str(getattr(artifact, "lane_id", "") or "").strip() or None,
     }
 
@@ -595,6 +621,7 @@ async def integrate_lane(
     allow_admin: bool = False,
     run_state: Any | None = None,
     autonomy_mode: str = "adaptive",
+    calibration_store: AutoHandleCalibrationStore | Any | None = None,
 ) -> dict[str, Any]:
     repo = (repo_root or Path.cwd()).resolve()
     github_obj = github or GitHubControl(repo_root=repo)
@@ -640,6 +667,7 @@ async def integrate_lane(
         merge_policy=str(metadata.get("merge_policy", "confirm") or "confirm"),
         autonomy_mode=str(autonomy_mode or "adaptive").strip() or "adaptive",
         approve=approve,
+        calibration_store=calibration_store,
     )
     if not pr_url:
         detail = (
@@ -700,6 +728,13 @@ async def integrate_lane(
             )
             assessment["executed"] = bool(merge_result.get("merged", False))
             if merge_result.get("merged"):
+                _record_fire_and_forget_success(
+                    manifest=manifest,
+                    artifact=artifact,
+                    pr_url=pr_url,
+                    store=calibration_store,
+                    repo_root=repo,
+                )
                 cascade_report = cascade_after_merge(
                     manifest,
                     str(getattr(artifact, "lane_id", "") or "").strip(),
@@ -979,6 +1014,63 @@ def _evaluate_low_risk_merge_policy(*, manifest: Any | None, artifact: Any) -> d
         "protected_paths": protected_paths,
         "reasons": reasons,
     }
+
+
+def _evaluate_low_risk_calibration_gate(
+    *,
+    manifest: Any | None,
+    artifact: Any,
+    low_risk_policy: dict[str, Any],
+    store: AutoHandleCalibrationStore | Any | None,
+) -> dict[str, Any]:
+    calibration_store = store or AutoHandleCalibrationStore()
+    decision_class = fingerprint_low_risk_class(
+        changed_files=list(low_risk_policy.get("changed_files") or []),
+        review_tier=low_risk_policy.get("review_tier"),
+        lane_count=int(low_risk_policy.get("lane_count") or 0),
+    )
+    gate = calibration_store.evaluate_gate(
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+    )
+    result = gate.to_dict() if hasattr(gate, "to_dict") else dict(gate)
+    result["decision_class"] = decision_class
+    return result
+
+
+def _record_fire_and_forget_success(
+    *,
+    manifest: Any | None,
+    artifact: Any,
+    pr_url: str,
+    store: AutoHandleCalibrationStore | Any | None,
+    repo_root: Path,
+) -> None:
+    calibration_store = store or AutoHandleCalibrationStore()
+    low_risk_policy = _evaluate_low_risk_merge_policy(manifest=manifest, artifact=artifact)
+    decision_class = fingerprint_low_risk_class(
+        changed_files=list(low_risk_policy.get("changed_files") or []),
+        review_tier=low_risk_policy.get("review_tier"),
+        lane_count=int(low_risk_policy.get("lane_count") or 0),
+    )
+    metadata = getattr(artifact, "metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    calibration_store.record_outcome(
+        decision_id=auto_handle_decision_id(
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            pr_url=pr_url,
+        ),
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+        outcome=OUTCOME_SUCCESS,
+        pr_url=pr_url,
+        metadata={
+            "lane_id": str(getattr(artifact, "lane_id", "") or "").strip() or None,
+            "receipt_id": str(metadata.get("receipt_id", "") or "").strip() or None,
+        },
+        repo_root=repo_root,
+    )
 
 
 def _evaluate_delivery_policy(

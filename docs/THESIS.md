@@ -416,13 +416,15 @@ for the code to realize the thesis.** Thesis commitments are
 evaluated against the target, not the current implementation.
 
 - **Auto-handle path calibration.** `fire_and_forget` in
-  `aragora/swarm/tranche_integrate.py` and `admin_merge_allowed` in
-  `aragora/ralph/supervisor.py` currently use static low-risk
-  heuristics only. Commitment 1 requires them to be governed by
-  outcome-history calibration and drift gating. Work needed: add a
-  calibration layer that bounds each path's decision class from
-  observed outcomes; wire drift detection; gate auto-handle
-  continuation on calibration health.
+  `aragora/swarm/tranche_integrate.py` and the
+  `admin_merge_allowed` review-gate bypass in
+  `aragora/ralph/supervisor.py` are now governed by a SQLite-backed
+  calibration layer keyed on coarse decision classes, with per-event
+  drift gating, drift receipts under `.aragora/review-queue/drift/`,
+  and active-alert surfacing in `aragora review-queue` output.
+  Remaining refinement work is narrower: richer invalidation sources
+  beyond merge-confirmed success, and more expressive decision-class
+  fingerprints once enough samples accumulate.
 
 - **Triage metrics.** Commitment 5 requires rolling-window triage
   metrics (escalation rate, auto-handle override rate, human-
@@ -508,17 +510,16 @@ Five concrete commitments follow from taking the thesis seriously:
      `aragora/swarm/tranche_integrate.py` and the
      `admin_merge_allowed` green-CI path in `aragora/ralph/supervisor.py`
      (documented in `docs/STATUS.md`) are the current implementations
-     of this commitment. In their target form they are governed by
-     (a) outcome-history calibration that bounds each path's decision
-     class from observed outcomes and (b) drift gating that tightens
-     the class when outcome-invalidation rises. Today both paths use
-     static low-risk heuristics (single-lane, review tier,
-     cross-model-review flag, changed-file count, protected-path
-     exclusion for `fire_and_forget`; green CI plus policy flag for
-     `admin_merge_allowed`). Acquiring the full calibration + drift
-     governance is a tracked implementation gap (see § Implementation
-     gaps); the thesis's target for these paths is the governed form,
-     not the static-heuristic form.
+     of this commitment. They are now governed by (a) outcome-history
+     calibration over coarse decision classes and (b) per-event drift
+     gating that disables narrowed classes when invalidation rises.
+     The current classing remains intentionally conservative
+     (review-tier, changed-file scope bucket, lane count for
+     `fire_and_forget`; base branch, required-check bucket, merge-
+     target kind for `admin_merge_allowed`) so sample sizes stay
+     meaningful. Future work is refinement, not absence of governance:
+     richer post-merge invalidation producers and finer-grained class
+     features as history accrues, not the static-heuristic form.
    - **The triage layer itself is auditable and revisable.** It must
      report, per rolling window: percent of decisions auto-handled,
      escalated, and human-overridden; which decision classes are
