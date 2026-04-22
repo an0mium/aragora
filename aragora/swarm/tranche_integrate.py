@@ -1102,26 +1102,41 @@ def _record_fire_and_forget_success(
 ) -> None:
     calibration_store = store or AutoHandleCalibrationStore()
     if not isinstance(calibration_gate, dict):
-        raise RuntimeError("Missing calibration gate metadata for fire-and-forget success")
+        logger.warning(
+            "Skipping fire-and-forget calibration success recording for %s: missing calibration gate metadata",
+            pr_url or "<unknown-pr>",
+        )
+        return
     decision_id = str(calibration_gate.get("decision_id") or "").strip()
     decision_class = str(calibration_gate.get("decision_class") or "").strip()
     if not decision_id or not decision_class:
-        raise RuntimeError("Incomplete calibration gate metadata for fire-and-forget success")
+        logger.warning(
+            "Skipping fire-and-forget calibration success recording for %s: incomplete calibration gate metadata",
+            pr_url or "<unknown-pr>",
+        )
+        return
     metadata = getattr(artifact, "metadata", {})
     if not isinstance(metadata, dict):
         metadata = {}
-    calibration_store.record_outcome(
-        decision_id=decision_id,
-        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
-        decision_class=decision_class,
-        outcome=OUTCOME_SUCCESS,
-        pr_url=pr_url,
-        metadata={
-            "lane_id": str(getattr(artifact, "lane_id", "") or "").strip() or None,
-            "receipt_id": str(metadata.get("receipt_id", "") or "").strip() or None,
-        },
-        repo_root=repo_root,
-    )
+    try:
+        calibration_store.record_outcome(
+            decision_id=decision_id,
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            decision_class=decision_class,
+            outcome=OUTCOME_SUCCESS,
+            pr_url=pr_url,
+            metadata={
+                "lane_id": str(getattr(artifact, "lane_id", "") or "").strip() or None,
+                "receipt_id": str(metadata.get("receipt_id", "") or "").strip() or None,
+            },
+            repo_root=repo_root,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to record fire-and-forget calibration outcome for %s: %s",
+            pr_url or "<unknown-pr>",
+            exc,
+        )
 
 
 def _evaluate_delivery_policy(

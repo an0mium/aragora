@@ -73,6 +73,7 @@ class AutoHandleGateDecision:
     reason: str
     summary: AutoHandleClassSummary
     active_drift_alert: bool = False
+    warmup_active: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -382,13 +383,27 @@ class AutoHandleCalibrationStore:
                 active_drift_alert=True,
             )
         if summary.total_samples < self.min_samples:
+            if summary.failures == 0:
+                return AutoHandleGateDecision(
+                    allowed=True,
+                    auto_handle_path=auto_handle_path,
+                    decision_class=decision_class,
+                    reason=(
+                        f"class is in calibration warm-up: {summary.total_samples} < "
+                        f"{self.min_samples} samples in the last {summary.window_days}d; "
+                        "allowing auto-handle while outcome history is seeded"
+                    ),
+                    summary=summary,
+                    warmup_active=True,
+                )
             return AutoHandleGateDecision(
                 allowed=False,
                 auto_handle_path=auto_handle_path,
                 decision_class=decision_class,
                 reason=(
-                    f"insufficient calibrated samples: {summary.total_samples} < "
-                    f"{self.min_samples} in the last {summary.window_days}d"
+                    f"class remains uncalibrated after {summary.failures} recorded failure(s): "
+                    f"{summary.total_samples} < {self.min_samples} in the last "
+                    f"{summary.window_days}d"
                 ),
                 summary=summary,
             )
@@ -426,15 +441,18 @@ class AutoHandleCalibrationStore:
         if outcome not in _FAILURE_OUTCOMES | {OUTCOME_SUCCESS}:
             raise ValueError(f"Unsupported auto-handle outcome: {outcome}")
 
+        normalized_pr_url = str(pr_url or "").strip()
         previous_summary = self.summarize_class(
             auto_handle_path=auto_handle_path,
             decision_class=decision_class,
         )
         conn = self._get_conn()
+        inserted = False
+        existing_outcome: str | None = None
         try:
-            conn.execute(
+            cursor = conn.execute(
                 """
-                INSERT OR REPLACE INTO auto_handle_decisions (
+                INSERT INTO auto_handle_decisions (
                     decision_id,
                     auto_handle_path,
                     decision_class,
@@ -444,21 +462,62 @@ class AutoHandleCalibrationStore:
                     decided_at,
                     metadata_json
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(decision_id) DO NOTHING
                 """,
                 (
                     decision_id,
                     auto_handle_path,
                     decision_class,
-                    str(pr_url or "").strip(),
+                    normalized_pr_url,
                     pr_number,
                     outcome,
                     time.time(),
                     json.dumps(metadata or {}, sort_keys=True),
                 ),
             )
-            conn.commit()
+            inserted = cursor.rowcount > 0
+            if inserted:
+                conn.commit()
+            else:
+                row = conn.execute(
+                    """
+                    SELECT auto_handle_path, decision_class, pr_url, outcome
+                    FROM auto_handle_decisions
+                    WHERE decision_id = ?
+                    """,
+                    (decision_id,),
+                ).fetchone()
+                if row is None:
+                    raise RuntimeError(
+                        f"Failed to load existing auto-handle decision for duplicate id {decision_id!r}"
+                    )
+                existing_outcome = str(row["outcome"] or "").strip() or None
+                if (
+                    str(row["auto_handle_path"] or "").strip() != str(auto_handle_path).strip()
+                    or str(row["decision_class"] or "").strip() != str(decision_class).strip()
+                    or str(row["pr_url"] or "").strip() != normalized_pr_url
+                    or str(row["outcome"] or "").strip() != str(outcome).strip()
+                ):
+                    raise ValueError(
+                        "Refusing to overwrite existing auto-handle decision with conflicting outcome "
+                        f"for {decision_id!r}"
+                    )
         finally:
             self._close_conn(conn)
+
+        if not inserted:
+            active_alert = self.get_active_alert(
+                auto_handle_path=auto_handle_path,
+                decision_class=decision_class,
+            )
+            return {
+                "summary": previous_summary.to_dict(),
+                "alert": active_alert.to_dict() if active_alert is not None else None,
+                "recovered": False,
+                "recorded": False,
+                "duplicate": True,
+                "existing_outcome": existing_outcome,
+            }
 
         current_summary = self.summarize_class(
             auto_handle_path=auto_handle_path,
@@ -508,6 +567,9 @@ class AutoHandleCalibrationStore:
             "summary": current_summary.to_dict(),
             "alert": alert.to_dict() if alert is not None else None,
             "recovered": bool(recovered),
+            "recorded": True,
+            "duplicate": False,
+            "existing_outcome": None,
         }
 
     def _upsert_alert(

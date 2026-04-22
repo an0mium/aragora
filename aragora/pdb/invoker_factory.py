@@ -370,17 +370,25 @@ def _build_claude_agent(
     factory: Callable[[str, str | None], Any] | None,
 ) -> Any:
     if factory is not None:
-        return factory(model, api_key)
-    # Imports live inside the function so test-time monkeypatching and
-    # env-less import of ``aragora.pdb.invoker_factory`` stay cheap.
-    from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+        agent = factory(model, api_key)
+    else:
+        # Imports live inside the function so test-time monkeypatching and
+        # env-less import of ``aragora.pdb.invoker_factory`` stay cheap.
+        from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
-    return AnthropicAPIAgent(
-        name="pdb-claude",
-        model=model,
-        role="proposer",
-        api_key=api_key,
-    )
+        agent = AnthropicAPIAgent(
+            name="pdb-claude",
+            model=model,
+            role="proposer",
+            api_key=api_key,
+        )
+    # Mode 3 review prompts are repo-grounded and already carry the local PR
+    # context. Anthropic's generic URL-triggered web search heuristic can
+    # misclassify these prompts as web tasks because diff excerpts often include
+    # URLs, which inflates latency on a required core slot.
+    if hasattr(agent, "enable_web_search"):
+        agent.enable_web_search = False
+    return agent
 
 
 def _build_openai_agent(

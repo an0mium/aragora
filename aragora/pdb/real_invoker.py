@@ -543,7 +543,7 @@ class RealProviderInvoker:
         timeout_seconds = _slot_timeout_seconds()
         try:
             text = _run_sync(agent.generate(prompt), timeout_seconds=timeout_seconds)
-        except TimeoutError as exc:
+        except (TimeoutError, asyncio.TimeoutError) as exc:
             latency_ms = int((time.monotonic() - start) * 1000)
             logger.warning(
                 "pdb.real_invoker: agent call timed out after %.1fs (model=%r)",

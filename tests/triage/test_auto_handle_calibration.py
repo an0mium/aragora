@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from aragora.triage.auto_handle_calibration import (
     AUTO_HANDLE_PATH_FIRE_AND_FORGET,
     AutoHandleCalibrationStore,
@@ -124,3 +126,62 @@ def test_drift_detector_emits_receipt_and_blocks_until_recovery(tmp_path: Path) 
     )
     assert recovered.allowed is True
     assert recovered.active_drift_alert is False
+
+
+def test_record_outcome_duplicate_decision_id_is_idempotent() -> None:
+    store = AutoHandleCalibrationStore(db_path=":memory:")
+    decision_class = "tier=1|lanes=1|files=1|scope=aragora"
+    decision_id = auto_handle_decision_id(
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        pr_url="https://example.com/pr/1",
+        decision_class=decision_class,
+    )
+
+    first = store.record_outcome(
+        decision_id=decision_id,
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+        outcome=OUTCOME_SUCCESS,
+        pr_url="https://example.com/pr/1",
+    )
+    second = store.record_outcome(
+        decision_id=decision_id,
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+        outcome=OUTCOME_SUCCESS,
+        pr_url="https://example.com/pr/1",
+        metadata={"retry": True},
+    )
+
+    assert first["recorded"] is True
+    assert first["duplicate"] is False
+    assert second["recorded"] is False
+    assert second["duplicate"] is True
+    assert second["existing_outcome"] == OUTCOME_SUCCESS
+    assert second["summary"]["total_samples"] == 1
+
+
+def test_record_outcome_rejects_conflicting_duplicate_decision_id() -> None:
+    store = AutoHandleCalibrationStore(db_path=":memory:")
+    decision_class = "tier=1|lanes=1|files=1|scope=aragora"
+    decision_id = auto_handle_decision_id(
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        pr_url="https://example.com/pr/1",
+        decision_class=decision_class,
+    )
+    store.record_outcome(
+        decision_id=decision_id,
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+        outcome=OUTCOME_SUCCESS,
+        pr_url="https://example.com/pr/1",
+    )
+
+    with pytest.raises(ValueError, match="Refusing to overwrite existing auto-handle decision"):
+        store.record_outcome(
+            decision_id=decision_id,
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            decision_class=decision_class,
+            outcome=OUTCOME_HUMAN_OVERRIDE,
+            pr_url="https://example.com/pr/1",
+        )

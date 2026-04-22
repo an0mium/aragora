@@ -10,6 +10,7 @@ from aragora.nomic.dev_coordination import IntegrationDecisionType
 from aragora.swarm.pr_registry import PullRequestRegistry
 from aragora.swarm.tranche import TrancheLane, TrancheLaneArtifact
 from aragora.swarm.tranche_integrate import (
+    _record_fire_and_forget_success,
     assess_lane_integration,
     cascade_after_merge,
     classify_check_results,
@@ -340,7 +341,7 @@ def test_assess_low_risk_fire_and_forget_auto_merges_for_single_lane_tier_1() ->
     assert result["low_risk_policy"]["eligible"] is True
 
 
-def test_assess_low_risk_fire_and_forget_blocks_unseeded_class() -> None:
+def test_assess_low_risk_fire_and_forget_allows_pristine_warmup_class() -> None:
     manifest = _make_manifest(
         _make_lane(
             "lane-a",
@@ -371,9 +372,61 @@ def test_assess_low_risk_fire_and_forget_blocks_unseeded_class() -> None:
         calibration_store=store,
     )
 
+    assert result["recommendation"] == "merge"
+    assert result["executed"] is True
+    assert result["auto_handle_calibration"]["warmup_active"] is True
+
+
+def test_assess_low_risk_fire_and_forget_blocks_uncalibrated_class_after_failure() -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={
+                "merge_class": "low_risk",
+                "merge_policy": "auto",
+                "enforce_cross_model_review": True,
+            },
+        )
+    )
+    artifact = _make_artifact(
+        metadata={
+            "review": {
+                "status": "passed",
+                "tier": 1,
+                "changed_files": ["aragora/live/src/app/page.tsx"],
+            }
+        }
+    )
+    store = AutoHandleCalibrationStore(db_path=":memory:", min_samples=2, min_success_rate=0.75)
+    decision_class = fingerprint_low_risk_class(
+        changed_files=["aragora/live/src/app/page.tsx"],
+        review_tier=1,
+        lane_count=1,
+    )
+    store.record_outcome(
+        decision_id=auto_handle_decision_id(
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            pr_url="https://example.com/pr/bad",
+            decision_class=decision_class,
+        ),
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+        outcome=OUTCOME_HUMAN_OVERRIDE,
+        pr_url="https://example.com/pr/bad",
+    )
+
+    result = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_passed",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+        calibration_store=store,
+    )
+
     assert result["recommendation"] == "needs_human"
-    assert result["executed"] is False
-    assert "insufficient calibrated samples" in result["rationale"]
+    assert "remains uncalibrated" in result["rationale"]
+    assert result["auto_handle_calibration"]["warmup_active"] is False
 
 
 def test_low_risk_auto_handle_deactivates_until_class_recovers() -> None:
@@ -606,6 +659,44 @@ def test_assess_low_risk_checks_pending_does_not_emit_merge_signal() -> None:
     assert result["recommendation"] == "awaiting_checks"
     assert result["executed"] is False
     assert result["low_risk_policy"]["eligible"] is True
+
+
+def test_record_fire_and_forget_success_missing_metadata_logs_and_returns(caplog) -> None:
+    store = MagicMock()
+
+    with caplog.at_level("WARNING"):
+        _record_fire_and_forget_success(
+            manifest=None,
+            artifact=_make_artifact(),
+            calibration_gate=None,
+            pr_url="https://example.com/pr/42",
+            store=store,
+            repo_root=Path("/tmp/repo"),
+        )
+
+    store.record_outcome.assert_not_called()
+    assert "missing calibration gate metadata" in caplog.text
+
+
+def test_record_fire_and_forget_success_store_failure_is_logged(caplog) -> None:
+    store = MagicMock()
+    store.record_outcome.side_effect = RuntimeError("sqlite busy")
+
+    with caplog.at_level("WARNING"):
+        _record_fire_and_forget_success(
+            manifest=None,
+            artifact=_make_artifact(metadata={"receipt_id": "receipt-1"}),
+            calibration_gate={
+                "decision_id": "fire_and_forget:abc123",
+                "decision_class": "tier=1|lanes=1|files=1|scope=aragora",
+            },
+            pr_url="https://example.com/pr/42",
+            store=store,
+            repo_root=Path("/tmp/repo"),
+        )
+
+    store.record_outcome.assert_called_once()
+    assert "Failed to record fire-and-forget calibration outcome" in caplog.text
 
 
 def test_assess_low_risk_cross_model_review_disabled_blocks_auto_merge() -> None:

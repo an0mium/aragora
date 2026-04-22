@@ -468,6 +468,24 @@ class TestFindings:
         with pytest.raises(TimeoutError, match="provider call timed out after 0.1s"):
             invoker.findings(slot=slot, provider="claude", prompt="p", binding=_binding())
 
+    def test_agent_timeout_catches_asyncio_timeout_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        agent = MagicMock()
+        agent.model = "claude-sonnet-4-6"
+        agent.last_tokens_in = 0
+        agent.last_tokens_out = 0
+
+        monkeypatch.setattr(
+            "aragora.pdb.real_invoker._run_sync",
+            lambda _coro, *, timeout_seconds: (_ for _ in ()).throw(asyncio.TimeoutError()),
+        )
+
+        invoker = RealProviderInvoker(claude=agent, gpt=_make_mock_agent())
+        slot = _slot("claude_core", family=FAMILY_CLAUDE, required=True)
+        with pytest.raises(TimeoutError, match="provider call timed out after 90.0s"):
+            invoker.findings(slot=slot, provider="claude", prompt="p", binding=_binding())
+
 
 # ---------------------------------------------------------------------------
 # Critique

@@ -268,6 +268,34 @@ class TestBuildDefaultInvoker:
         # Core slots wired
         assert invoker._agents[FAMILY_CLAUDE] is not None
         assert invoker._agents[FAMILY_GPT] is not None
+
+    def test_pdb_claude_agent_disables_web_search(self) -> None:
+        class _ClaudeAgent:
+            def __init__(self, model: str) -> None:
+                self.model = model
+                self.last_tokens_in = 0
+                self.last_tokens_out = 0
+                self.enable_web_search = True
+
+            async def generate(self, prompt: str, context: Any = None, **kwargs: Any) -> str:
+                return "{}"
+
+        def _factory(model: str, api_key: str | None) -> Any:
+            return _ClaudeAgent(model)
+
+        invoker = build_default_invoker(
+            config=_config(),
+            env={
+                "ANTHROPIC_API_KEY": "ant-key",
+                "OPENAI_API_KEY": "oai-key",
+            },
+            anthropic_agent_factory=_factory,
+            openai_agent_factory=_fake_gpt,
+        )
+
+        claude_agent = invoker._agents[FAMILY_CLAUDE]
+        assert claude_agent is not None
+        assert claude_agent.enable_web_search is False
         # Heterodox slots in unavailable set (no heterodox keys supplied)
         assert "grok_heterodox" in invoker._unavailable_slots
         assert "gemini_heterodox" in invoker._unavailable_slots
