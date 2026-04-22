@@ -146,7 +146,7 @@ Four total briefs now on the record. Adding the panel's precision data:
 - Panel claimed `pr_review_protocol.py` defines `PRReviewProtocolPacket` as a frozen dataclass and would crash. Codex inspected and confirmed the class is NOT frozen; no crash possible.
 - Documented by codex in #6448 follow-up comments.
 
-Estimated panel precision: ~20 findings across 4 briefs, 1 false positive = **~95%**.
+Panel track record so far: **one confirmed false positive** against ~20 findings spanning 4 briefs. Too early to commit to a precision number; reassess after another 5-10 briefs.
 
 ### Operational lessons
 
