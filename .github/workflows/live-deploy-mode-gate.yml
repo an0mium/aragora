@@ -21,8 +21,57 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  scope:
+    name: Live Deploy Scope
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_relevant: ${{ steps.defaults.outputs.deploy_relevant || steps.filter.outputs.deploy_relevant }}
+    steps:
+      - name: Default scope (non-PR)
+        if: github.event_name != 'pull_request'
+        id: defaults
+        run: echo "deploy_relevant=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+
+      - name: Detect deploy-impacting frontend changes
+        if: github.event_name == 'pull_request'
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            deploy_relevant:
+              - 'aragora/live/package*.json'
+              - 'aragora/live/next.config.*'
+              - 'aragora/live/tsconfig*.json'
+              - 'aragora/live/playwright*.config.*'
+              - 'aragora/live/e2e/**'
+              - 'aragora/live/functions/**'
+              - 'aragora/live/public/**'
+              - 'aragora/live/scripts/**'
+              - 'aragora/live/src/api/**'
+              - 'aragora/live/src/app/**'
+              - 'aragora/live/src/components/**'
+              - 'aragora/live/src/context/**'
+              - 'aragora/live/src/hooks/**'
+              - 'aragora/live/src/lib/**'
+              - 'aragora/live/src/store/**'
+              - 'aragora/live/src/styles/**'
+              - 'aragora/live/src/utils/**'
+              - '.github/workflows/live-deploy-mode-gate.yml'
+              - '.github/workflows/deploy-frontend.yml'
+              - '.github/workflows/deploy-secure.yml'
+
+      - name: Skip reason
+        if: github.event_name == 'pull_request' && steps.filter.outputs.deploy_relevant != 'true'
+        run: |
+          echo "No deploy-impacting frontend files changed; skipping self-hosted live deploy mode gate."
+
   gate:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: scope
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || needs.scope.outputs.deploy_relevant == 'true')
     name: Validate Live Deploy Mode
     runs-on: [self-hosted, Linux, X64, aragora, hetzner]
     timeout-minutes: 30

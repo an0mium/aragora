@@ -55,6 +55,23 @@ Automation PRs are merge candidates only when:
 
 If any gate fails, the next useful action is a repair attempt with the failure output in the handoff envelope, not another fresh worker staring at the same repo state.
 
+## Required vs Advisory Checks
+
+The merge decision should use GitHub branch protection as the authoritative hard gate. As of this contract, that means the required status checks configured on `main`, one approving review, and a scoped diff with validation evidence in the PR body.
+
+Advisory workflows are still useful evidence, but they should not create a hidden second merge policy. Treat advisory checks as follows:
+
+- Passing advisory checks increase confidence but are not required for low-risk automation PRs.
+- Cancelled advisory checks caused by a newer push are queue churn, not a blocker. Re-run them only when the cancelled workflow is directly relevant to the changed files.
+- Failed advisory checks are blockers only when the failure is in-scope for the PR diff or reveals a mainline regression that would be worsened by the PR.
+- Summary-only jobs such as analytics, admission signals, and AI review comments should prefer warnings and PR comments over failing statuses.
+
+Use a fast lane for docs-only, tests-only, and narrow CI reliability PRs: if the required checks pass, the diff is scoped, and one reviewer approves, the PR is mergeable even if unrelated advisory lanes are pending or skipped. Use the full lane for product, security, deploy, data migration, and cross-cutting architecture changes: relevant advisory lanes should be green or explicitly waived in the PR body before admin merge.
+
+## Queue Hygiene
+
+High-churn automation loses throughput when multiple branches compete for the same issue or when stale PRs keep requesting review. Before opening or merging another PR, check for duplicate open PRs, dirty draft branches, and obsolete salvage branches for the same task. Close, draft, or supersede stale PRs with a short comment that names the replacement branch or next repair action.
+
 ## Publish Bridge
 
 `scripts/run_codex_automation_publisher.sh` is the non-coding publish bridge for local automation output. It should run from a user shell or LaunchAgent context with stable `gh` credentials. It first drains structured handoffs into GitHub issues with `scripts/publish_automation_handoffs.py`, then publishes eligible clean `codex/*` branches into PRs with `scripts/publish_codex_automation_branches.py`.
