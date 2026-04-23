@@ -16,8 +16,8 @@
 set -euo pipefail
 
 THRESHOLD="${THRESHOLD:-5000}"
-LOG_FILE="${LOG_FILE:-/var/log/aragora-runner-health.log}"
-ALERT_FILE="${ALERT_FILE:-/var/log/aragora-runner-health.alert}"
+LOG_FILE="${LOG_FILE:-$HOME/Library/Logs/aragora-runner-health.log}"
+ALERT_FILE="${ALERT_FILE:-$HOME/Library/Logs/aragora-runner-health.alert}"
 
 # Count TIME_WAIT entries. Use -p tcp so we don't include unix sockets.
 TIMEWAIT_COUNT=$(netstat -an -p tcp 2>/dev/null | awk '$NF == "TIME_WAIT"' | wc -l | tr -d ' ')
@@ -32,13 +32,15 @@ TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 # Single structured log line (parse-friendly).
 LINE="ts=$TS host=$HOST uptime=$UPTIME tcp_total=$TCP_TOTAL timewait=$TIMEWAIT_COUNT established=$ESTABLISHED threshold=$THRESHOLD"
 
-# Append to log (create if missing).
+# Append to log (create if missing). This runs as a LaunchAgent in user
+# context, so avoid sudo: a password prompt under launchd would drop the
+# forensic trail this script exists to preserve.
 mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
-echo "$LINE" | sudo tee -a "$LOG_FILE" >/dev/null 2>&1 || echo "$LINE" >&2
+printf '%s\n' "$LINE" >> "$LOG_FILE" 2>/dev/null || echo "$LINE" >&2
 
 # Write alert flag if we're over threshold.
 if [ "$TIMEWAIT_COUNT" -gt "$THRESHOLD" ]; then
-    sudo tee "$ALERT_FILE" >/dev/null 2>&1 <<ALERT || echo "ALERT: $LINE" >&2
+    cat > "$ALERT_FILE" <<ALERT || echo "ALERT: $LINE" >&2
 host=$HOST
 ts=$TS
 timewait=$TIMEWAIT_COUNT
@@ -49,7 +51,7 @@ ALERT
     echo "ALERT: $LINE" >&2
 else
     # Clear any stale alert file if we've recovered.
-    sudo rm -f "$ALERT_FILE" 2>/dev/null || true
+    rm -f "$ALERT_FILE" 2>/dev/null || true
 fi
 
 # Emit the line to stdout too so interactive runs show it.

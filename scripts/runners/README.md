@@ -14,15 +14,15 @@ Per-host daily monitoring for Mac self-hosted runners. Addresses issue #6478 fol
 
 # 1. Copy the check script + plist
 mkdir -p ~/actions-runner/runner-health
-scp scripts/runners/mac_timewait_check.sh armand@<host>.local:~/actions-runner/runner-health/
-scp scripts/runners/com.aragora.runner-health.plist armand@<host>.local:~/Library/LaunchAgents/
-ssh armand@<host>.local "chmod +x ~/actions-runner/runner-health/mac_timewait_check.sh"
+scp scripts/runners/mac_timewait_check.sh armand@<magicdns-host>:~/actions-runner/runner-health/
+scp scripts/runners/com.aragora.runner-health.plist armand@<magicdns-host>:~/Library/LaunchAgents/
+ssh armand@<magicdns-host> "chmod +x ~/actions-runner/runner-health/mac_timewait_check.sh"
 
 # 2. Load the LaunchAgent
-ssh armand@<host>.local "launchctl load ~/Library/LaunchAgents/com.aragora.runner-health.plist"
+ssh armand@<magicdns-host> "launchctl load ~/Library/LaunchAgents/com.aragora.runner-health.plist"
 
 # 3. Verify first run produced a log line
-ssh armand@<host>.local "tail -1 ~/Library/Logs/aragora-runner-health.log"
+ssh armand@<magicdns-host> "tail -1 ~/Library/Logs/aragora-runner-health.log"
 # Expected: ts=... host=... uptime=... tcp_total=... timewait=... established=... threshold=5000
 ```
 

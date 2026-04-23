@@ -70,7 +70,7 @@ jobs:
           set +e
           declare -a alerts=()
 
-          echo "$HOSTS_JSON" | jq -c '.[]' | while read -r entry; do
+          while read -r entry; do
             name=$(echo "$entry" | jq -r '.name')
             host=$(echo "$entry" | jq -r '.host')
 
@@ -114,7 +114,7 @@ jobs:
                 alerts+=("$name: log stale by ${HOURS_STALE}h > $STALE_HOURS")
               fi
             fi
-          done
+          done < <(echo "$HOSTS_JSON" | jq -c '.[]')
 
           if [ ${#alerts[@]} -gt 0 ]; then
             {
@@ -156,6 +156,11 @@ jobs:
           [Run log]($SERVER_URL/$REPO/actions/runs/$RUN_ID)
           BODY_END
           )
+
+          gh label create runner-health \
+            --description "Mac runner health and TIME_WAIT alerts" \
+            --color "B60205" \
+            2>/dev/null || true
 
           EXISTING=$(gh issue list --label runner-health --state open --json number --jq '.[0].number // empty')
           if [ -n "$EXISTING" ]; then
