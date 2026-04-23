@@ -311,12 +311,30 @@ class AutoHandleCalibrationStore:
         conn.isolation_level = None
         conn.execute("PRAGMA busy_timeout = 30000")
         if not self._is_memory:
+            # ``PRAGMA journal_mode`` *returns* the post-call journal
+            # mode rather than raising on failure, so we must inspect
+            # the result: when the host cannot support WAL (read-only
+            # directory, some Docker overlays, exotic VFS) SQLite
+            # silently falls back to DELETE mode and concurrent
+            # reader/writer semantics change underneath us. The 8/8
+            # Mode 3 panel on PR #6468 flagged the previous silent
+            # ``except: pass`` as a deployment bug worth surfacing, so
+            # we raise instead of tolerating the fallback.
             try:
-                conn.execute("PRAGMA journal_mode=WAL")
-            except sqlite3.DatabaseError:
-                # Older SQLite builds can reject WAL transitions; keep the
-                # store usable on legacy platforms.
-                pass
+                row = conn.execute("PRAGMA journal_mode=WAL").fetchone()
+            except sqlite3.DatabaseError as exc:
+                raise AutoHandleStoreError(
+                    f"Failed to enable WAL journal mode at {self.db_path!r}: {exc}"
+                ) from exc
+            mode = str(row[0]).lower() if row is not None and row[0] is not None else ""
+            if mode != "wal":
+                raise AutoHandleStoreError(
+                    f"Failed to enable WAL journal mode at {self.db_path!r}: "
+                    f"SQLite reports journal_mode={mode!r} (expected 'wal'). "
+                    "This usually means the database directory is not "
+                    "writable by the current process or the filesystem "
+                    "does not support WAL shared-memory primitives."
+                )
 
     # -- Schema -------------------------------------------------------------
 

@@ -13,7 +13,9 @@ call-site integration are out of scope for PR A.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -247,6 +249,54 @@ class TestRecordOutcomeDbErrorPath:
         bad_path.mkdir()
         with pytest.raises(AutoHandleStoreError):
             AutoHandleCalibrationStore(db_path=str(bad_path))
+
+
+# ---------------------------------------------------------------------------
+# WAL mode — required, no silent fallback
+# ---------------------------------------------------------------------------
+
+
+class TestWalModeRequired:
+    """The 8/8 Mode 3 panel on PR #6468 flagged the previous silent WAL
+    fallback as a deployment bug worth surfacing. A host that cannot
+    support WAL (read-only directory, some Docker overlays, exotic VFS)
+    changes concurrent reader/writer semantics; we'd rather fail loudly
+    at init than discover the behaviour shift in production.
+    """
+
+    @pytest.mark.skipif(
+        sys.platform.startswith("win"),
+        reason="Windows permission model does not behave like POSIX for this check",
+    )
+    @pytest.mark.skipif(
+        hasattr(os, "geteuid") and os.geteuid() == 0,
+        reason="Running as root bypasses directory-mode restrictions",
+    )
+    def test_wal_mode_required_raises_on_failure(self, tmp_path: Path) -> None:
+        """When WAL cannot be enabled, init raises ``AutoHandleStoreError``.
+
+        We set up a directory we can pre-populate with a DB file, then
+        strip write permission. SQLite can still open the existing file
+        but cannot create the ``-wal`` / ``-shm`` shared-memory side
+        files required for WAL, so ``PRAGMA journal_mode=WAL`` fails.
+        """
+        db_dir = tmp_path / "wal_blocked"
+        db_dir.mkdir()
+        db_path = db_dir / "store.db"
+
+        # Pre-create the DB file so SQLite can open it for reading
+        # after we chmod the directory to read-only.
+        with closing(sqlite3.connect(str(db_path))) as seed:
+            seed.execute("CREATE TABLE IF NOT EXISTS touch (x INTEGER)")
+            seed.commit()
+
+        original_mode = db_dir.stat().st_mode & 0o777
+        os.chmod(db_dir, 0o500)  # r-x: no writes allowed
+        try:
+            with pytest.raises(AutoHandleStoreError, match="WAL"):
+                AutoHandleCalibrationStore(db_path=str(db_path))
+        finally:
+            os.chmod(db_dir, original_mode)
 
 
 # ---------------------------------------------------------------------------
