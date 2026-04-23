@@ -20,7 +20,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from aragora.epistemic.claim_verifier import ClaimResult, ClaimStatus
 from aragora.epistemic.coherence import CoherenceIssue, IncoherenceKind
@@ -31,7 +31,22 @@ _TRUTHY = frozenset({"1", "true", "yes", "on"})
 # A fragility shift larger than this threshold surfaces as a "fragility_shift" finding.
 DEFAULT_FRAGILITY_SHIFT_THRESHOLD: float = 0.15
 
-GardeningStatus = str  # "healthy" | "stale_evidence" | "new_contradiction" | "fragility_shift"
+# Explicit status enumeration. ``insufficient_evidence`` distinguishes
+# "we looked and found nothing wrong" from "we did not have the data
+# required to evaluate" — the panel's false-healthy concern.
+GardeningStatus = Literal[
+    "healthy",
+    "stale_evidence",
+    "new_contradiction",
+    "fragility_shift",
+    "insufficient_evidence",
+]
+
+STATUS_HEALTHY: GardeningStatus = "healthy"
+STATUS_STALE_EVIDENCE: GardeningStatus = "stale_evidence"
+STATUS_NEW_CONTRADICTION: GardeningStatus = "new_contradiction"
+STATUS_FRAGILITY_SHIFT: GardeningStatus = "fragility_shift"
+STATUS_INSUFFICIENT_EVIDENCE: GardeningStatus = "insufficient_evidence"
 
 
 @dataclass(frozen=True)
@@ -74,10 +89,26 @@ class CruxGardeningResult:
     """Per-crux finding from one gardening pass.
 
     ``status`` is one of: ``healthy``, ``stale_evidence``,
-    ``new_contradiction``, ``fragility_shift``.
+    ``new_contradiction``, ``fragility_shift``, ``insufficient_evidence``.
+
+    Priority policy: when a crux has BOTH stale-evidence and contradiction
+    signals, ``status`` is set to ``stale_evidence``. The contradiction
+    information is still preserved in :attr:`coherence_issue_kinds` so
+    downstream consumers can read both signals without the status field
+    masking the contradiction. This reflects the domain policy that a
+    crux with stale underlying evidence cannot be reliably evaluated for
+    contradictions against current belief state.
+
+    ``insufficient_evidence`` status is returned when the gardening pass
+    lacks the upstream data required to evaluate the crux — for example,
+    ``garden_resolved_crux`` with no ``claim_results`` AND no
+    ``coherence_issues`` for any affected claim, or
+    ``garden_outstanding_crux`` called with a missing fragility baseline.
+    This is distinct from ``healthy``, which means "evaluated and found
+    nothing wrong". Never return ``healthy`` when we haven't looked.
 
     ``needs_followup`` is True only when :attr:`GardeningConfig.followup_eligible`
-    is set and the status is not ``healthy``.
+    is set and the status is not ``healthy`` or ``insufficient_evidence``.
     """
 
     crux_id: str
@@ -137,46 +168,92 @@ def _coherence_kinds_for_crux(
 def garden_resolved_crux(
     receipt: CruxReceipt,
     *,
+    config: GardeningConfig,
     claim_results: dict[str, ClaimResult] | None = None,
     coherence_issues: list[CoherenceIssue] | None = None,
-    config: GardeningConfig | None = None,
 ) -> list[CruxGardeningResult]:
     """Examine all cruxes in a resolved CruxReceipt for staleness or new contradictions.
 
     Returns one :class:`CruxGardeningResult` per :class:`CruxEntry` in the
-    receipt.  Staleness is detected by finding a ``fail`` or ``stale``
-    ClaimResult for any affected claim.  Contradictions are detected via
+    receipt. Staleness is detected by finding a ``fail`` or ``stale``
+    ClaimResult for any affected claim. Contradictions are detected via
     DIC-26 coherence issues that reference the crux's affected claims.
 
-    Pass an explicit :class:`GardeningConfig` to decouple domain logic from
-    env-var reads; when omitted, :meth:`GardeningConfig.from_env` is used.
+    Status rules (no false-healthy when upstream data is missing):
+
+    - ``stale_evidence``: at least one affected claim has a fail/stale
+      ClaimResult. Takes priority over contradictions — see the
+      ``CruxGardeningResult`` docstring for the rationale. Contradiction
+      kinds, if any, are still preserved in ``coherence_issue_kinds``.
+    - ``new_contradiction``: no staleness, but a DIC-26 coherence issue
+      of kind ``CONTRADICTION`` references at least one affected claim.
+    - ``healthy``: we HAVE ClaimResults for all affected claims AND
+      found no staleness, AND (if coherence_issues were provided) no
+      contradiction. This means we *looked* and found nothing.
+    - ``insufficient_evidence``: we lack the upstream data needed to
+      evaluate. Examples: no ``claim_results`` supplied, OR no
+      ``ClaimResult`` for any affected claim, AND no ``coherence_issues``
+      touching them. Never silently report these as ``healthy``.
+
+    ``config`` is REQUIRED. Callers construct it at the pass boundary
+    (typically via :meth:`GardeningConfig.from_env` at the top of
+    :func:`run_gardening_pass`) and pass it down, so env reads don't
+    happen per-crux.
     """
-    cfg = config if config is not None else GardeningConfig.from_env()
+    cfg = config
     results: list[CruxGardeningResult] = []
     cr = claim_results or {}
     ci = coherence_issues or []
 
     for entry in receipt.cruxes:
+        # Per-claim state: observed + stale.
         stale_claims: list[str] = []
+        observed_claims: list[str] = []
         for claim_id in entry.affected_claims:
             result = cr.get(claim_id)
-            if result is not None and result.status in (ClaimStatus.STALE, ClaimStatus.FAIL):
+            if result is None:
+                continue
+            observed_claims.append(claim_id)
+            if result.status in (ClaimStatus.STALE, ClaimStatus.FAIL):
                 stale_claims.append(claim_id)
 
         coh_kinds = _coherence_kinds_for_crux(entry.affected_claims, ci)
         has_contradiction = IncoherenceKind.CONTRADICTION.value in coh_kinds
 
+        # Status resolution with explicit insufficient_evidence gate.
+        # Priority: stale_evidence > new_contradiction > healthy
+        #           (insufficient_evidence takes over when no data was
+        #            available to evaluate). Contradiction kinds are
+        #            always preserved in coherence_issue_kinds so the
+        #            priority doesn't mask downstream signal.
         if stale_claims:
-            status: GardeningStatus = "stale_evidence"
+            status: GardeningStatus = STATUS_STALE_EVIDENCE
             detail = f"stale or failed claims: {', '.join(stale_claims)}"
         elif has_contradiction:
-            status = "new_contradiction"
+            status = STATUS_NEW_CONTRADICTION
             detail = f"coherence issues detected: {', '.join(coh_kinds)}"
-        else:
-            status = "healthy"
+        elif (
+            observed_claims
+            or coh_kinds
+            or (claim_results is not None and not entry.affected_claims)
+        ):
+            # We had evidence (at least one claim was observed, or
+            # coherence issues were computed, or the crux has no
+            # affected claims and claim_results was supplied) and
+            # nothing flagged.
+            status = STATUS_HEALTHY
             detail = "evidence fresh; no new contradictions"
+        else:
+            status = STATUS_INSUFFICIENT_EVIDENCE
+            detail = (
+                "no ClaimResults for any affected claim and no coherence "
+                "issues provided; cannot evaluate"
+            )
 
-        needs_followup = cfg.followup_eligible and status != "healthy"
+        needs_followup = cfg.followup_eligible and status not in (
+            STATUS_HEALTHY,
+            STATUS_INSUFFICIENT_EVIDENCE,
+        )
         results.append(
             CruxGardeningResult(
                 crux_id=entry.crux_id,
@@ -192,42 +269,44 @@ def garden_resolved_crux(
 def garden_outstanding_crux(
     entry: CruxEntry,
     *,
+    config: GardeningConfig,
     previous_fragility: float | None,
     current_fragility: float | None,
     fragility_shift_threshold: float = DEFAULT_FRAGILITY_SHIFT_THRESHOLD,
-    config: GardeningConfig | None = None,
 ) -> CruxGardeningResult:
     """Check whether an outstanding crux has materially shifted in fragility.
 
-    A crux surfaces as ``fragility_shift`` when the absolute delta between
-    ``previous_fragility`` and ``current_fragility`` exceeds
-    ``fragility_shift_threshold``.  When either value is None the crux
-    cannot be compared and is marked ``healthy``.
+    - ``fragility_shift``: absolute delta >= ``fragility_shift_threshold``.
+    - ``healthy``: we HAD both fragility values and the delta is within
+      threshold. Means we *looked* and found no material shift.
+    - ``insufficient_evidence``: either ``previous_fragility`` or
+      ``current_fragility`` is None, so no comparison is possible.
+      Never reported as ``healthy`` — the panel flagged false-healthy
+      on missing baselines as a real defect.
 
-    Pass an explicit :class:`GardeningConfig` to decouple domain logic from
-    env-var reads; when omitted, :meth:`GardeningConfig.from_env` is used.
+    ``config`` is REQUIRED; callers construct it at the pass boundary.
     """
+    cfg = config
     if previous_fragility is None or current_fragility is None:
         return CruxGardeningResult(
             crux_id=entry.crux_id,
-            status="healthy",
-            detail="fragility baseline unavailable; skipping comparison",
+            status=STATUS_INSUFFICIENT_EVIDENCE,
+            detail="fragility baseline unavailable; cannot evaluate shift",
             previous_fragility=previous_fragility,
             current_fragility=current_fragility,
         )
 
-    cfg = config if config is not None else GardeningConfig.from_env()
     delta = abs(current_fragility - previous_fragility)
     if delta >= fragility_shift_threshold:
         direction = "increased" if current_fragility > previous_fragility else "decreased"
-        status: GardeningStatus = "fragility_shift"
+        status: GardeningStatus = STATUS_FRAGILITY_SHIFT
         detail = (
             f"fragility {direction} by {delta:.3f} "
             f"(prev={previous_fragility:.3f}, curr={current_fragility:.3f})"
         )
         needs_followup = cfg.followup_eligible
     else:
-        status = "healthy"
+        status = STATUS_HEALTHY
         detail = f"fragility shift {delta:.3f} within threshold ({fragility_shift_threshold:.3f})"
         needs_followup = False
 
@@ -275,6 +354,8 @@ def run_gardening_pass(
         Reference time for the report timestamp; defaults to UTC now.
     """
     generated_at = (now or datetime.now(tz=UTC)).astimezone(UTC).isoformat().replace("+00:00", "Z")
+    # Env is read ONCE at this boundary. Sub-functions receive the resolved
+    # config and never touch os.environ themselves.
     cfg = config if config is not None else GardeningConfig.from_env()
 
     resolved_results: list[CruxGardeningResult] = []
@@ -282,9 +363,9 @@ def run_gardening_pass(
         resolved_results.extend(
             garden_resolved_crux(
                 receipt,
+                config=cfg,
                 claim_results=claim_results,
                 coherence_issues=coherence_issues,
-                config=cfg,
             )
         )
 
@@ -292,20 +373,21 @@ def run_gardening_pass(
     outstanding_results: list[CruxGardeningResult] = [
         garden_outstanding_crux(
             entry,
+            config=cfg,
             previous_fragility=scores.get(entry.crux_id, (None, None))[0],
             current_fragility=scores.get(entry.crux_id, (None, None))[1],
             fragility_shift_threshold=fragility_shift_threshold,
-            config=cfg,
         )
         for entry in outstanding_entries
     ]
 
     all_results = resolved_results + outstanding_results
     summary: dict[str, int] = {
-        "healthy": 0,
-        "stale_evidence": 0,
-        "new_contradiction": 0,
-        "fragility_shift": 0,
+        STATUS_HEALTHY: 0,
+        STATUS_STALE_EVIDENCE: 0,
+        STATUS_NEW_CONTRADICTION: 0,
+        STATUS_FRAGILITY_SHIFT: 0,
+        STATUS_INSUFFICIENT_EVIDENCE: 0,
         "needs_followup": 0,
     }
     for r in all_results:
@@ -324,9 +406,15 @@ def run_gardening_pass(
 
 __all__ = [
     "DEFAULT_FRAGILITY_SHIFT_THRESHOLD",
+    "STATUS_FRAGILITY_SHIFT",
+    "STATUS_HEALTHY",
+    "STATUS_INSUFFICIENT_EVIDENCE",
+    "STATUS_NEW_CONTRADICTION",
+    "STATUS_STALE_EVIDENCE",
     "CruxGardeningResult",
     "GardeningConfig",
     "GardeningReport",
+    "GardeningStatus",
     "crux_gardening_enabled",
     "garden_outstanding_crux",
     "garden_resolved_crux",

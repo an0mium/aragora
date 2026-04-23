@@ -19,6 +19,11 @@ from aragora.epistemic.coherence import BeliefEntry, CoherenceIssue, Incoherence
 from aragora.epistemic.crux_receipt import CruxEntry, CruxReceipt
 from aragora.epistemic.gardening import (
     DEFAULT_FRAGILITY_SHIFT_THRESHOLD,
+    STATUS_FRAGILITY_SHIFT,
+    STATUS_HEALTHY,
+    STATUS_INSUFFICIENT_EVIDENCE,
+    STATUS_NEW_CONTRADICTION,
+    STATUS_STALE_EVIDENCE,
     CruxGardeningResult,
     GardeningConfig,
     GardeningReport,
@@ -27,6 +32,10 @@ from aragora.epistemic.gardening import (
     garden_resolved_crux,
     run_gardening_pass,
 )
+
+# Default falsey config used by direct-call tests; `run_gardening_pass`
+# still constructs from env at the boundary.
+_CFG = GardeningConfig()
 
 
 # ---------------------------------------------------------------------------
@@ -114,10 +123,10 @@ def test_override_kwarg() -> None:
 def test_resolved_crux_stale_evidence_surfaced() -> None:
     receipt = _receipt(affected_claims=["claim-a"])
     claim_results = {"claim-a": _stale_result("claim-a")}
-    results = garden_resolved_crux(receipt, claim_results=claim_results)
+    results = garden_resolved_crux(receipt, config=_CFG, claim_results=claim_results)
     assert len(results) == 1
     r = results[0]
-    assert r.status == "stale_evidence"
+    assert r.status == STATUS_STALE_EVIDENCE
     assert "claim-a" in r.detail
 
 
@@ -127,8 +136,8 @@ def test_resolved_crux_healthy_when_all_pass() -> None:
         "claim-a": _pass_result("claim-a"),
         "claim-b": _pass_result("claim-b"),
     }
-    results = garden_resolved_crux(receipt, claim_results=claim_results)
-    assert results[0].status == "healthy"
+    results = garden_resolved_crux(receipt, config=_CFG, claim_results=claim_results)
+    assert results[0].status == STATUS_HEALTHY
 
 
 # ---------------------------------------------------------------------------
@@ -147,10 +156,11 @@ def test_coherence_issue_referencing_only_crux_id_is_not_matched() -> None:
     )
     results = garden_resolved_crux(
         receipt,
+        config=_CFG,
         claim_results={"claim-a": _pass_result("claim-a")},
         coherence_issues=[contradiction],
     )
-    assert results[0].status == "healthy"
+    assert results[0].status == STATUS_HEALTHY
 
 
 def test_resolved_crux_new_contradiction_flagged() -> None:
@@ -164,10 +174,11 @@ def test_resolved_crux_new_contradiction_flagged() -> None:
     )
     results = garden_resolved_crux(
         receipt,
+        config=_CFG,
         claim_results={"claim-a": _pass_result("claim-a")},
         coherence_issues=[contradiction],
     )
-    assert results[0].status == "new_contradiction"
+    assert results[0].status == STATUS_NEW_CONTRADICTION
     assert "contradiction" in results[0].detail
 
 
@@ -182,10 +193,37 @@ def test_evidence_conflict_does_not_override_stale() -> None:
     )
     results = garden_resolved_crux(
         receipt,
+        config=_CFG,
         claim_results={"claim-a": _stale_result("claim-a")},
         coherence_issues=[contradiction],
     )
-    assert results[0].status == "stale_evidence"
+    assert results[0].status == STATUS_STALE_EVIDENCE
+
+
+def test_stale_masks_contradiction_in_status_but_preserves_kinds() -> None:
+    """Stale priority in status MUST NOT hide the contradiction in coherence_issue_kinds.
+
+    Pins the documented priority policy on ``CruxGardeningResult``: when both
+    stale and contradiction signals are present, ``status`` surfaces the
+    stale signal, but ``coherence_issue_kinds`` still carries the contradiction
+    so downstream consumers can read both.
+    """
+    receipt = _receipt(affected_claims=["claim-a"])
+    contradiction = CoherenceIssue(
+        kind=IncoherenceKind.CONTRADICTION,
+        belief_ids=("claim-a",),
+        detail="conflict",
+        severity="error",
+    )
+    results = garden_resolved_crux(
+        receipt,
+        config=_CFG,
+        claim_results={"claim-a": _stale_result("claim-a")},
+        coherence_issues=[contradiction],
+    )
+    r = results[0]
+    assert r.status == STATUS_STALE_EVIDENCE
+    assert "contradiction" in r.coherence_issue_kinds
 
 
 # ---------------------------------------------------------------------------
@@ -197,38 +235,45 @@ def test_outstanding_crux_fragility_decrease_below_threshold_is_healthy() -> Non
     entry = _entry()
     result = garden_outstanding_crux(
         entry,
+        config=_CFG,
         previous_fragility=0.5,
         current_fragility=0.45,  # delta=0.05 < 0.15
     )
-    assert result.status == "healthy"
+    assert result.status == STATUS_HEALTHY
 
 
 def test_outstanding_crux_fragility_increase_above_threshold_surfaces() -> None:
     entry = _entry()
     result = garden_outstanding_crux(
         entry,
+        config=_CFG,
         previous_fragility=0.3,
         current_fragility=0.6,  # delta=0.3 >= 0.15
     )
-    assert result.status == "fragility_shift"
+    assert result.status == STATUS_FRAGILITY_SHIFT
     assert result.previous_fragility == pytest.approx(0.3)
     assert result.current_fragility == pytest.approx(0.6)
 
 
-def test_outstanding_crux_no_baseline_is_healthy() -> None:
-    result = garden_outstanding_crux(_entry(), previous_fragility=None, current_fragility=0.5)
-    assert result.status == "healthy"
+def test_outstanding_crux_no_baseline_is_insufficient_evidence() -> None:
+    """Missing fragility baseline is NOT healthy — it's insufficient evidence."""
+    result = garden_outstanding_crux(
+        _entry(), config=_CFG, previous_fragility=None, current_fragility=0.5
+    )
+    assert result.status == STATUS_INSUFFICIENT_EVIDENCE
+    assert "cannot evaluate" in result.detail.lower()
 
 
 def test_custom_fragility_threshold() -> None:
     entry = _entry()
     result = garden_outstanding_crux(
         entry,
+        config=_CFG,
         previous_fragility=0.5,
         current_fragility=0.6,  # delta=0.1
         fragility_shift_threshold=0.05,  # custom tight threshold
     )
-    assert result.status == "fragility_shift"
+    assert result.status == STATUS_FRAGILITY_SHIFT
 
 
 # ---------------------------------------------------------------------------
@@ -259,25 +304,50 @@ def test_run_gardening_pass_to_json_is_deterministic() -> None:
     assert '"schema_version"' in j1
 
 
-def test_needs_followup_off_by_default() -> None:
-    os.environ.pop("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", None)
+def test_needs_followup_off_by_default_config() -> None:
+    """Default GardeningConfig() has followup_eligible=False."""
     receipt = _receipt(affected_claims=["claim-a"])
     results = garden_resolved_crux(
         receipt,
+        config=GardeningConfig(),  # followup_eligible defaults to False
         claim_results={"claim-a": _stale_result("claim-a")},
     )
     assert results[0].needs_followup is False
 
 
-def test_needs_followup_on_when_dic17_gate_open() -> None:
-    os.environ["ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED"] = "1"
+def test_needs_followup_on_when_config_followup_eligible() -> None:
+    """Direct-call sub-functions no longer read env — follow-up is config-driven."""
     receipt = _receipt(affected_claims=["claim-a"])
     results = garden_resolved_crux(
         receipt,
+        config=GardeningConfig(followup_eligible=True),
         claim_results={"claim-a": _stale_result("claim-a")},
     )
-    os.environ.pop("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", None)
     assert results[0].needs_followup is True
+
+
+def test_sub_functions_do_not_read_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """garden_resolved_crux / garden_outstanding_crux must not call os.environ.
+
+    The env is read ONCE at the run_gardening_pass boundary via
+    GardeningConfig.from_env(); sub-functions receive the resolved config.
+    This test pins that contract by asserting that an env variable set
+    between pass-construction and sub-function call does NOT leak into
+    the sub-function's behaviour.
+    """
+    monkeypatch.delenv("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", raising=False)
+    cfg = GardeningConfig(followup_eligible=False)
+    # Now set env AFTER cfg is constructed. If the sub-function reads env,
+    # the followup flag would flip to True and the test would see
+    # needs_followup=True. It must stay False.
+    monkeypatch.setenv("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", "1")
+    receipt = _receipt(affected_claims=["claim-a"])
+    results = garden_resolved_crux(
+        receipt,
+        config=cfg,
+        claim_results={"claim-a": _stale_result("claim-a")},
+    )
+    assert results[0].needs_followup is False
 
 
 def test_config_threaded_overrides_env() -> None:
@@ -297,26 +367,63 @@ def test_config_threaded_overrides_env() -> None:
 
 def test_config_followup_on_resolved_crux() -> None:
     """GardeningConfig.followup_eligible=True marks stale crux for followup."""
-    os.environ.pop("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", None)
     receipt = _receipt(affected_claims=["claim-a"])
     results = garden_resolved_crux(
         receipt,
-        claim_results={"claim-a": _stale_result("claim-a")},
         config=GardeningConfig(followup_eligible=True),
+        claim_results={"claim-a": _stale_result("claim-a")},
     )
     assert results[0].needs_followup is True
 
 
 def test_config_followup_on_outstanding_crux() -> None:
     """GardeningConfig.followup_eligible=True marks fragility-shift crux for followup."""
-    os.environ.pop("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", None)
     result = garden_outstanding_crux(
         _entry(),
+        config=GardeningConfig(followup_eligible=True),
         previous_fragility=0.3,
         current_fragility=0.6,
-        config=GardeningConfig(followup_eligible=True),
     )
     assert result.needs_followup is True
+
+
+def test_resolved_crux_insufficient_evidence_when_no_upstream_data() -> None:
+    """No claim_results and no coherence_issues → insufficient_evidence, NOT healthy."""
+    receipt = _receipt(affected_claims=["claim-a", "claim-b"])
+    results = garden_resolved_crux(receipt, config=_CFG)
+    assert results[0].status == STATUS_INSUFFICIENT_EVIDENCE
+    assert "cannot evaluate" in results[0].detail.lower()
+
+
+def test_resolved_crux_insufficient_evidence_when_claim_results_dont_cover_crux() -> None:
+    """claim_results provided but doesn't contain any of the crux's affected claims."""
+    receipt = _receipt(affected_claims=["claim-a", "claim-b"])
+    # claim_results has an entry, but for a different claim entirely
+    unrelated = {"other-claim": _pass_result("other-claim")}
+    results = garden_resolved_crux(receipt, config=_CFG, claim_results=unrelated)
+    assert results[0].status == STATUS_INSUFFICIENT_EVIDENCE
+
+
+def test_resolved_crux_healthy_only_when_evidence_was_observed() -> None:
+    """Pins the fix for false-healthy: healthy REQUIRES that we actually looked.
+
+    The pre-repair code returned ``healthy`` when claim_results was missing
+    or empty. That's a silent fail-open. Now ``healthy`` means "at least one
+    affected claim had a ClaimResult and it passed, AND (if coherence_issues
+    were provided) no contradiction touched this crux."
+    """
+    receipt = _receipt(affected_claims=["claim-a"])
+    # Case 1: claim observed + pass + no coherence → healthy
+    results_observed = garden_resolved_crux(
+        receipt,
+        config=_CFG,
+        claim_results={"claim-a": _pass_result("claim-a")},
+    )
+    assert results_observed[0].status == STATUS_HEALTHY
+
+    # Case 2: same crux, nothing observed → insufficient_evidence
+    results_unobserved = garden_resolved_crux(receipt, config=_CFG)
+    assert results_unobserved[0].status == STATUS_INSUFFICIENT_EVIDENCE
 
 
 def test_summary_counts_mixed_findings() -> None:
