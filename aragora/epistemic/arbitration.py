@@ -51,11 +51,6 @@ def crux_arbitration_enabled() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
-def enable_crux_arbitration() -> None:
-    """Enable DIC-27 arbitration actions for the current process (test helper)."""
-    os.environ["ARAGORA_CRUX_ARBITRATION_ENABLED"] = "1"
-
-
 # ──────────────────────────── core types ───────────────────────────────────────
 
 #: Operator's chosen side when resolving a persistent crux.
@@ -75,7 +70,7 @@ class PersistentCrux:
     question_family_id: str
     consecutive_debate_count: int
     load_bearing_score: float
-    cruxset_receipt_ids: list[str]
+    cruxset_receipt_ids: tuple[str, ...]
 
     @property
     def qualifies(self) -> bool:
@@ -104,6 +99,10 @@ class CruxArbitration:
     An arbitration **pins** an operator's chosen side as context for
     future debates on the same ``question_family_id``.  It is never a
     delete; use :func:`build_reversal` to reverse one.
+
+    ``checksum`` covers the arbitration ID, full crux state, operator, side,
+    rationale, evidence citations, and timestamps — all fields an attester
+    would expect the signature to attest.
     """
 
     arbitration_id: str
@@ -111,7 +110,7 @@ class CruxArbitration:
     operator: str
     side: ArbitrationSide
     rationale: str
-    evidence_citations: list[str]
+    evidence_citations: tuple[str, ...]
     created_at: str
     expires_at: str
     is_reversed: bool
@@ -120,10 +119,15 @@ class CruxArbitration:
 
     @property
     def is_expired(self) -> bool:
+        """Return True if this arbitration has passed its expiry timestamp.
+
+        Fails **closed**: an unparseable ``expires_at`` is treated as already
+        expired rather than silently granting indefinite validity.
+        """
         try:
             return datetime.fromisoformat(self.expires_at) < datetime.now(timezone.utc)
         except ValueError:
-            return False
+            return True  # fail closed — unknown expiry is treated as expired
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -196,12 +200,16 @@ def build_arbitration(
     now = datetime.now(timezone.utc)
     created_at = now.isoformat()
     expires_at = (now + timedelta(days=expiry_days)).isoformat()
+    citations: tuple[str, ...] = tuple(evidence_citations or [])
+    # Canonical covers all fields an attester would expect to be signed,
+    # including full crux state and evidence citations.
     canonical: dict[str, Any] = {
         "arbitration_id": arbitration_id,
-        "crux_id": crux.crux_id,
+        "crux": crux.to_dict(),
         "operator": operator,
         "side": side,
         "rationale": rationale,
+        "evidence_citations": sorted(citations),  # sorted for determinism
         "created_at": created_at,
         "expires_at": expires_at,
     }
@@ -211,7 +219,7 @@ def build_arbitration(
         operator=operator,
         side=side,
         rationale=rationale,
-        evidence_citations=list(evidence_citations or []),
+        evidence_citations=citations,
         created_at=created_at,
         expires_at=expires_at,
         is_reversed=False,
@@ -255,7 +263,7 @@ def build_reversal(
         operator=arbitration.operator,
         side=arbitration.side,
         rationale=arbitration.rationale,
-        evidence_citations=arbitration.evidence_citations,
+        evidence_citations=arbitration.evidence_citations,  # already a tuple, safe to share
         created_at=arbitration.created_at,
         expires_at=arbitration.expires_at,
         is_reversed=True,
@@ -278,5 +286,4 @@ __all__ = [
     "build_arbitration",
     "build_reversal",
     "crux_arbitration_enabled",
-    "enable_crux_arbitration",
 ]

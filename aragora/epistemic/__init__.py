@@ -44,7 +44,6 @@ from .arbitration import (
     build_arbitration,
     build_reversal,
     crux_arbitration_enabled,
-    enable_crux_arbitration,
 )
 from .claim_verifier import ClaimResult, ClaimStatus, ClaimVerifier
 from .coherence import (
@@ -112,7 +111,6 @@ __all__ = [
     "build_arbitration",
     "build_reversal",
     "crux_arbitration_enabled",
-    "enable_crux_arbitration",
     "CoherenceIssue",
     "CoherenceReport",
     "CruxEntry",

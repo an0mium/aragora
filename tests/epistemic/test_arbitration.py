@@ -14,7 +14,6 @@ from aragora.epistemic.arbitration import (
     build_arbitration,
     build_reversal,
     crux_arbitration_enabled,
-    enable_crux_arbitration,
 )
 
 
@@ -28,7 +27,7 @@ def _make_crux(**kwargs: object) -> PersistentCrux:
         question_family_id="b2_guard_expansion",
         consecutive_debate_count=3,
         load_bearing_score=0.82,
-        cruxset_receipt_ids=["crux_rcpt_abc", "crux_rcpt_def", "crux_rcpt_ghi"],
+        cruxset_receipt_ids=("crux_rcpt_abc", "crux_rcpt_def", "crux_rcpt_ghi"),
     )
     defaults.update(kwargs)
     return PersistentCrux(**defaults)
@@ -68,6 +67,12 @@ class TestPersistentCrux:
         assert len(d["cruxset_receipt_ids"]) == 3
         assert d["load_bearing_score"] == round(0.82, 4)
 
+    def test_cruxset_receipt_ids_is_immutable(self) -> None:
+        crux = _make_crux()
+        assert isinstance(crux.cruxset_receipt_ids, tuple)
+        with pytest.raises((AttributeError, TypeError)):
+            crux.cruxset_receipt_ids = ("x",)  # type: ignore[misc]
+
 
 # ──────────────────────────── build_arbitration ────────────────────────────────
 
@@ -100,11 +105,12 @@ class TestBuildArbitration:
         assert d["crux"]["crux_id"] == "crux_001"
         assert d["is_reversed"] is False
 
-    def test_evidence_citations_default_empty(self) -> None:
+    def test_evidence_citations_default_empty_tuple(self) -> None:
         arb = _make_arbitration()
-        assert arb.evidence_citations == []
+        assert arb.evidence_citations == ()
+        assert isinstance(arb.evidence_citations, tuple)
 
-    def test_evidence_citations_preserved(self) -> None:
+    def test_evidence_citations_stored_as_tuple(self) -> None:
         crux = _make_crux()
         arb = build_arbitration(
             crux,
@@ -113,7 +119,36 @@ class TestBuildArbitration:
             rationale="pending",
             evidence_citations=["docs/status/B0.md", "issue:#5329"],
         )
-        assert arb.evidence_citations == ["docs/status/B0.md", "issue:#5329"]
+        assert arb.evidence_citations == ("docs/status/B0.md", "issue:#5329")
+        assert isinstance(arb.evidence_citations, tuple)
+
+    def test_evidence_citations_immutable(self) -> None:
+        crux = _make_crux()
+        arb = build_arbitration(
+            crux,
+            operator="x",
+            side="accept",
+            rationale="ok",
+            evidence_citations=["a"],
+        )
+        with pytest.raises((AttributeError, TypeError)):
+            arb.evidence_citations.append("b")  # type: ignore[attr-defined]
+
+    def test_checksum_changes_when_citations_differ(self) -> None:
+        crux = _make_crux()
+        arb_no_cites = build_arbitration(crux, operator="x", side="accept", rationale="ok")
+        arb_with_cite = build_arbitration(
+            crux, operator="x", side="accept", rationale="ok",
+            evidence_citations=["docs/status/B0.md"],
+        )
+        assert arb_no_cites.checksum != arb_with_cite.checksum
+
+    def test_checksum_covers_crux_state(self) -> None:
+        crux_a = _make_crux(statement="Soaks required")
+        crux_b = _make_crux(statement="Soaks NOT required")
+        arb_a = build_arbitration(crux_a, operator="x", side="accept", rationale="ok")
+        arb_b = build_arbitration(crux_b, operator="x", side="accept", rationale="ok")
+        assert arb_a.checksum != arb_b.checksum
 
     def test_expiry_days_respected(self) -> None:
         from datetime import datetime, timezone
@@ -133,7 +168,28 @@ class TestBuildArbitration:
         arb1 = _make_arbitration()
         arb2 = _make_arbitration()
         assert arb1.arbitration_id != arb2.arbitration_id
-        assert arb1.checksum != arb2.checksum  # different IDs + timestamps
+        assert arb1.checksum != arb2.checksum
+
+
+# ──────────────────────────── is_expired ───────────────────────────────────────
+
+
+class TestIsExpired:
+    def test_malformed_expires_at_fails_closed(self) -> None:
+        from dataclasses import replace
+
+        crux = _make_crux()
+        arb = build_arbitration(crux, operator="x", side="accept", rationale="ok")
+        bad_arb = replace(arb, expires_at="not-a-date")
+        assert bad_arb.is_expired is True  # fail closed, not False
+
+    def test_past_expiry_is_expired(self) -> None:
+        from dataclasses import replace
+
+        crux = _make_crux()
+        arb = build_arbitration(crux, operator="x", side="accept", rationale="ok")
+        past_arb = replace(arb, expires_at="2020-01-01T00:00:00+00:00")
+        assert past_arb.is_expired is True
 
 
 # ──────────────────────────── build_reversal ───────────────────────────────────
@@ -176,7 +232,6 @@ class TestBuildReversal:
     def test_double_reversal_preserves_receipt(self) -> None:
         arb = _make_arbitration()
         updated1, rev1 = build_reversal(arb, reversed_by="bob", reason="first")
-        # Reversing an already-reversed arbitration (re-reversal) still works.
         updated2, rev2 = build_reversal(updated1, reversed_by="carol", reason="second")
         assert updated2.reversal_receipt_id == rev2.reversal_id
         assert rev2.arbitration_id == arb.arbitration_id
@@ -199,9 +254,3 @@ class TestFlagGate:
         for value in ("0", "false", "no", "off", ""):
             monkeypatch.setenv("ARAGORA_CRUX_ARBITRATION_ENABLED", value)
             assert crux_arbitration_enabled() is False
-
-    def test_enable_helper_sets_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.delenv("ARAGORA_CRUX_ARBITRATION_ENABLED", raising=False)
-        enable_crux_arbitration()
-        assert crux_arbitration_enabled() is True
-        monkeypatch.delenv("ARAGORA_CRUX_ARBITRATION_ENABLED", raising=False)
