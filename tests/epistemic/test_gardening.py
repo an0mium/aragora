@@ -33,6 +33,7 @@ from aragora.epistemic.gardening import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _entry(
     crux_id: str = "crux-1",
     affected_claims: list[str] | None = None,
@@ -88,6 +89,7 @@ def _pass_result(claim_id: str) -> ClaimResult:
 # Flag gate
 # ---------------------------------------------------------------------------
 
+
 def test_disabled_by_default() -> None:
     os.environ.pop("ARAGORA_CRUX_GARDENING_ENABLED", None)
     assert crux_gardening_enabled() is False
@@ -108,6 +110,7 @@ def test_override_kwarg() -> None:
 # ---------------------------------------------------------------------------
 # (a) Resolved crux — stale evidence surfaces
 # ---------------------------------------------------------------------------
+
 
 def test_resolved_crux_stale_evidence_surfaced() -> None:
     receipt = _receipt(affected_claims=["claim-a"])
@@ -132,6 +135,7 @@ def test_resolved_crux_healthy_when_all_pass() -> None:
 # ---------------------------------------------------------------------------
 # (c) New contradiction on crux family is flagged
 # ---------------------------------------------------------------------------
+
 
 def test_resolved_crux_new_contradiction_flagged() -> None:
     receipt = _receipt(affected_claims=["claim-a"])
@@ -171,6 +175,7 @@ def test_evidence_conflict_does_not_override_stale() -> None:
 # ---------------------------------------------------------------------------
 # (b) Outstanding crux — reduced fragility stays healthy
 # ---------------------------------------------------------------------------
+
 
 def test_outstanding_crux_fragility_decrease_below_threshold_is_healthy() -> None:
     entry = _entry()
@@ -213,6 +218,7 @@ def test_custom_fragility_threshold() -> None:
 # ---------------------------------------------------------------------------
 # run_gardening_pass summary + to_json round-trip
 # ---------------------------------------------------------------------------
+
 
 def test_run_gardening_pass_summary_counts() -> None:
     resolved = [_receipt(crux_id="r1", affected_claims=["claim-stale"])]
