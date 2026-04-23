@@ -19,7 +19,7 @@ def test_pr_review_protocol_packet_smoke(monkeypatch: pytest.MonkeyPatch) -> Non
             "gemini": "/usr/bin/gemini",
         }.get(binary)
 
-    monkeypatch.setattr("aragora.swarm.pr_review_protocol.shutil.which", fake_which)
+    monkeypatch.setattr("aragora.review.provider_slots.shutil.which", fake_which)
 
     packet = default_pr_review_protocol().build_packet(
         repo="synaptent/aragora",

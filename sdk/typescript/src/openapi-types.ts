@@ -426,7 +426,12 @@ export interface paths {
          * @description Returns all admin-manageable feature flags with their current values.
          */
         get: operations["adminListFeatureFlagsLegacy"];
-        put?: never;
+        /**
+         * Update admin feature flags
+         * @deprecated
+         * @description Updates multiple admin-manageable feature flags in one request.
+         */
+        put: operations["updateAdminFeatureFlagsLegacy"];
         post?: never;
         delete?: never;
         options?: never;
@@ -16431,7 +16436,11 @@ export interface paths {
          * @description Returns all admin-manageable feature flags with their current values.
          */
         get: operations["adminListFeatureFlags"];
-        put?: never;
+        /**
+         * Update admin feature flags
+         * @description Updates multiple admin-manageable feature flags in one request.
+         */
+        put: operations["updateAdminFeatureFlags"];
         post?: never;
         delete?: never;
         options?: never;
@@ -52834,6 +52843,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/review-queue/triage-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rolling-window triage metrics
+         * @description Returns rolling 7-day and 30-day aggregates for the four Commitment-5 metrics named in docs/THESIS.md: escalation rate, auto-handle override rate, human-override-outcome correlation, and time-per-settlement (median + p95). The response also includes advisory drift detection between the two windows. Metrics that cannot be computed from the current receipt schema are returned as null with an explanation in the window's ``notes`` block. Supports ETag / If-None-Match conditional GETs.
+         */
+        get: operations["getReviewQueueTriageMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/review-queue/{param}": {
         parameters: {
             query?: never;
@@ -66598,6 +66627,104 @@ export interface operations {
             };
             /** @description Forbidden - Insufficient permissions for this operation */
             403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Feature flag system not available */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateAdminFeatureFlagsLegacy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: boolean | number | string | unknown[] | {
+                        [key: string]: unknown;
+                    } | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Feature flags updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: {
+                            name?: string;
+                            value?: boolean | number | string | unknown[] | {
+                                [key: string]: unknown;
+                            } | null;
+                            previous_default?: boolean | number | string | unknown[] | {
+                                [key: string]: unknown;
+                            } | null;
+                            updated?: boolean;
+                        };
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -95804,6 +95931,104 @@ export interface operations {
             };
             /** @description Forbidden - Insufficient permissions for this operation */
             403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Feature flag system not available */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateAdminFeatureFlags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: boolean | number | string | unknown[] | {
+                        [key: string]: unknown;
+                    } | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Feature flags updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: {
+                            name?: string;
+                            value?: boolean | number | string | unknown[] | {
+                                [key: string]: unknown;
+                            } | null;
+                            previous_default?: boolean | number | string | unknown[] | {
+                                [key: string]: unknown;
+                            } | null;
+                            updated?: boolean;
+                        };
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -172645,6 +172870,169 @@ export interface operations {
                     "application/json": {
                         deleted?: boolean;
                     };
+                };
+            };
+        };
+    };
+    getReviewQueueTriageMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rolling-window triage metrics */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        windows?: {
+                            "7d": {
+                                /** @description Human-readable window width (e.g. '7d', '30d') */
+                                window_label: string;
+                                window_days: number;
+                                /** Format: date-time */
+                                window_start: string;
+                                /** Format: date-time */
+                                window_end: string;
+                                total_decisions: number;
+                                /** @description escalations_to_human / total_decisions (nullable when sparse) */
+                                escalation_rate: number | null;
+                                /** @description overridden_auto_handles / auto_handled. Null when no auto-handle lane is active or the window is sparse. */
+                                auto_handle_override_rate: number | null;
+                                /** @description For human-override decisions with a recorded final_outcome, the fraction that confirmed the ensemble minus the fraction that disagreed. Currently null until settlement receipts carry post-merge outcome data (follow-up to #6373). */
+                                human_override_outcome_correlation: number | null;
+                                /** @description Median settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_median_s: number | null;
+                                /** @description p95 settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_p95_s: number | null;
+                                counts: {
+                                    escalations: number;
+                                    auto_handled: number;
+                                    auto_handle_overrides: number;
+                                    human_overrides: number;
+                                    human_overrides_with_outcome: number;
+                                    settlement_samples: number;
+                                };
+                                /** @description Explanations keyed by metric name for any null-valued metric above. Empty when no metrics were suppressed. */
+                                notes: {
+                                    [key: string]: string;
+                                };
+                            };
+                            "30d": {
+                                /** @description Human-readable window width (e.g. '7d', '30d') */
+                                window_label: string;
+                                window_days: number;
+                                /** Format: date-time */
+                                window_start: string;
+                                /** Format: date-time */
+                                window_end: string;
+                                total_decisions: number;
+                                /** @description escalations_to_human / total_decisions (nullable when sparse) */
+                                escalation_rate: number | null;
+                                /** @description overridden_auto_handles / auto_handled. Null when no auto-handle lane is active or the window is sparse. */
+                                auto_handle_override_rate: number | null;
+                                /** @description For human-override decisions with a recorded final_outcome, the fraction that confirmed the ensemble minus the fraction that disagreed. Currently null until settlement receipts carry post-merge outcome data (follow-up to #6373). */
+                                human_override_outcome_correlation: number | null;
+                                /** @description Median settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_median_s: number | null;
+                                /** @description p95 settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_p95_s: number | null;
+                                counts: {
+                                    escalations: number;
+                                    auto_handled: number;
+                                    auto_handle_overrides: number;
+                                    human_overrides: number;
+                                    human_overrides_with_outcome: number;
+                                    settlement_samples: number;
+                                };
+                                /** @description Explanations keyed by metric name for any null-valued metric above. Empty when no metrics were suppressed. */
+                                notes: {
+                                    [key: string]: string;
+                                };
+                            };
+                        };
+                        /** @description Advisory drift between the latest and previous window, keyed by metric name. */
+                        drift?: {
+                            [key: string]: {
+                                current: number | null;
+                                previous: number | null;
+                                delta: number | null;
+                                exceeded_threshold: boolean;
+                            };
+                        };
+                        /** Format: date-time */
+                        generated_at?: string;
+                        /** @description Source of authority (docs/THESIS.md Commitment 5). */
+                        commitment?: string;
+                    };
+                };
+            };
+            /** @description Not Modified — ETag matched If-None-Match. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
