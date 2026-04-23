@@ -21,7 +21,7 @@ Covers:
   - gate unresolved_missing targets
   - dispatch_enabled=False preview mode
   - require_validation_contract missing criteria
-- dispatch_issue_under_claim: delegates and releases claim
+- BossLoop._dispatch_issue_under_claim: releases claim on success + exception
 """
 
 from __future__ import annotations
@@ -43,7 +43,6 @@ from aragora.swarm.boss_loop import (
 )
 from aragora.swarm.boss_worker_lifecycle import (
     dispatch_issue,
-    dispatch_issue_under_claim,
     finalize_worker_result,
 )
 from aragora.swarm.task_sanitizer import SanitizationOutcome, SanitizationResult
@@ -1089,7 +1088,11 @@ class TestDispatchIssueDispatchDisabled:
 
 
 # ---------------------------------------------------------------------------
-# dispatch_issue_under_claim
+# BossLoop._dispatch_issue_under_claim
+#
+# The claim-release contract lives on the loop itself so the dispatch hook
+# is never reached through an external helper. These tests cover the
+# claim/dispatch contract on the class method directly.
 # ---------------------------------------------------------------------------
 
 
@@ -1101,7 +1104,7 @@ class TestDispatchIssueUnderClaim:
         issue = _make_issue(number=5)
         freshness = _fresh_result()
 
-        result = asyncio.run(dispatch_issue_under_claim(loop, issue, freshness))
+        result = asyncio.run(loop._dispatch_issue_under_claim(issue, freshness))
 
         loop._release_issue_dispatch_claim.assert_called_once_with(5)
         loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
@@ -1118,7 +1121,7 @@ class TestDispatchIssueUnderClaim:
 
         loop._dispatch_issue = AsyncMock(side_effect=_raise)
         with pytest.raises(RuntimeError, match="dispatch error"):
-            asyncio.run(dispatch_issue_under_claim(loop, issue, freshness))
+            asyncio.run(loop._dispatch_issue_under_claim(issue, freshness))
 
         loop._release_issue_dispatch_claim.assert_called_once_with(6)
         loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
@@ -1131,7 +1134,7 @@ class TestDispatchIssueUnderClaim:
         freshness = _fresh_result()
 
         loop._dispatch_issue = AsyncMock(return_value=expected)
-        result = asyncio.run(dispatch_issue_under_claim(loop, issue, freshness))
+        result = asyncio.run(loop._dispatch_issue_under_claim(issue, freshness))
 
         loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
         assert result == expected
