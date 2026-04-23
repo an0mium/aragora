@@ -138,7 +138,10 @@ class TestBuildArbitration:
         crux = _make_crux()
         arb_no_cites = build_arbitration(crux, operator="x", side="accept", rationale="ok")
         arb_with_cite = build_arbitration(
-            crux, operator="x", side="accept", rationale="ok",
+            crux,
+            operator="x",
+            side="accept",
+            rationale="ok",
             evidence_citations=["docs/status/B0.md"],
         )
         assert arb_no_cites.checksum != arb_with_cite.checksum
