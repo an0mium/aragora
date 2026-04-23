@@ -335,6 +335,7 @@ PartnerHandler = _safe_import("aragora.server.handlers.partner", "PartnerHandler
 PlaygroundHandler = _safe_import("aragora.server.handlers.playground", "PlaygroundHandler")
 
 # Autonomous handlers
+AgentBridgeHandler = _safe_import("aragora.server.handlers", "AgentBridgeHandler")
 AlertHandler = _safe_import("aragora.server.handlers.autonomous.alerts", "AlertHandler")
 ApprovalHandler = _safe_import("aragora.server.handlers.autonomous.approvals", "ApprovalHandler")
 TriggerHandler = _safe_import("aragora.server.handlers.autonomous.triggers", "TriggerHandler")
@@ -617,6 +618,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_smart_upload_handler", SmartUploadHandler),
     ("_partner_handler", PartnerHandler),
     # Autonomous
+    ("_agent_bridge_handler", AgentBridgeHandler),
     ("_alert_handler", AlertHandler),
     ("_approval_handler", ApprovalHandler),
     ("_trigger_handler", TriggerHandler),
@@ -812,6 +814,7 @@ __all__ = [
     "SmartUploadHandler",
     "PartnerHandler",
     # Autonomous
+    "AgentBridgeHandler",
     "AlertHandler",
     "ApprovalHandler",
     "TriggerHandler",

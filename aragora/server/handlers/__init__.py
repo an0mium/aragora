@@ -684,6 +684,7 @@ __all__ = [
     "GauntletValidateReceiptHandler",
     "GAUNTLET_V1_HANDLERS",
     "ReviewQueueHandler",
+    "AgentBridgeHandler",
     "ReviewsHandler",
     "FormalVerificationHandler",
     "SlackHandler",

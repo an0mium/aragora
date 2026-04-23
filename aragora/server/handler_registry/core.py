@@ -144,6 +144,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_workflow_builder_handler": "extended",
     "_template_registry_handler": "extended",
     "_marketplace_pilot_handler": "extended",
+    "_agent_bridge_handler": "extended",
     # ── Enterprise (loaded only with ARAGORA_ENTERPRISE=1) ────────────
     "_admin_handler": "enterprise",
     "_control_plane_handler": "enterprise",

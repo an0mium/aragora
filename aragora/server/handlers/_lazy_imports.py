@@ -54,6 +54,7 @@ HANDLER_MODULES: dict[str, str] = {
     "AudienceSuggestionsHandler": "aragora.server.handlers.audience_suggestions",
     "AutomationHandler": "aragora.server.handlers.integrations.automation",
     "AutonomousLearningHandler": "aragora.server.handlers.autonomous_learning",
+    "AgentBridgeHandler": "aragora.server.handlers.agent_bridge",
     # approvals inbox
     "UnifiedApprovalsHandler": "aragora.server.handlers.approvals_inbox",
     # bots/ directory
@@ -363,7 +364,6 @@ HANDLER_MODULES: dict[str, str] = {
     # Accounting handlers
     "ARAutomationHandler": "aragora.server.handlers.ar_automation",
     "APAutomationHandler": "aragora.server.handlers.ap_automation",
-    "AgentBridgeHandler": "aragora.server.handlers.agent_bridge",
     # RBAC management
     "RBACHandler": "aragora.server.handlers.rbac",
     # Self-improvement
@@ -509,6 +509,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "GauntletValidateReceiptHandler",
     "GauntletHandler",
     "ReviewQueueHandler",
+    "AgentBridgeHandler",
     "ReviewsHandler",
     "FormalVerificationHandler",
     "SlackHandler",
@@ -594,7 +595,6 @@ ALL_HANDLER_NAMES: list[str] = [
     "ComplianceHandler",
     "DecisionPipelineHandler",
     "OrchestrationHandler",
-    "AgentBridgeHandler",
     # --- Newly registered handlers ---
     # admin/ sub-handlers
     "CreditsAdminHandler",
