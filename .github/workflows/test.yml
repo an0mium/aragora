@@ -605,10 +605,10 @@ jobs:
         category:
           - name: agents
             path: tests/agents
-            timeout: 45
+            timeout: 30
           - name: debate
             path: tests/debate
-            timeout: 45
+            timeout: 30
           - name: reasoning
             path: tests/rlm tests/reasoning
             timeout: 30
@@ -620,7 +620,7 @@ jobs:
             timeout: 30
           - name: handlers
             path: tests/handlers
-            timeout: 40
+            timeout: 30
           - name: knowledge
             path: tests/knowledge tests/evidence tests/memory
             timeout: 30

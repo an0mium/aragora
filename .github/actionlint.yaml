@@ -3,3 +3,12 @@ self-hosted-runner:
     - aragora
     - hetzner
     - mac-studio
+
+config-variables: null
+
+paths:
+  .github/workflows/release-notes.yml:
+    ignore:
+      # This workflow is intentionally kept dispatchable-but-disabled because
+      # release.yml is the canonical GitHub Release path.
+      - 'constant expression "false" in condition'
