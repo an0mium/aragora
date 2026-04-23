@@ -26,33 +26,62 @@ Last confirmed: **2026-04-23**.
 
 ## Locally installed but not phoning home
 
-Runners that have an `~/actions-runner` install + LaunchAgent + live `Runner.Listener` process but do NOT appear in the GitHub runner API. Root cause: IPv6 DNS resolution failure for `pipelinesghubeus7.actions.githubusercontent.com` on the local LAN (DNS served by Tailscale at `100.100.100.100` returns an A record for IPv4 but AAAA lookup fails, and the .NET HTTP client happy-eyeballs path hits "Can't assign requested address"). See issue #6474 for the full diagnostic trail.
+Runners that have an `~/actions-runner` install + LaunchAgent + live `Runner.Listener` process but do NOT appear in the GitHub runner API.
 
-| Local config name | Host | IP | Agent ID | Status |
+| Local config name | Host | IP | Agent ID | Diagnosis |
 |---|---|---|---|---|
-| `macbook-m1-16gb` | MacBook-Pro16GB.local | 10.0.0.170 | 33 | Listener retrying since 2026-03-20; IPv6 DNS error |
-| `macbook-intel-64gb` | MacBook-Pro-3.local | 10.0.0.193 | 34 | Listener just restarted 2026-04-23T17:08Z |
+| `macbook-m1-16gb` | MacBook-Pro16GB.local | 10.0.0.170 | 33 | Blocked by Tailscale secondary default route (see below) |
+| `macbook-intel-64gb` | MacBook-Pro-3.local | 10.0.0.193 | 34 | Same — both on the same LAN / Tailscale config |
 
-**Fix recipe** (apply to each Mac):
+### Root cause: Tailscale secondary default route captures outbound TCP
+
+On the founder's local LAN, Tailscale has installed a **second default route** via `utun4` that sits alongside the real `10.0.0.1 → en0` default:
+
+```
+Internet:
+Destination        Gateway            Flags               Netif
+default            10.0.0.1           UGScg                 en0
+default            link#33            UCSIg               utun4    <-- Tailscale
+```
+
+Symptoms (verified on both Macs, 2026-04-23):
+
+- `ping 10.0.0.1` and `ping 8.8.8.8` work — **ICMP traverses the en0 default correctly**
+- `curl https://...` to ANY host returns `http=000` — **TCP connect() fails with `Can't assign requested address` (EADDRNOTAVAIL, errno 49)**
+- `nc -vz 20.246.184.240 443` reports the same EADDRNOTAVAIL
+- DNS resolution is healthy (IPv4 A records resolve; AAAA lookups fail but that's a symptom, not the cause)
+
+The kernel selects utun4 for the TCP source address because it's the second default route; utun4 only has a link-local IPv6 address (`fe80::...%utun4`) so there's no valid IPv4 source to bind, and connect() fails before the first SYN.
+
+The runner's earlier log entries that blamed IPv6 (`Can't assign requested address (pipelinesghubeus7.actions.githubusercontent.com:443)`) are a downstream manifestation of the same routing issue — the error text includes the hostname but the actual failure is at TCP bind, not DNS.
+
+### Fix (requires founder intervention)
+
+This is a Tailscale configuration issue, NOT a runner configuration issue. The two Macs cannot make outbound TCP connections to ANY host until the Tailscale routing is corrected. Options, in increasing order of scope:
+
+1. **Disable Tailscale on the affected Macs** (`tailscale down` or via the menubar UI). Default route via utun4 disappears; runners immediately work. Cost: loses Tailscale overlay on those Macs.
+2. **Reconfigure Tailscale to not claim a default route.** If Tailscale is running with `--accept-routes` + an exit-node advertisement that's installing the default, either disable the exit-node use or remove the advertisement. Typical command: `tailscale set --exit-node=` (unset exit node).
+3. **Advertise specific subnet routes only** instead of a default. Keeps Tailscale overlay for its intended purpose without capturing the whole default.
+
+Once the secondary default is removed, the existing runner installs will phone home within 60s of the next retry (30s retry interval already configured).
+
+### After applying the fix
 
 ```bash
-ssh armand@<host>.local
+# Verify the extra default is gone:
+netstat -rn -f inet | grep default
+# Should show only: default  10.0.0.1  UGScg  en0
 
-# Option A — append IPv4 pinning to /etc/hosts for the actions endpoint
-sudo tee -a /etc/hosts <<'HOSTS'
-# Pin GH Actions pipelines to IPv4 until IPv6 DNS via Tailscale is fixed.
-20.246.184.240 pipelinesghubeus7.actions.githubusercontent.com
-HOSTS
+# Restart the runner (otherwise it'll wait up to 30s for the next retry):
+launchctl unload ~/Library/LaunchAgents/com.github.actions-runner.plist
+launchctl load ~/Library/LaunchAgents/com.github.actions-runner.plist
 
-# Option B — force .NET to prefer IPv4 via the runner .env
-echo "DOTNET_SYSTEM_NET_DISABLEIPV6=1" >> ~/actions-runner/.env
-
-# Either way, restart the runner
-launchctl kickstart -k gui/$(id -u)/com.github.actions-runner
-
-# Verify — should appear in `gh api repos/synaptent/aragora/actions/runners` within 60s
+# Check GH API registration within 60s:
 gh api repos/synaptent/aragora/actions/runners --jq '.runners | map(select(.name | test("macbook"))) | .[].name'
+# Expected: macbook-m1-16gb and macbook-intel-64gb
 ```
+
+Then bump `BASELINE_COUNT` in `.github/workflows/runner-headcount-monitor.yml` from 10 → 12 in a follow-up PR.
 
 ## How to add a runner
 
