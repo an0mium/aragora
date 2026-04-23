@@ -137,6 +137,23 @@ def test_resolved_crux_healthy_when_all_pass() -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_coherence_issue_referencing_only_crux_id_is_not_matched() -> None:
+    """belief_ids that match only the crux_id (not a claim) must not surface."""
+    receipt = _receipt(crux_id="crux-1", affected_claims=["claim-a"])
+    contradiction = CoherenceIssue(
+        kind=IncoherenceKind.CONTRADICTION,
+        belief_ids=("crux-1",),  # crux_id only — different namespace from claim IDs
+        detail="crux-id-only reference",
+        severity="warning",
+    )
+    results = garden_resolved_crux(
+        receipt,
+        claim_results={"claim-a": _pass_result("claim-a")},
+        coherence_issues=[contradiction],
+    )
+    assert results[0].status == "healthy"
+
+
 def test_resolved_crux_new_contradiction_flagged() -> None:
     receipt = _receipt(affected_claims=["claim-a"])
     belief = BeliefEntry(belief_id="claim-a", subject="B2 guard", confidence=0.6)
@@ -262,3 +279,27 @@ def test_needs_followup_on_when_dic17_gate_open() -> None:
     )
     os.environ.pop("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", None)
     assert results[0].needs_followup is True
+
+
+def test_needs_followup_via_parameter_bypasses_env() -> None:
+    """followup_enabled kwarg injects config without reading env."""
+    os.environ.pop("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", None)
+    receipt = _receipt(affected_claims=["claim-a"])
+    results = garden_resolved_crux(
+        receipt,
+        claim_results={"claim-a": _stale_result("claim-a")},
+        followup_enabled=True,
+    )
+    assert results[0].needs_followup is True
+
+
+def test_followup_enabled_parameter_on_outstanding_crux() -> None:
+    """followup_enabled kwarg works on garden_outstanding_crux too."""
+    os.environ.pop("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", None)
+    result = garden_outstanding_crux(
+        _entry(),
+        previous_fragility=0.3,
+        current_fragility=0.6,
+        followup_enabled=True,
+    )
+    assert result.needs_followup is True

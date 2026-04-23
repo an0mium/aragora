@@ -108,12 +108,11 @@ def _followup_eligible() -> bool:
 
 
 def _coherence_kinds_for_crux(
-    crux_id: str,
     claim_ids: list[str],
     coherence_issues: list[CoherenceIssue],
 ) -> tuple[str, ...]:
     """Return IncoherenceKind values from coherence issues that touch this crux's claims."""
-    crux_claim_set = frozenset(claim_ids) | {crux_id}
+    crux_claim_set = frozenset(claim_ids)
     kinds: list[str] = []
     for issue in coherence_issues:
         affected = frozenset(issue.belief_ids)
@@ -127,6 +126,7 @@ def garden_resolved_crux(
     *,
     claim_results: dict[str, ClaimResult] | None = None,
     coherence_issues: list[CoherenceIssue] | None = None,
+    followup_enabled: bool | None = None,
 ) -> list[CruxGardeningResult]:
     """Examine all cruxes in a resolved CruxReceipt for staleness or new contradictions.
 
@@ -134,10 +134,15 @@ def garden_resolved_crux(
     receipt.  Staleness is detected by finding a ``fail`` or ``stale``
     ClaimResult for any affected claim.  Contradictions are detected via
     DIC-26 coherence issues that reference the crux's affected claims.
+
+    ``followup_enabled`` overrides the ``ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED``
+    env-var read when provided; pass it explicitly from :func:`run_gardening_pass`
+    so that domain logic doesn't read env directly on every call.
     """
     results: list[CruxGardeningResult] = []
     cr = claim_results or {}
     ci = coherence_issues or []
+    _followup = followup_enabled if followup_enabled is not None else _followup_eligible()
 
     for entry in receipt.cruxes:
         stale_claims: list[str] = []
@@ -146,7 +151,7 @@ def garden_resolved_crux(
             if result is not None and result.status in (ClaimStatus.STALE, ClaimStatus.FAIL):
                 stale_claims.append(claim_id)
 
-        coh_kinds = _coherence_kinds_for_crux(entry.crux_id, entry.affected_claims, ci)
+        coh_kinds = _coherence_kinds_for_crux(entry.affected_claims, ci)
         has_contradiction = IncoherenceKind.CONTRADICTION.value in coh_kinds
 
         if stale_claims:
@@ -159,7 +164,7 @@ def garden_resolved_crux(
             status = "healthy"
             detail = "evidence fresh; no new contradictions"
 
-        needs_followup = _followup_eligible() and status != "healthy"
+        needs_followup = _followup and status != "healthy"
         results.append(
             CruxGardeningResult(
                 crux_id=entry.crux_id,
@@ -178,6 +183,7 @@ def garden_outstanding_crux(
     previous_fragility: float | None,
     current_fragility: float | None,
     fragility_shift_threshold: float = DEFAULT_FRAGILITY_SHIFT_THRESHOLD,
+    followup_enabled: bool | None = None,
 ) -> CruxGardeningResult:
     """Check whether an outstanding crux has materially shifted in fragility.
 
@@ -185,6 +191,9 @@ def garden_outstanding_crux(
     ``previous_fragility`` and ``current_fragility`` exceeds
     ``fragility_shift_threshold``.  When either value is None the crux
     cannot be compared and is marked ``healthy``.
+
+    ``followup_enabled`` overrides the ``ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED``
+    env-var read when provided.
     """
     if previous_fragility is None or current_fragility is None:
         return CruxGardeningResult(
@@ -195,6 +204,7 @@ def garden_outstanding_crux(
             current_fragility=current_fragility,
         )
 
+    _followup = followup_enabled if followup_enabled is not None else _followup_eligible()
     delta = abs(current_fragility - previous_fragility)
     if delta >= fragility_shift_threshold:
         direction = "increased" if current_fragility > previous_fragility else "decreased"
@@ -203,7 +213,7 @@ def garden_outstanding_crux(
             f"fragility {direction} by {delta:.3f} "
             f"(prev={previous_fragility:.3f}, curr={current_fragility:.3f})"
         )
-        needs_followup = _followup_eligible()
+        needs_followup = _followup
     else:
         status = "healthy"
         detail = f"fragility shift {delta:.3f} within threshold ({fragility_shift_threshold:.3f})"
@@ -227,6 +237,7 @@ def run_gardening_pass(
     coherence_issues: list[CoherenceIssue] | None = None,
     fragility_scores: dict[str, tuple[float | None, float | None]] | None = None,
     fragility_shift_threshold: float = DEFAULT_FRAGILITY_SHIFT_THRESHOLD,
+    followup_enabled: bool | None = None,
     now: datetime | None = None,
 ) -> GardeningReport:
     """Run a full gardening pass and return a deterministic :class:`GardeningReport`.
@@ -249,6 +260,7 @@ def run_gardening_pass(
         Reference time for the report timestamp; defaults to UTC now.
     """
     generated_at = (now or datetime.now(tz=UTC)).astimezone(UTC).isoformat().replace("+00:00", "Z")
+    _followup = followup_enabled if followup_enabled is not None else _followup_eligible()
 
     resolved_results: list[CruxGardeningResult] = []
     for receipt in resolved_receipts:
@@ -257,6 +269,7 @@ def run_gardening_pass(
                 receipt,
                 claim_results=claim_results,
                 coherence_issues=coherence_issues,
+                followup_enabled=_followup,
             )
         )
 
@@ -267,6 +280,7 @@ def run_gardening_pass(
             previous_fragility=scores.get(entry.crux_id, (None, None))[0],
             current_fragility=scores.get(entry.crux_id, (None, None))[1],
             fragility_shift_threshold=fragility_shift_threshold,
+            followup_enabled=_followup,
         )
         for entry in outstanding_entries
     ]
