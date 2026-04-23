@@ -19,6 +19,9 @@ WORKFLOW_PATH = Path(".github/workflows/deploy-secure.yml")
 SHA_STEP_NAME = "Post-deploy SHA verification"
 ROLLBACK_GATE_STEP_NAME = "Determine rollback requirement"
 ROLLBACK_STEP_NAME = "Rollback on failure"
+PINNED_DEPLOY_FETCH_RE = re.compile(r"git fetch --no-tags origin .*github\.sha")
+PINNED_DEPLOY_RESET_RE = re.compile(r"git reset --hard .*github\.sha")
+MIN_PINNED_DEPLOY_TARGETS = 4
 
 REQUIRED_MARKERS: dict[str, str] = {
     "ec2_user_command": "sudo -u ec2-user git -C /home/ec2-user/aragora rev-parse HEAD",
@@ -26,6 +29,11 @@ REQUIRED_MARKERS: dict[str, str] = {
     "ssm_timeout": "--timeout-seconds 60",
     "stdout_diagnostics": "::warning::SHA stdout for $INST_ID:",
     "stderr_diagnostics": "::warning::SHA stderr for $INST_ID:",
+}
+
+FORBIDDEN_DEPLOY_TARGET_MARKERS: dict[str, str] = {
+    "fetch_latest_main": "git fetch origin main",
+    "reset_latest_main": "git reset --hard origin/main",
 }
 
 
@@ -120,6 +128,32 @@ def find_rollback_guard_violations(workflow_text: str) -> list[str]:
     return violations
 
 
+def find_deploy_target_violations(workflow_text: str) -> list[str]:
+    """Require SSM deploy commands to install the workflow SHA, not latest main."""
+
+    violations: list[str] = []
+    for name, marker in FORBIDDEN_DEPLOY_TARGET_MARKERS.items():
+        if marker in workflow_text:
+            violations.append(f"forbidden deploy target marker `{name}`: {marker}")
+
+    pinned_fetches = PINNED_DEPLOY_FETCH_RE.findall(workflow_text)
+    pinned_resets = PINNED_DEPLOY_RESET_RE.findall(workflow_text)
+    if len(pinned_fetches) < MIN_PINNED_DEPLOY_TARGETS:
+        violations.append(
+            "expected at least "
+            f"{MIN_PINNED_DEPLOY_TARGETS} SSM deploy fetches pinned to github.sha; "
+            f"found {len(pinned_fetches)}"
+        )
+    if len(pinned_resets) < MIN_PINNED_DEPLOY_TARGETS:
+        violations.append(
+            "expected at least "
+            f"{MIN_PINNED_DEPLOY_TARGETS} SSM deploy resets pinned to github.sha; "
+            f"found {len(pinned_resets)}"
+        )
+
+    return violations
+
+
 def check_repo(repo_root: Path) -> list[Violation]:
     workflow_file = repo_root / WORKFLOW_PATH
     if not workflow_file.exists():
@@ -127,6 +161,7 @@ def check_repo(repo_root: Path) -> list[Violation]:
 
     text = workflow_file.read_text(encoding="utf-8")
     messages = find_sha_verification_violations(text)
+    messages.extend(find_deploy_target_violations(text))
     messages.extend(find_rollback_guard_violations(text))
     return [Violation(path=str(WORKFLOW_PATH), message=message) for message in messages]
 
