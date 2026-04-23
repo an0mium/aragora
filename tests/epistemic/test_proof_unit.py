@@ -230,9 +230,7 @@ class TestScanFlag:
         units = load_proof_units_from_dir(tmp_path)
         assert [u.code_unit_id for u in units] == ["test.scan.a", "test.scan.b"]
 
-    def test_load_from_dir_proof_units_dir_enabled(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_load_from_dir_proof_units_dir_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", "1")
         units = load_proof_units_from_dir(PROOF_UNITS_DIR)
         assert len(units) >= 1
