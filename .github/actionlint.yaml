@@ -1,0 +1,5 @@
+self-hosted-runner:
+  labels:
+    - aragora
+    - hetzner
+    - mac-studio
