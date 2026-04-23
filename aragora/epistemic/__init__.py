@@ -1,6 +1,8 @@
 """Epistemic CI and crux-engine helpers (DIC-13..22 tranche).
 
 Exposes:
+- DIC-13: typed ExecutableClaim manifest model (:class:`ExecutableClaim`,
+  :class:`ClaimManifest`, :func:`load_claims_from_dir`)
 - DIC-14: executable claim verification (:class:`ClaimVerifier`)
 - DIC-17: follow-up-issue bridge for load-bearing cruxes and
   sharply-losing claims (:class:`FollowupProposal`,
@@ -17,6 +19,20 @@ from __future__ import annotations
 import os
 
 from .claim_verifier import ClaimResult, ClaimStatus, ClaimVerifier
+from .executable_claim import (
+    ClaimConfidence,
+    ClaimEvidence,
+    ClaimFailurePolicy,
+    ClaimManifest,
+    ClaimReceipt,
+    ClaimVerification,
+    ExecutableClaim,
+    FailureAction,
+    FailureSeverity,
+    VerificationKind,
+    enable_executable_claims,
+    load_claims_from_dir,
+)
 from .followup import (
     DEFAULT_CRUX_LOAD_BEARING_THRESHOLD,
     DEFAULT_DELTA_LOSS_THRESHOLD,
@@ -27,9 +43,21 @@ from .followup import (
 )
 
 __all__ = [
+    "ClaimConfidence",
+    "ClaimEvidence",
+    "ClaimFailurePolicy",
+    "ClaimManifest",
+    "ClaimReceipt",
     "ClaimResult",
     "ClaimStatus",
+    "ClaimVerification",
     "ClaimVerifier",
+    "ExecutableClaim",
+    "FailureAction",
+    "FailureSeverity",
+    "VerificationKind",
+    "enable_executable_claims",
+    "load_claims_from_dir",
     "DEFAULT_CRUX_LOAD_BEARING_THRESHOLD",
     "DEFAULT_DELTA_LOSS_THRESHOLD",
     "FollowupProposal",
