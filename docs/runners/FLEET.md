@@ -21,69 +21,29 @@ Last confirmed: **2026-04-23**.
 | `ip-172-31-11-203` | AWS EC2 (staging) | 172.31.11.203 | Linux x64 | `self-hosted, Linux, X64, aragora` | Staging tier |
 | `ip-172-31-24-39` | AWS EC2 (staging) | 172.31.24.39 | Linux x64 | `self-hosted, Linux, X64, aragora` | Staging tier |
 | `mac-studio-m3ultra` | Mac Studio (local LAN) | 10.0.0.62 / 10.0.0.90 | macOS ARM64 | `self-hosted, aragora, macOS, ARM64, mac-studio` | Apple-silicon workloads |
+| `macbook-m1-16gb` | MacBook-Pro16GB.local | 10.0.0.170 | macOS ARM64 | `self-hosted, aragora, macOS, ARM64` | Apple-silicon MacBook |
+| `macbook-intel-64gb` | MacBook-Pro-3.local | 10.0.0.193 | macOS x64 | `self-hosted, aragora, macOS, X64` | Intel MacBook, more cores |
 
-**Total online: 10**
+**Total online: 12**
 
-## Locally installed but not phoning home
+## Past incidents
 
-Runners that have an `~/actions-runner` install + LaunchAgent + live `Runner.Listener` process but do NOT appear in the GitHub runner API.
+### 2026-04-23 — TCP port exhaustion locked out two Mac runners
 
-| Local config name | Host | IP | Agent ID | Diagnosis |
-|---|---|---|---|---|
-| `macbook-m1-16gb` | MacBook-Pro16GB.local | 10.0.0.170 | 33 | TCP port exhaustion — needs reboot |
-| `macbook-intel-64gb` | MacBook-Pro-3.local | 10.0.0.193 | 34 | Same class; not separately verified |
+**Symptom:** `macbook-m1-16gb` and `macbook-intel-64gb` had local `~/actions-runner` installs, active LaunchAgents, and live `Runner.Listener` processes, but never appeared in the GitHub runner API. Log showed `Can't assign requested address (pipelinesghubeus7.actions.githubusercontent.com:443)` on every retry.
 
-### Root cause: kernel ephemeral-port exhaustion via TIME_WAIT accumulation
+**Diagnosis** (after two misdiagnoses that blamed IPv6 DNS and Tailscale routing):
 
-Verified on MacBook-Pro16GB.local on 2026-04-23:
+- **Uptime: 93 days** on both Macs
+- **TIME_WAIT entries: 31,857** on Pro16GB (ephemeral port range 49152–65535, only 16,384 ports)
+- `connect()` to **any** address — including `127.0.0.1` — failed with `EADDRNOTAVAIL` at source-port allocation
+- ping worked (no ephemeral port needed); TCP did not
 
-- **Uptime: 93 days** (no reboot since January)
-- **TCP table total entries: 33,204**
-- **TIME_WAIT entries: 31,857**
-- **Ephemeral port range: 49152–65535** (16,384 ports)
-- **`connect() from 127.0.0.1` fails** — even Tailscale's own CLI gets `EADDRNOTAVAIL` hitting its local daemon at `127.0.0.1:57246`
-- `ping 10.0.0.1` works (ICMP doesn't need a source port)
+**Fix:** reboot both Macs. `sysctl -w net.inet.tcp.msl=1000` was tried live to accelerate TIME_WAIT drain but only affects new entries — the 32K already on 15-second timers refilled the port range before draining.
 
-The kernel has burned through the ephemeral port range with 32K stuck TIME_WAITs. Any new outbound TCP call — local or remote — fails with `EADDRNOTAVAIL` at the source-port-allocation step, before a SYN ever goes out.
+**After reboot** (both Macs rebooted 2026-04-23 by the founder), both runners registered within ~60s and have been online since.
 
-What was previously attributed to "IPv6 DNS" and "Tailscale default route" was misdiagnosis: the `Can't assign requested address` error message in the runner's log IS a port-allocation failure, and the two default-route entries in `netstat` are unrelated (the en0 default is used for the packets that actually succeed, like ping).
-
-### Why TIME_WAITs accumulated
-
-Not definitively diagnosed. Candidates:
-
-1. The `Runner.Listener` retry loop has been active ~2 months; each retry may complete a TCP 4-way handshake before aborting, leaving a TIME_WAIT each time. 2 months × 2-per-minute × 30s MSL window = possible backlog if many connections pile up.
-2. Another process on the Mac churns local connections faster than MSL drains them.
-
-Identifying the exact source requires cleared state — easier to reboot and re-measure over a week than to forensically unwind 93 days of cruft.
-
-### Fix: reboot
-
-Nothing short of a reboot clears the TCP state table. `sysctl -w net.inet.tcp.msl=1000` was attempted live (lowering MSL from 15s to 1s) but only affects **new** TIME_WAITs — existing ones sit on their original 15-second timers and, with ~32K of them, refill the port range before they drain.
-
-```bash
-# On each affected Mac:
-ssh armand@<host>.local
-sudo shutdown -r now
-# Wait ~2 min for reboot; if auto-login is disabled, log in manually so the LaunchAgent runs
-```
-
-### After reboot
-
-```bash
-# Verify TIME_WAIT count is sane (should be < a few hundred):
-ssh armand@<host>.local "netstat -an -p tcp | awk '\$NF==\"TIME_WAIT\"' | wc -l"
-
-# The LaunchAgent + Runner.Listener autostart on login. Verify via GH API within 60s:
-gh api repos/synaptent/aragora/actions/runners --jq '.runners | map(select(.name | test("macbook"))) | .[].name'
-# Expected: macbook-m1-16gb and macbook-intel-64gb
-```
-
-`BASELINE_COUNT` in `.github/workflows/runner-headcount-monitor.yml` is now 12 to match the restored fleet.
-
-### Mitigation for next time (not-yet-opened follow-up)
-
-Add a per-host daily `launchd` job that alerts if `netstat | grep TIME_WAIT | wc -l` crosses a threshold (say 5,000). Catches the condition early before it locks the stack.
+**Monitoring suggestion** (not yet implemented): per-host daily `launchd` job that alerts when `netstat | grep TIME_WAIT | wc -l` crosses ~5,000. Catches the condition before the stack locks.
 
 ## How to add a runner
 
