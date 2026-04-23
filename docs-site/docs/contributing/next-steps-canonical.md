@@ -5,7 +5,7 @@ description: Next Steps (Canonical)
 
 # Next Steps (Canonical)
 
-Last updated: 2026-04-16
+Last updated: 2026-04-18
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](./canonical-goals) defines what Aragora is and why.
@@ -16,6 +16,8 @@ This is the single source of truth for short-horizon execution priorities.
 ## Current Gate
 
 The immediate gate is keeping recurring benchmark truth publication complete, fresh, and trustworthy on current `main`, then keeping `CS-01..03` narrower than measured proof before expanding the `B2` guard across the safest execution classes. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop, not adding new roadmap scope.
+
+Operator commands only count as proof when they are run from a clean, current `origin/main` observer. A dirty or diverged founder checkout is planning context, not runtime truth.
 
 What is already true:
 
@@ -48,6 +50,7 @@ What is already true:
 
 What is still missing:
 
+- proof that operator status surfaces remain truthful when observed from a clean current-`main` checkout instead of a dirty founder checkout
 - proof that the B2 guard holds under repeated bounded runs instead of one-off success stories
 - proof that recurring benchmark publication stays complete and fresh on `main` without operator babysitting
 - broader repair-loop coverage on top of the existing audit trail
@@ -61,6 +64,12 @@ Queue rule for this tranche:
 
 - only roadmap codes in the **Do now** set may carry or be auto-created with `boss-ready`
 - delayed-track issues may stay open for planning truth, but restock and auto-decomposition should strip them from the live dispatch queue
+
+Observer rule for this tranche:
+
+- run `swarm shift-status`, `swarm status`, benchmark publication, and operator proofs from a clean worktree reconciled to current `origin/main`
+- treat a dirty or diverged root checkout as non-authoritative for runtime truth, even when it is useful for local founder notes or in-flight security work
+- if the observer reports itself as dirty, ahead, or behind, fix the observer before widening roadmap scope or restocking the live queue
 
 ## 30-Day Success Metric
 
@@ -128,12 +137,15 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 | Order | Code | Why it matters to the wedge | Acceptance criteria | Proof metric | Layer | GitHub coverage |
 |---|---|---|---|---|---|---|
 | 1 | `CS-01..03` | The wedge fails commercially if external claims outrun measured proof. | Roadmap, status, and positioning docs keep the wedge-first story and gate claims on measured proof. | External-facing docs stay narrower than current truth metrics and current gate status. | trust | Epics #804 and #806 are closed; enforcement is now via proof-first queue governance and recurring publication surfaces. |
+| 2 | Observer truth | Runtime truth is not credible if it is read from a dirty or stale checkout. | `swarm shift-status` and sibling operator surfaces report whether the observer itself is dirty, ahead, or behind `origin/main`. | Operators can distinguish product regressions from bad observer state without shell forensics. | trust | Implement on live status surfaces before widening proof-first queue scope. |
 
 ## Do Now / Delay / Avoid
 
 ### Do now
 
 - `CS-01..03`
+- observer truth on current `main`
+- benchmark publication freshness and completeness
 
 ### Delay
 
@@ -159,6 +171,7 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 - There is no dedicated open boss-ready trust-loop issue right now.
 - Keep the live queue empty unless the recurring `TW-01/TW-02/TW-03` publication surfaces expose a fresh repeated rescue class or a concrete regression.
 - Keep `CS-01..03` enforced through the docs/status surfaces while the live queue remains empty.
+- Do not restock queue work to compensate for stale or dirty observer surfaces; fix the observer and the publication path first.
 
 `TW-01` ([#5539](https://github.com/synaptent/aragora/issues/5539)), `TW-02` ([#5540](https://github.com/synaptent/aragora/issues/5540)), and `TW-03` ([#5330](https://github.com/synaptent/aragora/issues/5330)) now publish through repo-tracked recurring status surfaces at `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`. `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; do not recycle them as active blockers unless new evidence shows a concrete regression.
 
