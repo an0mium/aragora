@@ -20,9 +20,9 @@ from aragora.epistemic.crux_receipt import CruxEntry, CruxReceipt
 from aragora.epistemic.gardening import (
     DEFAULT_FRAGILITY_SHIFT_THRESHOLD,
     CruxGardeningResult,
+    GardeningConfig,
     GardeningReport,
     crux_gardening_enabled,
-    enable_crux_gardening,
     garden_outstanding_crux,
     garden_resolved_crux,
     run_gardening_pass,
@@ -95,10 +95,9 @@ def test_disabled_by_default() -> None:
     assert crux_gardening_enabled() is False
 
 
-def test_enable_sets_env() -> None:
-    os.environ.pop("ARAGORA_CRUX_GARDENING_ENABLED", None)
-    enable_crux_gardening()
-    assert crux_gardening_enabled() is True
+def test_from_env_reads_env_flag() -> None:
+    os.environ["ARAGORA_CRUX_GARDENING_ENABLED"] = "1"
+    assert GardeningConfig.from_env().enabled is True
     os.environ.pop("ARAGORA_CRUX_GARDENING_ENABLED", None)
 
 
@@ -281,25 +280,75 @@ def test_needs_followup_on_when_dic17_gate_open() -> None:
     assert results[0].needs_followup is True
 
 
-def test_needs_followup_via_parameter_bypasses_env() -> None:
-    """followup_enabled kwarg injects config without reading env."""
+def test_config_threaded_overrides_env() -> None:
+    """Explicit GardeningConfig bypasses env-var reads entirely."""
+    os.environ.pop("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", None)
+    os.environ.pop("ARAGORA_CRUX_GARDENING_ENABLED", None)
+    resolved = [_receipt(crux_id="r1", affected_claims=["claim-stale"])]
+    report = run_gardening_pass(
+        resolved,
+        [],
+        claim_results={"claim-stale": _stale_result("claim-stale")},
+        config=GardeningConfig(enabled=True, followup_eligible=True),
+    )
+    assert report.summary["stale_evidence"] == 1
+    assert report.summary["needs_followup"] == 1
+
+
+def test_config_followup_on_resolved_crux() -> None:
+    """GardeningConfig.followup_eligible=True marks stale crux for followup."""
     os.environ.pop("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", None)
     receipt = _receipt(affected_claims=["claim-a"])
     results = garden_resolved_crux(
         receipt,
         claim_results={"claim-a": _stale_result("claim-a")},
-        followup_enabled=True,
+        config=GardeningConfig(followup_eligible=True),
     )
     assert results[0].needs_followup is True
 
 
-def test_followup_enabled_parameter_on_outstanding_crux() -> None:
-    """followup_enabled kwarg works on garden_outstanding_crux too."""
+def test_config_followup_on_outstanding_crux() -> None:
+    """GardeningConfig.followup_eligible=True marks fragility-shift crux for followup."""
     os.environ.pop("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", None)
     result = garden_outstanding_crux(
         _entry(),
         previous_fragility=0.3,
         current_fragility=0.6,
-        followup_enabled=True,
+        config=GardeningConfig(followup_eligible=True),
     )
     assert result.needs_followup is True
+
+
+def test_summary_counts_mixed_findings() -> None:
+    """run_gardening_pass summary counts all status buckets correctly."""
+    # 2 resolved receipts: 1 stale, 1 contradiction
+    stale_receipt = _receipt(crux_id="r-stale", affected_claims=["claim-stale"])
+    contradiction_receipt = _receipt(crux_id="r-contra", affected_claims=["claim-ok"])
+    coherence_issue = CoherenceIssue(
+        kind=IncoherenceKind.CONTRADICTION,
+        belief_ids=("claim-ok",),
+        detail="conflict",
+        severity="error",
+    )
+    # 2 outstanding entries: 1 fragility_shift, 1 healthy
+    shift_entry = _entry(crux_id="o-shift")
+    healthy_entry = _entry(crux_id="o-healthy")
+
+    report = run_gardening_pass(
+        [stale_receipt, contradiction_receipt],
+        [shift_entry, healthy_entry],
+        claim_results={
+            "claim-stale": _stale_result("claim-stale"),
+            "claim-ok": _pass_result("claim-ok"),
+        },
+        coherence_issues=[coherence_issue],
+        fragility_scores={
+            "o-shift": (0.3, 0.6),  # delta 0.3 >= threshold
+            "o-healthy": (0.5, 0.52),  # delta 0.02 < threshold
+        },
+    )
+    assert report.summary["stale_evidence"] == 1
+    assert report.summary["new_contradiction"] == 1
+    assert report.summary["fragility_shift"] == 1
+    assert report.summary["healthy"] == 1
+    assert report.summary["needs_followup"] == 0

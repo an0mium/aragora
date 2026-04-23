@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -33,6 +34,30 @@ DEFAULT_FRAGILITY_SHIFT_THRESHOLD: float = 0.15
 GardeningStatus = str  # "healthy" | "stale_evidence" | "new_contradiction" | "fragility_shift"
 
 
+@dataclass(frozen=True)
+class GardeningConfig:
+    """Dependency-injected gating configuration for DIC-28 gardening.
+
+    Construct explicitly to decouple domain logic from os.environ reads.
+    The default factory (:meth:`from_env`) reads the standard env flags so
+    that callers without an explicit config preserve existing behaviour.
+    """
+
+    enabled: bool = False
+    followup_eligible: bool = False
+    fragility_shift_threshold: float = DEFAULT_FRAGILITY_SHIFT_THRESHOLD
+
+    @classmethod
+    def from_env(cls, env: Mapping[str, str] | None = None) -> GardeningConfig:
+        """Construct a config by reading the standard env flags."""
+        e: Mapping[str, str] = env if env is not None else os.environ
+        return cls(
+            enabled=str(e.get("ARAGORA_CRUX_GARDENING_ENABLED") or "").strip().lower() in _TRUTHY,
+            followup_eligible=str(e.get("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED") or "").strip().lower()
+            in _TRUTHY,
+        )
+
+
 def crux_gardening_enabled(*, override: bool | None = None) -> bool:
     """Return True when the DIC-28 gardening pass is enabled.
 
@@ -41,12 +66,7 @@ def crux_gardening_enabled(*, override: bool | None = None) -> bool:
     """
     if override is not None:
         return override
-    return os.environ.get("ARAGORA_CRUX_GARDENING_ENABLED", "").strip().lower() in _TRUTHY
-
-
-def enable_crux_gardening() -> None:
-    """Enable the DIC-28 gardening pass for the current process."""
-    os.environ["ARAGORA_CRUX_GARDENING_ENABLED"] = "1"
+    return GardeningConfig.from_env().enabled
 
 
 @dataclass(frozen=True)
@@ -56,9 +76,8 @@ class CruxGardeningResult:
     ``status`` is one of: ``healthy``, ``stale_evidence``,
     ``new_contradiction``, ``fragility_shift``.
 
-    ``needs_followup`` is True only when the DIC-17 bridge is explicitly
-    enabled (``ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED``) and the status is
-    not ``healthy``.
+    ``needs_followup`` is True only when :attr:`GardeningConfig.followup_eligible`
+    is set and the status is not ``healthy``.
     """
 
     crux_id: str
@@ -102,21 +121,15 @@ class GardeningReport:
         return json.dumps(self.to_dict(), indent=indent, sort_keys=True)
 
 
-def _followup_eligible() -> bool:
-    raw = os.environ.get("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", "").strip().lower()
-    return raw in _TRUTHY
-
-
 def _coherence_kinds_for_crux(
     claim_ids: list[str],
     coherence_issues: list[CoherenceIssue],
 ) -> tuple[str, ...]:
     """Return IncoherenceKind values from coherence issues that touch this crux's claims."""
-    crux_claim_set = frozenset(claim_ids)
+    claim_set = frozenset(claim_ids)
     kinds: list[str] = []
     for issue in coherence_issues:
-        affected = frozenset(issue.belief_ids)
-        if affected & crux_claim_set:
+        if frozenset(issue.belief_ids) & claim_set:
             kinds.append(issue.kind.value)
     return tuple(dict.fromkeys(kinds))  # deduplicate, preserve order
 
@@ -126,7 +139,7 @@ def garden_resolved_crux(
     *,
     claim_results: dict[str, ClaimResult] | None = None,
     coherence_issues: list[CoherenceIssue] | None = None,
-    followup_enabled: bool | None = None,
+    config: GardeningConfig | None = None,
 ) -> list[CruxGardeningResult]:
     """Examine all cruxes in a resolved CruxReceipt for staleness or new contradictions.
 
@@ -135,14 +148,13 @@ def garden_resolved_crux(
     ClaimResult for any affected claim.  Contradictions are detected via
     DIC-26 coherence issues that reference the crux's affected claims.
 
-    ``followup_enabled`` overrides the ``ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED``
-    env-var read when provided; pass it explicitly from :func:`run_gardening_pass`
-    so that domain logic doesn't read env directly on every call.
+    Pass an explicit :class:`GardeningConfig` to decouple domain logic from
+    env-var reads; when omitted, :meth:`GardeningConfig.from_env` is used.
     """
+    cfg = config if config is not None else GardeningConfig.from_env()
     results: list[CruxGardeningResult] = []
     cr = claim_results or {}
     ci = coherence_issues or []
-    _followup = followup_enabled if followup_enabled is not None else _followup_eligible()
 
     for entry in receipt.cruxes:
         stale_claims: list[str] = []
@@ -164,7 +176,7 @@ def garden_resolved_crux(
             status = "healthy"
             detail = "evidence fresh; no new contradictions"
 
-        needs_followup = _followup and status != "healthy"
+        needs_followup = cfg.followup_eligible and status != "healthy"
         results.append(
             CruxGardeningResult(
                 crux_id=entry.crux_id,
@@ -183,7 +195,7 @@ def garden_outstanding_crux(
     previous_fragility: float | None,
     current_fragility: float | None,
     fragility_shift_threshold: float = DEFAULT_FRAGILITY_SHIFT_THRESHOLD,
-    followup_enabled: bool | None = None,
+    config: GardeningConfig | None = None,
 ) -> CruxGardeningResult:
     """Check whether an outstanding crux has materially shifted in fragility.
 
@@ -192,8 +204,8 @@ def garden_outstanding_crux(
     ``fragility_shift_threshold``.  When either value is None the crux
     cannot be compared and is marked ``healthy``.
 
-    ``followup_enabled`` overrides the ``ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED``
-    env-var read when provided.
+    Pass an explicit :class:`GardeningConfig` to decouple domain logic from
+    env-var reads; when omitted, :meth:`GardeningConfig.from_env` is used.
     """
     if previous_fragility is None or current_fragility is None:
         return CruxGardeningResult(
@@ -204,7 +216,7 @@ def garden_outstanding_crux(
             current_fragility=current_fragility,
         )
 
-    _followup = followup_enabled if followup_enabled is not None else _followup_eligible()
+    cfg = config if config is not None else GardeningConfig.from_env()
     delta = abs(current_fragility - previous_fragility)
     if delta >= fragility_shift_threshold:
         direction = "increased" if current_fragility > previous_fragility else "decreased"
@@ -213,7 +225,7 @@ def garden_outstanding_crux(
             f"fragility {direction} by {delta:.3f} "
             f"(prev={previous_fragility:.3f}, curr={current_fragility:.3f})"
         )
-        needs_followup = _followup
+        needs_followup = cfg.followup_eligible
     else:
         status = "healthy"
         detail = f"fragility shift {delta:.3f} within threshold ({fragility_shift_threshold:.3f})"
@@ -237,7 +249,7 @@ def run_gardening_pass(
     coherence_issues: list[CoherenceIssue] | None = None,
     fragility_scores: dict[str, tuple[float | None, float | None]] | None = None,
     fragility_shift_threshold: float = DEFAULT_FRAGILITY_SHIFT_THRESHOLD,
-    followup_enabled: bool | None = None,
+    config: GardeningConfig | None = None,
     now: datetime | None = None,
 ) -> GardeningReport:
     """Run a full gardening pass and return a deterministic :class:`GardeningReport`.
@@ -256,11 +268,14 @@ def run_gardening_pass(
         Optional mapping of crux_id → (previous_fragility, current_fragility) from DIC-25.
     fragility_shift_threshold:
         Minimum absolute delta to surface as a fragility_shift finding.
+    config:
+        Optional :class:`GardeningConfig`; if omitted, :meth:`GardeningConfig.from_env`
+        is used so env-var reads happen once at the pass boundary, not per-crux.
     now:
         Reference time for the report timestamp; defaults to UTC now.
     """
     generated_at = (now or datetime.now(tz=UTC)).astimezone(UTC).isoformat().replace("+00:00", "Z")
-    _followup = followup_enabled if followup_enabled is not None else _followup_eligible()
+    cfg = config if config is not None else GardeningConfig.from_env()
 
     resolved_results: list[CruxGardeningResult] = []
     for receipt in resolved_receipts:
@@ -269,7 +284,7 @@ def run_gardening_pass(
                 receipt,
                 claim_results=claim_results,
                 coherence_issues=coherence_issues,
-                followup_enabled=_followup,
+                config=cfg,
             )
         )
 
@@ -280,7 +295,7 @@ def run_gardening_pass(
             previous_fragility=scores.get(entry.crux_id, (None, None))[0],
             current_fragility=scores.get(entry.crux_id, (None, None))[1],
             fragility_shift_threshold=fragility_shift_threshold,
-            followup_enabled=_followup,
+            config=cfg,
         )
         for entry in outstanding_entries
     ]
@@ -310,9 +325,9 @@ def run_gardening_pass(
 __all__ = [
     "DEFAULT_FRAGILITY_SHIFT_THRESHOLD",
     "CruxGardeningResult",
+    "GardeningConfig",
     "GardeningReport",
     "crux_gardening_enabled",
-    "enable_crux_gardening",
     "garden_outstanding_crux",
     "garden_resolved_crux",
     "run_gardening_pass",
