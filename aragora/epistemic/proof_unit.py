@@ -154,20 +154,39 @@ def load_proof_unit_from_yaml(path: Path) -> ProofCarryingCodeUnit:
     return unit
 
 
+# Module-level override avoids os.environ mutation (per the pattern in #6454).
+# External callers may still set the env var; the override takes priority.
+_scan_enabled_override: bool | None = None
+
+
 def proof_unit_scan_enabled() -> bool:
     """Return True when the directory scanner should load proof-unit manifests.
 
-    Reads ``ARAGORA_PROOF_UNIT_SCAN_ENABLED`` from the process environment.
-    Default is *False*; dataclass construction is always safe regardless of
-    this flag.
+    Checks the module-level override first, then
+    ``ARAGORA_PROOF_UNIT_SCAN_ENABLED`` in the process environment.
+    Default is *False*; dataclass construction is always safe regardless.
     """
+    if _scan_enabled_override is not None:
+        return _scan_enabled_override
     raw = str(os.environ.get(_SCAN_FLAG) or "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
 
 
 def enable_proof_unit_scan() -> None:
-    """Enable the proof-unit directory scanner for the current process."""
-    os.environ[_SCAN_FLAG] = "1"
+    """Enable the proof-unit directory scanner for the current process.
+
+    Sets a module-level override rather than mutating ``os.environ``.
+    Call :func:`reset_proof_unit_scan` to restore the default env-var-driven
+    behaviour (useful in test teardown).
+    """
+    global _scan_enabled_override
+    _scan_enabled_override = True
+
+
+def reset_proof_unit_scan() -> None:
+    """Clear the module-level override, reverting to env-var-driven behaviour."""
+    global _scan_enabled_override
+    _scan_enabled_override = None
 
 
 def load_proof_units_from_dir(base: Path) -> list[ProofCarryingCodeUnit]:
@@ -175,7 +194,9 @@ def load_proof_units_from_dir(base: Path) -> list[ProofCarryingCodeUnit]:
 
     Returns an empty list when :func:`proof_unit_scan_enabled` is *False*
     (default), so callers never need to guard this call themselves.
-    Invalid manifests are logged and skipped rather than raising.
+    Expected validation errors (``ValueError``) are logged concisely and
+    skipped.  Unexpected schema errors (``KeyError``, ``TypeError``) are
+    logged with full traceback so operators can diagnose malformed files.
     """
     if not proof_unit_scan_enabled():
         return []
@@ -183,6 +204,8 @@ def load_proof_units_from_dir(base: Path) -> list[ProofCarryingCodeUnit]:
     for path in sorted(base.glob("*.yaml")):
         try:
             units.append(load_proof_unit_from_yaml(path))
-        except (ValueError, KeyError, TypeError) as exc:
+        except ValueError as exc:
             logger.warning("skipping invalid proof unit %s: %s", path, exc)
+        except (KeyError, TypeError):
+            logger.warning("skipping malformed proof unit %s", path, exc_info=True)
     return units

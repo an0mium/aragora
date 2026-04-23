@@ -105,6 +105,7 @@ from .proof_unit import (
     load_proof_unit_from_yaml,
     load_proof_units_from_dir,
     proof_unit_scan_enabled,
+    reset_proof_unit_scan,
 )
 from .truth_map import (
     OrgTruthMapReport,
@@ -152,6 +153,7 @@ __all__ = [
     "load_proof_unit_from_yaml",
     "load_proof_units_from_dir",
     "proof_unit_scan_enabled",
+    "reset_proof_unit_scan",
     "apply_quarantine_policy",
     "build_crux_receipt",
     "build_truth_map",

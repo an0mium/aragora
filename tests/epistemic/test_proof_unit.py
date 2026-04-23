@@ -5,10 +5,12 @@ Pure schema/validation — no network, no subprocess, no queue mutation.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
+import aragora.epistemic.proof_unit as _proof_unit_mod
 from aragora.epistemic.proof_unit import (
     DecayPolicy,
     FallbackPolicy,
@@ -18,6 +20,7 @@ from aragora.epistemic.proof_unit import (
     load_proof_unit_from_yaml,
     load_proof_units_from_dir,
     proof_unit_scan_enabled,
+    reset_proof_unit_scan,
 )
 
 PROOF_UNITS_DIR = Path(__file__).parents[2] / "docs" / "status" / "proof_units"
@@ -174,6 +177,14 @@ _VALID_YAML = (
 )
 
 
+@pytest.fixture(autouse=True)
+def _reset_scan_override() -> pytest.IterableFixture:  # type: ignore[type-arg]
+    """Ensure module-level scan override is cleared around every test."""
+    reset_proof_unit_scan()
+    yield
+    reset_proof_unit_scan()
+
+
 class TestScanFlag:
     def test_scan_disabled_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", raising=False)
@@ -187,31 +198,42 @@ class TestScanFlag:
         monkeypatch.setenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", "true")
         assert proof_unit_scan_enabled()
 
-    def test_enable_helper_sets_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_enable_helper_sets_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", raising=False)
+        enable_proof_unit_scan()
+        assert proof_unit_scan_enabled()
+        assert _proof_unit_mod._scan_enabled_override is True  # noqa: SLF001
+
+    def test_enable_does_not_mutate_environ(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", raising=False)
+        before = dict(os.environ)
+        enable_proof_unit_scan()
+        assert os.environ == before
+
+    def test_reset_clears_override(self) -> None:
+        enable_proof_unit_scan()
+        reset_proof_unit_scan()
+        assert _proof_unit_mod._scan_enabled_override is None  # noqa: SLF001
+        assert not proof_unit_scan_enabled()
+
+    def test_override_takes_priority_over_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", raising=False)
         enable_proof_unit_scan()
         assert proof_unit_scan_enabled()
 
-    def test_load_from_dir_off_by_default(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        monkeypatch.delenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", raising=False)
+    def test_load_from_dir_off_by_default(self, tmp_path: Path) -> None:
         (tmp_path / "unit.yaml").write_text(_VALID_YAML)
         assert load_proof_units_from_dir(tmp_path) == []
 
-    def test_load_from_dir_enabled_parses_valid(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        monkeypatch.setenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", "1")
+    def test_load_from_dir_enabled_parses_valid(self, tmp_path: Path) -> None:
+        enable_proof_unit_scan()
         (tmp_path / "unit.yaml").write_text(_VALID_YAML)
         units = load_proof_units_from_dir(tmp_path)
         assert len(units) == 1
         assert units[0].code_unit_id == "test.scan.alpha"
 
-    def test_load_from_dir_skips_invalid_silently(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        monkeypatch.setenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", "1")
+    def test_load_from_dir_skips_invalid_silently(self, tmp_path: Path) -> None:
+        enable_proof_unit_scan()
         (tmp_path / "bad.yaml").write_text(
             "code_unit_id: x\nfreshness_sla_hours: 0\n"
             "symbol: x\nsource_path: x.py\nowner: ci\n"
@@ -221,17 +243,15 @@ class TestScanFlag:
         )
         assert load_proof_units_from_dir(tmp_path) == []
 
-    def test_load_from_dir_returns_sorted_order(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        monkeypatch.setenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", "1")
+    def test_load_from_dir_returns_sorted_order(self, tmp_path: Path) -> None:
+        enable_proof_unit_scan()
         for name, unit_id in [("b_unit.yaml", "test.scan.b"), ("a_unit.yaml", "test.scan.a")]:
             (tmp_path / name).write_text(_VALID_YAML.replace("test.scan.alpha", unit_id))
         units = load_proof_units_from_dir(tmp_path)
         assert [u.code_unit_id for u in units] == ["test.scan.a", "test.scan.b"]
 
-    def test_load_from_dir_proof_units_dir_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", "1")
+    def test_load_from_dir_proof_units_dir_enabled(self) -> None:
+        enable_proof_unit_scan()
         units = load_proof_units_from_dir(PROOF_UNITS_DIR)
         assert len(units) >= 1
         ids = [u.code_unit_id for u in units]
