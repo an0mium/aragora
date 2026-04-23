@@ -17,11 +17,11 @@ Covers:
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import sys
 import types
-import importlib
 from typing import Any
 from unittest.mock import MagicMock, patch
 
