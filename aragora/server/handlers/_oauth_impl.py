@@ -105,7 +105,7 @@ _logger = _logging.getLogger(__name__)
 _DEFAULT_GET_ALLOWED_REDIRECT_HOSTS = _get_allowed_redirect_hosts
 
 
-def _validate_redirect_url(redirect_url: str) -> bool:
+def _validate_redirect_url_impl(redirect_url: str) -> bool:
     """Validate that redirect URL is in the allowed hosts list.
 
     Collects allowed hosts from both the internal ``_oauth_impl`` module and
@@ -167,6 +167,19 @@ def _validate_redirect_url(redirect_url: str) -> bool:
     except (ValueError, TypeError, AttributeError, KeyError) as e:
         _logger.warning("oauth_redirect_validation_error: %s", e)
         return False
+
+
+if "_validate_redirect_url" not in globals():
+
+    def _validate_redirect_url(redirect_url: str) -> bool:
+        """Stable wrapper that preserves function identity across reloads.
+
+        Some long-running test shards reload ``aragora.server.handlers._oauth_impl``
+        after importing re-exported symbols from ``oauth.handler``. Keeping this
+        wrapper object stable avoids stale identity mismatches while still letting
+        reload refresh the underlying implementation logic.
+        """
+        return _validate_redirect_url_impl(redirect_url)
 
 
 def _validate_state(state: str):

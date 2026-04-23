@@ -21,6 +21,7 @@ import json
 import os
 import sys
 import types
+import importlib
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -283,6 +284,16 @@ class TestReExportIdentity:
         from aragora.server.handlers._oauth_impl import _validate_redirect_url as impl_fn
 
         assert _validate_redirect_url is impl_fn
+
+    def test_validate_redirect_url_identity_survives_impl_reload(self):
+        import aragora.server.handlers._oauth_impl as impl_module
+
+        before = _validate_redirect_url
+        importlib.reload(impl_module)
+
+        assert _validate_redirect_url is before
+        assert handler_module._validate_redirect_url is before
+        assert impl_module._validate_redirect_url is before
 
     def test_generate_state_identity(self):
         from aragora.server.handlers._oauth_impl import _generate_state as impl_fn
