@@ -31,7 +31,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from aragora.swarm.pr_review_protocol import default_pr_review_protocol
+from aragora.review.reviewer_output import ReviewerOutput
+from aragora.swarm.pr_review_protocol import PRReviewerExecutionFailure, default_pr_review_protocol
 from aragora.worktree.fleet import resolve_repo_root
 
 UTC = timezone.utc
@@ -194,6 +195,14 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         default=None,
         help="GitHub repo slug override (owner/name). Defaults to current repo context.",
     )
+    packet_p.add_argument(
+        "--execute-reviewers",
+        action="store_true",
+        help=(
+            "Attempt one bounded live heterogeneous reviewer pass before falling back to "
+            "the metadata-derived packet."
+        ),
+    )
     packet_p.add_argument("--json", action="store_true", help="Output as JSON")
 
     run_p = sub.add_parser("run", help="Interactively settle a prioritized PR queue")
@@ -283,7 +292,11 @@ def _cmd_build(args: argparse.Namespace) -> int:
 def _cmd_packet(args: argparse.Namespace) -> int:
     json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
     try:
-        packet = _build_packet(args.pr, repo_override=args.repo)
+        packet = _build_packet(
+            args.pr,
+            repo_override=args.repo,
+            execute_reviewers=bool(getattr(args, "execute_reviewers", False)),
+        )
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -624,7 +637,12 @@ def _filter_lanes(
     return items
 
 
-def _build_packet(pr_ref: str, *, repo_override: str | None) -> ReviewPacket:
+def _build_packet(
+    pr_ref: str,
+    *,
+    repo_override: str | None,
+    execute_reviewers: bool = False,
+) -> ReviewPacket:
     number = _parse_pr_number(pr_ref)
     fields = ",".join(
         [
@@ -718,7 +736,26 @@ def _build_packet(pr_ref: str, *, repo_override: str | None) -> ReviewPacket:
         author = str(author_payload.get("login", "")).strip()
 
     repo = _repo_from_url(str(pr.get("url", "")).strip())
-    protocol = default_pr_review_protocol().build_packet(
+    protocol_runner = default_pr_review_protocol()
+    reviewer_outputs: list[ReviewerOutput] = []
+    execution_failures: list[PRReviewerExecutionFailure] = []
+    if execute_reviewers:
+        diff_args = ["pr", "diff", str(number)]
+        if repo_override:
+            diff_args.extend(["--repo", repo_override])
+        reviewer_outputs, execution_failures = protocol_runner.execute_live_reviewers(
+            repo=repo,
+            pr_number=number,
+            title=str(pr.get("title", "")).strip(),
+            base_sha=str(pr.get("baseRefOid", "")).strip(),
+            head_sha=str(pr.get("headRefOid", "")).strip(),
+            checks_summary=checks_summary,
+            changed_files=files,
+            diff_text=_gh_text(diff_args),
+            machine_recommendation=recommendation,
+            machine_recommendation_reason=recommendation_reason,
+        )
+    protocol = protocol_runner.build_packet(
         repo=repo,
         pr_number=number,
         title=str(pr.get("title", "")).strip(),
@@ -737,6 +774,8 @@ def _build_packet(pr_ref: str, *, repo_override: str | None) -> ReviewPacket:
         validation_commands=validation,
         machine_recommendation=recommendation,
         machine_recommendation_reason=recommendation_reason,
+        reviewer_outputs=reviewer_outputs,
+        execution_failures=execution_failures,
     )
 
     packet = ReviewPacket(
