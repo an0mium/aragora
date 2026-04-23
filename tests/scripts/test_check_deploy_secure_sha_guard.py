@@ -4,6 +4,7 @@ from pathlib import Path
 
 from scripts.check_deploy_secure_sha_guard import (
     check_repo,
+    find_deploy_target_violations,
     find_rollback_guard_violations,
     find_sha_verification_violations,
 )
@@ -14,6 +15,12 @@ def _valid_workflow_text() -> str:
 jobs:
   deploy-ec2-staging:
     steps:
+      - name: Deploy via SSM
+        run: |
+          aws ssm send-command --parameters 'commands=[
+            "sudo -u ec2-user git fetch --no-tags origin \"${{ github.sha }}\"",
+            "sudo -u ec2-user git reset --hard \"${{ github.sha }}\""
+          ]'
       - name: Determine rollback requirement
         id: rollback_gate
         if: always() && steps.deploy.conclusion != 'skipped'
@@ -28,6 +35,16 @@ jobs:
           if [ -n "$PREVIOUS_COMMIT" ]; then sudo -u ec2-user git checkout $PREVIOUS_COMMIT; fi
   deploy-ec2-production:
     steps:
+      - name: Deploy via SSM (rolling canary)
+        run: |
+          aws ssm send-command --parameters 'commands=[
+            "sudo -u ec2-user git fetch --no-tags origin \"${{ github.sha }}\"",
+            "sudo -u ec2-user git reset --hard \"${{ github.sha }}\""
+          ]'
+          aws ssm send-command --parameters 'commands=[
+            "sudo -u ec2-user git fetch --no-tags origin \"${{ github.sha }}\"",
+            "sudo -u ec2-user git reset --hard \"${{ github.sha }}\""
+          ]'
       - name: Post-deploy SHA verification
         run: |
           SHA_CMD_ID=$(aws ssm send-command \\
@@ -55,6 +72,14 @@ jobs:
           echo "::warning::Production deployment failed - initiating rollback (${{ steps.rollback_gate.outputs.rollback_reason }})"
           if [ -f /tmp/aragora_deploy_state ]; then source /tmp/aragora_deploy_state; fi
           if [ -n "$PREVIOUS_COMMIT" ]; then sudo -u ec2-user git checkout $PREVIOUS_COMMIT; fi
+  deploy-ec2-dr:
+    steps:
+      - name: Deploy via SSM
+        run: |
+          aws ssm send-command --parameters 'commands=[
+            "sudo -u ec2-user git fetch --no-tags origin \"${{ github.sha }}\"",
+            "sudo -u ec2-user git reset --hard \"${{ github.sha }}\""
+          ]'
   notify:
     steps:
       - name: done
@@ -80,6 +105,29 @@ def test_sha_guard_requires_hardened_command_markers() -> None:
     violations = find_sha_verification_violations(text)
     assert violations
     assert any("ec2_user_command" in message for message in violations)
+
+
+def test_deploy_target_guard_accepts_pinned_workflow_sha() -> None:
+    violations = find_deploy_target_violations(_valid_workflow_text())
+    assert violations == []
+
+
+def test_deploy_target_guard_rejects_latest_main_fetch_reset() -> None:
+    text = (
+        _valid_workflow_text()
+        .replace(
+            'git fetch --no-tags origin "${{ github.sha }}"',
+            "git fetch origin main",
+        )
+        .replace(
+            'git reset --hard "${{ github.sha }}"',
+            "git reset --hard origin/main",
+        )
+    )
+    violations = find_deploy_target_violations(text)
+    assert violations
+    assert any("fetch_latest_main" in message for message in violations)
+    assert any("reset_latest_main" in message for message in violations)
 
 
 def test_rollback_guard_accepts_valid_steps() -> None:
