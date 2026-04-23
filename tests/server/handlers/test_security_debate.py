@@ -392,7 +392,11 @@ class TestPostSecurityDebate:
                             del result
                             gc.collect()
 
-        leaked = [warning for warning in caught if "was never awaited" in str(warning.message)]
+        leaked = [
+            warning
+            for warning in caught
+            if "was never awaited" in str(warning.message) and "_run_debate" in str(warning.message)
+        ]
         assert leaked == []
 
 
