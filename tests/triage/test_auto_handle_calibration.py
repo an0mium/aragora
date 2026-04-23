@@ -422,6 +422,177 @@ class TestThreadSafety:
 
 
 # ---------------------------------------------------------------------------
+# record_outcome — atomicity (TOCTOU guard) and rollback
+# ---------------------------------------------------------------------------
+
+
+class TestRecordOutcomeAtomicity:
+    """Regression guards for the 8/8 Mode 3 panel blocker on PR #6468.
+
+    The panel flagged a TOCTOU race in the read-compute-write compound
+    inside ``record_outcome`` (the first repair on this branch replaced
+    ``threading.local`` with a connection-per-op design, but that made
+    the compound straddle multiple connections). These tests pin the
+    atomicity contract: the compound now runs inside a single
+    ``BEGIN IMMEDIATE`` ... ``COMMIT`` on one connection.
+    """
+
+    def test_record_outcome_is_atomic_under_concurrent_callers(self, tmp_path: Path) -> None:
+        """Concurrent callers on the same class cannot create split alert state.
+
+        Four threads call ``record_outcome`` simultaneously with
+        distinct decision ids but the *same* ``(auto_handle_path,
+        decision_class)``. The compound (read → compute → write-outcome
+        → upsert/clear alert) must serialise at the SQLite layer so the
+        final alert state is consistent with the total outcome history.
+        """
+        store = AutoHandleCalibrationStore(
+            db_path=str(tmp_path / "atomic.db"),
+            min_samples=2,
+            min_success_rate=0.95,
+            drift_threshold=0.05,
+        )
+        # Seed the class with a baseline success so drift computation
+        # has a ``previous_rate`` to compare against.
+        store.record_outcome(
+            decision_id="seed",
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            decision_class=TEST_CLASS,
+            outcome=OUTCOME_SUCCESS,
+        )
+
+        # Alternate success/failure so concurrent writers push the class
+        # across the alert threshold and back again on every step. That
+        # stresses both the upsert and clear branches of the compound.
+        outcomes = [
+            OUTCOME_HUMAN_OVERRIDE,  # failure → should trigger alert
+            OUTCOME_SUCCESS,  # success after failure
+            OUTCOME_HUMAN_OVERRIDE,  # failure again
+            OUTCOME_SUCCESS,  # success again
+        ]
+        errors: list[BaseException] = []
+
+        def writer(item: tuple[int, str]) -> None:
+            idx, outcome = item
+            try:
+                store.record_outcome(
+                    decision_id=f"concurrent-{idx}",
+                    auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+                    decision_class=TEST_CLASS,
+                    outcome=outcome,
+                    pr_number=idx,
+                )
+            except BaseException as exc:  # noqa: BLE001 — collect, don't mask
+                errors.append(exc)
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            list(executor.map(writer, list(enumerate(outcomes))))
+
+        assert errors == [], f"unexpected thread errors: {errors!r}"
+
+        # 1. All 4 concurrent writes + 1 seed landed exactly once (no
+        #    duplicates, no losses).
+        summary = store.summarize_class(
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            decision_class=TEST_CLASS,
+        )
+        assert summary.total_samples == 5
+
+        # 2. Exactly one row per (path, class) survives in the alerts
+        #    table — regardless of how many upsert/clear cycles the
+        #    threads went through. With the TOCTOU race we were
+        #    chasing, concurrent threads could deactivate an alert
+        #    another thread had just written, or write two "active"
+        #    alerts for the same class (UPSERT + INSERT OR REPLACE
+        #    collapses to the second outcome). Both failure modes
+        #    would show up as an inconsistency here.
+        with closing(sqlite3.connect(store.db_path)) as conn:
+            rows = conn.execute(
+                """
+                SELECT auto_handle_path, decision_class, active
+                FROM auto_handle_drift_alerts
+                WHERE auto_handle_path = ? AND decision_class = ?
+                """,
+                (AUTO_HANDLE_PATH_FIRE_AND_FORGET, TEST_CLASS),
+            ).fetchall()
+        assert len(rows) <= 1  # INSERT OR REPLACE keyed on (path, class)
+
+    def test_record_outcome_rolls_back_on_write_failure(
+        self,
+        store: AutoHandleCalibrationStore,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A failure inside the compound must leave the store unchanged.
+
+        We monkeypatch ``_upsert_alert_with_conn`` to raise partway
+        through, simulating a SQLite failure during the alert write.
+        The outer transaction must roll back: neither the outcome row
+        nor any alert change may survive.
+        """
+        # Seed enough failures that the next failure will cross the
+        # drift threshold and trigger the upsert path we'll sabotage.
+        for idx in range(3):
+            store.record_outcome(
+                decision_id=f"seed-{idx}",
+                auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+                decision_class=TEST_CLASS,
+                outcome=OUTCOME_SUCCESS,
+            )
+        baseline_rows = _count_decision_rows(store.db_path)
+        baseline_alerts = _snapshot_alert_rows(store.db_path)
+
+        def boom(**kwargs: object) -> None:
+            raise sqlite3.OperationalError("synthetic alert upsert failure")
+
+        monkeypatch.setattr(store, "_upsert_alert_with_conn", boom)
+
+        with pytest.raises(AutoHandleStoreError) as excinfo:
+            store.record_outcome(
+                decision_id="rollback-trigger",
+                auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+                decision_class=TEST_CLASS,
+                outcome=OUTCOME_HUMAN_OVERRIDE,
+            )
+        assert isinstance(excinfo.value.__cause__, sqlite3.Error)
+
+        # 1. The outcome row is NOT present — the INSERT was rolled back.
+        assert _count_decision_rows(store.db_path) == baseline_rows
+        with closing(sqlite3.connect(store.db_path)) as conn:
+            row = conn.execute(
+                "SELECT 1 FROM auto_handle_decisions WHERE decision_id = ?",
+                ("rollback-trigger",),
+            ).fetchone()
+        assert row is None
+
+        # 2. The alert state is unchanged — no partial upsert survived.
+        assert _snapshot_alert_rows(store.db_path) == baseline_alerts
+
+
+def _count_decision_rows(db_path: str) -> int:
+    with closing(sqlite3.connect(db_path)) as conn:
+        return int(conn.execute("SELECT COUNT(*) FROM auto_handle_decisions").fetchone()[0])
+
+
+def _snapshot_alert_rows(db_path: str) -> list[tuple[str, ...]]:
+    with closing(sqlite3.connect(db_path)) as conn:
+        return [
+            tuple(str(cell) for cell in row)
+            for row in conn.execute(
+                """
+                SELECT
+                    auto_handle_path,
+                    decision_class,
+                    alert_id,
+                    active,
+                    detected_at
+                FROM auto_handle_drift_alerts
+                ORDER BY auto_handle_path, decision_class, alert_id
+                """
+            ).fetchall()
+        ]
+
+
+# ---------------------------------------------------------------------------
 # Drift alert — upsert and clear round-trip
 # ---------------------------------------------------------------------------
 

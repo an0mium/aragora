@@ -36,6 +36,24 @@ and are re-exported here for backwards compatibility; that split was a
 secondary request from the 8/8 Mode 3 panel on #6468 so reviewers can
 reason about domain fingerprints independently of the persistence layer.
 
+Transactions (atomicity contract)
+---------------------------------
+
+``record_outcome`` runs its read-compute-write compound (summarise,
+insert, re-summarise, decide drift, upsert/clear alert) inside a single
+``BEGIN IMMEDIATE`` ... ``COMMIT`` transaction on **one** connection.
+``BEGIN IMMEDIATE`` acquires a RESERVED lock on entry, which serialises
+concurrent writers at the SQLite layer and eliminates the TOCTOU race
+flagged by the 8/8 Mode 3 panel on PR #6468: no other writer can slip
+in between the read of the outcome history and the write of the derived
+drift-alert state. ``_upsert_alert`` and ``_clear_alert`` wrap their
+single-statement writes in the same transactional shape for standalone
+callers (e.g., tests) so they cannot observe partial state either.
+
+Python's ``sqlite3`` module's implicit-transaction behaviour is disabled
+via ``isolation_level=None`` on every connection so the explicit BEGIN /
+COMMIT statements above own transaction state unambiguously.
+
 Error surface
 -------------
 
@@ -284,6 +302,13 @@ class AutoHandleCalibrationStore:
 
     def _configure_conn(self, conn: sqlite3.Connection) -> None:
         conn.row_factory = sqlite3.Row
+        # ``isolation_level=None`` disables Python's implicit-transaction
+        # management. This is required for the ``BEGIN IMMEDIATE`` ...
+        # ``COMMIT`` pattern used by ``record_outcome`` — otherwise the
+        # sqlite3 module would auto-open transactions before DML, racing
+        # with our explicit control and making the single-transaction
+        # contract impossible to enforce.
+        conn.isolation_level = None
         conn.execute("PRAGMA busy_timeout = 30000")
         if not self._is_memory:
             try:
@@ -298,48 +323,55 @@ class AutoHandleCalibrationStore:
     def _init_schema(self) -> None:
         try:
             with self._connection() as conn:
-                conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS auto_handle_decisions (
-                        decision_id TEXT PRIMARY KEY,
-                        auto_handle_path TEXT NOT NULL,
-                        decision_class TEXT NOT NULL,
-                        pr_url TEXT NOT NULL DEFAULT '',
-                        pr_number INTEGER,
-                        outcome TEXT NOT NULL,
-                        decided_at REAL NOT NULL,
-                        metadata_json TEXT NOT NULL DEFAULT '{}'
+                conn.execute("BEGIN IMMEDIATE")
+                committed = False
+                try:
+                    conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS auto_handle_decisions (
+                            decision_id TEXT PRIMARY KEY,
+                            auto_handle_path TEXT NOT NULL,
+                            decision_class TEXT NOT NULL,
+                            pr_url TEXT NOT NULL DEFAULT '',
+                            pr_number INTEGER,
+                            outcome TEXT NOT NULL,
+                            decided_at REAL NOT NULL,
+                            metadata_json TEXT NOT NULL DEFAULT '{}'
+                        )
+                        """
                     )
-                    """
-                )
-                conn.execute(
-                    """
-                    CREATE INDEX IF NOT EXISTS idx_auto_handle_decisions_window
-                    ON auto_handle_decisions(auto_handle_path, decision_class, decided_at DESC)
-                    """
-                )
-                conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS auto_handle_drift_alerts (
-                        auto_handle_path TEXT NOT NULL,
-                        decision_class TEXT NOT NULL,
-                        alert_id TEXT NOT NULL,
-                        previous_success_rate REAL,
-                        current_success_rate REAL,
-                        window_days INTEGER NOT NULL,
-                        min_samples INTEGER NOT NULL,
-                        min_success_rate REAL NOT NULL,
-                        drift_threshold REAL NOT NULL,
-                        detected_at REAL NOT NULL,
-                        remediation_action TEXT NOT NULL,
-                        receipt_path TEXT,
-                        active INTEGER NOT NULL DEFAULT 1,
-                        metadata_json TEXT NOT NULL DEFAULT '{}',
-                        PRIMARY KEY (auto_handle_path, decision_class)
+                    conn.execute(
+                        """
+                        CREATE INDEX IF NOT EXISTS idx_auto_handle_decisions_window
+                        ON auto_handle_decisions(auto_handle_path, decision_class, decided_at DESC)
+                        """
                     )
-                    """
-                )
-                conn.commit()
+                    conn.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS auto_handle_drift_alerts (
+                            auto_handle_path TEXT NOT NULL,
+                            decision_class TEXT NOT NULL,
+                            alert_id TEXT NOT NULL,
+                            previous_success_rate REAL,
+                            current_success_rate REAL,
+                            window_days INTEGER NOT NULL,
+                            min_samples INTEGER NOT NULL,
+                            min_success_rate REAL NOT NULL,
+                            drift_threshold REAL NOT NULL,
+                            detected_at REAL NOT NULL,
+                            remediation_action TEXT NOT NULL,
+                            receipt_path TEXT,
+                            active INTEGER NOT NULL DEFAULT 1,
+                            metadata_json TEXT NOT NULL DEFAULT '{}',
+                            PRIMARY KEY (auto_handle_path, decision_class)
+                        )
+                        """
+                    )
+                    conn.execute("COMMIT")
+                    committed = True
+                finally:
+                    if not committed:
+                        conn.execute("ROLLBACK")
         except sqlite3.Error as exc:
             raise AutoHandleStoreError(
                 f"Failed to initialise auto-handle calibration schema at {self.db_path!r}"
@@ -354,30 +386,51 @@ class AutoHandleCalibrationStore:
         decision_class: str,
         window_days: int | None = None,
     ) -> AutoHandleClassSummary:
+        with self._connection() as conn:
+            return self._summarize_class_with_conn(
+                conn=conn,
+                auto_handle_path=auto_handle_path,
+                decision_class=decision_class,
+                window_days=window_days,
+            )
+
+    def _summarize_class_with_conn(
+        self,
+        *,
+        conn: sqlite3.Connection,
+        auto_handle_path: str,
+        decision_class: str,
+        window_days: int | None = None,
+    ) -> AutoHandleClassSummary:
+        """Summarise a class using ``conn``.
+
+        Does **not** open its own connection so it can participate in the
+        ``record_outcome`` single-transaction compound. Callers outside
+        that compound should use the public :meth:`summarize_class`.
+        """
         days = int(window_days if window_days is not None else self.window_days)
         cutoff = time.time() - (days * 86400)
-        with self._connection() as conn:
-            row = conn.execute(
-                """
-                SELECT
-                    COUNT(*) AS total_samples,
-                    SUM(CASE WHEN outcome = ? THEN 1 ELSE 0 END) AS successes,
-                    SUM(CASE WHEN outcome IN (?, ?, ?) THEN 1 ELSE 0 END) AS failures
-                FROM auto_handle_decisions
-                WHERE auto_handle_path = ?
-                  AND decision_class = ?
-                  AND decided_at >= ?
-                """,
-                (
-                    OUTCOME_SUCCESS,
-                    OUTCOME_HUMAN_OVERRIDE,
-                    OUTCOME_REVERT,
-                    OUTCOME_INCIDENT,
-                    auto_handle_path,
-                    decision_class,
-                    cutoff,
-                ),
-            ).fetchone()
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_samples,
+                SUM(CASE WHEN outcome = ? THEN 1 ELSE 0 END) AS successes,
+                SUM(CASE WHEN outcome IN (?, ?, ?) THEN 1 ELSE 0 END) AS failures
+            FROM auto_handle_decisions
+            WHERE auto_handle_path = ?
+              AND decision_class = ?
+              AND decided_at >= ?
+            """,
+            (
+                OUTCOME_SUCCESS,
+                OUTCOME_HUMAN_OVERRIDE,
+                OUTCOME_REVERT,
+                OUTCOME_INCIDENT,
+                auto_handle_path,
+                decision_class,
+                cutoff,
+            ),
+        ).fetchone()
 
         total_samples = int(row["total_samples"] or 0) if row is not None else 0
         successes = int(row["successes"] or 0) if row is not None else 0
@@ -400,14 +453,27 @@ class AutoHandleCalibrationStore:
         decision_class: str,
     ) -> AutoHandleDriftAlert | None:
         with self._connection() as conn:
-            row = conn.execute(
-                """
-                SELECT * FROM auto_handle_drift_alerts
-                WHERE auto_handle_path = ? AND decision_class = ? AND active = 1
-                LIMIT 1
-                """,
-                (auto_handle_path, decision_class),
-            ).fetchone()
+            return self._get_active_alert_with_conn(
+                conn=conn,
+                auto_handle_path=auto_handle_path,
+                decision_class=decision_class,
+            )
+
+    def _get_active_alert_with_conn(
+        self,
+        *,
+        conn: sqlite3.Connection,
+        auto_handle_path: str,
+        decision_class: str,
+    ) -> AutoHandleDriftAlert | None:
+        row = conn.execute(
+            """
+            SELECT * FROM auto_handle_drift_alerts
+            WHERE auto_handle_path = ? AND decision_class = ? AND active = 1
+            LIMIT 1
+            """,
+            (auto_handle_path, decision_class),
+        ).fetchone()
         return self._alert_from_row(row) if row is not None else None
 
     def list_active_alerts(self, *, limit: int = 5) -> list[AutoHandleDriftAlert]:
@@ -439,6 +505,14 @@ class AutoHandleCalibrationStore:
     ) -> dict[str, Any]:
         """Record a decision outcome and update drift-alert state.
 
+        Runs the full read-compute-write compound (summarise history,
+        insert the new outcome row, re-summarise, decide whether to
+        upsert or clear a drift alert, apply that decision) inside a
+        single ``BEGIN IMMEDIATE`` ... ``COMMIT`` transaction on one
+        connection so concurrent callers cannot observe or create
+        partial state. Rolls back on any failure, preserving the
+        previous on-disk state.
+
         Raises:
             ValueError: when ``outcome`` is not a supported value or when
                 a duplicate decision id is recorded with a conflicting
@@ -454,139 +528,181 @@ class AutoHandleCalibrationStore:
         normalized_pr_url = str(pr_url or "").strip()
 
         try:
-            previous_summary = self.summarize_class(
-                auto_handle_path=auto_handle_path,
-                decision_class=decision_class,
-            )
-
-            inserted = False
-            existing_outcome: str | None = None
             with self._connection() as conn:
-                cursor = conn.execute(
-                    """
-                    INSERT INTO auto_handle_decisions (
-                        decision_id,
-                        auto_handle_path,
-                        decision_class,
-                        pr_url,
-                        pr_number,
-                        outcome,
-                        decided_at,
-                        metadata_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(decision_id) DO NOTHING
-                    """,
-                    (
-                        decision_id,
-                        auto_handle_path,
-                        decision_class,
-                        normalized_pr_url,
-                        pr_number,
-                        outcome,
-                        time.time(),
-                        json.dumps(metadata or {}, sort_keys=True),
-                    ),
-                )
-                inserted = cursor.rowcount > 0
-                if inserted:
-                    conn.commit()
-                else:
-                    row = conn.execute(
-                        """
-                        SELECT auto_handle_path, decision_class, pr_url, outcome
-                        FROM auto_handle_decisions
-                        WHERE decision_id = ?
-                        """,
-                        (decision_id,),
-                    ).fetchone()
-                    if row is None:
-                        raise AutoHandleStoreError(
-                            "Failed to load existing auto-handle decision for "
-                            f"duplicate id {decision_id!r}"
-                        )
-                    existing_outcome = str(row["outcome"] or "").strip() or None
-                    if (
-                        str(row["auto_handle_path"] or "").strip() != str(auto_handle_path).strip()
-                        or str(row["decision_class"] or "").strip() != str(decision_class).strip()
-                        or str(row["pr_url"] or "").strip() != normalized_pr_url
-                        or str(row["outcome"] or "").strip() != str(outcome).strip()
-                    ):
-                        raise ValueError(
-                            "Refusing to overwrite existing auto-handle decision with "
-                            f"conflicting outcome for {decision_id!r}"
-                        )
-
-            if not inserted:
-                active_alert = self.get_active_alert(
-                    auto_handle_path=auto_handle_path,
-                    decision_class=decision_class,
-                )
-                return {
-                    "summary": previous_summary.to_dict(),
-                    "alert": active_alert.to_dict() if active_alert is not None else None,
-                    "recovered": False,
-                    "recorded": False,
-                    "duplicate": True,
-                    "existing_outcome": existing_outcome,
-                }
-
-            current_summary = self.summarize_class(
-                auto_handle_path=auto_handle_path,
-                decision_class=decision_class,
-            )
-            active_alert = self.get_active_alert(
-                auto_handle_path=auto_handle_path,
-                decision_class=decision_class,
-            )
-            previous_rate = previous_summary.success_rate
-            current_rate = current_summary.success_rate
-            drop = (
-                (previous_rate - current_rate)
-                if previous_rate is not None and current_rate is not None
-                else 0.0
-            )
-            should_block = (
-                current_summary.total_samples >= self.min_samples
-                and current_rate is not None
-                and (current_rate < self.min_success_rate or drop >= self.drift_threshold)
-            )
-            recovered = (
-                active_alert is not None
-                and outcome == OUTCOME_SUCCESS
-                and current_summary.total_samples >= self.min_samples
-                and current_rate is not None
-                and current_rate >= self.min_success_rate
-            )
-
-            alert: AutoHandleDriftAlert | None = None
-            if should_block and active_alert is None:
-                alert = self._upsert_alert(
-                    auto_handle_path=auto_handle_path,
-                    decision_class=decision_class,
-                    previous_success_rate=previous_rate,
-                    current_success_rate=current_rate,
-                    repo_root=repo_root,
-                )
-            elif recovered and active_alert is not None:
-                self._clear_alert(
-                    auto_handle_path=auto_handle_path,
-                    decision_class=decision_class,
-                )
-            elif active_alert is not None:
-                alert = active_alert
-
-            return {
-                "summary": current_summary.to_dict(),
-                "alert": alert.to_dict() if alert is not None else None,
-                "recovered": bool(recovered),
-                "recorded": True,
-                "duplicate": False,
-                "existing_outcome": None,
-            }
+                conn.execute("BEGIN IMMEDIATE")
+                committed = False
+                try:
+                    result = self._record_outcome_locked(
+                        conn=conn,
+                        decision_id=decision_id,
+                        auto_handle_path=auto_handle_path,
+                        decision_class=decision_class,
+                        outcome=outcome,
+                        normalized_pr_url=normalized_pr_url,
+                        pr_number=pr_number,
+                        metadata=metadata,
+                        repo_root=repo_root,
+                    )
+                    conn.execute("COMMIT")
+                    committed = True
+                    return result
+                finally:
+                    if not committed:
+                        conn.execute("ROLLBACK")
         except sqlite3.Error as exc:
             raise AutoHandleStoreError(
                 f"SQLite failure while recording outcome for {decision_id!r}"
             ) from exc
+
+    def _record_outcome_locked(
+        self,
+        *,
+        conn: sqlite3.Connection,
+        decision_id: str,
+        auto_handle_path: str,
+        decision_class: str,
+        outcome: str,
+        normalized_pr_url: str,
+        pr_number: int | None,
+        metadata: dict[str, Any] | None,
+        repo_root: Path | None,
+    ) -> dict[str, Any]:
+        """Compound read-modify-write body of :meth:`record_outcome`.
+
+        Expects to be called from within a ``BEGIN IMMEDIATE`` tx on
+        ``conn`` so reads, decisions, and writes are atomic.
+        """
+        # Read the pre-insert state *inside* the transaction. BEGIN
+        # IMMEDIATE holds a RESERVED lock so no other writer can change
+        # this between here and the post-insert re-read below.
+        previous_summary = self._summarize_class_with_conn(
+            conn=conn,
+            auto_handle_path=auto_handle_path,
+            decision_class=decision_class,
+        )
+
+        cursor = conn.execute(
+            """
+            INSERT INTO auto_handle_decisions (
+                decision_id,
+                auto_handle_path,
+                decision_class,
+                pr_url,
+                pr_number,
+                outcome,
+                decided_at,
+                metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(decision_id) DO NOTHING
+            """,
+            (
+                decision_id,
+                auto_handle_path,
+                decision_class,
+                normalized_pr_url,
+                pr_number,
+                outcome,
+                time.time(),
+                json.dumps(metadata or {}, sort_keys=True),
+            ),
+        )
+        inserted = cursor.rowcount > 0
+
+        if not inserted:
+            row = conn.execute(
+                """
+                SELECT auto_handle_path, decision_class, pr_url, outcome
+                FROM auto_handle_decisions
+                WHERE decision_id = ?
+                """,
+                (decision_id,),
+            ).fetchone()
+            if row is None:
+                raise AutoHandleStoreError(
+                    f"Failed to load existing auto-handle decision for duplicate id {decision_id!r}"
+                )
+            existing_outcome = str(row["outcome"] or "").strip() or None
+            if (
+                str(row["auto_handle_path"] or "").strip() != str(auto_handle_path).strip()
+                or str(row["decision_class"] or "").strip() != str(decision_class).strip()
+                or str(row["pr_url"] or "").strip() != normalized_pr_url
+                or str(row["outcome"] or "").strip() != str(outcome).strip()
+            ):
+                raise ValueError(
+                    "Refusing to overwrite existing auto-handle decision with "
+                    f"conflicting outcome for {decision_id!r}"
+                )
+            active_alert = self._get_active_alert_with_conn(
+                conn=conn,
+                auto_handle_path=auto_handle_path,
+                decision_class=decision_class,
+            )
+            return {
+                "summary": previous_summary.to_dict(),
+                "alert": active_alert.to_dict() if active_alert is not None else None,
+                "recovered": False,
+                "recorded": False,
+                "duplicate": True,
+                "existing_outcome": existing_outcome,
+            }
+
+        current_summary = self._summarize_class_with_conn(
+            conn=conn,
+            auto_handle_path=auto_handle_path,
+            decision_class=decision_class,
+        )
+        active_alert = self._get_active_alert_with_conn(
+            conn=conn,
+            auto_handle_path=auto_handle_path,
+            decision_class=decision_class,
+        )
+        previous_rate = previous_summary.success_rate
+        current_rate = current_summary.success_rate
+        drop = (
+            (previous_rate - current_rate)
+            if previous_rate is not None and current_rate is not None
+            else 0.0
+        )
+        should_block = (
+            current_summary.total_samples >= self.min_samples
+            and current_rate is not None
+            and (current_rate < self.min_success_rate or drop >= self.drift_threshold)
+        )
+        recovered = (
+            active_alert is not None
+            and outcome == OUTCOME_SUCCESS
+            and current_summary.total_samples >= self.min_samples
+            and current_rate is not None
+            and current_rate >= self.min_success_rate
+        )
+
+        alert: AutoHandleDriftAlert | None = None
+        if should_block and active_alert is None:
+            alert = self._build_alert(
+                auto_handle_path=auto_handle_path,
+                decision_class=decision_class,
+                previous_success_rate=previous_rate,
+                current_success_rate=current_rate,
+                repo_root=repo_root,
+            )
+            self._upsert_alert_with_conn(conn=conn, alert=alert)
+        elif recovered and active_alert is not None:
+            self._clear_alert_with_conn(
+                conn=conn,
+                auto_handle_path=auto_handle_path,
+                decision_class=decision_class,
+            )
+        elif active_alert is not None:
+            alert = active_alert
+
+        return {
+            "summary": current_summary.to_dict(),
+            "alert": alert.to_dict() if alert is not None else None,
+            "recovered": bool(recovered),
+            "recorded": True,
+            "duplicate": False,
+            "existing_outcome": None,
+        }
 
     def _upsert_alert(
         self,
@@ -597,6 +713,136 @@ class AutoHandleCalibrationStore:
         current_success_rate: float | None,
         repo_root: Path | None,
     ) -> AutoHandleDriftAlert:
+        """Standalone drift-alert upsert (transactional wrapper).
+
+        Used by callers outside :meth:`record_outcome` (e.g., tests)
+        that need to upsert a drift alert without going through the
+        full outcome-recording compound. Opens a connection, runs the
+        write inside ``BEGIN IMMEDIATE`` ... ``COMMIT``, and wraps
+        ``sqlite3.Error`` in :class:`AutoHandleStoreError`.
+        """
+        alert = self._build_alert(
+            auto_handle_path=auto_handle_path,
+            decision_class=decision_class,
+            previous_success_rate=previous_success_rate,
+            current_success_rate=current_success_rate,
+            repo_root=repo_root,
+        )
+        try:
+            with self._connection() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                committed = False
+                try:
+                    self._upsert_alert_with_conn(conn=conn, alert=alert)
+                    conn.execute("COMMIT")
+                    committed = True
+                finally:
+                    if not committed:
+                        conn.execute("ROLLBACK")
+        except sqlite3.Error as exc:
+            raise AutoHandleStoreError(
+                f"Failed to upsert drift alert for {auto_handle_path}/{decision_class}"
+            ) from exc
+        return alert
+
+    def _upsert_alert_with_conn(
+        self,
+        *,
+        conn: sqlite3.Connection,
+        alert: AutoHandleDriftAlert,
+    ) -> None:
+        """Upsert ``alert`` using ``conn`` (caller owns the transaction)."""
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO auto_handle_drift_alerts (
+                auto_handle_path,
+                decision_class,
+                alert_id,
+                previous_success_rate,
+                current_success_rate,
+                window_days,
+                min_samples,
+                min_success_rate,
+                drift_threshold,
+                detected_at,
+                remediation_action,
+                receipt_path,
+                active,
+                metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+            """,
+            (
+                alert.auto_handle_path,
+                alert.decision_class,
+                alert.alert_id,
+                alert.previous_success_rate,
+                alert.current_success_rate,
+                alert.window_days,
+                alert.min_samples,
+                alert.min_success_rate,
+                alert.drift_threshold,
+                alert.detected_at,
+                alert.remediation_action,
+                alert.receipt_path,
+                json.dumps({}, sort_keys=True),
+            ),
+        )
+
+    def _clear_alert(self, *, auto_handle_path: str, decision_class: str) -> None:
+        """Standalone drift-alert deactivation (transactional wrapper)."""
+        try:
+            with self._connection() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                committed = False
+                try:
+                    self._clear_alert_with_conn(
+                        conn=conn,
+                        auto_handle_path=auto_handle_path,
+                        decision_class=decision_class,
+                    )
+                    conn.execute("COMMIT")
+                    committed = True
+                finally:
+                    if not committed:
+                        conn.execute("ROLLBACK")
+        except sqlite3.Error as exc:
+            raise AutoHandleStoreError(
+                f"Failed to clear drift alert for {auto_handle_path}/{decision_class}"
+            ) from exc
+
+    def _clear_alert_with_conn(
+        self,
+        *,
+        conn: sqlite3.Connection,
+        auto_handle_path: str,
+        decision_class: str,
+    ) -> None:
+        """Deactivate alerts using ``conn`` (caller owns the transaction)."""
+        conn.execute(
+            """
+            UPDATE auto_handle_drift_alerts
+            SET active = 0
+            WHERE auto_handle_path = ? AND decision_class = ?
+            """,
+            (auto_handle_path, decision_class),
+        )
+
+    def _build_alert(
+        self,
+        *,
+        auto_handle_path: str,
+        decision_class: str,
+        previous_success_rate: float | None,
+        current_success_rate: float | None,
+        repo_root: Path | None,
+    ) -> AutoHandleDriftAlert:
+        """Construct an :class:`AutoHandleDriftAlert`, writing a receipt if requested.
+
+        Kept separate from the persistence calls so the pure domain
+        construction and the optional filesystem receipt write happen
+        outside the ``record_outcome`` transaction body, which should
+        only touch SQLite.
+        """
         alert = AutoHandleDriftAlert(
             alert_id=f"auto-handle-drift-{uuid.uuid4().hex[:12]}",
             auto_handle_path=auto_handle_path,
@@ -619,66 +865,7 @@ class AutoHandleCalibrationStore:
                     "receipt_path": self._write_receipt(alert=alert, repo_root=repo_root),
                 }
             )
-        try:
-            with self._connection() as conn:
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO auto_handle_drift_alerts (
-                        auto_handle_path,
-                        decision_class,
-                        alert_id,
-                        previous_success_rate,
-                        current_success_rate,
-                        window_days,
-                        min_samples,
-                        min_success_rate,
-                        drift_threshold,
-                        detected_at,
-                        remediation_action,
-                        receipt_path,
-                        active,
-                        metadata_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-                    """,
-                    (
-                        alert.auto_handle_path,
-                        alert.decision_class,
-                        alert.alert_id,
-                        alert.previous_success_rate,
-                        alert.current_success_rate,
-                        alert.window_days,
-                        alert.min_samples,
-                        alert.min_success_rate,
-                        alert.drift_threshold,
-                        alert.detected_at,
-                        alert.remediation_action,
-                        alert.receipt_path,
-                        json.dumps({}, sort_keys=True),
-                    ),
-                )
-                conn.commit()
-        except sqlite3.Error as exc:
-            raise AutoHandleStoreError(
-                f"Failed to upsert drift alert for {auto_handle_path}/{decision_class}"
-            ) from exc
         return alert
-
-    def _clear_alert(self, *, auto_handle_path: str, decision_class: str) -> None:
-        try:
-            with self._connection() as conn:
-                conn.execute(
-                    """
-                    UPDATE auto_handle_drift_alerts
-                    SET active = 0
-                    WHERE auto_handle_path = ? AND decision_class = ?
-                    """,
-                    (auto_handle_path, decision_class),
-                )
-                conn.commit()
-        except sqlite3.Error as exc:
-            raise AutoHandleStoreError(
-                f"Failed to clear drift alert for {auto_handle_path}/{decision_class}"
-            ) from exc
 
     def _write_receipt(self, *, alert: AutoHandleDriftAlert, repo_root: Path) -> str:
         receipts_dir = repo_root / ".aragora" / "review-queue" / "drift"
