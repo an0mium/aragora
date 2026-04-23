@@ -190,6 +190,26 @@ class MockAuthUser:
 # ===========================================================================
 
 
+@pytest.fixture(autouse=True)
+def _reset_marketplace_circuit_breaker():
+    """Reset the module-level marketplace circuit breaker around each test.
+
+    The marketplace handler guards every endpoint with a shared
+    ``MarketplaceCircuitBreaker`` via ``_get_circuit_breaker()``. If an
+    earlier test in the same xdist worker trips the breaker (e.g. a
+    registry-failure path), unrelated tests here then see the breaker
+    open and fail with HTTP 503 instead of the expected status. The
+    leak was observed on main's scheduled ``Tests`` workflow starting
+    2026-04-14 — see issue #6464. Resetting the breaker around each
+    test isolates them from sibling-test pollution.
+    """
+    from aragora.server.handlers.marketplace import reset_marketplace_circuit_breaker
+
+    reset_marketplace_circuit_breaker()
+    yield
+    reset_marketplace_circuit_breaker()
+
+
 @pytest.fixture
 def registry():
     """Create a mock template registry."""
