@@ -23,6 +23,10 @@ Exposes:
   Flag gate: ``ARAGORA_STRESS_TEST_ENABLED`` (default off).
 - DIC-26: belief coherence monitor (:class:`BeliefEntry`,
   :class:`CoherenceReport`, :func:`scan_coherence`)
+- DIC-28: proactive crux gardening (:class:`CruxGardeningResult`,
+  :class:`GardeningReport`, :func:`run_gardening_pass`,
+  :func:`crux_gardening_enabled`)
+  Flag gate: ``ARAGORA_CRUX_GARDENING_ENABLED`` (default off).
 
 See ``docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md`` for the full
 DIC-13..22 + DIC-23..28 sequence and ``docs/status/NEXT_STEPS_CANONICAL.md``
@@ -78,6 +82,15 @@ from .stress_test import (
     run_stress_test,
     stress_test_enabled,
 )
+from .gardening import (
+    CruxGardeningResult,
+    GardeningReport,
+    crux_gardening_enabled,
+    enable_crux_gardening,
+    garden_outstanding_crux,
+    garden_resolved_crux,
+    run_gardening_pass,
+)
 from .truth_map import (
     OrgTruthMapReport,
     build_truth_map,
@@ -87,6 +100,7 @@ from .truth_map import (
 __all__ = [
     "BeliefEntry",
     "ClaimResult",
+    "CruxGardeningResult",
     "ClaimStatus",
     "ClaimVerifier",
     "CoherenceIssue",
@@ -94,6 +108,7 @@ __all__ = [
     "CruxEntry",
     "CruxReceipt",
     "DEFAULT_CRUX_LOAD_BEARING_THRESHOLD",
+    "GardeningReport",
     "DEFAULT_DELTA_LOSS_THRESHOLD",
     "DecayReason",
     "DecaySignal",
@@ -108,6 +123,11 @@ __all__ = [
     "IncoherenceKind",
     "apply_quarantine_policy",
     "build_crux_receipt",
+    "crux_gardening_enabled",
+    "enable_crux_gardening",
+    "garden_outstanding_crux",
+    "garden_resolved_crux",
+    "run_gardening_pass",
     "build_truth_map",
     "build_truth_map_from_manifests",
     "coherence_monitor_enabled",
