@@ -354,7 +354,7 @@ class TestFindings:
 
     def test_kimi_findings_dispatch(self) -> None:
         agent = _make_mock_agent(
-            model="moonshotai/kimi-k2-0905",
+            model="moonshotai/kimi-k2.6",
             response_text=_findings_payload_json("approve", slot_id="kimi_heterodox"),
             tokens_in=1500,
             tokens_out=700,
@@ -371,7 +371,7 @@ class TestFindings:
             lens="heterodox",
         )
         result = invoker.findings(slot=slot, provider="kimi", prompt="p", binding=_binding())
-        assert result.model == "moonshotai/kimi-k2-0905"
+        assert result.model == "moonshotai/kimi-k2.6"
         assert result.cost_usd > 0
 
     def test_qwen_findings_dispatch(self) -> None:
@@ -485,7 +485,7 @@ class TestCritique:
             (FAMILY_GEMINI, "gemini-3.1-pro-preview", "gemini"),
             (FAMILY_GROK, "grok-4.2", "grok"),
             (FAMILY_DEEPSEEK, "deepseek/deepseek-chat", "deepseek"),
-            (FAMILY_KIMI, "moonshotai/kimi-k2-0905", "kimi"),
+            (FAMILY_KIMI, "moonshotai/kimi-k2.6", "kimi"),
             (FAMILY_QWEN, "qwen/qwen3-235b-a22b", "qwen"),
             (FAMILY_MISTRAL, "mistral-large-2512", "mistral"),
         ]
@@ -722,11 +722,11 @@ class TestNewFamilyCostTracking:
     def test_kimi_k2_cost(self) -> None:
         assert (
             estimate_cost_usd(
-                model="moonshotai/kimi-k2-0905",
+                model="moonshotai/kimi-k2.6",
                 tokens_in=1_000_000,
                 tokens_out=1_000_000,
             )
-            == pytest.approx(2.87)  # 0.57 + 2.30
+            == pytest.approx(5.3998)  # 0.7448 + 4.655
         )
 
     def test_qwen3_235b_cost(self) -> None:
