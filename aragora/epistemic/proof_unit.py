@@ -11,11 +11,17 @@ receipt model so downstream tooling can join across all three.
 
 from __future__ import annotations
 
+import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
+
+_SCAN_FLAG = "ARAGORA_PROOF_UNIT_SCAN_ENABLED"
 
 _DECAY_ACTIONS = frozenset({"report_only", "repair_required", "fail_closed"})
 _FALLBACK_ACTIONS = frozenset({"fail_closed", "degrade", "report_only"})
@@ -146,3 +152,37 @@ def load_proof_unit_from_yaml(path: Path) -> ProofCarryingCodeUnit:
     if errors:
         raise ValueError(f"Invalid proof unit at {path}: {errors}")
     return unit
+
+
+def proof_unit_scan_enabled() -> bool:
+    """Return True when the directory scanner should load proof-unit manifests.
+
+    Reads ``ARAGORA_PROOF_UNIT_SCAN_ENABLED`` from the process environment.
+    Default is *False*; dataclass construction is always safe regardless of
+    this flag.
+    """
+    raw = str(os.environ.get(_SCAN_FLAG) or "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def enable_proof_unit_scan() -> None:
+    """Enable the proof-unit directory scanner for the current process."""
+    os.environ[_SCAN_FLAG] = "1"
+
+
+def load_proof_units_from_dir(base: Path) -> list[ProofCarryingCodeUnit]:
+    """Load all valid ``*.yaml`` proof-unit manifests under *base*.
+
+    Returns an empty list when :func:`proof_unit_scan_enabled` is *False*
+    (default), so callers never need to guard this call themselves.
+    Invalid manifests are logged and skipped rather than raising.
+    """
+    if not proof_unit_scan_enabled():
+        return []
+    units: list[ProofCarryingCodeUnit] = []
+    for path in sorted(base.glob("*.yaml")):
+        try:
+            units.append(load_proof_unit_from_yaml(path))
+        except (ValueError, KeyError, TypeError) as exc:
+            logger.warning("skipping invalid proof unit %s: %s", path, exc)
+    return units
