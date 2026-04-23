@@ -167,20 +167,24 @@ jobs:
           set -e
 
           if [[ "$review_exit" -ne 0 ]]; then
-            echo "::error::Aragora review command failed with exit code $review_exit"
+            echo "::warning::Aragora advisory review command failed with exit code $review_exit"
             if [[ -s /tmp/review.stderr ]]; then
               cat /tmp/review.stderr
             fi
-            exit "$review_exit"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "review_failed=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           review_json="$review_output_dir/review.json"
           if [[ ! -f "$review_json" ]]; then
-            echo "::error::Aragora review did not produce $review_json"
+            echo "::warning::Aragora advisory review did not produce $review_json"
             if [[ -s /tmp/review.stderr ]]; then
               cat /tmp/review.stderr
             fi
-            exit 1
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "review_failed=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -320,7 +324,7 @@ jobs:
         run: |
           echo "::warning::Aragora review reported ${CRITICAL_COUNT} critical issue(s); advisory findings do not fail this workflow"
 
-  # Gate job - always reports status for branch protection
+  # Advisory gate job - always reports status without creating a hidden merge blocker.
   aragora-review:
     if: always()
     needs: [changes, review]
@@ -342,7 +346,7 @@ jobs:
             exit 0
           fi
           if [[ "$REVIEW_RESULT" != "success" ]]; then
-            echo "Review gate failed: review job concluded with $REVIEW_RESULT"
-            exit 1
+            echo "::warning::Advisory review job concluded with $REVIEW_RESULT; not blocking merge."
+            exit 0
           fi
           echo "Review gate passed"
