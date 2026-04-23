@@ -30,58 +30,60 @@ Runners that have an `~/actions-runner` install + LaunchAgent + live `Runner.Lis
 
 | Local config name | Host | IP | Agent ID | Diagnosis |
 |---|---|---|---|---|
-| `macbook-m1-16gb` | MacBook-Pro16GB.local | 10.0.0.170 | 33 | Blocked by Tailscale secondary default route (see below) |
-| `macbook-intel-64gb` | MacBook-Pro-3.local | 10.0.0.193 | 34 | Same — both on the same LAN / Tailscale config |
+| `macbook-m1-16gb` | MacBook-Pro16GB.local | 10.0.0.170 | 33 | TCP port exhaustion — needs reboot |
+| `macbook-intel-64gb` | MacBook-Pro-3.local | 10.0.0.193 | 34 | Same class; not separately verified |
 
-### Root cause: Tailscale secondary default route captures outbound TCP
+### Root cause: kernel ephemeral-port exhaustion via TIME_WAIT accumulation
 
-On the founder's local LAN, Tailscale has installed a **second default route** via `utun4` that sits alongside the real `10.0.0.1 → en0` default:
+Verified on MacBook-Pro16GB.local on 2026-04-23:
 
-```
-Internet:
-Destination        Gateway            Flags               Netif
-default            10.0.0.1           UGScg                 en0
-default            link#33            UCSIg               utun4    <-- Tailscale
-```
+- **Uptime: 93 days** (no reboot since January)
+- **TCP table total entries: 33,204**
+- **TIME_WAIT entries: 31,857**
+- **Ephemeral port range: 49152–65535** (16,384 ports)
+- **`connect() from 127.0.0.1` fails** — even Tailscale's own CLI gets `EADDRNOTAVAIL` hitting its local daemon at `127.0.0.1:57246`
+- `ping 10.0.0.1` works (ICMP doesn't need a source port)
 
-Symptoms (verified on both Macs, 2026-04-23):
+The kernel has burned through the ephemeral port range with 32K stuck TIME_WAITs. Any new outbound TCP call — local or remote — fails with `EADDRNOTAVAIL` at the source-port-allocation step, before a SYN ever goes out.
 
-- `ping 10.0.0.1` and `ping 8.8.8.8` work — **ICMP traverses the en0 default correctly**
-- `curl https://...` to ANY host returns `http=000` — **TCP connect() fails with `Can't assign requested address` (EADDRNOTAVAIL, errno 49)**
-- `nc -vz 20.246.184.240 443` reports the same EADDRNOTAVAIL
-- DNS resolution is healthy (IPv4 A records resolve; AAAA lookups fail but that's a symptom, not the cause)
+What was previously attributed to "IPv6 DNS" and "Tailscale default route" was misdiagnosis: the `Can't assign requested address` error message in the runner's log IS a port-allocation failure, and the two default-route entries in `netstat` are unrelated (the en0 default is used for the packets that actually succeed, like ping).
 
-The kernel selects utun4 for the TCP source address because it's the second default route; utun4 only has a link-local IPv6 address (`fe80::...%utun4`) so there's no valid IPv4 source to bind, and connect() fails before the first SYN.
+### Why TIME_WAITs accumulated
 
-The runner's earlier log entries that blamed IPv6 (`Can't assign requested address (pipelinesghubeus7.actions.githubusercontent.com:443)`) are a downstream manifestation of the same routing issue — the error text includes the hostname but the actual failure is at TCP bind, not DNS.
+Not definitively diagnosed. Candidates:
 
-### Fix (requires founder intervention)
+1. The `Runner.Listener` retry loop has been active ~2 months; each retry may complete a TCP 4-way handshake before aborting, leaving a TIME_WAIT each time. 2 months × 2-per-minute × 30s MSL window = possible backlog if many connections pile up.
+2. Another process on the Mac churns local connections faster than MSL drains them.
 
-This is a Tailscale configuration issue, NOT a runner configuration issue. The two Macs cannot make outbound TCP connections to ANY host until the Tailscale routing is corrected. Options, in increasing order of scope:
+Identifying the exact source requires cleared state — easier to reboot and re-measure over a week than to forensically unwind 93 days of cruft.
 
-1. **Disable Tailscale on the affected Macs** (`tailscale down` or via the menubar UI). Default route via utun4 disappears; runners immediately work. Cost: loses Tailscale overlay on those Macs.
-2. **Reconfigure Tailscale to not claim a default route.** If Tailscale is running with `--accept-routes` + an exit-node advertisement that's installing the default, either disable the exit-node use or remove the advertisement. Typical command: `tailscale set --exit-node=` (unset exit node).
-3. **Advertise specific subnet routes only** instead of a default. Keeps Tailscale overlay for its intended purpose without capturing the whole default.
+### Fix: reboot
 
-Once the secondary default is removed, the existing runner installs will phone home within 60s of the next retry (30s retry interval already configured).
-
-### After applying the fix
+Nothing short of a reboot clears the TCP state table. `sysctl -w net.inet.tcp.msl=1000` was attempted live (lowering MSL from 15s to 1s) but only affects **new** TIME_WAITs — existing ones sit on their original 15-second timers and, with ~32K of them, refill the port range before they drain.
 
 ```bash
-# Verify the extra default is gone:
-netstat -rn -f inet | grep default
-# Should show only: default  10.0.0.1  UGScg  en0
+# On each affected Mac:
+ssh armand@<host>.local
+sudo shutdown -r now
+# Wait ~2 min for reboot; if auto-login is disabled, log in manually so the LaunchAgent runs
+```
 
-# Restart the runner (otherwise it'll wait up to 30s for the next retry):
-launchctl unload ~/Library/LaunchAgents/com.github.actions-runner.plist
-launchctl load ~/Library/LaunchAgents/com.github.actions-runner.plist
+### After reboot
 
-# Check GH API registration within 60s:
+```bash
+# Verify TIME_WAIT count is sane (should be < a few hundred):
+ssh armand@<host>.local "netstat -an -p tcp | awk '\$NF==\"TIME_WAIT\"' | wc -l"
+
+# The LaunchAgent + Runner.Listener autostart on login. Verify via GH API within 60s:
 gh api repos/synaptent/aragora/actions/runners --jq '.runners | map(select(.name | test("macbook"))) | .[].name'
 # Expected: macbook-m1-16gb and macbook-intel-64gb
 ```
 
 Then bump `BASELINE_COUNT` in `.github/workflows/runner-headcount-monitor.yml` from 10 → 12 in a follow-up PR.
+
+### Mitigation for next time (not-yet-opened follow-up)
+
+Add a per-host daily `launchd` job that alerts if `netstat | grep TIME_WAIT | wc -l` crosses a threshold (say 5,000). Catches the condition early before it locks the stack.
 
 ## How to add a runner
 
