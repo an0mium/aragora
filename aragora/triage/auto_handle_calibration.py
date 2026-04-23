@@ -29,6 +29,13 @@ by a per-instance :class:`threading.Lock` because each
 ``sqlite3.connect(":memory:")`` opens a *distinct* database and tests
 that share state across threads need a single shared handle.
 
+The fingerprinting helpers (``fingerprint_low_risk_class``,
+``fingerprint_admin_merge_class``, ``auto_handle_decision_id``, and
+their constants) live in :mod:`aragora.triage.auto_handle_fingerprint`
+and are re-exported here for backwards compatibility; that split was a
+secondary request from the 8/8 Mode 3 panel on #6468 so reviewers can
+reason about domain fingerprints independently of the persistence layer.
+
 Error surface
 -------------
 
@@ -41,7 +48,6 @@ swallowed. Read paths let :class:`sqlite3.Error` bubble directly.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import sqlite3
 import threading
@@ -54,6 +60,15 @@ from pathlib import Path
 from typing import Any
 
 from aragora.persistence.db_config import get_default_data_dir
+from aragora.triage.auto_handle_fingerprint import (
+    AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED,
+    AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+    auto_handle_decision_id,
+    bucket_count,
+    classify_scope,
+    fingerprint_admin_merge_class,
+    fingerprint_low_risk_class,
+)
 
 __all__ = [
     "AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED",
@@ -72,6 +87,8 @@ __all__ = [
     "OUTCOME_REVERT",
     "OUTCOME_SUCCESS",
     "auto_handle_decision_id",
+    "bucket_count",
+    "classify_scope",
     "fingerprint_admin_merge_class",
     "fingerprint_low_risk_class",
 ]
@@ -81,9 +98,6 @@ __all__ = [
 # Module constants
 # ---------------------------------------------------------------------------
 
-
-AUTO_HANDLE_PATH_FIRE_AND_FORGET = "fire_and_forget"
-AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED = "admin_merge_allowed"
 
 DEFAULT_WINDOW_DAYS = 30
 DEFAULT_MIN_SAMPLES = 20
@@ -186,69 +200,12 @@ class AutoHandleDriftAlert:
 # ---------------------------------------------------------------------------
 # Pure helpers (no I/O)
 # ---------------------------------------------------------------------------
-
-
-def bucket_count(value: int) -> str:
-    if value <= 1:
-        return "1"
-    if value <= 3:
-        return "2-3"
-    if value <= 6:
-        return "4-6"
-    return "7+"
-
-
-def classify_scope(paths: list[str]) -> str:
-    roots: list[str] = []
-    for raw in paths:
-        text = str(raw or "").strip().strip("/")
-        if not text:
-            continue
-        head = text.split("/", 1)[0]
-        roots.append(head or "root")
-    unique = sorted(dict.fromkeys(roots))
-    if not unique:
-        return "unknown"
-    return "+".join(unique[:3]) + ("+more" if len(unique) > 3 else "")
-
-
-def fingerprint_low_risk_class(
-    *,
-    changed_files: list[str],
-    review_tier: int | None,
-    lane_count: int,
-) -> str:
-    return (
-        f"tier={review_tier if review_tier is not None else 'unknown'}"
-        f"|lanes={bucket_count(max(lane_count, 0))}"
-        f"|files={bucket_count(len(changed_files))}"
-        f"|scope={classify_scope(changed_files)}"
-    )
-
-
-def fingerprint_admin_merge_class(
-    *,
-    base_branch: str | None,
-    required_checks_count: int,
-    target_kind: str | None,
-) -> str:
-    return (
-        f"base={str(base_branch or 'unknown').strip() or 'unknown'}"
-        f"|checks={bucket_count(max(required_checks_count, 0))}"
-        f"|target={str(target_kind or 'unknown').strip() or 'unknown'}"
-    )
-
-
-def auto_handle_decision_id(*, auto_handle_path: str, pr_url: str, decision_class: str) -> str:
-    payload = "\x1f".join(
-        (
-            str(auto_handle_path or "").strip(),
-            str(pr_url or "").strip(),
-            str(decision_class or "").strip(),
-        )
-    )
-    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
-    return f"{str(auto_handle_path or '').strip()}:{digest}"
+#
+# ``bucket_count``, ``classify_scope``, ``fingerprint_low_risk_class``,
+# ``fingerprint_admin_merge_class``, and ``auto_handle_decision_id`` live in
+# :mod:`aragora.triage.auto_handle_fingerprint`. They are re-exported above
+# so existing imports from ``aragora.triage.auto_handle_calibration`` keep
+# working unchanged.
 
 
 # ---------------------------------------------------------------------------
