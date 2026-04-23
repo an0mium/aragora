@@ -204,7 +204,7 @@ summary = builder.generate_summary(decision)
 #
 # ### Pivotal Votes
 # - claude: JWT (influence: 0.45, ELO: 1523)
-# - gpt4: JWT (influence: 0.35, ELO: 1498)
+# - gpt-5.5: JWT (influence: 0.35, ELO: 1498)
 #
 # ### Confidence Factors
 # - Consensus strength: 40% contribution

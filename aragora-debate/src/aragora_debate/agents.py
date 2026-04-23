@@ -3,7 +3,7 @@
 Install the optional dependency for your provider::
 
     pip install aragora-debate[anthropic]   # Claude
-    pip install aragora-debate[openai]      # GPT-4 / o-series
+    pip install aragora-debate[openai]      # GPT-5.5 / o-series
     pip install aragora-debate[all]         # Both
 
 Usage::
@@ -12,7 +12,7 @@ Usage::
 
     agents = [
         ClaudeAgent("analyst", model="claude-sonnet-4-5-20250929"),
-        OpenAIAgent("challenger", model="gpt-4o"),
+        OpenAIAgent("challenger", model="gpt-5.5"),
     ]
 """
 
@@ -226,7 +226,7 @@ class ClaudeAgent(Agent):
 
 
 # ---------------------------------------------------------------------------
-# OpenAI agent (GPT-4, o-series)
+# OpenAI agent (GPT-5.5, o-series)
 # ---------------------------------------------------------------------------
 
 
@@ -237,7 +237,7 @@ class OpenAIAgent(Agent):
 
     Args:
         name: Agent display name (e.g. ``"challenger"``).
-        model: OpenAI model ID.  Defaults to ``gpt-4o``.
+        model: OpenAI model ID.  Defaults to ``gpt-5.5``.
         api_key: OpenAI API key.  Falls back to ``OPENAI_API_KEY`` env var.
         max_tokens: Maximum tokens per response.
         temperature: Sampling temperature (0-2).
@@ -246,7 +246,7 @@ class OpenAIAgent(Agent):
     def __init__(
         self,
         name: str,
-        model: str = "gpt-4o",
+        model: str = "gpt-5.5",
         *,
         api_key: str | None = None,
         max_tokens: int = 1024,

@@ -100,7 +100,7 @@ def sample_debate_result():
         task="Review security architecture",
         proposals=[
             Proposal(agent_type="claude", content="Use OAuth2"),
-            Proposal(agent_type="gpt4", content="Use JWT"),
+            Proposal(agent_type="gpt-5.5", content="Use JWT"),
         ],
         winner="claude",
         consensus_reached=True,
@@ -389,11 +389,11 @@ class TestStigmergicSignal:
             emitter_agent_id="claude",
         )
 
-        signal.reinforce("gpt4")
+        signal.reinforce("gpt-5.5")
 
         assert signal.reinforcement_count == 1
         assert signal.intensity == pytest.approx(0.8)  # +0.1, use approx for float
-        assert "gpt4" in signal.reinforcing_agents
+        assert "gpt-5.5" in signal.reinforcing_agents
 
     def test_age_days(self):
         """Test age calculation."""
@@ -418,7 +418,7 @@ class TestStigmergicSignal:
             content="Agents disagreed strongly",
             intensity=0.9,
             reinforcement_count=3,
-            reinforcing_agents=["claude", "gpt4"],
+            reinforcing_agents=["claude", "gpt-5.5"],
         )
 
         data = signal.to_dict()
@@ -478,7 +478,7 @@ class TestStigmergyManager:
             target_id="fact_001",
             target_type="fact",
             content="More caution",
-            agent_id="gpt4",
+            agent_id="gpt-5.5",
             workspace_id="ws_001",
         )
 
@@ -488,7 +488,7 @@ class TestStigmergyManager:
         # Signal should be reinforced
         signal = await stigmergy_manager.get_signal(signal_id_1)
         assert signal.reinforcement_count == original_count + 1
-        assert "gpt4" in signal.reinforcing_agents
+        assert "gpt-5.5" in signal.reinforcing_agents
 
     @pytest.mark.asyncio
     async def test_get_signals_for_target(self, stigmergy_manager):
@@ -498,7 +498,7 @@ class TestStigmergyManager:
             SignalType.ATTENTION, "fact_001", "fact", "Review needed", "claude", "ws_001"
         )
         await stigmergy_manager.emit_signal(
-            SignalType.INSIGHT, "fact_001", "fact", "Found something", "gpt4", "ws_001"
+            SignalType.INSIGHT, "fact_001", "fact", "Found something", "gpt-5.5", "ws_001"
         )
 
         signals = await stigmergy_manager.get_signals_for_target("fact_001")
@@ -515,7 +515,7 @@ class TestStigmergyManager:
             SignalType.ATTENTION, "fact_001", "fact", "Review", "claude", "ws_001"
         )
         await stigmergy_manager.emit_signal(
-            SignalType.WARNING, "fact_001", "fact", "Caution", "gpt4", "ws_001"
+            SignalType.WARNING, "fact_001", "fact", "Caution", "gpt-5.5", "ws_001"
         )
 
         signals = await stigmergy_manager.get_signals_for_target(
@@ -534,7 +534,7 @@ class TestStigmergyManager:
             SignalType.ATTENTION, "fact_001", "fact", "Review", "claude", "ws_001"
         )
         await stigmergy_manager.emit_signal(
-            SignalType.WARNING, "fact_002", "fact", "Danger", "gpt4", "ws_001"
+            SignalType.WARNING, "fact_002", "fact", "Danger", "gpt-5.5", "ws_001"
         )
         await stigmergy_manager.emit_signal(
             SignalType.SUCCESS, "fact_003", "fact", "Worked", "gemini", "ws_001"
@@ -558,7 +558,7 @@ class TestStigmergyManager:
             SignalType.INSIGHT, "fact_001", "fact", "Discovery", "claude", "ws_001"
         )
 
-        result = await stigmergy_manager.reinforce_signal(signal_id, "gpt4")
+        result = await stigmergy_manager.reinforce_signal(signal_id, "gpt-5.5")
 
         assert result is True
 
@@ -1024,7 +1024,7 @@ class TestDebateObservation:
         obs = DebateObservation(
             debate_id="debate_001",
             topic="Security review",
-            participating_agents=["claude", "gpt4"],
+            participating_agents=["claude", "gpt-5.5"],
             winning_agents=["claude"],
             rounds_to_consensus=3,
             consensus_reached=True,

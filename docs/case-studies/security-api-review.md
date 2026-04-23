@@ -18,7 +18,7 @@ aragora gauntlet api-spec.md --persona security --profile thorough
 - Persona: Security Red Team
 - Profile: Thorough (6 adversarial rounds)
 - Focus: API security, authentication, data exposure
-- Models: Claude, GPT-4, Gemini (heterogeneous validation)
+- Models: Claude, GPT-5.5, Gemini (heterogeneous validation)
 
 ## Types of Issues Gauntlet Can Identify
 

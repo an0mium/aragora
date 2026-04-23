@@ -38,7 +38,7 @@ def mock_snapshot():
     snapshot.round_num = 2
     snapshot.task = "Discuss AI safety"
     snapshot.current_confidence = 0.35
-    snapshot.agent_names = ["claude", "gpt4"]
+    snapshot.agent_names = ["claude", "gpt-5.5"]
     return snapshot
 
 

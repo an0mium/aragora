@@ -147,7 +147,7 @@ describe('HistoryPanel', () => {
             task: 'Test debate task',
             consensus_reached: true,
             confidence: 0.85,
-            agents: ['claude', 'gpt4'],
+            agents: ['claude', 'gpt-5.5'],
           },
           {
             id: '2',
@@ -168,7 +168,7 @@ describe('HistoryPanel', () => {
       expect(screen.getByText('design (C2)')).toBeInTheDocument();
       expect(screen.getByText('[85%]')).toBeInTheDocument();
       expect(screen.getByText('[NO_CONSENSUS]')).toBeInTheDocument();
-      expect(screen.getByText('agents: claude, gpt4')).toBeInTheDocument();
+      expect(screen.getByText('agents: claude, gpt-5.5')).toBeInTheDocument();
     });
   });
 

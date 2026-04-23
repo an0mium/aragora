@@ -755,7 +755,7 @@ class TestIntegration:
             "debate_start",
             debate_id="debate-1",
             task="Design system",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
         )
 
         # Verify all components notified

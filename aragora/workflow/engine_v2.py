@@ -25,7 +25,7 @@ Usage:
     # Create and run a pattern-based workflow
     workflow = HiveMindPattern.create(
         name="Contract Review",
-        agents=["claude", "gpt4", "gemini"],
+        agents=["claude", "gpt-5.5", "gemini"],
         task="Analyze this contract for risks",
     )
 
@@ -71,10 +71,7 @@ MODEL_PRICING = {
     "claude-3-5-sonnet": {"input": 0.003, "output": 0.015},
     "claude": {"input": 0.003, "output": 0.015},  # Default to sonnet
     # OpenAI
-    "gpt-4": {"input": 0.03, "output": 0.06},
-    "gpt-4-turbo": {"input": 0.01, "output": 0.03},
-    "gpt-4o": {"input": 0.005, "output": 0.015},
-    "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
+    "gpt-5.5": {"input": 0.0025, "output": 0.010},
     # Google
     "gemini-pro": {"input": 0.00025, "output": 0.0005},
     "gemini": {"input": 0.00025, "output": 0.0005},

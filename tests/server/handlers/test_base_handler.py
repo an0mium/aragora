@@ -231,8 +231,8 @@ class TestGetAgentName:
         """get_agent_name extracts agent_name from dict."""
         from aragora.server.handlers.base import get_agent_name
 
-        agent = {"agent_name": "gpt4"}
-        assert get_agent_name(agent) == "gpt4"
+        agent = {"agent_name": "gpt-5.5"}
+        assert get_agent_name(agent) == "gpt-5.5"
 
     def test_get_agent_name_from_object(self):
         """get_agent_name extracts name from object."""

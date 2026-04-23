@@ -165,7 +165,7 @@ def init_debate_slo_metrics() -> bool:
         AGENT_RESPONSE_TIME = Histogram(
             "aragora_agent_response_time_seconds",
             "Per-agent response time (seconds)",
-            ["model", "phase"],  # model: claude, gpt-4, etc. phase: proposal, critique, vote
+            ["model", "phase"],  # model: claude, gpt-5.5, etc. phase: proposal, critique, vote
             buckets=[0.5, 1, 2, 5, 10, 30, 60, 120, 180],
         )
 
@@ -280,7 +280,7 @@ def record_agent_response_time(
     and optimizing agent selection.
 
     Args:
-        model: Model/agent name (e.g., "claude", "gpt-4", "gemini")
+        model: Model/agent name (e.g., "claude", "gpt-5.5", "gemini")
         latency_seconds: Response time in seconds
         phase: Debate phase - one of:
             - "proposal": Initial proposal generation
@@ -311,10 +311,10 @@ def _normalize_model_name(model: str) -> str:
         if "haiku" in model_lower:
             return "claude-haiku"
         return "claude"
-    if "gpt-4" in model_lower:
-        return "gpt-4"
-    if "gpt-3" in model_lower:
-        return "gpt-3.5"
+    if "gpt-5.5" in model_lower:
+        return "gpt-5.5"
+    if "gpt-5.5" in model_lower:
+        return "gpt-5.5"
     if "gemini" in model_lower:
         return "gemini"
     if "grok" in model_lower:

@@ -241,7 +241,7 @@ def test_with_mock_storage(mock_storage):
     assert len(debates) == 2
 
 def test_with_mock_agents(mock_agents):
-    """Uses list of 3 mock agents: claude, gemini, gpt4."""
+    """Uses list of 3 mock agents: claude, gemini, gpt-5.5."""
     assert len(mock_agents) == 3
 
 def test_requiring_api_keys(mock_api_keys):

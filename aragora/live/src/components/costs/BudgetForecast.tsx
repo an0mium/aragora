@@ -406,7 +406,7 @@ function SimulationPanel({ workspaceId }: SimulationPanelProps) {
           >
             <option value="">No change</option>
             <option value="haiku">Switch to Haiku</option>
-            <option value="mini">Switch to GPT-4o-mini</option>
+            <option value="mini">Switch to GPT-5.5</option>
             <option value="sonnet">Switch to Sonnet</option>
           </select>
         </div>

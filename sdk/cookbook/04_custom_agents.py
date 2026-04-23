@@ -36,7 +36,7 @@ async def run_custom_agents_debate(topic: str, dry_run: bool = False) -> dict:
 
     performance_expert = Agent(
         name="performance_engineer",
-        model="gpt-4o",
+        model="gpt-5.5",
         persona=AgentPersona(
             role="Performance Engineer",
             expertise=["scalability", "optimization", "distributed systems"],

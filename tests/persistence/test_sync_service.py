@@ -130,12 +130,12 @@ def create_sample_debate_data() -> dict[str, Any]:
         "cycle_number": 1,
         "phase": "debate",
         "task": "Test task",
-        "agents": ["claude", "gpt4"],
+        "agents": ["claude", "gpt-5.5"],
         "transcript": "Discussion transcript",
         "consensus_reached": True,
         "confidence": 0.85,
         "winning_proposal": "Proposal A",
-        "vote_tally": {"claude": 1, "gpt4": 1},
+        "vote_tally": {"claude": 1, "gpt-5.5": 1},
     }
 
 

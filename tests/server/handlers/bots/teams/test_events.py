@@ -164,7 +164,7 @@ class TestAgentDisplayNames:
         from aragora.server.handlers.bots.teams.events import AGENT_DISPLAY_NAMES
 
         assert "claude" in AGENT_DISPLAY_NAMES
-        assert "gpt4" in AGENT_DISPLAY_NAMES
+        assert "gpt-5.5" in AGENT_DISPLAY_NAMES
         assert "gemini" in AGENT_DISPLAY_NAMES
 
 

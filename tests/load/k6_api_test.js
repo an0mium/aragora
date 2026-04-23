@@ -83,7 +83,7 @@ export function getAgentRankings() {
 export function createDebate() {
   const payload = JSON.stringify({
     task: `Load test debate ${Date.now()}`,
-    agents: ["claude", "gpt4"],
+    agents: ["claude", "gpt-5.5"],
     protocol: {
       rounds: 2,
       consensus_mode: "majority",

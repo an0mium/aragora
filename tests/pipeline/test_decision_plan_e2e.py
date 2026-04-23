@@ -68,7 +68,7 @@ def make_debate_result(
         confidence=confidence,
         consensus_reached=consensus_reached,
         rounds_used=3,
-        participants=["claude", "gpt4", "gemini"],
+        participants=["claude", "gpt-5.5", "gemini"],
         total_cost_usd=total_cost_usd,
         critiques=critiques or [],
     )
@@ -289,7 +289,7 @@ class TestGoldPathE2E:
         # Create debate with critical critique (high risk)
         critiques = [
             Critique(
-                agent="gpt4",
+                agent="gpt-5.5",
                 target_agent="claude",
                 target_content="migration plan",
                 issues=["No rollback strategy", "Production data at risk"],

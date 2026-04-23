@@ -47,7 +47,7 @@ On 429 (rate limit) errors:
 2. Automatically route to OpenRouter
 3. Use equivalent model mapping:
    - Claude -> claude-3-opus (via OpenRouter)
-   - GPT-4 -> gpt-4-turbo (via OpenRouter)
+   - GPT-5.5 -> gpt-5.5 (via OpenRouter)
 
 ### Layer 3: Airlock Proxy
 Located in `aragora/agents/airlock.py`:
@@ -61,7 +61,7 @@ Located in `aragora/agents/airlock.py`:
 ```python
 OPENROUTER_FALLBACKS = {
     "anthropic": "anthropic/claude-3-opus",
-    "openai": "openai/gpt-4-turbo",
+    "openai": "openai/gpt-5.5",
     "google": "google/gemini-pro",
 }
 ```

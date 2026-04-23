@@ -191,7 +191,7 @@ class TestListReplays:
 
     def test_list_with_replays(self, replays_handler, mock_replay_dir):
         """Returns replays with meta info."""
-        mock_replay_dir("replay-001", topic="First debate", agents=["claude", "gpt4"])
+        mock_replay_dir("replay-001", topic="First debate", agents=["claude", "gpt-5.5"])
         mock_replay_dir("replay-002", topic="Second debate", agents=["gemini"])
 
         result = replays_handler.handle("/api/v1/replays", {}, None)
@@ -208,7 +208,7 @@ class TestListReplays:
 
         assert data[1]["id"] == "replay-001"
         assert data[1]["topic"] == "First debate"
-        assert data[1]["agents"] == ["claude", "gpt4"]
+        assert data[1]["agents"] == ["claude", "gpt-5.5"]
 
     def test_list_skips_malformed_meta(self, replays_handler, mock_nomic_dir):
         """Malformed meta.json files are skipped gracefully."""

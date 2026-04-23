@@ -78,7 +78,7 @@ class TestDebateBeadStructures:
             metadata={
                 "debate_id": "debate_123",
                 "round": 1,
-                "agent": "gpt4",
+                "agent": "gpt-5.5",
                 "operation": "critique",
                 "target_proposal_id": proposal_bead.id,
             },
@@ -116,7 +116,7 @@ class TestDebateBeadStructures:
 
         # Create proposal beads for multiple agents
         proposal_beads = []
-        for agent in ["claude", "gpt4", "gemini"]:
+        for agent in ["claude", "gpt-5.5", "gemini"]:
             bead = Bead.create(
                 bead_type=BeadType.TASK,
                 title=f"Proposal from {agent}",
@@ -329,7 +329,7 @@ class TestEndToEndDebateRound:
         """Test complete proposal phase with multiple agents."""
         debate_id = "e2e_debate"
         round_num = 1
-        agents = ["claude", "gpt4", "gemini"]
+        agents = ["claude", "gpt-5.5", "gemini"]
 
         # Create proposal beads for each agent
         proposals = []
@@ -381,7 +381,7 @@ class TestEndToEndDebateRound:
 
         # Create completed proposals
         proposals = []
-        for agent in ["claude", "gpt4"]:
+        for agent in ["claude", "gpt-5.5"]:
             bead = Bead.create(
                 bead_type=BeadType.TASK,
                 title=f"Proposal from {agent}",
@@ -393,7 +393,7 @@ class TestEndToEndDebateRound:
         # Create critiques with dependencies
         critiques = []
         for i, proposal in enumerate(proposals):
-            critic_agent = "gpt4" if i == 0 else "claude"
+            critic_agent = "gpt-5.5" if i == 0 else "claude"
             critique = Bead.create(
                 bead_type=BeadType.TASK,
                 title=f"Critique from {critic_agent}",
@@ -429,7 +429,7 @@ class TestEndToEndDebateRound:
     def test_voting_phase_with_decision_beads(self):
         """Test voting phase using decision beads."""
         debate_id = "vote_test"
-        agents = ["claude", "gpt4", "gemini"]
+        agents = ["claude", "gpt-5.5", "gemini"]
 
         # Create vote beads
         votes = []

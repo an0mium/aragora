@@ -34,11 +34,11 @@ def sample_replay():
         "rounds_used": 3,
         "confidence": 0.85,
         "consensus_reached": True,
-        "agents": ["claude", "gpt4", "gemini"],
+        "agents": ["claude", "gpt-5.5", "gemini"],
         "final_answer": "Token bucket algorithm with sliding window",
         "messages": [
             {"agent": "claude", "content": "I propose using token bucket", "round": 1},
-            {"agent": "gpt4", "content": "Good idea, with modifications", "round": 1},
+            {"agent": "gpt-5.5", "content": "Good idea, with modifications", "round": 1},
         ],
         "critiques": [
             {"critic": "gemini", "content": "Consider edge cases"},
@@ -287,7 +287,7 @@ class TestShowReplay:
         assert f"Replay: {replay_file.stem}" in captured.out
         assert "Task: Design a rate limiter" in captured.out
         assert "Consensus: Yes" in captured.out
-        assert "claude, gpt4, gemini" in captured.out
+        assert "claude, gpt-5.5, gemini" in captured.out
 
     def test_shows_final_answer(self, replay_file, capsys):
         """Show final answer section."""

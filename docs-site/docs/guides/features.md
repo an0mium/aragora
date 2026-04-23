@@ -1353,7 +1353,7 @@ topics = await manager.get_trending_topics(
 # Select best topic for debate
 best = manager.select_topic_for_debate(topics)
 prompt = best.to_debate_prompt()
-# "Debate the implications of trending topic: 'OpenAI announces GPT-5' (hackernews, 521 engagement)"
+# "Debate the implications of trending topic: 'OpenAI announces GPT-5.5' (hackernews, 521 engagement)"
 ```
 
 **Platform Support:**

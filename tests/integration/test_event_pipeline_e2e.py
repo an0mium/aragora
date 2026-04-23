@@ -293,7 +293,7 @@ class TestEventSchemaFields:
         payload = DebateStartPayload(
             debate_id="d-3",
             question="What is the best API design?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
         )
         errors = validate_event(StreamEventType.DEBATE_START, payload.to_dict())
         assert errors == []

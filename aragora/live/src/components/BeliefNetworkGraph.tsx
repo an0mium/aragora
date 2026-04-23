@@ -50,7 +50,7 @@ interface BeliefNetworkGraphProps {
 
 const authorColors: Record<string, string> = {
   claude: '#a855f7',
-  gpt4: '#22c55e',
+  gpt-5.5: '#22c55e',
   gemini: '#3b82f6',
   deepseek: '#f97316',
   mistral: '#ec4899',

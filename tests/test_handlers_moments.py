@@ -107,8 +107,8 @@ class TestSummaryEndpoint:
             "claude": [
                 MockMoment("m1", "upset_victory", "claude", "Won upset", 0.8, "d1"),
             ],
-            "gpt4": [
-                MockMoment("m2", "position_reversal", "gpt4", "Reversed", 0.6, "d2"),
+            "gpt-5.5": [
+                MockMoment("m2", "position_reversal", "gpt-5.5", "Reversed", 0.6, "d2"),
             ],
         }
 
@@ -132,8 +132,8 @@ class TestSummaryEndpoint:
                 MockMoment("m1", "upset_victory", "claude", "Won", 0.8, "d1"),
                 MockMoment("m2", "upset_victory", "claude", "Won again", 0.7, "d2"),
             ],
-            "gpt4": [
-                MockMoment("m3", "position_reversal", "gpt4", "Reversed", 0.6, "d3"),
+            "gpt-5.5": [
+                MockMoment("m3", "position_reversal", "gpt-5.5", "Reversed", 0.6, "d3"),
             ],
         }
 
@@ -153,8 +153,8 @@ class TestSummaryEndpoint:
                 MockMoment("m1", "upset_victory", "claude", "Won", 0.8, "d1"),
                 MockMoment("m2", "domain_mastery", "claude", "Mastered", 0.9, "d2"),
             ],
-            "gpt4": [
-                MockMoment("m3", "position_reversal", "gpt4", "Reversed", 0.6, "d3"),
+            "gpt-5.5": [
+                MockMoment("m3", "position_reversal", "gpt-5.5", "Reversed", 0.6, "d3"),
             ],
         }
 
@@ -163,7 +163,7 @@ class TestSummaryEndpoint:
 
         data = json.loads(result.body)
         assert data["by_agent"]["claude"] == 2
-        assert data["by_agent"]["gpt4"] == 1
+        assert data["by_agent"]["gpt-5.5"] == 1
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
     async def test_returns_most_significant(self):
@@ -465,7 +465,7 @@ class TestMomentSerialization:
                     description="Won against strong opponent",
                     significance_score=0.85,
                     debate_id="debate-123",
-                    other_agents=["gpt4", "gemini"],
+                    other_agents=["gpt-5.5", "gemini"],
                     metadata={"elo_diff": 150},
                     created_at="2025-01-01T12:00:00",
                 ),
@@ -484,7 +484,7 @@ class TestMomentSerialization:
         assert moment["description"] == "Won against strong opponent"
         assert moment["significance"] == 0.85
         assert moment["debate_id"] == "debate-123"
-        assert moment["other_agents"] == ["gpt4", "gemini"]
+        assert moment["other_agents"] == ["gpt-5.5", "gemini"]
         assert moment["metadata"] == {"elo_diff": 150}
         assert moment["created_at"] == "2025-01-01T12:00:00"
 

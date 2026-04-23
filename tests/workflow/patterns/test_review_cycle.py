@@ -35,10 +35,10 @@ class TestReviewCyclePatternInit:
 
         pattern = ReviewCyclePattern(name="Test Review")
         assert pattern.name == "Test Review"
-        assert pattern.agents == ["claude", "gpt4"]
+        assert pattern.agents == ["claude", "gpt-5.5"]
         assert pattern.task == ""
         assert pattern.draft_agent == "claude"
-        assert pattern.review_agent == "gpt4"
+        assert pattern.review_agent == "gpt-5.5"
         assert pattern.max_iterations == 3
         assert pattern.convergence_threshold == 0.85
         assert pattern.review_criteria == ["quality", "completeness", "accuracy"]
@@ -66,7 +66,7 @@ class TestReviewCyclePatternInit:
 
         pattern = ReviewCyclePattern(name="Single", agents=["gemini"])
         assert pattern.draft_agent == "gemini"
-        assert pattern.review_agent == "gpt4"
+        assert pattern.review_agent == "gpt-5.5"
 
     def test_explicit_draft_agent(self):
         """Test explicit draft_agent overrides agents list."""
@@ -74,7 +74,7 @@ class TestReviewCyclePatternInit:
 
         pattern = ReviewCyclePattern(
             name="Explicit Draft",
-            agents=["gpt4", "mistral"],
+            agents=["gpt-5.5", "mistral"],
             draft_agent="claude",
         )
         assert pattern.draft_agent == "claude"
@@ -86,9 +86,9 @@ class TestReviewCyclePatternInit:
         pattern = ReviewCyclePattern(
             name="Explicit Review",
             agents=["claude", "gemini"],
-            review_agent="gpt4",
+            review_agent="gpt-5.5",
         )
-        assert pattern.review_agent == "gpt4"
+        assert pattern.review_agent == "gpt-5.5"
 
     def test_custom_max_iterations(self):
         """Test custom max_iterations parameter."""
@@ -146,7 +146,7 @@ class TestReviewCyclePatternInit:
 
         pattern = ReviewCyclePattern(name="Test")
         assert pattern.draft_agent == "claude"
-        assert pattern.review_agent == "gpt4"
+        assert pattern.review_agent == "gpt-5.5"
 
     def test_task_parameter(self):
         """Test task parameter is stored."""
@@ -600,13 +600,13 @@ class TestReviewCycleFactory:
         wf = ReviewCyclePattern.create(
             name="Factory Test",
             draft_agent="claude",
-            review_agent="gpt4",
+            review_agent="gpt-5.5",
             max_iterations=4,
             convergence_threshold=0.9,
         )
         assert isinstance(wf, WorkflowDefinition)
         assert wf.metadata["draft_agent"] == "claude"
-        assert wf.metadata["review_agent"] == "gpt4"
+        assert wf.metadata["review_agent"] == "gpt-5.5"
         assert wf.metadata["max_iterations"] == 4
         assert wf.metadata["convergence_threshold"] == 0.9
 

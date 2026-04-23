@@ -20,7 +20,7 @@ interface EndpointDef {
 const API_ENDPOINTS: EndpointDef[] = [
   { method: 'GET', path: '/api/debates', description: 'List all debates' },
   { method: 'GET', path: '/api/debates/:id', description: 'Get debate by ID', params: [{ name: 'id', type: 'string', required: true }] },
-  { method: 'POST', path: '/api/debates', description: 'Create new debate', body: '{\n  "topic": "Should AI be regulated?",\n  "agents": ["claude", "gpt4"],\n  "rounds": 3\n}' },
+  { method: 'POST', path: '/api/debates', description: 'Create new debate', body: '{\n  "topic": "Should AI be regulated?",\n  "agents": ["claude", "gpt-5.5"],\n  "rounds": 3\n}' },
   { method: 'GET', path: '/api/agents', description: 'List available agents' },
   { method: 'GET', path: '/api/agent/:name/stats', description: 'Get agent statistics', params: [{ name: 'name', type: 'string', required: true, default: 'claude' }] },
   { method: 'GET', path: '/api/auth/me', description: 'Get current user info' },
@@ -581,7 +581,7 @@ asyncio.run(main())`}
 {`curl -X POST ${API_BASE}/api/debates \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"topic": "Should AI be regulated?", "agents": ["claude", "gpt4"], "rounds": 3}'`}
+  -d '{"topic": "Should AI be regulated?", "agents": ["claude", "gpt-5.5"], "rounds": 3}'`}
               </pre>
             </div>
 

@@ -1536,7 +1536,7 @@ async def run_gauntlet(
     Example:
         result = await run_gauntlet(
             spec_document,
-            agents=[claude, gpt4, gemini],
+            agents=[claude, gpt-5.5, gemini],
             input_type=InputType.SPEC,
         )
         print(result.verdict)  # APPROVED, NEEDS_REVIEW, or REJECTED

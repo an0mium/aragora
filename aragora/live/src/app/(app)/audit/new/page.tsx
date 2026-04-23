@@ -26,7 +26,7 @@ const AUDIT_TYPES = [
 const MODELS = [
   { id: 'gemini-3-pro', name: 'Gemini 3 Pro', description: '1M token context - best for large documents' },
   { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', description: 'Deep reasoning for complex analysis' },
-  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', description: 'Balanced performance and accuracy' },
+  { id: 'gpt-5.5', name: 'GPT-5.5 Turbo', description: 'Balanced performance and accuracy' },
 ];
 
 function NewAuditContent() {

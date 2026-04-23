@@ -50,7 +50,7 @@ They will never build:
 │  Applications        │ ChatGPT, Claude.ai, Gemini              │
 │  (Commoditizing)     │ → Competing on UX, brand                │
 ├─────────────────────────────────────────────────────────────────┤
-│  Models              │ GPT-4, Claude, Gemini, Llama            │
+│  Models              │ GPT-5.5, Claude, Gemini, Llama            │
 │  (Commoditizing)     │ → Competing on benchmarks               │
 ├─────────────────────────────────────────────────────────────────┤
 │  ARAGORA             │ Decision Integrity Layer                │

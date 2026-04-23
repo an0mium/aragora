@@ -91,7 +91,7 @@ const mockGraphDebate = {
       'node-2': {
         id: 'node-2',
         node_type: 'proposal',
-        agent_id: 'gpt4',
+        agent_id: 'gpt-5.5',
         content: 'Yes, regulate AI',
         timestamp: '2024-01-15T10:01:00Z',
         parent_ids: ['node-1'],

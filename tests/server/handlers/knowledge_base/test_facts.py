@@ -818,7 +818,7 @@ class TestVerifyFact:
             fact_id="fact-001",
             verified=True,
             confidence=0.95,
-            agents_agreed=["claude", "gpt4"],
+            agents_agreed=["claude", "gpt-5.5"],
             agents_disagreed=[],
         )
 

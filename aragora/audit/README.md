@@ -116,7 +116,7 @@ Coordinate multiple AI agents for thorough audits:
 from aragora.audit import AuditHiveMind, HiveMindConfig
 
 hive = AuditHiveMind(config=HiveMindConfig(
-    agents=["claude", "gpt4", "gemini"],
+    agents=["claude", "gpt-5.5", "gemini"],
     consensus_threshold=0.7,
     debate_rounds=2
 ))

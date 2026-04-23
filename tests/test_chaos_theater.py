@@ -269,7 +269,7 @@ class TestMessageVariety:
 
         # Different agents should have independent history
         response1 = director.timeout_response("claude", 60.0)
-        response2 = director.timeout_response("gpt4", 60.0)
+        response2 = director.timeout_response("gpt-5.5", 60.0)
 
         # Both should get messages (history doesn't cross agents)
         assert response1.message is not None

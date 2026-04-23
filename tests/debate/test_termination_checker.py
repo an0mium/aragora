@@ -69,7 +69,7 @@ def mock_agents() -> list[MockAgent]:
     """Create a list of mock agents."""
     return [
         MockAgent(name="claude"),
-        MockAgent(name="gpt4"),
+        MockAgent(name="gpt-5.5"),
         MockAgent(name="gemini"),
     ]
 
@@ -79,7 +79,7 @@ def mock_messages() -> list[MockMessage]:
     """Create mock message context."""
     return [
         MockMessage(role="proposer", agent="claude", content="First proposal"),
-        MockMessage(role="critic", agent="gpt4", content="Critique of first"),
+        MockMessage(role="critic", agent="gpt-5.5", content="Critique of first"),
         MockMessage(role="proposer", agent="gemini", content="Second proposal"),
     ]
 
@@ -89,7 +89,7 @@ def sample_proposals() -> dict[str, str]:
     """Create sample proposals for testing."""
     return {
         "claude": "Proposal: We should implement feature X with approach A.",
-        "gpt4": "Proposal: Feature X is best implemented via approach B.",
+        "gpt-5.5": "Proposal: Feature X is best implemented via approach B.",
         "gemini": "Proposal: Consider hybrid approach combining A and B.",
     }
 
@@ -177,7 +177,7 @@ class TestTerminationResult:
 
     def test_votes_storage(self):
         """Test votes dictionary is stored correctly."""
-        votes = {"claude": True, "gpt4": False, "gemini": True}
+        votes = {"claude": True, "gpt-5.5": False, "gemini": True}
         result = TerminationResult(
             should_terminate=True,
             votes=votes,
@@ -1310,7 +1310,7 @@ class TestEdgeCases:
         """Test long proposals are truncated in prompts."""
         long_proposals = {
             "claude": "P" * 1000,
-            "gpt4": "Q" * 1000,
+            "gpt-5.5": "Q" * 1000,
         }
         checker = TerminationChecker(
             protocol=default_protocol,

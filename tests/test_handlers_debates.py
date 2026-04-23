@@ -113,7 +113,7 @@ def mock_storage():
             },
             {
                 "round": 1,
-                "agent": "gpt4",
+                "agent": "gpt-5.5",
                 "role": "speaker",
                 "content": "I agree.",
                 "timestamp": "2024-01-01T10:10:00Z",

@@ -427,7 +427,7 @@ async def main():
     )
 
     codex = CodexAgent(
-        name="GPT-5.2-Codex",
+        name="GPT-5.5",
         model="o3",  # GPT 5.2 xhigh via codex
         role="proposer",
         timeout=1200,  # Doubled from 600

@@ -47,7 +47,7 @@ def _create_mock_agents(count=3):
     """Create a list of mock agents."""
     agents = []
     roles = ["proposer", "critic", "synthesizer"]
-    names = ["claude", "gpt4", "gemini", "llama", "mistral"]
+    names = ["claude", "gpt-5.5", "gemini", "llama", "mistral"]
     for i in range(count):
         agent = MagicMock(spec=Agent)
         agent.name = names[i % len(names)]

@@ -111,7 +111,7 @@ class TestCreateCheckpointTool:
             ],
             "votes": [],
             "critiques": [],
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "rounds_used": 1,
             "final_answer": "Test answer",
         }

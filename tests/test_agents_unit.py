@@ -166,7 +166,7 @@ class TestCodexResponseExtraction:
         """Test extraction with standard codex header."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="test", model="gpt-5.5")
         raw_output = """codex
 This is the actual response.
 tokens used: 150"""
@@ -177,7 +177,7 @@ tokens used: 150"""
         """Test extraction when no codex header present."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="test", model="gpt-5.5")
         raw_output = "Direct response without header"
         result = agent._extract_codex_response(raw_output)
         assert result == "Direct response without header"
@@ -186,7 +186,7 @@ tokens used: 150"""
         """Test extraction with multiline response."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="test", model="gpt-5.5")
         raw_output = """codex
 Line 1
 Line 2
@@ -295,7 +295,7 @@ class TestOpenAIResponseExtraction:
         """Test extraction from OpenAI JSON response."""
         from aragora.agents.cli_agents import OpenAIAgent
 
-        agent = OpenAIAgent(name="test", model="gpt-4o")
+        agent = OpenAIAgent(name="test", model="gpt-5.5")
         raw_output = '{"choices": [{"message": {"content": "API response"}}]}'
         result = agent._extract_openai_response(raw_output)
         assert result == "API response"
@@ -304,7 +304,7 @@ class TestOpenAIResponseExtraction:
         """Test extraction when no choices in response."""
         from aragora.agents.cli_agents import OpenAIAgent
 
-        agent = OpenAIAgent(name="test", model="gpt-4o")
+        agent = OpenAIAgent(name="test", model="gpt-5.5")
         raw_output = '{"data": "something"}'
         result = agent._extract_openai_response(raw_output)
         assert result == '{"data": "something"}'
@@ -313,7 +313,7 @@ class TestOpenAIResponseExtraction:
         """Test extraction when response is not JSON."""
         from aragora.agents.cli_agents import OpenAIAgent
 
-        agent = OpenAIAgent(name="test", model="gpt-4o")
+        agent = OpenAIAgent(name="test", model="gpt-5.5")
         raw_output = "Plain text response"
         result = agent._extract_openai_response(raw_output)
         assert result == "Plain text response"
@@ -446,8 +446,8 @@ class TestOpenRouterModelMapping:
         from aragora.agents.cli_agents import CLIAgent
 
         mapping = CLIAgent.OPENROUTER_MODEL_MAP
-        assert "gpt-4o" in mapping
-        assert "openai/gpt-4o" in mapping.get("gpt-4o", "")
+        assert "gpt-5.5" in mapping
+        assert "openai/gpt-5.5" in mapping.get("gpt-5.5", "")
 
     def test_gemini_model_mapping(self):
         """Test Gemini models map to OpenRouter correctly."""

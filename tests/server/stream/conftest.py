@@ -177,7 +177,7 @@ def create_debate_start_event(
         type=StreamEventType.DEBATE_START,
         data={
             "task": task,
-            "agents": agents or ["claude", "gpt4", "gemini"],
+            "agents": agents or ["claude", "gpt-5.5", "gemini"],
         },
         loop_id=loop_id,
     )
@@ -314,7 +314,7 @@ def sample_debate_events():
         create_debate_start_event(loop_id),
         create_round_start_event(loop_id, round=1),
         create_agent_message_event(loop_id, "claude", "Initial proposal", 1),
-        create_agent_message_event(loop_id, "gpt4", "Counter-argument", 1),
+        create_agent_message_event(loop_id, "gpt-5.5", "Counter-argument", 1),
         create_consensus_event(loop_id),
         create_debate_end_event(loop_id),
     ]

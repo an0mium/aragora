@@ -114,10 +114,10 @@ class EvidenceLink:
 ```
 Evidence Chain:
 1. [Claude] "Microservices enable independent scaling" (relevance: 0.92)
-   - Cited by: GPT-4, Gemini
+   - Cited by: GPT-5.5, Gemini
    - Quality: accuracy=0.88, specificity=0.85
 
-2. [GPT-4] "Netflix handles 2B API calls/day with microservices" (relevance: 0.85)
+2. [GPT-5.5] "Netflix handles 2B API calls/day with microservices" (relevance: 0.85)
    - Cited by: Claude
    - Grounding: citation (external)
 ```
@@ -144,7 +144,7 @@ Key Votes:
 1. Claude: "adopt" (confidence: 0.82, influence: 0.35)
    Reasoning: Strong evidence for scalability benefits
 
-2. GPT-4: "adopt" (confidence: 0.78, influence: 0.30)
+2. GPT-5.5: "adopt" (confidence: 0.78, influence: 0.30)
    Reasoning: Industry adoption validates approach
    ⚠️ Position flip detected in round 2
 ```
@@ -170,7 +170,7 @@ class BeliefChange:
 **Example output:**
 ```
 Belief Evolution:
-- GPT-4 (Round 2):
+- GPT-5.5 (Round 2):
   Prior: "maintain monolith" (0.65)
   → Posterior: "adopt microservices" (0.78)
   Trigger: "scalability evidence from Claude"

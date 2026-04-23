@@ -266,7 +266,7 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/relationships/stats") is True
 
     def test_pair_route(self, handler):
-        assert handler.can_handle("/api/v1/relationship/claude/gpt4") is True
+        assert handler.can_handle("/api/v1/relationship/claude/gpt-5.5") is True
 
     def test_pair_route_with_dashes(self, handler):
         assert handler.can_handle("/api/v1/relationship/agent-a/agent-b") is True
@@ -523,7 +523,7 @@ class TestSummaryEndpoint:
         """Summary with actual data computes scores."""
         rows = [
             # rivalry pair: 20 debates, 0 agreement, equal wins
-            ("claude", "gpt4", 20, 0, 10, 10),
+            ("claude", "gpt-5.5", 20, 0, 10, 10),
             # alliance pair: 10 debates, 10 agreements
             ("gemini", "mistral", 10, 10, 0, 0),
         ]
@@ -543,7 +543,7 @@ class TestSummaryEndpoint:
         assert _status(result) == 200
         assert body["total_relationships"] == 2
         assert body["strongest_rivalry"] is not None
-        assert body["strongest_rivalry"]["agents"] == ["claude", "gpt4"]
+        assert body["strongest_rivalry"]["agents"] == ["claude", "gpt-5.5"]
         assert body["strongest_alliance"] is not None
         assert body["avg_rivalry_score"] > 0
         assert body["avg_alliance_score"] > 0
@@ -551,7 +551,7 @@ class TestSummaryEndpoint:
     def test_most_connected_agent(self, tmp_path, mock_http_handler):
         """The agent in most pairs should be most_connected."""
         rows = [
-            ("claude", "gpt4", 5, 1, 2, 2),
+            ("claude", "gpt-5.5", 5, 1, 2, 2),
             ("claude", "gemini", 5, 1, 2, 2),
             ("claude", "mistral", 5, 1, 2, 2),
         ]
@@ -646,7 +646,7 @@ class TestGraphEndpoint:
     def test_graph_with_data(self, tmp_path, mock_http_handler):
         """Graph returns nodes and edges."""
         rows = [
-            ("claude", "gpt4", 20, 0, 10, 10),
+            ("claude", "gpt-5.5", 20, 0, 10, 10),
         ]
         db_path = _create_db(tmp_path, rows)
         tracker = MagicMock()
@@ -666,7 +666,7 @@ class TestGraphEndpoint:
         assert body["stats"]["edge_count"] == 1
         edge = body["edges"][0]
         assert edge["source"] == "claude"
-        assert edge["target"] == "gpt4"
+        assert edge["target"] == "gpt-5.5"
         assert edge["debate_count"] == 20
         assert "rivalry_score" in edge
         assert "alliance_score" in edge
@@ -675,7 +675,7 @@ class TestGraphEndpoint:
     def test_min_debates_filter(self, tmp_path, mock_http_handler):
         """min_debates query param filters out low-count rows."""
         rows = [
-            ("claude", "gpt4", 20, 0, 10, 10),
+            ("claude", "gpt-5.5", 20, 0, 10, 10),
             ("alice", "bob", 2, 1, 1, 0),  # below min_debates=3
         ]
         db_path = _create_db(tmp_path, rows)
@@ -719,7 +719,7 @@ class TestGraphEndpoint:
     def test_graph_node_counters(self, tmp_path, mock_http_handler):
         """Nodes track rivals/allies counters."""
         rows = [
-            ("claude", "gpt4", 20, 0, 10, 10),  # rivalry
+            ("claude", "gpt-5.5", 20, 0, 10, 10),  # rivalry
             ("claude", "gemini", 20, 20, 0, 0),  # alliance
         ]
         db_path = _create_db(tmp_path, rows)
@@ -795,7 +795,7 @@ class TestStatsEndpoint:
     def test_stats_with_data(self, tmp_path, mock_http_handler):
         """Stats with actual relationship data."""
         rows = [
-            ("claude", "gpt4", 20, 0, 10, 10),  # rivalry
+            ("claude", "gpt-5.5", 20, 0, 10, 10),  # rivalry
             ("gemini", "mistral", 10, 10, 0, 0),  # alliance
             ("alice", "bob", 5, 2, 2, 1),  # neutral (scores below threshold)
         ]
@@ -819,7 +819,7 @@ class TestStatsEndpoint:
     def test_most_debated_pair(self, tmp_path, mock_http_handler):
         """most_debated_pair tracks the pair with most debates."""
         rows = [
-            ("claude", "gpt4", 50, 0, 25, 25),
+            ("claude", "gpt-5.5", 50, 0, 25, 25),
             ("alice", "bob", 5, 2, 2, 1),
         ]
         db_path = _create_db(tmp_path, rows)
@@ -835,13 +835,13 @@ class TestStatsEndpoint:
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
-        assert body["most_debated_pair"]["agents"] == ["claude", "gpt4"]
+        assert body["most_debated_pair"]["agents"] == ["claude", "gpt-5.5"]
         assert body["most_debated_pair"]["debates"] == 50
 
     def test_highest_agreement_pair(self, tmp_path, mock_http_handler):
         """highest_agreement_pair tracks pair with best agreement rate."""
         rows = [
-            ("claude", "gpt4", 10, 9, 0, 0),  # 90% agreement
+            ("claude", "gpt-5.5", 10, 9, 0, 0),  # 90% agreement
             ("alice", "bob", 10, 5, 3, 2),  # 50% agreement
         ]
         db_path = _create_db(tmp_path, rows)
@@ -857,7 +857,7 @@ class TestStatsEndpoint:
         ):
             result = self._call(h, mock_http_handler)
         body = _body(result)
-        assert body["highest_agreement_pair"]["agents"] == ["claude", "gpt4"]
+        assert body["highest_agreement_pair"]["agents"] == ["claude", "gpt-5.5"]
         assert body["highest_agreement_pair"]["rate"] == pytest.approx(0.9)
 
     def test_highest_agreement_requires_min_debates(self, tmp_path, mock_http_handler):
@@ -883,7 +883,7 @@ class TestStatsEndpoint:
     def test_rivalry_and_alliance_counts(self, tmp_path, mock_http_handler):
         """Verify correct classification counts."""
         rows = [
-            ("claude", "gpt4", 20, 0, 10, 10),  # rivalry (high rivalry score)
+            ("claude", "gpt-5.5", 20, 0, 10, 10),  # rivalry (high rivalry score)
             ("gemini", "mistral", 20, 20, 0, 0),  # alliance (high alliance)
         ]
         db_path = _create_db(tmp_path, rows)
@@ -929,7 +929,7 @@ class TestStatsEndpoint:
 class TestPairDetailEndpoint:
     """Tests for GET /api/v1/relationship/{agent_a}/{agent_b}."""
 
-    def _call(self, handler, mock_http, agent_a="claude", agent_b="gpt4"):
+    def _call(self, handler, mock_http, agent_a="claude", agent_b="gpt-5.5"):
         return handler.handle(f"/api/v1/relationship/{agent_a}/{agent_b}", {}, mock_http)
 
     def test_no_interactions(self, mock_http_handler):
@@ -956,7 +956,7 @@ class TestPairDetailEndpoint:
         """Full relationship detail with all metrics."""
         mock_rel = MagicMock()
         mock_rel.agent_a = "claude"
-        mock_rel.agent_b = "gpt4"
+        mock_rel.agent_b = "gpt-5.5"
         mock_rel.debate_count = 20
         mock_rel.agreement_count = 5
         mock_rel.rivalry_score = 0.8
@@ -982,7 +982,7 @@ class TestPairDetailEndpoint:
         assert _status(result) == 200
         assert body["relationship_exists"] is True
         assert body["agent_a"] == "claude"
-        assert body["agent_b"] == "gpt4"
+        assert body["agent_b"] == "gpt-5.5"
         assert body["debate_count"] == 20
         assert body["agreement_count"] == 5
         assert body["agreement_rate"] == pytest.approx(0.25)
@@ -990,11 +990,11 @@ class TestPairDetailEndpoint:
         assert body["alliance_score"] == 0.15
         assert body["relationship_type"] == "rivalry"
         assert body["head_to_head"]["claude_wins"] == 12
-        assert body["head_to_head"]["gpt4_wins"] == 8
-        assert body["critique_balance"]["claude_to_gpt4"] == 30
-        assert body["critique_balance"]["gpt4_to_claude"] == 25
-        assert body["influence"]["claude_on_gpt4"] == 0.65
-        assert body["influence"]["gpt4_on_claude"] == 0.45
+        assert body["head_to_head"]["gpt-5.5_wins"] == 8
+        assert body["critique_balance"]["claude_to_gpt-5.5"] == 30
+        assert body["critique_balance"]["gpt-5.5_to_claude"] == 25
+        assert body["influence"]["claude_on_gpt-5.5"] == 0.65
+        assert body["influence"]["gpt-5.5_on_claude"] == 0.45
 
     def test_alliance_type(self, mock_http_handler):
         """Pair with alliance scores gets type 'alliance'."""
@@ -1035,7 +1035,7 @@ class TestPairDetailEndpoint:
             ),
             patch.object(h, "_get_tracker", return_value=MagicMock()),
         ):
-            result = self._call(h, mock_http_handler, "claude!!", "gpt4")
+            result = self._call(h, mock_http_handler, "claude!!", "gpt-5.5")
         assert _status(result) == 400
 
     def test_agent_name_too_long(self, mock_http_handler):
@@ -1049,7 +1049,7 @@ class TestPairDetailEndpoint:
             ),
             patch.object(h, "_get_tracker", return_value=MagicMock()),
         ):
-            result = self._call(h, mock_http_handler, long_name, "gpt4")
+            result = self._call(h, mock_http_handler, long_name, "gpt-5.5")
         assert _status(result) == 400
 
     def test_empty_agent_name(self, mock_http_handler):
@@ -1063,7 +1063,7 @@ class TestPairDetailEndpoint:
             ),
             patch.object(h, "_get_tracker", return_value=MagicMock()),
         ):
-            result = h.handle("/api/v1/relationship//gpt4", {}, mock_http_handler)
+            result = h.handle("/api/v1/relationship//gpt-5.5", {}, mock_http_handler)
         # May return 400 or None depending on can_handle
         if result is not None:
             assert _status(result) == 400
@@ -1228,7 +1228,7 @@ class TestFetchRelationships:
 
     def test_fetches_rows(self, handler, tmp_path):
         rows = [
-            ("claude", "gpt4", 10, 5, 3, 2),
+            ("claude", "gpt-5.5", 10, 5, 3, 2),
             ("alice", "bob", 3, 1, 1, 1),
         ]
         db_path = _create_db(tmp_path, rows)
@@ -1239,7 +1239,7 @@ class TestFetchRelationships:
 
     def test_min_debates_filter(self, handler, tmp_path):
         rows = [
-            ("claude", "gpt4", 10, 5, 3, 2),
+            ("claude", "gpt-5.5", 10, 5, 3, 2),
             ("alice", "bob", 2, 1, 1, 0),
         ]
         db_path = _create_db(tmp_path, rows)

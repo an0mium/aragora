@@ -344,7 +344,7 @@ class TestBuildDefaultInvoker:
                 "ANTHROPIC_API_KEY": "sk-ant-test",
                 "OPENAI_API_KEY": "sk-oa-test",
                 CLAUDE_MODEL_ENV: "claude-opus-4-7",
-                OPENAI_MODEL_ENV: "gpt-5.4-pro",
+                OPENAI_MODEL_ENV: "gpt-5.5",
             },
             anthropic_agent_factory=_recording_claude,
             openai_agent_factory=_recording_gpt,
@@ -355,7 +355,7 @@ class TestBuildDefaultInvoker:
         )
         by_family = {family: (model, key) for family, model, key in calls}
         assert by_family["claude"][0] == "claude-opus-4-7"
-        assert by_family["gpt"][0] == "gpt-5.4-pro"
+        assert by_family["gpt"][0] == "gpt-5.5"
         # API keys get passed through verbatim.
         assert by_family["claude"][1] == "sk-ant-test"
         assert by_family["gpt"][1] == "sk-oa-test"
@@ -647,12 +647,7 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     ),
     "openai": frozenset(
         {
-            "gpt-5.4",
-            "gpt-5.4-pro",
-            "gpt-5.3",
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-4o",
+            "gpt-5.5",
         }
     ),
     "gemini": frozenset(

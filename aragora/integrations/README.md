@@ -194,7 +194,7 @@ await n8n.execute_workflow(input_data={"topic": "AI safety"})
     "confidence": 0.85,
     "final_answer": "Microservices are recommended for...",
     "rounds": 3,
-    "participants": ["claude", "gpt4", "gemini"],
+    "participants": ["claude", "gpt-5.5", "gemini"],
     "duration_seconds": 45.2,
     "created_at": "2024-01-15T10:30:00Z",
 }

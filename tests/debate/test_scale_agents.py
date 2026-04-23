@@ -34,7 +34,7 @@ from aragora.debate.protocol import DebateProtocol
 
 AGENT_NAMES = [
     "claude",
-    "gpt4",
+    "gpt-5.5",
     "gemini",
     "grok",
     "mistral",

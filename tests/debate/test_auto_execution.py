@@ -139,7 +139,7 @@ def _make_arena(**overrides) -> MagicMock:
         "agents",
         [
             MagicMock(model="claude-opus-4-7", agent_type="anthropic-api"),
-            MagicMock(model="gpt-4.1", agent_type="openai-api"),
+            MagicMock(model="gpt-5.5", agent_type="openai-api"),
         ],
     )
     arena.auth_context = overrides.get("auth_context")
@@ -321,7 +321,7 @@ class TestAutoExecutePlan:
             mock_executor_cls.return_value = mock_executor_instance
 
             arena = _make_arena()
-            arena.agents = [MagicMock(model="gpt-4.1", agent_type="openai-api")]
+            arena.agents = [MagicMock(model="gpt-5.5", agent_type="openai-api")]
             result = _make_result()
             setattr(result, "domain", "security")
 

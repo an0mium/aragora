@@ -35,7 +35,7 @@ class TestDialecticPatternInit:
         assert pattern.name == "Test Dialectic"
         assert pattern.task == ""
         assert pattern.thesis_agent == "claude"
-        assert pattern.antithesis_agent == "gpt4"
+        assert pattern.antithesis_agent == "gpt-5.5"
         assert pattern.synthesis_agent == "claude"
         assert pattern.thesis_prompt == ""
         assert pattern.antithesis_prompt == ""
@@ -79,7 +79,7 @@ class TestDialecticPatternInit:
 
         pattern = DialecticPattern(
             name="Explicit",
-            agents=["gpt4", "gemini", "mistral"],
+            agents=["gpt-5.5", "gemini", "mistral"],
             thesis_agent="claude",
         )
         assert pattern.thesis_agent == "claude"
@@ -101,7 +101,7 @@ class TestDialecticPatternInit:
 
         pattern = DialecticPattern(
             name="Explicit",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             synthesis_agent="deepseek",
         )
         assert pattern.synthesis_agent == "deepseek"
@@ -424,14 +424,14 @@ class TestDialecticStepConfig:
         """Test meta-analysis transform includes agent names."""
         wf = self._create_workflow(
             thesis_agent="claude",
-            antithesis_agent="gpt4",
+            antithesis_agent="gpt-5.5",
             synthesis_agent="gemini",
             include_meta_analysis=True,
         )
         step = self._get_step(wf, "meta_analysis")
         transform = step.config["transform"]
         assert "claude" in transform
-        assert "gpt4" in transform
+        assert "gpt-5.5" in transform
         assert "gemini" in transform
 
     def test_step_timeout(self):
@@ -669,7 +669,7 @@ class TestDialecticPromptBuilding:
         """Test meta-analysis transform expression structure."""
         pattern = self._create_pattern(
             thesis_agent="claude",
-            antithesis_agent="gpt4",
+            antithesis_agent="gpt-5.5",
             synthesis_agent="gemini",
         )
         transform = pattern._build_meta_transform()
@@ -678,7 +678,7 @@ class TestDialecticPromptBuilding:
         assert "antithesis_summary" in transform
         assert "synthesis_summary" in transform
         assert "claude" in transform
-        assert "gpt4" in transform
+        assert "gpt-5.5" in transform
         assert "gemini" in transform
 
 
@@ -698,14 +698,14 @@ class TestDialecticFactory:
         wf = DialecticPattern.create(
             name="Factory Test",
             thesis_agent="claude",
-            antithesis_agent="gpt4",
+            antithesis_agent="gpt-5.5",
             synthesis_agent="gemini",
             thesis_stance="critical",
         )
         assert isinstance(wf, WorkflowDefinition)
         assert wf.metadata["pattern"] == "dialectic"
         assert wf.metadata["thesis_agent"] == "claude"
-        assert wf.metadata["antithesis_agent"] == "gpt4"
+        assert wf.metadata["antithesis_agent"] == "gpt-5.5"
         assert wf.metadata["synthesis_agent"] == "gemini"
         assert wf.metadata["thesis_stance"] == "critical"
 

@@ -30,7 +30,7 @@ class TestRelationshipHandlerRouting:
 
     def test_can_handle_pair_detail(self, handler):
         """Should handle /api/v1/relationship/{agent_a}/{agent_b}."""
-        assert handler.can_handle("/api/v1/relationship/claude/gpt4") is True
+        assert handler.can_handle("/api/v1/relationship/claude/gpt-5.5") is True
         assert handler.can_handle("/api/v1/relationship/agent-1/agent-2") is True
 
     def test_cannot_handle_unrelated(self, handler):
@@ -159,7 +159,7 @@ class TestPairDetailEndpoint:
     @patch("aragora.server.handlers.social.relationship.RELATIONSHIP_TRACKER_AVAILABLE", False)
     def test_pair_detail_503_when_unavailable(self, handler):
         """Should return 503 when relationship tracker unavailable."""
-        result = handler.handle("/api/v1/relationship/claude/gpt4", {}, Mock())
+        result = handler.handle("/api/v1/relationship/claude/gpt-5.5", {}, Mock())
         assert result.status_code == 503
 
     def test_pair_detail_validates_agent_names(self, handler):
@@ -176,7 +176,7 @@ class TestPairDetailEndpoint:
         mock_rel.debate_count = 10
         mock_rel.agreement_count = 5
         mock_rel.agent_a = "claude"
-        mock_rel.agent_b = "gpt4"
+        mock_rel.agent_b = "gpt-5.5"
         mock_rel.rivalry_score = 0.6
         mock_rel.alliance_score = 0.2
         mock_rel.a_wins_over_b = 6
@@ -191,7 +191,7 @@ class TestPairDetailEndpoint:
         mock_tracker.db_path = "/tmp/test.db"
         mock_tracker_class.return_value = mock_tracker
 
-        result = handler.handle("/api/v1/relationship/claude/gpt4", {}, Mock())
+        result = handler.handle("/api/v1/relationship/claude/gpt-5.5", {}, Mock())
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["relationship_exists"] is True
@@ -448,7 +448,7 @@ class TestGraphEndpointEdgeCases:
         # Insert a rivalry (high disagreement, competitive)
         conn.execute(
             "INSERT INTO agent_relationships VALUES (?, ?, ?, ?, ?, ?)",
-            ("claude", "gpt4", 20, 3, 10, 10),
+            ("claude", "gpt-5.5", 20, 3, 10, 10),
         )
         conn.commit()
         conn.close()
@@ -462,7 +462,7 @@ class TestGraphEndpointEdgeCases:
         data = json.loads(result.body)
         assert len(data["nodes"]) == 2
         assert any(n["id"] == "claude" for n in data["nodes"])
-        assert any(n["id"] == "gpt4" for n in data["nodes"])
+        assert any(n["id"] == "gpt-5.5" for n in data["nodes"])
 
         Path(db_path).unlink(missing_ok=True)
 
@@ -567,7 +567,7 @@ class TestSummaryEndpointEdgeCases:
         # Insert a rivalry
         conn.execute(
             "INSERT INTO agent_relationships VALUES (?, ?, ?, ?, ?, ?)",
-            ("claude", "gpt4", 20, 2, 10, 10),
+            ("claude", "gpt-5.5", 20, 2, 10, 10),
         )
         # Insert an alliance
         conn.execute(

@@ -37,7 +37,7 @@ def cartographer():
         agent="claude", content="I propose a token bucket", role="proposer", round_num=1
     )
     c.update_from_message(
-        agent="gpt4", content="I disagree, sliding window is better", role="critic", round_num=1
+        agent="gpt-5.5", content="I disagree, sliding window is better", role="critic", round_num=1
     )
     return c
 
@@ -160,7 +160,11 @@ class TestBridgeGraphUpdateEmission:
         bridge.event_emitter.emit.reset_mock()
 
         bridge.notify(
-            "critique", agent="gpt4", details="Critiqued claude: weak", round_number=1, metric=0.8
+            "critique",
+            agent="gpt-5.5",
+            details="Critiqued claude: weak",
+            round_number=1,
+            metric=0.8,
         )
 
         calls = bridge.event_emitter.emit.call_args_list
@@ -173,7 +177,7 @@ class TestBridgeGraphUpdateEmission:
         bridge.notify("proposal", agent="claude", details="I propose X", round_number=1)
         bridge.event_emitter.emit.reset_mock()
 
-        bridge.notify("vote", agent="gpt4", details="approve: yes", round_number=1)
+        bridge.notify("vote", agent="gpt-5.5", details="approve: yes", round_number=1)
 
         calls = bridge.event_emitter.emit.call_args_list
         graph_events = [

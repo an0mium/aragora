@@ -75,7 +75,7 @@ def temp_consensus_db():
         """
         INSERT INTO consensus (topic, conclusion, confidence, strength, domain, participating_agents)
         VALUES
-            ('AI Safety', 'Alignment is critical', 0.95, 'strong', 'technology', '["claude", "gpt4"]'),
+            ('AI Safety', 'Alignment is critical', 0.95, 'strong', 'technology', '["claude", "gpt-5.5"]'),
             ('Climate Change', 'Action needed urgently', 0.85, 'strong', 'environment', '["claude", "gemini"]'),
             ('Code Reviews', 'Essential for quality', 0.75, 'moderate', 'software', '["claude", "grok"]'),
             ('Testing Strategy', 'Unit tests are valuable', 0.60, 'weak', 'software', '["gemini"]')

@@ -155,7 +155,7 @@ print(f"Evidence quality: {score.overall:.2f}")  # 0.0–1.0
 # Detect hollow consensus across agents
 detector = HollowConsensusDetector()
 alert = detector.check(
-    responses={"claude": "I agree, this is great", "gpt4": "I also think it's great"},
+    responses={"claude": "I agree, this is great", "gpt-5.5": "I also think it's great"},
     convergence_similarity=0.95,
 )
 if alert.detected:
@@ -207,7 +207,7 @@ from aragora_debate import CrossProposalAnalyzer
 analyzer = CrossProposalAnalyzer()
 analysis = analyzer.analyze({
     "claude": "According to Smith (2024), Kafka handles 1M msgs/sec...",
-    "gpt4": "RabbitMQ has better delivery guarantees per Jones (2023)...",
+    "gpt-5.5": "RabbitMQ has better delivery guarantees per Jones (2023)...",
 })
 print(f"Shared evidence: {len(analysis.shared_evidence)}")
 print(f"Contradictions: {len(analysis.contradictions)}")
@@ -226,7 +226,7 @@ Every debate produces a `DecisionReceipt` — an auditable artifact:
 **Verdict:** Approved With Conditions
 **Confidence:** 78%
 **Consensus:** Reached (supermajority, 75% agreement)
-**Agents:** claude, gpt4, mistral
+**Agents:** claude, gpt-5.5, mistral
 
 ## Dissenting Views
 
@@ -296,7 +296,7 @@ DebateConfig(
 | Provider | Class | Install | Default model |
 |----------|-------|---------|---------------|
 | Anthropic | `ClaudeAgent` | `pip install aragora-debate[anthropic]` | `claude-sonnet-4-5-20250929` |
-| OpenAI | `OpenAIAgent` | `pip install aragora-debate[openai]` | `gpt-4o` |
+| OpenAI | `OpenAIAgent` | `pip install aragora-debate[openai]` | `gpt-5.5` |
 | Mistral | `MistralAgent` | `pip install aragora-debate[mistral]` | `mistral-large-latest` |
 | Google | `GeminiAgent` | `pip install aragora-debate[gemini]` | `gemini-3.1-pro-preview` |
 | Mock | `MockAgent` | *(included)* | N/A |

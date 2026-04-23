@@ -248,8 +248,8 @@ class TestAgentMessage:
 
     def test_agent_alias(self):
         """Test that 'agent' alias works for agent_id."""
-        msg = AgentMessage(agent="gpt-4", content="Test")
-        assert msg.agent_id == "gpt-4"
+        msg = AgentMessage(agent="gpt-5.5", content="Test")
+        assert msg.agent_id == "gpt-5.5"
 
     def test_round_alias(self):
         """Test that 'round_number' alias works for round."""
@@ -285,7 +285,7 @@ class TestVote:
     def test_with_reasoning(self):
         """Test Vote with reasoning."""
         vote = Vote(
-            agent_id="gpt-4",
+            agent_id="gpt-5.5",
             position="no",
             confidence=0.7,
             reasoning="Based on the evidence...",
@@ -341,13 +341,13 @@ class TestConsensusResult:
         """Test full consensus with all fields."""
         votes = [
             Vote(agent_id="claude", position="yes", confidence=0.9),
-            Vote(agent_id="gpt-4", position="yes", confidence=0.85),
+            Vote(agent_id="gpt-5.5", position="yes", confidence=0.85),
         ]
         result = ConsensusResult(
             reached=True,
             agreement=0.95,
             final_answer="Consensus reached",
-            supporting_agents=["claude", "gpt-4"],
+            supporting_agents=["claude", "gpt-5.5"],
             dissenting_agents=[],
             votes=votes,
         )
@@ -374,7 +374,7 @@ class TestDebateRound:
         """Test DebateRound with messages."""
         messages = [
             AgentMessage(agent_id="claude", content="First message"),
-            AgentMessage(agent_id="gpt-4", content="Second message"),
+            AgentMessage(agent_id="gpt-5.5", content="Second message"),
         ]
         round_data = DebateRound(round_number=1, messages=messages)
         assert len(round_data.messages) == 2
@@ -435,7 +435,7 @@ class TestDebate:
                 "reached": True,
                 "confidence": 0.9,
                 "final_answer": "The answer",
-                "vote_breakdown": {"claude": True, "gpt-4": False},
+                "vote_breakdown": {"claude": True, "gpt-5.5": False},
             },
         )
         assert debate.consensus is not None
@@ -443,7 +443,7 @@ class TestDebate:
         assert debate.consensus.confidence == 0.9
         assert debate.consensus.final_answer == "The answer"
         assert "claude" in debate.consensus.supporting_agents
-        assert "gpt-4" in debate.consensus.dissenting_agents
+        assert "gpt-5.5" in debate.consensus.dissenting_agents
 
 
 class TestDebateCreateRequest:
@@ -466,7 +466,7 @@ class TestDebateCreateRequest:
         """Test custom values."""
         request = DebateCreateRequest(
             task="Custom task",
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             rounds=5,
             consensus=ConsensusType.UNANIMOUS,
             context="Additional context",
@@ -528,8 +528,8 @@ class TestAgentProfile:
     def test_full_profile(self):
         """Test full agent profile."""
         profile = AgentProfile(
-            agent_id="gpt-4",
-            name="GPT-4",
+            agent_id="gpt-5.5",
+            name="GPT-5.5",
             provider="openai",
             elo_rating=1650,
             matches_played=100,
@@ -560,7 +560,7 @@ class TestLeaderboardEntry:
         """Test entry with custom trend."""
         entry = LeaderboardEntry(
             rank=2,
-            agent_id="gpt-4",
+            agent_id="gpt-5.5",
             elo_rating=1650,
             matches_played=45,
             win_rate=0.68,
@@ -939,14 +939,14 @@ class TestAgentCalibration:
         """Test AgentCalibration with all optional fields populated."""
         now = datetime.now(timezone.utc)
         cal = AgentCalibration(
-            agent="gpt-4",
+            agent="gpt-5.5",
             overall_score=0.92,
             domain_scores={"security": 0.95, "compliance": 0.88},
             confidence_accuracy=0.78,
             last_calibrated=now,
             sample_size=150,
         )
-        assert cal.agent == "gpt-4"
+        assert cal.agent == "gpt-5.5"
         assert cal.overall_score == 0.92
         assert cal.domain_scores == {"security": 0.95, "compliance": 0.88}
         assert cal.confidence_accuracy == 0.78
@@ -992,7 +992,7 @@ class TestAgentPerformance:
     def test_with_all_fields(self):
         """Test AgentPerformance with all optional fields populated."""
         perf = AgentPerformance(
-            agent="gpt-4",
+            agent="gpt-5.5",
             win_rate=0.70,
             loss_rate=0.20,
             draw_rate=0.10,
@@ -1040,9 +1040,9 @@ class TestHeadToHeadStats:
 
     def test_basic_creation(self):
         """Test basic HeadToHeadStats creation."""
-        stats = HeadToHeadStats(agent="claude", opponent="gpt-4")
+        stats = HeadToHeadStats(agent="claude", opponent="gpt-5.5")
         assert stats.agent == "claude"
-        assert stats.opponent == "gpt-4"
+        assert stats.opponent == "gpt-5.5"
         assert stats.total_matchups == 0
         assert stats.wins == 0
         assert stats.losses == 0
@@ -1053,7 +1053,7 @@ class TestHeadToHeadStats:
         """Test HeadToHeadStats with all optional fields populated."""
         stats = HeadToHeadStats(
             agent="claude",
-            opponent="gpt-4",
+            opponent="gpt-5.5",
             total_matchups=50,
             wins=28,
             losses=18,
@@ -1089,7 +1089,7 @@ class TestHeadToHeadStats:
         """Test nested domain_breakdown dict structure."""
         stats = HeadToHeadStats(
             agent="claude",
-            opponent="gpt-4",
+            opponent="gpt-5.5",
             domain_breakdown={
                 "coding": {"wins": 15, "losses": 10, "draws": 2},
                 "reasoning": {"wins": 12, "losses": 8, "draws": 5},
@@ -1276,9 +1276,9 @@ class TestOpponentBriefing:
 
     def test_basic_creation(self):
         """Test basic OpponentBriefing creation."""
-        briefing = OpponentBriefing(agent="claude", opponent="gpt-4")
+        briefing = OpponentBriefing(agent="claude", opponent="gpt-5.5")
         assert briefing.agent == "claude"
-        assert briefing.opponent == "gpt-4"
+        assert briefing.opponent == "gpt-5.5"
         assert briefing.opponent_profile == {}
         assert briefing.historical_summary == ""
         assert briefing.recommended_strategy == ""
@@ -1289,9 +1289,9 @@ class TestOpponentBriefing:
         """Test OpponentBriefing with all optional fields populated."""
         briefing = OpponentBriefing(
             agent="claude",
-            opponent="gpt-4",
+            opponent="gpt-5.5",
             opponent_profile={"elo": 1650, "style": "analytical"},
-            historical_summary="Claude has won 60% of debates against GPT-4",
+            historical_summary="Claude has won 60% of debates against GPT-5.5",
             recommended_strategy="Focus on logical reasoning",
             key_insights=["Tends to concede on ethical issues", "Strong on technical details"],
             confidence=0.85,
@@ -1319,7 +1319,7 @@ class TestAgentConsistency:
     def test_with_all_fields(self):
         """Test AgentConsistency with all optional fields populated."""
         consistency = AgentConsistency(
-            agent="gpt-4",
+            agent="gpt-5.5",
             overall_consistency=0.92,
             position_stability=0.88,
             flip_rate=0.05,
@@ -1354,7 +1354,7 @@ class TestAgentFlip:
         now = datetime.now(timezone.utc)
         flip = AgentFlip(
             flip_id="flip-2",
-            agent="gpt-4",
+            agent="gpt-5.5",
             debate_id="debate-456",
             topic="Climate change policy",
             original_position="Against carbon tax",
@@ -1392,7 +1392,7 @@ class TestAgentNetwork:
             agent="claude",
             allies=[{"agent": "gemini", "affinity": 0.8}],
             rivals=[{"agent": "grok", "rivalry": 0.6}],
-            neutrals=["gpt-4", "mistral"],
+            neutrals=["gpt-5.5", "mistral"],
             cluster_id="cluster-1",
             network_position="central",
         )
@@ -1425,7 +1425,7 @@ class TestAgentMoment:
         now = datetime.now(timezone.utc)
         moment = AgentMoment(
             moment_id="moment-2",
-            agent="gpt-4",
+            agent="gpt-5.5",
             debate_id="debate-456",
             type="decisive_argument",
             description="Presented compelling evidence that swayed consensus",
@@ -1460,7 +1460,7 @@ class TestAgentPosition:
         now = datetime.now(timezone.utc)
         position = AgentPosition(
             position_id="pos-2",
-            agent="gpt-4",
+            agent="gpt-5.5",
             debate_id="debate-456",
             topic="Universal basic income",
             stance="Supportive with conditions",

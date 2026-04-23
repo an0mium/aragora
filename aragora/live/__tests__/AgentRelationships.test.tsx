@@ -40,7 +40,7 @@ const mockRivalsResponse = {
   rivals: [
     {
       agent_a: 'claude-3-opus',
-      agent_b: 'gpt-4o',
+      agent_b: 'gpt-5.5',
       rivalry_score: 0.85,
       alliance_score: 0.1,
       relationship: 'rival',
@@ -150,7 +150,7 @@ describe('AgentRelationships', () => {
       render(<AgentRelationships agentName="claude-3-opus" />);
 
       await waitFor(() => {
-        expect(screen.getByText('gpt-4o')).toBeInTheDocument();
+        expect(screen.getByText('gpt-5.5')).toBeInTheDocument();
         expect(screen.getByText('gemini-pro')).toBeInTheDocument();
       });
     });
@@ -198,7 +198,7 @@ describe('AgentRelationships', () => {
             json: () => Promise.resolve({
               rivals: [{
                 agent_a: 'claude-3-opus',
-                agent_b: 'gpt-4o',
+                agent_b: 'gpt-5.5',
                 rivalry_score: 0.5,
                 alliance_score: 0.1,
                 relationship: 'rival',
@@ -240,7 +240,7 @@ describe('AgentRelationships', () => {
 
       await waitFor(() => {
         // Both rivals should be visible in compact mode (we only have 2)
-        expect(screen.getByText('gpt-4o')).toBeInTheDocument();
+        expect(screen.getByText('gpt-5.5')).toBeInTheDocument();
         expect(screen.getByText('gemini-pro')).toBeInTheDocument();
       });
     });

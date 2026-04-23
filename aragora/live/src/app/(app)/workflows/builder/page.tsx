@@ -66,7 +66,7 @@ function templateToNodes(template: WorkflowTemplate): { nodes: WorkflowNode[]; e
     // Add type-specific data
     if (step.config) {
       if (nodeType === 'debate') {
-        nodeData.agents = step.config.agents || ['claude', 'gpt4'];
+        nodeData.agents = step.config.agents || ['claude', 'gpt-5.5'];
         nodeData.rounds = step.config.rounds || 2;
         nodeData.topicTemplate = step.config.topic_template;
       } else if (nodeType === 'task') {

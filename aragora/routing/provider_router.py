@@ -27,11 +27,11 @@ MIN_DEBATES_FOR_METRICS = 10
 # Default round-robin order when insufficient data is available.
 DEFAULT_PROVIDER_ORDER = [
     "claude-sonnet-4",
-    "gpt-4o",
+    "gpt-5.5",
     "deepseek-r1",
     "mistral-large",
     "gemini-2.0-flash",
-    "gpt-4o-mini",
+    "gpt-5.5",
     "deepseek-chat",
     "claude-opus-4",
 ]

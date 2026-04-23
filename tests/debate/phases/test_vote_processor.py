@@ -390,7 +390,7 @@ class TestNormalizeChoiceToAgent:
 
     def test_direct_match(self):
         """Matches agent name directly."""
-        agents = [MockAgent("claude"), MockAgent("gpt4")]
+        agents = [MockAgent("claude"), MockAgent("gpt-5.5")]
         proposals = {}
 
         processor = VoteProcessor()
@@ -400,7 +400,7 @@ class TestNormalizeChoiceToAgent:
 
     def test_case_insensitive_match(self):
         """Matches agent name case-insensitively."""
-        agents = [MockAgent("Claude"), MockAgent("GPT4")]
+        agents = [MockAgent("Claude"), MockAgent("GPT-5.5")]
         proposals = {}
 
         processor = VoteProcessor()

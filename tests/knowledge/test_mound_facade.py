@@ -382,7 +382,7 @@ class TestCultureAccumulator:
         mock_result.task = "security audit process"
         mock_result.proposals = [
             MagicMock(agent_type="claude"),
-            MagicMock(agent_type="gpt4"),
+            MagicMock(agent_type="gpt-5.5"),
         ]
         mock_result.winner = "claude"
         mock_result.consensus_reached = True
@@ -395,7 +395,7 @@ class TestCultureAccumulator:
         assert observation is not None
         assert observation.debate_id == "debate_123"
         assert "claude" in observation.participating_agents
-        assert "gpt4" in observation.participating_agents
+        assert "gpt-5.5" in observation.participating_agents
         assert observation.winning_agents == ["claude"]
         assert observation.consensus_reached is True
         assert observation.consensus_strength == "strong"
@@ -559,7 +559,7 @@ class TestCultureProfile:
             patterns={},
             generated_at=datetime.now(),
             total_observations=10,
-            dominant_traits={"top_agents": ["claude", "gpt4"]},
+            dominant_traits={"top_agents": ["claude", "gpt-5.5"]},
         )
 
         assert profile.workspace_id == "test"

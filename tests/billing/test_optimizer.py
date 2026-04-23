@@ -151,7 +151,7 @@ class TestModelDowngradeAnalyzer:
 
         patterns = [
             UsagePattern(
-                model="gpt-4o-mini",
+                model="gpt-5.5",
                 provider="openai",
                 operation="classify",
                 count=100,

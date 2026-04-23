@@ -262,7 +262,7 @@ class TestCanHandle:
         assert handler.can_handle("/foo/evolution/patterns") is False
 
     def test_history_with_different_agent(self, handler):
-        assert handler.can_handle("/api/evolution/gpt4/history") is True
+        assert handler.can_handle("/api/evolution/gpt-5.5/history") is True
 
     def test_prompt_with_different_agent(self, handler):
         assert handler.can_handle("/api/evolution/gemini/prompt") is True
@@ -295,7 +295,7 @@ class TestRootEndpoint:
         mock_cursor.fetchone.side_effect = [(5,), (3,), (12,)]
         mock_cursor.fetchall.side_effect = [
             [("structural", 8), ("semantic", 4)],
-            [("claude", 0.95, 3), ("gpt4", 0.88, 2)],
+            [("claude", 0.95, 3), ("gpt-5.5", 0.88, 2)],
             [("claude", "mutation", "2026-01-01")],
         ]
         mock_conn.__enter__ = MagicMock(return_value=mock_conn)
@@ -364,8 +364,8 @@ class TestSummaryEndpoint:
         mock_cursor.fetchone.side_effect = [(10,), (5,), (20,)]
         mock_cursor.fetchall.side_effect = [
             [("structural", 12), ("behavioral", 8)],
-            [("claude", 0.92, 4), ("gpt4", 0.85, 3)],
-            [("gpt4", "crossover", "2026-01-02")],
+            [("claude", 0.92, 4), ("gpt-5.5", 0.85, 3)],
+            [("gpt-5.5", "crossover", "2026-01-02")],
         ]
         mock_conn.__enter__ = MagicMock(return_value=mock_conn)
         mock_conn.__exit__ = MagicMock(return_value=False)
@@ -778,11 +778,11 @@ class TestHistoryEndpoint:
             patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
         ):
-            result = handler.handle("/api/evolution/gpt4/history", {}, http)
+            result = handler.handle("/api/evolution/gpt-5.5/history", {}, http)
 
         assert _status(result) == 200
         body = _body(result)
-        assert body["agent"] == "gpt4"
+        assert body["agent"] == "gpt-5.5"
 
     def test_history_versioned_path(self, handler, http):
         mock_evolver = MagicMock()
@@ -976,10 +976,10 @@ class TestPromptEndpoint:
             patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
         ):
-            result = handler.handle("/api/evolution/gpt4/prompt", {}, http)
+            result = handler.handle("/api/evolution/gpt-5.5/prompt", {}, http)
 
         assert _status(result) == 404
-        assert "gpt4" in _body(result).get("error", "")
+        assert "gpt-5.5" in _body(result).get("error", "")
 
     def test_prompt_versioned_path(self, handler, http):
         mock_pv = MockPromptVersion()
@@ -1070,10 +1070,10 @@ class TestPromptEndpoint:
             patch(_PROMPT_EVOLVER_PATCH, return_value=mock_evolver),
             patch(_GET_DB_PATH_PATCH, return_value="/tmp/evo.db"),
         ):
-            result = handler.handle("/api/evolution/gpt4o/prompt", {}, http)
+            result = handler.handle("/api/evolution/gpt-5.5/prompt", {}, http)
 
         assert _status(result) == 200
-        assert _body(result)["agent"] == "gpt4o"
+        assert _body(result)["agent"] == "gpt-5.5"
 
     def test_prompt_agent_name_too_long(self, handler, http):
         long_name = "x" * 33

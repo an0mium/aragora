@@ -167,7 +167,7 @@ class TestAgentTemplate:
         # Different content should produce different hash
         template3 = AgentTemplate(
             metadata=sample_metadata,
-            agent_type="gpt4",
+            agent_type="gpt-5.5",
             system_prompt="You are helpful.",
         )
         assert template3.content_hash() != hash1

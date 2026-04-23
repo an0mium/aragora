@@ -1392,7 +1392,7 @@ export class AragoraClient {
    * ```typescript
    * const { debate, stream } = await client.createDebateAndStream({
    *   task: 'Should we use microservices?',
-   *   agents: ['claude', 'gpt-4'],
+   *   agents: ['claude', 'gpt-5.5'],
    *   rounds: 3
    * });
    *

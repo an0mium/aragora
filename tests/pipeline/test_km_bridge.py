@@ -70,7 +70,7 @@ def _make_debate_result(
     result.consensus_reached = consensus
     result.final_answer = final_answer
     result.confidence = confidence
-    result.participants = ["claude", "gpt4"]
+    result.participants = ["claude", "gpt-5.5"]
     result.dissenting_views = ["Sliding window remains more accurate for fairness"]
     result.debate_cruxes = [{"claim": "Redis dependency is acceptable for scale"}]
     return result
@@ -307,7 +307,7 @@ class TestCanonicalDebateCompletionWriteback:
         assert receipt_payload["debate_id"] == "debate-rate-limiter"
         assert receipt_payload["task"] == "Rate limiter API"
         assert receipt_payload["cost_summary"]["total_cost_usd"] == "0.12"
-        assert receipt_payload["participants"] == ["claude", "gpt4"]
+        assert receipt_payload["participants"] == ["claude", "gpt-5.5"]
 
         assert outcome_payload["debate_id"] == "debate-rate-limiter"
         assert outcome_payload["decision_id"] == "debate-rate-limiter"

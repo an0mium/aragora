@@ -10,7 +10,7 @@ Quick start (5-line API)::
 
     debate = Debate(topic="Should we migrate to microservices?")
     debate.add_agent(create_agent("anthropic", model="claude-sonnet-4-5-20250929"))
-    debate.add_agent(create_agent("openai", model="gpt-4o"))
+    debate.add_agent(create_agent("openai", model="gpt-5.5"))
     result = await debate.run()
     print(result.receipt.to_markdown())
 
@@ -18,7 +18,7 @@ Advanced usage::
 
     from aragora_debate import Arena, Agent, DebateConfig
 
-    agents = [MyAgent("claude"), MyAgent("gpt4")]
+    agents = [MyAgent("claude"), MyAgent("gpt-5.5")]
     arena = Arena(question="Should we migrate?", agents=agents)
     result = await arena.run()
     print(result.receipt.to_markdown())

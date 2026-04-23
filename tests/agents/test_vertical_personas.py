@@ -119,11 +119,11 @@ class TestVerticalConfig:
             preferred_models={},
             expertise_domains=[],
             typical_tasks=[],
-            default_model="gpt4",
+            default_model="gpt-5.5",
             requires_high_accuracy=True,
             max_temperature=0.3,
         )
-        assert config.default_model == "gpt4"
+        assert config.default_model == "gpt-5.5"
         assert config.requires_high_accuracy is True
         assert config.max_temperature == 0.3
 
@@ -483,9 +483,9 @@ class TestGenerateRecommendationReasoning:
             "analysis",
             TaskComplexity.LOW,
             ["claude"],
-            ["gpt4"],
+            ["gpt-5.5"],
         )
-        assert "gpt4" in reasoning
+        assert "gpt-5.5" in reasoning
 
 
 # ---------------------------------------------------------------------------
@@ -700,7 +700,7 @@ class TestVerticalTeamRecommendation:
             task_type="code_review",
             complexity=TaskComplexity.MEDIUM,
             personas=["code_quality_reviewer", "code_security_specialist", "performance_engineer"],
-            models=["claude", "gpt4"],
+            models=["claude", "gpt-5.5"],
             compliance_frameworks=["owasp", "soc2"],
             max_temperature=0.6,
             estimated_cost_tier="medium",
@@ -841,7 +841,7 @@ class TestRecommendTeamAdditional:
             Vertical.SOFTWARE, "code_review", TaskComplexity.LOW, team_size=5
         )
 
-        # LOW complexity for SOFTWARE allows claude, gpt4, deepseek
+        # LOW complexity for SOFTWARE allows claude, gpt-5.5, deepseek
         assert len(rec.models) >= 1
 
     def test_recommend_team_size_one(self):

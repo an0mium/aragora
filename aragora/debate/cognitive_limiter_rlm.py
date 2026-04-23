@@ -150,7 +150,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         compressor: HierarchicalCompressor | None = None,
         summarize_fn: Callable[[str, str], str] | None = None,
         rlm_backend: Any = _DEPRECATED_RLM_BACKEND,
-        rlm_model: str = "gpt-4o",
+        rlm_model: str = "gpt-5.5",
     ):
         """
         Initialize the RLM-enhanced limiter.
@@ -161,7 +161,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             summarize_fn: Optional sync function for rule-based summarization
             rlm_backend: DEPRECATED - Backend is determined by rlm_model.
                          This parameter is ignored and will be removed in v3.0.
-            rlm_model: Model for real RLM queries (e.g., 'claude', 'gpt-4o')
+            rlm_model: Model for real RLM queries (e.g., 'claude', 'gpt-5.5')
         """
         # rlm_backend is deprecated - warn if any value is passed
         if rlm_backend is not _DEPRECATED_RLM_BACKEND:
@@ -337,7 +337,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         cls,
         level: str,
         rlm_backend: Any = _DEPRECATED_RLM_BACKEND,
-        rlm_model: str = "gpt-4o",
+        rlm_model: str = "gpt-5.5",
     ) -> RLMCognitiveLoadLimiter:
         """
         Create RLM limiter for stress level.
@@ -939,7 +939,7 @@ def create_rlm_limiter(
     stress_level: str = "elevated",
     compressor: HierarchicalCompressor | None = None,
     rlm_backend: Any = _DEPRECATED_RLM_BACKEND,
-    rlm_model: str = "gpt-4o",
+    rlm_model: str = "gpt-5.5",
 ) -> RLMCognitiveLoadLimiter:
     """
     Factory function to create an RLM-enhanced limiter.

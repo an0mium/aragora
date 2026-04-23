@@ -141,7 +141,7 @@ class TestMatrixDebateModels:
                 {
                     "name": "Frontier",
                     "agents": [
-                        {"provider": "openai-api", "model": "gpt-5.4"},
+                        {"provider": "openai-api", "model": "gpt-5.5"},
                         {"provider": "anthropic-api", "model": "claude-opus-4-7"},
                     ],
                 }
@@ -167,7 +167,7 @@ class TestMatrixDebateModels:
                     {
                         "name": "Frontier",
                         "agents": [
-                            {"provider": "openai-api", "model": "gpt-5.4"},
+                            {"provider": "openai-api", "model": "gpt-5.5"},
                             {"provider": "anthropic-api", "model": "claude-opus-4-7"},
                         ],
                     }

@@ -85,7 +85,7 @@ def _make_env(task: str = "Design a rate limiter") -> Environment:
 
 
 def _make_agents(count: int = 3) -> list[MockAgent]:
-    names = ["claude", "gpt4", "gemini", "grok", "mistral"]
+    names = ["claude", "gpt-5.5", "gemini", "grok", "mistral"]
     return [MockAgent(name=names[i], model=f"model-{i}") for i in range(count)]
 
 
@@ -182,7 +182,7 @@ class TestArenaInitialization:
 
         env = _make_env()
         agents = _make_agents(2)
-        agent_config = AgentConfig(agent_weights={"claude": 1.2, "gpt4": 1.0})
+        agent_config = AgentConfig(agent_weights={"claude": 1.2, "gpt-5.5": 1.0})
         protocol = _make_protocol()
 
         arena = Arena(
@@ -192,7 +192,7 @@ class TestArenaInitialization:
             agent_config=agent_config,
         )
 
-        assert arena.agent_weights == {"claude": 1.2, "gpt4": 1.0}
+        assert arena.agent_weights == {"claude": 1.2, "gpt-5.5": 1.0}
 
     def test_init_with_loop_id(self):
         """Arena stores loop_id for multi-debate sessions."""
@@ -594,7 +594,7 @@ class TestConsensusDetection:
             reasoning="I agree",
         )
         builder.record_vote(
-            agent="gpt4",
+            agent="gpt-5.5",
             vote=VoteType.AGREE,
             confidence=0.85,
             reasoning="Confirmed",
@@ -622,9 +622,9 @@ class TestConsensusDetection:
 
         claim = builder.add_claim("Approach A is best", author="claude", confidence=0.7)
         builder.record_vote("claude", VoteType.AGREE, 0.8, "Strong supporter")
-        builder.record_vote("gpt4", VoteType.DISAGREE, 0.6, "I disagree")
+        builder.record_vote("gpt-5.5", VoteType.DISAGREE, 0.6, "I disagree")
         builder.record_dissent(
-            agent="gpt4",
+            agent="gpt-5.5",
             claim_id=claim.claim_id,
             reasons=["Evidence is weak", "Better alternatives exist"],
             severity=0.7,
@@ -639,7 +639,7 @@ class TestConsensusDetection:
 
         assert proof.consensus_reached is False
         assert len(proof.dissenting_agents) == 1
-        assert "gpt4" in proof.dissenting_agents
+        assert "gpt-5.5" in proof.dissenting_agents
         assert len(proof.dissents) == 1
         assert proof.has_strong_consensus is False
         assert proof.agreement_ratio == 0.5
@@ -691,9 +691,9 @@ class TestConsensusDetection:
         builder = ConsensusBuilder(debate_id="debate-6", task="Blind spot test")
         claim = builder.add_claim("Main claim", author="claude")
         builder.record_vote("claude", VoteType.AGREE, 0.8, "Agree")
-        builder.record_vote("gpt4", VoteType.DISAGREE, 0.3, "Disagree")
+        builder.record_vote("gpt-5.5", VoteType.DISAGREE, 0.3, "Disagree")
         builder.record_dissent(
-            "gpt4",
+            "gpt-5.5",
             claim.claim_id,
             reasons=["Overlooked edge case"],
             alternative="Consider fallback strategy",
@@ -701,7 +701,7 @@ class TestConsensusDetection:
         )
         builder.record_tension(
             description="Speed vs safety tradeoff",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             options=["Fast approach", "Safe approach"],
             impact="Affects reliability",
         )
@@ -722,9 +722,9 @@ class TestConsensusDetection:
         )
 
         # Contested claim (mixed evidence)
-        claim2 = builder.add_claim("Risky choice", author="gpt4")
+        claim2 = builder.add_claim("Risky choice", author="gpt-5.5")
         builder.add_evidence(claim2.claim_id, "claude", "Concern", supports=False, strength=0.7)
-        builder.add_evidence(claim2.claim_id, "gpt4", "Defense", supports=True, strength=0.5)
+        builder.add_evidence(claim2.claim_id, "gpt-5.5", "Defense", supports=True, strength=0.5)
 
         proof = builder.build("Safe choice", 0.7, True, "Mostly agreed")
 
@@ -759,7 +759,7 @@ class TestConsensusDetection:
 
         tension = builder.record_tension(
             description="Performance vs cost",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             options=["Optimize speed", "Minimize cost"],
             impact="Budget allocation",
             followup="Conduct A/B test",
@@ -809,7 +809,7 @@ class TestPartialConsensus:
                 statement="Use microservices",
                 confidence=0.9,
                 agreed=True,
-                supporting_agents=["claude", "gpt4"],
+                supporting_agents=["claude", "gpt-5.5"],
             )
         )
         partial.add_item(
@@ -820,7 +820,7 @@ class TestPartialConsensus:
                 confidence=0.4,
                 agreed=False,
                 supporting_agents=["claude"],
-                dissenting_agents=["gpt4"],
+                dissenting_agents=["gpt-5.5"],
             )
         )
 
@@ -913,7 +913,7 @@ class TestPartialConsensus:
             statement="S",
             confidence=0.7,
             agreed=True,
-            supporting_agents=["claude", "gpt4", "gemini"],
+            supporting_agents=["claude", "gpt-5.5", "gemini"],
             dissenting_agents=["grok"],
         )
 
@@ -926,7 +926,7 @@ class TestPartialConsensus:
             final_answer="1. Implement caching to improve performance\n2. Add monitoring for reliability",
             confidence=0.8,
             consensus_reached=False,
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             critiques=[],
             dissenting_views=["Alternative approach preferred by minority"],
         )
@@ -967,7 +967,7 @@ class TestAgentTeamSelection:
         env = _make_env()
         agents = _make_agents(2)
         protocol = _make_protocol()
-        weights = {"claude": 1.5, "gpt4": 0.8}
+        weights = {"claude": 1.5, "gpt-5.5": 0.8}
 
         arena = Arena(
             environment=env,
@@ -1072,17 +1072,17 @@ class TestCoreTypes:
     def test_message_str(self):
         """Message has readable string representation."""
         msg = Message(
-            role="critic", agent="gpt4", content="I think there is an issue with approach"
+            role="critic", agent="gpt-5.5", content="I think there is an issue with approach"
         )
 
         s = str(msg)
         assert "critic" in s
-        assert "gpt4" in s
+        assert "gpt-5.5" in s
 
     def test_critique_creation(self):
         """Critique captures structured feedback."""
         critique = Critique(
-            agent="gpt4",
+            agent="gpt-5.5",
             target_agent="claude",
             target_content="Rate limiter proposal",
             issues=["Missing retry logic", "No monitoring"],
@@ -1091,7 +1091,7 @@ class TestCoreTypes:
             reasoning="Production readiness concerns",
         )
 
-        assert critique.agent == "gpt4"
+        assert critique.agent == "gpt-5.5"
         assert critique.target == "claude"  # backward compat property
         assert critique.severity == 5.0
         assert len(critique.issues) == 2
@@ -1099,7 +1099,7 @@ class TestCoreTypes:
     def test_critique_to_prompt(self):
         """Critique formats as prompt text."""
         critique = Critique(
-            agent="gpt4",
+            agent="gpt-5.5",
             target_agent="claude",
             target_content="Proposal",
             issues=["Issue 1"],
@@ -1109,7 +1109,7 @@ class TestCoreTypes:
         )
 
         prompt = critique.to_prompt()
-        assert "gpt4" in prompt
+        assert "gpt-5.5" in prompt
         assert "Issue 1" in prompt
         assert "severity: 4.0" in prompt
 

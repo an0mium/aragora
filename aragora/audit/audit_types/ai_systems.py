@@ -174,7 +174,7 @@ class AISystemsAuditor(BaseAuditor):
         # Model Configuration Issues
         AIVulnerabilityPattern(
             name="hardcoded_model_version",
-            pattern=r"model\s*=\s*['\"](?:gpt-3|gpt-4|claude-2|claude-3)['\"](?!.*(?:config|env|settings))",
+            pattern=r"model\s*=\s*['\"](?:gpt-5.5|gpt-5.5|claude-2|claude-3)['\"](?!.*(?:config|env|settings))",
             category=AIRiskCategory.MODEL_CONFIG,
             severity=FindingSeverity.LOW,
             description="Hardcoded model version - may miss updates and security patches",
@@ -182,7 +182,7 @@ class AISystemsAuditor(BaseAuditor):
         ),
         AIVulnerabilityPattern(
             name="deprecated_model",
-            pattern=r"model\s*=\s*['\"](?:text-davinci|code-davinci|gpt-3\.5-turbo-0301|claude-instant)['\"]",
+            pattern=r"model\s*=\s*['\"](?:text-davinci|code-davinci|gpt-5.5\.5-turbo-0301|claude-instant)['\"]",
             category=AIRiskCategory.MODEL_CONFIG,
             severity=FindingSeverity.MEDIUM,
             description="Using deprecated or legacy model version",

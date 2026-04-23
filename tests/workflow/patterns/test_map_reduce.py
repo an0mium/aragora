@@ -34,12 +34,12 @@ class TestMapReducePatternInit:
 
         pattern = MapReducePattern(name="Test MapReduce")
         assert pattern.name == "Test MapReduce"
-        assert pattern.agents == ["claude", "gpt4"]
+        assert pattern.agents == ["claude", "gpt-5.5"]
         assert pattern.task == ""
         assert pattern.split_strategy == "chunks"
         assert pattern.chunk_size == 4000
         assert pattern.map_agent == "claude"
-        assert pattern.reduce_agent == "gpt4"
+        assert pattern.reduce_agent == "gpt-5.5"
         assert pattern.parallel_limit == 5
         assert pattern.file_pattern == "**/*"
         assert pattern.timeout_per_chunk == 60.0
@@ -64,7 +64,7 @@ class TestMapReducePatternInit:
 
         pattern = MapReducePattern(
             name="Explicit Map",
-            agents=["gpt4"],
+            agents=["gpt-5.5"],
             map_agent="claude",
         )
         assert pattern.map_agent == "claude"
@@ -76,9 +76,9 @@ class TestMapReducePatternInit:
         pattern = MapReducePattern(
             name="Explicit Reduce",
             agents=["claude"],
-            reduce_agent="gpt4",
+            reduce_agent="gpt-5.5",
         )
-        assert pattern.reduce_agent == "gpt4"
+        assert pattern.reduce_agent == "gpt-5.5"
 
     def test_split_strategy_configuration(self):
         """Test split_strategy parameter."""
@@ -435,13 +435,13 @@ class TestMapReduceFactory:
             name="Factory Test",
             split_strategy="sections",
             map_agent="claude",
-            reduce_agent="gpt4",
+            reduce_agent="gpt-5.5",
             parallel_limit=4,
         )
         assert isinstance(wf, WorkflowDefinition)
         assert wf.metadata["split_strategy"] == "sections"
         assert wf.metadata["map_agent"] == "claude"
-        assert wf.metadata["reduce_agent"] == "gpt4"
+        assert wf.metadata["reduce_agent"] == "gpt-5.5"
         assert wf.metadata["parallel_limit"] == 4
 
 

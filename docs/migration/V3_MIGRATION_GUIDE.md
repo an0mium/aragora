@@ -354,10 +354,10 @@ The `rlm_backend` parameter is no longer needed. Backend is auto-detected from `
 
 ```python
 # Before
-limiter = RLMCognitiveLoadLimiter(rlm_backend="openai", rlm_model="gpt-4o")
+limiter = RLMCognitiveLoadLimiter(rlm_backend="openai", rlm_model="gpt-5.5")
 
 # After
-limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-4o")
+limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-5.5")
 ```
 
 ---

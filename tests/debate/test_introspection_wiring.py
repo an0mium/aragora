@@ -49,7 +49,7 @@ class _FakeArena:
 
         # Agents
         agents = []
-        for name in ("claude", "gpt4", "gemini"):
+        for name in ("claude", "gpt-5.5", "gemini"):
             agent = MagicMock()
             agent.name = name
             agent.model = f"{name}-model"
@@ -220,7 +220,7 @@ class TestEventBusSubscription:
             event_type="agent_message",
             debate_id="test",
             data={
-                "agent": "gpt4",
+                "agent": "gpt-5.5",
                 "content": "Rate limiting alone is insufficient",
                 "role": "critic",
                 "round_num": 1,
@@ -229,7 +229,7 @@ class TestEventBusSubscription:
         for handler in bus._sync_handlers.get("agent_message", []):
             handler(event)
 
-        summary = tracker.get_summary("gpt4")
+        summary = tracker.get_summary("gpt-5.5")
         assert summary is not None
         assert summary.total_critiques == 1
 
@@ -315,11 +315,11 @@ class TestEventBusSubscription:
             role="proposer",
             round_num=1,
         )
-        # Critique from gpt4
+        # Critique from gpt-5.5
         bus.emit_sync(
             "agent_message",
             debate_id="test",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="Critique of A",
             role="critic",
             round_num=1,
@@ -338,9 +338,9 @@ class TestEventBusSubscription:
         assert claude_summary is not None
         assert claude_summary.total_proposals == 2
 
-        gpt4_summary = tracker.get_summary("gpt4")
-        assert gpt4_summary is not None
-        assert gpt4_summary.total_critiques == 1
+        gpt55_summary = tracker.get_summary("gpt-5.5")
+        assert gpt55_summary is not None
+        assert gpt55_summary.total_critiques == 1
 
 
 # =============================================================================
@@ -366,7 +366,7 @@ class TestSummaryAttachment:
             ),
         )
         tracker.update_round(
-            "gpt4",
+            "gpt-5.5",
             1,
             RoundMetrics(
                 round_number=1,
@@ -383,11 +383,11 @@ class TestSummaryAttachment:
 
         introspection = result.metadata["introspection"]
         assert "claude" in introspection
-        assert "gpt4" in introspection
+        assert "gpt-5.5" in introspection
         assert introspection["claude"]["total_proposals"] == 2
         assert introspection["claude"]["total_accepted"] == 1
-        assert introspection["gpt4"]["total_critiques"] == 3
-        assert introspection["gpt4"]["total_critiques_effective"] == 2
+        assert introspection["gpt-5.5"]["total_critiques"] == 3
+        assert introspection["gpt-5.5"]["total_critiques_effective"] == 2
 
     @pytest.mark.asyncio
     async def test_introspection_not_attached_when_tracker_is_none(
@@ -506,7 +506,7 @@ class TestFullRoundTrip:
         bus.emit_sync(
             "agent_message",
             debate_id="test",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="Circuit breaker pattern instead",
             role="proposer",
             round_num=1,
@@ -516,7 +516,7 @@ class TestFullRoundTrip:
         bus.emit_sync(
             "agent_message",
             debate_id="test",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="Token bucket is too simple",
             role="critic",
             round_num=1,
@@ -536,10 +536,10 @@ class TestFullRoundTrip:
         assert claude_summary.total_proposals == 1
         assert claude_summary.total_critiques == 1
 
-        gpt4_summary = tracker.get_summary("gpt4")
-        assert gpt4_summary is not None
-        assert gpt4_summary.total_proposals == 1
-        assert gpt4_summary.total_critiques == 1
+        gpt55_summary = tracker.get_summary("gpt-5.5")
+        assert gpt55_summary is not None
+        assert gpt55_summary.total_proposals == 1
+        assert gpt55_summary.total_critiques == 1
 
         # Step 3: Handle completion attaches summary
         await handle_debate_completion(fake_arena, execution_state)
@@ -548,9 +548,9 @@ class TestFullRoundTrip:
         assert "introspection" in result.metadata
         meta = result.metadata["introspection"]
         assert "claude" in meta
-        assert "gpt4" in meta
+        assert "gpt-5.5" in meta
         assert meta["claude"]["total_proposals"] == 1
-        assert meta["gpt4"]["total_critiques"] == 1
+        assert meta["gpt-5.5"]["total_critiques"] == 1
 
 
 # =============================================================================

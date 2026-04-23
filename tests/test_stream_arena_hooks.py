@@ -126,7 +126,7 @@ class TestCreateArenaHooks:
         hooks = create_arena_hooks(mock_emitter)
 
         hooks["on_critique"](
-            agent="gpt4",
+            agent="gpt-5.5",
             target="claude",
             issues=["Issue 1", "Issue 2"],
             severity=0.7,
@@ -141,7 +141,7 @@ class TestCreateArenaHooks:
         assert event.data["issues"] == ["Issue 1", "Issue 2"]
         assert event.data["severity"] == 0.7
         assert event.data["content"] == "Full critique content"
-        assert event.agent == "gpt4"
+        assert event.agent == "gpt-5.5"
         assert event.round == 2
 
     def test_on_critique_formats_issues_without_full_content(self, mock_emitter):
@@ -149,7 +149,7 @@ class TestCreateArenaHooks:
         hooks = create_arena_hooks(mock_emitter)
 
         hooks["on_critique"](
-            agent="gpt4",
+            agent="gpt-5.5",
             target="claude",
             issues=["Issue A", "Issue B"],
             severity=0.5,

@@ -112,7 +112,7 @@ class TestAgentPerformance:
                     agent_name="claude", provider="anthropic", phase="debate", influence_score=0.8
                 ),
                 AgentContribution(
-                    agent_name="gpt4", provider="openai", phase="debate", influence_score=0.6
+                    agent_name="gpt-5.5", provider="openai", phase="debate", influence_score=0.6
                 ),
                 AgentContribution(
                     agent_name="claude",
@@ -124,7 +124,7 @@ class TestAgentPerformance:
         )
         recorder.record(o)
         perf = recorder.get_agent_phase_performance()
-        assert perf["claude"]["debate"] == 0.8 and perf["gpt4"]["debate"] == 0.6
+        assert perf["claude"]["debate"] == 0.8 and perf["gpt-5.5"]["debate"] == 0.6
 
 
 class TestKMIntegration:
@@ -175,12 +175,15 @@ class TestELOIntegration:
             make_outcome(
                 agent_contributions=[
                     AgentContribution(
-                        agent_name="gpt4", provider="openai", phase="execution", influence_score=0.2
+                        agent_name="gpt-5.5",
+                        provider="openai",
+                        phase="execution",
+                        influence_score=0.2,
                     )
                 ]
             )
         )
-        elo.update_domain_elo.assert_called_with("gpt4", "technical:execution", won=False)
+        elo.update_domain_elo.assert_called_with("gpt-5.5", "technical:execution", won=False)
 
 
 class TestCalibratorIntegration:

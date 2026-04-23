@@ -334,14 +334,14 @@ class TestCreateVideoMetadataFromDebate:
         """Should create valid metadata from debate info."""
         meta = create_video_metadata_from_debate(
             task="Should AI have rights?",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             consensus_reached=True,
             debate_id="debate-123",
         )
 
         assert "AI Debate" in meta.title
         assert "claude" in meta.description
-        assert "gpt4" in meta.description
+        assert "gpt-5.5" in meta.description
         assert "Consensus reached" in meta.description
         assert "AI" in meta.tags
 
@@ -615,7 +615,7 @@ class TestDebateContentFormatter:
 
         tweet = formatter.format_announcement(
             task="Should we regulate AI?",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
         )
 
         assert "New AI Debate" in tweet
@@ -649,7 +649,7 @@ class TestDebateContentFormatter:
 
         tweet = formatter.format_result(
             task="AI topic",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             consensus_reached=False,
             winner="claude",
         )
@@ -699,7 +699,7 @@ class TestCreateDebateSummary:
         """Should create summary within max_length."""
         summary = create_debate_summary(
             task="Long topic about artificial intelligence and its implications",
-            agents=["claude", "gpt4", "gemini", "llama"],
+            agents=["claude", "gpt-5.5", "gemini", "llama"],
             consensus_reached=True,
             max_length=280,
         )

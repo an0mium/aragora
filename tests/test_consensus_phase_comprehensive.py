@@ -123,7 +123,7 @@ def mock_agents():
     """Create mock agents."""
     return [
         MockAgent("claude"),
-        MockAgent("gpt4"),
+        MockAgent("gpt-5.5"),
         MockAgent("gemini"),
     ]
 
@@ -133,7 +133,7 @@ def mock_proposals():
     """Create mock proposals."""
     return {
         "claude": "Claude's proposal for the solution.",
-        "gpt4": "GPT-4's proposal for the solution.",
+        "gpt-5.5": "GPT-5.5's proposal for the solution.",
         "gemini": "Gemini's proposal for the solution.",
     }
 
@@ -192,7 +192,7 @@ class TestConsensusDependencies:
         from aragora.debate.phases.consensus_phase import ConsensusDependencies
 
         mock_protocol = MockProtocol()
-        mock_weights = {"claude": 1.2, "gpt4": 0.8}
+        mock_weights = {"claude": 1.2, "gpt-5.5": 0.8}
 
         deps = ConsensusDependencies(
             protocol=mock_protocol,
@@ -302,7 +302,7 @@ class TestNoneConsensus:
         await consensus_phase._handle_none_consensus(mock_context)
 
         assert "[claude]:" in mock_context.result.final_answer.lower()
-        assert "[gpt4]:" in mock_context.result.final_answer.lower()
+        assert "[gpt-5.5]:" in mock_context.result.final_answer.lower()
         assert "[gemini]:" in mock_context.result.final_answer.lower()
         assert mock_context.result.consensus_reached is False
         assert mock_context.result.confidence == 0.5
@@ -423,7 +423,7 @@ class TestUnanimousConsensus:
 
         protocol = MockProtocol(consensus="unanimous")
 
-        vote_choices = ["claude", "gpt4", "claude"]
+        vote_choices = ["claude", "gpt-5.5", "claude"]
 
         async def mock_vote(agent, proposals, task):
             idx = mock_agents.index(agent) if agent in mock_agents else 0
@@ -523,7 +523,7 @@ class TestFallbackConsensus:
         mock_context.result.votes = [
             MockVote("agent1", "claude", 0.8),
             MockVote("agent2", "claude", 0.9),
-            MockVote("agent3", "gpt4", 0.7),
+            MockVote("agent3", "gpt-5.5", 0.7),
         ]
 
         await phase._handle_fallback_consensus(mock_context, reason="timeout")
@@ -543,7 +543,7 @@ class TestFallbackConsensus:
         deps = ConsensusDependencies()
         phase = ConsensusPhase(deps=deps)
 
-        mock_context.vote_tally = {"claude": 3, "gpt4": 1}
+        mock_context.vote_tally = {"claude": 3, "gpt-5.5": 1}
 
         await phase._handle_fallback_consensus(mock_context, reason="error")
 
@@ -691,15 +691,15 @@ class TestVoteGrouping:
         """Test vote groups without grouping callback."""
         votes = [
             MockVote("agent1", "claude"),
-            MockVote("agent2", "gpt4"),
+            MockVote("agent2", "gpt-5.5"),
         ]
 
         groups, mapping = consensus_phase._compute_vote_groups(votes)
 
         assert "claude" in groups
-        assert "gpt4" in groups
+        assert "gpt-5.5" in groups
         assert mapping["claude"] == "claude"
-        assert mapping["gpt4"] == "gpt4"
+        assert mapping["gpt-5.5"] == "gpt-5.5"
 
     def test_compute_vote_groups_with_grouping(self):
         """Test vote groups with custom grouping callback."""
@@ -751,25 +751,25 @@ class TestVoteWeighting:
             ConsensusDependencies,
         )
 
-        deps = ConsensusDependencies(agent_weights={"claude": 1.5, "gpt4": 0.8})
+        deps = ConsensusDependencies(agent_weights={"claude": 1.5, "gpt-5.5": 0.8})
         phase = ConsensusPhase(deps=deps)
 
         mock_context.agents = mock_agents
         weights = phase._compute_vote_weights(mock_context)
 
         assert weights["claude"] == 1.5
-        assert weights["gpt4"] == 0.8
+        assert weights["gpt-5.5"] == 0.8
         assert weights["gemini"] == 1.0  # Default
 
     def test_count_weighted_votes(self, consensus_phase):
         """Test weighted vote counting."""
         votes = [
             MockVote("claude", "proposal_a"),
-            MockVote("gpt4", "proposal_a"),
+            MockVote("gpt-5.5", "proposal_a"),
             MockVote("gemini", "proposal_b"),
         ]
         choice_mapping = {"proposal_a": "proposal_a", "proposal_b": "proposal_b"}
-        weight_cache = {"claude": 1.5, "gpt4": 1.0, "gemini": 0.5}
+        weight_cache = {"claude": 1.5, "gpt-5.5": 1.0, "gemini": 0.5}
 
         counts, total = consensus_phase._count_weighted_votes(votes, choice_mapping, weight_cache)
 
@@ -798,14 +798,14 @@ class TestUserVotes:
             protocol=protocol,
             user_votes=[
                 {"choice": "claude", "intensity": 5, "user_id": "user1"},
-                {"choice": "gpt4", "intensity": 10, "user_id": "user2"},
+                {"choice": "gpt-5.5", "intensity": 10, "user_id": "user2"},
             ],
         )
         phase = ConsensusPhase(deps=deps)
 
-        vote_counts = Counter({"claude": 2.0, "gpt4": 1.0})
+        vote_counts = Counter({"claude": 2.0, "gpt-5.5": 1.0})
         total_weighted = 3.0
-        choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
+        choice_mapping = {"claude": "claude", "gpt-5.5": "gpt-5.5"}
 
         new_counts, new_total = phase._add_user_votes(vote_counts, total_weighted, choice_mapping)
 
@@ -836,7 +836,7 @@ class TestChoiceNormalization:
         """Test normalization with prefix matching."""
         agents = [MockAgent("claude-visionary")]
         # Use proposals without "claude" key to test agent prefix matching
-        proposals = {"gemini": "Gemini proposal", "gpt4": "GPT-4 proposal"}
+        proposals = {"gemini": "Gemini proposal", "gpt-5.5": "GPT-5.5 proposal"}
         result = consensus_phase._normalize_choice_to_agent("claude", agents, proposals)
         assert result == "claude-visionary"
 
@@ -873,9 +873,9 @@ class TestWinnerDetermination:
         phase = ConsensusPhase(deps=deps)
 
         mock_context.agents = mock_agents
-        vote_counts = Counter({"claude": 2.0, "gpt4": 1.0})
+        vote_counts = Counter({"claude": 2.0, "gpt-5.5": 1.0})
         total_votes = 3.0
-        choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
+        choice_mapping = {"claude": "claude", "gpt-5.5": "gpt-5.5"}
 
         phase._winner_selector.determine_majority_winner(
             mock_context,
@@ -1255,9 +1255,9 @@ class TestConsensusStrength:
 
         mock_context.agents = mock_agents
         # High agreement: 5 votes for winner, 5 for second
-        vote_counts = Counter({"claude": 5.0, "gpt4": 4.5})
+        vote_counts = Counter({"claude": 5.0, "gpt-5.5": 4.5})
         total_votes = 9.5
-        choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
+        choice_mapping = {"claude": "claude", "gpt-5.5": "gpt-5.5"}
 
         # Method was extracted to WinnerSelector; requires normalize_choice callback
         phase._winner_selector.determine_majority_winner(
@@ -1320,9 +1320,9 @@ class TestDissentingViews:
         phase = ConsensusPhase(deps=deps)
 
         mock_context.agents = mock_agents
-        vote_counts = Counter({"claude": 2.0, "gpt4": 1.0})
+        vote_counts = Counter({"claude": 2.0, "gpt-5.5": 1.0})
         total_votes = 3.0
-        choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
+        choice_mapping = {"claude": "claude", "gpt-5.5": "gpt-5.5"}
 
         # Method was extracted to WinnerSelector; requires normalize_choice callback
         phase._winner_selector.determine_majority_winner(
@@ -1333,7 +1333,7 @@ class TestDissentingViews:
             normalize_choice=lambda choice, agents, proposals: choice,
         )
 
-        # gpt4 and gemini should be in dissenting views
+        # gpt-5.5 and gemini should be in dissenting views
         assert len(mock_context.result.dissenting_views) == 2
 
 

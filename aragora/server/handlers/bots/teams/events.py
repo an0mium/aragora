@@ -37,7 +37,7 @@ PERM_TEAMS_DEBATES_CREATE = "teams:debates:create"
 # Agent display names for UI
 AGENT_DISPLAY_NAMES: dict[str, str] = {
     "claude": "Claude",
-    "gpt4": "GPT-4",
+    "gpt-5.5": "GPT-5.5",
     "gemini": "Gemini",
     "mistral": "Mistral",
     "deepseek": "DeepSeek",
@@ -45,7 +45,7 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "qwen": "Qwen",
     "kimi": "Kimi",
     "anthropic-api": "Claude",
-    "openai-api": "GPT-4",
+    "openai-api": "GPT-5.5",
 }
 
 # Command pattern for parsing @mentions
@@ -424,7 +424,7 @@ Aragora orchestrates 15+ AI models to debate and deliver defensible decisions.""
         else:
             leaderboard_text = (
                 "1. Claude: 1850 ELO\n"
-                "2. GPT-4: 1820 ELO\n"
+                "2. GPT-5.5: 1820 ELO\n"
                 "3. Gemini: 1780 ELO\n"
                 "4. Grok: 1750 ELO\n"
                 "5. Mistral: 1720 ELO"
@@ -438,7 +438,7 @@ Aragora orchestrates 15+ AI models to debate and deliver defensible decisions.""
         agents_text = """**Available AI Agents**
 
 - **Claude** (Anthropic) - Advanced reasoning and analysis
-- **GPT-4** (OpenAI) - Versatile language understanding
+- **GPT-5.5** (OpenAI) - Versatile language understanding
 - **Gemini** (Google) - Multimodal capabilities
 - **Grok** (xAI) - Real-time knowledge
 - **Mistral** - Fast and efficient

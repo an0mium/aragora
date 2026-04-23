@@ -6,7 +6,7 @@ Usage::
 
     debate = Debate(topic="Should we migrate to microservices?")
     debate.add_agent(create_agent("anthropic", model="claude-sonnet-4-5-20250929"))
-    debate.add_agent(create_agent("openai", model="gpt-4o"))
+    debate.add_agent(create_agent("openai", model="gpt-5.5"))
     result = await debate.run()
     print(result.receipt.to_markdown())
 
@@ -202,7 +202,7 @@ def create_agent(
 
         return OpenAIAgent(
             name=agent_name,
-            model=model or "gpt-4o",
+            model=model or "gpt-5.5",
             api_key=api_key,
             system_prompt=system_prompt,
             stance=stance,  # type: ignore[arg-type]

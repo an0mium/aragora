@@ -700,11 +700,11 @@ class TestSlashCommandAgents:
 
         mock_agents = [
             MagicMock(name="claude", elo=1700, wins=10),
-            MagicMock(name="gpt4", elo=1650, wins=8),
+            MagicMock(name="gpt-5.5", elo=1650, wins=8),
         ]
         # Need to set name as property since MagicMock name conflicts
         mock_agents[0].name = "claude"
-        mock_agents[1].name = "gpt4"
+        mock_agents[1].name = "gpt-5.5"
 
         mock_elo = MagicMock()
         mock_elo.get_all_ratings.return_value = mock_agents
@@ -2108,10 +2108,10 @@ class TestSlashCommandLeaderboard:
 
         mock_agents = [
             MagicMock(name="claude", elo=1700, wins=10, losses=2),
-            MagicMock(name="gpt4", elo=1650, wins=8, losses=4),
+            MagicMock(name="gpt-5.5", elo=1650, wins=8, losses=4),
         ]
         mock_agents[0].name = "claude"
-        mock_agents[1].name = "gpt4"
+        mock_agents[1].name = "gpt-5.5"
 
         mock_elo = MagicMock()
         mock_elo.get_all_ratings.return_value = mock_agents

@@ -129,7 +129,7 @@ class TestListTournamentsEndpoint:
                 mock_manager = Mock()
                 mock_manager.get_current_standings.return_value = [
                     MockStanding("claude", 5, 2, 1),
-                    MockStanding("gpt4", 3, 4, 1),
+                    MockStanding("gpt-5.5", 3, 4, 1),
                 ]
                 MockManager.return_value = mock_manager
 
@@ -197,7 +197,7 @@ class TestStandingsEndpoint:
                 mock_manager = Mock()
                 mock_manager.get_current_standings.return_value = [
                     MockStanding("claude", 5, 2, 1),
-                    MockStanding("gpt4", 3, 4, 1),
+                    MockStanding("gpt-5.5", 3, 4, 1),
                 ]
                 MockManager.return_value = mock_manager
 

@@ -672,8 +672,8 @@ models:
     - claude-3.5-sonnet
     - claude-3-haiku
   openai:
-    - gpt-4o
-    - gpt-4-turbo
+    - gpt-5.5
+    - gpt-5.5
     - o1
     - o1-mini
   google:

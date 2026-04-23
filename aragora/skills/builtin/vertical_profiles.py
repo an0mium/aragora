@@ -196,7 +196,7 @@ class HealthcareHIPAASkill(VerticalProfileSkill):
                 "emphasis on patient safety, regulatory compliance, and clinical evidence.",
                 compliance_frameworks=["hipaa", "hitech"],
                 required_dimensions=["safety", "accuracy", "evidence"],
-                recommended_agents=["claude", "gpt4"],
+                recommended_agents=["claude", "gpt-5.5"],
                 arena_overrides={
                     "enable_compliance_artifacts": True,
                     "enable_provenance": True,
@@ -221,7 +221,7 @@ class HealthcareClinicalSkill(VerticalProfileSkill):
                 "evidence-based medicine and patient outcomes.",
                 compliance_frameworks=["hipaa"],
                 required_dimensions=["accuracy", "evidence", "reasoning"],
-                recommended_agents=["claude", "gpt4"],
+                recommended_agents=["claude", "gpt-5.5"],
                 arena_overrides={
                     "enable_provenance": True,
                     "enable_knowledge_extraction": True,
@@ -244,7 +244,7 @@ class FinancialAuditSkill(VerticalProfileSkill):
                 "accuracy, completeness, and SOX compliance.",
                 compliance_frameworks=["sox", "gaap"],
                 required_dimensions=["accuracy", "completeness", "reasoning"],
-                recommended_agents=["claude", "gpt4"],
+                recommended_agents=["claude", "gpt-5.5"],
                 arena_overrides={
                     "enable_compliance_artifacts": True,
                     "enable_receipt_generation": True,
@@ -269,7 +269,7 @@ class FinancialRiskSkill(VerticalProfileSkill):
                 "quantitative reasoning and scenario analysis.",
                 compliance_frameworks=["sox"],
                 required_dimensions=["accuracy", "reasoning", "evidence"],
-                recommended_agents=["claude", "gpt4", "gemini"],
+                recommended_agents=["claude", "gpt-5.5", "gemini"],
                 arena_overrides={
                     "enable_provenance": True,
                     "enable_knowledge_extraction": True,
@@ -293,7 +293,7 @@ class LegalContractSkill(VerticalProfileSkill):
                 "completeness, accuracy, and precedent analysis.",
                 compliance_frameworks=[],
                 required_dimensions=["accuracy", "completeness", "reasoning"],
-                recommended_agents=["claude", "gpt4"],
+                recommended_agents=["claude", "gpt-5.5"],
                 arena_overrides={
                     "enable_provenance": True,
                     "enable_knowledge_extraction": True,
@@ -316,7 +316,7 @@ class LegalDueDiligenceSkill(VerticalProfileSkill):
                 "thorough risk identification and evidence gathering.",
                 compliance_frameworks=[],
                 required_dimensions=["completeness", "evidence", "accuracy"],
-                recommended_agents=["claude", "gpt4"],
+                recommended_agents=["claude", "gpt-5.5"],
                 arena_overrides={
                     "enable_provenance": True,
                     "enable_trickster": True,
@@ -340,7 +340,7 @@ class ComplianceSOXSkill(VerticalProfileSkill):
                 "internal controls, audit trails, and regulatory requirements.",
                 compliance_frameworks=["sox", "coso"],
                 required_dimensions=["accuracy", "completeness", "safety"],
-                recommended_agents=["claude", "gpt4"],
+                recommended_agents=["claude", "gpt-5.5"],
                 arena_overrides={
                     "enable_compliance_artifacts": True,
                     "enable_receipt_generation": True,

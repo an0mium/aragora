@@ -55,7 +55,7 @@ def sample_debate():
             },
             {
                 "round": 1,
-                "agent": "GPT-4",
+                "agent": "GPT-5.5",
                 "role": "speaker",
                 "content": "Balance innovation with safety.",
                 "timestamp": "2024-01-15T10:10:00Z",

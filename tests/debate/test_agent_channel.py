@@ -40,7 +40,7 @@ class TestChannelMessage:
             sender="claude",
             message_type=MessageType.DIRECT,
             content="Private message",
-            recipient="gpt4",
+            recipient="gpt-5.5",
             metadata={"priority": "high"},
         )
 
@@ -48,7 +48,7 @@ class TestChannelMessage:
 
         assert data["message_id"] == "msg_123"
         assert data["sender"] == "claude"
-        assert data["recipient"] == "gpt4"
+        assert data["recipient"] == "gpt-5.5"
         assert data["message_type"] == "direct"
         assert data["metadata"]["priority"] == "high"
 
@@ -83,10 +83,10 @@ class TestAgentChannel:
     async def test_join_channel(self, channel):
         """Test agents joining a channel."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         assert "claude" in channel.agents
-        assert "gpt4" in channel.agents
+        assert "gpt-5.5" in channel.agents
         assert len(channel.agents) == 2
 
     @pytest.mark.asyncio
@@ -102,18 +102,18 @@ class TestAgentChannel:
     async def test_leave_channel(self, channel):
         """Test leaving a channel."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         await channel.leave("claude")
 
         assert "claude" not in channel.agents
-        assert "gpt4" in channel.agents
+        assert "gpt-5.5" in channel.agents
 
     @pytest.mark.asyncio
     async def test_broadcast_message(self, channel):
         """Test broadcasting a message."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
         await channel.join("gemini")
 
         msg = await channel.broadcast(
@@ -127,11 +127,11 @@ class TestAgentChannel:
         assert msg.recipient is None
 
         # Other agents should receive
-        gpt4_pending = channel.pending_count("gpt4")
+        gpt55_pending = channel.pending_count("gpt-5.5")
         gemini_pending = channel.pending_count("gemini")
         claude_pending = channel.pending_count("claude")
 
-        assert gpt4_pending == 1
+        assert gpt55_pending == 1
         assert gemini_pending == 1
         assert claude_pending == 0  # Sender doesn't receive own broadcast
 
@@ -139,21 +139,21 @@ class TestAgentChannel:
     async def test_direct_message(self, channel):
         """Test sending a direct message."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
         await channel.join("gemini")
 
         msg = await channel.send(
             sender="claude",
-            recipient="gpt4",
+            recipient="gpt-5.5",
             content="What do you think?",
             message_type=MessageType.QUERY,
         )
 
         assert msg is not None
-        assert msg.recipient == "gpt4"
+        assert msg.recipient == "gpt-5.5"
 
-        # Only gpt4 should receive
-        assert channel.pending_count("gpt4") == 1
+        # Only gpt-5.5 should receive
+        assert channel.pending_count("gpt-5.5") == 1
         assert channel.pending_count("gemini") == 0
         assert channel.pending_count("claude") == 0
 
@@ -174,11 +174,11 @@ class TestAgentChannel:
     async def test_receive_message(self, channel):
         """Test receiving a message."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         await channel.broadcast("claude", "Hello!")
 
-        msg = await channel.receive("gpt4", timeout=1.0)
+        msg = await channel.receive("gpt-5.5", timeout=1.0)
 
         assert msg is not None
         assert msg.sender == "claude"
@@ -197,14 +197,14 @@ class TestAgentChannel:
     async def test_receive_all_messages(self, channel):
         """Test receiving all pending messages."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         # Send multiple messages
         await channel.broadcast("claude", "Message 1")
         await channel.broadcast("claude", "Message 2")
         await channel.broadcast("claude", "Message 3")
 
-        messages = await channel.receive_all("gpt4")
+        messages = await channel.receive_all("gpt-5.5")
 
         assert len(messages) == 3
         assert messages[0].content == "Message 1"
@@ -214,10 +214,10 @@ class TestAgentChannel:
     async def test_message_history(self, channel):
         """Test message history."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         await channel.broadcast("claude", "First message")
-        await channel.send("gpt4", "claude", "Reply")
+        await channel.send("gpt-5.5", "claude", "Reply")
         await channel.broadcast("claude", "Second broadcast")
 
         history = channel.history
@@ -227,10 +227,10 @@ class TestAgentChannel:
     async def test_history_filtering(self, channel):
         """Test filtered history retrieval."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         await channel.broadcast("claude", "Proposal 1", MessageType.PROPOSAL)
-        await channel.send("gpt4", "claude", "Query", MessageType.QUERY)
+        await channel.send("gpt-5.5", "claude", "Query", MessageType.QUERY)
         await channel.broadcast("claude", "Proposal 2", MessageType.PROPOSAL)
 
         # Filter by sender
@@ -245,10 +245,10 @@ class TestAgentChannel:
     async def test_reply_to_threading(self, channel):
         """Test message threading with reply_to."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         root = await channel.broadcast("claude", "Original proposal")
-        await channel.broadcast("gpt4", "I have concerns", reply_to=root.message_id)
+        await channel.broadcast("gpt-5.5", "I have concerns", reply_to=root.message_id)
         await channel.broadcast("claude", "Let me address that", reply_to=root.message_id)
 
         thread = channel.get_thread(root.message_id)
@@ -258,14 +258,14 @@ class TestAgentChannel:
     async def test_message_handler(self, channel):
         """Test message handler callback."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         received_messages = []
 
         async def handler(msg: ChannelMessage):
             received_messages.append(msg)
 
-        channel.on_message("gpt4", handler)
+        channel.on_message("gpt-5.5", handler)
 
         await channel.broadcast("claude", "Test message")
 
@@ -279,23 +279,23 @@ class TestAgentChannel:
     async def test_to_context(self, channel):
         """Test converting history to context string."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         await channel.broadcast("claude", "I propose X")
-        await channel.send("gpt4", "claude", "What about Y?")
+        await channel.send("gpt-5.5", "claude", "What about Y?")
 
         context = channel.to_context(limit=10)
 
         assert "## Recent Agent Discussion" in context
         assert "[claude]" in context
-        assert "[gpt4 -> claude]" in context
+        assert "[gpt-5.5 -> claude]" in context
         assert "I propose X" in context
 
     @pytest.mark.asyncio
     async def test_close_channel(self, channel):
         """Test closing a channel."""
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         await channel.close()
 
@@ -308,7 +308,7 @@ class TestAgentChannel:
         """Test history limit enforcement."""
         channel = AgentChannel("test", max_history=5)
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         # Send more than max_history messages
         for i in range(10):
@@ -392,7 +392,7 @@ class TestChannelManager:
         channel2 = await manager.create_channel("debate_2")
 
         await channel1.join("claude")
-        await channel1.join("gpt4")
+        await channel1.join("gpt-5.5")
         await channel2.join("claude")
         await channel2.join("gemini")
 
@@ -435,7 +435,7 @@ class TestMessageTypes:
         """Test sending proposal messages."""
         channel = AgentChannel("test")
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         msg = await channel.broadcast(
             sender="claude",
@@ -452,11 +452,11 @@ class TestMessageTypes:
         """Test sending critique messages."""
         channel = AgentChannel("test")
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         proposal = await channel.broadcast("claude", "Proposal", MessageType.PROPOSAL)
         critique = await channel.broadcast(
-            "gpt4",
+            "gpt-5.5",
             "This has issues",
             MessageType.CRITIQUE,
             reply_to=proposal.message_id,
@@ -470,17 +470,17 @@ class TestMessageTypes:
         """Test query-response message flow."""
         channel = AgentChannel("test")
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         query = await channel.send(
             "claude",
-            "gpt4",
+            "gpt-5.5",
             "What about edge cases?",
             MessageType.QUERY,
         )
 
         response = await channel.send(
-            "gpt4",
+            "gpt-5.5",
             "claude",
             "Good point, let me address that",
             MessageType.RESPONSE,
@@ -496,7 +496,7 @@ class TestMessageTypes:
         """Test signal messages."""
         channel = AgentChannel("test")
         await channel.join("claude")
-        await channel.join("gpt4")
+        await channel.join("gpt-5.5")
 
         signal = await channel.broadcast(
             "claude",

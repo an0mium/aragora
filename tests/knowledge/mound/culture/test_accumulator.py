@@ -130,7 +130,7 @@ def sample_debate_result():
         task="Review security architecture",
         proposals=[
             Proposal(agent_type="claude", content="Use OAuth2"),
-            Proposal(agent_type="gpt4", content="Use JWT"),
+            Proposal(agent_type="gpt-5.5", content="Use JWT"),
         ],
         winner="claude",
         consensus_reached=True,
@@ -201,9 +201,9 @@ def sample_debate_result_high_confidence():
         debate_id="debate_003",
         task="Review database schema",
         proposals=[
-            Proposal(agent_type="gpt4", content="Normalize tables"),
+            Proposal(agent_type="gpt-5.5", content="Normalize tables"),
         ],
-        winner="gpt4",
+        winner="gpt-5.5",
         consensus_reached=True,
         confidence=0.95,
         rounds_used=1,
@@ -501,7 +501,7 @@ class TestOrganizationCulture:
     def test_with_dominant_traits(self):
         """Test organization culture with dominant traits."""
         traits = {
-            "top_agents": ["claude", "gpt4"],
+            "top_agents": ["claude", "gpt-5.5"],
             "expertise_areas": ["security", "api"],
             "avg_consensus_rounds": 3.5,
             "consensus_rate": 0.85,
@@ -515,7 +515,7 @@ class TestOrganizationCulture:
             dominant_traits=traits,
         )
 
-        assert culture.dominant_traits["top_agents"] == ["claude", "gpt4"]
+        assert culture.dominant_traits["top_agents"] == ["claude", "gpt-5.5"]
         assert culture.dominant_traits["consensus_rate"] == 0.85
 
     def test_to_dict(self):
@@ -573,7 +573,7 @@ class TestDebateObservation:
         obs = DebateObservation(
             debate_id="debate_001",
             topic="Security review",
-            participating_agents=["claude", "gpt4"],
+            participating_agents=["claude", "gpt-5.5"],
             winning_agents=["claude"],
             rounds_to_consensus=3,
             consensus_reached=True,
@@ -584,7 +584,7 @@ class TestDebateObservation:
 
         assert obs.debate_id == "debate_001"
         assert obs.topic == "Security review"
-        assert obs.participating_agents == ["claude", "gpt4"]
+        assert obs.participating_agents == ["claude", "gpt-5.5"]
         assert obs.winning_agents == ["claude"]
         assert obs.rounds_to_consensus == 3
         assert obs.consensus_reached is True
@@ -598,7 +598,7 @@ class TestDebateObservation:
         obs = DebateObservation(
             debate_id="debate_002",
             topic="Contentious topic",
-            participating_agents=["claude", "gpt4", "gemini"],
+            participating_agents=["claude", "gpt-5.5", "gemini"],
             winning_agents=[],
             rounds_to_consensus=10,
             consensus_reached=False,
@@ -778,7 +778,7 @@ class TestCultureAccumulatorExtractObservation:
         assert obs.debate_id == "debate_001"
         assert obs.topic == "Review security architecture"
         assert "claude" in obs.participating_agents
-        assert "gpt4" in obs.participating_agents
+        assert "gpt-5.5" in obs.participating_agents
         assert "claude" in obs.winning_agents
         assert obs.consensus_reached is True
         assert obs.rounds_to_consensus == 3
@@ -1494,7 +1494,7 @@ class TestCultureAccumulatorUpdateMethods:
         obs = DebateObservation(
             debate_id="debate_001",
             topic="Security review",
-            participating_agents=["claude", "gpt4"],
+            participating_agents=["claude", "gpt-5.5"],
             winning_agents=["claude"],
             rounds_to_consensus=3,
             consensus_reached=True,
@@ -2446,8 +2446,8 @@ class TestOrganizationCultureManagerExtractDominantTraits:
                     id="cp_002",
                     workspace_id="ws_001",
                     pattern_type=CulturePatternType.AGENT_PREFERENCES,
-                    pattern_key="security:gpt4",
-                    pattern_value={"agent": "gpt4"},
+                    pattern_key="security:gpt-5.5",
+                    pattern_value={"agent": "gpt-5.5"},
                     observation_count=5,
                     confidence=0.7,
                     first_observed_at=datetime.now(),
@@ -2724,14 +2724,14 @@ class TestCultureAccumulatorEdgeCases:
         result = DebateResult(
             proposals=[
                 Proposal(agent_type="claude", content="A"),
-                Proposal(agent_type="gpt4", content="B"),
+                Proposal(agent_type="gpt-5.5", content="B"),
             ],
             critiques=[],
         )
 
         obs = culture_accumulator._extract_observation(result)
         # Manually add multiple winners
-        obs.winning_agents = ["claude", "gpt4"]
+        obs.winning_agents = ["claude", "gpt-5.5"]
 
         patterns = await culture_accumulator._update_agent_preferences(obs, "ws_001")
         assert len(patterns) == 2
@@ -2885,7 +2885,7 @@ class TestCultureAccumulatorEdgeCases:
             workspace_id="ws_001",
             pattern_type=CulturePatternType.AGENT_PREFERENCES,
             pattern_key="test:low",
-            pattern_value={"agent": "gpt4"},
+            pattern_value={"agent": "gpt-5.5"},
             observation_count=1,
             confidence=0.1,
             first_observed_at=datetime.now(),
@@ -2943,7 +2943,7 @@ class TestCultureAccumulatorEdgeCases:
     async def test_recommend_agents_sorted_by_confidence(self, culture_accumulator):
         """Test that recommended agents are sorted by confidence."""
         # Inject patterns with known confidence values
-        for agent, conf in [("claude", 0.9), ("gpt4", 0.5), ("gemini", 0.7)]:
+        for agent, conf in [("claude", 0.9), ("gpt-5.5", 0.5), ("gemini", 0.7)]:
             pattern = CulturePattern(
                 id=f"cp_{agent}",
                 workspace_id="ws_001",
@@ -2961,7 +2961,7 @@ class TestCultureAccumulatorEdgeCases:
 
         recs = await culture_accumulator.recommend_agents("security", "ws_001")
 
-        assert recs == ["claude", "gemini", "gpt4"]
+        assert recs == ["claude", "gemini", "gpt-5.5"]
 
     def test_infer_domain_first_match_wins(self, culture_accumulator):
         """Test that first matching domain in dict iteration wins."""
@@ -3780,10 +3780,10 @@ class TestCultureAccumulatorIntegration:
 
         domains_tasks = [
             ("security review", "claude"),
-            ("performance testing", "gpt4"),
+            ("performance testing", "gpt-5.5"),
             ("database schema review", "claude"),
             ("frontend UI improvements", "gemini"),
-            ("API endpoint review", "gpt4"),
+            ("API endpoint review", "gpt-5.5"),
         ]
 
         for i, (task, winner) in enumerate(domains_tasks):

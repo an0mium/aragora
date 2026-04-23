@@ -96,7 +96,7 @@ class TestAgentConfig:
     def test_create_full(self):
         config = AgentConfig(
             id="a1",
-            model="gpt-4",
+            model="gpt-5.5",
             tools=["shell", "browser"],
             isolation=IsolationConfig(level="container", memory_mb=1024),
             budget=BudgetConfig(max_tokens_per_day=100_000),

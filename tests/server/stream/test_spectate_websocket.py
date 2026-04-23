@@ -91,7 +91,7 @@ class TestSpectateWebSocket:
             {
                 "loop_id": "debate-123",
                 "task": "Should we ship the live debate view?",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "status": "running",
                 "current_round": 2,
                 "messages": [],
@@ -115,7 +115,7 @@ class TestSpectateWebSocket:
         assert ws_stub.sent_json[0]["type"] == "metadata"
         assert ws_stub.sent_json[0]["debate_id"] == "debate-123"
         assert ws_stub.sent_json[0]["task"] == "Should we ship the live debate view?"
-        assert ws_stub.sent_json[0]["agents"] == ["claude", "gpt4"]
+        assert ws_stub.sent_json[0]["agents"] == ["claude", "gpt-5.5"]
 
         assert ws_stub.sent_json[1]["type"] == "proposal"
         assert ws_stub.sent_json[1]["agent"] == "claude"

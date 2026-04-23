@@ -104,7 +104,7 @@ class TestConsensusOutcome:
             consensus_confidence=0.85,
             implementation_attempted=True,
             implementation_succeeded=True,
-            agents_participating=["claude", "gpt4"],
+            agents_participating=["claude", "gpt-5.5"],
         )
 
         d = outcome.to_dict()
@@ -112,7 +112,7 @@ class TestConsensusOutcome:
         assert d["debate_id"] == "debate-1"
         assert d["consensus_confidence"] == 0.85
         # agents_participating should be JSON-encoded
-        assert d["agents_participating"] == '["claude", "gpt4"]'
+        assert d["agents_participating"] == '["claude", "gpt-5.5"]'
 
     def test_from_row(self):
         """from_row should deserialize from database row."""
@@ -303,7 +303,7 @@ class TestRecordOutcome:
             rollback_triggered=False,
             time_to_failure=None,
             failure_reason=None,
-            agents_participating=["claude", "gpt4", "gemini"],
+            agents_participating=["claude", "gpt-5.5", "gemini"],
             rounds_completed=5,
             trickster_interventions=2,
             evidence_coverage=0.85,
@@ -314,7 +314,7 @@ class TestRecordOutcome:
 
         assert stored.tests_passed == 42
         assert stored.tests_failed == 3
-        assert stored.agents_participating == ["claude", "gpt4", "gemini"]
+        assert stored.agents_participating == ["claude", "gpt-5.5", "gemini"]
         assert stored.rounds_completed == 5
         assert stored.trickster_interventions == 2
         assert stored.evidence_coverage == 0.85

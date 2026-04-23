@@ -262,7 +262,7 @@ def sample_agents() -> list[dict[str, Any]]:
         {
             "agent_id": "agent-gpt",
             "capabilities": ["debate", "analysis"],
-            "model": "gpt-4",
+            "model": "gpt-5.5",
             "provider": "openai",
         },
         {

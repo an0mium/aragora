@@ -487,12 +487,12 @@ class TestNormalizeChoiceToAgent:
     def test_base_name_match_with_hyphen(self):
         """Matches base name (before hyphen) of agent."""
         phase = self._make_phase()
-        agents = [MockAgent(name="gpt-4o")]
+        agents = [MockAgent(name="gpt-5.5")]
         proposals = {}
 
         result = phase._normalize_choice_to_agent("gpt", agents, proposals)
 
-        assert result == "gpt-4o"
+        assert result == "gpt-5.5"
 
     def test_empty_choice_returns_empty(self):
         """Returns empty string for empty choice."""

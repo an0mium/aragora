@@ -28,7 +28,7 @@ aragora/canvas/
 
 | Type | Description |
 |------|-------------|
-| `AGENT` | AI agent (Claude, GPT-4, Gemini, etc.) |
+| `AGENT` | AI agent (Claude, GPT-5.5, Gemini, etc.) |
 | `DEBATE` | Active debate session |
 | `KNOWLEDGE` | Knowledge Mound item |
 | `WORKFLOW` | Workflow step |
@@ -159,7 +159,7 @@ form = FormPrimitive(
             label="Model",
             options=[
                 {"value": "claude", "label": "Claude"},
-                {"value": "gpt4", "label": "GPT-4"},
+                {"value": "gpt-5.5", "label": "GPT-5.5"},
             ],
         ),
     ],

@@ -35,7 +35,7 @@ Usage:
                 id="step2",
                 name="Second Step",
                 step_type="agent",
-                config={"agent_type": "gpt4", "prompt": "..."},
+                config={"agent_type": "gpt-5.5", "prompt": "..."},
             ),
         ],
     )

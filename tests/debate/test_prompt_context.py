@@ -326,7 +326,7 @@ class TestGetPersonaContext:
         # Test various agent name patterns
         test_cases = [
             ("claude_proposer_1", "claude"),
-            ("gpt4_critic", "gpt4"),
+            ("gpt55_critic", "gpt-5.5"),
             ("gemini_judge_v2", "gemini"),
         ]
 

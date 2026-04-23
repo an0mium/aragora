@@ -37,7 +37,7 @@ SAMPLE_STANDING = {
 }
 
 SAMPLE_STANDING_2 = {
-    "agent_id": "gpt4",
+    "agent_id": "gpt-5.5",
     "rank": 2,
     "wins": 3,
     "losses": 2,
@@ -73,7 +73,7 @@ SAMPLE_TOURNAMENT = {
     "name": "Weekly Championship",
     "status": "completed",
     "format": "round_robin",
-    "participants": ["claude", "gpt4", "gemini", "mistral"],
+    "participants": ["claude", "gpt-5.5", "gemini", "mistral"],
     "standings": [SAMPLE_STANDING, SAMPLE_STANDING_2],
     "rounds_completed": 6,
     "total_rounds": 6,
@@ -107,7 +107,7 @@ class TestTournamentStandingDataclass:
 
     def test_default_elo_change(self) -> None:
         standing = TournamentStanding(
-            agent_id="gpt4", rank=2, wins=3, losses=2, draws=1, points=10.0
+            agent_id="gpt-5.5", rank=2, wins=3, losses=2, draws=1, points=10.0
         )
         assert standing.elo_change == 0.0
 
@@ -217,7 +217,7 @@ class TestTournamentDataclass:
             name="Championship",
             status="completed",
             format="round_robin",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             standings=standings,
             rounds_completed=3,
             total_rounds=3,
@@ -282,10 +282,10 @@ class TestTournamentDataclass:
         assert tournament.name == "Weekly Championship"
         assert tournament.status == "completed"
         assert tournament.format == "round_robin"
-        assert tournament.participants == ["claude", "gpt4", "gemini", "mistral"]
+        assert tournament.participants == ["claude", "gpt-5.5", "gemini", "mistral"]
         assert len(tournament.standings) == 2
         assert tournament.standings[0].agent_id == "claude"
-        assert tournament.standings[1].agent_id == "gpt4"
+        assert tournament.standings[1].agent_id == "gpt-5.5"
         assert tournament.rounds_completed == 6
         assert tournament.total_rounds == 6
         assert tournament.completed_at == "2026-02-01T12:00:00Z"
@@ -424,7 +424,7 @@ class TestTournamentsGet:
         assert result.standings[0].agent_id == "claude"
         assert result.standings[0].rank == 1
         assert result.standings[0].elo_change == 32.5
-        assert result.standings[1].agent_id == "gpt4"
+        assert result.standings[1].agent_id == "gpt-5.5"
         assert result.standings[1].elo_change == -12.0
 
     def test_get_metadata(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
@@ -467,7 +467,7 @@ class TestTournamentsGetStandings:
         assert len(standings) == 2
         assert all(isinstance(s, TournamentStanding) for s in standings)
         assert standings[0].agent_id == "claude"
-        assert standings[1].agent_id == "gpt4"
+        assert standings[1].agent_id == "gpt-5.5"
         mock_client._get.assert_called_once_with("/api/tournaments/tourn-001/standings")
 
     def test_get_standings_single(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
@@ -523,13 +523,13 @@ class TestTournamentsGetStandings:
 class TestTournamentsCreate:
     def test_create_minimal(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = SAMPLE_SUMMARY
-        result = api.create("Weekly Championship", agents=["claude", "gpt4"])
+        result = api.create("Weekly Championship", agents=["claude", "gpt-5.5"])
         assert isinstance(result, TournamentSummary)
         assert result.id == "tourn-001"
         mock_client._post.assert_called_once()
         body = mock_client._post.call_args[0][1]
         assert body["name"] == "Weekly Championship"
-        assert body["agents"] == ["claude", "gpt4"]
+        assert body["agents"] == ["claude", "gpt-5.5"]
         assert body["format"] == "round_robin"
         assert body["rounds_per_match"] == 3
 
@@ -579,7 +579,7 @@ class TestTournamentsCreate:
         mock_client._post.return_value = SAMPLE_SUMMARY
         api.create(
             name="Full Options",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             format="swiss",
             topic="code review",
             rounds_per_match=7,
@@ -587,7 +587,7 @@ class TestTournamentsCreate:
         )
         body = mock_client._post.call_args[0][1]
         assert body["name"] == "Full Options"
-        assert body["agents"] == ["claude", "gpt4", "gemini"]
+        assert body["agents"] == ["claude", "gpt-5.5", "gemini"]
         assert body["format"] == "swiss"
         assert body["topic"] == "code review"
         assert body["rounds_per_match"] == 7
@@ -601,12 +601,12 @@ class TestTournamentsCreate:
     @pytest.mark.asyncio
     async def test_create_async(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
         mock_client._post_async = AsyncMock(return_value=SAMPLE_SUMMARY)
-        result = await api.create_async("Async Tourn", agents=["claude", "gpt4"])
+        result = await api.create_async("Async Tourn", agents=["claude", "gpt-5.5"])
         assert isinstance(result, TournamentSummary)
         assert result.id == "tourn-001"
         body = mock_client._post_async.call_args[0][1]
         assert body["name"] == "Async Tourn"
-        assert body["agents"] == ["claude", "gpt4"]
+        assert body["agents"] == ["claude", "gpt-5.5"]
 
     @pytest.mark.asyncio
     async def test_create_async_with_all_options(
@@ -706,7 +706,7 @@ class TestTournamentWorkflows:
     def test_create_then_get(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
         """Simulate creating a tournament then fetching its full details."""
         mock_client._post.return_value = SAMPLE_SUMMARY
-        summary = api.create("Workflow Test", agents=["claude", "gpt4"])
+        summary = api.create("Workflow Test", agents=["claude", "gpt-5.5"])
         assert summary.id == "tourn-001"
 
         mock_client._get.return_value = SAMPLE_TOURNAMENT
@@ -765,7 +765,7 @@ class TestTournamentWorkflows:
     async def test_async_workflow(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
         """Full async workflow: create, get, standings, cancel."""
         mock_client._post_async = AsyncMock(return_value=SAMPLE_SUMMARY)
-        summary = await api.create_async("Async Workflow", agents=["claude", "gpt4"])
+        summary = await api.create_async("Async Workflow", agents=["claude", "gpt-5.5"])
         assert summary.id == "tourn-001"
 
         mock_client._get_async = AsyncMock(return_value=SAMPLE_TOURNAMENT)

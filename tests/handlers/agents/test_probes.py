@@ -333,7 +333,7 @@ class TestListProbeReports:
 
     def test_list_reports_multiple_agents(self, handler, mock_http_handler, nomic_dir):
         """Lists reports across multiple agents."""
-        for agent_name in ["claude", "gpt4"]:
+        for agent_name in ["claude", "gpt-5.5"]:
             agent_dir = nomic_dir / "probes" / agent_name
             agent_dir.mkdir(parents=True)
             report_data = {
@@ -352,7 +352,7 @@ class TestListProbeReports:
 
     def test_filter_by_agent(self, handler, mock_http_handler, nomic_dir):
         """Filters reports by agent name."""
-        for agent_name in ["claude", "gpt4"]:
+        for agent_name in ["claude", "gpt-5.5"]:
             agent_dir = nomic_dir / "probes" / agent_name
             agent_dir.mkdir(parents=True)
             (agent_dir / f"report-{agent_name}.json").write_text(
@@ -1753,7 +1753,7 @@ class TestModelTypeParameter:
         """Custom model_type is passed to create_agent."""
         _set_body(
             mock_http_handler,
-            {"agent_name": "gpt4", "model_type": "openai-api"},
+            {"agent_name": "gpt-5.5", "model_type": "openai-api"},
         )
 
         mock_create = MagicMock(return_value=MagicMock())
@@ -1793,4 +1793,4 @@ class TestModelTypeParameter:
         ):
             result = handler.handle_post("/api/v1/probes/capability", {}, mock_http_handler)
             assert _status(result) == 200
-            mock_create.assert_called_once_with("openai-api", name="gpt4", role="proposer")
+            mock_create.assert_called_once_with("openai-api", name="gpt-5.5", role="proposer")

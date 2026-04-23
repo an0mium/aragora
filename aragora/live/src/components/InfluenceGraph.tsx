@@ -69,7 +69,7 @@ interface InfluenceGraphProps {
 
 const AGENT_COLORS: Record<string, string> = {
   claude: '#39ff14',
-  gpt4: '#ff39ff',
+  gpt-5.5: '#ff39ff',
   gemini: '#39ffff',
   mistral: '#ffff39',
   grok: '#ff3939',
@@ -401,7 +401,7 @@ export function InfluenceGraph({
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[#ff39ff]" />
-            <span className="text-text-muted">GPT-4</span>
+            <span className="text-text-muted">GPT-5.5</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[#39ffff]" />

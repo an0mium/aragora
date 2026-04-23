@@ -79,7 +79,7 @@ class TestConsensusDetect:
         if proposals is None:
             proposals = [
                 {"agent": "claude", "content": "Use PostgreSQL for reliability"},
-                {"agent": "gpt-4", "content": "Use PostgreSQL for scalability and reliability"},
+                {"agent": "gpt-5.5", "content": "Use PostgreSQL for scalability and reliability"},
             ]
         return json.dumps({"task": task, "proposals": proposals, "threshold": threshold}).encode()
 
@@ -243,7 +243,7 @@ class TestConsensusStatus:
         mock_result.rounds_completed = 3
         mock_result.messages = []
         mock_result.critiques = []
-        mock_result.participants = ["claude", "gpt-4"]
+        mock_result.participants = ["claude", "gpt-5.5"]
         mock_result.dissenting_views = []
         mock_result.debate_cruxes = []
 

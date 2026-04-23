@@ -385,7 +385,7 @@ class TestDebateStateUpdates:
         event = StreamEvent(
             type=StreamEventType.DEBATE_START,
             loop_id="debate-1",
-            data={"task": "Test question", "agents": ["claude", "gpt4"]},
+            data={"task": "Test question", "agents": ["claude", "gpt-5.5"]},
         )
 
         server._update_debate_state(event)
@@ -394,7 +394,7 @@ class TestDebateStateUpdates:
             assert "debate-1" in server.debate_states
             state = server.debate_states["debate-1"]
             assert state["task"] == "Test question"
-            assert state["agents"] == ["claude", "gpt4"]
+            assert state["agents"] == ["claude", "gpt-5.5"]
             assert state["ended"] is False
 
     def test_debate_end_marks_ended(self, server):

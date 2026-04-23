@@ -634,7 +634,7 @@ function PersonaEditModal({
               value={persona.agent_name}
               onChange={(e) => onChange({ ...persona, agent_name: e.target.value })}
               disabled={!isNew}
-              placeholder="e.g., claude, gpt4, mistral"
+              placeholder="e.g., claude, gpt-5.5, mistral"
               className={`w-full bg-bg border border-border px-3 py-2 text-xs font-theme-data text-text-primary placeholder-text-muted focus:border-[var(--accent)]/50 focus:outline-none ${
                 !isNew ? 'opacity-50 cursor-not-allowed' : ''
               }`}

@@ -495,7 +495,7 @@ class TestExecuteDebateThread:
 
         mock_spec2 = MagicMock()
         mock_spec2.provider = "openai-api"
-        mock_spec2.name = "gpt4"
+        mock_spec2.name = "gpt-5.5"
         mock_spec2.model = None
         mock_spec2.persona = None
         mock_spec2.role = None

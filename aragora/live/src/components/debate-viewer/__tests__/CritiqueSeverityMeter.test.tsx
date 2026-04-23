@@ -24,14 +24,14 @@ const createCritiqueEvent = (overrides: Partial<{
   timestamp: overrides.timestamp ?? Date.now(),
   data: {
     agent: overrides.agent ?? 'claude',
-    target: overrides.target ?? 'gpt4',
+    target: overrides.target ?? 'gpt-5.5',
     severity: overrides.severity ?? 5,
     issues: overrides.issues ?? ['Test issue'],
   },
 });
 
 describe('CritiqueSeverityMeter', () => {
-  const mockAgents = ['claude', 'gpt4', 'gemini'];
+  const mockAgents = ['claude', 'gpt-5.5', 'gemini'];
 
   describe('empty state', () => {
     it('shows empty message when no critiques', () => {
@@ -50,8 +50,8 @@ describe('CritiqueSeverityMeter', () => {
   describe('with critiques', () => {
     it('displays critique count', () => {
       const events = [
-        createCritiqueEvent({ agent: 'claude', target: 'gpt4', severity: 5 }),
-        createCritiqueEvent({ agent: 'gpt4', target: 'claude', severity: 7 }),
+        createCritiqueEvent({ agent: 'claude', target: 'gpt-5.5', severity: 5 }),
+        createCritiqueEvent({ agent: 'gpt-5.5', target: 'claude', severity: 7 }),
       ];
 
       render(<CritiqueSeverityMeter events={events} agents={mockAgents} />);
@@ -61,7 +61,7 @@ describe('CritiqueSeverityMeter', () => {
 
     it('displays singular critique count', () => {
       const events = [
-        createCritiqueEvent({ agent: 'claude', target: 'gpt4', severity: 5 }),
+        createCritiqueEvent({ agent: 'claude', target: 'gpt-5.5', severity: 5 }),
       ];
 
       render(<CritiqueSeverityMeter events={events} agents={mockAgents} />);
@@ -84,14 +84,14 @@ describe('CritiqueSeverityMeter', () => {
       const events = [
         createCritiqueEvent({ agent: 'claude', severity: 6 }),
         createCritiqueEvent({ agent: 'claude', severity: 8 }),
-        createCritiqueEvent({ agent: 'gpt4', severity: 4 }),
+        createCritiqueEvent({ agent: 'gpt-5.5', severity: 4 }),
       ];
 
       render(<CritiqueSeverityMeter events={events} agents={mockAgents} />);
 
       // Agent names are truncated at first hyphen
       expect(screen.getByText('claude')).toBeInTheDocument();
-      expect(screen.getByText('gpt4')).toBeInTheDocument();
+      expect(screen.getByText('gpt-5.5')).toBeInTheDocument();
       // Critique counts shown as 2× and 1×
       expect(screen.getByText('2×')).toBeInTheDocument();
       expect(screen.getByText('1×')).toBeInTheDocument();
@@ -180,12 +180,12 @@ describe('CritiqueSeverityMeter', () => {
 
     it('displays agent arrow notation', () => {
       const events = [
-        createCritiqueEvent({ agent: 'claude', target: 'gpt4' }),
+        createCritiqueEvent({ agent: 'claude', target: 'gpt-5.5' }),
       ];
 
       render(<CritiqueSeverityMeter events={events} agents={mockAgents} />);
 
-      expect(screen.getByText('claude → gpt4')).toBeInTheDocument();
+      expect(screen.getByText('claude → gpt-5.5')).toBeInTheDocument();
     });
   });
 
@@ -211,7 +211,7 @@ describe('CritiqueSeverityMeter', () => {
         timestamp: Date.now(),
         data: {
           agent: 'claude',
-          target: 'gpt4',
+          target: 'gpt-5.5',
           // severity not provided
           issues: [],
         },

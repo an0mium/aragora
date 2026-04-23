@@ -272,18 +272,18 @@ async def create_agents():
         )
         logger.info("Added Claude (philosopher/synthesizer) with fallback")
 
-    # GPT-4o - Pragmatic business framing
+    # GPT-5.5 - Pragmatic business framing
     if has_openai:
         agents.append(
             AgentRegistry.create(
                 "openai-api",
                 name="gpt_pragmatist",
                 role="analyst",
-                model="gpt-4o",
+                model="gpt-5.5",
                 enable_fallback=True,  # V2: Enable OpenRouter fallback
             )
         )
-        logger.info("Added GPT-4o (pragmatist/analyst) with fallback")
+        logger.info("Added GPT-5.5 (pragmatist/analyst) with fallback")
 
     # Gemini - Creative alternatives, multimodal perspective
     if has_gemini:

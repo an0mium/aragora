@@ -37,7 +37,7 @@ env = Environment(task="Design a rate limiter")
 protocol = DebateProtocol(rounds=3, consensus="majority")
 
 # Select agents
-agents = ["claude", "gpt4", "gemini"]
+agents = ["claude", "gpt-5.5", "gemini"]
 
 # Run
 arena = Arena(env, agents, protocol)

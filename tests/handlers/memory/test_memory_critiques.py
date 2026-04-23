@@ -40,7 +40,7 @@ class _MockCritique:
     """Mock Critique matching the fields accessed by the handler."""
 
     agent: str = "claude"
-    target_agent: str = "gpt4"
+    target_agent: str = "gpt-5.5"
     target_content: str = "test proposal"
     issues: list[str] | None = None
     suggestions: list[str] | None = None
@@ -57,7 +57,7 @@ class _MockCritique:
 def _make_critique(
     *,
     agent: str = "claude",
-    target_agent: str = "gpt4",
+    target_agent: str = "gpt-5.5",
     issues: list[str] | None = None,
     suggestions: list[str] | None = None,
     severity: float = 5.0,
@@ -250,7 +250,7 @@ class TestGetCritiquesBasic:
         """Returns properly formatted single critique."""
         crit = _make_critique(
             agent="claude",
-            target_agent="gpt4",
+            target_agent="gpt-5.5",
             issues=["Issue 1"],
             suggestions=["Suggestion 1"],
             severity=7.5,
@@ -263,7 +263,7 @@ class TestGetCritiquesBasic:
             assert body["count"] == 1
             entry = body["critiques"][0]
             assert entry["agent"] == "claude"
-            assert entry["target_agent"] == "gpt4"
+            assert entry["target_agent"] == "gpt-5.5"
             assert entry["severity"] == 7.5
             assert "Issue 1" in entry["content"]
             assert "Suggestion 1" in entry["content"]
@@ -305,7 +305,7 @@ class TestGetCritiquesBasic:
         """Returns multiple critiques from the store."""
         crits = [
             _make_critique(agent="claude", severity=3.0),
-            _make_critique(agent="gpt4", severity=7.0),
+            _make_critique(agent="gpt-5.5", severity=7.0),
             _make_critique(agent="gemini", severity=9.0),
         ]
         mock_critique_store.get_recent.return_value = crits
@@ -314,7 +314,7 @@ class TestGetCritiquesBasic:
             body = _body(result)
             assert body["count"] == 3
             agents = [c["agent"] for c in body["critiques"]]
-            assert agents == ["claude", "gpt4", "gemini"]
+            assert agents == ["claude", "gpt-5.5", "gemini"]
 
 
 # ===========================================================================
@@ -444,7 +444,7 @@ class TestGetCritiquesAgentFilter:
         """Filters critiques by agent name."""
         crits = [
             _make_critique(agent="claude"),
-            _make_critique(agent="gpt4"),
+            _make_critique(agent="gpt-5.5"),
             _make_critique(agent="claude"),
         ]
         mock_critique_store.get_recent.return_value = crits
@@ -456,7 +456,7 @@ class TestGetCritiquesAgentFilter:
 
     def test_filter_by_agent_no_match(self, handler, mock_http_handler, mock_critique_store):
         """Returns empty when no critiques match agent filter."""
-        crits = [_make_critique(agent="claude"), _make_critique(agent="gpt4")]
+        crits = [_make_critique(agent="claude"), _make_critique(agent="gpt-5.5")]
         mock_critique_store.get_recent.return_value = crits
         with patch(_GET_CRITIQUE_STORE, return_value=mock_critique_store):
             result = handler._get_critiques({"agent": "nonexistent"})
@@ -603,7 +603,7 @@ class TestGetCritiquesPagination:
         """Total count is based on filtered results when agent filter is set."""
         crits = [
             _make_critique(agent="claude"),
-            _make_critique(agent="gpt4"),
+            _make_critique(agent="gpt-5.5"),
             _make_critique(agent="claude"),
             _make_critique(agent="claude"),
         ]

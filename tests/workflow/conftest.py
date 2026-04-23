@@ -114,7 +114,7 @@ class MockDebateStep:
         return self._name
 
     async def execute(self, context: WorkflowContext) -> Any:
-        agents = self._config.get("agents", ["claude", "gpt4"])
+        agents = self._config.get("agents", ["claude", "gpt-5.5"])
         rounds = self._config.get("rounds", 3)
         return {
             "consensus": True,
@@ -306,7 +306,7 @@ def debate_workflow():
                 name="Multi-Agent Debate",
                 step_type="mock_debate",  # Use mock debate type
                 config={
-                    "agents": ["claude", "gpt4", "gemini"],
+                    "agents": ["claude", "gpt-5.5", "gemini"],
                     "rounds": 3,
                     "topic": "Test topic",
                 },

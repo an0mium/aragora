@@ -39,7 +39,7 @@ def sample_critique():
     """Create a sample critique for testing."""
     return Critique(
         agent="claude",
-        target_agent="gpt4",
+        target_agent="gpt-5.5",
         target_content="The current implementation is slow",
         issues=["Performance issue: slow response time"],
         suggestions=["Use caching to improve performance"],
@@ -53,7 +53,7 @@ def sample_debate_result():
     """Create a sample debate result for testing."""
     critique = Critique(
         agent="claude",
-        target_agent="gpt4",
+        target_agent="gpt-5.5",
         target_content="def process(): do_something()",
         issues=["Missing error handling"],
         suggestions=["Add try-catch blocks"],
@@ -776,7 +776,7 @@ class TestAgentCalibration:
         # Create and store debate
         critique = Critique(
             agent="poor_predictor",
-            target_agent="gpt4",
+            target_agent="gpt-5.5",
             target_content="code",
             issues=["test issue"],
             suggestions=["fix"],

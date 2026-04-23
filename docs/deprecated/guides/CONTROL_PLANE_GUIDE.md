@@ -85,7 +85,7 @@ Request body:
   "task_type": "debate",
   "payload": {
     "topic": "Design a rate limiter",
-    "agents": ["claude", "gpt-4", "codex"],
+    "agents": ["claude", "gpt-5.5", "codex"],
     "rounds": 3
   },
   "priority": "high",
@@ -295,7 +295,7 @@ task = await client.submit_task(
     task_type="debate",
     payload={
         "topic": "Design a caching strategy",
-        "agents": ["claude", "gpt-4"],
+        "agents": ["claude", "gpt-5.5"],
     },
     priority="high",
 )
@@ -356,7 +356,7 @@ curl http://localhost:8080/api/control-plane/metrics
             │               │               │
       ┌─────┴─────┐   ┌─────┴─────┐   ┌─────┴─────┐
       │  Agent 1  │   │  Agent 2  │   │  Agent N  │
-      │ (Claude)  │   │  (GPT-4)  │   │  (Codex)  │
+      │ (Claude)  │   │  (GPT-5.5)  │   │  (Codex)  │
       └───────────┘   └───────────┘   └───────────┘
 ```
 

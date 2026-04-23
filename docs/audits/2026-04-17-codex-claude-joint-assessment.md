@@ -1,7 +1,7 @@
 # Joint Codex + Claude Assessment of Aragora Repo State
 
 > **Date:** 2026-04-17
-> **Reviewers:** Codex (GPT-5.4 strategic) and Claude Code (Opus 4.7)
+> **Reviewers:** Codex (GPT-5.5 strategic) and Claude Code (Opus 4.7)
 > **Method:** independent assessment of repo, docs, recent commit history, live surfaces; comparison and synthesis
 > **Companion plan:** [docs/plans/2026-04-17-trust-compound-plan.md](../plans/2026-04-17-trust-compound-plan.md)
 

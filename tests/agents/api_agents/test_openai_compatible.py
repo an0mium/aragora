@@ -188,7 +188,7 @@ class ConcreteOpenAICompatibleAgent:
         "test-model": "openai/test-model",
         "custom-model": "openrouter/custom-model",
     }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+    DEFAULT_FALLBACK_MODEL = "openai/gpt-5.5"
 
     def __init__(
         self,
@@ -293,7 +293,7 @@ class TestableAgent(OpenAICompatibleMixin, ConcreteOpenAICompatibleAgent):
         "test-model": "openai/test-model",
         "custom-model": "openrouter/custom-model",
     }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+    DEFAULT_FALLBACK_MODEL = "openai/gpt-5.5"
     max_tokens = 4096
 
 
@@ -363,7 +363,7 @@ class TestOpenAICompatibleMixinInitialization:
     def test_default_values(self):
         """Should have sensible default values."""
         assert OpenAICompatibleMixin.OPENROUTER_MODEL_MAP == {}
-        assert OpenAICompatibleMixin.DEFAULT_FALLBACK_MODEL == "openai/gpt-5.3"
+        assert OpenAICompatibleMixin.DEFAULT_FALLBACK_MODEL == "openai/gpt-5.5"
         assert OpenAICompatibleMixin.max_tokens == 4096
 
     def test_concrete_agent_initialization(self):

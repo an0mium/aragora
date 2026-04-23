@@ -22,7 +22,7 @@ Example:
     ...         DeliberationStage(
     ...             id="initial_review",
     ...             topic_template="Review this code for correctness: {context.code}",
-    ...             agents=["claude", "gpt-4"],
+    ...             agents=["claude", "gpt-5.5"],
     ...             required_consensus=0.7,
     ...             timeout_seconds=120,
     ...             next_on_success="security_audit",
@@ -30,7 +30,7 @@ Example:
     ...         DeliberationStage(
     ...             id="security_audit",
     ...             topic_template="Security audit of code. Previous review: {previous.output}",
-    ...             agents=["claude-security", "gpt-4-security"],
+    ...             agents=["claude-security", "gpt-5.5"],
     ...             required_consensus=0.8,
     ...             timeout_seconds=180,
     ...             next_on_success="architecture_review",

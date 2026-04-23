@@ -45,7 +45,7 @@ PERM_TEAMS_CARDS_RESPOND = "teams:cards:respond"
 # Agent display names for UI
 AGENT_DISPLAY_NAMES: dict[str, str] = {
     "claude": "Claude",
-    "gpt4": "GPT-4",
+    "gpt-5.5": "GPT-5.5",
     "gemini": "Gemini",
     "mistral": "Mistral",
     "deepseek": "DeepSeek",
@@ -53,7 +53,7 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "qwen": "Qwen",
     "kimi": "Kimi",
     "anthropic-api": "Claude",
-    "openai-api": "GPT-4",
+    "openai-api": "GPT-5.5",
 }
 
 

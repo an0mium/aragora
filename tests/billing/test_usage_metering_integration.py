@@ -72,7 +72,7 @@ def mock_api_agent():
     agent = MagicMock()
     agent.name = "openai-agent"
     agent.agent_type = "openai"
-    agent.model = "gpt-4"
+    agent.model = "gpt-5.5"
     # API style uses total_tokens_in/out instead of metrics
     del agent.metrics  # No metrics attribute
     agent.total_tokens_in = 2000
@@ -251,7 +251,7 @@ class TestRecordAgentTokens:
                 org_id="org-123",
                 agent_name="test-agent",
                 provider="openai",
-                model="gpt-4",
+                model="gpt-5.5",
                 input_tokens=100,
                 output_tokens=50,
             )

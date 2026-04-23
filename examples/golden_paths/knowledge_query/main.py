@@ -170,7 +170,7 @@ def seed_knowledge_store() -> MockKnowledgeStore:
                 "Acme Corp launched their AI decision platform in January 2026 "
                 "targeting enterprise customers. Key differentiators they claim: "
                 "real-time streaming, SOC 2 compliance, and Salesforce integration. "
-                "Pricing: $500/seat/month. Weakness: single-model (GPT-4 only), "
+                "Pricing: $500/seat/month. Weakness: single-model (GPT-5.5 only), "
                 "no multi-agent debate, no decision receipts."
             ),
             source="product",

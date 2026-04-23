@@ -52,10 +52,10 @@ def mock_storage():
     storage.get_debate.return_value = {
         "id": "test-debate-123",
         "task": "Test debate task",
-        "agents": ["claude", "gpt4"],
+        "agents": ["claude", "gpt-5.5"],
         "messages": [
             {"agent": "claude", "content": "Round 1", "round": 1},
-            {"agent": "gpt4", "content": "Round 1", "round": 1},
+            {"agent": "gpt-5.5", "content": "Round 1", "round": 1},
             {"agent": "claude", "content": "Round 2", "round": 2},
         ],
         "status": "complete",

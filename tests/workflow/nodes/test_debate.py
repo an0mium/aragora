@@ -91,7 +91,7 @@ class TestDebateStepInit:
 
         config = {
             "topic": "Evaluate risk",
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "rounds": 3,
             "topology": "adversarial",
             "consensus_mechanism": "unanimous",
@@ -104,7 +104,7 @@ class TestDebateStepInit:
         step = DebateStep(name="Full Config Debate", config=config)
         assert step.name == "Full Config Debate"
         assert step.config["topic"] == "Evaluate risk"
-        assert step.config["agents"] == ["claude", "gpt4"]
+        assert step.config["agents"] == ["claude", "gpt-5.5"]
         assert step.config["rounds"] == 3
         assert step.config["topology"] == "adversarial"
 
@@ -207,7 +207,7 @@ class TestDebateStepExecution:
                                 name="Test Debate",
                                 config={
                                     "topic": "Should we use microservices?",
-                                    "agents": ["claude", "gpt4"],
+                                    "agents": ["claude", "gpt-5.5"],
                                     "rounds": 3,
                                 },
                             )
@@ -238,7 +238,7 @@ class TestDebateStepExecution:
         mock_result.duration_ms = 800
         mock_result.responses = [
             {"agent": "claude", "round": 1, "content": "Response A"},
-            {"agent": "gpt4", "round": 1, "content": "Response B"},
+            {"agent": "gpt-5.5", "round": 1, "content": "Response B"},
         ]
 
         mock_arena = AsyncMock()
@@ -1105,13 +1105,13 @@ class TestQuickDebateStepInit:
 
         config = {
             "question": "What is the best approach?",
-            "agents": ["claude", "gpt4", "gemini"],
+            "agents": ["claude", "gpt-5.5", "gemini"],
             "max_response_length": 1000,
             "synthesize": False,
         }
         step = QuickDebateStep(name="Configured Quick Debate", config=config)
         assert step.config["question"] == "What is the best approach?"
-        assert step.config["agents"] == ["claude", "gpt4", "gemini"]
+        assert step.config["agents"] == ["claude", "gpt-5.5", "gemini"]
         assert step.config["max_response_length"] == 1000
         assert step.config["synthesize"] is False
 
@@ -1190,7 +1190,7 @@ class TestQuickDebateStepExecution:
                 name="No Synth",
                 config={
                     "question": "What is X?",
-                    "agents": ["claude", "gpt4"],
+                    "agents": ["claude", "gpt-5.5"],
                     "synthesize": False,
                 },
             )
@@ -1221,7 +1221,7 @@ class TestQuickDebateStepExecution:
                 name="With Synth",
                 config={
                     "question": "What is X?",
-                    "agents": ["claude", "gpt4"],
+                    "agents": ["claude", "gpt-5.5"],
                     "synthesize": True,
                 },
             )
@@ -1439,8 +1439,8 @@ class TestQuickDebateStepExecution:
         assert result["agents_responded"] == 2
 
     @pytest.mark.asyncio
-    async def test_default_agents_are_claude_and_gpt4(self):
-        """Test that default agents are claude and gpt4."""
+    async def test_default_agents_are_claude_and_gpt55(self):
+        """Test that default agents are claude and gpt-5.5."""
         from aragora.workflow.nodes.debate import QuickDebateStep
 
         mock_agent = AsyncMock()
@@ -1464,7 +1464,7 @@ class TestQuickDebateStepExecution:
             await step.execute(ctx)
 
         assert "claude" in created_agents
-        assert "gpt4" in created_agents
+        assert "gpt-5.5" in created_agents
 
     @pytest.mark.asyncio
     async def test_config_merged_with_current_step_config(self):

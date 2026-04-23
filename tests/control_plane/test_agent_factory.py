@@ -51,7 +51,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
         )
         assert factory.resolve_agent_type(info) == "openai-api"
 
@@ -128,7 +128,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="unknown",
-            model="gpt-4-turbo",
+            model="gpt-5.5",
         )
         assert factory.resolve_agent_type(info) == "openai-api"
 
@@ -373,7 +373,7 @@ class TestBatchCreation:
                 agent_id="a2",
                 capabilities={"debate"},
                 provider="openai",
-                model="gpt-4o",
+                model="gpt-5.5",
             ),
         ]
         agents = await factory.create_agents(infos)

@@ -92,7 +92,7 @@ class TestScoreResponse:
     def test_partial_response(self):
         from aragora.debate.epistemic_hygiene import score_response
 
-        score = score_response(PARTIAL_RESPONSE, agent="gpt4", round_number=2)
+        score = score_response(PARTIAL_RESPONSE, agent="gpt-5.5", round_number=2)
         assert score.has_alternatives is True
         # "confident" should not match falsifier patterns but may match confidence
         # The key thing: falsifiers and unknowns are missing
@@ -295,7 +295,7 @@ class TestEpistemicHygieneTracker:
             has_falsifiers=False,
             has_confidence=True,
             has_unknowns=False,
-            agent="gpt4",
+            agent="gpt-5.5",
             round_number=1,
         )
         tracker.record(s1)
@@ -303,7 +303,7 @@ class TestEpistemicHygieneTracker:
 
         assert len(tracker.scores) == 2
         assert tracker.get_agent_average("claude") == 1.0
-        assert tracker.get_agent_average("gpt4") == 0.5
+        assert tracker.get_agent_average("gpt-5.5") == 0.5
         assert tracker.get_debate_average() == 0.75
 
     def test_get_round_scores(self):
@@ -489,18 +489,18 @@ class TestVoteBonusCalculatorIntegration:
         ctx = MagicMock()
         ctx.proposals = {
             "claude": COMPLIANT_RESPONSE,
-            "gpt4": BARE_RESPONSE,
+            "gpt-5.5": BARE_RESPONSE,
         }
 
-        vote_counts = {"claude": 3.0, "gpt4": 3.0}
-        choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
+        vote_counts = {"claude": 3.0, "gpt-5.5": 3.0}
+        choice_mapping = {"claude": "claude", "gpt-5.5": "gpt-5.5"}
 
         result = calculator.apply_epistemic_hygiene_penalties(ctx, vote_counts, choice_mapping)
 
         # Claude's compliant response should not be penalized
         assert result["claude"] == 3.0
-        # GPT4's bare response should be penalized
-        assert result["gpt4"] < 3.0
+        # GPT-5.5's bare response should be penalized
+        assert result["gpt-5.5"] < 3.0
 
     def test_no_penalties_when_disabled(self):
         from aragora.debate.phases.vote_bonus_calculator import VoteBonusCalculator

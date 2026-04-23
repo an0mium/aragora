@@ -826,7 +826,7 @@ class TestEmitLearningEvent:
         async def check():
             emit_learning_event(
                 event_type="calibration_updated",
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 calibration_score=0.92,
             )
             await asyncio.sleep(0.1)

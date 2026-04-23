@@ -212,7 +212,7 @@ class TestDOTExporterFlow:
     def test_sanitizes_agent_names(self):
         """Test sanitizes agent names with special chars."""
         artifact = DebateArtifact(
-            agents=["claude-3.5", "gpt-4.0", "agent_ok"],
+            agents=["claude-3.5", "gpt-5.5", "agent_ok"],
         )
         exporter = DOTExporter(artifact)
         content = exporter.export_flow()
@@ -710,13 +710,13 @@ class TestDOTExporterEdgeCases:
     def test_agent_names_with_dots_and_dashes(self):
         """Test agent names with dots and dashes are sanitized."""
         artifact = DebateArtifact(
-            agents=["claude-3.5-sonnet", "gpt-4.0-turbo"],
+            agents=["claude-3.5-sonnet", "gpt-5.5"],
         )
         exporter = DOTExporter(artifact)
         content = exporter.export_critiques()
 
         assert "claude_3_5_sonnet" in content
-        assert "gpt_4_0_turbo" in content
+        assert "gpt-5.5" in content
 
     def test_very_long_message_content(self):
         """Test truncates very long message content."""

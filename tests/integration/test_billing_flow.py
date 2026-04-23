@@ -239,7 +239,7 @@ class TestUsageTracking:
                 tokens_in=100,
                 tokens_out=50,
                 provider="openai",
-                model="gpt-4o",
+                model="gpt-5.5",
             )
 
         summary = usage_tracker.get_summary(test_org.id)
@@ -263,11 +263,11 @@ class TestUsageTracking:
         """Token cost calculation for OpenAI."""
         cost = calculate_token_cost(
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
             tokens_in=1000000,  # 1M input tokens
             tokens_out=100000,  # 100K output tokens
         )
-        # gpt-4o: $2.50/1M input, $10/1M output
+        # gpt-5.5: $2.50/1M input, $10/1M output
         # Expected: $2.50 + $1.00 = $3.50
         assert cost == Decimal("3.5")
 
@@ -289,7 +289,7 @@ class TestUsageTracking:
             tokens_in=1000,
             tokens_out=500,
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
         )
 
         summary = usage_tracker.get_summary(test_org.id)

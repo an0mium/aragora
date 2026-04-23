@@ -3,7 +3,7 @@
 This is a placeholder module for future AutoGPT integration.
 The actual implementation is not yet available.
 
-AutoGPT is an autonomous GPT-4 agent that chains together LLM thoughts
+AutoGPT is an autonomous GPT-5.5 agent that chains together LLM thoughts
 to accomplish goals.
 
 For more information: https://github.com/Significant-Gravitas/AutoGPT

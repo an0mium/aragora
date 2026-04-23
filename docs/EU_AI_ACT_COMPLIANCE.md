@@ -119,7 +119,7 @@ receipt_dict = {
     "risk_summary": {"total": 3, "critical": 0, "high": 1, "medium": 2, "low": 0},
     "consensus_proof": {
         "method": "weighted_majority",
-        "supporting_agents": ["Claude-3.5", "GPT-4o"],
+        "supporting_agents": ["Claude-3.5", "GPT-5.5"],
         "dissenting_agents": ["Gemini-1.5"],
     },
     "dissenting_views": ["Gemini-1.5: potential gender bias not fully mitigated"],

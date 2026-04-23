@@ -80,7 +80,7 @@ class TestOutcomeFeedbackStep:
             "suggestions_queued": 2,
             "trickster_adjustment": 0.9,
             "domains_flagged": ["security", "legal"],
-            "agents_flagged": ["claude", "gpt4"],
+            "agents_flagged": ["claude", "gpt-5.5"],
         }
 
         with patch(

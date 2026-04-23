@@ -68,7 +68,7 @@ def sample_debate_result():
     result.answer = "Python is widely considered excellent."
     result.total_rounds = 3
     result.consensus_confidence = 0.85
-    result.participating_agents = ["claude", "gpt-4", "gemini"]
+    result.participating_agents = ["claude", "gpt-5.5", "gemini"]
     return result
 
 
@@ -127,8 +127,8 @@ class TestFormatAgentsList:
 
     def test_few_agents(self, integration):
         """Test formatting few agents under limit."""
-        result = integration.format_agents_list(["claude", "gpt-4", "gemini"])
-        assert result == "claude, gpt-4, gemini"
+        result = integration.format_agents_list(["claude", "gpt-5.5", "gemini"])
+        assert result == "claude, gpt-5.5, gemini"
 
     def test_at_limit(self, integration):
         """Test formatting agents at exact limit."""
@@ -277,7 +277,7 @@ class TestFormatDebateData:
         """Test agents are formatted correctly."""
         data = integration.format_debate_data(sample_debate_result)
         assert "claude" in data.agents_display
-        assert "gpt-4" in data.agents_display
+        assert "gpt-5.5" in data.agents_display
         assert "gemini" in data.agents_display
 
     def test_agents_truncation(self, integration, sample_debate_result):
@@ -331,7 +331,7 @@ class TestFormatConsensusData:
             debate_id="test-123",
             answer="The answer is clear",
             confidence=0.85,
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
         )
 
         assert isinstance(data, FormattedConsensusData)
@@ -430,7 +430,7 @@ class TestFormatLeaderboardData:
         """Test basic leaderboard data formatting."""
         rankings = [
             {"name": "claude", "elo": 1650, "wins": 10, "losses": 5},
-            {"name": "gpt-4", "elo": 1600, "wins": 8, "losses": 7},
+            {"name": "gpt-5.5", "elo": 1600, "wins": 8, "losses": 7},
         ]
         data = integration.format_leaderboard_data(rankings)
 

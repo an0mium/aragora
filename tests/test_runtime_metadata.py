@@ -27,8 +27,8 @@ class TestModelConfig(unittest.TestCase):
 
     def test_basic_creation(self):
         """Should create config with required fields."""
-        config = ModelConfig(model_id="gpt-4", provider="openai")
-        self.assertEqual(config.model_id, "gpt-4")
+        config = ModelConfig(model_id="gpt-5.5", provider="openai")
+        self.assertEqual(config.model_id, "gpt-5.5")
         self.assertEqual(config.provider, "openai")
 
     def test_default_values(self):
@@ -63,9 +63,9 @@ class TestModelConfigProviderInference(unittest.TestCase):
 
     def test_infer_openai_from_gpt(self):
         """Should infer openai from GPT models."""
-        self.assertEqual(ModelConfig._infer_provider("gpt-4"), "openai")
-        self.assertEqual(ModelConfig._infer_provider("gpt-3.5-turbo"), "openai")
-        self.assertEqual(ModelConfig._infer_provider("GPT-4-turbo"), "openai")
+        self.assertEqual(ModelConfig._infer_provider("gpt-5.5"), "openai")
+        self.assertEqual(ModelConfig._infer_provider("gpt-5.5"), "openai")
+        self.assertEqual(ModelConfig._infer_provider("GPT-5.5"), "openai")
 
     def test_infer_anthropic_from_claude(self):
         """Should infer anthropic from Claude models."""
@@ -100,11 +100,11 @@ class TestModelConfigFromAgent(unittest.TestCase):
     def test_from_agent_basic(self):
         """Should extract model from agent."""
         agent = MagicMock()
-        agent.model = "gpt-4-turbo"
+        agent.model = "gpt-5.5"
         agent.system_prompt = None
 
         config = ModelConfig.from_agent(agent)
-        self.assertEqual(config.model_id, "gpt-4-turbo")
+        self.assertEqual(config.model_id, "gpt-5.5")
         self.assertEqual(config.provider, "openai")
 
     def test_from_agent_with_system_prompt(self):
@@ -122,7 +122,7 @@ class TestModelConfigFromAgent(unittest.TestCase):
     def test_from_agent_no_system_prompt_attr(self):
         """Should handle agents without system_prompt attr."""
         agent = MagicMock(spec=[])  # No system_prompt attr
-        agent.model = "gpt-4"
+        agent.model = "gpt-5.5"
 
         config = ModelConfig.from_agent(agent)
         self.assertEqual(config.system_prompt_hash, "")
@@ -134,14 +134,14 @@ class TestModelConfigSerialization(unittest.TestCase):
     def test_to_dict(self):
         """Should serialize all fields to dict."""
         config = ModelConfig(
-            model_id="gpt-4",
+            model_id="gpt-5.5",
             provider="openai",
             version="0613",
             temperature=0.5,
         )
 
         d = config.to_dict()
-        self.assertEqual(d["model_id"], "gpt-4")
+        self.assertEqual(d["model_id"], "gpt-5.5")
         self.assertEqual(d["provider"], "openai")
         self.assertEqual(d["version"], "0613")
         self.assertEqual(d["temperature"], 0.5)
@@ -202,7 +202,7 @@ class TestDebateMetadataHashing(unittest.TestCase):
     def test_config_hash_includes_agents(self):
         """Config hash should include agent configurations."""
         agents = [
-            ModelConfig(model_id="gpt-4", provider="openai"),
+            ModelConfig(model_id="gpt-5.5", provider="openai"),
             ModelConfig(model_id="claude-3", provider="anthropic"),
         ]
         meta = DebateMetadata(
@@ -217,7 +217,7 @@ class TestDebateMetadataHashing(unittest.TestCase):
         meta1 = DebateMetadata(
             debate_id="1",
             task="Test",
-            agent_configs=[ModelConfig(model_id="gpt-4", provider="openai")],
+            agent_configs=[ModelConfig(model_id="gpt-5.5", provider="openai")],
         )
         meta2 = DebateMetadata(
             debate_id="2",
@@ -232,7 +232,7 @@ class TestDebateMetadataSerialization(unittest.TestCase):
 
     def test_to_dict(self):
         """Should serialize to dictionary."""
-        agents = [ModelConfig(model_id="gpt-4", provider="openai")]
+        agents = [ModelConfig(model_id="gpt-5.5", provider="openai")]
         meta = DebateMetadata(
             debate_id="debate-123",
             task="Test task",
@@ -267,7 +267,7 @@ class TestDebateMetadataSerialization(unittest.TestCase):
 
     def test_from_dict_roundtrip(self):
         """Should deserialize back to equivalent object."""
-        agents = [ModelConfig(model_id="gpt-4", provider="openai", temperature=0.5)]
+        agents = [ModelConfig(model_id="gpt-5.5", provider="openai", temperature=0.5)]
         original = DebateMetadata(
             debate_id="debate-123",
             task="Test task",
@@ -296,7 +296,7 @@ class TestDebateMetadataComparison(unittest.TestCase):
 
     def test_is_similar_config_identical(self):
         """Identical configs should be similar."""
-        agents = [ModelConfig(model_id="gpt-4", provider="openai")]
+        agents = [ModelConfig(model_id="gpt-5.5", provider="openai")]
         meta1 = DebateMetadata(
             debate_id="1",
             task="Test",
@@ -357,13 +357,13 @@ class TestDebateMetadataComparison(unittest.TestCase):
         meta1 = DebateMetadata(
             debate_id="1",
             task="Test",
-            agent_configs=[ModelConfig(model_id="gpt-4", provider="openai")],
+            agent_configs=[ModelConfig(model_id="gpt-5.5", provider="openai")],
         )
         meta2 = DebateMetadata(
             debate_id="2",
             task="Test",
             agent_configs=[
-                ModelConfig(model_id="gpt-4", provider="openai"),
+                ModelConfig(model_id="gpt-5.5", provider="openai"),
                 ModelConfig(model_id="claude-3", provider="anthropic"),
             ],
         )
@@ -387,7 +387,7 @@ class TestDebateMetadataFromArena(unittest.TestCase):
         arena.protocol.consensus = "majority"
 
         agent1 = MagicMock()
-        agent1.model = "gpt-4"
+        agent1.model = "gpt-5.5"
         agent1.system_prompt = None
 
         agent2 = MagicMock()
@@ -403,7 +403,7 @@ class TestDebateMetadataFromArena(unittest.TestCase):
         self.assertEqual(meta.context, "For a web application")
         self.assertEqual(meta.max_rounds, 4)
         self.assertEqual(len(meta.agent_configs), 2)
-        self.assertEqual(meta.agent_configs[0].model_id, "gpt-4")
+        self.assertEqual(meta.agent_configs[0].model_id, "gpt-5.5")
         self.assertEqual(meta.agent_configs[1].model_id, "claude-3-opus")
 
 
@@ -458,7 +458,7 @@ class TestMetadataStore(unittest.TestCase):
 
     def test_find_similar(self):
         """Should find debates with similar configuration."""
-        agents = [ModelConfig(model_id="gpt-4", provider="openai")]
+        agents = [ModelConfig(model_id="gpt-5.5", provider="openai")]
 
         # Store multiple debates with same config
         meta1 = DebateMetadata(
@@ -566,7 +566,7 @@ class TestMetadataStoreEdgeCases(unittest.TestCase):
     def test_store_with_multiple_agents(self):
         """Should preserve all agent configurations."""
         agents = [
-            ModelConfig(model_id="gpt-4", provider="openai", temperature=0.5),
+            ModelConfig(model_id="gpt-5.5", provider="openai", temperature=0.5),
             ModelConfig(model_id="claude-3", provider="anthropic", temperature=0.8),
             ModelConfig(model_id="gemini-pro", provider="google", temperature=0.6),
         ]
@@ -603,7 +603,7 @@ class TestReproducibilityScenarios(unittest.TestCase):
     def test_find_previous_runs_of_same_experiment(self):
         """Should find previous runs with same config for comparison."""
         agents = [
-            ModelConfig(model_id="gpt-4", provider="openai"),
+            ModelConfig(model_id="gpt-5.5", provider="openai"),
             ModelConfig(model_id="claude-3", provider="anthropic"),
         ]
 
@@ -635,7 +635,7 @@ class TestReproducibilityScenarios(unittest.TestCase):
             debate_id="run-1",
             task="Test",
             max_rounds=3,
-            agent_configs=[ModelConfig(model_id="gpt-4", provider="openai")],
+            agent_configs=[ModelConfig(model_id="gpt-5.5", provider="openai")],
         )
 
         # Second run with modified config
@@ -644,7 +644,7 @@ class TestReproducibilityScenarios(unittest.TestCase):
             task="Test",
             max_rounds=5,  # Changed
             agent_configs=[
-                ModelConfig(model_id="gpt-4", provider="openai"),
+                ModelConfig(model_id="gpt-5.5", provider="openai"),
                 ModelConfig(model_id="claude-3", provider="anthropic"),  # Added
             ],
         )

@@ -241,7 +241,7 @@ class TestGetAgentName:
 
     def test_dict_with_agent_name(self):
         """Returns name from dict with 'agent_name' key."""
-        assert get_agent_name({"agent_name": "gpt-4"}) == "gpt-4"
+        assert get_agent_name({"agent_name": "gpt-5.5"}) == "gpt-5.5"
 
     def test_dict_agent_name_priority(self):
         """agent_name takes priority over name in dict."""
@@ -341,20 +341,20 @@ class TestNormalizeAgentNames:
 
     def test_string_list(self):
         """Normalizes string names to lowercase."""
-        result = normalize_agent_names(["Claude", "GPT-4", "GEMINI"])
-        assert result == ["claude", "gpt-4", "gemini"]
+        result = normalize_agent_names(["Claude", "GPT-5.5", "GEMINI"])
+        assert result == ["claude", "gpt-5.5", "gemini"]
 
     def test_object_list(self):
         """Extracts and normalizes names from objects."""
-        agents = [MockAgent(name="Claude"), MockAgent(name="GPT-4")]
+        agents = [MockAgent(name="Claude"), MockAgent(name="GPT-5.5")]
         result = normalize_agent_names(agents)
-        assert result == ["claude", "gpt-4"]
+        assert result == ["claude", "gpt-5.5"]
 
     def test_mixed_list(self):
         """Handles mixed strings and objects."""
-        agents = ["Claude", MockAgent(name="GPT-4")]
+        agents = ["Claude", MockAgent(name="GPT-5.5")]
         result = normalize_agent_names(agents)
-        assert result == ["claude", "gpt-4"]
+        assert result == ["claude", "gpt-5.5"]
 
     def test_empty_list(self):
         """Returns empty list for empty input."""
@@ -362,11 +362,11 @@ class TestNormalizeAgentNames:
 
     def test_skips_none_names(self):
         """Skips entries where name cannot be extracted."""
-        agents = ["Claude", None, "GPT-4"]
+        agents = ["Claude", None, "GPT-5.5"]
         result = normalize_agent_names(agents)
         # None should be skipped (get_agent_name returns None for None)
         assert "claude" in result
-        assert "gpt-4" in result
+        assert "gpt-5.5" in result
 
 
 # ===========================================================================

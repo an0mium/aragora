@@ -46,7 +46,7 @@ def setup_replays_dir(tmp_path):
         json.dumps(
             {
                 "topic": "AI Safety Discussion",
-                "agents": [{"name": "claude"}, {"name": "gpt4"}],
+                "agents": [{"name": "claude"}, {"name": "gpt-5.5"}],
                 "schema_version": "1.1",
             }
         )
@@ -585,7 +585,7 @@ class TestReplaysEdgeCases:
                     "topic": "Test",
                     "agents": [
                         {"name": "claude", "provider": "anthropic"},
-                        {"name": "gpt4", "provider": "openai"},
+                        {"name": "gpt-5.5", "provider": "openai"},
                     ],
                 }
             )
@@ -595,4 +595,4 @@ class TestReplaysEdgeCases:
 
         data = json.loads(result.body)
         replay_data = data[0]
-        assert replay_data["agents"] == ["claude", "gpt4"]
+        assert replay_data["agents"] == ["claude", "gpt-5.5"]

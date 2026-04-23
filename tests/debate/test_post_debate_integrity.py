@@ -35,7 +35,7 @@ def _make_debate_result(consensus=True, confidence=0.85, task="Test task"):
     result.task = task
     result.final_answer = "Use token bucket rate limiter"
     result.messages = []
-    result.participants = ["claude", "gpt4"]
+    result.participants = ["claude", "gpt-5.5"]
     return result
 
 
@@ -86,7 +86,7 @@ class TestBuildIntegrityPackageFromResult:
             final_answer="Use token bucket",
             confidence=0.9,
             consensus_reached=True,
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
         )
 
         package = build_integrity_package_from_result(dr, include_receipt=True, include_plan=False)

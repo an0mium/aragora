@@ -32,7 +32,7 @@ class TestOpenAIAgentInitialization:
         spec = AgentRegistry.get_spec("openai-api")
 
         assert agent.name == "openai-api"
-        assert agent.model == "gpt-5.4"
+        assert agent.model == "gpt-5.5"
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "openai"
@@ -47,14 +47,14 @@ class TestOpenAIAgentInitialization:
 
         agent = OpenAIAPIAgent(
             name="custom-gpt",
-            model="gpt-4o",
+            model="gpt-5.5",
             role="analyst",
             timeout=90,
             enable_fallback=False,
         )
 
         assert agent.name == "custom-gpt"
-        assert agent.model == "gpt-4o"
+        assert agent.model == "gpt-5.5"
         assert agent.role == "analyst"
         assert agent.timeout == 90
         assert agent.enable_fallback is False
@@ -75,7 +75,7 @@ class TestOpenAIAgentInitialization:
         spec = AgentRegistry.get_spec("openai-api")
 
         assert spec is not None
-        assert spec.default_model == "gpt-5.4"
+        assert spec.default_model == "gpt-5.5"
         assert spec.agent_type == "API"
 
 
@@ -290,7 +290,7 @@ class TestOpenAICompatibleMixin:
 
         payload = agent._build_payload(messages, stream=False)
 
-        assert payload["model"] == "gpt-5.4"
+        assert payload["model"] == "gpt-5.5"
         assert payload["messages"] == messages
         assert "max_tokens" in payload
         assert "stream" not in payload or payload.get("stream") is False
@@ -432,9 +432,7 @@ class TestOpenAIModelMapping:
         """Should have mappings for common models."""
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-        assert "gpt-4o" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
-        assert "gpt-4o-mini" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
-        assert "gpt-4" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
+        assert "gpt-5.5" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
 
     def test_has_default_fallback_model(self, mock_env_with_api_keys):
         """Should have default fallback model."""

@@ -22,7 +22,7 @@ Usage:
     )
 
     # Get capability comparison
-    comparison = selector.compare_models(["claude", "gpt4", "gemini"])
+    comparison = selector.compare_models(["claude", "gpt-5.5", "gemini"])
 """
 
 from __future__ import annotations
@@ -175,9 +175,9 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         supports_vision=True,
     ),
     # OpenAI
-    "gpt4": ModelProfile(
-        model_id="gpt-5.4",
-        display_name="GPT-4.1",
+    "gpt-5.5": ModelProfile(
+        model_id="gpt-5.5",
+        display_name="GPT-5.5",
         provider="openai",
         capabilities={
             ModelCapability.REASONING: 0.94,
@@ -196,54 +196,6 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         cost_input_per_1k=0.002,
         cost_output_per_1k=0.008,
         avg_latency_ms=900,
-        reliability_score=0.97,
-        supports_vision=True,
-    ),
-    "gpt-4o": ModelProfile(
-        model_id="gpt-4o",
-        display_name="GPT-4o",
-        provider="openai",
-        capabilities={
-            ModelCapability.REASONING: 0.90,
-            ModelCapability.CODING: 0.90,
-            ModelCapability.LEGAL: 0.85,
-            ModelCapability.MEDICAL: 0.82,
-            ModelCapability.FINANCIAL: 0.85,
-            ModelCapability.CREATIVE: 0.88,
-            ModelCapability.MATH: 0.85,
-            ModelCapability.LONG_CONTEXT: 0.90,
-            ModelCapability.INSTRUCTION_FOLLOWING: 0.90,
-            ModelCapability.FACTUAL_ACCURACY: 0.85,
-        },
-        max_context_tokens=128000,
-        max_output_tokens=16384,
-        cost_input_per_1k=0.0025,
-        cost_output_per_1k=0.01,
-        avg_latency_ms=800,
-        reliability_score=0.97,
-        supports_vision=True,
-    ),
-    "gpt-5.4": ModelProfile(
-        model_id="gpt-5.4",
-        display_name="GPT-4.1 Mini",
-        provider="openai",
-        capabilities={
-            ModelCapability.REASONING: 0.85,
-            ModelCapability.CODING: 0.88,
-            ModelCapability.LEGAL: 0.80,
-            ModelCapability.MEDICAL: 0.78,
-            ModelCapability.FINANCIAL: 0.80,
-            ModelCapability.CREATIVE: 0.82,
-            ModelCapability.MATH: 0.85,
-            ModelCapability.LONG_CONTEXT: 0.97,  # 1M context
-            ModelCapability.INSTRUCTION_FOLLOWING: 0.88,
-            ModelCapability.FACTUAL_ACCURACY: 0.83,
-        },
-        max_context_tokens=1000000,
-        max_output_tokens=32768,
-        cost_input_per_1k=0.0004,
-        cost_output_per_1k=0.0016,
-        avg_latency_ms=400,
         reliability_score=0.97,
         supports_vision=True,
     ),

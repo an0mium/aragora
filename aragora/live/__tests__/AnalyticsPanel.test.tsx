@@ -32,7 +32,7 @@ const mockDisagreements = [
   {
     debate_id: 'debate-002',
     topic: 'Is functional programming better?',
-    agents: ['claude-3-opus', 'gpt-4'],
+    agents: ['claude-3-opus', 'gpt-5.5'],
     dissent_count: 2,
     consensus_reached: true,
     confidence: 0.72,

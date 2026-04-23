@@ -145,7 +145,7 @@ class TestDebateNode:
         data = {
             "id": "node1",
             "node_type": "critique",
-            "agent_id": "gpt4",
+            "agent_id": "gpt-5.5",
             "content": "I disagree",
             "timestamp": "2024-01-01T12:00:00",
             "parent_ids": ["parent1"],
@@ -154,7 +154,7 @@ class TestDebateNode:
         node = DebateNode.from_dict(data)
         assert node.id == "node1"
         assert node.node_type == NodeType.CRITIQUE
-        assert node.agent_id == "gpt4"
+        assert node.agent_id == "gpt-5.5"
         assert node.parent_ids == ["parent1"]
         assert node.confidence == 0.9
 
@@ -559,7 +559,7 @@ class TestDebateGraph:
         branch = graph.create_branch(root.id, BranchReason.UNCERTAINTY, "Alt")
 
         n1 = graph.add_node(NodeType.PROPOSAL, "claude", "P1", root.id, branch.id)
-        n2 = graph.add_node(NodeType.CRITIQUE, "gpt4", "C1", n1.id, branch.id)
+        n2 = graph.add_node(NodeType.CRITIQUE, "gpt-5.5", "C1", n1.id, branch.id)
 
         branch_nodes = graph.get_branch_nodes(branch.id)
         assert len(branch_nodes) == 2
@@ -617,7 +617,7 @@ class TestDebateGraph:
         graph = DebateGraph()
         n1 = graph.add_node(NodeType.ROOT, "system", "Task")
         n2 = graph.add_node(NodeType.PROPOSAL, "claude", "P", n1.id)
-        n3 = graph.add_node(NodeType.CRITIQUE, "gpt4", "C", n2.id)
+        n3 = graph.add_node(NodeType.CRITIQUE, "gpt-5.5", "C", n2.id)
         n4 = graph.add_node(NodeType.SYNTHESIS, "claude", "S", n3.id)
 
         path = graph.get_path_to_node(n4.id)
@@ -636,7 +636,7 @@ class TestDebateGraph:
         graph = DebateGraph()
         n1 = graph.add_node(NodeType.ROOT, "system", "Task")
         n2 = graph.add_node(NodeType.PROPOSAL, "claude", "P", n1.id)
-        n3 = graph.add_node(NodeType.CRITIQUE, "gpt4", "C", n2.id)
+        n3 = graph.add_node(NodeType.CRITIQUE, "gpt-5.5", "C", n2.id)
 
         leaves = graph.get_leaf_nodes()
         assert len(leaves) == 1
@@ -695,7 +695,7 @@ class TestGraphReplayBuilder:
         graph = DebateGraph()
         n1 = graph.add_node(NodeType.ROOT, "system", "Task")
         n2 = graph.add_node(NodeType.PROPOSAL, "claude", "P", n1.id)
-        n3 = graph.add_node(NodeType.CRITIQUE, "gpt4", "C", n2.id)
+        n3 = graph.add_node(NodeType.CRITIQUE, "gpt-5.5", "C", n2.id)
 
         builder = GraphReplayBuilder(graph)
         nodes = builder.replay_branch("main")
@@ -750,7 +750,7 @@ class TestGraphReplayBuilder:
         graph = DebateGraph()
         root = graph.add_node(NodeType.ROOT, "system", "Task")
         graph.add_node(NodeType.PROPOSAL, "claude", "P", root.id)
-        graph.add_node(NodeType.CRITIQUE, "gpt4", "C", root.id)
+        graph.add_node(NodeType.CRITIQUE, "gpt-5.5", "C", root.id)
 
         builder = GraphReplayBuilder(graph)
         summary = builder.generate_summary()
@@ -758,7 +758,7 @@ class TestGraphReplayBuilder:
         assert summary["total_nodes"] == 3
         assert summary["total_branches"] == 1
         assert "claude" in summary["agents"]
-        assert "gpt4" in summary["agents"]
+        assert "gpt-5.5" in summary["agents"]
 
 
 class TestGraphDebateOrchestrator:
@@ -794,7 +794,7 @@ class TestGraphDebateOrchestrator:
         agent1 = MagicMock()
         agent1.name = "claude"
         agent2 = MagicMock()
-        agent2.name = "gpt4"
+        agent2.name = "gpt-5.5"
 
         orchestrator = GraphDebateOrchestrator([agent1, agent2])
 

@@ -103,7 +103,7 @@ class TestStringSplitSafety:
         # This pattern is used in prompt_builder.py, personas.py, orchestrator.py
         test_names = [
             ("claude_visionary", "claude"),
-            ("gpt4", "gpt4"),
+            ("gpt-5.5", "gpt-5.5"),
             ("", ""),
             ("_underscore_start", ""),
         ]

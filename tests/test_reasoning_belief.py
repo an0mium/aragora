@@ -375,7 +375,7 @@ class TestBeliefNetwork:
         # Create a hub node with many children
         network.add_claim("c1", "Hub claim", "claude")
         network.add_claim("c2", "Child 1", "gemini")
-        network.add_claim("c3", "Child 2", "gpt4")
+        network.add_claim("c3", "Child 2", "gpt-5.5")
         network.add_factor("c1", "c2", RelationType.SUPPORTS)
         network.add_factor("c1", "c3", RelationType.SUPPORTS)
         network.propagate()
@@ -432,7 +432,7 @@ class TestBeliefPropagationAnalyzer:
         network = BeliefNetwork(debate_id="test")
         network.add_claim("c1", "Base premise", "claude", initial_confidence=0.9)
         network.add_claim("c2", "Uncertain claim", "gemini", initial_confidence=0.5)
-        network.add_claim("c3", "Conclusion", "gpt4", initial_confidence=0.6)
+        network.add_claim("c3", "Conclusion", "gpt-5.5", initial_confidence=0.6)
         network.add_factor("c1", "c2", RelationType.SUPPORTS)
         network.add_factor("c2", "c3", RelationType.SUPPORTS)
         network.propagate()

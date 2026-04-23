@@ -623,9 +623,9 @@ class AgentDashboardHandler(SecureHandler):
             },
             {
                 "id": "agent-gpt-verifier",
-                "name": "GPT-4 Verifier",
+                "name": "GPT-5.5 Verifier",
                 "type": "verifier",
-                "model": "gpt-4-turbo",
+                "model": "gpt-5.5",
                 "status": "idle",
                 "role": "Adversarial verification",
                 "capabilities": ["verification", "adversarial"],

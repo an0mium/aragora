@@ -36,7 +36,7 @@ def mock_provider_router():
     router = MagicMock()
     router.select_providers_for_debate.return_value = [
         "claude-sonnet-4",
-        "gpt-4o",
+        "gpt-5.5",
         "deepseek-r1",
     ]
     return router
@@ -62,12 +62,12 @@ async def test_provider_router_selects_before_debate(mock_arena_factory, mock_pr
     assert result.debate_result is not None
     assert result.debate_result.metadata["provider_hints"] == [
         "claude-sonnet-4",
-        "gpt-4o",
+        "gpt-5.5",
         "deepseek-r1",
     ]
     assert result.debate_result.metadata["provider_names"] == [
         "claude-sonnet-4",
-        "gpt-4o",
+        "gpt-5.5",
         "deepseek-r1",
     ]
 
@@ -84,7 +84,7 @@ async def test_provider_router_records_outcome(mock_arena_factory, mock_provider
 
     # Outcome is recorded against provider IDs, not agent display names.
     recorded = [call.args[0] for call in mock_provider_router.record_outcome.call_args_list]
-    assert recorded == ["claude-sonnet-4", "gpt-4o", "deepseek-r1"]
+    assert recorded == ["claude-sonnet-4", "gpt-5.5", "deepseek-r1"]
 
 
 @pytest.mark.asyncio
@@ -119,7 +119,7 @@ async def test_provider_router_does_not_break_factory_without_provider_hints_kwa
     assert result.debate_result is not None
     assert result.debate_result.metadata["provider_names"] == [
         "claude-sonnet-4",
-        "gpt-4o",
+        "gpt-5.5",
         "deepseek-r1",
     ]
 
@@ -175,13 +175,13 @@ async def test_provider_router_exercises_real_debate_service_runtime_selection(
 ):
     """The default routed provider list should shape the real Arena roster."""
     mock_provider_router.select_providers_for_debate.return_value = [
-        "gpt-4o",
+        "gpt-5.5",
         "claude-sonnet-4",
     ]
     agents = [
         RuntimeAgent(name="anthropic-proposer", model="claude-sonnet-4"),
-        RuntimeAgent(name="openai-critic", model="gpt-4o"),
-        RuntimeAgent(name="openai-backup", model="gpt-4o-mini"),
+        RuntimeAgent(name="openai-critic", model="gpt-5.5"),
+        RuntimeAgent(name="openai-backup", model="gpt-5.5"),
     ]
     debate_result = DebateResult(
         debate_id="debate-runtime-1",
@@ -213,8 +213,8 @@ async def test_provider_router_exercises_real_debate_service_runtime_selection(
     ]
     assert result.debate_result is not None
     assert result.debate_result.metadata["provider_names"] == [
-        "gpt-4o",
+        "gpt-5.5",
         "claude-sonnet-4",
     ]
     recorded = [call.args[0] for call in mock_provider_router.record_outcome.call_args_list]
-    assert recorded == ["gpt-4o", "claude-sonnet-4"]
+    assert recorded == ["gpt-5.5", "claude-sonnet-4"]

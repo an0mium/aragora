@@ -15,7 +15,7 @@ const mockPersonas = [
     updated_at: '2024-01-15T00:00:00Z',
   },
   {
-    agent_name: 'gpt4',
+    agent_name: 'gpt-5.5',
     description: 'A powerful language model',
     traits: ['creative', 'versatile'],
     expertise: ['general knowledge', 'reasoning'],
@@ -139,7 +139,7 @@ describe('PersonaEditor', () => {
 
       await waitFor(() => {
         expect(screen.getByText('claude')).toBeInTheDocument();
-        expect(screen.getByText('gpt4')).toBeInTheDocument();
+        expect(screen.getByText('gpt-5.5')).toBeInTheDocument();
         expect(screen.getByText('gemini')).toBeInTheDocument();
       });
     });
@@ -241,7 +241,7 @@ describe('PersonaEditor', () => {
       });
 
       expect(screen.getByText('claude')).toBeInTheDocument();
-      expect(screen.queryByText('gpt4')).not.toBeInTheDocument();
+      expect(screen.queryByText('gpt-5.5')).not.toBeInTheDocument();
       expect(screen.queryByText('gemini')).not.toBeInTheDocument();
     });
 
@@ -284,7 +284,7 @@ describe('PersonaEditor', () => {
       });
 
       expect(screen.getByText('claude')).toBeInTheDocument();
-      expect(screen.queryByText('gpt4')).not.toBeInTheDocument();
+      expect(screen.queryByText('gpt-5.5')).not.toBeInTheDocument();
     });
 
     it('shows empty state when search has no results', async () => {

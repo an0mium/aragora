@@ -63,13 +63,13 @@ class TestOutcomeRecord:
     def test_create_full_record(self):
         """Test creating OutcomeRecord with all fields."""
         record = OutcomeRecord(
-            agent="gpt4",
+            agent="gpt-5.5",
             won=False,
             debate_id="debate-123",
             generation=5,
         )
 
-        assert record.agent == "gpt4"
+        assert record.agent == "gpt-5.5"
         assert record.won is False
         assert record.debate_id == "debate-123"
         assert record.generation == 5
@@ -211,11 +211,11 @@ class TestOutcomeRecording:
     def test_record_different_agents(self, tracker):
         """Test recording outcomes for different agents."""
         tracker.record_outcome("claude", won=True)
-        tracker.record_outcome("gpt4", won=False)
+        tracker.record_outcome("gpt-5.5", won=False)
         tracker.record_outcome("gemini", won=True)
 
         assert tracker.get_agent_stats("claude")["wins"] == 1
-        assert tracker.get_agent_stats("gpt4")["losses"] == 1
+        assert tracker.get_agent_stats("gpt-5.5")["losses"] == 1
         assert tracker.get_agent_stats("gemini")["wins"] == 1
 
 
@@ -310,7 +310,7 @@ class TestGenerationMetrics:
     def test_get_metrics_multiple_agents(self, tracker):
         """Test metrics with multiple agents."""
         tracker.record_outcome("claude", won=True, generation=0)
-        tracker.record_outcome("gpt4", won=True, generation=0)
+        tracker.record_outcome("gpt-5.5", won=True, generation=0)
         tracker.record_outcome("gemini", won=False, generation=0)
 
         metrics = tracker.get_generation_metrics(0)
@@ -427,12 +427,12 @@ class TestGetAllAgents:
     def test_get_all_agents_multiple(self, tracker):
         """Test getting multiple agents."""
         tracker.record_outcome("claude", won=True)
-        tracker.record_outcome("gpt4", won=False)
+        tracker.record_outcome("gpt-5.5", won=False)
         tracker.record_outcome("gemini", won=True)
 
         agents = tracker.get_all_agents()
 
-        assert set(agents) == {"claude", "gemini", "gpt4"}
+        assert set(agents) == {"claude", "gemini", "gpt-5.5"}
 
     def test_get_all_agents_unique(self, tracker):
         """Test agents are unique."""
@@ -525,14 +525,14 @@ class TestGenerationTrend:
     def test_get_trend_isolates_agents(self, tracker):
         """Test trend is isolated per agent."""
         tracker.record_outcome("claude", won=True, generation=0)
-        tracker.record_outcome("gpt4", won=True, generation=0)
-        tracker.record_outcome("gpt4", won=True, generation=1)
+        tracker.record_outcome("gpt-5.5", won=True, generation=0)
+        tracker.record_outcome("gpt-5.5", won=True, generation=1)
 
         claude_trend = tracker.get_generation_trend("claude")
-        gpt4_trend = tracker.get_generation_trend("gpt4")
+        gpt55_trend = tracker.get_generation_trend("gpt-5.5")
 
         assert len(claude_trend) == 1
-        assert len(gpt4_trend) == 2
+        assert len(gpt55_trend) == 2
 
 
 # =============================================================================
@@ -567,7 +567,7 @@ class TestTrackerIntegration:
     def test_evolution_analysis_workflow(self, tracker):
         """Test typical evolution analysis workflow."""
         # Record outcomes for multiple generations
-        agents = ["claude", "gpt4", "gemini"]
+        agents = ["claude", "gpt-5.5", "gemini"]
         generations = 5
 
         for gen in range(generations):
@@ -600,10 +600,10 @@ class TestTrackerIntegration:
         """Test tracking competing agents."""
         # Simulate a tournament
         matchups = [
-            ("claude", "gpt4", "claude"),
+            ("claude", "gpt-5.5", "claude"),
             ("claude", "gemini", "claude"),
-            ("gpt4", "gemini", "gpt4"),
-            ("claude", "gpt4", "gpt4"),
+            ("gpt-5.5", "gemini", "gpt-5.5"),
+            ("claude", "gpt-5.5", "gpt-5.5"),
             ("gemini", "claude", "gemini"),
         ]
 
@@ -620,6 +620,6 @@ class TestTrackerIntegration:
         )
 
         # Claude has 2/3 wins
-        # GPT4 has 2/3 wins
+        # GPT-5.5 has 2/3 wins
         # Gemini has 1/3 wins
         assert rankings[2][0] == "gemini"  # Gemini is lowest

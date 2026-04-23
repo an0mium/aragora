@@ -59,7 +59,7 @@ const mockHeatmapData = {
 const mockBeliefNetwork = {
   nodes: [
     { id: 'node-1', claim_id: 'claim-1', statement: 'AI systems should be transparent', author: 'claude', centrality: 0.8, is_crux: true, crux_score: 0.9, entropy: 0.65 },
-    { id: 'node-2', claim_id: 'claim-2', statement: 'Transparency enables accountability', author: 'gpt4', centrality: 0.6, is_crux: false },
+    { id: 'node-2', claim_id: 'claim-2', statement: 'Transparency enables accountability', author: 'gpt-5.5', centrality: 0.6, is_crux: false },
     { id: 'node-3', claim_id: 'claim-3', statement: 'Some opacity is necessary for security', author: 'gemini', centrality: 0.5, is_crux: true, crux_score: 0.75, entropy: 0.8 },
   ],
   links: [
@@ -100,7 +100,7 @@ const mockCruxes = {
 // Mock load-bearing claims
 const mockLoadBearing = {
   load_bearing_claims: [
-    { claim_id: 'claim-2', statement: 'Transparency enables accountability', author: 'gpt4', centrality: 0.75 },
+    { claim_id: 'claim-2', statement: 'Transparency enables accountability', author: 'gpt-5.5', centrality: 0.75 },
     { claim_id: 'claim-4', statement: 'Users deserve to know how decisions are made', author: 'claude', centrality: 0.68 },
   ],
 };

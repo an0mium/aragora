@@ -44,7 +44,7 @@ Implement automatic fallback to OpenRouter when primary providers fail:
 
 4. **Model Mapping**: Map provider models to OpenRouter equivalents
    - Claude Opus 4.5 → anthropic/claude-sonnet-4
-   - GPT-4 → openai/gpt-4-turbo
+   - GPT-5.5 → openai/gpt-5.5
    - etc.
 
 ## Consequences

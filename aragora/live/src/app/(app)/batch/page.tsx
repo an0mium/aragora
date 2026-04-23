@@ -44,7 +44,7 @@ export default function BatchPage() {
 {`[
   {
     "question": "What is the best database?",
-    "agents": "claude,gpt-4o,gemini",
+    "agents": "claude,gpt-5.5,gemini",
     "rounds": 3,
     "priority": 1
   },

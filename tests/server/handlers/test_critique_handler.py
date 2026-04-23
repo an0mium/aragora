@@ -67,7 +67,7 @@ class TestCritiqueHandlerRouting:
         """Should handle dynamic agent reputation route."""
         handler = CritiqueHandler({})
         assert handler.can_handle("/api/v1/agent/claude/reputation") is True
-        assert handler.can_handle("/api/v1/agent/gpt-4/reputation") is True
+        assert handler.can_handle("/api/v1/agent/gpt-5.5/reputation") is True
 
     def test_cannot_handle_unknown_routes(self):
         """Should not handle unknown routes."""
@@ -85,7 +85,7 @@ class TestExtractAgentName:
         handler = CritiqueHandler({})
         # _extract_agent_name expects paths with version prefix already stripped
         assert handler._extract_agent_name("/api/agent/claude/reputation") == "claude"
-        assert handler._extract_agent_name("/api/agent/gpt-4/reputation") == "gpt-4"
+        assert handler._extract_agent_name("/api/agent/gpt-5.5/reputation") == "gpt-5.5"
 
     def test_reject_path_traversal(self):
         """Should reject path traversal attempts."""
@@ -558,7 +558,7 @@ class TestResponseBodyValidation:
         mock_store = MagicMock()
         mock_store.get_all_reputations.return_value = [
             MockReputation(
-                agent_name="gpt-4",
+                agent_name="gpt-5.5",
                 reputation_score=0.88,
                 vote_weight=1.1,
                 proposal_acceptance_rate=0.7,
@@ -580,7 +580,7 @@ class TestResponseBodyValidation:
         assert "count" in body
         assert body["count"] == 1
         rep = body["reputations"][0]
-        assert rep["agent"] == "gpt-4"
+        assert rep["agent"] == "gpt-5.5"
         assert rep["score"] == 0.88
         assert rep["vote_weight"] == 1.1
         assert rep["proposal_acceptance_rate"] == 0.7
@@ -830,7 +830,7 @@ class TestAgentNameValidation:
         # Standard names
         assert handler._extract_agent_name("/api/agent/claude/reputation") == "claude"
         # Names with hyphens
-        assert handler._extract_agent_name("/api/agent/gpt-4-turbo/reputation") == "gpt-4-turbo"
+        assert handler._extract_agent_name("/api/agent/gpt-5.5/reputation") == "gpt-5.5"
         # Names with underscores
         assert handler._extract_agent_name("/api/agent/claude_v2/reputation") == "claude_v2"
         # Names with numbers
@@ -935,7 +935,7 @@ class TestIntegration:
         mock_store = MagicMock()
         mock_store.get_all_reputations.return_value = [
             MockReputation("claude", 0.92, 1.2, 0.75, 0.88, 150),
-            MockReputation("gpt-4", 0.88, 1.1, 0.70, 0.85, 120),
+            MockReputation("gpt-5.5", 0.88, 1.1, 0.70, 0.85, 120),
             MockReputation("gemini", 0.85, 1.0, 0.68, 0.82, 100),
         ]
         mock_get_store.return_value = mock_store

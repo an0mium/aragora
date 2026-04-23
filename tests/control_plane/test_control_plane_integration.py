@@ -230,7 +230,7 @@ class TestAgentRegistrationToTaskAssignment:
         await coord.register_agent(
             agent_id="coder",
             capabilities=["code"],
-            model="gpt-4",
+            model="gpt-5.5",
             provider="openai",
         )
 

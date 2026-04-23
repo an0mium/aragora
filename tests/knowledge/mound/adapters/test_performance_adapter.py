@@ -93,16 +93,16 @@ def _make_mock_match(
     match = MagicMock()
     match.debate_id = debate_id
     match.winner = winner
-    match.participants = participants or ["claude", "gpt4"]
+    match.participants = participants or ["claude", "gpt-5.5"]
     match.domain = domain
-    match.scores = scores or {"claude": 0.8, "gpt4": 0.6}
+    match.scores = scores or {"claude": 0.8, "gpt-5.5": 0.6}
     match.created_at = created_at
     return match
 
 
 def _make_mock_relationship(
     agent_a: str = "claude",
-    agent_b: str = "gpt4",
+    agent_b: str = "gpt-5.5",
     debates_together: int = 10,
     a_wins_vs_b: int = 6,
     b_wins_vs_a: int = 3,
@@ -148,7 +148,7 @@ class TestKMEloPattern:
     def test_create_with_all_fields(self):
         """Should create KMEloPattern with all fields populated."""
         pattern = KMEloPattern(
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             pattern_type="domain_expert",
             confidence=0.92,
             observation_count=15,
@@ -415,11 +415,11 @@ class TestStoreMatch:
     def test_store_match_indexes_participants(self):
         """Should index match by all participants."""
         adapter = PerformanceAdapter(enable_resilience=False)
-        match = _make_mock_match(participants=["claude", "gpt4", "gemini"])
+        match = _make_mock_match(participants=["claude", "gpt-5.5", "gemini"])
 
         match_id = adapter.store_match(match)
 
-        for agent in ["claude", "gpt4", "gemini"]:
+        for agent in ["claude", "gpt-5.5", "gemini"]:
             assert agent in adapter._agent_matches
             assert match_id in adapter._agent_matches[agent]
 
@@ -454,9 +454,9 @@ class TestStoreCalibration:
         adapter = PerformanceAdapter(enable_resilience=False)
 
         cal_id = adapter.store_calibration(
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             debate_id="d-7",
-            predicted_winner="gpt4",
+            predicted_winner="gpt-5.5",
             predicted_confidence=0.6,
             actual_winner="claude",
             was_correct=False,
@@ -466,7 +466,7 @@ class TestStoreCalibration:
         stored = adapter._calibrations[cal_id]
         assert stored["was_correct"] is False
         assert stored["brier_score"] == 0.36
-        assert stored["predicted_winner"] == "gpt4"
+        assert stored["predicted_winner"] == "gpt-5.5"
         assert stored["actual_winner"] == "claude"
 
 
@@ -486,7 +486,7 @@ class TestStoreRelationship:
         rel_id = adapter.store_relationship(metrics)
 
         assert rel_id is not None
-        assert rel_id == "el_rel_claude_gpt4"
+        assert rel_id == "el_rel_claude_gpt-5.5"
         assert rel_id in adapter._relationships
 
     def test_store_relationship_below_threshold(self):
@@ -682,7 +682,7 @@ class TestMatchAndCalibrationRetrieval:
         """Should return calibrations for agent."""
         adapter = PerformanceAdapter(enable_resilience=False)
         adapter.store_calibration("claude", "d-1", "claude", 0.8, "claude", True, 0.04)
-        adapter.store_calibration("gpt4", "d-2", "gpt4", 0.7, "claude", False, 0.3)
+        adapter.store_calibration("gpt-5.5", "d-2", "gpt-5.5", 0.7, "claude", False, 0.3)
 
         result = adapter.get_agent_calibration_history("claude")
 
@@ -692,12 +692,12 @@ class TestMatchAndCalibrationRetrieval:
     def test_get_relationship_both_orderings(self):
         """Should find relationship regardless of agent order."""
         adapter = PerformanceAdapter(enable_resilience=False)
-        metrics = _make_mock_relationship(agent_a="claude", agent_b="gpt4")
+        metrics = _make_mock_relationship(agent_a="claude", agent_b="gpt-5.5")
         adapter.store_relationship(metrics)
 
         # Both orderings should work
-        assert adapter.get_relationship("claude", "gpt4") is not None
-        assert adapter.get_relationship("gpt4", "claude") is not None
+        assert adapter.get_relationship("claude", "gpt-5.5") is not None
+        assert adapter.get_relationship("gpt-5.5", "claude") is not None
 
 
 # =============================================================================
@@ -740,13 +740,13 @@ class TestExpertiseRetrieval:
         """Should return experts sorted by ELO descending."""
         adapter = PerformanceAdapter(enable_resilience=False)
         adapter.store_agent_expertise("claude", "security", 1600, delta=50)
-        adapter.store_agent_expertise("gpt4", "security", 1700, delta=60)
+        adapter.store_agent_expertise("gpt-5.5", "security", 1700, delta=60)
         adapter.store_agent_expertise("gemini", "security", 1550, delta=40)
 
         experts = adapter.get_domain_experts("security")
 
         assert len(experts) == 3
-        assert experts[0].agent_name == "gpt4"
+        assert experts[0].agent_name == "gpt-5.5"
         assert experts[0].elo == 1700
         assert experts[2].agent_name == "gemini"
 
@@ -903,7 +903,7 @@ class TestDomainDetection:
         """Should list all domains with stored expertise."""
         adapter = PerformanceAdapter(enable_resilience=False)
         adapter.store_agent_expertise("claude", "security", 1600, delta=50)
-        adapter.store_agent_expertise("gpt4", "coding", 1500, delta=30)
+        adapter.store_agent_expertise("gpt-5.5", "coding", 1500, delta=30)
 
         domains = adapter.get_all_domains()
 

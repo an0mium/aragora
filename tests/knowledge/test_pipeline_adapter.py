@@ -203,7 +203,7 @@ class TestGetAgentPerformance:
         """No matching results returns {}."""
         mock_mound.search = AsyncMock(return_value=[])
 
-        result = await adapter.get_agent_performance("gpt4")
+        result = await adapter.get_agent_performance("gpt-5.5")
         assert result == {}
 
     @pytest.mark.asyncio
@@ -212,7 +212,7 @@ class TestGetAgentPerformance:
         mock_mound.search = AsyncMock(
             return_value=[
                 _make_task_outcome(task_status="completed", agent_type="claude"),
-                _make_task_outcome(task_status="completed", agent_type="gpt4"),
+                _make_task_outcome(task_status="completed", agent_type="gpt-5.5"),
                 _make_task_outcome(task_status="failed", agent_type="claude"),
             ]
         )
@@ -270,7 +270,7 @@ class TestKMFeedbackEnrichesInstruction:
                 "outcome": "Redis cluster improved throughput",
                 "status": "completed",
                 "task_type": "perf",
-                "agent_type": "gpt4",
+                "agent_type": "gpt-5.5",
             },
         ]
         agent_perf = {

@@ -131,8 +131,8 @@ class TestAgentMessageModel:
 
     def test_message_with_alias(self):
         """Test AgentMessage with alias field."""
-        msg = AgentMessage(agent="gpt-4", content="Hi", round_number=1)
-        assert msg.agent_id == "gpt-4"
+        msg = AgentMessage(agent="gpt-5.5", content="Hi", round_number=1)
+        assert msg.agent_id == "gpt-5.5"
         assert msg.round == 1
 
 
@@ -154,7 +154,7 @@ class TestVoteModel:
     def test_vote_with_reasoning(self):
         """Test Vote with reasoning."""
         vote = Vote(
-            agent_id="gpt-4",
+            agent_id="gpt-5.5",
             position="disagree",
             confidence=0.7,
             reasoning="Insufficient evidence",
@@ -184,7 +184,7 @@ class TestConsensusResultModel:
             confidence=0.85,
             final_answer="Yes",
             conclusion="Yes",
-            supporting_agents=["claude", "gpt-4"],
+            supporting_agents=["claude", "gpt-5.5"],
             dissenting_agents=["gemini"],
             votes=[Vote(agent_id="claude", position="agree", confidence=0.9)],
         )
@@ -231,7 +231,7 @@ class TestDebateRoundModel:
                 AgentMessage(agent_id="claude", content="Proposal"),
             ],
             critiques=[
-                AgentMessage(agent_id="gpt-4", content="Critique"),
+                AgentMessage(agent_id="gpt-5.5", content="Critique"),
             ],
         )
         assert len(round_.messages) == 1
@@ -288,7 +288,7 @@ class TestDebateModel:
                 "reached": True,
                 "confidence": 0.9,
                 "final_answer": "Yes",
-                "vote_breakdown": {"claude": True, "gpt-4": True, "gemini": False},
+                "vote_breakdown": {"claude": True, "gpt-5.5": True, "gemini": False},
             },
         )
         assert debate.consensus is not None
@@ -317,13 +317,13 @@ class TestDebateCreateRequestModel:
         """Test DebateCreateRequest with all fields."""
         request = DebateCreateRequest(
             task="Debate topic",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
             rounds=5,
             consensus=ConsensusType.UNANIMOUS,
             context="Additional context",
             metadata={"key": "value"},
         )
-        assert request.agents == ["claude", "gpt-4"]
+        assert request.agents == ["claude", "gpt-5.5"]
         assert request.rounds == 5
         assert request.consensus == ConsensusType.UNANIMOUS
 
@@ -484,7 +484,7 @@ class TestDebatesAPICreate:
 
         result = debates_api.create(
             task="Custom task",
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             rounds=7,
             consensus="unanimous",
             context="Extra context",
@@ -495,7 +495,7 @@ class TestDebatesAPICreate:
         assert call_args[0][0] == "/api/debates"
         payload = call_args[0][1]
         assert payload["task"] == "Custom task"
-        assert payload["agents"] == ["claude", "gpt-4", "gemini"]
+        assert payload["agents"] == ["claude", "gpt-5.5", "gemini"]
         assert payload["rounds"] == 7
         assert payload["consensus"] == "unanimous"
 
@@ -534,7 +534,7 @@ class TestDebatesAPIGet:
             "debate_id": "deb-get",
             "task": "Test task",
             "status": "completed",
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-5.5"],
             "rounds": [],
             "created_at": sample_timestamp,
         }
@@ -1057,7 +1057,7 @@ class TestDebatesAPIIntegration:
         }
         create_response = debates_api.create(
             "Should we use microservices?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
             rounds=3,
             consensus="majority",
         )
@@ -1068,13 +1068,13 @@ class TestDebatesAPIIntegration:
             "debate_id": "deb-workflow",
             "task": "Should we use microservices?",
             "status": "completed",
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-5.5"],
             "rounds": [
                 {
                     "round_number": 1,
                     "messages": [
                         {"agent_id": "claude", "content": "I propose..."},
-                        {"agent_id": "gpt-4", "content": "I agree..."},
+                        {"agent_id": "gpt-5.5", "content": "I agree..."},
                     ],
                 }
             ],

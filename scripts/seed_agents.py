@@ -75,18 +75,18 @@ AGENT_METADATA = [
     },
     # OpenAI
     {
-        "name": "gpt-4o",
+        "name": "gpt-5.5",
         "provider": "openai",
-        "model_id": "gpt-4o-2024-11-20",
+        "model_id": "gpt-5.5",
         "context_window": 128000,
         "specialties": ["multimodal", "coding", "general"],
         "strengths": ["Multimodal", "Fast", "Well-rounded"],
         "release_date": "2024-11",
     },
     {
-        "name": "gpt-4-turbo",
+        "name": "gpt-5.5",
         "provider": "openai",
-        "model_id": "gpt-4-turbo-2024-04-09",
+        "model_id": "gpt-5.5",
         "context_window": 128000,
         "specialties": ["coding", "analysis", "general"],
         "strengths": ["Reliable", "Good instruction following"],

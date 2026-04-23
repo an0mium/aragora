@@ -205,7 +205,7 @@ class TestDiscordIntegration:
             result = await integration.send_debate_start(
                 debate_id="debate-123456789",
                 topic="Test topic for debate",
-                agents=["claude", "gpt4", "gemini"],
+                agents=["claude", "gpt-5.5", "gemini"],
                 config={"rounds": 3, "consensus_mode": "majority"},
             )
             assert result is True
@@ -274,7 +274,7 @@ class TestDiscordIntegration:
                 error_type="AgentTimeout",
                 message="Agent did not respond",
                 debate_id="d-789",
-                details={"agent": "gpt4", "timeout": "30s"},
+                details={"agent": "gpt-5.5", "timeout": "30s"},
             )
             assert result is True
             embeds = mock_send.call_args[0][0]
@@ -301,7 +301,7 @@ class TestDiscordIntegration:
                 round_number=2,
                 total_rounds=5,
                 summary="Agents debated rate limiting.",
-                agent_positions={"claude": "Token bucket", "gpt4": "Sliding window"},
+                agent_positions={"claude": "Token bucket", "gpt-5.5": "Sliding window"},
             )
             assert result is True
             embeds = mock_send.call_args[0][0]

@@ -81,7 +81,7 @@ def _make_debate_result(**overrides: Any) -> MagicMock:
     result.dissenting_views = overrides.get("dissenting_views", [])
     result.debate_cruxes = overrides.get("debate_cruxes", [])
     result.rounds_used = overrides.get("rounds_used", 3)
-    result.participants = overrides.get("participants", ["claude", "gpt4", "gemini"])
+    result.participants = overrides.get("participants", ["claude", "gpt-5.5", "gemini"])
     result.total_cost_usd = overrides.get("total_cost_usd", 0.05)
     result.total_tokens = overrides.get("total_tokens", 5000)
     result.per_agent_cost = overrides.get("per_agent_cost", {})

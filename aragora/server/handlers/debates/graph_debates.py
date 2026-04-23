@@ -457,7 +457,7 @@ class GraphDebatesHandler(SecureHandler):
             from aragora.agents import create_agent
 
             agents = []
-            for name in agent_names or ["claude", "gpt4"]:
+            for name in agent_names or ["claude", "gpt-5.5"]:
                 try:
                     # Cast to AgentType - validation already done in handle_post
                     agent = create_agent(model_type=cast(AgentType, name), name=name)

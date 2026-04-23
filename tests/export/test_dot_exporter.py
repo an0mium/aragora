@@ -41,7 +41,7 @@ def basic_artifact() -> DebateArtifact:
         artifact_id="test-artifact-001",
         debate_id="debate-001",
         task="Analyze the security of the API",
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-5.5", "gemini"],
         rounds=3,
     )
 
@@ -53,7 +53,7 @@ def artifact_with_trace() -> DebateArtifact:
         artifact_id="test-artifact-002",
         debate_id="debate-002",
         task="Review code quality",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-5.5"],
         rounds=2,
         trace_data={
             "events": [
@@ -66,13 +66,13 @@ def artifact_with_trace() -> DebateArtifact:
                 {
                     "event_type": "message",
                     "round": 1,
-                    "agent": "gpt-4",
+                    "agent": "gpt-5.5",
                     "content": "Good point, but we should also consider rate limiting.",
                 },
                 {
                     "event_type": "critique",
                     "round": 1,
-                    "agent": "gpt-4",
+                    "agent": "gpt-5.5",
                     "target": "claude",
                     "severity": 0.6,
                     "issues": ["Missing edge cases"],
@@ -87,7 +87,7 @@ def artifact_with_trace() -> DebateArtifact:
                     "event_type": "critique",
                     "round": 2,
                     "agent": "claude",
-                    "target": "gpt-4",
+                    "target": "gpt-5.5",
                     "severity": 0.3,
                     "issues": ["Minor style issue"],
                 },
@@ -103,14 +103,14 @@ def artifact_with_consensus() -> DebateArtifact:
         artifact_id="test-artifact-003",
         debate_id="debate-003",
         task="Decide on API design approach",
-        agents=["claude", "gpt-4", "gemini"],
+        agents=["claude", "gpt-5.5", "gemini"],
         rounds=3,
         consensus_proof=ConsensusProof(
             reached=True,
             confidence=0.85,
             vote_breakdown={
                 "claude": True,
-                "gpt-4": True,
+                "gpt-5.5": True,
                 "gemini": False,
             },
             final_answer="Use REST API with GraphQL for complex queries",
@@ -126,13 +126,13 @@ def artifact_no_consensus() -> DebateArtifact:
         artifact_id="test-artifact-004",
         debate_id="debate-004",
         task="Debate architecture",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-5.5"],
         consensus_proof=ConsensusProof(
             reached=False,
             confidence=0.45,
             vote_breakdown={
                 "claude": True,
-                "gpt-4": False,
+                "gpt-5.5": False,
             },
             final_answer="No agreement reached",
             rounds_used=5,
@@ -265,7 +265,7 @@ class TestDOTExporterFlow:
         artifact_with_trace.consensus_proof = ConsensusProof(
             reached=True,
             confidence=0.9,
-            vote_breakdown={"claude": True, "gpt-4": True},
+            vote_breakdown={"claude": True, "gpt-5.5": True},
             final_answer="Agreed on approach",
             rounds_used=2,
         )
@@ -327,15 +327,15 @@ class TestDOTExporterCritiques:
         result = exporter.export_critiques()
 
         assert "claude [" in result
-        assert "gpt_4 [" in result
+        assert "gpt-5.5 [" in result
 
     def test_includes_critique_edges(self, artifact_with_trace: DebateArtifact):
         """Should include edges for critique relationships."""
         exporter = DOTExporter(artifact_with_trace)
         result = exporter.export_critiques()
 
-        assert "gpt_4 -> claude" in result
-        assert "claude -> gpt_4" in result
+        assert "gpt-5.5 -> claude" in result
+        assert "claude -> gpt-5.5" in result
 
     def test_shows_critique_count_and_severity(self, artifact_with_trace: DebateArtifact):
         """Should show critique count and average severity in edge labels."""
@@ -400,7 +400,7 @@ class TestDOTExporterConsensus:
         result = exporter.export_consensus()
 
         assert "claude [" in result
-        assert "gpt_4 [" in result
+        assert "gpt-5.5 [" in result
         assert "gemini [" in result
         assert "Agreed" in result
         assert "Disagreed" in result
@@ -451,7 +451,7 @@ class TestDOTExporterExportAll:
         artifact_with_trace.consensus_proof = ConsensusProof(
             reached=True,
             confidence=0.9,
-            vote_breakdown={"claude": True, "gpt-4": True},
+            vote_breakdown={"claude": True, "gpt-5.5": True},
             final_answer="Agreed",
             rounds_used=2,
         )
@@ -546,12 +546,12 @@ class TestDOTExporterEdgeCases:
         """Should sanitize agent names with hyphens for DOT syntax."""
         artifact = DebateArtifact(
             artifact_id="test",
-            agents=["claude-3", "gpt-4-turbo"],
+            agents=["claude-3", "gpt-5.5"],
             trace_data={
                 "events": [
                     {
                         "event_type": "critique",
-                        "agent": "gpt-4-turbo",
+                        "agent": "gpt-5.5",
                         "target": "claude-3",
                         "severity": 0.5,
                         "issues": [],
@@ -564,7 +564,7 @@ class TestDOTExporterEdgeCases:
         result = exporter.export_critiques()
 
         # Should replace hyphens with underscores in node names
-        assert "gpt_4_turbo" in result
+        assert "gpt-5.5" in result
         assert "claude_3" in result
 
     def test_handles_agent_names_with_dots(self):
@@ -579,7 +579,7 @@ class TestDOTExporterEdgeCases:
 
         # Should replace dots with underscores
         assert "claude_v3" in result
-        assert "gpt_4" in result
+        assert "gpt-5.5" in result
 
     def test_handles_special_characters_in_content(self):
         """Should escape special characters in labels."""
@@ -614,12 +614,12 @@ class TestDOTExporterEdgeCases:
         """Should use red color for high severity critiques."""
         artifact = DebateArtifact(
             artifact_id="test",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
             trace_data={
                 "events": [
                     {
                         "event_type": "critique",
-                        "agent": "gpt-4",
+                        "agent": "gpt-5.5",
                         "target": "claude",
                         "severity": 0.9,  # High severity
                         "issues": ["Critical issue"],
@@ -637,12 +637,12 @@ class TestDOTExporterEdgeCases:
         """Should use green color for low severity critiques."""
         artifact = DebateArtifact(
             artifact_id="test",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
             trace_data={
                 "events": [
                     {
                         "event_type": "critique",
-                        "agent": "gpt-4",
+                        "agent": "gpt-5.5",
                         "target": "claude",
                         "severity": 0.2,  # Low severity
                         "issues": ["Minor issue"],
@@ -660,12 +660,12 @@ class TestDOTExporterEdgeCases:
         """Should use orange color for medium severity critiques."""
         artifact = DebateArtifact(
             artifact_id="test",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
             trace_data={
                 "events": [
                     {
                         "event_type": "critique",
-                        "agent": "gpt-4",
+                        "agent": "gpt-5.5",
                         "target": "claude",
                         "severity": 0.5,  # Medium severity
                         "issues": ["Moderate issue"],

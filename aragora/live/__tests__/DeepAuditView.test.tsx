@@ -90,7 +90,7 @@ describe('DeepAuditView', () => {
     it('marks rounds as complete based on events', () => {
       const events: StreamEvent[] = [
         createEvent({ round: 1, type: 'agent_message', agent: 'claude', data: { content: 'Analysis 1' } }),
-        createEvent({ round: 2, type: 'agent_message', agent: 'gpt4', data: { content: 'Review 1' } }),
+        createEvent({ round: 2, type: 'agent_message', agent: 'gpt-5.5', data: { content: 'Review 1' } }),
         createEvent({ round: 3, type: 'agent_message', agent: 'gemini', data: { content: 'Exploration' } }),
       ];
 
@@ -102,7 +102,7 @@ describe('DeepAuditView', () => {
     it('shows response count for rounds with messages', () => {
       const events: StreamEvent[] = [
         createEvent({ round: 1, type: 'agent_message', agent: 'claude', data: { content: 'A' } }),
-        createEvent({ round: 1, type: 'agent_message', agent: 'gpt4', data: { content: 'B' } }),
+        createEvent({ round: 1, type: 'agent_message', agent: 'gpt-5.5', data: { content: 'B' } }),
         createEvent({ round: 1, type: 'agent_message', agent: 'gemini', data: { content: 'C' } }),
       ];
 
@@ -180,7 +180,7 @@ describe('DeepAuditView', () => {
             cognitive_role: 'analyzer',
             messages: [
               { agent: 'claude', content: 'My analysis', confidence: 0.85 },
-              { agent: 'gpt4', content: 'My take', confidence: 0.72 },
+              { agent: 'gpt-5.5', content: 'My take', confidence: 0.72 },
             ],
           },
         }),
@@ -200,7 +200,7 @@ describe('DeepAuditView', () => {
           data: {
             category: 'unanimous',
             summary: 'All agents agree on this',
-            agents_agree: ['claude', 'gpt4'],
+            agents_agree: ['claude', 'gpt-5.5'],
             confidence: 0.9,
           },
         }),
@@ -226,7 +226,7 @@ describe('DeepAuditView', () => {
           data: {
             category: 'unanimous',
             summary: 'All agents agree on this point',
-            agents_agree: ['claude', 'gpt4'],
+            agents_agree: ['claude', 'gpt-5.5'],
           },
         }),
       ];
@@ -248,7 +248,7 @@ describe('DeepAuditView', () => {
             category: 'split',
             summary: 'Split opinion',
             agents_agree: ['claude'],
-            agents_disagree: ['gpt4'],
+            agents_disagree: ['gpt-5.5'],
           },
         }),
       ];
@@ -258,7 +258,7 @@ describe('DeepAuditView', () => {
       fireEvent.click(screen.getByText('1 Finding Detected'));
 
       expect(screen.getByText('Agree: claude')).toBeInTheDocument();
-      expect(screen.getByText('Disagree: gpt4')).toBeInTheDocument();
+      expect(screen.getByText('Disagree: gpt-5.5')).toBeInTheDocument();
     });
   });
 

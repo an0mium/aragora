@@ -92,7 +92,7 @@ def mock_responses():
         "agents_list": {
             "agents": [
                 {"agent_id": "anthropic-api", "name": "Claude", "provider": "anthropic"},
-                {"agent_id": "openai-api", "name": "GPT-4", "provider": "openai"},
+                {"agent_id": "openai-api", "name": "GPT-5.5", "provider": "openai"},
             ]
         },
         "agent_get": {
@@ -810,7 +810,7 @@ class TestResponseValidation:
                     "reached": "false",
                     "confidence": 0.15,
                     "final_answer": "No consensus",
-                    "vote_breakdown": {"claude": True, "gpt-4": False},
+                    "vote_breakdown": {"claude": True, "gpt-5.5": False},
                 },
             }
         )

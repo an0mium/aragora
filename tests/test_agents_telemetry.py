@@ -61,7 +61,7 @@ def sample_telemetry():
 def completed_telemetry():
     """Create a completed telemetry object."""
     telemetry = AgentTelemetry(
-        agent_name="gpt4",
+        agent_name="gpt-5.5",
         operation="critique",
         start_time=time.time() - 0.5,  # Started 500ms ago
         input_tokens=100,
@@ -117,7 +117,7 @@ class TestAgentTelemetry:
         data = completed_telemetry.to_dict()
 
         assert isinstance(data, dict)
-        assert data["agent_name"] == "gpt4"
+        assert data["agent_name"] == "gpt-5.5"
         assert data["operation"] == "critique"
         assert data["input_tokens"] == 100
         assert data["output_tokens"] == 50
@@ -318,7 +318,7 @@ class TestWithTelemetryDecorator:
 
         class MockAgent:
             name = "test-agent"
-            model = "gpt-4"
+            model = "gpt-5.5"
 
             @with_telemetry("generate")
             async def generate(self, prompt: str) -> str:
@@ -446,7 +446,7 @@ class TestTelemetryContext:
         collected = []
         register_telemetry_collector(lambda t: collected.append(t))
 
-        with TelemetryContext("agent1", "generate", "gpt-4") as ctx:
+        with TelemetryContext("agent1", "generate", "gpt-5.5") as ctx:
             ctx.set_input("input text")
             ctx.set_output("output text")
 
@@ -522,10 +522,10 @@ class TestResetAndEdgeCases:
             agent_name="test",
             operation="generate",
             start_time=time.time(),
-            metadata={"model": "gpt-4", "custom": "value"},
+            metadata={"model": "gpt-5.5", "custom": "value"},
         )
 
-        assert telemetry.metadata["model"] == "gpt-4"
+        assert telemetry.metadata["model"] == "gpt-5.5"
         assert telemetry.metadata["custom"] == "value"
 
     def test_multiple_operations(self):

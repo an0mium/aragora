@@ -77,10 +77,10 @@ def debate_result() -> DebateResult:
         rounds_used=3,
         rounds_completed=3,
         status="consensus_reached",
-        participants=["claude", "gpt4", "gemini"],
+        participants=["claude", "gpt-5.5", "gemini"],
         proposals={
             "claude": "Use XGBoost with fairness constraints...",
-            "gpt4": "Ensemble approach with SHAP explanations...",
+            "gpt-5.5": "Ensemble approach with SHAP explanations...",
             "gemini": "Logistic regression baseline with neural net uplift...",
         },
         messages=[
@@ -91,7 +91,10 @@ def debate_result() -> DebateResult:
                 round=1,
             ),
             Message(
-                role="critic", agent="gpt4", content="The proposal lacks explainability...", round=1
+                role="critic",
+                agent="gpt-5.5",
+                content="The proposal lacks explainability...",
+                round=1,
             ),
             Message(
                 role="proposer",
@@ -108,7 +111,7 @@ def debate_result() -> DebateResult:
         ],
         critiques=[
             Critique(
-                agent="gpt4",
+                agent="gpt-5.5",
                 target_agent="claude",
                 target_content="XGBoost-based credit model",
                 issues=["No explainability mechanism", "Fairness not addressed"],
@@ -118,7 +121,7 @@ def debate_result() -> DebateResult:
             ),
             Critique(
                 agent="gemini",
-                target_agent="gpt4",
+                target_agent="gpt-5.5",
                 target_content="Ensemble approach",
                 issues=["Overly complex for initial deployment"],
                 suggestions=["Start with a simpler baseline"],
@@ -134,7 +137,7 @@ def debate_result() -> DebateResult:
                 confidence=0.9,
             ),
             Vote(
-                agent="gpt4",
+                agent="gpt-5.5",
                 choice="claude",
                 reasoning="SHAP integration is critical",
                 confidence=0.85,
@@ -190,7 +193,7 @@ def gauntlet_receipt() -> GauntletReceipt:
         consensus_proof=ConsensusProof(
             reached=True,
             confidence=0.87,
-            supporting_agents=["claude", "gpt4"],
+            supporting_agents=["claude", "gpt-5.5"],
             dissenting_agents=["gemini"],
             method="weighted_majority",
             evidence_hash=hashlib.sha256(b"consensus_data").hexdigest()[:16],
@@ -206,7 +209,7 @@ def gauntlet_receipt() -> GauntletReceipt:
             ProvenanceRecord(
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 event_type="attack",
-                agent="gpt4",
+                agent="gpt-5.5",
                 description="[HIGH] Fairness vulnerability in scoring pipeline",
                 evidence_hash=hashlib.sha256(b"attack1").hexdigest()[:16],
             ),
@@ -481,7 +484,7 @@ class TestStage4Blockchain:
         """ReputationFeedback is generated from receipt confidence."""
         # Each participating agent gets reputation feedback
         feedbacks = []
-        agents_to_ids = {"claude": 42, "gpt4": 43, "gemini": 44}
+        agents_to_ids = {"claude": 42, "gpt-5.5": 43, "gemini": 44}
         proof = gauntlet_receipt.consensus_proof
 
         for agent_name, agent_id in agents_to_ids.items():
@@ -503,7 +506,7 @@ class TestStage4Blockchain:
             feedbacks.append(feedback)
 
         assert len(feedbacks) == 3
-        # Claude and gpt4 are supporting -> value 100
+        # Claude and gpt-5.5 are supporting -> value 100
         claude_fb = next(f for f in feedbacks if f.agent_id == 42)
         gemini_fb = next(f for f in feedbacks if f.agent_id == 44)
         assert claude_fb.normalized_value == 100.0

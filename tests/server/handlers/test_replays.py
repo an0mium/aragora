@@ -127,7 +127,7 @@ def _create_replay_dir(
         else:
             meta = {
                 "topic": topic,
-                "agents": agents or [{"name": "claude"}, {"name": "gpt4"}],
+                "agents": agents or [{"name": "claude"}, {"name": "gpt-5.5"}],
                 "schema_version": schema_version,
             }
             (replay_dir / "meta.json").write_text(json.dumps(meta))
@@ -230,7 +230,7 @@ def temp_nomic_dir():
         events = [
             {"type": "start", "timestamp": "2026-01-27T12:00:00Z"},
             {"type": "message", "agent": "claude", "content": "Hello"},
-            {"type": "message", "agent": "gpt4", "content": "Hi there"},
+            {"type": "message", "agent": "gpt-5.5", "content": "Hi there"},
             {"type": "end", "timestamp": "2026-01-27T12:05:00Z"},
         ]
         _create_replay_dir(replays_dir, "replay-123", topic="Test Debate", events=events)
@@ -240,7 +240,7 @@ def temp_nomic_dir():
             "timestamp": "2026-01-27T12:00:00Z",
             "ratings": {
                 "claude": {"elo": 1200, "games": 10, "wins": 6, "calibration_score": 0.8},
-                "gpt4": {"elo": 1150, "games": 10, "wins": 4, "calibration_score": 0.7},
+                "gpt-5.5": {"elo": 1150, "games": 10, "wins": 4, "calibration_score": 0.7},
             },
         }
         (nomic_dir / "elo_snapshot.json").write_text(json.dumps(elo_data))
@@ -354,7 +354,7 @@ class TestListReplays:
         assert len(data) == 1
         assert data[0]["id"] == "replay-123"
         assert data[0]["topic"] == "Test Debate"
-        assert data[0]["agents"] == ["claude", "gpt4"]
+        assert data[0]["agents"] == ["claude", "gpt-5.5"]
         assert data[0]["schema_version"] == "1.0"
 
     def test_list_replays_no_dir(self, handler_no_dir):
@@ -675,7 +675,7 @@ class TestGetLearningEvolution:
         assert data["agents_count"] == 2
         agents_by_name = {a["agent"]: a for a in data["agents"]}
         assert "claude" in agents_by_name
-        assert "gpt4" in agents_by_name
+        assert "gpt-5.5" in agents_by_name
 
         claude = agents_by_name["claude"]
         assert claude["acceptance_rate"] == 0.6  # 6 wins / 10 games
@@ -1546,12 +1546,12 @@ class TestEdgeCases:
             _create_replay_dir(
                 replays_dir,
                 "multi-agent",
-                agents=[{"name": "claude"}, {"name": "gpt4"}, {"name": "gemini"}],
+                agents=[{"name": "claude"}, {"name": "gpt-5.5"}, {"name": "gemini"}],
             )
 
             result = handler._list_replays(nomic_dir)
             data = parse_response(result)
-            assert data[0]["agents"] == ["claude", "gpt4", "gemini"]
+            assert data[0]["agents"] == ["claude", "gpt-5.5", "gemini"]
 
     def test_get_replay_pagination_offset_at_boundary(self, handler, temp_nomic_dir):
         """Offset equal to total events returns empty events with has_more=False."""

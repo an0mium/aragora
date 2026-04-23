@@ -422,13 +422,13 @@ describe('WorkflowsAPI Namespace', () => {
       const result = await api.instantiatePattern('p1', {
         name: 'My Fan-Out',
         description: 'Custom fan-out workflow',
-        agents: ['claude', 'gpt4'],
+        agents: ['claude', 'gpt-5.5'],
       });
 
       expect(mockClient.instantiatePattern).toHaveBeenCalledWith('p1', {
         name: 'My Fan-Out',
         description: 'Custom fan-out workflow',
-        agents: ['claude', 'gpt4'],
+        agents: ['claude', 'gpt-5.5'],
       });
       expect(result.workflow.name).toBe('My Fan-Out');
     });

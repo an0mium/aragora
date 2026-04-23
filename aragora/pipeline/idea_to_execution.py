@@ -3709,7 +3709,7 @@ class IdeaToExecutionPipeline:
                 "id": "agent-designer",
                 "name": "Designer",
                 "type": "openai-api",
-                "model": "gpt-4o",
+                "model": "gpt-5.5",
                 "capabilities": ["design", "architecture", "planning"],
             },
             {

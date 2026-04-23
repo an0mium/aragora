@@ -196,7 +196,7 @@ class TestGauntletResult:
             risk_score=0.2,
             robustness_score=0.9,
             coverage_score=0.75,
-            agents_involved=["claude", "gpt4"],
+            agents_involved=["claude", "gpt-5.5"],
             duration_seconds=45.5,
         )
         summary = result.summary()
@@ -350,7 +350,7 @@ class TestDecisionReceipt:
             medium_count=1,
             low_count=0,
             mitigations=["Add input sanitization", "Implement rate limiting"],
-            agents_involved=["claude", "gpt4"],
+            agents_involved=["claude", "gpt-5.5"],
             duration_seconds=120.5,
         )
 
@@ -436,7 +436,7 @@ class TestDecisionReceiptGenerator:
             low_findings=[],
             dissenting_views=[
                 DissentRecord(
-                    agent="gpt4",
+                    agent="gpt-5.5",
                     claim_id="c1",
                     dissent_type="partial",
                     reasons=["Not as severe as stated"],
@@ -447,7 +447,7 @@ class TestDecisionReceiptGenerator:
                 UnresolvedTension(
                     tension_id="t1",
                     description="Performance vs Security tradeoff",
-                    agents_involved=["claude", "gpt4"],
+                    agents_involved=["claude", "gpt-5.5"],
                     options=["Optimize for speed", "Maximize security"],
                     impact="Architecture choice",
                 ),
@@ -461,7 +461,7 @@ class TestDecisionReceiptGenerator:
                 ),
             ],
             unverified_claims=["Response time < 100ms"],
-            agents_involved=["claude", "gpt4"],
+            agents_involved=["claude", "gpt-5.5"],
             duration_seconds=180.0,
         )
 

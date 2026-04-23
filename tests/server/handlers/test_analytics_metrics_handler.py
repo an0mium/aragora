@@ -119,7 +119,7 @@ class MockCostTracker:
             "total_tokens_out": 50000,
             "total_cost_usd": 15.50,
             "cost_by_agent": {"agent-1": 10.00, "agent-2": 5.50},
-            "cost_by_model": {"gpt-4": 12.00, "claude-3": 3.50},
+            "cost_by_model": {"gpt-5.5": 12.00, "claude-3": 3.50},
             "total_api_calls": 250,
         }
 
@@ -669,7 +669,7 @@ class TestAgentPerformanceRouting:
 
         assert handler.can_handle("/api/analytics/agents/agent-1/performance")
         assert handler.can_handle("/api/analytics/agents/claude_3/performance")
-        assert handler.can_handle("/api/analytics/agents/gpt-4-turbo/performance")
+        assert handler.can_handle("/api/analytics/agents/gpt-5.5/performance")
 
     def test_cannot_handle_invalid_agent_performance_pattern(self, mock_server_context):
         """Test handler rejects invalid agent performance patterns."""

@@ -116,7 +116,7 @@ def mock_agents() -> list[MockGraphAgent]:
     """Create a list of mock agents."""
     return [
         MockGraphAgent(name="claude", response="Claude's proposal with 80% confidence"),
-        MockGraphAgent(name="gpt4", response="GPT-4's proposal with 85% confidence"),
+        MockGraphAgent(name="gpt-5.5", response="GPT-5.5's proposal with 85% confidence"),
         MockGraphAgent(name="gemini", response="Gemini's proposal with 75% confidence"),
     ]
 
@@ -165,7 +165,7 @@ def debate_graph() -> DebateGraph:
 
     node2 = graph.add_node(
         node_type=NodeType.CRITIQUE,
-        agent_id="gpt4",
+        agent_id="gpt-5.5",
         content="Critique of proposal",
         parent_id=node1.id,
         claims=["claim2", "claim3"],
@@ -323,7 +323,7 @@ class TestNodeOperations:
 
         child_node = debate_graph.add_node(
             node_type=NodeType.CRITIQUE,
-            agent_id="gpt4",
+            agent_id="gpt-5.5",
             content="Child content",
             parent_id=parent_node.id,
         )
@@ -429,7 +429,7 @@ class TestWeightCalculations:
         """Test disagreement score calculation."""
         responses = {
             "claude": "I agree with the approach",
-            "gpt4": "However, I disagree strongly",
+            "gpt-5.5": "However, I disagree strongly",
             "gemini": "This is incorrect because...",
         }
 
@@ -443,7 +443,7 @@ class TestWeightCalculations:
         """Test disagreement is low when all agents agree."""
         responses = {
             "claude": "This approach is correct",
-            "gpt4": "This approach is correct",
+            "gpt-5.5": "This approach is correct",
         }
 
         disagreement = orchestrator._calculate_disagreement(responses)
@@ -976,7 +976,7 @@ class TestConvergenceScorer:
             DebateNode(
                 id="n2",
                 node_type=NodeType.PROPOSAL,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content="Content B",
                 claims=["claim1", "claim3"],
                 confidence=0.7,
@@ -1040,7 +1040,7 @@ class TestConvergenceScorer:
             DebateNode(
                 id="n2",
                 node_type=NodeType.PROPOSAL,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content="Same content",
                 claims=["claim1"],
                 confidence=0.8,

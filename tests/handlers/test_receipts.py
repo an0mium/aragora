@@ -87,7 +87,7 @@ class MockReceipt:
         self.risk_level = risk_level
         self.input_summary = input_summary
         self.timestamp = timestamp
-        self.agents_involved = agents_involved or ["claude", "gpt4"]
+        self.agents_involved = agents_involved or ["claude", "gpt-5.5"]
         self.findings = findings or []
         self.checksum = checksum
         self.robustness_score = robustness_score
@@ -1800,7 +1800,7 @@ class TestRenderSharedReceiptHtml:
                 "gauntlet_id": "gauntlet-001",
                 "timestamp": "2026-04-07T01:00:00Z",
                 "input_summary": "Stored proof summary",
-                "agents_involved": ["claude", "gpt-4"],
+                "agents_involved": ["claude", "gpt-5.5"],
                 "findings": [
                     {
                         "severity": "HIGH",

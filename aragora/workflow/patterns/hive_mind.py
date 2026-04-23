@@ -41,7 +41,7 @@ class HiveMindPattern(WorkflowPattern):
     Example:
         workflow = HiveMindPattern.create(
             name="Contract Risk Analysis",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             task="Identify potential risks in this contract: {contract}",
             consensus_mode="synthesis",
             consensus_threshold=0.7,
@@ -82,7 +82,7 @@ class HiveMindPattern(WorkflowPattern):
         # Create parallel agent steps
         agent_step_ids = []
         for i, agent_type in enumerate(self.agents):
-            step_id = f"agent_{agent_type}_{i}"
+            step_id = f"agent_{self._step_id_fragment(agent_type)}_{i}"
             agent_step_ids.append(step_id)
 
             step = self._create_agent_step(

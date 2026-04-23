@@ -187,7 +187,7 @@ class TestNotifySpectator:
         bridge = _make_bridge(spectator=spec)
         bridge.notify(
             "proposal",
-            agent="gpt4",
+            agent="gpt-5.5",
             details="Hello",
             unsupported_key="should_be_stripped",
             another_extra=42,
@@ -195,7 +195,7 @@ class TestNotifySpectator:
         _, call_kwargs = spec.emit.call_args
         assert "unsupported_key" not in call_kwargs
         assert "another_extra" not in call_kwargs
-        assert call_kwargs.get("agent") == "gpt4"
+        assert call_kwargs.get("agent") == "gpt-5.5"
 
     def test_no_spectator_no_error(self):
         bridge = _make_bridge(spectator=None)

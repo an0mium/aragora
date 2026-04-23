@@ -27,7 +27,7 @@ class MockCritique:
     """Mock critique object."""
 
     agent: str = "claude"
-    target_agent: str = "gpt4"
+    target_agent: str = "gpt-5.5"
     issues: list = field(default_factory=list)
     severity: float = 0.5
 
@@ -84,7 +84,7 @@ class TestInsight:
             description="Test description",
             confidence=0.9,
             debate_id="debate_001",
-            agents_involved=["claude", "gpt4"],
+            agents_involved=["claude", "gpt-5.5"],
             evidence=["evidence1"],
             metadata={"key": "value"},
         )
@@ -95,7 +95,7 @@ class TestInsight:
         assert d["title"] == "Test Title"
         assert d["confidence"] == 0.9
         assert d["debate_id"] == "debate_001"
-        assert d["agents_involved"] == ["claude", "gpt4"]
+        assert d["agents_involved"] == ["claude", "gpt-5.5"]
         assert d["metadata"]["key"] == "value"
 
     def test_insight_types(self):
@@ -124,7 +124,7 @@ class TestAgentPerformance:
     def test_all_fields(self):
         """Should store all performance metrics."""
         perf = AgentPerformance(
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             proposals_made=5,
             critiques_given=3,
             critiques_received=2,
@@ -254,7 +254,7 @@ class TestInsightExtractor:
         result = MockDebateResult(
             dissenting_views=[
                 "[claude]: I disagree because X",
-                "[gpt4]: Alternative approach is Y",
+                "[gpt-5.5]: Alternative approach is Y",
             ],
         )
 
@@ -334,10 +334,10 @@ class TestInsightExtractor:
             messages=[
                 {"agent": "claude", "content": "X"},
                 {"agent": "claude", "content": "Y"},
-                {"agent": "gpt4", "content": "Z"},
+                {"agent": "gpt-5.5", "content": "Z"},
             ],
             critiques=[
-                MockCritique(agent="gpt4", target_agent="claude", severity=0.3),
+                MockCritique(agent="gpt-5.5", target_agent="claude", severity=0.3),
             ],
         )
 
@@ -408,14 +408,14 @@ class TestInsightExtractorHelpers:
         result = MockDebateResult(
             messages=[
                 {"agent": "claude", "content": "x"},
-                {"agent": "gpt4", "content": "y"},
+                {"agent": "gpt-5.5", "content": "y"},
                 {"agent": "claude", "content": "z"},
             ],
         )
 
         names = extractor._get_agent_names(result)
 
-        assert set(names) == {"claude", "gpt4"}
+        assert set(names) == {"claude", "gpt-5.5"}
 
     def test_get_agent_names_from_critiques(self, extractor):
         """Should extract agent names from critiques."""
@@ -675,7 +675,7 @@ class TestInsightExtractorAdditionalEdgeCases:
     async def test_mixed_message_formats(self, extractor):
         """Should handle mixed dict and object message formats."""
         obj_msg = MockMessage(agent="claude", content="Object message")
-        dict_msg = {"agent": "gpt4", "content": "Dict message"}
+        dict_msg = {"agent": "gpt-5.5", "content": "Dict message"}
 
         result = MockDebateResult(
             messages=[obj_msg, dict_msg],
@@ -685,7 +685,7 @@ class TestInsightExtractorAdditionalEdgeCases:
 
         # Should extract agents from both formats
         agent_names = [p.agent_name for p in insights.agent_performances]
-        assert "claude" in agent_names or "gpt4" in agent_names
+        assert "claude" in agent_names or "gpt-5.5" in agent_names
 
     @pytest.mark.asyncio
     async def test_null_bytes_in_strings(self, extractor):

@@ -48,7 +48,7 @@ def sample_proposals():
     """Sample proposals for testing."""
     return {
         "claude": "We should implement feature X using pattern A",
-        "gpt4": "I propose using pattern B for feature X",
+        "gpt-5.5": "I propose using pattern B for feature X",
         "gemini": "Feature X could benefit from pattern C",
     }
 
@@ -68,14 +68,14 @@ class TestNoveltyScore:
             round_num=2,
             novelty=0.75,
             max_similarity=0.25,
-            most_similar_to="gpt4",
+            most_similar_to="gpt-5.5",
             prior_proposals_count=3,
         )
 
         assert score.agent == "claude"
         assert score.novelty == 0.75
         assert score.max_similarity == 0.25
-        assert score.most_similar_to == "gpt4"
+        assert score.most_similar_to == "gpt-5.5"
 
     def test_is_low_novelty_below_threshold(self):
         """Test is_low_novelty with score below threshold."""
@@ -126,7 +126,7 @@ class TestNoveltyResult:
         """Test creating a novelty result."""
         result = NoveltyResult(
             round_num=3,
-            per_agent_novelty={"claude": 0.8, "gpt4": 0.6},
+            per_agent_novelty={"claude": 0.8, "gpt-5.5": 0.6},
             avg_novelty=0.7,
             min_novelty=0.6,
             max_novelty=0.8,
@@ -140,7 +140,7 @@ class TestNoveltyResult:
         """Test has_low_novelty when agents are flagged."""
         result = NoveltyResult(
             round_num=2,
-            low_novelty_agents=["claude", "gpt4"],
+            low_novelty_agents=["claude", "gpt-5.5"],
         )
 
         assert result.has_low_novelty() is True
@@ -242,7 +242,7 @@ class TestSubsequentRoundNovelty:
         # Round 2 - different proposals
         round2_proposals = {
             "claude": "A completely different approach",
-            "gpt4": "Another strategy entirely",
+            "gpt-5.5": "Another strategy entirely",
         }
         result = tracker.compute_novelty(round2_proposals, round_num=2)
 
@@ -269,7 +269,7 @@ class TestSubsequentRoundNovelty:
     def test_most_similar_to_tracking(self, tracker, mock_backend):
         """Test that most similar agent is tracked."""
         # Round 1 with two agents
-        round1 = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        round1 = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         tracker.compute_novelty(round1, round_num=1)
         tracker.add_to_history(round1)
 
@@ -277,7 +277,7 @@ class TestSubsequentRoundNovelty:
         def similarity_mock(a, b):
             if "Proposal A" in b:
                 return 0.8  # More similar to claude
-            return 0.3  # Less similar to gpt4
+            return 0.3  # Less similar to gpt-5.5
 
         mock_backend.compute_similarity.side_effect = similarity_mock
 
@@ -366,7 +366,7 @@ class TestAgentTrajectory:
     def test_get_trajectory_missing_agent(self, tracker, mock_backend):
         """Test trajectory for agent not in all rounds."""
         tracker.compute_novelty({"claude": "P1"}, round_num=1)
-        tracker.compute_novelty({"gpt4": "P2"}, round_num=2)
+        tracker.compute_novelty({"gpt-5.5": "P2"}, round_num=2)
 
         trajectory = tracker.get_agent_novelty_trajectory("claude")
 

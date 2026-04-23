@@ -425,7 +425,7 @@ class TestCalibrationEndpoints:
 
         # Agent-specific routes use pattern matching
         assert handler.can_handle("/api/v1/agent/claude/calibration-curve")
-        assert handler.can_handle("/api/v1/agent/gpt4/calibration-summary")
+        assert handler.can_handle("/api/v1/agent/gpt-5.5/calibration-summary")
 
 
 class TestVerificationEndpoints:

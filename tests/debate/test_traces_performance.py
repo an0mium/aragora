@@ -39,7 +39,7 @@ def empty_trace():
         trace_id="trace-perf-test",
         debate_id="perf-test",
         task="Performance test task",
-        agents=["claude", "gpt4"],
+        agents=["claude", "gpt-5.5"],
         random_seed=42,
         events=[],
     )

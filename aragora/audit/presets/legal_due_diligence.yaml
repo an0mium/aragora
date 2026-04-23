@@ -80,7 +80,7 @@ consensus_threshold: 0.8
 agents:
   primary: claude-3.5-sonnet
   verification:
-    - gpt-4
+    - gpt-5.5
     - gemini-pro
 
 parameters:

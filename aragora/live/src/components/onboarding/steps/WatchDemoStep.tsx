@@ -21,7 +21,7 @@ const DEMO_MESSAGES: DemoMessage[] = [
     delay: 0,
   },
   {
-    agent: 'GPT-4',
+    agent: 'GPT-5.5',
     model: 'openai',
     role: 'critique',
     content:

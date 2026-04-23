@@ -102,7 +102,7 @@ class TestEvolutionRouting:
         assert evolution_handler.can_handle("/api/v1/evolution/claude/history") is True
 
     def test_can_handle_hyphenated_agent(self, evolution_handler):
-        assert evolution_handler.can_handle("/api/v1/evolution/gpt-4/history") is True
+        assert evolution_handler.can_handle("/api/v1/evolution/gpt-5.5/history") is True
 
     def test_can_handle_base_route(self, evolution_handler):
         assert evolution_handler.can_handle("/api/v1/evolution") is True

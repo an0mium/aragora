@@ -130,7 +130,7 @@ class MockMemoryEntry:
 @dataclass
 class MockCritique:
     agent: str = "claude"
-    target_agent: str = "gpt4"
+    target_agent: str = "gpt-5.5"
     severity: float = 0.7
     issues: list = field(default_factory=lambda: ["Issue 1", "Issue 2"])
     suggestions: list = field(default_factory=lambda: ["Suggestion 1"])
@@ -1059,8 +1059,8 @@ class TestCritiques:
     def test_critiques_success(self, handler, mock_http):
         mock_store = MagicMock()
         mock_store.get_recent.return_value = [
-            MockCritique(agent="claude", target_agent="gpt4"),
-            MockCritique(agent="gpt4", target_agent="claude"),
+            MockCritique(agent="claude", target_agent="gpt-5.5"),
+            MockCritique(agent="gpt-5.5", target_agent="claude"),
         ]
 
         with (
@@ -1082,8 +1082,8 @@ class TestCritiques:
     def test_critiques_with_agent_filter(self, handler, mock_http):
         mock_store = MagicMock()
         mock_store.get_recent.return_value = [
-            MockCritique(agent="claude", target_agent="gpt4"),
-            MockCritique(agent="gpt4", target_agent="claude"),
+            MockCritique(agent="claude", target_agent="gpt-5.5"),
+            MockCritique(agent="gpt-5.5", target_agent="claude"),
         ]
 
         with (

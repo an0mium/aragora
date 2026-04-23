@@ -120,7 +120,7 @@ class TestDebateRequestModel:
             question="Should we use microservices instead of monoliths?",
             agents=[
                 {"provider": "anthropic-api", "model": "claude-opus-4-7"},
-                {"agent_type": "openai-api", "model": "gpt-4.1"},
+                {"agent_type": "openai-api", "model": "gpt-5.5"},
             ],
         )
         assert req.agents[0]["provider"] == "anthropic-api"
@@ -283,7 +283,7 @@ class TestDebateCreateEndpointPydanticIntegration:
             "rounds": 3,
             "agents": [
                 "claude",
-                {"provider": "openai-api", "model": "gpt-4.1"},
+                {"provider": "openai-api", "model": "gpt-5.5"},
             ],
             "auto_select": False,
         }

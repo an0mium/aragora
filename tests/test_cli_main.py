@@ -182,8 +182,8 @@ class TestArgumentParser:
 
     def test_parse_ask_with_agents(self, parser):
         """Should parse ask with custom agents."""
-        args = parser.parse_args(["ask", "Task", "-a", "gpt4,claude"])
-        assert args.agents == "gpt4,claude"
+        args = parser.parse_args(["ask", "Task", "-a", "gpt-5.5,claude"])
+        assert args.agents == "gpt-5.5,claude"
 
     def test_parse_ask_with_rounds(self, parser):
         """Should parse ask with custom rounds."""

@@ -163,7 +163,7 @@ Decision Receipt #DR-2026-0211-001
 ===================================
 Question:     "Should we migrate from REST to GraphQL?"
 Protocol:     Adversarial debate (3 rounds, supermajority)
-Agents:       Claude-3.5, GPT-4o, Gemini-1.5, Mistral-Large
+Agents:       Claude-3.5, GPT-5.5, Gemini-1.5, Mistral-Large
 
 CONSENSUS:    PARTIAL (3/4 agents agree)
   Agreed:     GraphQL improves developer experience, reduces over-fetching

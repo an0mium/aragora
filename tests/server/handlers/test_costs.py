@@ -96,7 +96,7 @@ class TestCostEntry:
             tokens_input=500,
             tokens_output=200,
             cost=0.008,
-            model="gpt-4",
+            model="gpt-5.5",
             workspace_id="ws_123",
         )
 
@@ -275,7 +275,7 @@ class TestRecordCost:
                 tokens_input=500,
                 tokens_output=200,
                 cost=0.008,
-                model="gpt-4",
+                model="gpt-5.5",
                 workspace_id="ws_456",
                 user_id="user_789",
             )
@@ -782,7 +782,7 @@ class TestEfficiencyHandler:
                 "total_cost_usd": Decimal("150.00"),
                 "cost_by_model": {
                     "claude-3-opus": Decimal("100.00"),
-                    "gpt-4": Decimal("50.00"),
+                    "gpt-5.5": Decimal("50.00"),
                 },
             }
         )

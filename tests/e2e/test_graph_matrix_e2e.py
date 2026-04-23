@@ -1273,7 +1273,7 @@ class TestGraphDebateHandlerE2E:
                     "/api/v1/debates/graph",
                     {
                         "task": "Evaluate end-to-end graph debate handler execution flow",
-                        "agents": ["claude", "gpt4"],
+                        "agents": ["claude", "gpt-5.5"],
                         "max_rounds": 3,
                     },
                 )
@@ -1312,7 +1312,7 @@ class TestGraphDebateHandlerE2E:
                     "/api/v1/debates/graph",
                     {
                         "task": "Test custom branch policy configuration in handler",
-                        "agents": ["claude", "gpt4"],
+                        "agents": ["claude", "gpt-5.5"],
                         "branch_policy": {
                             "min_disagreement": 0.5,
                             "max_branches": 5,
@@ -1468,7 +1468,7 @@ class TestMatrixDebateHandlerE2E:
                                 {"name": "REST", "parameters": {"style": "rest"}},
                                 {"name": "GraphQL", "parameters": {"style": "graphql"}},
                             ],
-                            "agents": ["claude", "gpt4"],
+                            "agents": ["claude", "gpt-5.5"],
                             "max_rounds": 3,
                         },
                     )

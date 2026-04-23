@@ -108,7 +108,7 @@ interface LeaderboardClientInterface {
  * const perf = await client.leaderboard.getAgentPerformance('claude');
  *
  * // Compare two agents
- * const comparison = await client.leaderboard.compareAgents('claude', 'gpt4');
+ * const comparison = await client.leaderboard.compareAgents('claude', 'gpt-5.5');
  * ```
  */
 export class LeaderboardAPI {

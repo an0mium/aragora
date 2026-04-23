@@ -1317,7 +1317,7 @@ export class MemoryAPI {
    *   'claude',
    *   {
    *     debate_id: 'debate-123',
-   *     target_agent: 'gpt4',
+   *     target_agent: 'gpt-5.5',
    *     score: 0.8,
    *   }
    * );

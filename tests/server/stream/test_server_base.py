@@ -319,13 +319,13 @@ class TestDebateStateCaching:
         start_event = StreamEvent(
             type=StreamEventType.DEBATE_START,
             loop_id="event-loop",
-            data={"task": "Test", "agents": ["claude", "gpt4"]},
+            data={"task": "Test", "agents": ["claude", "gpt-5.5"]},
         )
         server_base._update_debate_state(start_event)
 
         state = server_base.get_debate_state("event-loop")
         assert state["task"] == "Test"
-        assert state["agents"] == ["claude", "gpt4"]
+        assert state["agents"] == ["claude", "gpt-5.5"]
         assert state["status"] == "running"
 
     def test_update_debate_state_round_start(self, server_base):

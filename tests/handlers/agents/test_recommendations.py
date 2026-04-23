@@ -213,7 +213,7 @@ class TestRecommendations:
 
     def test_happy_path_no_domain(self, handler, mock_http_handler):
         """Returns recommendations without domain filter."""
-        agents = [MockAgent(name="claude", elo=1600), MockAgent(name="gpt4", elo=1550)]
+        agents = [MockAgent(name="claude", elo=1600), MockAgent(name="gpt-5.5", elo=1550)]
         mock_elo = _make_mock_elo(leaderboard=agents)
 
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
@@ -367,9 +367,9 @@ class TestCostEstimation:
             body = _body(result)
             assert body["recommendations"][0]["estimated_cost_per_1k_tokens"] == 0.015
 
-    def test_exact_cost_match_gpt4(self, handler, mock_http_handler):
-        """Exact cost match for gpt4 agent."""
-        agents = [MockAgent(name="gpt4")]
+    def test_exact_cost_match_gpt55(self, handler, mock_http_handler):
+        """Exact cost match for gpt-5.5 agent."""
+        agents = [MockAgent(name="gpt-5.5")]
         mock_elo = _make_mock_elo(leaderboard=agents)
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = handler.handle("/api/v1/agents/recommend", {}, mock_http_handler)
@@ -422,8 +422,8 @@ class TestCostEstimation:
             assert body["recommendations"][0]["estimated_cost_per_1k_tokens"] == 0.015
 
     def test_gpt_4o_cost(self, handler, mock_http_handler):
-        """Cost for gpt-4o is correctly matched."""
-        agents = [MockAgent(name="gpt-4o")]
+        """Cost for gpt-5.5 is correctly matched."""
+        agents = [MockAgent(name="gpt-5.5")]
         mock_elo = _make_mock_elo(leaderboard=agents)
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = handler.handle("/api/v1/agents/recommend", {}, mock_http_handler)
@@ -617,7 +617,7 @@ class TestLeaderboard:
 
     def test_happy_path_no_domain(self, handler, mock_http_handler):
         """Returns leaderboard rankings without domain filter."""
-        agents = [MockAgent(name="claude", elo=1600), MockAgent(name="gpt4", elo=1550)]
+        agents = [MockAgent(name="claude", elo=1600), MockAgent(name="gpt-5.5", elo=1550)]
         mock_elo = _make_mock_elo(cached_leaderboard=agents)
 
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
@@ -781,7 +781,7 @@ class TestLeaderboard:
         """Ranks are assigned sequentially starting from 1."""
         agents = [
             MockAgent(name="claude", elo=1700),
-            MockAgent(name="gpt4", elo=1650),
+            MockAgent(name="gpt-5.5", elo=1650),
             MockAgent(name="gemini", elo=1600),
         ]
         mock_elo = _make_mock_elo(cached_leaderboard=agents)
@@ -921,7 +921,7 @@ class TestDictAgentInput:
         """Handles dict-based agent entries from ELO system."""
         agents = [
             {"name": "claude", "elo": 1600, "wins": 10, "losses": 5},
-            {"name": "gpt4", "elo": 1550, "wins": 8, "losses": 7},
+            {"name": "gpt-5.5", "elo": 1550, "wins": 8, "losses": 7},
         ]
         mock_elo = _make_mock_elo(leaderboard=agents)
         with patch.object(handler, "get_elo_system", return_value=mock_elo):

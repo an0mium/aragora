@@ -171,7 +171,7 @@ class TestPodcastFeedGenerator:
             pub_date="2024-01-15T10:00:00Z",
             duration_seconds=600,
             file_size_bytes=1024000,
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
         )
 
         feed = gen.generate_feed([episode])
@@ -218,7 +218,7 @@ class TestPodcastFeedGenerator:
         episode = gen.create_episode_from_debate(
             debate_id="debate-123",
             task="Should we use microservices?",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             audio_url="https://example.com/debate.mp3",
             duration_seconds=1800,
             file_size_bytes=10000000,
@@ -262,12 +262,12 @@ class TestCreateDebateSummary:
         """Short topics should not be truncated."""
         summary = create_debate_summary(
             "Rate limiter design",
-            ["claude", "gpt4"],
+            ["claude", "gpt-5.5"],
             consensus_reached=True,
         )
         assert "Rate limiter design" in summary
         assert "claude" in summary
-        assert "gpt4" in summary
+        assert "gpt-5.5" in summary
 
     def test_long_topic_truncation(self):
         """Long topics should be truncated."""
@@ -301,14 +301,14 @@ class TestAudioMetadata:
             format="mp3",
             duration_seconds=600,
             file_size_bytes=1024000,
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
         )
         d = metadata.to_dict()
 
         assert d["debate_id"] == "test-001"
         assert d["filename"] == "test-001.mp3"
         assert d["duration_seconds"] == 600
-        assert d["agents"] == ["claude", "gpt4"]
+        assert d["agents"] == ["claude", "gpt-5.5"]
 
     def test_from_dict(self):
         """Should deserialize from dictionary."""
@@ -483,7 +483,7 @@ class TestRSSIntegration:
                 sample_audio,
                 duration_seconds=600 + i * 100,
                 task_summary=f"Test debate {i}",
-                agents=["claude", "gpt4"],
+                agents=["claude", "gpt-5.5"],
             )
 
         # Generate feed using stored metadata
@@ -529,7 +529,7 @@ class TestRSSIntegration:
 
     def test_metadata_roundtrip(self, temp_store, sample_audio):
         """Metadata should survive save/load cycle."""
-        original_agents = ["claude", "gpt4", "gemini"]
+        original_agents = ["claude", "gpt-5.5", "gemini"]
         original_summary = "Test debate about microservices"
 
         temp_store.save(

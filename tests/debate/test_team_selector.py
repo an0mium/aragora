@@ -204,7 +204,7 @@ def mock_agents():
     """Create list of mock agents for testing."""
     return [
         MockAgent("claude-opus", agent_type="claude", model="claude-3-opus"),
-        MockAgent("gpt-4", agent_type="gpt", model="gpt-4-turbo"),
+        MockAgent("gpt-5.5", agent_type="gpt", model="gpt-5.5"),
         MockAgent("gemini-pro", agent_type="gemini", model="gemini-1.5-pro"),
         MockAgent("codestral", agent_type="codestral", model="codestral"),
         MockAgent("deepseek-r1", agent_type="deepseek", model="deepseek-r1"),
@@ -217,7 +217,7 @@ def mock_elo_system():
     return MockEloSystem(
         ratings={
             "claude-opus": 1800.0,
-            "gpt-4": 1750.0,
+            "gpt-5.5": 1750.0,
             "gemini-pro": 1650.0,
             "codestral": 1600.0,
             "deepseek-r1": 1700.0,
@@ -231,7 +231,7 @@ def mock_calibration_tracker():
     return MockCalibrationTracker(
         scores={
             "claude-opus": 0.15,  # Well calibrated (low Brier = good)
-            "gpt-4": 0.20,
+            "gpt-5.5": 0.20,
             "gemini-pro": 0.25,
             "codestral": 0.30,
             "deepseek-r1": 0.18,
@@ -464,7 +464,7 @@ class TestAgentSelection:
         assert "claude-opus" in selected_names
         assert "codestral" in selected_names
         assert "deepseek-r1" in selected_names
-        assert "gpt-4" in selected_names
+        assert "gpt-5.5" in selected_names
 
     def test_select_orders_by_score(self, mock_agents, mock_elo_system):
         """Test selection orders agents by score."""
@@ -478,15 +478,15 @@ class TestAgentSelection:
 
     def test_select_with_circuit_breaker(self, mock_agents):
         """Test selection respects circuit breaker."""
-        breaker = MockCircuitBreaker(unavailable={"gpt-4", "gemini-pro"})
+        breaker = MockCircuitBreaker(unavailable={"gpt-5.5", "gemini-pro"})
         config = TeamSelectionConfig(enable_domain_filtering=False)
         selector = TeamSelector(circuit_breaker=breaker, config=config)
 
         selected = selector.select(agents=mock_agents, domain="general")
 
-        # gpt-4 and gemini-pro should be filtered out
+        # gpt-5.5 and gemini-pro should be filtered out
         selected_names = [a.name for a in selected]
-        assert "gpt-4" not in selected_names
+        assert "gpt-5.5" not in selected_names
         assert "gemini-pro" not in selected_names
         assert len(selected) == 3
 
@@ -494,7 +494,7 @@ class TestAgentSelection:
         """Test fallback to all agents when all are filtered."""
         # All agents unavailable via circuit breaker
         breaker = MockCircuitBreaker(
-            unavailable={"claude-opus", "gpt-4", "gemini-pro", "codestral", "deepseek-r1"}
+            unavailable={"claude-opus", "gpt-5.5", "gemini-pro", "codestral", "deepseek-r1"}
         )
         config = TeamSelectionConfig(enable_domain_filtering=False)
         selector = TeamSelector(circuit_breaker=breaker, config=config)
@@ -699,7 +699,7 @@ class TestDomainCapabilityFiltering:
         # Should include claude, gpt, codestral, deepseek
         filtered_names = [a.name for a in filtered]
         assert "claude-opus" in filtered_names
-        assert "gpt-4" in filtered_names
+        assert "gpt-5.5" in filtered_names
         assert "codestral" in filtered_names
         assert "deepseek-r1" in filtered_names
 
@@ -713,7 +713,7 @@ class TestDomainCapabilityFiltering:
         # Should include claude, gpt, gemini
         filtered_names = [a.name for a in filtered]
         assert "claude-opus" in filtered_names
-        assert "gpt-4" in filtered_names
+        assert "gpt-5.5" in filtered_names
         assert "gemini-pro" in filtered_names
 
     def test_filter_general_domain_returns_all(self, mock_agents):
@@ -944,7 +944,7 @@ class TestKMExpertise:
         """Test KM expertise contributes to score."""
         experts = [
             MockAgentExpertise("claude-opus", "code", elo=1800, confidence=0.9),
-            MockAgentExpertise("gpt-4", "code", elo=1700, confidence=0.8),
+            MockAgentExpertise("gpt-5.5", "code", elo=1700, confidence=0.8),
         ]
         ranking_adapter = MockRankingAdapter(experts=experts)
         config = TeamSelectionConfig(
@@ -1003,7 +1003,7 @@ class TestEloWinRateScoring:
 
     def _make_elo_with_win_rates(self, domain_agents):
         """Create an ELO system mock with get_top_agents_for_domain support."""
-        elo = MockEloSystem(ratings={"claude-opus": 1800, "gpt-4": 1700})
+        elo = MockEloSystem(ratings={"claude-opus": 1800, "gpt-5.5": 1700})
 
         def get_top(domain, limit=20):
             agents = domain_agents.get(domain, [])[:limit]
@@ -1022,7 +1022,7 @@ class TestEloWinRateScoring:
         """Agent with >50% win rate gets positive score."""
         elo = self._make_elo_with_win_rates(
             {
-                "security": [("claude-opus", 0.8), ("gpt-4", 0.6)],
+                "security": [("claude-opus", 0.8), ("gpt-5.5", 0.6)],
             }
         )
         config = TeamSelectionConfig(enable_elo_win_rate=True, elo_win_rate_weight=0.2)
@@ -1097,7 +1097,7 @@ class TestEloWinRateScoring:
         """Win rate score is included in composite _compute_score."""
         elo = self._make_elo_with_win_rates(
             {
-                "security": [("claude-opus", 0.9), ("gpt-4", 0.4)],
+                "security": [("claude-opus", 0.9), ("gpt-5.5", 0.4)],
             }
         )
         config = TeamSelectionConfig(
@@ -1237,12 +1237,12 @@ class TestCircuitBreakerIntegration:
 
     def test_filter_available_some_unavailable(self, mock_agents):
         """Test some agents filtered when unavailable."""
-        breaker = MockCircuitBreaker(unavailable={"gpt-4", "gemini-pro"})
+        breaker = MockCircuitBreaker(unavailable={"gpt-5.5", "gemini-pro"})
         selector = TeamSelector(circuit_breaker=breaker)
 
         available = selector._filter_available(mock_agents)
 
-        assert "gpt-4" not in available
+        assert "gpt-5.5" not in available
         assert "gemini-pro" not in available
         assert len(available) == 3
 
@@ -1422,7 +1422,7 @@ class TestAgentCapabilitiesInference:
 
     def test_infer_gpt_capabilities(self):
         """Test inferring GPT capabilities."""
-        agent = MockAgent("gpt-4-turbo")
+        agent = MockAgent("gpt-5.5")
         selector = TeamSelector()
 
         caps = selector._get_agent_capabilities(agent)
@@ -1595,7 +1595,7 @@ class TestAsyncCultureScore:
     async def test_compute_culture_score_async(self, mock_agents):
         """Test async culture score computation."""
         knowledge_mound = AsyncMock()
-        knowledge_mound.recommend_agents.return_value = ["claude-opus", "gpt-4"]
+        knowledge_mound.recommend_agents.return_value = ["claude-opus", "gpt-5.5"]
 
         config = TeamSelectionConfig(enable_culture_selection=True)
         selector = TeamSelector(knowledge_mound=knowledge_mound, config=config)
@@ -1657,7 +1657,7 @@ class TestPerformanceAdapterScore:
     def mock_agents(self):
         return [
             MockAgent("claude-3", agent_type="anthropic"),
-            MockAgent("gpt-4", agent_type="openai"),
+            MockAgent("gpt-5.5", agent_type="openai"),
             MockAgent("gemini-pro", agent_type="google"),
             MockAgent("deepseek-r1", agent_type="deepseek"),
         ]
@@ -1669,7 +1669,7 @@ class TestPerformanceAdapterScore:
         # Return experts sorted by ELO (highest first)
         experts = [
             MagicMock(agent_name="claude-3", elo=1800, confidence=0.9, domain="security"),
-            MagicMock(agent_name="gpt-4", elo=1650, confidence=0.7, domain="security"),
+            MagicMock(agent_name="gpt-5.5", elo=1650, confidence=0.7, domain="security"),
             MagicMock(agent_name="deepseek-r1", elo=1500, confidence=0.4, domain="security"),
         ]
         adapter.get_domain_experts.return_value = experts
@@ -1781,7 +1781,7 @@ class TestReliabilityBudgetRouting:
         calibration_tracker = MockCalibrationTracker(
             scores={
                 "claude-opus": 0.2,
-                "gpt-4": 0.2,
+                "gpt-5.5": 0.2,
                 "gemini-pro": 0.2,
                 "codestral": 0.2,
                 "deepseek-r1": 0.2,
@@ -1831,7 +1831,7 @@ class TestReliabilityBudgetRouting:
                 metric="m",
                 status="resolved",
                 confidence_delta=-0.2,
-                metadata={"participants": ["gpt-4"]},
+                metadata={"participants": ["gpt-5.5"]},
             ),
         ]
         mock_store = MagicMock()
@@ -1845,10 +1845,10 @@ class TestReliabilityBudgetRouting:
 
         assert selected[0].name == "claude-opus"
         reasoning = selector._last_selection_reasoning
-        assert reasoning["claude-opus"].get("budget_share", 0.0) > reasoning["gpt-4"].get(
+        assert reasoning["claude-opus"].get("budget_share", 0.0) > reasoning["gpt-5.5"].get(
             "budget_share", 0.0
         )
-        assert reasoning["claude-opus"]["budget_routing"] > reasoning["gpt-4"]["budget_routing"]
+        assert reasoning["claude-opus"]["budget_routing"] > reasoning["gpt-5.5"]["budget_routing"]
 
     def test_reliability_budget_routing_can_be_disabled(self, mock_agents):
         calibration_tracker = MockCalibrationTracker(scores={"claude-opus": 0.2})

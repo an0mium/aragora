@@ -218,8 +218,8 @@ class TestCanvasNode:
             "type": "agent",
             "position": {"x": 100, "y": 100},
             "size": {"width": 250, "height": 120},
-            "label": "GPT-4",
-            "data": {"model": "gpt-4"},
+            "label": "GPT-5.5",
+            "data": {"model": "gpt-5.5"},
             "locked": False,
             "selected": True,
         }
@@ -228,8 +228,8 @@ class TestCanvasNode:
         assert node.node_type == CanvasNodeType.AGENT
         assert node.position.x == 100
         assert node.size.width == 250
-        assert node.label == "GPT-4"
-        assert node.data["model"] == "gpt-4"
+        assert node.label == "GPT-5.5"
+        assert node.data["model"] == "gpt-5.5"
         assert node.selected is True
 
     def test_node_from_dict_with_parent(self):

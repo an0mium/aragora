@@ -250,7 +250,7 @@ class TestRunGraphDebate:
             result = await handler.handle_post(
                 mock_handler_obj,
                 "/api/debates/graph",
-                {"task": "This is a valid debate topic", "agents": ["claude", "gpt4"]},
+                {"task": "This is a valid debate topic", "agents": ["claude", "gpt-5.5"]},
             )
 
             # Either 500 (import error), 400 (no valid agents), or success
@@ -499,7 +499,7 @@ class TestAgentValidation:
                 "/api/debates/graph",
                 {
                     "task": "This is a valid debate topic",
-                    "agents": ["claude-3", "gpt_4", "agent123"],
+                    "agents": ["claude-3", "gpt-5.5", "agent123"],
                 },
             )
             # Will fail at agent loading or import, not validation
@@ -525,7 +525,7 @@ class TestMaxRoundsValidation:
             "/api/debates/graph",
             {
                 "task": "This is a valid debate topic",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "max_rounds": "five",
             },
         )
@@ -539,7 +539,11 @@ class TestMaxRoundsValidation:
         result = await handler.handle_post(
             mock_handler_obj,
             "/api/debates/graph",
-            {"task": "This is a valid debate topic", "agents": ["claude", "gpt4"], "max_rounds": 0},
+            {
+                "task": "This is a valid debate topic",
+                "agents": ["claude", "gpt-5.5"],
+                "max_rounds": 0,
+            },
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -553,7 +557,7 @@ class TestMaxRoundsValidation:
             "/api/debates/graph",
             {
                 "task": "This is a valid debate topic",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "max_rounds": -5,
             },
         )
@@ -567,7 +571,7 @@ class TestMaxRoundsValidation:
             "/api/debates/graph",
             {
                 "task": "This is a valid debate topic",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "max_rounds": 21,
             },
         )
@@ -586,7 +590,7 @@ class TestMaxRoundsValidation:
                 "/api/debates/graph",
                 {
                     "task": "This is a valid debate topic",
-                    "agents": ["claude", "gpt4"],
+                    "agents": ["claude", "gpt-5.5"],
                     "max_rounds": "10",
                 },
             )
@@ -613,7 +617,7 @@ class TestBranchPolicyValidation:
             "/api/debates/graph",
             {
                 "task": "This is a valid debate topic",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "branch_policy": "auto",
             },
         )
@@ -629,7 +633,7 @@ class TestBranchPolicyValidation:
             "/api/debates/graph",
             {
                 "task": "This is a valid debate topic",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "branch_policy": {"min_disagreement": "high"},
             },
         )
@@ -645,7 +649,7 @@ class TestBranchPolicyValidation:
             "/api/debates/graph",
             {
                 "task": "This is a valid debate topic",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "branch_policy": {"min_disagreement": 1.5},
             },
         )
@@ -661,7 +665,7 @@ class TestBranchPolicyValidation:
             "/api/debates/graph",
             {
                 "task": "This is a valid debate topic",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "branch_policy": {"max_branches": 15},
             },
         )
@@ -677,7 +681,7 @@ class TestBranchPolicyValidation:
             "/api/debates/graph",
             {
                 "task": "This is a valid debate topic",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "branch_policy": {"max_branches": 0},
             },
         )
@@ -691,7 +695,7 @@ class TestBranchPolicyValidation:
             "/api/debates/graph",
             {
                 "task": "This is a valid debate topic",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "branch_policy": {"merge_strategy": "magic"},
             },
         )
@@ -711,7 +715,7 @@ class TestBranchPolicyValidation:
                     "/api/debates/graph",
                     {
                         "task": "This is a valid debate topic",
-                        "agents": ["claude", "gpt4"],
+                        "agents": ["claude", "gpt-5.5"],
                         "branch_policy": {"merge_strategy": strategy},
                     },
                 )
@@ -737,7 +741,7 @@ class TestRateLimiting:
         result = await handler.handle_post(
             mock_handler_obj,
             "/api/debates/graph",
-            {"task": "This is a valid debate topic", "agents": ["claude", "gpt4"]},
+            {"task": "This is a valid debate topic", "agents": ["claude", "gpt-5.5"]},
         )
         # May fail for other reasons (import error), but not 429
         assert result.status_code != 429
@@ -750,14 +754,14 @@ class TestRateLimiting:
             await handler.handle_post(
                 mock_handler_obj,
                 "/api/debates/graph",
-                {"task": "This is a valid debate topic", "agents": ["claude", "gpt4"]},
+                {"task": "This is a valid debate topic", "agents": ["claude", "gpt-5.5"]},
             )
 
         # 6th request should be rate limited
         result = await handler.handle_post(
             mock_handler_obj,
             "/api/debates/graph",
-            {"task": "This is a valid debate topic", "agents": ["claude", "gpt4"]},
+            {"task": "This is a valid debate topic", "agents": ["claude", "gpt-5.5"]},
         )
         assert result.status_code == 429
         data = json.loads(result.body)

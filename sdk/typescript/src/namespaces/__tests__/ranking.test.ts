@@ -50,7 +50,7 @@ describe('RankingNamespace', () => {
           },
           {
             rank: 2,
-            agent: 'gpt4',
+            agent: 'gpt-5.5',
             elo: 1800,
             wins: 140,
             losses: 40,
@@ -136,12 +136,12 @@ describe('RankingNamespace', () => {
     });
 
     it('should encode agent name in URL', async () => {
-      const mockRanking = { ranking: { agent: 'gpt-4-turbo', elo: 1800 } };
+      const mockRanking = { ranking: { agent: 'gpt-5.5', elo: 1800 } };
       mockClient.request.mockResolvedValue(mockRanking);
 
-      await api.get('gpt-4-turbo');
+      await api.get('gpt-5.5');
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/agent/gpt-4-turbo/profile');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/agent/gpt-5.5/profile');
     });
   });
 
@@ -181,7 +181,7 @@ describe('RankingNamespace', () => {
       const mockRankings = {
         rankings: [
           { rank: 1, agent: 'claude', elo: 1850 },
-          { rank: 2, agent: 'gpt4', elo: 1800 },
+          { rank: 2, agent: 'gpt-5.5', elo: 1800 },
           { rank: 3, agent: 'gemini', elo: 1750 },
         ],
       };
@@ -210,7 +210,7 @@ describe('RankingNamespace', () => {
       const mockRankings = {
         rankings: [
           { rank: 1, agent: 'claude', last_active: '2024-01-20T10:00:00Z' },
-          { rank: 2, agent: 'gpt4', last_active: '2024-01-20T09:55:00Z' },
+          { rank: 2, agent: 'gpt-5.5', last_active: '2024-01-20T09:55:00Z' },
         ],
       };
       mockClient.request.mockResolvedValue(mockRankings);

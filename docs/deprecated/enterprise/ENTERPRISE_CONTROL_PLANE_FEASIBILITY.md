@@ -39,7 +39,7 @@ The system draws inspiration from termite colonies, where specialized individual
 | Provider | Models | Status |
 |----------|--------|--------|
 | Anthropic | Claude 3.5/4 Opus/Sonnet | Production |
-| OpenAI | GPT-4o, o1, o3 | Production |
+| OpenAI | GPT-5.5, o1, o3 | Production |
 | Google | Gemini 2.0 Flash/Pro | Production |
 | Mistral | Large, Codestral | Production |
 | xAI | Grok-2 | Production |

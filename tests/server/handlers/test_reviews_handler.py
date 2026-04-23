@@ -98,7 +98,7 @@ def sample_review():
     return {
         "id": "abc123",
         "created_at": "2025-01-15T10:30:00Z",
-        "agents": ["claude", "gpt4"],
+        "agents": ["claude", "gpt-5.5"],
         "pr_url": "https://github.com/org/repo/pull/42",
         "findings": {
             "unanimous_critiques": [
@@ -300,7 +300,7 @@ class TestGetReview:
         body = get_body(result)
         assert result.status_code == 200
         assert body["review"]["id"] == "abc123"
-        assert body["review"]["agents"] == ["claude", "gpt4"]
+        assert body["review"]["agents"] == ["claude", "gpt-5.5"]
         assert body["review"]["findings"]["agreement_score"] == 0.87
 
     def test_get_review_not_found(self, handler, reviews_dir):

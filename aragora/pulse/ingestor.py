@@ -361,7 +361,7 @@ class HackerNewsIngestor(PulseIngestor):
                 "hackernews", "Why Rust is the future of systems programming", 256, "programming"
             ),
             TrendingTopic("hackernews", "The hidden costs of technical debt", 189, "tech"),
-            TrendingTopic("hackernews", "OpenAI announces GPT-5 preview", 521, "ai"),
+            TrendingTopic("hackernews", "OpenAI announces GPT-5.5 preview", 521, "ai"),
             TrendingTopic(
                 "hackernews", "Startup raises $50M for quantum computing", 134, "business"
             ),

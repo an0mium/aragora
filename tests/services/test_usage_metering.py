@@ -383,35 +383,35 @@ class TestTokenCostCalculation:
         assert input_cost == Decimal("0.25")
         assert output_cost == Decimal("1.25")
 
-    def test_known_model_openai_gpt4o(self):
-        """Test cost calculation for GPT-4o."""
+    def test_known_model_openai_gpt55(self):
+        """Test cost calculation for GPT-5.5."""
         from aragora.services.usage_metering import UsageMeter
 
         meter = UsageMeter(db_path=Path("/tmp/test_cost_calc.db"))
         input_cost, output_cost = meter._calculate_token_cost(
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
             input_tokens=1_000_000,
             output_tokens=1_000_000,
         )
-        # gpt-4o input: $2.50/1M, output: $10/1M
+        # gpt-5.5 input: $2.50/1M, output: $10/1M
         assert input_cost == Decimal("2.50")
         assert output_cost == Decimal("10.00")
 
-    def test_known_model_openai_gpt4o_mini(self):
-        """Test cost calculation for GPT-4o-mini."""
+    def test_known_model_openai_gpt55_consolidated_alias(self):
+        """Test consolidated GPT aliases use GPT-5.5 pricing."""
         from aragora.services.usage_metering import UsageMeter
 
         meter = UsageMeter(db_path=Path("/tmp/test_cost_calc.db"))
         input_cost, output_cost = meter._calculate_token_cost(
             provider="openai",
-            model="gpt-4o-mini",
+            model="gpt-5.5",
             input_tokens=1_000_000,
             output_tokens=1_000_000,
         )
-        # gpt-4o-mini input: $0.15/1M, output: $0.60/1M
-        assert input_cost == Decimal("0.15")
-        assert output_cost == Decimal("0.60")
+        # gpt-5.5 input: $2.50/1M, output: $10/1M
+        assert input_cost == Decimal("2.50")
+        assert output_cost == Decimal("10.00")
 
     def test_known_model_openai_o1(self):
         """Test cost calculation for o1."""
@@ -571,15 +571,15 @@ class TestTokenCostCalculation:
         # Use numbers that would cause floating point errors
         input_cost, output_cost = meter._calculate_token_cost(
             provider="openai",
-            model="gpt-4o-mini",
+            model="gpt-5.5",
             input_tokens=333333,
             output_tokens=666667,
         )
         # Verify result is exact Decimal, not float-approximated
         assert isinstance(input_cost, Decimal)
         assert isinstance(output_cost, Decimal)
-        # Verify precision: 333333 * 0.15 / 1000000 = 0.04999995
-        expected_input = Decimal("333333") * Decimal("0.15") / Decimal("1000000")
+        # Verify precision: 333333 * 2.50 / 1000000 = 0.83333250
+        expected_input = Decimal("333333") * Decimal("2.50") / Decimal("1000000")
         assert input_cost == expected_input
 
 
@@ -746,7 +746,7 @@ class TestRecordTokenUsage:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
 
@@ -761,7 +761,7 @@ class TestRecordTokenUsage:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
             metadata={"debate_phase": "proposal", "agent": "claude"},
         )
@@ -775,7 +775,7 @@ class TestRecordTokenUsage:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
             debate_id="debate_123",
         )
@@ -812,16 +812,16 @@ class TestRecordTokenUsage:
             org_id="org_1",
             input_tokens=2000,
             output_tokens=1000,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.flush_all()
 
         summary = await meter.get_usage_summary(org_id="org_1", period="month")
         assert "anthropic/claude-opus-4" in summary.tokens_by_model
-        assert "openai/gpt-4o" in summary.tokens_by_model
+        assert "openai/gpt-5.5" in summary.tokens_by_model
         assert summary.tokens_by_model["anthropic/claude-opus-4"] == 1500
-        assert summary.tokens_by_model["openai/gpt-4o"] == 3000
+        assert summary.tokens_by_model["openai/gpt-5.5"] == 3000
 
     @pytest.mark.asyncio
     async def test_record_per_provider_tracking(self, meter):
@@ -837,7 +837,7 @@ class TestRecordTokenUsage:
             org_id="org_1",
             input_tokens=2000,
             output_tokens=1000,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.flush_all()
@@ -948,7 +948,7 @@ class TestBufferFlushing:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.record_debate_usage(
@@ -1038,14 +1038,14 @@ class TestHourlyAggregation:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.record_token_usage(
             org_id="org_1",
             input_tokens=200,
             output_tokens=100,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
 
@@ -1063,7 +1063,7 @@ class TestHourlyAggregation:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.record_token_usage(
@@ -1078,9 +1078,9 @@ class TestHourlyAggregation:
         cursor.execute("SELECT tokens_by_model FROM hourly_aggregates WHERE org_id = 'org_1'")
         row = cursor.fetchone()
         tokens_by_model = json.loads(row["tokens_by_model"])
-        assert "openai/gpt-4o" in tokens_by_model
+        assert "openai/gpt-5.5" in tokens_by_model
         assert "anthropic/claude-opus-4" in tokens_by_model
-        assert tokens_by_model["openai/gpt-4o"] == 150
+        assert tokens_by_model["openai/gpt-5.5"] == 150
         assert tokens_by_model["anthropic/claude-opus-4"] == 300
 
     @pytest.mark.asyncio
@@ -1146,7 +1146,7 @@ class TestGetUsageSummary:
             org_id="org_1",
             input_tokens=50_000,
             output_tokens=50_000,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
 
@@ -1175,7 +1175,7 @@ class TestGetUsageSummary:
             org_id="org_1",
             input_tokens=2000,
             output_tokens=1000,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.flush_all()
@@ -1199,7 +1199,7 @@ class TestGetUsageSummary:
             org_id="org_1",
             input_tokens=2000,
             output_tokens=1000,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.flush_all()
@@ -1216,7 +1216,7 @@ class TestGetUsageSummary:
             org_id="org_1",
             input_tokens=1000,
             output_tokens=500,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.flush_all()
@@ -1271,7 +1271,7 @@ class TestGetUsageBreakdown:
             org_id="org_1",
             input_tokens=1000,
             output_tokens=500,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
             user_id="user_A",
         )
@@ -1279,7 +1279,7 @@ class TestGetUsageBreakdown:
             org_id="org_1",
             input_tokens=2000,
             output_tokens=1000,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
             user_id="user_B",
         )
@@ -1342,7 +1342,7 @@ class TestGetUsageLimits:
                 org_id="org_quota",
                 input_tokens=15_000,
                 output_tokens=15_000,
-                model="gpt-4o-mini",
+                model="gpt-5.5",
                 provider="openai",
             )
 
@@ -1378,14 +1378,14 @@ class TestMultiOrgIsolation:
             org_id="org_A",
             input_tokens=1000,
             output_tokens=500,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.record_token_usage(
             org_id="org_B",
             input_tokens=5000,
             output_tokens=2500,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
 
@@ -1436,7 +1436,7 @@ class TestMultiOrgIsolation:
             org_id="org_B",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o-mini",
+            model="gpt-5.5",
             provider="openai",
         )
 
@@ -1456,7 +1456,7 @@ class TestMultiOrgIsolation:
                 org_id="org_heavy",
                 input_tokens=25_000,
                 output_tokens=25_000,
-                model="gpt-4o",
+                model="gpt-5.5",
                 provider="openai",
             )
 
@@ -1485,7 +1485,7 @@ class TestEdgeCases:
             org_id="org_1",
             input_tokens=0,
             output_tokens=0,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
 
@@ -1534,7 +1534,7 @@ class TestEdgeCases:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
             metadata=None,
         )
@@ -1548,7 +1548,7 @@ class TestEdgeCases:
             org_id="org/with-special_chars.123",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.flush_all()
@@ -1568,7 +1568,7 @@ class TestEdgeCases:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
             metadata={"topic": "Artificial Intelligence in Healthcare"},
         )
@@ -1597,7 +1597,7 @@ class TestEdgeCases:
                         org_id=org_id,
                         input_tokens=100,
                         output_tokens=50,
-                        model="gpt-4o",
+                        model="gpt-5.5",
                         provider="openai",
                     )
             except Exception as e:
@@ -1784,7 +1784,7 @@ class TestErrorHandling:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
 

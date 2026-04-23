@@ -994,14 +994,14 @@ _MINIMAL_RECEIPT = {
     "confidence": 0.82,
     "robustness_score": 0.75,
     "consensus_reached": True,
-    "participants": ["claude-3", "gpt-4o", "mistral-large"],
+    "participants": ["claude-3", "gpt-5.5", "mistral-large"],
     "risk_summary": {"critical": 0, "high": 1, "medium": 2, "low": 3},
     "dissenting_agents": ["mistral-large"],
     "artifact_hash": "abc123def456",
     "signature": "sig-xyz",
     "votes": [
         {"agent": "claude-3", "choice": "yes", "confidence": 0.9},
-        {"agent": "gpt-4o", "choice": "yes", "confidence": 0.85},
+        {"agent": "gpt-5.5", "choice": "yes", "confidence": 0.85},
         {"agent": "mistral-large", "choice": "no", "confidence": 0.6},
     ],
 }

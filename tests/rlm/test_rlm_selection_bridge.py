@@ -303,20 +303,20 @@ class TestRecordQuery:
         bridge = RLMSelectionBridge()
         result = MockRLMResult(confidence=0.85)
 
-        bridge.record_query("gpt4", result)
+        bridge.record_query("gpt-5.5", result)
 
-        assert "gpt4" in bridge._agent_stats
-        stats = bridge._agent_stats["gpt4"]
+        assert "gpt-5.5" in bridge._agent_stats
+        stats = bridge._agent_stats["gpt-5.5"]
         assert stats.total_queries == 1
 
     def test_record_query_accumulates_metrics(self):
         """Should accumulate query metrics."""
         bridge = RLMSelectionBridge()
 
-        bridge.record_query("gpt4", MockRLMResult(confidence=0.8, sub_calls_made=2))
-        bridge.record_query("gpt4", MockRLMResult(confidence=0.9, sub_calls_made=4))
+        bridge.record_query("gpt-5.5", MockRLMResult(confidence=0.8, sub_calls_made=2))
+        bridge.record_query("gpt-5.5", MockRLMResult(confidence=0.9, sub_calls_made=4))
 
-        stats = bridge._agent_stats["gpt4"]
+        stats = bridge._agent_stats["gpt-5.5"]
         assert stats.total_queries == 2
         assert stats.total_confidence == pytest.approx(1.7, abs=0.01)
         assert stats.total_sub_calls == 6
@@ -467,14 +467,14 @@ class TestGetAllAdjustments:
         bridge = RLMSelectionBridge(config=config)
 
         bridge.record_compression("claude", MockCompressionResult())
-        bridge.record_compression("gpt4", MockCompressionResult())
+        bridge.record_compression("gpt-5.5", MockCompressionResult())
         bridge.record_compression("gemini", MockCompressionResult())
 
         adjustments = bridge.get_all_adjustments()
 
         assert len(adjustments) == 3
         assert "claude" in adjustments
-        assert "gpt4" in adjustments
+        assert "gpt-5.5" in adjustments
         assert "gemini" in adjustments
 
 
@@ -493,12 +493,12 @@ class TestGetEfficientAgents:
 
         # Low efficiency agent
         for _ in range(5):
-            bridge.record_compression("gpt4", MockCompressionResult(estimated_fidelity=0.5))
+            bridge.record_compression("gpt-5.5", MockCompressionResult(estimated_fidelity=0.5))
 
         efficient = bridge.get_rlm_efficient_agents(threshold=0.7)
 
         assert "claude" in efficient
-        # gpt4 might not be in efficient list due to low fidelity
+        # gpt-5.5 might not be in efficient list due to low fidelity
 
     def test_excludes_agents_below_min_operations(self):
         """Should exclude agents with insufficient operations."""
@@ -525,7 +525,7 @@ class TestGetBestAgentsForLongDebates:
         # Create agents with different efficiency
         for _ in range(5):
             bridge.record_compression("claude", MockCompressionResult(estimated_fidelity=0.95))
-            bridge.record_compression("gpt4", MockCompressionResult(estimated_fidelity=0.85))
+            bridge.record_compression("gpt-5.5", MockCompressionResult(estimated_fidelity=0.85))
             bridge.record_compression("gemini", MockCompressionResult(estimated_fidelity=0.75))
 
         best = bridge.get_best_agents_for_long_debates(top_n=2)
@@ -621,13 +621,13 @@ class TestGetStats:
         """Should return stats for all agents."""
         bridge = RLMSelectionBridge()
         bridge.record_compression("claude", MockCompressionResult())
-        bridge.record_compression("gpt4", MockCompressionResult())
+        bridge.record_compression("gpt-5.5", MockCompressionResult())
 
         all_stats = bridge.get_all_stats()
 
         assert len(all_stats) == 2
         assert "claude" in all_stats
-        assert "gpt4" in all_stats
+        assert "gpt-5.5" in all_stats
 
     def test_get_stats_summary(self):
         """Should return bridge summary statistics."""
@@ -650,7 +650,7 @@ class TestReset:
         """Should clear all stats and adjustments."""
         bridge = RLMSelectionBridge()
         bridge.record_compression("claude", MockCompressionResult())
-        bridge.record_query("gpt4", MockRLMResult())
+        bridge.record_query("gpt-5.5", MockRLMResult())
 
         bridge.reset()
 

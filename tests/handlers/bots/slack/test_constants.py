@@ -279,7 +279,7 @@ class TestAgentDisplayNames:
     def test_contains_expected_agents(self):
         expected_keys = {
             "claude",
-            "gpt4",
+            "gpt-5.5",
             "gemini",
             "mistral",
             "deepseek",
@@ -300,7 +300,7 @@ class TestAgentDisplayNames:
 
     def test_api_aliases_match_base_agents(self):
         assert AGENT_DISPLAY_NAMES["anthropic-api"] == AGENT_DISPLAY_NAMES["claude"]
-        assert AGENT_DISPLAY_NAMES["openai-api"] == AGENT_DISPLAY_NAMES["gpt4"]
+        assert AGENT_DISPLAY_NAMES["openai-api"] == AGENT_DISPLAY_NAMES["gpt-5.5"]
 
     def test_agent_count(self):
         assert len(AGENT_DISPLAY_NAMES) == 10

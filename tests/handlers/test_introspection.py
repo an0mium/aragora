@@ -139,7 +139,7 @@ class TestIntrospectionRouting:
     def test_can_handle_specific_agent(self, handler):
         """Test matching /api/introspection/agents/{name}."""
         assert handler.can_handle("/api/introspection/agents/claude") is True
-        assert handler.can_handle("/api/introspection/agents/gpt-4") is True
+        assert handler.can_handle("/api/introspection/agents/gpt-5.5") is True
         assert handler.can_handle("/api/introspection/agents/deepseek") is True
 
     def test_cannot_handle_unrelated(self, handler):
@@ -415,12 +415,12 @@ class TestAgentIntrospection:
             patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
             patch("aragora.server.handlers.introspection.get_agent_introspection") as mock_intro,
         ):
-            mock_intro.return_value = MockSnapshot("gpt-4")
+            mock_intro.return_value = MockSnapshot("gpt-5.5")
             with (
                 patch.object(handler, "_get_critique_store", return_value=None),
                 patch.object(handler, "_get_persona_manager", return_value=None),
             ):
-                result = handler.handle("/api/introspection/agents/gpt-4", {}, mock_http_handler)
+                result = handler.handle("/api/introspection/agents/gpt-5.5", {}, mock_http_handler)
             assert result.status_code == 200
 
     def test_get_agent_underscore_name(self, handler, mock_http_handler):

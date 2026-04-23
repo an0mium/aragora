@@ -18,7 +18,7 @@ function App() {
     findings: [],
     settings: {
       apiUrl: 'https://api.aragora.ai',
-      defaultAgents: ['claude', 'gpt-4'],
+      defaultAgents: ['claude', 'gpt-5.5'],
       defaultRounds: 3,
       autoAnalyze: true,
       showInlineHints: true,

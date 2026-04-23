@@ -65,13 +65,13 @@ class MockEloSystem:
         return [
             MockAgentRating("claude", 1600, 10, 2, 1),
             MockAgentRating("gemini", 1550, 8, 4, 1),
-            MockAgentRating("gpt4", 1500, 5, 5, 2),
+            MockAgentRating("gpt-5.5", 1500, 5, 5, 2),
         ][:limit]
 
     def get_recent_matches(self, limit: int = 10) -> list[dict]:
         return [
             {"id": "match1", "winner": "claude", "loser": "gemini", "timestamp": "2026-01-01"},
-            {"id": "match2", "winner": "gpt4", "loser": "claude", "timestamp": "2026-01-02"},
+            {"id": "match2", "winner": "gpt-5.5", "loser": "claude", "timestamp": "2026-01-02"},
         ][:limit]
 
 

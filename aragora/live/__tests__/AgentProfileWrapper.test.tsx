@@ -75,7 +75,7 @@ const mockMomentsData = {
 const mockNetworkData = {
   agent: 'claude-3-opus',
   rivals: [
-    { agent: 'gpt-4o', score: 0.8, debate_count: 10 },
+    { agent: 'gpt-5.5', score: 0.8, debate_count: 10 },
     { agent: 'gemini-pro', score: 0.6, debate_count: 5 },
   ],
   allies: [
@@ -121,7 +121,7 @@ const mockHistoryData = {
     {
       debate_id: 'debate-1',
       topic: 'AI Ethics',
-      opponent: 'gpt-4o',
+      opponent: 'gpt-5.5',
       result: 'win',
       elo_change: 15,
       elo_after: 1650,
@@ -141,7 +141,7 @@ const mockHistoryData = {
 
 const mockHeadToHeadData = {
   agent: 'claude-3-opus',
-  opponent: 'gpt-4o',
+  opponent: 'gpt-5.5',
   matches: 10,
   wins: 6,
   losses: 3,

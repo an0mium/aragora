@@ -64,7 +64,7 @@ const mockTests = [
   },
   {
     id: 'test-2',
-    agent: 'gpt-4o',
+    agent: 'gpt-5.5',
     baseline_prompt_version: 3,
     evolved_prompt_version: 4,
     baseline_wins: 10,
@@ -122,7 +122,7 @@ describe('ABTestingPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
-      expect(screen.getByText('gpt-4o')).toBeInTheDocument();
+      expect(screen.getByText('gpt-5.5')).toBeInTheDocument();
     });
 
     expect(screen.getByText(/v1 vs v2/)).toBeInTheDocument();

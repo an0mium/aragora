@@ -34,7 +34,7 @@ async function main() {
         type: 'debate',
         config: {
           task: 'Review this code for bugs and security issues: {{input.code}}',
-          agents: ['claude', 'gpt-4'],
+          agents: ['claude', 'gpt-5.5'],
           rounds: 2,
         },
       },

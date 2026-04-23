@@ -31,7 +31,7 @@ class TestCrossDebateLearningValidation:
                 "elo_change": 20,
             },  # Below MIN_ELO_CHANGE threshold (25)
             {"agent": "claude-3-opus", "domain": "security", "elo_change": 75},
-            {"agent": "gpt-4-turbo", "domain": "security", "elo_change": 60},
+            {"agent": "gpt-5.5", "domain": "security", "elo_change": 60},
             {"agent": "claude-3-opus", "domain": "security", "elo_change": 55},
         ]
 

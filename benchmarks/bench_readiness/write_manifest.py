@@ -32,7 +32,7 @@ REPO = HERE.parent.parent
 # runtime actually resolves (provider routing may substitute).
 DECLARED_MODEL_PINS = {
     "anthropic": "claude-opus-4-7",
-    "openai": "gpt-4.1",
+    "openai": "gpt-5.5",
     "gemini": "gemini-3.1-pro-preview",
     "xai": "grok-4-latest",
     "mistral": "mistral-large-2512",

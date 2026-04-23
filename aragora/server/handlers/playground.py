@@ -74,7 +74,7 @@ _ESTIMATED_COST_PER_DEBATE = 0.04  # ~$0.04 for 4 parallel LLM calls
 # Each agent gets a different model architecture for genuine adversarial diversity.
 OPENROUTER_PLAYGROUND_MODELS: list[tuple[str, str]] = [
     ("analyst", "anthropic/claude-opus-4.7"),
-    ("critic", "openai/gpt-5.4"),
+    ("critic", "openai/gpt-5.5"),
     ("synthesizer", "google/gemini-3.1-pro"),
     ("contrarian", "mistralai/mistral-large-latest"),
     ("auditor", "deepseek/deepseek-chat-v3-0324"),
@@ -834,7 +834,7 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 # ---------------------------------------------------------------------------
 
 _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
-_ORACLE_MODEL_OPENAI = "gpt-5.3-chat"
+_ORACLE_MODEL_OPENAI = "gpt-5.5"
 _ORACLE_MODEL_OPENROUTER = "anthropic/claude-opus-4.7"  # OpenRouter fallback
 _ORACLE_CALL_TIMEOUT = 90.0  # seconds — allows 4 parallel LLM calls with OpenRouter fallback
 
@@ -874,10 +874,10 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
     },
     {
         "provider": "openai",
-        "model": "gpt-5.4",
+        "model": "gpt-5.5",
         "name": "gpt",
         "env": "OPENAI_API_KEY",
-        "openrouter_model": "openai/gpt-4.1",
+        "openrouter_model": "openai/gpt-5.5",
     },
     {
         "provider": "xai",
@@ -1392,7 +1392,7 @@ def _call_llm(
 
     OpenRouter is tried first because:
     1. All tentacle models already route through it (single billing).
-    2. It provides access to the latest models (Opus 4.6, GPT-5.2, etc.).
+    2. It provides access to the latest models (Opus 4.6, GPT-5.5, etc.).
     3. Direct provider APIs may have exhausted credits.
     """
     t0 = time.monotonic()
@@ -1417,7 +1417,7 @@ def _call_llm(
         prompt,
         max_tokens,
         timeout,
-        openrouter_model="openai/gpt-4.1",
+        openrouter_model="openai/gpt-5.5",
     )
     if result:
         logger.info("Phase 1 via OpenAI in %.1fs", time.monotonic() - t0)

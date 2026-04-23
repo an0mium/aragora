@@ -56,7 +56,7 @@ def sample_critique():
     """Create a sample critique for testing."""
     return Critique(
         agent="claude",
-        target_agent="gpt4",
+        target_agent="gpt-5.5",
         target_content="Code to review",
         issues=["Performance issue: slow query"],
         suggestions=["Add an index"],

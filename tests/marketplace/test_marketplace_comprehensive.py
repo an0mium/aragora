@@ -235,7 +235,7 @@ class TestAgentTemplate:
     def test_default_fields(self, metadata):
         t = AgentTemplate(
             metadata=metadata,
-            agent_type="gpt4",
+            agent_type="gpt-5.5",
             system_prompt="Test.",
         )
         assert t.model_config == {}

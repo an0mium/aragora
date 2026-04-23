@@ -107,13 +107,13 @@ describe('ExecutionDAGNode', () => {
           data: {
             stage: 'orchestration',
             status: 'ready',
-            metadata: { agents: ['claude', 'gpt-4', 'gemini'] },
+            metadata: { agents: ['claude', 'gpt-5.5', 'gemini'] },
           },
         })}
       />,
     );
     expect(screen.getByText('claude')).toBeInTheDocument();
-    expect(screen.getByText('gpt-4')).toBeInTheDocument();
+    expect(screen.getByText('gpt-5.5')).toBeInTheDocument();
     expect(screen.getByText('gemini')).toBeInTheDocument();
   });
 

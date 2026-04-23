@@ -468,9 +468,9 @@ class TestTrackingHelpers:
 
     def test_track_agent_call_failure(self):
         """track_agent_call should record error status."""
-        track_agent_call("gpt4", 0.5, 50, 0, False)
+        track_agent_call("gpt-5.5", 0.5, 50, 0, False)
 
-        assert AGENT_REQUESTS.get(agent="gpt4", status="error") == 1
+        assert AGENT_REQUESTS.get(agent="gpt-5.5", status="error") == 1
 
     def test_track_auth_failure(self):
         """track_auth_failure should increment counter."""

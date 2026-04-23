@@ -19,7 +19,7 @@ Usage:
     # After debate completes
     verifier.record_decision(
         debate_id="d-123",
-        agents=["claude", "gpt4", "gemini"],
+        agents=["claude", "gpt-5.5", "gemini"],
         consensus_confidence=0.85,
         consensus_text="Deploy with canary release",
         domain="deployment",

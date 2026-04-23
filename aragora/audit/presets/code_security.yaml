@@ -109,7 +109,7 @@ agents:
   primary: claude-3.5-sonnet
   verification:
     - codex-mini
-    - gpt-4
+    - gpt-5.5
 
 parameters:
   confidence_threshold: 0.6

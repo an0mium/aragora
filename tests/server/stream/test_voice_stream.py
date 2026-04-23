@@ -264,11 +264,11 @@ class TestVoiceSession:
             session_id="voice_abc123",
             debate_id="debate_456",
             client_ip="192.168.1.100",
-            tts_voice_map={"claude": "sage", "gpt4": "narrator"},
+            tts_voice_map={"claude": "sage", "gpt-5.5": "narrator"},
         )
 
         assert session.tts_voice_map["claude"] == "sage"
-        assert session.tts_voice_map["gpt4"] == "narrator"
+        assert session.tts_voice_map["gpt-5.5"] == "narrator"
 
 
 # ===========================================================================
@@ -1538,10 +1538,10 @@ class TestEdgeCases:
             tts_voice_map={"claude": "sage"},
         )
 
-        session.tts_voice_map.update({"gpt4": "narrator"})
+        session.tts_voice_map.update({"gpt-5.5": "narrator"})
 
         assert session.tts_voice_map["claude"] == "sage"
-        assert session.tts_voice_map["gpt4"] == "narrator"
+        assert session.tts_voice_map["gpt-5.5"] == "narrator"
 
     @pytest.mark.asyncio
     async def test_rapid_session_creation(self, voice_handler):

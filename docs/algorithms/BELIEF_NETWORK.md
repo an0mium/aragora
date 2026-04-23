@@ -106,7 +106,7 @@ node1 = network.add_claim(
 node2 = network.add_claim(
     claim_id="c2",
     statement="Productivity gains benefit workers",
-    author="gpt4",
+    author="gpt-5.5",
     initial_confidence=0.6
 )
 

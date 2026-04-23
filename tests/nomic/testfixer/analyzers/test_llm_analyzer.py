@@ -160,11 +160,11 @@ class TestLLMAnalyzerConfig:
         config = LLMAnalyzerConfig(
             models={
                 "anthropic-api": "claude-3-opus-20240229",
-                "openai-api": "gpt-4o",
+                "openai-api": "gpt-5.5",
             }
         )
         assert config.models["anthropic-api"] == "claude-3-opus-20240229"
-        assert config.models["openai-api"] == "gpt-4o"
+        assert config.models["openai-api"] == "gpt-5.5"
 
 
 # ---------------------------------------------------------------------------

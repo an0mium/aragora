@@ -22,7 +22,7 @@ Usage:
         confidence=0.85,
         agents=[
             {"name": "Claude", "position": "for", "key_point": "Better scaling"},
-            {"name": "GPT-4", "position": "for", "key_point": "Team autonomy"},
+            {"name": "GPT-5.5", "position": "for", "key_point": "Team autonomy"},
             {"name": "Gemini", "position": "against", "key_point": "Complexity cost"},
         ],
         receipt_id="rec_abc123",

@@ -170,7 +170,7 @@ class UsageAnalyticsMixin:
             },
             "by_model": {
                 "claude-opus-4": {"cost": "60.00", "tokens": 400000},
-                "gpt-4": {"cost": "45.50", "tokens": 200000}
+                "gpt-5.5": {"cost": "45.50", "tokens": 200000}
             },
             "generated_at": "2026-01-23T12:00:00Z"
         }

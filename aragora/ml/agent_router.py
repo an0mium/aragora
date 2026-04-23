@@ -10,11 +10,11 @@ Usage:
     router = get_agent_router()
     decision = router.route(
         task="Implement a rate limiter",
-        available_agents=["claude", "gpt-4", "codex", "gemini"],
+        available_agents=["claude", "gpt-5.5", "codex", "gemini"],
         team_size=3
     )
 
-    print(decision.selected_agents)  # ["claude", "codex", "gpt-4"]
+    print(decision.selected_agents)  # ["claude", "codex", "gpt-5.5"]
     print(decision.confidence)  # 0.85
 
     # Record outcomes for learning
@@ -84,23 +84,14 @@ class AgentCapabilities:
                 supports_vision=True,
                 elo_rating=1050,
             ),
-            "gpt-4": cls(
-                agent_id="gpt-4",
-                strengths=[TaskType.REASONING, TaskType.GENERAL],
+            "gpt-5.5": cls(
+                agent_id="gpt-5.5",
+                strengths=[TaskType.CODING, TaskType.REASONING, TaskType.GENERAL],
                 speed_tier=2,
                 cost_tier=3,
-                max_context=128000,
+                max_context=1000000,
                 supports_vision=True,
                 elo_rating=1080,
-            ),
-            "gpt-4o": cls(
-                agent_id="gpt-4o",
-                strengths=[TaskType.CODING, TaskType.REASONING],
-                speed_tier=1,
-                cost_tier=2,
-                max_context=128000,
-                supports_vision=True,
-                elo_rating=1070,
             ),
             "codex": cls(
                 agent_id="codex",

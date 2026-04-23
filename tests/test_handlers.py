@@ -553,7 +553,7 @@ class TestAgentsHandler:
     def test_can_handle_agent_profile(self, handler):
         """Test can_handle for agent profile endpoint."""
         assert handler.can_handle("/api/v1/agent/claude/profile") is True
-        assert handler.can_handle("/api/v1/agent/gpt-4/profile") is True
+        assert handler.can_handle("/api/v1/agent/gpt-5.5/profile") is True
 
     def test_can_handle_agent_history(self, handler):
         """Test can_handle for agent history endpoint."""
@@ -561,7 +561,7 @@ class TestAgentsHandler:
 
     def test_can_handle_head_to_head(self, handler):
         """Test can_handle for head-to-head endpoint."""
-        assert handler.can_handle("/api/v1/agent/claude/head-to-head/gpt-4") is True
+        assert handler.can_handle("/api/v1/agent/claude/head-to-head/gpt-5.5") is True
 
     def test_can_handle_compare(self, handler):
         """Test can_handle for compare endpoint."""
@@ -831,7 +831,7 @@ class TestCritiqueHandler:
     def test_can_handle_agent_reputation(self, handler):
         """Test can_handle for agent-specific reputation."""
         assert handler.can_handle("/api/v1/agent/claude/reputation") is True
-        assert handler.can_handle("/api/v1/agent/gpt-4/reputation") is True
+        assert handler.can_handle("/api/v1/agent/gpt-5.5/reputation") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
@@ -847,7 +847,7 @@ class TestCritiqueHandler:
     def test_extract_agent_name_valid(self, handler):
         """Test agent name extraction."""
         assert handler._extract_agent_name("/api/agent/claude/reputation") == "claude"
-        assert handler._extract_agent_name("/api/agent/gpt-4/reputation") == "gpt-4"
+        assert handler._extract_agent_name("/api/agent/gpt-5.5/reputation") == "gpt-5.5"
 
     def test_extract_agent_name_invalid(self, handler):
         """Test agent name extraction blocks invalid patterns."""

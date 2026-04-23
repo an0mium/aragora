@@ -1249,7 +1249,7 @@ Create a new workflow definition.
       "type": "debate",
       "config": {
         "topic": "{{input.code_diff}}",
-        "agents": ["claude", "gpt-4", "deepseek-r1"],
+        "agents": ["claude", "gpt-5.5", "deepseek-r1"],
         "rounds": 3
       }
     },
@@ -1515,7 +1515,7 @@ API (direct):
 | Type | Default Model | Notes |
 |------|---------------|-------|
 | `anthropic-api` | claude-opus-4-5-20251101 | Anthropic API, streaming |
-| `openai-api` | gpt-5.3 | OpenAI API, streaming |
+| `openai-api` | gpt-5.5 | OpenAI API, streaming |
 | `gemini` | gemini-3-pro-preview | Google API, streaming |
 | `grok` | grok-4-latest | xAI API, streaming |
 | `mistral-api` | mistral-large-2512 | Mistral API |
@@ -1541,8 +1541,8 @@ CLI:
 | Type | Default Model | Notes |
 |------|---------------|-------|
 | `claude` | claude-opus-4-5-20251101 | Claude CLI |
-| `codex` | gpt-5.3-codex | Codex CLI |
-| `openai` | gpt-5.3 | OpenAI CLI |
+| `codex` | gpt-5.5 | Codex CLI |
+| `openai` | gpt-5.5 | OpenAI CLI |
 | `gemini-cli` | gemini-3-pro-preview | Gemini CLI |
 | `grok-cli` | grok-4-latest | Grok CLI |
 | `qwen-cli` | qwen3-coder | Qwen CLI |
@@ -4856,7 +4856,7 @@ Returns an embeddable summary suitable for sharing.
   "embed_html": "<div class='aragora-embed'>...</div>",
   "og_tags": {
     "title": "AI Debate: Open Source AI",
-    "description": "Claude vs GPT-4 debate on open-source AI",
+    "description": "Claude vs GPT-5.5 debate on open-source AI",
     "image": "https://api.aragora.ai/og/gallery_abc123.png"
   }
 }
@@ -5226,7 +5226,7 @@ Returns detailed usage breakdown by the specified dimension.
         "percentage": 68.0
       },
       {
-        "name": "gpt-4",
+        "name": "gpt-5.5",
         "cost_usd": "4.00",
         "percentage": 32.0
       }
@@ -5427,12 +5427,12 @@ Returns usage data as downloadable file.
   },
   "by_agent": {
     "claude": "8.50",
-    "gpt-4": "4.00"
+    "gpt-5.5": "4.00"
   },
   "by_model": {
     "claude-3-opus": "5.00",
     "claude-3-sonnet": "3.50",
-    "gpt-4-turbo": "4.00"
+    "gpt-5.5": "4.00"
   },
   "roi": {
     "time_saved_hours": 45.0,
@@ -5674,8 +5674,8 @@ Response:
   "round": 3,
   "state": {
     "current_round": 3,
-    "agents": ["claude-3", "gpt-4"],
-    "votes": {"claude-3": 2, "gpt-4": 1}
+    "agents": ["claude-3", "gpt-5.5"],
+    "votes": {"claude-3": 2, "gpt-5.5": 1}
   },
   "created_at": "2026-01-18T10:00:00Z",
   "resumable": true

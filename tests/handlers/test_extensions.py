@@ -186,7 +186,7 @@ def full_state() -> MagicMock:
     state.fabric.list_agents = AsyncMock(
         return_value=[
             _make_fabric_agent("agent-1", "claude-opus-4", _AgentStatus.ACTIVE),
-            _make_fabric_agent("agent-2", "gpt-4", _AgentStatus.IDLE),
+            _make_fabric_agent("agent-2", "gpt-5.5", _AgentStatus.IDLE),
         ]
     )
 

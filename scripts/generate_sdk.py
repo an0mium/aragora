@@ -176,7 +176,7 @@ const client = new AragoraClient(config);
 // Start a debate
 const debate = await client.createDebate({
   task: 'What is the best programming language for beginners?',
-  agents: ['claude', 'gpt4', 'gemini'],
+  agents: ['claude', 'gpt-5.5', 'gemini'],
   protocol: { rounds: 3, consensusMode: 'majority' },
 });
 

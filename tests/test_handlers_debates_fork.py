@@ -116,7 +116,7 @@ def mock_storage():
         "topic": "Test Topic",
         "messages": [
             {"round": 1, "agent": "claude", "content": "Message 1", "role": "proposer"},
-            {"round": 2, "agent": "gpt4", "content": "Message 2", "role": "proposer"},
+            {"round": 2, "agent": "gpt-5.5", "content": "Message 2", "role": "proposer"},
             {"round": 3, "agent": "claude", "content": "Message 3", "role": "critic"},
         ],
         "votes": [
@@ -127,15 +127,15 @@ def mock_storage():
                 "reasoning": "Good arguments",
             },
         ],
-        "proposals": {"claude": "Proposal A", "gpt4": "Proposal B"},
-        "agents": ["claude", "gpt4", "gemini"],
+        "proposals": {"claude": "Proposal A", "gpt-5.5": "Proposal B"},
+        "agents": ["claude", "gpt-5.5", "gemini"],
         "consensus_reached": False,
         "uncertainty_metrics": {
             "cruxes": [
                 {
                     "id": "crux-001",
                     "description": "Is the premise correct?",
-                    "agents": ["claude", "gpt4"],
+                    "agents": ["claude", "gpt-5.5"],
                     "severity": 0.7,
                     "evidence_needed": "Empirical data",
                 },
@@ -690,7 +690,7 @@ class TestForkEdgeCases:
 
         assert result.status_code == 200
         data = json.loads(result.body)
-        # Should have agents from parent (claude, gpt4, gemini -> take first 3)
+        # Should have agents from parent (claude, gpt-5.5, gemini -> take first 3)
         assert len(data["agents"]) > 0
 
     def test_fork_without_nomic_dir(self, debates_handler, mock_storage, mock_handler_with_body):

@@ -117,7 +117,7 @@ def simple_result():
 def simple_ctx(simple_result):
     agents = [MagicMock(), MagicMock()]
     agents[0].name = "claude"
-    agents[1].name = "gpt4"
+    agents[1].name = "gpt-5.5"
     return make_ctx(result=simple_result, agents=agents)
 
 
@@ -215,7 +215,7 @@ class TestStoreConsensusOutcomeHappyPath:
         storage.store_consensus_outcome(simple_ctx)
         call_kwargs = storage.consensus_memory.store_consensus.call_args[1]
         assert "claude" in call_kwargs["participating_agents"]
-        assert "gpt4" in call_kwargs["participating_agents"]
+        assert "gpt-5.5" in call_kwargs["participating_agents"]
 
     def test_no_votes_yields_empty_agreeing_dissenting(self, storage):
         result = MockResult(votes=[])
@@ -228,7 +228,7 @@ class TestStoreConsensusOutcomeHappyPath:
     def test_vote_split_into_agreeing_and_dissenting(self, storage):
         votes = [
             MockVote(agent="claude", choice="A"),
-            MockVote(agent="gpt4", choice="B"),
+            MockVote(agent="gpt-5.5", choice="B"),
             MockVote(agent="gemini", choice="A"),
         ]
         result = MockResult(winner="A", votes=votes)
@@ -237,7 +237,7 @@ class TestStoreConsensusOutcomeHappyPath:
         call_kwargs = storage.consensus_memory.store_consensus.call_args[1]
         assert "claude" in call_kwargs["agreeing_agents"]
         assert "gemini" in call_kwargs["agreeing_agents"]
-        assert "gpt4" in call_kwargs["dissenting_agents"]
+        assert "gpt-5.5" in call_kwargs["dissenting_agents"]
 
     def test_choice_mapping_applied_for_vote_classification(self, storage):
         # canonical name for "agent-A" should be "claude"
@@ -301,13 +301,13 @@ class TestStoreConsensusOutcomeHappyPath:
     def test_dissent_storage_called_when_dissenting_agents_present(self, storage):
         votes = [
             MockVote(agent="claude", choice="A"),
-            MockVote(agent="gpt4", choice="B"),
+            MockVote(agent="gpt-5.5", choice="B"),
         ]
         result = MockResult(winner="A", votes=votes)
         ctx = make_ctx(result=result)
         with patch.object(storage, "_store_dissenting_views") as mock_dissent:
             storage.store_consensus_outcome(ctx)
-        mock_dissent.assert_called_once_with(ctx, "consensus-abc", ["gpt4"])
+        mock_dissent.assert_called_once_with(ctx, "consensus-abc", ["gpt-5.5"])
 
     def test_dissent_storage_not_called_when_all_agree(self, storage):
         votes = [MockVote(agent="claude", choice="A")]
@@ -435,65 +435,65 @@ class TestConfidenceToStrength:
 class TestStoreDissentiingViews:
     def test_calls_store_dissent_for_each_dissenting_vote(self, storage):
         votes = [
-            MockVote(agent="gpt4", choice="B", reasoning="B is better"),
+            MockVote(agent="gpt-5.5", choice="B", reasoning="B is better"),
             MockVote(agent="gemini", choice="C", reasoning="C is best"),
         ]
         result = MockResult(winner="A", votes=votes)
         ctx = make_ctx(result=result)
-        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt4", "gemini"])
+        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt-5.5", "gemini"])
         assert storage.consensus_memory.store_dissent.call_count == 2
 
     def test_skips_votes_not_in_dissenting_list(self, storage):
         votes = [
             MockVote(agent="claude", choice="A", reasoning="A is best"),
-            MockVote(agent="gpt4", choice="B", reasoning="B is better"),
+            MockVote(agent="gpt-5.5", choice="B", reasoning="B is better"),
         ]
         result = MockResult(winner="A", votes=votes)
         ctx = make_ctx(result=result)
-        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt4"])
+        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt-5.5"])
         assert storage.consensus_memory.store_dissent.call_count == 1
         call_kwargs = storage.consensus_memory.store_dissent.call_args[1]
-        assert call_kwargs["agent_id"] == "gpt4"
+        assert call_kwargs["agent_id"] == "gpt-5.5"
 
     def test_reasoning_fallback_when_empty(self, storage):
-        votes = [MockVote(agent="gpt4", choice="B", reasoning="")]
+        votes = [MockVote(agent="gpt-5.5", choice="B", reasoning="")]
         result = MockResult(winner="A", votes=votes)
         ctx = make_ctx(result=result)
-        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt4"])
+        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt-5.5"])
         call_kwargs = storage.consensus_memory.store_dissent.call_args[1]
         assert "B" in call_kwargs["content"]
         assert "A" in call_kwargs["content"]
 
     def test_reasoning_truncated_to_500_chars(self, storage):
         long_reasoning = "x" * 1000
-        votes = [MockVote(agent="gpt4", choice="B", reasoning=long_reasoning)]
+        votes = [MockVote(agent="gpt-5.5", choice="B", reasoning=long_reasoning)]
         result = MockResult(winner="A", votes=votes)
         ctx = make_ctx(result=result)
-        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt4"])
+        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt-5.5"])
         call_kwargs = storage.consensus_memory.store_dissent.call_args[1]
         assert len(call_kwargs["content"]) == 500
 
     def test_uses_vote_confidence_attribute(self, storage):
-        votes = [MockVote(agent="gpt4", choice="B", reasoning="B", confidence=0.77)]
+        votes = [MockVote(agent="gpt-5.5", choice="B", reasoning="B", confidence=0.77)]
         result = MockResult(winner="A", votes=votes)
         ctx = make_ctx(result=result)
-        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt4"])
+        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt-5.5"])
         call_kwargs = storage.consensus_memory.store_dissent.call_args[1]
         assert call_kwargs["confidence"] == pytest.approx(0.77)
 
     def test_store_dissent_error_does_not_propagate(self, storage):
         storage.consensus_memory.store_dissent.side_effect = ValueError("bad")
-        votes = [MockVote(agent="gpt4", choice="B", reasoning="B is better")]
+        votes = [MockVote(agent="gpt-5.5", choice="B", reasoning="B is better")]
         result = MockResult(winner="A", votes=votes)
         ctx = make_ctx(result=result)
         # Should not raise
-        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt4"])
+        storage._store_dissenting_views(ctx, "cons-id-1", ["gpt-5.5"])
 
     def test_consensus_id_passed_to_store_dissent(self, storage):
-        votes = [MockVote(agent="gpt4", choice="B", reasoning="B")]
+        votes = [MockVote(agent="gpt-5.5", choice="B", reasoning="B")]
         result = MockResult(winner="A", votes=votes)
         ctx = make_ctx(result=result)
-        storage._store_dissenting_views(ctx, "my-consensus-id", ["gpt4"])
+        storage._store_dissenting_views(ctx, "my-consensus-id", ["gpt-5.5"])
         call_kwargs = storage.consensus_memory.store_dissent.call_args[1]
         assert call_kwargs["debate_id"] == "my-consensus-id"
 
@@ -583,7 +583,7 @@ class TestStoreCruxesExtraction:
         view = MagicMock()
         view.confidence = 0.8
         view.content = "Alternative approach content"
-        view.agent = "gpt4"
+        view.agent = "gpt-5.5"
         result = MockResult(dissenting_views=[view], votes=[])
         ctx = make_ctx(result=result)
         storage.store_cruxes(ctx, consensus_id="cid")
@@ -594,7 +594,7 @@ class TestStoreCruxesExtraction:
         view = MagicMock()
         view.confidence = 0.6  # threshold is > 0.7
         view.content = "Low confidence dissent"
-        view.agent = "gpt4"
+        view.agent = "gpt-5.5"
         result = MockResult(dissenting_views=[view], votes=[])
         ctx = make_ctx(result=result)
         storage.store_cruxes(ctx, consensus_id="cid")
@@ -618,7 +618,7 @@ class TestStoreCruxesExtraction:
     def test_cruxes_from_vote_split(self, storage):
         votes = [
             MockVote(agent="claude", choice="A", reasoning="A is best because of X"),
-            MockVote(agent="gpt4", choice="B", reasoning="B is better because of Y"),
+            MockVote(agent="gpt-5.5", choice="B", reasoning="B is better because of Y"),
         ]
         result = MockResult(dissenting_views=[], votes=votes)
         ctx = make_ctx(result=result)
@@ -629,7 +629,7 @@ class TestStoreCruxesExtraction:
     def test_vote_split_crux_contains_positions(self, storage):
         votes = [
             MockVote(agent="claude", choice="A", reasoning="A reason"),
-            MockVote(agent="gpt4", choice="B", reasoning="B reason"),
+            MockVote(agent="gpt-5.5", choice="B", reasoning="B reason"),
         ]
         result = MockResult(dissenting_views=[], votes=votes)
         ctx = make_ctx(result=result)
@@ -653,7 +653,7 @@ class TestStoreCruxesExtraction:
         # The code still appends a vote_split crux; positions values are empty lists.
         votes = [
             MockVote(agent="claude", choice="A", reasoning=""),
-            MockVote(agent="gpt4", choice="B", reasoning=""),
+            MockVote(agent="gpt-5.5", choice="B", reasoning=""),
         ]
         result = MockResult(dissenting_views=[], votes=votes)
         ctx = make_ctx(result=result)
@@ -666,7 +666,7 @@ class TestStoreCruxesExtraction:
     def test_update_cruxes_called_with_consensus_id(self, storage):
         votes = [
             MockVote(agent="claude", choice="A", reasoning="A reason"),
-            MockVote(agent="gpt4", choice="B", reasoning="B reason"),
+            MockVote(agent="gpt-5.5", choice="B", reasoning="B reason"),
         ]
         result = MockResult(dissenting_views=[], votes=votes)
         ctx = make_ctx(result=result)
@@ -677,7 +677,7 @@ class TestStoreCruxesExtraction:
     def test_update_cruxes_error_does_not_propagate(self, storage):
         votes = [
             MockVote(agent="claude", choice="A", reasoning="A reason"),
-            MockVote(agent="gpt4", choice="B", reasoning="B reason"),
+            MockVote(agent="gpt-5.5", choice="B", reasoning="B reason"),
         ]
         result = MockResult(dissenting_views=[], votes=votes)
         ctx = make_ctx(result=result)
@@ -689,7 +689,7 @@ class TestStoreCruxesExtraction:
         long_reasoning = "z" * 200
         votes = [
             MockVote(agent="claude", choice="A", reasoning=long_reasoning),
-            MockVote(agent="gpt4", choice="B", reasoning=long_reasoning),
+            MockVote(agent="gpt-5.5", choice="B", reasoning=long_reasoning),
         ]
         result = MockResult(dissenting_views=[], votes=votes)
         ctx = make_ctx(result=result)
@@ -708,10 +708,10 @@ class TestStoreCruxesExtraction:
         view = MagicMock()
         view.confidence = 0.9
         view.content = "dissent content"
-        view.agent = "gpt4"
+        view.agent = "gpt-5.5"
         votes = [
             MockVote(agent="claude", choice="A", reasoning="A reason"),
-            MockVote(agent="gpt4", choice="B", reasoning="B reason"),
+            MockVote(agent="gpt-5.5", choice="B", reasoning="B reason"),
         ]
         result = MockResult(dissenting_views=[view], votes=votes)
         ctx = make_ctx(result=result, belief_network=belief_network)

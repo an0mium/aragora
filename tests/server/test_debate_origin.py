@@ -218,7 +218,7 @@ class TestFormatResultMessage:
             "consensus_reached": True,
             "final_answer": "This is the conclusion of the debate.",
             "confidence": 0.85,
-            "participants": ["claude", "gpt4", "gemini"],
+            "participants": ["claude", "gpt-5.5", "gemini"],
             "task": "Evaluate the proposal",
         }
 
@@ -232,7 +232,7 @@ class TestFormatResultMessage:
         assert "**Topic:**" in message
         assert "**Consensus:** Yes" in message
         assert "**Confidence:** 85%" in message
-        assert "claude, gpt4, gemini" in message
+        assert "claude, gpt-5.5, gemini" in message
         assert "This is the conclusion" in message
 
     def test_html_format(self, sample_origin, sample_result):
@@ -899,7 +899,7 @@ class TestRouteDebateResult:
             "consensus_reached": True,
             "final_answer": "The answer is 42.",
             "confidence": 0.85,
-            "participants": ["claude", "gpt4"],
+            "participants": ["claude", "gpt-5.5"],
             "task": "Test question",
         }
 

@@ -254,7 +254,7 @@ def create_agents(use_real_apis: bool = False) -> list[Agent]:
             if os.getenv("ANTHROPIC_API_KEY"):
                 agents.append(AnthropicAgent("claude-adversary", model="claude-sonnet-4-20250514"))
             if os.getenv("OPENAI_API_KEY"):
-                agents.append(OpenAIAgent("gpt-adversary", model="gpt-4o"))
+                agents.append(OpenAIAgent("gpt-adversary", model="gpt-5.5"))
             if os.getenv("GEMINI_API_KEY"):
                 agents.append(GeminiAgent("gemini-adversary"))
             if agents:

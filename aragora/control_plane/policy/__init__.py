@@ -13,14 +13,14 @@ Usage:
     # Add agent restriction
     policy_manager.add_policy(ControlPlanePolicy(
         name="restrict-production-agents",
-        agent_allowlist=["claude-3-opus", "gpt-4"],
+        agent_allowlist=["claude-3-opus", "gpt-5.5"],
         task_types=["production-deployment"],
     ))
 
     # Evaluate before dispatch
     result = policy_manager.evaluate_task_dispatch(
         task_type="production-deployment",
-        agent_id="gpt-3.5-turbo",
+        agent_id="gpt-5.5",
         region="us-east-1",
         capabilities=["deploy"],
     )

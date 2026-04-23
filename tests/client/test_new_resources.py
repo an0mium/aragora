@@ -120,7 +120,7 @@ class TestConsensusModels:
         data = {
             "id": "warning_001",
             "debate_id": "debate_123",
-            "agent_id": "gpt4",
+            "agent_id": "gpt-5.5",
             "content": "Security implications of this approach",
             "reasoning": "May expose sensitive data",
             "severity": "high",
@@ -180,13 +180,13 @@ class TestPulseModels:
             "category": "technology",
             "url": "https://arxiv.org/abs/2401.xxxxx",
             "summary": "New approaches to AI alignment",
-            "suggested_agents": ["claude", "gpt4"],
+            "suggested_agents": ["claude", "gpt-5.5"],
         }
         topic = TrendingTopic.from_dict(data)
         assert topic.title == "AI Safety Research Breakthroughs"
         assert topic.source == "arxiv"
         assert topic.score == 95.5
-        assert topic.suggested_agents == ["claude", "gpt4"]
+        assert topic.suggested_agents == ["claude", "gpt-5.5"]
 
     def test_debate_suggestion_from_dict(self):
         """Test DebateSuggestion.from_dict."""
@@ -195,7 +195,7 @@ class TestPulseModels:
             "rationale": "High impact, multiple valid perspectives",
             "difficulty": "hard",
             "estimated_rounds": 5,
-            "suggested_agents": ["claude", "gpt4", "gemini"],
+            "suggested_agents": ["claude", "gpt-5.5", "gemini"],
             "related_topics": ["AI in DevOps", "Code quality automation"],
         }
         suggestion = DebateSuggestion.from_dict(data)
@@ -289,7 +289,7 @@ class TestSystemModels:
             "environment": "production",
             "python_version": "3.10.13",
             "platform": "darwin",
-            "agents_available": ["claude", "gpt4", "gemini"],
+            "agents_available": ["claude", "gpt-5.5", "gemini"],
             "features_enabled": ["streaming", "consensus", "memory"],
             "memory_mb": 512.5,
             "cpu_percent": 25.0,
@@ -333,7 +333,7 @@ class TestSystemModels:
     def test_circuit_breaker_is_open(self):
         """Test CircuitBreakerStatus.is_open property."""
         open_data = {
-            "agent_id": "gpt4",
+            "agent_id": "gpt-5.5",
             "state": "open",
             "failure_count": 5,
             "success_count": 10,
@@ -420,7 +420,7 @@ class TestTournamentModels:
             "name": "Weekly Championship",
             "status": "completed",
             "format": "round_robin",
-            "participants": ["claude", "gpt4", "gemini", "llama"],
+            "participants": ["claude", "gpt-5.5", "gemini", "llama"],
             "standings": [
                 {
                     "agent_id": "claude",
@@ -430,7 +430,14 @@ class TestTournamentModels:
                     "draws": 0,
                     "points": 9.0,
                 },
-                {"agent_id": "gpt4", "rank": 2, "wins": 2, "losses": 1, "draws": 0, "points": 6.0},
+                {
+                    "agent_id": "gpt-5.5",
+                    "rank": 2,
+                    "wins": 2,
+                    "losses": 1,
+                    "draws": 0,
+                    "points": 6.0,
+                },
             ],
             "rounds_completed": 3,
             "total_rounds": 3,

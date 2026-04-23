@@ -147,7 +147,7 @@ class TestGetLeaderboard:
         mock_elo = _make_mock_elo(
             cached_leaderboard=[
                 {"name": "claude", "elo": 1650, "wins": 10, "losses": 3},
-                {"name": "gpt4", "elo": 1600, "wins": 8, "losses": 5},
+                {"name": "gpt-5.5", "elo": 1600, "wins": 8, "losses": 5},
             ]
         )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
@@ -297,7 +297,7 @@ class TestLeaderboardConsistency:
         mock_elo = _make_mock_elo(
             cached_leaderboard=[
                 {"name": "claude", "elo": 1600},
-                {"name": "gpt4", "elo": 1550},
+                {"name": "gpt-5.5", "elo": 1550},
             ]
         )
 
@@ -305,14 +305,14 @@ class TestLeaderboardConsistency:
         mock_score_claude.total_flips = 2
         mock_score_claude.total_positions = 10
 
-        mock_score_gpt4 = MagicMock()
-        mock_score_gpt4.total_flips = 5
-        mock_score_gpt4.total_positions = 10
+        mock_score_gpt55 = MagicMock()
+        mock_score_gpt55.total_flips = 5
+        mock_score_gpt55.total_positions = 10
 
         mock_detector = MagicMock()
         mock_detector.get_agents_consistency_batch.return_value = {
             "claude": mock_score_claude,
-            "gpt4": mock_score_gpt4,
+            "gpt-5.5": mock_score_gpt55,
         }
 
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
@@ -335,10 +335,10 @@ class TestLeaderboardConsistency:
                         assert claude_entry["consistency"] == 0.8
                         assert claude_entry["consistency_class"] == "high"
 
-                        # gpt4: 1.0 - (5/10) = 0.5 -> low
-                        gpt4_entry = next(r for r in rankings if r.get("name") == "gpt4")
-                        assert gpt4_entry["consistency"] == 0.5
-                        assert gpt4_entry["consistency_class"] == "low"
+                        # gpt-5.5: 1.0 - (5/10) = 0.5 -> low
+                        gpt55_entry = next(r for r in rankings if r.get("name") == "gpt-5.5")
+                        assert gpt55_entry["consistency"] == 0.5
+                        assert gpt55_entry["consistency_class"] == "low"
 
     @pytest.mark.asyncio
     async def test_consistency_medium_class(self, handler, mock_http_handler):
@@ -518,7 +518,7 @@ class TestGetCalibrationLeaderboard:
         mock_elo = _make_mock_elo(
             leaderboard=[
                 {"name": "claude", "elo": 1650, "calibration_score": 0.92},
-                {"name": "gpt4", "elo": 1600, "calibration_score": 0.88},
+                {"name": "gpt-5.5", "elo": 1600, "calibration_score": 0.88},
             ]
         )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
@@ -595,7 +595,7 @@ class TestGetRecentMatches:
         """Returns recent matches when ELO has get_cached_recent_matches."""
         mock_elo = _make_mock_elo(
             cached_recent_matches=[
-                {"winner": "claude", "loser": "gpt4", "timestamp": 1000000},
+                {"winner": "claude", "loser": "gpt-5.5", "timestamp": 1000000},
                 {"winner": "gemini", "loser": "claude", "timestamp": 1000001},
             ]
         )
@@ -647,7 +647,7 @@ class TestGetRecentMatches:
         """Falls back to get_recent_matches when get_cached_recent_matches is not available."""
         mock_elo = MagicMock(spec=["get_recent_matches"])
         mock_elo.get_recent_matches.return_value = [
-            {"winner": "claude", "loser": "gpt4"},
+            {"winner": "claude", "loser": "gpt-5.5"},
         ]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle("/api/matches/recent", {}, mock_http_handler)
@@ -725,14 +725,14 @@ class TestCompareAgents:
     async def test_compare_two_agents_happy_path(self, handler, mock_http_handler):
         """Comparing two agents returns profiles and head-to-head data."""
         mock_elo = _make_mock_elo(
-            ratings_batch={"claude": 1650, "gpt4": 1600},
+            ratings_batch={"claude": 1650, "gpt-5.5": 1600},
             agent_stats={"wins": 10, "losses": 5},
-            head_to_head={"claude_wins": 3, "gpt4_wins": 2},
+            head_to_head={"claude_wins": 3, "gpt-5.5_wins": 2},
         )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 200
@@ -741,7 +741,7 @@ class TestCompareAgents:
             assert len(body["agents"]) == 2
             assert body["agents"][0]["name"] == "claude"
             assert body["agents"][0]["rating"] == 1650
-            assert body["agents"][1]["name"] == "gpt4"
+            assert body["agents"][1]["name"] == "gpt-5.5"
             assert body["agents"][1]["rating"] == 1600
             assert body["head_to_head"] is not None
 
@@ -749,13 +749,13 @@ class TestCompareAgents:
     async def test_compare_three_agents(self, handler, mock_http_handler):
         """Comparing 3+ agents returns profiles without head-to-head."""
         mock_elo = _make_mock_elo(
-            ratings_batch={"claude": 1650, "gpt4": 1600, "gemini": 1550},
+            ratings_batch={"claude": 1650, "gpt-5.5": 1600, "gemini": 1550},
             agent_stats={},
         )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4", "gemini"]},
+                {"agents": ["claude", "gpt-5.5", "gemini"]},
                 mock_http_handler,
             )
             assert _status(result) == 200
@@ -793,7 +793,7 @@ class TestCompareAgents:
         with patch.object(handler, "get_elo_system", return_value=None):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 503
@@ -822,29 +822,29 @@ class TestCompareAgents:
         from aragora.config import ELO_INITIAL_RATING
 
         mock_elo = _make_mock_elo(
-            ratings_batch={"claude": 1650},  # gpt4 missing
+            ratings_batch={"claude": 1650},  # gpt-5.5 missing
             agent_stats={},
         )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 200
             body = _body(result)
-            gpt4_profile = body["agents"][1]
-            assert gpt4_profile["rating"] == ELO_INITIAL_RATING
+            gpt55_profile = body["agents"][1]
+            assert gpt55_profile["rating"] == ELO_INITIAL_RATING
 
     @pytest.mark.asyncio
     async def test_compare_no_agent_stats_method(self, handler, mock_http_handler):
         """Works when ELO has no get_agent_stats method."""
         mock_elo = MagicMock(spec=["get_ratings_batch"])
-        mock_elo.get_ratings_batch.return_value = {"claude": 1650, "gpt4": 1600}
+        mock_elo.get_ratings_batch.return_value = {"claude": 1650, "gpt-5.5": 1600}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 200
@@ -855,14 +855,14 @@ class TestCompareAgents:
     async def test_compare_head_to_head_failure(self, handler, mock_http_handler):
         """Head-to-head failure is gracefully handled."""
         mock_elo = _make_mock_elo(
-            ratings_batch={"claude": 1650, "gpt4": 1600},
+            ratings_batch={"claude": 1650, "gpt-5.5": 1600},
             agent_stats={},
         )
         mock_elo.get_head_to_head.side_effect = RuntimeError("H2H not available")
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 200
@@ -879,7 +879,7 @@ class TestCompareAgents:
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 500
@@ -888,13 +888,13 @@ class TestCompareAgents:
     async def test_compare_versioned_path(self, handler, mock_http_handler):
         """Works with /api/v1/agent/compare."""
         mock_elo = _make_mock_elo(
-            ratings_batch={"claude": 1650, "gpt4": 1600},
+            ratings_batch={"claude": 1650, "gpt-5.5": 1600},
             agent_stats={},
         )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/v1/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 200
@@ -903,13 +903,13 @@ class TestCompareAgents:
     async def test_compare_agents_stats_merged(self, handler, mock_http_handler):
         """Stats from get_agent_stats are merged into the profile."""
         mock_elo = _make_mock_elo(
-            ratings_batch={"claude": 1650, "gpt4": 1600},
+            ratings_batch={"claude": 1650, "gpt-5.5": 1600},
             agent_stats={"wins": 10, "losses": 3, "win_rate": 0.77},
         )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 200
@@ -936,13 +936,13 @@ class TestCompareAgents:
         from aragora.config import ELO_INITIAL_RATING
 
         mock_elo = _make_mock_elo(
-            ratings_batch={"claude": None, "gpt4": 1600},
+            ratings_batch={"claude": None, "gpt-5.5": 1600},
             agent_stats={},
         )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 200
@@ -958,7 +958,7 @@ class TestCompareAgents:
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 500
@@ -971,7 +971,7 @@ class TestCompareAgents:
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 500
@@ -1074,7 +1074,7 @@ class TestErrorExceptionCoverage:
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 500
@@ -1148,19 +1148,19 @@ class TestEdgeCases:
     async def test_compare_exactly_two_agents_h2h_called(self, handler, mock_http_handler):
         """With exactly 2 agents, head-to-head lookup is attempted."""
         mock_elo = _make_mock_elo(
-            ratings_batch={"claude": 1600, "gpt4": 1550},
+            ratings_batch={"claude": 1600, "gpt-5.5": 1550},
             agent_stats={},
             head_to_head={"wins_a": 5, "wins_b": 3},
         )
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/compare",
-                {"agents": ["claude", "gpt4"]},
+                {"agents": ["claude", "gpt-5.5"]},
                 mock_http_handler,
             )
             assert _status(result) == 200
             body = _body(result)
-            mock_elo.get_head_to_head.assert_called_once_with("claude", "gpt4")
+            mock_elo.get_head_to_head.assert_called_once_with("claude", "gpt-5.5")
             assert body["head_to_head"] is not None
 
     @pytest.mark.asyncio

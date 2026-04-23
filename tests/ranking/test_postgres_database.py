@@ -175,7 +175,7 @@ class TestPostgresEloDatabase:
         db, mock_conn = mock_db
         mock_rows = [
             {"agent_name": "claude", "elo": 1600.0, "wins": 15},
-            {"agent_name": "gpt4", "elo": 1550.0, "wins": 12},
+            {"agent_name": "gpt-5.5", "elo": 1550.0, "wins": 12},
         ]
         mock_conn.fetch.return_value = mock_rows
 
@@ -194,10 +194,10 @@ class TestPostgresEloDatabase:
         result = await db.save_match(
             debate_id="debate-123",
             winner="claude",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             domain="general",
-            scores={"claude": 1.0, "gpt4": 0.0},
-            elo_changes={"claude": 16.0, "gpt4": -16.0},
+            scores={"claude": 1.0, "gpt-5.5": 0.0},
+            elo_changes={"claude": 16.0, "gpt-5.5": -16.0},
         )
 
         assert result == 42
@@ -211,17 +211,17 @@ class TestPostgresEloDatabase:
             "id": 1,
             "debate_id": "debate-123",
             "winner": "claude",
-            "participants": '["claude", "gpt4"]',
-            "scores": '{"claude": 1.0, "gpt4": 0.0}',
-            "elo_changes": '{"claude": 16.0, "gpt4": -16.0}',
+            "participants": '["claude", "gpt-5.5"]',
+            "scores": '{"claude": 1.0, "gpt-5.5": 0.0}',
+            "elo_changes": '{"claude": 16.0, "gpt-5.5": -16.0}',
         }
         mock_conn.fetchrow.return_value = mock_row
 
         result = await db.get_match("debate-123")
 
-        assert result["participants"] == ["claude", "gpt4"]
-        assert result["scores"] == {"claude": 1.0, "gpt4": 0.0}
-        assert result["elo_changes"] == {"claude": 16.0, "gpt4": -16.0}
+        assert result["participants"] == ["claude", "gpt-5.5"]
+        assert result["scores"] == {"claude": 1.0, "gpt-5.5": 0.0}
+        assert result["elo_changes"] == {"claude": 16.0, "gpt-5.5": -16.0}
 
     @pytest.mark.asyncio
     async def test_save_elo_history(self, mock_db):

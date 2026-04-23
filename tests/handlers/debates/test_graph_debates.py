@@ -244,7 +244,7 @@ class TestGraphDebatePostValidation:
     async def test_returns_400_without_task(self, graph_handler, mock_http_handler):
         """Returns 400 when task is missing."""
         result = await graph_handler.handle_post(
-            mock_http_handler, "/api/v1/debates/graph", {"agents": ["claude", "gpt4"]}
+            mock_http_handler, "/api/v1/debates/graph", {"agents": ["claude", "gpt-5.5"]}
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -256,7 +256,7 @@ class TestGraphDebatePostValidation:
         result = await graph_handler.handle_post(
             mock_http_handler,
             "/api/v1/debates/graph",
-            {"task": 12345, "agents": ["claude", "gpt4"]},
+            {"task": 12345, "agents": ["claude", "gpt-5.5"]},
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -268,7 +268,7 @@ class TestGraphDebatePostValidation:
         result = await graph_handler.handle_post(
             mock_http_handler,
             "/api/v1/debates/graph",
-            {"task": "Short", "agents": ["claude", "gpt4"]},
+            {"task": "Short", "agents": ["claude", "gpt-5.5"]},
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -280,7 +280,7 @@ class TestGraphDebatePostValidation:
         result = await graph_handler.handle_post(
             mock_http_handler,
             "/api/v1/debates/graph",
-            {"task": "A" * 5001, "agents": ["claude", "gpt4"]},
+            {"task": "A" * 5001, "agents": ["claude", "gpt-5.5"]},
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -292,7 +292,7 @@ class TestGraphDebatePostValidation:
         result = await graph_handler.handle_post(
             mock_http_handler,
             "/api/v1/debates/graph",
-            {"task": "What about <script>alert('xss')</script>?", "agents": ["claude", "gpt4"]},
+            {"task": "What about <script>alert('xss')</script>?", "agents": ["claude", "gpt-5.5"]},
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -304,7 +304,7 @@ class TestGraphDebatePostValidation:
         result = await graph_handler.handle_post(
             mock_http_handler,
             "/api/v1/debates/graph",
-            {"task": "Evaluate this: {{config.secret}}", "agents": ["claude", "gpt4"]},
+            {"task": "Evaluate this: {{config.secret}}", "agents": ["claude", "gpt-5.5"]},
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -415,7 +415,7 @@ class TestGraphDebateRoundsValidation:
             "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "max_rounds": "invalid",
             },
         )
@@ -431,7 +431,7 @@ class TestGraphDebateRoundsValidation:
             "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "max_rounds": 0,
             },
         )
@@ -447,7 +447,7 @@ class TestGraphDebateRoundsValidation:
             "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "max_rounds": 21,
             },
         )
@@ -472,7 +472,7 @@ class TestGraphDebateBranchPolicyValidation:
             "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "branch_policy": "invalid",
             },
         )
@@ -488,7 +488,7 @@ class TestGraphDebateBranchPolicyValidation:
             "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "branch_policy": {"min_disagreement": 1.5},
             },
         )
@@ -504,7 +504,7 @@ class TestGraphDebateBranchPolicyValidation:
             "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "branch_policy": {"max_branches": 15},
             },
         )
@@ -520,7 +520,7 @@ class TestGraphDebateBranchPolicyValidation:
             "/api/v1/debates/graph",
             {
                 "task": "What is the meaning of life and existence?",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "branch_policy": {"merge_strategy": "invalid"},
             },
         )
@@ -654,7 +654,7 @@ class TestGraphDebateRateLimiting:
                 "/api/v1/debates/graph",
                 {
                     "task": f"What is the meaning of life and existence? Request {i}",
-                    "agents": ["claude", "gpt4"],
+                    "agents": ["claude", "gpt-5.5"],
                 },
             )
 
@@ -687,7 +687,7 @@ class TestGraphDebateErrorHandling:
                     "/api/v1/debates/graph",
                     {
                         "task": "What is the meaning of life and existence?",
-                        "agents": ["claude", "gpt4"],
+                        "agents": ["claude", "gpt-5.5"],
                     },
                 )
                 # Will fail at import or with 500 error

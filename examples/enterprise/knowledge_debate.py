@@ -77,7 +77,7 @@ def run_demo():
         " matters but client disruption is higher risk."
     )
     time.sleep(0.2)
-    print("\n[gpt4-critic]:")
+    print("\n[gpt-5.5]:")
     print(
         "  The Q4 benchmarks show REST is adequate at current load. gRPC benefits"
         " only manifest above 5K req/s. Team readiness survey shows 60% unfamiliar"
@@ -108,7 +108,9 @@ async def run_live():
     agents = []
     for agent_type, role in [("anthropic-api", "proposer"), ("openai-api", "critic")]:
         try:
-            agents.append(create_agent(model_type=agent_type, name=f"{agent_type}-{role}", role=role))
+            agents.append(
+                create_agent(model_type=agent_type, name=f"{agent_type}-{role}", role=role)
+            )
         except Exception:
             pass
 

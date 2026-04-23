@@ -870,7 +870,7 @@ describe('New Namespace APIs', () => {
                   recommended_action: 'respond_urgent',
                   confidence: 0.9,
                   rationale: 'High priority sender, time-sensitive request',
-                  agents_involved: ['claude', 'gpt-4'],
+                  agents_involved: ['claude', 'gpt-5.5'],
                 },
               ],
               total_triaged: 1,

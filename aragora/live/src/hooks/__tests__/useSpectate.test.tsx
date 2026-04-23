@@ -212,7 +212,7 @@ describe('useSpectate', () => {
               data: { details: 'Do not fake liveness.' },
               debate_id: 'debate-1',
               pipeline_id: null,
-              agent_name: 'gpt4',
+              agent_name: 'gpt-5.5',
               round_number: 1,
             },
           ],
@@ -240,7 +240,7 @@ describe('useSpectate', () => {
     });
 
     expect(result.current.events[0].event_type).toBe('critique');
-    expect(result.current.events[0].agent_name).toBe('gpt4');
+    expect(result.current.events[0].agent_name).toBe('gpt-5.5');
     expect(
       mockFetch.mock.calls.some(([url]) => String(url).includes('/api/v1/spectate/recent?count=4')),
     ).toBe(true);

@@ -365,12 +365,12 @@ class TestRecordAgentResponse:
     def test_multiple_agents_tracked_separately(self, governor):
         """Test different agents are tracked separately."""
         governor.record_agent_response("claude", latency_ms=1000, success=True)
-        governor.record_agent_response("gpt4", latency_ms=2000, success=True)
+        governor.record_agent_response("gpt-5.5", latency_ms=2000, success=True)
 
         assert "claude" in governor.agent_metrics
-        assert "gpt4" in governor.agent_metrics
+        assert "gpt-5.5" in governor.agent_metrics
         assert governor.agent_metrics["claude"].total_latency_ms == 1000
-        assert governor.agent_metrics["gpt4"].total_latency_ms == 2000
+        assert governor.agent_metrics["gpt-5.5"].total_latency_ms == 2000
 
 
 # ============================================================================

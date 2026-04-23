@@ -38,7 +38,7 @@ def mock_agents():
     agent1.generate = AsyncMock(return_value="Agent 1 response")
 
     agent2 = Mock()
-    agent2.name = "gpt4"
+    agent2.name = "gpt-5.5"
     agent2.generate = AsyncMock(return_value="Agent 2 response")
 
     return [agent1, agent2]

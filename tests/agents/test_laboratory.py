@@ -291,7 +291,7 @@ class TestEmergentTrait:
         """Test creating an emergent trait."""
         trait = EmergentTrait(
             trait_name="emergent_security_specialist",
-            source_agents=["claude", "gpt4"],
+            source_agents=["claude", "gpt-5.5"],
             supporting_evidence=["High security success rate"],
             confidence=0.85,
         )
@@ -340,14 +340,14 @@ class TestTraitTransfer:
         """Test creating a trait transfer record."""
         transfer = TraitTransfer(
             from_agent="claude",
-            to_agent="gpt4",
+            to_agent="gpt-5.5",
             trait="thorough",
             expertise_domain=None,
             success_rate_before=0.6,
         )
 
         assert transfer.from_agent == "claude"
-        assert transfer.to_agent == "gpt4"
+        assert transfer.to_agent == "gpt-5.5"
         assert transfer.trait == "thorough"
         assert transfer.success_rate_after is None
 

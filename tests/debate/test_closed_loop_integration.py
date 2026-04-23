@@ -43,7 +43,7 @@ class _FakeArena:
         self.env.context = {}
 
         agents = []
-        for name in ("claude", "gpt4", "gemini"):
+        for name in ("claude", "gpt-5.5", "gemini"):
             agent = MagicMock()
             agent.name = name
             agent.model = f"{name}-model"
@@ -159,7 +159,7 @@ class TestClosedLoopIntegration:
         bus.emit_sync(
             "agent_message",
             debate_id="integration-test-001",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="Consider sliding window instead of token bucket",
             role="proposer",
             round_num=1,
@@ -169,7 +169,7 @@ class TestClosedLoopIntegration:
         bus.emit_sync(
             "agent_message",
             debate_id="integration-test-001",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="Token bucket doesn't handle burst traffic well",
             role="critic",
             round_num=1,
@@ -202,11 +202,11 @@ class TestClosedLoopIntegration:
         assert "introspection" in result.metadata
         introspection = result.metadata["introspection"]
         assert "claude" in introspection
-        assert "gpt4" in introspection
+        assert "gpt-5.5" in introspection
         assert introspection["claude"]["total_proposals"] == 2
         assert introspection["claude"]["total_critiques"] == 1
-        assert introspection["gpt4"]["total_proposals"] == 1
-        assert introspection["gpt4"]["total_critiques"] == 1
+        assert introspection["gpt-5.5"]["total_proposals"] == 1
+        assert introspection["gpt-5.5"]["total_critiques"] == 1
 
         # Verify live explainability metadata attached
         assert "live_explainability" in result.metadata
@@ -247,7 +247,7 @@ class TestClosedLoopIntegration:
             "suggestions_queued": 1,
             "trickster_adjustment": 0.9,
             "domains_flagged": ["architecture"],
-            "agents_flagged": ["gpt4"],
+            "agents_flagged": ["gpt-5.5"],
         }
 
         with (
@@ -290,7 +290,7 @@ class TestClosedLoopIntegration:
         # Test _error_to_goals directly with a known error pattern
         error = {
             "domain": "security",
-            "agent": "gpt4",
+            "agent": "gpt-5.5",
             "overconfidence": 0.25,
             "success_rate": 0.55,
             "avg_brier_score": 0.35,
@@ -310,7 +310,7 @@ class TestClosedLoopIntegration:
         for goal in goals:
             assert 0.0 <= goal.severity <= 1.0
             assert goal.domain == "security"
-            assert goal.agent == "gpt4"
+            assert goal.agent == "gpt-5.5"
             assert goal.priority >= 1
             assert goal.priority <= 10
 

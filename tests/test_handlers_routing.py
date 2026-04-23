@@ -112,7 +112,7 @@ class TestBestTeamsEndpoint:
         """Test best-teams endpoint with query parameters."""
         mock_selector = MagicMock()
         mock_selector.get_best_team_combinations.return_value = [
-            {"team": ["claude", "gpt4"], "score": 0.9},
+            {"team": ["claude", "gpt-5.5"], "score": 0.9},
             {"team": ["claude", "gemini"], "score": 0.85},
         ]
 
@@ -175,7 +175,7 @@ class TestDomainLeaderboardEndpoint:
         mock_selector = MagicMock()
         mock_selector.get_domain_leaderboard.return_value = [
             {"agent": "claude", "score": 1300},
-            {"agent": "gpt4", "score": 1250},
+            {"agent": "gpt-5.5", "score": 1250},
         ]
 
         with (
@@ -261,7 +261,7 @@ class TestRecommendationsEndpoint:
         mock_selector = MagicMock()
         mock_selector.get_recommendations.return_value = [
             {"agent": "claude", "score": 0.9},
-            {"agent": "gpt4", "score": 0.85},
+            {"agent": "gpt-5.5", "score": 0.85},
         ]
 
         with (
@@ -315,7 +315,7 @@ class TestAutoRouteEndpoint:
     def test_auto_route_success(self, routing_handler, mock_http_handler_post):
         """Test successful auto-routing."""
         handler = mock_http_handler_post(
-            {"task": "Build a REST API with authentication", "exclude": ["gpt4"]}
+            {"task": "Build a REST API with authentication", "exclude": ["gpt-5.5"]}
         )
 
         mock_agent = MagicMock()

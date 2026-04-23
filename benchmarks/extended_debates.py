@@ -90,7 +90,7 @@ async def benchmark_extended_debate_memory(iterations: int = 10) -> BenchmarkRes
         for round_num in range(55):
             responses = [
                 {"agent": "claude", "content": f"Round {round_num} response from claude. " * 20},
-                {"agent": "gpt4", "content": f"Round {round_num} response from gpt4. " * 20},
+                {"agent": "gpt-5.5", "content": f"Round {round_num} response from gpt-5.5. " * 20},
                 {"agent": "gemini", "content": f"Round {round_num} response from gemini. " * 20},
             ]
             await context_manager.add_round(round_num, responses)

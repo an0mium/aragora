@@ -70,7 +70,7 @@ def _hr_recruitment_receipt() -> dict[str, Any]:
         "consensus_proof": {
             "method": "weighted_majority",
             "threshold": 0.66,
-            "supporting_agents": ["claude-analyst", "mistral-auditor", "gpt4-ethics"],
+            "supporting_agents": ["claude-analyst", "mistral-auditor", "gpt-5.5"],
             "dissenting_agents": ["gemini-challenger"],
             "agreement_ratio": 0.75,
         },
@@ -113,7 +113,7 @@ def _hr_recruitment_receipt() -> dict[str, Any]:
             {
                 "event_type": "vote_cast",
                 "timestamp": "2026-02-12T10:04:01Z",
-                "actor": "gpt4-ethics",
+                "actor": "gpt-5.5",
             },
             {
                 "event_type": "vote_cast",
@@ -177,7 +177,7 @@ def _credit_scoring_receipt() -> dict[str, Any]:
         "consensus_proof": {
             "method": "unanimous",
             "threshold": 1.0,
-            "supporting_agents": ["claude-analyst", "gpt4-ethics"],
+            "supporting_agents": ["claude-analyst", "gpt-5.5"],
             "dissenting_agents": ["mistral-auditor", "gemini-challenger"],
             "agreement_ratio": 0.50,
         },
@@ -235,7 +235,7 @@ def _chatbot_receipt() -> dict[str, Any]:
         "consensus_proof": {
             "method": "weighted_majority",
             "threshold": 0.66,
-            "supporting_agents": ["claude-analyst", "mistral-auditor", "gpt4-ethics"],
+            "supporting_agents": ["claude-analyst", "mistral-auditor", "gpt-5.5"],
             "dissenting_agents": [],
             "agreement_ratio": 1.0,
         },
@@ -264,7 +264,7 @@ def _chatbot_receipt() -> dict[str, Any]:
             {
                 "event_type": "vote_cast",
                 "timestamp": "2026-02-12T09:05:02Z",
-                "actor": "gpt4-ethics",
+                "actor": "gpt-5.5",
             },
             {
                 "event_type": "human_approval",

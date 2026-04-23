@@ -369,7 +369,7 @@ export const mockHeatmapData = {
 export const mockBeliefNetwork = {
   nodes: [
     { id: 'node-1', statement: 'Test claim', author: 'claude', centrality: 0.8, is_crux: true },
-    { id: 'node-2', statement: 'Supporting claim', author: 'gpt4', centrality: 0.6 },
+    { id: 'node-2', statement: 'Supporting claim', author: 'gpt-5.5', centrality: 0.6 },
   ],
   links: [
     { source: 'node-1', target: 'node-2', weight: 0.8, type: 'supports' },

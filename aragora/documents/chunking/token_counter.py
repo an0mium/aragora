@@ -10,13 +10,13 @@ Usage:
     counter = TokenCounter()
 
     # Count tokens for a specific model
-    tokens = counter.count("Hello world", model="gpt-4")
+    tokens = counter.count("Hello world", model="gpt-5.5")
 
     # Count tokens for Claude (approximation)
     tokens = counter.count("Hello world", model="claude-3-opus")
 
     # Get appropriate encoder for model
-    encoder = counter.get_encoder("gpt-4")
+    encoder = counter.get_encoder("gpt-5.5")
 """
 
 from __future__ import annotations
@@ -41,10 +41,7 @@ except (ImportError, AttributeError):
 # Model family to encoding mapping for tiktoken
 MODEL_ENCODINGS = {
     # OpenAI models
-    "gpt-4": "cl100k_base",
-    "gpt-4-turbo": "cl100k_base",
-    "gpt-4o": "o200k_base",
-    "gpt-3.5-turbo": "cl100k_base",
+    "gpt-5.5": "o200k_base",
     "text-embedding-ada-002": "cl100k_base",
     "text-embedding-3-small": "cl100k_base",
     "text-embedding-3-large": "cl100k_base",
@@ -55,7 +52,7 @@ MODEL_ENCODINGS = {
 # Characters per token approximations for non-OpenAI models
 # Based on empirical testing and model documentation
 CHARS_PER_TOKEN = {
-    # Anthropic (Claude uses similar tokenization to GPT-4)
+    # Anthropic (Claude uses similar tokenization to GPT-5.5)
     "claude": 4.0,
     # Google (Gemini uses SentencePiece)
     "gemini": 4.2,
@@ -111,7 +108,7 @@ class TokenCounter:
     approximations for other providers.
     """
 
-    def __init__(self, default_model: str = "gpt-4"):
+    def __init__(self, default_model: str = "gpt-5.5"):
         """
         Initialize token counter.
 
@@ -151,8 +148,8 @@ class TokenCounter:
         model_lower = model.lower()
         encoding_name = MODEL_ENCODINGS.get(model_lower, MODEL_ENCODINGS["default"])
 
-        # Handle GPT-4o's newer encoding
-        if "gpt-4o" in model_lower:
+        # Handle GPT-5.5's newer encoding
+        if "gpt-5.5" in model_lower:
             encoding_name = "o200k_base"
 
         encoding = _get_tiktoken_encoding(encoding_name)
@@ -337,7 +334,7 @@ def get_token_counter() -> TokenCounter:
     return _token_counter
 
 
-def count_tokens(text: str, model: str = "gpt-4") -> int:
+def count_tokens(text: str, model: str = "gpt-5.5") -> int:
     """Convenience function to count tokens."""
     return get_token_counter().count(text, model)
 

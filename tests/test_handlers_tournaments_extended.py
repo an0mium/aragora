@@ -287,7 +287,7 @@ class TestTournamentResponseFormat:
             mock_manager = Mock()
             mock_manager.get_current_standings.return_value = [
                 MockStanding.create("claude", 5, 2, 1),
-                MockStanding.create("gpt4", 3, 4, 1),
+                MockStanding.create("gpt-5.5", 3, 4, 1),
             ]
             MockManager.return_value = mock_manager
 
@@ -617,9 +617,9 @@ class TestTournamentDataParsing:
 
         with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
-            # gpt4 is first (top agent)
+            # gpt-5.5 is first (top agent)
             mock_manager.get_current_standings.return_value = [
-                MockStanding.create("gpt4", 10, 0, 0),
+                MockStanding.create("gpt-5.5", 10, 0, 0),
                 MockStanding.create("claude", 5, 5, 0),
                 MockStanding.create("gemini", 0, 10, 0),
             ]
@@ -628,7 +628,7 @@ class TestTournamentDataParsing:
             result = handler.handle("/api/tournaments", {}, mock_h)
             body = json.loads(result.body)
 
-            assert body["tournaments"][0]["top_agent"] == "gpt4"
+            assert body["tournaments"][0]["top_agent"] == "gpt-5.5"
 
     def test_win_rate_in_standings(self, tournament_ctx, mock_handler_factory):
         """Win rate is correctly included in standings."""

@@ -53,7 +53,7 @@ def lifecycle():
 
 @pytest.fixture
 def config():
-    return TeamsDebateConfig(rounds=3, agents=["claude", "gpt4"])
+    return TeamsDebateConfig(rounds=3, agents=["claude", "gpt-5.5"])
 
 
 def _make_debate_result(**kwargs):
@@ -67,7 +67,7 @@ def _make_debate_result(**kwargs):
     result.confidence = kwargs.get("confidence", 0.85)
     result.rounds_used = kwargs.get("rounds_used", 3)
     result.winner = kwargs.get("winner", "claude")
-    result.participants = kwargs.get("participants", ["claude", "gpt4"])
+    result.participants = kwargs.get("participants", ["claude", "gpt-5.5"])
     result.rounds = kwargs.get("rounds", [])
     result.critiques = kwargs.get("critiques")
     result.votes = kwargs.get("votes")
@@ -99,7 +99,7 @@ class TestTeamsDebateConfig:
     def test_default_values(self):
         cfg = TeamsDebateConfig()
         assert cfg.rounds == 3
-        assert cfg.agents == ["claude", "gpt4", "gemini"]
+        assert cfg.agents == ["claude", "gpt-5.5", "gemini"]
         assert cfg.consensus_threshold == 0.7
         assert cfg.timeout_seconds == 300.0
         assert cfg.enable_voting is True
@@ -107,7 +107,7 @@ class TestTeamsDebateConfig:
     def test_custom_values(self):
         cfg = TeamsDebateConfig(
             rounds=5,
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             consensus_threshold=0.9,
             timeout_seconds=600.0,
             enable_voting=False,
@@ -367,7 +367,7 @@ class TestParseCommandText:
 
 class TestBuildDebateStartedCard:
     def test_returns_card(self):
-        cfg = TeamsDebateConfig(agents=["claude", "gpt4"])
+        cfg = TeamsDebateConfig(agents=["claude", "gpt-5.5"])
         card = _build_debate_started_card("d-123", "Test topic", cfg)
         assert card.get("type") == "AdaptiveCard" or "body" in card
 
@@ -377,11 +377,11 @@ class TestBuildDebateStartedCard:
         assert "My debate topic" in str(card)
 
     def test_agents_in_card(self):
-        cfg = TeamsDebateConfig(agents=["claude", "gpt4"])
+        cfg = TeamsDebateConfig(agents=["claude", "gpt-5.5"])
         card = _build_debate_started_card("d-123", "Topic", cfg)
         card_text = str(card)
         assert "claude" in card_text
-        assert "gpt4" in card_text
+        assert "gpt-5.5" in card_text
 
     def test_debate_id_in_card(self):
         cfg = TeamsDebateConfig()
@@ -410,7 +410,7 @@ class TestBuildRoundUpdateCard:
     def test_with_agent_messages(self):
         messages = [
             {"agent": "claude", "summary": "We should use token bucket."},
-            {"agent": "gpt4", "summary": "Sliding window is better."},
+            {"agent": "gpt-5.5", "summary": "Sliding window is better."},
         ]
         card = _build_round_update_card(
             topic="Rate limiter",
@@ -423,7 +423,7 @@ class TestBuildRoundUpdateCard:
         assert "token bucket" in card_text
 
     def test_long_summary_truncated(self):
-        messages = [{"agent": "gpt4", "summary": "x" * 500}]
+        messages = [{"agent": "gpt-5.5", "summary": "x" * 500}]
         card = _build_round_update_card(
             topic="Topic",
             round_number=1,
@@ -469,7 +469,7 @@ class TestBuildConsensusCard:
             "consensus_reached": True,
             "confidence": 0.85,
             "final_answer": "Use token bucket algorithm.",
-            "participants": ["claude", "gpt4"],
+            "participants": ["claude", "gpt-5.5"],
             "rounds_used": 3,
         }
         card = _build_consensus_card("Rate limiter", result, "d-123")
@@ -481,7 +481,7 @@ class TestBuildConsensusCard:
             "consensus_reached": False,
             "confidence": 0.4,
             "final_answer": "",
-            "participants": ["claude", "gpt4"],
+            "participants": ["claude", "gpt-5.5"],
             "rounds_used": 3,
         }
         card = _build_consensus_card("Topic", result, "d-123")
@@ -820,7 +820,7 @@ class TestStartDebateFromThread:
         with patch.object(
             lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
         ):
-            config.agents = ["claude", "gpt4", "gemini"]
+            config.agents = ["claude", "gpt-5.5", "gemini"]
             config.rounds = 5
             debate_id = await lifecycle.start_debate_from_thread(
                 channel_id="19:abc@thread.tacv2",
@@ -949,7 +949,7 @@ class TestPostConsensus:
                     "consensus_reached": True,
                     "confidence": 0.85,
                     "final_answer": "Use token bucket.",
-                    "participants": ["claude", "gpt4"],
+                    "participants": ["claude", "gpt-5.5"],
                     "rounds_used": 3,
                 },
             )
@@ -1153,7 +1153,7 @@ class TestPostCritiqueSummary:
         ) as mock_send:
             critiques = [
                 {"agent": "claude", "summary": "Good approach but needs caching."},
-                {"agent": "gpt4", "summary": "Consider edge cases."},
+                {"agent": "gpt-5.5", "summary": "Consider edge cases."},
             ]
             result = await lifecycle.post_critique_summary(
                 channel_id="ch-1",
@@ -1203,7 +1203,7 @@ class TestPostVotingResults:
         ) as mock_send:
             votes = {
                 "claude": {"position": "for", "confidence": 0.9},
-                "gpt4": {"position": "against", "confidence": 0.6},
+                "gpt-5.5": {"position": "against", "confidence": 0.6},
             }
             result = await lifecycle.post_voting_results(
                 channel_id="ch-1",
@@ -1227,7 +1227,7 @@ class TestPostVotingResults:
         with patch.object(
             lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
         ) as mock_send:
-            votes = {"claude": "agree", "gpt4": "disagree"}
+            votes = {"claude": "agree", "gpt-5.5": "disagree"}
             result = await lifecycle.post_voting_results(
                 channel_id="ch-1",
                 message_id="msg-1",

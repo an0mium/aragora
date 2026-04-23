@@ -168,7 +168,7 @@ def test_cli_healthcheck_failure_returns_6() -> None:
 
     assert (
         module.main(
-            ["start-run", "--task", "Review", "--actor", "reviewer:codex:gpt-5.4"],
+            ["start-run", "--task", "Review", "--actor", "reviewer:codex:gpt-5.5"],
             broker_factory=FakeBroker,
             transport_factory=lambda *args, **kwargs: BrokenTransport(),
         )
@@ -189,7 +189,7 @@ def test_cli_success_returns_0_and_emits_json(capsys) -> None:
             "--task",
             "Review",
             "--actor",
-            "reviewer:codex:gpt-5.4",
+            "reviewer:codex:gpt-5.5",
             "--json",
         ],
         broker_factory=FakeBroker,

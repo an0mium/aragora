@@ -1188,11 +1188,11 @@ class TestExecuteNode:
         ):
             h.handle_post(
                 "/api/v1/pipeline/graphs/graph-abc123/execute/node-1",
-                {"agents": ["claude", "gpt4"], "rounds": 5},
+                {"agents": ["claude", "gpt-5.5"], "rounds": 5},
                 http,
             )
 
-        assert captured_kwargs["agents"] == ["claude", "gpt4"]
+        assert captured_kwargs["agents"] == ["claude", "gpt-5.5"]
         assert captured_kwargs["rounds"] == 5
 
 

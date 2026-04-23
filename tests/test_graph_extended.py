@@ -52,7 +52,7 @@ def mock_agents():
     agent1 = MagicMock()
     agent1.name = "claude"
     agent2 = MagicMock()
-    agent2.name = "gpt4"
+    agent2.name = "gpt-5.5"
     return [agent1, agent2]
 
 

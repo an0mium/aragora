@@ -72,7 +72,7 @@ class TestAudioMetadata:
             duration_seconds=180,
             file_size_bytes=1024000,
             task_summary="AI ethics discussion",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
         )
 
         assert meta.duration_seconds == 180
@@ -125,7 +125,7 @@ class TestAudioMetadata:
             "file_size_bytes": 256000,
             "generated_at": "2025-01-06T12:00:00",
             "task_summary": "Reconstructed",
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
         }
 
         meta = AudioMetadata.from_dict(data)
@@ -202,7 +202,7 @@ class TestAudioFileStore:
             audio_data=audio_bytes,
             format="wav",
             duration_seconds=45,
-            agents=["gpt4", "gemini"],
+            agents=["gpt-5.5", "gemini"],
         )
 
         assert result_path.exists()

@@ -88,8 +88,8 @@ class TestRoute:
             "/api/agent/{name}/head-to-head/{opponent}",
             "AgentsHandler",
         )
-        params = route.match("/api/agent/claude/head-to-head/gpt4")
-        assert params == {"name": "claude", "opponent": "gpt4"}
+        params = route.match("/api/agent/claude/head-to-head/gpt-5.5")
+        assert params == {"name": "claude", "opponent": "gpt-5.5"}
 
     def test_param_with_spec(self):
         """Test parameter with type spec."""
@@ -367,7 +367,7 @@ class TestParamPatterns:
         """Test name pattern."""
         pattern = PARAM_PATTERNS["name"]
         assert pattern.match("claude")
-        assert pattern.match("gpt-4")
+        assert pattern.match("gpt-5.5")
         assert pattern.match("a" * 32)  # Max length
         assert not pattern.match("a" * 33)  # Too long
 

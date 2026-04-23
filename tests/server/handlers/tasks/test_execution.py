@@ -456,12 +456,12 @@ class TestTaskRecord:
             goal="Do something",
             type="analysis",
             status="pending",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             max_steps=5,
         )
         assert task.id == "custom-id"
         assert task.type == "analysis"
-        assert task.agents == ["claude", "gpt4"]
+        assert task.agents == ["claude", "gpt-5.5"]
         assert task.max_steps == 5
 
     def test_to_dict(self):

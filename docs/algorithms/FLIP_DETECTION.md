@@ -142,7 +142,7 @@ For efficiency with multiple agents:
 
 ```python
 # Avoid N+1 queries
-scores = detector.get_agents_consistency_batch(["claude", "gpt4", "gemini"])
+scores = detector.get_agents_consistency_batch(["claude", "gpt-5.5", "gemini"])
 for agent, score in scores.items():
     print(f"{agent}: {score.consistency_score:.0%}")
 ```
@@ -154,7 +154,7 @@ summary = detector.get_flip_summary()
 # {
 #     "total_flips": 47,
 #     "by_type": {"contradiction": 12, "refinement": 25, ...},
-#     "by_agent": {"claude": 15, "gpt4": 20, ...},
+#     "by_agent": {"claude": 15, "gpt-5.5": 20, ...},
 #     "recent_24h": 5
 # }
 ```

@@ -238,7 +238,7 @@ class AgentAnalyticsMixin:
 
         Response:
         {
-            "agents": ["claude", "gpt-4", "gemini"],
+            "agents": ["claude", "gpt-5.5", "gemini"],
             "comparison": [
                 {
                     "agent_name": "claude",
@@ -251,7 +251,7 @@ class AgentAnalyticsMixin:
                 ...
             ],
             "head_to_head": {
-                "claude_vs_gpt-4": {"claude_wins": 15, "gpt-4_wins": 10, "draws": 5},
+                "claude_vs_gpt-5.5": {"claude_wins": 15, "gpt-5.5": 10, "draws": 5},
                 ...
             },
             "generated_at": "2026-01-23T12:00:00Z"
@@ -347,7 +347,7 @@ class AgentAnalyticsMixin:
 
         Response:
         {
-            "agents": ["claude", "gpt-4"],
+            "agents": ["claude", "gpt-5.5"],
             "time_range": "30d",
             "granularity": "daily",
             "trends": {
@@ -355,7 +355,7 @@ class AgentAnalyticsMixin:
                     {"period": "2026-01-01", "elo": 1640, "games": 5},
                     ...
                 ],
-                "gpt-4": [...]
+                "gpt-5.5": [...]
             },
             "generated_at": "2026-01-23T12:00:00Z"
         }

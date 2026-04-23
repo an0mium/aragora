@@ -143,7 +143,7 @@ class MockTournamentManager:
         """Get current standings."""
         return self.standings or [
             MockTournamentStanding(agent="claude", wins=2, losses=1, points=4.0),
-            MockTournamentStanding(agent="gpt4", wins=1, losses=2, points=2.0),
+            MockTournamentStanding(agent="gpt-5.5", wins=1, losses=2, points=2.0),
         ]
 
     def get_matches(
@@ -394,7 +394,7 @@ class TestGetTournament:
         mock_tournament = MockTournament(
             tournament_id="abc123",
             name="Test Tournament",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             bracket_type="round_robin",
             status="in_progress",
         )
@@ -438,7 +438,7 @@ class TestGetTournamentStandings:
 
         mock_standings = [
             MockTournamentStanding(agent="claude", wins=2, losses=0, points=4.0),
-            MockTournamentStanding(agent="gpt4", wins=0, losses=2, points=0.0),
+            MockTournamentStanding(agent="gpt-5.5", wins=0, losses=2, points=0.0),
         ]
         mock_manager = MagicMock()
         mock_manager.get_current_standings.return_value = mock_standings
@@ -483,7 +483,7 @@ class TestGetTournamentBracket:
         mock_tournament = MockTournament(
             tournament_id="abc123",
             name="Test Tournament",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             bracket_type="single_elimination",
             total_rounds=2,
         )
@@ -493,7 +493,7 @@ class TestGetTournamentBracket:
                 tournament_id="abc123",
                 round_num=1,
                 agent1="claude",
-                agent2="gpt4",
+                agent2="gpt-5.5",
                 winner="claude",
                 completed_at="2024-01-01T12:00:00Z",
             ),
@@ -544,7 +544,7 @@ class TestGetTournamentMatches:
                 tournament_id="abc123",
                 round_num=1,
                 agent1="claude",
-                agent2="gpt4",
+                agent2="gpt-5.5",
             ),
             MockTournamentMatch(
                 match_id="m2",
@@ -578,7 +578,7 @@ class TestGetTournamentMatches:
                 tournament_id="abc123",
                 round_num=1,
                 agent1="claude",
-                agent2="gpt4",
+                agent2="gpt-5.5",
             ),
         ]
         mock_manager = MagicMock()
@@ -604,7 +604,7 @@ class TestCreateTournament:
     @patch("aragora.server.handlers.tournaments.TOURNAMENT_AVAILABLE", True)
     def test_create_tournament_missing_name(self, tournament_handler):
         """Test create returns 400 when name is missing."""
-        result = tournament_handler._create_tournament({"participants": ["claude", "gpt4"]})
+        result = tournament_handler._create_tournament({"participants": ["claude", "gpt-5.5"]})
 
         assert result.status_code == 400
         data = parse_response_body(result)
@@ -627,7 +627,7 @@ class TestCreateTournament:
         result = tournament_handler._create_tournament(
             {
                 "name": "Test Tournament",
-                "participants": ["claude", "gpt4"],
+                "participants": ["claude", "gpt-5.5"],
                 "bracket_type": "invalid_type",
             }
         )
@@ -645,7 +645,7 @@ class TestCreateTournament:
         mock_tournament = MockTournament(
             tournament_id="new123",
             name="New Tournament",
-            participants=["claude", "gpt4", "gemini"],
+            participants=["claude", "gpt-5.5", "gemini"],
             bracket_type="round_robin",
             total_rounds=2,
         )
@@ -657,7 +657,7 @@ class TestCreateTournament:
             result = tournament_handler._create_tournament(
                 {
                     "name": "New Tournament",
-                    "participants": ["claude", "gpt4", "gemini"],
+                    "participants": ["claude", "gpt-5.5", "gemini"],
                     "bracket_type": "round_robin",
                 }
             )
@@ -676,7 +676,7 @@ class TestCreateTournament:
         mock_tournament = MockTournament(
             tournament_id="elim123",
             name="Elimination Tournament",
-            participants=["claude", "gpt4", "gemini", "llama"],
+            participants=["claude", "gpt-5.5", "gemini", "llama"],
             bracket_type="single_elimination",
             total_rounds=2,
         )
@@ -688,7 +688,7 @@ class TestCreateTournament:
             result = tournament_handler._create_tournament(
                 {
                     "name": "Elimination Tournament",
-                    "participants": ["claude", "gpt4", "gemini", "llama"],
+                    "participants": ["claude", "gpt-5.5", "gemini", "llama"],
                     "bracket_type": "single_elimination",
                 }
             )
@@ -725,7 +725,7 @@ class TestAdvanceTournament:
         mock_tournament = MockTournament(
             tournament_id="abc123",
             name="Test Tournament",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             rounds_completed=1,
             total_rounds=3,
         )
@@ -1031,11 +1031,11 @@ class TestIntegration:
         mock_tournament = MockTournament(
             tournament_id="flow123",
             name="Flow Test Tournament",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
         )
         mock_standings = [
             MockTournamentStanding(agent="claude", wins=1, losses=0, points=2.0),
-            MockTournamentStanding(agent="gpt4", wins=0, losses=1, points=0.0),
+            MockTournamentStanding(agent="gpt-5.5", wins=0, losses=1, points=0.0),
         ]
         mock_manager = MagicMock()
         mock_manager.create_tournament.return_value = mock_tournament
@@ -1047,7 +1047,7 @@ class TestIntegration:
         with patch.object(Path, "mkdir"):
             create_result = tournament_handler.handle_post(
                 "/api/tournaments",
-                {"name": "Flow Test Tournament", "participants": ["claude", "gpt4"]},
+                {"name": "Flow Test Tournament", "participants": ["claude", "gpt-5.5"]},
                 mock_handler,
             )
 

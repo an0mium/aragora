@@ -148,9 +148,9 @@ class TestAgentErrors:
 
     def test_agent_timeout(self):
         """Test AgentTimeoutError."""
-        err = AgentTimeoutError("Request timed out", agent_name="gpt4", timeout_seconds=30.0)
+        err = AgentTimeoutError("Request timed out", agent_name="gpt-5.5", timeout_seconds=30.0)
 
-        assert err.agent_name == "gpt4"
+        assert err.agent_name == "gpt-5.5"
         assert err.timeout_seconds == 30.0
 
     def test_api_key_error(self):

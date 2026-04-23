@@ -520,9 +520,9 @@ class TestPipelineIntegrationFlow:
             )
 
             # 2. Select team with role assignments
-            agents = ["claude", "gpt4", "gemini", "llama"]
-            elo_scores = {"claude": 1600, "gpt4": 1550, "gemini": 1500, "llama": 1450}
-            calibration = {"claude": 0.8, "gpt4": 0.75, "gemini": 0.7, "llama": 0.65}
+            agents = ["claude", "gpt-5.5", "gemini", "llama"]
+            elo_scores = {"claude": 1600, "gpt-5.5": 1550, "gemini": 1500, "llama": 1450}
+            calibration = {"claude": 0.8, "gpt-5.5": 0.75, "gemini": 0.7, "llama": 0.65}
             # domain_scores is dict[str, dict[str, float]]
             domain_scores = {a: {"policy": 0.7} for a in agents}
 

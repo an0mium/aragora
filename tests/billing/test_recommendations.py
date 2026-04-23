@@ -40,7 +40,7 @@ def sample_model_alternative():
     """Sample ModelAlternative for testing."""
     return ModelAlternative(
         provider="openai",
-        model="gpt-4o-mini",
+        model="gpt-5.5",
         cost_per_1k_input=Decimal("0.00015"),
         cost_per_1k_output=Decimal("0.0006"),
         quality_score=0.85,
@@ -104,7 +104,7 @@ def sample_recommendation(
         org_id="org-456",
         affected_agents=["claude", "gemini"],
         affected_operations=["debate_round", "summarization"],
-        title="Switch to GPT-4o-mini for simple queries",
+        title="Switch to GPT-5.5 for simple queries",
         description="Use a cheaper model for classification and simple Q&A",
         rationale="Analysis shows 60% of queries are simple classifications",
         model_alternative=sample_model_alternative,
@@ -201,7 +201,7 @@ class TestModelAlternative:
     def test_create_model_alternative(self, sample_model_alternative):
         """Test creating a model alternative."""
         assert sample_model_alternative.provider == "openai"
-        assert sample_model_alternative.model == "gpt-4o-mini"
+        assert sample_model_alternative.model == "gpt-5.5"
         assert sample_model_alternative.cost_per_1k_input == Decimal("0.00015")
         assert sample_model_alternative.cost_per_1k_output == Decimal("0.0006")
         assert sample_model_alternative.quality_score == 0.85
@@ -540,7 +540,7 @@ class TestOptimizationRecommendationToDict:
 
         assert data["model_alternative"] is not None
         assert data["model_alternative"]["provider"] == "openai"
-        assert data["model_alternative"]["model"] == "gpt-4o-mini"
+        assert data["model_alternative"]["model"] == "gpt-5.5"
         assert data["model_alternative"]["cost_per_1k_input"] == "0.00015"
         assert data["model_alternative"]["quality_score"] == 0.85
 
@@ -656,7 +656,7 @@ class TestOptimizationRecommendationFromDict:
     def test_from_dict_lists(self):
         """Test from_dict parses list fields."""
         data = {
-            "affected_agents": ["claude", "gpt-4", "gemini"],
+            "affected_agents": ["claude", "gpt-5.5", "gemini"],
             "affected_operations": ["summarize", "translate"],
         }
 

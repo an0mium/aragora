@@ -59,7 +59,7 @@ def populated_tracker(tracker):
         provider="openai",
         tokens_in=1500,
         tokens_out=600,
-        model="gpt-4o",
+        model="gpt-5.5",
         round_number=1,
         operation="critique",
     )
@@ -107,7 +107,7 @@ class TestAgentCallRecord:
             debate_id="d1",
             agent_name="gpt",
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
             tokens_in=500,
             tokens_out=200,
             cost_usd=Decimal("0.003250"),
@@ -153,9 +153,9 @@ class TestDebateCostTracker:
             provider="openai",
             tokens_in=1_000_000,  # 1M tokens
             tokens_out=0,
-            model="gpt-4o",
+            model="gpt-5.5",
         )
-        # gpt-4o input rate is $2.50/1M tokens
+        # gpt-5.5 input rate is $2.50/1M tokens
         assert record.cost_usd == Decimal("2.50")
 
     def test_record_multiple_calls(self, tracker):
@@ -166,7 +166,7 @@ class TestDebateCostTracker:
             provider="openai",
             tokens_in=100,
             tokens_out=50,
-            model="gpt-4o",
+            model="gpt-5.5",
         )
         tracker.record_agent_call(
             debate_id="d1",
@@ -270,7 +270,7 @@ class TestDebateCostSummary:
         """Model usage tracks unique provider/model combos."""
         summary = populated_tracker.get_debate_cost("debate-1")
         assert "anthropic/claude-sonnet-4" in summary.model_usage
-        assert "openai/gpt-4o" in summary.model_usage
+        assert "openai/gpt-5.5" in summary.model_usage
 
         anthropic = summary.model_usage["anthropic/claude-sonnet-4"]
         assert anthropic.call_count == 2
@@ -549,7 +549,7 @@ class TestMultiDebateIsolation:
             provider="openai",
             tokens_in=2000,
             tokens_out=1000,
-            model="gpt-4o",
+            model="gpt-5.5",
         )
 
         summary_a = tracker.get_debate_cost("A")
@@ -578,7 +578,7 @@ class TestMultiDebateIsolation:
             provider="openai",
             tokens_in=2000,
             tokens_out=1000,
-            model="gpt-4o",
+            model="gpt-5.5",
         )
 
         tracker.clear_debate("A")
@@ -622,7 +622,7 @@ class TestDebateCostToReceiptIntegration:
             provider="openai",
             tokens_in=1500,
             tokens_out=600,
-            model="gpt-4o",
+            model="gpt-5.5",
             round_number=1,
             operation="critique",
         )
@@ -689,7 +689,7 @@ class TestDebateCostToReceiptIntegration:
         # Verify model_usage breakdown
         model_usage = receipt.cost_summary["model_usage"]
         assert "anthropic/claude-sonnet-4" in model_usage
-        assert "openai/gpt-4o" in model_usage
+        assert "openai/gpt-5.5" in model_usage
 
         # Verify round-trip: to_dict -> from_dict preserves cost_summary
         receipt_dict = receipt.to_dict()
@@ -715,11 +715,11 @@ class TestDebateCostToReceiptIntegration:
         )
         tracker.record_agent_call(
             debate_id=debate_id,
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             provider="openai",
             tokens_in=800,
             tokens_out=400,
-            model="gpt-4o",
+            model="gpt-5.5",
             round_number=1,
         )
 
@@ -734,7 +734,7 @@ class TestDebateCostToReceiptIntegration:
         assert float(Decimal(d["total_cost_usd"])) > 0
 
         # Per-agent has cost breakdowns
-        for agent_name in ("claude", "gpt4"):
+        for agent_name in ("claude", "gpt-5.5"):
             assert agent_name in d["per_agent"]
             agent_data = d["per_agent"][agent_name]
             assert "total_cost_usd" in agent_data

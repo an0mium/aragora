@@ -298,7 +298,7 @@ class DeliberationManager:
         # Submit a deliberation
         task_id = await manager.submit_deliberation(
             question="What is the best approach?",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
             priority="high",
             timeout_seconds=120.0,
         )

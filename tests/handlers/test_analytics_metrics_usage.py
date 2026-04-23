@@ -329,7 +329,7 @@ class TestUsageTokens:
     def test_by_agent_data_included(self, handler):
         """by_agent data from cost tracker is passed through."""
         tracker = _make_cost_tracker(
-            cost_by_agent={"claude": "80.00", "gpt-4": "45.00"},
+            cost_by_agent={"claude": "80.00", "gpt-5.5": "45.00"},
         )
         with patch(
             "aragora.billing.cost_tracker.get_cost_tracker",
@@ -341,7 +341,7 @@ class TestUsageTokens:
             )
 
         body = _body(result)
-        assert body["by_agent"] == {"claude": "80.00", "gpt-4": "45.00"}
+        assert body["by_agent"] == {"claude": "80.00", "gpt-5.5": "45.00"}
 
     def test_by_model_data_included(self, handler):
         """by_model data from cost tracker is passed through."""
@@ -458,7 +458,7 @@ class TestUsageCosts:
             total_cost_usd="125.50",
             total_api_calls=150,
             cost_by_agent={"anthropic": "80.00", "openai": "45.50"},
-            cost_by_model={"claude-opus-4": "60.00", "gpt-4": "45.50"},
+            cost_by_model={"claude-opus-4": "60.00", "gpt-5.5": "45.50"},
         )
         with patch(
             "aragora.billing.cost_tracker.get_cost_tracker",

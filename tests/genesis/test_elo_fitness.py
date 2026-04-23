@@ -112,7 +112,7 @@ class TestComputeEloFitnessAdjustment:
         mock_elo.get_rating.return_value = 1300.0
         fb = EvolutionFeedback(elo_system=mock_elo, elo_baseline=1500.0)
 
-        adj = fb._compute_elo_fitness_adjustment("gpt4")
+        adj = fb._compute_elo_fitness_adjustment("gpt-5.5")
         assert adj < 0.0
 
     def test_at_baseline_returns_zero(self):
@@ -171,7 +171,7 @@ def _make_ctx(agents=None, winner="claude", domain="general"):
         agent_a.genome_id = "genome-aaa"
 
         agent_b = MagicMock()
-        agent_b.name = "gpt4"
+        agent_b.name = "gpt-5.5"
         agent_b.genome_id = "genome-bbb"
 
         agents = [agent_a, agent_b]
@@ -195,7 +195,7 @@ class TestUpdateGenomeFitnessWithElo:
 
         mock_pm = MagicMock()
         mock_elo = MagicMock()
-        # claude at 1700 (above baseline), gpt4 at 1300 (below)
+        # claude at 1700 (above baseline), gpt-5.5 at 1300 (below)
         mock_elo.get_rating.side_effect = lambda name, domain="": (
             1700.0 if name == "claude" else 1300.0
         )
@@ -220,15 +220,15 @@ class TestUpdateGenomeFitnessWithElo:
         assert calls[2].args[0] == "genome-aaa"
         assert calls[2].kwargs["fitness_delta"] > 0.0
 
-        # Call 3: gpt4 rate-based
+        # Call 3: gpt-5.5 rate-based
         assert calls[3].args[0] == "genome-bbb"
         assert calls[3].kwargs.get("consensus_win") is False
 
-        # Call 4: gpt4 outcome delta (loser -> -0.05)
+        # Call 4: gpt-5.5 outcome delta (loser -> -0.05)
         assert calls[4].args[0] == "genome-bbb"
         assert calls[4].kwargs["fitness_delta"] == EvolutionFeedback.LOSS_FITNESS_DELTA
 
-        # Call 5: gpt4 ELO fitness_delta (negative, below baseline)
+        # Call 5: gpt-5.5 ELO fitness_delta (negative, below baseline)
         assert calls[5].args[0] == "genome-bbb"
         assert calls[5].kwargs["fitness_delta"] < 0.0
 

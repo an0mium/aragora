@@ -53,7 +53,7 @@ elo = EloSystem()
 # Record a debate outcome
 result = MatchResult(
     winner="claude-opus",
-    loser="gpt-4o",
+    loser="gpt-5.5",
     domain="security",
 )
 elo.record_match(result)

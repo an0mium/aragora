@@ -551,7 +551,7 @@ class TestAgentSelectorEloIntegration:
         rating.domain_elos = {"coding": 1900}
         rating.win_rate = 0.9
         # Now uses get_ratings_batch which returns a dict
-        elo.get_ratings_batch.return_value = {"claude": rating, "gpt4": rating, "gemini": rating}
+        elo.get_ratings_batch.return_value = {"claude": rating, "gpt-5.5": rating, "gemini": rating}
 
         selector.refresh_from_elo_system(elo)
 

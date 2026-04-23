@@ -89,7 +89,7 @@ class TestRouteMatching:
 
 class TestRecommendEndpoint:
     def test_recommend_returns_agents(self, handler, mock_http_handler):
-        agents = [_make_agent("claude", 1600), _make_agent("gpt4", 1550)]
+        agents = [_make_agent("claude", 1600), _make_agent("gpt-5.5", 1550)]
         handler.ctx["elo_system"].get_leaderboard.return_value = agents
 
         result = handler.handle("/api/v1/agents/recommend", {}, mock_http_handler)
@@ -182,7 +182,7 @@ class TestRecommendEndpoint:
 
 class TestLeaderboardEndpoint:
     def test_leaderboard_returns_ranked_agents(self, handler, mock_http_handler):
-        agents = [_make_agent("claude", 1600), _make_agent("gpt4", 1550)]
+        agents = [_make_agent("claude", 1600), _make_agent("gpt-5.5", 1550)]
         handler.ctx["elo_system"].get_cached_leaderboard.return_value = agents
         handler.ctx["elo_system"].get_stats.return_value = {
             "total_agents": 10,

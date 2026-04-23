@@ -20,7 +20,7 @@ class TestDetectProvider:
         assert detect_provider("claude-sonnet-4") == "anthropic"
 
     def test_openai(self):
-        assert detect_provider("gpt-4o") == "openai"
+        assert detect_provider("gpt-5.5") == "openai"
         assert detect_provider("o1-preview") == "openai"
 
     def test_google(self):
@@ -48,7 +48,7 @@ class TestDiversityCheck:
         f = ProviderDiversityFilter(min_providers=2)
         agents = [
             AgentInfo(name="a1", model="claude-3-opus"),
-            AgentInfo(name="a2", model="gpt-4o"),
+            AgentInfo(name="a2", model="gpt-5.5"),
         ]
         report = f.check(agents)
         assert report.meets_minimum
@@ -68,7 +68,7 @@ class TestDiversityCheck:
         f = ProviderDiversityFilter(min_providers=3)
         agents = [
             AgentInfo(name="a1", model="claude-3-opus"),
-            AgentInfo(name="a2", model="gpt-4o"),
+            AgentInfo(name="a2", model="gpt-5.5"),
         ]
         report = f.check(agents)
         assert not report.meets_minimum
@@ -79,7 +79,7 @@ class TestDiversityEnforce:
         f = ProviderDiversityFilter()
         agents = [
             AgentInfo(name="a1", model="claude-3-opus", score=0.9),
-            AgentInfo(name="a2", model="gpt-4o", score=0.8),
+            AgentInfo(name="a2", model="gpt-5.5", score=0.8),
         ]
         result, report = f.enforce(agents)
         assert report.meets_minimum
@@ -93,7 +93,7 @@ class TestDiversityEnforce:
             AgentInfo(name="claude3", model="claude-3-haiku", score=0.5),
         ]
         alternatives = [
-            AgentInfo(name="gpt1", model="gpt-4o", score=0.8),
+            AgentInfo(name="gpt1", model="gpt-5.5", score=0.8),
         ]
         result, report = f.enforce(agents, alternatives=alternatives)
         assert report.meets_minimum
@@ -115,7 +115,7 @@ class TestDiversityEnforce:
         assert len(report.swaps_made) == 0
 
     def test_agent_info_auto_detect_provider(self):
-        a = AgentInfo(name="x", model="gpt-4o")
+        a = AgentInfo(name="x", model="gpt-5.5")
         assert a.provider == "openai"
 
     def test_explicit_provider(self):
@@ -130,8 +130,8 @@ class TestLargeRosterObservability:
             AgentInfo(name=f"claude{i}", model="claude-3-opus", score=1.0 - (i * 0.01))
             for i in range(10)
         ] + [
-            AgentInfo(name="gpt-primary", model="gpt-4o", score=0.85),
-            AgentInfo(name="gpt-secondary", model="gpt-4o-mini", score=0.75),
+            AgentInfo(name="gpt-primary", model="gpt-5.5", score=0.85),
+            AgentInfo(name="gpt-secondary", model="gpt-5.5", score=0.75),
         ]
         alternatives = [
             AgentInfo(name="gemini-primary", model="gemini-3.1-pro", score=0.82),
@@ -162,7 +162,7 @@ class TestLargeRosterObservability:
         agents = [
             AgentInfo(name=f"claude{i}", model="claude-3-opus", score=1.0 - (i * 0.01))
             for i in range(11)
-        ] + [AgentInfo(name="gpt-primary", model="gpt-4o", score=0.8)]
+        ] + [AgentInfo(name="gpt-primary", model="gpt-5.5", score=0.8)]
         alternatives = [
             AgentInfo(name="gemini-primary", model="gemini-3.1-pro", score=0.79),
             AgentInfo(name="mistral-primary", model="mistral-large", score=0.78),
@@ -185,8 +185,8 @@ class TestLargeRosterObservability:
             AgentInfo(name=f"claude{i}", model="claude-3-opus", score=1.0 - (i * 0.01))
             for i in range(10)
         ] + [
-            AgentInfo(name="gpt-primary", model="gpt-4o", score=0.85),
-            AgentInfo(name="gpt-secondary", model="gpt-4o-mini", score=0.75),
+            AgentInfo(name="gpt-primary", model="gpt-5.5", score=0.85),
+            AgentInfo(name="gpt-secondary", model="gpt-5.5", score=0.75),
         ]
         alternatives = [
             AgentInfo(name="gemini-primary", model="gemini-3.1-pro", score=0.82),
@@ -210,7 +210,7 @@ class TestLargeRosterObservability:
 
         UnifiedOrchestrator._annotate_provider_metadata(
             result,
-            provider_hints=["claude-sonnet-4", "gpt-4o", "gemini-3.1-pro"],
+            provider_hints=["claude-sonnet-4", "gpt-5.5", "gemini-3.1-pro"],
             diversity_report=report,
         )
 

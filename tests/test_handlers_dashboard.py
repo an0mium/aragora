@@ -139,7 +139,7 @@ def mock_storage(temp_db):
 def mock_elo_system():
     """Create a mock ELO system."""
     elo = Mock()
-    elo.list_agents.return_value = ["claude", "gpt4", "gemini"]
+    elo.list_agents.return_value = ["claude", "gpt-5.5", "gemini"]
 
     rating_claude = Mock()
     rating_claude.agent_name = "claude"
@@ -150,14 +150,14 @@ def mock_elo_system():
     rating_claude.win_rate = 0.59
     rating_claude.debates_count = 17
 
-    rating_gpt4 = Mock()
-    rating_gpt4.agent_name = "gpt4"
-    rating_gpt4.elo = 1150
-    rating_gpt4.wins = 8
-    rating_gpt4.losses = 6
-    rating_gpt4.draws = 3
-    rating_gpt4.win_rate = 0.47
-    rating_gpt4.debates_count = 17
+    rating_gpt55 = Mock()
+    rating_gpt55.agent_name = "gpt-5.5"
+    rating_gpt55.elo = 1150
+    rating_gpt55.wins = 8
+    rating_gpt55.losses = 6
+    rating_gpt55.draws = 3
+    rating_gpt55.win_rate = 0.47
+    rating_gpt55.debates_count = 17
 
     rating_gemini = Mock()
     rating_gemini.agent_name = "gemini"
@@ -171,14 +171,14 @@ def mock_elo_system():
     def get_rating(name):
         ratings = {
             "claude": rating_claude,
-            "gpt4": rating_gpt4,
+            "gpt-5.5": rating_gpt55,
             "gemini": rating_gemini,
         }
         return ratings.get(name)
 
     elo.get_rating.side_effect = get_rating
     # Return sorted by ELO descending
-    elo.get_all_ratings.return_value = [rating_claude, rating_gpt4, rating_gemini]
+    elo.get_all_ratings.return_value = [rating_claude, rating_gpt55, rating_gemini]
     return elo
 
 

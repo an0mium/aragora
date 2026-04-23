@@ -475,7 +475,7 @@ class TestRecommendAgentsFunc:
         """A regular sync function with matching signature can be used."""
 
         def recommend(query: str) -> list[str]:
-            return ["claude", "gpt-4"]
+            return ["claude", "gpt-5.5"]
 
         result = recommend("design a rate limiter")
         assert "claude" in result

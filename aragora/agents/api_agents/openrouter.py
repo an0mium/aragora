@@ -53,27 +53,27 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "qwen/qwen3-235b-a22b": "deepseek/deepseek-chat",
     "qwen/qwen3-max": "deepseek/deepseek-chat",
     "qwen/qwen3.5-plus-02-15": "deepseek/deepseek-chat",
-    # DeepSeek -> GPT-5.2-chat (fast, reliable)
-    "deepseek/deepseek-chat": "openai/gpt-5.3-chat",
+    # DeepSeek -> GPT-5.5 (fast, reliable)
+    "deepseek/deepseek-chat": "openai/gpt-5.5",
     "deepseek/deepseek-chat-v3-0324": "anthropic/claude-opus-4.7",
-    "deepseek/deepseek-v3.2": "openai/gpt-5.3-chat",
-    "deepseek/deepseek-v3.2-exp": "openai/gpt-5.3-chat",
-    "deepseek/deepseek-chat-v3.1": "openai/gpt-5.3-chat",
+    "deepseek/deepseek-v3.2": "openai/gpt-5.5",
+    "deepseek/deepseek-v3.2-exp": "openai/gpt-5.5",
+    "deepseek/deepseek-chat-v3.1": "openai/gpt-5.5",
     # Kimi -> Claude Opus 4.7
     "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.7",
     "moonshotai/kimi-k2.5": "anthropic/claude-opus-4.7",
     "moonshotai/kimi-k2-0905": "anthropic/claude-opus-4.7",
     "moonshotai/kimi-k2-thinking": "anthropic/claude-opus-4.7",
     "moonshot/moonshot-v1-128k": "anthropic/claude-opus-4.7",
-    # Mistral -> GPT-5.2-chat
-    "mistralai/mistral-large-2411": "openai/gpt-5.3-chat",
-    "mistralai/mistral-large-2512": "openai/gpt-5.3-chat",
+    # Mistral -> GPT-5.5
+    "mistralai/mistral-large-2411": "openai/gpt-5.5",
+    "mistralai/mistral-large-2512": "openai/gpt-5.5",
     # Yi -> DeepSeek
     "01-ai/yi-large": "deepseek/deepseek-chat",
-    # Llama -> GPT-5.2-chat
-    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-5.3-chat",
-    "meta-llama/llama-4-maverick": "openai/gpt-5.3-chat",
-    "meta-llama/llama-4-scout": "openai/gpt-5.3-chat",
+    # Llama -> GPT-5.5
+    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-5.5",
+    "meta-llama/llama-4-maverick": "openai/gpt-5.5",
+    "meta-llama/llama-4-scout": "openai/gpt-5.5",
 }
 
 
@@ -103,7 +103,7 @@ class OpenRouterAgent(APIAgent):
     - moonshotai/kimi-k2.6 (Kimi K2.6)
     - google/gemini-3.1-pro (Gemini 3.1 Pro)
     - anthropic/claude-opus-4.7
-    - openai/gpt-5.3
+    - openai/gpt-5.5
     """
 
     def __init__(
@@ -806,7 +806,7 @@ class KimiK2Agent(OpenRouterAgent):
     default_model="moonshotai/kimi-k2-thinking",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Kimi K2 Thinking - reasoning model that outperforms GPT-5 on agentic tasks",
+    description="Kimi K2 Thinking - reasoning model that outperforms GPT-5.5 on agentic tasks",
 )
 class KimiThinkingAgent(OpenRouterAgent):
     """Moonshot AI Kimi K2 Thinking via OpenRouter - reasoning model with chain-of-thought."""

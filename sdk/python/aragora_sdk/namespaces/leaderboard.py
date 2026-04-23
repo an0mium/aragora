@@ -35,7 +35,7 @@ class LeaderboardAPI:
     Example:
         >>> client = AragoraClient(base_url="https://api.aragora.ai", api_key="...")
         >>> rankings = client.leaderboard.get_rankings()
-        >>> comparison = client.leaderboard.compare_agents("claude", "gpt4")
+        >>> comparison = client.leaderboard.compare_agents("claude", "gpt-5.5")
     """
 
     def __init__(self, client: AragoraClient):

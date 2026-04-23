@@ -347,7 +347,7 @@ class TestCanHandle:
         """Handles various ID formats correctly."""
         assert handler.can_handle("/api/v1/debates/abc123/full-context") is True
         assert handler.can_handle("/api/v1/debates/debate-2025-01/full-context") is True
-        assert handler.can_handle("/api/v1/agents/gpt-4-turbo/reliability") is True
+        assert handler.can_handle("/api/v1/agents/gpt-5.5/reliability") is True
 
 
 # ===========================================================================

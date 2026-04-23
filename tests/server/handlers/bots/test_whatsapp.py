@@ -798,7 +798,7 @@ class TestMessageSending:
         sent_text = mock_send.call_args[0][1]
         assert "Online" in sent_text
         assert "Claude" in sent_text
-        assert "GPT-4" in sent_text
+        assert "GPT-5.5" in sent_text
 
 
 # =============================================================================

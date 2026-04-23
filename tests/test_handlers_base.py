@@ -174,13 +174,13 @@ class TestGetAgentName:
 
     def test_extracts_from_object(self):
         """Test extracting name from object."""
-        agent = MockAgent(name="gpt-4", agent_name="gpt-4")
-        assert get_agent_name(agent) == "gpt-4"
+        agent = MockAgent(name="gpt-5.5", agent_name="gpt-5.5")
+        assert get_agent_name(agent) == "gpt-5.5"
 
     def test_prefers_agent_name_attr(self):
         """Test agent_name attribute takes precedence."""
-        agent = MockAgent(agent_name="gpt-4-turbo", name="gpt-4")
-        assert get_agent_name(agent) == "gpt-4-turbo"
+        agent = MockAgent(agent_name="gpt-5.5", name="gpt-5.5")
+        assert get_agent_name(agent) == "gpt-5.5"
 
     def test_returns_none_for_none(self):
         """Test returns None for None input."""
@@ -755,14 +755,14 @@ class TestBaseHandler:
     def test_extract_path_params_multiple(self, handler):
         """Test extracting multiple params."""
         params, err = handler.extract_path_params(
-            "/api/agents/compare/claude/gpt4",
+            "/api/agents/compare/claude/gpt-5.5",
             [
                 (4, "agent_a", SAFE_AGENT_PATTERN),
                 (5, "agent_b", SAFE_AGENT_PATTERN),
             ],
         )
         assert err is None
-        assert params == {"agent_a": "claude", "agent_b": "gpt4"}
+        assert params == {"agent_a": "claude", "agent_b": "gpt-5.5"}
 
     def test_extract_path_params_fails_on_first_error(self, handler):
         """Test returns first error."""

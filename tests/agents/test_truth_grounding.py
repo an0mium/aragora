@@ -163,7 +163,7 @@ class TestPositionDataclass:
         """Test creating Position from row with NULL values."""
         row = (
             "debate_002",
-            "gpt4",
+            "gpt-5.5",
             "proposal",
             "Let's try option B",
             0,
@@ -231,7 +231,7 @@ class TestPositionTracker:
         """Test recording a position with custom confidence."""
         position = position_tracker.record_position(
             debate_id="debate_002",
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             position_type="vote",
             position_text="I strongly agree.",
             round_num=3,
@@ -344,13 +344,13 @@ class TestPositionTracker:
         """Test recording an incorrect verification."""
         position_tracker.record_position(
             debate_id="debate_002",
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             position_type="vote",
             position_text="This will definitely work",
         )
         position_tracker.finalize_debate(
             debate_id="debate_002",
-            winning_agent="gpt4",
+            winning_agent="gpt-5.5",
             winning_position="This will definitely work",
             consensus_confidence=0.9,
         )
@@ -734,7 +734,7 @@ class TestTruthGroundedLaboratory:
         tracker = laboratory.position_tracker
 
         # Create data for multiple agents
-        for agent in ["claude", "gemini", "gpt4"]:
+        for agent in ["claude", "gemini", "gpt-5.5"]:
             tracker.record_position(
                 debate_id=f"debate_{agent}",
                 agent_name=agent,
@@ -748,7 +748,7 @@ class TestTruthGroundedLaboratory:
         agent_names = [p.agent_name for p in personas]
         assert "claude" in agent_names
         assert "gemini" in agent_names
-        assert "gpt4" in agent_names
+        assert "gpt-5.5" in agent_names
 
     def test_get_all_personas_respects_limit(self, laboratory):
         """Test that get_all_personas respects limit."""

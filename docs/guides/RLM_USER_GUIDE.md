@@ -26,7 +26,7 @@ from aragora.rlm import AragoraRLM, DebateContextAdapter, HAS_OFFICIAL_RLM
 # Check if official RLM is available
 if HAS_OFFICIAL_RLM:
     # Create RLM instance with official library
-    rlm = AragoraRLM(backend="openai", model="gpt-4o")
+    rlm = AragoraRLM(backend="openai", model="gpt-5.5")
     adapter = DebateContextAdapter(rlm)
 
     # Query a debate
@@ -103,7 +103,7 @@ from aragora.rlm import RLMConfig, DecompositionStrategy
 config = RLMConfig(
     # Model configuration
     root_model="claude",          # Primary model
-    sub_model="gpt-4o-mini",      # Model for sub-calls (cheaper)
+    sub_model="gpt-5.5",      # Model for sub-calls (cheaper)
 
     # Recursion limits
     max_depth=2,                  # Maximum recursion depth
@@ -201,7 +201,7 @@ Main RLM interface for Aragora integration.
 ```python
 rlm = AragoraRLM(
     backend="openai",           # "openai", "anthropic", "local"
-    model="gpt-4o",             # Model identifier
+    model="gpt-5.5",             # Model identifier
     config=RLMConfig(),         # Optional configuration
 )
 

@@ -60,7 +60,7 @@ def mock_elo_system():
     elo = Mock()
     elo.get_leaderboard.return_value = [
         {"name": "claude", "elo": 1650, "wins": 10, "losses": 2, "games": 12, "win_rate": 0.83},
-        {"name": "gpt4", "elo": 1580, "wins": 8, "losses": 4, "games": 12, "win_rate": 0.67},
+        {"name": "gpt-5.5", "elo": 1580, "wins": 8, "losses": 4, "games": 12, "win_rate": 0.67},
     ]
     elo.get_cached_leaderboard.return_value = elo.get_leaderboard.return_value
     elo.get_rating.return_value = 1650
@@ -71,7 +71,7 @@ def mock_elo_system():
         "win_rate": 0.83,
     }
     elo.get_agent_history.return_value = [
-        {"opponent": "gpt4", "result": "win", "elo_change": 15},
+        {"opponent": "gpt-5.5", "result": "win", "elo_change": 15},
         {"opponent": "gemini", "result": "loss", "elo_change": -12},
     ]
     elo.get_elo_history.return_value = [
@@ -79,11 +79,11 @@ def mock_elo_system():
         (1700003600, 1615),
     ]
     elo.get_recent_matches.return_value = [
-        {"agent1": "claude", "agent2": "gpt4", "winner": "claude"},
+        {"agent1": "claude", "agent2": "gpt-5.5", "winner": "claude"},
     ]
     elo.get_cached_recent_matches.return_value = elo.get_recent_matches.return_value
     elo.get_head_to_head.return_value = {"matches": 5, "agent1_wins": 3, "agent2_wins": 2}
-    elo.get_rivals.return_value = [{"name": "gpt4", "matches": 5}]
+    elo.get_rivals.return_value = [{"name": "gpt-5.5", "matches": 5}]
     elo.get_allies.return_value = [{"name": "gemini", "matches": 3}]
     elo.get_calibration.return_value = {"agent": "claude", "score": 0.85}
     return elo
@@ -150,7 +150,7 @@ class TestAgentsHandlerRouting:
 
     def test_can_handle_agent_head_to_head(self, agents_handler):
         """Should handle /api/agent/{name}/head-to-head/{opponent}."""
-        assert agents_handler.can_handle("/api/v1/agent/claude/head-to-head/gpt4") is True
+        assert agents_handler.can_handle("/api/v1/agent/claude/head-to-head/gpt-5.5") is True
 
     def test_can_handle_flips_recent(self, agents_handler):
         """Should handle /api/flips/recent."""
@@ -275,7 +275,9 @@ class TestAgentCompareEndpoint:
 
     def test_compare_returns_profiles(self, agents_handler):
         """Should return agent profiles for comparison."""
-        result = agents_handler.handle("/api/agent/compare", {"agents": ["claude", "gpt4"]}, None)
+        result = agents_handler.handle(
+            "/api/agent/compare", {"agents": ["claude", "gpt-5.5"]}, None
+        )
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -284,7 +286,9 @@ class TestAgentCompareEndpoint:
 
     def test_compare_includes_head_to_head(self, agents_handler):
         """Should include head-to-head stats for 2 agents."""
-        result = agents_handler.handle("/api/agent/compare", {"agents": ["claude", "gpt4"]}, None)
+        result = agents_handler.handle(
+            "/api/agent/compare", {"agents": ["claude", "gpt-5.5"]}, None
+        )
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -293,7 +297,7 @@ class TestAgentCompareEndpoint:
     def test_compare_unavailable_returns_503(self):
         """Should return 503 when ELO system not available."""
         handler = _wrap_handler(AgentsHandler({}))
-        result = handler.handle("/api/agent/compare", {"agents": ["claude", "gpt4"]}, None)
+        result = handler.handle("/api/agent/compare", {"agents": ["claude", "gpt-5.5"]}, None)
 
         assert result.status_code == 503
 
@@ -544,12 +548,12 @@ class TestHeadToHeadEndpoint:
 
     def test_h2h_returns_stats(self, agents_handler):
         """Should return head-to-head statistics."""
-        result = agents_handler.handle("/api/agent/claude/head-to-head/gpt4", {}, None)
+        result = agents_handler.handle("/api/agent/claude/head-to-head/gpt-5.5", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["agent1"] == "claude"
-        assert data["agent2"] == "gpt4"
+        assert data["agent2"] == "gpt-5.5"
         assert "matches" in data
 
     def test_h2h_invalid_opponent_returns_400(self, agents_handler):
@@ -561,7 +565,7 @@ class TestHeadToHeadEndpoint:
     def test_h2h_unavailable_returns_503(self):
         """Should return 503 when ELO system not available."""
         handler = _wrap_handler(AgentsHandler({}))
-        result = handler.handle("/api/agent/claude/head-to-head/gpt4", {}, None)
+        result = handler.handle("/api/agent/claude/head-to-head/gpt-5.5", {}, None)
 
         assert result.status_code == 503
 
@@ -640,7 +644,7 @@ class TestAgentsSecurity:
         """Should accept valid agent names."""
         valid_names = [
             "claude",
-            "gpt4",
+            "gpt-5.5",
             "claude-3",
             "claude_opus",
             "agent123",
@@ -1027,7 +1031,9 @@ class TestCompareAgentsEdgeCases:
         """Should handle head-to-head exception gracefully."""
         mock_elo_system.get_head_to_head.side_effect = Exception("H2H error")
 
-        result = agents_handler.handle("/api/agent/compare", {"agents": ["claude", "gpt4"]}, None)
+        result = agents_handler.handle(
+            "/api/agent/compare", {"agents": ["claude", "gpt-5.5"]}, None
+        )
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -1047,7 +1053,7 @@ class TestHeadToHeadFallback:
         """Should fallback when get_head_to_head not available."""
         del mock_elo_system.get_head_to_head
 
-        result = agents_handler.handle("/api/agent/claude/head-to-head/gpt4", {}, None)
+        result = agents_handler.handle("/api/agent/claude/head-to-head/gpt-5.5", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)

@@ -565,14 +565,14 @@ class TestBuildChallengeDeep:
 
         evidence_gaps = {
             "claude": ["citations", "reasoning"],
-            "gpt4": ["specificity", "evidence_diversity"],
+            "gpt-5.5": ["specificity", "evidence_diversity"],
         }
-        target_agents = ["claude", "gpt4"]
+        target_agents = ["claude", "gpt-5.5"]
 
         text = trickster._build_challenge(alert, evidence_gaps, target_agents)
 
         assert "claude" in text
-        assert "gpt4" in text
+        assert "gpt-5.5" in text
         assert "citations, reasoning" in text
         assert "specificity, evidence_diversity" in text
 
@@ -963,12 +963,12 @@ class TestBuildNoveltyChallengeDeep:
         trickster = EvidencePoweredTrickster()
 
         text = trickster._build_novelty_challenge(
-            low_novelty_agents=["claude", "gpt4"],
-            novelty_scores={"claude": 0.1, "gpt4": 0.25},
+            low_novelty_agents=["claude", "gpt-5.5"],
+            novelty_scores={"claude": 0.1, "gpt-5.5": 0.25},
         )
 
         assert "claude" in text
-        assert "gpt4" in text
+        assert "gpt-5.5" in text
         assert "10%" in text
         assert "25%" in text
 
@@ -1057,7 +1057,7 @@ class TestGetStatsDeep:
         intervention = TricksterIntervention(
             intervention_type=InterventionType.EVIDENCE_GAP,
             round_num=4,
-            target_agents=["claude", "gpt4"],
+            target_agents=["claude", "gpt-5.5"],
             challenge_text="Test challenge",
             evidence_gaps={"claude": ["citations"]},
             priority=0.85,
@@ -1071,7 +1071,7 @@ class TestGetStatsDeep:
         assert len(stats["interventions"]) == 1
         assert stats["interventions"][0]["round"] == 4
         assert stats["interventions"][0]["type"] == "evidence_gap"
-        assert stats["interventions"][0]["targets"] == ["claude", "gpt4"]
+        assert stats["interventions"][0]["targets"] == ["claude", "gpt-5.5"]
         assert stats["interventions"][0]["priority"] == 0.85
 
 
@@ -1193,7 +1193,7 @@ class TestGetQualityChallengerAssignmentDeep:
         """Test assignment includes role prompt text."""
         trickster = EvidencePoweredTrickster()
 
-        assignment = trickster.get_quality_challenger_assignment("gpt4", round_num=3)
+        assignment = trickster.get_quality_challenger_assignment("gpt-5.5", round_num=3)
 
         assert assignment.role_prompt is not None
         assert len(assignment.role_prompt) > 0

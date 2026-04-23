@@ -815,12 +815,12 @@ class JudgePanel:
         panel = JudgePanel(
             judges=selected_judges,
             strategy=JudgingStrategy.WEIGHTED,
-            judge_weights={"claude": 1.2, "gpt4": 1.0, "gemini": 0.9}
+            judge_weights={"claude": 1.2, "gpt-5.5": 1.0, "gemini": 0.9}
         )
 
         # Record votes (typically from async judge evaluation)
         panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Well-reasoned argument")
-        panel.record_vote("gpt4", JudgeVote.APPROVE, 0.8, "Sound logic")
+        panel.record_vote("gpt-5.5", JudgeVote.APPROVE, 0.8, "Sound logic")
         panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Missing edge case")
 
         # Get aggregated result

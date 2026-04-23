@@ -51,10 +51,10 @@ const mockAgent: ControlPlaneAgent = {
 
 const mockAgent2: ControlPlaneAgent = {
   agent_id: 'agent-2',
-  name: 'GPT-4 API',
+  name: 'GPT-5.5 API',
   provider: 'openai',
   status: 'busy',
-  model: 'gpt-4',
+  model: 'gpt-5.5',
   capabilities: ['reasoning'],
   elo_rating: 1450,
 };

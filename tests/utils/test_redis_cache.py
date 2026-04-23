@@ -903,7 +903,7 @@ class TestIntegrationScenarios:
         # Cache leaderboard data
         leaderboard = [
             {"agent": "claude", "elo": 1850, "wins": 42},
-            {"agent": "gpt4", "elo": 1820, "wins": 38},
+            {"agent": "gpt-5.5", "elo": 1820, "wins": 38},
             {"agent": "gemini", "elo": 1790, "wins": 35},
         ]
         cache.set("global", leaderboard)

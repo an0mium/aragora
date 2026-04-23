@@ -17,7 +17,7 @@ debate_step = DebateStep(
     name="Risk Analysis",
     config={
         "topic": "Evaluate risk factors in {document_name}",
-        "agents": ["claude", "gpt4", "gemini"],
+        "agents": ["claude", "gpt-5.5", "gemini"],
         "rounds": 3,
         "consensus_mechanism": "unanimous",
     }
@@ -436,7 +436,7 @@ step = QuickDebateStep(
     name="Quick Consultation",
     config={
         "question": "What are the key risks in {document}?",
-        "agents": ["claude", "gpt4"],
+        "agents": ["claude", "gpt-5.5"],
         "max_response_length": 500,
         "synthesize": True,
     }
@@ -644,7 +644,7 @@ step = NomicLoopStep(
         "workspace_id": "development",
         "enable_code_execution": False,  # Set True for implement/verify/commit
         "require_approval": True,
-        "agents": ["claude", "gpt4"],
+        "agents": ["claude", "gpt-5.5"],
         "recovery_enabled": True,
         "max_retries": 3,
     }

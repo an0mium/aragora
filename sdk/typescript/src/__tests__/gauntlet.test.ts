@@ -266,7 +266,7 @@ describe('Gauntlet Namespace', () => {
         verdict: 'pass',
         confidence: 0.95,
         consensus_reached: true,
-        participating_agents: ['claude', 'gpt-4', 'gemini'],
+        participating_agents: ['claude', 'gpt-5.5', 'gemini'],
         dissenting_agents: [],
         evidence: [
           { type: 'test', name: 'SQL injection test', result: 'pass' },
@@ -849,7 +849,7 @@ describe('Gauntlet Namespace', () => {
         verdict: 'pass',
         confidence: 0.95,
         consensus_reached: true,
-        participating_agents: ['claude', 'gpt-4'],
+        participating_agents: ['claude', 'gpt-5.5'],
         created_at: '2024-01-15T10:02:00Z',
       };
 

@@ -156,7 +156,7 @@ class TestModelPricing:
     def test_pricing_includes_common_models(self):
         """Test that pricing includes common model types."""
         assert "claude-3-opus" in MODEL_PRICING
-        assert "gpt-4" in MODEL_PRICING
+        assert "gpt-5.5" in MODEL_PRICING
         assert "gemini-pro" in MODEL_PRICING
         assert "default" in MODEL_PRICING
 
@@ -550,7 +550,7 @@ class TestCostEstimation:
                     id="debate-step",
                     name="Debate",
                     step_type="debate",
-                    config={"agents": ["claude", "gpt4", "gemini"], "rounds": 3},
+                    config={"agents": ["claude", "gpt-5.5", "gemini"], "rounds": 3},
                 ),
             ],
             entry_step="debate-step",
@@ -560,7 +560,7 @@ class TestCostEstimation:
 
         assert estimates["total"] > 0
         # Debate has multiple agents
-        assert any(agent in estimates for agent in ["claude", "gpt4", "gemini"])
+        assert any(agent in estimates for agent in ["claude", "gpt-5.5", "gemini"])
 
     def test_estimate_returns_per_agent_costs(self, engine):
         """Test that estimation returns per-agent breakdown."""
@@ -572,7 +572,7 @@ class TestCostEstimation:
                     id="debate",
                     name="Debate",
                     step_type="debate",
-                    config={"agents": ["claude", "gpt4"], "rounds": 2},
+                    config={"agents": ["claude", "gpt-5.5"], "rounds": 2},
                 ),
             ],
             entry_step="debate",

@@ -18,7 +18,7 @@ aragora gauntlet platform-spec.md data-flows.md --persona gdpr --profile thoroug
 - Persona: GDPR Compliance Auditor
 - Profile: Thorough (6 adversarial rounds)
 - Focus: Legal basis, data subject rights, international transfers
-- Models: Claude, GPT-4, Gemini (heterogeneous validation)
+- Models: Claude, GPT-5.5, Gemini (heterogeneous validation)
 
 ## Types of Issues Gauntlet Can Identify
 

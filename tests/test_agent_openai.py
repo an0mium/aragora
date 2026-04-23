@@ -37,7 +37,7 @@ class TestOpenAIAgentInitialization:
         """Test agent with custom parameters."""
         agent = OpenAIAPIAgent(
             name="my-gpt",
-            model="gpt-4-turbo",
+            model="gpt-5.5",
             role="critic",
             timeout=60,
             api_key="custom-key",
@@ -45,7 +45,7 @@ class TestOpenAIAgentInitialization:
         )
 
         assert agent.name == "my-gpt"
-        assert agent.model == "gpt-4-turbo"
+        assert agent.model == "gpt-5.5"
         assert agent.role == "critic"
         assert agent.timeout == 60
         assert agent.enable_fallback is False
@@ -412,21 +412,21 @@ class TestOpenAIModelMapping:
         """Test model mapping dictionary exists and has entries."""
         agent = OpenAIAPIAgent(api_key="test-key")
         assert len(agent.OPENROUTER_MODEL_MAP) > 0
-        assert "gpt-4o" in agent.OPENROUTER_MODEL_MAP
+        assert "gpt-5.5" in agent.OPENROUTER_MODEL_MAP
 
     def test_fallback_uses_correct_model(self):
         """Test fallback agent uses mapped model via mixin."""
         agent = OpenAIAPIAgent(
             api_key="test-key",
-            model="gpt-4o",
+            model="gpt-5.5",
         )
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):
             fallback = agent._get_cached_fallback_agent()
-            assert fallback.model == "openai/gpt-4o"
+            assert fallback.model == "openai/gpt-5.5"
 
-    def test_unknown_model_defaults_to_gpt4o(self):
-        """Test unknown model falls back to gpt-4o."""
+    def test_unknown_model_defaults_to_gpt55(self):
+        """Test unknown model falls back to gpt-5.5."""
         agent = OpenAIAPIAgent(
             api_key="test-key",
             model="gpt-unknown-model",
@@ -434,7 +434,7 @@ class TestOpenAIModelMapping:
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):
             fallback = agent._get_cached_fallback_agent()
-            assert fallback.model == "openai/gpt-4o"
+            assert fallback.model == "openai/gpt-5.5"
 
 
 class TestOpenAIFallbackDisabled:

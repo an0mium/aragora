@@ -52,14 +52,14 @@ def _make_artifact(**overrides) -> DebateArtifact:
     defaults = dict(
         debate_id="debate-001",
         task="Design a rate limiter for the API gateway",
-        agents=["claude", "gpt4", "gemini"],
+        agents=["claude", "gpt-5.5", "gemini"],
         rounds=3,
         critique_count=4,
         consensus_proof=ConsensusProof(
             reached=True,
             confidence=0.85,
             final_answer="1. Implement token bucket algorithm\n2. Add Redis backend\n- Use sliding window",
-            vote_breakdown={"claude": True, "gpt4": True, "gemini": False},
+            vote_breakdown={"claude": True, "gpt-5.5": True, "gemini": False},
             rounds_used=3,
         ),
         verification_results=[],
@@ -482,14 +482,14 @@ class TestPRGenerator:
     def test_extract_dissenting_views_from_critiques(self):
         critique = MagicMock()
         critique.severity = 0.8
-        critique.agent = "gpt4"
+        critique.agent = "gpt-5.5"
         critique.issues = ["Security concern about token storage"]
         consensus = MagicMock()
         consensus.dissenting_views = []
         consensus.critiques = [critique]
         gen = PRGenerator(_make_artifact())
         views = gen._extract_dissenting_views(consensus)
-        assert any("gpt4" in v for v in views)
+        assert any("gpt-5.5" in v for v in views)
 
     def test_extract_dissenting_views_none(self):
         gen = PRGenerator(_make_artifact())
@@ -839,7 +839,7 @@ class TestRiskAnalyzer:
                 "events": [
                     {
                         "event_type": "agent_critique",
-                        "agent": "gpt4",
+                        "agent": "gpt-5.5",
                         "content": {
                             "severity": 0.8,
                             "issues": ["Security vulnerability in auth flow"],

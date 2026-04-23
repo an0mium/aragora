@@ -112,7 +112,7 @@ Pre-built adversarial personas for compliance stress-testing:
 Aragora requires multiple different AI models to participate in debates:
 
 - **Why it matters:** Single-model reviews have correlated blind spots. Different models catch different issues.
-- **Supported models:** Claude (Anthropic), GPT-4 (OpenAI), Gemini (Google), Mistral, and others via OpenRouter
+- **Supported models:** Claude (Anthropic), GPT-5.5 (OpenAI), Gemini (Google), Mistral, and others via OpenRouter
 - **Consensus detection:** Formal agreement tracking across models with configurable thresholds
 
 ### Transaction-Safe Memory Coordination (Unique)
@@ -160,10 +160,10 @@ Track agent performance across debates with skill-based ranking:
 from aragora.ranking.elo import EloRankingSystem
 
 elo = EloRankingSystem()
-elo.record_outcome(debate_id="d-123", winner="claude", loser="gpt-4")
+elo.record_outcome(debate_id="d-123", winner="claude", loser="gpt-5.5")
 
 # Rankings influence team selection for future debates
-rankings = elo.get_rankings()  # {"claude": 1520, "gpt-4": 1480, ...}
+rankings = elo.get_rankings()  # {"claude": 1520, "gpt-5.5": 1480, ...}
 ```
 
 ### Nomic Loop Self-Improvement (Unique)

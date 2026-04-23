@@ -30,12 +30,12 @@ def sample_outcome() -> DebateOutcome:
         status="completed",
         rounds_used=3,
         duration_seconds=45.2,
-        participants=["claude", "gpt4", "gemini"],
+        participants=["claude", "gpt-5.5", "gemini"],
         winner="claude",
         consensus_strength="strong",
         total_cost_usd=0.15,
         total_tokens=5000,
-        per_agent_cost={"claude": 0.05, "gpt4": 0.06, "gemini": 0.04},
+        per_agent_cost={"claude": 0.05, "gpt-5.5": 0.06, "gemini": 0.04},
         dissenting_views=["Redis-based approach might be simpler"],
         debate_cruxes=[{"crux": "Distributed vs single-node", "agents_split": 2}],
         convergence_similarity=0.92,
@@ -206,7 +206,7 @@ class TestToKnowledgeItem:
         assert "rate limiter" in item.content.lower()
         assert item.metadata["consensus_reached"] is True
         assert item.metadata["rounds_used"] == 3
-        assert item.metadata["participants"] == ["claude", "gpt4", "gemini"]
+        assert item.metadata["participants"] == ["claude", "gpt-5.5", "gemini"]
 
 
 class TestSyncToKM:

@@ -25,7 +25,7 @@ metadata:
   estimated_duration_minutes: 5
   pattern: "map_reduce"
   complexity: "medium"
-  recommended_agents: ["claude", "gpt4"]
+  recommended_agents: ["claude", "gpt-5.5"]
 
 steps:
   - id: split_input

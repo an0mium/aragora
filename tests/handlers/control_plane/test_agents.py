@@ -155,7 +155,7 @@ def busy_agent():
     return MockAgentInfo(
         agent_id="agent-002",
         capabilities=["code_generation"],
-        model="gpt-4",
+        model="gpt-5.5",
         provider="openai",
         status="busy",
         metadata={"task_count": 3},
@@ -473,14 +473,14 @@ class TestRegisterAgent:
         agent = MockAgentInfo(
             agent_id="evt-agent",
             capabilities=["search"],
-            model="gpt-4",
+            model="gpt-5.5",
             provider="openai",
         )
         mock_coordinator.register_agent = AsyncMock(return_value=agent)
         body = {
             "agent_id": "evt-agent",
             "capabilities": ["search"],
-            "model": "gpt-4",
+            "model": "gpt-5.5",
             "provider": "openai",
         }
         with patch.object(handler, "_emit_event") as mock_emit:
@@ -490,7 +490,7 @@ class TestRegisterAgent:
             "emit_agent_registered",
             agent_id="evt-agent",
             capabilities=["search"],
-            model="gpt-4",
+            model="gpt-5.5",
             provider="openai",
         )
 
@@ -617,14 +617,14 @@ class TestRegisterAgentAsync:
         agent = MockAgentInfo(
             agent_id="evt-async",
             capabilities=["code"],
-            model="gpt-4",
+            model="gpt-5.5",
             provider="openai",
         )
         mock_coordinator.register_agent = AsyncMock(return_value=agent)
         body = {
             "agent_id": "evt-async",
             "capabilities": ["code"],
-            "model": "gpt-4",
+            "model": "gpt-5.5",
             "provider": "openai",
         }
         with patch.object(handler, "_emit_event") as mock_emit:
@@ -634,7 +634,7 @@ class TestRegisterAgentAsync:
             "emit_agent_registered",
             agent_id="evt-async",
             capabilities=["code"],
-            model="gpt-4",
+            model="gpt-5.5",
             provider="openai",
         )
 

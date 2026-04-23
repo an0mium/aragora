@@ -20,7 +20,7 @@ from collections.abc import Callable
 # Use NewType for strings with specific meaning to catch type errors
 
 AgentName = NewType("AgentName", str)
-"""Unique identifier for an agent (e.g., 'claude-3-opus', 'gpt-4o')."""
+"""Unique identifier for an agent (e.g., 'claude-3-opus', 'gpt-5.5')."""
 
 DebateId = NewType("DebateId", str)
 """Unique identifier for a debate (usually a UUID)."""

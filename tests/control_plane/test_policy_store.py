@@ -74,8 +74,8 @@ def sample_policy() -> ControlPlanePolicy:
         task_types=["debate", "analysis"],
         capabilities=["reasoning"],
         workspaces=["ws-1"],
-        agent_allowlist=["claude-3-opus", "gpt-4"],
-        agent_blocklist=["gpt-3.5-turbo"],
+        agent_allowlist=["claude-3-opus", "gpt-5.5"],
+        agent_blocklist=["gpt-5.5"],
         enforcement_level=EnforcementLevel.HARD,
         enabled=True,
         priority=10,
@@ -116,10 +116,10 @@ def sample_violation() -> PolicyViolation:
         policy_id="policy_test001",
         policy_name="Test Policy",
         violation_type="agent",
-        description="Agent gpt-3.5-turbo not in allowlist",
+        description="Agent gpt-5.5 not in allowlist",
         task_id="task-123",
         task_type="debate",
-        agent_id="gpt-3.5-turbo",
+        agent_id="gpt-5.5",
         region="us-east-1",
         workspace_id="ws-1",
         enforcement_level=EnforcementLevel.HARD,
@@ -211,8 +211,8 @@ class TestCreatePolicy:
         assert retrieved.task_types == ["debate", "analysis"]
         assert retrieved.capabilities == ["reasoning"]
         assert retrieved.workspaces == ["ws-1"]
-        assert retrieved.agent_allowlist == ["claude-3-opus", "gpt-4"]
-        assert retrieved.agent_blocklist == ["gpt-3.5-turbo"]
+        assert retrieved.agent_allowlist == ["claude-3-opus", "gpt-5.5"]
+        assert retrieved.agent_blocklist == ["gpt-5.5"]
 
     def test_create_policy_with_constraints(
         self,
@@ -561,7 +561,7 @@ class TestCreateViolation:
         assert v["policy_id"] == "policy_test001"
         assert v["policy_name"] == "Test Policy"
         assert v["violation_type"] == "agent"
-        assert v["agent_id"] == "gpt-3.5-turbo"
+        assert v["agent_id"] == "gpt-5.5"
         assert v["task_id"] == "task-123"
         assert v["status"] == "open"
 

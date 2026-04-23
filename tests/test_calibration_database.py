@@ -371,7 +371,7 @@ class TestPredictionSchema:
         """Should update prediction with outcome."""
         db.execute_write(
             "INSERT INTO predictions (id, agent_name, confidence) VALUES (?, ?, ?)",
-            ("pred-002", "gpt4", 0.75),
+            ("pred-002", "gpt-5.5", 0.75),
         )
         db.execute_write("UPDATE predictions SET outcome = ? WHERE id = ?", (1, "pred-002"))
 
@@ -383,7 +383,7 @@ class TestPredictionSchema:
         params = [
             ("p1", "claude", 0.8, 1),
             ("p2", "claude", 0.6, 0),
-            ("p3", "gpt4", 0.9, 1),
+            ("p3", "gpt-5.5", 0.9, 1),
         ]
         db.executemany(
             "INSERT INTO predictions (id, agent_name, confidence, outcome) VALUES (?, ?, ?, ?)",

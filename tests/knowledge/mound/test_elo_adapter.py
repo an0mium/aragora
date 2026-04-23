@@ -119,9 +119,9 @@ class TestEloAdapterStoreMatch:
         mock_match = Mock()
         mock_match.debate_id = "debate_123"
         mock_match.winner = "claude"
-        mock_match.participants = ["claude", "gpt4"]
+        mock_match.participants = ["claude", "gpt-5.5"]
         mock_match.domain = "legal"
-        mock_match.scores = {"claude": 0.7, "gpt4": 0.3}
+        mock_match.scores = {"claude": 0.7, "gpt-5.5": 0.3}
         mock_match.created_at = "2024-01-01T00:00:00Z"
 
         match_id = adapter.store_match(mock_match)
@@ -129,7 +129,7 @@ class TestEloAdapterStoreMatch:
         assert match_id is not None
         assert match_id.startswith("el_match_")
         assert "claude" in adapter._agent_matches
-        assert "gpt4" in adapter._agent_matches
+        assert "gpt-5.5" in adapter._agent_matches
 
 
 class TestEloAdapterStoreCalibration:
@@ -142,9 +142,9 @@ class TestEloAdapterStoreCalibration:
         cal_id = adapter.store_calibration(
             agent_name="claude",
             debate_id="debate_123",
-            predicted_winner="gpt4",
+            predicted_winner="gpt-5.5",
             predicted_confidence=0.7,
-            actual_winner="gpt4",
+            actual_winner="gpt-5.5",
             was_correct=True,
             brier_score=0.09,
         )
@@ -162,7 +162,7 @@ class TestEloAdapterStoreRelationship:
 
         mock_metrics = Mock()
         mock_metrics.agent_a = "claude"
-        mock_metrics.agent_b = "gpt4"
+        mock_metrics.agent_b = "gpt-5.5"
         mock_metrics.debates_together = 10
         mock_metrics.a_wins_vs_b = 6
         mock_metrics.b_wins_vs_a = 3
@@ -181,7 +181,7 @@ class TestEloAdapterStoreRelationship:
 
         mock_metrics = Mock()
         mock_metrics.agent_a = "claude"
-        mock_metrics.agent_b = "gpt4"
+        mock_metrics.agent_b = "gpt-5.5"
         mock_metrics.debates_together = 3  # Below 5
 
         rel_id = adapter.store_relationship(mock_metrics)
@@ -231,7 +231,7 @@ class TestEloAdapterGetDomainExpertise:
         }
         adapter._ratings["el_2"] = {
             "id": "el_2",
-            "agent_name": "gpt4",
+            "agent_name": "gpt-5.5",
             "domain_elos": {"legal": 1500},
             "created_at": "2024-01-01T00:00:00Z",
         }
@@ -250,15 +250,15 @@ class TestEloAdapterGetRelationship:
         """Get relationship regardless of agent order."""
         adapter = EloAdapter()
 
-        adapter._relationships["el_rel_claude_gpt4"] = {
-            "id": "el_rel_claude_gpt4",
+        adapter._relationships["el_rel_claude_gpt-5.5"] = {
+            "id": "el_rel_claude_gpt-5.5",
             "agent_a": "claude",
-            "agent_b": "gpt4",
+            "agent_b": "gpt-5.5",
         }
 
         # Should work either way
-        result1 = adapter.get_relationship("claude", "gpt4")
-        result2 = adapter.get_relationship("gpt4", "claude")
+        result1 = adapter.get_relationship("claude", "gpt-5.5")
+        result2 = adapter.get_relationship("gpt-5.5", "claude")
 
         assert result1 is not None
         assert result2 is not None

@@ -12,7 +12,7 @@ import re
 SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 SAFE_ID_PATTERN_WITH_DOTS = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
 SAFE_SLUG_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,128}$")
-SAFE_AGENT_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,32}$")
+SAFE_AGENT_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,31}$")
 
 # Plugin manifest patterns (stricter for submission)
 SAFE_PLUGIN_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]{0,62}[a-z0-9]?$")  # 1-64 chars, lowercase
@@ -77,7 +77,7 @@ def validate_id(value: str, name: str = "ID") -> tuple[bool, str | None]:
 
 
 def validate_agent_name(agent: str) -> tuple[bool, str | None]:
-    """Validate an agent name (alphanumeric with hyphens/underscores, 1-32 chars).
+    """Validate an agent name, including dotted model IDs like gpt-5.5.
 
     Args:
         agent: Agent name to validate

@@ -156,7 +156,7 @@ class ResourceAwareExecutor(WorkflowExecutor, Protocol):
         Returns:
             Dictionary with estimated costs:
             - total: Total estimated cost in USD
-            - Per-agent breakdown (e.g., {"claude": 0.05, "gpt4": 0.12})
+            - Per-agent breakdown (e.g., {"claude": 0.05, "gpt-5.5": 0.12})
         """
         ...
 

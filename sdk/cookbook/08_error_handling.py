@@ -83,7 +83,7 @@ async def fallback_agent_example(dry_run: bool = False) -> dict:
         name="claude",
         model="claude-sonnet-4-20250514",
         fallback=FallbackAgent(
-            agent=Agent(name="gpt_fallback", model="gpt-4o"),
+            agent=Agent(name="gpt_fallback", model="gpt-5.5"),
             # Use fallback on these errors
             trigger_on=(RateLimitError, AgentError),
             fallback=FallbackAgent(
@@ -96,7 +96,7 @@ async def fallback_agent_example(dry_run: bool = False) -> dict:
 
     if dry_run:
         print("[DRY RUN] Primary: claude-sonnet-4-20250514")
-        print("[DRY RUN] Fallback 1: gpt-4o")
+        print("[DRY RUN] Fallback 1: gpt-5.5")
         print("[DRY RUN] Fallback 2: anthropic/claude-3-haiku (via OpenRouter)")
         return {"pattern": "fallback", "status": "dry_run"}
 

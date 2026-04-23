@@ -207,7 +207,7 @@ class TestCreateAgent:
         try:
             agent = create_agent("openai", name="test", api_key="fake-key")
             assert agent.name == "test"
-            assert agent.model == "gpt-4o"
+            assert agent.model == "gpt-5.5"
         except ImportError:
             pass  # SDK not installed -- expected in CI
 
@@ -223,7 +223,7 @@ class TestCreateAgent:
         """'gpt' should map to openai provider."""
         try:
             agent = create_agent("gpt", name="test", api_key="fake-key")
-            assert agent.model == "gpt-4o"
+            assert agent.model == "gpt-5.5"
         except ImportError:
             pass
 

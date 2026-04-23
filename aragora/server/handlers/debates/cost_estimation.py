@@ -27,14 +27,13 @@ MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "claude-sonnet-4": ("anthropic", "claude-sonnet-4"),
     "claude-sonnet-4.6": ("anthropic", "claude-sonnet-4.6"),
     "claude-sonnet-4-6": ("anthropic", "claude-sonnet-4.6"),
-    "gpt-4o": ("openai", "gpt-4o"),
-    "gpt-4o-mini": ("openai", "gpt-4o-mini"),
+    "gpt-5.5": ("openai", "gpt-5.5"),
     "gemini-pro": ("google", "gemini-pro"),
     "deepseek-v3": ("deepseek", "deepseek-v3"),
 }
 
 # Default models when none specified
-DEFAULT_MODELS = ["claude-opus-4-7", "gpt-4o", "gemini-pro"]
+DEFAULT_MODELS = ["claude-opus-4-7", "gpt-5.5", "gemini-pro"]
 
 
 def estimate_debate_cost(

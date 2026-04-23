@@ -277,12 +277,12 @@ class TestExecuteSuccess:
         assert _tasks[task_id].goal == body["goal"]
 
     def test_custom_agents(self, handler, mock_http_handler):
-        body = _valid_body(agents=["claude", "gpt4"])
+        body = _valid_body(agents=["claude", "gpt-5.5"])
         h = _make_http_handler(body)
         result = handler.handle_post("/api/v2/tasks/execute", {}, h)
         assert _status(result) == 201
         task_id = _body(result)["task_id"]
-        assert _tasks[task_id].agents == ["claude", "gpt4"]
+        assert _tasks[task_id].agents == ["claude", "gpt-5.5"]
 
     def test_default_agents_is_auto(self, handler, mock_http_handler):
         body = _valid_body()

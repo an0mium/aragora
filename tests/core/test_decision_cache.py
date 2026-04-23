@@ -291,7 +291,7 @@ class TestDecisionCacheHashing:
         class MockRequest:
             config: MockConfig
 
-        req1 = MockRequest(config=MockConfig(agents=["claude", "gpt4"]))
+        req1 = MockRequest(config=MockConfig(agents=["claude", "gpt-5.5"]))
         req2 = MockRequest(config=MockConfig(agents=["claude", "gemini"]))
 
         hash1 = cache._compute_hash(req1)

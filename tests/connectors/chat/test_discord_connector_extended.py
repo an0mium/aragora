@@ -907,7 +907,7 @@ class TestParseWebhookEvent:
             "data": {
                 "custom_id": "agent_select",
                 "component_type": 3,  # SELECT_MENU
-                "values": ["claude", "gpt4"],
+                "values": ["claude", "gpt-5.5"],
             },
             "message": {"id": "msg-2"},
         }
@@ -917,7 +917,7 @@ class TestParseWebhookEvent:
         from aragora.connectors.chat.models import InteractionType
 
         assert event.interaction.interaction_type == InteractionType.SELECT_MENU
-        assert event.interaction.values == ["claude", "gpt4"]
+        assert event.interaction.values == ["claude", "gpt-5.5"]
         assert event.interaction.action_id == "agent_select"
         # No ":" in custom_id means value should be None
         assert event.interaction.value is None

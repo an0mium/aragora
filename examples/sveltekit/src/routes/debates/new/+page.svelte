@@ -3,14 +3,14 @@
   import { getBrowserClient } from '$lib/aragora';
 
   let task = '';
-  let selectedAgents = ['claude', 'gpt-4', 'gemini'];
+  let selectedAgents = ['claude', 'gpt-5.5', 'gemini'];
   let rounds = 5;
   let loading = false;
   let error = '';
 
   const agents = [
     { id: 'claude', name: 'Claude', provider: 'Anthropic' },
-    { id: 'gpt-4', name: 'GPT-4', provider: 'OpenAI' },
+    { id: 'gpt-5.5', name: 'GPT-5.5', provider: 'OpenAI' },
     { id: 'gemini', name: 'Gemini', provider: 'Google' },
     { id: 'grok', name: 'Grok', provider: 'xAI' },
     { id: 'mistral', name: 'Mistral Large', provider: 'Mistral' },

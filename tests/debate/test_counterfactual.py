@@ -71,7 +71,7 @@ class TestPivotClaim:
             author="claude",
             disagreement_score=0.75,
             importance_score=0.8,
-            blocking_agents=["gpt4", "gemini"],
+            blocking_agents=["gpt-5.5", "gemini"],
         )
 
         assert claim.claim_id == "pivot-001"
@@ -150,7 +150,7 @@ class TestCounterfactualBranch:
             author="claude",
             disagreement_score=0.8,
             importance_score=0.7,
-            blocking_agents=["gpt4"],
+            blocking_agents=["gpt-5.5"],
         )
 
     def test_create_true_branch(self):
@@ -320,7 +320,7 @@ class TestConditionalConsensus:
             author="claude",
             disagreement_score=0.8,
             importance_score=0.7,
-            blocking_agents=["gpt4"],
+            blocking_agents=["gpt-5.5"],
         )
 
     def test_create_conditional_consensus(self):
@@ -449,7 +449,7 @@ class TestImpactDetector:
 
         messages = [
             self._create_mock_message("claude", "Test", 1),
-            self._create_mock_message("gpt4", "Test", 1),
+            self._create_mock_message("gpt-5.5", "Test", 1),
         ]
 
         result = detector.detect_impasse(messages, [])
@@ -464,13 +464,13 @@ class TestImpactDetector:
             self._create_mock_message(
                 "claude", "I fundamentally disagree with the microservices approach", 1
             ),
-            self._create_mock_message("gpt4", "On the contrary, monoliths are problematic", 1),
+            self._create_mock_message("gpt-5.5", "On the contrary, monoliths are problematic", 1),
             self._create_mock_message("claude", "The core assumption is flawed", 2),
-            self._create_mock_message("gpt4", "I cannot accept that premise", 2),
+            self._create_mock_message("gpt-5.5", "I cannot accept that premise", 2),
             self._create_mock_message(
                 "claude", "If that were true, we would need a different approach", 3
             ),
-            self._create_mock_message("gpt4", "I reject the premise entirely", 3),
+            self._create_mock_message("gpt-5.5", "I reject the premise entirely", 3),
         ]
 
         result = detector.detect_impasse(messages, [])
@@ -486,11 +486,11 @@ class TestImpactDetector:
 
         messages = [
             self._create_mock_message("claude", "We should use Redis", 1),
-            self._create_mock_message("gpt4", "Agreed, Redis is best", 1),
+            self._create_mock_message("gpt-5.5", "Agreed, Redis is best", 1),
             self._create_mock_message("claude", "Redis provides persistence", 2),
-            self._create_mock_message("gpt4", "Yes, and good caching", 2),
+            self._create_mock_message("gpt-5.5", "Yes, and good caching", 2),
             self._create_mock_message("claude", "Let's proceed with Redis", 3),
-            self._create_mock_message("gpt4", "Confirmed, Redis it is", 3),
+            self._create_mock_message("gpt-5.5", "Confirmed, Redis it is", 3),
         ]
 
         result = detector.detect_impasse(messages, [])
@@ -503,7 +503,7 @@ class TestImpactDetector:
 
         messages = [
             self._create_mock_message("claude", "I fundamentally disagree with this approach", 1),
-            self._create_mock_message("gpt4", "The core assumption is wrong", 1),
+            self._create_mock_message("gpt-5.5", "The core assumption is wrong", 1),
         ]
 
         disagreements = detector._find_disagreements(messages)
@@ -543,7 +543,7 @@ class TestCounterfactualOrchestrator:
             author="claude",
             disagreement_score=0.8,
             importance_score=0.7,
-            blocking_agents=["gpt4"],
+            blocking_agents=["gpt-5.5"],
         )
 
     def _create_mock_message(self, agent: str, content: str, round_num: int = 1) -> Mock:
@@ -995,7 +995,7 @@ class TestCounterfactualIntegration:
             author="claude",
             disagreement_score=0.8,
             importance_score=0.7,
-            blocking_agents=["gpt4"],
+            blocking_agents=["gpt-5.5"],
         )
 
     def test_init(self):
@@ -1294,7 +1294,7 @@ class TestRunBranchDeep:
             author="agent",
             disagreement_score=0.8,
             importance_score=0.7,
-            blocking_agents=["claude", "gpt4"],
+            blocking_agents=["claude", "gpt-5.5"],
         )
 
     @pytest.mark.asyncio
@@ -1455,7 +1455,7 @@ class TestFindDisagreementsDeep:
                 1,
             ),
             self._make_msg(
-                "gpt4",
+                "gpt-5.5",
                 "I also reject the premise that this approach works at scale",
                 1,
             ),
@@ -1486,7 +1486,7 @@ class TestFindDisagreementsDeep:
 
         msgs = [
             self._make_msg("claude", "I agree with your excellent proposal.", 1),
-            self._make_msg("gpt4", "Wonderful idea, let us proceed.", 1),
+            self._make_msg("gpt-5.5", "Wonderful idea, let us proceed.", 1),
         ]
 
         disagreements = detector._find_disagreements(msgs)

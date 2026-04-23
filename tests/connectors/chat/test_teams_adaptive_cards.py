@@ -38,7 +38,7 @@ def sample_agents():
             confidence=0.85,
         ),
         AgentContribution(
-            name="GPT-4",
+            name="GPT-5.5",
             position="for",
             key_point="Team autonomy",
             confidence=0.78,
@@ -60,7 +60,7 @@ def sample_round_progress():
         total_rounds=5,
         agent_messages=[
             {"agent": "Claude", "summary": "We should consider the long-term benefits"},
-            {"agent": "GPT-4", "summary": "I agree with the previous points"},
+            {"agent": "GPT-5.5", "summary": "I agree with the previous points"},
         ],
         current_consensus="Leaning towards microservices",
     )
@@ -165,7 +165,7 @@ class TestGetAgentIcon:
 
     def test_get_gpt_icon(self):
         """Test getting GPT icon."""
-        url = TeamsAdaptiveCards.get_agent_icon("GPT-4")
+        url = TeamsAdaptiveCards.get_agent_icon("GPT-5.5")
         assert "openai" in url.lower()
 
     def test_get_openai_icon(self):
@@ -256,7 +256,7 @@ class TestStartingCard:
         card = TeamsAdaptiveCards.starting_card(
             topic="Should we use microservices?",
             initiated_by="User123",
-            agents=["Claude", "GPT-4", "Gemini"],
+            agents=["Claude", "GPT-5.5", "Gemini"],
         )
 
         assert card["type"] == "AdaptiveCard"
@@ -287,7 +287,7 @@ class TestStartingCard:
 
     def test_starting_card_shows_agents(self):
         """Test starting card lists agents."""
-        agents = ["Claude", "GPT-4", "Gemini"]
+        agents = ["Claude", "GPT-5.5", "Gemini"]
         card = TeamsAdaptiveCards.starting_card(
             topic="Topic",
             initiated_by="User",
@@ -296,7 +296,7 @@ class TestStartingCard:
 
         card_str = str(card)
         assert "Claude" in card_str
-        assert "GPT-4" in card_str
+        assert "GPT-5.5" in card_str
         assert "Gemini" in card_str
 
     def test_starting_card_limits_agents_to_4(self):
@@ -398,7 +398,7 @@ class TestProgressCard:
 
         card_str = str(card)
         assert "Claude" in card_str
-        assert "GPT-4" in card_str
+        assert "GPT-5.5" in card_str
 
     def test_progress_card_limits_messages_to_3(self):
         """Test progress card limits to last 3 messages."""

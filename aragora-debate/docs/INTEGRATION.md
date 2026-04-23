@@ -27,7 +27,7 @@ from aragora_debate import Arena, ClaudeAgent, OpenAIAgent
 async def main():
     agents = [
         ClaudeAgent("analyst", model="claude-sonnet-4-5-20250929"),
-        OpenAIAgent("challenger", model="gpt-4o"),
+        OpenAIAgent("challenger", model="gpt-5.5"),
     ]
     arena = Arena(
         question="Should we migrate from PostgreSQL to a distributed database?",

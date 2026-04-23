@@ -276,7 +276,7 @@ Start with the [Curated API Reference](../api-reference) for the essential endpo
 
 **Multi-model consensus, not a single opinion.** Standard AI code review tools run one model and present its output as truth. Aragora runs multiple models independently, then has them debate. You see where they agree (act on these) and where they disagree (use your judgment).
 
-**Disagreement is a feature.** Split opinions are explicitly surfaced. When Claude flags a security issue but GPT-4 does not, that tells you something different than when both flag it. The disagreement itself is informative.
+**Disagreement is a feature.** Split opinions are explicitly surfaced. When Claude flags a security issue but GPT-5.5 does not, that tells you something different than when both flag it. The disagreement itself is informative.
 
 **Cryptographic decision receipts.** Every review produces a SHA-256 hashed audit trail -- which models participated, what they found, how they voted, and what the consensus was. This is not a log file; it is a verifiable receipt.
 
@@ -291,7 +291,7 @@ Approximate cost per review (2 agents, 2 rounds, typical PR):
 | Provider | Cost per Review |
 |----------|----------------|
 | Anthropic Claude | ~$0.05-0.15 |
-| OpenAI GPT-4 | ~$0.10-0.30 |
+| OpenAI GPT-5.5 | ~$0.10-0.30 |
 | OpenRouter fallback | ~$0.02-0.10 |
 
 ---

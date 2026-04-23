@@ -93,7 +93,7 @@ def mock_storage():
         "consensus_reached": True,
         "rounds_used": 3,
         "rounds_completed": 3,
-        "agents": ["claude", "gpt4"],
+        "agents": ["claude", "gpt-5.5"],
         "metadata": {},
     }
     return storage

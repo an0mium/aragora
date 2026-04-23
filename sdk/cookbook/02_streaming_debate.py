@@ -82,7 +82,7 @@ async def run_streaming_debate(topic: str, dry_run: bool = False) -> dict:
     # Define agents
     agents = [
         Agent(name="claude", model="claude-sonnet-4-20250514"),
-        Agent(name="gpt", model="gpt-4o"),
+        Agent(name="gpt", model="gpt-5.5"),
         Agent(name="gemini", model="gemini-2.0-flash"),
     ]
 

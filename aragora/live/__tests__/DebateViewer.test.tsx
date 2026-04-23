@@ -127,15 +127,15 @@ describe('DebateViewer archived debates', () => {
       cycle_number: 3,
       phase: 'debate',
       task: 'Should we adopt X?',
-      agents: ['claude-3-opus', 'gpt-4o'],
+      agents: ['claude-3-opus', 'gpt-5.5'],
       transcript: [
         { agent: 'claude-3-opus', content: 'Yes, adopt X', role: 'proposer', round: 1, timestamp: 1700000000 },
-        { agent: 'gpt-4o', content: 'No, avoid X', role: 'critic', round: 1, timestamp: 1700000001 },
+        { agent: 'gpt-5.5', content: 'No, avoid X', role: 'critic', round: 1, timestamp: 1700000001 },
       ],
       consensus_reached: true,
       confidence: 0.82,
       winning_proposal: 'Adopt X with safeguards.',
-      vote_tally: { 'claude-3-opus': 2, 'gpt-4o': 1 },
+      vote_tally: { 'claude-3-opus': 2, 'gpt-5.5': 1 },
       created_at: '2026-01-01T00:00:00Z',
     };
 

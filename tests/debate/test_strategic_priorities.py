@@ -449,7 +449,7 @@ class TestERC8004PushReputation:
         adapter._emit_event = MagicMock()
 
         result = adapter.push_reputation(
-            agent_id="gpt4",
+            agent_id="gpt-5.5",
             score=72,
             domain="calibration",
         )

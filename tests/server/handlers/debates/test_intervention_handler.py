@@ -292,7 +292,7 @@ class TestWeightAdjustment:
         result = await intervention.handle_update_weights(
             debate_id="debate-123",
             context=mock_auth_context,
-            agent="gpt4",
+            agent="gpt-5.5",
             weight=0.0,
         )
 

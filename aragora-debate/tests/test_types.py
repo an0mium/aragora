@@ -47,10 +47,10 @@ class TestMessage:
         assert m.round == 0
 
     def test_to_dict(self):
-        m = Message(role="voter", agent="gpt4", content="agree", round=2)
+        m = Message(role="voter", agent="gpt-5.5", content="agree", round=2)
         d = m.to_dict()
         assert d["role"] == "voter"
-        assert d["agent"] == "gpt4"
+        assert d["agent"] == "gpt-5.5"
         assert d["round"] == 2
         assert "timestamp" in d
 
@@ -59,7 +59,7 @@ class TestCritique:
     def test_content_property(self):
         c = Critique(
             agent="claude",
-            target_agent="gpt4",
+            target_agent="gpt-5.5",
             target_content="some proposal",
             issues=["weak evidence", "missing data"],
             suggestions=["add citations"],
@@ -113,12 +113,12 @@ class TestConsensus:
 class TestDissentRecord:
     def test_to_dict(self):
         d = DissentRecord(
-            agent="gpt4",
+            agent="gpt-5.5",
             reasons=["insufficient evidence"],
             alternative_view="should use RAG instead",
         )
         result = d.to_dict()
-        assert result["agent"] == "gpt4"
+        assert result["agent"] == "gpt-5.5"
         assert "insufficient evidence" in result["reasons"]
         assert result["alternative_view"] == "should use RAG instead"
 
@@ -148,7 +148,7 @@ class TestDecisionReceipt:
                 reached=True,
                 method=ConsensusMethod.MAJORITY,
                 confidence=0.85,
-                supporting_agents=["claude", "gpt4"],
+                supporting_agents=["claude", "gpt-5.5"],
                 dissenting_agents=["gemini"],
                 dissents=[
                     DissentRecord(
@@ -158,7 +158,7 @@ class TestDecisionReceipt:
                     )
                 ],
             ),
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             rounds_used=3,
         )
         md = receipt.to_markdown()

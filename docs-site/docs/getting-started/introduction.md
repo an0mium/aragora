@@ -26,7 +26,7 @@ Aragora supports agents from multiple providers:
 | Provider | Models | Strengths |
 |----------|--------|-----------|
 | Anthropic | Claude 3.5, Claude 4 | Reasoning, safety |
-| OpenAI | GPT-4, GPT-4o | General knowledge |
+| OpenAI | GPT-5.5, GPT-5.5 | General knowledge |
 | Google | Gemini Pro, Gemini Flash | Multimodal, speed |
 | xAI | Grok | Real-time knowledge |
 | Open Models | Llama, Mistral, DeepSeek | Cost efficiency |

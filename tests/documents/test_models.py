@@ -196,8 +196,8 @@ class TestModelTokenLimits:
 
     def test_get_known_model_limits(self):
         """Test getting limits for known models."""
-        assert get_model_token_limit("gpt-4") == 8_192
-        assert get_model_token_limit("gpt-4-turbo") == 128_000
+        assert get_model_token_limit("gpt-5.5") == 8_192
+        assert get_model_token_limit("gpt-5.5") == 128_000
         assert get_model_token_limit("claude-3-opus") == 200_000
         assert get_model_token_limit("gemini-3-pro") == 1_000_000
 
@@ -211,11 +211,11 @@ class TestModelTokenLimits:
 
     def test_case_insensitive_lookup(self):
         """Test case-insensitive model name matching."""
-        assert get_model_token_limit("GPT-4") == 8_192
+        assert get_model_token_limit("GPT-5.5") == 8_192
         assert get_model_token_limit("Claude-3-Opus") == 200_000
 
     def test_partial_model_name_matching(self):
         """Test partial model name matching."""
         # Should match models containing the key
-        assert get_model_token_limit("gpt-4o-mini") == 128_000  # matches gpt-4o
+        assert get_model_token_limit("gpt-5.5") == 128_000  # matches gpt-5.5
         assert get_model_token_limit("claude-3.5-sonnet-v2") == 200_000

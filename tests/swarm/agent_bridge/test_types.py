@@ -25,7 +25,7 @@ def test_dataclass_roundtrips_include_schema_version() -> None:
         worktree_cleanup_mode="operator_triggered",
         participants=[
             Participant(role="reviewer", harness="claude", model="claude-opus-4-7"),
-            Participant(role="implementer", harness="codex", model="gpt-5.4"),
+            Participant(role="implementer", harness="codex", model="gpt-5.5"),
         ],
         worktree_path="/tmp/run",
         worktree_agent_slug="codex",

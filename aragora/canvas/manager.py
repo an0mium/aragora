@@ -738,7 +738,7 @@ class CanvasStateManager:
                 return agents
 
             # Default agents
-            default_agents = ["claude", "gpt4"]
+            default_agents = ["claude", "gpt-5.5"]
             agents = []
             for name in default_agents:
                 if AgentRegistry.is_registered(name):

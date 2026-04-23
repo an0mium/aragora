@@ -122,7 +122,7 @@ class TestAuthExemptPrefixes:
             ("/api/auth/oauth/google", True),
             ("/api/auth/oauth/github/callback", True),
             ("/api/agent/claude-opus", True),
-            ("/api/agent/gpt-4o/stats", True),
+            ("/api/agent/gpt-5.5/stats", True),
             ("/api/routing/detect-domain", True),
             ("/api/auth/login", False),  # Not under oauth/
             ("/api/agents", False),  # Plural, different endpoint

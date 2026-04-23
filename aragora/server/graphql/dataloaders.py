@@ -13,7 +13,7 @@ Usage:
 
     # Use in resolvers
     agent = await loaders.agent_loader.load("claude")
-    agents = await loaders.agent_loader.load_many(["claude", "gpt4", "gemini"])
+    agents = await loaders.agent_loader.load_many(["claude", "gpt-5.5", "gemini"])
 """
 
 from __future__ import annotations

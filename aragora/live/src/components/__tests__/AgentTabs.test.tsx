@@ -77,10 +77,10 @@ describe('AgentTabs', () => {
         round: 1,
         data: { content: 'First response from Claude', role: 'proposer' },
       }),
-      createAgentMessageEvent('gpt4', 'Response from GPT-4', {
+      createAgentMessageEvent('gpt-5.5', 'Response from GPT-5.5', {
         timestamp: 1001,
         round: 1,
-        data: { content: 'Response from GPT-4', role: 'critic' },
+        data: { content: 'Response from GPT-5.5', role: 'critic' },
       }),
       createAgentMessageEvent('claude', 'Second response from Claude', {
         timestamp: 1002,
@@ -95,7 +95,7 @@ describe('AgentTabs', () => {
       expect(screen.getByText('All Agents')).toBeInTheDocument();
       // Agent names appear in both tabs and messages, so use getAllByText
       expect(screen.getAllByText('claude').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('gpt4').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('gpt-5.5').length).toBeGreaterThan(0);
     });
 
     it('shows unified timeline by default with message count', () => {
@@ -109,7 +109,7 @@ describe('AgentTabs', () => {
       render(<AgentTabs events={events} />);
 
       expect(screen.getByText('First response from Claude')).toBeInTheDocument();
-      expect(screen.getByText('Response from GPT-4')).toBeInTheDocument();
+      expect(screen.getByText('Response from GPT-5.5')).toBeInTheDocument();
       expect(screen.getByText('Second response from Claude')).toBeInTheDocument();
     });
 
@@ -137,10 +137,10 @@ describe('AgentTabs', () => {
       const claudeTab = claudeTabs[0].closest('button');
       expect(claudeTab).toHaveTextContent('R2');
 
-      // GPT4 should show R1
-      const gpt4Tabs = screen.getAllByText('gpt4');
-      const gpt4Tab = gpt4Tabs[0].closest('button');
-      expect(gpt4Tab).toHaveTextContent('R1');
+      // GPT-5.5 should show R1
+      const gpt55Tabs = screen.getAllByText('gpt-5.5');
+      const gpt55Tab = gpt55Tabs[0].closest('button');
+      expect(gpt55Tab).toHaveTextContent('R1');
     });
 
     it('shows live indicator for auto-scroll', () => {
@@ -259,7 +259,7 @@ describe('AgentTabs', () => {
         createAgentMessageEvent('claude', 'Test', {
           data: { content: 'Test', role: 'proposer' },
         }),
-        createAgentMessageEvent('gpt4', 'Test2', {
+        createAgentMessageEvent('gpt-5.5', 'Test2', {
           data: { content: 'Test2', role: 'critic' },
         }),
       ];

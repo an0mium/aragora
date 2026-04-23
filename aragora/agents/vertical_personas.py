@@ -103,10 +103,10 @@ VERTICAL_CONFIGS: dict[Vertical, VerticalConfig] = {
             "pci_dss",
         ],
         preferred_models={
-            TaskComplexity.LOW: ["claude", "gpt4", "deepseek"],
-            TaskComplexity.MEDIUM: ["claude", "gpt4"],
-            TaskComplexity.HIGH: ["claude", "gpt4"],
-            TaskComplexity.CRITICAL: ["claude", "gpt4"],
+            TaskComplexity.LOW: ["claude", "gpt-5.5", "deepseek"],
+            TaskComplexity.MEDIUM: ["claude", "gpt-5.5"],
+            TaskComplexity.HIGH: ["claude", "gpt-5.5"],
+            TaskComplexity.CRITICAL: ["claude", "gpt-5.5"],
         },
         expertise_domains=[
             "security",
@@ -149,8 +149,8 @@ VERTICAL_CONFIGS: dict[Vertical, VerticalConfig] = {
             "finra",
         ],
         preferred_models={
-            TaskComplexity.LOW: ["claude", "gpt4"],
-            TaskComplexity.MEDIUM: ["claude", "gpt4"],
+            TaskComplexity.LOW: ["claude", "gpt-5.5"],
+            TaskComplexity.MEDIUM: ["claude", "gpt-5.5"],
             TaskComplexity.HIGH: ["claude"],  # Higher accuracy needed
             TaskComplexity.CRITICAL: ["claude"],
         },
@@ -192,7 +192,7 @@ VERTICAL_CONFIGS: dict[Vertical, VerticalConfig] = {
             "gdpr",
         ],
         preferred_models={
-            TaskComplexity.LOW: ["claude", "gpt4"],
+            TaskComplexity.LOW: ["claude", "gpt-5.5"],
             TaskComplexity.MEDIUM: ["claude"],
             TaskComplexity.HIGH: ["claude"],  # Patient safety critical
             TaskComplexity.CRITICAL: ["claude"],
@@ -236,8 +236,8 @@ VERTICAL_CONFIGS: dict[Vertical, VerticalConfig] = {
             "sec",
         ],
         preferred_models={
-            TaskComplexity.LOW: ["claude", "gpt4"],
-            TaskComplexity.MEDIUM: ["claude", "gpt4"],
+            TaskComplexity.LOW: ["claude", "gpt-5.5"],
+            TaskComplexity.MEDIUM: ["claude", "gpt-5.5"],
             TaskComplexity.HIGH: ["claude"],
             TaskComplexity.CRITICAL: ["claude"],
         },
@@ -276,9 +276,9 @@ VERTICAL_CONFIGS: dict[Vertical, VerticalConfig] = {
             "fda_21_cfr",
         ],
         preferred_models={
-            TaskComplexity.LOW: ["claude", "gpt4", "gemini"],
-            TaskComplexity.MEDIUM: ["claude", "gpt4"],
-            TaskComplexity.HIGH: ["claude", "gpt4"],
+            TaskComplexity.LOW: ["claude", "gpt-5.5", "gemini"],
+            TaskComplexity.MEDIUM: ["claude", "gpt-5.5"],
+            TaskComplexity.HIGH: ["claude", "gpt-5.5"],
             TaskComplexity.CRITICAL: ["claude"],
         },
         expertise_domains=[
@@ -304,15 +304,15 @@ VERTICAL_CONFIGS: dict[Vertical, VerticalConfig] = {
         description="General-purpose analysis and multi-domain tasks",
         primary_personas=[
             "claude",
-            "gpt4",
+            "gpt-5.5",
             "gemini",
             "synthesizer",
         ],
         compliance_frameworks=[],
         preferred_models={
-            TaskComplexity.LOW: ["claude", "gpt4", "gemini", "deepseek"],
-            TaskComplexity.MEDIUM: ["claude", "gpt4", "gemini"],
-            TaskComplexity.HIGH: ["claude", "gpt4"],
+            TaskComplexity.LOW: ["claude", "gpt-5.5", "gemini", "deepseek"],
+            TaskComplexity.MEDIUM: ["claude", "gpt-5.5", "gemini"],
+            TaskComplexity.HIGH: ["claude", "gpt-5.5"],
             TaskComplexity.CRITICAL: ["claude"],
         },
         expertise_domains=EXPERTISE_DOMAINS[:12],  # Technical domains

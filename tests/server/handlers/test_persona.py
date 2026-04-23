@@ -173,8 +173,8 @@ def mock_persona_manager():
     """Create mock persona manager with sample data."""
     manager = MockPersonaManager()
     manager._personas["claude"] = MockPersona()
-    manager._personas["gpt4"] = MockPersona(
-        agent_name="gpt4",
+    manager._personas["gpt-5.5"] = MockPersona(
+        agent_name="gpt-5.5",
         description="A powerful language model",
         traits=["creative", "verbose"],
         expertise={"writing": 0.95, "reasoning": 0.85},
@@ -1170,7 +1170,7 @@ class TestPathValidation:
             "aragora.server.handlers.persona._persona_limiter.is_allowed",
             return_value=True,
         ):
-            result = persona_handler.handle("/api/agent/gpt4o/persona", {}, mock_http_handler)
+            result = persona_handler.handle("/api/agent/gpt-5.5/persona", {}, mock_http_handler)
         # Should not return 400 for valid name
         assert result.status_code != 400 or "Invalid" not in parse_handler_response(result).get(
             "error", ""

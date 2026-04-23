@@ -92,7 +92,7 @@ class TestCircuitBreakerFiltering:
             generate_with_agent=AsyncMock(return_value="proposal"),
         )
 
-        proposers = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        proposers = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), proposers=proposers)
         ctx.result = MockDebateResult()
 
@@ -182,14 +182,14 @@ class TestParallelGeneration:
             generate_with_agent=generate,
         )
 
-        proposers = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        proposers = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), proposers=proposers)
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
 
         assert len(ctx.proposals) == 2
-        assert "claude" in ctx.proposals or "gpt4" in ctx.proposals
+        assert "claude" in ctx.proposals or "gpt-5.5" in ctx.proposals
 
     @pytest.mark.asyncio
     async def test_handle_partial_failures(self):
@@ -205,7 +205,7 @@ class TestParallelGeneration:
             generate_with_agent=generate_side_effect,
         )
 
-        proposers = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        proposers = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), proposers=proposers)
         ctx.result = MockDebateResult()
 
@@ -213,7 +213,7 @@ class TestParallelGeneration:
 
         # Both should have entries (one success, one error)
         assert len(ctx.proposals) == 2
-        assert "[Error" in ctx.proposals.get("gpt4", "")
+        assert "[Error" in ctx.proposals.get("gpt-5.5", "")
 
     @pytest.mark.asyncio
     async def test_timeout_wrapper(self):
@@ -470,7 +470,7 @@ class TestProposalPhaseIntegration:
         cb = MagicMock()
         cb.filter_available_agents.return_value = [
             MockAgent(name="claude"),
-            MockAgent(name="gpt4"),
+            MockAgent(name="gpt-5.5"),
         ]
         recorder = MagicMock()
         on_message = MagicMock()
@@ -488,7 +488,7 @@ class TestProposalPhaseIntegration:
             notify_spectator=notify,
         )
 
-        proposers = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        proposers = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), proposers=proposers)
         ctx.result = MockDebateResult()
 
@@ -497,7 +497,7 @@ class TestProposalPhaseIntegration:
         # Verify proposals generated
         assert len(ctx.proposals) == 2
         assert "claude" in ctx.proposals
-        assert "gpt4" in ctx.proposals
+        assert "gpt-5.5" in ctx.proposals
 
         # Verify messages added
         assert len(ctx.context_messages) == 2

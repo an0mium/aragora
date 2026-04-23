@@ -88,7 +88,7 @@ class TestForkDebate:
                         return_value={
                             "messages": [
                                 {"content": "msg1", "agent": "claude"},
-                                {"content": "msg2", "agent": "gpt4"},
+                                {"content": "msg2", "agent": "gpt-5.5"},
                             ]
                         }
                     )
@@ -263,7 +263,7 @@ class TestCreateFollowupDebate:
                 return_value=MagicMock(
                     get_debate=MagicMock(
                         return_value={
-                            "agents": ["claude", "gpt4", "gemini"],
+                            "agents": ["claude", "gpt-5.5", "gemini"],
                             "uncertainty_metrics": {},
                         }
                     )

@@ -98,7 +98,7 @@ class MockTrace:
     @classmethod
     def load(cls, path):
         msg1 = MagicMock(agent="claude", content="We should use microservices")
-        msg2 = MagicMock(agent="gpt4", content="Monolith is better")
+        msg2 = MagicMock(agent="gpt-5.5", content="Monolith is better")
         return cls([msg1, msg2])
 
 

@@ -24,7 +24,7 @@ from typing import Any
 DEFAULT_AGENTS = ",".join(
     [
         "openrouter|anthropic/claude-sonnet-4||proposer",
-        "openrouter|openai/gpt-4o||critic",
+        "openrouter|openai/gpt-5.5||critic",
         "openrouter|google/gemini-2.0-flash-001||synthesizer",
     ]
 )

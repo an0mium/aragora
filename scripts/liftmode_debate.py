@@ -201,7 +201,7 @@ async def run_debate():
         gpt_agent = AgentRegistry.create(
             "openai-api",
             name="cfo-advisor",
-            model="gpt-5.3",
+            model="gpt-5.5",
             role="critic",
             use_cache=False,
             timeout=300,

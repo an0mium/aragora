@@ -381,9 +381,9 @@ class TestCodexAgent:
 
     def test_initialization(self):
         """Should initialize with correct attributes."""
-        agent = CodexAgent(name="codex", model="gpt-4.1-codex", role="proposer")
+        agent = CodexAgent(name="codex", model="gpt-5.5", role="proposer")
         assert agent.name == "codex"
-        assert agent.model == "gpt-4.1-codex"
+        assert agent.model == "gpt-5.5"
         assert agent.role == "proposer"
         assert agent.timeout == 300  # Default (increased for complex operations)
 
@@ -935,14 +935,14 @@ class TestOpenAIAgent:
     """Tests for OpenAIAgent."""
 
     def test_initialization_with_default_model(self):
-        """Should use gpt-4.1 as default model."""
+        """Should use gpt-5.5 as default model."""
         agent = OpenAIAgent(name="openai")
-        assert agent.model == "gpt-4.1"
+        assert agent.model == "gpt-5.5"
 
     def test_initialization_with_custom_model(self):
         """Should accept custom model."""
-        agent = OpenAIAgent(name="openai", model="gpt-5")
-        assert agent.model == "gpt-5"
+        agent = OpenAIAgent(name="openai", model="gpt-5.5")
+        assert agent.model == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_generate_command_format(self):
@@ -1061,8 +1061,8 @@ class TestCreateAgentFactory:
 
     def test_passes_custom_model(self):
         """Should pass custom model."""
-        agent = create_agent("codex", model="gpt-5.5-codex")
-        assert agent.model == "gpt-5.5-codex"
+        agent = create_agent("codex", model="gpt-5.5")
+        assert agent.model == "gpt-5.5"
 
     def test_unknown_type_raises_value_error(self):
         """Unknown agent type should raise ValueError."""
@@ -1217,7 +1217,7 @@ class TestCLIAgentGetFallbackAgent:
     @pytest.fixture
     def agent(self):
         # Enable fallback for testing fallback functionality
-        return CodexAgent(name="test", model="gpt-4.1-codex", enable_fallback=True)
+        return CodexAgent(name="test", model="gpt-5.5", enable_fallback=True)
 
     def test_returns_none_when_disabled(self, agent):
         """Should return None when fallback is disabled."""
@@ -1255,8 +1255,8 @@ class TestCLIAgentGetFallbackAgent:
                 agent._get_fallback_agent()
 
                 call_kwargs = mock_or.call_args[1]
-                # gpt-4.1-codex should map to openai/gpt-4.1
-                assert call_kwargs["model"] == "openai/gpt-4.1"
+                # gpt-5.5 should map to openai/gpt-5.5
+                assert call_kwargs["model"] == "openai/gpt-5.5"
                 # Should not pass api_key (OpenRouterAgent reads from env)
                 assert "api_key" not in call_kwargs
 
@@ -1422,8 +1422,8 @@ class TestCLIAgentModelMapping:
 
     def test_codex_model_mapping(self):
         """Should map Codex models correctly."""
-        agent = CodexAgent(name="test", model="gpt-4.1-codex")
-        assert agent.OPENROUTER_MODEL_MAP.get("gpt-4.1-codex") == "openai/gpt-4.1"
+        agent = CodexAgent(name="test", model="gpt-5.5")
+        assert agent.OPENROUTER_MODEL_MAP.get("gpt-5.5") == "openai/gpt-5.5"
 
     def test_gemini_model_mapping(self):
         """Should map Gemini models correctly."""
@@ -1493,7 +1493,7 @@ class TestFallbackErrorDetection:
 
     def test_detects_quota_exceeded(self, agent):
         """Should detect quota exceeded errors."""
-        error = RuntimeError("Quota exceeded for model gpt-4")
+        error = RuntimeError("Quota exceeded for model gpt-5.5")
         assert agent._is_fallback_error(error) is True
 
     def test_detects_resource_exhausted(self, agent):
@@ -1664,7 +1664,7 @@ class TestFallbackIntegration:
     @pytest.fixture
     def agent(self):
         """Create a CodexAgent with fallback enabled."""
-        return CodexAgent(name="test", model="gpt-4o", enable_fallback=True)
+        return CodexAgent(name="test", model="gpt-5.5", enable_fallback=True)
 
     @pytest.mark.asyncio
     async def test_fallback_triggered_on_rate_limit(self, agent):
@@ -1707,7 +1707,7 @@ class TestFallbackIntegration:
     @pytest.mark.asyncio
     async def test_prefer_api_skips_cli(self):
         """Should skip CLI and use OpenRouter directly when prefer_api=True."""
-        agent = CodexAgent(name="test", model="gpt-4o", prefer_api=True, enable_fallback=True)
+        agent = CodexAgent(name="test", model="gpt-5.5", prefer_api=True, enable_fallback=True)
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             with patch.object(agent, "_run_cli") as mock_cli:
@@ -1727,7 +1727,7 @@ class TestFallbackIntegration:
     @pytest.mark.asyncio
     async def test_prefer_api_falls_back_to_cli_without_key(self):
         """Should fall back to CLI when prefer_api=True but no API key."""
-        agent = CodexAgent(name="test", model="gpt-4o", prefer_api=True)
+        agent = CodexAgent(name="test", model="gpt-5.5", prefer_api=True)
 
         with patch.dict("os.environ", {}, clear=True):
             with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_cli:

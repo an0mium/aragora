@@ -74,7 +74,7 @@ class TestProviderMetrics:
 class TestProviderPathSummary:
     def test_config_present_does_not_imply_live_ready(self) -> None:
         summary = summarize_provider_path(
-            [("openai-api", "gpt-4o-mini")],
+            [("openai-api", "gpt-5.5")],
             {
                 "openai-api": CredentialStatus(
                     agent_type="openai-api",
@@ -102,7 +102,7 @@ class TestProviderPathSummary:
 
     def test_first_verified_provider_response_sets_live_ready(self) -> None:
         summary = summarize_provider_path(
-            [("openai-api", "gpt-4o-mini")],
+            [("openai-api", "gpt-5.5")],
             {
                 "openai-api": CredentialStatus(
                     agent_type="openai-api",
@@ -115,7 +115,7 @@ class TestProviderPathSummary:
                     status="configured",
                 )
             },
-            verified_live_agents=[("openai-api", "gpt-4o-mini")],
+            verified_live_agents=[("openai-api", "gpt-5.5")],
         )
 
         payload = summary.to_dict()
@@ -391,8 +391,8 @@ class TestProviderPricing:
         expected = {
             "claude-opus-4",
             "claude-sonnet-4",
-            "gpt-4o",
-            "gpt-4o-mini",
+            "gpt-5.5",
+            "gpt-5.5",
             "deepseek-r1",
             "deepseek-chat",
             "mistral-large",
@@ -408,9 +408,9 @@ class TestProviderPricing:
         assert p.context_window > 0
 
     def test_get_estimated_cost(self) -> None:
-        cost = get_estimated_cost("gpt-4o-mini", input_tokens=1000, output_tokens=1000)
+        cost = get_estimated_cost("gpt-5.5", input_tokens=1000, output_tokens=1000)
         assert cost > 0
-        assert cost < 0.01  # gpt-4o-mini is very cheap
+        assert cost < 0.01  # gpt-5.5 is very cheap
 
     def test_get_estimated_cost_unknown_provider(self) -> None:
         cost = get_estimated_cost("nonexistent", input_tokens=1000, output_tokens=1000)

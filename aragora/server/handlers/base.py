@@ -880,14 +880,14 @@ class BaseHandler:
             - (None, HandlerResult) on first failure
 
         Example:
-            # Extract agent_a and agent_b from /api/agents/compare/claude/gpt4
+            # Extract agent_a and agent_b from /api/agents/compare/claude/gpt-5.5
             params, err = self.extract_path_params(path, [
                 (3, "agent_a", SAFE_AGENT_PATTERN),
                 (4, "agent_b", SAFE_AGENT_PATTERN),
             ])
             if err:
                 return err
-            # params = {"agent_a": "claude", "agent_b": "gpt4"}
+            # params = {"agent_a": "claude", "agent_b": "gpt-5.5"}
         """
         result: dict[str, str] = {}
         for segment_index, param_name, pattern in param_specs:

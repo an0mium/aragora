@@ -260,7 +260,7 @@ class SwarmSpec:
 
     @classmethod
     def _direct_goal_providers(cls) -> tuple[ExtractionProvider, ...]:
-        # Frontier-first provider preference so the swarm uses Opus 4.7 / GPT-5.4
+        # Frontier-first provider preference so the swarm uses Opus 4.7 / GPT-5.5
         # / Gemini 3.1 Pro wherever a direct key is available, and OpenRouter-Opus
         # when only the unified key is configured.
         return (
@@ -273,7 +273,7 @@ class SwarmSpec:
             ),
             ExtractionProvider(
                 agent_type="openai-api",
-                model="gpt-5.4",
+                model="gpt-5.5",
                 role="critic",
                 name="swarm-direct-goal-refiner",
                 env_vars=("OPENAI_API_KEY",),

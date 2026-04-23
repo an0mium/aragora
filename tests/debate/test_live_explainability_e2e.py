@@ -27,7 +27,7 @@ class _FakeArena:
         self.env.context = {}
 
         agents = []
-        for name in ("claude", "gpt4", "gemini"):
+        for name in ("claude", "gpt-5.5", "gemini"):
             agent = MagicMock()
             agent.name = name
             agent.model = f"{name}-model"
@@ -99,7 +99,7 @@ def execution_state():
         critiques=[],
         votes=[],
         rounds_used=2,
-        participants=["claude", "gpt4", "gemini"],
+        participants=["claude", "gpt-5.5", "gemini"],
         final_answer="Yes, keep the live factor snapshot in the final receipt.",
         duration_seconds=4.2,
         metadata={},
@@ -134,7 +134,7 @@ async def test_eventbus_snapshot_survives_receipt_roundtrip(fake_arena, executio
     bus.emit_sync(
         "agent_message",
         debate_id="debate-live-explainability-e2e",
-        agent="gpt4",
+        agent="gpt-5.5",
         content="The receipt should preserve the evidence that shifted the debate.",
         role="proposer",
         round_num=1,
@@ -158,7 +158,7 @@ async def test_eventbus_snapshot_survives_receipt_roundtrip(fake_arena, executio
     bus.emit_sync(
         "vote",
         debate_id="debate-live-explainability-e2e",
-        agent="gpt4",
+        agent="gpt-5.5",
         choice="preserve_live_explainability",
         confidence=0.85,
         round_num=2,

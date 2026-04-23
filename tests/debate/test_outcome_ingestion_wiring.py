@@ -32,7 +32,7 @@ def _make_debate_result(
     result.consensus_reached = consensus_reached
     result.id = "debate-123"
     result.rounds_used = 3
-    result.participants = ["claude", "gpt4"]
+    result.participants = ["claude", "gpt-5.5"]
     result.winner = "claude"
     result.messages = []
     result.debate_cruxes = None

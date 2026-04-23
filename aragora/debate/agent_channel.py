@@ -19,14 +19,14 @@ Usage:
 
     # Agents join
     await channel.join("claude")
-    await channel.join("gpt4")
+    await channel.join("gpt-5.5")
 
     # Send messages
     await channel.broadcast("claude", "I propose we use token bucket algorithm")
-    await channel.send("claude", "gpt4", "What do you think about this approach?")
+    await channel.send("claude", "gpt-5.5", "What do you think about this approach?")
 
     # Receive messages
-    messages = await channel.receive("gpt4")
+    messages = await channel.receive("gpt-5.5")
 """
 
 from __future__ import annotations

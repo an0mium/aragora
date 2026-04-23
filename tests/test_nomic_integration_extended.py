@@ -64,7 +64,7 @@ def sample_votes():
     """Create sample votes for testing."""
     return [
         Vote(agent="claude", choice="claude", confidence=0.9, reasoning="Best option"),
-        Vote(agent="gpt4", choice="claude", confidence=0.7, reasoning="Agree"),
+        Vote(agent="gpt-5.5", choice="claude", confidence=0.7, reasoning="Agree"),
         Vote(agent="gemini", choice="gemini", confidence=0.6, reasoning="Different view"),
     ]
 
@@ -98,7 +98,7 @@ def sample_claims():
             claim_id="claim-2",
             statement="Performance optimizations in utils.py improved speed",
             claim_type=ClaimType.ASSERTION,
-            author="gpt4",
+            author="gpt-5.5",
             confidence=0.8,
         ),
     ]

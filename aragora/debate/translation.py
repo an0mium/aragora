@@ -8,7 +8,7 @@ Provides automatic translation of debates to support:
 - Language detection and routing
 
 Supported translation backends:
-- OpenAI (gpt-4 based translation)
+- OpenAI (gpt-5.5 based translation)
 - Anthropic (Claude based translation)
 - Google Cloud Translation API
 - DeepL API (if configured)
@@ -287,7 +287,7 @@ Text to translate:
             else:
                 from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-                agent = OpenAIAPIAgent(name="translator", model="gpt-4o-mini")
+                agent = OpenAIAPIAgent(name="translator", model="gpt-5.5")
             translated = await agent.generate(prompt, [])
 
             translation_time = (time.time() - start_time) * 1000
@@ -337,7 +337,7 @@ Text:
             else:
                 from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-                agent = OpenAIAPIAgent(name="detector", model="gpt-4o-mini")
+                agent = OpenAIAPIAgent(name="detector", model="gpt-5.5")
             response = await agent.generate(prompt, [])
             code = response.strip().lower()[:2]
 

@@ -35,7 +35,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 const AGENTS = [
   { id: 'claude', name: 'Claude', provider: 'Anthropic' },
-  { id: 'gpt-4', name: 'GPT-4', provider: 'OpenAI' },
+  { id: 'gpt-5.5', name: 'GPT-5.5', provider: 'OpenAI' },
   { id: 'gemini', name: 'Gemini', provider: 'Google' },
   { id: 'grok', name: 'Grok', provider: 'xAI' },
   { id: 'mistral', name: 'Mistral Large', provider: 'Mistral' },
@@ -86,7 +86,7 @@ export default function NewDebate() {
                   type="checkbox"
                   name="agents"
                   value={agent.id}
-                  defaultChecked={['claude', 'gpt-4', 'gemini'].includes(agent.id)}
+                  defaultChecked={['claude', 'gpt-5.5', 'gemini'].includes(agent.id)}
                 />
                 {agent.name}
                 <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>

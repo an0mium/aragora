@@ -96,7 +96,7 @@ export default function ABTestingDashboard() {
         },
         {
           id: 'demo-2',
-          agent: 'gpt4',
+          agent: 'gpt-5.5',
           baseline_prompt_version: 3,
           evolved_prompt_version: 4,
           baseline_wins: 8,

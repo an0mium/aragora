@@ -8,7 +8,7 @@ import { useControlPlane } from '@/hooks/useControlPlane';
 // Mock the store selectors
 const mockAgents = [
   { id: 'agent-1', name: 'claude', status: 'READY', capabilities: ['debate'] },
-  { id: 'agent-2', name: 'gpt4', status: 'BUSY', capabilities: ['debate', 'analysis'] },
+  { id: 'agent-2', name: 'gpt-5.5', status: 'BUSY', capabilities: ['debate', 'analysis'] },
 ];
 
 const mockTasks = [

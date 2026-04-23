@@ -63,11 +63,11 @@ class WorkflowOrchestrator:
                     priorities=["legal compliance", "risk mitigation"],
                 ),
                 vote_weight=1.5,
-                fallback=Agent(name="claude_fallback", model="gpt-4o"),
+                fallback=Agent(name="claude_fallback", model="gpt-5.5"),
             ),
             Agent(
                 name="security_architect",
-                model="gpt-4o",
+                model="gpt-5.5",
                 persona=AgentPersona(
                     role="Security Architect",
                     expertise=["encryption", "access control", "threat modeling"],

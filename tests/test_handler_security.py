@@ -497,7 +497,7 @@ class TestValidationIntegration:
 
     def test_full_validation_pipeline(self):
         """Full validation pipeline for a debate request."""
-        body = b'{"task": "Discuss AI safety", "agents": ["claude", "gpt4"], "rounds": 3}'
+        body = b'{"task": "Discuss AI safety", "agents": ["claude", "gpt-5.5"], "rounds": 3}'
 
         # Step 1: Validate JSON body
         result = validate_json_body(body)

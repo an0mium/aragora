@@ -352,7 +352,7 @@ class TestCreateDebatePolicy:
             name="custom-policy",
             max_agents=5,
             max_cost_per_debate=1.0,
-            allowed_models=["claude-3-opus", "gpt-4"],
+            allowed_models=["claude-3-opus", "gpt-5.5"],
         )
 
         assert policy.name == "custom-policy"

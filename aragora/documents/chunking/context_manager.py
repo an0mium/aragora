@@ -3,7 +3,7 @@ Large context manager for document processing.
 
 Handles intelligent context construction for different model capabilities:
 - Full context for models with large context windows (Gemini 3 Pro: 1M tokens)
-- RAG-based retrieval for smaller context models (Claude: 200K, GPT-4: 128K)
+- RAG-based retrieval for smaller context models (Claude: 200K, GPT-5.5: 128K)
 - Hybrid strategies that combine both approaches
 
 Usage:
@@ -78,7 +78,7 @@ class ContextConfig:
     """Configuration for context building."""
 
     # Target model (affects strategy selection)
-    model: str = "gpt-4-turbo"
+    model: str = "gpt-5.5"
 
     # Maximum tokens to use (None = use model's limit)
     max_tokens: int | None = None
@@ -120,9 +120,9 @@ class ContextManager:
 
     # Models with medium context windows (128K-256K tokens)
     MEDIUM_CONTEXT_MODELS = {
-        "gpt-4-turbo",
-        "gpt-4-turbo-preview",
-        "gpt-4o",
+        "gpt-5.5",
+        "gpt-5.5",
+        "gpt-5.5",
         "claude-3-opus",
         "claude-3-sonnet",
         "claude-3-haiku",
@@ -215,12 +215,12 @@ class ContextManager:
             # Medium documents
             if prefer_reasoning:
                 return "claude-3.5-sonnet"
-            return "gpt-4-turbo"
+            return "gpt-5.5"
         else:
             # Small documents - any model works
             if prefer_reasoning:
                 return "claude-3.5-sonnet"
-            return "gpt-4-turbo"
+            return "gpt-5.5"
 
     async def build_context(
         self,
@@ -555,8 +555,7 @@ class ContextManager:
             "gemini-3-pro": {"input": 1.25, "output": 5.00},
             "gemini-3-pro-preview": {"input": 1.25, "output": 5.00},
             "gemini-3.1-pro": {"input": 1.25, "output": 5.00},
-            "gpt-4-turbo": {"input": 10.00, "output": 30.00},
-            "gpt-4o": {"input": 2.50, "output": 10.00},
+            "gpt-5.5": {"input": 2.50, "output": 10.00},
             "claude-3.5-sonnet": {"input": 3.00, "output": 15.00},
             "claude-3-opus": {"input": 15.00, "output": 75.00},
         }

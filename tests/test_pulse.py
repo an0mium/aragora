@@ -542,7 +542,7 @@ class TestHackerNewsIngestor:
     def test_categorize_topic_ai(self):
         """Test AI topic categorization."""
         ingestor = HackerNewsIngestor()
-        assert ingestor._categorize_topic("GPT-4 breakthrough") == "ai"
+        assert ingestor._categorize_topic("GPT-5.5 breakthrough") == "ai"
         assert ingestor._categorize_topic("New LLM model") == "ai"
 
     def test_categorize_topic_programming(self):

@@ -522,7 +522,7 @@ class JudgeConfig:
 
     # Multi-judge settings
     use_multiple_judges: bool = False
-    secondary_model: str = "gpt-4o"
+    secondary_model: str = "gpt-5.5"
 
     # Workspace isolation
     workspace_id: str | None = None

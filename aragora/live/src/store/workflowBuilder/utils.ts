@@ -13,7 +13,7 @@ export function getDefaultStepConfig(type: StepType): Record<string, unknown> {
     case 'agent':
       return { agent_type: 'claude', prompt_template: '' };
     case 'debate':
-      return { agents: ['claude', 'gpt4'], rounds: 3 };
+      return { agents: ['claude', 'gpt-5.5'], rounds: 3 };
     case 'quick_debate':
       return { agents: ['claude', 'gemini'], rounds: 2, fast_mode: true };
     case 'parallel':

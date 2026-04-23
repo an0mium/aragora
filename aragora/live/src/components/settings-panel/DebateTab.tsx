@@ -47,7 +47,7 @@ export function DebateTab({ featureConfig, updateFeatureConfig }: DebateTabProps
               type="text"
               value={featureConfig.default_agents}
               onChange={(e) => updateFeatureConfig('default_agents', e.target.value)}
-              placeholder="claude,gemini,gpt4,grok"
+              placeholder="claude,gemini,gpt-5.5,grok"
               className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
             />
             <p className="font-theme-data text-xs text-text-muted mt-1">Comma-separated list of agents</p>

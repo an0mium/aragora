@@ -286,7 +286,7 @@ class TestCreateDebateCard:
         card = create_debate_card(
             debate_id="debate-123",
             topic="Should we adopt microservices?",
-            agents=["Claude", "GPT-4", "Gemini"],
+            agents=["Claude", "GPT-5.5", "Gemini"],
             progress=50,
             current_round=2,
             total_rounds=5,
@@ -366,14 +366,14 @@ class TestCreateDebateCard:
         card = create_debate_card(
             debate_id="debate-123",
             topic="Test",
-            agents=["Claude", "GPT-4"],
+            agents=["Claude", "GPT-5.5"],
         )
 
         # Find fact set
         fact_set = next((b for b in card["body"] if b.get("type") == "FactSet"), None)
         assert fact_set is not None
         facts_dict = {f["title"]: f["value"] for f in fact_set["facts"]}
-        assert "Claude, GPT-4" in facts_dict.get("Agents", "")
+        assert "Claude, GPT-5.5" in facts_dict.get("Agents", "")
 
 
 # =============================================================================
@@ -463,7 +463,7 @@ class TestCreateConsensusCard:
             consensus_type="unanimous",
             final_answer="The recommendation is to proceed.",
             confidence=0.85,
-            supporting_agents=["Claude", "GPT-4"],
+            supporting_agents=["Claude", "GPT-5.5"],
         )
 
         assert card["type"] == "AdaptiveCard"
@@ -531,7 +531,7 @@ class TestCreateConsensusCard:
             consensus_type="majority",
             final_answer="Answer",
             confidence=0.7,
-            supporting_agents=["Claude", "GPT-4"],
+            supporting_agents=["Claude", "GPT-5.5"],
             dissenting_agents=["Gemini"],
         )
 
@@ -586,7 +586,7 @@ class TestCreateLeaderboardCard:
         """Leaderboard card has expected structure."""
         standings = [
             {"name": "Claude", "score": 1250, "wins": 10, "debates": 15},
-            {"name": "GPT-4", "score": 1180, "wins": 8, "debates": 14},
+            {"name": "GPT-5.5", "score": 1180, "wins": 8, "debates": 14},
         ]
         card = create_leaderboard_card(standings)
 
@@ -612,7 +612,7 @@ class TestCreateLeaderboardCard:
         """Leaderboard card shows rankings."""
         standings = [
             {"name": "Claude", "score": 1300, "wins": 12, "total_debates": 15},
-            {"name": "GPT-4", "elo": 1250, "wins": 10, "debates": 14},  # Alternative fields
+            {"name": "GPT-5.5", "elo": 1250, "wins": 10, "debates": 14},  # Alternative fields
             {"name": "Gemini", "score": 1200, "wins": 8, "debates": 12},
         ]
         card = create_leaderboard_card(standings)
@@ -702,7 +702,7 @@ class TestCreateDebateProgressCard:
         """Progress card shows recent agent messages."""
         messages = [
             {"agent": "Claude", "preview": "I believe we should..."},
-            {"agent": "GPT-4", "preview": "On the other hand..."},
+            {"agent": "GPT-5.5", "preview": "On the other hand..."},
         ]
         card = create_debate_progress_card(
             debate_id="debate-123",

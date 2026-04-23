@@ -184,7 +184,7 @@ class TestMetricsRecording:
 
         # Should not raise
         record_agent_call("claude", success=True, latency_seconds=1.2)
-        record_agent_call("gpt4", success=False, latency_seconds=5.0)
+        record_agent_call("gpt-5.5", success=False, latency_seconds=5.0)
 
     def test_set_consensus_rate(self):
         """Test setting consensus rate metric."""
@@ -692,7 +692,7 @@ class TestMetricsIntegration:
         with track_debate():
             # Simulate agent calls during debate
             record_agent_call("claude", success=True, latency_seconds=1.5)
-            record_agent_call("gpt4", success=True, latency_seconds=2.0)
+            record_agent_call("gpt-5.5", success=True, latency_seconds=2.0)
             record_agent_call("gemini", success=False, latency_seconds=5.0)
 
         # Record consensus rate after debate

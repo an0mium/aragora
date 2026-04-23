@@ -545,7 +545,7 @@ class TestExternalServiceTracing:
 
         with trace_llm_call(
             provider="openai",
-            model="gpt-4",
+            model="gpt-5.5",
         ) as span:
             assert span is not None
 

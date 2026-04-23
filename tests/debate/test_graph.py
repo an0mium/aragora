@@ -161,7 +161,7 @@ class TestDebateNode:
         node = DebateNode(
             id="node-complete",
             node_type=NodeType.SYNTHESIS,
-            agent_id="gpt4",
+            agent_id="gpt-5.5",
             content="Synthesis of arguments",
             timestamp=timestamp,
             parent_ids=["parent-1", "parent-2"],
@@ -251,7 +251,7 @@ class TestDebateNode:
             "child_ids": [],
             "branch_id": "main",
             "confidence": 0.75,
-            "agreement_scores": {"gpt4": 0.8},
+            "agreement_scores": {"gpt-5.5": 0.8},
             "claims": ["claim1", "claim2"],
             "evidence": ["evidence1"],
             "metadata": {"key": "value"},
@@ -737,7 +737,7 @@ class TestConvergenceScorer:
             DebateNode(
                 id="n2",
                 node_type=NodeType.PROPOSAL,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content="Content B",
                 claims=["claim1", "claim2"],
                 confidence=0.8,
@@ -767,7 +767,7 @@ class TestConvergenceScorer:
             DebateNode(
                 id="n2",
                 node_type=NodeType.PROPOSAL,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content="Content B",
                 claims=["claim3", "claim4"],
                 confidence=0.9,
@@ -798,7 +798,7 @@ class TestConvergenceScorer:
             DebateNode(
                 id="n2",
                 node_type=NodeType.PROPOSAL,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content="Content B",
                 claims=["shared", "unique_b"],
                 confidence=0.8,
@@ -828,7 +828,7 @@ class TestConvergenceScorer:
             DebateNode(
                 id="n2",
                 node_type=NodeType.PROPOSAL,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content="the quick brown fox",
                 claims=[],
             )
@@ -859,7 +859,7 @@ class TestConvergenceScorer:
             DebateNode(
                 id=f"b{i}",
                 node_type=NodeType.PROPOSAL,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content=f"Content B{i}",
                 claims=[f"old_claim_b_{i}"] if i < 2 else ["shared_claim"],
                 confidence=0.8,
@@ -913,7 +913,7 @@ class TestConvergenceScorer:
             DebateNode(
                 id="n2",
                 node_type=NodeType.PROPOSAL,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content="Same content",
                 claims=["claim1", "claim2"],
                 confidence=0.9,
@@ -941,7 +941,7 @@ class TestConvergenceScorer:
             DebateNode(
                 id="n2",
                 node_type=NodeType.PROPOSAL,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content="Completely different content",
                 claims=["claim_b1", "claim_b2"],
                 confidence=0.3,
@@ -991,7 +991,7 @@ class TestDebateGraph:
         # Add critique
         graph.add_node(
             node_type=NodeType.CRITIQUE,
-            agent_id="gpt4",
+            agent_id="gpt-5.5",
             content="Critique of proposal",
             parent_id=proposal.id,
             claims=["counter_claim"],
@@ -1362,7 +1362,7 @@ class TestDebateGraph:
         )
         populated_graph.add_node(
             node_type=NodeType.PROPOSAL,
-            agent_id="gpt4",
+            agent_id="gpt-5.5",
             content="Similar content",
             parent_id=node_id,
             branch_id=branch_b.id,
@@ -1465,7 +1465,7 @@ class TestGraphReplayBuilder:
         )
         graph.add_node(
             node_type=NodeType.COUNTERFACTUAL,
-            agent_id="gpt4",
+            agent_id="gpt-5.5",
             content="Counterfactual exploration",
             parent_id=prop.id,
             branch_id=cf_branch.id,
@@ -1586,7 +1586,7 @@ class TestGraphReplayBuilder:
 
         assert "system" in summary["agents"]
         assert "claude" in summary["agents"]
-        assert "gpt4" in summary["agents"]
+        assert "gpt-5.5" in summary["agents"]
 
 
 # ==============================================================================
@@ -1615,7 +1615,7 @@ class TestGraphDebateOrchestrator:
         """Create mock agents."""
         return [
             MockAgent("claude", "Claude's response with 80% confidence"),
-            MockAgent("gpt4", "GPT-4's response with 85% confidence"),
+            MockAgent("gpt-5.5", "GPT-5.5's response with 85% confidence"),
         ]
 
     @pytest.fixture
@@ -1770,7 +1770,7 @@ class TestGraphDebateOrchestrator:
             DebateNode(
                 id="n2",
                 node_type=NodeType.CRITIQUE,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content="Second node content",
             ),
         ]
@@ -1778,7 +1778,7 @@ class TestGraphDebateOrchestrator:
         context = orchestrator._build_context(nodes)
 
         assert "[claude]: First node content" in context
-        assert "[gpt4]: Second node content" in context
+        assert "[gpt-5.5]: Second node content" in context
 
     def test_build_context_empty(self, orchestrator: GraphDebateOrchestrator):
         """Test _build_context with empty nodes."""
@@ -1923,7 +1923,7 @@ class TestGraphDebateOrchestrator:
             DebateNode(
                 id="b1",
                 node_type=NodeType.PROPOSAL,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content="Final position B",
                 claims=["shared", "unique_b"],
             )
@@ -1964,7 +1964,7 @@ class TestGraphDebateOrchestrator:
             DebateNode(
                 id="leaf2",
                 node_type=NodeType.SYNTHESIS,
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 content="Path 2 conclusion",
                 confidence=0.7,
                 claims=["claim2"],
@@ -1995,7 +1995,7 @@ class TestGraphDebateOrchestrator:
         """Test evaluate_disagreement with similar confidence."""
         responses = [
             ("claude", "Response A", 0.8),
-            ("gpt4", "Response B", 0.8),
+            ("gpt-5.5", "Response B", 0.8),
         ]
 
         disagreement, alternative = orchestrator.evaluate_disagreement(responses)
@@ -2009,7 +2009,7 @@ class TestGraphDebateOrchestrator:
         """Test evaluate_disagreement with different confidence."""
         responses = [
             ("claude", "High confidence response", 0.9),
-            ("gpt4", "Low confidence response", 0.1),
+            ("gpt-5.5", "Low confidence response", 0.1),
         ]
 
         disagreement, alternative = orchestrator.evaluate_disagreement(responses)
@@ -2023,7 +2023,7 @@ class TestGraphDebateOrchestrator:
 
         responses = [
             ("claude", "High confidence response", 0.9),
-            ("gpt4", "Low confidence alternative", 0.1),
+            ("gpt-5.5", "Low confidence alternative", 0.1),
         ]
 
         disagreement, alternative = orchestrator.evaluate_disagreement(responses)
@@ -2054,7 +2054,9 @@ class TestGraphDebateIntegration:
         """Test a complete debate flow with branching and merging."""
         agents = [
             MockAgent("claude", "I believe we should use caching. Confidence: 80%"),
-            MockAgent("gpt4", "I disagree, perhaps we should use a queue instead. Confidence: 30%"),
+            MockAgent(
+                "gpt-5.5", "I disagree, perhaps we should use a queue instead. Confidence: 30%"
+            ),
         ]
 
         policy = BranchPolicy(
@@ -2087,7 +2089,7 @@ class TestGraphDebateIntegration:
         summary = builder.generate_summary()
 
         assert summary["total_nodes"] > 1
-        assert "claude" in summary["agents"] or "gpt4" in summary["agents"]
+        assert "claude" in summary["agents"] or "gpt-5.5" in summary["agents"]
 
     @pytest.mark.asyncio
     async def test_graph_serialization_after_debate(self):
@@ -2142,7 +2144,7 @@ class TestGraphDebateIntegration:
         # Add nodes to branch
         branch_node = graph.add_node(
             node_type=NodeType.COUNTERFACTUAL,
-            agent_id="gpt4",
+            agent_id="gpt-5.5",
             content="Alternative approach",
             parent_id=proposal.id,
             branch_id=branch.id,

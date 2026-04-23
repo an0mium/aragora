@@ -10,6 +10,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
+import re
 from typing import Any
 import uuid
 
@@ -66,7 +67,7 @@ class PatternConfig:
 
     name: str
     description: str = ""
-    agents: list[str] = field(default_factory=lambda: ["claude", "gpt4"])
+    agents: list[str] = field(default_factory=lambda: ["claude", "gpt-5.5"])
     task: str = ""
     category: WorkflowCategory = WorkflowCategory.GENERAL
     limits: ResourceLimits = field(default_factory=ResourceLimits)
@@ -105,7 +106,7 @@ class WorkflowPattern(ABC):
         **kwargs,
     ):
         self.name = name
-        self.agents = agents or ["claude", "gpt4"]
+        self.agents = agents or ["claude", "gpt-5.5"]
         self.task = task
         self.config = kwargs
 
@@ -136,6 +137,12 @@ class WorkflowPattern(ABC):
     def _generate_id(self, prefix: str = "wf") -> str:
         """Generate a unique workflow/step ID."""
         return f"{prefix}_{uuid.uuid4().hex[:12]}"
+
+    def _step_id_fragment(self, value: str) -> str:
+        """Convert display/model names into safe workflow step ID fragments."""
+        fragment = re.sub(r"[^0-9A-Za-z_]+", "_", value).strip("_")
+        fragment = re.sub(r"_+", "_", fragment)
+        return fragment or "step"
 
     def _create_agent_step(
         self,
@@ -240,8 +247,7 @@ class WorkflowPattern(ABC):
         """Get color for agent type."""
         colors = {
             "claude": "#7c3aed",  # Purple
-            "gpt4": "#10b981",  # Green
-            "gpt-4": "#10b981",
+            "gpt-5.5": "#10b981",  # Green
             "gemini": "#3b82f6",  # Blue
             "mistral": "#f59e0b",  # Amber
             "grok": "#ef4444",  # Red

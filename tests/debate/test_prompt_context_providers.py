@@ -963,7 +963,7 @@ class TestGetEloContext:
         assert provider.get_elo_context(agent, [agent]) == ""
 
     def test_with_ratings(self, provider, agent):
-        other = MockAgent(name="gpt4_critic")
+        other = MockAgent(name="gpt55_critic")
         provider.elo_system = MagicMock()
         provider.elo_system.get_ratings_batch.return_value = {
             agent.name: MockRating(elo=1550, wins=10, losses=5),
@@ -974,7 +974,7 @@ class TestGetEloContext:
 
         assert "Agent Rankings" in result
         assert "claude_proposer" in result
-        assert "gpt4_critic" in result
+        assert "gpt55_critic" in result
         assert "(you)" in result
 
     def test_high_elo_encouragement(self, provider, agent):

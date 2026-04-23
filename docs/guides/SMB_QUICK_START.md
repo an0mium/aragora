@@ -203,7 +203,7 @@ print(f"Avg cost per debate: ${usage.avg_cost_per_debate:.2f}")
 ## FAQ
 
 **Q: How much does a typical debate cost?**
-A: With OpenRouter and 3 rounds, expect $0.05-0.20 per debate. Complex 9-round debates with Claude/GPT-4 may cost $0.50-2.00.
+A: With OpenRouter and 3 rounds, expect $0.05-0.20 per debate. Complex 9-round debates with Claude/GPT-5.5 may cost $0.50-2.00.
 
 **Q: Can I run Aragora locally?**
 A: Yes! Use Ollama for local inference (free, but slower):

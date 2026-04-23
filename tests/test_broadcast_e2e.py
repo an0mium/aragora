@@ -40,7 +40,7 @@ class MockDebateTrace:
 
     def __post_init__(self):
         if self.agents is None:
-            self.agents = ["claude-3-opus", "gpt-4", "gemini-pro"]
+            self.agents = ["claude-3-opus", "gpt-5.5", "gemini-pro"]
         if self.messages is None:
             self.messages = [
                 {
@@ -50,7 +50,7 @@ class MockDebateTrace:
                 },
                 {
                     "role": "critic",
-                    "agent": "gpt-4",
+                    "agent": "gpt-5.5",
                     "content": "I agree with the core premise but...",
                 },
                 {

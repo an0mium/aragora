@@ -397,7 +397,9 @@ class TestDebateAgentCoordination:
         integrated_elo.record_match(
             "debate-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0}
         )
-        integrated_elo.record_match("debate-2", ["claude", "gpt4"], {"claude": 0.0, "gpt4": 1.0})
+        integrated_elo.record_match(
+            "debate-2", ["claude", "gpt-5.5"], {"claude": 0.0, "gpt-5.5": 1.0}
+        )
 
         rating = integrated_elo.get_rating("claude")
         assert rating is not None
@@ -406,7 +408,9 @@ class TestDebateAgentCoordination:
     def test_agent_profile_reflects_elo_rating(self, handler_ensemble, integrated_elo):
         """Agent profile should show correct ELO rating."""
         integrated_elo.record_match("test-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0})
-        integrated_elo.record_match("test-2", ["claude", "gpt4"], {"claude": 1.0, "gpt4": 0.0})
+        integrated_elo.record_match(
+            "test-2", ["claude", "gpt-5.5"], {"claude": 1.0, "gpt-5.5": 0.0}
+        )
 
         rating = integrated_elo.get_rating("claude")
         assert rating is not None
@@ -438,7 +442,9 @@ class TestDebateAgentCoordination:
         integrated_elo.record_match(
             "recent-1", ["claude", "gemini"], {"claude": 1.0, "gemini": 0.0}
         )
-        integrated_elo.record_match("recent-2", ["gpt4", "gemini"], {"gpt4": 1.0, "gemini": 0.0})
+        integrated_elo.record_match(
+            "recent-2", ["gpt-5.5", "gemini"], {"gpt-5.5": 1.0, "gemini": 0.0}
+        )
 
         result = call_handler(
             handler_ensemble["agents"],

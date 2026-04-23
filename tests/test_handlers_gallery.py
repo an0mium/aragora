@@ -48,7 +48,7 @@ def temp_nomic_dir():
                     "loop_id": "loop-abc",
                     "title": "AI Ethics Discussion",
                     "topic": "Should AI systems be regulated?",
-                    "agents": ["claude", "gpt4"],
+                    "agents": ["claude", "gpt-5.5"],
                     "rounds": 3,
                     "consensus_reached": True,
                     "winner": "claude",
@@ -119,7 +119,7 @@ class TestPublicDebate:
             title="Test Debate",
             topic="Test topic",
             created_at="2026-01-10T10:00:00",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             rounds=3,
             consensus_reached=True,
             winner="claude",
@@ -138,7 +138,7 @@ class TestPublicDebate:
             title="Test Debate",
             topic="Test topic",
             created_at="2026-01-10T10:00:00",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             rounds=3,
             consensus_reached=True,
             winner="claude",
@@ -149,7 +149,7 @@ class TestPublicDebate:
 
         assert result["id"] == "abc123"
         assert result["title"] == "Test Debate"
-        assert result["agents"] == ["claude", "gpt4"]
+        assert result["agents"] == ["claude", "gpt-5.5"]
         assert result["consensus_reached"] is True
 
 

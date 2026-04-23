@@ -93,12 +93,12 @@ class TestPolicyViolationError:
         error = PolicyViolationError(
             result,
             task_type="analysis",
-            agent_id="gpt-4",
+            agent_id="gpt-5.5",
             region="us-east-1",
         )
 
         assert error.task_type == "analysis"
-        assert error.agent_id == "gpt-4"
+        assert error.agent_id == "gpt-5.5"
         assert error.region == "us-east-1"
         assert error.result is result
 
@@ -1423,12 +1423,12 @@ class TestPolicySystemIntegration:
             id=policy.id,
             name="Lifecycle Policy",
             version=2,
-            agent_allowlist=["claude-3-opus", "gpt-4"],
+            agent_allowlist=["claude-3-opus", "gpt-5.5"],
             metadata={},
         )
         manager.remove_policy(policy.id)
         manager.add_policy(updated_policy)
-        await history.record_version(updated_policy, "Added GPT-4", "admin")
+        await history.record_version(updated_policy, "Added GPT-5.5", "admin")
 
         # Verify history
         versions = await history.get_history(policy.id)
@@ -1501,7 +1501,7 @@ class TestPolicySystemIntegration:
         manager.add_policy(
             create_agent_tier_policy(
                 tier="premium",
-                agents=["claude-3-opus", "gpt-4"],
+                agents=["claude-3-opus", "gpt-5.5"],
                 task_types=["premium-task"],
             )
         )
@@ -1516,7 +1516,7 @@ class TestPolicySystemIntegration:
 
         result = manager.evaluate_task_dispatch(
             task_type="production-deployment",
-            agent_id="gpt-3.5-turbo",
+            agent_id="gpt-5.5",
             region="us-east-1",
         )
         assert result.allowed is False

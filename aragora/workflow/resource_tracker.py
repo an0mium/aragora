@@ -48,10 +48,7 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
     "claude-sonnet-4": {"input": 0.003, "output": 0.015},
     "claude": {"input": 0.003, "output": 0.015},  # Default to sonnet
     # OpenAI
-    "gpt-4": {"input": 0.03, "output": 0.06},
-    "gpt-4-turbo": {"input": 0.01, "output": 0.03},
-    "gpt-4o": {"input": 0.005, "output": 0.015},
-    "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
+    "gpt-5.5": {"input": 0.0025, "output": 0.010},
     "o1": {"input": 0.015, "output": 0.06},
     "o1-mini": {"input": 0.003, "output": 0.012},
     "o3-mini": {"input": 0.003, "output": 0.012},
@@ -165,7 +162,7 @@ class ResourceUsage:
 
         Args:
             step_id: Step that used the tokens
-            agent_type: Type of agent/model (e.g., "claude", "gpt-4")
+            agent_type: Type of agent/model (e.g., "claude", "gpt-5.5")
             input_tokens: Number of input/prompt tokens
             output_tokens: Number of output/completion tokens
 

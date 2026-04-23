@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # the handler lightweight and free of heavy dependencies.
 _PROVIDER_CONFIG: dict[str, tuple[tuple[str, ...], str]] = {
     "anthropic": (("ANTHROPIC_API_KEY",), "claude-opus-4-7"),
-    "openai": (("OPENAI_API_KEY",), "gpt-5.3"),
+    "openai": (("OPENAI_API_KEY",), "gpt-5.5"),
     "openrouter": (("OPENROUTER_API_KEY",), "deepseek/deepseek-chat"),
     "mistral": (("MISTRAL_API_KEY",), "mistral-large-2512"),
     "gemini": (("GEMINI_API_KEY", "GOOGLE_API_KEY"), "gemini-3.1-pro-preview"),

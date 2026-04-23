@@ -299,7 +299,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
             return json_response(
                 {
                     "response_type": "in_channel",
-                    "text": " *Agent Leaderboard*\n1.  Claude - 1850 ELO\n2.  GPT-4 - 1820 ELO\n3.  Gemini - 1780 ELO",
+                    "text": " *Agent Leaderboard*\n1.  Claude - 1850 ELO\n2.  GPT-5.5 - 1820 ELO\n3.  Gemini - 1780 ELO",
                 }
             )
 

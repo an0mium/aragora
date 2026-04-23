@@ -548,7 +548,7 @@ class TestAgentFileFilterGetClient:
 
     @pytest.mark.asyncio
     async def test_gpt_missing_api_key(self):
-        filter = AgentFileFilter(model="gpt-4")
+        filter = AgentFileFilter(model="gpt-5.5")
 
         with patch.dict("os.environ", {}, clear=True):
             with patch("aragora.config.secrets.get_secret", return_value=None):

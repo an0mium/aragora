@@ -77,7 +77,7 @@ def _build_agents(mode: str, keys: dict[str, str]) -> list:
         agents.append(
             OpenAIAPIAgent(
                 name="gpt",
-                model="gpt-4o-mini",
+                model="gpt-5.5",
                 role="critic",
                 api_key=keys["openai"],
                 enable_fallback=False,

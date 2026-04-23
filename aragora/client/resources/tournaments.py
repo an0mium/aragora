@@ -126,7 +126,7 @@ class TournamentsAPI:
         # Create a new tournament
         tournament = client.tournaments.create(
             name="Weekly Championship",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             format="round_robin",
         )
     """

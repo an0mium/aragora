@@ -183,7 +183,7 @@ run_demo() {
     echo " by iterating through IDs. This exposes all customer financial"
     echo " data to any registered user.\""
     echo ""
-    echo -e "${CYAN}Evidence from GPT-4:${NC}"
+    echo -e "${CYAN}Evidence from GPT-5.5:${NC}"
     echo "\"Confirmed BOLA vulnerability. The spec explicitly states"
     echo " 'no ownership check'. An attacker could enumerate all"
     echo " transactions to steal card numbers and customer data.\""
@@ -230,7 +230,7 @@ issues hidden in plain sight that a human reviewer might miss."
 
 [0:45-1:15] THE SOLUTION
 "Let's run Aragora's Gauntlet with the Security Red Team persona. Watch
-as three different AI models - Claude, GPT-4, and Gemini - adversarially
+as three different AI models - Claude, GPT-5.5, and Gemini - adversarially
 probe this specification looking for weaknesses."
 
 [1:15-2:00] THE MAGIC MOMENT

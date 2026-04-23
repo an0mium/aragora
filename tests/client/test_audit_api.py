@@ -78,11 +78,11 @@ class TestAuditPresetModel:
             audit_types=["security", "compliance"],
             custom_rules_count=5,
             consensus_threshold=0.9,
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             parameters={"strict_mode": True},
         )
         assert preset.custom_rules_count == 5
-        assert preset.agents == ["claude", "gpt4"]
+        assert preset.agents == ["claude", "gpt-5.5"]
 
 
 class TestAuditPresetDetailModel:

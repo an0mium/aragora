@@ -430,9 +430,9 @@ class TestGetAgentName:
         """Should extract agent_name from dict."""
         from aragora.server.handlers.base import get_agent_name
 
-        agent = {"agent_name": "gpt-4", "wins": 10}
+        agent = {"agent_name": "gpt-5.5", "wins": 10}
 
-        assert get_agent_name(agent) == "gpt-4"
+        assert get_agent_name(agent) == "gpt-5.5"
 
     def test_get_agent_name_prefers_agent_name(self):
         """Should prefer agent_name over name."""
@@ -1316,10 +1316,10 @@ class TestBaseHandler:
         from aragora.server.handlers.base import BaseHandler, SAFE_AGENT_PATTERN
 
         handler = BaseHandler(server_context)
-        # Path splits into: ['', 'api', 'v1', 'compare', 'claude', 'gpt4']
-        # Index 4 is 'claude', index 5 is 'gpt4'
+        # Path splits into: ['', 'api', 'v1', 'compare', 'claude', 'gpt-5.5']
+        # Index 4 is 'claude', index 5 is 'gpt-5.5'
         params, error = handler.extract_path_params(
-            "/api/v1/compare/claude/gpt4",
+            "/api/v1/compare/claude/gpt-5.5",
             [
                 (4, "agent_a", SAFE_AGENT_PATTERN),
                 (5, "agent_b", SAFE_AGENT_PATTERN),
@@ -1327,7 +1327,7 @@ class TestBaseHandler:
         )
 
         assert error is None
-        assert params == {"agent_a": "claude", "agent_b": "gpt4"}
+        assert params == {"agent_a": "claude", "agent_b": "gpt-5.5"}
 
     def test_handle_returns_none_by_default(self, server_context, mock_handler):
         """Should return None by default (not handled)."""
@@ -1861,9 +1861,9 @@ class TestPathMatcher:
         from aragora.server.handlers.base import PathMatcher
 
         matcher = PathMatcher("/api/v1/compare/{agent_a}/{agent_b}")
-        result = matcher.match("/api/v1/compare/claude/gpt4")
+        result = matcher.match("/api/v1/compare/claude/gpt-5.5")
 
-        assert result == {"agent_a": "claude", "agent_b": "gpt4"}
+        assert result == {"agent_a": "claude", "agent_b": "gpt-5.5"}
 
     def test_path_matcher_no_match_different_length(self):
         """Should not match paths with different lengths."""

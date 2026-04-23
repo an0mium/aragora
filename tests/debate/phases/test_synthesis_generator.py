@@ -155,7 +155,7 @@ class TestBuildSynthesisPrompt:
         ctx = MockDebateContext()
         ctx.proposals = {
             "claude": "Use monolith for simplicity",
-            "gpt4": "Microservices for scalability",
+            "gpt-5.5": "Microservices for scalability",
         }
 
         gen = SynthesisGenerator()
@@ -163,7 +163,7 @@ class TestBuildSynthesisPrompt:
 
         assert "claude" in prompt
         assert "Use monolith for simplicity" in prompt
-        assert "gpt4" in prompt
+        assert "gpt-5.5" in prompt
         assert "Microservices for scalability" in prompt
 
     def test_prompt_includes_critiques(self):
@@ -376,7 +376,7 @@ class TestContractGuidedDefault:
         ctx.env.task = "Should we use microservices or monolith?"
         ctx.proposals = {
             "claude": "Use monolith for simplicity",
-            "gpt4": "Microservices for scalability",
+            "gpt-5.5": "Microservices for scalability",
         }
         ctx.critiques = []
 

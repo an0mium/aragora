@@ -87,7 +87,7 @@ class TestEvolutionHandlerRouting:
         assert evolution_handler.can_handle("/api/v1/evolution/ab-tests") is True
         assert evolution_handler.can_handle("/api/v1/evolution/ab-tests/") is True
         assert evolution_handler.can_handle("/api/v1/evolution/ab-tests/test-123") is True
-        assert evolution_handler.can_handle("/api/v1/evolution/ab-tests/gpt-4/active") is True
+        assert evolution_handler.can_handle("/api/v1/evolution/ab-tests/gpt-5.5/active") is True
 
     def test_cannot_handle_non_evolution_paths(self, evolution_handler):
         """Test handler rejects non-evolution paths."""

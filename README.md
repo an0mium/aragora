@@ -423,9 +423,9 @@ Costs vary by model mix. Use `aragora decide --dry-run` to preview costs before 
 
 | Model Mix | Agents | Rounds | Typical Cost |
 |-----------|--------|--------|--------------|
-| Haiku + GPT-4o-mini | 3 | 2 | ~$0.05 |
-| Sonnet + GPT-4o | 3 | 3 | ~$0.15 |
-| Opus + GPT-4 | 5 | 3 | ~$0.30 |
+| Haiku + GPT-5.5 | 3 | 2 | ~$0.05 |
+| Sonnet + GPT-5.5 | 3 | 3 | ~$0.15 |
+| Opus + GPT-5.5 | 5 | 3 | ~$0.30 |
 | Mock agents (demo mode) | Any | Any | $0.00 |
 
 ### How Aragora Compares

@@ -893,7 +893,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                             "Content-Type": "application/json",
                         },
                         json={
-                            "model": "gpt-4o-mini",  # Fast, cheap model
+                            "model": "gpt-5.5",  # Fast, cheap model
                             "max_tokens": 50,
                             "messages": [{"role": "user", "content": prompt}],
                         },
@@ -923,9 +923,9 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                         await self._emit_usage_event(
                             operation="categorize_expense",
                             tokens=usage.get("total_tokens", 0),
-                            cost_usd=0.00015,  # ~$0.15/M tokens for GPT-4o-mini
+                            cost_usd=0.00015,  # ~$0.15/M tokens for GPT-5.5
                             provider="openai",
-                            model="gpt-4o-mini",
+                            model="gpt-5.5",
                         )
                         try:
                             return ExpenseCategory(category_text)

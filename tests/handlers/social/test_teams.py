@@ -1487,7 +1487,7 @@ class TestBlockBuilders:
     def test_build_leaderboard_blocks(self, handler):
         rankings = [
             {"agent": "claude", "elo": 1700},
-            {"agent": "gpt4", "elo": 1650},
+            {"agent": "gpt-5.5", "elo": 1650},
             {"agent": "gemini", "elo": 1600},
         ]
         blocks = handler._build_leaderboard_blocks(rankings)
@@ -1500,7 +1500,7 @@ class TestBlockBuilders:
     def test_build_agents_blocks(self, handler):
         agents = [
             {"name": "claude", "model": "claude-4"},
-            {"name": "gpt4", "model": "gpt-4"},
+            {"name": "gpt-5.5", "model": "gpt-5.5"},
         ]
         blocks = handler._build_agents_blocks(agents)
         assert len(blocks) == 1

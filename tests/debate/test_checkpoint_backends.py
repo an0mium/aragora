@@ -150,7 +150,7 @@ class TestFileCheckpointStore:
     @pytest.mark.asyncio
     async def test_roundtrip_preserves_data(self, store):
         cp = _make_checkpoint(
-            messages=[{"agent": "gpt4", "content": "important proposal"}],
+            messages=[{"agent": "gpt-5.5", "content": "important proposal"}],
             phase="vote",
             current_round=4,
         )
@@ -158,7 +158,7 @@ class TestFileCheckpointStore:
         loaded = await store.load(cp.checkpoint_id)
 
         assert loaded is not None
-        assert loaded.messages == [{"agent": "gpt4", "content": "important proposal"}]
+        assert loaded.messages == [{"agent": "gpt-5.5", "content": "important proposal"}]
         assert loaded.phase == "vote"
         assert loaded.current_round == 4
         assert len(loaded.agent_states) == 1
@@ -341,7 +341,7 @@ class TestDatabaseCheckpointStore:
     @pytest.mark.asyncio
     async def test_roundtrip_preserves_data(self, store):
         cp = _make_checkpoint(
-            messages=[{"agent": "gpt4", "content": "important"}],
+            messages=[{"agent": "gpt-5.5", "content": "important"}],
             phase="synthesis",
             current_round=5,
             total_rounds=5,
@@ -350,7 +350,7 @@ class TestDatabaseCheckpointStore:
         loaded = await store.load(cp.checkpoint_id)
 
         assert loaded is not None
-        assert loaded.messages == [{"agent": "gpt4", "content": "important"}]
+        assert loaded.messages == [{"agent": "gpt-5.5", "content": "important"}]
         assert loaded.phase == "synthesis"
         assert loaded.current_round == 5
         assert loaded.total_rounds == 5

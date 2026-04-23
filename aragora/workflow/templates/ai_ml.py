@@ -323,7 +323,7 @@ PROMPT_ENGINEERING_TEMPLATE: dict[str, Any] = {
             "name": "Clarity Review",
             "description": "Review prompt clarity and specificity",
             "config": {
-                "agents": ["claude", "gpt4", "gemini"],
+                "agents": ["claude", "gpt-5.5", "gemini"],
                 "rounds": 2,
                 "topic_template": "Review prompt clarity: {prompt_content}",
             },
@@ -364,7 +364,7 @@ PROMPT_ENGINEERING_TEMPLATE: dict[str, Any] = {
             "name": "Optimization Suggestions",
             "description": "Generate prompt optimization recommendations",
             "config": {
-                "agents": ["claude", "gpt4", "gemini"],
+                "agents": ["claude", "gpt-5.5", "gemini"],
                 "rounds": 2,
                 "topic_template": "Suggest optimizations: {review_findings}",
             },

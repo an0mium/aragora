@@ -85,7 +85,7 @@ def test_create_task_appears_in_list(mock_emit: MagicMock, handler: TaskExecutio
     body = {
         "goal": "Decide on a caching strategy",
         "type": "debate",
-        "agents": ["claude", "gpt4"],
+        "agents": ["claude", "gpt-5.5"],
         "max_steps": 5,
         "human_checkpoints": False,
         "context": {"domain": "infrastructure"},

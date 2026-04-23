@@ -313,7 +313,7 @@ else:
 # Registry for multiple agents
 registry = CircuitBreakerRegistry()
 claude_breaker = registry.get_or_create("claude", failure_threshold=3)
-gpt_breaker = registry.get_or_create("gpt4", failure_threshold=5)
+gpt_breaker = registry.get_or_create("gpt-5.5", failure_threshold=5)
 ```
 
 ## Environment Variables

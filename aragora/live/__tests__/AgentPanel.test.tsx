@@ -90,7 +90,7 @@ describe('AgentPanel', () => {
       const events = [
         createAgentEvent('claude', 'Message 1'),
         createAgentEvent('gemini', 'Message 2'),
-        createAgentEvent('gpt4', 'Message 3'),
+        createAgentEvent('gpt-5.5', 'Message 3'),
       ];
       render(<AgentPanel events={events} />);
       expect(screen.getByText('// 3 events')).toBeInTheDocument();

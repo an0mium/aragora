@@ -138,7 +138,7 @@ export class ReviewPanel {
 
     const agents: Agent[] = [
       { id: 'claude', name: 'Claude', provider: 'anthropic', color: '#C97539' },
-      { id: 'gpt-4', name: 'GPT-4', provider: 'openai', color: '#10A37F' },
+      { id: 'gpt-5.5', name: 'GPT-5.5', provider: 'openai', color: '#10A37F' },
     ];
 
     this.review.agents = agents;
@@ -196,7 +196,7 @@ export class ReviewPanel {
       if (/\bany\b/.test(line) && languageId.includes('typescript')) {
         comments.push({
           id: `comment-${Date.now()}-${index}-any`,
-          agent: { id: 'gpt-4', name: 'GPT-4', provider: 'openai' },
+          agent: { id: 'gpt-5.5', name: 'GPT-5.5', provider: 'openai' },
           content: 'Using `any` defeats the purpose of TypeScript. Consider using a more specific type or `unknown` if the type is truly unknown.',
           location: {
             file: this.sourceUri?.fsPath || '',
@@ -234,7 +234,7 @@ export class ReviewPanel {
       if (/==(?!=)/.test(line) && !line.includes('===')) {
         comments.push({
           id: `comment-${Date.now()}-${index}-eq`,
-          agent: { id: 'gpt-4', name: 'GPT-4', provider: 'openai' },
+          agent: { id: 'gpt-5.5', name: 'GPT-5.5', provider: 'openai' },
           content: 'Use strict equality (===) instead of loose equality (==) to avoid type coercion bugs.',
           location: {
             file: this.sourceUri?.fsPath || '',
@@ -266,7 +266,7 @@ export class ReviewPanel {
     if (comments.length < 3) {
       comments.push({
         id: `comment-${Date.now()}-praise`,
-        agent: { id: 'gpt-4', name: 'GPT-4', provider: 'openai' },
+        agent: { id: 'gpt-5.5', name: 'GPT-5.5', provider: 'openai' },
         content: 'Overall clean code structure with good readability. Keep up the good work!',
         location: {
           file: this.sourceUri?.fsPath || '',
@@ -453,7 +453,7 @@ export class ReviewPanel {
     const config = vscode.workspace.getConfiguration('aragora');
     return {
       apiUrl: config.get<string>('apiUrl') || 'https://api.aragora.ai',
-      defaultAgents: (config.get<string>('defaultAgents') || 'claude,gpt-4').split(','),
+      defaultAgents: (config.get<string>('defaultAgents') || 'claude,gpt-5.5').split(','),
       defaultRounds: config.get<number>('defaultRounds') || 3,
       autoAnalyze: config.get<boolean>('analyzeOnSave', true),
       showInlineHints: config.get<boolean>('showInlineHints', true),

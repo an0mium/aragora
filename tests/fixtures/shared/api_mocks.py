@@ -56,7 +56,7 @@ class MockOpenAIUsage:
 class MockOpenAICompletion:
     """Mock OpenAI chat completion response."""
 
-    def __init__(self, content: str, model: str = "gpt-4o"):
+    def __init__(self, content: str, model: str = "gpt-5.5"):
         self.id = "chatcmpl-mock123"
         self.model = model
         self.choices = [MockOpenAIChoice(content)]
@@ -89,12 +89,12 @@ class MockOpenAIChatCompletions:
         ]
         return responses[seed % len(responses)]
 
-    def create(self, messages: list[dict], model: str = "gpt-4o", **kwargs):
+    def create(self, messages: list[dict], model: str = "gpt-5.5", **kwargs):
         """Sync create method."""
         content = self._generate_response(messages, **kwargs)
         return MockOpenAICompletion(content, model)
 
-    async def acreate(self, messages: list[dict], model: str = "gpt-4o", **kwargs):
+    async def acreate(self, messages: list[dict], model: str = "gpt-5.5", **kwargs):
         """Async create method (for compatibility)."""
         content = self._generate_response(messages, **kwargs)
         return MockOpenAICompletion(content, model)
@@ -125,7 +125,7 @@ class MockOpenAIAsyncChatCompletions:
         ]
         return responses[seed % len(responses)]
 
-    async def create(self, messages: list[dict], model: str = "gpt-4o", **kwargs):
+    async def create(self, messages: list[dict], model: str = "gpt-5.5", **kwargs):
         """Async create method."""
         content = self._generate_response(messages, **kwargs)
         return MockOpenAICompletion(content, model)
@@ -518,7 +518,7 @@ def apply_api_mocks(monkeypatch: Any, force: bool = False) -> None:
 
 def create_openai_response(
     content: str = "Test response",
-    model: str = "gpt-4o",
+    model: str = "gpt-5.5",
     prompt_tokens: int = 100,
     completion_tokens: int = 50,
 ) -> MockOpenAICompletion:

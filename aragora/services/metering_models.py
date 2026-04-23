@@ -59,10 +59,8 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
         "default-output": Decimal("15.00"),
     },
     "openai": {
-        "gpt-4o": Decimal("2.50"),
-        "gpt-4o-output": Decimal("10.00"),
-        "gpt-4o-mini": Decimal("0.15"),
-        "gpt-4o-mini-output": Decimal("0.60"),
+        "gpt-5.5": Decimal("2.50"),
+        "gpt-5.5-output": Decimal("10.00"),
         "o1": Decimal("15.00"),
         "o1-output": Decimal("60.00"),
         "default": Decimal("2.50"),

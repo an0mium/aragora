@@ -50,7 +50,7 @@ class MapReducePattern(WorkflowPattern):
             file_pattern="**/*.py",
             map_agent="claude",
             map_prompt="Analyze this file for security issues: {chunk}",
-            reduce_agent="gpt4",
+            reduce_agent="gpt-5.5",
             reduce_prompt="Aggregate security findings: {map_results}",
         )
     """
@@ -78,7 +78,7 @@ class MapReducePattern(WorkflowPattern):
         self.chunk_size = chunk_size
         self.map_agent = map_agent or (agents[0] if agents else "claude")
         self.map_prompt = map_prompt or task
-        self.reduce_agent = reduce_agent or (agents[-1] if agents else "gpt4")
+        self.reduce_agent = reduce_agent or (agents[-1] if agents else "gpt-5.5")
         self.reduce_prompt = reduce_prompt
         self.parallel_limit = parallel_limit
         self.file_pattern = file_pattern

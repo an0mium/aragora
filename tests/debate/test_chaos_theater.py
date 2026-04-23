@@ -92,7 +92,7 @@ class TestTheaterResponse:
         """Test creating a TheaterResponse with optional fields."""
         response = TheaterResponse(
             message="Rate limited!",
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             failure_type=FailureType.RATE_LIMIT,
             drama_level=DramaLevel.DRAMATIC,
             duration_hint=30.0,
@@ -216,7 +216,7 @@ class TestChaosDirectorMessageSelection:
 
         # Generate messages for different agents
         director.timeout_response("claude", 30.0)
-        director.timeout_response("gpt4", 30.0)
+        director.timeout_response("gpt-5.5", 30.0)
         director.timeout_response("mistral", 30.0)
 
         # Should have multiple history entries
@@ -299,9 +299,9 @@ class TestConnectionResponse:
     def test_connection_message_contains_agent(self):
         """Test connection message contains agent name."""
         director = ChaosDirector()
-        response = director.connection_response("gpt4")
+        response = director.connection_response("gpt-5.5")
 
-        assert "gpt4" in response.message
+        assert "gpt-5.5" in response.message
 
 
 class TestRateLimitResponse:
@@ -394,9 +394,9 @@ class TestRecoveryResponse:
     def test_recovery_message_contains_agent(self):
         """Test recovery message contains agent name."""
         director = ChaosDirector()
-        response = director.recovery_response("gpt4")
+        response = director.recovery_response("gpt-5.5")
 
-        assert "gpt4" in response.message
+        assert "gpt-5.5" in response.message
 
     def test_recovery_drama_levels(self):
         """Test recovery messages exist for all drama levels."""
@@ -560,8 +560,8 @@ class TestTheatricalHelpers:
 
         ct._chaos_director = None
 
-        message = theatrical_timeout("gpt4", 30.0)
-        assert "gpt4" in message
+        message = theatrical_timeout("gpt-5.5", 30.0)
+        assert "gpt-5.5" in message
 
     def test_theatrical_error_connection(self):
         """Test theatrical_error with connection type."""
@@ -823,7 +823,7 @@ class TestIntegration:
         director = ChaosDirector()
 
         timeout = director.timeout_response("claude", 30.0)
-        connection = director.connection_response("gpt4")
+        connection = director.connection_response("gpt-5.5")
         rate_limit = director.rate_limit_response("mistral", retry_after=60.0)
         internal = director.internal_error_response("gemini")
 
@@ -834,6 +834,6 @@ class TestIntegration:
 
         # All should have their respective agent names
         assert timeout.agent_name == "claude"
-        assert connection.agent_name == "gpt4"
+        assert connection.agent_name == "gpt-5.5"
         assert rate_limit.agent_name == "mistral"
         assert internal.agent_name == "gemini"

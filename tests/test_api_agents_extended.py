@@ -406,9 +406,9 @@ class TestOpenAIFallback:
 
     def test_openai_fallback_model_mapping(self, openai_agent):
         """Test that OpenAI models are mapped correctly to OpenRouter."""
-        assert "gpt-4o" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
-        assert OpenAIAPIAgent.OPENROUTER_MODEL_MAP["gpt-4o"] == "openai/gpt-4o"
-        assert "gpt-4o-mini" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
+        assert "gpt-5.5" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
+        assert OpenAIAPIAgent.OPENROUTER_MODEL_MAP["gpt-5.5"] == "openai/gpt-5.5"
+        assert "gpt-5.5" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
 
     def test_openai_quota_keyword_detection(self, openai_agent):
         """Test OpenAI quota error detection."""
@@ -910,8 +910,8 @@ class TestUnknownModelMapping:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}):
             fallback = agent._get_cached_fallback_agent()
 
-        # Should default to gpt-4o
-        assert "gpt-4o" in fallback.model or "openai" in fallback.model
+        # Should default to gpt-5.5
+        assert "gpt-5.5" in fallback.model or "openai" in fallback.model
 
 
 # =============================================================================

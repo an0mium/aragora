@@ -154,7 +154,7 @@ class TestStreamMessage:
     def test_message_with_final_flag(self):
         """Test message with is_final=True."""
         msg = StreamMessage(
-            source="gpt4",
+            source="gpt-5.5",
             content="Final chunk",
             chunk_index=5,
             is_final=True,
@@ -493,38 +493,38 @@ class TestStreamChain:
 
     def test_subscribe(self, chain):
         """Test subscribing one agent to another."""
-        chain.subscribe("gpt4", "claude")
+        chain.subscribe("gpt-5.5", "claude")
 
-        assert "gpt4" in chain._subscriptions["claude"]
+        assert "gpt-5.5" in chain._subscriptions["claude"]
         assert "claude" in chain._buffers
-        assert "gpt4" in chain._buffers
+        assert "gpt-5.5" in chain._buffers
 
     def test_subscribe_multiple(self, chain):
         """Test multiple subscribers to same source."""
-        chain.subscribe("gpt4", "claude")
+        chain.subscribe("gpt-5.5", "claude")
         chain.subscribe("gemini", "claude")
 
         subscribers = chain.get_subscribers("claude")
 
-        assert "gpt4" in subscribers
+        assert "gpt-5.5" in subscribers
         assert "gemini" in subscribers
         assert len(subscribers) == 2
 
     def test_unsubscribe(self, chain):
         """Test unsubscribing an agent."""
-        chain.subscribe("gpt4", "claude")
+        chain.subscribe("gpt-5.5", "claude")
         chain.subscribe("gemini", "claude")
 
-        chain.unsubscribe("gpt4", "claude")
+        chain.unsubscribe("gpt-5.5", "claude")
 
         subscribers = chain.get_subscribers("claude")
-        assert "gpt4" not in subscribers
+        assert "gpt-5.5" not in subscribers
         assert "gemini" in subscribers
 
     def test_unsubscribe_nonexistent(self, chain):
         """Test unsubscribing when not subscribed."""
         # Should not raise
-        chain.unsubscribe("gpt4", "claude")
+        chain.unsubscribe("gpt-5.5", "claude")
 
     def test_get_subscribers_empty(self, chain):
         """Test get_subscribers for unregistered agent."""
@@ -600,25 +600,25 @@ class TestStreamChain:
     def test_reset_all(self, chain):
         """Test resetting all agents."""
         chain.register_agent("claude")
-        chain.register_agent("gpt4")
+        chain.register_agent("gpt-5.5")
         chain._states["claude"] = StreamState.COMPLETE
-        chain._states["gpt4"] = StreamState.ERROR
+        chain._states["gpt-5.5"] = StreamState.ERROR
 
         chain.reset_all()
 
         assert chain._states["claude"] == StreamState.IDLE
-        assert chain._states["gpt4"] == StreamState.IDLE
+        assert chain._states["gpt-5.5"] == StreamState.IDLE
 
     def test_stats_property(self, chain):
         """Test stats property."""
-        chain.subscribe("gpt4", "claude")
+        chain.subscribe("gpt-5.5", "claude")
         chain._states["claude"] = StreamState.STREAMING
 
         stats = chain.stats
 
         assert "claude" in stats["agents"]
-        assert "gpt4" in stats["agents"]
-        assert stats["subscriptions"]["claude"] == ["gpt4"]
+        assert "gpt-5.5" in stats["agents"]
+        assert stats["subscriptions"]["claude"] == ["gpt-5.5"]
         assert stats["states"]["claude"] == "streaming"
         assert "buffers" in stats
 

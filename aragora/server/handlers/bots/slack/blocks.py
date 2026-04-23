@@ -298,7 +298,7 @@ def build_start_debate_modal() -> dict[str, Any]:
                     },
                     "options": [
                         {"text": {"type": "plain_text", "text": "Claude"}, "value": "claude"},
-                        {"text": {"type": "plain_text", "text": "GPT-4"}, "value": "gpt4"},
+                        {"text": {"type": "plain_text", "text": "GPT-5.5"}, "value": "gpt-5.5"},
                         {"text": {"type": "plain_text", "text": "Gemini"}, "value": "gemini"},
                         {"text": {"type": "plain_text", "text": "Mistral"}, "value": "mistral"},
                         {"text": {"type": "plain_text", "text": "DeepSeek"}, "value": "deepseek"},

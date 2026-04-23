@@ -172,7 +172,7 @@ class TestListTests:
         h._manager = mock_manager
 
         test1 = _make_test_obj("t1", "claude")
-        test2 = _make_test_obj("t2", "gpt4")
+        test2 = _make_test_obj("t2", "gpt-5.5")
 
         with patch.object(h, "_get_all_tests", return_value=[test1, test2]):
             result = h._list_tests({})

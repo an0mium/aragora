@@ -4,7 +4,7 @@ Runs a structured adversarial debate across multiple agents::
 
     from aragora_debate import Arena, Agent, DebateConfig
 
-    agents = [ClaudeAgent("claude"), GPTAgent("gpt4")]
+    agents = [ClaudeAgent("claude"), GPTAgent("gpt-5.5")]
     arena = Arena(
         question="Should we migrate to microservices?",
         agents=agents,

@@ -195,7 +195,7 @@ class TestRecordTokensUsed:
     def test_records_token_usage(self):
         """Record token usage for a model."""
         record_tokens_used(
-            model="gpt-4",
+            model="gpt-5.5",
             input_tokens=1000,
             output_tokens=500,
         )
@@ -421,11 +421,11 @@ class TestMetricsIntegration:
 
         # Record agent generation
         record_agent_generation("anthropic", "claude-3", 2.0)
-        record_agent_generation("openai", "gpt-4", 1.5)
+        record_agent_generation("openai", "gpt-5.5", 1.5)
 
         # Record token usage
         record_tokens_used("claude-3", 1000, 500)
-        record_tokens_used("gpt-4", 800, 400)
+        record_tokens_used("gpt-5.5", 800, 400)
 
         # Record debate completion
         record_debate_completed(

@@ -231,7 +231,7 @@ class TestPositionLedgerBasic:
     def test_record_position(self, ledger):
         """Should record a new position and return ID."""
         pos_id = ledger.record_position(
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             claim="Testing is important",
             confidence=0.9,
             debate_id="debate-123",
@@ -355,7 +355,7 @@ class TestPositionLedgerReversal:
 
         # Try to reverse with wrong agent
         ledger.record_reversal(
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             original_position_id=pos_id,
             new_debate_id="d2",
         )
@@ -377,7 +377,7 @@ class TestPositionLedgerQueries:
         # Record positions for multiple agents
         ledger.record_position("claude", "c1", 0.8, "d1", 1)
         ledger.record_position("claude", "c2", 0.9, "d1", 2)
-        ledger.record_position("gpt4", "g1", 0.7, "d1", 1)
+        ledger.record_position("gpt-5.5", "g1", 0.7, "d1", 1)
 
         positions = ledger.get_agent_positions("claude")
         assert len(positions) == 2
@@ -406,7 +406,7 @@ class TestPositionLedgerQueries:
     def test_get_positions_for_debate(self, ledger):
         """Should return all positions from a specific debate."""
         ledger.record_position("claude", "c1", 0.8, "debate-A", 1)
-        ledger.record_position("gpt4", "g1", 0.7, "debate-A", 1)
+        ledger.record_position("gpt-5.5", "g1", 0.7, "debate-A", 1)
         ledger.record_position("claude", "c2", 0.9, "debate-B", 1)
 
         positions = ledger.get_positions_for_debate("debate-A")

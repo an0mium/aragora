@@ -81,7 +81,7 @@ def temp_db(tmp_path):
             "d1",
             "test-debate",
             "Design a rate limiter",
-            json.dumps(["claude", "gpt4"]),
+            json.dumps(["claude", "gpt-5.5"]),
             json.dumps({"result": "consensus"}),
             1,
             0.95,
@@ -108,7 +108,7 @@ def temp_db(tmp_path):
     )
     conn.execute(
         "INSERT INTO elo_rankings VALUES (?, ?, ?, ?, ?)",
-        ("gpt4", 1520.0, 7, 5, 3),
+        ("gpt-5.5", 1520.0, 7, 5, 3),
     )
     conn.commit()
     conn.close()
@@ -936,7 +936,7 @@ class TestDataConsistency:
 
         row_dict = {r[0]: r for r in rows}
         assert row_dict["claude"] == ("claude", 1650.0, 10, 3, 2)
-        assert row_dict["gpt4"] == ("gpt4", 1520.0, 7, 5, 3)
+        assert row_dict["gpt-5.5"] == ("gpt-5.5", 1520.0, 7, 5, 3)
 
     def test_json_round_trip_integrity(self, db_with_json_data, mock_pg_conn):
         """JSON data should remain valid after migration."""

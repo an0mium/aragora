@@ -1211,7 +1211,7 @@ class TestGetEfficiency:
                 "total_tokens_out": 200_000,
                 "total_api_calls": 1000,
                 "total_cost_usd": "70.00",
-                "cost_by_model": {"claude-3-opus": Decimal("50"), "gpt-4": Decimal("20")},
+                "cost_by_model": {"claude-3-opus": Decimal("50"), "gpt-5.5": Decimal("20")},
             }
         )
         with _patch_tracker(t):
@@ -1592,7 +1592,7 @@ class TestGetUsage:
     async def test_usage_by_model(self, handler):
         report = self._mock_report(
             cost_by_provider={},
-            cost_by_model={"claude-opus": Decimal("80"), "gpt-4o": Decimal("20")},
+            cost_by_model={"claude-opus": Decimal("80"), "gpt-5.5": Decimal("20")},
         )
         t = self._tracker(report)
         with _patch_tracker(t):
@@ -1819,7 +1819,7 @@ class TestEstimateCost:
 
     @pytest.mark.asyncio
     async def test_pricing_info_present(self, handler):
-        body = {"tokens_input": 100, "tokens_output": 100, "model": "gpt-4o", "provider": "openai"}
+        body = {"tokens_input": 100, "tokens_output": 100, "model": "gpt-5.5", "provider": "openai"}
         with _patch_parse_body(body):
             resp = await handler.handle_estimate_cost(_req("POST", body=body))
         d = _body(resp)

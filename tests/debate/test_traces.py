@@ -61,7 +61,7 @@ def trace_event_critique():
         event_type=EventType.AGENT_CRITIQUE,
         timestamp="2025-01-01T12:01:00",
         round_num=1,
-        agent="gpt4",
+        agent="gpt-5.5",
         content={
             "target_agent": "claude",
             "issues": ["Lacks specificity", "Missing examples"],
@@ -83,7 +83,7 @@ def trace_event_consensus():
         content={
             "reached": True,
             "confidence": 0.85,
-            "votes": {"claude": True, "gpt4": True},
+            "votes": {"claude": True, "gpt-5.5": True},
         },
     )
 
@@ -95,7 +95,7 @@ def empty_trace():
         trace_id="trace-test-001",
         debate_id="debate-001",
         task="Test debate task",
-        agents=["claude", "gpt4"],
+        agents=["claude", "gpt-5.5"],
         random_seed=42,
         events=[],
     )
@@ -108,7 +108,7 @@ def trace_with_events(trace_event, trace_event_critique, trace_event_consensus):
         trace_id="trace-test-002",
         debate_id="debate-002",
         task="Complex debate task",
-        agents=["claude", "gpt4", "gemini"],
+        agents=["claude", "gpt-5.5", "gemini"],
         random_seed=12345,
         events=[trace_event, trace_event_critique, trace_event_consensus],
         started_at="2025-01-01T12:00:00",
@@ -146,7 +146,7 @@ def tracer(temp_db_path):
     return DebateTracer(
         debate_id="tracer-test-001",
         task="Tracer test task",
-        agents=["claude", "gpt4"],
+        agents=["claude", "gpt-5.5"],
         random_seed=42,
         db_path=temp_db_path,
     )
@@ -221,7 +221,7 @@ class TestTraceEvent:
             event_type=EventType.AGENT_CRITIQUE,
             timestamp="2025-01-01T12:00:01",
             round_num=1,
-            agent="gpt4",
+            agent="gpt-5.5",
             content={"critique": "needs work"},
             parent_event_id="e-001",
         )
@@ -324,7 +324,7 @@ class TestDebateTrace:
         assert empty_trace.trace_id == "trace-test-001"
         assert empty_trace.debate_id == "debate-001"
         assert empty_trace.task == "Test debate task"
-        assert empty_trace.agents == ["claude", "gpt4"]
+        assert empty_trace.agents == ["claude", "gpt-5.5"]
         assert empty_trace.random_seed == 42
         assert empty_trace.events == []
         assert empty_trace.completed_at is None
@@ -423,9 +423,9 @@ class TestDebateTrace:
         assert len(claude_events) == 1
         assert claude_events[0].agent == "claude"
 
-        gpt4_events = trace_with_events.get_events_by_agent("gpt4")
-        assert len(gpt4_events) == 1
-        assert gpt4_events[0].agent == "gpt4"
+        gpt55_events = trace_with_events.get_events_by_agent("gpt-5.5")
+        assert len(gpt55_events) == 1
+        assert gpt55_events[0].agent == "gpt-5.5"
 
     def test_get_events_by_agent_none_agent(self, trace_with_events):
         """Test filtering for system events (no agent)."""
@@ -488,7 +488,7 @@ class TestDebateTraceSerialization:
         assert data["trace_id"] == "trace-test-002"
         assert data["debate_id"] == "debate-002"
         assert data["task"] == "Complex debate task"
-        assert data["agents"] == ["claude", "gpt4", "gemini"]
+        assert data["agents"] == ["claude", "gpt-5.5", "gemini"]
         assert data["random_seed"] == 12345
         assert len(data["events"]) == 3
         assert "checksum" in data
@@ -603,7 +603,7 @@ class TestDebateTraceToDebateResult:
 
         assert len(result.critiques) == 1
         critique = result.critiques[0]
-        assert critique.agent == "gpt4"
+        assert critique.agent == "gpt-5.5"
         assert critique.target_agent == "claude"
         assert "Lacks specificity" in critique.issues
 
@@ -653,7 +653,7 @@ class TestDebateTracer:
         """Test tracer is initialized correctly."""
         assert tracer.debate_id == "tracer-test-001"
         assert tracer.task == "Tracer test task"
-        assert tracer.agents == ["claude", "gpt4"]
+        assert tracer.agents == ["claude", "gpt-5.5"]
         assert tracer.random_seed == 42
         assert tracer.trace is not None
         assert tracer.trace.trace_id == "trace-tracer-test-001"
@@ -731,7 +731,7 @@ class TestDebateTracer:
         """Test recording a critique."""
         tracer.start_round(1)
         tracer.record_critique(
-            agent="gpt4",
+            agent="gpt-5.5",
             target_agent="claude",
             issues=["Issue 1", "Issue 2"],
             severity=6.5,
@@ -740,7 +740,7 @@ class TestDebateTracer:
 
         critiques = tracer.trace.get_events_by_type(EventType.AGENT_CRITIQUE)
         assert len(critiques) == 1
-        assert critiques[0].agent == "gpt4"
+        assert critiques[0].agent == "gpt-5.5"
         assert critiques[0].content["target_agent"] == "claude"
         assert critiques[0].content["issues"] == ["Issue 1", "Issue 2"]
         assert critiques[0].content["severity"] == 6.5
@@ -751,24 +751,26 @@ class TestDebateTracer:
         tracer.record_synthesis(
             agent="gemini",
             content="Combined synthesis",
-            incorporated=["claude", "gpt4"],
+            incorporated=["claude", "gpt-5.5"],
         )
 
         syntheses = tracer.trace.get_events_by_type(EventType.AGENT_SYNTHESIS)
         assert len(syntheses) == 1
         assert syntheses[0].agent == "gemini"
         assert syntheses[0].content["content"] == "Combined synthesis"
-        assert syntheses[0].content["incorporated"] == ["claude", "gpt4"]
+        assert syntheses[0].content["incorporated"] == ["claude", "gpt-5.5"]
 
     def test_record_consensus(self, tracer):
         """Test recording consensus check."""
-        tracer.record_consensus(reached=True, confidence=0.92, votes={"claude": True, "gpt4": True})
+        tracer.record_consensus(
+            reached=True, confidence=0.92, votes={"claude": True, "gpt-5.5": True}
+        )
 
         consensus = tracer.trace.get_events_by_type(EventType.CONSENSUS_CHECK)
         assert len(consensus) == 1
         assert consensus[0].content["reached"] is True
         assert consensus[0].content["confidence"] == 0.92
-        assert consensus[0].content["votes"] == {"claude": True, "gpt4": True}
+        assert consensus[0].content["votes"] == {"claude": True, "gpt-5.5": True}
 
     def test_record_tool_call(self, tracer):
         """Test recording tool call and getting event ID."""
@@ -809,12 +811,12 @@ class TestDebateTracer:
 
     def test_record_error(self, tracer):
         """Test recording an error."""
-        tracer.record_error("Agent timeout", agent="gpt4")
+        tracer.record_error("Agent timeout", agent="gpt-5.5")
 
         errors = tracer.trace.get_events_by_type(EventType.ERROR)
         assert len(errors) == 1
         assert errors[0].content["error"] == "Agent timeout"
-        assert errors[0].agent == "gpt4"
+        assert errors[0].agent == "gpt-5.5"
 
     def test_record_error_without_agent(self, tracer):
         """Test recording system-level error."""
@@ -854,9 +856,9 @@ class TestDebateTracer:
         """Test reconstructing state at a specific event."""
         tracer.start_round(1)
         tracer.record_proposal("claude", "Claude proposal", confidence=0.8)
-        tracer.record_proposal("gpt4", "GPT4 proposal", confidence=0.75)
-        tracer.record_critique("gpt4", "claude", ["Issue"], severity=5.0, suggestions=[])
-        tracer.record_consensus(True, 0.85, {"claude": True, "gpt4": True})
+        tracer.record_proposal("gpt-5.5", "GPT-5.5 proposal", confidence=0.75)
+        tracer.record_critique("gpt-5.5", "claude", ["Issue"], severity=5.0, suggestions=[])
+        tracer.record_consensus(True, 0.85, {"claude": True, "gpt-5.5": True})
 
         # Get the last event ID
         last_event = tracer.trace.events[-1]
@@ -872,8 +874,8 @@ class TestDebateTracer:
         tracer.start_round(1)
         tracer.record_proposal("claude", "Proposal 1", confidence=0.8)
         proposal_event = tracer.trace.events[-1]
-        tracer.record_proposal("gpt4", "Proposal 2", confidence=0.7)
-        tracer.record_consensus(True, 0.9, {"claude": True, "gpt4": True})
+        tracer.record_proposal("gpt-5.5", "Proposal 2", confidence=0.7)
+        tracer.record_consensus(True, 0.9, {"claude": True, "gpt-5.5": True})
 
         # Get state at first proposal
         state = tracer.get_state_at_event(proposal_event.event_id)
@@ -1141,7 +1143,7 @@ class TestListTraces:
         tracer = DebateTracer(
             debate_id="list-test-001",
             task="List test task",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             db_path=temp_db_path,
         )
         tracer.record_proposal("claude", "Test proposal", confidence=0.8)
@@ -1152,7 +1154,7 @@ class TestListTraces:
         assert len(traces) == 1
         assert traces[0]["debate_id"] == "list-test-001"
         assert traces[0]["task"][:100] == "List test task"
-        assert traces[0]["agents"] == ["claude", "gpt4"]
+        assert traces[0]["agents"] == ["claude", "gpt-5.5"]
 
     def test_list_traces_limit(self, temp_db_path):
         """Test list_traces respects limit parameter."""
@@ -1330,7 +1332,7 @@ class TestEdgeCases:
         tracer = DebateTracer(
             debate_id="unicode-test",
             task="Test unicode",
-            agents=["クロード", "GPT-4"],
+            agents=["クロード", "GPT-5.5"],
             db_path=temp_db_path,
         )
         tracer.record_proposal("クロード", "Japanese proposal", confidence=0.8)

@@ -116,7 +116,7 @@ class TestLifecycleEvents:
             gauntlet_id="g-123",
             input_type="text",
             input_summary="Test input summary",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             config_summary={"max_rounds": 3},
         )
 
@@ -127,7 +127,7 @@ class TestLifecycleEvents:
         assert event.data["gauntlet_id"] == "g-123"
         assert event.data["input_type"] == "text"
         assert event.data["input_summary"] == "Test input summary"
-        assert event.data["agents"] == ["claude", "gpt4"]
+        assert event.data["agents"] == ["claude", "gpt-5.5"]
         assert event.data["config"] == {"max_rounds": 3}
         assert "message" in event.data
 
@@ -368,7 +368,7 @@ class TestProbeEvents:
         """emit_probe should emit GAUNTLET_PROBE event."""
         emitter.emit_probe(
             probe_type="jailbreak",
-            agent="gpt4",
+            agent="gpt-5.5",
             vulnerability_found=True,
             severity="HIGH",
             description="Successfully bypassed safety filters",
@@ -379,7 +379,7 @@ class TestProbeEvents:
 
         assert event.type == StreamEventType.GAUNTLET_PROBE
         assert event.data["probe_type"] == "jailbreak"
-        assert event.data["agent"] == "gpt4"
+        assert event.data["agent"] == "gpt-5.5"
         assert event.data["vulnerability_found"] is True
         assert event.data["severity"] == "HIGH"
         assert event.data["probe_number"] == 1

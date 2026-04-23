@@ -71,13 +71,13 @@ class TestCreateDebateRequest:
         request: CreateDebateRequest = {
             "task": "Test task",
             "question": "Alternative question",
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "mode": "debate",
             "rounds": 3,
             "consensus": "majority",
         }
         assert len(request) == 6
-        assert request["agents"] == ["claude", "gpt4"]
+        assert request["agents"] == ["claude", "gpt-5.5"]
 
     def test_type_hints_available(self):
         """Type hints can be retrieved."""
@@ -317,7 +317,7 @@ class TestGauntletRunRequest:
         request: GauntletRunRequest = {
             "input_content": "Test content",
             "input_type": "code",
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "persona": "security-auditor",
             "profile": "comprehensive",
         }
@@ -413,7 +413,7 @@ class TestAgentConfigRequest:
         """Config with all options."""
         config: AgentConfigRequest = {
             "name": "custom-agent",
-            "model": "gpt-4",
+            "model": "gpt-5.5",
             "temperature": 0.7,
             "max_tokens": 2000,
             "system_prompt": "You are a helpful assistant.",

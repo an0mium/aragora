@@ -138,7 +138,7 @@ class TestTwitterContentFormatter:
 
         announcement = formatter.format_announcement(
             task="A very long debate topic " * 20,
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
         )
 
         # Should be within Twitter limit
@@ -152,7 +152,7 @@ class TestTwitterContentFormatter:
 
         announcement = formatter.format_announcement(
             task="Test debate topic",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
         )
 
         # Should mention at least one agent

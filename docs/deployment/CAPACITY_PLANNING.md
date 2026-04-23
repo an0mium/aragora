@@ -275,7 +275,7 @@ spec:
 | Provider | Model | Cost/1K tokens | Debates/$ |
 |----------|-------|---------------|-----------|
 | Anthropic | Claude 3.5 | $0.003-$0.015 | ~20-100 |
-| OpenAI | GPT-4 | $0.03-$0.06 | ~5-20 |
+| OpenAI | GPT-5.5 | $0.03-$0.06 | ~5-20 |
 | OpenRouter | Various | $0.001-$0.01 | ~50-500 |
 
 ### Cost Reduction Strategies

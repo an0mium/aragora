@@ -61,7 +61,7 @@ def sample_receipt() -> dict:
         "consensus_proof": {
             "reached": True,
             "confidence": 0.85,
-            "supporting_agents": ["claude-analyst", "gpt4-auditor"],
+            "supporting_agents": ["claude-analyst", "gpt-5.5"],
             "dissenting_agents": ["gemini-critic"],
             "method": "weighted_majority",
             "agreement_ratio": 0.67,
@@ -72,7 +72,7 @@ def sample_receipt() -> dict:
             {"event_type": "proposal_submitted", "timestamp": now, "actor": "claude-analyst"},
             {"event_type": "critique_submitted", "timestamp": now, "actor": "gemini-critic"},
             {"event_type": "vote_cast", "timestamp": now, "actor": "claude-analyst"},
-            {"event_type": "vote_cast", "timestamp": now, "actor": "gpt4-auditor"},
+            {"event_type": "vote_cast", "timestamp": now, "actor": "gpt-5.5"},
             {"event_type": "vote_cast", "timestamp": now, "actor": "gemini-critic"},
             {"event_type": "human_approval", "timestamp": now, "actor": "hr@test.com"},
             {"event_type": "receipt_generated", "timestamp": now, "actor": "system"},

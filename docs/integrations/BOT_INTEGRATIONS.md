@@ -619,7 +619,7 @@ User: debate: Is remote work better than office work?
 Aragora: 🎯 Starting debate...
 
 Topic: "Is remote work better than office work?"
-Agents: Claude, GPT-4, Gemini, Grok
+Agents: Claude, GPT-5.5, Gemini, Grok
 
 I'll send you results when the debate concludes.
 

@@ -173,7 +173,7 @@ class TeamsDebateConfig:
     """Configuration for a Teams-initiated debate."""
 
     rounds: int = 3
-    agents: list[str] = field(default_factory=lambda: ["claude", "gpt4", "gemini"])
+    agents: list[str] = field(default_factory=lambda: ["claude", "gpt-5.5", "gemini"])
     consensus_threshold: float = 0.7
     timeout_seconds: float = 300.0
     enable_voting: bool = True

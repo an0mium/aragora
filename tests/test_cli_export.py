@@ -96,7 +96,7 @@ class TestLoadArtifactFromDebate:
         mock_trace = MagicMock()
         mock_trace.debate_id = "debate-123"
         mock_trace.task = "Test task"
-        mock_trace.agents = ["claude", "gpt4"]
+        mock_trace.agents = ["claude", "gpt-5.5"]
         mock_trace.events = []
         mock_trace.duration_ms = 45000
         mock_trace.final_result = {

@@ -29,7 +29,7 @@ def mock_agents():
     agent1.generate = AsyncMock(return_value="Agent 1 response")
 
     agent2 = Mock()
-    agent2.name = "gpt4"
+    agent2.name = "gpt-5.5"
     agent2.generate = AsyncMock(return_value="Agent 2 response")
 
     return [agent1, agent2]
@@ -105,7 +105,7 @@ def sample_results():
             "parameters": {"budget": "high"},
             "constraints": ["maximize quality"],
             "is_baseline": False,
-            "winner": "gpt4",
+            "winner": "gpt-5.5",
             "final_answer": "Use approach B",
             "confidence": 0.9,
             "consensus_reached": True,
@@ -391,7 +391,7 @@ class TestAgentLoading:
             mock_agent1 = Mock()
             mock_agent1.name = "claude"
             mock_agent2 = Mock()
-            mock_agent2.name = "gpt4"
+            mock_agent2.name = "gpt-5.5"
             mock_load.return_value = [mock_agent1, mock_agent2]
 
             agents = await handler._load_agents([])

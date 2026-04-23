@@ -72,7 +72,7 @@ const PAGE_SHELL_MAX_WIDTH = "1240px";
 const RECORDED_SAMPLE: RecordedDebate = {
   id: "demo_showcase_001",
   topic: DEMO_TOPIC,
-  agents: ["claude-opus", "gpt-5", "gemini-pro", "mistral-large", "grok"],
+  agents: ["claude-opus", "gpt-5.5", "gemini-pro", "mistral-large", "grok"],
   rounds: 2,
   confidence: 0.82,
   verdict:
@@ -90,8 +90,8 @@ const RECORDED_SAMPLE: RecordedDebate = {
     },
     {
       type: "proposal",
-      agent: "gpt-5",
-      model: "GPT-5.4",
+      agent: "gpt-5.5",
+      model: "GPT-5.5",
       content:
         "Mandatory is too strong. AI review tools have 15-25% false positive rates on complex codebases. Making it mandatory creates alert fatigue and slows velocity. Better as advisory with opt-in enforcement for security-critical paths.",
       round: 1,
@@ -136,8 +136,8 @@ const RECORDED_SAMPLE: RecordedDebate = {
     },
     {
       type: "vote",
-      agent: "gpt-5",
-      model: "GPT-5.4",
+      agent: "gpt-5.5",
+      model: "GPT-5.5",
       content:
         "Tiered enforcement addresses my velocity concern while maintaining security coverage.",
       round: 2,
@@ -179,8 +179,8 @@ function formatAgentName(agent: string): string {
     "claude-opus": "Claude Opus 4.7",
     "claude-sonnet": "Claude Sonnet 4.6",
     gpt: "GPT",
-    "gpt-5": "GPT-5.4",
-    "gpt-4o": "GPT-4o",
+    "gpt-5.5": "GPT-5.5",
+    "gpt-5.5": "GPT-5.5",
     grok: "Grok 3",
     "grok-2": "Grok 2",
     gemini: "Gemini",

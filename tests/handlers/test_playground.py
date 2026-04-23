@@ -1570,7 +1570,7 @@ class TestTryOracleTentacles:
 
     def test_landing_practical_question_uses_practical_roles(self):
         models = [
-            {"name": "gpt", "provider": "openai", "model": "gpt-4.1"},
+            {"name": "gpt", "provider": "openai", "model": "gpt-5.5"},
             {"name": "claude", "provider": "anthropic", "model": "claude-opus-4-7"},
             {"name": "grok", "provider": "xai", "model": "grok-4"},
         ]
@@ -1604,7 +1604,7 @@ class TestTryOracleTentacles:
 
     def test_landing_source_marks_result_as_preview(self):
         models = [
-            {"name": "gpt", "provider": "openai", "model": "gpt-4.1"},
+            {"name": "gpt", "provider": "openai", "model": "gpt-5.5"},
             {"name": "claude", "provider": "anthropic", "model": "claude-opus-4-7"},
             {"name": "grok", "provider": "xai", "model": "grok-4"},
         ]
@@ -1643,7 +1643,7 @@ class TestTryOracleTentacles:
 
     def test_landing_source_rejects_off_topic_preview_drift(self):
         models = [
-            {"name": "gpt", "provider": "openai", "model": "gpt-4.1"},
+            {"name": "gpt", "provider": "openai", "model": "gpt-5.5"},
             {"name": "claude", "provider": "anthropic", "model": "claude-opus-4-7"},
             {"name": "grok", "provider": "xai", "model": "grok-4"},
         ]

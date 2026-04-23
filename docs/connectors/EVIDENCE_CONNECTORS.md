@@ -130,7 +130,7 @@ stories = await connector.fetch_top_stories(limit=30)
 
 # Search stories
 results = await connector.search(
-    query="GPT-4 release",
+    query="GPT-5.5 release",
     tags="story",  # or "comment", "ask_hn", "show_hn"
 )
 

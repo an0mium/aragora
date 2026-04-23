@@ -137,7 +137,7 @@ class TestGauntletStreamEmitter:
             gauntlet_id="gauntlet-456",
             input_type="spec",
             input_summary="Test input",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             config_summary={"profile": "default"},
         )
 
@@ -206,7 +206,7 @@ class TestGauntletStreamEmitter:
 
         emitter_obj.emit_attack(
             attack_type="prompt_injection",
-            agent="gpt4",
+            agent="gpt-5.5",
             target_summary="Test target",
             success=True,
             severity=0.8,

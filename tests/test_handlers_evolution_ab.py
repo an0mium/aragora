@@ -339,7 +339,7 @@ class TestListTests:
         """Test listing existing tests."""
         # Add tests
         ab_handler.manager.start_test("claude", 1, 2)
-        ab_handler.manager.start_test("gpt4", 1, 2)
+        ab_handler.manager.start_test("gpt-5.5", 1, 2)
 
         with patch.object(
             ab_handler, "_get_all_tests", return_value=list(ab_handler.manager.tests.values())
@@ -359,7 +359,7 @@ class TestListTests:
         """Test listing tests for specific agent."""
         # Add tests
         ab_handler.manager.start_test("claude", 1, 2)
-        ab_handler.manager.start_test("gpt4", 1, 2)
+        ab_handler.manager.start_test("gpt-5.5", 1, 2)
 
         result = ab_handler.handle(
             "/api/evolution/ab-tests",
@@ -436,7 +436,7 @@ class TestGetActiveTest:
     def test_get_active_test_not_exists(self, ab_handler):
         """Test getting active test when none exists."""
         result = ab_handler.handle(
-            "/api/evolution/ab-tests/gpt4/active",
+            "/api/evolution/ab-tests/gpt-5.5/active",
             {},
         )
 
@@ -444,7 +444,7 @@ class TestGetActiveTest:
         import json
 
         body = json.loads(result.body)
-        assert body["agent"] == "gpt4"
+        assert body["agent"] == "gpt-5.5"
         assert body["has_active_test"] is False
         assert body["test"] is None
 

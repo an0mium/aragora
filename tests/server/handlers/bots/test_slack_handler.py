@@ -83,7 +83,7 @@ class TestSlackBlockBuilders:
         blocks = slack.build_debate_message_blocks(
             debate_id="test-123",
             task="Should we adopt microservices?",
-            agents=["Claude", "GPT-4"],
+            agents=["Claude", "GPT-5.5"],
             current_round=2,
             total_rounds=5,
             include_vote_buttons=True,
@@ -125,7 +125,7 @@ class TestSlackBlockBuilders:
             confidence=0.85,
             winner="Claude",
             final_answer="The recommendation is to proceed with option A.",
-            vote_counts={"Claude": 5, "GPT-4": 3},
+            vote_counts={"Claude": 5, "GPT-5.5": 3},
         )
 
         assert isinstance(blocks, list)
@@ -383,7 +383,7 @@ class TestSlackInteractionHandler:
                             "agents_select": {
                                 "selected_options": [
                                     {"value": "claude"},
-                                    {"value": "gpt4"},
+                                    {"value": "gpt-5.5"},
                                 ]
                             }
                         },
@@ -452,7 +452,7 @@ class TestSlackGlobalState:
         # Add a debate
         slack._active_debates["test-debate-1"] = {
             "task": "Test task",
-            "agents": ["Claude", "GPT-4"],
+            "agents": ["Claude", "GPT-5.5"],
             "rounds": 5,
             "current_round": 1,
             "status": "running",
@@ -468,10 +468,10 @@ class TestSlackGlobalState:
         """Should store user votes correctly."""
         slack._user_votes.clear()
 
-        slack._user_votes["debate-1"] = {"user-1": "claude", "user-2": "gpt4"}
+        slack._user_votes["debate-1"] = {"user-1": "claude", "user-2": "gpt-5.5"}
 
         assert slack._user_votes["debate-1"]["user-1"] == "claude"
-        assert slack._user_votes["debate-1"]["user-2"] == "gpt4"
+        assert slack._user_votes["debate-1"]["user-2"] == "gpt-5.5"
 
         # Clean up
         slack._user_votes.clear()

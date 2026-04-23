@@ -110,9 +110,9 @@ class TestProviderPricing:
     def test_openai_pricing_exists(self):
         """Test OpenAI pricing is configured."""
         assert "openai" in PROVIDER_PRICING
-        assert "gpt-4o" in PROVIDER_PRICING["openai"]
-        assert "gpt-4o-output" in PROVIDER_PRICING["openai"]
-        assert "gpt-4o-mini" in PROVIDER_PRICING["openai"]
+        assert "gpt-5.5" in PROVIDER_PRICING["openai"]
+        assert "gpt-5.5" in PROVIDER_PRICING["openai"]
+        assert "gpt-5.5" in PROVIDER_PRICING["openai"]
 
     def test_google_pricing_exists(self):
         """Test Google pricing is configured."""
@@ -167,18 +167,18 @@ class TestCalculateTokenCost:
         expected = Decimal("3.00") + Decimal("15.00")
         assert cost == expected
 
-    def test_openai_gpt4o(self):
-        """Test cost calculation for GPT-4o."""
-        cost = calculate_token_cost("openai", "gpt-4o", 1_000_000, 1_000_000)
+    def test_openai_gpt55(self):
+        """Test cost calculation for GPT-5.5."""
+        cost = calculate_token_cost("openai", "gpt-5.5", 1_000_000, 1_000_000)
         # Input: $2.50/1M, Output: $10/1M
         expected = Decimal("2.50") + Decimal("10.00")
         assert cost == expected
 
-    def test_openai_gpt4o_mini(self):
-        """Test cost calculation for GPT-4o-mini."""
-        cost = calculate_token_cost("openai", "gpt-4o-mini", 1_000_000, 1_000_000)
-        # Input: $0.15/1M, Output: $0.60/1M
-        expected = Decimal("0.15") + Decimal("0.60")
+    def test_openai_gpt55_consolidated_alias(self):
+        """Test consolidated GPT aliases use GPT-5.5 pricing."""
+        cost = calculate_token_cost("openai", "gpt-5.5", 1_000_000, 1_000_000)
+        # Input: $2.50/1M, Output: $10/1M
+        expected = Decimal("2.50") + Decimal("10.00")
         assert cost == expected
 
     def test_google_gemini_pro(self):
@@ -244,7 +244,7 @@ class TestCalculateTokenCost:
 
     def test_cost_precision(self):
         """Test cost calculation maintains decimal precision."""
-        cost = calculate_token_cost("openai", "gpt-4o-mini", 123, 456)
+        cost = calculate_token_cost("openai", "gpt-5.5", 123, 456)
         assert isinstance(cost, Decimal)
         # Should not lose precision
 
@@ -301,7 +301,7 @@ class TestUsageEvent:
         """Test calculate_cost updates the cost_usd field."""
         event = UsageEvent(
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
             tokens_in=1000,
             tokens_out=500,
         )
@@ -345,7 +345,7 @@ class TestUsageEvent:
             "tokens_in": 2000,
             "tokens_out": 1000,
             "provider": "openai",
-            "model": "gpt-4o",
+            "model": "gpt-5.5",
             "cost_usd": "0.035",
             "metadata": {"agent": "claude"},
             "created_at": "2024-06-01T12:00:00",
@@ -361,7 +361,7 @@ class TestUsageEvent:
         assert event.tokens_in == 2000
         assert event.tokens_out == 1000
         assert event.provider == "openai"
-        assert event.model == "gpt-4o"
+        assert event.model == "gpt-5.5"
         assert event.cost_usd == Decimal("0.035")
         assert event.metadata == {"agent": "claude"}
         assert event.created_at == datetime.fromisoformat("2024-06-01T12:00:00")
@@ -602,7 +602,7 @@ class TestUsageTrackerRecording:
             tokens_in=2000,
             tokens_out=1000,
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
             metadata={"topic": "AI Safety"},
         )
 
@@ -793,7 +793,7 @@ class TestUsageTrackerSummary:
             tokens_in=1000,
             tokens_out=500,
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
         )
 
         summary = tracker.get_summary("org-1")

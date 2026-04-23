@@ -163,7 +163,7 @@ class TestTricksterIntervention:
         intervention = TricksterIntervention(
             intervention_type=InterventionType.CHALLENGE_PROMPT,
             round_num=3,
-            target_agents=["claude", "gpt4"],
+            target_agents=["claude", "gpt-5.5"],
             challenge_text="Please provide evidence",
             evidence_gaps={"claude": ["citations", "specificity"]},
             priority=0.85,

@@ -49,7 +49,7 @@ class TestRelationshipEventEmission:
 
         rel = AgentRelationship(
             agent_a="claude",
-            agent_b="gpt4",
+            agent_b="gpt-5.5",
             debate_count=10,
             agreement_count=9,  # High agreement
             critique_count_a_to_b=5,
@@ -63,7 +63,7 @@ class TestRelationshipEventEmission:
         )
 
         with patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch:
-            tracker._emit_relationship_event("claude", "gpt4", rel)
+            tracker._emit_relationship_event("claude", "gpt-5.5", rel)
 
         data = mock_dispatch.call_args[0][1]
         assert data["relationship_type"] == "ally"

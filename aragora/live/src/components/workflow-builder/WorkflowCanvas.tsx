@@ -66,7 +66,7 @@ function getDefaultNodeData(type: WorkflowStepType): WorkflowNodeData {
         ...base,
         type: 'debate',
         label: 'New Debate',
-        agents: ['claude', 'gpt4'],
+        agents: ['claude', 'gpt-5.5'],
         rounds: 2,
       } as DebateNodeData;
     case 'task':

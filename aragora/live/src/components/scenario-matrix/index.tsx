@@ -153,7 +153,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           task,
-          agents: ['claude', 'gpt4'],
+          agents: ['claude', 'gpt-5.5'],
           scenarios: scenarios.map((s) => ({
             name: s.name,
             parameters: s.parameters,

@@ -147,7 +147,7 @@ export class HybridDebatesAPI {
    *   task: 'Design a rate limiter',
    *   external_agent: 'crewai-arch-team',
    *   consensus_threshold: 0.75,
-   *   verification_agents: ['claude', 'gpt-4'],
+   *   verification_agents: ['claude', 'gpt-5.5'],
    * });
    * console.log(`Started debate: ${debate.debate_id}`);
    * ```

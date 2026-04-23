@@ -198,7 +198,7 @@ class TestGetAgentName:
 
     def test_dict_with_agent_name(self):
         """Test extraction from dict with 'agent_name' key."""
-        assert get_agent_name({"agent_name": "gpt4"}) == "gpt4"
+        assert get_agent_name({"agent_name": "gpt-5.5"}) == "gpt-5.5"
 
     def test_dict_prefers_agent_name(self):
         """Test agent_name takes precedence over name."""
@@ -542,10 +542,10 @@ class TestBaseHandler:
 
     def test_extract_path_params_multiple(self, handler):
         """Test extracting multiple path params."""
-        # Path segments: ["", "api", "v1", "agents", "compare", "claude", "gpt4"]
-        # Index 5 = "claude", Index 6 = "gpt4"
+        # Path segments: ["", "api", "v1", "agents", "compare", "claude", "gpt-5.5"]
+        # Index 5 = "claude", Index 6 = "gpt-5.5"
         params, err = handler.extract_path_params(
-            "/api/v1/agents/compare/claude/gpt4",
+            "/api/v1/agents/compare/claude/gpt-5.5",
             [
                 (5, "agent_a", SAFE_AGENT_PATTERN),
                 (6, "agent_b", SAFE_AGENT_PATTERN),
@@ -553,7 +553,7 @@ class TestBaseHandler:
         )
         assert err is None
         assert params["agent_a"] == "claude"
-        assert params["agent_b"] == "gpt4"
+        assert params["agent_b"] == "gpt-5.5"
 
     def test_read_json_body_valid(self, handler):
         """Test reading valid JSON body."""
@@ -734,7 +734,7 @@ class TestValidationPatterns:
         """Test SAFE_AGENT_PATTERN with valid agent names."""
         valid_names = [
             "claude",
-            "gpt-4",
+            "gpt-5.5",
             "gemini_pro",
             "agent123",
         ]

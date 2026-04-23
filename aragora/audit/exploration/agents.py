@@ -208,7 +208,7 @@ Return JSON:
 
         Args:
             name: Agent identifier
-            model: Model to use (claude-sonnet-4, gpt-5.3-codex, etc.)
+            model: Model to use (claude-sonnet-4, gpt-5.5, etc.)
             role: Agent role (explorer, verifier)
             timeout: Operation timeout in seconds
             config: Exploration configuration
@@ -532,7 +532,7 @@ class VerifierAgent(ExplorationAgent):
     def __init__(
         self,
         name: str = "verifier",
-        model: str = "gpt-4-turbo",
+        model: str = "gpt-5.5",
         **kwargs,
     ):
         super().__init__(name=name, model=model, role="critic", **kwargs)

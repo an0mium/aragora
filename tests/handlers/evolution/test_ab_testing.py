@@ -262,7 +262,7 @@ class TestListTests:
     def test_list_all_tests(self, handler, mock_manager, http):
         """List all tests without filters."""
         test1 = MockABTest(test_id="t1", agent="claude")
-        test2 = MockABTest(test_id="t2", agent="gpt4")
+        test2 = MockABTest(test_id="t2", agent="gpt-5.5")
 
         with patch(_GET_ALL_TESTS_PATCH, return_value=[test1, test2]):
             result = handler.handle("/api/evolution/ab-tests", {}, http)
@@ -409,11 +409,11 @@ class TestGetActiveTest:
         """No active test for agent returns has_active_test=False."""
         mock_manager.get_active_test.return_value = None
 
-        result = handler.handle("/api/evolution/ab-tests/gpt4/active", {}, http)
+        result = handler.handle("/api/evolution/ab-tests/gpt-5.5/active", {}, http)
 
         assert _status(result) == 200
         body = _body(result)
-        assert body["agent"] == "gpt4"
+        assert body["agent"] == "gpt-5.5"
         assert body["has_active_test"] is False
         assert body["test"] is None
 

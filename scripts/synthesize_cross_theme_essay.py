@@ -477,7 +477,7 @@ cultivation of resilient, adaptive, non-equilibrial flourishing.
     lines.append(f"- **Generated:** {datetime.now().isoformat()}")
     lines.append("")
     lines.append(
-        "This essay was synthesized from extended conversations with Claude, GPT-4, and other AI systems, preserving the original prose while organizing it into a coherent intellectual arc."
+        "This essay was synthesized from extended conversations with Claude, GPT-5.5, and other AI systems, preserving the original prose while organizing it into a coherent intellectual arc."
     )
 
     return "\n".join(lines)

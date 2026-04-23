@@ -92,7 +92,7 @@ def tmp_data_dir(tmp_path: Path) -> Path:
     )
     conn.execute(
         "INSERT INTO agent_elo (agent_name, rating, games_played) VALUES (?, ?, ?)",
-        ("gpt4", 1580.0, 38),
+        ("gpt-5.5", 1580.0, 38),
     )
     conn.commit()
     conn.close()

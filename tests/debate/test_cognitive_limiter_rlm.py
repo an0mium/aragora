@@ -107,7 +107,7 @@ def sample_messages():
             round=1,
         ),
         MockMessage(
-            agent="gpt4", role="critic", content="Consider sliding window instead", round=1
+            agent="gpt-5.5", role="critic", content="Consider sliding window instead", round=1
         ),
         MockMessage(
             agent="claude", role="defender", content="Token bucket is simpler to implement", round=2
@@ -411,10 +411,10 @@ class TestRLMCognitiveLoadLimiterInit:
         assert limiter._rlm_model == "claude-3-5-sonnet"
 
     def test_init_default_rlm_model(self):
-        """Test default rlm_model is gpt-4o."""
+        """Test default rlm_model is gpt-5.5."""
         limiter = RLMCognitiveLoadLimiter()
 
-        assert limiter._rlm_model == "gpt-4o"
+        assert limiter._rlm_model == "gpt-5.5"
 
     def test_init_deprecated_rlm_backend_warning(self):
         """Test that rlm_backend parameter triggers deprecation warning."""
@@ -1389,7 +1389,7 @@ class TestRealRLMIntegration:
 
     def test_real_rlm_initialization(self):
         """Test real RLM initialization when available."""
-        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-4o")
+        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-5.5")
 
         assert limiter.has_real_rlm is True
         assert limiter._aragora_rlm is not None
@@ -1397,7 +1397,7 @@ class TestRealRLMIntegration:
     @pytest.mark.asyncio
     async def test_real_rlm_query(self):
         """Test real RLM query when available."""
-        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-4o")
+        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-5.5")
         messages = [MockMessage(content="Test " * 100, round=i) for i in range(10)]
 
         result = await limiter.query_with_rlm("What is discussed?", messages)

@@ -50,7 +50,7 @@ class TestVerticalConfig:
             description="Full test",
             compliance_frameworks=["sox", "hipaa"],
             required_dimensions=["accuracy", "safety"],
-            recommended_agents=["claude", "gpt4"],
+            recommended_agents=["claude", "gpt-5.5"],
             arena_overrides={"enable_provenance": True},
             km_adapters=["compliance"],
             preset_base="startup",

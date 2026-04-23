@@ -2146,7 +2146,7 @@ class TestEnqueueWebhookDeliveryExtended:
                 "result": {
                     "consensus": True,
                     "confidence": 0.95,
-                    "participants": ["claude", "gpt4", "gemini"],
+                    "participants": ["claude", "gpt-5.5", "gemini"],
                 },
             },
             "metadata": {

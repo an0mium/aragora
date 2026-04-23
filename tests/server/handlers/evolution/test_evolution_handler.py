@@ -434,12 +434,12 @@ class TestGetSummary:
         # 2) COUNT(DISTINCT agent_name) -> (2,)
         # 3) COUNT(*) FROM extracted_patterns -> (8,)
         # 4) pattern_type distribution -> [("strategy", 5), ("structure", 3)]
-        # 5) top agents -> [("claude", 0.9, 3), ("gpt4", 0.8, 2)]
+        # 5) top agents -> [("claude", 0.9, 3), ("gpt-5.5", 0.8, 2)]
         # 6) recent activity -> [("claude", "mutation", "2025-01-01")]
         mock_cursor.fetchone.side_effect = [(5,), (2,), (8,)]
         mock_cursor.fetchall.side_effect = [
             [("strategy", 5), ("structure", 3)],
-            [("claude", 0.9, 3), ("gpt4", 0.8, 2)],
+            [("claude", 0.9, 3), ("gpt-5.5", 0.8, 2)],
             [("claude", "mutation", "2025-01-01")],
         ]
 

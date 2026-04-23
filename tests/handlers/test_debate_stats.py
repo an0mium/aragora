@@ -322,7 +322,7 @@ class TestGetAgentStats:
         http = mock_http()
         agent_data = [
             {"agent": "claude", "wins": 10},
-            {"agent": "gpt4", "wins": 8},
+            {"agent": "gpt-5.5", "wins": 8},
         ]
         with patch(_ANALYTICS_CLS) as MockAnalytics:
             MockAnalytics.return_value.get_agent_leaderboard.return_value = agent_data

@@ -334,7 +334,7 @@ class QuickDebateStep(BaseStep):
             import asyncio
             from aragora.agents import create_agent
 
-            agent_types = config.get("agents", ["claude", "gpt4"])
+            agent_types = config.get("agents", ["claude", "gpt-5.5"])
             max_length = config.get("max_response_length", 500)
 
             # Get responses in parallel

@@ -635,7 +635,7 @@ def create_hybrid_protocol(
     Example:
         >>> protocol = create_hybrid_protocol(
         ...     external_agent=openclawAgent,
-        ...     verification_agents=[claude1, claude2, gpt4],
+        ...     verification_agents=[claude1, claude2, gpt-5.5],
         ...     consensus_threshold=0.8,
         ... )
     """

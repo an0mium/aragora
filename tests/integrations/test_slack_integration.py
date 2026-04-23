@@ -38,7 +38,7 @@ def _make_debate_result(**kwargs):
     result.rounds_used = kwargs.get("rounds_used", 3)
     result.winner = kwargs.get("winner", "claude")
     result.debate_id = kwargs.get("debate_id", "debate-abc123")
-    result.participants = kwargs.get("participants", ["claude", "gpt4"])
+    result.participants = kwargs.get("participants", ["claude", "gpt-5.5"])
     return result
 
 
@@ -205,7 +205,7 @@ class TestSlackIntegration:
         with patch.object(integration, "_send_message", new_callable=AsyncMock, return_value=True):
             rankings = [
                 {"name": "claude", "elo": 1800, "wins": 10},
-                {"name": "gpt4", "elo": 1750, "wins": 8},
+                {"name": "gpt-5.5", "elo": 1750, "wins": 8},
             ]
             result = await integration.send_leaderboard_update(rankings)
             assert result is True
@@ -216,7 +216,7 @@ class TestSlackIntegration:
             result = await integration.post_debate_with_voting(
                 debate_id="d-123",
                 task="Test task",
-                agents=["claude", "gpt4", "gemini"],
+                agents=["claude", "gpt-5.5", "gemini"],
                 current_round=1,
                 total_rounds=3,
             )
@@ -238,7 +238,7 @@ class TestSlackIntegration:
         blocks = integration._build_debate_with_voting_blocks(
             debate_id="d-123",
             task="Test task",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             current_round=1,
             total_rounds=3,
         )
@@ -262,7 +262,7 @@ class TestSlackIntegration:
     async def test_post_consensus_with_votes(self, integration):
         with patch.object(integration, "_send_message", new_callable=AsyncMock, return_value=True):
             debate_result = _make_debate_result()
-            user_votes = {"claude": 5, "gpt4": 3}
+            user_votes = {"claude": 5, "gpt-5.5": 3}
             result = await integration.post_consensus_with_votes(
                 debate_id="d-123",
                 result=debate_result,
@@ -272,7 +272,7 @@ class TestSlackIntegration:
 
     def test_build_consensus_with_votes_blocks(self, integration):
         debate_result = _make_debate_result()
-        user_votes = {"claude": 5, "gpt4": 3}
+        user_votes = {"claude": 5, "gpt-5.5": 3}
         blocks = integration._build_consensus_with_votes_blocks(
             debate_id="d-123",
             result=debate_result,

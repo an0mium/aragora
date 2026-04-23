@@ -69,7 +69,7 @@ class MockAgentFabric:
             "pool-2": {
                 "id": "pool-2",
                 "name": "Analysis Pool",
-                "model": "gpt-4",
+                "model": "gpt-5.5",
                 "current_agents": 3,
                 "min_agents": 1,
                 "max_agents": 5,

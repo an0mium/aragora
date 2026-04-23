@@ -313,7 +313,7 @@ class TestHistorySummary:
     def test_get_summary_with_data(self, system_handler, mock_http_handler):
         """Test getting summary with available data."""
         mock_debates = [MockDebateMetadata() for _ in range(5)]
-        mock_rankings = [{"agent": "claude"}, {"agent": "gpt4"}]
+        mock_rankings = [{"agent": "claude"}, {"agent": "gpt-5.5"}]
 
         with patch.object(system_handler, "get_storage") as mock_storage:
             mock_storage.return_value = MockStorage(mock_debates)

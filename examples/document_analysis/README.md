@@ -53,13 +53,13 @@ python examples/document_analysis/main.py memo.md | jq '.analysis.summary'
   },
   "debate_metadata": {
     "rounds_used": 3,
-    "participants": ["claude", "gpt-4o", "gemini"],
+    "participants": ["claude", "gpt-5.5", "gemini"],
     "winner": "claude",
     "convergence_status": "converged"
   },
   "agent_proposals": {
     "claude": "Key findings include...",
-    "gpt-4o": "The document reveals..."
+    "gpt-5.5": "The document reveals..."
   }
 }
 ```

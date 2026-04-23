@@ -56,7 +56,7 @@ class TestAgentState:
             id="agent_456",
             name="Test Agent",
             type="gpt",
-            model="gpt-4",
+            model="gpt-5.5",
             status="idle",
         )
 
@@ -107,7 +107,7 @@ class TestAgentState:
 
     def test_agent_state_from_dict_defaults(self):
         """Test agent state from partial dict uses defaults."""
-        data = {"id": "minimal", "name": "Minimal", "type": "gpt", "model": "gpt-4"}
+        data = {"id": "minimal", "name": "Minimal", "type": "gpt", "model": "gpt-5.5"}
 
         agent = AgentState.from_dict(data)
         assert agent.status == "idle"

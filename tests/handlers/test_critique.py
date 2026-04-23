@@ -604,7 +604,7 @@ class TestAllReputations:
     def test_returns_all_reputations(self, mock_get_store, handler, mock_http_handler):
         reps = [
             MockReputation("claude", 0.92, 1.5, 0.78, 0.88, 150),
-            MockReputation("gpt4", 0.87, 1.3, 0.72, 0.80, 120),
+            MockReputation("gpt-5.5", 0.87, 1.3, 0.72, 0.80, 120),
         ]
         mock_store = MockCritiqueStore(reputations=reps)
         mock_get_store.return_value = mock_store
@@ -621,7 +621,7 @@ class TestAllReputations:
         assert body["reputations"][0]["proposal_acceptance_rate"] == 0.78
         assert body["reputations"][0]["critique_value"] == 0.88
         assert body["reputations"][0]["debates_participated"] == 150
-        assert body["reputations"][1]["agent"] == "gpt4"
+        assert body["reputations"][1]["agent"] == "gpt-5.5"
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
     @patch("aragora.server.handlers.critique.get_critique_store")
@@ -764,15 +764,15 @@ class TestAgentReputation:
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
     @patch("aragora.server.handlers.critique.get_critique_store")
     def test_versioned_path(self, mock_get_store, handler, mock_http_handler):
-        rep = MockReputation("gpt4", 0.85, 1.2, 0.70, 0.75, 80)
+        rep = MockReputation("gpt-5.5", 0.85, 1.2, 0.70, 0.75, 80)
         mock_store = MockCritiqueStore(agent_reputation=rep)
         mock_get_store.return_value = mock_store
 
-        result = handler.handle("/api/v1/agent/gpt4/reputation", {}, mock_http_handler)
+        result = handler.handle("/api/v1/agent/gpt-5.5/reputation", {}, mock_http_handler)
         body = _body(result)
 
         assert _status(result) == 200
-        assert body["agent"] == "gpt4"
+        assert body["agent"] == "gpt-5.5"
         assert body["reputation"]["score"] == 0.85
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)

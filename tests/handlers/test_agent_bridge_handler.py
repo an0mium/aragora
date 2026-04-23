@@ -103,7 +103,7 @@ def _write_run(
         footer_mode="prompt_injected",
         worktree_cleanup_mode="operator_triggered",
         participants=[
-            Participant(role="implementer", harness="codex", model="gpt-5.4"),
+            Participant(role="implementer", harness="codex", model="gpt-5.5"),
             Participant(role="reviewer", harness="claude", model="claude-opus-4-7"),
         ],
         worktree_path=str(store.root),
@@ -117,7 +117,7 @@ def _write_run(
             "implementer": BridgeSession(
                 role="implementer",
                 harness="codex",
-                model="gpt-5.4",
+                model="gpt-5.5",
                 session_id="sess-impl",
                 worktree_agent_slug="codex-bridge",
                 worktree_path=str(store.root / "worktrees" / "implementer"),
@@ -126,7 +126,7 @@ def _write_run(
                 started_at=created_at,
                 last_turn_index=last_turn_index,
                 last_completed_at=updated_at if last_turn_index else None,
-                harness_options={"model": "gpt-5.4"},
+                harness_options={"model": "gpt-5.5"},
             ),
             "reviewer": BridgeSession(
                 role="reviewer",
@@ -204,7 +204,7 @@ def test_list_runs_paginates_newest_first_and_roundtrips_cursor(
     assert first_runs[0]["next_actor"] == "reviewer"
     assert first_runs[0]["last_turn_index"] == 0
     assert first_runs[0]["participants"] == [
-        {"role": "implementer", "harness": "codex", "model": "gpt-5.4"},
+        {"role": "implementer", "harness": "codex", "model": "gpt-5.5"},
         {"role": "reviewer", "harness": "claude", "model": "claude-opus-4-7"},
     ]
     assert "active_role" not in first_runs[0]
@@ -286,7 +286,7 @@ def test_get_run_returns_role_keyed_detail_and_etag(
     assert payload["repair_budget_per_turn"] == 1
     assert payload["worktree_cleanup_mode"] == "operator_triggered"
     assert payload["participants"] == [
-        {"role": "implementer", "harness": "codex", "model": "gpt-5.4"},
+        {"role": "implementer", "harness": "codex", "model": "gpt-5.5"},
         {"role": "reviewer", "harness": "claude", "model": "claude-opus-4-7"},
     ]
     assert "sessions" not in payload
@@ -295,7 +295,7 @@ def test_get_run_returns_role_keyed_detail_and_etag(
     assert isinstance(roles, dict)
     assert set(roles) == {"implementer", "reviewer"}
     assert roles["implementer"]["role"] == "implementer"
-    assert roles["implementer"]["model"] == "gpt-5.4"
+    assert roles["implementer"]["model"] == "gpt-5.5"
     assert roles["implementer"]["last_turn_index"] == 2
     assert roles["implementer"]["session_id"] == "sess-impl"
     assert roles["implementer"]["started_at"] == "2026-04-21T21:00:00Z"

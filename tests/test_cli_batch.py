@@ -125,8 +125,8 @@ class TestCreateBatchParser:
         subparsers = parser.add_subparsers()
         create_batch_parser(subparsers)
 
-        args = parser.parse_args(["batch", "debates.jsonl", "-a", "claude,gpt4"])
-        assert args.agents == "claude,gpt4"
+        args = parser.parse_args(["batch", "debates.jsonl", "-a", "claude,gpt-5.5"])
+        assert args.agents == "claude,gpt-5.5"
 
     def test_rounds_argument(self):
         """Rounds argument is parsed."""

@@ -91,7 +91,7 @@ class TestTokenUsageRecord:
         record = TokenUsageRecord(
             tenant_id="tenant_1",
             provider="openai",
-            model="gpt-4",
+            model="gpt-5.5",
             tokens_in=100,
             tokens_out=50,
         )
@@ -99,7 +99,7 @@ class TestTokenUsageRecord:
         assert isinstance(data, dict)
         assert data["tenant_id"] == "tenant_1"
         assert data["provider"] == "openai"
-        assert data["model"] == "gpt-4"
+        assert data["model"] == "gpt-5.5"
         assert data["tokens_in"] == 100
         assert data["tokens_out"] == 50
 
@@ -158,7 +158,7 @@ class TestCostBreakdown:
             period_end=now,
             total_cost=Decimal("100.00"),
             cost_by_provider={"anthropic": Decimal("60.00"), "openai": Decimal("40.00")},
-            cost_by_model={"claude-opus-4": Decimal("60.00"), "gpt-4": Decimal("40.00")},
+            cost_by_model={"claude-opus-4": Decimal("60.00"), "gpt-5.5": Decimal("40.00")},
         )
         data = breakdown.to_dict()
         assert data["total_cost"] == "100.00"
@@ -279,7 +279,7 @@ class TestEnterpriseMeter:
         """Should apply cache discount correctly."""
         record = await meter.record_token_usage(
             provider="openai",
-            model="gpt-4",
+            model="gpt-5.5",
             tokens_in=1000,
             tokens_out=500,
             tenant_id="test_tenant",
@@ -357,7 +357,7 @@ class TestEnterpriseMeter:
         )
         await meter.record_token_usage(
             provider="openai",
-            model="gpt-4",
+            model="gpt-5.5",
             tokens_in=500,
             tokens_out=250,
             tenant_id="breakdown_test",
@@ -444,7 +444,7 @@ class TestEnterpriseMeter:
         # Generate an invoice first
         await meter.record_token_usage(
             provider="openai",
-            model="gpt-4",
+            model="gpt-5.5",
             tokens_in=500,
             tokens_out=250,
             tenant_id="invoices_test",
@@ -600,7 +600,7 @@ class TestMeteringEventIngestion:
         """Should ingest event with all optional metadata."""
         record = await meter.record_token_usage(
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
             tokens_in=1000,
             tokens_out=500,
             tenant_id="tenant_full",
@@ -717,7 +717,7 @@ class TestUsageAggregationByDimension:
         """Should aggregate usage by model."""
         models = [
             ("anthropic", "claude-opus-4"),
-            ("openai", "gpt-4o"),
+            ("openai", "gpt-5.5"),
             ("anthropic", "claude-opus-4"),
         ]
         for provider, model in models:
@@ -936,7 +936,7 @@ class TestHistoricalUsageReports:
     @pytest.mark.asyncio
     async def test_invoice_includes_line_items(self, meter):
         """Should generate invoice with detailed line items."""
-        for provider, model in [("anthropic", "claude-opus-4"), ("openai", "gpt-4o")]:
+        for provider, model in [("anthropic", "claude-opus-4"), ("openai", "gpt-5.5")]:
             await meter.record_token_usage(
                 provider=provider,
                 model=model,

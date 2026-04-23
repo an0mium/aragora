@@ -466,7 +466,7 @@ class TestRecordTokenUsage:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
 
@@ -566,7 +566,7 @@ class TestBufferFlushing:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.record_debate_usage(
@@ -673,14 +673,14 @@ class TestHourlyAggregation:
             org_id="org_1",
             input_tokens=100,
             output_tokens=50,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
         await meter.record_token_usage(
             org_id="org_1",
             input_tokens=200,
             output_tokens=100,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
 
@@ -738,7 +738,7 @@ class TestGetUsageSummary:
             org_id="org_1",
             input_tokens=50_000,
             output_tokens=50_000,
-            model="gpt-4o",
+            model="gpt-5.5",
             provider="openai",
         )
 
@@ -832,7 +832,7 @@ class TestGetUsageLimits:
                 org_id="org_quota",
                 input_tokens=15_000,
                 output_tokens=15_000,
-                model="gpt-4o-mini",
+                model="gpt-5.5",
                 provider="openai",
             )
 

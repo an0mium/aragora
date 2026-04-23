@@ -95,7 +95,7 @@ def _mock_status_result() -> dict:
         "agreement_ratio": 0.85,
         "has_strong_consensus": True,
         "final_claim": "Use microservices",
-        "supporting_agents": ["claude", "gpt4"],
+        "supporting_agents": ["claude", "gpt-5.5"],
         "dissenting_agents": ["gemini"],
         "claims_count": 5,
         "dissents_count": 1,
@@ -260,12 +260,12 @@ class TestNormalizeProposals:
         result = _normalize_proposals(
             [
                 {"agent": "claude", "content": "Use PostgreSQL"},
-                {"agent": "gpt4", "content": "Use MySQL"},
+                {"agent": "gpt-5.5", "content": "Use MySQL"},
             ]
         )
         assert len(result) == 2
         assert result[0]["agent"] == "claude"
-        assert result[1]["agent"] == "gpt4"
+        assert result[1]["agent"] == "gpt-5.5"
 
     def test_normalize_mixed_proposals(self):
         result = _normalize_proposals(
@@ -354,7 +354,7 @@ class TestConsensusDetect:
                     "task": "Choose a framework",
                     "proposals": [
                         {"agent": "claude", "content": "Use React"},
-                        {"agent": "gpt4", "content": "Use React with Next.js"},
+                        {"agent": "gpt-5.5", "content": "Use React with Next.js"},
                     ],
                 }
             )
@@ -805,7 +805,7 @@ class TestLocalDetection:
             "Choose a database",
             [
                 {"agent": "claude", "content": "Use PostgreSQL for reliable storage"},
-                {"agent": "gpt4", "content": "Use PostgreSQL for reliable data storage"},
+                {"agent": "gpt-5.5", "content": "Use PostgreSQL for reliable data storage"},
             ],
             0.3,
         )
@@ -821,7 +821,7 @@ class TestLocalDetection:
             "Choose a database",
             [
                 {"agent": "claude", "content": "Use a relational database like PostgreSQL"},
-                {"agent": "gpt4", "content": "Use a document store like MongoDB"},
+                {"agent": "gpt-5.5", "content": "Use a document store like MongoDB"},
             ],
             0.7,
         )

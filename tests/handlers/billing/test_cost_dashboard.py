@@ -105,7 +105,7 @@ SAMPLE_SUMMARY = {
     "budget_utilization_pct": 42.5,
     "top_cost_drivers": [
         {"name": "claude-3-opus", "spend": 25.00},
-        {"name": "gpt-4", "spend": 12.50},
+        {"name": "gpt-5.5", "spend": 12.50},
     ],
     "projected_monthly": 85.00,
     "currency": "USD",

@@ -228,7 +228,7 @@ class TestGetAgentStats:
         """Should return per-agent statistics."""
         mock_agents = [
             {"agent": "claude", "debates": 50, "win_rate": 0.72},
-            {"agent": "gpt4", "debates": 45, "win_rate": 0.68},
+            {"agent": "gpt-5.5", "debates": 45, "win_rate": 0.68},
         ]
 
         mock_service = MagicMock()

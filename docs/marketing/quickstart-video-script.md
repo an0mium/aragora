@@ -21,7 +21,7 @@
 
 > "When you ask one AI a question, you get one perspective. But for important decisions - architecture choices, code reviews, security assessments - one perspective isn't enough."
 >
-> "Aragora runs multi-agent debates where Claude, GPT-4, and Gemini argue, critique, and reach consensus on your questions."
+> "Aragora runs multi-agent debates where Claude, GPT-5.5, and Gemini argue, critique, and reach consensus on your questions."
 
 ---
 
@@ -44,7 +44,7 @@ const client = createClient({ apiKey: 'your-key' });
 
 const debate = await client.debates.create({
   task: 'Should we use microservices or a monolith for our new product?',
-  agents: ['claude', 'gpt-4', 'gemini'],
+  agents: ['claude', 'gpt-5.5', 'gemini'],
   protocol: { rounds: 3 }
 });
 

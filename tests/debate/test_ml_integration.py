@@ -59,7 +59,7 @@ def mock_agents():
     """Create list of mock agents."""
     return [
         MockAgent("claude"),
-        MockAgent("gpt4"),
+        MockAgent("gpt-5.5"),
         MockAgent("gemini"),
     ]
 
@@ -78,9 +78,9 @@ def mock_router():
 
         def __post_init__(self):
             if self.selected_agents is None:
-                self.selected_agents = ["claude", "gpt4", "gemini"]
+                self.selected_agents = ["claude", "gpt-5.5", "gemini"]
             if self.agent_scores is None:
-                self.agent_scores = {"claude": 0.9, "gpt4": 0.8, "gemini": 0.7}
+                self.agent_scores = {"claude": 0.9, "gpt-5.5": 0.8, "gemini": 0.7}
 
     router.route = MagicMock(return_value=MockRoutingDecision())
     return router
@@ -302,21 +302,21 @@ class TestMLDelegationStrategy:
         strategy = MLDelegationStrategy()
 
         # Reverse order
-        order = ["gemini", "gpt4", "claude"]
+        order = ["gemini", "gpt-5.5", "claude"]
         result = strategy._reorder_agents(mock_agents, order)
 
-        assert [a.name for a in result] == ["gemini", "gpt4", "claude"]
+        assert [a.name for a in result] == ["gemini", "gpt-5.5", "claude"]
 
     def test_reorder_agents_missing_in_order(self, mock_agents):
         """Test reordering when some agents not in order list."""
         strategy = MLDelegationStrategy()
 
         # Partial order
-        order = ["gpt4"]
+        order = ["gpt-5.5"]
         result = strategy._reorder_agents(mock_agents, order)
 
-        # gpt4 first, then remaining agents
-        assert result[0].name == "gpt4"
+        # gpt-5.5 first, then remaining agents
+        assert result[0].name == "gpt-5.5"
         assert len(result) == 3
 
     def test_score_agent_no_router(self, mock_agents):
@@ -352,9 +352,9 @@ class TestMLDelegationStrategy:
         """Test cache key generation."""
         strategy = MLDelegationStrategy()
 
-        key1 = strategy._get_cache_key("Task A", ["claude", "gpt4"])
-        key2 = strategy._get_cache_key("Task A", ["gpt4", "claude"])
-        key3 = strategy._get_cache_key("Task B", ["claude", "gpt4"])
+        key1 = strategy._get_cache_key("Task A", ["claude", "gpt-5.5"])
+        key2 = strategy._get_cache_key("Task A", ["gpt-5.5", "claude"])
+        key3 = strategy._get_cache_key("Task B", ["claude", "gpt-5.5"])
 
         # Same agents in different order should produce same key
         assert key1 == key2
@@ -776,10 +776,10 @@ class TestMLEnhancedTeamSelector:
             ml_weight=0.5,  # Equal weight
         )
 
-        # Base selector: claude, gpt4, gemini
+        # Base selector: claude, gpt-5.5, gemini
         mock_base_selector.select.return_value = mock_agents
 
-        # ML delegation: gemini, gpt4, claude (reversed)
+        # ML delegation: gemini, gpt-5.5, claude (reversed)
         reversed_agents = list(reversed(mock_agents))
         selector.ml_delegation.select_agents = MagicMock(return_value=reversed_agents)
 

@@ -48,7 +48,7 @@ def mock_storage():
     storage.get_debate.return_value = {
         "id": "test-debate-123",
         "task": "Discuss AI safety",
-        "agents": ["claude", "gpt4"],
+        "agents": ["claude", "gpt-5.5"],
         "verdict": "Consensus reached",
         "messages": [{"role": "agent", "content": "Test message"}],
     }

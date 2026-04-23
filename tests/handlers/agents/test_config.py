@@ -177,15 +177,15 @@ def mock_loader():
             capabilities=["critique", "analysis"],
             tags=["claude", "critic"],
         ),
-        "gpt4-proposer": MockAgentConfig(
-            name="gpt4-proposer",
+        "gpt-5.5": MockAgentConfig(
+            name="gpt-5.5",
             model_type="openai-api",
             role="proposer",
             priority="normal",
-            description="GPT-4 proposer agent",
+            description="GPT-5.5 proposer agent",
             expertise_domains=["architecture", "design"],
             capabilities=["proposal", "synthesis"],
-            tags=["gpt4", "proposer"],
+            tags=["gpt-5.5", "proposer"],
         ),
         "gemini-judge": MockAgentConfig(
             name="gemini-judge",
@@ -382,7 +382,7 @@ class TestListConfigsViaHandle:
             )
             body = _body(result)
             assert body["total"] == 1
-            assert body["configs"][0]["name"] == "gpt4-proposer"
+            assert body["configs"][0]["name"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_list_configs_filter_no_match(self, handler, mock_http_handler, mock_loader):
@@ -453,7 +453,7 @@ class TestSearchConfigsViaHandle:
             body = _body(result)
             assert _status(result) == 200
             assert body["total"] == 1
-            assert body["results"][0]["name"] == "gpt4-proposer"
+            assert body["results"][0]["name"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_search_by_tag(self, handler, mock_http_handler, mock_loader):
@@ -512,7 +512,7 @@ class TestReloadConfigsViaHandle:
         """Successfully reloads configs."""
         mock_loader.reload_all.return_value = {
             "claude-critic": MockAgentConfig(name="claude-critic"),
-            "gpt4-proposer": MockAgentConfig(name="gpt4-proposer"),
+            "gpt-5.5": MockAgentConfig(name="gpt-5.5"),
         }
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
@@ -523,7 +523,7 @@ class TestReloadConfigsViaHandle:
             assert _status(result) == 200
             assert body["success"] is True
             assert body["reloaded"] == 2
-            assert set(body["configs"]) == {"claude-critic", "gpt4-proposer"}
+            assert set(body["configs"]) == {"claude-critic", "gpt-5.5"}
 
     @pytest.mark.asyncio
     async def test_reload_loader_unavailable(self, handler, mock_http_handler):
@@ -779,14 +779,14 @@ class TestCreateAgentDirect:
     def test_create_agent_response_includes_model_type(self, handler, mock_loader):
         """Response includes model_type from config."""
         mock_agent = MagicMock()
-        mock_agent.name = "gpt4-proposer"
+        mock_agent.name = "gpt-5.5"
         mock_agent.role = "proposer"
         mock_loader.create_agent.return_value = mock_agent
         with patch(
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = handler._create_agent_from_config("gpt4-proposer")
+            result = handler._create_agent_from_config("gpt-5.5")
             body = _body(result)
             assert body["agent"]["model_type"] == "openai-api"
 
@@ -1042,10 +1042,10 @@ class TestSearchConfigsDirect:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = handler._search_configs({"tag": ["gpt4"]})
+            result = handler._search_configs({"tag": ["gpt-5.5"]})
             body = _body(result)
             assert body["total"] == 1
-            assert body["results"][0]["name"] == "gpt4-proposer"
+            assert body["results"][0]["name"] == "gpt-5.5"
 
     def test_search_all_three_params_union(self, handler):
         """Search with all three params returns union of results."""
@@ -1183,10 +1183,10 @@ class TestHandleConfigEndpoint:
             "aragora.server.handlers.agents.config.get_config_loader",
             return_value=mock_loader,
         ):
-            result = handler._handle_config_endpoint("/api/agents/configs/gpt4-proposer", {})
+            result = handler._handle_config_endpoint("/api/agents/configs/gpt-5.5", {})
             body = _body(result)
             assert _status(result) == 200
-            assert body["config"]["name"] == "gpt4-proposer"
+            assert body["config"]["name"] == "gpt-5.5"
 
 
 # ---------------------------------------------------------------------------

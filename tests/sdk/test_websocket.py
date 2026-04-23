@@ -353,7 +353,7 @@ class TestMessageHandling:
 
     def test_event_enqueued_for_iterator(self):
         ws = AragoraWebSocket("http://localhost")
-        raw = json.dumps({"type": "vote", "data": {"agent": "gpt4"}})
+        raw = json.dumps({"type": "vote", "data": {"agent": "gpt-5.5"}})
         ws._handle_message(raw)
 
         event = ws._event_queue.get_nowait()

@@ -169,7 +169,7 @@ class RelationshipTracker:
         # Batch update for efficiency
         tracker.update_batch([
             {"agent_a": "claude", "agent_b": "gemini", "debate_increment": 1},
-            {"agent_a": "claude", "agent_b": "gpt4", "agreement_increment": 1},
+            {"agent_a": "claude", "agent_b": "gpt-5.5", "agreement_increment": 1},
         ])
 
         # Query relationships

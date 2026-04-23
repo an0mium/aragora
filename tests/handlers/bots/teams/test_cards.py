@@ -319,10 +319,10 @@ class TestVoteAction:
         from aragora.server.handlers.bots.teams_utils import _user_votes
 
         activity = _make_activity(
-            value={"action": "vote", "debate_id": active_debate, "agent": "gpt4"},
+            value={"action": "vote", "debate_id": active_debate, "agent": "gpt-5.5"},
         )
         await card_actions.handle_invoke(activity)
-        assert _user_votes[active_debate]["user-123"] == "gpt4"
+        assert _user_votes[active_debate]["user-123"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.bots.teams.cards.audit_data")
@@ -332,12 +332,12 @@ class TestVoteAction:
 
         _user_votes[active_debate] = {"user-123": "claude"}
         activity = _make_activity(
-            value={"action": "vote", "debate_id": active_debate, "agent": "gpt4"},
+            value={"action": "vote", "debate_id": active_debate, "agent": "gpt-5.5"},
         )
         result = await card_actions.handle_invoke(activity)
         body_items = result["body"]["value"]["body"]
         text_items = [item.get("text", "") for item in body_items]
-        assert any("changed from claude to gpt4" in t for t in text_items)
+        assert any("changed from claude to gpt-5.5" in t for t in text_items)
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.bots.teams.cards.audit_data")
@@ -525,7 +525,7 @@ class TestSummaryAction:
         """Summary shows leading agent when votes exist."""
         from aragora.server.handlers.bots.teams_utils import _user_votes
 
-        _user_votes[active_debate] = {"u1": "claude", "u2": "claude", "u3": "gpt4"}
+        _user_votes[active_debate] = {"u1": "claude", "u2": "claude", "u3": "gpt-5.5"}
         activity = _make_activity(value={"action": "summary", "debate_id": active_debate})
         result = await card_actions.handle_invoke(activity)
         facts = None
@@ -1424,7 +1424,7 @@ class TestAgentDisplayNames:
 
         expected = {
             "claude",
-            "gpt4",
+            "gpt-5.5",
             "gemini",
             "mistral",
             "deepseek",
@@ -1544,12 +1544,12 @@ class TestEdgeCases:
         )
         a2 = _make_activity(
             user_id="user-B",
-            value={"action": "vote", "debate_id": active_debate, "agent": "gpt4"},
+            value={"action": "vote", "debate_id": active_debate, "agent": "gpt-5.5"},
         )
         await card_actions.handle_invoke(a1)
         await card_actions.handle_invoke(a2)
         assert _user_votes[active_debate]["user-A"] == "claude"
-        assert _user_votes[active_debate]["user-B"] == "gpt4"
+        assert _user_votes[active_debate]["user-B"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_view_details_debate_with_defaults(self, card_actions, mock_bot):

@@ -113,7 +113,7 @@ class MockDebateContext:
 
     def __post_init__(self):
         if not self.agents:
-            self.agents = [MockAgent("claude"), MockAgent("gpt4")]
+            self.agents = [MockAgent("claude"), MockAgent("gpt-5.5")]
 
 
 @dataclass
@@ -470,7 +470,7 @@ class TestResolvePositions:
     def test_resolve_positions_resolves_for_non_winner(self):
         """Resolves positions as contested for non-winner."""
         ledger = MagicMock()
-        pos = MockPosition(id="pos-1", debate_id="test-debate-123", agent="gpt4")
+        pos = MockPosition(id="pos-1", debate_id="test-debate-123", agent="gpt-5.5")
         ledger.get_agent_positions.return_value = [pos]
 
         phase = FeedbackPhase(position_ledger=ledger)
@@ -516,8 +516,8 @@ class TestUpdateRelationships:
         tracker = MagicMock()
         phase = FeedbackPhase(relationship_tracker=tracker)
         ctx = MockDebateContext()
-        ctx.result.votes = [MockVote("claude", "gpt4")]
-        ctx.choice_mapping = {"gpt4": "gpt4"}
+        ctx.result.votes = [MockVote("claude", "gpt-5.5")]
+        ctx.choice_mapping = {"gpt-5.5": "gpt-5.5"}
         ctx.result.messages = []
 
         phase._update_relationships(ctx)
@@ -536,7 +536,7 @@ class TestUpdateRelationships:
         msg = MagicMock()
         msg.role = "critic"
         msg.agent = "claude"
-        msg.target_agent = "gpt4"
+        msg.target_agent = "gpt-5.5"
         ctx.result.messages = [msg]
         ctx.result.votes = []
 
@@ -852,7 +852,7 @@ class TestRecordCalibration:
         ctx.result.winner = "claude"
         ctx.result.votes = [
             MockVote("agent1", "claude", 0.9),
-            MockVote("agent2", "gpt4", 0.7),
+            MockVote("agent2", "gpt-5.5", 0.7),
         ]
 
         phase._record_calibration(ctx)
@@ -1319,7 +1319,7 @@ class TestUpdateSelectionFeedback:
     async def test_selection_feedback_processes_outcome(self):
         """Processes debate outcome through feedback loop."""
         loop = MagicMock()
-        loop.process_debate_outcome.return_value = {"claude": 0.1, "gpt4": -0.05}
+        loop.process_debate_outcome.return_value = {"claude": 0.1, "gpt-5.5": -0.05}
 
         phase = FeedbackPhase(
             selection_feedback_loop=loop,
@@ -2057,7 +2057,7 @@ class TestSelectionFeedback:
     async def test_update_selection_feedback_emits_event(self):
         """Emits selection feedback event when adjustments made."""
         loop = MagicMock()
-        loop.process_debate_outcome.return_value = {"claude": 0.05, "gpt4": -0.02}
+        loop.process_debate_outcome.return_value = {"claude": 0.05, "gpt-5.5": -0.02}
 
         emitter = MagicMock()
 
@@ -2366,7 +2366,7 @@ class TestUpdateCalibrationFeedback:
         ctx.result.winner = "claude"
         ctx.result.votes = [
             MockVote("claude", "claude", 0.9),
-            MockVote("gpt4", "gpt4", 0.7),
+            MockVote("gpt-5.5", "gpt-5.5", 0.7),
         ]
 
         phase._update_calibration_feedback(ctx)
@@ -2380,9 +2380,9 @@ class TestUpdateCalibrationFeedback:
         assert call1[1]["correct"] is True
         assert call1[1]["prediction_type"] == "selection_feedback"
 
-        # Second agent (gpt4) predicted incorrectly
+        # Second agent (gpt-5.5) predicted incorrectly
         call2 = tracker.record_prediction.call_args_list[1]
-        assert call2[1]["agent"] == "gpt4"
+        assert call2[1]["agent"] == "gpt-5.5"
         assert call2[1]["correct"] is False
 
     def test_stores_deltas_in_knowledge_mound(self):
@@ -2422,7 +2422,7 @@ class TestUpdateCalibrationFeedback:
 
         # Should not raise -- falls back to default brier baseline
         phase._update_calibration_feedback(ctx)
-        # Called once per agent (claude + gpt4 from MockDebateContext)
+        # Called once per agent (claude + gpt-5.5 from MockDebateContext)
         assert tracker.record_prediction.call_count == 2
 
     def test_handles_errors_gracefully(self):
@@ -2445,7 +2445,7 @@ class TestUpdateCalibrationFeedback:
         ctx = MockDebateContext()
         ctx.result.winner = "claude"
         ctx.choice_mapping = {"Agent-Claude": "claude"}
-        # Use agents matching the ctx.agents list (claude and gpt4)
+        # Use agents matching the ctx.agents list (claude and gpt-5.5)
         ctx.result.votes = [MockVote("claude", "Agent-Claude", 0.9)]
 
         phase._update_calibration_feedback(ctx)
@@ -2466,7 +2466,7 @@ class TestUpdateCalibrationFeedback:
 
         phase._update_calibration_feedback(ctx)
 
-        # Should still record for both agents (claude and gpt4 from MockDebateContext)
+        # Should still record for both agents (claude and gpt-5.5 from MockDebateContext)
         assert tracker.record_prediction.call_count == 2
         for call in tracker.record_prediction.call_args_list:
             assert call[1]["confidence"] == 0.5

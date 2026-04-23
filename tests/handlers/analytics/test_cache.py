@@ -656,7 +656,7 @@ class TestCachedAnalyticsDecorator:
             {"workspace_id": "ws-1", "agent_type": "claude", "value": "claude-val"}, None, None
         )
         r2 = h.get_data(
-            {"workspace_id": "ws-1", "agent_type": "gpt4", "value": "gpt-val"}, None, None
+            {"workspace_id": "ws-1", "agent_type": "gpt-5.5", "value": "gpt-val"}, None, None
         )
         assert r1.data == "claude-val"
         assert r2.data == "gpt-val"

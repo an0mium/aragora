@@ -57,29 +57,29 @@ print(result.consensus_summary)
 
 | Template | Use Case | Agents | Rounds | Time |
 |----------|----------|--------|--------|------|
-| **Hiring Decision** | Evaluate job candidates | Claude, GPT-4 | 3 | ~5 min |
+| **Hiring Decision** | Evaluate job candidates | Claude, GPT-5.5 | 3 | ~5 min |
 | **Performance Review** | Fair employee evaluations | Claude, Gemini | 2 | ~3 min |
 
 ### Project Management
 
 | Template | Use Case | Agents | Rounds | Time |
 |----------|----------|--------|--------|------|
-| **Feature Prioritization** | Rank product features | Claude, GPT-4, Mistral | 3 | ~5 min |
-| **Sprint Planning** | Scope agile sprints | Claude, GPT-4 | 2 | ~3 min |
+| **Feature Prioritization** | Rank product features | Claude, GPT-5.5, Mistral | 3 | ~5 min |
+| **Sprint Planning** | Scope agile sprints | Claude, GPT-5.5 | 2 | ~3 min |
 
 ### Vendor & Procurement
 
 | Template | Use Case | Agents | Rounds | Time |
 |----------|----------|--------|--------|------|
-| **Tool Selection** | Evaluate software tools | Claude, GPT-4, Gemini | 4 | ~7 min |
-| **Contract Review** | Review business contracts | Claude, GPT-4 | 3 | ~5 min |
+| **Tool Selection** | Evaluate software tools | Claude, GPT-5.5, Gemini | 4 | ~7 min |
+| **Contract Review** | Review business contracts | Claude, GPT-5.5 | 3 | ~5 min |
 
 ### Policy Development
 
 | Template | Use Case | Agents | Rounds | Time |
 |----------|----------|--------|--------|------|
-| **Remote Work Policy** | Develop work policies | Claude, GPT-4, Gemini | 3 | ~5 min |
-| **Budget Allocation** | Strategic budget planning | Claude, GPT-4 | 2 | ~3 min |
+| **Remote Work Policy** | Develop work policies | Claude, GPT-5.5, Gemini | 3 | ~5 min |
+| **Budget Allocation** | Strategic budget planning | Claude, GPT-5.5 | 2 | ~3 min |
 
 ### Operations (Automation)
 
@@ -249,7 +249,7 @@ custom_template = client.templates.clone(
     name="my_hiring_decision",
     modifications={
         "rounds": 4,
-        "agents": ["claude", "gpt-4", "gemini"],
+        "agents": ["claude", "gpt-5.5", "gemini"],
         "evaluation_criteria": [
             "technical_skills",
             "culture_fit",

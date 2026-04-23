@@ -64,19 +64,12 @@ PROVIDER_PRICING: dict[str, ProviderPricing] = {
         output_cost_per_1k=0.015,
         context_window=200_000,
     ),
-    "gpt-4o": ProviderPricing(
+    "gpt-5.5": ProviderPricing(
         provider_name="openai",
-        model_name="gpt-4o",
+        model_name="gpt-5.5",
         input_cost_per_1k=0.0025,
         output_cost_per_1k=0.010,
-        context_window=128_000,
-    ),
-    "gpt-4o-mini": ProviderPricing(
-        provider_name="openai",
-        model_name="gpt-4o-mini",
-        input_cost_per_1k=0.00015,
-        output_cost_per_1k=0.0006,
-        context_window=128_000,
+        context_window=1_000_000,
     ),
     "deepseek-r1": ProviderPricing(
         provider_name="deepseek",

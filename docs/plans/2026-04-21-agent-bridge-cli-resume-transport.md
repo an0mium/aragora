@@ -30,7 +30,7 @@ Executed a four-turn cross-harness test confirming persistent context and hetero
 
 | Turn | Harness (model) | Session | Action | Result |
 |---|---|---|---|---|
-| 1 | Codex (gpt-5.4) | `019db152-df99...` | Generate `TOKEN_C` | `K7M2Q9` |
+| 1 | Codex (gpt-5.5) | `019db152-df99...` | Generate `TOKEN_C` | `K7M2Q9` |
 | 2 | Droid (Opus 4.7) | `2beb290f-47cb...` | Generate `TOKEN_D` | `K7m2Xq` |
 | 3 | Codex **resume** | same | Recall own TOKEN_C + receive droid's TOKEN_D + combine | `K7M2Q9K7m2Xq` ✅ |
 | 4 | Droid **resume** | same | Recall own TOKEN_D + verify codex's combined string | `MATCH=YES` ✅ |
@@ -55,7 +55,7 @@ droid exec --auto low -s 2beb290f-47cb-47c9-a3e5-67f0f85ad0de "What was your TOK
 # → TOKEN_D=K7m2Xq, MATCH=YES
 ```
 
-Total: ~3 minutes, 4 subprocess calls, two heterogeneous model families (GPT-5.4 ↔ Claude Opus 4.7), one human orchestrator (Claude Code session).
+Total: ~3 minutes, 4 subprocess calls, two heterogeneous model families (GPT-5.5 ↔ Claude Opus 4.7), one human orchestrator (Claude Code session).
 
 ## Architecture
 

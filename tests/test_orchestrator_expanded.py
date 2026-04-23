@@ -35,7 +35,7 @@ def mock_agent():
 def mock_agents():
     """Create multiple mock agents."""
     agents = []
-    for name in ["claude", "gpt4", "gemini"]:
+    for name in ["claude", "gpt-5.5", "gemini"]:
         agent = MagicMock()
         agent.name = name
         agent.role = None  # Not assigned yet

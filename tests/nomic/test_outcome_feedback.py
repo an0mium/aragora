@@ -62,7 +62,7 @@ class TestErrorToGoals:
     def test_low_accuracy_goal(self, bridge):
         error = {
             "domain": "medical",
-            "agent": "gpt4",
+            "agent": "gpt-5.5",
             "overconfidence": 0.3,
             "success_rate": 0.4,
             "avg_confidence": 0.7,
@@ -173,7 +173,7 @@ class TestGoalToAction:
     def test_accuracy_action(self, bridge):
         goal = FeedbackGoal(
             domain="medical",
-            agent="gpt4",
+            agent="gpt-5.5",
             goal_type="increase_accuracy",
             severity=0.5,
             description="Test",

@@ -48,7 +48,7 @@ def _make_debate_dict(**overrides: Any) -> dict[str, Any]:
         "rounds_used": 3,
         "rounds_completed": 3,
         "status": "completed",
-        "agents": ["claude", "gpt4", "gemini"],
+        "agents": ["claude", "gpt-5.5", "gemini"],
         "metadata": {"source": "test"},
     }
     defaults.update(overrides)
@@ -503,7 +503,7 @@ class TestCoerceDebateResult:
         assert result.confidence == 0.85
         assert result.consensus_reached is True
         assert result.rounds_used == 3
-        assert result.participants == ["claude", "gpt4", "gemini"]
+        assert result.participants == ["claude", "gpt-5.5", "gemini"]
 
     def test_alternative_field_names(self):
         """Handles alternative field names (id, question, conclusion)."""
@@ -541,10 +541,10 @@ class TestCoerceDebateResult:
 
     def test_agents_as_string(self):
         """Handles agents field as comma-separated string."""
-        debate = _make_debate_dict(agents="claude, gpt4, gemini")
+        debate = _make_debate_dict(agents="claude, gpt-5.5, gemini")
         result = _coerce_debate_result(debate)
 
-        assert result.participants == ["claude", "gpt4", "gemini"]
+        assert result.participants == ["claude", "gpt-5.5", "gemini"]
 
     def test_agents_none(self):
         """Handles None agents field."""
@@ -1077,7 +1077,7 @@ class TestExecutionNotifier:
         """Failed task result increments failed_tasks."""
         notifier = ExecutionNotifier(debate_id="d-1", total_tasks=3)
         mock_result = MagicMock(
-            success=False, model_used="gpt4", duration_seconds=0.5, error="timeout"
+            success=False, model_used="gpt-5.5", duration_seconds=0.5, error="timeout"
         )
 
         notifier.on_task_complete("task-1", mock_result)

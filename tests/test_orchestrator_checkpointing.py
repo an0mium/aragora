@@ -154,14 +154,14 @@ class TestAgentStateDataclass:
         """AgentState can be created with required fields."""
         state = AgentState(
             agent_name="alice",
-            agent_model="gpt-4",
+            agent_model="gpt-5.5",
             agent_role="proposer",
             system_prompt="You are helpful",
             stance="neutral",
         )
 
         assert state.agent_name == "alice"
-        assert state.agent_model == "gpt-4"
+        assert state.agent_model == "gpt-5.5"
         assert state.agent_role == "proposer"
 
     def test_agent_state_with_memory(self):

@@ -558,7 +558,7 @@ class TestCVIntegration:
                 },
             ),
             AgentCV(
-                agent_id="gpt-4",
+                agent_id="gpt-5.5",
                 overall_elo=1100.0,
                 brier_score=0.2,
                 reliability=ReliabilityMetrics(success_rate=0.92),

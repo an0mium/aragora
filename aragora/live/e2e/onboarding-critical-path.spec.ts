@@ -20,15 +20,15 @@ const MOCK_DEBATE_RESULT = {
   confidence: 0.87,
   verdict: 'approved',
   duration_seconds: 4.2,
-  participants: ['claude-opus', 'gpt-4', 'mistral-large'],
+  participants: ['claude-opus', 'gpt-5.5', 'mistral-large'],
   proposals: {
     'claude-opus': 'Microservices offer better scalability and team autonomy.',
-    'gpt-4': 'Consider a modular monolith first to reduce operational complexity.',
+    'gpt-5.5': 'Consider a modular monolith first to reduce operational complexity.',
     'mistral-large': 'Migrate incrementally, starting with the highest-traffic service.',
   },
   critiques: [],
   votes: [],
-  dissenting_views: ['gpt-4 prefers modular monolith approach'],
+  dissenting_views: ['gpt-5.5 prefers modular monolith approach'],
   final_answer: 'Consensus: migrate incrementally with a modular monolith as intermediate step.',
   receipt: {
     receipt_id: 'receipt-test-001',

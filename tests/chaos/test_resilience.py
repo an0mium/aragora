@@ -302,7 +302,7 @@ class TestAgentFailureDuringDebate:
         """Debate should continue if one agent fails but others are available."""
         cb = get_circuit_breaker("debate_agents", failure_threshold=2)
 
-        agents = ["claude", "gpt4", "gemini"]
+        agents = ["claude", "gpt-5.5", "gemini"]
         available_agents = agents.copy()
 
         # Simulate claude failing
@@ -314,7 +314,7 @@ class TestAgentFailureDuringDebate:
 
         # Debate can continue with remaining agents
         assert len(remaining) == 2
-        assert "gpt4" in remaining
+        assert "gpt-5.5" in remaining
         assert "gemini" in remaining
         assert "claude" not in remaining
 
@@ -323,7 +323,7 @@ class TestAgentFailureDuringDebate:
         """Should handle all agents failing gracefully."""
         cb = get_circuit_breaker("all_fail_test", failure_threshold=1)
 
-        agents = ["claude", "gpt4"]
+        agents = ["claude", "gpt-5.5"]
 
         # All agents fail
         for agent in agents:

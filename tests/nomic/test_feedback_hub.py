@@ -234,7 +234,7 @@ class TestRouteDebateOutcomes:
                     "conclusion": "Use rate limiting",
                     "confidence": 0.85,
                     "consensus_reached": True,
-                    "agents_participated": ["claude", "gpt4"],
+                    "agents_participated": ["claude", "gpt-5.5"],
                     "winner_agent": "claude",
                 },
             )

@@ -129,7 +129,7 @@ class TestSimilarDebates:
         mock_result.consensus.conclusion = "Token bucket is best"
         mock_result.consensus.strength.value = "strong"
         mock_result.consensus.confidence = 0.92
-        mock_result.consensus.participating_agents = ["claude", "gpt4"]
+        mock_result.consensus.participating_agents = ["claude", "gpt-5.5"]
         mock_result.consensus.timestamp.isoformat.return_value = "2026-01-15T12:00:00"
         mock_result.similarity_score = 0.85
         mock_result.dissents = []

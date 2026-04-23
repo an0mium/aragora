@@ -378,13 +378,13 @@ class TestPositionTrackerProtocol:
         """Test recording a position with context."""
         tracker = MockPositionTracker()
         tracker.record_position(
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             claim_text="Use async IO",
             stance="support",
             confidence=0.9,
             context="performance optimization",
         )
-        positions = tracker.get_positions("gpt4")
+        positions = tracker.get_positions("gpt-5.5")
         assert positions[0]["context"] == "performance optimization"
 
     def test_get_positions_empty(self):
@@ -396,12 +396,12 @@ class TestPositionTrackerProtocol:
         """Test getting position history for a claim."""
         tracker = MockPositionTracker()
         tracker.record_position("claude", "claim1", "support", 0.8)
-        tracker.record_position("gpt4", "claim1", "oppose", 0.7)
+        tracker.record_position("gpt-5.5", "claim1", "oppose", 0.7)
 
         history = tracker.get_position_history("claim1")
         assert len(history) == 2
         agents = {h["agent"] for h in history}
-        assert agents == {"claude", "gpt4"}
+        assert agents == {"claude", "gpt-5.5"}
 
     def test_get_position_history_empty(self):
         """Test getting history for unknown claim."""

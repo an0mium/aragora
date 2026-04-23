@@ -71,7 +71,7 @@ class AgentInfo:
         agent_id: Unique identifier for the agent
         capabilities: Set of capabilities this agent provides
         status: Current agent status
-        model: Underlying model (e.g., "claude-3-opus", "gpt-4")
+        model: Underlying model (e.g., "claude-3-opus", "gpt-5.5")
         provider: Model provider (e.g., "anthropic", "openai")
         metadata: Additional agent metadata
         registered_at: When the agent registered

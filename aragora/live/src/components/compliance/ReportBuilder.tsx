@@ -126,7 +126,7 @@ export function ReportBuilder({
           },
           {
             title: 'Participants',
-            content: '**Participating Agents (4):**\n- Claude\n- GPT-4\n- Gemini\n- Mistral\n\nAll agents participated in accordance with the debate protocol.',
+            content: '**Participating Agents (4):**\n- Claude\n- GPT-5.5\n- Gemini\n- Mistral\n\nAll agents participated in accordance with the debate protocol.',
           },
           {
             title: `${selectedFramework.toUpperCase()} Compliance`,

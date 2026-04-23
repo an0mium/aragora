@@ -5,7 +5,7 @@
 | Agent | Proposed Name | Target Customer | 10-Word Pitch | Wedge | Magic Moment |
 |-------|---------------|-----------------|---------------|-------|--------------|
 | **Claude** | Cognitive Insurance | CTOs at Series B+ | "Cognitive insurance for decisions that cost millions when wrong" | First system that actively seeks to prove itself wrong | Agent surfaces hidden flaw that saves career |
-| **GPT-4** | Decision Assurance Platform | CISOs & Risk Managers | "Assure your AI-driven decisions are robust, compliant, and risk-free" | Holistic adversarial testing + formal verification | Identifying critical vulnerability before deployment |
+| **GPT-5.5** | Decision Assurance Platform | CISOs & Risk Managers | "Assure your AI-driven decisions are robust, compliant, and risk-free" | Holistic adversarial testing + formal verification | Identifying critical vulnerability before deployment |
 | **Gemini** | Automated Red Team | Paranoid Technical Executives | "The automated red team that breaks your plan before users do" | Cognitive diversity + formal verification | "Kill Shot" report with mathematical proof |
 | **Grok** | Decision Battle Royale | Product Managers & Tech Leads | "AI battles your decisions to death before disasters strike" | Unscripted adversarial chaos from 12+ LLMs | Watching AI roast their idea with savage precision |
 | **Mistral** | EU Compliance Engine | AI Compliance Officers | "AI that proves your decisions comply before regulators do" | Regulatory attack simulation + audit trails | Uncovering hidden GDPR violation worth EUR10M fine |

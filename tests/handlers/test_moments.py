@@ -84,7 +84,7 @@ class MockMoment:
         id: str = "m-001",
         moment_type: str = "upset_victory",
         agent_name: str = "claude",
-        description: str = "Claude upset GPT-4 in debate",
+        description: str = "Claude upset GPT-5.5 in debate",
         significance_score: float = 0.9,
         debate_id: str = "debate-1",
         other_agents: list[str] | None = None,
@@ -312,7 +312,7 @@ class TestSummary:
         moments = [
             MockMoment(id="a", agent_name="claude"),
             MockMoment(id="b", agent_name="claude"),
-            MockMoment(id="c", agent_name="gpt4"),
+            MockMoment(id="c", agent_name="gpt-5.5"),
         ]
         det = _make_detector(moments)
         h_obj = MomentsHandler(ctx={"moment_detector": det})
@@ -321,7 +321,7 @@ class TestSummary:
             result = await h_obj.handle("/api/moments/summary", {}, h)
         body = _body(result)
         assert body["by_agent"]["claude"] == 2
-        assert body["by_agent"]["gpt4"] == 1
+        assert body["by_agent"]["gpt-5.5"] == 1
 
     @pytest.mark.asyncio
     async def test_summary_empty_cache(self, mock_http):
@@ -805,7 +805,7 @@ class TestMomentToDict:
             description="5-debate streak",
             significance_score=0.88,
             debate_id="d-42",
-            other_agents=["claude", "gpt4"],
+            other_agents=["claude", "gpt-5.5"],
             metadata={"streak": 5},
             created_at="2026-02-20T12:00:00",
         )
@@ -816,7 +816,7 @@ class TestMomentToDict:
         assert d["description"] == "5-debate streak"
         assert d["significance"] == 0.88
         assert d["debate_id"] == "d-42"
-        assert d["other_agents"] == ["claude", "gpt4"]
+        assert d["other_agents"] == ["claude", "gpt-5.5"]
         assert d["metadata"] == {"streak": 5}
         assert d["created_at"] == "2026-02-20T12:00:00"
 

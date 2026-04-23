@@ -100,7 +100,7 @@ class TestDebateSnapshot:
             total_rounds=5,
             latest_messages=[
                 {"agent": "claude", "content": "Use Redis", "round": 2},
-                {"agent": "gpt4", "content": "Consider Memcached", "round": 2},
+                {"agent": "gpt-5.5", "content": "Consider Memcached", "round": 2},
             ],
             active_proposals=["Redis proposal", "Memcached proposal"],
             open_critiques=["Redis is complex"],
@@ -108,7 +108,7 @@ class TestDebateSnapshot:
             confidence=0.45,
             agent_positions={
                 "claude": "Prefers Redis for persistence",
-                "gpt4": "Prefers Memcached for simplicity",
+                "gpt-5.5": "Prefers Memcached for simplicity",
             },
             unresolved_issues=["Persistence vs speed trade-off"],
             key_disagreements=["Cache eviction strategy"],
@@ -638,13 +638,13 @@ class TestBreakpointManager:
         # Create repeating messages to simulate deadlock
         messages = [
             self._create_mock_message("claude", "We should use approach A", 1),
-            self._create_mock_message("gpt4", "We should use approach B", 1),
+            self._create_mock_message("gpt-5.5", "We should use approach B", 1),
             self._create_mock_message("claude", "We should use approach A", 2),
-            self._create_mock_message("gpt4", "We should use approach B", 2),
+            self._create_mock_message("gpt-5.5", "We should use approach B", 2),
             self._create_mock_message("claude", "We should use approach A", 3),
-            self._create_mock_message("gpt4", "We should use approach B", 3),
+            self._create_mock_message("gpt-5.5", "We should use approach B", 3),
             self._create_mock_message("claude", "We should use approach A", 4),
-            self._create_mock_message("gpt4", "We should use approach B", 4),
+            self._create_mock_message("gpt-5.5", "We should use approach B", 4),
         ]
 
         bp = manager.check_triggers(
@@ -1430,9 +1430,9 @@ class TestCreateBreakpointSnapshot:
 
         messages = [
             self._make_msg("claude", "Early position", 1),
-            self._make_msg("gpt4", "GPT4 early position", 1),
+            self._make_msg("gpt-5.5", "GPT-5.5 early position", 1),
             self._make_msg("claude", "Latest position from claude", 2),
-            self._make_msg("gpt4", "Latest position from gpt4", 2),
+            self._make_msg("gpt-5.5", "Latest position from gpt-5.5", 2),
         ]
 
         bp = manager.check_triggers(
@@ -1446,7 +1446,7 @@ class TestCreateBreakpointSnapshot:
 
         positions = bp.debate_snapshot.agent_positions
         assert "claude" in positions
-        assert "gpt4" in positions
+        assert "gpt-5.5" in positions
 
     def test_snapshot_limits_latest_messages_to_5(self):
         """Test snapshot only includes last 5 messages."""

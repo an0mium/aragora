@@ -45,17 +45,17 @@ class TestTokenCostCalculation:
         # $3.00 per 1M input + $15.00 per 1M output = $18
         assert cost == Decimal("18.00")
 
-    def test_openai_gpt4o_pricing(self):
-        """Test OpenAI GPT-4o pricing."""
-        cost = calculate_token_cost("openai", "gpt-4o", 500_000, 200_000)
+    def test_openai_gpt55_pricing(self):
+        """Test OpenAI GPT-5.5 pricing."""
+        cost = calculate_token_cost("openai", "gpt-5.5", 500_000, 200_000)
         # $2.50 per 1M input * 0.5 + $10.00 per 1M output * 0.2 = $1.25 + $2.00 = $3.25
         assert cost == Decimal("3.25")
 
-    def test_openai_gpt4o_mini_pricing(self):
-        """Test OpenAI GPT-4o-mini pricing."""
-        cost = calculate_token_cost("openai", "gpt-4o-mini", 10_000_000, 5_000_000)
-        # $0.15 per 1M * 10 + $0.60 per 1M * 5 = $1.50 + $3.00 = $4.50
-        assert cost == Decimal("4.50")
+    def test_openai_gpt55_consolidated_pricing(self):
+        """Test consolidated GPT aliases use GPT-5.5 pricing."""
+        cost = calculate_token_cost("openai", "gpt-5.5", 10_000_000, 5_000_000)
+        # $2.50 per 1M * 10 + $10.00 per 1M * 5 = $25.00 + $50.00 = $75.00
+        assert cost == Decimal("75.00")
 
     def test_google_gemini_pricing(self):
         """Test Google Gemini Pro pricing."""
@@ -153,7 +153,7 @@ class TestUsageEvent:
             tokens_in=1000,
             tokens_out=500,
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
             cost_usd=Decimal("0.05"),
             metadata={"key": "value"},
         )
@@ -177,7 +177,7 @@ class TestUsageEvent:
             "tokens_in": 1000,
             "tokens_out": 500,
             "provider": "openai",
-            "model": "gpt-4o",
+            "model": "gpt-5.5",
             "cost_usd": "0.05",
             "metadata": {"agent": "claude"},
             "created_at": "2024-01-15T10:30:00",
@@ -364,7 +364,7 @@ class TestUsageTrackerRecord:
             tokens_in=5000,
             tokens_out=2000,
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
             metadata={"topic": "AI safety"},
         )
 
@@ -428,7 +428,7 @@ class TestUsageTrackerQueries:
                 tokens_in=1000,
                 tokens_out=500,
                 provider="openai",
-                model="gpt-4o",
+                model="gpt-5.5",
             )
             event.created_at = now - timedelta(days=i)
             event.calculate_cost()

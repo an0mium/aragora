@@ -270,7 +270,7 @@ describe('Extension Commands', () => {
     it('should validate valid request', () => {
       const request: DeliberationRequest = {
         question: 'What is the best approach for error handling?',
-        agents: ['claude', 'gpt-4'],
+        agents: ['claude', 'gpt-5.5'],
         rounds: 3,
       };
 

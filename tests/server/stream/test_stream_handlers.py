@@ -223,7 +223,7 @@ class TestMatchesRecentHandler:
         """Returns matches from elo_system."""
         mock_elo = MagicMock()
         mock_elo.get_recent_matches.return_value = [
-            {"agent_a": "claude", "agent_b": "gpt4", "winner": "claude"}
+            {"agent_a": "claude", "agent_b": "gpt-5.5", "winner": "claude"}
         ]
         handler = ConcreteStreamAPIHandlers(elo_system=mock_elo)
         request = request_factory()
@@ -411,7 +411,7 @@ class TestAgentConsistencyHandler:
     @pytest.mark.asyncio
     async def test_accepts_valid_agent_names(self, handler, request_factory):
         """Accepts valid agent names with alphanumeric, underscore, hyphen."""
-        valid_names = ["claude", "gpt-4", "agent_001", "Claude-3-5-sonnet"]
+        valid_names = ["claude", "gpt-5.5", "agent_001", "Claude-3-5-sonnet"]
 
         for name in valid_names:
             request = request_factory(match_info={"name": name})

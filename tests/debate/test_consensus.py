@@ -193,7 +193,7 @@ class TestDissentRecord:
     def test_dissent_record_creation(self):
         """Test creating DissentRecord."""
         dissent = DissentRecord(
-            agent="gpt4",
+            agent="gpt-5.5",
             claim_id="claim_001",
             dissent_type="partial",
             reasons=["Lacks consideration of edge cases", "Performance not addressed"],
@@ -201,7 +201,7 @@ class TestDissentRecord:
             severity=0.6,
         )
 
-        assert dissent.agent == "gpt4"
+        assert dissent.agent == "gpt-5.5"
         assert dissent.dissent_type == "partial"
         assert len(dissent.reasons) == 2
         assert dissent.severity == 0.6
@@ -229,7 +229,7 @@ class TestUnresolvedTension:
         tension = UnresolvedTension(
             tension_id="tension_001",
             description="Performance vs. Security tradeoff",
-            agents_involved=["claude", "gpt4"],
+            agents_involved=["claude", "gpt-5.5"],
             options=["Prioritize performance", "Prioritize security", "Balanced approach"],
             impact="Affects system architecture decision",
             suggested_followup="Benchmark both approaches",
@@ -258,7 +258,7 @@ class TestConsensusVote:
     def test_vote_conditional(self):
         """Test conditional vote with conditions."""
         vote = ConsensusVote(
-            agent="gpt4",
+            agent="gpt-5.5",
             vote=VoteType.CONDITIONAL,
             confidence=0.7,
             reasoning="Agree with reservations",
@@ -282,7 +282,7 @@ class TestConsensusProof:
         if votes is None:
             votes = [
                 ConsensusVote("claude", VoteType.AGREE, 0.9, "Support"),
-                ConsensusVote("gpt4", VoteType.AGREE, 0.85, "Support"),
+                ConsensusVote("gpt-5.5", VoteType.AGREE, 0.85, "Support"),
                 ConsensusVote("gemini", VoteType.DISAGREE, 0.7, "Dissent"),
             ]
 
@@ -294,11 +294,11 @@ class TestConsensusProof:
             confidence=0.85,
             consensus_reached=True,
             votes=votes,
-            supporting_agents=["claude", "gpt4"],
+            supporting_agents=["claude", "gpt-5.5"],
             dissenting_agents=["gemini"],
             claims=[
                 Claim("c1", "Redis is fast", "claude", 0.9),
-                Claim("c2", "15-minute TTL balances freshness and load", "gpt4", 0.8),
+                Claim("c2", "15-minute TTL balances freshness and load", "gpt-5.5", 0.8),
             ],
             dissents=dissents or [],
             unresolved_tensions=tensions or [],
@@ -329,7 +329,7 @@ class TestConsensusProof:
         """Test agreement ratio with unanimous agreement."""
         votes = [
             ConsensusVote("claude", VoteType.AGREE, 0.9, "Support"),
-            ConsensusVote("gpt4", VoteType.AGREE, 0.85, "Support"),
+            ConsensusVote("gpt-5.5", VoteType.AGREE, 0.85, "Support"),
             ConsensusVote("gemini", VoteType.AGREE, 0.8, "Support"),
         ]
         proof = ConsensusProof(
@@ -340,7 +340,7 @@ class TestConsensusProof:
             confidence=0.9,
             consensus_reached=True,
             votes=votes,
-            supporting_agents=["claude", "gpt4", "gemini"],
+            supporting_agents=["claude", "gpt-5.5", "gemini"],
             dissenting_agents=[],
             claims=[],
             dissents=[],
@@ -501,7 +501,7 @@ class TestConsensusProof:
             UnresolvedTension(
                 tension_id="t1",
                 description="Performance vs. Security",
-                agents_involved=["claude", "gpt4"],
+                agents_involved=["claude", "gpt-5.5"],
                 options=["Fast", "Secure"],
                 impact="Architecture decision",
                 suggested_followup="Benchmark both",
@@ -520,7 +520,7 @@ class TestConsensusProof:
         breakdown = proof.get_confidence_breakdown()
 
         assert breakdown["claude"] == 0.9
-        assert breakdown["gpt4"] == 0.85
+        assert breakdown["gpt-5.5"] == 0.85
         assert breakdown["gemini"] == 0.7
 
     def test_get_blind_spots_high_severity_dissent(self):
@@ -717,7 +717,7 @@ class TestConsensusProof:
         """Test Markdown with no dissenting agents."""
         votes = [
             ConsensusVote("claude", VoteType.AGREE, 0.9, "Support"),
-            ConsensusVote("gpt4", VoteType.AGREE, 0.85, "Support"),
+            ConsensusVote("gpt-5.5", VoteType.AGREE, 0.85, "Support"),
         ]
         proof = ConsensusProof(
             proof_id="proof_007",
@@ -727,7 +727,7 @@ class TestConsensusProof:
             confidence=0.9,
             consensus_reached=True,
             votes=votes,
-            supporting_agents=["claude", "gpt4"],
+            supporting_agents=["claude", "gpt-5.5"],
             dissenting_agents=[],
             claims=[],
             dissents=[],
@@ -823,7 +823,7 @@ class TestConsensusBuilder:
         claim = builder.add_claim("Redis is always best", "claude", 0.8)
         evidence = builder.add_evidence(
             claim_id=claim.claim_id,
-            source="gpt4",
+            source="gpt-5.5",
             content="Memcached is faster for simple key-value",
             evidence_type="argument",
             supports=False,
@@ -869,7 +869,7 @@ class TestConsensusBuilder:
         """Test recording a conditional vote."""
         builder = ConsensusBuilder("debate_001", "Test task")
         vote = builder.record_vote(
-            agent="gpt4",
+            agent="gpt-5.5",
             vote=VoteType.CONDITIONAL,
             confidence=0.7,
             reasoning="Agree with reservations",
@@ -905,7 +905,7 @@ class TestConsensusBuilder:
         builder = ConsensusBuilder("debate_001", "Test task")
         tension = builder.record_tension(
             description="Performance vs Security tradeoff",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             options=["Prioritize performance", "Prioritize security"],
             impact="Affects architecture decision",
             followup="Run benchmarks",
@@ -937,7 +937,7 @@ class TestConsensusBuilder:
 
         # Record votes
         builder.record_vote("claude", VoteType.AGREE, 0.9, "Support")
-        builder.record_vote("gpt4", VoteType.AGREE, 0.85, "Support")
+        builder.record_vote("gpt-5.5", VoteType.AGREE, 0.85, "Support")
         builder.record_vote("gemini", VoteType.DISAGREE, 0.6, "Concerns")
 
         # Build proof
@@ -958,7 +958,7 @@ class TestConsensusBuilder:
         assert proof.rounds_to_consensus == 3
         assert len(proof.votes) == 3
         assert "claude" in proof.supporting_agents
-        assert "gpt4" in proof.supporting_agents
+        assert "gpt-5.5" in proof.supporting_agents
         assert "gemini" in proof.dissenting_agents
 
     def test_build_categorizes_conditional_as_supporting(self):

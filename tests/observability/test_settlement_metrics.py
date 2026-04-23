@@ -108,7 +108,7 @@ class TestCalibrationRecording:
         with patch.object(mod, "get_metrics_enabled", return_value=False):
             mod.init_settlement_metrics()
         mod.record_calibration_brier("claude", 0.15)
-        mod.record_calibration_brier("gpt4", 0.22)
+        mod.record_calibration_brier("gpt-5.5", 0.22)
 
     def test_record_calibration_outcome(self):
         """Records calibration outcome types."""

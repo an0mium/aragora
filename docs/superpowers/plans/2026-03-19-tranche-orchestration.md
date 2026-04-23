@@ -802,7 +802,7 @@ async def test_tier_2_runs_two_reviewers_and_synthesizes():
     )
     reviewer_2 = AsyncMock()
     reviewer_2.review.return_value = CampaignReviewGate(
-        status="passed", findings=[], review_model="gpt-4",
+        status="passed", findings=[], review_model="gpt-5.5",
     )
 
     result = await review_lane(

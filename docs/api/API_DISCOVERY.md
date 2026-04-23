@@ -230,7 +230,7 @@ Identify the key "crux" claims that most influence the debate outcome. These are
       "claim_id": "claim_001",
       "text": "The proposed algorithm has O(n log n) complexity",
       "impact_score": 0.87,
-      "supporting_agents": ["claude", "gpt4"],
+      "supporting_agents": ["claude", "gpt-5.5"],
       "opposing_agents": ["gemini"],
       "resolution_status": "contested"
     },
@@ -238,7 +238,7 @@ Identify the key "crux" claims that most influence the debate outcome. These are
       "claim_id": "claim_002",
       "text": "Memory usage is acceptable for production",
       "impact_score": 0.72,
-      "supporting_agents": ["claude", "gemini", "gpt4"],
+      "supporting_agents": ["claude", "gemini", "gpt-5.5"],
       "opposing_agents": [],
       "resolution_status": "consensus"
     }
@@ -390,7 +390,7 @@ Discover patterns in how prompts evolve across agents. Identifies successful mut
       "frequency": 23,
       "avg_improvement": 0.12,
       "example": "Added 'Let's think step by step' prefix",
-      "affected_agents": ["claude", "gpt4"]
+      "affected_agents": ["claude", "gpt-5.5"]
     },
     {
       "pattern_id": "pat_002",
@@ -410,7 +410,7 @@ Discover patterns in how prompts evolve across agents. Identifies successful mut
 Get the complete prompt evolution history for a specific agent.
 
 **Parameters:**
-- `agent` (path) - Agent identifier (e.g., `claude`, `gpt4`)
+- `agent` (path) - Agent identifier (e.g., `claude`, `gpt-5.5`)
 - `limit` (query, default: 10) - Number of versions (1-50)
 
 **Response:**
@@ -452,7 +452,7 @@ Start an adversarial stress test against a debate configuration. The gauntlet th
 {
   "debate_config": {
     "topic": "Evaluate the security of this authentication flow",
-    "agents": ["claude", "gpt4", "gemini"]
+    "agents": ["claude", "gpt-5.5", "gemini"]
   },
   "attack_types": ["semantic_manipulation", "prompt_injection", "edge_cases"],
   "intensity": "medium",
@@ -486,7 +486,7 @@ Get a risk heatmap showing vulnerability distribution across attack types and ag
 {
   "gauntlet_id": "gauntlet_xyz789",
   "heatmap": {
-    "rows": ["claude", "gpt4", "gemini"],
+    "rows": ["claude", "gpt-5.5", "gemini"],
     "columns": ["semantic", "injection", "edge_cases"],
     "values": [
       [0.1, 0.3, 0.2],
@@ -497,7 +497,7 @@ Get a risk heatmap showing vulnerability distribution across attack types and ag
   },
   "hotspots": [
     {
-      "agent": "gpt4",
+      "agent": "gpt-5.5",
       "attack": "edge_cases",
       "score": 0.4,
       "recommendation": "Add input validation for numeric bounds"
@@ -552,7 +552,7 @@ Trace the verification chain for a specific claim, showing what evidence support
     {
       "level": 1,
       "type": "corroboration",
-      "source": "gpt4",
+      "source": "gpt-5.5",
       "confidence": 0.90,
       "reasoning": "Confirmed via loop invariant analysis"
     },

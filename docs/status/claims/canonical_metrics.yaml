@@ -118,7 +118,7 @@ claims:
         path: docs/status/generated/canonical_metrics/latest.json
 
   - claim_id: security.model_pins.frontier_aligned
-    statement: "aragora/config/model_pins.py exists and exports OPUS_4_7, GPT_5_4, and GEMINI_3_1_PRO so consumers stop hardcoding model IDs."
+    statement: "aragora/config/model_pins.py exists and exports OPUS_4_7, GPT_5_5, and GEMINI_3_1_PRO so consumers stop hardcoding model IDs."
     owner: security
     scope: repo
     confidence: high
@@ -132,7 +132,7 @@ claims:
     failure:
       severity: warning
       allowed_action: report_only
-      repair_note: "Restore aragora/config/model_pins.py with OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO constants. Drift here means new code can re-introduce hardcoded model IDs that drift from the canonical frontier."
+      repair_note: "Restore aragora/config/model_pins.py with OPUS_4_7, GPT_5_5, GEMINI_3_1_PRO constants. Drift here means new code can re-introduce hardcoded model IDs that drift from the canonical frontier."
     receipts:
       - type: canonical_metrics_check
         path: docs/status/generated/canonical_metrics/latest.json

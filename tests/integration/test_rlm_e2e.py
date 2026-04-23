@@ -33,7 +33,7 @@ def sample_debate_result() -> DebateResult:
         debate_id="debate-e2e-test",
         task="Should we implement feature flags for gradual rollout?",
         status="completed",
-        participants=["claude", "gpt4", "gemini"],
+        participants=["claude", "gpt-5.5", "gemini"],
         messages=[
             Message(
                 role="proposer",
@@ -43,7 +43,7 @@ def sample_debate_result() -> DebateResult:
             ),
             Message(
                 role="proposer",
-                agent="gpt4",
+                agent="gpt-5.5",
                 content="While feature flags add complexity, the benefits outweigh the costs. I recommend using a mature system like LaunchDarkly or building a simple internal solution.",
                 round=1,
             ),
@@ -55,7 +55,7 @@ def sample_debate_result() -> DebateResult:
             ),
             Message(
                 role="proposer",
-                agent="gpt4",
+                agent="gpt-5.5",
                 content="I agree with the lifecycle policy. Additionally, we should use naming conventions and documentation to track flag purposes.",
                 round=2,
             ),
@@ -73,7 +73,7 @@ def sample_debate_result() -> DebateResult:
         ],
         proposals={
             "claude": "Feature flags with 90-day lifecycle policy",
-            "gpt4": "Feature flags with naming conventions and docs",
+            "gpt-5.5": "Feature flags with naming conventions and docs",
         },
         consensus_reached=True,
         final_answer="Yes, implement feature flags with lifecycle management and documentation standards.",

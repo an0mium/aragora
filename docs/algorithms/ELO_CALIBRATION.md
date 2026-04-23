@@ -50,8 +50,8 @@ elo = EloSystem()
 # Modern API: multi-agent with scores
 changes = elo.record_match(
     debate_id="debate-001",
-    participants=["claude", "gpt4", "gemini"],
-    scores={"claude": 0.8, "gpt4": 0.6, "gemini": 0.4},
+    participants=["claude", "gpt-5.5", "gemini"],
+    scores={"claude": 0.8, "gpt-5.5": 0.6, "gemini": 0.4},
     domain="security",
     confidence_weight=0.9
 )
@@ -60,7 +60,7 @@ changes = elo.record_match(
 > **Deprecated:** The two-player match API is no longer supported. Use `record_match()` with the full agent list.
 changes = elo.record_match(
     winner="claude",
-    loser="gpt4",
+    loser="gpt-5.5",
     draw=False,
     task="code review"
 )
@@ -145,7 +145,7 @@ Range: 0 (perfect) to 1 (worst)
 elo.record_winner_prediction(
     tournament_id="tourney-001",
     predictor_agent="claude",
-    predicted_winner="gpt4",
+    predicted_winner="gpt-5.5",
     confidence=0.75
 )
 
@@ -289,7 +289,7 @@ Track dynamics between agent pairs:
 # Update relationship
 elo.update_relationship(
     agent_a="claude",
-    agent_b="gpt4",
+    agent_b="gpt-5.5",
     debate_increment=1,
     agreement_increment=1,
     critique_a_to_b=2,
@@ -298,7 +298,7 @@ elo.update_relationship(
 )
 
 # Get relationship metrics
-metrics = elo.compute_relationship_metrics("claude", "gpt4")
+metrics = elo.compute_relationship_metrics("claude", "gpt-5.5")
 # Returns: {"rivalry_score": 0.4, "alliance_score": 0.6, ...}
 
 # Find rivals and allies
@@ -355,12 +355,12 @@ Verified claims boost ELO; disproven claims reduce it.
 
 ```python
 # Batch rating fetch
-ratings = elo.get_ratings_batch(["claude", "gpt4", "gemini"])
+ratings = elo.get_ratings_batch(["claude", "gpt-5.5", "gemini"])
 
 # Batch relationship updates
 elo.update_relationships_batch([
-    {"agent_a": "claude", "agent_b": "gpt4", "debate_increment": 1},
-    {"agent_a": "gpt4", "agent_b": "gemini", "agreement_increment": 1},
+    {"agent_a": "claude", "agent_b": "gpt-5.5", "debate_increment": 1},
+    {"agent_a": "gpt-5.5", "agent_b": "gemini", "agreement_increment": 1},
 ])
 ```
 

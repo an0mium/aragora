@@ -287,7 +287,7 @@ class TestFetchRankings:
         # Return dict entries since that's what agent_to_dict expects
         mock_elo.get_leaderboard.return_value = [
             {"name": "claude", "elo": 1600},
-            {"name": "gpt4", "elo": 1550},
+            {"name": "gpt-5.5", "elo": 1550},
         ]
         # Remove cached method so it uses regular get_leaderboard
         del mock_elo.get_cached_leaderboard
@@ -331,7 +331,7 @@ class TestFetchMatches:
         """Returns matches from EloSystem."""
         mock_elo = MagicMock()
         mock_elo.get_recent_matches.return_value = [
-            {"winner": "claude", "loser": "gpt4"},
+            {"winner": "claude", "loser": "gpt-5.5"},
         ]
         # Remove cached method so it uses regular get_recent_matches
         del mock_elo.get_cached_recent_matches
@@ -345,7 +345,7 @@ class TestFetchMatches:
         """Uses get_cached_recent_matches when available."""
         mock_elo = MagicMock()
         mock_elo.get_cached_recent_matches.return_value = [
-            {"winner": "claude", "loser": "gpt4"},
+            {"winner": "claude", "loser": "gpt-5.5"},
             {"winner": "gemini", "loser": "claude"},
         ]
 
@@ -400,7 +400,7 @@ class TestFetchStats:
             "total_matches": 50,
             "rating_distribution": {"1400-1500": 3, "1500-1600": 7},
             "trending_up": ["claude"],
-            "trending_down": ["gpt4"],
+            "trending_down": ["gpt-5.5"],
         }
 
         with patch.object(leaderboard_handler, "get_elo_system", return_value=mock_elo):

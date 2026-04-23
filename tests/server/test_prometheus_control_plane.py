@@ -104,7 +104,7 @@ class TestAgentUtilizationMetrics:
         from aragora.server.prometheus_control_plane import record_agent_utilization
 
         record_agent_utilization("claude-3-opus", 0.75)
-        record_agent_utilization("gpt-4", 0.5)
+        record_agent_utilization("gpt-5.5", 0.5)
         record_agent_utilization("gemini-pro", 1.0)
 
     def test_record_agent_utilization_boundary_values(self):

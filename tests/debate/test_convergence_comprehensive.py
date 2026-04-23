@@ -114,8 +114,8 @@ class TestSimilarityThresholds:
         """Test convergence detection at 85% threshold (default)."""
         # Nearly identical responses should converge
         response = "The system should implement a caching layer using Redis with TTL"
-        current = {"claude": response, "gpt4": response}
-        previous = {"claude": response, "gpt4": response}
+        current = {"claude": response, "gpt-5.5": response}
+        previous = {"claude": response, "gpt-5.5": response}
 
         result = detector.check_convergence(current, previous, round_number=2)
 
@@ -127,11 +127,11 @@ class TestSimilarityThresholds:
         """Test no convergence when similarity is below threshold."""
         current = {
             "claude": "We should use Redis for caching with 15 minute TTL",
-            "gpt4": "PostgreSQL database storage is the better solution",
+            "gpt-5.5": "PostgreSQL database storage is the better solution",
         }
         previous = {
             "claude": "Caching improves performance significantly in web applications",
-            "gpt4": "Database normalization ensures data integrity",
+            "gpt-5.5": "Database normalization ensures data integrity",
         }
 
         result = detector.check_convergence(current, previous, round_number=2)
@@ -150,11 +150,11 @@ class TestSimilarityThresholds:
         # Completely different topics
         current = {
             "claude": "apple orange banana cherry grape",
-            "gpt4": "dog cat elephant mouse tiger",
+            "gpt-5.5": "dog cat elephant mouse tiger",
         }
         previous = {
             "claude": "carrot potato tomato onion pepper",
-            "gpt4": "house building apartment office store",
+            "gpt-5.5": "house building apartment office store",
         }
 
         result = detector.check_convergence(current, previous, round_number=2)
@@ -168,11 +168,11 @@ class TestSimilarityThresholds:
         # Use partial word overlap for mid-range similarity
         current = {
             "claude": "The caching system should use Redis for performance benefits",
-            "gpt4": "Redis caching improves application response times effectively",
+            "gpt-5.5": "Redis caching improves application response times effectively",
         }
         previous = {
             "claude": "Consider caching for better system performance overall",
-            "gpt4": "Caching solutions can improve user experience significantly",
+            "gpt-5.5": "Caching solutions can improve user experience significantly",
         }
 
         result = detector.check_convergence(current, previous, round_number=2)
@@ -262,12 +262,12 @@ class TestEdgeCases:
         response = "Exactly the same response from all agents"
         current = {
             "claude": response,
-            "gpt4": response,
+            "gpt-5.5": response,
             "gemini": response,
         }
         previous = {
             "claude": response,
-            "gpt4": response,
+            "gpt-5.5": response,
             "gemini": response,
         }
 
@@ -282,8 +282,8 @@ class TestEdgeCases:
 
     def test_empty_string_response(self, detector):
         """Test with empty string responses."""
-        current = {"claude": "", "gpt4": "Some text"}
-        previous = {"claude": "", "gpt4": "Some text"}
+        current = {"claude": "", "gpt-5.5": "Some text"}
+        previous = {"claude": "", "gpt-5.5": "Some text"}
 
         result = detector.check_convergence(current, previous, round_number=2)
 
@@ -295,7 +295,7 @@ class TestEdgeCases:
     def test_no_common_agents(self, detector):
         """Test with no common agents between rounds."""
         current = {"claude": "Response from Claude"}
-        previous = {"gpt4": "Response from GPT-4"}
+        previous = {"gpt-5.5": "Response from GPT-5.5"}
 
         result = detector.check_convergence(current, previous, round_number=2)
 
@@ -305,7 +305,7 @@ class TestEdgeCases:
         """Test with partial agent overlap between rounds."""
         response = "Same response text"
         current = {"claude": response, "gemini": "Different response"}
-        previous = {"claude": response, "gpt4": "Another response"}
+        previous = {"claude": response, "gpt-5.5": "Another response"}
 
         result = detector.check_convergence(current, previous, round_number=2)
 
@@ -404,8 +404,8 @@ class TestPerformance:
         base_words = ["algorithm", "optimization", "performance", "system", "design"]
         large_text = " ".join(base_words * 1000)  # ~5000 words
 
-        current = {"claude": large_text, "gpt4": large_text}
-        previous = {"claude": large_text, "gpt4": large_text}
+        current = {"claude": large_text, "gpt-5.5": large_text}
+        previous = {"claude": large_text, "gpt-5.5": large_text}
 
         start_time = time.time()
         result = detector.check_convergence(current, previous, round_number=2)
@@ -1003,7 +1003,7 @@ class TestAdvancedConvergenceAnalyzerComprehensive:
         """Test evidence convergence with shared citations."""
         responses = {
             "claude": "According to [1] and https://example.com, this is true.",
-            "gpt4": "As stated in [1] and https://example.com, confirmed.",
+            "gpt-5.5": "As stated in [1] and https://example.com, confirmed.",
             "gemini": "Reference [2] shows different data.",
         }
 
@@ -1016,14 +1016,14 @@ class TestAdvancedConvergenceAnalyzerComprehensive:
     def test_compute_stance_volatility_changes(self, analyzer):
         """Test stance volatility tracking changes."""
         history = [
-            {"claude": "I strongly agree", "gpt4": "I disagree completely"},
-            {"claude": "I agree with this", "gpt4": "Now I support this"},  # gpt4 changed
-            {"claude": "Still in agreement", "gpt4": "I continue to support"},
+            {"claude": "I strongly agree", "gpt-5.5": "I disagree completely"},
+            {"claude": "I agree with this", "gpt-5.5": "Now I support this"},  # gpt-5.5 changed
+            {"claude": "Still in agreement", "gpt-5.5": "I continue to support"},
         ]
 
         metric = analyzer.compute_stance_volatility(history)
 
-        # gpt4 changed stance
+        # gpt-5.5 changed stance
         assert metric.stance_changes >= 1
         assert metric.volatility_score > 0
 
@@ -1037,11 +1037,11 @@ class TestAdvancedConvergenceAnalyzerComprehensive:
 
         current = {
             "claude": "Redis caching improves performance. According to https://redis.io benchmarks show 10ms latency.",
-            "gpt4": "I agree that Redis is excellent for caching. The https://redis.io documentation supports this.",
+            "gpt-5.5": "I agree that Redis is excellent for caching. The https://redis.io documentation supports this.",
         }
         previous = {
             "claude": "We should consider caching solutions for better performance.",
-            "gpt4": "Caching is important for system scalability.",
+            "gpt-5.5": "Caching is important for system scalability.",
         }
         history = [previous, current]
 
@@ -1132,7 +1132,7 @@ class TestWithinRoundConvergence:
         response = "Everyone agrees on this"
         responses = {
             "claude": response,
-            "gpt4": response,
+            "gpt-5.5": response,
             "gemini": response,
         }
 
@@ -1146,7 +1146,7 @@ class TestWithinRoundConvergence:
         """Test within-round convergence with different responses."""
         responses = {
             "claude": "apple banana cherry",
-            "gpt4": "dog elephant fox",
+            "gpt-5.5": "dog elephant fox",
             "gemini": "house building apartment",
         }
 
@@ -1159,7 +1159,7 @@ class TestWithinRoundConvergence:
         """Test within-round convergence with custom threshold."""
         responses = {
             "claude": "common words here",
-            "gpt4": "common words there",
+            "gpt-5.5": "common words there",
         }
 
         # Very low threshold should converge
@@ -1187,7 +1187,7 @@ class TestFastConvergenceCheck:
     def test_fast_check_no_common_agents(self, detector):
         """Test fast check with no common agents."""
         current = {"claude": "Response"}
-        previous = {"gpt4": "Response"}
+        previous = {"gpt-5.5": "Response"}
 
         result = detector.check_convergence_fast(current, previous, round_number=2)
 
@@ -1196,8 +1196,8 @@ class TestFastConvergenceCheck:
     def test_fast_check_identical_responses(self, detector):
         """Test fast check with identical responses."""
         response = "Identical response text"
-        current = {"claude": response, "gpt4": response}
-        previous = {"claude": response, "gpt4": response}
+        current = {"claude": response, "gpt-5.5": response}
+        previous = {"claude": response, "gpt-5.5": response}
 
         result = detector.check_convergence_fast(current, previous, round_number=2)
 
@@ -1409,7 +1409,7 @@ class TestErrorHandling:
 
     def test_analyzer_handles_no_arguments(self, analyzer):
         """Test analyzer handles text with no extractable arguments."""
-        responses = {"claude": "Hi!", "gpt4": "OK."}
+        responses = {"claude": "Hi!", "gpt-5.5": "OK."}
 
         metric = analyzer.compute_argument_diversity(responses)
 
@@ -1453,7 +1453,7 @@ class TestTFIDFBackendConvergence:
 
         responses = {
             "claude": "machine learning algorithms for data science applications",
-            "gpt4": "machine learning techniques for data analysis projects",
+            "gpt-5.5": "machine learning techniques for data analysis projects",
             "gemini": "machine learning methods for data processing tasks",
         }
 
@@ -1481,7 +1481,7 @@ class TestTFIDFBackendConvergence:
             "Users benefit from faster response times. "
             "System reliability is enhanced through monitoring. "
             "Security measures protect against threats effectively.",
-            "gpt4": "Performance optimization is critical for success. "
+            "gpt-5.5": "Performance optimization is critical for success. "
             "Predictive models drive business decisions. "
             "Streamlined workflows increase productivity. "
             "User experience determines product adoption. "
@@ -1641,7 +1641,7 @@ class TestArgumentDiversityUniqueDetection:
             "claude": "The caching layer improves performance significantly. "
             "The caching layer improves performance significantly. "
             "The caching layer improves performance significantly.",
-            "gpt4": "The caching layer improves performance significantly. "
+            "gpt-5.5": "The caching layer improves performance significantly. "
             "The caching layer improves performance significantly.",
         }
 
@@ -1660,7 +1660,7 @@ class TestArgumentDiversityUniqueDetection:
         responses = {
             "claude": "Database optimization reduces query latency significantly. "
             "Frontend caching improves user experience noticeably.",
-            "gpt4": "Security hardening protects against common attack vectors. "
+            "gpt-5.5": "Security hardening protects against common attack vectors. "
             "Monitoring systems provide insights into application health.",
         }
 
@@ -1963,8 +1963,8 @@ class TestSentenceTransformerConvergence:
     def test_st_check_convergence(self, st_detector):
         """Test convergence check with SentenceTransformer."""
         response = "Machine learning algorithms improve performance significantly"
-        current = {"claude": response, "gpt4": response}
-        previous = {"claude": response, "gpt4": response}
+        current = {"claude": response, "gpt-5.5": response}
+        previous = {"claude": response, "gpt-5.5": response}
 
         result = st_detector.check_convergence(current, previous, round_number=2)
 
@@ -1974,8 +1974,8 @@ class TestSentenceTransformerConvergence:
     def test_st_fast_convergence_check(self, st_detector):
         """Test fast convergence check with SentenceTransformer."""
         response = "Deep neural networks achieve state of the art results"
-        current = {"claude": response, "gpt4": response}
-        previous = {"claude": response, "gpt4": response}
+        current = {"claude": response, "gpt-5.5": response}
+        previous = {"claude": response, "gpt-5.5": response}
 
         result = st_detector.check_convergence_fast(current, previous, round_number=2)
 
@@ -1987,7 +1987,7 @@ class TestSentenceTransformerConvergence:
         """Test within-round convergence with SentenceTransformer."""
         responses = {
             "claude": "artificial intelligence systems learn patterns",
-            "gpt4": "artificial intelligence systems learn patterns",
+            "gpt-5.5": "artificial intelligence systems learn patterns",
             "gemini": "artificial intelligence systems learn patterns",
         }
 
@@ -2023,7 +2023,7 @@ class TestSentenceTransformerAnalyzer:
             "Logging provides visibility into system behavior. "
             "Testing validates correctness of implementations. "
             "Documentation helps developers understand code.",
-            "gpt4": "Data processing pipelines transform raw inputs. "
+            "gpt-5.5": "Data processing pipelines transform raw inputs. "
             "Resource allocation optimizes compute utilization. "
             "Fault tolerance enables graceful degradation. "
             "Observability reveals internal system state. "
@@ -2040,11 +2040,11 @@ class TestSentenceTransformerAnalyzer:
         """Test full analysis with SentenceTransformer backend."""
         current = {
             "claude": "Redis provides excellent caching capabilities for web applications.",
-            "gpt4": "Redis caching improves response times for web services.",
+            "gpt-5.5": "Redis caching improves response times for web services.",
         }
         previous = {
             "claude": "We should consider caching solutions for better performance.",
-            "gpt4": "Caching is essential for scalable web architectures.",
+            "gpt-5.5": "Caching is essential for scalable web architectures.",
         }
 
         metrics = st_analyzer.analyze(
@@ -2177,7 +2177,7 @@ class TestAnalyzerNoPreviousResponses:
 
         current = {
             "claude": "The system performs well under load.",
-            "gpt4": "Performance is good during stress testing.",
+            "gpt-5.5": "Performance is good during stress testing.",
         }
 
         metrics = analyzer.analyze(

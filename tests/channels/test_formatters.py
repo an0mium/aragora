@@ -54,9 +54,9 @@ class MockReceipt:
                 "Network latency overhead",
             ]
         if self.agents is None:
-            self.agents = ["claude", "gpt-4", "gemini"]
+            self.agents = ["claude", "gpt-5.5", "gemini"]
         if self.agents_involved is None:
-            self.agents_involved = ["claude", "gpt-4", "gemini"]
+            self.agents_involved = ["claude", "gpt-5.5", "gemini"]
         if self.evidence is None:
             self.evidence = [
                 {"type": "article", "source": "Martin Fowler"},

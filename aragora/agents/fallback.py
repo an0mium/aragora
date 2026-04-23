@@ -124,10 +124,10 @@ class QuotaFallbackMixin:
     Usage:
         class MyAgent(APIAgent, QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gpt-4o": "openai/gpt-5.4",
-                "gpt-4": "openai/gpt-4",
+                "gpt-5.5": "openai/gpt-5.5",
+                "gpt-5.5": "openai/gpt-5.5",
             }
-            DEFAULT_FALLBACK_MODEL = "openai/gpt-5.4"
+            DEFAULT_FALLBACK_MODEL = "openai/gpt-5.5"
 
             async def generate(self, prompt, context):
                 # ... make API call ...

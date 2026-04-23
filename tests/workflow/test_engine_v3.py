@@ -871,9 +871,9 @@ class TestAgentStep:
         """AgentStep should read agent_type from config."""
         step = AgentStep(
             name="test",
-            config={"agent_type": "gpt4", "prompt_template": "Hello {name}"},
+            config={"agent_type": "gpt-5.5", "prompt_template": "Hello {name}"},
         )
-        assert step.agent_type == "gpt4"
+        assert step.agent_type == "gpt-5.5"
         assert step.prompt_template == "Hello {name}"
 
     def test_build_prompt_substitution(self):

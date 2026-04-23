@@ -9,7 +9,7 @@
 
 ## What Aragora Is
 
-Aragora is an AI decision integrity platform. It orchestrates multiple AI models (Claude, GPT-4, Gemini, Mistral, Grok) to debate decisions adversarially, then produces cryptographic receipts proving what was decided, by whom, and with what confidence. Think "audit trail for AI-assisted decisions."
+Aragora is an AI decision integrity platform. It orchestrates multiple AI models (Claude, GPT-5.5, Gemini, Mistral, Grok) to debate decisions adversarially, then produces cryptographic receipts proving what was decided, by whom, and with what confidence. Think "audit trail for AI-assisted decisions."
 
 The backend API is live at **api.aragora.ai**. The frontend is a Next.js app deployed on Vercel at **aragora.ai**.
 

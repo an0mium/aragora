@@ -155,7 +155,7 @@ class TestModelConfig:
 
     def test_roundtrip(self):
         original = ModelConfig(
-            primary_model="gpt-4",
+            primary_model="gpt-5.5",
             primary_provider="openai",
             specialist_model="biogpt",
             specialist_quantization="4bit",

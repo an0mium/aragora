@@ -185,7 +185,7 @@ class TestModePromptInjection:
 
         critique = MagicMock()
         critique.to_prompt.return_value = "This could be better."
-        critique.agent = "gpt4"
+        critique.agent = "gpt-5.5"
         critique.issues = ["vague"]
 
         prompt = pb.build_revision_prompt(agent, "my proposal", [critique])
@@ -326,7 +326,7 @@ class TestDelegatesModeWiring:
 
         critique = MagicMock()
         critique.to_prompt.return_value = "needs work"
-        critique.agent = "gpt4"
+        critique.agent = "gpt-5.5"
         critique.issues = ["incomplete"]
 
         prompt = pb.build_revision_prompt(_make_agent(), "my proposal", [critique])

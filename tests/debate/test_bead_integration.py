@@ -92,7 +92,7 @@ class TestBeadStoreWithDebateDecision:
                 "debate_id": "debate-123",
                 "consensus_reached": True,
                 "confidence": 0.85,
-                "participants": ["claude", "gpt4", "gemini"],
+                "participants": ["claude", "gpt-5.5", "gemini"],
             },
         )
 
@@ -232,7 +232,7 @@ class TestArenaBeadCreation:
             confidence=0.88,
             consensus_reached=True,
             rounds_used=5,
-            participants=["claude", "gpt4", "gemini"],
+            participants=["claude", "gpt-5.5", "gemini"],
             winner="claude",
             status="consensus_reached",
         )
@@ -247,7 +247,7 @@ class TestArenaBeadCreation:
             confidence=0.35,
             consensus_reached=False,
             rounds_used=3,
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             status="completed",
         )
 

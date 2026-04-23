@@ -267,10 +267,10 @@ class TestCanHandle:
         assert calibration_handler.can_handle("/api/agent/claude/calibration-curve")
 
     def test_calibration_summary_with_version_prefix(self, calibration_handler):
-        assert calibration_handler.can_handle("/api/v1/agent/gpt4/calibration-summary")
+        assert calibration_handler.can_handle("/api/v1/agent/gpt-5.5/calibration-summary")
 
     def test_calibration_summary_without_version_prefix(self, calibration_handler):
-        assert calibration_handler.can_handle("/api/agent/gpt4/calibration-summary")
+        assert calibration_handler.can_handle("/api/agent/gpt-5.5/calibration-summary")
 
     def test_leaderboard_with_version_prefix(self, calibration_handler):
         assert calibration_handler.can_handle("/api/v1/calibration/leaderboard")
@@ -300,7 +300,7 @@ class TestCanHandle:
         assert not calibration_handler.can_handle("/api/v1/health")
 
     def test_various_agent_names(self, calibration_handler):
-        for name in ["claude", "gpt4", "mistral-large", "gemini_pro"]:
+        for name in ["claude", "gpt-5.5", "mistral-large", "gemini_pro"]:
             assert calibration_handler.can_handle(f"/api/v1/agent/{name}/calibration-curve")
             assert calibration_handler.can_handle(f"/api/v1/agent/{name}/calibration-summary")
 
@@ -756,7 +756,7 @@ class TestCalibrationLeaderboard:
                 "correct": 80,
             },
             {
-                "name": "gpt4",
+                "name": "gpt-5.5",
                 "elo": 1480,
                 "score": 0.75,
                 "brier": 0.15,
@@ -1870,10 +1870,10 @@ class TestEdgeCases:
                 return_value=mock_tracker,
             ):
                 result = await calibration_handler.handle(
-                    "/api/v1/agent/gpt4o/calibration-curve", {}, mock_http_handler
+                    "/api/v1/agent/gpt-5.5/calibration-curve", {}, mock_http_handler
                 )
                 assert _status(result) == 200
-                assert _body(result)["agent"] == "gpt4o"
+                assert _body(result)["agent"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_leaderboard_all_agents_filtered_out(

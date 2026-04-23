@@ -489,8 +489,8 @@ class TestEndToEndIntegration:
             "qwen",
             "yi",
             "llama",
-            "gpt4",
-            "gpt-4",
+            "gpt-5.5",
+            "gpt-5.5",
         }
         # Enterprise role-based agents used in workflow templates
         ENTERPRISE_ROLES = {

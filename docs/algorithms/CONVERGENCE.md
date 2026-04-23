@@ -225,8 +225,8 @@ detector = ConvergenceDetector(debate_id="debate-001")
 
 # After each round
 result = detector.check_convergence(
-    current_responses={"claude": "...", "gpt4": "..."},
-    previous_responses={"claude": "...", "gpt4": "..."},
+    current_responses={"claude": "...", "gpt-5.5": "..."},
+    previous_responses={"claude": "...", "gpt-5.5": "..."},
     round_number=3
 )
 

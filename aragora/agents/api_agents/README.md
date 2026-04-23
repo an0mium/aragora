@@ -94,7 +94,7 @@ Agent (core.py)
 | Provider | Agent Class | Default Model | Env Var | Capabilities |
 |----------|-------------|---------------|---------|--------------|
 | Anthropic | `AnthropicAPIAgent` | claude-opus-4-5-20251101 | `ANTHROPIC_API_KEY` | Streaming, Web Search, Fallback |
-| OpenAI | `OpenAIAPIAgent` | gpt-5.3 | `OPENAI_API_KEY` | Streaming, Web Search, Fallback |
+| OpenAI | `OpenAIAPIAgent` | gpt-5.5 | `OPENAI_API_KEY` | Streaming, Web Search, Fallback |
 | Google | `GeminiAgent` | gemini-3-pro-preview | `GEMINI_API_KEY` | Streaming, Google Search Grounding, Fallback |
 | xAI | `GrokAgent` | grok-4-latest | `XAI_API_KEY` | Streaming, Fallback |
 | Mistral | `MistralAPIAgent` | mistral-large-2512 | `MISTRAL_API_KEY` | Streaming, Fallback |
@@ -193,7 +193,7 @@ When a provider fails (rate limit, quota exceeded, auth error), agents automatic
 agent = AnthropicAPIAgent(enable_fallback=True)
 
 # Fallback chain for OpenRouter models
-# qwen/qwen3-235b -> deepseek/deepseek-chat -> openai/gpt-4o-mini
+# qwen/qwen3-235b -> deepseek/deepseek-chat -> openai/gpt-5.5
 ```
 
 #### Fallback Model Chain
@@ -201,10 +201,10 @@ agent = AnthropicAPIAgent(enable_fallback=True)
 ```python
 OPENROUTER_FALLBACK_MODELS = {
     "qwen/qwen3-235b-a22b": "deepseek/deepseek-chat",
-    "deepseek/deepseek-chat": "openai/gpt-4o-mini",
+    "deepseek/deepseek-chat": "openai/gpt-5.5",
     "deepseek/deepseek-reasoner": "anthropic/claude-3-haiku",
     "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.7",
-    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-4o-mini",
+    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-5.5",
     # ... more mappings
 }
 ```
@@ -237,9 +237,9 @@ class MyProviderAgent(OpenAICompatibleMixin, APIAgent):
 
     # Map models to OpenRouter equivalents for fallback
     OPENROUTER_MODEL_MAP = {
-        "my-model-v1": "openai/gpt-4o",
+        "my-model-v1": "openai/gpt-5.5",
     }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+    DEFAULT_FALLBACK_MODEL = "openai/gpt-5.5"
 
     def __init__(
         self,
@@ -465,7 +465,7 @@ response = await agent.generate(
 critique = await agent.critique(
     proposal="We should implement a simple rate limiter...",
     task="Design a rate limiting system",
-    target_agent="gpt-4",
+    target_agent="gpt-5.5",
 )
 
 print(f"Severity: {critique.severity}")

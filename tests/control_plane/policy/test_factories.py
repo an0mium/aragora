@@ -32,12 +32,12 @@ class TestCreateProductionPolicy:
     def test_allowed_agents(self):
         """Test specifying allowed agents."""
         policy = create_production_policy(
-            allowed_agents=["claude-3-opus", "gpt-4"],
+            allowed_agents=["claude-3-opus", "gpt-5.5"],
         )
         assert "claude-3-opus" in policy.agent_allowlist
-        assert "gpt-4" in policy.agent_allowlist
+        assert "gpt-5.5" in policy.agent_allowlist
         assert policy.is_agent_allowed("claude-3-opus") is True
-        assert policy.is_agent_allowed("gpt-3.5-turbo") is False
+        assert policy.is_agent_allowed("gpt-5.5") is False
 
     def test_blocked_agents(self):
         """Test specifying blocked agents."""
@@ -91,20 +91,20 @@ class TestCreateAgentTierPolicy:
         """Test creating premium tier policy."""
         policy = create_agent_tier_policy(
             tier="premium",
-            allowed_agents=["claude-3-opus", "gpt-4", "gemini-ultra"],
+            allowed_agents=["claude-3-opus", "gpt-5.5", "gemini-ultra"],
         )
         assert "premium" in policy.name.lower()
         assert policy.is_agent_allowed("claude-3-opus") is True
-        assert policy.is_agent_allowed("gpt-3.5-turbo") is False
+        assert policy.is_agent_allowed("gpt-5.5") is False
 
     def test_standard_tier(self):
         """Test creating standard tier policy."""
         policy = create_agent_tier_policy(
             tier="standard",
-            allowed_agents=["gpt-3.5-turbo", "claude-instant"],
+            allowed_agents=["gpt-5.5", "claude-instant"],
         )
         assert "standard" in policy.name.lower()
-        assert policy.is_agent_allowed("gpt-3.5-turbo") is True
+        assert policy.is_agent_allowed("gpt-5.5") is True
         assert policy.is_agent_allowed("claude-3-opus") is False
 
     def test_tier_task_types(self):

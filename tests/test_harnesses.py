@@ -340,7 +340,7 @@ class TestCodexConfig:
         """Test default configuration."""
         config = CodexConfig()
 
-        assert config.model == "gpt-4o"
+        assert config.model == "gpt-5.5"
         assert config.temperature == 0.2
         assert config.max_tokens == 4096
         assert len(config.analysis_prompts) > 0
@@ -348,12 +348,12 @@ class TestCodexConfig:
     def test_custom_config(self):
         """Test custom configuration."""
         config = CodexConfig(
-            model="gpt-3.5-turbo",
+            model="gpt-5.5",
             temperature=0.5,
             api_key="test-key",
         )
 
-        assert config.model == "gpt-3.5-turbo"
+        assert config.model == "gpt-5.5"
         assert config.temperature == 0.5
         assert config.api_key == "test-key"
 
@@ -542,9 +542,9 @@ Here are the findings:
 
     def test_create_codex_harness(self):
         """Test convenience function."""
-        harness = create_codex_harness(model="gpt-4-turbo")
+        harness = create_codex_harness(model="gpt-5.5")
 
-        assert harness.config.model == "gpt-4-turbo"
+        assert harness.config.model == "gpt-5.5"
 
 
 # =============================================================================

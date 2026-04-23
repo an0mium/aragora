@@ -309,7 +309,7 @@ class TestGenericHandlerEdge:
 
     def test_validate_agent_name(self):
         """Should validate agent names correctly."""
-        valid_names = ["claude", "gpt4", "test-agent", "agent_123"]
+        valid_names = ["claude", "gpt-5.5", "test-agent", "agent_123"]
         invalid_names = ["", "a" * 100, "agent<script>", "agent;rm"]
 
         for name in valid_names:

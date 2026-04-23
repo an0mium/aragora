@@ -151,10 +151,10 @@ async def run_comparative_debates(
 
     # Define agent combinations to test
     combinations = [
-        (["claude", "gpt-4"], "Claude + GPT-4"),
+        (["claude", "gpt-5.5"], "Claude + GPT-5.5"),
         (["claude", "gemini"], "Claude + Gemini"),
-        (["gpt-4", "gemini"], "GPT-4 + Gemini"),
-        (["claude", "gpt-4", "gemini"], "All Three"),
+        (["gpt-5.5", "gemini"], "GPT-5.5 + Gemini"),
+        (["claude", "gpt-5.5", "gemini"], "All Three"),
     ]
 
     results = []

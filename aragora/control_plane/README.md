@@ -112,7 +112,7 @@ chain = DeliberationChain(
         DeliberationStage(
             id="review",
             topic_template="Review: {context.code}",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
             required_consensus=0.7,
             next_on_success="security"
         ),

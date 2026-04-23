@@ -39,7 +39,7 @@ def _make_debate_result(**kwargs):
     result.rounds_used = kwargs.get("rounds_used", 3)
     result.winner = kwargs.get("winner", "claude")
     result.debate_id = kwargs.get("debate_id", "debate-abc123")
-    result.participants = kwargs.get("participants", ["claude", "gpt4"])
+    result.participants = kwargs.get("participants", ["claude", "gpt-5.5"])
     return result
 
 
@@ -247,7 +247,7 @@ class TestTelegramIntegration:
         with patch.object(integration, "_send_message", new_callable=AsyncMock, return_value=True):
             rankings = [
                 {"name": "claude", "elo": 1800, "wins": 10},
-                {"name": "gpt4", "elo": 1750, "wins": 8},
+                {"name": "gpt-5.5", "elo": 1750, "wins": 8},
             ]
             result = await integration.send_leaderboard_update(rankings)
             assert result is True
@@ -258,7 +258,7 @@ class TestTelegramIntegration:
             result = await integration.send_debate_started(
                 debate_id="d-123",
                 task="Test task",
-                agents=["claude", "gpt4", "gemini"],
+                agents=["claude", "gpt-5.5", "gemini"],
             )
             assert result is True
 

@@ -193,7 +193,7 @@ config = HierarchyConfig(
 
 **Diverse team (recommended for most cases):**
 ```python
-agents = ["claude", "gpt4", "gemini"]  # Different providers, different strengths
+agents = ["claude", "gpt-5.5", "gemini"]  # Different providers, different strengths
 ```
 
 **Specialist team (domain-specific):**
@@ -222,7 +222,7 @@ from aragora.workflow.patterns.dialectic import DialecticPattern
 
 pattern = DialecticPattern(
     thesis_agent="claude",
-    antithesis_agent="gpt4",
+    antithesis_agent="gpt-5.5",
     synthesis_agent="claude",
     thesis_stance="supportive",
     include_meta_analysis=True,
@@ -243,7 +243,7 @@ from aragora.workflow.patterns.hierarchical import HierarchicalPattern
 
 pattern = HierarchicalPattern(
     manager_agent="claude",
-    worker_agents=["gpt4", "gemini", "claude"],
+    worker_agents=["gpt-5.5", "gemini", "claude"],
     max_subtasks=4,
     timeout_per_worker=120.0,
 )
@@ -264,7 +264,7 @@ pattern = MapReducePattern(
     split_strategy="chunks",  # chunks, lines, sections, files
     chunk_size=4000,
     map_agent="claude",
-    reduce_agent="gpt4",
+    reduce_agent="gpt-5.5",
     parallel_limit=5,
     timeout_per_chunk=60.0,
 )
@@ -283,7 +283,7 @@ from aragora.workflow.patterns.review_cycle import ReviewCyclePattern
 
 pattern = ReviewCyclePattern(
     draft_agent="claude",
-    review_agent="gpt4",
+    review_agent="gpt-5.5",
     max_iterations=3,
     convergence_threshold=0.85,
     review_criteria=["correctness", "efficiency", "readability"],
@@ -302,7 +302,7 @@ All agents process the input independently, then merge via consensus.
 from aragora.workflow.patterns.hive_mind import HiveMindPattern
 
 pattern = HiveMindPattern(
-    agents=["claude", "gpt4", "gemini"],
+    agents=["claude", "gpt-5.5", "gemini"],
     consensus_mode="synthesis",  # weighted, majority, synthesis
     consensus_threshold=0.7,
     include_dissent=True,
@@ -509,7 +509,7 @@ Enable via Arena config: `enable_rhetorical_observer=True`
 **Problem:** Using 5 instances of the same model (e.g., all Claude).
 **Reality:** Same model, same biases. You get agreement, not consensus.
 
-**Fix:** Mix providers. A team of [Claude, GPT-4, Gemini] produces more robust decisions than [Claude, Claude, Claude].
+**Fix:** Mix providers. A team of [Claude, GPT-5.5, Gemini] produces more robust decisions than [Claude, Claude, Claude].
 
 ### 3. Skipping the Critique Phase
 

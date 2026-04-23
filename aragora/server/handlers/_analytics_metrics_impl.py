@@ -155,8 +155,8 @@ def _demo_response(normalized: str) -> HandlerResult | None:
                     "rank": 1,
                 },
                 {
-                    "agent_id": "gpt-4o",
-                    "agent_name": "GPT-4o",
+                    "agent_id": "gpt-5.5",
+                    "agent_name": "GPT-5.5",
                     "elo": 1792,
                     "win_rate": 0.71,
                     "debates": 38,
@@ -198,7 +198,7 @@ def _demo_response(normalized: str) -> HandlerResult | None:
             },
             "by_agent": {
                 "claude-opus": {"tokens": 168200, "percentage": 39.4},
-                "gpt-4o": {"tokens": 124600, "percentage": 29.2},
+                "gpt-5.5": {"tokens": 124600, "percentage": 29.2},
                 "gemini-pro": {"tokens": 72400, "percentage": 17.0},
                 "claude-sonnet": {"tokens": 38900, "percentage": 9.1},
                 "mistral-large": {"tokens": 22700, "percentage": 5.3},
@@ -215,7 +215,7 @@ def _demo_response(normalized: str) -> HandlerResult | None:
             },
             "by_model": {
                 "claude-opus-4": {"cost": "5.82", "percentage": 46.7},
-                "gpt-4o": {"cost": "3.91", "percentage": 31.4},
+                "gpt-5.5": {"cost": "3.91", "percentage": 31.4},
                 "claude-opus-4-7": {"cost": "1.64", "percentage": 13.1},
                 "gemini-1.5-pro": {"cost": "0.78", "percentage": 6.3},
                 "mistral-large": {"cost": "0.32", "percentage": 2.6},
@@ -302,7 +302,7 @@ class AnalyticsMetricsHandler(
     ]
 
     # Pattern for agent-specific performance endpoint
-    AGENT_PERFORMANCE_PATTERN = re.compile(r"^/api/analytics/agents/([a-zA-Z0-9_-]+)/performance$")
+    AGENT_PERFORMANCE_PATTERN = re.compile(r"^/api/analytics/agents/([a-zA-Z0-9._-]+)/performance$")
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""

@@ -269,7 +269,7 @@ class TestDebateState:
         event = StreamEvent(
             type=StreamEventType.DEBATE_START,
             loop_id="loop-123",
-            data={"task": "Test topic", "agents": ["claude", "gpt4"]},
+            data={"task": "Test topic", "agents": ["claude", "gpt-5.5"]},
         )
 
         stream_server._update_debate_state(event)

@@ -295,7 +295,7 @@ class TestInsightsBidirectional:
         event = StreamEvent(
             type=StreamEventType.FLIP_DETECTED,
             data={
-                "agent_name": "gpt-4",
+                "agent_name": "gpt-5.5",
                 "flip_type": "position_reversal",
                 "original_claim": "X is better",
                 "new_claim": "Y is better",
@@ -316,7 +316,7 @@ class TestInsightsBidirectional:
             type=StreamEventType.DEBATE_START,
             data={
                 "debate_id": "debate-333",
-                "agents": ["gpt-4", "claude-3"],
+                "agents": ["gpt-5.5", "claude-3"],
             },
         )
 
@@ -506,13 +506,13 @@ class TestRankingAdapter:
 
         # Store multiple agents
         adapter.store_agent_expertise("claude-3", "security", 1650, 50)
-        adapter.store_agent_expertise("gpt-4", "security", 1700, 60)
+        adapter.store_agent_expertise("gpt-5.5", "security", 1700, 60)
         adapter.store_agent_expertise("gemini", "security", 1550, 30)
 
         experts = adapter.get_domain_experts("security", limit=2)
 
         assert len(experts) == 2
-        assert experts[0].agent_name == "gpt-4"  # Highest ELO
+        assert experts[0].agent_name == "gpt-5.5"  # Highest ELO
         assert experts[1].agent_name == "claude-3"
 
     def test_detect_domain(self):

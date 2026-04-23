@@ -121,7 +121,7 @@
             },
             {
               "name": "agents",
-              "value": "[\"claude\", \"gpt-4\", \"gemini\"]"
+              "value": "[\"claude\", \"gpt-5.5\", \"gemini\"]"
             },
             {
               "name": "rounds",

@@ -49,7 +49,7 @@ def _sessions(tmp_path: Path) -> dict[str, BridgeSession]:
         "reviewer": BridgeSession(
             role="reviewer",
             harness="codex",
-            model="gpt-5.4",
+            model="gpt-5.5",
             session_id=None,
             worktree_agent_slug="bridge-reviewer",
             worktree_path=str(tmp_path),

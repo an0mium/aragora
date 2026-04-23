@@ -3901,7 +3901,7 @@ class TestDebateStepType:
                     "step_type": "debate",
                     "config": {
                         "topic": "Should we proceed?",
-                        "agents": ["claude", "gpt4"],
+                        "agents": ["claude", "gpt-5.5"],
                         "rounds": 3,
                         "consensus_threshold": 0.7,
                     },

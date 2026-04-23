@@ -172,7 +172,7 @@ def debate_config() -> DebateConfig:
 def agent_config() -> AgentConfig:
     """Sample AgentConfig with non-default values."""
     return AgentConfig(
-        agent_weights={"claude": 1.5, "gpt4": 1.0},
+        agent_weights={"claude": 1.5, "gpt-5.5": 1.0},
         agent_selector=MagicMock(),
         use_performance_selection=False,
         circuit_breaker=MagicMock(),
@@ -482,7 +482,7 @@ class TestMergeConfigObjectsWithAgentConfig:
             **default_params,
         )
 
-        assert cfg.agent_weights == {"claude": 1.5, "gpt4": 1.0}
+        assert cfg.agent_weights == {"claude": 1.5, "gpt-5.5": 1.0}
         assert cfg.agent_selector is not None
         assert cfg.use_performance_selection is False
         assert cfg.circuit_breaker is not None
@@ -982,7 +982,7 @@ class TestEdgeCases:
 
     def test_dict_values_preserved(self, default_params):
         """Dict values are preserved correctly."""
-        weights = {"claude": 1.5, "gpt4": 1.0, "gemini": 0.8}
+        weights = {"claude": 1.5, "gpt-5.5": 1.0, "gemini": 0.8}
         agent_cfg = AgentConfig(agent_weights=weights)
 
         cfg = merge_config_objects(

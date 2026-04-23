@@ -111,7 +111,7 @@ class ParallelStepExecutor(StepExecutor):
 
     async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
         """Execute step across multiple agents in parallel."""
-        agents_config = step.config.get("agents", ["claude", "gpt4"])
+        agents_config = step.config.get("agents", ["claude", "gpt-5.5"])
         task = step.config.get("task", step.name)
         aggregate = step.config.get("aggregate", "all")
 

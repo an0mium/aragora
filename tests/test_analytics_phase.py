@@ -295,7 +295,7 @@ class TestWinnerDetermination:
 
         ctx = DebateContext(env=MockEnvironment(), start_time=time.time())
         ctx.result = MockDebateResult()
-        ctx.vote_tally = {"claude": 3.0, "gpt4": 1.5}
+        ctx.vote_tally = {"claude": 3.0, "gpt-5.5": 1.5}
 
         await analytics.execute(ctx)
 
@@ -330,7 +330,7 @@ class TestRelationshipUpdate:
         update_callback = MagicMock()
         analytics = AnalyticsPhase(update_agent_relationships=update_callback)
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, start_time=time.time())
         ctx.result = MockDebateResult(votes=[MockVote()])
         ctx.winner_agent = "claude"
@@ -340,7 +340,7 @@ class TestRelationshipUpdate:
         update_callback.assert_called_once()
         call_kwargs = update_callback.call_args[1]
         assert call_kwargs["winner"] == "claude"
-        assert set(call_kwargs["participants"]) == {"claude", "gpt4"}
+        assert set(call_kwargs["participants"]) == {"claude", "gpt-5.5"}
 
 
 # ============================================================================
@@ -356,7 +356,7 @@ class TestDisagreementReport:
         """Should generate disagreement report."""
         report = MockDisagreementReport(
             unanimous_critiques=["All agents found security issue"],
-            split_opinions=[("Topic", ["claude"], ["gpt4"])],
+            split_opinions=[("Topic", ["claude"], ["gpt-5.5"])],
         )
         generate_callback = MagicMock(return_value=report)
         analytics = AnalyticsPhase(generate_disagreement_report=generate_callback)

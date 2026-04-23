@@ -202,14 +202,14 @@ class TestAgentHealthState:
     def test_to_dict(self):
         """Test converting state to dictionary."""
         state = AgentHealthState(
-            name="gpt4",
+            name="gpt-5.5",
             status=AgentStatus.THINKING,
             consecutive_failures=2,
             avg_response_ms=1234.5678,
         )
         data = state.to_dict()
 
-        assert data["name"] == "gpt4"
+        assert data["name"] == "gpt-5.5"
         assert data["status"] == "thinking"
         assert data["consecutive_failures"] == 2
         assert data["avg_response_ms"] == 1234.57  # Rounded

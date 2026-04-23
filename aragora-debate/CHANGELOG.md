@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Model references updated to latest Claude 4.5/4.6 and GPT-5.2 lineup.
+- Model references updated to latest Claude 4.5/4.6 and GPT-5.5 lineup.
 - Test suite expanded to 236 tests with full coverage of all public APIs.
 
 ### Fixed

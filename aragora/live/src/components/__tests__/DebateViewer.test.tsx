@@ -135,10 +135,10 @@ describe('DebateViewer', () => {
     const mockDebate = {
       id: '123',
       task: 'Test archived debate task',
-      agents: ['claude', 'gpt4'],
+      agents: ['claude', 'gpt-5.5'],
       transcript: [
         { agent: 'claude', content: 'Hello from Claude', role: 'proposer', round: 1, timestamp: 1000 },
-        { agent: 'gpt4', content: 'Hello from GPT-4', role: 'critic', round: 1, timestamp: 1001 },
+        { agent: 'gpt-5.5', content: 'Hello from GPT-5.5', role: 'critic', round: 1, timestamp: 1001 },
       ],
       consensus_reached: true,
       confidence: 0.85,
@@ -167,7 +167,7 @@ describe('DebateViewer', () => {
 
       await waitFor(() => {
         expect(screen.getByText('claude')).toBeInTheDocument();
-        expect(screen.getByText('gpt4')).toBeInTheDocument();
+        expect(screen.getByText('gpt-5.5')).toBeInTheDocument();
       });
     });
 
@@ -200,7 +200,7 @@ describe('DebateViewer', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Hello from Claude')).toBeInTheDocument();
-        expect(screen.getByText('Hello from GPT-4')).toBeInTheDocument();
+        expect(screen.getByText('Hello from GPT-5.5')).toBeInTheDocument();
       });
     });
 
@@ -245,7 +245,7 @@ describe('DebateViewer', () => {
         ...defaultWebSocketState,
         status: 'streaming',
         task: 'Live debate task',
-        agents: ['claude', 'gpt4'],
+        agents: ['claude', 'gpt-5.5'],
       });
 
       renderWithProviders(<DebateViewer debateId="adhoc_123" />);
@@ -336,7 +336,7 @@ describe('DebateViewer', () => {
         task: 'Test',
         messages: [
           { agent: 'claude', content: 'msg1', role: 'proposer', round: 1, timestamp: 1000 },
-          { agent: 'gpt4', content: 'msg2', role: 'critic', round: 1, timestamp: 1001 },
+          { agent: 'gpt-5.5', content: 'msg2', role: 'critic', round: 1, timestamp: 1001 },
         ],
       });
 

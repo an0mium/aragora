@@ -55,7 +55,7 @@ curl -X POST http://localhost:8080/api/debates \
   -d '{
     "topic": "What is the best approach to implement caching in a microservices architecture?",
     "context": "We have 10 microservices with varying read/write patterns. Some services are read-heavy, others write-heavy.",
-    "agents": ["claude", "gpt4", "gemini"],
+    "agents": ["claude", "gpt-5.5", "gemini"],
     "rounds": 3,
     "protocol": {
       "phases": ["opening", "critique", "revision", "vote"],
@@ -71,7 +71,7 @@ Response:
   "id": "debate_x7k9p2",
   "status": "running",
   "topic": "What is the best approach to implement caching...",
-  "agents": ["claude", "gpt4", "gemini"],
+  "agents": ["claude", "gpt-5.5", "gemini"],
   "created_at": "2024-01-15T10:30:00Z"
 }
 ```
@@ -120,7 +120,7 @@ Each agent presents their initial position:
       "content": "For microservices caching, I recommend a hybrid approach combining..."
     },
     {
-      "agent": "gpt4",
+      "agent": "gpt-5.5",
       "content": "Given the varying read/write patterns, I suggest implementing..."
     },
     {
@@ -143,7 +143,7 @@ Agents review and critique each other's proposals:
     {
       "agent": "claude",
       "critiques": {
-        "gpt4": "The proposal lacks consideration for cache invalidation across services...",
+        "gpt-5.5": "The proposal lacks consideration for cache invalidation across services...",
         "gemini": "While distributed caching is valid, the complexity might be excessive..."
       }
     }
@@ -178,7 +178,7 @@ Agents vote on the final consensus:
   "phase": "vote",
   "votes": {
     "claude": { "position": "agree", "confidence": 0.85 },
-    "gpt4": { "position": "agree", "confidence": 0.90 },
+    "gpt-5.5": { "position": "agree", "confidence": 0.90 },
     "gemini": { "position": "agree_with_modifications", "confidence": 0.78 }
   }
 }
@@ -208,7 +208,7 @@ Response:
       "Add TTL-based and event-driven invalidation"
     ],
     "disagreements": [
-      "Optimal TTL values (claude: 5min, gpt4: 10min)"
+      "Optimal TTL values (claude: 5min, gpt-5.5: 10min)"
     ]
   },
   "voting_summary": {
@@ -246,7 +246,7 @@ Different models have different strengths:
 | Agent | Strengths |
 |-------|-----------|
 | Claude | Careful reasoning, safety considerations |
-| GPT-4 | Broad knowledge, code generation |
+| GPT-5.5 | Broad knowledge, code generation |
 | Gemini | Speed, multimodal understanding |
 | Grok | Real-time information |
 

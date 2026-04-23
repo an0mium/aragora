@@ -183,8 +183,8 @@ class TestAgentPerformance:
     def test_to_dict(self):
         """Test to_dict serialization."""
         perf = AgentPerformance(
-            agent_id="gpt-001",
-            agent_name="GPT-4",
+            agent_id="gpt-5.5",
+            agent_name="GPT-5.5",
             provider="openai",
             avg_response_time_ms=1234.567,
             error_rate=0.01234,
@@ -196,7 +196,7 @@ class TestAgentPerformance:
 
         result = perf.to_dict()
 
-        assert result["agent_id"] == "gpt-001"
+        assert result["agent_id"] == "gpt-5.5"
         assert result["avg_response_time_ms"] == 1234.57  # Rounded to 2 decimals
         assert result["error_rate"] == 0.0123  # Rounded to 4 decimals
         assert result["vote_ratio"] == 0.8568  # Rounded to 4 decimals
@@ -272,7 +272,7 @@ class TestCostBreakdown:
             period_end=now,
             total_cost=Decimal("100.50"),
             by_provider={"anthropic": Decimal("60.00"), "openai": Decimal("40.50")},
-            by_model={"claude-3-opus": Decimal("60.00"), "gpt-4": Decimal("40.50")},
+            by_model={"claude-3-opus": Decimal("60.00"), "gpt-5.5": Decimal("40.50")},
             by_user={"user-1": Decimal("50.25"), "user-2": Decimal("50.25")},
             by_org={"org-1": Decimal("100.50")},
             daily_costs=[("2024-01-01", Decimal("50.25")), ("2024-01-02", Decimal("50.25"))],

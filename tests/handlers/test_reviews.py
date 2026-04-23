@@ -231,7 +231,7 @@ class TestListReviews:
             {
                 "id": "abc123",
                 "created_at": "2026-01-01T00:00:00Z",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "pr_url": "https://github.com/example/pr/1",
                 "findings": {
                     "unanimous_critiques": [{"text": "issue1"}],
@@ -245,7 +245,7 @@ class TestListReviews:
         assert body["total"] == 1
         review = body["reviews"][0]
         assert review["id"] == "abc123"
-        assert review["agents"] == ["claude", "gpt4"]
+        assert review["agents"] == ["claude", "gpt-5.5"]
         assert review["pr_url"] == "https://github.com/example/pr/1"
         assert review["unanimous_count"] == 1
         assert review["agreement_score"] == 0.85
@@ -402,7 +402,7 @@ class TestGetReview:
         review_data = {
             "id": "abc123",
             "created_at": "2026-01-01T00:00:00Z",
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "findings": {"unanimous_critiques": [], "agreement_score": 0.9},
         }
         _write_review(reviews_dir, "abc123", review_data)
@@ -410,7 +410,7 @@ class TestGetReview:
         body = _body(result)
         assert _status(result) == 200
         assert body["review"]["id"] == "abc123"
-        assert body["review"]["agents"] == ["claude", "gpt4"]
+        assert body["review"]["agents"] == ["claude", "gpt-5.5"]
 
     def test_get_review_not_found(self, handler, http_handler, reviews_dir):
         """Return 404 for a non-existent review ID."""
@@ -484,7 +484,7 @@ class TestGetReview:
         full_data = {
             "id": "full1",
             "created_at": "2026-01-01T00:00:00Z",
-            "agents": ["claude", "gpt4", "gemini"],
+            "agents": ["claude", "gpt-5.5", "gemini"],
             "pr_url": "https://github.com/example/pr/42",
             "findings": {
                 "unanimous_critiques": [

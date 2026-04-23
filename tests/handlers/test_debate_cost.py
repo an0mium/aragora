@@ -34,10 +34,10 @@ def _make_result(**overrides):
     result.confidence = 0.9
     result.status = "completed"
     result.agent_failures = []
-    result.participants = ["claude", "gpt4"]
+    result.participants = ["claude", "gpt-5.5"]
     result.grounded_verdict = None
     result.total_cost_usd = overrides.get("total_cost_usd", 0.15)
-    result.per_agent_cost = overrides.get("per_agent_cost", {"claude": 0.08, "gpt4": 0.07})
+    result.per_agent_cost = overrides.get("per_agent_cost", {"claude": 0.08, "gpt-5.5": 0.07})
     result.explanation = None
     result.messages = []
     result.winner = None
@@ -48,7 +48,7 @@ def _make_config():
     """Create a mock debate config."""
     config = MagicMock()
     config.question = "Test question"
-    config.agents_str = "claude,gpt4"
+    config.agents_str = "claude,gpt-5.5"
     config.rounds = 3
     config.metadata = {}
     config.debate_format = "full"
@@ -63,7 +63,7 @@ class TestCostInDebateResults:
         """total_cost_usd and per_agent_cost should appear in status update."""
         result = _make_result(
             total_cost_usd=0.15,
-            per_agent_cost={"claude": 0.08, "gpt4": 0.07},
+            per_agent_cost={"claude": 0.08, "gpt-5.5": 0.07},
         )
         config = _make_config()
 
@@ -89,7 +89,7 @@ class TestCostInDebateResults:
             assert len(completed_calls) >= 1
             result_data = completed_calls[0].kwargs.get("result", {})
             assert result_data["total_cost_usd"] == 0.15
-            assert result_data["per_agent_cost"] == {"claude": 0.08, "gpt4": 0.07}
+            assert result_data["per_agent_cost"] == {"claude": 0.08, "gpt-5.5": 0.07}
 
     def test_zero_cost_handled(self, controller):
         """Zero cost should be included correctly, not omitted."""
@@ -121,7 +121,7 @@ class TestCostInDebateResults:
 
     def test_per_agent_cost_dict_format(self, controller):
         """per_agent_cost should be a dict mapping agent name to cost."""
-        result = _make_result(per_agent_cost={"claude": 0.08, "gpt4": 0.07, "mistral": 0.03})
+        result = _make_result(per_agent_cost={"claude": 0.08, "gpt-5.5": 0.07, "mistral": 0.03})
         config = _make_config()
 
         with (

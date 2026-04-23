@@ -120,9 +120,9 @@ agents:
     - name: claude
       provider: anthropic
       model: claude-3-5-sonnet-latest
-    - name: gpt4
+    - name: gpt-5.5
       provider: openai
-      model: gpt-4o
+      model: gpt-5.5
 
 debate:
   default_rounds: 3

@@ -53,7 +53,7 @@ source .env 2>/dev/null || export $(grep -v '^#' .env | xargs) 2>/dev/null
 python -m aragora.cli.main ask \
   "Generate a prioritized implementation plan to improve Aragora dogfood quality without recreating existing components." \
   --local \
-  --agents "openrouter|anthropic/claude-sonnet-4.6||proposer,openrouter|openai/gpt-4o||critic,openrouter|google/gemini-2.0-flash-001||synthesizer" \
+  --agents "openrouter|anthropic/claude-sonnet-4.6||proposer,openrouter|openai/gpt-5.5||critic,openrouter|google/gemini-2.0-flash-001||synthesizer" \
   --rounds 2 \
   --consensus majority \
   --codebase-context \
@@ -94,7 +94,7 @@ Use the same scorecard style as run 001, adding:
 
 ### Executed Command Profile (Successful Scored Run)
 - Mode: local debate
-- Agents: OpenRouter Claude Sonnet 4.6 (proposer), OpenRouter GPT-4o (critic), OpenRouter Gemini 2.0 Flash (synthesizer)
+- Agents: OpenRouter Claude Sonnet 4.6 (proposer), OpenRouter GPT-5.5 (critic), OpenRouter Gemini 2.0 Flash (synthesizer)
 - Rounds: 2
 - Context engineering: enabled (`--codebase-context`, `--codebase-context-harnesses`)
 - Output contract: `docs/plans/dogfood_output_contract_v1.json`

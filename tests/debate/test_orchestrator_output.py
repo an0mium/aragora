@@ -48,7 +48,7 @@ class MockDebateResult:
     consensus_reached: bool = True
     rounds_used: int = 3
     status: str = "consensus_reached"
-    participants: list[str] = field(default_factory=lambda: ["claude", "gpt4"])
+    participants: list[str] = field(default_factory=lambda: ["claude", "gpt-5.5"])
     winner: str | None = None
     votes: list[MockVote] = field(default_factory=list)
     dissenting_views: list[str] = field(default_factory=list)
@@ -120,14 +120,14 @@ class TestFormatConclusion:
         result = MockDebateResult(
             votes=[
                 MockVote(voter="claude", choice="proposal_a"),
-                MockVote(voter="gpt4", choice="proposal_a"),
+                MockVote(voter="gpt-5.5", choice="proposal_a"),
             ]
         )
         output = format_conclusion(result)
 
         assert "VOTE BREAKDOWN" in output
         assert "claude: proposal_a" in output
-        assert "gpt4: proposal_a" in output
+        assert "gpt-5.5: proposal_a" in output
 
     def test_format_conclusion_with_dissenting_views(self):
         """Test formatting with dissenting views."""

@@ -83,9 +83,9 @@ class TestCrossSourceConsensus:
         """Test detecting consensus across platforms."""
         # Use more similar topic texts to ensure clustering
         topics = [
-            TrendingTopic("hackernews", "OpenAI releases GPT-5 model", 500, "ai"),
-            TrendingTopic("reddit", "OpenAI releases GPT-5 model", 8000, "ai"),
-            TrendingTopic("twitter", "OpenAI releases GPT-5", 50000, "ai"),
+            TrendingTopic("hackernews", "OpenAI releases GPT-5.5 model", 500, "ai"),
+            TrendingTopic("reddit", "OpenAI releases GPT-5.5 model", 8000, "ai"),
+            TrendingTopic("twitter", "OpenAI releases GPT-5.5", 50000, "ai"),
         ]
 
         result = consensus.detect_consensus(topics)
@@ -228,8 +228,8 @@ class TestConsensusSimilarity:
 
         # Access private method for testing
         sim = consensus._calculate_similarity(
-            "OpenAI releases GPT-5",
-            "OpenAI releases GPT-5",
+            "OpenAI releases GPT-5.5",
+            "OpenAI releases GPT-5.5",
         )
 
         assert sim > 0.99
@@ -239,8 +239,8 @@ class TestConsensusSimilarity:
         consensus = CrossSourceConsensus()
 
         sim = consensus._calculate_similarity(
-            "OpenAI announces GPT-5 release",
-            "GPT-5 released by OpenAI today",
+            "OpenAI announces GPT-5.5 release",
+            "GPT-5.5 released by OpenAI today",
         )
 
         # Should be similar but not identical
@@ -251,7 +251,7 @@ class TestConsensusSimilarity:
         consensus = CrossSourceConsensus()
 
         sim = consensus._calculate_similarity(
-            "OpenAI releases GPT-5",
+            "OpenAI releases GPT-5.5",
             "Best recipes for chocolate cake",
         )
 

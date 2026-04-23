@@ -48,7 +48,7 @@ class _FakeArena:
 
         # Agents
         agents = []
-        for name in ("claude", "gpt4", "gemini"):
+        for name in ("claude", "gpt-5.5", "gemini"):
             agent = MagicMock()
             agent.name = name
             agent.model = f"{name}-model"
@@ -217,7 +217,7 @@ class TestEventBusSubscription:
             event_type="agent_message",
             debate_id="test",
             data={
-                "agent": "gpt4",
+                "agent": "gpt-5.5",
                 "content": "Rate limiting alone is insufficient",
                 "role": "critic",
                 "round_num": 1,
@@ -227,7 +227,7 @@ class TestEventBusSubscription:
             handler(event)
 
         assert len(stream._evidence) == 1
-        assert stream._evidence[0].source == "gpt4"
+        assert stream._evidence[0].source == "gpt-5.5"
         assert stream._evidence[0].evidence_type == "critique"
 
     def test_refinement_routed_to_on_refinement(self):
@@ -343,7 +343,7 @@ class TestEventBusSubscription:
         bus.emit_sync(
             "agent_message",
             debate_id="test",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="Critique of A",
             role="critic",
             round_num=1,
@@ -371,9 +371,9 @@ class TestSnapshotAttachment:
         # Create and populate a real stream
         stream = LiveExplainabilityStream()
         stream.on_proposal("claude", "Use rate limiting", round_num=1)
-        stream.on_critique("gpt4", "Not enough on its own", round_num=1)
+        stream.on_critique("gpt-5.5", "Not enough on its own", round_num=1)
         stream.on_vote("claude", "rate_limiting", confidence=0.85, round_num=2)
-        stream.on_vote("gpt4", "rate_limiting", confidence=0.7, round_num=2)
+        stream.on_vote("gpt-5.5", "rate_limiting", confidence=0.7, round_num=2)
         fake_arena.live_explainability_stream = stream
 
         await handle_debate_completion(fake_arena, execution_state)
@@ -423,7 +423,7 @@ class TestSnapshotAttachment:
         """Snapshot metadata should include round number and event counts."""
         stream = LiveExplainabilityStream()
         stream.on_proposal("claude", "Proposal", round_num=3)
-        stream.on_critique("gpt4", "Critique", round_num=3)
+        stream.on_critique("gpt-5.5", "Critique", round_num=3)
         stream.on_refinement("claude", "Revised proposal", round_num=3)
         fake_arena.live_explainability_stream = stream
 
@@ -466,7 +466,7 @@ class TestFullRoundTrip:
         bus.emit_sync(
             "agent_message",
             debate_id="test",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="Circuit breaker pattern instead",
             role="proposer",
             round_num=1,
@@ -476,7 +476,7 @@ class TestFullRoundTrip:
         bus.emit_sync(
             "agent_message",
             debate_id="test",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="Token bucket is too simple",
             role="critic",
             round_num=1,
@@ -502,7 +502,7 @@ class TestFullRoundTrip:
         bus.emit_sync(
             "vote",
             debate_id="test",
-            agent="gpt4",
+            agent="gpt-5.5",
             choice="token_bucket",
             confidence=0.7,
             round_num=2,

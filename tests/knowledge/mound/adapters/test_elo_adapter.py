@@ -64,16 +64,16 @@ def _make_mock_match(
     match = MagicMock()
     match.debate_id = debate_id
     match.winner = winner
-    match.participants = participants or ["claude", "gpt4"]
+    match.participants = participants or ["claude", "gpt-5.5"]
     match.domain = domain
-    match.scores = scores or {"claude": 0.8, "gpt4": 0.6}
+    match.scores = scores or {"claude": 0.8, "gpt-5.5": 0.6}
     match.created_at = created_at
     return match
 
 
 def _make_mock_relationship(
     agent_a: str = "claude",
-    agent_b: str = "gpt4",
+    agent_b: str = "gpt-5.5",
     debates_together: int = 10,
     a_wins_vs_b: int = 6,
     b_wins_vs_a: int = 3,
@@ -178,7 +178,7 @@ class TestBatchMatchOperations:
 
         matches = [
             _make_mock_match(debate_id="d-1", winner="claude"),
-            _make_mock_match(debate_id="d-2", winner="gpt4"),
+            _make_mock_match(debate_id="d-2", winner="gpt-5.5"),
             _make_mock_match(debate_id="d-3", winner="claude"),
         ]
 
@@ -195,13 +195,13 @@ class TestBatchMatchOperations:
         """Should correctly index matches with different participants."""
         adapter = PerformanceAdapter(enable_resilience=False)
 
-        adapter.store_match(_make_mock_match(debate_id="d-1", participants=["claude", "gpt4"]))
+        adapter.store_match(_make_mock_match(debate_id="d-1", participants=["claude", "gpt-5.5"]))
         adapter.store_match(_make_mock_match(debate_id="d-2", participants=["claude", "gemini"]))
-        adapter.store_match(_make_mock_match(debate_id="d-3", participants=["gpt4", "gemini"]))
+        adapter.store_match(_make_mock_match(debate_id="d-3", participants=["gpt-5.5", "gemini"]))
 
         # Check indices
         assert len(adapter.get_agent_matches("claude")) == 2
-        assert len(adapter.get_agent_matches("gpt4")) == 2
+        assert len(adapter.get_agent_matches("gpt-5.5")) == 2
         assert len(adapter.get_agent_matches("gemini")) == 2
 
     def test_batch_matches_preserve_order(self):
@@ -254,7 +254,7 @@ class TestEloCalculationEdgeCases:
             draws=3,  # Had 2 draws, now 3
         )
         rating2 = _make_mock_rating(
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             elo=1500,
             wins=8,
             losses=7,
@@ -266,7 +266,7 @@ class TestEloCalculationEdgeCases:
 
         # Verify both stored correctly
         history1 = adapter.get_agent_skill_history("claude")
-        history2 = adapter.get_agent_skill_history("gpt4")
+        history2 = adapter.get_agent_skill_history("gpt-5.5")
 
         assert len(history1) == 1
         assert len(history2) == 1
@@ -578,8 +578,8 @@ class TestEloStorageAdditional:
 
         match = _make_mock_match(
             debate_id="d-multi",
-            participants=["claude", "gpt4", "gemini"],
-            scores={"claude": 0.9, "gpt4": 0.7, "gemini": 0.6},
+            participants=["claude", "gpt-5.5", "gemini"],
+            scores={"claude": 0.9, "gpt-5.5": 0.7, "gemini": 0.6},
         )
 
         match_id = adapter.store_match(match)
@@ -597,7 +597,7 @@ class TestEloStorageAdditional:
                 debate_id=f"d-{i}",
                 predicted_winner="claude",
                 predicted_confidence=0.6 + i * 0.05,
-                actual_winner="claude" if i % 2 == 0 else "gpt4",
+                actual_winner="claude" if i % 2 == 0 else "gpt-5.5",
                 was_correct=i % 2 == 0,
                 brier_score=0.1 + i * 0.05,
             )
@@ -615,7 +615,7 @@ class TestEloStorageAdditional:
 
         # Store ratings with different domains
         r1 = _make_mock_rating(agent_name="claude", domain_elos={"security": 1700})
-        r2 = _make_mock_rating(agent_name="gpt4", domain_elos={"security": 1650})
+        r2 = _make_mock_rating(agent_name="gpt-5.5", domain_elos={"security": 1650})
         r3 = _make_mock_rating(agent_name="gemini", domain_elos={"coding": 1800})
 
         adapter.store_rating(r1)
@@ -634,7 +634,7 @@ class TestEloStorageAdditional:
 
         metrics = _make_mock_relationship(
             agent_a="claude",
-            agent_b="gpt4",
+            agent_b="gpt-5.5",
             debates_together=15,
             a_wins_vs_b=8,
             b_wins_vs_a=5,
@@ -643,7 +643,7 @@ class TestEloStorageAdditional:
 
         adapter.store_relationship(metrics)
 
-        rel = adapter.get_relationship("claude", "gpt4")
+        rel = adapter.get_relationship("claude", "gpt-5.5")
 
         assert rel["debates_together"] == 15
         assert rel["a_wins_vs_b"] == 8

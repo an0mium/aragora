@@ -31,7 +31,7 @@ async def generate_receipt(dry_run: bool = False) -> dict:
         topic="Should we migrate from REST to GraphQL for our public API?",
         agents=[
             Agent(name="architect", model="claude-sonnet-4-20250514"),
-            Agent(name="pragmatist", model="gpt-4o"),
+            Agent(name="pragmatist", model="gpt-5.5"),
             Agent(name="security", model="gemini-2.0-flash"),
         ],
         rounds=3,

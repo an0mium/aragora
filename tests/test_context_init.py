@@ -114,7 +114,7 @@ class TestForkHistoryInjection:
         init = ContextInitializer(
             initial_messages=[
                 {"role": "user", "agent": "claude", "content": "Hello", "round": 0},
-                {"role": "assistant", "agent": "gpt4", "content": "Hi", "round": 1},
+                {"role": "assistant", "agent": "gpt-5.5", "content": "Hi", "round": 1},
             ]
         )
         ctx = DebateContext(env=MockEnvironment())
@@ -578,7 +578,7 @@ class TestProposerSelection:
         init = ContextInitializer()
         agents = [
             MockAgent(name="claude", role="proposer"),
-            MockAgent(name="gpt4", role="critic"),
+            MockAgent(name="gpt-5.5", role="critic"),
             MockAgent(name="gemini", role="proposer"),
         ]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
@@ -596,7 +596,7 @@ class TestProposerSelection:
         init = ContextInitializer()
         agents = [
             MockAgent(name="claude", role="critic"),
-            MockAgent(name="gpt4", role="synthesizer"),
+            MockAgent(name="gpt-5.5", role="synthesizer"),
         ]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
 

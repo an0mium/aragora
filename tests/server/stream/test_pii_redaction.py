@@ -134,7 +134,7 @@ class TestPIIRedaction:
             {
                 "loop_id": "debate-123",
                 "task": f"Review proposal: {PII_TEXT}",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "status": "running",
                 "current_round": 2,
                 "messages": [],

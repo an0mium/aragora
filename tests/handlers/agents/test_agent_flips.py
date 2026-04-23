@@ -241,9 +241,9 @@ class TestGetAgentFlips:
                     "aragora.server.handlers.agents.agent_flips.get_db_path",
                     return_value="/tmp/nomic/positions.db",
                 ):
-                    handler._get_agent_flips("gpt4", 50)
+                    handler._get_agent_flips("gpt-5.5", 50)
                     mock_detector.detect_flips_for_agent.assert_called_once_with(
-                        "gpt4", lookback_positions=50
+                        "gpt-5.5", lookback_positions=50
                     )
 
     def test_limit_exactly_100(self, handler):
@@ -361,7 +361,7 @@ class TestGetAgentFlips:
 
     def test_different_agent_names(self, handler):
         """Works with different agent names."""
-        for agent_name in ["gpt4", "gemini-pro", "llama3"]:
+        for agent_name in ["gpt-5.5", "gemini-pro", "llama3"]:
             with patch.object(handler, "get_nomic_dir", return_value=None):
                 result = handler._get_agent_flips(agent_name, 10)
                 assert _status(result) == 200
@@ -484,12 +484,12 @@ class TestGetRecentFlips:
         """Returns flips and summary when nomic_dir is available."""
         mock_flips = [
             _make_flip_event(id="flip-1", agent_name="claude"),
-            _make_flip_event(id="flip-2", agent_name="gpt4"),
+            _make_flip_event(id="flip-2", agent_name="gpt-5.5"),
         ]
         mock_summary = {
             "total_flips": 10,
             "by_type": {"contradiction": 5, "refinement": 5},
-            "by_agent": {"claude": 3, "gpt4": 7},
+            "by_agent": {"claude": 3, "gpt-5.5": 7},
             "recent_24h": 2,
         }
         mock_detector = MagicMock()
@@ -712,7 +712,7 @@ class TestGetFlipSummary:
         mock_summary = {
             "total_flips": 42,
             "by_type": {"contradiction": 20, "refinement": 15, "retraction": 7},
-            "by_agent": {"claude": 15, "gpt4": 12, "gemini": 15},
+            "by_agent": {"claude": 15, "gpt-5.5": 12, "gemini": 15},
             "recent_24h": 5,
         }
         mock_detector = MagicMock()
@@ -915,7 +915,7 @@ class TestCaching:
                     return_value="/tmp/nomic/positions.db",
                 ):
                     handler._get_agent_flips("claude", 20)
-                    handler._get_agent_flips("gpt4", 20)
+                    handler._get_agent_flips("gpt-5.5", 20)
                     assert mock_detector.detect_flips_for_agent.call_count == 2
 
     def test_recent_flips_cached_on_second_call(self, handler):

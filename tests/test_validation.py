@@ -664,7 +664,7 @@ class TestPatterns:
         [
             "claude",
             "gemini-pro",
-            "gpt_4",
+            "gpt-5.5",
             "agent123",
         ],
     )

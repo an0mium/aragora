@@ -559,7 +559,7 @@ class TestComplexQueries:
         mutation StartNewDebate {
             startDebate(input: {
                 question: "What are the ethical implications of AGI?"
-                agents: "claude,gpt4,gemini"
+                agents: "claude,gpt-5.5,gemini"
                 rounds: 5
                 consensus: "majority"
                 autoSelect: false

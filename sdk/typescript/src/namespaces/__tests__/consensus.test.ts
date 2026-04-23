@@ -47,7 +47,7 @@ describe('ConsensusAPI', () => {
             strength: 'strong',
             confidence: 0.92,
             similarity: 0.95,
-            agents: ['claude', 'gpt4'],
+            agents: ['claude', 'gpt-5.5'],
             dissent_count: 1,
             timestamp: '2024-01-15T00:00:00Z',
           },

@@ -92,7 +92,7 @@ class MockClaim:
 class MockDissentRecord:
     """Mock dissent record."""
 
-    agent: str = "gpt4"
+    agent: str = "gpt-5.5"
     reasons: list = field(default_factory=lambda: ["Insufficient evidence", "Risk too high"])
     alternative_view: str = "Consider a phased approach instead."
     suggested_resolution: str = "Run pilot program first."
@@ -116,7 +116,7 @@ class MockConsensusProof:
     votes: list = field(default_factory=list)
     claims: list = field(default_factory=list)
     evidence_chain: list = field(default_factory=list)
-    dissenting_agents: list = field(default_factory=lambda: ["gpt4"])
+    dissenting_agents: list = field(default_factory=lambda: ["gpt-5.5"])
     dissents: list = field(default_factory=list)
     unresolved_tensions: list = field(default_factory=list)
     checksum: str = "sha256:abc123"
@@ -133,7 +133,7 @@ class MockDebateResult:
     confidence: float = 0.85
     messages: list = field(default_factory=list)
     rounds_used: int = 3
-    participants: list = field(default_factory=lambda: ["claude", "gpt4", "gemini"])
+    participants: list = field(default_factory=lambda: ["claude", "gpt-5.5", "gemini"])
     completed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: float = 45.5
     consensus_proof: MockConsensusProof = None
@@ -470,7 +470,7 @@ class TestBuildExplanation:
         handler = create_handler({})
         votes = [
             MockVote(agent="claude", vote="agree", confidence=0.9),
-            MockVote(agent="gpt4", vote="disagree", confidence=0.7),
+            MockVote(agent="gpt-5.5", vote="disagree", confidence=0.7),
         ]
         consensus_proof = MockConsensusProof(votes=votes)
         result = MockDebateResult(consensus_proof=consensus_proof)
@@ -479,7 +479,7 @@ class TestBuildExplanation:
 
         assert len(built_votes) == 2
         assert built_votes[0]["agent"] == "claude"
-        assert built_votes[1]["agent"] == "gpt4"
+        assert built_votes[1]["agent"] == "gpt-5.5"
 
     def test_build_votes_from_agent_contributions(self):
         """Should infer votes from agent contributions when no consensus proof."""
@@ -488,7 +488,7 @@ class TestBuildExplanation:
             consensus_proof=None,
             agent_contributions=[
                 {"agent": "claude", "response": "I agree with this approach."},
-                {"agent": "gpt4", "response": "The analysis is sound."},
+                {"agent": "gpt-5.5", "response": "The analysis is sound."},
             ],
         )
 
@@ -496,28 +496,28 @@ class TestBuildExplanation:
 
         assert len(built_votes) == 2
         assert built_votes[0]["agent"] == "claude"
-        assert built_votes[1]["agent"] == "gpt4"
+        assert built_votes[1]["agent"] == "gpt-5.5"
 
     def test_build_dissent_with_dissenting_agents(self):
         """Should build dissent section with dissenting agents."""
         handler = create_handler({})
         dissents = [
             MockDissentRecord(
-                agent="gpt4",
+                agent="gpt-5.5",
                 reasons=["Risk too high"],
                 alternative_view="Phased approach",
                 severity=0.7,
             ),
         ]
         consensus_proof = MockConsensusProof(
-            dissenting_agents=["gpt4"],
+            dissenting_agents=["gpt-5.5"],
             dissents=dissents,
         )
         result = MockDebateResult(consensus_proof=consensus_proof)
 
         dissent = handler._build_dissent(result)
 
-        assert "gpt4" in dissent["dissenting_agents"]
+        assert "gpt-5.5" in dissent["dissenting_agents"]
         assert "Risk too high" in dissent["reasons"]
         assert len(dissent["alternative_views"]) == 1
         assert dissent["severity"] == 0.7
@@ -548,7 +548,7 @@ class TestBuildExplanation:
             completed_at=completed,
             duration_seconds=60.5,
             rounds_used=4,
-            participants=["claude", "gpt4", "gemini"],
+            participants=["claude", "gpt-5.5", "gemini"],
             consensus_proof=consensus_proof,
         )
 
@@ -584,7 +584,7 @@ class TestLoadFromReplay:
                 },
                 {
                     "type": "agent_message",
-                    "agent": "gpt4",
+                    "agent": "gpt-5.5",
                     "round": 1,
                     "data": {"content": "Counter analysis", "role": "critic"},
                 },
@@ -683,16 +683,16 @@ class TestOutputFormatting:
                 }
             ],
             "dissent": {
-                "dissenting_agents": ["gpt4"],
+                "dissenting_agents": ["gpt-5.5"],
                 "reasons": ["Risk concern"],
-                "alternative_views": [{"agent": "gpt4", "view": "Phased approach"}],
+                "alternative_views": [{"agent": "gpt-5.5", "view": "Phased approach"}],
                 "severity": 0.5,
             },
             "tensions": [{"description": "Speed vs quality", "impact": "Timeline"}],
             "audit_trail": {
                 "duration_seconds": 45,
                 "rounds_completed": 3,
-                "agents_involved": ["claude", "gpt4"],
+                "agents_involved": ["claude", "gpt-5.5"],
                 "checksum": "sha256:abc",
             },
         }

@@ -433,7 +433,7 @@ class TestUserInteraction:
             id="I123",
             interaction_type=InteractionType.SELECT_MENU,
             action_id="agent_select",
-            values=["claude", "gpt4", "gemini"],
+            values=["claude", "gpt-5.5", "gemini"],
             platform="slack",
         )
 

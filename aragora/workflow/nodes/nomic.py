@@ -44,7 +44,7 @@ class NomicLoopStep(BaseStep):
         timeout_seconds: float - Timeout per phase (default: 300)
         recovery_enabled: bool - Enable automatic recovery (default: True)
         max_retries: int - Maximum retries per phase (default: 3)
-        agents: list[str] - Agent types for debate (default: ["claude", "gpt4"])
+        agents: list[str] - Agent types for debate (default: ["claude", "gpt-5.5"])
 
     Usage:
         step = NomicLoopStep(

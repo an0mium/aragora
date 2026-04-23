@@ -158,7 +158,7 @@ OPENROUTER_BACKED_FAMILIES: frozenset[str] = frozenset({FAMILY_DEEPSEEK, FAMILY_
 #
 # Sources consulted (April 2026):
 # - Anthropic pricing page (Claude Opus / Sonnet / Haiku tiers)
-# - OpenAI pricing page (GPT-5 / GPT-4.1 family)
+# - OpenAI pricing page (GPT-5.5 / GPT-5.5 family)
 # - Google Gemini API pricing (Gemini 3.1 Pro / 3 Flash)
 # - xAI docs (Grok 4 / 4.2 pricing)
 # - OpenRouter model catalog (DeepSeek chat, Moonshot Kimi K2.6,
@@ -173,15 +173,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "claude-sonnet-4": (3.00, 15.00),
     "claude-haiku-4-5": (0.80, 4.00),
     # OpenAI
-    "gpt-5.4": (2.50, 10.00),
-    "gpt-5.4-pro": (5.00, 20.00),
-    "gpt-5.3": (2.50, 10.00),
-    "gpt-5.3-chat-latest": (2.50, 10.00),
-    "gpt-5.3-codex": (2.50, 10.00),
-    "gpt-4.1": (2.00, 8.00),
-    "gpt-4.1-mini": (0.40, 1.60),
-    "gpt-4o": (2.50, 10.00),
-    "gpt-4o-mini": (0.15, 0.60),
+    "gpt-5.5": (2.50, 10.00),
     # Google Gemini (direct API). Gemini 3.1 Pro Preview ≈ Gemini 2.5 Pro
     # tier; Flash derivatives cheaper.
     "gemini-3.1-pro-preview": (1.25, 10.00),

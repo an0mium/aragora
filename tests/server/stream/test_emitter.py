@@ -95,7 +95,7 @@ def stream_event() -> StreamEvent:
     """Create a sample stream event."""
     return StreamEvent(
         type=StreamEventType.DEBATE_START,
-        data={"task": "Test debate task", "agents": ["claude", "gpt4"]},
+        data={"task": "Test debate task", "agents": ["claude", "gpt-5.5"]},
     )
 
 
@@ -617,7 +617,7 @@ class TestSyncEventEmitter:
             StreamEvent(
                 type=StreamEventType.AGENT_MESSAGE,
                 data={},
-                agent="gpt4",
+                agent="gpt-5.5",
             )
         )
         emitter.emit(
@@ -633,9 +633,9 @@ class TestSyncEventEmitter:
         assert events[0].seq == 1
         assert events[1].seq == 2
         assert events[2].seq == 3
-        # Agent seq should be 1, 1, 2 (claude, gpt4, claude)
+        # Agent seq should be 1, 1, 2 (claude, gpt-5.5, claude)
         assert events[0].agent_seq == 1  # claude's first
-        assert events[1].agent_seq == 1  # gpt4's first
+        assert events[1].agent_seq == 1  # gpt-5.5's first
         assert events[2].agent_seq == 2  # claude's second
 
     def test_reset_sequences(self, emitter):
@@ -651,7 +651,7 @@ class TestSyncEventEmitter:
             StreamEvent(
                 type=StreamEventType.AGENT_MESSAGE,
                 data={},
-                agent="gpt4",
+                agent="gpt-5.5",
             )
         )
 
@@ -1035,7 +1035,7 @@ class TestEmitterIntegration:
         emitter.emit(
             StreamEvent(
                 type=StreamEventType.DEBATE_START,
-                data={"task": "Should we use Python or Rust?", "agents": ["claude", "gpt4"]},
+                data={"task": "Should we use Python or Rust?", "agents": ["claude", "gpt-5.5"]},
             )
         )
 
@@ -1049,7 +1049,7 @@ class TestEmitterIntegration:
         )
 
         # Agent messages
-        for agent in ["claude", "gpt4"]:
+        for agent in ["claude", "gpt-5.5"]:
             emitter.emit(
                 StreamEvent(
                     type=StreamEventType.AGENT_MESSAGE,
@@ -1122,7 +1122,9 @@ class TestEmitterIntegration:
         t1 = threading.Thread(
             target=stream_tokens, args=("claude", ["Hello", " ", "world"], "task-1")
         )
-        t2 = threading.Thread(target=stream_tokens, args=("gpt4", ["Hi", " ", "there"], "task-2"))
+        t2 = threading.Thread(
+            target=stream_tokens, args=("gpt-5.5", ["Hi", " ", "there"], "task-2")
+        )
 
         t1.start()
         t2.start()
@@ -1133,17 +1135,17 @@ class TestEmitterIntegration:
 
         # Each agent should have sequential agent_seq
         claude_events = [e for e in events if e.agent == "claude"]
-        gpt4_events = [e for e in events if e.agent == "gpt4"]
+        gpt55_events = [e for e in events if e.agent == "gpt-5.5"]
 
         assert len(claude_events) == 5  # START + 3 DELTA + END
-        assert len(gpt4_events) == 5
+        assert len(gpt55_events) == 5
 
         # Agent sequences should be sequential within each agent
         claude_seqs = [e.agent_seq for e in claude_events]
-        gpt4_seqs = [e.agent_seq for e in gpt4_events]
+        gpt55_seqs = [e.agent_seq for e in gpt55_events]
 
         assert claude_seqs == sorted(claude_seqs)
-        assert gpt4_seqs == sorted(gpt4_seqs)
+        assert gpt55_seqs == sorted(gpt55_seqs)
 
     def test_audience_interaction_during_debate(self, emitter, audience_inbox):
         """Test audience votes and suggestions during a debate."""

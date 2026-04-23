@@ -89,7 +89,7 @@ export default function (data) {
     // Create debate
     const createPayload = JSON.stringify({
       question: randomQuestion(),
-      agents: ['claude', 'gpt4'],
+      agents: ['claude', 'gpt-5.5'],
       protocol: {
         rounds: 2,
         consensus: 'majority',

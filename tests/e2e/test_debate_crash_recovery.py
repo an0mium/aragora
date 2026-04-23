@@ -173,7 +173,7 @@ class TestProposalPhaseCrashRecovery:
         # Two agents have completed proposals
         messages = [
             {"agent": "claude", "content": "First proposal", "round": 1},
-            {"agent": "gpt4", "content": "Second proposal", "round": 1},
+            {"agent": "gpt-5.5", "content": "Second proposal", "round": 1},
         ]
 
         checkpoint = await create_test_checkpoint(
@@ -188,7 +188,7 @@ class TestProposalPhaseCrashRecovery:
         loaded = await checkpoint_store.load(checkpoint.checkpoint_id)
         assert len(loaded.messages) == 2
         assert loaded.messages[0]["agent"] == "claude"
-        assert loaded.messages[1]["agent"] == "gpt4"
+        assert loaded.messages[1]["agent"] == "gpt-5.5"
 
     async def test_crash_during_later_round_preserves_history(self, checkpoint_store):
         """Test crash during round 3 preserves rounds 1-2 completely."""
@@ -197,10 +197,10 @@ class TestProposalPhaseCrashRecovery:
         # Messages from rounds 1 and 2
         messages = [
             {"agent": "claude", "content": "R1 proposal", "round": 1},
-            {"agent": "gpt4", "content": "R1 proposal", "round": 1},
+            {"agent": "gpt-5.5", "content": "R1 proposal", "round": 1},
             {"agent": "gemini", "content": "R1 proposal", "round": 1},
             {"agent": "claude", "content": "R2 proposal", "round": 2},
-            {"agent": "gpt4", "content": "R2 proposal", "round": 2},
+            {"agent": "gpt-5.5", "content": "R2 proposal", "round": 2},
             {"agent": "gemini", "content": "R2 proposal", "round": 2},
         ]
 
@@ -236,13 +236,13 @@ class TestCritiquePhaseCrashRecovery:
 
         messages = [
             {"agent": "claude", "content": "Proposal", "round": 1},
-            {"agent": "gpt4", "content": "Proposal", "round": 1},
+            {"agent": "gpt-5.5", "content": "Proposal", "round": 1},
         ]
 
         critiques = [
             {
                 "critic": "claude",
-                "target": "gpt4",
+                "target": "gpt-5.5",
                 "issues": ["Issue 1"],
                 "suggestions": ["Suggestion 1"],
                 "score": 0.7,
@@ -262,7 +262,7 @@ class TestCritiquePhaseCrashRecovery:
         assert loaded.phase == "critique"
         assert len(loaded.critiques) == 1
         assert loaded.critiques[0]["critic"] == "claude"
-        assert loaded.critiques[0]["target"] == "gpt4"
+        assert loaded.critiques[0]["target"] == "gpt-5.5"
 
     async def test_critique_relationships_preserved(self, checkpoint_store):
         """Test that critique relationships and details are preserved."""
@@ -271,14 +271,14 @@ class TestCritiquePhaseCrashRecovery:
         detailed_critiques = [
             {
                 "critic": "claude",
-                "target": "gpt4",
+                "target": "gpt-5.5",
                 "issues": ["Lack of evidence", "Unclear reasoning"],
                 "suggestions": ["Add citations", "Clarify logic"],
                 "score": 0.6,
                 "round": 2,
             },
             {
-                "critic": "gpt4",
+                "critic": "gpt-5.5",
                 "target": "claude",
                 "issues": ["Too verbose"],
                 "suggestions": ["Be concise"],
@@ -320,7 +320,7 @@ class TestVotingPhaseCrashRecovery:
 
         votes = [
             {"agent": "claude", "choice": "proposal_1", "confidence": 0.9},
-            {"agent": "gpt4", "choice": "proposal_1", "confidence": 0.85},
+            {"agent": "gpt-5.5", "choice": "proposal_1", "confidence": 0.85},
         ]
 
         checkpoint = await create_test_checkpoint(

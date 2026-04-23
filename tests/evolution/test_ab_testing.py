@@ -324,10 +324,10 @@ class TestABTestManagerLifecycle:
     def test_start_multiple_tests_different_agents(self, manager):
         """Test starting tests for different agents."""
         test1 = manager.start_test("claude", 1, 2)
-        test2 = manager.start_test("gpt4", 1, 2)
+        test2 = manager.start_test("gpt-5.5", 1, 2)
 
         assert test1.agent == "claude"
-        assert test2.agent == "gpt4"
+        assert test2.agent == "gpt-5.5"
 
     def test_get_test(self, manager):
         """Test getting a test by ID."""
@@ -777,7 +777,7 @@ class TestABTestingIntegration:
     def test_multiple_agents_concurrent(self, manager):
         """Test running tests for multiple agents concurrently."""
         # Start tests for multiple agents
-        agents = ["claude", "gpt4", "gemini"]
+        agents = ["claude", "gpt-5.5", "gemini"]
         tests = {}
 
         for agent in agents:

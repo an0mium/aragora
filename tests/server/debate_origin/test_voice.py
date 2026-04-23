@@ -41,7 +41,7 @@ def sample_result() -> dict[str, Any]:
         "consensus_reached": True,
         "final_answer": "The team agrees on the recommended approach.",
         "confidence": 0.90,
-        "participants": ["claude", "gpt-4"],
+        "participants": ["claude", "gpt-5.5"],
         "task": "Test voice synthesis",
     }
 

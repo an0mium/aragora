@@ -88,7 +88,7 @@ def mock_storage():
     storage.get_debate.return_value = {
         "id": "test-debate",
         "task": "Test AI Debate",
-        "agents": ["claude", "gpt4"],
+        "agents": ["claude", "gpt-5.5"],
         "verdict": "consensus reached",
         "created_at": "2024-01-01T00:00:00Z",
     }

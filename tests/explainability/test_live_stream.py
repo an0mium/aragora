@@ -64,7 +64,7 @@ class TestLiveVote:
         assert v.weight == 1.0
 
     def test_flipped_vote(self):
-        v = LiveVote(agent="gpt4", choice="option_b", confidence=0.7, round_num=3, flipped=True)
+        v = LiveVote(agent="gpt-5.5", choice="option_b", confidence=0.7, round_num=3, flipped=True)
         assert v.flipped is True
 
 
@@ -113,13 +113,13 @@ class TestOnCritique:
     """Tests for on_critique method."""
 
     def test_basic_critique(self, stream):
-        stream.on_critique("gpt4", "This approach is insufficient", round_num=1)
+        stream.on_critique("gpt-5.5", "This approach is insufficient", round_num=1)
         assert len(stream.evidence) == 1
         assert stream.evidence[0].evidence_type == "critique"
-        assert stream.evidence[0].source == "gpt4"
+        assert stream.evidence[0].source == "gpt-5.5"
 
     def test_critique_with_target(self, stream_with_emitter, emitter):
-        stream_with_emitter.on_critique("gpt4", "Disagree", target_agent="claude", round_num=1)
+        stream_with_emitter.on_critique("gpt-5.5", "Disagree", target_agent="claude", round_num=1)
         call_data = emitter.emit.call_args[0][1]
         assert call_data["target"] == "claude"
 
@@ -211,7 +211,7 @@ class TestComputeFactors:
 
     def test_evidence_quality_factor(self, stream):
         stream.on_proposal("claude", "Proposal 1", round_num=1)
-        stream.on_critique("gpt4", "Critique 1", round_num=1)
+        stream.on_critique("gpt-5.5", "Critique 1", round_num=1)
         stream.on_refinement("claude", "Refined 1", round_num=2)
         factors = stream.compute_factors()
         eq = [f for f in factors if f.name == "evidence_quality"]
@@ -221,7 +221,7 @@ class TestComputeFactors:
 
     def test_agent_agreement_factor(self, stream):
         stream.on_vote("claude", "option_a", confidence=0.9, round_num=2)
-        stream.on_vote("gpt4", "option_a", confidence=0.8, round_num=2)
+        stream.on_vote("gpt-5.5", "option_a", confidence=0.8, round_num=2)
         stream.on_vote("gemini", "option_b", confidence=0.7, round_num=2)
         factors = stream.compute_factors()
         aa = [f for f in factors if f.name == "agent_agreement"]
@@ -231,7 +231,7 @@ class TestComputeFactors:
 
     def test_confidence_weighted_consensus(self, stream):
         stream.on_vote("claude", "opt", confidence=0.95, round_num=1, weight=2.0)
-        stream.on_vote("gpt4", "opt", confidence=0.5, round_num=1, weight=1.0)
+        stream.on_vote("gpt-5.5", "opt", confidence=0.5, round_num=1, weight=1.0)
         factors = stream.compute_factors()
         cwc = [f for f in factors if f.name == "confidence_weighted_consensus"]
         assert len(cwc) == 1
@@ -248,12 +248,12 @@ class TestComputeFactors:
     def test_agreement_trend_tracking(self, stream):
         # First snapshot with low agreement
         stream.on_vote("claude", "a", confidence=0.9, round_num=1)
-        stream.on_vote("gpt4", "b", confidence=0.8, round_num=1)
+        stream.on_vote("gpt-5.5", "b", confidence=0.8, round_num=1)
         stream.get_snapshot()  # Creates first snapshot
 
         # Second snapshot with high agreement
         stream.on_vote("claude", "a", confidence=0.9, round_num=2)
-        stream.on_vote("gpt4", "a", confidence=0.8, round_num=2)
+        stream.on_vote("gpt-5.5", "a", confidence=0.8, round_num=2)
         factors = stream.compute_factors()
         aa = [f for f in factors if f.name == "agent_agreement"]
         assert len(aa) == 1
@@ -270,7 +270,7 @@ class TestGetLeadingPosition:
 
     def test_from_votes(self, stream):
         stream.on_vote("claude", "Use caching", confidence=0.9, round_num=1)
-        stream.on_vote("gpt4", "Use caching", confidence=0.8, round_num=1)
+        stream.on_vote("gpt-5.5", "Use caching", confidence=0.8, round_num=1)
         stream.on_vote("gemini", "Use queues", confidence=0.7, round_num=1)
         pos, conf = stream.get_leading_position()
         assert pos == "Use caching"
@@ -292,19 +292,19 @@ class TestGenerateNarrative:
 
     def test_narrative_with_data(self, stream):
         stream.on_proposal("claude", "Use caching for performance", round_num=1)
-        stream.on_critique("gpt4", "Caching has invalidation issues", round_num=1)
+        stream.on_critique("gpt-5.5", "Caching has invalidation issues", round_num=1)
         stream.on_vote("claude", "Use caching", confidence=0.9, round_num=2)
-        stream.on_vote("gpt4", "Use caching", confidence=0.7, round_num=2)
+        stream.on_vote("gpt-5.5", "Use caching", confidence=0.7, round_num=2)
         stream._round_num = 2
         narrative = stream.generate_narrative()
         assert "evidence" in narrative.lower()
         assert "2 votes" in narrative
 
     def test_narrative_mentions_flips(self, stream):
-        stream.on_vote("gpt4", "option_a", confidence=0.8, round_num=1)
-        stream.on_vote("gpt4", "option_b", confidence=0.7, round_num=2)
+        stream.on_vote("gpt-5.5", "option_a", confidence=0.8, round_num=1)
+        stream.on_vote("gpt-5.5", "option_b", confidence=0.7, round_num=2)
         narrative = stream.generate_narrative()
-        assert "gpt4" in narrative
+        assert "gpt-5.5" in narrative
         assert "changed" in narrative.lower()
 
 
@@ -319,7 +319,7 @@ class TestGetSnapshot:
 
     def test_snapshot_with_data(self, stream):
         stream.on_proposal("claude", "Proposal A", round_num=1)
-        stream.on_critique("gpt4", "Counter argument", round_num=1)
+        stream.on_critique("gpt-5.5", "Counter argument", round_num=1)
         stream.on_vote("claude", "opt_a", confidence=0.9, round_num=2)
         stream._round_num = 2
         snapshot = stream.get_snapshot()
@@ -390,7 +390,7 @@ class TestEndToEnd:
             "claude", "Implement rate limiting with sliding window", round_num=1, confidence=0.85
         )
         stream.on_proposal(
-            "gpt4", "Use token bucket algorithm instead", round_num=1, confidence=0.80
+            "gpt-5.5", "Use token bucket algorithm instead", round_num=1, confidence=0.80
         )
         stream.on_proposal(
             "gemini", "Combine both approaches for hybrid solution", round_num=1, confidence=0.75
@@ -401,10 +401,10 @@ class TestEndToEnd:
 
         # Round 1: Critiques
         stream.on_critique(
-            "gpt4", "Sliding window has memory overhead", target_agent="claude", round_num=1
+            "gpt-5.5", "Sliding window has memory overhead", target_agent="claude", round_num=1
         )
         stream.on_critique(
-            "claude", "Token bucket can lead to bursts", target_agent="gpt4", round_num=1
+            "claude", "Token bucket can lead to bursts", target_agent="gpt-5.5", round_num=1
         )
 
         # Round 2: Refinements
@@ -415,7 +415,7 @@ class TestEndToEnd:
 
         # Round 2: Votes
         stream.on_vote("claude", "hybrid", confidence=0.90, round_num=2)
-        stream.on_vote("gpt4", "hybrid", confidence=0.85, round_num=2)
+        stream.on_vote("gpt-5.5", "hybrid", confidence=0.85, round_num=2)
         stream.on_vote("gemini", "hybrid", confidence=0.95, round_num=2)
 
         snap2 = stream.get_snapshot()

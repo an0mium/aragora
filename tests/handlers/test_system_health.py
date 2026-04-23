@@ -527,7 +527,7 @@ class TestAgents:
             },
             {
                 "agent_id": "a2",
-                "type": "gpt4",
+                "type": "gpt-5.5",
                 "status": "idle",
                 "last_heartbeat": "2026-02-01T00:00:00Z",
             },

@@ -283,10 +283,10 @@ class TestAgentInfoSerialization:
     def test_from_dict(self):
         """Test deserialization from dict."""
         data = {
-            "agent_id": "gpt-4",
+            "agent_id": "gpt-5.5",
             "capabilities": ["debate", "analysis"],
             "status": "ready",
-            "model": "gpt-4",
+            "model": "gpt-5.5",
             "provider": "openai",
             "tasks_completed": 5,
             "region_id": "eu-west-1",
@@ -294,10 +294,10 @@ class TestAgentInfoSerialization:
         }
         agent = AgentInfo.from_dict(data)
 
-        assert agent.agent_id == "gpt-4"
+        assert agent.agent_id == "gpt-5.5"
         assert agent.capabilities == {"debate", "analysis"}
         assert agent.status == AgentStatus.READY
-        assert agent.model == "gpt-4"
+        assert agent.model == "gpt-5.5"
         assert agent.tasks_completed == 5
         assert agent.region_id == "eu-west-1"
 
@@ -450,13 +450,13 @@ class TestRegistryRegistration:
         await connected_registry.register(
             agent_id="get-test",
             capabilities=["debate"],
-            model="gpt-4",
+            model="gpt-5.5",
         )
         agent = await connected_registry.get("get-test")
 
         assert agent is not None
         assert agent.agent_id == "get-test"
-        assert agent.model == "gpt-4"
+        assert agent.model == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_get_nonexistent(self, connected_registry: AgentRegistry):
@@ -583,7 +583,7 @@ class TestRegistryFindByCapability:
     async def _setup_agents(self, registry: AgentRegistry):
         """Helper to register test agents."""
         await registry.register(agent_id="claude", capabilities=["debate", "code", "critique"])
-        await registry.register(agent_id="gpt4", capabilities=["debate", "analysis"])
+        await registry.register(agent_id="gpt-5.5", capabilities=["debate", "analysis"])
         await registry.register(agent_id="gemini", capabilities=["debate", "code"])
 
     @pytest.mark.asyncio
@@ -968,7 +968,7 @@ class TestRegistryStats:
         await connected_registry.register(
             agent_id="a2",
             capabilities=["debate"],
-            model="gpt-4",
+            model="gpt-5.5",
             provider="openai",
         )
 

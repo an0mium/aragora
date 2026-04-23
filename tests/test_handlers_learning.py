@@ -71,7 +71,7 @@ def temp_nomic_dir():
                     "topic": "Implement security improvements",
                     "agents": [
                         {"name": "claude"},
-                        {"name": "gpt4"},
+                        {"name": "gpt-5.5"},
                     ],
                     "started_at": "2026-01-09T10:00:00",
                     "ended_at": "2026-01-09T10:30:00",
@@ -80,7 +80,7 @@ def temp_nomic_dir():
                     "final_verdict": "Approved security patch",
                     "event_count": 15,
                     "winner": "claude",
-                    "vote_tally": {"claude": 3, "gpt4": 1},
+                    "vote_tally": {"claude": 3, "gpt-5.5": 1},
                 }
             )
         )
@@ -119,7 +119,7 @@ def temp_nomic_dir():
                     "topic": "Refactor API layer",
                     "agents": [
                         {"name": "claude"},
-                        {"name": "gpt4"},
+                        {"name": "gpt-5.5"},
                     ],
                     "started_at": "2026-01-10T14:00:00",
                     "ended_at": "2026-01-10T14:20:00",

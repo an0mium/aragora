@@ -123,14 +123,14 @@ class TestNoneConsensusMode:
         phase = ConsensusPhase(protocol=protocol)
 
         ctx = DebateContext(env=MockEnvironment())
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
 
         # Synthesis uses markdown format: **agent:** or just agent name
         assert "claude" in ctx.result.final_answer
-        assert "gpt4" in ctx.result.final_answer
+        assert "gpt-5.5" in ctx.result.final_answer
         assert ctx.result.consensus_reached is False
         assert ctx.result.confidence == 0.5
 
@@ -157,9 +157,9 @@ class TestMajorityConsensusMode:
             group_similar_votes=lambda votes: {"claude": ["claude"]},
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -178,17 +178,17 @@ class TestMajorityConsensusMode:
             vote_idx[0] += 1
             if vote_idx[0] == 1:
                 return MockVote(agent=agent.name, choice="claude", confidence=0.8)
-            return MockVote(agent=agent.name, choice="gpt4", confidence=0.7)
+            return MockVote(agent=agent.name, choice="gpt-5.5", confidence=0.7)
 
         phase = ConsensusPhase(
             protocol=protocol,
             vote_with_agent=vote_with_agent,
-            group_similar_votes=lambda votes: {"claude": ["claude"], "gpt4": ["gpt4"]},
+            group_similar_votes=lambda votes: {"claude": ["claude"], "gpt-5.5": ["gpt-5.5"]},
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -207,11 +207,11 @@ class TestMajorityConsensusMode:
         phase = ConsensusPhase(
             protocol=protocol,
             vote_with_agent=vote_with_agent,
-            agent_weights={"claude": 0.5, "gpt4": 1.5},
+            agent_weights={"claude": 0.5, "gpt-5.5": 1.5},
             group_similar_votes=lambda votes: {"claude": ["claude"]},
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
         ctx.proposals = {"claude": "Proposal A"}
         ctx.result = MockDebateResult()
@@ -294,7 +294,7 @@ class TestUnanimousConsensusMode:
             group_similar_votes=lambda votes: {"claude": ["claude"]},
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
         ctx.proposals = {"claude": "Proposal A"}
         ctx.result = MockDebateResult()
@@ -315,17 +315,17 @@ class TestUnanimousConsensusMode:
             vote_idx[0] += 1
             if vote_idx[0] == 1:
                 return MockVote(agent=agent.name, choice="claude", confidence=0.8)
-            return MockVote(agent=agent.name, choice="gpt4", confidence=0.8)
+            return MockVote(agent=agent.name, choice="gpt-5.5", confidence=0.8)
 
         phase = ConsensusPhase(
             protocol=protocol,
             vote_with_agent=vote_with_agent,
-            group_similar_votes=lambda votes: {"claude": ["claude"], "gpt4": ["gpt4"]},
+            group_similar_votes=lambda votes: {"claude": ["claude"], "gpt-5.5": ["gpt-5.5"]},
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -340,7 +340,7 @@ class TestUnanimousConsensusMode:
         protocol = MockProtocol(consensus="unanimous")
 
         async def vote_with_agent(agent, proposals, task):
-            if agent.name == "gpt4":
+            if agent.name == "gpt-5.5":
                 raise Exception("Vote error")
             return MockVote(agent=agent.name, choice="claude", confidence=0.9)
 
@@ -350,7 +350,7 @@ class TestUnanimousConsensusMode:
             group_similar_votes=lambda votes: {"claude": ["claude"]},
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
         ctx.proposals = {"claude": "Proposal A"}
         ctx.result = MockDebateResult()
@@ -385,9 +385,9 @@ class TestJudgeConsensusMode:
             generate_with_agent=AsyncMock(return_value="Synthesized answer"),
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -496,7 +496,7 @@ class TestUserVotes:
         protocol = MockProtocol(consensus="majority", user_vote_weight=0.5)
 
         async def vote_with_agent(agent, proposals, task):
-            return MockVote(agent=agent.name, choice="gpt4", confidence=0.8)
+            return MockVote(agent=agent.name, choice="gpt-5.5", confidence=0.8)
 
         user_votes = [{"choice": "claude", "user_id": "user1", "intensity": 5}]
 
@@ -505,18 +505,18 @@ class TestUserVotes:
             vote_with_agent=vote_with_agent,
             user_votes=user_votes,
             drain_user_events=MagicMock(),
-            group_similar_votes=lambda votes: {"claude": ["claude"], "gpt4": ["gpt4"]},
+            group_similar_votes=lambda votes: {"claude": ["claude"], "gpt-5.5": ["gpt-5.5"]},
         )
 
-        agents = [MockAgent(name="gpt4")]
+        agents = [MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
 
         # User vote should be counted (with weight 0.5)
-        assert "claude" in ctx.vote_tally or "gpt4" in ctx.vote_tally
+        assert "claude" in ctx.vote_tally or "gpt-5.5" in ctx.vote_tally
 
 
 # ============================================================================

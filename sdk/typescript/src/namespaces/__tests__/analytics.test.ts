@@ -58,7 +58,7 @@ describe('AnalyticsAPI', () => {
     it('should get disagreement analytics', async () => {
       const mockData = {
         total_disagreements: 150,
-        patterns: [{ agents: ['claude', 'gpt4'], frequency: 25 }],
+        patterns: [{ agents: ['claude', 'gpt-5.5'], frequency: 25 }],
       };
       mockClient.getDisagreementAnalytics.mockResolvedValue(mockData);
 
@@ -81,7 +81,7 @@ describe('AnalyticsAPI', () => {
     it('should get role rotation analytics', async () => {
       const mockData = {
         total_rotations: 200,
-        by_agent: { claude: 50, gpt4: 45 },
+        by_agent: { claude: 50, gpt-5.5: 45 },
       };
       mockClient.getRoleRotationAnalytics.mockResolvedValue(mockData);
 
@@ -418,7 +418,7 @@ describe('AnalyticsAPI', () => {
       const mockLeaderboard = {
         agents: [
           { name: 'claude', elo: 1850 },
-          { name: 'gpt4', elo: 1800 },
+          { name: 'gpt-5.5', elo: 1800 },
         ],
       };
       mockClient.request.mockResolvedValue(mockLeaderboard);
@@ -451,15 +451,15 @@ describe('AnalyticsAPI', () => {
 
     it('should compare agents', async () => {
       const mockComparison = {
-        agents: ['claude', 'gpt4'],
-        metrics: { win_rate: { claude: 0.75, gpt4: 0.72 } },
+        agents: ['claude', 'gpt-5.5'],
+        metrics: { win_rate: { claude: 0.75, gpt-5.5: 0.72 } },
       };
       mockClient.request.mockResolvedValue(mockComparison);
 
-      const result = await api.compareAgents(['claude', 'gpt4']);
+      const result = await api.compareAgents(['claude', 'gpt-5.5']);
 
       expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/agents/comparison', {
-        params: { agents: 'claude,gpt4' },
+        params: { agents: 'claude,gpt-5.5' },
       });
       expect(result.agents).toHaveLength(2);
     });
@@ -564,13 +564,13 @@ describe('AnalyticsAPI', () => {
     });
 
     it('should get agent consistency scores', async () => {
-      const mockConsistency = { claude: 0.92, gpt4: 0.88 };
+      const mockConsistency = { claude: 0.92, gpt-5.5: 0.88 };
       mockClient.request.mockResolvedValue(mockConsistency);
 
-      const result = await api.getAgentConsistency(['claude', 'gpt4']);
+      const result = await api.getAgentConsistency(['claude', 'gpt-5.5']);
 
       expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/analytics/flips/consistency', {
-        params: { agents: 'claude,gpt4' },
+        params: { agents: 'claude,gpt-5.5' },
       });
       expect(result).toHaveProperty('claude');
     });

@@ -32,7 +32,7 @@ class TestSequentialPatternInit:
 
         pattern = SequentialPattern(name="Test Sequential")
         assert pattern.name == "Test Sequential"
-        assert pattern.agents == ["claude", "gpt4"]
+        assert pattern.agents == ["claude", "gpt-5.5"]
         assert pattern.task == ""
         assert pattern.prompts == {}
         assert pattern.stages is None
@@ -62,7 +62,7 @@ class TestSequentialPatternInit:
 
         prompts = {
             "claude": "Extract key facts from: {input}",
-            "gpt4": "Analyze the extracted facts: {step.claude}",
+            "gpt-5.5": "Analyze the extracted facts: {step.claude}",
         }
         pattern = SequentialPattern(name="Test", prompts=prompts)
         assert pattern.prompts == prompts
@@ -80,7 +80,7 @@ class TestSequentialPatternInit:
 
         stages = [
             {"agent": "claude", "role": "reviewer", "focus": "security"},
-            {"agent": "gpt4", "role": "synthesizer", "focus": "summary"},
+            {"agent": "gpt-5.5", "role": "synthesizer", "focus": "summary"},
         ]
         pattern = SequentialPattern(name="Test", stages=stages)
         assert pattern.stages == stages
@@ -161,7 +161,7 @@ class TestSequentialWorkflowGeneration:
 
     def test_workflow_description(self):
         """Test workflow description includes stage count."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         assert "3" in wf.description
         assert "stages" in wf.description.lower()
 
@@ -172,7 +172,7 @@ class TestSequentialWorkflowGeneration:
 
     def test_step_count_with_three_agents(self):
         """Test workflow with 3 agents has 4 steps."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         assert len(wf.steps) == 4  # 3 agent steps + 1 output step
 
     def test_entry_step_is_first_stage(self):
@@ -222,7 +222,7 @@ class TestSequentialStepConfig:
         wf = self._create_workflow()
         step_ids = [s.id for s in wf.steps]
         assert "stage_0_claude" in step_ids
-        assert "stage_1_gpt4" in step_ids
+        assert "stage_1_gpt_5_5" in step_ids
 
     def test_agent_steps_are_agent_type(self):
         """Test that agent steps have step_type 'agent'."""
@@ -303,7 +303,7 @@ class TestSequentialStagesConfig:
         """Test that stages config overrides agent list for step creation."""
         stages = [
             {"agent": "claude", "role": "security_reviewer", "focus": "security"},
-            {"agent": "gpt4", "role": "performance_reviewer", "focus": "performance"},
+            {"agent": "gpt-5.5", "role": "performance_reviewer", "focus": "performance"},
         ]
         wf = self._create_workflow(stages=stages)
         step_ids = [s.id for s in wf.steps if s.id.startswith("stage_")]
@@ -372,7 +372,7 @@ class TestSequentialStagesConfig:
         """Test that 3 stages creates 3 agent steps + 1 output = 4 steps."""
         stages = [
             {"agent": "claude", "role": "a"},
-            {"agent": "gpt4", "role": "b"},
+            {"agent": "gpt-5.5", "role": "b"},
             {"agent": "gemini", "role": "c"},
         ]
         wf = self._create_workflow(stages=stages)
@@ -400,7 +400,7 @@ class TestSequentialPrompts:
         """Test that per-agent prompts are assigned correctly."""
         prompts = {
             "claude": "Extract facts from: {input}",
-            "gpt4": "Analyze facts: {step.claude}",
+            "gpt-5.5": "Analyze facts: {step.claude}",
         }
         wf = self._create_workflow(prompts=prompts, pass_full_context=False)
         step0 = next(s for s in wf.steps if s.id == "stage_0_claude")
@@ -414,7 +414,7 @@ class TestSequentialPrompts:
             task="Fallback task",
             pass_full_context=False,
         )
-        step1 = next(s for s in wf.steps if s.id == "stage_1_gpt4")
+        step1 = next(s for s in wf.steps if s.id == "stage_1_gpt_5_5")
         assert step1.config["prompt_template"] == "Fallback task"
 
     def test_empty_prompts_uses_task(self):
@@ -454,32 +454,32 @@ class TestSequentialContextPassing:
     def test_second_step_has_context_prefix_when_enabled(self):
         """Test that second step has context prefix when pass_full_context=True."""
         wf = self._create_workflow(task="Analyze code", pass_full_context=True)
-        step1 = next(s for s in wf.steps if s.id == "stage_1_gpt4")
+        step1 = next(s for s in wf.steps if s.id == "stage_1_gpt_5_5")
         assert "Previous analysis" in step1.config["prompt_template"]
         assert "stage_0_claude" in step1.config["prompt_template"]
 
     def test_second_step_no_context_prefix_when_disabled(self):
         """Test that second step has no context prefix when pass_full_context=False."""
         wf = self._create_workflow(task="Analyze code", pass_full_context=False)
-        step1 = next(s for s in wf.steps if s.id == "stage_1_gpt4")
+        step1 = next(s for s in wf.steps if s.id == "stage_1_gpt_5_5")
         assert "Previous analysis" not in step1.config["prompt_template"]
 
     def test_context_prefix_references_previous_step(self):
         """Test that context prefix references the correct previous step ID."""
         wf = self._create_workflow(
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             task="Review",
             pass_full_context=True,
         )
         step2 = next(s for s in wf.steps if s.id == "stage_2_gemini")
-        # Should reference stage_1_gpt4, not stage_0_claude
-        assert "stage_1_gpt4" in step2.config["prompt_template"]
+        # Should reference stage_1_gpt_5_5, not stage_0_claude
+        assert "stage_1_gpt_5_5" in step2.config["prompt_template"]
 
     def test_context_with_focus_includes_focus_area(self):
         """Test that context prompt includes focus area when specified."""
         stages = [
             {"agent": "claude", "role": "analyst"},
-            {"agent": "gpt4", "role": "reviewer", "focus": "performance"},
+            {"agent": "gpt-5.5", "role": "reviewer", "focus": "performance"},
         ]
         wf = self._create_workflow(
             stages=stages,
@@ -555,15 +555,15 @@ class TestSequentialTransitions:
 
     def test_transition_count_three_agents(self):
         """Test transition count for 3 agents (3 transitions)."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         assert len(wf.transitions) == 3
 
     def test_linear_transition_flow(self):
         """Test that transitions form a linear chain."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         flow = {t.from_step: t.to_step for t in wf.transitions}
-        assert flow["stage_0_claude"] == "stage_1_gpt4"
-        assert flow["stage_1_gpt4"] == "stage_2_gemini"
+        assert flow["stage_0_claude"] == "stage_1_gpt_5_5"
+        assert flow["stage_1_gpt_5_5"] == "stage_2_gemini"
         assert flow["stage_2_gemini"] == "output"
 
     def test_transitions_have_ids(self):
@@ -582,19 +582,19 @@ class TestSequentialTransitions:
         """Test that next_steps are set on each agent step."""
         wf = self._create_workflow()
         step0 = next(s for s in wf.steps if s.id == "stage_0_claude")
-        step1 = next(s for s in wf.steps if s.id == "stage_1_gpt4")
-        assert step0.next_steps == ["stage_1_gpt4"]
+        step1 = next(s for s in wf.steps if s.id == "stage_1_gpt_5_5")
+        assert step0.next_steps == ["stage_1_gpt_5_5"]
         assert step1.next_steps == ["output"]
 
     def test_last_agent_next_steps_point_to_output(self):
         """Test that the last agent step has next_steps pointing to output."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         step2 = next(s for s in wf.steps if s.id == "stage_2_gemini")
         assert step2.next_steps == ["output"]
 
     def test_output_transform_references_last_stage(self):
         """Test that output step transform references last agent step."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         output_step = next(s for s in wf.steps if s.id == "output")
         assert "stage_2_gemini" in output_step.config["transform"]
 
@@ -642,7 +642,7 @@ class TestSequentialVisualMetadata:
 
     def test_positions_spaced_by_250(self):
         """Test that step positions are spaced 250px apart horizontally."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         positions = [(s.id, s.visual.position.x) for s in wf.steps]
         # Steps should be at x=100, 350, 600, 850
         stage_positions = [(sid, x) for sid, x in positions if sid.startswith("stage_")]
@@ -653,7 +653,7 @@ class TestSequentialVisualMetadata:
 
     def test_output_step_position_after_last_stage(self):
         """Test that output step is positioned after the last stage."""
-        wf = self._create_workflow(agents=["claude", "gpt4"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5"])
         output_step = next(s for s in wf.steps if s.id == "output")
         # 2 agents => output at start_x + 2 * spacing = 100 + 2*250 = 600
         assert output_step.visual.position.x == 600
@@ -720,14 +720,14 @@ class TestSequentialTagsAndMetadata:
 
     def test_metadata_stages_count(self):
         """Test that metadata includes correct stages count."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         assert wf.metadata["stages"] == 3
 
     def test_metadata_stages_count_with_stages_config(self):
         """Test stages count matches explicit stages config."""
         stages = [
             {"agent": "claude", "role": "a"},
-            {"agent": "gpt4", "role": "b"},
+            {"agent": "gpt-5.5", "role": "b"},
             {"agent": "gemini", "role": "c"},
             {"agent": "mistral", "role": "d"},
         ]
@@ -760,7 +760,7 @@ class TestSequentialFactory:
 
         wf = SequentialPattern.create(
             name="Factory Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Analyze code",
         )
         assert isinstance(wf, WorkflowDefinition)
@@ -771,7 +771,7 @@ class TestSequentialFactory:
 
         stages = [
             {"agent": "claude", "role": "reviewer", "focus": "security"},
-            {"agent": "gpt4", "role": "synthesizer"},
+            {"agent": "gpt-5.5", "role": "synthesizer"},
         ]
         wf = SequentialPattern.create(
             name="Staged Pipeline",

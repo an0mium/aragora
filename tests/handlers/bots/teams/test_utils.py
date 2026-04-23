@@ -497,7 +497,7 @@ class TestBuildDebateCard:
         card = build_debate_card(
             debate_id="d-001",
             topic="Test topic",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             current_round=1,
             total_rounds=3,
         )
@@ -536,13 +536,13 @@ class TestBuildDebateCard:
         """Agent names shown in FactSet."""
         from aragora.server.handlers.bots.teams_utils import build_debate_card
 
-        card = build_debate_card("d-001", "Test", ["claude", "gpt4", "gemini"], 1, 3)
+        card = build_debate_card("d-001", "Test", ["claude", "gpt-5.5", "gemini"], 1, 3)
         factset = card["body"][2]
         assert factset["type"] == "FactSet"
         agents_fact = factset["facts"][0]
         assert agents_fact["title"] == "Agents"
         assert "claude" in agents_fact["value"]
-        assert "gpt4" in agents_fact["value"]
+        assert "gpt-5.5" in agents_fact["value"]
         assert "gemini" in agents_fact["value"]
 
     def test_agents_truncated_at_5(self):
@@ -569,14 +569,14 @@ class TestBuildDebateCard:
         from aragora.server.handlers.bots.teams_utils import build_debate_card
 
         card = build_debate_card(
-            "d-001", "Test", ["claude", "gpt4"], 1, 3, include_vote_buttons=True
+            "d-001", "Test", ["claude", "gpt-5.5"], 1, 3, include_vote_buttons=True
         )
         actions = card["actions"]
         assert actions is not None
         vote_actions = [a for a in actions if a.get("data", {}).get("action") == "vote"]
         assert len(vote_actions) == 2
         assert vote_actions[0]["data"]["agent"] == "claude"
-        assert vote_actions[1]["data"]["agent"] == "gpt4"
+        assert vote_actions[1]["data"]["agent"] == "gpt-5.5"
 
     def test_vote_buttons_excluded(self):
         """No vote buttons when include_vote_buttons=False."""
@@ -726,25 +726,25 @@ class TestBuildConsensusCard:
         """Vote counts are shown sorted by count descending."""
         from aragora.server.handlers.bots.teams_utils import build_consensus_card
 
-        vote_counts = {"claude": 5, "gpt4": 3, "gemini": 1}
+        vote_counts = {"claude": 5, "gpt-5.5": 3, "gemini": 1}
         card = build_consensus_card("d-001", "Test", True, 0.9, "claude", None, vote_counts)
         vote_blocks = [b for b in card["body"] if "User Votes" in b.get("text", "")]
         assert len(vote_blocks) == 1
         vote_text = vote_blocks[0]["text"]
         assert "claude: 5 votes" in vote_text
-        assert "gpt4: 3 votes" in vote_text
+        assert "gpt-5.5: 3 votes" in vote_text
         assert "gemini: 1 vote" in vote_text  # singular
 
     def test_vote_counts_singular_plural(self):
         """1 vote shows 'vote', >1 shows 'votes'."""
         from aragora.server.handlers.bots.teams_utils import build_consensus_card
 
-        vote_counts = {"claude": 1, "gpt4": 2}
+        vote_counts = {"claude": 1, "gpt-5.5": 2}
         card = build_consensus_card("d-001", "Test", True, 0.9, None, None, vote_counts)
         vote_blocks = [b for b in card["body"] if "User Votes" in b.get("text", "")]
         vote_text = vote_blocks[0]["text"]
         assert "claude: 1 vote\n" in vote_text or "claude: 1 vote" in vote_text
-        assert "gpt4: 2 votes" in vote_text
+        assert "gpt-5.5: 2 votes" in vote_text
 
     def test_empty_vote_counts(self):
         """Empty vote counts does not add vote block."""
@@ -1209,12 +1209,12 @@ class TestGetDebateVoteCounts:
 
         user_votes["debate-1"] = {
             "user-A": "claude",
-            "user-B": "gpt4",
+            "user-B": "gpt-5.5",
             "user-C": "claude",
             "user-D": "gemini",
         }
         counts = get_debate_vote_counts("debate-1")
-        assert counts == {"claude": 2, "gpt4": 1, "gemini": 1}
+        assert counts == {"claude": 2, "gpt-5.5": 1, "gemini": 1}
 
     def test_nonexistent_debate(self):
         """Nonexistent debate returns empty dict."""
@@ -1398,13 +1398,13 @@ class TestIntegration:
         user_votes["debate-integration"] = {
             "u1": "claude",
             "u2": "claude",
-            "u3": "gpt4",
+            "u3": "gpt-5.5",
             "u4": "gemini",
-            "u5": "gpt4",
+            "u5": "gpt-5.5",
         }
         counts = get_debate_vote_counts("debate-integration")
         assert counts["claude"] == 2
-        assert counts["gpt4"] == 2
+        assert counts["gpt-5.5"] == 2
         assert counts["gemini"] == 1
 
     def test_debate_card_with_consensus_card_flow(self):
@@ -1418,7 +1418,7 @@ class TestIntegration:
         debate_card = build_debate_card(
             debate_id=debate_id,
             topic="Flow test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             current_round=3,
             total_rounds=3,
         )
@@ -1431,7 +1431,7 @@ class TestIntegration:
             confidence=0.92,
             winner="claude",
             final_answer="Consensus answer",
-            vote_counts={"claude": 3, "gpt4": 1},
+            vote_counts={"claude": 3, "gpt-5.5": 1},
         )
         assert consensus_card["type"] == "AdaptiveCard"
         assert "flow-001" in consensus_card["actions"][0]["url"]
@@ -1458,6 +1458,6 @@ class TestIntegration:
         assert debate_id in active_debates
 
         # Simulate votes
-        user_votes[debate_id] = {"u1": "claude", "u2": "gpt4"}
+        user_votes[debate_id] = {"u1": "claude", "u2": "gpt-5.5"}
         counts = get_debate_vote_counts(debate_id)
-        assert counts == {"claude": 1, "gpt4": 1}
+        assert counts == {"claude": 1, "gpt-5.5": 1}

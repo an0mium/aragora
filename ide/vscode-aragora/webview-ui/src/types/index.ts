@@ -158,8 +158,8 @@ export type WebviewMessage =
 // Agent colors for consistent theming
 export const AGENT_COLORS: Record<string, string> = {
   claude: '#C97539',
-  'gpt-4': '#10A37F',
-  'gpt-4o': '#10A37F',
+  'gpt-5.5': '#10A37F',
+  'gpt-5.5': '#10A37F',
   gemini: '#4285F4',
   mistral: '#FF7000',
   grok: '#1DA1F2',

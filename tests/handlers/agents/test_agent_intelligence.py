@@ -182,17 +182,17 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/agent/claude/introspect")
 
     def test_head_to_head_path(self, handler):
-        assert handler.can_handle("/api/v1/agent/claude/head-to-head/gpt4")
+        assert handler.can_handle("/api/v1/agent/claude/head-to-head/gpt-5.5")
 
     def test_opponent_briefing_path(self, handler):
-        assert handler.can_handle("/api/v1/agent/claude/opponent-briefing/gpt4")
+        assert handler.can_handle("/api/v1/agent/claude/opponent-briefing/gpt-5.5")
 
     def test_metadata_different_agents(self, handler):
-        assert handler.can_handle("/api/v1/agent/gpt4/metadata")
+        assert handler.can_handle("/api/v1/agent/gpt-5.5/metadata")
         assert handler.can_handle("/api/v1/agent/gemini/metadata")
 
     def test_head_to_head_different_agents(self, handler):
-        assert handler.can_handle("/api/v1/agent/gpt4/head-to-head/claude")
+        assert handler.can_handle("/api/v1/agent/gpt-5.5/head-to-head/claude")
 
     def test_unversioned_metadata_path(self, handler):
         """Paths without version prefix are also handled."""
@@ -773,7 +773,7 @@ class TestGetAgentIntrospect:
         mock_storage.get_debate.return_value = {
             "messages": [
                 {"agent": "claude", "text": "msg1"},
-                {"agent": "gpt4", "text": "msg2"},
+                {"agent": "gpt-5.5", "text": "msg2"},
                 {"agent": "claude", "text": "msg3"},
             ],
             "current_round": 2,
@@ -1013,7 +1013,7 @@ class TestGetHeadToHead:
         """Returns 503 when ELO system unavailable."""
         handler.ctx = {}
         result = await handler.handle(
-            "/api/v1/agent/claude/head-to-head/gpt4", {}, mock_http_handler
+            "/api/v1/agent/claude/head-to-head/gpt-5.5", {}, mock_http_handler
         )
         assert _status(result) == 503
         body = _body(result)
@@ -1031,16 +1031,16 @@ class TestGetHeadToHead:
         handler.ctx = {"elo_system": mock_elo}
 
         result = await handler.handle(
-            "/api/v1/agent/claude/head-to-head/gpt4", {}, mock_http_handler
+            "/api/v1/agent/claude/head-to-head/gpt-5.5", {}, mock_http_handler
         )
         body = _body(result)
         assert _status(result) == 200
         assert body["agent1"] == "claude"
-        assert body["agent2"] == "gpt4"
+        assert body["agent2"] == "gpt-5.5"
         assert body["matches"] == 10
         assert body["agent1_wins"] == 6
         assert body["agent2_wins"] == 4
-        mock_elo.get_head_to_head.assert_called_once_with("claude", "gpt4")
+        mock_elo.get_head_to_head.assert_called_once_with("claude", "gpt-5.5")
 
     @pytest.mark.asyncio
     async def test_head_to_head_fallback_no_method(self, handler, mock_http_handler):
@@ -1049,12 +1049,12 @@ class TestGetHeadToHead:
         handler.ctx = {"elo_system": mock_elo}
 
         result = await handler.handle(
-            "/api/v1/agent/claude/head-to-head/gpt4", {}, mock_http_handler
+            "/api/v1/agent/claude/head-to-head/gpt-5.5", {}, mock_http_handler
         )
         body = _body(result)
         assert _status(result) == 200
         assert body["agent1"] == "claude"
-        assert body["agent2"] == "gpt4"
+        assert body["agent2"] == "gpt-5.5"
         assert body["matches"] == 0
         assert body["agent1_wins"] == 0
         assert body["agent2_wins"] == 0
@@ -1076,7 +1076,7 @@ class TestGetOpponentBriefing:
 
         mock_synthesizer = MagicMock()
         mock_synthesizer.get_opponent_briefing.return_value = (
-            "### Briefing: gpt4\n- Previous debates: 5\n- Agreement rate: 40%"
+            "### Briefing: gpt-5.5\n- Previous debates: 5\n- Agreement rate: 40%"
         )
 
         with patch(
@@ -1088,16 +1088,16 @@ class TestGetOpponentBriefing:
                 return_value=tmp_path / "nonexistent.db",
             ):
                 result = await handler.handle(
-                    "/api/v1/agent/claude/opponent-briefing/gpt4",
+                    "/api/v1/agent/claude/opponent-briefing/gpt-5.5",
                     {},
                     mock_http_handler,
                 )
                 body = _body(result)
                 assert _status(result) == 200
                 assert body["agent"] == "claude"
-                assert body["opponent"] == "gpt4"
+                assert body["opponent"] == "gpt-5.5"
                 assert body["briefing"] is not None
-                assert "gpt4" in body["briefing"]
+                assert "gpt-5.5" in body["briefing"]
 
     @pytest.mark.asyncio
     async def test_briefing_no_data(self, handler, mock_http_handler, tmp_path):
@@ -1116,14 +1116,14 @@ class TestGetOpponentBriefing:
                 return_value=tmp_path / "nonexistent.db",
             ):
                 result = await handler.handle(
-                    "/api/v1/agent/claude/opponent-briefing/gpt4",
+                    "/api/v1/agent/claude/opponent-briefing/gpt-5.5",
                     {},
                     mock_http_handler,
                 )
                 body = _body(result)
                 assert _status(result) == 200
                 assert body["agent"] == "claude"
-                assert body["opponent"] == "gpt4"
+                assert body["opponent"] == "gpt-5.5"
                 assert body["briefing"] is None
                 assert "message" in body
 
@@ -1140,7 +1140,7 @@ class TestGetOpponentBriefing:
             return_value=mock_synthesizer,
         ):
             result = await handler.handle(
-                "/api/v1/agent/claude/opponent-briefing/gpt4",
+                "/api/v1/agent/claude/opponent-briefing/gpt-5.5",
                 {},
                 mock_http_handler,
             )
@@ -1174,7 +1174,7 @@ class TestGetOpponentBriefing:
                     return_value=db_path,
                 ):
                     result = await handler.handle(
-                        "/api/v1/agent/claude/opponent-briefing/gpt4",
+                        "/api/v1/agent/claude/opponent-briefing/gpt-5.5",
                         {},
                         mock_http_handler,
                     )
@@ -1207,7 +1207,7 @@ class TestGetOpponentBriefing:
                     return_value=tmp_path / "positions.db",
                 ):
                     result = await handler.handle(
-                        "/api/v1/agent/claude/opponent-briefing/gpt4",
+                        "/api/v1/agent/claude/opponent-briefing/gpt-5.5",
                         {},
                         mock_http_handler,
                     )

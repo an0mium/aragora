@@ -2026,8 +2026,8 @@ class TestReviewerInitialization:
 
     def test_maintainability_reviewer_custom_model(self):
         """MaintainabilityReviewer accepts custom model."""
-        reviewer = MaintainabilityReviewer(model="gpt4")
-        assert reviewer.model == "gpt4"
+        reviewer = MaintainabilityReviewer(model="gpt-5.5")
+        assert reviewer.model == "gpt-5.5"
 
     def test_security_reviewer_agent_type(self):
         """SecurityReviewer has correct agent_type."""

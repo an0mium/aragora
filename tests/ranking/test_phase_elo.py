@@ -64,7 +64,7 @@ class TestBestAgentsForPhase:
     def test_ranking_order(self, tracker):
         for _ in range(5):
             tracker.update_domain_elo("claude", "tech:debate", won=True)
-            tracker.update_domain_elo("gpt4", "tech:debate", won=False)
+            tracker.update_domain_elo("gpt-5.5", "tech:debate", won=False)
         best = tracker.get_best_agents_for_phase("tech", "debate")
         assert len(best) == 2
         assert best[0].agent_name == "claude"
@@ -82,7 +82,7 @@ class TestBestAgentsForPhase:
 class TestPhaseLeaderboard:
     def test_cross_domain(self, tracker):
         tracker.update_domain_elo("claude", "tech:debate", won=True)
-        tracker.update_domain_elo("gpt4", "finance:debate", won=True)
+        tracker.update_domain_elo("gpt-5.5", "finance:debate", won=True)
         board = tracker.get_phase_leaderboard("debate")
         assert len(board) == 2
 

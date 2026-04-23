@@ -28,7 +28,7 @@ metadata:
   estimated_duration_minutes: 8
   pattern: "review_cycle"
   complexity: "medium"
-  recommended_agents: ["claude", "gpt4"]
+  recommended_agents: ["claude", "gpt-5.5"]
 
 steps:
   - id: initialize
@@ -71,7 +71,7 @@ steps:
   - id: review
     type: agent
     config:
-      agent: "{review_agent|gpt4}"
+      agent: "{review_agent|gpt-5.5}"
       system_prompt: |
         You are a critical reviewer. Evaluate based on the following criteria:
         - Quality: Overall excellence of the output

@@ -322,7 +322,7 @@ TL;DR:"""
         try:
             from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-            return OpenAIAPIAgent(model="gpt-4o-mini")
+            return OpenAIAPIAgent(model="gpt-5.5")
         except ImportError:
             pass
 

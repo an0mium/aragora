@@ -29,7 +29,7 @@ class TestGauntletRecovery:
             input_summary="Test input",
             input_hash="abc123",
             persona="default",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             profile="default",
         )
         # Update progress to simulate mid-run state

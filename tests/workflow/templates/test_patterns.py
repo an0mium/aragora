@@ -272,7 +272,7 @@ class TestCreateMapReduceWorkflow:
     def test_create_workflow_with_agents(self):
         """Test creating workflow with custom agents."""
         workflow = create_map_reduce_workflow(
-            map_agent="gpt4",
+            map_agent="gpt-5.5",
             reduce_agent="claude",
         )
 
@@ -310,7 +310,7 @@ class TestCreateReviewCycleWorkflow:
     def test_create_workflow_with_agents(self):
         """Test creating workflow with custom agents."""
         workflow = create_review_cycle_workflow(
-            draft_agent="gpt4",
+            draft_agent="gpt-5.5",
             review_agent="claude",
         )
 

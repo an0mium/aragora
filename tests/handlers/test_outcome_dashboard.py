@@ -166,9 +166,9 @@ def _make_mock_debate_analytics(stats: MockDebateStats | None = None):
             MockAgentPerformance(),
             MockAgentPerformance(
                 agent_id="agent-002",
-                agent_name="gpt-4",
+                agent_name="gpt-5.5",
                 provider="openai",
-                model="gpt-4-turbo",
+                model="gpt-5.5",
                 current_elo=1620.0,
                 elo_change_period=-10.0,
                 rank=2,

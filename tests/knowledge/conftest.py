@@ -257,7 +257,7 @@ def mock_debate_result():
     result.task = "security audit process"
     result.proposals = [
         MagicMock(agent_type="claude"),
-        MagicMock(agent_type="gpt4"),
+        MagicMock(agent_type="gpt-5.5"),
     ]
     result.winner = "claude"
     result.consensus_reached = True

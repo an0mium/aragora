@@ -587,7 +587,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             "Aragora Status: Online\n\n"
             "Available AI models:\n"
             "- Claude (Anthropic)\n"
-            "- GPT-4 (OpenAI)\n"
+            "- GPT-5.5 (OpenAI)\n"
             "- Gemini (Google)\n"
             "- Grok (xAI)\n"
             "- Mistral\n"

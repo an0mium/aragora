@@ -123,7 +123,7 @@ class TestBlackboxSnapshot:
         snapshot = BlackboxSnapshot(
             turn_id=3,
             timestamp=time.time(),
-            agents_active=["claude", "gpt4"],
+            agents_active=["claude", "gpt-5.5"],
             agents_failed=["gemini"],
             consensus_strength=0.75,
             transcript_length=150,
@@ -258,7 +258,7 @@ class TestSnapshots:
         snapshot = blackbox.snapshot_turn(
             turn_id=1,
             state_data={
-                "agents_active": ["claude", "gpt4"],
+                "agents_active": ["claude", "gpt-5.5"],
                 "agents_failed": [],
                 "consensus_strength": 0.8,
                 "transcript_length": 50,
@@ -412,7 +412,7 @@ class TestConsensusLogging:
         """Test logging a consensus event."""
         event = blackbox.log_consensus(
             strength=0.85,
-            participating_agents=["claude", "gpt4", "gemini"],
+            participating_agents=["claude", "gpt-5.5", "gemini"],
             topic="AI safety guidelines",
             result="We should prioritize transparency",
         )

@@ -100,7 +100,7 @@ def _get_ai_agent() -> Any | None:
     try:
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
-        return OpenAIAPIAgent(model="gpt-4o-mini")
+        return OpenAIAPIAgent(model="gpt-5.5")
     except (ImportError, OSError, ValueError):
         pass
     return None

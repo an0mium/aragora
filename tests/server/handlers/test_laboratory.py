@@ -194,7 +194,7 @@ class TestEmergentTraitsEndpoint:
                 detected_at="2024-01-15T10:00:00Z",
             ),
             MockEmergentTrait(
-                agent_name="gpt4",
+                agent_name="gpt-5.5",
                 trait_name="creative",
                 domain="writing",
                 confidence=0.75,
@@ -236,7 +236,7 @@ class TestEmergentTraitsEndpoint:
                 detected_at="2024-01-15T10:00:00Z",
             ),
             MockEmergentTrait(
-                agent_name="gpt4",
+                agent_name="gpt-5.5",
                 trait_name="creative",
                 domain="writing",
                 confidence=0.4,  # Below threshold
@@ -438,7 +438,7 @@ class TestCrossPollinationsSuggestEndpoint:
         http_handler = make_mock_handler(body={"target_agent": "claude"}, method="POST")
 
         mock_suggestions = [
-            ("gpt4", "creative_writing", "Strong performance in creative tasks"),
+            ("gpt-5.5", "creative_writing", "Strong performance in creative tasks"),
             ("gemini", "code_review", "High accuracy in code analysis"),
         ]
 
@@ -462,7 +462,7 @@ class TestCrossPollinationsSuggestEndpoint:
         assert "suggestions" in body
         assert "count" in body
         assert len(body["suggestions"]) == 2
-        assert body["suggestions"][0]["source_agent"] == "gpt4"
+        assert body["suggestions"][0]["source_agent"] == "gpt-5.5"
         assert body["suggestions"][0]["trait_or_domain"] == "creative_writing"
         assert body["suggestions"][0]["reason"] == "Strong performance in creative tasks"
 
@@ -693,7 +693,7 @@ class TestResponseFormat:
         http_handler = make_mock_handler(body={"target_agent": "claude"}, method="POST")
 
         mock_suggestions = [
-            ("gpt4", "creative_writing", "Strong creative outputs"),
+            ("gpt-5.5", "creative_writing", "Strong creative outputs"),
         ]
 
         mock_lab = MagicMock()

@@ -47,7 +47,7 @@ class DialecticPattern(WorkflowPattern):
         workflow = DialecticPattern.create(
             name="AI Ethics Analysis",
             thesis_agent="claude",
-            antithesis_agent="gpt4",
+            antithesis_agent="gpt-5.5",
             synthesis_agent="claude",
             task="Should AI systems be given legal personhood?",
         )
@@ -74,7 +74,7 @@ class DialecticPattern(WorkflowPattern):
         super().__init__(name, agents, task, **kwargs)
 
         # Assign agents (use provided or defaults)
-        agents = agents or ["claude", "gpt4", "claude"]
+        agents = agents or ["claude", "gpt-5.5", "claude"]
         self.thesis_agent = thesis_agent or agents[0]
         self.antithesis_agent = antithesis_agent or (agents[1] if len(agents) > 1 else agents[0])
         self.synthesis_agent = synthesis_agent or (agents[2] if len(agents) > 2 else agents[0])

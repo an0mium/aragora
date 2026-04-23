@@ -118,7 +118,7 @@ class TestFilterAvailableAgents:
 
         specs = [
             AgentSpec(provider="anthropic-api", name="claude-1"),
-            AgentSpec(provider="openai-api", name="gpt-1"),
+            AgentSpec(provider="openai-api", name="gpt-5.5"),
         ]
         # Force unavailable by clearing all relevant API keys and disabling
         # OpenRouter fallback (anthropic-api and openai-api are fallback-eligible)
@@ -146,7 +146,7 @@ class TestFilterAvailableAgents:
         reset_secret_manager()
         specs = [
             AgentSpec(provider="anthropic-api", name="claude-1"),
-            AgentSpec(provider="openai-api", name="gpt-1"),
+            AgentSpec(provider="openai-api", name="gpt-5.5"),
         ]
         available, filtered = filter_available_agents(specs, log_filtered=False)
         assert len(available) == 2

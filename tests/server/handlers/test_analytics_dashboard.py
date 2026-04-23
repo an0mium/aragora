@@ -732,7 +732,7 @@ class TestRecentFlipsMethod:
         mock_flip_1.agent_name = "claude"
         mock_flip_1.flip_type = "contradiction"
         mock_flip_2 = MagicMock()
-        mock_flip_2.agent_name = "gpt-4"
+        mock_flip_2.agent_name = "gpt-5.5"
         mock_flip_2.flip_type = "retraction"
 
         mock_detector = MagicMock()
@@ -800,7 +800,7 @@ class TestAgentConsistencyMethod:
                 return_value={"agent": "claude", "consistency": "92%"},
             ):
                 result = handler._get_agent_consistency(
-                    {"agents": "claude,gpt-4"}, handler=authed_handler
+                    {"agents": "claude,gpt-5.5"}, handler=authed_handler
                 )
         assert result is not None
         assert result.status_code == 200
@@ -1643,7 +1643,7 @@ class TestProviderBreakdownAggregation:
             },
             {
                 "provider": "openai",
-                "model": "gpt-4o",
+                "model": "gpt-5.5",
                 "tokens_in": 80000,
                 "tokens_out": 15000,
                 "cost": 25.0,
@@ -1833,7 +1833,7 @@ class TestFiltering:
         mock_flip_2.agent_name = "claude"
         mock_flip_2.flip_type = "retraction"
         mock_flip_3 = MagicMock()
-        mock_flip_3.agent_name = "gpt-4"
+        mock_flip_3.agent_name = "gpt-5.5"
         mock_flip_3.flip_type = "contradiction"
 
         mock_detector = MagicMock()
@@ -1865,7 +1865,7 @@ class TestFiltering:
         mock_flip_2.agent_name = "claude"
         mock_flip_2.flip_type = "retraction"
         mock_flip_3 = MagicMock()
-        mock_flip_3.agent_name = "gpt-4"
+        mock_flip_3.agent_name = "gpt-5.5"
         mock_flip_3.flip_type = "contradiction"
 
         mock_detector = MagicMock()

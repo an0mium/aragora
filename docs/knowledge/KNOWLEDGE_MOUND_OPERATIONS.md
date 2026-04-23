@@ -204,7 +204,7 @@ Content-Type: application/json
   "debate_id": "debate-456",
   "messages": [
     {"agent_id": "claude", "content": "GraphQL reduces over-fetching...", "round": 1},
-    {"agent_id": "gpt4", "content": "REST is simpler for basic CRUD...", "round": 1}
+    {"agent_id": "gpt-5.5", "content": "REST is simpler for basic CRUD...", "round": 1}
   ],
   "consensus_text": "Use GraphQL for complex queries, REST for simple endpoints",
   "topic": "API design patterns"

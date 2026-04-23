@@ -160,10 +160,10 @@ describe('debateStore', () => {
       const { result } = renderHook(() => useDebateStore());
 
       act(() => {
-        result.current.setAgents(['Claude', 'GPT-4', 'Gemini']);
+        result.current.setAgents(['Claude', 'GPT-5.5', 'Gemini']);
       });
 
-      expect(result.current.current.agents).toEqual(['Claude', 'GPT-4', 'Gemini']);
+      expect(result.current.current.agents).toEqual(['Claude', 'GPT-5.5', 'Gemini']);
     });
 
     it('addAgent adds new agent', () => {
@@ -175,9 +175,9 @@ describe('debateStore', () => {
       expect(result.current.current.agents).toEqual(['Claude']);
 
       act(() => {
-        result.current.addAgent('GPT-4');
+        result.current.addAgent('GPT-5.5');
       });
-      expect(result.current.current.agents).toEqual(['Claude', 'GPT-4']);
+      expect(result.current.current.agents).toEqual(['Claude', 'GPT-5.5']);
     });
 
     it('addAgent does not add duplicate', () => {
@@ -481,7 +481,7 @@ describe('debateStore', () => {
       const artifact = {
         id: 'artifact-123',
         task: 'Test task',
-        agents: ['Claude', 'GPT-4'],
+        agents: ['Claude', 'GPT-5.5'],
         consensus_reached: true,
         confidence: 0.9,
         created_at: '2026-01-19T00:00:00Z',
@@ -676,10 +676,10 @@ describe('debateStore', () => {
       const { result } = renderHook(() => useDebateStore());
 
       act(() => {
-        result.current.setAgents(['Claude', 'GPT-4']);
+        result.current.setAgents(['Claude', 'GPT-5.5']);
       });
 
-      expect(selectDebateAgents(result.current)).toEqual(['Claude', 'GPT-4']);
+      expect(selectDebateAgents(result.current)).toEqual(['Claude', 'GPT-5.5']);
     });
 
     it('selectDebateTask returns task', () => {

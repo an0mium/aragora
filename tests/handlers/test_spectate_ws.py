@@ -219,7 +219,7 @@ class TestLiveSSEFrames:
 
         bridge._forward_event(
             event_type="critique",
-            agent="gpt4",
+            agent="gpt-5.5",
             details='{"debate_id":"d-111","details":"Do not fake liveness."}',
         )
         live_update = next(stream)
@@ -307,7 +307,7 @@ class TestLiveSSEFrames:
                     event_type="proposal",
                     timestamp="2026-04-03T11:00:01Z",
                     debate_id="shared-222",
-                    agent_name="gpt4",
+                    agent_name="gpt-5.5",
                     data={"details": "Shared opening"},
                 ),
                 SpectateEvent(
@@ -347,7 +347,7 @@ class TestLiveSSEFrames:
                 event_type="critique",
                 timestamp="2026-04-03T11:00:04Z",
                 debate_id="shared-222",
-                agent_name="gpt4",
+                agent_name="gpt-5.5",
                 data={"details": "Shared critique"},
             )
         )
@@ -401,7 +401,7 @@ class TestRecentEvents:
             SpectateEvent(
                 event_type="proposal",
                 timestamp="2026-02-18T10:00:01+00:00",
-                agent_name="gpt4",
+                agent_name="gpt-5.5",
                 data={"details": "A rate limiter"},
             )
         )
@@ -410,7 +410,7 @@ class TestRecentEvents:
         body = result[0]
         assert body["count"] == 2
         assert body["events"][0]["event_type"] == "debate_start"
-        assert body["events"][1]["agent_name"] == "gpt4"
+        assert body["events"][1]["agent_name"] == "gpt-5.5"
 
     def test_count_parameter(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
         from aragora.spectate.ws_bridge import get_spectate_bridge
@@ -506,7 +506,7 @@ class TestRecentEvents:
                 event_type="proposal",
                 timestamp="2026-02-18T10:00:01+00:00",
                 debate_id="d-shared",
-                agent_name="gpt4",
+                agent_name="gpt-5.5",
                 data={"details": "Shared opening"},
             )
         )

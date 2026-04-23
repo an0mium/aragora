@@ -44,7 +44,7 @@ Aragora needs at least one AI provider. Create `.env`:
 ```bash
 # Required: Pick at least one
 ANTHROPIC_API_KEY=sk-ant-xxx     # Claude (recommended)
-OPENAI_API_KEY=sk-xxx            # GPT-4
+OPENAI_API_KEY=sk-xxx            # GPT-5.5
 
 # Optional: More perspectives
 GEMINI_API_KEY=AIzaSy...         # Google Gemini

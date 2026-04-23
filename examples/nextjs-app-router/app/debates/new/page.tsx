@@ -6,7 +6,7 @@ import { getClientSideClient } from '@/lib/aragora';
 
 const AVAILABLE_AGENTS = [
   { id: 'claude', name: 'Claude', provider: 'Anthropic' },
-  { id: 'gpt-4', name: 'GPT-4', provider: 'OpenAI' },
+  { id: 'gpt-5.5', name: 'GPT-5.5', provider: 'OpenAI' },
   { id: 'gemini', name: 'Gemini', provider: 'Google' },
   { id: 'grok', name: 'Grok', provider: 'xAI' },
   { id: 'mistral', name: 'Mistral Large', provider: 'Mistral' },
@@ -15,7 +15,7 @@ const AVAILABLE_AGENTS = [
 export default function NewDebatePage() {
   const router = useRouter();
   const [task, setTask] = useState('');
-  const [selectedAgents, setSelectedAgents] = useState<string[]>(['claude', 'gpt-4', 'gemini']);
+  const [selectedAgents, setSelectedAgents] = useState<string[]>(['claude', 'gpt-5.5', 'gemini']);
   const [rounds, setRounds] = useState(5);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

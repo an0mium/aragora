@@ -891,7 +891,7 @@ class SpecialistTrainingPipeline:
                 # Run gauntlet evaluation
                 gauntlet = GauntletRunner(
                     config=GauntletConfig(
-                        agents=["claude", "gpt-4"],
+                        agents=["claude", "gpt-5.5"],
                         run_scenario_matrix=False,  # Skip scenarios for faster eval
                     )
                 )

@@ -9,7 +9,7 @@ Usage:
 
     stream = LiveExplainabilityStream(event_emitter=emitter)
     stream.on_proposal("claude", "We should use rate limiting", round_num=1)
-    stream.on_critique("gpt4", "Rate limiting alone is insufficient", round_num=1)
+    stream.on_critique("gpt-5.5", "Rate limiting alone is insufficient", round_num=1)
     stream.on_vote("claude", "rate_limiting", confidence=0.85, round_num=2)
     snapshot = stream.get_snapshot()
 """

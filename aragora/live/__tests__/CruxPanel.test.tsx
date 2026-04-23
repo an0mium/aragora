@@ -61,7 +61,7 @@ const mockLoadBearingClaims = [
   {
     claim_id: 'lb-002',
     statement: 'Value learning is tractable with sufficient oversight',
-    author: 'gpt-4',
+    author: 'gpt-5.5',
     centrality: 0.38,
   },
 ];

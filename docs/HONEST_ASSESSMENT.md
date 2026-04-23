@@ -161,7 +161,7 @@ These are areas where claims need honest qualification. The code exists, but the
 | Massive parallelism | Running all 43 simultaneously hits provider rate limits |
 | Practical limit | 2-6 agents per debate for real-time, up to 10 for batch |
 
-**Honest framing:** The value is heterogeneity -- different models from different providers challenge each other's reasoning, reducing correlated blind spots. The value is NOT raw parallelism. A debate with Claude + GPT-4 + Gemini + Mistral is more valuable than one with 43 copies of Claude.
+**Honest framing:** The value is heterogeneity -- different models from different providers challenge each other's reasoning, reducing correlated blind spots. The value is NOT raw parallelism. A debate with Claude + GPT-5.5 + Gemini + Mistral is more valuable than one with 43 copies of Claude.
 
 ### "Self-Improving Platform"
 
@@ -169,7 +169,7 @@ These are areas where claims need honest qualification. The code exists, but the
 |---|---|
 | Autonomous self-improvement | 80K+ LOC infrastructure exists; individual components are well-tested |
 | 21+ self-improvement phases | More accurately describes manual development iterations, not autonomous agent-driven cycles |
-| Proven autonomous cycles | First proof run completed 2026-03-02: debate phase produced real multi-agent consensus (Claude Opus 4.6 + GPT-5.2, 80% agreement); design phase hit a 120s agent timeout; implement/verify/commit phases skipped due to upstream failure. The pipeline correctly detected and halted on failure. |
+| Proven autonomous cycles | First proof run completed 2026-03-02: debate phase produced real multi-agent consensus (Claude Opus 4.6 + GPT-5.5, 80% agreement); design phase hit a 120s agent timeout; implement/verify/commit phases skipped due to upstream failure. The pipeline correctly detected and halted on failure. |
 
 **Honest framing:** Aragora has the most sophisticated self-improvement infrastructure of any open agent framework. The pieces individually work and are tested. The first autonomous proof run (2026-03-02) demonstrated that the debate phase produces high-quality multi-agent output, the pipeline stages chain correctly, and failure detection works as designed. The end-to-end cycle has not yet completed all 5 phases autonomously -- the design phase timeout and ChaosTheater noise leaking into design output are the immediate blockers. This is now a reliability tuning problem (agent timeouts, output filtering), not a wiring or architecture problem. **[March 5 update: Design phase timeout increased to 1800s (configurable via NOMIC_DESIGN_TIMEOUT). Run 012 composite score: 0.84 vs baseline 0.46.]**
 

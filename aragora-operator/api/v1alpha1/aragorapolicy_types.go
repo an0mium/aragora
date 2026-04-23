@@ -111,7 +111,7 @@ type NotificationChannel struct {
 
 // ModelRestriction defines restrictions for a specific model
 type ModelRestriction struct {
-	// Name is the model name (e.g., "claude-opus-4", "gpt-4")
+	// Name is the model name (e.g., "claude-opus-4", "gpt-5.5")
 	Name string `json:"name"`
 
 	// MaxRequestsPerHour limits requests per hour

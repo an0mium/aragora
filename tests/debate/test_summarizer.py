@@ -109,7 +109,7 @@ def basic_result() -> MockDebateResult:
     return MockDebateResult(
         messages=[
             MockMessage(agent="claude", content="Use Redis for caching"),
-            MockMessage(agent="gpt4", content="I agree with Redis"),
+            MockMessage(agent="gpt-5.5", content="I agree with Redis"),
             MockMessage(agent="gemini", content="Redis is a good choice"),
         ],
     )
@@ -125,7 +125,7 @@ def no_consensus_result() -> MockDebateResult:
         dissenting_views=["Use Memcached instead", "Consider DynamoDB"],
         messages=[
             MockMessage(agent="claude", content="Use Redis"),
-            MockMessage(agent="gpt4", content="Use Memcached"),
+            MockMessage(agent="gpt-5.5", content="Use Memcached"),
         ],
     )
 
@@ -162,18 +162,18 @@ All agents agree that Redis is the best choice for this use case.""",
         task="Design a high-performance caching solution",
         messages=[
             MockMessage(agent="claude", content="Proposal 1"),
-            MockMessage(agent="gpt4", content="Proposal 2"),
+            MockMessage(agent="gpt-5.5", content="Proposal 2"),
             MockMessage(agent="gemini", content="Proposal 3"),
         ],
         winning_patterns=["Use connection pooling", "Implement TTL"],
         votes=[
             MockVote(agent="claude", reasoning="Redis provides excellent performance"),
-            MockVote(agent="gpt4", reasoning="Redis provides excellent performance"),
+            MockVote(agent="gpt-5.5", reasoning="Redis provides excellent performance"),
             MockVote(agent="gemini", reasoning="Redis is reliable"),
         ],
         critiques=[
             MockCritique(
-                agent="gpt4",
+                agent="gpt-5.5",
                 content="However, we should consider memory limits",
             ),
         ],
@@ -332,7 +332,7 @@ class TestDebateSummarizer:
             "consensus_reached": True,
             "consensus_strength": "weak",
             "final_answer": "Use caching",
-            "messages": [{"agent": "claude"}, {"agent": "gpt4"}],
+            "messages": [{"agent": "claude"}, {"agent": "gpt-5.5"}],
             "avg_novelty": 0.8,  # Include to avoid None comparison in _generate_caveats
         }
 
@@ -674,7 +674,7 @@ class TestAgreementExtraction:
             winning_patterns=[],
             votes=[
                 MockVote(agent="claude", reasoning="Redis is fast and reliable"),
-                MockVote(agent="gpt4", reasoning="Redis is fast and reliable"),
+                MockVote(agent="gpt-5.5", reasoning="Redis is fast and reliable"),
                 MockVote(agent="gemini", reasoning="Redis is fast and reliable"),
             ],
         )
@@ -730,7 +730,7 @@ class TestDisagreementExtraction:
             dissenting_views=[],
             critiques=[
                 MockCritique(
-                    agent="gpt4",
+                    agent="gpt-5.5",
                     content="However, we should consider memory limits carefully",
                 ),
             ],
@@ -939,7 +939,7 @@ class TestMultiAgentScenarios:
             messages=[
                 MockMessage(agent="claude", content="Message 1"),
                 MockMessage(agent="claude", content="Message 2"),
-                MockMessage(agent="gpt4", content="Message 3"),
+                MockMessage(agent="gpt-5.5", content="Message 3"),
                 MockMessage(agent="gemini", content="Message 4"),
             ],
         )
@@ -952,7 +952,7 @@ class TestMultiAgentScenarios:
         data = {
             "messages": [
                 {"agent": "claude"},
-                {"agent": "gpt4"},
+                {"agent": "gpt-5.5"},
                 {"agent": "gemini"},
                 {"agent": "grok"},
             ],
@@ -1033,7 +1033,7 @@ class TestEdgeCases:
         result = MockDebateResult(
             votes=[
                 MockVote(agent="claude", reasoning="Good approach"),
-                MockVote(agent="gpt4", reasoning="Good approach"),
+                MockVote(agent="gpt-5.5", reasoning="Good approach"),
             ],
         )
         # Should not raise when processing votes

@@ -54,7 +54,7 @@ class TestSelectProvidersWithDetails:
         for _ in range(5):
             router.record_outcome("claude-sonnet-4", quality=0.9, cost=0.15)
         for _ in range(5):
-            router.record_outcome("gpt-4o", quality=0.85, cost=0.10)
+            router.record_outcome("gpt-5.5", quality=0.85, cost=0.10)
         for _ in range(5):
             router.record_outcome("deepseek-r1", quality=0.7, cost=0.01)
         return router
@@ -79,9 +79,9 @@ class TestSelectProvidersWithDetails:
         result = router.select_providers_with_details(num_agents=3, budget=0.06)
         provider_names = [r["provider"] for r in result]
         assert "deepseek-r1" in provider_names
-        # claude-sonnet-4 and gpt-4o cost more than 0.02 per agent
+        # claude-sonnet-4 and gpt-5.5 cost more than 0.02 per agent
         assert "claude-sonnet-4" not in provider_names
-        assert "gpt-4o" not in provider_names
+        assert "gpt-5.5" not in provider_names
 
     def test_zero_budget_no_providers(self):
         """Budget of 0 should return no providers (everything exceeds 0)."""
@@ -95,7 +95,7 @@ class TestSelectProvidersWithDetails:
         result = router.select_providers_with_details(num_agents=10, budget=1000.0)
         provider_names = {r["provider"] for r in result}
         assert "claude-sonnet-4" in provider_names
-        assert "gpt-4o" in provider_names
+        assert "gpt-5.5" in provider_names
         assert "deepseek-r1" in provider_names
 
     def test_no_budget_returns_all(self):

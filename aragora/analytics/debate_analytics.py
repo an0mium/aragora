@@ -245,7 +245,7 @@ class DebateAnalytics:
             rounds=9,
             consensus_reached=True,
             duration_seconds=120.5,
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
         )
 
         # Get debate statistics

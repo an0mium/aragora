@@ -51,7 +51,7 @@ def mock_extension_state():
             ),
             MagicMock(
                 id="agent-2",
-                config=MagicMock(model="gpt-4"),
+                config=MagicMock(model="gpt-5.5"),
                 status=MagicMock(value="idle"),
                 created_at="2024-01-15T11:00:00Z",
             ),

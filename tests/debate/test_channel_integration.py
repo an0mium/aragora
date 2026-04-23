@@ -43,7 +43,7 @@ class TestChannelIntegration:
         """Create test agents."""
         return [
             SimpleAgent("claude"),
-            SimpleAgent("gpt4"),
+            SimpleAgent("gpt-5.5"),
             SimpleAgent("gemini"),
         ]
 
@@ -126,14 +126,14 @@ class TestChannelIntegration:
 
         # Then critique it
         critique = await integration.broadcast_critique(
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             critique_content="This has issues with edge cases",
             target_proposal_id=proposal.message_id,
             round_number=1,
         )
 
         assert critique is not None
-        assert critique.sender == "gpt4"
+        assert critique.sender == "gpt-5.5"
         assert critique.message_type == MessageType.CRITIQUE
         assert critique.reply_to == proposal.message_id
 
@@ -144,13 +144,13 @@ class TestChannelIntegration:
 
         msg = await integration.send_query(
             sender="claude",
-            recipient="gpt4",
+            recipient="gpt-5.5",
             query="What do you think about this approach?",
         )
 
         assert msg is not None
         assert msg.sender == "claude"
-        assert msg.recipient == "gpt4"
+        assert msg.recipient == "gpt-5.5"
         assert msg.message_type == MessageType.QUERY
 
     @pytest.mark.asyncio
@@ -171,7 +171,7 @@ class TestChannelIntegration:
         await integration.setup()
 
         await integration.broadcast_proposal("claude", "Proposal 1", 1)
-        await integration.broadcast_critique("gpt4", "Critique 1", round_number=1)
+        await integration.broadcast_critique("gpt-5.5", "Critique 1", round_number=1)
 
         context = integration.get_context_for_prompt(limit=5)
 
@@ -194,7 +194,7 @@ class TestChannelIntegration:
 
         await integration.broadcast_proposal("claude", "Proposal 1", 1)
         await integration.broadcast_proposal("claude", "Proposal 2", 2)
-        await integration.broadcast_critique("gpt4", "Critique", round_number=1)
+        await integration.broadcast_critique("gpt-5.5", "Critique", round_number=1)
 
         claude_msgs = integration.get_agent_messages("claude", limit=10)
 
@@ -207,7 +207,7 @@ class TestChannelIntegration:
         await integration.setup()
 
         await integration.broadcast_proposal("claude", "Proposal 1", 1)
-        await integration.broadcast_critique("gpt4", "Critique", round_number=1)
+        await integration.broadcast_critique("gpt-5.5", "Critique", round_number=1)
         await integration.broadcast_proposal("gemini", "Proposal 2", 1)
 
         proposals = integration.get_proposals(limit=10)
@@ -221,7 +221,7 @@ class TestChannelIntegration:
         await integration.setup()
 
         await integration.broadcast_proposal("claude", "Proposal", 1)
-        await integration.broadcast_critique("gpt4", "Critique 1", round_number=1)
+        await integration.broadcast_critique("gpt-5.5", "Critique 1", round_number=1)
         await integration.broadcast_critique("gemini", "Critique 2", round_number=1)
 
         critiques = integration.get_critiques(limit=10)
@@ -264,10 +264,10 @@ class TestChannelIntegration:
         proposal = await integration.broadcast_proposal("claude", "Test", 1)
         assert proposal is None
 
-        critique = await integration.broadcast_critique("gpt4", "Test", round_number=1)
+        critique = await integration.broadcast_critique("gpt-5.5", "Test", round_number=1)
         assert critique is None
 
-        query = await integration.send_query("claude", "gpt4", "Test")
+        query = await integration.send_query("claude", "gpt-5.5", "Test")
         assert query is None
 
         signal = await integration.signal_ready("claude", "voting")
@@ -292,7 +292,7 @@ class TestChannelIntegrationFactory:
 
     def test_create_channel_integration(self):
         """Test factory function."""
-        agents = [SimpleAgent("claude"), SimpleAgent("gpt4")]
+        agents = [SimpleAgent("claude"), SimpleAgent("gpt-5.5")]
         protocol = SimpleProtocol()
 
         integration = create_channel_integration(
@@ -331,7 +331,7 @@ class TestChannelIntegrationWithMaxHistory:
     @pytest.mark.asyncio
     async def test_custom_max_history(self):
         """Test custom max history from protocol."""
-        agents = [SimpleAgent("claude"), SimpleAgent("gpt4")]
+        agents = [SimpleAgent("claude"), SimpleAgent("gpt-5.5")]
         protocol = SimpleProtocol(agent_channel_max_history=5)
 
         integration = ChannelIntegration(

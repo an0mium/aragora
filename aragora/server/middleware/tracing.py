@@ -245,7 +245,7 @@ def trace_context(
 
     Example:
         with trace_context("debate.create") as span:
-            span.set_tag("agents", ["claude", "gpt4"])
+            span.set_tag("agents", ["claude", "gpt-5.5"])
             debate = await create_debate(...)
             span.set_tag("debate_id", debate.id)
     """

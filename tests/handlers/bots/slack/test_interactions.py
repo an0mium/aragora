@@ -142,7 +142,7 @@ def _modal_view(
 ) -> dict[str, Any]:
     """Build a view_submission view payload."""
     if agents is None:
-        agents = ["claude", "gpt4"]
+        agents = ["claude", "gpt-5.5"]
     agents_data = [{"value": a} for a in agents]
     return {
         "callback_id": callback_id,
@@ -280,19 +280,19 @@ class TestVoteAction:
         await interactions_module.handle_slack_interactions.__wrapped__(request1)
         assert state_module._user_votes["d1"]["U12345ABC"] == "claude"
 
-        payload2 = _make_payload(actions=[_vote_action("d1", "gpt4")])
+        payload2 = _make_payload(actions=[_vote_action("d1", "gpt-5.5")])
         request2 = MockSlackRequest(payload2)
         await interactions_module.handle_slack_interactions.__wrapped__(request2)
-        assert state_module._user_votes["d1"]["U12345ABC"] == "gpt4"
+        assert state_module._user_votes["d1"]["U12345ABC"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_vote_multiple_users(self, interactions_module, state_module):
         p1 = _make_payload(user_id="U001", actions=[_vote_action("d1", "claude")])
         await interactions_module.handle_slack_interactions.__wrapped__(MockSlackRequest(p1))
-        p2 = _make_payload(user_id="U002", actions=[_vote_action("d1", "gpt4")])
+        p2 = _make_payload(user_id="U002", actions=[_vote_action("d1", "gpt-5.5")])
         await interactions_module.handle_slack_interactions.__wrapped__(MockSlackRequest(p2))
         assert state_module._user_votes["d1"]["U001"] == "claude"
-        assert state_module._user_votes["d1"]["U002"] == "gpt4"
+        assert state_module._user_votes["d1"]["U002"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_vote_invalid_debate_id_empty(self, interactions_module):
@@ -524,7 +524,7 @@ class TestViewSubmission:
 
     @pytest.mark.asyncio
     async def test_creates_debate(self, interactions_module, state_module):
-        view = _modal_view(task="Design a rate limiter", agents=["claude", "gpt4"], rounds="5")
+        view = _modal_view(task="Design a rate limiter", agents=["claude", "gpt-5.5"], rounds="5")
         payload = _make_payload(interaction_type="view_submission", view=view)
         request = MockSlackRequest(payload)
         result = await interactions_module.handle_slack_interactions.__wrapped__(request)
@@ -548,13 +548,13 @@ class TestViewSubmission:
 
     @pytest.mark.asyncio
     async def test_debate_agents_mapped_to_display_names(self, interactions_module, state_module):
-        view = _modal_view(agents=["claude", "gpt4", "gemini"])
+        view = _modal_view(agents=["claude", "gpt-5.5", "gemini"])
         payload = _make_payload(interaction_type="view_submission", view=view)
         request = MockSlackRequest(payload)
         await interactions_module.handle_slack_interactions.__wrapped__(request)
         debate = list(state_module._active_debates.values())[0]
         assert "Claude" in debate["agents"]
-        assert "GPT-4" in debate["agents"]
+        assert "GPT-5.5" in debate["agents"]
         assert "Gemini" in debate["agents"]
 
     @pytest.mark.asyncio
@@ -1226,10 +1226,10 @@ class TestVoteEdgeCases:
         """User can vote in multiple debates."""
         p1 = _make_payload(actions=[_vote_action("d1", "claude")])
         await interactions_module.handle_slack_interactions.__wrapped__(MockSlackRequest(p1))
-        p2 = _make_payload(actions=[_vote_action("d2", "gpt4")])
+        p2 = _make_payload(actions=[_vote_action("d2", "gpt-5.5")])
         await interactions_module.handle_slack_interactions.__wrapped__(MockSlackRequest(p2))
         assert state_module._user_votes["d1"]["U12345ABC"] == "claude"
-        assert state_module._user_votes["d2"]["U12345ABC"] == "gpt4"
+        assert state_module._user_votes["d2"]["U12345ABC"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_vote_agent_with_spaces(self, interactions_module, state_module):
@@ -1261,11 +1261,11 @@ class TestVoteEdgeCases:
     @pytest.mark.asyncio
     async def test_vote_confirmation_text_format(self, interactions_module):
         """Verify the exact format of vote confirmation text."""
-        payload = _make_payload(actions=[_vote_action("d1", "GPT-4")])
+        payload = _make_payload(actions=[_vote_action("d1", "GPT-5.5")])
         request = MockSlackRequest(payload)
         result = await interactions_module.handle_slack_interactions.__wrapped__(request)
         body = _body(result)
-        assert "*GPT-4*" in body["text"]
+        assert "*GPT-5.5*" in body["text"]
 
 
 # ===========================================================================
@@ -1287,7 +1287,7 @@ class TestViewSubmissionEdgeCases:
 
     @pytest.mark.asyncio
     async def test_many_agents_creates_debate(self, interactions_module, state_module):
-        agents = ["claude", "gpt4", "gemini", "mistral", "deepseek", "grok", "qwen", "kimi"]
+        agents = ["claude", "gpt-5.5", "gemini", "mistral", "deepseek", "grok", "qwen", "kimi"]
         view = _modal_view(agents=agents)
         payload = _make_payload(interaction_type="view_submission", view=view)
         request = MockSlackRequest(payload)

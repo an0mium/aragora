@@ -636,7 +636,7 @@ class TestGlobalEmitterFunctions:
             tokens_out=50,
             cost_usd=Decimal("0.015"),
             provider="openai",
-            model="gpt-4",
+            model="gpt-5.5",
         )
 
         assert event.tenant_id == "tenant-1"
@@ -645,7 +645,7 @@ class TestGlobalEmitterFunctions:
         assert event.total_tokens == 150
         assert event.cost_usd == Decimal("0.015")
         assert event.provider == "openai"
-        assert event.model == "gpt-4"
+        assert event.model == "gpt-5.5"
         assert len(received) == 1
 
     @pytest.mark.asyncio
@@ -946,7 +946,7 @@ class TestIntegrationScenarios:
 
         # Simulate debate with multiple agent calls using the emitter directly
         for round_num in range(3):
-            for agent in ["claude", "gpt4", "gemini"]:
+            for agent in ["claude", "gpt-5.5", "gemini"]:
                 event = UsageStreamEvent(
                     tenant_id="tenant-1",
                     tokens_in=500 + round_num * 100,

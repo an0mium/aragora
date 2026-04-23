@@ -342,8 +342,8 @@ Pricing per 1M tokens (as of Jan 2025):
 |----------|-------|-------|--------|
 | Anthropic | Claude Opus 4 | $15.00 | $75.00 |
 | Anthropic | Claude Sonnet 4 | $3.00 | $15.00 |
-| OpenAI | GPT-4o | $2.50 | $10.00 |
-| OpenAI | GPT-4o Mini | $0.15 | $0.60 |
+| OpenAI | GPT-5.5 | $2.50 | $10.00 |
+| OpenAI | GPT-5.5 Mini | $0.15 | $0.60 |
 | Google | Gemini Pro | $1.25 | $5.00 |
 | DeepSeek | DeepSeek V3 | $0.14 | $0.28 |
 | OpenRouter | Default | $2.00 | $8.00 |

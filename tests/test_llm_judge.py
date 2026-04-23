@@ -403,13 +403,13 @@ class TestJudgeConfig:
     def test_config_custom(self):
         """Test custom configuration."""
         config = JudgeConfig(
-            model="gpt-4o",
+            model="gpt-5.5",
             use_case="debate",
             pass_threshold=4.0,
             dimensions=[EvaluationDimension.REASONING, EvaluationDimension.EVIDENCE],
         )
 
-        assert config.model == "gpt-4o"
+        assert config.model == "gpt-5.5"
         assert config.use_case == "debate"
         assert config.pass_threshold == 4.0
         assert len(config.dimensions) == 2

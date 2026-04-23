@@ -104,7 +104,7 @@ curl -s http://localhost:8080/api/health | jq .providers
 # 2. Run test debate
 curl -X POST http://localhost:8080/api/debates \
   -H "Content-Type: application/json" \
-  -d '{"task":"Test: Is 2+2=4?","agents":["claude","gpt4"]}'
+  -d '{"task":"Test: Is 2+2=4?","agents":["claude","gpt-5.5"]}'
 
 # 3. Verify completion
 curl http://localhost:8080/api/debates/{debate_id}

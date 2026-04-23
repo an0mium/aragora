@@ -963,7 +963,7 @@ def mock_external_apis(request, monkeypatch):
     class MockOpenAICompletion:
         """Mock OpenAI chat completion response."""
 
-        def __init__(self, content: str, model: str = "gpt-4o"):
+        def __init__(self, content: str, model: str = "gpt-5.5"):
             self.id = "chatcmpl-mock123"
             self.model = model
             self.choices = [MockOpenAIChoice(content)]
@@ -997,12 +997,12 @@ def mock_external_apis(request, monkeypatch):
             ]
             return responses[seed % len(responses)]
 
-        def create(self, messages, model="gpt-4o", **kwargs):
+        def create(self, messages, model="gpt-5.5", **kwargs):
             """Sync create method."""
             content = self._generate_response(messages, **kwargs)
             return MockOpenAICompletion(content, model)
 
-        async def acreate(self, messages, model="gpt-4o", **kwargs):
+        async def acreate(self, messages, model="gpt-5.5", **kwargs):
             """Async create method (for compatibility)."""
             content = self._generate_response(messages, **kwargs)
             return MockOpenAICompletion(content, model)
@@ -1032,7 +1032,7 @@ def mock_external_apis(request, monkeypatch):
             ]
             return responses[seed % len(responses)]
 
-        async def create(self, messages, model="gpt-4o", **kwargs):
+        async def create(self, messages, model="gpt-5.5", **kwargs):
             """Async create method."""
             content = self._generate_response(messages, **kwargs)
             return MockOpenAICompletion(content, model)
@@ -1633,7 +1633,7 @@ def mock_agents() -> list[Mock]:
     Returns a list of 3 mock agents with different names.
     """
     agents = []
-    for i, name in enumerate(["claude", "gemini", "gpt4"]):
+    for i, name in enumerate(["claude", "gemini", "gpt-5.5"]):
         agent = Mock()
         agent.name = name
         agent.role = "proposer" if i == 0 else "critic"
@@ -2485,7 +2485,7 @@ def mock_openai_response():
 
     def _make_response(
         content: str = "Test response",
-        model: str = "gpt-4o",
+        model: str = "gpt-5.5",
         finish_reason: str = "stop",
         prompt_tokens: int = 100,
         completion_tokens: int = 50,

@@ -52,7 +52,7 @@ def _make_debate_result(**overrides) -> DebateResult:
         "confidence": 0.87,
         "consensus_reached": True,
         "rounds_used": 3,
-        "participants": ["claude", "gpt4", "gemini"],
+        "participants": ["claude", "gpt-5.5", "gemini"],
         "total_cost_usd": 0.08,
     }
     defaults.update(overrides)
@@ -67,7 +67,7 @@ def _make_contested_result() -> DebateResult:
         consensus_reached=False,
         critiques=[
             Critique(
-                agent="gpt4",
+                agent="gpt-5.5",
                 target_agent="claude",
                 target_content="token bucket",
                 issues=[

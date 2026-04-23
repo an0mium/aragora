@@ -163,7 +163,7 @@ Example output:
 ### Split Opinions
 | Topic | For | Against |
 |-------|-----|---------|
-| Add request rate limiting | Claude, GPT-4 | Gemini |
+| Add request rate limiting | Claude, GPT-5.5 | Gemini |
 ```
 
 **GitHub Actions**: Automatically review every PR with the included workflow.

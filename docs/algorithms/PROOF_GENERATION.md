@@ -167,10 +167,10 @@ from aragora.verification.formal import TranslationModel
 lean = LeanBackend(translation_model=TranslationModel.AUTO)
 
 # Options:
-# - AUTO: DeepSeek-Prover first, then Claude/GPT-4
+# - AUTO: DeepSeek-Prover first, then Claude/GPT-5.5
 # - DEEPSEEK_PROVER: Best for math proofs
 # - CLAUDE: General purpose
-# - OPENAI: GPT-4 fallback
+# - OPENAI: GPT-5.5 fallback
 ```
 
 ### Complete Verification Pipeline

@@ -70,7 +70,7 @@ The panel earned trust on this first brief. It found the bugs a good reviewer wo
   - DeepSeek/Kimi/Qwen via OpenRouter can be slower than direct APIs
 - Cost is strikingly lower than estimate. Likely reasons:
   - Prompts are shorter than I expected
-  - Most models are using cheap tiers (Gemini Flash, GPT-5-mini, etc. via Codex wrapper)
+  - Most models are using cheap tiers (Gemini Flash, GPT-5.5, etc. via Codex wrapper)
 - No budget pressure at this size; the $8/brief cap is 400x the actual cost
 
 ## Follow-up PRs needed

@@ -66,7 +66,7 @@ def _get_demo_timeline(limit: int = 20, offset: int = 0) -> dict:
         },
         {
             "id": "evt-002",
-            "agent_name": "gpt-4-turbo",
+            "agent_name": "gpt-5.5",
             "event_type": "prompt_modification",
             "timestamp": _iso(now - 5 * 3600),
             "description": "System prompt updated to emphasize evidence-based reasoning over rhetoric",
@@ -190,7 +190,7 @@ def _get_demo_elo_trends(period: str = "7d") -> dict:
                 "total_debates": 47,
             },
             {
-                "agent_name": "gpt-4-turbo",
+                "agent_name": "gpt-5.5",
                 "provider": "openai",
                 "current_elo": 1380,
                 "trend": _make_trend(1403, [-8, -5, 10, -12, 5, -5, -8]),

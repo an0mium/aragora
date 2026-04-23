@@ -257,7 +257,7 @@ class TestGetProfile:
         mock_elo = MagicMock()
         mock_elo.get_rating.return_value = 1500
         mock_elo.get_agent_stats.return_value = {}
-        for name in ["gpt4", "gemini", "mistral-api", "anthropic-api"]:
+        for name in ["gpt-5.5", "gemini", "mistral-api", "anthropic-api"]:
             with patch.object(handler, "get_elo_system", return_value=mock_elo):
                 result = await handler.handle(f"/api/agent/{name}/profile", {}, mock_http_handler)
                 assert _status(result) == 200
@@ -470,7 +470,7 @@ class TestGetNetwork:
     async def test_network_happy_path(self, handler, mock_http_handler):
         """Returns rivals and allies."""
         mock_elo = MagicMock()
-        mock_elo.get_rivals.return_value = [{"name": "gpt4", "elo": 1580}]
+        mock_elo.get_rivals.return_value = [{"name": "gpt-5.5", "elo": 1580}]
         mock_elo.get_allies.return_value = [{"name": "gemini", "elo": 1520}]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle("/api/agent/claude/network", {}, mock_http_handler)
@@ -525,7 +525,7 @@ class TestGetRivals:
         """Returns rivals list."""
         mock_elo = MagicMock()
         mock_elo.get_rivals.return_value = [
-            {"name": "gpt4", "head_to_head": {"wins": 3, "losses": 2}},
+            {"name": "gpt-5.5", "head_to_head": {"wins": 3, "losses": 2}},
         ]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
@@ -1125,9 +1125,9 @@ class TestRouteDispatch:
         mock_elo.get_rating.return_value = 1500
         mock_elo.get_agent_stats.return_value = {}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle("/api/agent/gpt4/profile", {}, mock_http_handler)
+            result = await handler.handle("/api/agent/gpt-5.5/profile", {}, mock_http_handler)
             assert _status(result) == 200
-            assert _body(result)["name"] == "gpt4"
+            assert _body(result)["name"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_all_profile_endpoints_accessible(self, handler, mock_http_handler):
@@ -1314,7 +1314,7 @@ class TestMultipleAgentNames:
         "agent_name",
         [
             "claude",
-            "gpt4",
+            "gpt-5.5",
             "gemini",
             "mistral-api",
             "grok",

@@ -155,7 +155,7 @@ SAMPLE_TEMPLATE = {
     "inputs": {"question": {"type": "string", "required": True}},
     "outputs": {"decision": {"type": "string"}},
     "estimated_duration": 5,
-    "recommended_agents": ["claude", "gpt4"],
+    "recommended_agents": ["claude", "gpt-5.5"],
     "tags": ["quick", "decision"],
     "config": {"rounds": 2},
 }

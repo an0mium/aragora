@@ -78,7 +78,7 @@ _PROVIDER_SPECS: dict[str, dict[str, Any]] = {
     },
     "openai": {
         "agent_type": "openai-api",
-        "model": "gpt-4o-mini",
+        "model": "gpt-5.5",
         "env_vars": ("OPENAI_API_KEY",),
     },
     "gemini": {

@@ -465,7 +465,7 @@ class TestIntegration:
 
         # Set debate context
         with LogContext(debate_id="debate_001", trace_id="trace_abc"):
-            logger.info("Debate started", agents=["claude", "gpt4"])
+            logger.info("Debate started", agents=["claude", "gpt-5.5"])
 
             # Nested operation
             with LogContext(round_num=1):

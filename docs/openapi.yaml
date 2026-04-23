@@ -2032,7 +2032,7 @@
             "name": "name",
             "in": "path",
             "required": true,
-            "description": "Agent name (e.g., 'claude', 'gpt-4', 'gemini')",
+            "description": "Agent name (e.g., 'claude', 'gpt-5.5', 'gemini')",
             "schema": {
               "type": "string"
             }
@@ -13471,7 +13471,7 @@
                     "task": "Is GraphQL better than REST for mobile apps?",
                     "agents": [
                       "claude",
-                      "gpt-4",
+                      "gpt-5.5",
                       "gemini"
                     ],
                     "rounds": 9,
@@ -38825,7 +38825,7 @@
             "name": "name",
             "in": "path",
             "required": true,
-            "description": "Agent name (e.g., 'claude', 'gpt-4', 'gemini')",
+            "description": "Agent name (e.g., 'claude', 'gpt-5.5', 'gemini')",
             "schema": {
               "type": "string"
             }
@@ -71581,7 +71581,7 @@
                     "task": "Is GraphQL better than REST for mobile apps?",
                     "agents": [
                       "claude",
-                      "gpt-4",
+                      "gpt-5.5",
                       "gemini"
                     ],
                     "rounds": 9,
@@ -72334,7 +72334,7 @@
             "schema": {
               "type": "string"
             },
-            "example": "claude-sonnet-4,gpt-4o,gemini-pro"
+            "example": "claude-sonnet-4,gpt-5.5,gemini-pro"
           }
         ],
         "responses": {
@@ -165670,7 +165670,7 @@
             "description": "List of agent specs to participate. If empty, auto_select is used.",
             "example": [
               "claude",
-              "gpt-4",
+              "gpt-5.5",
               "gemini"
             ],
             "minItems": 0,
@@ -165815,7 +165815,7 @@
           "task": "Should we adopt microservices architecture for our e-commerce platform?",
           "agents": [
             "claude",
-            "gpt-4",
+            "gpt-5.5",
             "gemini"
           ],
           "rounds": 9,
@@ -165854,7 +165854,7 @@
             "description": "Agents participating in the debate",
             "example": [
               "claude",
-              "gpt-4",
+              "gpt-5.5",
               "gemini"
             ]
           },
@@ -165883,7 +165883,7 @@
           "task": "Should we adopt microservices architecture?",
           "agents": [
             "claude",
-            "gpt-4",
+            "gpt-5.5",
             "gemini"
           ],
           "websocket_url": "wss://api.aragora.ai/ws/debates/deb_abc123xyz",
@@ -172113,7 +172113,7 @@
           "format": "audio",
           "voices": {
             "claude": "alloy",
-            "gpt-4": "echo"
+            "gpt-5.5": "echo"
           }
         }
       },
@@ -172434,7 +172434,7 @@
             },
             "example": [
               "claude-sonnet-4",
-              "gpt-4o",
+              "gpt-5.5",
               "gemini-pro"
             ]
           }
@@ -172444,7 +172444,7 @@
           "num_rounds": 9,
           "model_types": [
             "claude-sonnet-4",
-            "gpt-4o",
+            "gpt-5.5",
             "gemini-pro"
           ]
         }

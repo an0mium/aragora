@@ -314,7 +314,7 @@ class TestSlackAgentsCommand:
     def test_agents_lists_by_elo(self, slack_handler):
         """Agents are listed sorted by ELO."""
         agents = []
-        for name, elo in [("claude", 1600), ("gpt4", 1550), ("gemini", 1500)]:
+        for name, elo in [("claude", 1600), ("gpt-5.5", 1550), ("gemini", 1500)]:
             agent = MagicMock()
             agent.name = name
             agent.elo = elo

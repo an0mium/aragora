@@ -1485,7 +1485,7 @@ class TestCommandReceipt:
             "decision": "Implement guardrails",
             "confidence": 0.85,
             "timestamp": "2026-02-23T10:00:00Z",
-            "agents": [{"name": "Claude"}, {"name": "GPT-4"}],
+            "agents": [{"name": "Claude"}, {"name": "GPT-5.5"}],
             "hash": "abcdef1234567890abcdef1234567890",
         }
 
@@ -1666,7 +1666,7 @@ class TestFormatReceipt:
             "conclusion": "Prioritize tech debt",
             "confidence": 0.7,
             "created_at": "2026-01-01",
-            "participants": ["Claude", "GPT-4"],
+            "participants": ["Claude", "GPT-5.5"],
         }
         result = _format_receipt(data)
         assert "alt-001" in result

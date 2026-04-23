@@ -41,12 +41,11 @@ logger = logging.getLogger(__name__)
 MODEL_TIERS: dict[str, dict[str, Any]] = {
     # Tier 1: Most capable (complex reasoning, coding)
     "claude-opus-4": {"tier": 1, "provider": "anthropic", "quality": 1.0},
-    "gpt-4o": {"tier": 1, "provider": "openai", "quality": 0.95},
+    "gpt-5.5": {"tier": 1, "provider": "openai", "quality": 0.95},
     # Tier 2: Balanced (most tasks)
     "claude-sonnet-4": {"tier": 2, "provider": "anthropic", "quality": 0.85},
     "gemini-pro": {"tier": 2, "provider": "google", "quality": 0.80},
     # Tier 3: Fast/cheap (simple tasks)
-    "gpt-4o-mini": {"tier": 3, "provider": "openai", "quality": 0.70},
     "claude-haiku-3": {"tier": 3, "provider": "anthropic", "quality": 0.65},
     "deepseek-v3": {"tier": 3, "provider": "deepseek", "quality": 0.75},
 }

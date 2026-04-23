@@ -57,13 +57,13 @@ class TestConfidenceScore:
     def test_to_dict(self) -> None:
         """Test serialization to dictionary."""
         score = ConfidenceScore(
-            agent_name="gpt-4",
+            agent_name="gpt-5.5",
             value=0.75,
             reasoning="Moderate confidence",
         )
         d = score.to_dict()
 
-        assert d["agent"] == "gpt-4"
+        assert d["agent"] == "gpt-5.5"
         assert d["confidence"] == 0.75
         assert d["reasoning"] == "Moderate confidence"
         assert "timestamp" in d

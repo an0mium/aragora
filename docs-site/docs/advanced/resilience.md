@@ -217,9 +217,9 @@ from aragora.resilience import CircuitBreaker
 
 # Agents have built-in circuit breakers
 agent = Agent(
-    name="gpt-4",
+    name="gpt-5.5",
     circuit_breaker=CircuitBreaker(
-        name="gpt-4",
+        name="gpt-5.5",
         config=CircuitBreakerConfig(
             failure_threshold=3,
             timeout_seconds=30,

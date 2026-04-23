@@ -227,7 +227,7 @@ class TestBeliefKMBidirectional:
             data={
                 "debate_id": "debate_new_001",
                 "question": "Should we use GraphQL or REST for our API?",
-                "agents": ["claude", "gpt4", "gemini"],
+                "agents": ["claude", "gpt-5.5", "gemini"],
             },
         )
 
@@ -320,7 +320,7 @@ class TestELORankingKMBidirectional:
         event = StreamEvent(
             type=StreamEventType.AGENT_ELO_UPDATED,
             data={
-                "agent": "gpt4",
+                "agent": "gpt-5.5",
                 "elo": 1510,
                 "delta": 10,  # Minor change
                 "debate_id": "debate_elo_002",
@@ -404,7 +404,7 @@ class TestInsightsKMBidirectional:
             type=StreamEventType.DEBATE_START,
             data={
                 "debate_id": "debate_trickster_001",
-                "agents": ["claude", "gpt4", "gemini"],
+                "agents": ["claude", "gpt-5.5", "gemini"],
             },
         )
 
@@ -445,8 +445,8 @@ class TestConsensusKMBidirectional:
                 "supporting_evidence": [
                     "Benchmark: PostgreSQL handles 10k TPS",
                 ],
-                "participating_agents": ["claude", "gpt4", "gemini", "mistral"],
-                "agreeing_agents": ["claude", "gpt4", "gemini"],
+                "participating_agents": ["claude", "gpt-5.5", "gemini", "mistral"],
+                "agreeing_agents": ["claude", "gpt-5.5", "gemini"],
                 "dissenting_agents": ["mistral"],
                 "dissents": [
                     {
@@ -700,7 +700,7 @@ class TestFullRoundTripIntegration:
             data={
                 "debate_id": "debate_team_rt_001",
                 "question": "How should we implement OAuth security?",
-                "agents": ["claude", "gpt4", "gemini"],
+                "agents": ["claude", "gpt-5.5", "gemini"],
             },
         )
 
@@ -713,7 +713,7 @@ class TestFullRoundTripIntegration:
         flip_event = StreamEvent(
             type=StreamEventType.FLIP_DETECTED,
             data={
-                "agent_name": "gpt4",
+                "agent_name": "gpt-5.5",
                 "flip_type": "position_reversal",
                 "debate_id": "debate_flip_rt_001",
             },
@@ -727,7 +727,7 @@ class TestFullRoundTripIntegration:
             type=StreamEventType.DEBATE_START,
             data={
                 "debate_id": "debate_trickster_rt_001",
-                "agents": ["gpt4", "claude"],
+                "agents": ["gpt-5.5", "claude"],
             },
         )
 

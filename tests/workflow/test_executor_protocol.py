@@ -208,10 +208,10 @@ class TestResourceTracker:
         tracker = ResourceTracker()
 
         claude_cost = tracker.estimate_cost("claude", estimated_tokens=1000)
-        gpt4_cost = tracker.estimate_cost("gpt-4", estimated_tokens=1000)
+        gpt55_cost = tracker.estimate_cost("gpt-5.5", estimated_tokens=1000)
 
-        # GPT-4 should be more expensive than Claude Sonnet
-        assert gpt4_cost > claude_cost
+        # GPT-5.5 should be more expensive than Claude Sonnet
+        assert gpt55_cost > claude_cost
         assert claude_cost > 0
 
     def test_per_step_tracking(self):
@@ -220,7 +220,7 @@ class TestResourceTracker:
         tracker.start()
 
         tracker.add_tokens("step1", "claude", 100, 50)
-        tracker.add_tokens("step2", "gpt-4", 200, 100)
+        tracker.add_tokens("step2", "gpt-5.5", 200, 100)
         tracker.add_step_duration("step1", 1.5)
         tracker.add_step_duration("step2", 2.0)
 
@@ -237,10 +237,10 @@ class TestResourceTracker:
 
         tracker.add_tokens("step1", "claude", 100, 50)
         tracker.add_tokens("step2", "claude", 100, 50)
-        tracker.add_tokens("step3", "gpt-4", 200, 100)
+        tracker.add_tokens("step3", "gpt-5.5", 200, 100)
 
         assert tracker.usage.agent_tokens["claude"] == 300
-        assert tracker.usage.agent_tokens["gpt-4"] == 300
+        assert tracker.usage.agent_tokens["gpt-5.5"] == 300
 
 
 class TestTaskQueueAdapter:

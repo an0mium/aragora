@@ -165,7 +165,7 @@ class OpenAICompatibleAgent(APIAgent):
         name: str,
         api_key: str,
         base_url: str = "https://api.openai.com/v1",
-        model: str = "gpt-5.3",
+        model: str = "gpt-5.5",
         role: str = "proposer",
         timeout: int = 120,
     ):
@@ -627,7 +627,7 @@ agents:
 
   gpt-analyst:
     type: openai-api
-    model: gpt-5.3
+    model: gpt-5.5
     role: critic
     system_prompt: "You are a careful analyst who examines evidence."
 

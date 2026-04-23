@@ -34,7 +34,7 @@ spec:
     - name: claude-sonnet-4
       allowed: true
       maxRequestsPerHour: 500
-    - name: gpt-4
+    - name: gpt-5.5
       allowed: false
 
   rateLimits:

@@ -25,9 +25,9 @@ class CostTier(Enum):
     """Model cost tiers."""
 
     FREE = "free"  # Open source, local
-    CHEAP = "cheap"  # GPT-3.5, Claude Haiku, Gemini Flash
-    STANDARD = "standard"  # GPT-4o, Claude Sonnet
-    EXPENSIVE = "expensive"  # GPT-4, Claude Opus, Gemini Pro
+    CHEAP = "cheap"  # GPT-5.5, Claude Haiku, Gemini Flash
+    STANDARD = "standard"  # GPT-5.5, Claude Sonnet
+    EXPENSIVE = "expensive"  # GPT-5.5, Claude Opus, Gemini Pro
 
 
 @dataclass

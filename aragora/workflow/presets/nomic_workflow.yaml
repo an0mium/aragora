@@ -36,7 +36,7 @@ steps:
     type: debate
     config:
       topic: "Propose improvements for: {focus_area}"
-      agents: ["claude", "gpt4", "gemini"]
+      agents: ["claude", "gpt-5.5", "gemini"]
       rounds: 3
       consensus_mechanism: "weighted"
       enable_critique: true

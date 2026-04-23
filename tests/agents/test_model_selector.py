@@ -29,7 +29,7 @@ class TestModelProfiles:
     def test_model_profiles_exist(self):
         """Verify major models are defined in MODEL_PROFILES."""
         assert "claude" in MODEL_PROFILES
-        assert "gpt4" in MODEL_PROFILES
+        assert "gpt-5.5" in MODEL_PROFILES
         assert "gemini" in MODEL_PROFILES
 
     def test_model_profiles_include_all_major_providers(self):
@@ -449,12 +449,12 @@ class TestSpecialistModelSelector:
     def test_compare_models(self, selector):
         """Test model comparison output."""
         comparison = selector.compare_models(
-            model_ids=["claude", "gpt4", "gemini"],
+            model_ids=["claude", "gpt-5.5", "gemini"],
             vertical=Vertical.SOFTWARE,
         )
 
         assert "claude" in comparison
-        assert "gpt4" in comparison
+        assert "gpt-5.5" in comparison
         assert "gemini" in comparison
 
         # Check structure of comparison data
@@ -480,11 +480,11 @@ class TestSpecialistModelSelector:
     def test_compare_models_unknown_model(self, selector):
         """Test that unknown models are skipped in comparison."""
         comparison = selector.compare_models(
-            model_ids=["claude", "unknown_model", "gpt4"],
+            model_ids=["claude", "unknown_model", "gpt-5.5"],
         )
 
         assert "claude" in comparison
-        assert "gpt4" in comparison
+        assert "gpt-5.5" in comparison
         assert "unknown_model" not in comparison
 
     def test_fallback_to_default(self):
@@ -593,14 +593,14 @@ class TestModelSelectionEdgeCases:
 
     def test_available_models_subset(self):
         """Test selection with subset of available models."""
-        selector = SpecialistModelSelector(available_models=["claude", "gpt4"])
+        selector = SpecialistModelSelector(available_models=["claude", "gpt-5.5"])
 
         selection = selector.select_model()
-        assert selection.model_id in ["claude", "gpt4"]
+        assert selection.model_id in ["claude", "gpt-5.5"]
 
         # Alternatives should only include available models
         for alt_id, _ in selection.alternatives:
-            assert alt_id in ["claude", "gpt4"]
+            assert alt_id in ["claude", "gpt-5.5"]
 
     def test_multiple_required_capabilities(self):
         """Test selection with multiple required capabilities."""
@@ -640,7 +640,7 @@ class TestModelProfileCapabilities:
 
     @pytest.mark.parametrize(
         "model_id",
-        ["claude", "gpt4", "gemini", "mistral", "deepseek"],
+        ["claude", "gpt-5.5", "gemini", "mistral", "deepseek"],
     )
     def test_model_has_reasoning_capability(self, model_id):
         """Test that major models have reasoning capability defined."""
@@ -650,7 +650,7 @@ class TestModelProfileCapabilities:
 
     @pytest.mark.parametrize(
         "model_id",
-        ["claude", "gpt4", "deepseek"],
+        ["claude", "gpt-5.5", "deepseek"],
     )
     def test_coding_focused_models(self, model_id):
         """Test that coding-focused models have high coding scores."""
@@ -662,7 +662,7 @@ class TestModelProfileCapabilities:
         "model_id,expected_provider",
         [
             ("claude", "anthropic"),
-            ("gpt4", "openai"),
+            ("gpt-5.5", "openai"),
             ("gemini", "google"),
             ("mistral", "mistral"),
             ("deepseek", "deepseek"),

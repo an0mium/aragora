@@ -83,14 +83,14 @@ class TestSpectateEvent:
             event_type="vote",
             timestamp="2026-02-18T10:00:00+00:00",
             data={"metric": 0.85},
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             round_number=1,
         )
         d = event.to_dict()
         assert d["event_type"] == "vote"
         assert d["timestamp"] == "2026-02-18T10:00:00+00:00"
         assert d["data"]["metric"] == 0.85
-        assert d["agent_name"] == "gpt4"
+        assert d["agent_name"] == "gpt-5.5"
         assert d["round_number"] == 1
         assert d["debate_id"] is None
         assert d["pipeline_id"] is None
@@ -237,7 +237,7 @@ class TestEventForwarding:
             with bind_spectate_context(
                 debate_id="debate-123",
                 task="Should we ship the streaming UI?",
-                agents=["claude", "gpt4"],
+                agents=["claude", "gpt-5.5"],
             ):
                 stream.emit("debate_start")
 
@@ -245,7 +245,7 @@ class TestEventForwarding:
             assert len(events) == 1
             assert events[0].debate_id == "debate-123"
             assert events[0].data["task"] == "Should we ship the streaming UI?"
-            assert events[0].data["agents"] == ["claude", "gpt4"]
+            assert events[0].data["agents"] == ["claude", "gpt-5.5"]
         finally:
             bridge.stop()
 

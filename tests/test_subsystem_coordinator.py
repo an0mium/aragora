@@ -77,7 +77,7 @@ def mock_context():
     agent1 = Mock()
     agent1.name = "claude"
     agent2 = Mock()
-    agent2.name = "gpt4"
+    agent2.name = "gpt-5.5"
     ctx.agents = [agent1, agent2]
     return ctx
 

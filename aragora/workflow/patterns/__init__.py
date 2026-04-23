@@ -19,7 +19,7 @@ Usage:
     # Create a hive-mind workflow
     workflow = HiveMindPattern.create(
         name="Contract Review",
-        agents=["claude", "gpt4", "gemini"],
+        agents=["claude", "gpt-5.5", "gemini"],
         task="Analyze this contract for risks",
         consensus_mode="weighted",
     )

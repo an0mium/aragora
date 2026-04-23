@@ -889,7 +889,7 @@ class TestCommandAgents:
         r1.agent_name = "claude"
         r1.elo = 1600.0
         r2 = MagicMock()
-        r2.agent_name = "gpt4"
+        r2.agent_name = "gpt-5.5"
         r2.elo = 1500.0
         r3 = MagicMock()
         r3.agent_name = "gemini"
@@ -903,11 +903,11 @@ class TestCommandAgents:
             result = handler._command_agents()
         body = _body(result)
         text = body["text"]
-        # Claude (1600) should appear before Gemini (1550) before GPT-4 (1500)
+        # Claude (1600) should appear before Gemini (1550) before GPT-5.5 (1500)
         claude_pos = text.index("claude")
         gemini_pos = text.index("gemini")
-        gpt4_pos = text.index("gpt4")
-        assert claude_pos < gemini_pos < gpt4_pos
+        gpt55_pos = text.index("gpt-5.5")
+        assert claude_pos < gemini_pos < gpt55_pos
 
     def test_agents_import_error(self, handler):
         with patch(

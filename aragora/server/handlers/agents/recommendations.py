@@ -41,9 +41,7 @@ _recommend_limiter = RateLimiter(requests_per_minute=30)
 # Cost estimates by agent type (USD per 1K tokens, approximate)
 _AGENT_COST_ESTIMATES: dict[str, float] = {
     "claude": 0.015,
-    "gpt4": 0.03,
-    "gpt-4": 0.03,
-    "gpt-4o": 0.005,
+    "gpt-5.5": 0.03,
     "gemini": 0.00125,
     "grok": 0.005,
     "codex": 0.03,

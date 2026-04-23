@@ -73,7 +73,7 @@ class TestGauntletConfig:
             name="Custom Gauntlet",
             attack_rounds=5,
             attack_categories=[AttackCategory.SECURITY],
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
         )
 
         assert config.attack_rounds == 5
@@ -343,12 +343,12 @@ class TestGauntletRunner:
 
         config = GauntletConfig(
             attack_rounds=3,
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
         )
         runner = GauntletRunner(config)
 
         assert "claude" in runner.config.agents
-        assert "gpt-4" in runner.config.agents
+        assert "gpt-5.5" in runner.config.agents
 
 
 class TestGauntletIntegration:

@@ -111,7 +111,7 @@ def journey_agents() -> list[JourneyMockAgent]:
     """Three agents that converge to guarantee consensus."""
     return [
         JourneyMockAgent("analyst-claude", SHARED_ANSWER),
-        JourneyMockAgent("critic-gpt4", SHARED_ANSWER),
+        JourneyMockAgent("critic-gpt-5.5", SHARED_ANSWER),
         JourneyMockAgent("synthesizer-gemini", SHARED_ANSWER),
     ]
 

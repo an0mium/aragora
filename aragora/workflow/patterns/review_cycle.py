@@ -47,7 +47,7 @@ class ReviewCyclePattern(WorkflowPattern):
         workflow = ReviewCyclePattern.create(
             name="Code Review Cycle",
             draft_agent="claude",
-            review_agent="gpt4",
+            review_agent="gpt-5.5",
             task="Implement a rate limiter class",
             review_criteria=["correctness", "efficiency", "readability"],
             max_iterations=3,
@@ -74,7 +74,7 @@ class ReviewCyclePattern(WorkflowPattern):
     ):
         super().__init__(name, agents, task, **kwargs)
         self.draft_agent = draft_agent or (agents[0] if agents else "claude")
-        self.review_agent = review_agent or (agents[1] if agents and len(agents) > 1 else "gpt4")
+        self.review_agent = review_agent or (agents[1] if agents and len(agents) > 1 else "gpt-5.5")
         self.max_iterations = max_iterations
         self.convergence_threshold = convergence_threshold
         self.review_criteria = review_criteria or ["quality", "completeness", "accuracy"]

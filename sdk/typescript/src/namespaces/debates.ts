@@ -510,7 +510,7 @@ interface DebatesClientInterface {
  * // Create a debate
  * const response = await client.debates.create({
  *   task: 'Should we use microservices?',
- *   agents: ['claude', 'gpt-4'],
+ *   agents: ['claude', 'gpt-5.5'],
  * });
  *
  * // Get debate details
@@ -1529,7 +1529,7 @@ export class DebatesAPI {
    * @example
    * ```typescript
    * const result = await client.debates.createCounterfactual('debate-123', {
-   *   agents: ['claude', 'gpt-4', 'gemini'],
+   *   agents: ['claude', 'gpt-5.5', 'gemini'],
    *   rounds: 5,
    * });
    * console.log(`Counterfactual outcome: ${result.predicted_outcome}`);
@@ -1585,7 +1585,7 @@ export class DebatesAPI {
    *
    * @example
    * ```typescript
-   * const probe = await client.debates.capabilityProbe('Can this system handle real-time data?', ['claude', 'gpt-4']);
+   * const probe = await client.debates.capabilityProbe('Can this system handle real-time data?', ['claude', 'gpt-5.5']);
    * console.log(`Capability assessment: ${probe.assessment}`);
    * ```
    */
@@ -2002,7 +2002,7 @@ export class DebatesAPI {
    * ```typescript
    * const debates = await client.debates.listWithFilters({
    *   status: 'completed',
-   *   agents: ['claude', 'gpt-4'],
+   *   agents: ['claude', 'gpt-5.5'],
    *   minRounds: 3,
    *   consensusReached: true,
    *   since: '2024-01-01',

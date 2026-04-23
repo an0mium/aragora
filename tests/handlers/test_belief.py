@@ -88,7 +88,7 @@ def _make_mock_trace():
     mock_msg.round = 1
 
     mock_critique = MagicMock()
-    mock_critique.agent = "gpt4"
+    mock_critique.agent = "gpt-5.5"
     mock_critique.target = "claude"
     mock_critique.severity = 0.7
     mock_critique.reasoning = "Weak evidence for this claim."
@@ -1103,7 +1103,7 @@ class TestExportBeliefNetwork:
         mock_trace = _make_mock_trace()
 
         mock_node1 = MagicMock(claim_id="c1", claim_statement="A", author="claude")
-        mock_node2 = MagicMock(claim_id="c2", claim_statement="B", author="gpt4")
+        mock_node2 = MagicMock(claim_id="c2", claim_statement="B", author="gpt-5.5")
 
         mock_network = _make_mock_network()
         mock_network.get_all_claims.return_value = [
@@ -1294,7 +1294,7 @@ class TestGetDebateGraphStats:
             json.dumps(
                 {
                     "type": "critique",
-                    "agent": "gpt4",
+                    "agent": "gpt-5.5",
                     "data": {"target": "claude", "severity": 0.5, "content": "weak"},
                     "round": 1,
                 }

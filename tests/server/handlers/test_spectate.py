@@ -94,7 +94,7 @@ class TestPushSpectatorEvent:
         q3: asyncio.Queue = asyncio.Queue()
         _active_collectors["debate-1"] = {q1, q2, q3}
 
-        count = push_spectator_event("debate-1", "vote", agent="gpt4")
+        count = push_spectator_event("debate-1", "vote", agent="gpt-5.5")
 
         assert count == 3
         for q in (q1, q2, q3):
@@ -214,7 +214,7 @@ class TestSpectateSSEGenerator:
 
         assert len(_active_collectors["debate-1"]) == 2
 
-        push_spectator_event("debate-1", "vote", agent="gpt4")
+        push_spectator_event("debate-1", "vote", agent="gpt-5.5")
 
         frame1 = await gen1.__anext__()
         frame2 = await gen2.__anext__()

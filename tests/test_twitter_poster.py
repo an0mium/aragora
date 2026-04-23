@@ -652,11 +652,11 @@ class TestDebateContentFormatter:
 
     def test_format_announcement_lists_agents_max_three_plus_more(self, formatter):
         """Test that announcement shows max 3 agents + N more."""
-        agents = ["Claude", "GPT-4", "Gemini", "Llama", "Mistral"]
+        agents = ["Claude", "GPT-5.5", "Gemini", "Llama", "Mistral"]
         result = formatter.format_announcement("Test topic", agents)
 
         assert "Claude" in result
-        assert "GPT-4" in result
+        assert "GPT-5.5" in result
         assert "Gemini" in result
         assert "+2 more" in result
         assert "Llama" not in result

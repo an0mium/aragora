@@ -108,13 +108,13 @@ def mock_tracker():
     tracker.get_allies.return_value = []
     tracker.compute_metrics.return_value = MockRelationship(
         agent_a="claude",
-        agent_b="gpt4",
+        agent_b="gpt-5.5",
         debate_count=10,
         rivalry_score=0.7,
         alliance_score=0.3,
         relationship="rival",
         agreement_rate=0.35,
-        head_to_head={"claude": 6, "gpt4": 4},
+        head_to_head={"claude": 6, "gpt-5.5": 4},
     )
     return tracker
 
@@ -131,13 +131,13 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/agents/claude/relationships") is True
 
     def test_can_handle_pairwise_path(self, handler):
-        assert handler.can_handle("/api/v1/agents/claude/relationships/gpt4") is True
+        assert handler.can_handle("/api/v1/agents/claude/relationships/gpt-5.5") is True
 
     def test_can_handle_without_version_prefix(self, handler):
         assert handler.can_handle("/api/agents/claude/relationships") is True
 
     def test_can_handle_without_version_prefix_pairwise(self, handler):
-        assert handler.can_handle("/api/agents/claude/relationships/gpt4") is True
+        assert handler.can_handle("/api/agents/claude/relationships/gpt-5.5") is True
 
     def test_cannot_handle_root_agents(self, handler):
         assert handler.can_handle("/api/v1/agents") is False
@@ -230,7 +230,7 @@ class TestHandleSummary:
         tracker.get_rivals.return_value = [
             MockRelationship(
                 agent_a="claude",
-                agent_b="gpt4",
+                agent_b="gpt-5.5",
                 rivalry_score=0.8,
                 debate_count=15,
                 relationship="rival",
@@ -252,7 +252,7 @@ class TestHandleSummary:
         assert _status(result) == 200
         assert body["agent"] == "claude"
         assert len(body["rivals"]) == 1
-        assert body["rivals"][0]["agent"] == "gpt4"
+        assert body["rivals"][0]["agent"] == "gpt-5.5"
         assert body["rivals"][0]["rivalry_score"] == 0.8
         assert body["rivals"][0]["debate_count"] == 15
         assert body["rivals"][0]["relationship"] == "rival"
@@ -332,7 +332,7 @@ class TestHandleSummary:
         tracker = MagicMock()
         tracker.get_rivals.return_value = [
             MockRelationship(
-                agent_a="gpt4",
+                agent_a="gpt-5.5",
                 agent_b="claude",
                 rivalry_score=0.6,
                 debate_count=8,
@@ -344,7 +344,7 @@ class TestHandleSummary:
 
         result = handler.handle("/api/v1/agents/claude/relationships", {}, mock_http_handler)
         body = _body(result)
-        assert body["rivals"][0]["agent"] == "gpt4"
+        assert body["rivals"][0]["agent"] == "gpt-5.5"
 
     @patch("aragora.server.handlers.agents.relationships._get_relationship_tracker")
     def test_summary_agent_name_swapped_in_ally(self, mock_get_tracker, handler, mock_http_handler):
@@ -372,7 +372,7 @@ class TestHandleSummary:
         tracker.get_rivals.return_value = [
             MockRelationship(
                 agent_a="claude",
-                agent_b="gpt4",
+                agent_b="gpt-5.5",
                 rivalry_score=0.9,
                 debate_count=20,
                 relationship="rival",
@@ -398,7 +398,7 @@ class TestHandleSummary:
         result = handler.handle("/api/v1/agents/claude/relationships", {}, mock_http_handler)
         body = _body(result)
         assert len(body["rivals"]) == 3
-        assert body["rivals"][0]["agent"] == "gpt4"
+        assert body["rivals"][0]["agent"] == "gpt-5.5"
         assert body["rivals"][1]["agent"] == "gemini"
         assert body["rivals"][2]["agent"] == "grok"
 
@@ -444,11 +444,13 @@ class TestHandlePairwise:
     def test_pairwise_no_tracker_returns_defaults(
         self, mock_get_tracker, handler, mock_http_handler
     ):
-        result = handler.handle("/api/v1/agents/claude/relationships/gpt4", {}, mock_http_handler)
+        result = handler.handle(
+            "/api/v1/agents/claude/relationships/gpt-5.5", {}, mock_http_handler
+        )
         body = _body(result)
         assert _status(result) == 200
         assert body["agent_a"] == "claude"
-        assert body["agent_b"] == "gpt4"
+        assert body["agent_b"] == "gpt-5.5"
         assert body["debate_count"] == 0
         assert body["relationship"] == "unknown"
 
@@ -458,17 +460,19 @@ class TestHandlePairwise:
     ):
         mock_get_tracker.return_value = mock_tracker
 
-        result = handler.handle("/api/v1/agents/claude/relationships/gpt4", {}, mock_http_handler)
+        result = handler.handle(
+            "/api/v1/agents/claude/relationships/gpt-5.5", {}, mock_http_handler
+        )
         body = _body(result)
         assert _status(result) == 200
         assert body["agent_a"] == "claude"
-        assert body["agent_b"] == "gpt4"
+        assert body["agent_b"] == "gpt-5.5"
         assert body["debate_count"] == 10
         assert body["rivalry_score"] == 0.7
         assert body["alliance_score"] == 0.3
         assert body["relationship"] == "rival"
         assert body["agreement_rate"] == 0.35
-        assert body["head_to_head"] == {"claude": 6, "gpt4": 4}
+        assert body["head_to_head"] == {"claude": 6, "gpt-5.5": 4}
 
     @patch("aragora.server.handlers.agents.relationships._get_relationship_tracker")
     def test_pairwise_calls_compute_metrics(
@@ -476,8 +480,8 @@ class TestHandlePairwise:
     ):
         mock_get_tracker.return_value = mock_tracker
 
-        handler.handle("/api/v1/agents/claude/relationships/gpt4", {}, mock_http_handler)
-        mock_tracker.compute_metrics.assert_called_once_with("claude", "gpt4")
+        handler.handle("/api/v1/agents/claude/relationships/gpt-5.5", {}, mock_http_handler)
+        mock_tracker.compute_metrics.assert_called_once_with("claude", "gpt-5.5")
 
     @patch("aragora.server.handlers.agents.relationships._get_relationship_tracker")
     def test_pairwise_different_agents(self, mock_get_tracker, handler, mock_http_handler):
@@ -547,10 +551,10 @@ class TestInputValidation:
         return_value=None,
     )
     def test_valid_agent_name_with_underscores(self, mock_get_tracker, handler, mock_http_handler):
-        result = handler.handle("/api/v1/agents/gpt_4o/relationships", {}, mock_http_handler)
+        result = handler.handle("/api/v1/agents/gpt-5.5/relationships", {}, mock_http_handler)
         body = _body(result)
         assert _status(result) == 200
-        assert body["agent"] == "gpt_4o"
+        assert body["agent"] == "gpt-5.5"
 
     def test_pairwise_invalid_other_agent_name(self, handler, mock_http_handler):
         result = handler.handle("/api/v1/agents/claude/relationships/<evil>", {}, mock_http_handler)
@@ -598,10 +602,12 @@ class TestPathRouting:
         return_value=None,
     )
     def test_exact_6_parts_is_pairwise(self, mock_get_tracker, handler, mock_http_handler):
-        result = handler.handle("/api/v1/agents/claude/relationships/gpt4", {}, mock_http_handler)
+        result = handler.handle(
+            "/api/v1/agents/claude/relationships/gpt-5.5", {}, mock_http_handler
+        )
         body = _body(result)
         assert body["agent_a"] == "claude"
-        assert body["agent_b"] == "gpt4"
+        assert body["agent_b"] == "gpt-5.5"
 
 
 # ---------------------------------------------------------------------------

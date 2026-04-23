@@ -142,10 +142,10 @@ describe('Namespace APIs', () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: () => Promise.resolve(JSON.stringify({ agent_a: 'claude', agent_b: 'gpt-4', wins_a: 30, wins_b: 25 })),
+        text: () => Promise.resolve(JSON.stringify({ agent_a: 'claude', agent_b: 'gpt-5.5', wins_a: 30, wins_b: 25 })),
       });
 
-      const h2h = await client.agents.getHeadToHead('claude', 'gpt-4');
+      const h2h = await client.agents.getHeadToHead('claude', 'gpt-5.5');
       expect(h2h.agent_a).toBe('claude');
       expect(h2h.wins_a).toBe(30);
     });

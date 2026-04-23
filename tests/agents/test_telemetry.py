@@ -681,10 +681,10 @@ class TestWithTelemetryAsync:
             async def generate(self, prompt: str) -> str:
                 return "Done"
 
-        agent = MyAgent(name="test", model="gpt-4-turbo")
+        agent = MyAgent(name="test", model="gpt-5.5")
         await agent.generate("prompt")
 
-        assert received[0].metadata["model"] == "gpt-4-turbo"
+        assert received[0].metadata["model"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_async_decorator_records_string_output_tokens(self):

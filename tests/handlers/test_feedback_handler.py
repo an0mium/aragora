@@ -24,19 +24,19 @@ def mock_loop():
     loop = SelectionFeedbackLoop()
     loop.process_debate_outcome(
         debate_id="d1",
-        participants=["claude", "gpt4"],
+        participants=["claude", "gpt-5.5"],
         winner="claude",
         domain="security",
     )
     loop.process_debate_outcome(
         debate_id="d2",
-        participants=["claude", "gpt4"],
-        winner="gpt4",
+        participants=["claude", "gpt-5.5"],
+        winner="gpt-5.5",
         domain="finance",
     )
     loop.process_debate_outcome(
         debate_id="d3",
-        participants=["claude", "gpt4"],
+        participants=["claude", "gpt-5.5"],
         winner="claude",
         domain="security",
     )
@@ -83,7 +83,7 @@ class TestFeedbackStates:
         body = result[0]
         assert body["count"] == 2
         assert "claude" in body["agents"]
-        assert "gpt4" in body["agents"]
+        assert "gpt-5.5" in body["agents"]
 
     def test_states_agent_fields(self, handler, mock_loop):
         with patch(

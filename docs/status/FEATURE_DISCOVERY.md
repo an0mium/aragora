@@ -81,7 +81,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | Provider | Type | Models | Key Files |
 |----------|------|--------|-----------|
 | **Anthropic** | API | Claude 3.5, Claude Opus 4.5 | `aragora/agents/api_agents/anthropic.py` |
-| **OpenAI** | API | GPT-4o, GPT-4 Turbo, o1, o3 | `aragora/agents/api_agents/openai.py` |
+| **OpenAI** | API | GPT-5.5, GPT-5.5 Turbo, o1, o3 | `aragora/agents/api_agents/openai.py` |
 | **Google** | API | Gemini Pro, Gemini Ultra | `aragora/agents/api_agents/gemini.py` |
 | **Mistral** | API | Mistral Large, Codestral | `aragora/agents/api_agents/mistral.py` |
 | **xAI** | API | Grok | `aragora/agents/api_agents/grok.py` |
@@ -704,7 +704,7 @@ from aragora import Arena, Environment, DebateProtocol
 
 env = Environment(task="Should we adopt microservices?")
 protocol = DebateProtocol(rounds=3, consensus="majority")
-arena = Arena(env, agents=["claude", "gpt4"], protocol=protocol)
+arena = Arena(env, agents=["claude", "gpt-5.5"], protocol=protocol)
 result = await arena.run()
 ```
 

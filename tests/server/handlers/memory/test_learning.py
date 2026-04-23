@@ -295,7 +295,7 @@ class TestGetCycleSummaries:
         meta = {
             "debate_id": "debate-001",
             "topic": "Improve test coverage",
-            "agents": [{"name": "claude"}, {"name": "gpt4"}],
+            "agents": [{"name": "claude"}, {"name": "gpt-5.5"}],
             "started_at": "2024-01-01T00:00:00Z",
             "ended_at": "2024-01-01T00:05:00Z",
             "duration_ms": 300000,
@@ -312,7 +312,7 @@ class TestGetCycleSummaries:
         assert data["cycles"][0]["cycle"] == 1
         assert data["cycles"][0]["debate_id"] == "debate-001"
         assert data["cycles"][0]["topic"] == "Improve test coverage"
-        assert data["cycles"][0]["agents"] == ["claude", "gpt4"]
+        assert data["cycles"][0]["agents"] == ["claude", "gpt-5.5"]
         assert data["cycles"][0]["success"] is True
 
     def test_multiple_cycles_sorted_reverse(self, handler, nomic_dir):
@@ -547,13 +547,13 @@ class TestGetLearnedPatterns:
         for i in range(3):
             cycle_dir = replays / f"nomic-cycle-{i}"
             cycle_dir.mkdir()
-            winner = "claude" if i < 2 else "gpt4"
+            winner = "claude" if i < 2 else "gpt-5.5"
             (cycle_dir / "meta.json").write_text(json.dumps({"topic": "test", "winner": winner}))
 
         result = handler._get_learned_patterns()
         data = parse_response(result)
         assert data["agent_specializations"]["claude"] == 2
-        assert data["agent_specializations"]["gpt4"] == 1
+        assert data["agent_specializations"]["gpt-5.5"] == 1
 
     def test_replays_with_invalid_meta_skipped(self, handler, nomic_dir):
         """Replay directories with invalid meta.json should be skipped."""
@@ -638,8 +638,8 @@ class TestGetAgentEvolution:
             cycle_dir = replays / f"nomic-cycle-{i}"
             cycle_dir.mkdir()
             meta = {
-                "agents": [{"name": "claude"}, {"name": "gpt4"}],
-                "vote_tally": {"claude": 3, "gpt4": 2},
+                "agents": [{"name": "claude"}, {"name": "gpt-5.5"}],
+                "vote_tally": {"claude": 3, "gpt-5.5": 2},
                 "winner": "claude",
                 "status": "completed",
             }
@@ -658,9 +658,9 @@ class TestGetAgentEvolution:
             cycle_dir = replays / f"nomic-cycle-{i}"
             cycle_dir.mkdir()
             meta = {
-                "agents": [{"name": "claude"}, {"name": "gpt4"}],
-                "vote_tally": {"claude": 3, "gpt4": 2},
-                "winner": "gpt4",
+                "agents": [{"name": "claude"}, {"name": "gpt-5.5"}],
+                "vote_tally": {"claude": 3, "gpt-5.5": 2},
+                "winner": "gpt-5.5",
                 "status": "completed",
             }
             (cycle_dir / "meta.json").write_text(json.dumps(meta))
@@ -739,9 +739,9 @@ class TestGetAgentEvolution:
         cycle_dir = replays / "nomic-cycle-1"
         cycle_dir.mkdir()
         meta = {
-            "agents": [{"name": "claude"}, {"name": "gpt4"}],
-            "vote_tally": {"claude": 1, "gpt4": 5},
-            "winner": "gpt4",
+            "agents": [{"name": "claude"}, {"name": "gpt-5.5"}],
+            "vote_tally": {"claude": 1, "gpt-5.5": 5},
+            "winner": "gpt-5.5",
             "status": "completed",
         }
         (cycle_dir / "meta.json").write_text(json.dumps(meta))
@@ -749,7 +749,7 @@ class TestGetAgentEvolution:
         result = handler._get_agent_evolution()
         data = parse_response(result)
         assert data["agents"]["claude"]["data_points"][0]["is_winner"] is False
-        assert data["agents"]["gpt4"]["data_points"][0]["is_winner"] is True
+        assert data["agents"]["gpt-5.5"]["data_points"][0]["is_winner"] is True
 
 
 # =============================================================================

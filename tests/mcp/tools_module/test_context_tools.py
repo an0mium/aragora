@@ -107,7 +107,7 @@ class TestFetchDebateContextTool:
         mock_consensus.rounds = 3
         mock_consensus.strength = MagicMock(value="strong")
         mock_consensus.confidence = 0.85
-        mock_consensus.participating_agents = ["claude", "gpt4"]
+        mock_consensus.participating_agents = ["claude", "gpt-5.5"]
         mock_consensus.debate_duration_seconds = 120
         mock_consensus.metadata = {"total_tokens": 5000}
 

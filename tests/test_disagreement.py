@@ -39,7 +39,7 @@ def sample_votes():
     return [
         Vote(agent="claude", choice="option_a", confidence=0.9, reasoning="Strong logic"),
         Vote(agent="gemini", choice="option_a", confidence=0.8, reasoning="Good support"),
-        Vote(agent="gpt4", choice="option_b", confidence=0.5, reasoning="Uncertain"),
+        Vote(agent="gpt-5.5", choice="option_b", confidence=0.5, reasoning="Uncertain"),
     ]
 
 
@@ -49,7 +49,7 @@ def unanimous_votes():
     return [
         Vote(agent="claude", choice="option_a", confidence=0.9, reasoning="Agreed"),
         Vote(agent="gemini", choice="option_a", confidence=0.85, reasoning="Concur"),
-        Vote(agent="gpt4", choice="option_a", confidence=0.8, reasoning="Same"),
+        Vote(agent="gpt-5.5", choice="option_a", confidence=0.8, reasoning="Same"),
     ]
 
 
@@ -59,8 +59,8 @@ def sample_critiques():
     return [
         Critique(
             agent="claude",
-            target_agent="gpt4",
-            target_content="GPT4's proposal",
+            target_agent="gpt-5.5",
+            target_content="GPT-5.5's proposal",
             issues=["Lacks evidence", "Missing context"],
             suggestions=["Add citations", "Provide context"],
             severity=0.6,
@@ -68,8 +68,8 @@ def sample_critiques():
         ),
         Critique(
             agent="gemini",
-            target_agent="gpt4",
-            target_content="GPT4's proposal",
+            target_agent="gpt-5.5",
+            target_content="GPT-5.5's proposal",
             issues=["Lacks evidence", "Unclear reasoning"],
             suggestions=["Clarify logic", "Add examples"],
             severity=0.7,
@@ -173,7 +173,7 @@ class TestAgreementScore:
         votes = [
             Vote(agent="claude", choice="option_a", confidence=0.8, reasoning="A"),
             Vote(agent="gemini", choice="option_b", confidence=0.8, reasoning="B"),
-            Vote(agent="gpt4", choice="option_c", confidence=0.8, reasoning="C"),
+            Vote(agent="gpt-5.5", choice="option_c", confidence=0.8, reasoning="C"),
         ]
         report = reporter.generate_report(votes, [])
         assert report.agreement_score == pytest.approx(1 / 3)
@@ -192,7 +192,7 @@ class TestAgentAlignment:
         report = reporter.generate_report(sample_votes, [], winner="option_a")
         assert report.agent_alignment["claude"] == 1.0
         assert report.agent_alignment["gemini"] == 1.0
-        assert report.agent_alignment["gpt4"] == 0.0
+        assert report.agent_alignment["gpt-5.5"] == 0.0
 
     def test_no_alignment_without_winner(self, reporter, sample_votes):
         """Should have empty alignment when no winner."""
@@ -229,8 +229,8 @@ class TestUnanimousCritiques:
         single_critique = [
             Critique(
                 agent="claude",
-                target_agent="gpt4",
-                target_content="GPT4's proposal",
+                target_agent="gpt-5.5",
+                target_content="GPT-5.5's proposal",
                 issues=["Issue 1"],
                 suggestions=["Fix it"],
                 severity=0.5,
@@ -245,8 +245,8 @@ class TestUnanimousCritiques:
         different_critiques = [
             Critique(
                 agent="claude",
-                target_agent="gpt4",
-                target_content="GPT4's proposal",
+                target_agent="gpt-5.5",
+                target_content="GPT-5.5's proposal",
                 issues=["Issue A"],
                 suggestions=["Fix A"],
                 severity=0.5,
@@ -254,8 +254,8 @@ class TestUnanimousCritiques:
             ),
             Critique(
                 agent="gemini",
-                target_agent="gpt4",
-                target_content="GPT4's proposal",
+                target_agent="gpt-5.5",
+                target_content="GPT-5.5's proposal",
                 issues=["Issue B"],
                 suggestions=["Fix B"],
                 severity=0.5,
@@ -270,8 +270,8 @@ class TestUnanimousCritiques:
         critiques = [
             Critique(
                 agent="claude",
-                target_agent="gpt4",
-                target_content="GPT4's proposal",
+                target_agent="gpt-5.5",
+                target_content="GPT-5.5's proposal",
                 issues=["Lacks Evidence"],
                 suggestions=["Add evidence"],
                 severity=0.5,
@@ -279,8 +279,8 @@ class TestUnanimousCritiques:
             ),
             Critique(
                 agent="gemini",
-                target_agent="gpt4",
-                target_content="GPT4's proposal",
+                target_agent="gpt-5.5",
+                target_content="GPT-5.5's proposal",
                 issues=["lacks evidence"],
                 suggestions=["Add evidence"],
                 severity=0.5,
@@ -307,7 +307,7 @@ class TestSplitOpinions:
         description, majority, minority = report.split_opinions[0]
         assert "Vote split" in description
         assert len(majority) == 2  # claude and gemini
-        assert len(minority) == 1  # gpt4
+        assert len(minority) == 1  # gpt-5.5
 
     def test_no_split_when_unanimous(self, reporter, unanimous_votes):
         """Should have no split opinions when unanimous."""
@@ -325,7 +325,7 @@ class TestSplitOpinions:
         votes = [
             Vote(agent="claude", choice="option_a", confidence=0.9, reasoning="A"),
             Vote(agent="gemini", choice="option_a", confidence=0.8, reasoning="A"),
-            Vote(agent="gpt4", choice="option_b", confidence=0.7, reasoning="B"),
+            Vote(agent="gpt-5.5", choice="option_b", confidence=0.7, reasoning="B"),
             Vote(agent="llama", choice="option_c", confidence=0.6, reasoning="C"),
         ]
         report = reporter.generate_report(votes, [])
@@ -356,8 +356,8 @@ class TestRiskAreas:
     def test_low_confidence_vote_flagged(self, reporter, sample_votes):
         """Should flag low confidence votes as risk areas."""
         report = reporter.generate_report(sample_votes, [])
-        # gpt4 has 0.5 confidence, below 0.6 threshold
-        assert any("gpt4" in risk and "low confidence" in risk for risk in report.risk_areas)
+        # gpt-5.5 has 0.5 confidence, below 0.6 threshold
+        assert any("gpt-5.5" in risk and "low confidence" in risk for risk in report.risk_areas)
 
     def test_no_risk_with_high_confidence(self, reporter, unanimous_votes):
         """Should have no low-confidence risks with high confidence votes."""
@@ -367,29 +367,29 @@ class TestRiskAreas:
 
     def test_severe_critique_of_winner_flagged(self, reporter):
         """Should flag high-severity critiques of winner."""
-        votes = [Vote(agent="gpt4", choice="answer", confidence=0.9, reasoning="Win")]
+        votes = [Vote(agent="gpt-5.5", choice="answer", confidence=0.9, reasoning="Win")]
         critiques = [
             Critique(
                 agent="claude",
-                target_agent="gpt4",
-                target_content="GPT4's answer",
+                target_agent="gpt-5.5",
+                target_content="GPT-5.5's answer",
                 issues=["Major flaw"],
                 suggestions=["Fix the flaw"],
                 severity=0.8,
                 reasoning="Serious problem found",
             )
         ]
-        report = reporter.generate_report(votes, critiques, winner="gpt4")
-        assert any("High-severity" in risk and "gpt4" in risk for risk in report.risk_areas)
+        report = reporter.generate_report(votes, critiques, winner="gpt-5.5")
+        assert any("High-severity" in risk and "gpt-5.5" in risk for risk in report.risk_areas)
 
     def test_severe_critique_of_loser_not_flagged(self, reporter):
         """Should not flag high-severity critiques of loser."""
-        votes = [Vote(agent="gpt4", choice="answer", confidence=0.9, reasoning="Win")]
+        votes = [Vote(agent="gpt-5.5", choice="answer", confidence=0.9, reasoning="Win")]
         critiques = [
             Critique(
                 agent="claude",
-                target_agent="gpt4",
-                target_content="GPT4's answer",
+                target_agent="gpt-5.5",
+                target_content="GPT-5.5's answer",
                 issues=["Major flaw"],
                 suggestions=["Fix the flaw"],
                 severity=0.8,
@@ -397,7 +397,7 @@ class TestRiskAreas:
             )
         ]
         report = reporter.generate_report(votes, critiques, winner="claude")
-        # gpt4 didn't win, so critique shouldn't be flagged
+        # gpt-5.5 didn't win, so critique shouldn't be flagged
         assert not any("High-severity" in risk for risk in report.risk_areas)
 
     def test_max_risk_areas_limit(self, custom_reporter):
@@ -496,7 +496,7 @@ class TestDisagreementReporterIntegration:
                 reasoning="Modern",
             ),
             Vote(
-                agent="gpt4",
+                agent="gpt-5.5",
                 choice="Approach B: Monolith first",
                 confidence=0.45,
                 reasoning="Simpler",
@@ -511,7 +511,7 @@ class TestDisagreementReporterIntegration:
 
         critiques = [
             Critique(
-                agent="gpt4",
+                agent="gpt-5.5",
                 target_agent="claude",
                 target_content="Claude's microservices proposal",
                 issues=["Complexity overhead", "Operational burden"],
@@ -521,8 +521,8 @@ class TestDisagreementReporterIntegration:
             ),
             Critique(
                 agent="gemini",
-                target_agent="gpt4",
-                target_content="GPT4's monolith proposal",
+                target_agent="gpt-5.5",
+                target_content="GPT-5.5's monolith proposal",
                 issues=["Scalability issues", "Technical debt"],
                 suggestions=["Plan for scale", "Consider future needs"],
                 severity=0.7,
@@ -530,8 +530,8 @@ class TestDisagreementReporterIntegration:
             ),
             Critique(
                 agent="llama",
-                target_agent="gpt4",
-                target_content="GPT4's monolith proposal",
+                target_agent="gpt-5.5",
+                target_content="GPT-5.5's monolith proposal",
                 issues=["Scalability issues"],
                 suggestions=["Think about growth"],
                 severity=0.6,
@@ -546,11 +546,11 @@ class TestDisagreementReporterIntegration:
 
         # claude, gemini, llama aligned with winner
         assert report.agent_alignment["claude"] == 1.0
-        assert report.agent_alignment["gpt4"] == 0.0
+        assert report.agent_alignment["gpt-5.5"] == 0.0
 
-        # gpt4 has low confidence
-        assert any("gpt4" in risk for risk in report.risk_areas)
+        # gpt-5.5 has low confidence
+        assert any("gpt-5.5" in risk for risk in report.risk_areas)
 
         # "Scalability issues" is raised by multiple critics
-        # (gemini and llama both raised it about gpt4)
+        # (gemini and llama both raised it about gpt-5.5)
         # Note: they need to critique the same target for unanimous detection

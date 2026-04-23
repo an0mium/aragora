@@ -174,7 +174,7 @@ def make_sample_trail(
         "duration_seconds": 45.0,
         "input_summary": "Test input",
         "input_type": "spec",
-        "agents_involved": ["claude", "gpt4"],
+        "agents_involved": ["claude", "gpt-5.5"],
         "events": [
             {
                 "event_id": "evt-00001",

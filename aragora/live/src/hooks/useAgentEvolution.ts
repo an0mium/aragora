@@ -96,7 +96,7 @@ const MOCK_TIMELINE: EvolutionTimeline = {
     },
     {
       id: 'evt-002',
-      agent_name: 'gpt-4-turbo',
+      agent_name: 'gpt-5.5',
       event_type: 'prompt_modification',
       timestamp: new Date(now - 5 * 60 * 60 * 1000).toISOString(),
       description: 'System prompt updated to emphasize evidence-based reasoning over rhetoric',
@@ -204,7 +204,7 @@ const MOCK_ELO_TRENDS: EloTrendsData = {
       total_debates: 47,
     },
     {
-      agent_name: 'gpt-4-turbo',
+      agent_name: 'gpt-5.5',
       provider: 'openai',
       current_elo: 1380,
       trend: [

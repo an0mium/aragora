@@ -19,7 +19,7 @@ const mockSummaryData = {
   },
   by_agent: {
     'claude-3-opus': 6,
-    'gpt-4o': 5,
+    'gpt-5.5': 5,
     'gemini-pro': 4,
   },
   most_significant: {
@@ -42,7 +42,7 @@ const mockSummaryData = {
     {
       id: 'moment-2',
       type: 'consensus_breakthrough',
-      agent: 'gpt-4o',
+      agent: 'gpt-5.5',
       description: 'First to propose winning consensus',
       significance: 0.85,
       created_at: '2026-01-10T09:00:00Z',
@@ -126,7 +126,7 @@ describe('MomentsTimeline', () => {
     expect(within(highlight).getByText('claude-3-opus')).toBeInTheDocument();
 
     const recentList = screen.getByTestId('moments-recent-list');
-    expect(within(recentList).getByText('gpt-4o')).toBeInTheDocument();
+    expect(within(recentList).getByText('gpt-5.5')).toBeInTheDocument();
     expect(within(recentList).getByText('gemini-pro')).toBeInTheDocument();
   });
 

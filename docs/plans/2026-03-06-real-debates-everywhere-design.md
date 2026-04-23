@@ -68,7 +68,7 @@ CREATE INDEX IF NOT EXISTS idx_cache_created ON debate_cache_index(created_at);
 ```python
 PLAYGROUND_OPENROUTER_AGENTS = [
     ("analyst",     "anthropic/claude-sonnet-4"),
-    ("critic",      "openai/gpt-4o"),
+    ("critic",      "openai/gpt-5.5"),
     ("synthesizer", "google/gemini-2.0-flash-001"),
 ]
 ```

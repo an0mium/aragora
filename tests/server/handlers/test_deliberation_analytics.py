@@ -90,7 +90,7 @@ def mock_debate_store():
             },
             {
                 "agent_id": "openai-api",
-                "agent_name": "GPT-4",
+                "agent_name": "GPT-5.5",
                 "participations": 100,
                 "consensus_contributions": 82,
                 "consensus_rate": "82%",
@@ -410,7 +410,7 @@ class TestDebateStore:
         store.record_agent_participation(
             deliberation_id="test-456",
             agent_id="openai-api",
-            agent_name="GPT-4",
+            agent_name="GPT-5.5",
             tokens_used=4000,
             cost_usd=0.20,
             agreed_with_consensus=False,

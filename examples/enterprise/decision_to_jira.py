@@ -41,7 +41,7 @@ def run_demo():
     print("[claude-proposer]: Build a React preference center with per-channel toggles")
     print("                   (email, SMS, push, in-app) and frequency controls.")
     time.sleep(0.2)
-    print("[gpt4-critic]:     Add GDPR consent tracking and audit log. Consider")
+    print("[gpt-5.5]:     Add GDPR consent tracking and audit log. Consider")
     print("                   granular topic-level preferences, not just channel-level.")
     time.sleep(0.2)
     print("[synthesis]:       Hybrid: channel + topic matrix with consent audit trail.\n")
@@ -81,7 +81,9 @@ async def run_live():
     agents = []
     for agent_type, role in [("anthropic-api", "proposer"), ("openai-api", "critic")]:
         try:
-            agents.append(create_agent(model_type=agent_type, name=f"{agent_type}-{role}", role=role))
+            agents.append(
+                create_agent(model_type=agent_type, name=f"{agent_type}-{role}", role=role)
+            )
         except Exception:
             pass
 

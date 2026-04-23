@@ -246,7 +246,7 @@ export class ControlPlaneService implements vscode.Disposable {
         },
         body: JSON.stringify({
           question,
-          agents: agents || ['claude', 'gpt-4'],
+          agents: agents || ['claude', 'gpt-5.5'],
           rounds: rounds || 3,
         }),
       });

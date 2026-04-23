@@ -30,7 +30,7 @@ class TestGraphQLHandler:
             "task": "Test question",
             "status": "completed",
             "messages": [],
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "rounds": 3,
             "consensus_reached": True,
         }
@@ -39,7 +39,7 @@ class TestGraphQLHandler:
                 "id": "test-debate-1",
                 "task": "Test question",
                 "status": "completed",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
             }
         ]
 
@@ -317,10 +317,10 @@ class TestHandlerIntegration:
             "status": "completed",
             "messages": [
                 {"role": "agent", "agent": "claude", "content": "Yes", "round": 1},
-                {"role": "agent", "agent": "gpt4", "content": "No", "round": 1},
+                {"role": "agent", "agent": "gpt-5.5", "content": "No", "round": 1},
             ],
             "critiques": [],
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "rounds": 3,
             "consensus_reached": True,
             "confidence": 0.85,
@@ -333,7 +333,7 @@ class TestHandlerIntegration:
                 "id": "debate-123",
                 "task": "Should AI be regulated?",
                 "status": "completed",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
             },
             {
                 "id": "debate-124",
@@ -345,7 +345,7 @@ class TestHandlerIntegration:
 
         # Setup ELO system
         mock_ratings = []
-        for name, elo in [("claude", 1650), ("gpt4", 1580), ("gemini", 1520)]:
+        for name, elo in [("claude", 1650), ("gpt-5.5", 1580), ("gemini", 1520)]:
             rating = MagicMock()
             rating.name = name
             rating.elo = elo

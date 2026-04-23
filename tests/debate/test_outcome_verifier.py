@@ -30,13 +30,13 @@ class TestRecordDecision:
     def test_record_basic_decision(self, verifier):
         decision = verifier.record_decision(
             debate_id="d-1",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             consensus_confidence=0.85,
             consensus_text="Deploy with canary",
             domain="deployment",
         )
         assert decision.debate_id == "d-1"
-        assert decision.agents == ["claude", "gpt4"]
+        assert decision.agents == ["claude", "gpt-5.5"]
         assert decision.consensus_confidence == 0.85
         assert decision.domain == "deployment"
         assert not decision.verified
@@ -61,7 +61,7 @@ class TestRecordDecision:
         )
         verifier.record_decision(
             debate_id="d-1",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             consensus_confidence=0.9,
             consensus_text="Updated",
         )
@@ -86,7 +86,7 @@ class TestVerify:
     def test_verify_correct_decision(self, verifier):
         verifier.record_decision(
             debate_id="d-1",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             consensus_confidence=0.85,
             consensus_text="Deploy",
             domain="deployment",
@@ -179,13 +179,13 @@ class TestVerify:
 
         verifier.record_decision(
             debate_id="d-2",
-            agents=["gpt4"],
+            agents=["gpt-5.5"],
             consensus_confidence=0.9,
             consensus_text="Test",
         )
         # Incorrect decision: Brier = (0.9 - 0.0)^2 = 0.81
         result2 = verifier.verify(debate_id="d-2", outcome_correct=False)
-        assert abs(result2.brier_scores["gpt4"] - 0.81) < 1e-6
+        assert abs(result2.brier_scores["gpt-5.5"] - 0.81) < 1e-6
 
 
 class TestCalibrationIntegration:
@@ -195,14 +195,14 @@ class TestCalibrationIntegration:
     def test_verify_calls_calibration_update(self, mock_update, verifier):
         verifier.record_decision(
             debate_id="d-1",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             consensus_confidence=0.85,
             consensus_text="Test",
             domain="security",
         )
         verifier.verify(debate_id="d-1", outcome_correct=True)
 
-        mock_update.assert_called_once_with(["claude", "gpt4"], 0.85, True, "security", "d-1")
+        mock_update.assert_called_once_with(["claude", "gpt-5.5"], 0.85, True, "security", "d-1")
 
     @patch("aragora.debate.outcome_verifier.OutcomeVerifier._update_elo")
     def test_verify_calls_elo_update(self, mock_elo, verifier):
@@ -350,12 +350,12 @@ class TestPendingDecision:
     def test_to_dict_serializes_agents(self):
         pd = PendingDecision(
             debate_id="d-1",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             consensus_confidence=0.8,
             consensus_text="Test",
         )
         d = pd.to_dict()
-        assert json.loads(d["agents"]) == ["claude", "gpt4"]
+        assert json.loads(d["agents"]) == ["claude", "gpt-5.5"]
         assert d["verified"] == 0
 
     def test_signal_type_from_string(self):

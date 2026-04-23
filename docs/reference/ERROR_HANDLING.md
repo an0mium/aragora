@@ -359,7 +359,7 @@ from aragora.agents.fallback import QuotaFallbackMixin
 
 class MyAPIAgent(APIAgent, QuotaFallbackMixin):
     OPENROUTER_MODEL_MAP = {
-        "gpt-4o": "openai/gpt-4o",
+        "gpt-5.5": "openai/gpt-5.5",
         "claude-3-opus": "anthropic/claude-3-opus",
     }
     DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
@@ -427,10 +427,10 @@ from aragora.agents.fallback import QuotaFallbackMixin
 
 class MyAgent(APIAgent, QuotaFallbackMixin):
     OPENROUTER_MODEL_MAP = {
-        "gpt-4o": "openai/gpt-4o",
-        "gpt-4": "openai/gpt-4",
+        "gpt-5.5": "openai/gpt-5.5",
+        "gpt-5.5": "openai/gpt-5.5",
     }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+    DEFAULT_FALLBACK_MODEL = "openai/gpt-5.5"
 
     async def generate(self, prompt, context=None):
         try:
@@ -473,8 +473,8 @@ chain = AgentFallbackChain(
 )
 
 # Register provider factories
-chain.register_provider("openai", lambda: OpenAIAPIAgent(model="gpt-4o"))
-chain.register_provider("openrouter", lambda: OpenRouterAgent(model="openai/gpt-4o"))
+chain.register_provider("openai", lambda: OpenAIAPIAgent(model="gpt-5.5"))
+chain.register_provider("openrouter", lambda: OpenRouterAgent(model="openai/gpt-5.5"))
 chain.register_provider("anthropic", lambda: AnthropicAPIAgent(model="claude-sonnet-4"))
 
 # Generate with automatic fallback

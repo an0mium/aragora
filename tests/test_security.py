@@ -982,7 +982,7 @@ class TestPathParameterInjection:
 
         valid_names = [
             "claude",
-            "gpt-4",
+            "gpt-5.5",
             "agent_1",
             "CodexModel",
             "gemini-pro",

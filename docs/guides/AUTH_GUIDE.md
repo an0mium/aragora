@@ -113,7 +113,7 @@ Aragora uses LLM providers (Anthropic, OpenAI, etc.) for agent reasoning. These 
 ```bash
 # Set at least one provider
 export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
-export OPENAI_API_KEY="sk-..."          # GPT-4
+export OPENAI_API_KEY="sk-..."          # GPT-5.5
 export GEMINI_API_KEY="..."             # Gemini
 export XAI_API_KEY="..."               # Grok
 

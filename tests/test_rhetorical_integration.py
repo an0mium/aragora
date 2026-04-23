@@ -184,7 +184,7 @@ class TestRhetoricalAnalysis:
         if hasattr(observer, "record_observation"):
             observer.record_observation("claude", ["concession"])
             observer.record_observation("claude", ["rebuttal"])
-            observer.record_observation("gpt4", ["synthesis"])
+            observer.record_observation("gpt-5.5", ["synthesis"])
 
             if hasattr(observer, "get_agent_patterns"):
                 claude_patterns = observer.get_agent_patterns("claude")

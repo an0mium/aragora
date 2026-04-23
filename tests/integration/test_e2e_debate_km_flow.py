@@ -86,7 +86,7 @@ def mock_arena():
     # Mock agents
     arena.agents = [
         MagicMock(name="claude", id="claude"),
-        MagicMock(name="gpt4", id="gpt4"),
+        MagicMock(name="gpt-5.5", id="gpt-5.5"),
         MagicMock(name="gemini", id="gemini"),
     ]
 
@@ -110,9 +110,9 @@ def debate_result():
                 "Industry standard for API rate limiting",
             ],
         },
-        "participants": ["claude", "gpt4", "gemini"],
+        "participants": ["claude", "gpt-5.5", "gemini"],
         "voting": {
-            "agree": ["claude", "gpt4"],
+            "agree": ["claude", "gpt-5.5"],
             "disagree": ["gemini"],
         },
         "dissenting_views": [
@@ -127,7 +127,7 @@ def debate_result():
                 "round": 1,
                 "messages": [
                     {"agent": "claude", "content": "Token bucket is optimal..."},
-                    {"agent": "gpt4", "content": "I agree, token bucket..."},
+                    {"agent": "gpt-5.5", "content": "I agree, token bucket..."},
                     {"agent": "gemini", "content": "Consider sliding window..."},
                 ],
             },
@@ -135,7 +135,7 @@ def debate_result():
                 "round": 2,
                 "messages": [
                     {"agent": "claude", "content": "Responding to sliding window..."},
-                    {"agent": "gpt4", "content": "Token bucket is simpler..."},
+                    {"agent": "gpt-5.5", "content": "Token bucket is simpler..."},
                     {"agent": "gemini", "content": "Accuracy concerns remain..."},
                 ],
             },
@@ -143,7 +143,7 @@ def debate_result():
                 "round": 3,
                 "messages": [
                     {"agent": "claude", "content": "Final synthesis..."},
-                    {"agent": "gpt4", "content": "Consensus forming..."},
+                    {"agent": "gpt-5.5", "content": "Consensus forming..."},
                     {"agent": "gemini", "content": "Noted but still disagree..."},
                 ],
             },

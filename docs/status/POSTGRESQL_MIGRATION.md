@@ -71,8 +71,8 @@ await memory.store_consensus(
     conclusion="Use token bucket algorithm",
     strength="strong",
     confidence=0.85,
-    participating_agents=["claude", "gpt4"],
-    agreeing_agents=["claude", "gpt4"],
+    participating_agents=["claude", "gpt-5.5"],
+    agreeing_agents=["claude", "gpt-5.5"],
 )
 
 # Find similar consensus

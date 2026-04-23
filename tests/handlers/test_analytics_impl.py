@@ -682,7 +682,7 @@ class TestRankingStats:
         agent2 = MagicMock()
         agent2.elo = 1400
         agent2.debates_count = 5
-        agent2.agent_name = "gpt4"
+        agent2.agent_name = "gpt-5.5"
 
         elo = MagicMock()
         elo.get_leaderboard.return_value = [agent1, agent2]
@@ -899,13 +899,13 @@ class TestLearningEfficiencyStats:
         agent1 = MagicMock()
         agent1.agent_name = "claude"
         agent2 = MagicMock()
-        agent2.agent_name = "gpt4"
+        agent2.agent_name = "gpt-5.5"
 
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [agent1, agent2]
         mock_elo.get_learning_efficiency_batch.return_value = {
             "claude": {"rate": 0.9},
-            "gpt4": {"rate": 0.7},
+            "gpt-5.5": {"rate": 0.7},
         }
 
         with patch(
@@ -923,7 +923,7 @@ class TestLearningEfficiencyStats:
         assert body["domain"] == "general"
         assert len(body["agents"]) == 2
         assert body["agents"][0]["agent"] == "claude"
-        assert body["agents"][1]["agent"] == "gpt4"
+        assert body["agents"][1]["agent"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_default_domain_is_general(self, handler, mock_http_handler):
@@ -1153,7 +1153,7 @@ class TestCalibrationStats:
         agent1 = MagicMock()
         agent1.agent_name = "claude"
         agent2 = MagicMock()
-        agent2.agent_name = "gpt4"
+        agent2.agent_name = "gpt-5.5"
 
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [agent1, agent2]
@@ -1163,7 +1163,7 @@ class TestCalibrationStats:
         mock_summary.temperature = 1.0
 
         mock_tracker_instance = MagicMock()
-        # Return summary for claude, None for gpt4
+        # Return summary for claude, None for gpt-5.5
         mock_tracker_instance.get_calibration_summary.side_effect = [mock_summary, None]
         mock_tracker_cls = MagicMock(return_value=mock_tracker_instance)
         mock_cal_module = MagicMock(CalibrationTracker=mock_tracker_cls)
@@ -1190,7 +1190,7 @@ class TestCalibrationStats:
         assert len(agents) == 2
         assert agents[0]["agent"] == "claude"
         assert agents[0]["calibration"]["total_predictions"] == 50
-        assert agents[1]["agent"] == "gpt4"
+        assert agents[1]["agent"] == "gpt-5.5"
         assert agents[1]["calibration"] is None
 
     @pytest.mark.asyncio

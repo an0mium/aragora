@@ -306,7 +306,7 @@ class TestMissingGuardrailsDetection:
         # Pattern requires: max_tokens = None or max_length = None
         code = """
 max_tokens = None
-response = client.chat.completions.create(model="gpt-4")
+response = client.chat.completions.create(model="gpt-5.5")
 """
         chunk = ChunkData(
             id="chunk-3",
@@ -332,7 +332,7 @@ class TestHallucinationRiskDetection:
         """Test detection of high temperature setting."""
         code = """
 response = client.chat.completions.create(
-    model="gpt-4",
+    model="gpt-5.5",
     temperature=2.0,
     messages=messages
 )

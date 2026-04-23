@@ -56,7 +56,7 @@ def winning_debate_outcome():
                 "Secondly, for example, other implementations have succeeded.",
             },
             {
-                "agent": "gpt4",
+                "agent": "gpt-5.5",
                 "content": "I disagree with the approach.",
             },
             {
@@ -67,7 +67,7 @@ def winning_debate_outcome():
             },
         ],
         "critiques": [
-            {"from": "gpt4", "to": "claude", "text": "Needs more evidence"},
+            {"from": "gpt-5.5", "to": "claude", "text": "Needs more evidence"},
         ],
     }
 
@@ -183,7 +183,7 @@ class TestStrategy:
             name="Conciliatory",
             description="Acknowledges valid points",
             success_rate=0.75,
-            agent="gpt4",
+            agent="gpt-5.5",
             tactics=["Find common ground"],
         )
 
@@ -192,7 +192,7 @@ class TestStrategy:
         assert d["name"] == "Conciliatory"
         assert d["description"] == "Acknowledges valid points"
         assert d["success_rate"] == 0.75
-        assert d["agent"] == "gpt4"
+        assert d["agent"] == "gpt-5.5"
         assert d["tactics"] == ["Find common ground"]
 
 
@@ -427,7 +427,7 @@ class TestStrategyIdentifier:
         """Test identification with no winner messages."""
         outcome = {
             "winner": "claude",
-            "messages": [{"agent": "gpt4", "content": "Only gpt4 spoke"}],
+            "messages": [{"agent": "gpt-5.5", "content": "Only gpt-5.5 spoke"}],
         }
 
         strategies = identifier.identify(outcome)

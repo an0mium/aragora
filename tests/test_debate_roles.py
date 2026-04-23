@@ -191,7 +191,7 @@ class TestRoleRotator:
     @pytest.fixture
     def agent_names(self):
         """Sample agent names."""
-        return ["claude", "gpt4", "gemini"]
+        return ["claude", "gpt-5.5", "gemini"]
 
     def test_disabled_rotation_returns_empty(self, agent_names):
         """Disabled rotation should return empty dict."""
@@ -267,7 +267,7 @@ class TestCreateRoleRotation:
         """Sample agents."""
         return [
             self.MockAgent("claude"),
-            self.MockAgent("gpt4"),
+            self.MockAgent("gpt-5.5"),
             self.MockAgent("gemini"),
         ]
 

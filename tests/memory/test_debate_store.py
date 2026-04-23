@@ -429,7 +429,7 @@ class TestRecordAgentParticipation:
         store.record_agent_participation(
             deliberation_id="metrics_1",
             agent_id="gpt",
-            agent_name="GPT-4",
+            agent_name="GPT-5.5",
             tokens_used=5000,
             cost_usd=0.05,
             agreed_with_consensus=True,
@@ -442,7 +442,7 @@ class TestRecordAgentParticipation:
                 ("metrics_1", "gpt"),
             ).fetchone()
 
-            assert row["agent_name"] == "GPT-4"
+            assert row["agent_name"] == "GPT-5.5"
             assert row["tokens_used"] == 5000
             assert row["cost_usd"] == 0.05
             assert row["agreed_with_consensus"] == 1
@@ -455,7 +455,7 @@ class TestRecordAgentParticipation:
             question="Multi agent test",
         )
 
-        agents = [("claude", "Claude"), ("gpt", "GPT-4"), ("gemini", "Gemini")]
+        agents = [("claude", "Claude"), ("gpt", "GPT-5.5"), ("gemini", "Gemini")]
         for agent_id, agent_name in agents:
             store.record_agent_participation(
                 deliberation_id="multi_1",

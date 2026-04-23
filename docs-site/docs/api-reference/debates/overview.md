@@ -30,7 +30,7 @@ POST /api/debates
 {
   "topic": "string",
   "context": "string (optional)",
-  "agents": ["claude", "gpt4", "gemini"],
+  "agents": ["claude", "gpt-5.5", "gemini"],
   "rounds": 3,
   "protocol": {
     "phases": ["opening", "critique", "revision", "vote"],

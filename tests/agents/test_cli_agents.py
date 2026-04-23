@@ -182,7 +182,7 @@ class TestCLIAgentFallback:
         from aragora.agents.cli_agents import CLIAgent
 
         assert "claude" in CLIAgent.OPENROUTER_MODEL_MAP
-        assert "gpt-4o" in CLIAgent.OPENROUTER_MODEL_MAP
+        assert "gpt-5.5" in CLIAgent.OPENROUTER_MODEL_MAP
         assert "gemini-3-pro" in CLIAgent.OPENROUTER_MODEL_MAP
         assert "grok-4" in CLIAgent.OPENROUTER_MODEL_MAP
 
@@ -339,16 +339,16 @@ class TestCodexAgent:
         """Test CodexAgent initialization."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="codex-test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="codex-test", model="gpt-5.5")
 
         assert agent.name == "codex-test"
-        assert agent.model == "gpt-4.1-codex"
+        assert agent.model == "gpt-5.5"
 
     def test_extract_codex_response_filters_header(self):
         """Test response extraction filters header."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="codex-test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="codex-test", model="gpt-5.5")
 
         output = "codex\nActual response text\ntokens used: 100"
         result = agent._extract_codex_response(output)
@@ -359,7 +359,7 @@ class TestCodexAgent:
         """Test response extraction handles plain output."""
         from aragora.agents.cli_agents import CodexAgent
 
-        agent = CodexAgent(name="codex-test", model="gpt-4.1-codex")
+        agent = CodexAgent(name="codex-test", model="gpt-5.5")
 
         output = "Plain response text"
         result = agent._extract_codex_response(output)

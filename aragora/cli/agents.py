@@ -36,7 +36,7 @@ AGENT_REGISTRY: list[dict[str, Any]] = [
         "name": "OpenAI (GPT)",
         "env_var": "OPENAI_API_KEY",
         "category": "api",
-        "description": "GPT-4 and GPT-3.5 models",
+        "description": "GPT-5.5 and GPT-5.5 models",
         "fallback": "openrouter",
     },
     {

@@ -11,7 +11,7 @@ const DATA_SOURCES = [
 
 const MODELS = [
   { name: 'Claude', color: 'text-orange-400' },
-  { name: 'GPT-4', color: 'text-green-400' },
+  { name: 'GPT-5.5', color: 'text-green-400' },
   { name: 'Gemini', color: 'text-blue-400' },
   { name: 'Mistral', color: 'text-purple-400' },
   { name: '+11 more', color: 'text-text-muted' },

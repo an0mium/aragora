@@ -77,7 +77,7 @@ class MockSnapshot:
         self.round_num = round_num
         self.task = task
         self.current_confidence = current_confidence
-        self.agent_names = agent_names or ["claude", "gpt4", "gemini"]
+        self.agent_names = agent_names or ["claude", "gpt-5.5", "gemini"]
 
 
 class MockBreakpoint:
@@ -359,7 +359,7 @@ class TestGetPendingBreakpoints:
         assert snap["round_num"] == 3
         assert snap["task"] == "Evaluate proposal X"
         assert snap["confidence"] == 0.45
-        assert snap["agents"] == ["claude", "gpt4", "gemini"]
+        assert snap["agents"] == ["claude", "gpt-5.5", "gemini"]
 
     def test_breakpoint_without_snapshot(self, handler, mock_manager, mock_http_handler):
         bp = MockBreakpoint(snapshot=None)

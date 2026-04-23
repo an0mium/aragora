@@ -73,7 +73,7 @@ def sample_cycle_record():
         critiques_valuable=1,
     )
     record.add_agent_contribution(
-        "gpt4",
+        "gpt-5.5",
         proposals_made=4,
         proposals_accepted=2,
     )
@@ -469,7 +469,7 @@ class TestGetAgentTrajectory:
             if i % 2 == 0:  # Only even cycles have claude
                 record.add_agent_contribution("claude", proposals_made=5)
             else:
-                record.add_agent_contribution("gpt4", proposals_made=3)
+                record.add_agent_contribution("gpt-5.5", proposals_made=3)
             cycles.append({"data": record.to_dict()})
 
         mock_conn.fetch.return_value = cycles
@@ -484,7 +484,7 @@ class TestGetAgentTrajectory:
         store, mock_conn = store_with_mock_pool
 
         record = NomicCycleRecord(cycle_id="cycle-1", started_at=time.time())
-        record.add_agent_contribution("gpt4", proposals_made=5)
+        record.add_agent_contribution("gpt-5.5", proposals_made=5)
         cycles = [{"data": record.to_dict()}]
         mock_conn.fetch.return_value = cycles
 

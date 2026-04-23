@@ -167,7 +167,7 @@ class SlackDebateConfig:
     """Configuration for a Slack-initiated debate."""
 
     rounds: int = 3
-    agents: list[str] = field(default_factory=lambda: ["claude", "gpt4"])
+    agents: list[str] = field(default_factory=lambda: ["claude", "gpt-5.5"])
     consensus_threshold: float = 0.7
     timeout_seconds: float = 300.0
     metadata: dict[str, Any] = field(default_factory=dict)

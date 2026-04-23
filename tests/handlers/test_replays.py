@@ -147,7 +147,7 @@ def _create_replay_dir(
         else:
             meta = meta_override or {
                 "topic": topic,
-                "agents": agents or [{"name": "claude"}, {"name": "gpt-4"}],
+                "agents": agents or [{"name": "claude"}, {"name": "gpt-5.5"}],
                 "schema_version": schema_version,
             }
             (replay_path / "meta.json").write_text(json.dumps(meta))
@@ -720,7 +720,7 @@ class TestLearningEvolution:
                     "wins": 15,
                     "calibration_score": 0.8,
                 },
-                "gpt-4": {
+                "gpt-5.5": {
                     "elo": 1200,
                     "games": 10,
                     "wins": 3,
@@ -741,8 +741,8 @@ class TestLearningEvolution:
         assert claude["critique_quality"] == 0.8
         assert claude["reputation_score"] == 1500 / 2000
 
-        gpt4 = agents_by_name["gpt-4"]
-        assert gpt4["acceptance_rate"] == 3 / 10
+        gpt55 = agents_by_name["gpt-5.5"]
+        assert gpt55["acceptance_rate"] == 3 / 10
 
     def test_agents_zero_games(self, handler, nomic_dir):
         """Agent with 0 games gets default 0.5 acceptance rate."""

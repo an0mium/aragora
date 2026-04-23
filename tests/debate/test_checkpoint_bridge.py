@@ -42,7 +42,7 @@ class TestUnifiedRecoveryState:
             failed_molecules=1,
             checkpoint_id="cp_123",
             checkpoint_messages=[{"agent": "claude", "content": "test"}],
-            checkpoint_critiques=[{"agent": "gpt4", "target": "claude"}],
+            checkpoint_critiques=[{"agent": "gpt-5.5", "target": "claude"}],
             checkpoint_votes=[{"agent": "claude", "choice": "A"}],
             channel_history=[{"sender": "claude", "content": "hello"}],
         )
@@ -210,7 +210,7 @@ class TestCheckpointBridge:
             current_round=2,
             phase="critique",
             messages=[{"agent": "claude", "content": "test"}],
-            critiques=[{"agent": "gpt4", "target": "claude"}],
+            critiques=[{"agent": "gpt-5.5", "target": "claude"}],
             votes=[],
             channel_history=[{"sender": "claude"}],
         )

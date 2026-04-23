@@ -188,7 +188,7 @@ class TestCanHandle:
 
     def test_per_agent_endpoints(self, handler):
         assert handler.can_handle("/api/agent/claude/profile")
-        assert handler.can_handle("/api/agent/gpt4/history")
+        assert handler.can_handle("/api/agent/gpt-5.5/history")
         assert handler.can_handle("/api/agent/gemini/calibration")
 
     def test_flips_endpoints(self, handler):
@@ -196,10 +196,10 @@ class TestCanHandle:
         assert handler.can_handle("/api/flips/summary")
 
     def test_head_to_head(self, handler):
-        assert handler.can_handle("/api/agent/claude/head-to-head/gpt4")
+        assert handler.can_handle("/api/agent/claude/head-to-head/gpt-5.5")
 
     def test_opponent_briefing(self, handler):
-        assert handler.can_handle("/api/agent/claude/opponent-briefing/gpt4")
+        assert handler.can_handle("/api/agent/claude/opponent-briefing/gpt-5.5")
 
     def test_unrelated_path_rejected(self, handler):
         assert not handler.can_handle("/api/debates")
@@ -241,7 +241,7 @@ class TestIsPublicPath:
 
     def test_agent_prefix_is_public(self, handler):
         assert handler._is_public_path("/api/agent/claude/profile")
-        assert handler._is_public_path("/api/agent/gpt4/history")
+        assert handler._is_public_path("/api/agent/gpt-5.5/history")
 
     def test_random_path_not_public(self, handler):
         assert not handler._is_public_path("/api/admin/settings")
@@ -278,7 +278,7 @@ class TestListAgents:
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [
             {"name": "claude", "elo": 1600, "matches": 10, "wins": 7, "losses": 3},
-            {"name": "gpt4", "elo": 1550, "matches": 8, "wins": 5, "losses": 3},
+            {"name": "gpt-5.5", "elo": 1550, "matches": 8, "wins": 5, "losses": 3},
         ]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle("/api/agents", {}, mock_http_handler)
@@ -482,19 +482,19 @@ class TestCompareAgents:
     async def test_compare_no_elo(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
             result = await handler.handle(
-                "/api/agent/compare", {"agents": ["claude", "gpt4"]}, mock_http_handler
+                "/api/agent/compare", {"agents": ["claude", "gpt-5.5"]}, mock_http_handler
             )
             assert _status(result) == 503
 
     @pytest.mark.asyncio
     async def test_compare_two_agents(self, handler, mock_http_handler):
         mock_elo = MagicMock()
-        mock_elo.get_ratings_batch.return_value = {"claude": 1600, "gpt4": 1550}
+        mock_elo.get_ratings_batch.return_value = {"claude": 1600, "gpt-5.5": 1550}
         mock_elo.get_agent_stats.return_value = {"wins": 5}
         mock_elo.get_head_to_head.return_value = {"matches": 3, "agent1_wins": 2}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
-                "/api/agent/compare", {"agents": ["claude", "gpt4"]}, mock_http_handler
+                "/api/agent/compare", {"agents": ["claude", "gpt-5.5"]}, mock_http_handler
             )
             assert _status(result) == 200
             body = _body(result)
@@ -879,7 +879,7 @@ class TestPerAgentEndpoints:
     @pytest.mark.asyncio
     async def test_network(self, handler, mock_http_handler):
         mock_elo = MagicMock()
-        mock_elo.get_rivals.return_value = [{"name": "gpt4"}]
+        mock_elo.get_rivals.return_value = [{"name": "gpt-5.5"}]
         mock_elo.get_allies.return_value = [{"name": "gemini"}]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle("/api/agent/claude/network", {}, mock_http_handler)
@@ -891,7 +891,7 @@ class TestPerAgentEndpoints:
     @pytest.mark.asyncio
     async def test_rivals(self, handler, mock_http_handler):
         mock_elo = MagicMock()
-        mock_elo.get_rivals.return_value = [{"name": "gpt4"}]
+        mock_elo.get_rivals.return_value = [{"name": "gpt-5.5"}]
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/agent/claude/rivals", {"limit": "3"}, mock_http_handler
@@ -1063,18 +1063,18 @@ class TestHeadToHead:
         mock_elo.get_head_to_head.return_value = {"matches": 5, "agent1_wins": 3}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
-                "/api/agent/claude/head-to-head/gpt4", {}, mock_http_handler
+                "/api/agent/claude/head-to-head/gpt-5.5", {}, mock_http_handler
             )
             assert _status(result) == 200
             body = _body(result)
             assert body["agent1"] == "claude"
-            assert body["agent2"] == "gpt4"
+            assert body["agent2"] == "gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_head_to_head_no_elo(self, handler, mock_http_handler):
         with patch.object(handler, "get_elo_system", return_value=None):
             result = await handler.handle(
-                "/api/agent/claude/head-to-head/gpt4", {}, mock_http_handler
+                "/api/agent/claude/head-to-head/gpt-5.5", {}, mock_http_handler
             )
             assert _status(result) == 503
 
@@ -1088,7 +1088,7 @@ class TestHeadToHead:
     @pytest.mark.asyncio
     async def test_head_to_head_invalid_agent(self, handler, mock_http_handler):
         result = await handler.handle(
-            "/api/agent/<script>/head-to-head/gpt4", {}, mock_http_handler
+            "/api/agent/<script>/head-to-head/gpt-5.5", {}, mock_http_handler
         )
         assert _status(result) == 400
 
@@ -1101,12 +1101,12 @@ class TestHeadToHead:
                         "strategy": "aggressive"
                     }
                     result = await handler.handle(
-                        "/api/agent/claude/opponent-briefing/gpt4", {}, mock_http_handler
+                        "/api/agent/claude/opponent-briefing/gpt-5.5", {}, mock_http_handler
                     )
                     assert _status(result) == 200
                     body = _body(result)
                     assert body["agent"] == "claude"
-                    assert body["opponent"] == "gpt4"
+                    assert body["opponent"] == "gpt-5.5"
                     assert body["briefing"] is not None
 
     @pytest.mark.asyncio
@@ -1116,7 +1116,7 @@ class TestHeadToHead:
                 with patch("aragora.agents.grounded.PersonaSynthesizer") as mock_ps:
                     mock_ps.return_value.get_opponent_briefing.return_value = None
                     result = await handler.handle(
-                        "/api/agent/claude/opponent-briefing/gpt4", {}, mock_http_handler
+                        "/api/agent/claude/opponent-briefing/gpt-5.5", {}, mock_http_handler
                     )
                     assert _status(result) == 200
                     body = _body(result)
@@ -1223,7 +1223,7 @@ class TestPathValidation:
         mock_elo.get_rating.return_value = 1600
         mock_elo.get_agent_stats.return_value = {}
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
-            result = await handler.handle("/api/agent/gpt_4o/profile", {}, mock_http_handler)
+            result = await handler.handle("/api/agent/gpt-5.5/profile", {}, mock_http_handler)
             assert _status(result) == 200
 
 

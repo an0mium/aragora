@@ -55,20 +55,20 @@ def mock_storage():
         "convergence_status": "converged",
         "convergence_similarity": 0.85,
         "rounds_used": 3,
-        "agents": ["claude", "gpt4"],
+        "agents": ["claude", "gpt-5.5"],
         "winner": "claude",
         "confidence": 0.9,
         "critiques": [
-            {"agent": "gpt4", "severity": 0.5, "text": "Consider scalability"},
+            {"agent": "gpt-5.5", "severity": 0.5, "text": "Consider scalability"},
             {"agent": "claude", "severity": 0.3, "text": "Valid point"},
         ],
         "messages": [
             {"agent": "claude", "round": 1, "content": "I propose..."},
-            {"agent": "gpt4", "round": 1, "content": "I counter..."},
+            {"agent": "gpt-5.5", "round": 1, "content": "I counter..."},
             {"agent": "claude", "round": 2, "content": "Revised proposal..."},
         ],
-        "verification_results": {"claude": 3, "gpt4": 2},
-        "verification_bonuses": {"claude": 0.15, "gpt4": 0.1},
+        "verification_results": {"claude": 3, "gpt-5.5": 2},
+        "verification_bonuses": {"claude": 0.15, "gpt-5.5": 0.1},
         "grounded_verdict": json.dumps(
             {
                 "verdict": "Use microservices for scalable systems",
@@ -189,7 +189,7 @@ class TestGetDebateBySlug:
         mock_state.to_dict.return_value = {
             "task": "Active debate question",
             "status": "running",
-            "agents": "claude,gpt4",
+            "agents": "claude,gpt-5.5",
             "rounds": 3,
             "mode": "epistemic_hygiene",
             "settlement": {

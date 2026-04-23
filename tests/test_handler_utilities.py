@@ -209,8 +209,8 @@ class TestGetAgentName:
 
     def test_extracts_name_from_dict_with_agent_name(self):
         """Test dict with 'agent_name' key."""
-        result = get_agent_name({"agent_name": "gpt-4"})
-        assert result == "gpt-4"
+        result = get_agent_name({"agent_name": "gpt-5.5"})
+        assert result == "gpt-5.5"
 
     def test_prefers_agent_name_over_name_in_dict(self):
         """Test priority of agent_name over name."""
@@ -340,8 +340,8 @@ class TestNormalizeAgentNames:
 
     def test_normalizes_string_names(self):
         """Test normalizing string names to lowercase."""
-        result = normalize_agent_names(["Claude", "GPT-4", "GEMINI"])
-        assert result == ["claude", "gpt-4", "gemini"]
+        result = normalize_agent_names(["Claude", "GPT-5.5", "GEMINI"])
+        assert result == ["claude", "gpt-5.5", "gemini"]
 
     def test_extracts_names_from_objects(self):
         """Test extracting names from objects."""
@@ -350,22 +350,22 @@ class TestNormalizeAgentNames:
         class Agent:
             name: str
 
-        agents = [Agent(name="Claude"), Agent(name="GPT-4")]
+        agents = [Agent(name="Claude"), Agent(name="GPT-5.5")]
         result = normalize_agent_names(agents)
 
-        assert result == ["claude", "gpt-4"]
+        assert result == ["claude", "gpt-5.5"]
 
     def test_extracts_names_from_dicts(self):
         """Test extracting names from dicts."""
-        agents = [{"name": "Claude"}, {"agent_name": "GPT-4"}]
+        agents = [{"name": "Claude"}, {"agent_name": "GPT-5.5"}]
         result = normalize_agent_names(agents)
 
-        assert result == ["claude", "gpt-4"]
+        assert result == ["claude", "gpt-5.5"]
 
     def test_skips_none_names(self):
         """Test skipping entries with no name."""
-        result = normalize_agent_names(["Claude", {"other": "val"}, "GPT-4"])
-        assert result == ["claude", "gpt-4"]
+        result = normalize_agent_names(["Claude", {"other": "val"}, "GPT-5.5"])
+        assert result == ["claude", "gpt-5.5"]
 
     def test_handles_mixed_input_types(self):
         """Test mixed strings, dicts, and objects."""

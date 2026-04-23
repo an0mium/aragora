@@ -109,7 +109,7 @@ class TestNormalizeDebateResponse:
                 "reached": True,
                 "confidence": 0.85,
                 "final_answer": "Yes, proceed.",
-                "vote_breakdown": {"claude": True, "gpt4": True, "gemini": False},
+                "vote_breakdown": {"claude": True, "gpt-5.5": True, "gemini": False},
             },
         }
         result = normalize_debate_response(debate)

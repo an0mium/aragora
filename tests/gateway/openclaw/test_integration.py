@@ -1618,7 +1618,7 @@ class TestCrossComponentIntegration:
             credential_type=CredentialType.API_KEY,
             value="sk-agent",
             auth_context=ctx,
-            allowed_agents=["claude", "gpt4"],
+            allowed_agents=["claude", "gpt-5.5"],
         )
 
         # Allowed agent

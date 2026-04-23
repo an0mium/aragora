@@ -38,7 +38,7 @@ def mock_preset():
     preset.audit_types = ["security", "compliance"]
     preset.custom_rules = [{"severity": "high", "title": "PII Detection", "category": "privacy"}]
     preset.consensus_threshold = 0.8
-    preset.agents = ["claude", "gpt-4"]
+    preset.agents = ["claude", "gpt-5.5"]
     preset.parameters = {"depth": "thorough"}
     return preset
 

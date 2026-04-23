@@ -225,7 +225,7 @@ export default function AuditDashboardPage() {
         status: 'completed',
         document_ids: ['doc-6'],
         audit_types: ['compliance'],
-        model: 'gpt-4-turbo',
+        model: 'gpt-5.5',
         progress: 1,
         findings_count: 15,
         findings_by_severity: { critical: 1, high: 3, medium: 7, low: 4 },

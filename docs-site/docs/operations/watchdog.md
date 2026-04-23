@@ -69,7 +69,7 @@ watchdog.configure_tier(WatchdogConfig(
 
 # Register agents for monitoring
 watchdog.register_agent("claude-opus")
-watchdog.register_agent("gpt-4o")
+watchdog.register_agent("gpt-5.5")
 
 # Start monitoring
 await watchdog.start()
@@ -268,7 +268,7 @@ watchdog.configure_tier(WatchdogConfig(
 ```python
 # Register agents for monitoring
 watchdog.register_agent("claude-opus")
-watchdog.register_agent("gpt-4o")
+watchdog.register_agent("gpt-5.5")
 watchdog.register_agent("gemini-pro")
 
 # Unregister when agent removed

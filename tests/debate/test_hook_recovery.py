@@ -166,7 +166,7 @@ class TestArenaHookTracking:
         arena.env.context = {}
         arena.agents = [
             MagicMock(name="claude"),
-            MagicMock(name="gpt4"),
+            MagicMock(name="gpt-5.5"),
         ]
         arena._bead_store = None
         arena._hook_registry = None
@@ -188,7 +188,7 @@ class TestArenaHookTracking:
         arena.protocol = mock_arena.protocol
         arena.env = Environment(task="Test debate task")
         arena.env.context = {"bead_dir": str(tmp_path / ".beads")}
-        arena.agents = [SimpleAgent("claude"), SimpleAgent("gpt4")]
+        arena.agents = [SimpleAgent("claude"), SimpleAgent("gpt-5.5")]
         arena._bead_store = None
 
         bead_id = await arena._create_pending_debate_bead(

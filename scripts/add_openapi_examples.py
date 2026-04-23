@@ -16,7 +16,7 @@ ENDPOINT_EXAMPLES = {
                 "application/json": {
                     "example": {
                         "question": "Should we adopt TypeScript for our backend services?",
-                        "agents": ["claude-3-opus", "gpt-4", "gemini-pro"],
+                        "agents": ["claude-3-opus", "gpt-5.5", "gemini-pro"],
                         "rounds": 3,
                         "consensus_threshold": 0.7,
                         "workspace_id": "ws_abc123",
@@ -34,7 +34,7 @@ ENDPOINT_EXAMPLES = {
                             "id": "dbt_xyz789",
                             "status": "active",
                             "question": "Should we adopt TypeScript for our backend services?",
-                            "agents": ["claude-3-opus", "gpt-4", "gemini-pro"],
+                            "agents": ["claude-3-opus", "gpt-5.5", "gemini-pro"],
                             "current_round": 1,
                             "total_rounds": 3,
                             "created_at": "2024-01-15T10:30:00Z",
@@ -54,7 +54,7 @@ ENDPOINT_EXAMPLES = {
                             "id": "dbt_xyz789",
                             "status": "completed",
                             "question": "Should we adopt TypeScript for our backend services?",
-                            "agents": ["claude-3-opus", "gpt-4", "gemini-pro"],
+                            "agents": ["claude-3-opus", "gpt-5.5", "gemini-pro"],
                             "current_round": 3,
                             "total_rounds": 3,
                             "created_at": "2024-01-15T10:30:00Z",
@@ -71,7 +71,7 @@ ENDPOINT_EXAMPLES = {
                             ],
                             "votes": {
                                 "claude-3-opus": "approve",
-                                "gpt-4": "approve",
+                                "gpt-5.5": "approve",
                                 "gemini-pro": "approve",
                             },
                         }
@@ -164,8 +164,8 @@ ENDPOINT_EXAMPLES = {
                                     "elo_rating": 1850,
                                 },
                                 {
-                                    "id": "gpt-4",
-                                    "name": "GPT-4",
+                                    "id": "gpt-5.5",
+                                    "name": "GPT-5.5",
                                     "provider": "openai",
                                     "capabilities": ["reasoning", "coding", "creative"],
                                     "status": "available",
@@ -194,7 +194,7 @@ ENDPOINT_EXAMPLES = {
                             "risk_score": 0.15,
                             "checksum": "sha256:abc123...",
                             "created_at": "2024-01-15T10:35:00Z",
-                            "participants": ["claude-3-opus", "gpt-4", "gemini-pro"],
+                            "participants": ["claude-3-opus", "gpt-5.5", "gemini-pro"],
                             "consensus_proof": {
                                 "type": "supermajority",
                                 "threshold": 0.7,
@@ -293,7 +293,7 @@ ENDPOINT_EXAMPLES = {
                                     "rank": 1,
                                 },
                                 {
-                                    "agent": "gpt-4",
+                                    "agent": "gpt-5.5",
                                     "elo": 1820,
                                     "wins": 135,
                                     "losses": 65,

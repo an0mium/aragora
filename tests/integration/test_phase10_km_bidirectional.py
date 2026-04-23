@@ -288,7 +288,7 @@ class TestKMEloBridgeIntegration:
 
         mock_elo = MagicMock()
         mock_elo.get_all_ratings = MagicMock(
-            return_value=[MockRating("claude"), MockRating("gpt4")]
+            return_value=[MockRating("claude"), MockRating("gpt-5.5")]
         )
 
         @dataclass

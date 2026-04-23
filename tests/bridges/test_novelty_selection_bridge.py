@@ -110,15 +110,15 @@ class TestNoveltySelectionBridge:
 
         result = MockNoveltyResult(
             round_num=1,
-            per_agent_novelty={"claude": 0.8, "gpt-4": 0.3},
-            low_novelty_agents=["gpt-4"],
+            per_agent_novelty={"claude": 0.8, "gpt-5.5": 0.3},
+            low_novelty_agents=["gpt-5.5"],
         )
 
         adjustments = bridge.record_round_novelty(result)
 
         assert "claude" in adjustments
-        assert "gpt-4" in adjustments
-        assert bridge._agent_stats["gpt-4"].low_novelty_rounds == 1
+        assert "gpt-5.5" in adjustments
+        assert bridge._agent_stats["gpt-5.5"].low_novelty_rounds == 1
 
     def test_record_from_tracker(self):
         """Test recording from tracker."""
@@ -260,7 +260,7 @@ class TestNoveltySelectionBridge:
         """Test getting all stats."""
         bridge = NoveltySelectionBridge()
         bridge._agent_stats["claude"] = AgentNoveltyStats(agent_name="claude")
-        bridge._agent_stats["gpt-4"] = AgentNoveltyStats(agent_name="gpt-4")
+        bridge._agent_stats["gpt-5.5"] = AgentNoveltyStats(agent_name="gpt-5.5")
 
         all_stats = bridge.get_all_stats()
         assert len(all_stats) == 2

@@ -65,7 +65,7 @@ class TestReceiptWebhookPayload:
             export_format="sarif",
             share_url="https://aragora.ai/receipt/r-123",
             error_message="some error",
-            metadata={"agents": ["claude", "gpt4"]},
+            metadata={"agents": ["claude", "gpt-5.5"]},
         )
         d = payload.to_dict()
         assert d["verdict"] == "pass"
@@ -74,7 +74,7 @@ class TestReceiptWebhookPayload:
         assert d["export_format"] == "sarif"
         assert d["share_url"] == "https://aragora.ai/receipt/r-123"
         assert d["error_message"] == "some error"
-        assert d["metadata"]["agents"] == ["claude", "gpt4"]
+        assert d["metadata"]["agents"] == ["claude", "gpt-5.5"]
 
     def test_partial_fields(self):
         payload = ReceiptWebhookPayload(
@@ -122,7 +122,7 @@ class TestReceiptWebhookNotifier:
             verdict="pass",
             confidence=0.92,
             hash="sha256:abc",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             rounds=3,
             findings_count=5,
         )
@@ -133,7 +133,7 @@ class TestReceiptWebhookNotifier:
         assert payload["receipt_id"] == "r-123"
         assert payload["verdict"] == "pass"
         assert payload["confidence"] == 0.92
-        assert payload["metadata"]["agents"] == ["claude", "gpt4"]
+        assert payload["metadata"]["agents"] == ["claude", "gpt-5.5"]
         assert payload["metadata"]["rounds"] == 3
         assert payload["metadata"]["findings_count"] == 5
 

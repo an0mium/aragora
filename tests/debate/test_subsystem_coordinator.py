@@ -310,7 +310,7 @@ class TestSubsystemCoordinatorLifecycle:
         ctx.domain = "technology"
         ctx.env = Mock()
         ctx.env.task = "Design a cache system"
-        ctx.agents = [Mock(name="claude"), Mock(name="gpt4")]
+        ctx.agents = [Mock(name="claude"), Mock(name="gpt-5.5")]
         ctx.start_time = 1704067200.0
         return ctx
 
@@ -350,7 +350,7 @@ class TestSubsystemCoordinatorLifecycle:
         ctx = self._create_mock_context()
         positions = {
             "claude": "Use Redis for caching",
-            "gpt4": "Consider Memcached",
+            "gpt-5.5": "Consider Memcached",
         }
 
         coord.on_round_complete(ctx, round_num=2, positions=positions)
@@ -399,7 +399,7 @@ class TestSubsystemCoordinatorLifecycle:
         result.messages = []
         result.predictions = {
             "claude": {"prediction": "Redis", "confidence": 0.9},
-            "gpt4": {"prediction": "Memcached", "confidence": 0.7},
+            "gpt-5.5": {"prediction": "Memcached", "confidence": 0.7},
         }
 
         coord.on_debate_complete(ctx, result)
@@ -758,7 +758,7 @@ class TestSubsystemCoordinatorIntegration:
         ctx.domain = "technology"
         ctx.env = Mock()
         ctx.env.task = "Design a cache system"
-        ctx.agents = [Mock(name="claude"), Mock(name="gpt4")]
+        ctx.agents = [Mock(name="claude"), Mock(name="gpt-5.5")]
         ctx.start_time = 1704067200.0
         return ctx
 
@@ -779,7 +779,7 @@ class TestSubsystemCoordinatorIntegration:
 
         # Complete rounds
         coord.on_round_complete(ctx, 1, {"claude": "Proposal 1"})
-        coord.on_round_complete(ctx, 2, {"claude": "Proposal 2", "gpt4": "Counter"})
+        coord.on_round_complete(ctx, 2, {"claude": "Proposal 2", "gpt-5.5": "Counter"})
 
         # Complete debate
         result = Mock()
@@ -1541,7 +1541,7 @@ class TestOnDebateCompleteDeep:
         ctx.domain = "technology"
         ctx.env = Mock()
         ctx.env.task = "Design cache"
-        ctx.agents = [Mock(name="claude"), Mock(name="gpt4")]
+        ctx.agents = [Mock(name="claude"), Mock(name="gpt-5.5")]
         ctx.start_time = 1704067200.0
 
         result = Mock()
@@ -1598,7 +1598,7 @@ class TestOnDebateCompleteDeep:
         result = Mock()
         result.consensus = "Memcached"
         result.predictions = {
-            "gpt4": "Redis",  # String prediction (not dict)
+            "gpt-5.5": "Redis",  # String prediction (not dict)
         }
         result.messages = []
 

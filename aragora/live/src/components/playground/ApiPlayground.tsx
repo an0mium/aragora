@@ -39,7 +39,7 @@ const ENDPOINTS: Endpoint[] = [
     description: 'Create a new debate',
     body: {
       task: 'What is the best programming paradigm?',
-      agents: ['claude', 'gpt-4'],
+      agents: ['claude', 'gpt-5.5'],
       protocol: {
         rounds: 2,
         consensus: 'majority',

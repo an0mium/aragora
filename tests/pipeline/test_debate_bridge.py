@@ -23,7 +23,7 @@ def _make_full_debate_result() -> dict[str, Any]:
     return {
         "agent_scores": {
             "claude-sonnet": 0.92,
-            "gpt-4o": 0.88,
+            "gpt-5.5": 0.88,
             "gemini-pro": 0.75,
             "deepseek-r1": 0.60,
         },

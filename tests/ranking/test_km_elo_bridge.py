@@ -54,7 +54,7 @@ class MockEloSystem:
     def __init__(self):
         self.ratings = {
             "claude": MockAgentRating("claude", 1200.0),
-            "gpt4": MockAgentRating("gpt4", 1150.0),
+            "gpt-5.5": MockAgentRating("gpt-5.5", 1150.0),
             "gemini": MockAgentRating("gemini", 1100.0),
         }
 
@@ -145,9 +145,9 @@ class MockKnowledgeMound:
                 {"id": "km_5", "agent": "claude", "confidence": 0.7},
                 {"id": "km_6", "agent": "claude", "confidence": 0.65},
             ],
-            "gpt4": [
-                {"id": "km_10", "agent": "gpt4", "confidence": 0.8},
-                {"id": "km_11", "agent": "gpt4", "confidence": 0.75},
+            "gpt-5.5": [
+                {"id": "km_10", "agent": "gpt-5.5", "confidence": 0.8},
+                {"id": "km_11", "agent": "gpt-5.5", "confidence": 0.75},
             ],
         }
         self.query_calls = []
@@ -284,9 +284,9 @@ class TestKMEloBridgeSync:
         """Test sync analyzes all agents."""
         result = await bridge.sync_km_to_elo(force=True)
 
-        assert result.agents_analyzed == 3  # claude, gpt4, gemini
+        assert result.agents_analyzed == 3  # claude, gpt-5.5, gemini
         # Only claude has enough items (6) for pattern detection (min 5)
-        # gpt4 has 2 items, gemini has 0 - both skip analyze call
+        # gpt-5.5 has 2 items, gemini has 0 - both skip analyze call
         assert len(bridge._elo_adapter.analyze_calls) == 1  # Only claude analyzed
 
     @pytest.mark.asyncio
@@ -403,7 +403,7 @@ class TestKMEloBridgePendingAdjustments:
         elo_adapter = MockEloAdapter()
         elo_adapter.pending_adjustments = [
             MagicMock(agent_name="claude", adjustment=15.0, confidence=0.85),
-            MagicMock(agent_name="gpt4", adjustment=-5.0, confidence=0.6),
+            MagicMock(agent_name="gpt-5.5", adjustment=-5.0, confidence=0.6),
         ]
         return KMEloBridge(elo_adapter=elo_adapter)
 
@@ -509,7 +509,7 @@ class TestKMEloBridgeSyncResult:
             patterns_detected=3,
             adjustments_applied=2,
             total_elo_change=30.0,
-            agents_affected=["claude", "gpt4"],
+            agents_affected=["claude", "gpt-5.5"],
         )
 
         assert result.agents_analyzed == 5

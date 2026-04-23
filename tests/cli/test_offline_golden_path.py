@@ -1308,7 +1308,7 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
             "Smoke test: output sections Ranked High-Level Tasks, Suggested Subtasks, "
             "Owner module / file paths, Test Plan, Rollback Plan, Gate Criteria, JSON Payload"
         ),
-        agents="anthropic-api|claude-opus-4-7,openai-api|gpt-5.4,gemini|gemini-3.1-pro-preview",
+        agents="anthropic-api|claude-opus-4-7,openai-api|gpt-5.5,gemini|gemini-3.1-pro-preview",
         rounds=1,
         consensus="hybrid",
         context="",
@@ -1378,7 +1378,7 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
             return timed_out_agent
         if key == ("anthropic-api", "claude-opus-4-7"):
             return low_quality_agent
-        if key == ("openai-api", "gpt-5.4"):
+        if key == ("openai-api", "gpt-5.5"):
             return upgraded_agent
         raise AssertionError(f"Unexpected repair agent: {key}")
 
@@ -1400,7 +1400,7 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
     assert created_specs[:3] == [
         ("gemini", "gemini-3.1-pro-preview"),
         ("anthropic-api", "claude-opus-4-7"),
-        ("openai-api", "gpt-5.4"),
+        ("openai-api", "gpt-5.5"),
     ]
     assert "## Suggested Subtasks" in out
     assert "[quality] verdict=good" in out

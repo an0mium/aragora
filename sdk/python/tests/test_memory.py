@@ -275,7 +275,7 @@ class TestCritiqueOperations:
                 "The proposal lacks consideration for edge cases",
                 agent="claude",
                 debate_id="debate-456",
-                target_agent="gpt4",
+                target_agent="gpt-5.5",
                 score=0.85,
             )
             mock_request.assert_called_once_with(
@@ -285,7 +285,7 @@ class TestCritiqueOperations:
                     "critique": "The proposal lacks consideration for edge cases",
                     "agent": "claude",
                     "debate_id": "debate-456",
-                    "target_agent": "gpt4",
+                    "target_agent": "gpt-5.5",
                     "score": 0.85,
                 },
             )

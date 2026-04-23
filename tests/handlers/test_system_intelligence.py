@@ -309,7 +309,7 @@ class TestOverview:
         elo = MagicMock()
         elo.get_leaderboard.return_value = [
             {"agent_name": "claude", "rating": 1650, "wins": 40},
-            {"agent_name": "gpt4", "rating": 1600, "wins": 35},
+            {"agent_name": "gpt-5.5", "rating": 1600, "wins": 35},
         ]
 
         km = MagicMock()
@@ -495,7 +495,7 @@ class TestAgentPerformance:
 
     @pytest.mark.asyncio
     async def test_agent_performance_with_object_entries(self, handler):
-        entry = MockLeaderboardEntry(agent_name="gpt4", rating=1600, wins=30, losses=20)
+        entry = MockLeaderboardEntry(agent_name="gpt-5.5", rating=1600, wins=30, losses=20)
         elo = MagicMock()
         elo.get_leaderboard.return_value = [entry]
         elo.get_agent_history.return_value = []
@@ -512,7 +512,7 @@ class TestAgentPerformance:
 
         data = _get_data(result)
         agent = data["agents"][0]
-        assert agent["name"] == "gpt4"
+        assert agent["name"] == "gpt-5.5"
         assert agent["elo"] == 1600
         assert agent["winRate"] == 0.6  # 30/50
         assert agent["calibration"] == 0.75

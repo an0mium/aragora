@@ -139,7 +139,7 @@ async def run_knowledge_debate(
 
     debate = await client.debates.create(
         task="Based on Python's design philosophy and ecosystem, what makes it suitable for beginners?",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-5.5"],
         rounds=2,
         consensus="weighted",
         # Include knowledge context

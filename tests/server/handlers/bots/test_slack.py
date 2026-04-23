@@ -230,7 +230,7 @@ class TestSlackBlockBuilders:
         blocks = build_debate_message_blocks(
             debate_id="test-123",
             task="Should we adopt microservices?",
-            agents=["Claude", "GPT-4"],
+            agents=["Claude", "GPT-5.5"],
             current_round=2,
             total_rounds=5,
             include_vote_buttons=True,
@@ -265,7 +265,7 @@ class TestSlackBlockBuilders:
 
     def test_build_debate_message_max_agents(self):
         """Should limit vote buttons to 5 agents maximum."""
-        agents = ["Claude", "GPT-4", "Gemini", "Mistral", "DeepSeek", "Grok", "Qwen"]
+        agents = ["Claude", "GPT-5.5", "Gemini", "Mistral", "DeepSeek", "Grok", "Qwen"]
         blocks = build_debate_message_blocks(
             debate_id="test-123",
             task="Test task",
@@ -291,7 +291,7 @@ class TestSlackBlockBuilders:
         blocks = build_debate_message_blocks(
             debate_id="test-123",
             task="Test task",
-            agents=["Claude", "GPT-4"],
+            agents=["Claude", "GPT-5.5"],
             current_round=3,
             total_rounds=5,
             include_vote_buttons=False,
@@ -325,7 +325,7 @@ class TestSlackBlockBuilders:
             confidence=0.85,
             winner="Claude",
             final_answer="The recommendation is to proceed with option A.",
-            vote_counts={"Claude": 5, "GPT-4": 3},
+            vote_counts={"Claude": 5, "GPT-5.5": 3},
         )
 
         assert isinstance(blocks, list)
@@ -385,17 +385,17 @@ class TestSlackBlockBuilders:
             confidence=0.8,
             winner="Claude",
             final_answer="Decision",
-            vote_counts={"GPT-4": 2, "Claude": 5, "Gemini": 3},
+            vote_counts={"GPT-5.5": 2, "Claude": 5, "Gemini": 3},
         )
 
         # Find votes section
         for block in blocks:
             text = block.get("text", {}).get("text", "")
             if "User Votes" in text:
-                # Claude should appear before Gemini which appears before GPT-4
+                # Claude should appear before Gemini which appears before GPT-5.5
                 claude_pos = text.find("Claude")
                 gemini_pos = text.find("Gemini")
-                gpt_pos = text.find("GPT-4")
+                gpt_pos = text.find("GPT-5.5")
                 assert claude_pos < gemini_pos < gpt_pos
                 break
 
@@ -898,7 +898,7 @@ class TestSlackInteractionHandler:
                             "agents_select": {
                                 "selected_options": [
                                     {"value": "claude"},
-                                    {"value": "gpt4"},
+                                    {"value": "gpt-5.5"},
                                 ]
                             }
                         },
@@ -1150,7 +1150,7 @@ class TestSlackGlobalState:
         """Should store and retrieve active debates."""
         _active_debates["test-debate-1"] = {
             "task": "Test task",
-            "agents": ["Claude", "GPT-4"],
+            "agents": ["Claude", "GPT-5.5"],
             "rounds": 5,
             "current_round": 1,
             "status": "running",
@@ -1161,10 +1161,10 @@ class TestSlackGlobalState:
 
     def test_user_votes_storage(self):
         """Should store user votes correctly."""
-        _user_votes["debate-1"] = {"user-1": "claude", "user-2": "gpt4"}
+        _user_votes["debate-1"] = {"user-1": "claude", "user-2": "gpt-5.5"}
 
         assert _user_votes["debate-1"]["user-1"] == "claude"
-        assert _user_votes["debate-1"]["user-2"] == "gpt4"
+        assert _user_votes["debate-1"]["user-2"] == "gpt-5.5"
 
     def test_get_debate_vote_counts_empty(self):
         """Should return empty counts for unknown debate."""
@@ -1176,20 +1176,20 @@ class TestSlackGlobalState:
         _user_votes["debate-123"] = {
             "user-1": "Claude",
             "user-2": "Claude",
-            "user-3": "GPT-4",
+            "user-3": "GPT-5.5",
         }
 
         counts = get_debate_vote_counts("debate-123")
 
         assert counts["Claude"] == 2
-        assert counts["GPT-4"] == 1
+        assert counts["GPT-5.5"] == 1
 
     def test_vote_override(self):
         """Should allow vote override (last vote wins)."""
         _user_votes["debate-1"] = {"user-1": "Claude"}
-        _user_votes["debate-1"]["user-1"] = "GPT-4"
+        _user_votes["debate-1"]["user-1"] = "GPT-5.5"
 
-        assert _user_votes["debate-1"]["user-1"] == "GPT-4"
+        assert _user_votes["debate-1"]["user-1"] == "GPT-5.5"
 
 
 # =============================================================================
@@ -1203,10 +1203,10 @@ class TestSlackHelperFunctions:
     def test_agent_display_names_mapping(self):
         """Should map agent IDs to display names."""
         assert AGENT_DISPLAY_NAMES["claude"] == "Claude"
-        assert AGENT_DISPLAY_NAMES["gpt4"] == "GPT-4"
+        assert AGENT_DISPLAY_NAMES["gpt-5.5"] == "GPT-5.5"
         assert AGENT_DISPLAY_NAMES["gemini"] == "Gemini"
         assert AGENT_DISPLAY_NAMES["anthropic-api"] == "Claude"
-        assert AGENT_DISPLAY_NAMES["openai-api"] == "GPT-4"
+        assert AGENT_DISPLAY_NAMES["openai-api"] == "GPT-5.5"
 
     def test_get_slack_integration_not_configured(self):
         """Should return None when Slack is not configured."""

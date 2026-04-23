@@ -27,14 +27,14 @@ def mock_debate_outcome():
         "debate_id": "debate-123",
         "topic": "Should we use microservices?",
         "winner": "claude",
-        "agents": ["claude", "gpt4"],
+        "agents": ["claude", "gpt-5.5"],
         "rounds": 3,
         "consensus_reached": True,
         "consensus": "Microservices are beneficial for large-scale applications.",
-        "votes": {"claude": 3, "gpt4": 1},
+        "votes": {"claude": 3, "gpt-5.5": 1},
         "critiques": [
-            {"from": "gpt4", "to": "claude", "text": "Good argument structure"},
-            {"from": "claude", "to": "gpt4", "text": "Needs more evidence"},
+            {"from": "gpt-5.5", "to": "claude", "text": "Good argument structure"},
+            {"from": "claude", "to": "gpt-5.5", "text": "Needs more evidence"},
         ],
     }
 

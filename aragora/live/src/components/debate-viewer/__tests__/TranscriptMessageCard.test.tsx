@@ -94,13 +94,13 @@ describe('TranscriptMessageCard', () => {
     });
 
     it('applies agent colors', () => {
-      const message = createMessage({ agent: 'gpt-4' });
+      const message = createMessage({ agent: 'gpt-5.5' });
       const { container } = render(<TranscriptMessageCard message={message} />);
 
       // Check that the wrapper has the expected classes
       const wrapper = container.firstChild;
-      expect(wrapper).toHaveClass('bg-gpt-4-500/20');
-      expect(wrapper).toHaveClass('border-gpt-4-500/30');
+      expect(wrapper).toHaveClass('bg-gpt-5.5/20');
+      expect(wrapper).toHaveClass('border-gpt-5.5/30');
     });
   });
 
@@ -243,7 +243,7 @@ describe('TranscriptMessageCard', () => {
         {
           claim_id: 'crux-2',
           statement: 'This text does not appear',
-          author: 'gpt-4',
+          author: 'gpt-5.5',
         },
       ];
 
@@ -280,7 +280,7 @@ describe('TranscriptMessageCard', () => {
       const onChallenge = jest.fn();
       render(
         <TranscriptMessageCard
-          message={createMessage({ agent: 'gpt-4', content: 'This is a bold claim that needs challenging' })}
+          message={createMessage({ agent: 'gpt-5.5', content: 'This is a bold claim that needs challenging' })}
           onChallenge={onChallenge}
         />
       );
@@ -290,7 +290,7 @@ describe('TranscriptMessageCard', () => {
       expect(onChallenge).toHaveBeenCalledTimes(1);
       expect(onChallenge).toHaveBeenCalledWith(
         expect.stringContaining('This is a bold claim'),
-        'gpt-4'
+        'gpt-5.5'
       );
     });
 

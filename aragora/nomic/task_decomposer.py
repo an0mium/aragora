@@ -2751,7 +2751,7 @@ class TaskDecomposer:
                 ),
                 OpenRouterAgent(
                     name="or-gpt",
-                    model="openai/gpt-5.4",
+                    model="openai/gpt-5.5",
                 ),
             ]
         except (ImportError, RuntimeError, OSError) as e:
@@ -2882,7 +2882,7 @@ Prioritize by impact: which improvements would provide the most value?"""
                 from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
                 agents.append(
-                    OpenAIAPIAgent(name="gpt-analyst", model="gpt-4o", api_key=openai_key)
+                    OpenAIAPIAgent(name="gpt-analyst", model="gpt-5.5", api_key=openai_key)
                 )
             except (ImportError, RuntimeError, OSError) as e:
                 errors.append(f"OpenAI: {e}")
@@ -2902,7 +2902,7 @@ Prioritize by impact: which improvements would provide the most value?"""
                         ),
                         OpenRouterAgent(
                             name="or-gpt",
-                            model="openai/gpt-5.4",
+                            model="openai/gpt-5.5",
                         ),
                     ]
                 )

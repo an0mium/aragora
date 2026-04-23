@@ -55,7 +55,7 @@ steps:
         - id: performance_review
           type: task
           config:
-            agent: "gpt4"
+            agent: "gpt-5.5"
             role: "performance_expert"
             prompt: |
               Review this code for performance issues.

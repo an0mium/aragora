@@ -79,7 +79,7 @@ class MockMoment:
         self.description = f"Agent {agent_name} had a {moment_type}"
         self.significance_score = significance
         self.debate_id = "debate-001"
-        self.other_agents = ["gpt4", "gemini"]
+        self.other_agents = ["gpt-5.5", "gemini"]
         self.metadata = {"round": 3}
         self.created_at = created_at
 
@@ -111,9 +111,9 @@ def handler_with_detector():
             MockMoment("mom-001", "upset_victory", "claude", 0.85),
             MockMoment("mom-002", "consensus_breakthrough", "claude", 0.92),
         ],
-        "gpt4": [
-            MockMoment("mom-003", "upset_victory", "gpt4", 0.70),
-            MockMoment("mom-004", "alliance_shift", "gpt4", 0.60),
+        "gpt-5.5": [
+            MockMoment("mom-003", "upset_victory", "gpt-5.5", 0.70),
+            MockMoment("mom-004", "alliance_shift", "gpt-5.5", 0.60),
         ],
     }
     detector = MockMomentDetector(moments)
@@ -260,7 +260,7 @@ class TestGetSummary:
         result = handler_with_detector._get_summary()
         data = _parse_body(result)
         assert data["by_agent"]["claude"] == 2
-        assert data["by_agent"]["gpt4"] == 2
+        assert data["by_agent"]["gpt-5.5"] == 2
 
     def test_summary_recent_limited(self, handler_with_detector):
         result = handler_with_detector._get_summary()
@@ -532,7 +532,7 @@ class TestMomentToDict:
         assert d["agent"] == "claude"
         assert d["significance"] == 0.85
         assert d["debate_id"] == "debate-001"
-        assert d["other_agents"] == ["gpt4", "gemini"]
+        assert d["other_agents"] == ["gpt-5.5", "gemini"]
         assert d["metadata"] == {"round": 3}
 
     def test_moment_to_dict_fields(self, handler):

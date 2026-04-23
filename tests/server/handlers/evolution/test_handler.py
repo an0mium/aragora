@@ -124,11 +124,11 @@ class TestCanHandle:
             "/api/evolution/patterns",
             "/api/evolution/summary",
             "/api/evolution/claude/history",
-            "/api/evolution/gpt4/prompt",
+            "/api/evolution/gpt-5.5/prompt",
             "/api/v1/evolution/patterns",
             "/api/v1/evolution/summary",
             "/api/v1/evolution/claude/history",
-            "/api/v1/evolution/gpt4/prompt",
+            "/api/v1/evolution/gpt-5.5/prompt",
         ],
     )
     def test_accepted_paths(self, handler, path):
@@ -276,7 +276,7 @@ class TestQueryParamClamping:
 class TestAgentNameValidation:
     """Verify that invalid agent names in path are rejected."""
 
-    @pytest.mark.parametrize("name", ["claude", "gpt4", "my-agent", "agent_v2", "A123"])
+    @pytest.mark.parametrize("name", ["claude", "gpt-5.5", "my-agent", "agent_v2", "A123"])
     def test_valid_agent_names(self, handler, name):
         with patch.object(
             handler, "_get_evolution_history", return_value=MagicMock(status_code=200)
@@ -792,7 +792,7 @@ class TestGetSummary:
             cursor_fetchone=[(5,), (2,), (8,)],
             cursor_fetchall=[
                 [("strategy", 5), ("structure", 3)],
-                [("claude", 0.9, 3), ("gpt4", 0.8, 2)],
+                [("claude", 0.9, 3), ("gpt-5.5", 0.8, 2)],
                 [("claude", "mutation", "2025-01-01")],
             ],
         )

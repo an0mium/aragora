@@ -391,8 +391,8 @@ for topic, similarity in related:
 \`\`\`python
 # Access similarity calculation (for debugging)
 sim = consensus._calculate_similarity(
-    "OpenAI releases GPT-5",
-    "GPT-5 released by OpenAI today",
+    "OpenAI releases GPT-5.5",
+    "GPT-5.5 released by OpenAI today",
 )
 print(f"Similarity: {sim}")  # ~0.7
 

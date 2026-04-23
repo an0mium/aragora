@@ -283,8 +283,8 @@ def get_critiques(
         List of critique messages
 
     Example in TRUE RLM REPL:
-        >>> critiques = get_critiques(debate, target_agent="gpt4")
-        >>> print(f"Found {len(critiques)} critiques of GPT-4")
+        >>> critiques = get_critiques(debate, target_agent="gpt-5.5")
+        >>> print(f"Found {len(critiques)} critiques of GPT-5.5")
     """
     critique_markers = [
         r"critique",

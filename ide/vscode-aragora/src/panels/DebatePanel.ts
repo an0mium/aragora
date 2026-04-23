@@ -351,7 +351,7 @@ export class DebatePanel {
     const config = vscode.workspace.getConfiguration('aragora');
     return {
       apiUrl: config.get<string>('apiUrl') || 'https://api.aragora.ai',
-      defaultAgents: (config.get<string>('defaultAgents') || 'claude,gpt-4').split(','),
+      defaultAgents: (config.get<string>('defaultAgents') || 'claude,gpt-5.5').split(','),
       defaultRounds: config.get<number>('defaultRounds') || 3,
       autoAnalyze: config.get<boolean>('analyzeOnSave', true),
       showInlineHints: config.get<boolean>('showInlineHints', true),

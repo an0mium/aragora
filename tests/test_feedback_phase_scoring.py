@@ -107,7 +107,7 @@ def mock_agents():
     """Create mock agents."""
     return [
         MockAgent("claude"),
-        MockAgent("gpt4"),
+        MockAgent("gpt-5.5"),
         MockAgent("gemini"),
     ]
 
@@ -119,8 +119,8 @@ def mock_result(mock_agents):
         winner="claude",
         votes=[
             MockVote(agent="claude", voter="claude", choice="claude", confidence=0.9),
-            MockVote(agent="gpt4", voter="gpt4", choice="claude", confidence=0.8),
-            MockVote(agent="gemini", voter="gemini", choice="gpt4", confidence=0.7),
+            MockVote(agent="gpt-5.5", voter="gpt-5.5", choice="claude", confidence=0.8),
+            MockVote(agent="gemini", voter="gemini", choice="gpt-5.5", confidence=0.7),
         ],
     )
 
@@ -131,7 +131,7 @@ def mock_context(mock_agents, mock_result):
     return MockDebateContext(
         result=mock_result,
         agents=mock_agents,
-        choice_mapping={"claude": "claude", "gpt4": "gpt4"},
+        choice_mapping={"claude": "claude", "gpt-5.5": "gpt-5.5"},
     )
 
 
@@ -287,7 +287,7 @@ class TestEloRecording:
         scores = call_args[0][2]
 
         assert scores["claude"] == 1.0  # Winner
-        assert scores["gpt4"] == 0.5  # Non-winner in consensus
+        assert scores["gpt-5.5"] == 0.5  # Non-winner in consensus
         assert scores["gemini"] == 0.5  # Non-winner in consensus
 
 
@@ -837,11 +837,11 @@ class TestAgentPredictionCheck:
     def test_check_prediction_incorrect(self, mock_context):
         """Test prediction check returns False for incorrect prediction."""
         phase = FeedbackPhase()
-        mock_context.result.winner = "gpt4"
+        mock_context.result.winner = "gpt-5.5"
         mock_context.result.votes = [
             MockVote(agent="claude", voter="claude", choice="claude"),
         ]
-        mock_context.choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
+        mock_context.choice_mapping = {"claude": "claude", "gpt-5.5": "gpt-5.5"}
 
         agent = MockAgent("claude")
         result = phase._check_agent_prediction(agent, mock_context)
@@ -923,7 +923,7 @@ class TestEventEmission:
         """Test match event skipped without emitter."""
         phase = FeedbackPhase()
         # Should not raise
-        phase._emit_match_recorded_event(mock_context, ["claude", "gpt4"])
+        phase._emit_match_recorded_event(mock_context, ["claude", "gpt-5.5"])
 
     def test_emit_flip_events_without_emitter(self, mock_context):
         """Test flip events skipped without emitter."""

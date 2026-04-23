@@ -21,7 +21,7 @@ def mock_debate_config():
     """Create a mock DebateConfig."""
     config = MagicMock()
     config.question = "Should we adopt microservices?"
-    config.agents_str = "claude,gpt4"
+    config.agents_str = "claude,gpt-5.5"
     config.rounds = 3
     config.metadata = {}
     config.debate_format = "full"
@@ -37,10 +37,10 @@ def mock_debate_result():
     result.confidence = 0.85
     result.status = "completed"
     result.agent_failures = []
-    result.participants = ["claude", "gpt4"]
+    result.participants = ["claude", "gpt-5.5"]
     result.grounded_verdict = None
     result.total_cost_usd = 0.12
-    result.per_agent_cost = {"claude": 0.07, "gpt4": 0.05}
+    result.per_agent_cost = {"claude": 0.07, "gpt-5.5": 0.05}
     result.explanation = None
     result.messages = []
     result.winner = None

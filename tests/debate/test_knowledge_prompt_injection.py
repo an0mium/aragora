@@ -263,7 +263,7 @@ class TestRevisionPromptKMSection:
     def test_revision_includes_km_section(self, builder, mock_agent):
         """Revision prompt contains the KM section with header."""
         builder.set_knowledge_context("Prefer async patterns for I/O-bound work.")
-        critiques = [MockCritique(agent="gpt-4", issues=["Missing error handling"])]
+        critiques = [MockCritique(agent="gpt-5.5", issues=["Missing error handling"])]
         prompt = builder.build_revision_prompt(
             mock_agent,
             original="My original proposal about API design.",

@@ -1817,8 +1817,8 @@ class TestModuleConstants:
         names = handler_module.AGENT_DISPLAY_NAMES
         assert "claude" in names
         assert names["claude"] == "Claude"
-        assert "gpt4" in names
-        assert names["gpt4"] == "GPT-4"
+        assert "gpt-5.5" in names
+        assert names["gpt-5.5"] == "GPT-5.5"
         assert "gemini" in names
         assert "mistral" in names
 

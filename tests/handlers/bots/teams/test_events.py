@@ -1043,7 +1043,7 @@ class TestCmdLeaderboard:
             reply_text = mock_bot.send_reply.call_args[0][1]
             assert "Agent Leaderboard" in reply_text
             assert "Claude" in reply_text
-            assert "GPT-4" in reply_text
+            assert "GPT-5.5" in reply_text
 
     @pytest.mark.asyncio
     async def test_leaderboard_with_elo_store(self, processor, mock_bot):
@@ -1055,7 +1055,7 @@ class TestCmdLeaderboard:
         mock_rating_1.total_debates = 20
 
         mock_rating_2 = MagicMock()
-        mock_rating_2.agent_name = "gpt4"
+        mock_rating_2.agent_name = "gpt-5.5"
         mock_rating_2.elo = 1820.0
         mock_rating_2.wins = 8
         mock_rating_2.total_debates = 18
@@ -1112,7 +1112,7 @@ class TestCmdAgents:
         reply_text = mock_bot.send_reply.call_args[0][1]
         assert "Available AI Agents" in reply_text
         assert "Claude" in reply_text
-        assert "GPT-4" in reply_text
+        assert "GPT-5.5" in reply_text
         assert "Gemini" in reply_text
         assert "Grok" in reply_text
         assert "Mistral" in reply_text
@@ -1520,8 +1520,8 @@ class TestModuleConstants:
         names = events_module.AGENT_DISPLAY_NAMES
         assert "claude" in names
         assert names["claude"] == "Claude"
-        assert "gpt4" in names
-        assert names["gpt4"] == "GPT-4"
+        assert "gpt-5.5" in names
+        assert names["gpt-5.5"] == "GPT-5.5"
         assert "gemini" in names
         assert "mistral" in names
         assert "deepseek" in names

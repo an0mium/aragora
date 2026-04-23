@@ -6,7 +6,7 @@
     "-m",
     "aragora",
     "ask",
-    "Dogfood Aragora using the planning docs as source of truth and produce an orchestration-ready self-improvement plan/spec with reduced single-model bias. Include ranked high-level tasks, suggested subtasks, owner modules/file paths, test plan, rollback plan, and explicit gate criteria for moving forward. Preserve dissent. The debate protocol spec must include Claude Opus 4.6, GPT-5.3 Codex, Gemini 3.1 Pro Preview, and Grok 4.20 with light role guidance (not hard pigeonholing).",
+    "Dogfood Aragora using the planning docs as source of truth and produce an orchestration-ready self-improvement plan/spec with reduced single-model bias. Include ranked high-level tasks, suggested subtasks, owner modules/file paths, test plan, rollback plan, and explicit gate criteria for moving forward. Preserve dissent. The debate protocol spec must include Claude Opus 4.6, GPT-5.5 Codex, Gemini 3.1 Pro Preview, and Grok 4.20 with light role guidance (not hard pigeonholing).",
     "--agents",
     "anthropic-api,openai-api,gemini,grok",
     "--rounds",

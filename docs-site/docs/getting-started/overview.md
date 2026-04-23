@@ -61,7 +61,7 @@ Edit `.env` (or use `.env.example` for the full template):
 ```bash
 # Required: At least one of these
 ANTHROPIC_API_KEY=sk-ant-xxx     # Claude (recommended)
-OPENAI_API_KEY=sk-xxx            # GPT-4
+OPENAI_API_KEY=sk-xxx            # GPT-5.5
 GEMINI_API_KEY=AIzaSy...         # Gemini
 XAI_API_KEY=xai-xxx              # Grok
 MISTRAL_API_KEY=xxx              # Mistral (optional)
@@ -587,7 +587,7 @@ pip install -e .
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `ANTHROPIC_API_KEY` | Claude API key | At least one |
-| `OPENAI_API_KEY` | GPT-4 API key | At least one |
+| `OPENAI_API_KEY` | GPT-5.5 API key | At least one |
 | `GEMINI_API_KEY` | Gemini API key | Optional |
 | `XAI_API_KEY` | Grok API key | Optional |
 | `MISTRAL_API_KEY` | Mistral API key | Optional |

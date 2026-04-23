@@ -55,7 +55,7 @@ const mockDebates = [
     cycle_number: 1,
     phase: 'debate',
     task: 'Improve error handling',
-    agents: ['claude', 'gpt4'],
+    agents: ['claude', 'gpt-5.5'],
     consensus_reached: true,
     confidence: 0.85,
     timestamp: '2024-01-15T10:00:00Z',

@@ -10,7 +10,7 @@ Every consequential AI decision today rests on a single model's output. This is 
 
 **Single-model failures are not edge cases -- they are the default operating mode:**
 
-- **Correlated failures.** GPT-4, Claude, and Gemini share training data, RLHF patterns, and architectural assumptions. When one model is wrong about a topic, others are often wrong in the same way. Running the same prompt through the same model twice does not reduce risk.
+- **Correlated failures.** GPT-5.5, Claude, and Gemini share training data, RLHF patterns, and architectural assumptions. When one model is wrong about a topic, others are often wrong in the same way. Running the same prompt through the same model twice does not reduce risk.
 - **Sycophantic agreement.** Models converge on whatever the user appears to want. Confidence scores do not correlate with accuracy. A model that says "I'm 95% confident" is not 95% accurate.
 - **No audit trail.** When an AI-informed decision goes wrong, there is no record of what reasoning was considered, what alternatives were rejected, or where the uncertainty actually was. Regulators, boards, and legal teams cannot work with "the AI said so."
 - **Persona instability.** The same model gives different answers depending on prompt phrasing, context order, and system prompt framing. [Stanford's taxonomy of LLM reasoning failures](https://arxiv.org/abs/2602.06176) documents systematic breakdowns in formal logic, unfaithful chain-of-thought, and robustness failures under minor prompt variations -- even in frontier models.

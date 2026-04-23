@@ -51,7 +51,7 @@ def sample_environment():
 def sample_agents():
     """Create mock agents for testing."""
     agents = []
-    for name in ["claude", "gpt4", "gemini"]:
+    for name in ["claude", "gpt-5.5", "gemini"]:
         agent = MagicMock()
         agent.name = name
         agent.model = f"{name}-model"

@@ -398,7 +398,7 @@ class TestAgentRankings:
                 "win_rate": 0.72,
             },
             {
-                "name": "gpt4",
+                "name": "gpt-5.5",
                 "elo": 1550,
                 "total_matches": 45,
                 "win_rate": 0.65,
@@ -416,7 +416,7 @@ class TestAgentRankings:
         assert first["win_rate"] == 0.72
 
         second = result["top_agents"][1]
-        assert second["name"] == "gpt4"
+        assert second["name"] == "gpt-5.5"
         assert second["rating"] == 1550
         assert second["matches"] == 45
         assert second["win_rate"] == 0.65
@@ -1317,12 +1317,12 @@ class TestEdgeCases:
     def test_leaderboard_mixed_dict_and_object(self, handler_with_elo, mock_elo):
         """Leaderboard with both dict and object entries."""
         dict_entry = {"agent": "claude", "rating": 1600, "matches": 50, "win_rate": 0.7}
-        obj_entry = SimpleNamespace(agent="gpt4", rating=1550, matches=40, win_rate=0.65)
+        obj_entry = SimpleNamespace(agent="gpt-5.5", rating=1550, matches=40, win_rate=0.65)
         mock_elo.get_leaderboard.return_value = [dict_entry, obj_entry]
         result = handler_with_elo._collect_agent_rankings()
         assert len(result["top_agents"]) == 2
         assert result["top_agents"][0]["name"] == "claude"
-        assert result["top_agents"][1]["name"] == "gpt4"
+        assert result["top_agents"][1]["name"] == "gpt-5.5"
 
     def test_debate_duration_coerced_to_float(self, handler_with_storage, mock_storage):
         """Duration values are coerced to float (e.g., int input)."""

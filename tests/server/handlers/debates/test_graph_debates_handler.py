@@ -229,7 +229,7 @@ class TestHandlePost:
             result = await handler.handle_post(
                 mock_http_handler,
                 "/api/v1/debates/graph",
-                {"task": "Test task", "agents": ["claude", "gpt4"]},
+                {"task": "Test task", "agents": ["claude", "gpt-5.5"]},
             )
             body, status = parse_result(result)
 
@@ -244,7 +244,7 @@ class TestHandlePost:
                 result = await handler.handle_post(
                     mock_http_handler,
                     "/api/v1/debates/graph/wrong",
-                    {"task": "Test task", "agents": ["claude", "gpt4"]},
+                    {"task": "Test task", "agents": ["claude", "gpt-5.5"]},
                 )
                 body, status = parse_result(result)
 
@@ -259,7 +259,7 @@ class TestHandlePost:
                 result = await handler.handle_post(
                     mock_http_handler,
                     "/api/v1/debates/graph",
-                    {"agents": ["claude", "gpt4"]},
+                    {"agents": ["claude", "gpt-5.5"]},
                 )
                 body, status = parse_result(result)
 
@@ -275,7 +275,7 @@ class TestHandlePost:
                 result = await handler.handle_post(
                     mock_http_handler,
                     "/api/v1/debates/graph",
-                    {"task": "Short", "agents": ["claude", "gpt4"]},
+                    {"task": "Short", "agents": ["claude", "gpt-5.5"]},
                 )
                 body, status = parse_result(result)
 
@@ -291,7 +291,7 @@ class TestHandlePost:
                 result = await handler.handle_post(
                     mock_http_handler,
                     "/api/v1/debates/graph",
-                    {"task": "x" * 6000, "agents": ["claude", "gpt4"]},
+                    {"task": "x" * 6000, "agents": ["claude", "gpt-5.5"]},
                 )
                 body, status = parse_result(result)
 
@@ -307,7 +307,7 @@ class TestHandlePost:
                 result = await handler.handle_post(
                     mock_http_handler,
                     "/api/v1/debates/graph",
-                    {"task": "<script>alert('xss')</script>", "agents": ["claude", "gpt4"]},
+                    {"task": "<script>alert('xss')</script>", "agents": ["claude", "gpt-5.5"]},
                 )
                 body, status = parse_result(result)
 
@@ -377,7 +377,7 @@ class TestHandlePost:
                     "/api/v1/debates/graph",
                     {
                         "task": "A valid test task for debate",
-                        "agents": ["claude", "gpt4"],
+                        "agents": ["claude", "gpt-5.5"],
                         "max_rounds": 100,
                     },
                 )
@@ -397,7 +397,7 @@ class TestHandlePost:
                     "/api/v1/debates/graph",
                     {
                         "task": "A valid test task for debate",
-                        "agents": ["claude", "gpt4"],
+                        "agents": ["claude", "gpt-5.5"],
                         "branch_policy": {"min_disagreement": 2.0},
                     },
                 )
@@ -443,7 +443,7 @@ class TestRateLimiting:
                     "/api/v1/debates/graph",
                     {
                         "task": "A valid test task for debate",
-                        "agents": ["claude", "gpt4"],
+                        "agents": ["claude", "gpt-5.5"],
                     },
                 )
                 body, status = parse_result(result)

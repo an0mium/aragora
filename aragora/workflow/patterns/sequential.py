@@ -39,10 +39,10 @@ class SequentialPattern(WorkflowPattern):
     Example:
         workflow = SequentialPattern.create(
             name="Document Analysis Pipeline",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             prompts={
                 "claude": "Extract key facts from: {input}",
-                "gpt4": "Analyze the extracted facts: {step.claude}",
+                "gpt-5.5": "Analyze the extracted facts: {step.claude}",
             },
         )
 
@@ -51,7 +51,7 @@ class SequentialPattern(WorkflowPattern):
             name="Code Review Pipeline",
             stages=[
                 {"agent": "claude", "role": "security_reviewer", "focus": "security"},
-                {"agent": "gpt4", "role": "performance_reviewer", "focus": "performance"},
+                {"agent": "gpt-5.5", "role": "performance_reviewer", "focus": "performance"},
                 {"agent": "claude", "role": "synthesizer", "focus": "final_review"},
             ],
             task="Review this code: {code}",
@@ -104,7 +104,7 @@ class SequentialPattern(WorkflowPattern):
             prompt = stage.get("prompt", self.task)
             focus = stage.get("focus", "")
 
-            step_id = f"stage_{i}_{role}"
+            step_id = f"stage_{i}_{self._step_id_fragment(role)}"
 
             # Build prompt with context from previous step
             if prev_step_id and self.pass_full_context:

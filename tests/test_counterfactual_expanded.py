@@ -34,7 +34,7 @@ def sample_pivot_claim():
         author="claude",
         disagreement_score=0.7,
         importance_score=0.6,
-        blocking_agents=["gpt4", "gemini"],
+        blocking_agents=["gpt-5.5", "gemini"],
     )
 
 
@@ -47,7 +47,7 @@ def sample_messages():
         ),
         Message(
             role="critic",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="I fundamentally disagree with that premise.",
             round=1,
         ),
@@ -62,7 +62,7 @@ def sample_messages():
         ),
         Message(
             role="critic",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="On the other hand, some systems work fine without it.",
             round=3,
         ),
@@ -155,7 +155,7 @@ class TestImpactDetector:
         """Should not detect impasse with too few messages."""
         messages = [
             Message(role="proposer", agent="claude", content="Hello", round=1),
-            Message(role="critic", agent="gpt4", content="Hi there", round=1),
+            Message(role="critic", agent="gpt-5.5", content="Hi there", round=1),
         ]
 
         result = detector.detect_impasse(messages, [])

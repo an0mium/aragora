@@ -98,7 +98,7 @@ class TestGenesisEvolutionItem:
         mock_genome.name = "test-agent"
         mock_genome.traits = {"bold": 0.7}
         mock_genome.expertise = {"security": 0.9}
-        mock_genome.model_preference = "gpt4"
+        mock_genome.model_preference = "gpt-5.5"
         mock_genome.parent_genomes = ["g-parent"]
         mock_genome.generation = 2
         mock_genome.fitness_score = 0.8
@@ -115,7 +115,7 @@ class TestGenesisEvolutionItem:
         assert item.item_type == "genome"
         assert item.traits == {"bold": 0.7}
         assert item.expertise == {"security": 0.9}
-        assert item.model_preference == "gpt4"
+        assert item.model_preference == "gpt-5.5"
         assert item.parent_genomes == ["g-parent"]
         assert item.generation == 2
         assert item.fitness_score == 0.8

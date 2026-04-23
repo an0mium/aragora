@@ -587,7 +587,7 @@ async def _get_security_debate_agents() -> list[Any]:
                 agents.append(
                     OpenAIAgent(
                         name="gpt-security",
-                        model="gpt-4o",
+                        model="gpt-5.5",
                     )
                 )
             except (ValueError, RuntimeError) as e:

@@ -614,7 +614,7 @@ class TestHandleViewDetails:
             "consensus_reached": True,
             "confidence": 0.85,
             "rounds_used": 3,
-            "agents": ["claude", "gpt4", "gemini"],
+            "agents": ["claude", "gpt-5.5", "gemini"],
             "created_at": "2026-01-15T10:30:00Z",
         }
         mock_db = MagicMock()
@@ -851,7 +851,7 @@ class TestHandleViewDetails:
             "consensus_reached": True,
             "confidence": 0.5,
             "rounds_used": 1,
-            "agents": ["claude", "gpt4", "gemini"],
+            "agents": ["claude", "gpt-5.5", "gemini"],
             "created_at": "2026-01-01",
         }
         mock_db = MagicMock()
@@ -870,7 +870,7 @@ class TestHandleViewDetails:
         fields_block = blocks[3]
         agents_field = fields_block["fields"][5]
         assert "claude" in agents_field["text"]
-        assert "gpt4" in agents_field["text"]
+        assert "gpt-5.5" in agents_field["text"]
         assert "gemini" in agents_field["text"]
 
     def test_debate_details_agents_truncated_at_5(self, slack_handler):
@@ -1325,7 +1325,7 @@ class TestInteractiveVoteFlow:
             "consensus_reached": True,
             "confidence": 0.95,
             "rounds_used": 4,
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "created_at": "2026-02-20",
         }
         mock_db = MagicMock()

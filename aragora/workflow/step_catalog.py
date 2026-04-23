@@ -75,7 +75,7 @@ _register(
             "properties": {
                 "agent_type": {
                     "type": "string",
-                    "description": "Agent model identifier (e.g. claude, gpt4)",
+                    "description": "Agent model identifier (e.g. claude, gpt-5.5)",
                 },
                 "prompt": {"type": "string", "description": "Prompt to send to the agent"},
                 "temperature": {"type": "number", "minimum": 0, "maximum": 2, "default": 0.7},

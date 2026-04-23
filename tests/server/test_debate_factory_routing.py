@@ -53,7 +53,7 @@ class TestDebateFactoryProviderRouting:
         """ProviderRouter hints should be stored on the arena when available."""
         mock_arena = _mock_arena_build
 
-        fake_hints = {"claude-sonnet-4": 0.9, "gpt-4o": 0.85}
+        fake_hints = {"claude-sonnet-4": 0.9, "gpt-5.5": 0.85}
 
         mock_router = MagicMock()
         mock_router.get_provider_hints.return_value = fake_hints
@@ -165,7 +165,7 @@ class TestArenaBuilderProviderHints:
         agent2 = MagicMock()
         agent2.name = "agent2"
 
-        hints = {"claude-sonnet-4": 0.9, "gpt-4o": 0.8}
+        hints = {"claude-sonnet-4": 0.9, "gpt-5.5": 0.8}
 
         with patch("aragora.debate.orchestrator.Arena") as MockArena:
             mock_arena = MagicMock()
@@ -229,16 +229,16 @@ class TestProviderHintsIntegration:
         # Record enough debates to exceed threshold
         for _ in range(MIN_DEBATES_FOR_METRICS):
             store.record_debate_outcome("claude-sonnet-4", cost=0.05, quality=0.92)
-            store.record_debate_outcome("gpt-4o", cost=0.08, quality=0.88)
+            store.record_debate_outcome("gpt-5.5", cost=0.08, quality=0.88)
 
         router = ProviderRouter(metrics_store=store)
         hints = router.get_provider_hints()
 
         assert len(hints) == 2
         assert "claude-sonnet-4" in hints
-        assert "gpt-4o" in hints
+        assert "gpt-5.5" in hints
         assert hints["claude-sonnet-4"] == pytest.approx(0.92, abs=0.01)
-        assert hints["gpt-4o"] == pytest.approx(0.88, abs=0.01)
+        assert hints["gpt-5.5"] == pytest.approx(0.88, abs=0.01)
 
     def test_arena_config_accepts_provider_hints(self):
         """ArenaConfig should accept and store provider_hints."""

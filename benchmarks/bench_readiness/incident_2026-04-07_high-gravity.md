@@ -48,7 +48,7 @@ Windsurf VSCode extension was uninstalled by the user during incident response, 
 - [x] Rotation schedule YAML snapshot generated at `rotation-schedule.yaml`
 
 ### P2 — Resilience (model pinning)
-- [x] Created `aragora/config/model_pins.py` as the authoritative frontier-model registry (Opus 4.7 / GPT-5.4 / Gemini 3.1 Pro)
+- [x] Created `aragora/config/model_pins.py` as the authoritative frontier-model registry (Opus 4.7 / GPT-5.5 / Gemini 3.1 Pro)
 - [x] Updated agent classes so every legacy model ID routes to the frontier via OpenRouter (`OPENROUTER_MODEL_MAP` in `anthropic.py`, `openai.py`, `gemini.py`)
 - [x] Updated 5 agent config YAMLs (proposer, synthesizer, quality-reviewer, security-auditor, compliance-auditor) from `anthropic-api` to `openrouter` so a missing `ANTHROPIC_API_KEY` no longer blocks debate execution
 - [x] Bulk-upgraded 95 model pin strings across 43 Python files to frontier models

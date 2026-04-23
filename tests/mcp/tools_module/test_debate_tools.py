@@ -55,7 +55,7 @@ class TestRunDebateTool:
                 "aragora.config.settings.DebateSettings",
             ) as mock_debate_settings,
         ):
-            mock_settings.return_value.default_agents = "claude,gpt4"
+            mock_settings.return_value.default_agents = "claude,gpt-5.5"
             mock_debate_settings.return_value.default_rounds = 3
             mock_debate_settings.return_value.default_consensus = "majority"
             mock_debate_settings.return_value.max_rounds = 10
@@ -127,7 +127,7 @@ class TestRunDebateTool:
 
             result = await run_debate_tool(
                 question="Is AI safe?",
-                agents="claude,gpt4",
+                agents="claude,gpt-5.5",
                 rounds=2,
                 consensus="unanimous",
             )
@@ -225,7 +225,7 @@ class TestSearchDebatesTool:
         mock_debate = MagicMock()
         mock_debate.debate_id = "d-001"
         mock_debate.task = "Database selection"
-        mock_debate.agents = ["claude", "gpt4"]
+        mock_debate.agents = ["claude", "gpt-5.5"]
         mock_debate.consensus_reached = True
         mock_debate.confidence = 0.85
         mock_debate.created_at = "2025-01-01"
@@ -260,9 +260,9 @@ class TestSearchDebatesTool:
             "aragora.server.storage.get_debates_db",
             return_value=mock_db,
         ):
-            result = await search_debates_tool(query="", agent="gpt4")
+            result = await search_debates_tool(query="", agent="gpt-5.5")
 
-        # Agent "gpt4" doesn't match ["claude"], so filtered out
+        # Agent "gpt-5.5" doesn't match ["claude"], so filtered out
         assert result["count"] == 0
 
     @pytest.mark.asyncio
@@ -352,7 +352,7 @@ class TestForkDebateTool:
             "task": "Original debate",
             "messages": [
                 {"role": "proposer", "agent": "claude", "content": "Message 1"},
-                {"role": "critic", "agent": "gpt4", "content": "Message 2"},
+                {"role": "critic", "agent": "gpt-5.5", "content": "Message 2"},
                 {"role": "proposer", "agent": "claude", "content": "Message 3"},
             ],
         }

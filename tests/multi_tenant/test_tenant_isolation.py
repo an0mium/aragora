@@ -152,7 +152,7 @@ class TestUsageTrackingTenantIsolation:
                 tokens_in=2000,
                 tokens_out=1000,
                 provider="openai",
-                model="gpt-4",
+                model="gpt-5.5",
             )
             usage_tracker.record(event_b)
 
@@ -189,7 +189,7 @@ class TestUsageTrackingTenantIsolation:
             tokens_in=10000,
             tokens_out=5000,
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
         )
         usage_tracker.record(event_b)
 

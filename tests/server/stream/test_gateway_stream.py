@@ -74,7 +74,7 @@ class TestGatewayEvent:
         """Event has timestamp automatically set."""
         event = GatewayEvent(
             event_type=GatewayEventType.AGENT_COMPLETE,
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             data={},
         )
         assert event.timestamp is not None
@@ -278,12 +278,12 @@ class TestConvenienceMethods:
 
         await server.subscribe(callback)
         await server.broadcast_capability_used(
-            "gpt4", "code_interpreter", {"language": "python"}, debate_id="d1"
+            "gpt-5.5", "code_interpreter", {"language": "python"}, debate_id="d1"
         )
 
         event = received[0]
         assert event.event_type == GatewayEventType.AGENT_CAPABILITY_USED
-        assert event.agent_name == "gpt4"
+        assert event.agent_name == "gpt-5.5"
         assert event.data["capability"] == "code_interpreter"
         assert event.data["details"]["language"] == "python"
 
@@ -330,11 +330,11 @@ class TestConvenienceMethods:
 
         await server.subscribe(callback)
         result = {"answer": "42", "confidence": 0.95}
-        await server.broadcast_agent_complete("gpt4", result, debate_id="d1")
+        await server.broadcast_agent_complete("gpt-5.5", result, debate_id="d1")
 
         event = received[0]
         assert event.event_type == GatewayEventType.AGENT_COMPLETE
-        assert event.agent_name == "gpt4"
+        assert event.agent_name == "gpt-5.5"
         assert event.data["result"] == result
 
     @pytest.mark.asyncio

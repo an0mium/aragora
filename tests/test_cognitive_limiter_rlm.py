@@ -81,7 +81,7 @@ def sample_messages():
             round=1,
         ),
         MockMessage(
-            agent="gpt4", role="critic", content="Consider sliding window instead", round=1
+            agent="gpt-5.5", role="critic", content="Consider sliding window instead", round=1
         ),
         MockMessage(
             agent="claude", role="defender", content="Token bucket is simpler to implement", round=2
@@ -749,7 +749,7 @@ class TestRealRLMIntegration:
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             # rlm_backend is deprecated - use rlm_model only
-            limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-4o")
+            limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-5.5")
         assert limiter.has_real_rlm is True
         assert limiter._aragora_rlm is not None
 
@@ -757,7 +757,7 @@ class TestRealRLMIntegration:
     async def test_real_rlm_query(self):
         """Real RLM query uses REPL-based approach."""
         # rlm_backend is deprecated - use rlm_model only
-        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-4o")
+        limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-5.5")
 
         messages = [MockMessage(content="Test content " * 100, round=i) for i in range(10)]
 

@@ -238,7 +238,7 @@ class TestResultRouting:
             "consensus_reached": True,
             "final_answer": "The answer to the question is 42.",
             "confidence": 0.95,
-            "participants": ["claude", "gpt4", "gemini"],
+            "participants": ["claude", "gpt-5.5", "gemini"],
             "task": "What is the meaning of life?",
         }
 
@@ -289,7 +289,7 @@ class TestResultRouting:
             "consensus_reached": True,
             "final_answer": "Use microservices for this scale.",
             "confidence": 0.87,
-            "participants": ["claude", "gpt4"],
+            "participants": ["claude", "gpt-5.5"],
             "task": "Architecture decision",
         }
 
@@ -385,7 +385,7 @@ class TestResultFormatting:
             "consensus_reached": True,
             "final_answer": "The recommended approach is to use async/await.",
             "confidence": 0.92,
-            "participants": ["claude", "gpt4", "gemini"],
+            "participants": ["claude", "gpt-5.5", "gemini"],
             "task": "How to handle concurrency?",
         }
 
@@ -412,7 +412,7 @@ class TestResultFormatting:
             "consensus_reached": False,
             "final_answer": "No clear consensus was reached.",
             "confidence": 0.45,
-            "participants": ["claude", "gpt4"],
+            "participants": ["claude", "gpt-5.5"],
         }
 
         message = _format_result_message(result, origin, markdown=False)
@@ -623,7 +623,7 @@ class TestDebateToChatIntegration:
             "consensus_reached": True,
             "final_answer": "AI development should prioritize safety and alignment.",
             "confidence": 0.85,
-            "participants": ["claude", "gpt4"],
+            "participants": ["claude", "gpt-5.5"],
             "task": "What are the ethical considerations of AI?",
         }
 

@@ -86,7 +86,7 @@ POST /api/workspaces
 **Auto-configured:**
 - Current user becomes workspace admin
 - Default budget: $100/month (adjustable)
-- Default agents: Claude, GPT-4, Gemini
+- Default agents: Claude, GPT-5.5, Gemini
 
 ---
 
@@ -156,10 +156,10 @@ POST /api/integrations/slack/test
 
 | Template | Agents | Rounds | Best For |
 |----------|--------|--------|----------|
-| Quick Decision | Claude, GPT-4 | 2 | Simple yes/no decisions |
-| Feature Prioritization | Claude, GPT-4, Gemini | 3 | Product decisions |
-| Vendor Comparison | Claude, GPT-4 | 3 | Vendor selection |
-| Policy Review | Claude, GPT-4, Gemini | 4 | Policy decisions |
+| Quick Decision | Claude, GPT-5.5 | 2 | Simple yes/no decisions |
+| Feature Prioritization | Claude, GPT-5.5, Gemini | 3 | Product decisions |
+| Vendor Comparison | Claude, GPT-5.5 | 3 | Vendor selection |
+| Policy Review | Claude, GPT-5.5, Gemini | 4 | Policy decisions |
 
 **Recommendation Algorithm:**
 - If `use_case == "team_decisions"`: Quick Decision

@@ -176,5 +176,5 @@ If you have many PRs, consider:
 
 Approximate costs per review (2 agents, 2 rounds, typical PR):
 - Anthropic Claude: ~$0.05-0.15
-- OpenAI GPT-4: ~$0.10-0.30
+- OpenAI GPT-5.5: ~$0.10-0.30
 - With OpenRouter fallback: ~$0.02-0.10

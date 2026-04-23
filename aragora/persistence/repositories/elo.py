@@ -117,7 +117,7 @@ class EloRepository(BaseRepository[RatingEntity]):
         repo = EloRepository()
 
         # Get agent rating
-        rating = repo.get_rating("gpt-4")
+        rating = repo.get_rating("gpt-5.5")
 
         # Update rating
         repo.save_rating(rating)

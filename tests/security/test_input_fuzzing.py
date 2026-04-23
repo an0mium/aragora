@@ -268,7 +268,7 @@ class TestAgentNameFuzzing:
         """Valid agent names should be accepted."""
         valid_names = [
             "claude",
-            "gpt-4",
+            "gpt-5.5",
             "anthropic-api",
             "openai_api",
             "Agent1",

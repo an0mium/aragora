@@ -549,7 +549,7 @@ class TestDebateTracing:
     def test_trace_agent_operation_minimal(self):
         """Test trace_agent_operation with minimal args."""
         with trace_agent_operation(
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             operation="critique",
         ) as span:
             assert isinstance(span, _NoOpSpan)
@@ -574,7 +574,7 @@ class TestDebateTracing:
                 with trace_agent_operation("claude", "propose", "d-1", 1) as agent_span:
                     assert isinstance(agent_span, _NoOpSpan)
 
-                with trace_agent_operation("gpt4", "propose", "d-1", 1) as agent_span:
+                with trace_agent_operation("gpt-5.5", "propose", "d-1", 1) as agent_span:
                     assert isinstance(agent_span, _NoOpSpan)
 
             with trace_consensus_evaluation("d-1", 1) as consensus_span:

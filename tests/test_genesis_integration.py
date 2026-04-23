@@ -121,7 +121,7 @@ class TestPopulationManagerBasics:
         from aragora.genesis.breeding import PopulationManager
 
         manager = PopulationManager(db_path=temp_db)
-        population = manager.get_or_create_population(base_agents=["claude", "gpt4"])
+        population = manager.get_or_create_population(base_agents=["claude", "gpt-5.5"])
 
         assert population is not None
         assert len(population.genomes) >= 2
@@ -244,7 +244,7 @@ class TestBreedingTrigger:
         from aragora.genesis.breeding import PopulationManager
 
         manager = PopulationManager(db_path=temp_db)
-        population = manager.get_or_create_population(base_agents=["claude", "gpt4"])
+        population = manager.get_or_create_population(base_agents=["claude", "gpt-5.5"])
 
         initial_gen = population.generation
 
@@ -267,7 +267,7 @@ class TestBreedingTrigger:
         from aragora.genesis.breeding import PopulationManager, GenomeBreeder
 
         manager = PopulationManager(db_path=temp_db)
-        population = manager.get_or_create_population(base_agents=["claude", "gpt4"])
+        population = manager.get_or_create_population(base_agents=["claude", "gpt-5.5"])
 
         initial_count = len(population.genomes)
 

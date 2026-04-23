@@ -28,7 +28,7 @@ def _ts() -> str:
 
 _DEMO_AGENTS = [
     {"name": "claude", "model": "claude-sonnet-4-6", "elo": 1520, "wins": 34, "losses": 12},
-    {"name": "gpt-4", "model": "gpt-4.1", "elo": 1495, "wins": 30, "losses": 16},
+    {"name": "gpt-5.5", "model": "gpt-5.5", "elo": 1495, "wins": 30, "losses": 16},
     {"name": "gemini", "model": "gemini-3.1-pro-preview", "elo": 1480, "wins": 28, "losses": 18},
     {"name": "grok", "model": "grok-4-latest", "elo": 1460, "wins": 25, "losses": 21},
 ]
@@ -36,7 +36,7 @@ _DEMO_AGENTS = [
 
 def _make_debate(task: str, agents: list[str] | None = None, rounds: int = 3) -> dict[str, Any]:
     debate_id = f"demo-{_uid()}"
-    agent_list = agents or ["claude", "gpt-4", "gemini"]
+    agent_list = agents or ["claude", "gpt-5.5", "gemini"]
     return {
         "debate_id": debate_id,
         "task": task,
@@ -51,7 +51,7 @@ def _make_debate(task: str, agents: list[str] | None = None, rounds: int = 3) ->
             f"the agents reached consensus on: {task}. "
             "The key factors identified were feasibility, risk mitigation, and stakeholder alignment.",
             "final_answer": f"Regarding '{task}': The panel recommends a balanced approach. "
-            "Claude emphasized risk analysis, GPT-4 focused on implementation feasibility, "
+            "Claude emphasized risk analysis, GPT-5.5 focused on implementation feasibility, "
             "and Gemini provided cost-benefit quantification. All agents converged on an "
             "incremental adoption strategy with defined rollback criteria.",
             "dissenting_views": [],
@@ -93,7 +93,7 @@ def _make_receipt(debate_id: str, task: str) -> dict[str, Any]:
         "algorithm": "sha256",
         "consensus_reached": True,
         "confidence": 0.87,
-        "agents_participated": ["claude", "gpt-4", "gemini"],
+        "agents_participated": ["claude", "gpt-5.5", "gemini"],
         "rounds_completed": 3,
     }
 
@@ -171,7 +171,7 @@ def _handle_gauntlet_run(json: dict[str, Any] | None = None, **_: Any) -> dict[s
                 "severity": "medium",
                 "category": "reasoning",
                 "description": "Potential confirmation bias detected in round 2",
-                "agent": "gpt-4",
+                "agent": "gpt-5.5",
             },
             {
                 "severity": "low",

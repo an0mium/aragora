@@ -113,10 +113,10 @@ describe('AgentPanel', () => {
         timestamp: 1000,
         round: 1,
       }),
-      createAgentMessageEvent('gpt4', 'Response from GPT-4', {
+      createAgentMessageEvent('gpt-5.5', 'Response from GPT-5.5', {
         timestamp: 1001,
         round: 1,
-        data: { content: 'Response from GPT-4', role: 'critic' },
+        data: { content: 'Response from GPT-5.5', role: 'critic' },
       }),
       createAgentMessageEvent('claude', 'Second response from Claude', {
         timestamp: 1002,
@@ -134,7 +134,7 @@ describe('AgentPanel', () => {
       render(<AgentPanel events={events} />);
 
       expect(screen.getByText('First response from Claude')).toBeInTheDocument();
-      expect(screen.getByText('Response from GPT-4')).toBeInTheDocument();
+      expect(screen.getByText('Response from GPT-5.5')).toBeInTheDocument();
       expect(screen.getByText('Second response from Claude')).toBeInTheDocument();
     });
 
@@ -142,7 +142,7 @@ describe('AgentPanel', () => {
       render(<AgentPanel events={events} />);
 
       expect(screen.getAllByText('CLAUDE').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('GPT4').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('GPT-5.5').length).toBeGreaterThan(0);
     });
 
     it('displays round badges for events', () => {
@@ -195,7 +195,7 @@ describe('AgentPanel', () => {
       const user = userEvent.setup();
       const events = [
         createAgentMessageEvent('claude', 'Message 1'),
-        createAgentMessageEvent('gpt4', 'Message 2'),
+        createAgentMessageEvent('gpt-5.5', 'Message 2'),
       ];
       render(<AgentPanel events={events} />);
 
@@ -209,7 +209,7 @@ describe('AgentPanel', () => {
       const user = userEvent.setup();
       const events = [
         createAgentMessageEvent('claude', 'Message 1'),
-        createAgentMessageEvent('gpt4', 'Message 2'),
+        createAgentMessageEvent('gpt-5.5', 'Message 2'),
       ];
       render(<AgentPanel events={events} />);
 
@@ -226,7 +226,7 @@ describe('AgentPanel', () => {
   describe('event types', () => {
     it('renders critique events with issue count', () => {
       const events = [
-        createCritiqueEvent('claude', 'gpt4', ['Issue 1', 'Issue 2', 'Issue 3']),
+        createCritiqueEvent('claude', 'gpt-5.5', ['Issue 1', 'Issue 2', 'Issue 3']),
       ];
       render(<AgentPanel events={events} />);
 

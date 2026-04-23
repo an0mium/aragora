@@ -43,7 +43,7 @@ async def main():
     env = Environment(task="What database should we use for our analytics pipeline?")
     agents = [
         Agent(name="claude", model="anthropic"),
-        Agent(name="gpt4", model="openai"),
+        Agent(name="gpt-5.5", model="openai"),
     ]
     protocol = DebateProtocol(rounds=3, consensus="majority")
     arena = Arena(environment=env, agents=agents, protocol=protocol)
@@ -259,7 +259,7 @@ elo = EloSystem()
 # Record a debate outcome
 elo.record_match(
     winner="claude",
-    loser="gpt4",
+    loser="gpt-5.5",
     domain="technical-architecture",
 )
 
@@ -388,7 +388,7 @@ engine = WorkflowEngine()
 workflow = engine.create_workflow("review-pipeline")
 workflow.add_node(DebateNode(
     task="Review this PR for security issues",
-    agents=["claude", "gpt4"],
+    agents=["claude", "gpt-5.5"],
     consensus="judge",
 ))
 workflow.add_node(ConditionNode(
@@ -492,7 +492,7 @@ curl -X POST http://localhost:8080/api/v1/debates \
     "task": "Should we adopt GraphQL?",
     "rounds": 3,
     "consensus": "majority",
-    "agents": ["claude", "gpt4"]
+    "agents": ["claude", "gpt-5.5"]
   }'
 
 # Get debate status
@@ -552,7 +552,7 @@ The CLI covers all common operations.
 aragora ask "Should we rewrite in Rust?"
 
 # With specific agents
-aragora ask "Design a caching strategy" --agents claude,gpt4,gemini
+aragora ask "Design a caching strategy" --agents claude,gpt-5.5,gemini
 
 # Quick 3-round debate
 aragora ask "Best CI/CD tool for our team?" --rounds 3 --consensus majority

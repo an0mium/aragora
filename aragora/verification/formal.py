@@ -22,7 +22,7 @@ Usage:
         print(f"Verification failed: {result.error_message}")
 
 Supported backends:
-- LeanBackend: Lean 4 with LLM translation (DeepSeek-Prover, Claude, GPT-4)
+- LeanBackend: Lean 4 with LLM translation (DeepSeek-Prover, Claude, GPT-5.5)
 - Z3Backend: Z3 SMT solver for decidable claims (arithmetic, logic)
 
 Rationale (from aragora self-debate):
@@ -237,7 +237,7 @@ class TranslationModel(Enum):
 
     DEEPSEEK_PROVER = "deepseek_prover"  # Best for mathematical proofs
     CLAUDE = "claude"  # General-purpose, good at reasoning
-    OPENAI = "openai"  # GPT-4, solid alternative
+    OPENAI = "openai"  # GPT-5.5, solid alternative
     AUTO = "auto"  # Automatically select best available
 
 
@@ -250,7 +250,7 @@ class LeanBackend:
 
     Features:
     - DeepSeek-Prover-V2 integration for state-of-the-art translation
-    - Fallback to Claude/GPT-4 for translation
+    - Fallback to Claude/GPT-5.5 for translation
     - Sandboxed Lean execution with resource limits
     - Proof caching for repeated verification
     - Support for common mathematical patterns
@@ -397,7 +397,7 @@ class LeanBackend:
         Translation model selection (for AUTO mode):
         1. DeepSeek-Prover-V2 (best for mathematical proofs)
         2. Claude (fallback, good reasoning)
-        3. GPT-4 (fallback)
+        3. GPT-5.5 (fallback)
         """
         import os
 
@@ -468,7 +468,7 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
                     "Content-Type": "application/json",
                 }
                 payload = {
-                    "model": "gpt-4o",
+                    "model": "gpt-5.5",
                     "max_tokens": 2048,
                     "messages": [{"role": "user", "content": prompt}],
                 }
@@ -734,7 +734,7 @@ Examples of MATCHING:
                     "Content-Type": "application/json",
                 }
                 payload = {
-                    "model": "gpt-4o",
+                    "model": "gpt-5.5",
                     "max_tokens": 512,
                     "messages": [{"role": "user", "content": prompt}],
                 }

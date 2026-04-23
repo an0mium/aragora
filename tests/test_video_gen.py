@@ -190,7 +190,7 @@ class TestGenerateThumbnail:
             # Use small dimensions to avoid memory issues in pure Python PNG creation
             result = await generate_thumbnail(
                 "Test Title",
-                ["claude", "gpt4"],
+                ["claude", "gpt-5.5"],
                 output_path,
                 width=64,  # Small for testing
                 height=36,
@@ -220,7 +220,7 @@ class TestGenerateThumbnail:
             with patch("asyncio.create_subprocess_exec", side_effect=create_file):
                 result = await generate_thumbnail(
                     "Test Title",
-                    ["claude", "gpt4", "gemini", "extra"],
+                    ["claude", "gpt-5.5", "gemini", "extra"],
                     output_path,
                 )
 
@@ -319,7 +319,7 @@ class TestVideoGenerator:
                     result = await generator.generate_static_video(
                         mock_audio_file,
                         "Test Debate",
-                        ["claude", "gpt4"],
+                        ["claude", "gpt-5.5"],
                         output_path=output_path,
                     )
 

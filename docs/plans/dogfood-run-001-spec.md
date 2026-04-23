@@ -71,7 +71,7 @@ All four frontier models participate in every debate. Roles are **suggested, not
 | Model | Suggested Focus | Why |
 |-------|----------------|-----|
 | Claude Opus 4.7 | Synthesis + specification quality | Strongest at structured output, long-context coherence |
-| GPT-5.3 Codex | Implementation feasibility + code architecture | Strongest at code generation and execution planning |
+| GPT-5.5 Codex | Implementation feasibility + code architecture | Strongest at code generation and execution planning |
 | Gemini 3.1 Pro | Adversarial challenge + edge cases | Strongest at expansive exploration and finding failure modes |
 | Grok 4.20 | Empirical grounding + contrarian pressure | Strongest at unfiltered assessment and questioning assumptions |
 
@@ -306,7 +306,7 @@ Report format:
 ## Dogfood Run 001 Results
 
 ### Run Configuration
-- **Models**: Claude Sonnet 4 (proposer), GPT-4o (critic), Gemini 2.0 Flash (synthesizer) — via OpenRouter
+- **Models**: Claude Sonnet 4 (proposer), GPT-5.5 (critic), Gemini 2.0 Flash (synthesizer) — via OpenRouter
 - **Rounds**: 2
 - **Consensus**: Majority
 - **Context**: 24,733 chars (roadmap + market analysis excerpts)
@@ -496,7 +496,7 @@ This dissent is wrong in the specific case (the tasks duplicate existing work) b
 - Achieve completed baseline and enhanced runs with real final answer payloads, then score objectively.
 
 ### Configuration
-- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-4o` synthesizer)
+- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-5.5` synthesizer)
 - **Rounds**: 1
 - **Consensus**: majority
 - **Runtime controls**: `--no-post-consensus-quality --no-learn --no-calibration --no-evidence-weighting --no-trending`
@@ -556,7 +556,7 @@ Summary:
 - Enforce required section headings and grounding fail-closed during generation, then compare baseline vs enhanced context quality with deterministic scoring.
 
 ### Configuration
-- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-4o` synthesizer)
+- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-5.5` synthesizer)
 - **Rounds**: 1
 - **Consensus**: majority
 - **Hard gates in run command**:
@@ -625,7 +625,7 @@ Summary:
 - Test whether prompt-only duplicate-suppression rules can reduce `duplicate_existing_create_ratio` without regressing quality or grounding.
 
 ### Configuration
-- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-4o` synthesizer)
+- **Team**: 2 agents via OpenRouter (`gemini-2.0-flash-001` proposer, `gpt-5.5` synthesizer)
 - **Rounds**: 1
 - **Consensus**: majority
 - **Common guardrails**:
@@ -697,7 +697,7 @@ Summary:
   - keeping strict timeout reports enabled
 
 ### Configuration
-- **Team**: 3 agents via OpenRouter (`claude-sonnet-4` proposer, `gpt-4o` critic, `gemini-2.0-flash-001` synthesizer)
+- **Team**: 3 agents via OpenRouter (`claude-sonnet-4` proposer, `gpt-5.5` critic, `gemini-2.0-flash-001` synthesizer)
 - **Rounds**: 1
 - **Consensus**: majority
 - **Runtime controls**:
@@ -768,7 +768,7 @@ Summary:
 - Validate whether doubling benchmark timeout from `240s` to `480s` eliminates timeout-driven A/B invalidation under the same runtime profile.
 
 ### Configuration
-- **Team**: 3 agents via OpenRouter (`claude-sonnet-4` proposer, `gpt-4o` critic, `gemini-2.0-flash-001` synthesizer)
+- **Team**: 3 agents via OpenRouter (`claude-sonnet-4` proposer, `gpt-5.5` critic, `gemini-2.0-flash-001` synthesizer)
 - **Rounds**: 1
 - **Consensus**: majority
 - **Runtime controls**:

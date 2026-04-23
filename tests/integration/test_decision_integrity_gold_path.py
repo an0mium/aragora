@@ -52,7 +52,7 @@ def _make_debate(**overrides: Any) -> dict[str, Any]:
         "rounds_used": 3,
         "rounds_completed": 3,
         "status": "completed",
-        "agents": ["claude", "gpt4", "gemini"],
+        "agents": ["claude", "gpt-5.5", "gemini"],
         "metadata": {"source": "integration_test"},
     }
     defaults.update(overrides)

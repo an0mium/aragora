@@ -131,7 +131,7 @@ class TestCreateVideoMetadataFromDebate:
     def test_basic_metadata(self):
         meta = create_video_metadata_from_debate(
             task="Should we use Kubernetes?",
-            agents=["Claude", "GPT-4"],
+            agents=["Claude", "GPT-5.5"],
             consensus_reached=True,
             debate_id="debate-123",
         )

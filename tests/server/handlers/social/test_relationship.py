@@ -39,7 +39,7 @@ class FakeRelationship:
     """Mimics AgentRelationship returned by RelationshipTracker."""
 
     agent_a: str = "claude"
-    agent_b: str = "gpt4"
+    agent_b: str = "gpt-5.5"
     debate_count: int = 10
     agreement_count: int = 4
     a_wins_over_b: int = 3
@@ -277,10 +277,10 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/relationships/stats") is True
 
     def test_pair_detail_route(self, handler):
-        assert handler.can_handle("/api/v1/relationship/claude/gpt4") is True
+        assert handler.can_handle("/api/v1/relationship/claude/gpt-5.5") is True
 
     def test_pair_detail_with_dashes(self, handler):
-        assert handler.can_handle("/api/v1/relationship/gpt-4/claude-3") is True
+        assert handler.can_handle("/api/v1/relationship/gpt-5.5/claude-3") is True
 
     def test_unknown_route(self, handler):
         assert handler.can_handle("/api/v1/something-else") is False
@@ -378,7 +378,7 @@ class TestGetSummary:
 
     def test_single_rivalry(self, handler):
         # High disagreement, even wins, enough debates
-        rows = [("claude", "gpt4", 20, 2, 10, 10)]
+        rows = [("claude", "gpt-5.5", 20, 2, 10, 10)]
         db_path = _make_db(rows)
         result = self._call_summary(handler, db_path)
         body = _parse_body(result)
@@ -398,19 +398,19 @@ class TestGetSummary:
 
     def test_multiple_relationships(self, handler):
         rows = [
-            ("claude", "gpt4", 20, 2, 10, 10),
+            ("claude", "gpt-5.5", 20, 2, 10, 10),
             ("claude", "gemini", 20, 18, 5, 5),
-            ("gpt4", "gemini", 10, 5, 4, 3),
+            ("gpt-5.5", "gemini", 10, 5, 4, 3),
         ]
         db_path = _make_db(rows)
         result = self._call_summary(handler, db_path)
         body = _parse_body(result)
         assert body["total_relationships"] == 3
-        assert body["most_connected_agent"]["name"] in ("claude", "gpt4", "gemini")
+        assert body["most_connected_agent"]["name"] in ("claude", "gpt-5.5", "gemini")
 
     def test_rows_below_min_debates_excluded(self, handler):
         # Only 2 debates - below the threshold of 3 in summary query
-        rows = [("claude", "gpt4", 2, 1, 1, 1)]
+        rows = [("claude", "gpt-5.5", 2, 1, 1, 1)]
         db_path = _make_db(rows)
         result = self._call_summary(handler, db_path)
         body = _parse_body(result)
@@ -449,7 +449,7 @@ class TestGetGraph:
 
     def test_graph_with_data(self, handler):
         rows = [
-            ("claude", "gpt4", 20, 2, 10, 10),
+            ("claude", "gpt-5.5", 20, 2, 10, 10),
             ("claude", "gemini", 15, 12, 5, 5),
         ]
         db_path = _make_db(rows)
@@ -468,7 +468,7 @@ class TestGetGraph:
 
     def test_min_debates_filter(self, handler):
         rows = [
-            ("claude", "gpt4", 20, 2, 10, 10),
+            ("claude", "gpt-5.5", 20, 2, 10, 10),
             ("claude", "gemini", 4, 2, 1, 1),
         ]
         db_path = _make_db(rows)
@@ -481,7 +481,7 @@ class TestGetGraph:
 
     def test_min_score_filter(self, handler):
         rows = [
-            ("claude", "gpt4", 20, 2, 10, 10),  # high rivalry
+            ("claude", "gpt-5.5", 20, 2, 10, 10),  # high rivalry
             ("a", "b", 20, 19, 1, 1),  # very low scores
         ]
         db_path = _make_db(rows)
@@ -535,9 +535,9 @@ class TestGetStats:
 
     def test_stats_with_mixed_relationships(self, handler):
         rows = [
-            ("claude", "gpt4", 20, 2, 10, 10),  # rivalry
+            ("claude", "gpt-5.5", 20, 2, 10, 10),  # rivalry
             ("claude", "gemini", 20, 18, 5, 5),  # alliance
-            ("gpt4", "gemini", 10, 5, 6, 4),  # neutral-ish
+            ("gpt-5.5", "gemini", 10, 5, 6, 4),  # neutral-ish
         ]
         db_path = _make_db(rows)
         result = self._call_stats(handler, db_path)
@@ -594,7 +594,7 @@ class TestGetPairDetail:
     def test_existing_relationship(self, handler, mock_tracker):
         rel = FakeRelationship()
         mock_tracker.get_relationship.return_value = rel
-        result = self._call_pair(handler, mock_tracker, "claude", "gpt4")
+        result = self._call_pair(handler, mock_tracker, "claude", "gpt-5.5")
         body = _parse_body(result)
         assert body["relationship_exists"] is True
         assert body["debate_count"] == 10
@@ -603,12 +603,12 @@ class TestGetPairDetail:
         assert body["alliance_score"] == pytest.approx(0.24)
         assert body["relationship_type"] == "rivalry"
         assert "claude_wins" in body["head_to_head"]
-        assert "gpt4_wins" in body["head_to_head"]
+        assert "gpt-5.5_wins" in body["head_to_head"]
 
     def test_no_interactions(self, handler, mock_tracker):
         rel = FakeRelationship(debate_count=0)
         mock_tracker.get_relationship.return_value = rel
-        result = self._call_pair(handler, mock_tracker, "claude", "gpt4")
+        result = self._call_pair(handler, mock_tracker, "claude", "gpt-5.5")
         body = _parse_body(result)
         assert body["relationship_exists"] is False
         assert "No recorded interactions" in body["message"]
@@ -619,18 +619,18 @@ class TestGetPairDetail:
             critique_count_b_to_a=3,
         )
         mock_tracker.get_relationship.return_value = rel
-        result = self._call_pair(handler, mock_tracker, "claude", "gpt4")
+        result = self._call_pair(handler, mock_tracker, "claude", "gpt-5.5")
         body = _parse_body(result)
-        assert body["critique_balance"]["claude_to_gpt4"] == 12
-        assert body["critique_balance"]["gpt4_to_claude"] == 3
+        assert body["critique_balance"]["claude_to_gpt-5.5"] == 12
+        assert body["critique_balance"]["gpt-5.5_to_claude"] == 3
 
     def test_influence_in_response(self, handler, mock_tracker):
         rel = FakeRelationship(influence_a_on_b=0.8, influence_b_on_a=0.2)
         mock_tracker.get_relationship.return_value = rel
-        result = self._call_pair(handler, mock_tracker, "claude", "gpt4")
+        result = self._call_pair(handler, mock_tracker, "claude", "gpt-5.5")
         body = _parse_body(result)
-        assert body["influence"]["claude_on_gpt4"] == pytest.approx(0.8)
-        assert body["influence"]["gpt4_on_claude"] == pytest.approx(0.2)
+        assert body["influence"]["claude_on_gpt-5.5"] == pytest.approx(0.8)
+        assert body["influence"]["gpt-5.5_on_claude"] == pytest.approx(0.2)
 
     def test_alliance_type(self, handler, mock_tracker):
         rel = FakeRelationship(
@@ -638,7 +638,7 @@ class TestGetPairDetail:
             alliance_score=0.5,
         )
         mock_tracker.get_relationship.return_value = rel
-        result = self._call_pair(handler, mock_tracker, "claude", "gpt4")
+        result = self._call_pair(handler, mock_tracker, "claude", "gpt-5.5")
         body = _parse_body(result)
         assert body["relationship_type"] == "alliance"
 
@@ -648,13 +648,13 @@ class TestGetPairDetail:
             alliance_score=0.1,
         )
         mock_tracker.get_relationship.return_value = rel
-        result = self._call_pair(handler, mock_tracker, "claude", "gpt4")
+        result = self._call_pair(handler, mock_tracker, "claude", "gpt-5.5")
         body = _parse_body(result)
         assert body["relationship_type"] == "neutral"
 
     def test_tracker_exception_returns_500(self, handler, mock_tracker):
         mock_tracker.get_relationship.side_effect = OSError("DB error")
-        result = self._call_pair(handler, mock_tracker, "claude", "gpt4")
+        result = self._call_pair(handler, mock_tracker, "claude", "gpt-5.5")
         assert result.status_code == 500
 
 
@@ -682,7 +682,9 @@ class TestInputValidation:
         """A valid pair route should dispatch to _get_pair_detail."""
         with patch.object(handler, "_get_pair_detail") as mock_pd:
             mock_pd.return_value = MagicMock(status_code=200, body=b"{}")
-            result = self._call_handle_bypassing_rbac(handler, "/api/v1/relationship/claude/gpt4")
+            result = self._call_handle_bypassing_rbac(
+                handler, "/api/v1/relationship/claude/gpt-5.5"
+            )
             assert result is not None
             # The route dispatches to _get_pair_detail
             mock_pd.assert_called_once()
@@ -693,7 +695,7 @@ class TestInputValidation:
 
         # Directly test extract_path_params with the same spec as the handler
         params, err = handler.extract_path_params(
-            "/api/v1/relationship/claude/gpt4",
+            "/api/v1/relationship/claude/gpt-5.5",
             [
                 (2, "agent_a", SAFE_AGENT_PATTERN),
                 (3, "agent_b", SAFE_AGENT_PATTERN),
@@ -711,7 +713,7 @@ class TestInputValidation:
 
         # Put invalid chars at segment index 2
         params, err = handler.extract_path_params(
-            "/api/inv@lid/relationship/claude/gpt4",
+            "/api/inv@lid/relationship/claude/gpt-5.5",
             [
                 (2, "agent_a", SAFE_AGENT_PATTERN),
                 (3, "agent_b", SAFE_AGENT_PATTERN),
@@ -727,7 +729,7 @@ class TestInputValidation:
 
         long_name = "a" * 33
         params, err = handler.extract_path_params(
-            f"/api/{long_name}/relationship/claude/gpt4",
+            f"/api/{long_name}/relationship/claude/gpt-5.5",
             [
                 (2, "agent_a", SAFE_AGENT_PATTERN),
             ],
@@ -741,7 +743,7 @@ class TestInputValidation:
         from aragora.server.handlers.base import SAFE_AGENT_PATTERN
 
         params, err = handler.extract_path_params(
-            "/api//relationship/claude/gpt4",
+            "/api//relationship/claude/gpt-5.5",
             [
                 (2, "agent_a", SAFE_AGENT_PATTERN),
             ],
@@ -903,7 +905,7 @@ class TestFetchRelationships:
 
     def test_with_data(self, handler):
         rows = [
-            ("claude", "gpt4", 10, 4, 3, 5),
+            ("claude", "gpt-5.5", 10, 4, 3, 5),
             ("a", "b", 2, 1, 1, 0),
         ]
         db_path = _make_db(rows)
@@ -914,7 +916,7 @@ class TestFetchRelationships:
 
     def test_min_debates_filter(self, handler):
         rows = [
-            ("claude", "gpt4", 10, 4, 3, 5),
+            ("claude", "gpt-5.5", 10, 4, 3, 5),
             ("a", "b", 2, 1, 1, 0),
         ]
         db_path = _make_db(rows)

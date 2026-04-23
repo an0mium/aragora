@@ -120,7 +120,7 @@ def main():
 
     # Configure LLM
     llm_config = {
-        "model": "gpt-4",
+        "model": "gpt-5.5",
         "api_key": os.getenv("OPENAI_API_KEY"),
     }
 

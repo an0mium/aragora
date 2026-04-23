@@ -700,7 +700,7 @@ class TestHandleViewDetails:
             "consensus_reached": True,
             "confidence": 0.85,
             "rounds_used": 3,
-            "agents": ["Claude", "GPT-4"],
+            "agents": ["Claude", "GPT-5.5"],
         }
         mock_db = MagicMock()
         mock_db.get.return_value = debate_data

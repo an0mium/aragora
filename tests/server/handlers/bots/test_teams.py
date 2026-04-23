@@ -1206,7 +1206,7 @@ class TestTeamsBotHelperFunctions:
         card = build_debate_card(
             debate_id="debate-123",
             topic="Should we use AI for decisions?",
-            agents=["Claude", "GPT-4", "Gemini"],
+            agents=["Claude", "GPT-5.5", "Gemini"],
             current_round=2,
             total_rounds=5,
             include_vote_buttons=True,
@@ -1244,7 +1244,7 @@ class TestTeamsBotHelperFunctions:
             confidence=0.85,
             winner="Claude",
             final_answer="The decision is to proceed with option A.",
-            vote_counts={"Claude": 5, "GPT-4": 2},
+            vote_counts={"Claude": 5, "GPT-5.5": 2},
         )
 
         assert card["type"] == "AdaptiveCard"
@@ -1278,13 +1278,13 @@ class TestTeamsBotHelperFunctions:
         _user_votes["debate-test"] = {
             "user-1": "Claude",
             "user-2": "Claude",
-            "user-3": "GPT-4",
+            "user-3": "GPT-5.5",
         }
 
         counts = get_debate_vote_counts("debate-test")
 
         assert counts["Claude"] == 2
-        assert counts["GPT-4"] == 1
+        assert counts["GPT-5.5"] == 1
 
         # Clean up
         _user_votes.clear()
@@ -1627,7 +1627,7 @@ class TestAgentDisplayNames:
         from aragora.server.handlers.bots.teams import AGENT_DISPLAY_NAMES
 
         assert AGENT_DISPLAY_NAMES["claude"] == "Claude"
-        assert AGENT_DISPLAY_NAMES["gpt4"] == "GPT-4"
+        assert AGENT_DISPLAY_NAMES["gpt-5.5"] == "GPT-5.5"
         assert AGENT_DISPLAY_NAMES["gemini"] == "Gemini"
         assert AGENT_DISPLAY_NAMES["anthropic-api"] == "Claude"
-        assert AGENT_DISPLAY_NAMES["openai-api"] == "GPT-4"
+        assert AGENT_DISPLAY_NAMES["openai-api"] == "GPT-5.5"

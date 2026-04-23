@@ -221,7 +221,7 @@ class TestEstimateUncertainty:
             {
                 "messages": [
                     {"content": "We should do X", "agent": "claude", "role": "agent", "round": 1},
-                    {"content": "I disagree", "agent": "gpt4", "role": "agent", "round": 1},
+                    {"content": "I disagree", "agent": "gpt-5.5", "role": "agent", "round": 1},
                 ],
                 "votes": [
                     {

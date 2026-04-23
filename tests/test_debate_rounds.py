@@ -135,9 +135,9 @@ class TestRoundExecution:
             generate_with_agent=AsyncMock(return_value="Revised proposal"),
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -217,9 +217,9 @@ class TestCritiquePhase:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -276,9 +276,9 @@ class TestCritiquePhase:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -301,7 +301,7 @@ class TestCritiquePhase:
             select_critics_for_proposal=lambda pa, critics: critics,
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
         ctx.proposals = {"claude": "Proposal A"}
         ctx.result = MockDebateResult()
@@ -336,9 +336,9 @@ class TestRevisionPhase:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -403,9 +403,9 @@ class TestRevisionPhase:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -433,9 +433,9 @@ class TestRevisionPhase:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -471,9 +471,9 @@ class TestConvergenceDetection:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -501,9 +501,9 @@ class TestConvergenceDetection:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -530,9 +530,9 @@ class TestConvergenceDetection:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -565,9 +565,9 @@ class TestTermination:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -592,9 +592,9 @@ class TestTermination:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -626,9 +626,9 @@ class TestStanceRotation:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -660,9 +660,9 @@ class TestRecorder:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -688,9 +688,9 @@ class TestRecorder:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -720,9 +720,9 @@ class TestPartialStateRecovery:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -743,9 +743,9 @@ class TestPartialStateRecovery:
             select_critics_for_proposal=lambda pa, critics: [c for c in critics if c.name != pa],
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
@@ -803,16 +803,16 @@ class TestEdgeCases:
         # All proposers, no dedicated critics
         agents = [
             MockAgent(name="claude", role="proposer"),
-            MockAgent(name="gpt4", role="proposer"),
+            MockAgent(name="gpt-5.5", role="proposer"),
         ]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, proposers=agents)
-        ctx.proposals = {"claude": "Proposal A", "gpt4": "Proposal B"}
+        ctx.proposals = {"claude": "Proposal A", "gpt-5.5": "Proposal B"}
         ctx.result = MockDebateResult()
 
         await phase.execute(ctx)
 
         # All agents should have critiqued (except self)
-        assert "claude" in critique_calls or "gpt4" in critique_calls
+        assert "claude" in critique_calls or "gpt-5.5" in critique_calls
 
     @pytest.mark.asyncio
     async def test_missing_callbacks_warning(self):

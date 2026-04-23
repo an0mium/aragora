@@ -100,7 +100,7 @@ def sample_critiques():
     """Create sample Critique objects."""
     return [
         Critique(
-            agent="gpt4",
+            agent="gpt-5.5",
             target_agent="claude",
             target_content="Test proposal",
             issues=["Issue 1"],

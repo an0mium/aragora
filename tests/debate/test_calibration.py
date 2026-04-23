@@ -71,7 +71,7 @@ class TestCalibrationRecord:
         rec = CalibrationRecord(
             record_id="cal-test123",
             debate_id="d1",
-            agent_id="gpt4",
+            agent_id="gpt-5.5",
             predicted_confidence=0.7,
             actual_outcome=False,
             domain="security",
@@ -162,7 +162,7 @@ class TestJsonFileCalibrationStore:
             CalibrationRecord(
                 record_id="cal-2",
                 debate_id="d2",
-                agent_id="gpt4",
+                agent_id="gpt-5.5",
                 predicted_confidence=0.3,
                 actual_outcome=False,
             )
@@ -504,7 +504,7 @@ class TestCalibrationTrackerPersistence:
         tracker = CalibrationTracker(store=store)
 
         tracker.record_outcome("d1", 0.9, True, agent_id="claude")
-        tracker.record_outcome("d2", 0.3, False, agent_id="gpt4")
+        tracker.record_outcome("d2", 0.3, False, agent_id="gpt-5.5")
 
         # Load in a new tracker
         store2 = JsonFileCalibrationStore(tmp_path)
@@ -579,8 +579,8 @@ class TestSettlementCalibrationIntegration:
             consensus_reached=True,
             confidence=0.85,
             winner="claude",
-            participants=["claude", "gpt4"],
-            dissenting_views=["gpt4: I disagree"],
+            participants=["claude", "gpt-5.5"],
+            dissenting_views=["gpt-5.5: I disagree"],
             final_answer="We should use approach A",
             unresolved_tensions=[],
             messages=[],

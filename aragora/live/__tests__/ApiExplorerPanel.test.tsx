@@ -35,7 +35,7 @@ const MOCK_OPENAPI_SPEC = {
                 },
                 required: ['topic'],
               },
-              example: { topic: 'Should AI be regulated?', agents: ['claude', 'gpt4'], rounds: 3 },
+              example: { topic: 'Should AI be regulated?', agents: ['claude', 'gpt-5.5'], rounds: 3 },
             },
           },
         },

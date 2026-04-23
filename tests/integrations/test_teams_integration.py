@@ -44,7 +44,7 @@ def _make_debate_result(**kwargs):
     result.rounds_completed = kwargs.get("rounds_completed", 3)
     result.winner = kwargs.get("winner", "claude")
     result.debate_id = kwargs.get("debate_id", "debate-abc123")
-    result.participants = kwargs.get("participants", ["claude", "gpt4"])
+    result.participants = kwargs.get("participants", ["claude", "gpt-5.5"])
     return result
 
 
@@ -191,7 +191,7 @@ class TestTeamsIntegration:
                 debate_id="d-1",
                 answer="Use token bucket",
                 confidence=0.9,
-                agents=["claude", "gpt4"],
+                agents=["claude", "gpt-5.5"],
             )
             assert result is True
 
@@ -231,7 +231,7 @@ class TestTeamsIntegration:
         with patch.object(integration, "_send_card", new_callable=AsyncMock, return_value=True):
             rankings = [
                 {"name": "claude", "elo": 1800, "wins": 10, "losses": 2},
-                {"name": "gpt4", "elo": 1750, "wins": 8, "losses": 4},
+                {"name": "gpt-5.5", "elo": 1750, "wins": 8, "losses": 4},
             ]
             result = await integration.send_leaderboard_update(rankings, domain="coding")
             assert result is True

@@ -65,8 +65,8 @@ class TestCritiqueHandler:
 
     def test_extract_agent_name_with_version(self):
         handler = self._make_handler()
-        result = handler._extract_agent_name("/api/agent/gpt4_v2/reputation")
-        assert result == "gpt4_v2"
+        result = handler._extract_agent_name("/api/agent/gpt55_v2/reputation")
+        assert result == "gpt55_v2"
 
     def test_extract_agent_name_path_traversal_blocked(self):
         handler = self._make_handler()

@@ -353,7 +353,7 @@ Exact on-disk shape:
     {
       "role": "implementer",
       "harness": "codex",
-      "model": "gpt-5.4"
+      "model": "gpt-5.5"
     },
     {
       "role": "reviewer",
@@ -377,7 +377,7 @@ Exact on-disk shape:
     "implementer": {
       "role": "implementer",
       "harness": "codex",
-      "model": "gpt-5.4",
+      "model": "gpt-5.5",
       "session_id": "019db172-4d01-7072-860c-99114afe8792",
       "worktree_agent_slug": "bridge-pr6306-implementer",
       "worktree_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/bridge-pr6306-implementer",
@@ -428,7 +428,7 @@ One JSON object per line. Exact example `turn.result` record:
       "resume",
       "--json",
       "--model",
-      "gpt-5.4",
+      "gpt-5.5",
       "019db172-4d01-7072-860c-99114afe8792",
       "Review the plan and emit the footer."
     ],
@@ -463,7 +463,7 @@ run_id: bridge_20260421T191953Z_pr6306
 turn_index: 1
 role: implementer
 harness: codex
-model: gpt-5.4
+model: gpt-5.5
 session_id: 019db172-4d01-7072-860c-99114afe8792
 started_at: 2026-04-21T19:23:40Z
 completed_at: 2026-04-21T19:24:09Z

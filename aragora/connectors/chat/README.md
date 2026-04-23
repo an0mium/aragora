@@ -164,7 +164,7 @@ card = TeamsAdaptiveCards.verdict_card(
     confidence=0.85,
     agents=[
         AgentContribution(name="Claude", position="for", key_point="Better scaling"),
-        AgentContribution(name="GPT-4", position="for", key_point="Team autonomy"),
+        AgentContribution(name="GPT-5.5", position="for", key_point="Team autonomy"),
         AgentContribution(name="Gemini", position="against", key_point="Complexity"),
     ],
     receipt_id="rec_abc123",

@@ -95,7 +95,7 @@ class MockDebateContext:
         if not self.agents:
             self.agents = [
                 MockAgent("claude", genome_id="genome-aaa"),
-                MockAgent("gpt4", genome_id="genome-bbb"),
+                MockAgent("gpt-5.5", genome_id="genome-bbb"),
             ]
 
 
@@ -226,22 +226,22 @@ class TestCheckAgentPrediction:
 
     def test_non_matching_vote(self, feedback):
         """Agent voted for a different candidate."""
-        agent = MockAgent("gpt4")
+        agent = MockAgent("gpt-5.5")
         ctx = MockDebateContext(
             result=MockResult(
                 winner="claude",
-                votes=[MockVote(agent="gpt4", choice="gemini")],
+                votes=[MockVote(agent="gpt-5.5", choice="gemini")],
             ),
         )
         assert feedback._check_agent_prediction(agent, ctx) is False
 
     def test_vote_with_choice_mapping(self, feedback):
         """Vote uses a variant that maps to the winner via choice_mapping."""
-        agent = MockAgent("gpt4")
+        agent = MockAgent("gpt-5.5")
         ctx = MockDebateContext(
             result=MockResult(
                 winner="claude",
-                votes=[MockVote(agent="gpt4", choice="option_a")],
+                votes=[MockVote(agent="gpt-5.5", choice="option_a")],
             ),
             choice_mapping={"option_a": "claude"},
         )
@@ -249,11 +249,11 @@ class TestCheckAgentPrediction:
 
     def test_vote_with_choice_mapping_no_match(self, feedback):
         """Vote maps via choice_mapping but does not match winner."""
-        agent = MockAgent("gpt4")
+        agent = MockAgent("gpt-5.5")
         ctx = MockDebateContext(
             result=MockResult(
                 winner="claude",
-                votes=[MockVote(agent="gpt4", choice="option_b")],
+                votes=[MockVote(agent="gpt-5.5", choice="option_b")],
             ),
             choice_mapping={"option_b": "gemini"},
         )
@@ -322,22 +322,22 @@ class TestComputeAcceptedCritiques:
         ctx = MockDebateContext(
             result=MockResult(
                 winner="claude",
-                critiques=[MockCritique(agent="gpt4", target_agent="gemini")],
+                critiques=[MockCritique(agent="gpt-5.5", target_agent="gemini")],
             ),
         )
         accepted = feedback._compute_accepted_critiques(ctx)
-        assert "gpt4" in accepted
+        assert "gpt-5.5" in accepted
 
     def test_critique_targeting_winner(self, feedback):
         """Critique targeting the winner is not accepted."""
         ctx = MockDebateContext(
             result=MockResult(
                 winner="claude",
-                critiques=[MockCritique(agent="gpt4", target_agent="claude")],
+                critiques=[MockCritique(agent="gpt-5.5", target_agent="claude")],
             ),
         )
         accepted = feedback._compute_accepted_critiques(ctx)
-        assert "gpt4" not in accepted
+        assert "gpt-5.5" not in accepted
         assert len(accepted) == 0
 
     def test_critique_uses_target_fallback(self, feedback):
@@ -345,18 +345,18 @@ class TestComputeAcceptedCritiques:
         ctx = MockDebateContext(
             result=MockResult(
                 winner="claude",
-                critiques=[MockCritique(agent="gpt4", target_agent=None, target="gemini")],
+                critiques=[MockCritique(agent="gpt-5.5", target_agent=None, target="gemini")],
             ),
         )
         accepted = feedback._compute_accepted_critiques(ctx)
-        assert "gpt4" in accepted
+        assert "gpt-5.5" in accepted
 
     def test_critique_target_fallback_is_winner(self, feedback):
         """Falls back to `target` attr and target is the winner."""
         ctx = MockDebateContext(
             result=MockResult(
                 winner="claude",
-                critiques=[MockCritique(agent="gpt4", target_agent=None, target="claude")],
+                critiques=[MockCritique(agent="gpt-5.5", target_agent=None, target="claude")],
             ),
         )
         accepted = feedback._compute_accepted_critiques(ctx)
@@ -368,14 +368,14 @@ class TestComputeAcceptedCritiques:
             result=MockResult(
                 winner="claude",
                 critiques=[
-                    MockCritique(agent="gpt4", target_agent="gemini"),  # accepted
+                    MockCritique(agent="gpt-5.5", target_agent="gemini"),  # accepted
                     MockCritique(agent="gemini", target_agent="claude"),  # not accepted
-                    MockCritique(agent="mistral", target_agent="gpt4"),  # accepted
+                    MockCritique(agent="mistral", target_agent="gpt-5.5"),  # accepted
                 ],
             ),
         )
         accepted = feedback._compute_accepted_critiques(ctx)
-        assert accepted == {"gpt4", "mistral"}
+        assert accepted == {"gpt-5.5", "mistral"}
 
     def test_no_result(self, feedback):
         """No result returns empty set."""
@@ -387,7 +387,7 @@ class TestComputeAcceptedCritiques:
         ctx = MockDebateContext(
             result=MockResult(
                 winner=None,
-                critiques=[MockCritique(agent="gpt4", target_agent="gemini")],
+                critiques=[MockCritique(agent="gpt-5.5", target_agent="gemini")],
             ),
         )
         assert feedback._compute_accepted_critiques(ctx) == set()
@@ -421,7 +421,7 @@ class TestComputeAcceptedCritiques:
         ctx = MockDebateContext(
             result=MockResult(
                 winner="claude",
-                critiques=[MockCritique(agent="gpt4", target_agent=None, target=None)],
+                critiques=[MockCritique(agent="gpt-5.5", target_agent=None, target=None)],
             ),
         )
         assert feedback._compute_accepted_critiques(ctx) == set()
@@ -539,10 +539,10 @@ class TestUpdateGenomeFitness:
         ctx = MockDebateContext(
             result=MockResult(
                 winner="claude",
-                votes=[MockVote(agent="gpt4", choice="gemini")],
+                votes=[MockVote(agent="gpt-5.5", choice="gemini")],
                 critiques=[],
             ),
-            agents=[MockAgent("gpt4", genome_id="genome-bbb")],
+            agents=[MockAgent("gpt-5.5", genome_id="genome-bbb")],
         )
         feedback.update_genome_fitness(ctx)
 
@@ -580,12 +580,12 @@ class TestUpdateGenomeFitness:
             result=MockResult(winner="claude"),
             agents=[
                 MockAgent("claude", genome_id=None),
-                MockAgent("gpt4", genome_id="genome-bbb"),
+                MockAgent("gpt-5.5", genome_id="genome-bbb"),
             ],
         )
         feedback.update_genome_fitness(ctx)
 
-        # Only gpt4's genome should be updated
+        # Only gpt-5.5's genome should be updated
         for c in population_manager.update_fitness.call_args_list:
             assert c[0][0] == "genome-bbb"
 
@@ -618,9 +618,9 @@ class TestUpdateGenomeFitness:
             result=MockResult(
                 winner="claude",
                 votes=[],
-                critiques=[MockCritique(agent="gpt4", target_agent="gemini")],
+                critiques=[MockCritique(agent="gpt-5.5", target_agent="gemini")],
             ),
-            agents=[MockAgent("gpt4", genome_id="genome-bbb")],
+            agents=[MockAgent("gpt-5.5", genome_id="genome-bbb")],
         )
         feedback.update_genome_fitness(ctx)
 
@@ -653,7 +653,7 @@ class TestUpdateGenomeFitness:
             result=MockResult(winner="claude"),
             agents=[
                 MockAgent("claude", genome_id="genome-aaa"),
-                MockAgent("gpt4", genome_id="genome-bbb"),
+                MockAgent("gpt-5.5", genome_id="genome-bbb"),
             ],
         )
         # Should not raise
@@ -669,7 +669,7 @@ class TestUpdateGenomeFitness:
             result=MockResult(winner="claude", votes=[], critiques=[]),
             agents=[
                 MockAgent("claude", genome_id="genome-aaa"),
-                MockAgent("gpt4", genome_id="genome-bbb"),
+                MockAgent("gpt-5.5", genome_id="genome-bbb"),
                 MockAgent("gemini", genome_id="genome-ccc"),
             ],
         )
@@ -930,7 +930,7 @@ class TestRecordEvolutionPatterns:
         prompt_evolver.extract_winning_patterns.return_value = ["p1"]
         agents = [
             MockAgent("claude", prompt_version=3),
-            MockAgent("gpt4", prompt_version=1),
+            MockAgent("gpt-5.5", prompt_version=1),
         ]
         ctx = MockDebateContext(
             result=MockResult(confidence=0.9, messages=[]),
@@ -944,7 +944,7 @@ class TestRecordEvolutionPatterns:
             agent_name="claude", version=3, debate_result=call_args_list[0].kwargs["debate_result"]
         )
         assert call_args_list[1] == call(
-            agent_name="gpt4", version=1, debate_result=call_args_list[1].kwargs["debate_result"]
+            agent_name="gpt-5.5", version=1, debate_result=call_args_list[1].kwargs["debate_result"]
         )
 
     def test_agents_without_prompt_version_skipped(self, feedback, prompt_evolver):
@@ -952,7 +952,7 @@ class TestRecordEvolutionPatterns:
         prompt_evolver.extract_winning_patterns.return_value = ["p1"]
         agents = [
             MockAgent("claude", prompt_version=None),
-            MockAgent("gpt4", prompt_version=2),
+            MockAgent("gpt-5.5", prompt_version=2),
         ]
         ctx = MockDebateContext(
             result=MockResult(confidence=0.9, messages=[]),
@@ -962,12 +962,12 @@ class TestRecordEvolutionPatterns:
 
         assert prompt_evolver.update_performance.call_count == 1
         prompt_evolver.update_performance.assert_called_once()
-        assert prompt_evolver.update_performance.call_args.kwargs["agent_name"] == "gpt4"
+        assert prompt_evolver.update_performance.call_args.kwargs["agent_name"] == "gpt-5.5"
 
     def test_critic_messages_become_critique_proxies(self, feedback, prompt_evolver):
         """Messages with role='critic' are converted to CritiqueProxy objects."""
         critic_msg = MockMessage(
-            agent="gpt4",
+            agent="gpt-5.5",
             content="This is flawed",
             role="critic",
             severity=0.8,

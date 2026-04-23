@@ -77,7 +77,7 @@ class TestAgentLifecycle:
     async def test_list_agents(self, fabric: AgentFabric):
         """Test listing agents."""
         await fabric.spawn(AgentConfig(id="agent-a", model="claude-3-opus"))
-        await fabric.spawn(AgentConfig(id="agent-b", model="gpt-4"))
+        await fabric.spawn(AgentConfig(id="agent-b", model="gpt-5.5"))
 
         agents = await fabric.list_agents()
         assert len(agents) == 2

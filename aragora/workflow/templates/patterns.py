@@ -22,7 +22,7 @@ Usage:
     # Use pre-built template
     workflow = create_hive_mind_workflow(
         name="Risk Assessment",
-        agents=["claude", "gpt4", "gemini"],
+        agents=["claude", "gpt-5.5", "gemini"],
         task="Assess risks in this proposal",
     )
 
@@ -67,7 +67,7 @@ HIVE_MIND_TEMPLATE: dict[str, Any] = {
     "pattern": "hive_mind",
     "version": "1.0.0",
     "config": {
-        "agents": ["claude", "gpt4", "gemini"],
+        "agents": ["claude", "gpt-5.5", "gemini"],
         "consensus_mode": "synthesis",
         "consensus_threshold": 0.7,
         "include_dissent": True,
@@ -113,7 +113,7 @@ def create_hive_mind_workflow(
     """
     pattern = HiveMindPattern(
         name=name,
-        agents=agents or ["claude", "gpt4", "gemini"],
+        agents=agents or ["claude", "gpt-5.5", "gemini"],
         task=task,
         consensus_mode=consensus_mode,
         consensus_threshold=consensus_threshold,
@@ -139,7 +139,7 @@ MAP_REDUCE_TEMPLATE: dict[str, Any] = {
         "split_strategy": "chunks",
         "chunk_size": 4000,
         "map_agent": "claude",
-        "reduce_agent": "gpt4",
+        "reduce_agent": "gpt-5.5",
         "parallel_limit": 5,
         "timeout_per_chunk": 60.0,
     },
@@ -176,7 +176,7 @@ def create_map_reduce_workflow(
     chunk_size: int = 4000,
     map_agent: str = "claude",
     map_prompt: str = "",
-    reduce_agent: str = "gpt4",
+    reduce_agent: str = "gpt-5.5",
     reduce_prompt: str = "",
     parallel_limit: int = 5,
     **kwargs: Any,
@@ -226,7 +226,7 @@ REVIEW_CYCLE_TEMPLATE: dict[str, Any] = {
     "version": "1.0.0",
     "config": {
         "draft_agent": "claude",
-        "review_agent": "gpt4",
+        "review_agent": "gpt-5.5",
         "max_iterations": 3,
         "convergence_threshold": 0.85,
         "review_criteria": ["quality", "completeness", "accuracy"],
@@ -259,7 +259,7 @@ REVIEW_CYCLE_TEMPLATE: dict[str, Any] = {
 def create_review_cycle_workflow(
     name: str = "Iterative Review Cycle",
     draft_agent: str = "claude",
-    review_agent: str = "gpt4",
+    review_agent: str = "gpt-5.5",
     task: str = "",
     max_iterations: int = 3,
     convergence_threshold: float = 0.85,
@@ -371,10 +371,10 @@ responses using a consensus mechanism.
             author=author,
             estimated_duration="2-5 minutes",
             complexity="medium",
-            recommended_agents=["claude", "gpt4", "gemini"],
+            recommended_agents=["claude", "gpt-5.5", "gemini"],
             dependencies=[
                 TemplateDependency(name="claude", type="agent"),
-                TemplateDependency(name="gpt4", type="agent", required=False),
+                TemplateDependency(name="gpt-5.5", type="agent", required=False),
                 TemplateDependency(name="gemini", type="agent", required=False),
             ],
         ),
@@ -389,7 +389,7 @@ from aragora.workflow.templates.patterns import create_hive_mind_workflow
 
 workflow = create_hive_mind_workflow(
     name="Risk Assessment",
-    agents=["claude", "gpt4", "gemini"],
+    agents=["claude", "gpt-5.5", "gemini"],
     task="Assess risks in this proposal: {proposal}",
 )
 
@@ -403,7 +403,7 @@ result = await engine.execute(workflow, {"proposal": "..."})
 ```python
 workflow = create_hive_mind_workflow(
     name="Contract Risk Analysis",
-    agents=["claude", "gpt4"],
+    agents=["claude", "gpt-5.5"],
     task="Identify risks in this contract",
     consensus_mode="weighted",
 )
@@ -423,7 +423,7 @@ workflow = create_hive_mind_workflow(
             {
                 "name": "Basic Analysis",
                 "inputs": {"task": "Analyze this business proposal", "data": "..."},
-                "config": {"agents": ["claude", "gpt4"]},
+                "config": {"agents": ["claude", "gpt-5.5"]},
             },
         ],
     )
@@ -460,7 +460,7 @@ Split input data, process chunks in parallel, and aggregate the results.
             author=author,
             estimated_duration="3-10 minutes",
             complexity="medium",
-            recommended_agents=["claude", "gpt4"],
+            recommended_agents=["claude", "gpt-5.5"],
             dependencies=[
                 TemplateDependency(name="claude", type="agent"),
                 TemplateDependency(name="map_reduce_split", type="step_type"),
@@ -536,10 +536,10 @@ convergence or a maximum iteration count.
             author=author,
             estimated_duration="5-15 minutes",
             complexity="medium",
-            recommended_agents=["claude", "gpt4"],
+            recommended_agents=["claude", "gpt-5.5"],
             dependencies=[
                 TemplateDependency(name="claude", type="agent"),
-                TemplateDependency(name="gpt4", type="agent", required=False),
+                TemplateDependency(name="gpt-5.5", type="agent", required=False),
                 TemplateDependency(name="review_cycle_check", type="step_type"),
             ],
         ),
@@ -555,7 +555,7 @@ from aragora.workflow.templates.patterns import create_review_cycle_workflow
 workflow = create_review_cycle_workflow(
     name="Code Implementation",
     draft_agent="claude",
-    review_agent="gpt4",
+    review_agent="gpt-5.5",
     task="Implement a rate limiter class",
     review_criteria=["correctness", "efficiency", "readability"],
 )

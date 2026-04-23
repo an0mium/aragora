@@ -359,7 +359,7 @@ def mock_coordinator():
     coordinator.agents["agent-2"] = MockAgentInfo(
         agent_id="agent-2",
         capabilities=["reasoning"],
-        model="gpt-4",
+        model="gpt-5.5",
         provider="openai",
     )
 

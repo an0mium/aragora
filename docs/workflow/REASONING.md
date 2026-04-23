@@ -81,7 +81,7 @@ tracker = ProvenanceTracker()
 tracker.record_claim(
     claim_id="claim_001",
     text="Market cap is $1T",
-    source="agent:gpt-4",
+    source="agent:gpt-5.5",
     evidence_ids=["ev_001", "ev_002"]
 )
 

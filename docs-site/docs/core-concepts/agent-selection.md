@@ -16,7 +16,7 @@ Perspective coverage note: Mistral adds an EU lens, and Chinese models like Deep
 | Agent ID | Provider | Model | Best For | Cost |
 |----------|----------|-------|----------|------|
 | `anthropic-api` | Anthropic | claude-opus-4-5-20251101 | Code review, reasoning | $$ |
-| `openai-api` | OpenAI | gpt-5.3 | General tasks, creativity | $$ |
+| `openai-api` | OpenAI | gpt-5.5 | General tasks, creativity | $$ |
 | `gemini` | Google | gemini-3-pro-preview | Long context, analysis | $ |
 | `mistral-api` | Mistral | mistral-large-2512 | European compliance, multilingual | $$ |
 | `grok` | xAI | grok-4-latest | Real-time knowledge | $$ |
@@ -195,7 +195,7 @@ If a provider key is missing and `OPENROUTER_API_KEY` is set, Aragora will
 substitute OpenRouter models to keep the debate running:
 
 - `anthropic-api` -> `anthropic/claude-3.5-sonnet`
-- `openai-api` -> `openai/gpt-4o-mini`
+- `openai-api` -> `openai/gpt-5.5`
 - `gemini` -> `google/gemini-2.0-flash-exp:free`
 - `grok` -> `x-ai/grok-2-1212`
 - `mistral-api` -> `mistralai/mistral-large-2411`
@@ -232,7 +232,7 @@ aragora ask "Design auth system" --agents anthropic-api,openai-api,gemini
 **Recommended - Pipe format** (`provider|model|persona|role`):
 ```bash
 # Full specification with all fields
---agents "anthropic-api|claude-opus|philosopher|proposer,openai-api|gpt-4o|skeptic|critic"
+--agents "anthropic-api|claude-opus|philosopher|proposer,openai-api|gpt-5.5|skeptic|critic"
 
 # Provider and role only (most common)
 --agents "anthropic-api|||proposer,openai-api|||critic,gemini|||synthesizer"

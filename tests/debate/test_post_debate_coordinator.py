@@ -35,8 +35,8 @@ def _make_debate_result(consensus=True, confidence=0.85, task="Test task"):
     result.domain = "general"
     result.messages = []
     result.winner = "claude"
-    result.agents = ["claude", "gpt4"]
-    result.participants = ["claude", "gpt4"]
+    result.agents = ["claude", "gpt-5.5"]
+    result.participants = ["claude", "gpt-5.5"]
     result.debate_id = "test-debate"
     result.final_answer = "test answer"
     result.metadata = {}

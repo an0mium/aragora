@@ -338,7 +338,7 @@ class TestCanvasRendererE2E:
             canvas.id,
             CanvasNodeType.AGENT,
             Position(300, 100),
-            "GPT-4",
+            "GPT-5.5",
         )
         debate = await manager.add_node(
             canvas.id,
@@ -498,12 +498,12 @@ class TestCanvasWorkflowE2E:
             data={"agent_id": "claude-3-opus", "stance": "pro_safety"},
         )
 
-        gpt4 = await manager.add_node(
+        gpt55 = await manager.add_node(
             canvas.id,
             CanvasNodeType.AGENT,
             Position(300, 100),
-            "GPT-4 (Balanced)",
-            data={"agent_id": "gpt-4", "stance": "balanced"},
+            "GPT-5.5 (Balanced)",
+            data={"agent_id": "gpt-5.5", "stance": "balanced"},
         )
 
         gemini = await manager.add_node(
@@ -538,7 +538,7 @@ class TestCanvasWorkflowE2E:
 
         # Step 5: Connect agents to debate
         await manager.add_edge(canvas.id, claude.id, debate.id, EdgeType.DATA_FLOW)
-        await manager.add_edge(canvas.id, gpt4.id, debate.id, EdgeType.DATA_FLOW)
+        await manager.add_edge(canvas.id, gpt55.id, debate.id, EdgeType.DATA_FLOW)
         await manager.add_edge(canvas.id, gemini.id, debate.id, EdgeType.DATA_FLOW)
 
         # Step 6: Connect debate to decision

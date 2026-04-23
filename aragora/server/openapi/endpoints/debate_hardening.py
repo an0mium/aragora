@@ -376,7 +376,7 @@ DEBATE_HARDENING_ENDPOINTS = {
                     "in": "query",
                     "description": "Comma-separated model types",
                     "schema": {"type": "string"},
-                    "example": "claude-sonnet-4,gpt-4o,gemini-pro",
+                    "example": "claude-sonnet-4,gpt-5.5,gemini-pro",
                 },
             ],
             "responses": {

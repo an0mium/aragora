@@ -131,8 +131,8 @@ class TestAgentCapabilitiesDefaultCapabilities:
         expected_agents = [
             "claude",
             "claude-sonnet",
-            "gpt-4",
-            "gpt-4o",
+            "gpt-5.5",
+            "gpt-5.5",
             "codex",
             "gemini",
             "grok",
@@ -187,12 +187,12 @@ class TestRoutingDecisionInit:
     def test_creates_with_required_fields(self):
         """Should create with all required fields."""
         decision = RoutingDecision(
-            selected_agents=["claude", "gpt-4"],
+            selected_agents=["claude", "gpt-5.5"],
             task_type=TaskType.CODING,
             confidence=0.85,
             reasoning=["task_type=coding", "claude_strong_at_coding"],
         )
-        assert decision.selected_agents == ["claude", "gpt-4"]
+        assert decision.selected_agents == ["claude", "gpt-5.5"]
         assert decision.task_type == TaskType.CODING
         assert decision.confidence == 0.85
         assert len(decision.reasoning) == 2
@@ -319,7 +319,7 @@ class TestAgentRouterInit:
         """Should initialize with default agent capabilities."""
         router = AgentRouter()
         assert "claude" in router._capabilities
-        assert "gpt-4" in router._capabilities
+        assert "gpt-5.5" in router._capabilities
         assert "codex" in router._capabilities
 
     def test_initializes_empty_history(self):
@@ -472,7 +472,7 @@ class TestAgentRouterScoreAgentForTask:
 
     def test_score_bounded(self, router):
         """Score should be bounded 0-1."""
-        for agent in ["claude", "codex", "gpt-4", "unknown"]:
+        for agent in ["claude", "codex", "gpt-5.5", "unknown"]:
             for task_type in TaskType:
                 score = router._score_agent_for_task(agent, task_type)
                 assert 0.0 <= score <= 1.0
@@ -594,14 +594,14 @@ class TestAgentRouterDiversityScore:
 
     def test_single_agent_zero_diversity(self, router):
         """Single agent should have zero diversity."""
-        score = router._calculate_diversity_score(["claude"], ["claude", "gpt-4"])
+        score = router._calculate_diversity_score(["claude"], ["claude", "gpt-5.5"])
         assert score == 0.0
 
     def test_diverse_team_high_score(self, router):
         """Team from different providers should have high diversity."""
         score = router._calculate_diversity_score(
-            ["claude", "gpt-4", "gemini"],
-            ["claude", "gpt-4", "gemini"],
+            ["claude", "gpt-5.5", "gemini"],
+            ["claude", "gpt-5.5", "gemini"],
         )
         assert score > 0.5
 
@@ -609,28 +609,28 @@ class TestAgentRouterDiversityScore:
         """Team from same provider should have lower diversity."""
         score = router._calculate_diversity_score(
             ["claude", "claude-sonnet"],
-            ["claude", "claude-sonnet", "gpt-4"],
+            ["claude", "claude-sonnet", "gpt-5.5"],
         )
         # Both are anthropic, so provider diversity is lower
         same_provider_score = score
 
         diverse_score = router._calculate_diversity_score(
-            ["claude", "gpt-4"],
-            ["claude", "gpt-4", "gemini"],
+            ["claude", "gpt-5.5"],
+            ["claude", "gpt-5.5", "gemini"],
         )
         assert diverse_score >= same_provider_score
 
     def test_empty_team_zero_diversity(self, router):
         """Empty team should have zero diversity."""
-        score = router._calculate_diversity_score([], ["claude", "gpt-4"])
+        score = router._calculate_diversity_score([], ["claude", "gpt-5.5"])
         assert score == 0.0
 
     def test_provider_inference(self, router):
         """Should correctly infer providers from agent names."""
         # Test that different providers are detected
         score = router._calculate_diversity_score(
-            ["claude", "gpt-4", "gemini", "mistral-large"],
-            ["claude", "gpt-4", "gemini", "mistral-large"],
+            ["claude", "gpt-5.5", "gemini", "mistral-large"],
+            ["claude", "gpt-5.5", "gemini", "mistral-large"],
         )
         # 4 different providers out of 4 agents = high provider diversity
         assert score > 0.5
@@ -662,8 +662,8 @@ class TestAgentRouterCostScore:
 
     def test_medium_agent_middle_score(self, router):
         """Medium cost agent should have middle score."""
-        # gpt-4o is cost tier 2
-        score = router._get_cost_score("gpt-4o")
+        # gpt-5.5 is cost tier 2
+        score = router._get_cost_score("gpt-5.5")
         assert score == 0.5  # 1.0 - (2-1)/2 = 0.5
 
     def test_unknown_agent_neutral(self, router):
@@ -688,7 +688,7 @@ class TestAgentRouterRouteBasic:
         """Should return RoutingDecision instance."""
         decision = router.route(
             task="Implement a function",
-            available_agents=["claude", "gpt-4"],
+            available_agents=["claude", "gpt-5.5"],
         )
         assert isinstance(decision, RoutingDecision)
 
@@ -704,7 +704,7 @@ class TestAgentRouterRouteBasic:
         """Should select requested team size."""
         decision = router.route(
             task="Implement a function",
-            available_agents=["claude", "gpt-4", "codex", "gemini", "grok"],
+            available_agents=["claude", "gpt-5.5", "codex", "gemini", "grok"],
             team_size=3,
         )
         assert len(decision.selected_agents) == 3
@@ -722,16 +722,16 @@ class TestAgentRouterRouteBasic:
         """Should include individual agent scores."""
         decision = router.route(
             task="Implement a function",
-            available_agents=["claude", "gpt-4"],
+            available_agents=["claude", "gpt-5.5"],
         )
         assert "claude" in decision.agent_scores
-        assert "gpt-4" in decision.agent_scores
+        assert "gpt-5.5" in decision.agent_scores
 
     def test_includes_diversity_score(self, router):
         """Should include diversity score."""
         decision = router.route(
             task="Test",
-            available_agents=["claude", "gpt-4", "gemini"],
+            available_agents=["claude", "gpt-5.5", "gemini"],
             team_size=3,
         )
         assert 0.0 <= decision.diversity_score <= 1.0
@@ -768,7 +768,7 @@ class TestAgentRouterRouteTaskMatching:
         """Should include task type in reasoning."""
         decision = router.route(
             task="Write a creative story",
-            available_agents=["claude", "gpt-4"],
+            available_agents=["claude", "gpt-5.5"],
         )
         assert any("task_type=" in r for r in decision.reasoning)
 
@@ -826,7 +826,7 @@ class TestAgentRouterRouteConstraints:
         """Should work without constraints."""
         decision = router.route(
             task="Test",
-            available_agents=["claude", "gpt-4"],
+            available_agents=["claude", "gpt-5.5"],
         )
         assert len(decision.selected_agents) > 0
 
@@ -854,7 +854,7 @@ class TestAgentRouterRouteDiversity:
 
         decision = router.route(
             task="General task",
-            available_agents=["claude", "claude-sonnet", "gpt-4", "gemini"],
+            available_agents=["claude", "claude-sonnet", "gpt-5.5", "gemini"],
             team_size=3,
         )
         # Should prefer diverse team
@@ -871,7 +871,7 @@ class TestAgentRouterRouteDiversity:
 
         decision = router.route(
             task="General task",
-            available_agents=["claude", "gpt-4", "gemini"],
+            available_agents=["claude", "gpt-5.5", "gemini"],
             team_size=3,
         )
         assert len(decision.selected_agents) == 3
@@ -882,7 +882,7 @@ class TestAgentRouterRouteDiversity:
 
         decision = router.route(
             task="General task",
-            available_agents=["claude", "gpt-4", "gemini", "deepseek", "grok"],
+            available_agents=["claude", "gpt-5.5", "gemini", "deepseek", "grok"],
             team_size=4,
         )
         # Diverse team should have diversity noted
@@ -901,7 +901,7 @@ class TestAgentRouterRouteConfidence:
         """Confidence should be bounded."""
         decision = router.route(
             task="Implement a function in Python",
-            available_agents=["claude", "gpt-4", "codex"],
+            available_agents=["claude", "gpt-5.5", "codex"],
             team_size=3,
         )
         assert 0.0 <= decision.confidence <= 2.0  # Can be above 1 with diversity bonus
@@ -1125,7 +1125,7 @@ class TestAgentRouterIntegration:
         # Route a task
         decision = router.route(
             task="Implement a sorting algorithm in Python",
-            available_agents=["claude", "codex", "gpt-4", "gemini"],
+            available_agents=["claude", "codex", "gpt-5.5", "gemini"],
             team_size=3,
         )
         assert len(decision.selected_agents) == 3
@@ -1146,12 +1146,12 @@ class TestAgentRouterIntegration:
 
         decision1 = router.route(
             task="Implement a REST API",
-            available_agents=["claude", "gpt-4", "codex"],
+            available_agents=["claude", "gpt-5.5", "codex"],
             team_size=2,
         )
         decision2 = router.route(
             task="Implement a REST API",
-            available_agents=["claude", "gpt-4", "codex"],
+            available_agents=["claude", "gpt-5.5", "codex"],
             team_size=2,
         )
 
@@ -1224,7 +1224,7 @@ class TestAgentRouterIntegration:
 
         decision = router.route(
             task="Analyze this problem",
-            available_agents=["claude", "claude-sonnet", "gpt-4", "gemini", "deepseek"],
+            available_agents=["claude", "claude-sonnet", "gpt-5.5", "gemini", "deepseek"],
             team_size=3,
         )
 
@@ -1249,7 +1249,7 @@ class TestAgentRouterIntegration:
 
         decision = router.route(
             task="Test task",
-            available_agents=["claude", "gpt-4"],
+            available_agents=["claude", "gpt-5.5"],
         )
 
         d = decision.to_dict()

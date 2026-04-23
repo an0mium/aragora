@@ -243,7 +243,7 @@ export interface CanvasState {
 
 export const AVAILABLE_PERSONAS = {
   general: [
-    'claude', 'gpt4', 'gemini', 'deepseek', 'mistral',
+    'claude', 'gpt-5.5', 'gemini', 'deepseek', 'mistral',
   ],
   legal: [
     'contract_analyst', 'compliance_officer', 'litigation_support', 'm_and_a_counsel',

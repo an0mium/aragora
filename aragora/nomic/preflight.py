@@ -92,7 +92,7 @@ class PreflightHealthCheck:
     # Provider configurations: (env_var, provider_name, model_hint)
     PROVIDER_CHECKS = [
         ("ANTHROPIC_API_KEY", "anthropic", "claude"),
-        ("OPENAI_API_KEY", "openai", "gpt-4"),
+        ("OPENAI_API_KEY", "openai", "gpt-5.5"),
         ("GEMINI_API_KEY", "gemini", "gemini"),
         ("OPENROUTER_API_KEY", "openrouter", "openrouter"),
         ("XAI_API_KEY", "xai", "grok"),
@@ -372,7 +372,7 @@ class PreflightHealthCheck:
                 openai_client = AsyncOpenAI()
                 await asyncio.wait_for(
                     openai_client.chat.completions.create(
-                        model="gpt-3.5-turbo",
+                        model="gpt-5.5",
                         max_tokens=1,
                         messages=[{"role": "user", "content": "ping"}],
                     ),

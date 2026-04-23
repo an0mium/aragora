@@ -147,7 +147,7 @@ summary = tracker.get_debate_novelty_summary()
 #     "overall_min": 0.31,
 #     "rounds_with_low_novelty": 1,
 #     "total_rounds": 4,
-#     "low_novelty_agents_by_round": {4: ["claude", "gpt4"]}
+#     "low_novelty_agents_by_round": {4: ["claude", "gpt-5.5"]}
 # }
 ```
 

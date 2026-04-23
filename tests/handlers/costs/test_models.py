@@ -155,7 +155,7 @@ class TestCostEntry:
             tokens_input=500,
             tokens_output=200,
             cost=0.002,
-            model="gpt-4o",
+            model="gpt-5.5",
             workspace_id="ws-default",
         )
         assert entry.user_id is None
@@ -562,14 +562,14 @@ class TestRecordCost:
                 tokens_input=500,
                 tokens_output=200,
                 cost=0.002,
-                model="gpt-4o",
+                model="gpt-5.5",
                 workspace_id="ws-test",
                 user_id="user-42",
             )
             mock_token_usage_cls.assert_called_once()
             call_kwargs = mock_token_usage_cls.call_args
             assert call_kwargs.kwargs["provider"] == "openai"
-            assert call_kwargs.kwargs["model"] == "gpt-4o"
+            assert call_kwargs.kwargs["model"] == "gpt-5.5"
             assert call_kwargs.kwargs["tokens_in"] == 500
             assert call_kwargs.kwargs["tokens_out"] == 200
             assert call_kwargs.kwargs["cost_usd"] == Decimal("0.002")
@@ -681,7 +681,7 @@ class TestRecordCost:
                 tokens_input=100,
                 tokens_output=50,
                 cost=0.001,
-                model="gpt-4",
+                model="gpt-5.5",
             )
             call_kwargs = mock_token_usage_cls.call_args.kwargs
             assert call_kwargs["metadata"] == {}
@@ -740,7 +740,7 @@ class TestRecordCost:
                 tokens_input=100,
                 tokens_output=50,
                 cost=0.001,
-                model="gpt-4",
+                model="gpt-5.5",
             )
 
     def test_record_handles_value_error(self):

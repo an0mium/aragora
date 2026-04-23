@@ -34,7 +34,7 @@ def create_synthetic_receipt(use_case: str) -> dict:
         "task": use_case,
         "agents": [
             {"name": "claude", "provider": "anthropic", "role": "proposer"},
-            {"name": "gpt-4", "provider": "openai", "role": "critic"},
+            {"name": "gpt-5.5", "provider": "openai", "role": "critic"},
             {"name": "gemini", "provider": "google", "role": "synthesizer"},
         ],
         "rounds": 3,
@@ -52,7 +52,7 @@ def create_synthetic_receipt(use_case: str) -> dict:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "dissenting_opinions": [
             {
-                "agent": "gpt-4",
+                "agent": "gpt-5.5",
                 "position": "Additional fairness testing recommended for protected classes.",
             }
         ],

@@ -40,7 +40,7 @@ Source data (in .nomic/epic_strategic_debate/):
 | Agent | Provider | Role |
 |-------|----------|------|
 | Claude | Anthropic | Strategic Analyst |
-| GPT-4 | OpenAI | Business Strategist |
+| GPT-5.5 | OpenAI | Business Strategist |
 | Gemini | Google | Creative Challenger |
 | Grok | xAI | Lateral Thinker |
 | Mistral | EU-based | Regulatory Expert |

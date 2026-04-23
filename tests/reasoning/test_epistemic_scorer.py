@@ -91,7 +91,7 @@ def diverse_votes() -> list[MockVote]:
     """Votes from agents across three different providers."""
     return [
         MockVote(agent="claude-opus", vote="agree", confidence=0.85),
-        MockVote(agent="gpt-4o", vote="agree", confidence=0.8),
+        MockVote(agent="gpt-5.5", vote="agree", confidence=0.8),
         MockVote(agent="gemini-pro", vote="conditional", confidence=0.75),
     ]
 
@@ -116,7 +116,7 @@ class TestProviderInference:
 
     def test_known_providers(self):
         assert _infer_provider("claude-opus") == "anthropic"
-        assert _infer_provider("gpt-4o") == "openai"
+        assert _infer_provider("gpt-5.5") == "openai"
         assert _infer_provider("gemini-pro") == "google"
         assert _infer_provider("grok-2") == "xai"
         assert _infer_provider("mistral-large") == "mistral"
@@ -128,7 +128,7 @@ class TestProviderInference:
 
     def test_case_insensitive(self):
         assert _infer_provider("Claude-Opus-4") == "anthropic"
-        assert _infer_provider("GPT-4o") == "openai"
+        assert _infer_provider("GPT-5.5") == "openai"
 
 
 # =====================================================================
@@ -150,7 +150,7 @@ class TestConsensusDiversity:
     def test_two_providers_medium_score(self, scorer: EpistemicScorer):
         votes = [
             MockVote(agent="claude-opus", vote="agree"),
-            MockVote(agent="gpt-4o", vote="agree"),
+            MockVote(agent="gpt-5.5", vote="agree"),
         ]
         score = scorer._score_consensus_diversity(votes)
         assert score == 0.6
@@ -162,7 +162,7 @@ class TestConsensusDiversity:
     def test_all_disagree_zero(self, scorer: EpistemicScorer):
         votes = [
             MockVote(agent="claude-opus", vote="disagree"),
-            MockVote(agent="gpt-4o", vote="disagree"),
+            MockVote(agent="gpt-5.5", vote="disagree"),
         ]
         score = scorer._score_consensus_diversity(votes)
         assert score == 0.0
@@ -179,7 +179,7 @@ class TestConsensusDiversity:
             vote: Any = field(default_factory=FakeEnum)
             confidence: float = 0.8
 
-        votes = [EnumVote(), EnumVote(agent="gpt-4")]
+        votes = [EnumVote(), EnumVote(agent="gpt-5.5")]
         score = scorer._score_consensus_diversity(votes)
         assert score >= 0.5
 
@@ -434,7 +434,7 @@ class TestCompositeScoring:
         result = MockDebateResult(claims=claims, messages=msgs)
         votes = [
             MockVote(agent="claude-opus", vote="agree", confidence=0.8),
-            MockVote(agent="gpt-4o", vote="conditional", confidence=0.7),
+            MockVote(agent="gpt-5.5", vote="conditional", confidence=0.7),
             MockVote(agent="gemini-pro", vote="agree", confidence=0.75),
         ]
         calibration = {
@@ -474,7 +474,7 @@ class TestCompositeScoring:
         receipt = {
             "votes": [
                 {"agent": "claude-opus", "vote": "agree", "confidence": 0.8, "reasoning": "ok"},
-                {"agent": "gpt-4", "vote": "agree", "confidence": 0.75, "reasoning": "ok"},
+                {"agent": "gpt-5.5", "vote": "agree", "confidence": 0.75, "reasoning": "ok"},
             ],
             "claims": [
                 {
@@ -547,7 +547,7 @@ class TestConfigurableWeights:
         # Three diverse providers agreeing, no claims
         votes = [
             MockVote(agent="claude-opus", vote="agree"),
-            MockVote(agent="gpt-4", vote="agree"),
+            MockVote(agent="gpt-5.5", vote="agree"),
             MockVote(agent="gemini", vote="agree"),
         ]
         result = MockDebateResult()

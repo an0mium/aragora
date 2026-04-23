@@ -355,7 +355,7 @@ class TestLeaderboardSubcommand:
         assert body["response_type"] == "in_channel"
         assert "Agent Leaderboard" in body["text"]
         assert "Claude" in body["text"]
-        assert "GPT-4" in body["text"]
+        assert "GPT-5.5" in body["text"]
         assert "Gemini" in body["text"]
         assert "ELO" in body["text"]
 

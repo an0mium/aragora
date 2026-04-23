@@ -43,7 +43,7 @@ Usage:
             framework="openai",
             method="POST",
             path="/v1/chat/completions",
-            json={"model": "gpt-4", "messages": [...]},
+            json={"model": "gpt-5.5", "messages": [...]},
             auth_context=auth_ctx,
             tenant_id="tenant-123",
         )

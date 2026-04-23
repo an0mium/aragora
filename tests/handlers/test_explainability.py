@@ -244,7 +244,7 @@ class TestExplainabilityHandlerVotePivots:
 
         vp2 = MagicMock()
         vp2.influence_score = 0.25
-        vp2.to_dict.return_value = {"agent": "gpt4", "vote": "approve", "influence_score": 0.25}
+        vp2.to_dict.return_value = {"agent": "gpt-5.5", "vote": "approve", "influence_score": 0.25}
 
         decision.vote_pivots = [vp1, vp2]
         return decision

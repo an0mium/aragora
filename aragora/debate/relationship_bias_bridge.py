@@ -23,7 +23,7 @@ Usage:
     )
 
     # Check team for echo chamber risk
-    risk = bridge.compute_team_echo_risk(["claude", "gemini", "gpt-4"])
+    risk = bridge.compute_team_echo_risk(["claude", "gemini", "gpt-5.5"])
 
     # Get vote weight adjustments based on relationships
     weights = bridge.compute_relationship_weights(votes, proposals)

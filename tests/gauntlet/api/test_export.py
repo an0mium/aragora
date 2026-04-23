@@ -44,8 +44,8 @@ def sample_receipt():
     receipt.timestamp = "2024-01-15T10:30:00"
     receipt.debate_duration_seconds = 45.5
     receipt.consensus_reached = True
-    receipt.participating_agents = ["claude", "gpt4", "gemini"]
-    receipt.agreeing_agents = ["claude", "gpt4"]
+    receipt.participating_agents = ["claude", "gpt-5.5", "gemini"]
+    receipt.agreeing_agents = ["claude", "gpt-5.5"]
     receipt.dissenting_agents = ["gemini"]
     receipt.key_arguments = [
         "Token bucket allows burst handling",
@@ -106,7 +106,7 @@ Yes, implement token bucket rate limiting
 ## Participating Agents
 
 - claude (agreed)
-- gpt4 (agreed)
+- gpt-5.5 (agreed)
 - gemini (dissented)
 
 ---
@@ -147,7 +147,7 @@ Yes, implement token bucket rate limiting
     <table>
         <tr><th>Agent</th><th>Position</th></tr>
         <tr><td>claude</td><td>Agreed</td></tr>
-        <tr><td>gpt4</td><td>Agreed</td></tr>
+        <tr><td>gpt-5.5</td><td>Agreed</td></tr>
         <tr><td>gemini</td><td>Dissented</td></tr>
     </table>
 </body>

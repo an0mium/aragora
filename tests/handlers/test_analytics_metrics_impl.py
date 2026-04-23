@@ -252,7 +252,7 @@ def three_agents():
             calibration_score=0.85,
         ),
         _make_agent(
-            "gpt-4",
+            "gpt-5.5",
             elo=1580,
             wins=90,
             losses=50,
@@ -335,7 +335,7 @@ class TestCanHandle:
     def test_agent_performance_pattern_recognized(self, handler):
         """Agent-specific performance route matches the regex pattern."""
         assert handler.can_handle("/api/analytics/agents/claude/performance")
-        assert handler.can_handle("/api/v1/analytics/agents/gpt-4/performance")
+        assert handler.can_handle("/api/v1/analytics/agents/gpt-5.5/performance")
         assert handler.can_handle("/api/analytics/agents/my_agent_123/performance")
 
     def test_agent_performance_pattern_rejects_invalid(self, handler):
@@ -823,7 +823,7 @@ class TestHandleRouting:
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/v1/analytics/agents/comparison",
-                {"agents": "claude,gpt-4"},
+                {"agents": "claude,gpt-5.5"},
                 http_handler,
             )
 
@@ -1375,13 +1375,13 @@ class TestAgentComparisonEndpoint:
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/analytics/agents/comparison",
-                {"agents": "claude,gpt-4"},
+                {"agents": "claude,gpt-5.5"},
                 http_handler,
             )
 
         body = _body(result)
         assert "head_to_head" in body
-        key = "claude_vs_gpt-4"
+        key = "claude_vs_gpt-5.5"
         assert key in body["head_to_head"]
         assert body["head_to_head"][key]["total_matches"] == 10
 
@@ -1415,12 +1415,12 @@ class TestAgentTrendsEndpoint:
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = await handler.handle(
                 "/api/analytics/agents/trends",
-                {"agents": "claude,gpt-4"},
+                {"agents": "claude,gpt-5.5"},
                 http_handler,
             )
 
         body = _body(result)
-        assert body["agents"] == ["claude", "gpt-4"]
+        assert body["agents"] == ["claude", "gpt-5.5"]
 
     @pytest.mark.asyncio
     async def test_trends_invalid_granularity(self, handler, http_handler, mock_elo):
@@ -1576,7 +1576,7 @@ class TestSecurity:
 
         # These SHOULD match
         assert handler.can_handle("/api/analytics/agents/claude-opus/performance")
-        assert handler.can_handle("/api/analytics/agents/gpt_4o/performance")
+        assert handler.can_handle("/api/analytics/agents/gpt-5.5/performance")
         assert handler.can_handle("/api/analytics/agents/agent123/performance")
 
     @pytest.mark.asyncio

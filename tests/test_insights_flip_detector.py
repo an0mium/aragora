@@ -313,7 +313,7 @@ class TestFlipDetector:
         """Should return consistency for multiple agents."""
         # Insert positions for multiple agents
         conn = sqlite3.connect(temp_db)
-        for agent in ["claude", "gpt4"]:
+        for agent in ["claude", "gpt-5.5"]:
             conn.execute(
                 "INSERT INTO positions (id, agent_name, claim, confidence, debate_id, round_num) VALUES (?, ?, ?, ?, ?, ?)",
                 (f"p_{agent}", agent, "claim", 0.8, "d1", 1),
@@ -321,10 +321,10 @@ class TestFlipDetector:
         conn.commit()
         conn.close()
 
-        result = detector.get_agents_consistency_batch(["claude", "gpt4", "unknown"])
+        result = detector.get_agents_consistency_batch(["claude", "gpt-5.5", "unknown"])
 
         assert "claude" in result
-        assert "gpt4" in result
+        assert "gpt-5.5" in result
         assert "unknown" in result
         assert result["claude"].total_positions == 1
         assert result["unknown"].total_positions == 0

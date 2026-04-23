@@ -140,12 +140,12 @@ class TestTokenUsageAttribution:
 
         cost = calculate_token_cost(
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
             tokens_in=2000,
             tokens_out=1000,
         )
 
-        # GPT-4o: $2.50/1M input, $10/1M output
+        # GPT-5.5: $2.50/1M input, $10/1M output
         expected_input = Decimal("2000") * Decimal("2.50") / Decimal("1000000")
         expected_output = Decimal("1000") * Decimal("10.00") / Decimal("1000000")
         expected = expected_input + expected_output
@@ -196,7 +196,7 @@ class TestTokenUsageAttribution:
         usage_tracker.record_usage(
             event_type="agent_call",
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
             tokens_in=2000,
             tokens_out=1000,
             cost=Decimal("0.015000"),
@@ -295,7 +295,7 @@ class TestMultiTenantCostIsolation:
         usage_tracker.record_usage(
             event_type="agent_call",
             provider="openai",
-            model="gpt-4o",
+            model="gpt-5.5",
             tokens_in=10000,
             tokens_out=5000,
             cost=Decimal("0.075000"),

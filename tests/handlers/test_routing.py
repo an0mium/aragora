@@ -149,7 +149,7 @@ def _mock_selector(**overrides):
     """Create a mock AgentSelector."""
     sel = MagicMock()
     sel.get_best_team_combinations.return_value = overrides.get(
-        "combinations", [{"agents": ["claude", "gpt4"], "win_rate": 0.8}]
+        "combinations", [{"agents": ["claude", "gpt-5.5"], "win_rate": 0.8}]
     )
     sel.get_recommendations.return_value = overrides.get(
         "recommendations", [{"agent": "claude", "score": 0.95}]
@@ -740,11 +740,11 @@ class TestAutoRoute:
     def test_with_exclude(self, mock_cls, mock_det, handler):
         mock_sel = _mock_selector()
         mock_cls.create_with_defaults.return_value = mock_sel
-        http = MockHTTPHandler(body={"task": "Do something", "exclude": ["gpt4", "gemini"]})
+        http = MockHTTPHandler(body={"task": "Do something", "exclude": ["gpt-5.5", "gemini"]})
 
         handler.handle_post("/api/routing/auto-route", {}, http)
         call_kwargs = mock_sel.auto_route.call_args
-        assert call_kwargs.kwargs.get("exclude") == ["gpt4", "gemini"]
+        assert call_kwargs.kwargs.get("exclude") == ["gpt-5.5", "gemini"]
 
     @patch(f"{ROUTING_MOD}.ROUTING_AVAILABLE", True)
     @patch(f"{ROUTING_MOD}.DomainDetector")

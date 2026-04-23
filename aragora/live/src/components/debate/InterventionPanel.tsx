@@ -330,7 +330,7 @@ export function InterventionPanel({
           placeholder="Consider the economic implications..."
           secondaryField={{
             label: 'Target Agent (optional)',
-            placeholder: 'e.g. claude, gpt4',
+            placeholder: 'e.g. claude, gpt-5.5',
           }}
           onSubmit={handleNudge}
           onClose={() => setActiveModal(null)}

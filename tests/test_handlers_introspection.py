@@ -67,7 +67,7 @@ def mock_critique_store():
     reputation1 = Mock()
     reputation1.agent_name = "claude"
     reputation2 = Mock()
-    reputation2.agent_name = "gpt4"
+    reputation2.agent_name = "gpt-5.5"
     store.get_all_reputations.return_value = [reputation1, reputation2]
     return store
 
@@ -118,7 +118,7 @@ class TestIntrospectionRouting:
 
     def test_can_handle_agent_introspection(self, introspection_handler):
         assert introspection_handler.can_handle("/api/v1/introspection/agents/claude") is True
-        assert introspection_handler.can_handle("/api/v1/introspection/agents/gpt-4") is True
+        assert introspection_handler.can_handle("/api/v1/introspection/agents/gpt-5.5") is True
 
     def test_can_handle_list_agents(self, introspection_handler):
         """Test that /api/introspection/agents endpoint is handled."""
@@ -298,7 +298,7 @@ class TestGetAgentIntrospection:
         import aragora.server.handlers.introspection as mod
 
         with patch.object(mod, "get_agent_introspection", mock_get_agent_introspection):
-            result = introspection_handler.handle("/api/introspection/agents/gpt-4", {}, None)
+            result = introspection_handler.handle("/api/introspection/agents/gpt-5.5", {}, None)
 
             assert result is not None
             # Should either succeed or return agent not found, not 400

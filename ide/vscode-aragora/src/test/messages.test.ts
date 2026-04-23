@@ -68,8 +68,8 @@ describe('getAgentColor', () => {
   it('should return correct color for known agents', () => {
     expect(getAgentColor('claude')).toBe(AGENT_COLORS.claude);
     expect(getAgentColor('Claude')).toBe(AGENT_COLORS.claude);
-    expect(getAgentColor('gpt-4')).toBe(AGENT_COLORS['gpt-4']);
-    expect(getAgentColor('GPT-4o')).toBe(AGENT_COLORS['gpt-4o']);
+    expect(getAgentColor('gpt-5.5')).toBe(AGENT_COLORS['gpt-5.5']);
+    expect(getAgentColor('GPT-5.5')).toBe(AGENT_COLORS['gpt-5.5']);
     expect(getAgentColor('gemini-pro')).toBe(AGENT_COLORS.gemini);
     expect(getAgentColor('mistral-large')).toBe(AGENT_COLORS.mistral);
     expect(getAgentColor('grok-2')).toBe(AGENT_COLORS.grok);
@@ -154,7 +154,7 @@ describe('AGENT_COLORS', () => {
 
   it('should have colors for major LLM providers', () => {
     expect(AGENT_COLORS.claude).toBeDefined();
-    expect(AGENT_COLORS['gpt-4']).toBeDefined();
+    expect(AGENT_COLORS['gpt-5.5']).toBeDefined();
     expect(AGENT_COLORS.gemini).toBeDefined();
     expect(AGENT_COLORS.mistral).toBeDefined();
   });

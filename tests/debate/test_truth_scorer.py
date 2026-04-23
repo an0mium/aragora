@@ -179,15 +179,15 @@ class TestDebateRoundScoring:
                 "text": "The benchmark shows 50ms latency reduction, measured over 1000 requests.",
             },
             {
-                "agent": "gpt4",
+                "agent": "gpt-5.5",
                 "text": "Everyone obviously knows this is the best approach.",
             },
         ]
         scores = scorer.score_debate_round(contributions)
         assert "claude" in scores
-        assert "gpt4" in scores
+        assert "gpt-5.5" in scores
         # Claude's evidence-based argument should score higher
-        assert scores["claude"].truth_ratio > scores["gpt4"].truth_ratio
+        assert scores["claude"].truth_ratio > scores["gpt-5.5"].truth_ratio
 
 
 # ── Assessment Text Tests ─────────────────────────────────────────

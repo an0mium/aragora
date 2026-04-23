@@ -170,7 +170,7 @@ class TestDecisionRecords:
             consensus_reached=True,
             confidence=0.85,
             evidence_chain=[{"claim": "A is better", "source": "agent1"}],
-            agents_involved=["claude", "gpt4", "gemini"],
+            agents_involved=["claude", "gpt-5.5", "gemini"],
         )
 
         assert decision_id == "dec_test_123"
@@ -322,11 +322,11 @@ class TestDecisionRecordDataclass:
             evidence_chain_json='[{"claim": "A", "source": "agent1"}]',
             vote_pivots_json="[]",
             belief_changes_json="[]",
-            agents_involved_json='["claude", "gpt4"]',
+            agents_involved_json='["claude", "gpt-5.5"]',
         )
 
         d = record.to_dict()
         assert d["decision_id"] == "dec_123"
         assert d["consensus_reached"] is True
         assert d["evidence_chain"] == [{"claim": "A", "source": "agent1"}]
-        assert d["agents_involved"] == ["claude", "gpt4"]
+        assert d["agents_involved"] == ["claude", "gpt-5.5"]

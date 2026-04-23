@@ -288,8 +288,8 @@ class TestConsensusAdapter:
             conclusion="Use token bucket algorithm",
             strength=MockConsensusStrength("strong"),
             confidence=0.9,
-            participating_agents=["claude", "gpt4"],
-            agreeing_agents=["claude", "gpt4"],
+            participating_agents=["claude", "gpt-5.5"],
+            agreeing_agents=["claude", "gpt-5.5"],
         )
 
         mock_debate = MockSimilarDebate(
@@ -342,8 +342,8 @@ class TestConsensusAdapter:
             conclusion="Use RESTful conventions for public APIs",
             strength=MockConsensusStrength("strong"),
             confidence=0.85,
-            participating_agents=["claude", "gpt4", "gemini"],
-            agreeing_agents=["claude", "gpt4", "gemini"],
+            participating_agents=["claude", "gpt-5.5", "gemini"],
+            agreeing_agents=["claude", "gpt-5.5", "gemini"],
             domain="architecture",
             tags=["api", "design"],
         )
@@ -513,15 +513,15 @@ class TestCritiqueAdapter:
         mock_store = MagicMock()
         mock_store.get_vote_weights_batch.return_value = {
             "claude": 1.4,
-            "gpt4": 1.2,
+            "gpt-5.5": 1.2,
             "gemini": 1.0,
         }
 
         adapter = CritiqueAdapter(mock_store)
-        weights = adapter.get_agent_vote_weights(["claude", "gpt4", "gemini"])
+        weights = adapter.get_agent_vote_weights(["claude", "gpt-5.5", "gemini"])
 
         assert weights["claude"] == 1.4
-        assert weights["gpt4"] == 1.2
+        assert weights["gpt-5.5"] == 1.2
         assert weights["gemini"] == 1.0
 
     def test_get_stats(self):

@@ -139,7 +139,7 @@ class TestSearchValidationEdgeCases:
 
     def test_numbers_in_query(self):
         """Test queries with numbers."""
-        result = validate_search_query_redos_safe("GPT-4 vs Claude 3.5")
+        result = validate_search_query_redos_safe("GPT-5.5 vs Claude 3.5")
         assert result.is_valid is True
 
     def test_very_short_query(self):

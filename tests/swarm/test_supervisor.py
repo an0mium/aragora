@@ -303,7 +303,7 @@ def test_apply_launcher_snapshot_preserves_null_optional_fields(repo: Path) -> N
     supervisor = SwarmSupervisor(repo_root=repo)
     supervisor.launcher.config = LaunchConfig(
         claude_model="claude-opus-4-7",
-        codex_model="gpt-4.1-codex",
+        codex_model="gpt-5.5",
         claude_profile="existing-profile",
         claude_profile_script="/tmp/profile.sh",
     )

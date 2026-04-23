@@ -246,7 +246,7 @@ class TestMultiModelDebateRunner:
                     "name": "team-a",
                     "agents": [
                         {"provider": "anthropic-api", "model": "claude-opus-4-7"},
-                        {"provider": "openai-api", "model": "gpt-4.1"},
+                        {"provider": "openai-api", "model": "gpt-5.5"},
                     ],
                     "metadata": {"seed": "baseline"},
                 }

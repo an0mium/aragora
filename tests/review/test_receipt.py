@@ -46,7 +46,7 @@ def _minimal_brief(**overrides) -> ReviewBrief:
         disagreement_score=0.05,
         total_cost_usd=0.12,
         total_wall_clock_ms=3500,
-        agent_roster=("claude-opus-4-7", "gpt-5-4"),
+        agent_roster=("claude-opus-4-7", "gpt-5.5"),
         generated_at=datetime.now(UTC).isoformat(),
     )
     defaults.update(overrides)
@@ -238,7 +238,7 @@ class TestBriefReceipt:
                     role=ReviewRole.SECURITY,
                 ),
                 DissentingView(
-                    agent="gpt-5-4",
+                    agent="gpt-5.5",
                     position=DissentPosition.DEFER,
                     reason="Needs more validation data.",
                 ),

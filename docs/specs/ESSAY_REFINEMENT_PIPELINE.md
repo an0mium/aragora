@@ -407,10 +407,10 @@ Recommended model assignments (configurable):
 | Role | Recommended Model | Why |
 |------|------------------|-----|
 | Drafter | Claude Opus / Sonnet | Best prose quality |
-| Drafter | GPT-4o | Different structural instincts |
+| Drafter | GPT-5.5 | Different structural instincts |
 | Drafter | Gemini 2.0 Pro | Good at factual grounding |
 | Structural Critic | Claude Opus | Best at identifying logical gaps |
-| Fact Checker | GPT-4o + web search | Tool use for verification |
+| Fact Checker | GPT-5.5 + web search | Tool use for verification |
 | Devil's Advocate | Grok | Contrarian by design |
 | Style Editor | Claude Sonnet | Clean, concise prose |
 | Synthesizer | Claude Opus | Best at integrating complex inputs |

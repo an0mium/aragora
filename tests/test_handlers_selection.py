@@ -417,7 +417,7 @@ class TestSelectTeam:
                 "max_agents": 4,
                 "quality_priority": 0.8,
                 "diversity_preference": 0.3,
-                "exclude_agents": ["gpt4"],
+                "exclude_agents": ["gpt-5.5"],
             }
         )
 
@@ -433,7 +433,7 @@ class TestSelectTeam:
 
         # Excluded agents should not be in team
         agent_names = [a["name"] for a in data["agents"]]
-        assert "gpt4" not in agent_names
+        assert "gpt-5.5" not in agent_names
 
     def test_select_team_missing_task(self, selection_handler, mock_handler_with_body):
         """Returns 400 when task_description is missing."""

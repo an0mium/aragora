@@ -61,7 +61,7 @@ class MockDebateResult:
 
 def _run_mock_debate(question: str) -> MockDebateResult:
     """Simulate a 2-round adversarial debate."""
-    agents = ["claude-analyst", "gpt4-challenger", "mistral-synthesizer"]
+    agents = ["claude-analyst", "gpt-5.5", "mistral-synthesizer"]
 
     proposals = [
         MockProposal(
@@ -74,7 +74,7 @@ def _run_mock_debate(question: str) -> MockDebateResult:
             ),
         ),
         MockProposal(
-            agent="gpt4-challenger",
+            agent="gpt-5.5",
             round=1,
             content=(
                 "I challenge the timeline. Historical data shows 78% of similar "
@@ -101,7 +101,7 @@ def _run_mock_debate(question: str) -> MockDebateResult:
             "Phased approach addresses my concern about parallel costs.",
         ),
         MockVote(
-            "gpt4-challenger",
+            "gpt-5.5",
             "mistral-synthesizer",
             0.78,
             "Phased migration reduces blast radius, though 120 days is tight.",
@@ -116,7 +116,7 @@ def _run_mock_debate(question: str) -> MockDebateResult:
 
     dissent = [
         {
-            "agent": "gpt4-challenger",
+            "agent": "gpt-5.5",
             "reason": "120-day timeline may be too aggressive; recommend 150 days.",
         },
     ]
@@ -328,7 +328,7 @@ def run_demo() -> None:
     _print_step(1, "Run Adversarial Debate")
     question = "Should we migrate our primary database from Oracle to PostgreSQL?"
     print(f"  Question: {question}")
-    print("  Agents: claude-analyst, gpt4-challenger, mistral-synthesizer")
+    print("  Agents: claude-analyst, gpt-5.5, mistral-synthesizer")
     print("  Running 2-round debate...")
 
     debate = _run_mock_debate(question)

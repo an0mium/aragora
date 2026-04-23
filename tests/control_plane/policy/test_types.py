@@ -189,12 +189,12 @@ class TestControlPlanePolicy:
         """Test policy with agent allowlist/blocklist."""
         policy = ControlPlanePolicy(
             name="agent-restricted",
-            agent_allowlist=["claude-3-opus", "gpt-4"],
-            agent_blocklist=["gpt-3.5-turbo"],
+            agent_allowlist=["claude-3-opus", "gpt-5.5"],
+            agent_blocklist=["gpt-5.5"],
         )
         assert policy.is_agent_allowed("claude-3-opus") is True
-        assert policy.is_agent_allowed("gpt-4") is True
-        assert policy.is_agent_allowed("gpt-3.5-turbo") is False
+        assert policy.is_agent_allowed("gpt-5.5") is True
+        assert policy.is_agent_allowed("gpt-5.5") is False
         assert policy.is_agent_allowed("llama-2") is False  # Not in allowlist
 
     def test_policy_agent_blocklist_only(self):

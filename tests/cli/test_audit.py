@@ -167,14 +167,14 @@ class TestCreateAuditParser:
                 "--name",
                 "Test Audit",
                 "--model",
-                "gpt-4",
+                "gpt-5.5",
             ]
         )
         assert args.documents == "doc1,doc2,doc3"
         assert args.types == "security,compliance"
         assert args.preset == "Legal Due Diligence"
         assert args.name == "Test Audit"
-        assert args.model == "gpt-4"
+        assert args.model == "gpt-5.5"
 
     def test_findings_command_options(self):
         """Test findings command with filters."""

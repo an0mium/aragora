@@ -63,7 +63,7 @@ def mock_slack_message():
 def mock_agents():
     """Create mock agent objects."""
     agents = []
-    for name in ["claude-opus", "claude-sonnet", "gpt-4o", "gemini-pro"]:
+    for name in ["claude-opus", "claude-sonnet", "gpt-5.5", "gemini-pro"]:
         agent = MagicMock()
         agent.name = name
         agent.available = True
@@ -364,7 +364,7 @@ class TestBindingsAgentPools:
             "fast-agents",
             [
                 "claude-sonnet",
-                "gpt-4o",
+                "gpt-5.5",
             ],
         )
 
@@ -395,7 +395,7 @@ class TestBindingsAgentPools:
             "fast-agents",
             [
                 "claude-sonnet",
-                "gpt-4o",
+                "gpt-5.5",
             ],
         )
 
@@ -417,7 +417,7 @@ class TestBindingsAgentPools:
         )
 
         # Should select first available from pool
-        assert selection.agent_name in ["claude-sonnet", "gpt-4o"]
+        assert selection.agent_name in ["claude-sonnet", "gpt-5.5"]
         assert "pool" in selection.selection_reason.lower()
 
 
@@ -579,7 +579,7 @@ class TestBindingsMultiPlatform:
                 provider="telegram",
                 account_id="@mybot",
                 peer_pattern="group:*",
-                agent_binding="gpt-4o",
+                agent_binding="gpt-5.5",
                 binding_type=BindingType.SPECIFIC_AGENT,
             )
         )
@@ -601,5 +601,5 @@ class TestBindingsMultiPlatform:
         discord_res = binding_router.resolve("discord", "server_123", "channel:123")
 
         assert slack_res.agent_binding == "claude-sonnet"
-        assert telegram_res.agent_binding == "gpt-4o"
+        assert telegram_res.agent_binding == "gpt-5.5"
         assert discord_res.agent_binding == "gemini-pro"

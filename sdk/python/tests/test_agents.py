@@ -18,7 +18,7 @@ class TestAgentsList:
             mock_request.return_value = {
                 "agents": [
                     {"name": "claude", "provider": "anthropic"},
-                    {"name": "gpt-4", "provider": "openai"},
+                    {"name": "gpt-5.5", "provider": "openai"},
                 ]
             }
 
@@ -79,7 +79,7 @@ class TestAgentsRelationships:
     def test_get_rivals(self) -> None:
         """Get agents that frequently disagree."""
         with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"rivals": ["gpt-4"]}
+            mock_request.return_value = {"rivals": ["gpt-5.5"]}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
             client.agents.get_rivals("claude")
@@ -138,12 +138,12 @@ class TestAgentsComparison:
             mock_request.return_value = {"comparison": {}}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
-            client.agents.compare_agents("claude", "gpt-4")
+            client.agents.compare_agents("claude", "gpt-5.5")
 
             mock_request.assert_called_once_with(
                 "GET",
                 "/api/v1/agent/compare",
-                params={"agent1": "claude", "agent2": "gpt-4"},
+                params={"agent1": "claude", "agent2": "gpt-5.5"},
             )
             client.close()
 
@@ -322,9 +322,9 @@ class TestAgentsDetailsExtended:
             mock_request.return_value = {"wins": 15, "losses": 8}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.agents.get_head_to_head("claude", "gpt-4")
+            result = client.agents.get_head_to_head("claude", "gpt-5.5")
 
-            mock_request.assert_called_once_with("GET", "/api/agent/claude/head-to-head/gpt-4")
+            mock_request.assert_called_once_with("GET", "/api/agent/claude/head-to-head/gpt-5.5")
             assert result["wins"] == 15
             client.close()
 

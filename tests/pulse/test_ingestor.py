@@ -605,7 +605,7 @@ class TestHackerNewsIngestor:
         """Test AI topic categorization."""
         ingestor = HackerNewsIngestor()
 
-        assert ingestor._categorize_topic("GPT-5 announced") == "ai"
+        assert ingestor._categorize_topic("GPT-5.5 announced") == "ai"
         assert ingestor._categorize_topic("New LLM released") == "ai"
         assert ingestor._categorize_topic("Machine learning advances") == "ai"
         assert ingestor._categorize_topic("Neural network breakthrough") == "ai"

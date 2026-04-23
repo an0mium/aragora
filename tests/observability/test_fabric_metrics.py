@@ -69,7 +69,7 @@ class TestAgentMetrics:
         from aragora.observability.metrics.fabric import record_agent_spawned
 
         record_agent_spawned("pool-1", "claude-3-opus")
-        record_agent_spawned("pool-1", "gpt-4")
+        record_agent_spawned("pool-1", "gpt-5.5")
         record_agent_spawned("default", "claude-3-sonnet")
 
     def test_record_agent_terminated(self):

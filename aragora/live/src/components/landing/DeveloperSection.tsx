@@ -19,7 +19,7 @@ const CURL_SNIPPET = `curl -X POST https://api.aragora.ai/api/v1/debates \\
   -H "Content-Type: application/json" \\
   -d '{
     "topic": "Should we use Kubernetes?",
-    "agents": ["claude", "gpt4", "gemini"],
+    "agents": ["claude", "gpt-5.5", "gemini"],
     "rounds": 2
   }'`;
 
@@ -31,7 +31,7 @@ const client = new Aragora({ apiKey: process.env.ARAGORA_API_KEY });
 
 const result = await client.debates.create({
   topic: "Should we use Kubernetes?",
-  agents: ["claude", "gpt4", "gemini"],
+  agents: ["claude", "gpt-5.5", "gemini"],
   rounds: 2,
 });
 

@@ -21,7 +21,7 @@ aragora gauntlet architecture.md --persona security --profile thorough --focus i
 **Configuration:**
 - Personas: HIPAA Compliance Auditor, Security Red Team
 - Profile: Thorough (6 adversarial rounds each)
-- Models: Claude, GPT-4, Gemini (heterogeneous validation)
+- Models: Claude, GPT-5.5, Gemini (heterogeneous validation)
 
 ## Types of Issues Gauntlet Can Identify
 

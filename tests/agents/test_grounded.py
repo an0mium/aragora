@@ -127,7 +127,7 @@ def mock_relationship_tracker():
     tracker.get_allies.return_value = [
         RelationshipMetrics(
             agent_a="claude",
-            agent_b="gpt4",
+            agent_b="gpt-5.5",
             rivalry_score=0.15,
             alliance_score=0.8,
             relationship="ally",
@@ -137,7 +137,7 @@ def mock_relationship_tracker():
 
     # Mock influence network
     tracker.get_influence_network.return_value = {
-        "influences": [("gpt4", 0.6), ("gemini", 0.4)],
+        "influences": [("gpt-5.5", 0.6), ("gemini", 0.4)],
         "influenced_by": [("mistral", 0.5)],
     }
 
@@ -781,7 +781,7 @@ class TestMomentDetector:
         """Test detecting a significant consensus breakthrough."""
         detector = MomentDetector(relationship_tracker=mock_relationship_tracker)
         result = detector.detect_consensus_breakthrough(
-            agents=["claude", "gemini", "gpt4"],
+            agents=["claude", "gemini", "gpt-5.5"],
             topic="AI safety guidelines should prioritize human oversight",
             confidence=0.85,
             debate_id="debate1",
@@ -791,7 +791,7 @@ class TestMomentDetector:
         assert result.moment_type == "consensus_breakthrough"
         assert "Consensus" in result.description
         assert "85%" in result.description
-        assert result.other_agents == ["gemini", "gpt4"]
+        assert result.other_agents == ["gemini", "gpt-5.5"]
 
     def test_record_moment(self):
         """Test recording a moment."""

@@ -129,11 +129,11 @@ class TestBuildStartingBlocks:
             topic="Test",
             user_id="U001",
             debate_id="d-1",
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
         )
         context_text = blocks[-1]["elements"][0]["text"]
         assert "claude" in context_text
-        assert "gpt-4" in context_text
+        assert "gpt-5.5" in context_text
         assert "gemini" in context_text
 
     def test_no_agents(self):
@@ -228,7 +228,7 @@ class TestBuildRoundUpdateBlocks:
 
     def test_round_numbers_in_text(self):
         """Round number and total are displayed in the block."""
-        blocks = build_round_update_blocks(round_num=3, total_rounds=7, agent="gpt-4")
+        blocks = build_round_update_blocks(round_num=3, total_rounds=7, agent="gpt-5.5")
         text = blocks[0]["text"]["text"]
         assert "Round 3/7" in text
 
@@ -324,9 +324,9 @@ class TestBuildAgentResponseBlocks:
 
     def test_agent_name_in_context(self):
         """Agent name appears in the context header."""
-        blocks = build_agent_response_blocks(agent="gpt-4", response="test", round_num=2)
+        blocks = build_agent_response_blocks(agent="gpt-5.5", response="test", round_num=2)
         context_text = blocks[0]["elements"][0]["text"]
-        assert "gpt-4" in context_text
+        assert "gpt-5.5" in context_text
 
     def test_round_num_in_context(self):
         """Round number appears in the context header."""

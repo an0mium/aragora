@@ -332,7 +332,7 @@ class TestDecisionConfig:
     def test_agents_list(self):
         """Agents list can be customized."""
         config = DecisionConfig(
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
         )
         assert len(config.agents) == 3
         assert "claude" in config.agents
@@ -517,7 +517,7 @@ class TestDecisionRequest:
         """Creates from legacy HTTP format."""
         body = {
             "question": "Legacy question",
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "rounds": 5,
         }
         request = DecisionRequest.from_http(body)
@@ -613,7 +613,7 @@ class TestDecisionResult:
             consensus_reached=True,
             agent_contributions=[
                 {"agent": "claude", "vote": "approve"},
-                {"agent": "gpt4", "vote": "approve"},
+                {"agent": "gpt-5.5", "vote": "approve"},
             ],
         )
         assert len(result.agent_contributions) == 2
@@ -833,7 +833,7 @@ class TestDecisionIntegration:
             ],
             agent_contributions=[
                 {"agent": "claude", "vote": "approve"},
-                {"agent": "gpt4", "vote": "approve"},
+                {"agent": "gpt-5.5", "vote": "approve"},
             ],
             duration_seconds=45.5,
         )

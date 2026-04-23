@@ -745,7 +745,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Run Debate command
   const runDebateCmd = vscode.commands.registerCommand('aragora.runDebate', async () => {
-    const defaultAgents = config.get<string>('defaultAgents') || 'claude,gpt-4';
+    const defaultAgents = config.get<string>('defaultAgents') || 'claude,gpt-5.5';
     const defaultRounds = config.get<number>('defaultRounds') || 3;
 
     const question = await vscode.window.showInputBox({
@@ -758,7 +758,7 @@ export function activate(context: vscode.ExtensionContext) {
     const agentsInput = await vscode.window.showInputBox({
       prompt: 'Enter agents (comma-separated)',
       value: defaultAgents,
-      placeHolder: 'claude,gpt-4,gemini',
+      placeHolder: 'claude,gpt-5.5,gemini',
     });
 
     if (!agentsInput) return;

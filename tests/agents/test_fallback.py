@@ -69,12 +69,12 @@ class MockAgentWithMixin:
     """Mock agent class using QuotaFallbackMixin."""
 
     OPENROUTER_MODEL_MAP = {
-        "gpt-4o": "openai/gpt-4o",
+        "gpt-5.5": "openai/gpt-5.5",
         "claude-3-opus": "anthropic/claude-3-opus",
     }
     DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
 
-    def __init__(self, name: str = "test", model: str = "gpt-4o", enable_fallback: bool = True):
+    def __init__(self, name: str = "test", model: str = "gpt-5.5", enable_fallback: bool = True):
         self.name = name
         self.model = model
         self.enable_fallback = enable_fallback
@@ -91,7 +91,7 @@ class TestQuotaFallbackMixin:
         """Test getting fallback model with existing mapping."""
         from aragora.agents.fallback import QuotaFallbackMixin
 
-        agent = MockAgentWithMixin(model="gpt-4o")
+        agent = MockAgentWithMixin(model="gpt-5.5")
         # Add mixin method
         agent.get_fallback_model = QuotaFallbackMixin.get_fallback_model.__get__(
             agent, MockAgentWithMixin
@@ -99,7 +99,7 @@ class TestQuotaFallbackMixin:
 
         result = agent.get_fallback_model()
 
-        assert result == "openai/gpt-4o"
+        assert result == "openai/gpt-5.5"
 
     def test_get_fallback_model_uses_default(self):
         """Test getting fallback model falls back to default."""

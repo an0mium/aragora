@@ -100,7 +100,7 @@ _SENTENCE_BOUNDARY = re.compile(r"[.!?](?:\s|\n|$)")
 
 # Reflex model — fast, cheap, low-latency
 _REFLEX_MODEL_OPENROUTER = "anthropic/claude-haiku-4-5-20251001"
-_REFLEX_MODEL_OPENAI = "gpt-4o-mini"
+_REFLEX_MODEL_OPENAI = "gpt-5.5"
 
 # ---------------------------------------------------------------------------
 # API key + model helpers (import from playground at runtime to avoid
@@ -129,7 +129,7 @@ def _get_oracle_models() -> tuple[str, str, str]:
 
         return _ORACLE_MODEL_OPENROUTER, _ORACLE_MODEL_ANTHROPIC, _ORACLE_MODEL_OPENAI
     except ImportError:
-        return "anthropic/claude-opus-4.7", "claude-sonnet-4-6", "gpt-5.3"
+        return "anthropic/claude-opus-4.7", "claude-sonnet-4-6", "gpt-5.5"
 
 
 def _get_tentacle_models() -> list[dict[str, str]]:

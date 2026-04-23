@@ -267,7 +267,7 @@ class TestDebateArtifactModel:
             cycle_number=1,
             phase="debate",
             task="Design a rate limiter",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             transcript=[{"agent": "claude", "content": "I propose..."}],
             consensus_reached=True,
             confidence=0.85,
@@ -349,8 +349,8 @@ class TestAgentMetricsModel:
         metrics = AgentMetrics(
             loop_id="test",
             cycle=1,
-            agent_name="gpt4",
-            model="gpt-4",
+            agent_name="gpt-5.5",
+            model="gpt-5.5",
             phase="design",
         )
         assert metrics.messages_sent == 0

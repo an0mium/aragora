@@ -384,14 +384,14 @@ class TestAgentFallbackChain:
 
         class TestAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gpt-4o": "openai/gpt-4o",
+                "gpt-5.5": "openai/gpt-5.5",
                 "claude-3": "anthropic/claude-3",
             }
             DEFAULT_FALLBACK_MODEL = "meta-llama/llama-3"
 
         agent = TestAgent()
-        agent.model = "gpt-4o"
-        assert agent.get_fallback_model() == "openai/gpt-4o"
+        agent.model = "gpt-5.5"
+        assert agent.get_fallback_model() == "openai/gpt-5.5"
 
         agent.model = "unknown-model"
         assert agent.get_fallback_model() == "meta-llama/llama-3"

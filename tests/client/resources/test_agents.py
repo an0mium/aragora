@@ -134,7 +134,7 @@ class TestAgentModels:
 
         stats = HeadToHeadStats(
             agent="claude",
-            opponent="gpt4",
+            opponent="gpt-5.5",
             wins=15,
             losses=10,
             draws=5,

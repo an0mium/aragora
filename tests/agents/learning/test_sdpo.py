@@ -437,14 +437,14 @@ class TestSDPOLearner:
         learner = SDPOLearner()
         trajectory = learner.start_trajectory("API design")
         trajectory.record_step("claude", ActionType.PROPOSE, "Use REST", confidence=0.9)
-        trajectory.record_step("gpt4", ActionType.CRITIQUE, "Consider GraphQL", confidence=0.7)
+        trajectory.record_step("gpt-5.5", ActionType.CRITIQUE, "Consider GraphQL", confidence=0.7)
         trajectory.set_outcome(True, 0.85)
 
         insights = await learner.evaluate_trajectory(trajectory)
 
         assert len(insights) == 2
         for insight in insights:
-            assert insight.agent_name in ["claude", "gpt4"]
+            assert insight.agent_name in ["claude", "gpt-5.5"]
             assert 0.0 <= insight.retrospective_score <= 1.0
 
     @pytest.mark.asyncio

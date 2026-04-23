@@ -59,8 +59,8 @@ describe('ExecutiveSummary', () => {
                 avg_agreement_score: 0.92,
               },
               {
-                agent_id: 'gpt-4',
-                agent_name: 'GPT-4',
+                agent_id: 'gpt-5.5',
+                agent_name: 'GPT-5.5',
                 participations: 10,
                 consensus_contributions: 8,
                 consensus_rate: '80%',
@@ -94,7 +94,7 @@ describe('ExecutiveSummary', () => {
 
     expect(screen.getByText('Top Agents')).toBeInTheDocument();
     expect(screen.getByText('3 ranked')).toBeInTheDocument();
-    expect(screen.getByText('Claude, GPT-4, Gemini')).toBeInTheDocument();
+    expect(screen.getByText('Claude, GPT-5.5, Gemini')).toBeInTheDocument();
 
     expect(screen.getByText('Total Spend')).toBeInTheDocument();
     expect(screen.getByText('$123.45')).toBeInTheDocument();

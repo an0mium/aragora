@@ -53,7 +53,7 @@ SAMPLE_DEBATE_CONFIG = {
     "enabled": True,
     "trigger_conditions": {"label": "important"},
     "debate_template": "quick_review",
-    "agents": ["claude", "gpt4"],
+    "agents": ["claude", "gpt-5.5"],
     "auto_reply": True,
 }
 
@@ -347,7 +347,7 @@ class TestListDebateConfigs:
         assert len(configs) == 1
         assert isinstance(configs[0], EmailDebateConfig)
         assert configs[0].name == "Auto-debate important emails"
-        assert configs[0].agents == ["claude", "gpt4"]
+        assert configs[0].agents == ["claude", "gpt-5.5"]
         assert configs[0].auto_reply is True
         mock_client._get.assert_called_once_with("/api/v1/connectors/gmail/debates")
 
@@ -371,7 +371,7 @@ class TestCreateDebateConfig:
         config = api.create_debate_config(
             name="Auto-debate important emails",
             trigger_conditions={"label": "important"},
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             debate_template="quick_review",
             auto_reply=True,
         )
@@ -379,7 +379,7 @@ class TestCreateDebateConfig:
         assert config.debate_template == "quick_review"
         body = mock_client._post.call_args[0][1]
         assert body["name"] == "Auto-debate important emails"
-        assert body["agents"] == ["claude", "gpt4"]
+        assert body["agents"] == ["claude", "gpt-5.5"]
         assert body["debate_template"] == "quick_review"
         assert body["auto_reply"] is True
 
@@ -561,7 +561,7 @@ class TestParseDebateConfig:
         assert config.enabled is True
         assert config.trigger_conditions == {"label": "important"}
         assert config.debate_template == "quick_review"
-        assert config.agents == ["claude", "gpt4"]
+        assert config.agents == ["claude", "gpt-5.5"]
         assert config.auto_reply is True
 
     def test_parse_defaults(self, api: GmailAPI) -> None:

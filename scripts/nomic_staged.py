@@ -128,7 +128,7 @@ Recent changes:
     )
 
     # API-based agents: reliable HTTP calls, no CLI dependencies.
-    # Uses Claude Opus 4.7 and OpenAI GPT-5.2 via API (with OpenRouter fallback).
+    # Uses Claude Opus 4.7 and OpenAI GPT-5.5 via API (with OpenRouter fallback).
     # When OPENROUTER_API_KEY is configured, Gemini 3.1 Pro and Grok 4 also participate.
     from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
     from aragora.agents.api_agents.openai import OpenAIAPIAgent
@@ -142,7 +142,7 @@ Recent changes:
         ),
         OpenAIAPIAgent(
             name="gpt-architect",
-            model="gpt-5.3",
+            model="gpt-5.5",
             role="proposer",
             timeout=120,
         ),
@@ -154,7 +154,7 @@ Recent changes:
         ),
     ]
 
-    print("Agents: Claude Opus 4.7 vs GPT-5.2 vs Claude Opus 4.7 (synthesizer)")
+    print("Agents: Claude Opus 4.7 vs GPT-5.5 vs Claude Opus 4.7 (synthesizer)")
     print("API-based heterogeneous debate.\n")
 
     # Staged runner uses a short debate for speed and repeatability.

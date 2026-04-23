@@ -1052,7 +1052,7 @@ class TestGetEfficiency:
             "total_cost_usd": "70.00",
             "cost_by_model": {
                 "claude-3-opus": Decimal("50.00"),
-                "gpt-4": Decimal("20.00"),
+                "gpt-5.5": Decimal("20.00"),
             },
         }
 
@@ -1764,11 +1764,11 @@ class TestEstimateCost:
         assert data["operation"] == "debate"
 
     @pytest.mark.asyncio
-    async def test_estimate_openai_gpt4(self, handler):
+    async def test_estimate_openai_gpt55(self, handler):
         body = {
             "tokens_input": 500_000,
             "tokens_output": 200_000,
-            "model": "gpt-4",
+            "model": "gpt-5.5",
             "provider": "openai",
         }
         request = _make_request("POST", "/api/v1/costs/estimate", body=body)
@@ -1783,7 +1783,7 @@ class TestEstimateCost:
         assert response.status == 200
         data = _parse_response(response)
         # 500K input @ $30/M + 200K output @ $60/M = $15 + $12 = $27
-        # gpt-4 not in pricing table (only gpt-4o), falls back to default $2/M input, $8/M output
+        # gpt-5.5 not in pricing table (only gpt-5.5), falls back to default $2/M input, $8/M output
         # 500K @ $2 + 200K @ $8 = $1 + $1.6 = $2.6
         assert data["estimated_cost_usd"] == pytest.approx(2.6, abs=0.01)
 

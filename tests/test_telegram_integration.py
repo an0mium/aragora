@@ -577,7 +577,7 @@ class TestSendLeaderboardUpdate:
 
         rankings = [
             {"name": "claude", "elo": 1650, "wins": 15},
-            {"name": "gpt-4", "elo": 1600, "wins": 12},
+            {"name": "gpt-5.5", "elo": 1600, "wins": 12},
             {"name": "gemini", "elo": 1550, "wins": 10},
         ]
 
@@ -623,7 +623,7 @@ class TestSendDebateStarted:
         result = await telegram_integration.send_debate_started(
             debate_id="test-123",
             task="Design a rate limiter",
-            agents=["claude", "gpt-4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
         )
 
         assert result is True

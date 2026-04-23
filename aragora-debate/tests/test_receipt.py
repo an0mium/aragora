@@ -24,13 +24,13 @@ def _make_result(**kwargs):
         rounds_used=3,
         confidence=0.85,
         consensus_reached=True,
-        participants=["claude", "gpt4"],
-        proposals={"claude": "Yes deploy", "gpt4": "Yes with caveats"},
+        participants=["claude", "gpt-5.5"],
+        proposals={"claude": "Yes deploy", "gpt-5.5": "Yes with caveats"},
         consensus=Consensus(
             reached=True,
             method=ConsensusMethod.MAJORITY,
             confidence=0.85,
-            supporting_agents=["claude", "gpt4"],
+            supporting_agents=["claude", "gpt-5.5"],
             dissenting_agents=[],
         ),
     )
@@ -58,7 +58,7 @@ class TestReceiptBuilder:
                 method=ConsensusMethod.MAJORITY,
                 confidence=0.3,
                 supporting_agents=[],
-                dissenting_agents=["claude", "gpt4"],
+                dissenting_agents=["claude", "gpt-5.5"],
             ),
         )
         receipt = ReceiptBuilder.from_result(result)
@@ -73,7 +73,7 @@ class TestReceiptBuilder:
                 method=ConsensusMethod.MAJORITY,
                 confidence=0.5,
                 supporting_agents=["claude"],
-                dissenting_agents=["gpt4"],
+                dissenting_agents=["gpt-5.5"],
             ),
         )
         receipt = ReceiptBuilder.from_result(result)
@@ -86,8 +86,8 @@ class TestReceiptBuilder:
                 method=ConsensusMethod.MAJORITY,
                 confidence=0.7,
                 supporting_agents=["claude"],
-                dissenting_agents=["gpt4"],
-                dissents=[DissentRecord(agent="gpt4", reasons=["risk too high"])],
+                dissenting_agents=["gpt-5.5"],
+                dissents=[DissentRecord(agent="gpt-5.5", reasons=["risk too high"])],
             ),
         )
         receipt = ReceiptBuilder.from_result(result)
@@ -105,7 +105,7 @@ class TestReceiptBuilder:
         receipt = ReceiptBuilder.from_result(result)
 
         assert ReceiptBuilder.verify_content_hash(receipt) is True
-        receipt.consensus.dissenting_agents.append("gpt4")
+        receipt.consensus.dissenting_agents.append("gpt-5.5")
         assert ReceiptBuilder.verify_content_hash(receipt) is False
 
     def test_content_hash_detects_metadata_tampering(self):
@@ -188,11 +188,11 @@ class TestExport:
                 method=ConsensusMethod.MAJORITY,
                 confidence=0.7,
                 supporting_agents=["claude"],
-                dissenting_agents=["gpt4"],
-                dissents=[DissentRecord(agent="gpt4", reasons=["too risky"])],
+                dissenting_agents=["gpt-5.5"],
+                dissents=[DissentRecord(agent="gpt-5.5", reasons=["too risky"])],
             ),
         )
         receipt = ReceiptBuilder.from_result(result)
         html = ReceiptBuilder.to_html(receipt)
         assert "Dissenting" in html
-        assert "gpt4" in html
+        assert "gpt-5.5" in html

@@ -583,7 +583,7 @@ class TestDryRun:
 
     @pytest.mark.asyncio
     async def test_dry_run_includes_agents(self, handler, mock_http_handler):
-        data = _make_request_data(dry_run=True, agents=["claude", "gpt4"])
+        data = _make_request_data(dry_run=True, agents=["claude", "gpt-5.5"])
         result = await handler.handle_post(
             "/api/v1/orchestration/deliberate",
             data,
@@ -591,7 +591,7 @@ class TestDryRun:
             mock_http_handler,
         )
         body = _body(result)
-        assert body["agents"] == ["claude", "gpt4"]
+        assert body["agents"] == ["claude", "gpt-5.5"]
 
     @pytest.mark.asyncio
     async def test_dry_run_includes_max_rounds(self, handler, mock_http_handler):
@@ -1064,9 +1064,9 @@ class TestOutputChannelRBAC:
 class TestAgentTeamSelection:
     @pytest.mark.asyncio
     async def test_explicit_agents_returned(self, handler):
-        req = OrchestrationRequest(question="q", agents=["claude", "gpt4"])
+        req = OrchestrationRequest(question="q", agents=["claude", "gpt-5.5"])
         agents = await handler._select_agent_team(req)
-        assert agents == ["claude", "gpt4"]
+        assert agents == ["claude", "gpt-5.5"]
 
     @pytest.mark.asyncio
     async def test_fast_strategy_returns_two(self, handler):
@@ -1139,7 +1139,7 @@ class TestFormatResult:
             final_answer="Answer here",
             consensus_reached=True,
             confidence=0.85,
-            agents_participated=["claude", "gpt4"],
+            agents_participated=["claude", "gpt-5.5"],
             duration_seconds=12.5,
         )
         req = OrchestrationRequest(

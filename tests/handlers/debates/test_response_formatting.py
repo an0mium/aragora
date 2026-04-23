@@ -525,7 +525,7 @@ class TestNormalizeDebateResponseIntegration:
                 "final_answer": "Adopt Kubernetes",
                 "vote_breakdown": {
                     "claude": True,
-                    "gpt4": True,
+                    "gpt-5.5": True,
                     "gemini": False,
                 },
             },
@@ -541,7 +541,7 @@ class TestNormalizeDebateResponseIntegration:
         assert result["consensus"]["reached"] is True
         assert result["consensus"]["confidence"] == 0.91
         assert result["consensus"]["final_answer"] == "Adopt Kubernetes"
-        assert set(result["consensus"]["supporting_agents"]) == {"claude", "gpt4"}
+        assert set(result["consensus"]["supporting_agents"]) == {"claude", "gpt-5.5"}
         assert result["consensus"]["dissenting_agents"] == ["gemini"]
         # consensus_reached helper
         assert result["consensus_reached"] is True

@@ -41,11 +41,11 @@ class TestTokenCounter:
         """Test counting with specific model."""
         text = "The quick brown fox jumps over the lazy dog."
 
-        gpt4_tokens = counter.count(text, model="gpt-4")
+        gpt55_tokens = counter.count(text, model="gpt-5.5")
         claude_tokens = counter.count(text, model="claude-3-opus")
 
         # Both should return reasonable counts
-        assert gpt4_tokens > 0
+        assert gpt55_tokens > 0
         assert claude_tokens > 0
 
     def test_count_messages(self, counter):
@@ -81,14 +81,14 @@ class TestTokenCounter:
         long_text = "word " * 10000  # Very long
 
         # Short text should fit in any model
-        assert counter.fits_context(short_text, "gpt-4") is True
+        assert counter.fits_context(short_text, "gpt-5.5") is True
 
         # Long text might not fit in small models
-        fits_gpt4 = counter.fits_context(long_text, "gpt-4", max_tokens=8192)
+        fits_gpt55 = counter.fits_context(long_text, "gpt-5.5", max_tokens=8192)
         fits_gemini = counter.fits_context(long_text, "gemini-3-pro", max_tokens=1000000)
 
         # Gemini with 1M tokens should fit more
-        if not fits_gpt4:
+        if not fits_gpt55:
             assert fits_gemini is True
 
     def test_truncate_to_tokens(self, counter):
@@ -139,12 +139,12 @@ class TestTiktokenIntegration:
         """Test tiktoken provides accurate counts."""
         counter = TokenCounter()
 
-        # Known token counts for GPT-4
+        # Known token counts for GPT-5.5
         text = "Hello, world!"
-        tokens = counter.count(text, model="gpt-4")
+        tokens = counter.count(text, model="gpt-5.5")
 
         # tiktoken should give consistent results
-        tokens2 = counter.count(text, model="gpt-4")
+        tokens2 = counter.count(text, model="gpt-5.5")
         assert tokens == tokens2
 
     def test_tiktoken_different_encodings(self):
@@ -153,13 +153,13 @@ class TestTiktokenIntegration:
 
         text = "Hello, world! This is a test."
 
-        gpt4_tokens = counter.count(text, model="gpt-4")
-        gpt4o_tokens = counter.count(text, model="gpt-4o")
+        gpt55_tokens = counter.count(text, model="gpt-5.5")
+        gpt55_tokens = counter.count(text, model="gpt-5.5")
 
         # Different models may have different token counts
         # Both should be reasonable
-        assert gpt4_tokens > 0
-        assert gpt4o_tokens > 0
+        assert gpt55_tokens > 0
+        assert gpt55_tokens > 0
 
 
 class TestApproximateCounter:

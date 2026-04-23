@@ -146,7 +146,7 @@ export default function ForensicAuditPage() {
           user_agent: 'Mozilla/5.0...',
           correlation_id: 'corr-abc',
           workspace_id: 'ws-1',
-          details: { agents: ['claude', 'gpt4'], topic: 'AI Safety' },
+          details: { agents: ['claude', 'gpt-5.5'], topic: 'AI Safety' },
           reason: '',
           event_hash: 'def456...',
         },

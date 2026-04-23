@@ -67,7 +67,7 @@ class TestBatchItem:
         """BatchItem accepts custom values."""
         item = BatchItem(
             question="Test question",
-            agents="claude,gpt4",
+            agents="claude,gpt-5.5",
             rounds=5,
             consensus="unanimous",
             priority=10,
@@ -75,7 +75,7 @@ class TestBatchItem:
         )
 
         assert item.question == "Test question"
-        assert item.agents == "claude,gpt4"
+        assert item.agents == "claude,gpt-5.5"
         assert item.rounds == 5
         assert item.consensus == "unanimous"
         assert item.priority == 10
@@ -148,10 +148,10 @@ class TestBatchItemFromDict:
 
     def test_agents_as_list(self):
         """from_dict handles agents as list."""
-        data = {"question": "Test", "agents": ["claude", "gpt4", "gemini"]}
+        data = {"question": "Test", "agents": ["claude", "gpt-5.5", "gemini"]}
         item = BatchItem.from_dict(data)
 
-        assert item.agents == "claude,gpt4,gemini"
+        assert item.agents == "claude,gpt-5.5,gemini"
 
     def test_agents_as_structured_object(self):
         """from_dict serializes a structured agent spec into pipe format."""
@@ -169,12 +169,12 @@ class TestBatchItemFromDict:
             "question": "Test",
             "agents": [
                 "claude",
-                {"provider": "openai-api", "model": "gpt-4.1", "role": "critic"},
+                {"provider": "openai-api", "model": "gpt-5.5", "role": "critic"},
             ],
         }
         item = BatchItem.from_dict(data)
 
-        assert item.agents == "claude,openai-api|gpt-4.1||critic"
+        assert item.agents == "claude,openai-api|gpt-5.5||critic"
 
     def test_agents_object_missing_provider_raises(self):
         """Structured agent specs without a provider-like field are rejected."""

@@ -34,7 +34,7 @@ def sample_result():
         "consensus_reached": True,
         "final_answer": "The answer is 42.",
         "confidence": 0.85,
-        "participants": ["claude", "gpt4", "gemini"],
+        "participants": ["claude", "gpt-5.5", "gemini"],
         "task": "What is the meaning of life?",
     }
 

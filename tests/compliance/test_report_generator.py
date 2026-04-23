@@ -47,7 +47,7 @@ class MockDebateResult:
     rounds_used: int = 3
     winner: str | None = "proposal_a"
     final_answer: str | None = "This is the final answer from the debate"
-    agents: list[str] = field(default_factory=lambda: ["claude", "gpt4", "gemini"])
+    agents: list[str] = field(default_factory=lambda: ["claude", "gpt-5.5", "gemini"])
     history: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -61,10 +61,10 @@ def mock_debate_result():
         rounds_used=4,
         winner="claude",
         final_answer="Based on the analysis, the risk level is moderate with mitigation strategies recommended.",
-        agents=["claude", "gpt4", "gemini", "llama"],
+        agents=["claude", "gpt-5.5", "gemini", "llama"],
         history=[
             {"agent": "claude", "content": "Initial proposal...", "round": 1},
-            {"agent": "gpt4", "content": "Counter proposal...", "round": 1},
+            {"agent": "gpt-5.5", "content": "Counter proposal...", "round": 1},
             {"agent": "gemini", "content": "Alternative view...", "round": 2},
         ],
     )

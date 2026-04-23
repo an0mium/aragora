@@ -859,7 +859,7 @@ def mock_llm_agents():
         MockAgentResponse(
             content="Thoughtful response to the debate topic.", model="claude-3-opus"
         ),
-        MockAgentResponse(content="Counter-argument with evidence.", model="gpt-4"),
+        MockAgentResponse(content="Counter-argument with evidence.", model="gpt-5.5"),
         MockAgentResponse(content="Finding common ground.", model="gemini-pro"),
     ]
     response_idx = [0]
@@ -902,7 +902,7 @@ class DebateSetup:
 def basic_debate() -> DebateSetup:
     return DebateSetup(
         topic="Should we adopt microservices architecture?",
-        agents=["claude", "gpt4", "gemini"],
+        agents=["claude", "gpt-5.5", "gemini"],
         rounds=3,
     )
 
@@ -911,7 +911,7 @@ def basic_debate() -> DebateSetup:
 def extended_debate() -> DebateSetup:
     return DebateSetup(
         topic="Optimal approach to distributed system design?",
-        agents=["claude", "gpt4", "gemini", "mistral"],
+        agents=["claude", "gpt-5.5", "gemini", "mistral"],
         rounds=55,
         protocol="extended",
         consensus_threshold=0.8,

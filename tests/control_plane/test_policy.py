@@ -199,33 +199,33 @@ class TestControlPlanePolicy:
         """Test agent allowlist."""
         policy = ControlPlanePolicy(
             name="premium-agents",
-            agent_allowlist=["claude-3-opus", "gpt-4"],
+            agent_allowlist=["claude-3-opus", "gpt-5.5"],
         )
 
         assert policy.is_agent_allowed("claude-3-opus") is True
-        assert policy.is_agent_allowed("gpt-4") is True
-        assert policy.is_agent_allowed("gpt-3.5-turbo") is False
+        assert policy.is_agent_allowed("gpt-5.5") is True
+        assert policy.is_agent_allowed("gpt-5.5") is False
 
     def test_agent_blocklist(self):
         """Test agent blocklist."""
         policy = ControlPlanePolicy(
             name="block-deprecated",
-            agent_blocklist=["gpt-3.5-turbo", "claude-instant"],
+            agent_blocklist=["gpt-5.5", "claude-instant"],
         )
 
         assert policy.is_agent_allowed("claude-3-opus") is True
-        assert policy.is_agent_allowed("gpt-3.5-turbo") is False
+        assert policy.is_agent_allowed("gpt-5.5") is False
 
     def test_agent_blocklist_overrides_allowlist(self):
         """Test blocklist takes precedence."""
         policy = ControlPlanePolicy(
             name="mixed",
-            agent_allowlist=["claude-3-opus", "gpt-4"],
-            agent_blocklist=["gpt-4"],
+            agent_allowlist=["claude-3-opus", "gpt-5.5"],
+            agent_blocklist=["gpt-5.5"],
         )
 
         assert policy.is_agent_allowed("claude-3-opus") is True
-        assert policy.is_agent_allowed("gpt-4") is False
+        assert policy.is_agent_allowed("gpt-5.5") is False
 
     def test_region_constraint_integration(self):
         """Test region constraint within policy."""
@@ -344,13 +344,13 @@ class TestControlPlanePolicyManager:
         """Test evaluation denies agent not in allowlist."""
         policy = ControlPlanePolicy(
             name="premium-only",
-            agent_allowlist=["claude-3-opus", "gpt-4"],
+            agent_allowlist=["claude-3-opus", "gpt-5.5"],
         )
         manager.add_policy(policy)
 
         result = manager.evaluate_task_dispatch(
             task_type="test-task",
-            agent_id="gpt-3.5-turbo",
+            agent_id="gpt-5.5",
             region="us-east-1",
         )
 
@@ -622,7 +622,7 @@ class TestFactoryFunctions:
     def test_create_production_policy(self):
         """Test production policy factory."""
         policy = create_production_policy(
-            agent_allowlist=["claude-3-opus", "gpt-4"],
+            agent_allowlist=["claude-3-opus", "gpt-5.5"],
             allowed_regions=["us-east-1"],
         )
 
@@ -650,7 +650,7 @@ class TestFactoryFunctions:
         """Test agent tier policy factory."""
         policy = create_agent_tier_policy(
             tier="premium",
-            agents=["claude-3-opus", "gpt-4o"],
+            agents=["claude-3-opus", "gpt-5.5"],
             task_types=["high-value-task"],
         )
 
@@ -856,7 +856,7 @@ class TestPolicyConflictDetector:
             ),
             ControlPlanePolicy(
                 name="only-gpt",
-                agent_allowlist=["gpt-4"],
+                agent_allowlist=["gpt-5.5"],
             ),
         ]
 
@@ -1340,7 +1340,7 @@ class TestGovernanceIntegration:
         # Add production policy
         manager.add_policy(
             create_production_policy(
-                agent_allowlist=["claude-3-opus", "gpt-4"],
+                agent_allowlist=["claude-3-opus", "gpt-5.5"],
                 allowed_regions=["us-east-1", "us-west-2"],
             )
         )

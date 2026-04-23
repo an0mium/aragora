@@ -468,14 +468,14 @@ class TestQuotaFallbackMixin:
 
         class TestAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gpt-4o": "openai/gpt-4o",
+                "gpt-5.5": "openai/gpt-5.5",
                 "claude-3": "anthropic/claude-3-sonnet",
             }
             DEFAULT_FALLBACK_MODEL = "default/model"
-            model = "gpt-4o"
+            model = "gpt-5.5"
 
         agent = TestAgent()
-        assert agent.get_fallback_model() == "openai/gpt-4o"
+        assert agent.get_fallback_model() == "openai/gpt-5.5"
 
     def test_get_fallback_model_uses_default(self):
         """Should use default model when no mapping exists."""

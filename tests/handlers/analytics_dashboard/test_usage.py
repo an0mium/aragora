@@ -48,7 +48,7 @@ class FakeCostMetrics:
     """Fake cost metrics returned by analytics dashboard."""
 
     total_cost_usd: float = 42.50
-    cost_by_model: dict = field(default_factory=lambda: {"claude": 25.0, "gpt-4": 17.5})
+    cost_by_model: dict = field(default_factory=lambda: {"claude": 25.0, "gpt-5.5": 17.5})
     projected_monthly_cost: float = 85.0
 
     def to_dict(self) -> dict[str, Any]:
@@ -815,7 +815,7 @@ class TestProviderBreakdown:
     def test_provider_breakdown_happy_path(self, mock_tracker_cls, handler, mock_http):
         rows = [
             _make_provider_row("anthropic", "claude-opus-4", 5000, 2500, 0.50, 25),
-            _make_provider_row("openai", "gpt-4o", 3000, 1500, 0.30, 15),
+            _make_provider_row("openai", "gpt-5.5", 3000, 1500, 0.30, 15),
         ]
         mock_conn = _make_mock_connection(rows)
         mock_tracker = MagicMock()
@@ -1008,7 +1008,7 @@ class TestCostBreakdown:
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = {
             "total_cost_usd": "42.50",
-            "cost_by_agent": {"claude": "25.00", "gpt-4": "17.50"},
+            "cost_by_agent": {"claude": "25.00", "gpt-5.5": "17.50"},
         }
         mock_tracker.get_budget.return_value = None
         mock_get_tracker.return_value = mock_tracker

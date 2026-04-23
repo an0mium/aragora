@@ -115,7 +115,7 @@ EnterpriseProxy Usage:
             framework="openai",
             method="POST",
             path="/v1/chat/completions",
-            json={"model": "gpt-4", "messages": [...]},
+            json={"model": "gpt-5.5", "messages": [...]},
             tenant_id="tenant-123",
         )
 

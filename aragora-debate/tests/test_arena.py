@@ -77,7 +77,7 @@ class TestArenaRun:
     async def test_basic_debate(self):
         agents = [
             MockAgent("claude", proposal="Use microservices", vote_for="claude"),
-            MockAgent("gpt4", proposal="Use monolith", vote_for="claude"),
+            MockAgent("gpt-5.5", proposal="Use monolith", vote_for="claude"),
         ]
         arena = Arena(question="Architecture choice?", agents=agents)
         result = await arena.run()

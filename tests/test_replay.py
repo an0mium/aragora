@@ -920,7 +920,7 @@ class TestStreamReplayIntegration:
             debate_id="full-test",
             topic="Climate Change",
             proposal="Implement carbon tax",
-            agents=[{"id": "claude", "name": "Claude"}, {"id": "gpt", "name": "GPT-4"}],
+            agents=[{"id": "claude", "name": "Claude"}, {"id": "gpt", "name": "GPT-5.5"}],
             storage_dir=str(storage_dir),
         )
         recorder.start()

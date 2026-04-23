@@ -37,8 +37,8 @@ def consensus_event():
                 "Fixed window is simpler but less flexible",
                 "Sliding window has highest accuracy",
             ],
-            "participating_agents": ["claude", "gpt4", "gemini"],
-            "agreeing_agents": ["claude", "gpt4"],
+            "participating_agents": ["claude", "gpt-5.5", "gemini"],
+            "agreeing_agents": ["claude", "gpt-5.5"],
             "dissenting_agents": ["gemini"],
         },
     )
@@ -489,8 +489,8 @@ class TestDissentTracking:
                     "PostgreSQL handles high write loads with partitioning",
                     "Connection pooling is essential",
                 ],
-                "participating_agents": ["claude", "gpt4", "gemini", "mistral"],
-                "agreeing_agents": ["claude", "gpt4"],
+                "participating_agents": ["claude", "gpt-5.5", "gemini", "mistral"],
+                "agreeing_agents": ["claude", "gpt-5.5"],
                 "dissenting_agents": ["gemini", "mistral"],
                 "dissents": [
                     {
@@ -788,16 +788,16 @@ class TestAgreementRatio:
 
     def test_agreement_ratio_calculation(self):
         """Test agreement ratio is calculated correctly."""
-        agreeing = ["claude", "gpt4"]
-        participating = ["claude", "gpt4", "gemini", "mistral"]
+        agreeing = ["claude", "gpt-5.5"]
+        participating = ["claude", "gpt-5.5", "gemini", "mistral"]
 
         ratio = len(agreeing) / len(participating)
         assert ratio == 0.5
 
     def test_agreement_ratio_unanimous(self):
         """Test unanimous agreement ratio."""
-        agreeing = ["claude", "gpt4", "gemini"]
-        participating = ["claude", "gpt4", "gemini"]
+        agreeing = ["claude", "gpt-5.5", "gemini"]
+        participating = ["claude", "gpt-5.5", "gemini"]
 
         ratio = len(agreeing) / len(participating)
         assert ratio == 1.0

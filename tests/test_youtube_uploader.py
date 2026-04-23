@@ -559,7 +559,7 @@ class TestVideoStatusAndFactory:
         """Test create_video_metadata_from_debate factory function."""
         metadata = create_video_metadata_from_debate(
             task="Should AI be regulated?",
-            agents=["Claude", "GPT-4", "Gemini"],
+            agents=["Claude", "GPT-5.5", "Gemini"],
             consensus_reached=True,
             debate_id="debate_123",
         )

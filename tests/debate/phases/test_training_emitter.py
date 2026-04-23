@@ -127,7 +127,7 @@ class TestBuildSftRecord:
     def test_builds_sft_record(self):
         """Builds valid SFT record from debate."""
         ctx = MockDebateContext()
-        ctx.agents = [MockAgent("claude"), MockAgent("gpt4")]
+        ctx.agents = [MockAgent("claude"), MockAgent("gpt-5.5")]
         emitter = TrainingEmitter()
 
         record = emitter.build_sft_record(ctx)
@@ -179,7 +179,7 @@ class TestBuildDpoRecords:
         ctx.result.winner = "claude"
         ctx.result.messages = [
             MockMessage("claude", "Claude's detailed response " * 20),
-            MockMessage("gpt4", "GPT4's detailed response " * 20),
+            MockMessage("gpt-5.5", "GPT-5.5's detailed response " * 20),
         ]
         emitter = TrainingEmitter()
 
@@ -188,9 +188,9 @@ class TestBuildDpoRecords:
         assert len(records) == 1
         assert records[0]["type"] == "dpo"
         assert "Claude's" in records[0]["chosen"]
-        assert "GPT4's" in records[0]["rejected"]
+        assert "GPT-5.5's" in records[0]["rejected"]
         assert records[0]["metadata"]["winner"] == "claude"
-        assert records[0]["metadata"]["loser"] == "gpt4"
+        assert records[0]["metadata"]["loser"] == "gpt-5.5"
 
     def test_no_records_without_winner(self):
         """Returns empty list when no winner."""
@@ -218,7 +218,7 @@ class TestBuildDpoRecords:
         ctx.result.winner = "claude"
         ctx.result.messages = [
             MockMessage("claude", "Long response " * 20),
-            MockMessage("gpt4", "Short"),  # Too short
+            MockMessage("gpt-5.5", "Short"),  # Too short
         ]
         emitter = TrainingEmitter(min_response_length=50)
 
@@ -236,9 +236,9 @@ class TestBuildCalibrationRecords:
         ctx.result.winner = "claude"
         ctx.result.votes = [
             MockVote("agent1", "claude", 0.9),
-            MockVote("agent2", "gpt4", 0.7),
+            MockVote("agent2", "gpt-5.5", 0.7),
         ]
-        ctx.choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
+        ctx.choice_mapping = {"claude": "claude", "gpt-5.5": "gpt-5.5"}
         emitter = TrainingEmitter()
 
         records = emitter.build_calibration_records(ctx)
@@ -353,7 +353,7 @@ class TestEmitTrainingData:
         ctx.result.winner = "claude"
         ctx.result.messages = [
             MockMessage("claude", "Winner response " * 20),
-            MockMessage("gpt4", "Loser response " * 20),
+            MockMessage("gpt-5.5", "Loser response " * 20),
         ]
         ctx.result.votes = [MockVote("agent1", "claude", 0.9)]
         ctx.choice_mapping = {"claude": "claude"}

@@ -104,7 +104,7 @@ class TestGetAuditPresetTool:
             }
         ]
         mock_preset.consensus_threshold = 0.8
-        mock_preset.agents = ["claude", "gpt4"]
+        mock_preset.agents = ["claude", "gpt-5.5"]
         mock_preset.parameters = {}
         mock_registry.get_preset.return_value = mock_preset
 

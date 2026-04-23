@@ -53,7 +53,7 @@ def manager(temp_db):
 @pytest.fixture
 def sample_participants():
     """Sample participant list."""
-    return ["claude", "gpt4", "gemini", "grok"]
+    return ["claude", "gpt-5.5", "gemini", "grok"]
 
 
 class TestTournamentStanding:
@@ -122,12 +122,12 @@ class TestTournamentManagerValidation:
     def test_validate_duplicate_participants(self, manager):
         """Duplicate participants should raise ValidationError."""
         with pytest.raises(ValidationError, match="Duplicate participant"):
-            manager._validate_participants(["claude", "gpt4", "claude"])
+            manager._validate_participants(["claude", "gpt-5.5", "claude"])
 
     def test_validate_invalid_participant_name(self, manager):
         """Invalid participant name should raise ValidationError."""
         with pytest.raises(ValidationError, match="Invalid participant name"):
-            manager._validate_participants(["claude", "gpt 4"])  # Space not allowed
+            manager._validate_participants(["claude", "gpt 5.5"])  # Space not allowed
 
     def test_validate_empty_participant_name(self, manager):
         """Empty participant name should raise ValidationError."""

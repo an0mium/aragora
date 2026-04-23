@@ -100,7 +100,7 @@ class TestActiveDeliberations:
             {
                 "task": "Test deliberation",
                 "status": "active",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "current_round": 2,
             },
         )
@@ -180,7 +180,7 @@ class TestGetDeliberation:
             {
                 "task": "Specific task",
                 "status": "consensus_forming",
-                "agents": ["claude", "gpt4", "gemini"],
+                "agents": ["claude", "gpt-5.5", "gemini"],
                 "current_round": 3,
             },
         )

@@ -113,7 +113,7 @@ class TestAgentLifecycle:
         for i, (model, caps) in enumerate(
             [
                 ("claude-3", ["debate", "critique"]),
-                ("gpt-4", ["code", "analysis"]),
+                ("gpt-5.5", ["code", "analysis"]),
                 ("gemini-pro", ["research", "summarize"]),
             ]
         ):
@@ -675,7 +675,7 @@ class TestStatistics:
         await coordinator.register_agent(
             agent_id="stats-agent-2",
             capabilities=["research"],
-            model="gpt-4",
+            model="gpt-5.5",
             provider="openai",
         )
 
@@ -789,7 +789,7 @@ class TestIntegrationWorkflows:
         await coordinator.register_agent(
             agent_id="debater-gpt",
             capabilities=["debate", "analysis"],
-            model="gpt-4",
+            model="gpt-5.5",
             provider="openai",
         )
 

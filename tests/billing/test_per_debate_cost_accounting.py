@@ -70,7 +70,7 @@ def mock_gpt_agent():
     agent = MagicMock()
     agent.name = "gpt"
     agent.provider = "openai"
-    agent.model = "gpt-4o"
+    agent.model = "gpt-5.5"
     agent.last_tokens_in = 800
     agent.last_tokens_out = 400
     agent.generate = AsyncMock(return_value="GPT proposal response")
@@ -386,7 +386,7 @@ class TestReceiptCostSummaryIntegration:
             provider="openai",
             tokens_in=1500,
             tokens_out=600,
-            model="gpt-4o",
+            model="gpt-5.5",
             round_number=1,
             operation="critique",
         )
@@ -448,7 +448,7 @@ class TestReceiptCostSummaryIntegration:
         # Verify model_usage
         model_usage = receipt.cost_summary["model_usage"]
         assert "anthropic/claude-sonnet-4" in model_usage
-        assert "openai/gpt-4o" in model_usage
+        assert "openai/gpt-5.5" in model_usage
 
         # Round-trip preservation
         receipt_dict = receipt.to_dict()
@@ -702,7 +702,7 @@ class TestCostPropagationToResult:
             provider="openai",
             tokens_in=1500,
             tokens_out=600,
-            model="gpt-4o",
+            model="gpt-5.5",
             round_number=1,
             operation="critique",
         )

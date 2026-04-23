@@ -111,7 +111,7 @@ class TestSelectProposers:
         ctx = MockDebateContext()
         ctx.agents = [
             MockAgent("claude", "proposer"),
-            MockAgent("gpt4", "critic"),
+            MockAgent("gpt-5.5", "critic"),
             MockAgent("gemini", "proposer"),
         ]
 
@@ -128,7 +128,7 @@ class TestSelectProposers:
         ctx = MockDebateContext()
         ctx.agents = [
             MockAgent("claude", "critic"),
-            MockAgent("gpt4", "judge"),
+            MockAgent("gpt-5.5", "judge"),
         ]
 
         init = ContextInitializer()
@@ -428,7 +428,7 @@ class TestInitialize:
     async def test_selects_proposers(self):
         """Selects proposers during initialization."""
         ctx = MockDebateContext()
-        ctx.agents = [MockAgent("claude", "proposer"), MockAgent("gpt4", "critic")]
+        ctx.agents = [MockAgent("claude", "proposer"), MockAgent("gpt-5.5", "critic")]
 
         init = ContextInitializer()
 
@@ -1536,7 +1536,7 @@ class TestStructuredDissentInjection:
                     {
                         "content": "Consider event-driven architecture instead",
                         "confidence": 0.7,
-                        "agent_id": "gpt4",
+                        "agent_id": "gpt-5.5",
                         "reasoning": "Better scalability for this pattern",
                         "acknowledged": True,
                     }
@@ -1627,7 +1627,7 @@ class TestStructuredDissentInjection:
                     {
                         "content": "Open issue still debated",
                         "confidence": 0.6,
-                        "agent_id": "gpt4",
+                        "agent_id": "gpt-5.5",
                         "acknowledged": False,
                     },
                 ],
@@ -1663,7 +1663,7 @@ class TestStructuredDissentInjection:
                     {
                         "content": "Edge case when input is empty",
                         "confidence": 0.6,
-                        "agent_id": "gpt4",
+                        "agent_id": "gpt-5.5",
                     }
                 ],
             },

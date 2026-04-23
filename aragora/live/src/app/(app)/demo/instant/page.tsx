@@ -33,7 +33,7 @@ interface DemoDebate {
 const DEMO_DEBATE: DemoDebate = {
   id: 'demo_showcase_001',
   topic: 'Should our startup adopt AI-powered code review as a mandatory step in our CI/CD pipeline?',
-  agents: ['claude-sonnet', 'gpt-4o', 'gemini-pro', 'mistral-large', 'grok-2'],
+  agents: ['claude-sonnet', 'gpt-5.5', 'gemini-pro', 'mistral-large', 'grok-2'],
   rounds: 2,
   consensus_reached: true,
   confidence: 0.82,
@@ -52,8 +52,8 @@ const DEMO_DEBATE: DemoDebate = {
     },
     {
       type: 'proposal',
-      agent: 'gpt-4o',
-      model: 'GPT-4o',
+      agent: 'gpt-5.5',
+      model: 'GPT-5.5',
       content:
         'Mandatory is too strong. AI review tools have 15-25% false positive rates on complex codebases. Making it mandatory creates alert fatigue and slows velocity. Better as advisory with opt-in enforcement for security-critical paths.',
       round: 1,
@@ -102,8 +102,8 @@ const DEMO_DEBATE: DemoDebate = {
     },
     {
       type: 'vote',
-      agent: 'gpt-4o',
-      model: 'GPT-4o',
+      agent: 'gpt-5.5',
+      model: 'GPT-5.5',
       content: 'Agreed. Tiered enforcement addresses my velocity concern while maintaining security coverage.',
       round: 2,
       timestamp: 11000,
@@ -149,7 +149,7 @@ const DEMO_DEBATE: DemoDebate = {
 
 const AGENT_COLORS: Record<string, string> = {
   'claude-sonnet': '#b794f6',
-  'gpt-4o': '#68d391',
+  'gpt-5.5': '#68d391',
   'gemini-pro': '#63b3ed',
   'mistral-large': '#f6ad55',
   'grok-2': '#fc8181',
@@ -158,7 +158,7 @@ const AGENT_COLORS: Record<string, string> = {
 
 const AGENT_ICONS: Record<string, string> = {
   'claude-sonnet': '\u2726',
-  'gpt-4o': '\u25C6',
+  'gpt-5.5': '\u25C6',
   'gemini-pro': '\u25C8',
   'mistral-large': '\u25B2',
   'grok-2': '\u2605',

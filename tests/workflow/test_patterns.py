@@ -85,7 +85,7 @@ class TestPatternConfig:
         config = PatternConfig(name="Test Pattern")
 
         assert config.name == "Test Pattern"
-        assert config.agents == ["claude", "gpt4"]
+        assert config.agents == ["claude", "gpt-5.5"]
         assert config.category == WorkflowCategory.GENERAL
         assert config.output_format == "json"
 
@@ -127,7 +127,7 @@ class TestPatternRegistry:
         pattern = create_pattern(
             PatternType.HIVE_MIND,
             name="Test Hive Mind",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test task",
         )
 
@@ -139,7 +139,7 @@ class TestPatternRegistry:
         pattern = create_pattern(
             PatternType.SEQUENTIAL,
             name="Test Sequential",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
         )
 
         assert isinstance(pattern, SequentialPattern)
@@ -162,7 +162,7 @@ class TestHiveMindPattern:
         """Test creating a basic hive-mind workflow."""
         workflow = HiveMindPattern.create(
             name="Test Hive Mind",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             task="Analyze this document",
         )
 
@@ -174,7 +174,7 @@ class TestHiveMindPattern:
         """Test that workflow has steps for each agent."""
         workflow = HiveMindPattern.create(
             name="Multi-Agent Analysis",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test task",
         )
 
@@ -182,7 +182,7 @@ class TestHiveMindPattern:
         agent_steps = [
             s
             for s in workflow.steps
-            if "agent" in s.step_type or "claude" in s.id or "gpt4" in s.id
+            if "agent" in s.step_type or "claude" in s.id or "gpt-5.5" in s.id
         ]
         assert len(agent_steps) >= 2
 
@@ -190,7 +190,7 @@ class TestHiveMindPattern:
         """Test that workflow has a consensus merge step."""
         workflow = HiveMindPattern.create(
             name="Consensus Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
         )
 
@@ -203,7 +203,7 @@ class TestHiveMindPattern:
         """Test that workflow has a synthesis step."""
         workflow = HiveMindPattern.create(
             name="Synthesis Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
         )
 
@@ -214,7 +214,7 @@ class TestHiveMindPattern:
         """Test that workflow metadata contains pattern info."""
         workflow = HiveMindPattern.create(
             name="Metadata Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
             consensus_mode="weighted",
         )
@@ -237,7 +237,7 @@ class TestHiveMindPattern:
         """Test custom consensus threshold configuration."""
         pattern = HiveMindPattern(
             name="Threshold Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
             consensus_threshold=0.9,
         )
@@ -260,7 +260,7 @@ class TestSequentialPattern:
         """Test creating a basic sequential workflow."""
         workflow = SequentialPattern.create(
             name="Test Sequential",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Analyze this",
         )
 
@@ -271,7 +271,7 @@ class TestSequentialPattern:
         """Test that steps are connected sequentially."""
         workflow = SequentialPattern.create(
             name="Sequential Test",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             task="Test",
         )
 
@@ -283,7 +283,7 @@ class TestSequentialPattern:
         """Test that workflow has transition rules."""
         workflow = SequentialPattern.create(
             name="Transition Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
         )
 
@@ -293,10 +293,10 @@ class TestSequentialPattern:
         """Test using custom per-agent prompts."""
         workflow = SequentialPattern.create(
             name="Custom Prompts",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             prompts={
                 "claude": "Extract facts from: {input}",
-                "gpt4": "Analyze facts: {step.claude}",
+                "gpt-5.5": "Analyze facts: {step.claude}",
             },
         )
 
@@ -309,7 +309,7 @@ class TestSequentialPattern:
             name="Staged Pipeline",
             stages=[
                 {"agent": "claude", "role": "analyzer", "focus": "structure"},
-                {"agent": "gpt4", "role": "reviewer", "focus": "quality"},
+                {"agent": "gpt-5.5", "role": "reviewer", "focus": "quality"},
             ],
             task="Review this document",
         )
@@ -321,7 +321,7 @@ class TestSequentialPattern:
         """Test that workflow metadata contains pattern info."""
         workflow = SequentialPattern.create(
             name="Metadata Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
         )
 
@@ -351,7 +351,7 @@ class TestMapReducePattern:
         """Test creating a basic map-reduce workflow."""
         workflow = MapReducePattern.create(
             name="Test MapReduce",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Process these items",
         )
 
@@ -410,7 +410,7 @@ class TestHierarchicalPattern:
         """Test creating a basic hierarchical workflow."""
         workflow = HierarchicalPattern.create(
             name="Test Hierarchical",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Manage this project",
         )
 
@@ -421,7 +421,7 @@ class TestHierarchicalPattern:
         """Test that workflow has a manager/coordinator step."""
         workflow = HierarchicalPattern.create(
             name="Manager Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
         )
 
@@ -458,7 +458,7 @@ class TestReviewCyclePattern:
         """Test creating a basic review cycle workflow."""
         workflow = ReviewCyclePattern.create(
             name="Test Review Cycle",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Review and refine this",
         )
 
@@ -510,7 +510,7 @@ class TestDialecticPattern:
         """Test creating a basic dialectic workflow."""
         workflow = DialecticPattern.create(
             name="Test Dialectic",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Debate this topic",
         )
 
@@ -521,7 +521,7 @@ class TestDialecticPattern:
         """Test that workflow has thesis, antithesis, synthesis steps."""
         workflow = DialecticPattern.create(
             name="Dialectic Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
         )
 
@@ -569,7 +569,7 @@ class TestVisualLayout:
         """Test that hive-mind pattern has visual positions for steps."""
         workflow = HiveMindPattern.create(
             name="Visual Test",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             task="Test",
         )
 
@@ -581,7 +581,7 @@ class TestVisualLayout:
         """Test that sequential pattern has visual positions."""
         workflow = SequentialPattern.create(
             name="Visual Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
         )
 
@@ -593,7 +593,7 @@ class TestVisualLayout:
         """Test that agent steps have colors assigned."""
         workflow = HiveMindPattern.create(
             name="Color Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
         )
 
@@ -626,7 +626,7 @@ class TestWorkflowValidation:
         """Test that generated hive-mind workflow is valid."""
         workflow = HiveMindPattern.create(
             name="Valid Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
         )
 
@@ -638,7 +638,7 @@ class TestWorkflowValidation:
         """Test that generated sequential workflow is valid."""
         workflow = SequentialPattern.create(
             name="Valid Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             task="Test",
         )
 

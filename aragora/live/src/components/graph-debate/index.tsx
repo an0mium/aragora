@@ -183,7 +183,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           task: newDebateTask,
-          agents: ['claude', 'gpt4'],
+          agents: ['claude', 'gpt-5.5'],
           max_rounds: 5,
         }),
       });

@@ -120,7 +120,7 @@ class TestTransformFunctions:
             "task": "Test question",
             "status": "completed",
             "messages": [],
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "rounds": 3,
             "consensus_reached": True,
             "confidence": 0.85,
@@ -143,10 +143,10 @@ class TestTransformFunctions:
             "status": "running",
             "messages": [
                 {"role": "agent", "agent": "claude", "content": "Yes", "round": 1},
-                {"role": "agent", "agent": "gpt4", "content": "No", "round": 1},
+                {"role": "agent", "agent": "gpt-5.5", "content": "No", "round": 1},
                 {"role": "agent", "agent": "claude", "content": "Still yes", "round": 2},
             ],
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "rounds": 3,
         }
 
@@ -163,10 +163,10 @@ class TestTransformFunctions:
             "task": "Test",
             "status": "completed",
             "messages": [],
-            "agents": ["claude", "gpt4"],
+            "agents": ["claude", "gpt-5.5"],
             "consensus_reached": True,
             "final_answer": "The answer is 42",
-            "agreeing_agents": ["claude", "gpt4"],
+            "agreeing_agents": ["claude", "gpt-5.5"],
             "confidence": 0.95,
             "consensus_method": "unanimous",
         }
@@ -200,7 +200,7 @@ class TestTransformFunctions:
     def test_transform_agent_object(self):
         """Test agent transformation from object."""
         agent = MagicMock()
-        agent.name = "gpt4"
+        agent.name = "gpt-5.5"
         agent.elo = 1550
         agent.wins = 8
         agent.losses = 6
@@ -209,8 +209,8 @@ class TestTransformFunctions:
 
         result = _transform_agent(agent)
 
-        assert result["id"] == "gpt4"
-        assert result["name"] == "gpt4"
+        assert result["id"] == "gpt-5.5"
+        assert result["name"] == "gpt-5.5"
         assert result["elo"] == 1550
         assert result["stats"]["totalGames"] == 17
 
@@ -391,7 +391,7 @@ class TestQueryResolvers:
     async def test_resolve_leaderboard(self, mock_context):
         """Test resolving the leaderboard."""
         mock_ratings = []
-        for name, elo in [("claude", 1600), ("gpt4", 1550), ("gemini", 1500)]:
+        for name, elo in [("claude", 1600), ("gpt-5.5", 1550), ("gemini", 1500)]:
             r = MagicMock()
             r.name = name
             r.elo = elo

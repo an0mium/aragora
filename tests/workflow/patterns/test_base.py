@@ -207,9 +207,9 @@ class TestPatternConfig:
         assert config.description == ""
 
     def test_default_agents(self):
-        """Default agents are ['claude', 'gpt4']."""
+        """Default agents are ['claude', 'gpt-5.5']."""
         config = PatternConfig(name="test")
-        assert config.agents == ["claude", "gpt4"]
+        assert config.agents == ["claude", "gpt-5.5"]
 
     def test_default_task(self):
         """Default task is empty string."""
@@ -318,14 +318,14 @@ class TestWorkflowPatternInit:
     """Tests for WorkflowPattern.__init__ through ConcretePattern."""
 
     def test_default_agents(self):
-        """Default agents are ['claude', 'gpt4'] when None is passed."""
+        """Default agents are ['claude', 'gpt-5.5'] when None is passed."""
         pattern = ConcretePattern(name="Test")
-        assert pattern.agents == ["claude", "gpt4"]
+        assert pattern.agents == ["claude", "gpt-5.5"]
 
     def test_explicit_none_agents_uses_default(self):
         """Passing agents=None explicitly uses the default list."""
         pattern = ConcretePattern(name="Test", agents=None)
-        assert pattern.agents == ["claude", "gpt4"]
+        assert pattern.agents == ["claude", "gpt-5.5"]
 
     def test_custom_agents(self):
         """Custom agents list is stored correctly."""
@@ -613,7 +613,7 @@ class TestCreateDebateStep:
             step_id="debate_1",
             name="Debate Step",
             topic="Best architecture",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             position=Position(x=200, y=100),
         )
         defaults.update(kwargs)
@@ -766,13 +766,13 @@ class TestGetAgentColor:
         """claude returns purple (#7c3aed)."""
         assert self._get_color("claude") == "#7c3aed"
 
-    def test_gpt4_color(self):
-        """gpt4 returns green (#10b981)."""
-        assert self._get_color("gpt4") == "#10b981"
+    def test_gpt55_color(self):
+        """gpt-5.5 returns green (#10b981)."""
+        assert self._get_color("gpt-5.5") == "#10b981"
 
     def test_gpt_4_color(self):
-        """gpt-4 (with hyphen) also returns green (#10b981)."""
-        assert self._get_color("gpt-4") == "#10b981"
+        """gpt-5.5 (with hyphen) also returns green (#10b981)."""
+        assert self._get_color("gpt-5.5") == "#10b981"
 
     def test_gemini_color(self):
         """gemini returns blue (#3b82f6)."""
@@ -801,7 +801,7 @@ class TestGetAgentColor:
     def test_case_insensitive(self):
         """Agent type lookup is case-insensitive."""
         assert self._get_color("Claude") == "#7c3aed"
-        assert self._get_color("GPT4") == "#10b981"
+        assert self._get_color("GPT-5.5") == "#10b981"
         assert self._get_color("GEMINI") == "#3b82f6"
 
 

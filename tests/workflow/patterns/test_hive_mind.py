@@ -33,7 +33,7 @@ class TestHiveMindPatternInit:
 
         pattern = HiveMindPattern(name="Test Hive Mind")
         assert pattern.name == "Test Hive Mind"
-        assert pattern.agents == ["claude", "gpt4"]
+        assert pattern.agents == ["claude", "gpt-5.5"]
         assert pattern.task == ""
         assert pattern.consensus_mode == "synthesis"
         assert pattern.consensus_threshold == 0.7
@@ -117,7 +117,7 @@ class TestHiveMindPatternInit:
         """Test initialization with many agents."""
         from aragora.workflow.patterns.hive_mind import HiveMindPattern
 
-        agents = ["claude", "gpt4", "gemini", "mistral", "grok", "deepseek"]
+        agents = ["claude", "gpt-5.5", "gemini", "mistral", "grok", "deepseek"]
         pattern = HiveMindPattern(name="Many", agents=agents)
         assert pattern.agents == agents
         assert len(pattern.agents) == 6
@@ -165,7 +165,7 @@ class TestHiveMindWorkflowGeneration:
 
     def test_step_count_three_agents(self):
         """Test workflow has correct step count with 3 agents."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         # 3 agents + 1 merge + 1 synthesis = 5 steps
         assert len(wf.steps) == 5
 
@@ -177,17 +177,17 @@ class TestHiveMindWorkflowGeneration:
 
     def test_step_count_five_agents(self):
         """Test workflow has correct step count with 5 agents."""
-        agents = ["claude", "gpt4", "gemini", "mistral", "grok"]
+        agents = ["claude", "gpt-5.5", "gemini", "mistral", "grok"]
         wf = self._create_workflow(agents=agents)
         # 5 agents + 1 merge + 1 synthesis = 7 steps
         assert len(wf.steps) == 7
 
     def test_agent_steps_created(self):
         """Test that all agent steps are created with correct IDs."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         step_ids = [s.id for s in wf.steps]
         assert "agent_claude_0" in step_ids
-        assert "agent_gpt4_1" in step_ids
+        assert "agent_gpt_5_5_1" in step_ids
         assert "agent_gemini_2" in step_ids
 
     def test_merge_step_exists(self):
@@ -204,7 +204,7 @@ class TestHiveMindWorkflowGeneration:
 
     def test_entry_step_is_first_agent(self):
         """Test that entry step is the first agent step."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         assert wf.entry_step == "agent_claude_0"
 
     def test_entry_step_with_different_agents(self):
@@ -214,7 +214,7 @@ class TestHiveMindWorkflowGeneration:
 
     def test_workflow_description(self):
         """Test workflow description includes agent count."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         assert "3" in wf.description
         assert "Hive Mind" in wf.description
 
@@ -238,14 +238,14 @@ class TestHiveMindStepConfig:
 
     def test_agent_step_type(self):
         """Test agent steps have 'agent' step_type."""
-        wf = self._create_workflow(agents=["claude", "gpt4"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5"])
         agent_steps = [s for s in wf.steps if s.id.startswith("agent_")]
         for step in agent_steps:
             assert step.step_type == "agent"
 
     def test_agent_step_config_has_agent_type(self):
         """Test agent step config includes agent_type."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         step = next(s for s in wf.steps if s.id == "agent_gemini_2")
         assert step.config["agent_type"] == "gemini"
 
@@ -278,9 +278,9 @@ class TestHiveMindStepConfig:
 
     def test_merge_step_inputs_list(self):
         """Test merge step inputs list matches agent step IDs."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         step = next(s for s in wf.steps if s.id == "consensus_merge")
-        expected_inputs = ["agent_claude_0", "agent_gpt4_1", "agent_gemini_2"]
+        expected_inputs = ["agent_claude_0", "agent_gpt_5_5_1", "agent_gemini_2"]
         assert step.config["inputs"] == expected_inputs
 
     def test_synthesis_step_type(self):
@@ -291,7 +291,7 @@ class TestHiveMindStepConfig:
 
     def test_synthesis_step_uses_first_agent(self):
         """Test synthesis step uses the first agent from the list."""
-        wf = self._create_workflow(agents=["gemini", "claude", "gpt4"])
+        wf = self._create_workflow(agents=["gemini", "claude", "gpt-5.5"])
         step = next(s for s in wf.steps if s.id == "synthesis")
         assert step.config["agent_type"] == "gemini"
 
@@ -336,7 +336,7 @@ class TestHiveMindTransitions:
 
     def test_transition_count_three_agents(self):
         """Test transition count with 3 agents: 3 + 1 = 4."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         assert len(wf.transitions) == 4
 
     def test_transition_count_single_agent(self):
@@ -346,17 +346,17 @@ class TestHiveMindTransitions:
 
     def test_transition_count_five_agents(self):
         """Test transition count with 5 agents: 5 + 1 = 6."""
-        agents = ["claude", "gpt4", "gemini", "mistral", "grok"]
+        agents = ["claude", "gpt-5.5", "gemini", "mistral", "grok"]
         wf = self._create_workflow(agents=agents)
         assert len(wf.transitions) == 6
 
     def test_agent_transitions_to_merge(self):
         """Test each agent step has a transition to consensus_merge."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         agent_to_merge = [t for t in wf.transitions if t.to_step == "consensus_merge"]
         assert len(agent_to_merge) == 3
         from_steps = {t.from_step for t in agent_to_merge}
-        assert from_steps == {"agent_claude_0", "agent_gpt4_1", "agent_gemini_2"}
+        assert from_steps == {"agent_claude_0", "agent_gpt_5_5_1", "agent_gemini_2"}
 
     def test_merge_to_synthesis_transition(self):
         """Test merge step transitions to synthesis."""
@@ -373,7 +373,7 @@ class TestHiveMindTransitions:
 
     def test_transitions_have_ids(self):
         """Test all transitions have unique IDs."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         ids = [t.id for t in wf.transitions]
         assert len(ids) == len(set(ids))
         for tid in ids:
@@ -399,7 +399,7 @@ class TestHiveMindNextSteps:
 
     def test_agent_next_steps_point_to_merge(self):
         """Test each agent step's next_steps is ['consensus_merge']."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         for step in wf.steps:
             if step.id.startswith("agent_"):
                 assert step.next_steps == ["consensus_merge"], (
@@ -439,7 +439,7 @@ class TestHiveMindVisualMetadata:
 
     def test_all_steps_have_visual(self):
         """Test that all steps have visual metadata."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         for step in wf.steps:
             assert step.visual is not None
             assert step.visual.position is not None
@@ -448,7 +448,7 @@ class TestHiveMindVisualMetadata:
         """Test agent steps have AGENT category."""
         from aragora.workflow.types import NodeCategory
 
-        wf = self._create_workflow(agents=["claude", "gpt4"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5"])
         for step in wf.steps:
             if step.id.startswith("agent_"):
                 assert step.visual.category == NodeCategory.AGENT
@@ -471,7 +471,7 @@ class TestHiveMindVisualMetadata:
 
     def test_agent_positions_stacked_vertically(self):
         """Test agent steps are positioned with increasing Y coordinates."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         agent_steps = [s for s in wf.steps if s.id.startswith("agent_")]
         y_positions = [s.visual.position.y for s in agent_steps]
         # Agent steps should be stacked vertically (increasing Y)
@@ -482,14 +482,14 @@ class TestHiveMindVisualMetadata:
 
     def test_agent_positions_same_x(self):
         """Test all agent steps share the same X position."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         agent_steps = [s for s in wf.steps if s.id.startswith("agent_")]
         x_positions = {s.visual.position.x for s in agent_steps}
         assert len(x_positions) == 1
 
     def test_merge_position_centered_vertically(self):
         """Test merge step is centered vertically relative to agents."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
         agent_steps = [s for s in wf.steps if s.id.startswith("agent_")]
         merge_step = next(s for s in wf.steps if s.id == "consensus_merge")
 
@@ -501,7 +501,7 @@ class TestHiveMindVisualMetadata:
 
     def test_merge_position_right_of_agents(self):
         """Test merge step is positioned to the right of agent steps."""
-        wf = self._create_workflow(agents=["claude", "gpt4"])
+        wf = self._create_workflow(agents=["claude", "gpt-5.5"])
         agent_steps = [s for s in wf.steps if s.id.startswith("agent_")]
         merge_step = next(s for s in wf.steps if s.id == "consensus_merge")
 
@@ -566,8 +566,8 @@ class TestHiveMindTagsAndMetadata:
 
     def test_metadata_agents(self):
         """Test metadata includes agents list."""
-        wf = self._create_workflow(agents=["claude", "gpt4", "gemini"])
-        assert wf.metadata["agents"] == ["claude", "gpt4", "gemini"]
+        wf = self._create_workflow(agents=["claude", "gpt-5.5", "gemini"])
+        assert wf.metadata["agents"] == ["claude", "gpt-5.5", "gemini"]
 
     def test_metadata_consensus_mode(self):
         """Test metadata includes consensus_mode."""
@@ -645,13 +645,13 @@ class TestHiveMindFactory:
 
         wf = HiveMindPattern.create(
             name="Factory Test",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             consensus_mode="majority",
             consensus_threshold=0.8,
         )
         assert isinstance(wf, WorkflowDefinition)
         assert wf.metadata["pattern"] == "hive_mind"
-        assert wf.metadata["agents"] == ["claude", "gpt4", "gemini"]
+        assert wf.metadata["agents"] == ["claude", "gpt-5.5", "gemini"]
         assert wf.metadata["consensus_mode"] == "majority"
         assert wf.metadata["consensus_threshold"] == 0.8
 
@@ -661,7 +661,7 @@ class TestHiveMindFactory:
 
         wf = HiveMindPattern.create(
             name="Factory Count",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
         )
         # 2 agents + merge + synthesis = 4
         assert len(wf.steps) == 4
@@ -694,7 +694,7 @@ class TestHiveMindIntegration:
 
         wf = HiveMindPattern.create(
             name="Three Agent Analysis",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             task="Identify contract risks",
             consensus_mode="synthesis",
             consensus_threshold=0.7,
@@ -720,13 +720,13 @@ class TestHiveMindIntegration:
 
         wf = HiveMindPattern.create(
             name="Order Test",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
         )
 
         step_ids = [s.id for s in wf.steps]
         # Agents first, then merge, then synthesis
         assert step_ids.index("agent_claude_0") < step_ids.index("consensus_merge")
-        assert step_ids.index("agent_gpt4_1") < step_ids.index("consensus_merge")
+        assert step_ids.index("agent_gpt_5_5_1") < step_ids.index("consensus_merge")
         assert step_ids.index("consensus_merge") < step_ids.index("synthesis")
 
     def test_all_agent_names_are_titled(self):
@@ -735,7 +735,7 @@ class TestHiveMindIntegration:
 
         wf = HiveMindPattern.create(
             name="Name Test",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
         )
 
         agent_steps = [s for s in wf.steps if s.id.startswith("agent_")]

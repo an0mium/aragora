@@ -106,7 +106,7 @@ def _build_scenarios() -> list[Scenario]:
             expected_allow=True,
             agents=(
                 ("claude", "claude-opus-4-1", "anthropic-api"),
-                ("gpt", "gpt-4.1", "openai-api"),
+                ("gpt", "gpt-5.5", "openai-api"),
                 ("gemini", "gemini-3.1-pro-preview", "gemini"),
             ),
         ),
@@ -116,7 +116,7 @@ def _build_scenarios() -> list[Scenario]:
             expected_allow=True,
             agents=(
                 ("claude", "claude-opus-4-1", "anthropic-api"),
-                ("gpt", "gpt-4.1", "openai-api"),
+                ("gpt", "gpt-5.5", "openai-api"),
             ),
         ),
         Scenario(
@@ -125,7 +125,7 @@ def _build_scenarios() -> list[Scenario]:
             expected_allow=True,
             agents=(
                 ("claude", "claude-opus-4-1", "anthropic-api"),
-                ("gpt", "gpt-4.1", "openai-api"),
+                ("gpt", "gpt-5.5", "openai-api"),
                 ("gemini", "gemini-3.1-pro-preview", "gemini"),
                 ("grok", "grok-4-latest", "grok"),
             ),
@@ -136,7 +136,7 @@ def _build_scenarios() -> list[Scenario]:
             expected_allow=True,
             agents=(
                 ("claude", "claude-opus-4-1", "anthropic-api"),
-                ("gpt", "gpt-4.1", "openai-api"),
+                ("gpt", "gpt-5.5", "openai-api"),
                 ("gemini", "gemini-3.1-pro-preview", "gemini"),
             ),
             critique_severity=0.65,
@@ -146,7 +146,7 @@ def _build_scenarios() -> list[Scenario]:
             description="Mixed frontier + open-weight providers with clean context.",
             expected_allow=True,
             agents=(
-                ("gpt", "gpt-4.1", "openai-api"),
+                ("gpt", "gpt-5.5", "openai-api"),
                 ("llama", "meta-llama/llama-3.3-70b-instruct", "openrouter"),
                 ("gemini", "gemini-3.1-pro-preview", "gemini"),
             ),
@@ -156,8 +156,8 @@ def _build_scenarios() -> list[Scenario]:
             description="Homogeneous single-provider cluster.",
             expected_allow=False,
             agents=(
-                ("gpt1", "gpt-4.1", "openai-api"),
-                ("gpt2", "gpt-4o", "openai-api"),
+                ("gpt1", "gpt-5.5", "openai-api"),
+                ("gpt2", "gpt-5.5", "openai-api"),
                 ("gpt3", "o3-mini", "openai-api"),
             ),
             confidence=0.93,
@@ -190,7 +190,7 @@ def _build_scenarios() -> list[Scenario]:
             expected_allow=False,
             agents=(
                 ("claude", "claude-opus-4-1", "anthropic-api"),
-                ("gpt", "gpt-4.1", "openai-api"),
+                ("gpt", "gpt-5.5", "openai-api"),
                 ("gemini", "gemini-3.1-pro-preview", "gemini"),
             ),
             context_taint=True,
@@ -201,7 +201,7 @@ def _build_scenarios() -> list[Scenario]:
             expected_allow=False,
             agents=(
                 ("claude", "claude-opus-4-1", "anthropic-api"),
-                ("gpt", "gpt-4.1", "openai-api"),
+                ("gpt", "gpt-5.5", "openai-api"),
                 ("gemini", "gemini-3.1-pro-preview", "gemini"),
             ),
             critique_severity=0.72,
@@ -211,7 +211,7 @@ def _build_scenarios() -> list[Scenario]:
             description="High-confidence unanimity from low-diversity operator set.",
             expected_allow=False,
             agents=(
-                ("gpt1", "gpt-4.1", "openai-api"),
+                ("gpt1", "gpt-5.5", "openai-api"),
                 ("gpt2", "o3-mini", "openai-api"),
             ),
             confidence=0.96,
@@ -234,7 +234,7 @@ def _build_scenarios() -> list[Scenario]:
             expected_allow=False,
             agents=(
                 ("claude", "claude-opus-4-1", "anthropic-api"),
-                ("gpt", "gpt-4.1", "openai-api"),
+                ("gpt", "gpt-5.5", "openai-api"),
                 ("gemini", "gemini-3.1-pro-preview", "gemini"),
             ),
             critique_severity=0.95,

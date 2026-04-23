@@ -39,7 +39,7 @@ Example queries:
     mutation {
         startDebate(input: {
             question: "What is the best programming language?"
-            agents: "claude,gpt4,gemini"
+            agents: "claude,gpt-5.5,gemini"
             rounds: 9
         }) {
             id

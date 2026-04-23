@@ -126,7 +126,7 @@ class TestBuildDebateMessageBlocks:
         blocks = build_debate_message_blocks(
             debate_id="abc123",
             task="Test task",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             current_round=1,
             total_rounds=3,
         )
@@ -164,7 +164,7 @@ class TestBuildDebateMessageBlocks:
 
     def test_agents_and_progress_fields(self):
         """Third block has fields for agents and progress."""
-        agents = ["claude", "gpt4", "gemini"]
+        agents = ["claude", "gpt-5.5", "gemini"]
         blocks = build_debate_message_blocks(
             debate_id="d1",
             task="task",
@@ -178,7 +178,7 @@ class TestBuildDebateMessageBlocks:
 
         agents_field = fields_block["fields"][0]
         assert agents_field["type"] == "mrkdwn"
-        assert "claude, gpt4, gemini" in agents_field["text"]
+        assert "claude, gpt-5.5, gemini" in agents_field["text"]
 
         progress_field = fields_block["fields"][1]
         assert "Round 2/5" in progress_field["text"]
@@ -231,7 +231,7 @@ class TestBuildDebateMessageBlocks:
         blocks = build_debate_message_blocks(
             debate_id="d1",
             task="task",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             current_round=1,
             total_rounds=3,
         )
@@ -252,7 +252,7 @@ class TestBuildDebateMessageBlocks:
 
     def test_vote_button_per_agent(self):
         """One vote button per agent, up to 5."""
-        agents = ["claude", "gpt4", "gemini"]
+        agents = ["claude", "gpt-5.5", "gemini"]
         blocks = build_debate_message_blocks(
             debate_id="d1",
             task="task",
@@ -287,7 +287,7 @@ class TestBuildDebateMessageBlocks:
         blocks = build_debate_message_blocks(
             debate_id="d1",
             task="task",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             current_round=1,
             total_rounds=3,
         )
@@ -300,7 +300,7 @@ class TestBuildDebateMessageBlocks:
         blocks = build_debate_message_blocks(
             debate_id="d1",
             task="task",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             current_round=1,
             total_rounds=3,
         )
@@ -327,14 +327,14 @@ class TestBuildDebateMessageBlocks:
         blocks = build_debate_message_blocks(
             debate_id="d1",
             task="task",
-            agents=["gpt4"],
+            agents=["gpt-5.5"],
             current_round=1,
             total_rounds=3,
         )
         actions_blocks = _find_blocks_of_type(blocks, "actions")
         btn = actions_blocks[0]["elements"][0]
         value = json.loads(btn["value"])
-        assert value == {"debate_id": "d1", "agent": "gpt4"}
+        assert value == {"debate_id": "d1", "agent": "gpt-5.5"}
 
     def test_summary_button_present(self):
         """A 'View Summary' button is included."""
@@ -631,14 +631,14 @@ class TestBuildConsensusMessageBlocks:
             confidence=0.8,
             winner="claude",
             final_answer=None,
-            vote_counts={"claude": 5, "gpt4": 3, "gemini": 1},
+            vote_counts={"claude": 5, "gpt-5.5": 3, "gemini": 1},
         )
         text = _get_all_text(blocks)
-        # claude (5) should appear before gpt4 (3) before gemini (1)
+        # claude (5) should appear before gpt-5.5 (3) before gemini (1)
         claude_pos = text.index("claude: 5")
-        gpt4_pos = text.index("gpt4: 3")
+        gpt55_pos = text.index("gpt-5.5: 3")
         gemini_pos = text.index("gemini: 1")
-        assert claude_pos < gpt4_pos < gemini_pos
+        assert claude_pos < gpt55_pos < gemini_pos
 
     def test_vote_counts_singular_plural(self):
         """Vote counts use 'vote' (singular) for 1 and 'votes' (plural) for >1."""
@@ -649,11 +649,11 @@ class TestBuildConsensusMessageBlocks:
             confidence=0.8,
             winner=None,
             final_answer=None,
-            vote_counts={"claude": 1, "gpt4": 2},
+            vote_counts={"claude": 1, "gpt-5.5": 2},
         )
         text = _get_all_text(blocks)
         assert "claude: 1 vote" in text
-        assert "gpt4: 2 votes" in text
+        assert "gpt-5.5: 2 votes" in text
 
     def test_empty_vote_counts_no_section(self):
         """Empty vote_counts dict does not add a vote section."""
@@ -1035,7 +1035,7 @@ class TestBuildStartDebateModal:
         modal = build_start_debate_modal()
         options = modal["blocks"][1]["element"]["options"]
         values = [opt["value"] for opt in options]
-        expected = ["claude", "gpt4", "gemini", "mistral", "deepseek", "grok", "qwen", "kimi"]
+        expected = ["claude", "gpt-5.5", "gemini", "mistral", "deepseek", "grok", "qwen", "kimi"]
         assert values == expected
 
     def test_agents_option_display_names(self):
@@ -1043,7 +1043,7 @@ class TestBuildStartDebateModal:
         modal = build_start_debate_modal()
         options = modal["blocks"][1]["element"]["options"]
         names = [opt["text"]["text"] for opt in options]
-        expected = ["Claude", "GPT-4", "Gemini", "Mistral", "DeepSeek", "Grok", "Qwen", "Kimi"]
+        expected = ["Claude", "GPT-5.5", "Gemini", "Mistral", "DeepSeek", "Grok", "Qwen", "Kimi"]
         assert names == expected
 
     def test_agents_option_structure(self):
@@ -1209,7 +1209,7 @@ class TestSecurityAndEdgeCases:
 
     def test_agents_with_special_chars(self):
         """Special characters in agent names are preserved."""
-        agents = ["claude<>", "gpt4\"'", "gem&ini"]
+        agents = ["claude<>", "gpt-5.5\"'", "gem&ini"]
         blocks = build_debate_message_blocks(
             debate_id="d1",
             task="task",
@@ -1380,7 +1380,7 @@ class TestSecurityAndEdgeCases:
             confidence=0.99,
             winner="claude",
             final_answer=None,
-            vote_counts={"claude": 1000000, "gpt4": 999999},
+            vote_counts={"claude": 1000000, "gpt-5.5": 999999},
         )
         text = _get_all_text(blocks)
         assert "1000000" in text
@@ -1444,7 +1444,7 @@ class TestIntegration:
         blocks = build_debate_message_blocks(
             debate_id="abc12345-6789-abcd-ef01-234567890abc",
             task="Should we adopt microservices architecture?",
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             current_round=3,
             total_rounds=5,
             include_vote_buttons=True,
@@ -1460,7 +1460,7 @@ class TestIntegration:
         # Check content
         text = _get_all_text(blocks)
         assert "microservices" in text
-        assert "claude, gpt4, gemini" in text
+        assert "claude, gpt-5.5, gemini" in text
         assert "Round 3/5" in text
         assert "abc12345..." in text
 
@@ -1473,7 +1473,7 @@ class TestIntegration:
             confidence=0.92,
             winner="claude",
             final_answer="Implement a token bucket algorithm with Redis.",
-            vote_counts={"claude": 5, "gpt4": 2, "gemini": 1},
+            vote_counts={"claude": 5, "gpt-5.5": 2, "gemini": 1},
         )
         text = _get_all_text(blocks)
         assert "Consensus Reached" in text
@@ -1482,7 +1482,7 @@ class TestIntegration:
         assert "claude" in text
         assert "token bucket" in text
         assert "claude: 5 votes" in text
-        assert "gpt4: 2 votes" in text
+        assert "gpt-5.5: 2 votes" in text
         assert "gemini: 1 vote" in text  # singular
 
     def test_no_consensus_minimal(self):
@@ -1506,7 +1506,7 @@ class TestIntegration:
         blocks = build_debate_message_blocks(
             debate_id="d1",
             task="task",
-            agents=["claude", "gpt4"],
+            agents=["claude", "gpt-5.5"],
             current_round=1,
             total_rounds=3,
         )
@@ -1523,7 +1523,7 @@ class TestIntegration:
             confidence=0.75,
             winner="claude",
             final_answer="Answer here",
-            vote_counts={"claude": 3, "gpt4": 1},
+            vote_counts={"claude": 3, "gpt-5.5": 1},
         )
         serialized = json.dumps(blocks)
         deserialized = json.loads(serialized)

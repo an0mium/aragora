@@ -44,7 +44,7 @@ class TestHollowConsensusDetection:
         round_data = {
             "proposals": [
                 {"agent": "claude", "content": "I agree with the approach", "confidence": 0.9},
-                {"agent": "gpt4", "content": "Yes, I concur", "confidence": 0.85},
+                {"agent": "gpt-5.5", "content": "Yes, I concur", "confidence": 0.85},
             ],
             "evidence_count": 0,
             "disagreement_level": 0.1,
@@ -71,7 +71,7 @@ class TestHollowConsensusDetection:
                     "confidence": 0.9,
                 },
                 {
-                    "agent": "gpt4",
+                    "agent": "gpt-5.5",
                     "content": "The data supports this conclusion",
                     "confidence": 0.85,
                 },
@@ -204,7 +204,7 @@ class TestTricksterIntegration:
         # API: check_and_intervene(responses: dict[str, str], convergence_similarity: float, round_num: int)
         responses = {
             "claude": "I think so",
-            "gpt4": "Agreed",
+            "gpt-5.5": "Agreed",
         }
 
         if hasattr(trickster, "check_and_intervene"):
@@ -234,7 +234,7 @@ class TestTricksterIntegration:
                 event_emitter=mock_emitter,
                 round_num=1,
                 challenge="What evidence supports this claim?",
-                targets=["claude", "gpt4"],
+                targets=["claude", "gpt-5.5"],
             )
 
             # Should have emitted an event

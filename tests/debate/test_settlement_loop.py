@@ -49,7 +49,7 @@ def _make_debate_result(
         consensus_reached=consensus_reached,
         confidence=confidence,
         winner=winner,
-        participants=participants or ["claude", "gpt4", "gemini"],
+        participants=participants or ["claude", "gpt-5.5", "gemini"],
         dissenting_views=dissenting_views or [],
         final_answer=final_answer,
         unresolved_tensions=unresolved_tensions or [],
@@ -68,7 +68,7 @@ def _make_receipt(
     """Build a lightweight receipt for testing."""
     if consensus_proof is None:
         consensus_proof = SimpleNamespace(
-            dissenting_agents=["gpt4"],
+            dissenting_agents=["gpt-5.5"],
         )
     return SimpleNamespace(
         consensus_proof=consensus_proof,
@@ -365,7 +365,7 @@ class TestCaptureSettlement:
 
     def test_capture_with_receipt(self):
         tracker = EpistemicSettlementTracker()
-        result = _make_debate_result(dissenting_views=["gpt4: I disagree"])
+        result = _make_debate_result(dissenting_views=["gpt-5.5: I disagree"])
         receipt = _make_receipt()
         meta = tracker.capture_settlement(result, receipt)
 
@@ -376,7 +376,7 @@ class TestCaptureSettlement:
         tracker = EpistemicSettlementTracker()
         result = _make_debate_result(
             winner="claude",
-            participants=["claude", "gpt4", "gemini"],
+            participants=["claude", "gpt-5.5", "gemini"],
             dissenting_views=["Use a different approach"],
         )
         meta = tracker.capture_settlement(result)
@@ -931,7 +931,7 @@ class TestFullLifecycle:
         result = _make_debate_result(
             debate_id="lifecycle-test",
             confidence=0.85,
-            dissenting_views=["Agent gpt4 disagrees with approach"],
+            dissenting_views=["Agent gpt-5.5 disagrees with approach"],
         )
         meta = tracker.capture_settlement(
             result,

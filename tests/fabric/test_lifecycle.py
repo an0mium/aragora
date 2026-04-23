@@ -42,7 +42,7 @@ class TestSpawn:
     @pytest.mark.asyncio
     async def test_spawn_multiple_agents(self, manager):
         for i in range(5):
-            config = AgentConfig(id=f"agent-{i}", model="gpt-4")
+            config = AgentConfig(id=f"agent-{i}", model="gpt-5.5")
             await manager.spawn(config)
         agents = await manager.list_agents()
         assert len(agents) == 5
@@ -74,7 +74,7 @@ class TestTerminate:
 
     @pytest.mark.asyncio
     async def test_terminate_removes_from_list(self, manager, agent_config):
-        config = AgentConfig(id="no-pool", model="gpt-4")
+        config = AgentConfig(id="no-pool", model="gpt-5.5")
         await manager.spawn(config)
         await manager.terminate("no-pool", graceful=False)
         agents = await manager.list_agents()
@@ -131,14 +131,14 @@ class TestListAgents:
     @pytest.mark.asyncio
     async def test_list_all(self, manager):
         for i in range(3):
-            await manager.spawn(AgentConfig(id=f"a{i}", model="gpt-4"))
+            await manager.spawn(AgentConfig(id=f"a{i}", model="gpt-5.5"))
         agents = await manager.list_agents()
         assert len(agents) == 3
 
     @pytest.mark.asyncio
     async def test_filter_by_status(self, manager):
-        await manager.spawn(AgentConfig(id="a1", model="gpt-4"))
-        await manager.spawn(AgentConfig(id="a2", model="gpt-4"))
+        await manager.spawn(AgentConfig(id="a1", model="gpt-5.5"))
+        await manager.spawn(AgentConfig(id="a2", model="gpt-5.5"))
         manager._agents["a2"].status = HealthStatus.UNHEALTHY
 
         healthy = await manager.list_agents(status=HealthStatus.HEALTHY)
@@ -148,7 +148,7 @@ class TestListAgents:
     @pytest.mark.asyncio
     async def test_filter_by_model(self, manager):
         await manager.spawn(AgentConfig(id="a1", model="claude-3-opus"))
-        await manager.spawn(AgentConfig(id="a2", model="gpt-4"))
+        await manager.spawn(AgentConfig(id="a2", model="gpt-5.5"))
 
         claude_agents = await manager.list_agents(model="claude-3-opus")
         assert len(claude_agents) == 1

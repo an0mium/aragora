@@ -73,7 +73,7 @@ describe('RoundProgress', () => {
     it('counts agent messages per round', () => {
       const events: StreamEvent[] = [
         createEvent({ round: 1, type: 'agent_message', agent: 'claude' }),
-        createEvent({ round: 1, type: 'agent_message', agent: 'gpt4' }),
+        createEvent({ round: 1, type: 'agent_message', agent: 'gpt-5.5' }),
         createEvent({ round: 1, type: 'agent_message', agent: 'gemini' }),
       ];
 

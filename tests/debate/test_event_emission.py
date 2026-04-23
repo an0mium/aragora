@@ -581,11 +581,11 @@ class TestEmitAgentPreview:
         agent1 = Mock()
         agent1.name = "claude"
         agent2 = Mock()
-        agent2.name = "gpt4"
+        agent2.name = "gpt-5.5"
 
         role_assignments = {
             "claude": {"role": "proposer", "stance": "affirmative"},
-            "gpt4": {"role": "critic", "stance": "negative"},
+            "gpt-5.5": {"role": "critic", "stance": "negative"},
         }
 
         full_emitter.emit_agent_preview([agent1, agent2], role_assignments)
@@ -594,7 +594,7 @@ class TestEmitAgentPreview:
         assert len(call_args) == 2
         names = [p["name"] for p in call_args]
         assert "claude" in names
-        assert "gpt4" in names
+        assert "gpt-5.5" in names
 
     def test_emit_agent_preview_no_hook(self, mock_agent: Mock) -> None:
         """emit_agent_preview does nothing when hook is not registered."""
@@ -912,7 +912,7 @@ class TestEmitAgentMessage:
         emitter = EventEmitter(event_bus=mock_event_bus)
 
         emitter.emit_agent_message(
-            agent_name="gpt4",
+            agent_name="gpt-5.5",
             content="Critique message",
         )
 

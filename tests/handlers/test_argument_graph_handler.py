@@ -50,11 +50,11 @@ class MockTrace:
                 task="Test debate topic",
                 messages=[
                     MockMessage("claude", "I propose we use microservices", "proposer", 1),
-                    MockMessage("gpt4", "I suggest a monolith instead", "proposer", 1),
+                    MockMessage("gpt-5.5", "I suggest a monolith instead", "proposer", 1),
                     MockMessage("claude", "Microservices scale better", "revision", 2),
                 ],
                 critiques=[
-                    MockCritique("gpt4", "claude", 0.8, "Too complex for small teams"),
+                    MockCritique("gpt-5.5", "claude", 0.8, "Too complex for small teams"),
                 ],
             )
         )

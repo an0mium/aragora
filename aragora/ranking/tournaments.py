@@ -186,7 +186,7 @@ class TournamentManager:
         manager = TournamentManager(db_path="tournaments/contest.db")
         tournament = manager.create_tournament(
             name="Weekly Championship",
-            participants=["claude", "gpt4", "gemini"],
+            participants=["claude", "gpt-5.5", "gemini"],
             bracket_type="round_robin"
         )
         standings = manager.get_current_standings()

@@ -77,14 +77,14 @@ A step-by-step wizard that walks users through:
 
 | Category | Template | Agents | Rounds |
 |----------|----------|--------|--------|
-| **Team** | Hiring Decision | Claude, GPT-4 | 3 |
+| **Team** | Hiring Decision | Claude, GPT-5.5 | 3 |
 | **Team** | Performance Review | Claude, Gemini | 2 |
-| **Project** | Feature Prioritization | Claude, GPT-4, Mistral | 3 |
-| **Project** | Sprint Planning | Claude, GPT-4 | 2 |
-| **Vendor** | Tool Selection | Claude, GPT-4, Gemini | 4 |
-| **Vendor** | Contract Review | Claude, GPT-4 | 3 |
-| **Policy** | Remote Work Policy | Claude, GPT-4, Gemini | 3 |
-| **Policy** | Budget Allocation | Claude, GPT-4 | 2 |
+| **Project** | Feature Prioritization | Claude, GPT-5.5, Mistral | 3 |
+| **Project** | Sprint Planning | Claude, GPT-5.5 | 2 |
+| **Vendor** | Tool Selection | Claude, GPT-5.5, Gemini | 4 |
+| **Vendor** | Contract Review | Claude, GPT-5.5 | 3 |
+| **Policy** | Remote Work Policy | Claude, GPT-5.5, Gemini | 3 |
+| **Policy** | Budget Allocation | Claude, GPT-5.5 | 2 |
 
 ### 4. Usage Dashboard
 

@@ -29,7 +29,7 @@ def mock_debate():
         "task": "Should AI be open-sourced?",
         "messages": [
             {"agent": "claude", "content": "AI should be open-sourced for transparency."},
-            {"agent": "gpt4", "content": "There are safety concerns with open-sourcing."},
+            {"agent": "gpt-5.5", "content": "There are safety concerns with open-sourcing."},
             {"agent": "claude", "content": "Safety can be addressed through community review."},
         ],
         "consensus": "Conditional open-sourcing with safety guidelines is recommended.",
@@ -134,7 +134,7 @@ class TestAudioGeneration:
 
         # Different agents should have different voices
         voice1 = get_voice_for_agent("claude")
-        voice2 = get_voice_for_agent("gpt4")
+        voice2 = get_voice_for_agent("gpt-5.5")
 
         # Both should return valid voice identifiers
         assert voice1 is not None

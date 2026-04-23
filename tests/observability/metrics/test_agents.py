@@ -296,7 +296,7 @@ class TestDecorators:
 
     @pytest.mark.asyncio
     async def test_async_decorator(self):
-        @with_agent_provider_metrics("openai", model="gpt-4")
+        @with_agent_provider_metrics("openai", model="gpt-5.5")
         async def call_api():
             return "result"
 

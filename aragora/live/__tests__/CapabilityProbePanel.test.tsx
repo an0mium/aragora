@@ -24,7 +24,7 @@ global.fetch = mockFetch;
 const mockAgents = [
   { name: 'claude-3-opus', elo: 1650 },
   { name: 'gemini-2.0-flash', elo: 1580 },
-  { name: 'gpt-4', elo: 1620 },
+  { name: 'gpt-5.5', elo: 1620 },
 ];
 
 const mockProbeReport = {
@@ -175,10 +175,10 @@ describe('CapabilityProbePanel', () => {
 
       // Wait for agents to load and first one to be selected
 
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'gpt-4' } });
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'gpt-5.5' } });
 
       await waitFor(() => {
-        expect(screen.getByRole('combobox')).toHaveValue('gpt-4');
+        expect(screen.getByRole('combobox')).toHaveValue('gpt-5.5');
       });
     });
   });

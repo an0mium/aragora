@@ -760,13 +760,13 @@ class TestVotesInResponse:
     def test_votes_included_when_present(self, handler):
         votes = [
             MockVote(agent_name="claude", vote="approve"),
-            MockVote(agent_name="gpt4", vote="reject"),
+            MockVote(agent_name="gpt-5.5", vote="reject"),
         ]
         result = self._run_with_votes(handler, votes)
         data = _body(result)
         assert "votes" in data
         assert data["votes"]["claude"] == "approve"
-        assert data["votes"]["gpt4"] == "reject"
+        assert data["votes"]["gpt-5.5"] == "reject"
 
     def test_votes_excluded_when_none(self, handler):
         result = self._run_with_votes(handler, None)

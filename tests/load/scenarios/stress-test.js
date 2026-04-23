@@ -102,7 +102,7 @@ export default function () {
   group('Write Operations', () => {
     const payload = JSON.stringify({
       question: randomQuestion(),
-      agents: ['claude', 'gpt4'],
+      agents: ['claude', 'gpt-5.5'],
       protocol: { rounds: 1, consensus: 'majority' },
       context: {
         user_id: userId,

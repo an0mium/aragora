@@ -213,7 +213,7 @@ panel:
       model: claude-opus-4-7
     - slot: pdb.core.gpt
       provider: openai
-      model: gpt-5-3
+      model: gpt-5.5
   heterodox:
     - slot: pdb.heterodox.gemini
       provider: gemini

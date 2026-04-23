@@ -68,12 +68,12 @@ class TestGauntletRun:
             client.gauntlet.run(
                 task="Test decision",
                 proposer_agent="claude",
-                attacker_agents=["gpt-4", "gemini"],
+                attacker_agents=["gpt-5.5", "gemini"],
             )
 
             call_args = mock_request.call_args
             assert call_args[1]["json"]["proposer_agent"] == "claude"
-            assert call_args[1]["json"]["attacker_agents"] == ["gpt-4", "gemini"]
+            assert call_args[1]["json"]["attacker_agents"] == ["gpt-5.5", "gemini"]
             client.close()
 
 

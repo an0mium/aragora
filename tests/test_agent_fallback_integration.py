@@ -436,19 +436,18 @@ class TestQuotaFallbackMixin:
 
         class TestAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gpt-4": "openai/gpt-4",
-                "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
+                "gpt-5.5": "openai/gpt-5.5",
             }
-            DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+            DEFAULT_FALLBACK_MODEL = "openai/gpt-5.5"
 
             def __init__(self, model: str):
                 self.model = model
 
-        agent = TestAgent(model="gpt-4")
-        assert agent.get_fallback_model() == "openai/gpt-4"
+        agent = TestAgent(model="gpt-5.5")
+        assert agent.get_fallback_model() == "openai/gpt-5.5"
 
         agent = TestAgent(model="unknown-model")
-        assert agent.get_fallback_model() == "openai/gpt-4o"
+        assert agent.get_fallback_model() == "openai/gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_fallback_generate_no_key(self):

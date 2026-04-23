@@ -105,7 +105,7 @@ class TestEloUpdatePath:
                 "debate_outcomes",
                 {
                     "debate_id": "d-100",
-                    "agents_participated": ["claude", "gpt4", "gemini"],
+                    "agents_participated": ["claude", "gpt-5.5", "gemini"],
                     "winner_agent": "claude",
                 },
             )
@@ -116,7 +116,7 @@ class TestEloUpdatePath:
         # Verify winner= and loser= kwargs
         for c in mock_elo.record_match.call_args_list:
             assert c.kwargs["winner"] == "claude"
-            assert c.kwargs["loser"] in ("gpt4", "gemini")
+            assert c.kwargs["loser"] in ("gpt-5.5", "gemini")
 
     def test_elo_single_participant_no_match_recorded(self, hub: FeedbackHub):
         """If only one agent participated and is the winner, no matches recorded."""
@@ -160,7 +160,7 @@ class TestEloUpdatePath:
                 "debate_outcomes",
                 {
                     "debate_id": "d-102",
-                    "agents_participated": ["claude", "gpt4"],
+                    "agents_participated": ["claude", "gpt-5.5"],
                     "winner_agent": "claude",
                 },
             )

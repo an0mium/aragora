@@ -914,7 +914,7 @@ class TestMatrixDebateModels:
             agent_combinations=[
                 {
                     "name": "combo",
-                    "agents": ["openai-api|gpt-4.1", "anthropic-api|claude-sonnet-4"],
+                    "agents": ["openai-api|gpt-5.5", "anthropic-api|claude-sonnet-4"],
                 }
             ],
             max_rounds=5,

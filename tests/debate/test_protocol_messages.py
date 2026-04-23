@@ -72,7 +72,7 @@ class TestProtocolMessage:
         msg = ProtocolMessage(
             message_type=ProtocolMessageType.VOTE_CAST,
             debate_id="debate-456",
-            agent_id="gpt-4",
+            agent_id="gpt-5.5",
             correlation_id="trace-123",
         )
 
@@ -80,7 +80,7 @@ class TestProtocolMessage:
 
         assert d["message_type"] == "vote_cast"
         assert d["debate_id"] == "debate-456"
-        assert d["agent_id"] == "gpt-4"
+        assert d["agent_id"] == "gpt-5.5"
         assert d["correlation_id"] == "trace-123"
         assert "timestamp" in d
 
@@ -167,7 +167,7 @@ class TestProtocolPayloads:
             critique_id="crit-456",
             proposal_id="prop-123",
             content="This proposal lacks error handling",
-            model="gpt-4",
+            model="gpt-5.5",
             round_number=1,
             severity="major",
             addressed_issues=["error_handling", "edge_cases"],
@@ -242,7 +242,7 @@ class TestFactoryFunctions:
             critique_id="crit-1",
             proposal_id="prop-1",
             content="Missing error handling",
-            model="gpt-4",
+            model="gpt-5.5",
             round_number=1,
         )
 
@@ -793,7 +793,7 @@ class TestProtocolIntegration:
             )
         )
 
-        for agent_id in ["claude", "gpt-4", "gemini"]:
+        for agent_id in ["claude", "gpt-5.5", "gemini"]:
             await store.record(
                 agent_event_message(
                     debate_id=debate_id,
@@ -807,7 +807,7 @@ class TestProtocolIntegration:
 
         await store.record(round_message(debate_id=debate_id, round_number=1, phase="proposal"))
 
-        for i, agent_id in enumerate(["claude", "gpt-4", "gemini"]):
+        for i, agent_id in enumerate(["claude", "gpt-5.5", "gemini"]):
             await store.record(
                 proposal_message(
                     debate_id=debate_id,

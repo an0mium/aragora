@@ -63,10 +63,10 @@ describe('agentColors utilities', () => {
     it('returns codex colors for OpenAI variants', () => {
       expect(getAgentColors('codex')).toBe(AGENT_COLORS.codex);
       expect(getAgentColors('codex-davinci')).toBe(AGENT_COLORS.codex);
-      expect(getAgentColors('gpt-4')).toBe(AGENT_COLORS.codex);
-      expect(getAgentColors('gpt-4-turbo')).toBe(AGENT_COLORS.codex);
-      expect(getAgentColors('gpt-3.5-turbo')).toBe(AGENT_COLORS.codex);
-      expect(getAgentColors('openai-gpt4')).toBe(AGENT_COLORS.codex);
+      expect(getAgentColors('gpt-5.5')).toBe(AGENT_COLORS.codex);
+      expect(getAgentColors('gpt-5.5')).toBe(AGENT_COLORS.codex);
+      expect(getAgentColors('gpt-5.5')).toBe(AGENT_COLORS.codex);
+      expect(getAgentColors('openai-gpt-5.5')).toBe(AGENT_COLORS.codex);
     });
 
     it('returns claude colors for Anthropic variants', () => {
@@ -93,7 +93,7 @@ describe('agentColors utilities', () => {
     it('is case insensitive', () => {
       expect(getAgentColors('GEMINI')).toBe(AGENT_COLORS.gemini);
       expect(getAgentColors('Claude')).toBe(AGENT_COLORS.claude);
-      expect(getAgentColors('GPT-4')).toBe(AGENT_COLORS.codex);
+      expect(getAgentColors('GPT-5.5')).toBe(AGENT_COLORS.codex);
       expect(getAgentColors('GROK')).toBe(AGENT_COLORS.grok);
     });
 
@@ -113,7 +113,7 @@ describe('agentColors utilities', () => {
     });
 
     it('returns text color for codex/gpt', () => {
-      expect(getAgentTextColor('gpt-4')).toBe('text-gold');
+      expect(getAgentTextColor('gpt-5.5')).toBe('text-gold');
     });
 
     it('returns text color for claude', () => {

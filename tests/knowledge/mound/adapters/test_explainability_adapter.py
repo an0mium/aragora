@@ -49,7 +49,7 @@ def sample_decision():
         confidence=0.85,
         consensus_type="supermajority",
         rounds_used=3,
-        agents_participated=["claude", "gpt4", "gemini"],
+        agents_participated=["claude", "gpt-5.5", "gemini"],
         evidence_chain=[
             EvidenceLink(
                 id="ev1",
@@ -60,7 +60,7 @@ def sample_decision():
             EvidenceLink(
                 id="ev2",
                 content="Leaky bucket has less burst tolerance",
-                source="gpt4",
+                source="gpt-5.5",
                 relevance_score=0.7,
             ),
         ],
@@ -76,7 +76,7 @@ def sample_decision():
         ],
         belief_changes=[
             BeliefChange(
-                agent="gpt4",
+                agent="gpt-5.5",
                 round=2,
                 topic="rate_limiting",
                 prior_belief="leaky_bucket",
@@ -117,7 +117,7 @@ def sample_decision():
                 outcome_change="Lower confidence (0.6)",
                 likelihood=0.5,
                 sensitivity=0.6,
-                affected_agents=["claude", "gpt4"],
+                affected_agents=["claude", "gpt-5.5"],
             ),
         ],
         evidence_quality_score=0.82,
@@ -154,7 +154,7 @@ class TestExplainabilityEntry:
         assert entry.consensus_reached is True
         assert entry.consensus_type == "supermajority"
         assert entry.rounds_used == 3
-        assert entry.agents_participated == ["claude", "gpt4", "gemini"]
+        assert entry.agents_participated == ["claude", "gpt-5.5", "gemini"]
 
     def test_from_decision_counts_components(self, sample_decision):
         """Test that from_decision counts evidence, pivots, beliefs, etc."""

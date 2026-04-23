@@ -45,7 +45,7 @@ class HierarchicalPattern(WorkflowPattern):
         workflow = HierarchicalPattern.create(
             name="Research Project",
             manager_agent="claude",
-            worker_agents=["gpt4", "gemini", "claude"],
+            worker_agents=["gpt-5.5", "gemini", "claude"],
             task="Research the impact of AI on healthcare",
             max_subtasks=4,
         )
@@ -68,7 +68,7 @@ class HierarchicalPattern(WorkflowPattern):
     ):
         super().__init__(name, agents, task, **kwargs)
         self.manager_agent = manager_agent or (agents[0] if agents else "claude")
-        self.worker_agents = worker_agents or agents or ["gpt4", "gemini"]
+        self.worker_agents = worker_agents or agents or ["gpt-5.5", "gemini"]
         self.max_subtasks = max_subtasks
         self.delegation_prompt = delegation_prompt
         self.review_prompt = review_prompt
@@ -251,7 +251,7 @@ def _register_hierarchical_handlers():
             import asyncio
             from aragora.agents import create_agent
 
-            worker_agents = worker_agents or ["claude", "gpt4"]
+            worker_agents = worker_agents or ["claude", "gpt-5.5"]
             parse_result = context.step_outputs.get("parse_subtasks", {})
             subtasks = parse_result.get("subtasks", [])
             original_task = context.inputs.get("task", "")

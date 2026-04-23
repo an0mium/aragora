@@ -60,7 +60,7 @@ class MockAgentRating:
 class MinimalAgent:
     """Agent with only a name attribute."""
 
-    name: str = "gpt-4"
+    name: str = "gpt-5.5"
 
 
 @dataclass
@@ -296,11 +296,11 @@ class TestGetAgentName:
         assert get_agent_name({"agent_name": "claude"}) == "claude"
 
     def test_dict_with_name_key(self):
-        assert get_agent_name({"name": "gpt-4"}) == "gpt-4"
+        assert get_agent_name({"name": "gpt-5.5"}) == "gpt-5.5"
 
     def test_dict_agent_name_takes_priority(self):
         """agent_name is checked before name in dict."""
-        agent = {"agent_name": "claude", "name": "gpt-4"}
+        agent = {"agent_name": "claude", "name": "gpt-5.5"}
         assert get_agent_name(agent) == "claude"
 
     def test_dict_with_neither_key(self):
@@ -314,8 +314,8 @@ class TestGetAgentName:
         assert get_agent_name(agent) == "gemini"
 
     def test_object_with_name_only(self):
-        agent = MinimalAgent(name="gpt-4")
-        assert get_agent_name(agent) == "gpt-4"
+        agent = MinimalAgent(name="gpt-5.5")
+        assert get_agent_name(agent) == "gpt-5.5"
 
     def test_object_with_both_prefers_agent_name(self):
         agent = MagicMock()
@@ -329,12 +329,12 @@ class TestGetAgentName:
 
     def test_dict_with_empty_agent_name_falls_to_name(self):
         """Empty string agent_name is falsy, should fall to name."""
-        agent = {"agent_name": "", "name": "gpt-4"}
-        assert get_agent_name(agent) == "gpt-4"
+        agent = {"agent_name": "", "name": "gpt-5.5"}
+        assert get_agent_name(agent) == "gpt-5.5"
 
     def test_dict_with_none_agent_name_falls_to_name(self):
-        agent = {"agent_name": None, "name": "gpt-4"}
-        assert get_agent_name(agent) == "gpt-4"
+        agent = {"agent_name": None, "name": "gpt-5.5"}
+        assert get_agent_name(agent) == "gpt-5.5"
 
     def test_string_agent(self):
         """String is not a dict; getattr will be used. Strings have no agent_name."""
@@ -403,10 +403,10 @@ class TestAgentToDict:
 
     def test_object_with_minimal_attrs(self):
         """Agent with only name; ELO fields should use defaults."""
-        agent = MinimalAgent(name="gpt-4")
+        agent = MinimalAgent(name="gpt-5.5")
         result = agent_to_dict(agent)
-        assert result["name"] == "gpt-4"
-        assert result["agent_name"] == "gpt-4"
+        assert result["name"] == "gpt-5.5"
+        assert result["agent_name"] == "gpt-5.5"
         assert result["elo"] == 1500  # default
         assert result["wins"] == 0  # default
         assert result["losses"] == 0
@@ -490,26 +490,26 @@ class TestNormalizeAgentNames:
         assert normalize_agent_names([]) == []
 
     def test_string_names_lowered(self):
-        result = normalize_agent_names(["Claude", "GPT-4", "GEMINI"])
-        assert result == ["claude", "gpt-4", "gemini"]
+        result = normalize_agent_names(["Claude", "GPT-5.5", "GEMINI"])
+        assert result == ["claude", "gpt-5.5", "gemini"]
 
     def test_already_lowercase(self):
-        result = normalize_agent_names(["claude", "gpt-4"])
-        assert result == ["claude", "gpt-4"]
+        result = normalize_agent_names(["claude", "gpt-5.5"])
+        assert result == ["claude", "gpt-5.5"]
 
     def test_mixed_case(self):
         result = normalize_agent_names(["ClAuDe", "Gpt-4-Turbo"])
-        assert result == ["claude", "gpt-4-turbo"]
+        assert result == ["claude", "gpt-5.5"]
 
     def test_object_agents(self):
-        agents = [MockAgentRating(agent_name="Claude"), MinimalAgent(name="GPT-4")]
+        agents = [MockAgentRating(agent_name="Claude"), MinimalAgent(name="GPT-5.5")]
         result = normalize_agent_names(agents)
-        assert result == ["claude", "gpt-4"]
+        assert result == ["claude", "gpt-5.5"]
 
     def test_dict_agents(self):
-        agents = [{"name": "Claude"}, {"agent_name": "GPT-4"}]
+        agents = [{"name": "Claude"}, {"agent_name": "GPT-5.5"}]
         result = normalize_agent_names(agents)
-        assert result == ["claude", "gpt-4"]
+        assert result == ["claude", "gpt-5.5"]
 
     def test_none_names_skipped(self):
         """Agents with no extractable name are excluded."""
@@ -527,11 +527,11 @@ class TestNormalizeAgentNames:
         """Mix of strings, dicts, and objects."""
         agents = [
             "Claude",
-            {"name": "GPT-4"},
+            {"name": "GPT-5.5"},
             MockAgentRating(agent_name="Gemini"),
         ]
         result = normalize_agent_names(agents)
-        assert result == ["claude", "gpt-4", "gemini"]
+        assert result == ["claude", "gpt-5.5", "gemini"]
 
     def test_preserves_order(self):
         agents = ["Zebra", "Apple", "Mango"]
@@ -781,11 +781,11 @@ class TestCrossFunctionIntegration:
         """get_agent_name output feeds into normalize_agent_names."""
         agents = [
             MockAgentRating(agent_name="Claude"),
-            {"name": "GPT-4"},
+            {"name": "GPT-5.5"},
             MinimalAgent(name="Gemini"),
         ]
         names = normalize_agent_names(agents)
-        assert names == ["claude", "gpt-4", "gemini"]
+        assert names == ["claude", "gpt-5.5", "gemini"]
 
     def test_agent_to_dict_preserves_name_from_get_agent_name(self):
         """agent_to_dict uses get_agent_name internally."""
@@ -886,11 +886,11 @@ class TestEdgeCases:
 
     def test_normalize_agent_names_with_none_in_list(self):
         """None values in the list get None from get_agent_name and are skipped."""
-        agents = ["Claude", None, "GPT-4"]
+        agents = ["Claude", None, "GPT-5.5"]
         result = normalize_agent_names(agents)
         # None -> get_agent_name(None) -> None -> skipped? No, isinstance check:
         # None is not str, so get_agent_name(None) is called -> returns None -> skipped
-        assert result == ["claude", "gpt-4"]
+        assert result == ["claude", "gpt-5.5"]
 
 
 # =============================================================================

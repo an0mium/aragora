@@ -498,7 +498,7 @@ class TestGetDecisionReceiptTool:
             "consensus_reached": True,
             "confidence": 0.9,
             "rounds_used": 3,
-            "participants": ["claude", "gpt4"],
+            "participants": ["claude", "gpt-5.5"],
             "protocol": "majority",
             "proofs": [{"type": "z3", "valid": True}],
             "evidence": [{"id": "ev-1", "title": "DB comparison"}],

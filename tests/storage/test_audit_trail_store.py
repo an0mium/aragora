@@ -834,7 +834,7 @@ class TestDataFormatValidation:
                 {"type": "end", "timestamp": time.time()},
             ],
             "metadata": {
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
                 "config": {"rounds": 3, "threshold": 0.8},
             },
         }
@@ -844,7 +844,7 @@ class TestDataFormatValidation:
         trail = audit_trail_store.get_trail("complex-trail")
         assert len(trail["events"]) == 3
         assert trail["events"][1]["finding_id"] == "f1"
-        assert trail["metadata"]["agents"] == ["claude", "gpt4"]
+        assert trail["metadata"]["agents"] == ["claude", "gpt-5.5"]
 
 
 # =============================================================================

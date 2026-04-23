@@ -114,8 +114,8 @@ def mock_persona_manager():
     )
     manager.add_persona(
         MockPersona(
-            agent_name="gpt-4",
-            description="OpenAI's GPT-4 assistant",
+            agent_name="gpt-5.5",
+            description="OpenAI's GPT-5.5 assistant",
             traits=["creative", "versatile"],
             expertise=["general knowledge", "coding"],
         )
@@ -177,7 +177,7 @@ class TestPersonaHandlerRouting:
 
         handler = PersonaHandler({})
         assert handler.can_handle("/api/v1/agent/claude/persona") is True
-        assert handler.can_handle("/api/v1/agent/gpt-4/persona") is True
+        assert handler.can_handle("/api/v1/agent/gpt-5.5/persona") is True
 
     def test_can_handle_grounded_persona(self):
         """Test can_handle for /api/agent/{name}/grounded-persona."""
@@ -241,7 +241,7 @@ class TestPersonaHandlerListAll:
         assert body["count"] == 2
         agents = [p["agent_name"] for p in body["personas"]]
         assert "claude" in agents
-        assert "gpt-4" in agents
+        assert "gpt-5.5" in agents
 
     @patch("aragora.server.handlers.persona._persona_limiter")
     def test_list_personas_no_manager(self, mock_limiter, mock_handler):

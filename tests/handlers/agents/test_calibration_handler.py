@@ -121,12 +121,12 @@ class TestCalibrationHandlerInit:
     def test_can_handle_calibration_curve_path(self, calibration_handler):
         """Test can_handle recognizes calibration curve paths."""
         assert calibration_handler.can_handle("/api/v1/agent/claude/calibration-curve")
-        assert calibration_handler.can_handle("/api/v1/agent/gpt4/calibration-curve")
+        assert calibration_handler.can_handle("/api/v1/agent/gpt-5.5/calibration-curve")
 
     def test_can_handle_calibration_summary_path(self, calibration_handler):
         """Test can_handle recognizes calibration summary paths."""
         assert calibration_handler.can_handle("/api/v1/agent/claude/calibration-summary")
-        assert calibration_handler.can_handle("/api/v1/agent/gpt4/calibration-summary")
+        assert calibration_handler.can_handle("/api/v1/agent/gpt-5.5/calibration-summary")
 
     def test_can_handle_leaderboard_path(self, calibration_handler):
         """Test can_handle recognizes leaderboard path."""
@@ -358,7 +358,7 @@ class TestCalibrationLeaderboard:
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [
             {"agent": "claude"},
-            {"agent": "gpt4"},
+            {"agent": "gpt-5.5"},
         ]
 
         mock_rating_claude = MockAgentRating(
@@ -369,7 +369,7 @@ class TestCalibrationLeaderboard:
             calibration_total=100,
             calibration_correct=80,
         )
-        mock_rating_gpt4 = MockAgentRating(
+        mock_rating_gpt55 = MockAgentRating(
             elo=1480,
             calibration_score=0.75,
             calibration_brier_score=0.15,
@@ -379,7 +379,7 @@ class TestCalibrationLeaderboard:
         )
 
         mock_elo.get_rating.side_effect = lambda name: (
-            mock_rating_claude if name == "claude" else mock_rating_gpt4
+            mock_rating_claude if name == "claude" else mock_rating_gpt55
         )
 
         with patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", True):
@@ -401,7 +401,7 @@ class TestCalibrationLeaderboard:
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [
             {"agent": "claude"},
-            {"agent": "gpt4"},
+            {"agent": "gpt-5.5"},
         ]
 
         mock_rating_claude = MockAgentRating(
@@ -412,7 +412,7 @@ class TestCalibrationLeaderboard:
             calibration_total=100,  # Above min
             calibration_correct=80,
         )
-        mock_rating_gpt4 = MockAgentRating(
+        mock_rating_gpt55 = MockAgentRating(
             elo=1480,
             calibration_score=0.75,
             calibration_brier_score=0.15,
@@ -422,7 +422,7 @@ class TestCalibrationLeaderboard:
         )
 
         mock_elo.get_rating.side_effect = lambda name: (
-            mock_rating_claude if name == "claude" else mock_rating_gpt4
+            mock_rating_claude if name == "claude" else mock_rating_gpt55
         )
 
         with patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", True):
@@ -446,7 +446,7 @@ class TestCalibrationLeaderboard:
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [
             {"agent": "claude"},
-            {"agent": "gpt4"},
+            {"agent": "gpt-5.5"},
         ]
 
         mock_rating_claude = MockAgentRating(
@@ -457,7 +457,7 @@ class TestCalibrationLeaderboard:
             calibration_total=100,
             calibration_correct=80,
         )
-        mock_rating_gpt4 = MockAgentRating(
+        mock_rating_gpt55 = MockAgentRating(
             elo=1480,
             calibration_score=0.75,
             calibration_brier_score=0.1,  # Lower (better)
@@ -467,7 +467,7 @@ class TestCalibrationLeaderboard:
         )
 
         mock_elo.get_rating.side_effect = lambda name: (
-            mock_rating_claude if name == "claude" else mock_rating_gpt4
+            mock_rating_claude if name == "claude" else mock_rating_gpt55
         )
 
         with patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", True):
@@ -482,9 +482,9 @@ class TestCalibrationLeaderboard:
                 )
                 assert result.status_code == 200
                 data = json.loads(result.body)
-                # GPT4 should be first (lower brier score)
+                # GPT-5.5 should be first (lower brier score)
                 if data["count"] >= 2:
-                    assert data["agents"][0]["agent"] == "gpt4"
+                    assert data["agents"][0]["agent"] == "gpt-5.5"
 
 
 # =============================================================================

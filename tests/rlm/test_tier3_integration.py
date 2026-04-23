@@ -182,7 +182,7 @@ class TestEnrichPlanContext:
         debate = _make_debate_result(
             messages=[
                 {"agent": "claude", "content": "Use token bucket", "round": 1},
-                {"agent": "gpt4", "content": "Sliding window better", "round": 1},
+                {"agent": "gpt-5.5", "content": "Sliding window better", "round": 1},
             ],
             task="Design a rate limiter",
             consensus_reached=True,
@@ -193,7 +193,7 @@ class TestEnrichPlanContext:
 
         assert "Design a rate limiter" in ctx.debate_summary
         assert "claude" in ctx.debate_summary
-        assert "gpt4" in ctx.debate_summary
+        assert "gpt-5.5" in ctx.debate_summary
         assert "Consensus" in ctx.debate_summary
         assert ctx.enriched is True
 
@@ -317,11 +317,11 @@ class TestGauntletRLMFinding:
             severity="medium",
             description="Claim without citation",
             source_round=2,
-            source_agent="gpt4",
+            source_agent="gpt-5.5",
             evidence="studies show that...",
         )
         assert finding.source_round == 2
-        assert finding.source_agent == "gpt4"
+        assert finding.source_agent == "gpt-5.5"
         assert finding.evidence == "studies show that..."
 
 

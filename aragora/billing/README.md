@@ -86,7 +86,7 @@ await meter.record_tokens(
     tokens_in=1000,
     tokens_out=500,
     provider="openai",
-    model="gpt-4o"
+    model="gpt-5.5"
 )
 
 # Get billing summary
@@ -607,8 +607,8 @@ The module includes current pricing for major LLM providers (per 1M tokens):
 |----------|-------|-------|--------|
 | Anthropic | claude-opus-4 | $15.00 | $75.00 |
 | Anthropic | claude-sonnet-4 | $3.00 | $15.00 |
-| OpenAI | gpt-4o | $2.50 | $10.00 |
-| OpenAI | gpt-4o-mini | $0.15 | $0.60 |
+| OpenAI | gpt-5.5 | $2.50 | $10.00 |
+| OpenAI | gpt-5.5 | $0.15 | $0.60 |
 | Google | gemini-pro | $1.25 | $5.00 |
 | DeepSeek | deepseek-v3 | $0.14 | $0.28 |
 | OpenRouter | default | $2.00 | $8.00 |

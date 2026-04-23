@@ -76,7 +76,7 @@ class FakeDebateResult:
 @pytest.fixture
 def three_round_messages():
     """Three rounds with three agents producing 9 messages."""
-    agents = ["claude", "gpt4", "gemini"]
+    agents = ["claude", "gpt-5.5", "gemini"]
     messages = []
     for rnd in range(1, 4):
         for agent in agents:
@@ -86,7 +86,7 @@ def three_round_messages():
                     agent=agent,
                     content=f"Round {rnd} proposal from {agent}: "
                     f"{'I suggest using caching.' if rnd == 1 else ''}"
-                    f"{'However, I disagree with caching alone.' if rnd == 2 and agent == 'gpt4' else ''}"
+                    f"{'However, I disagree with caching alone.' if rnd == 2 and agent == 'gpt-5.5' else ''}"
                     f"{'I agree we should combine approaches.' if rnd == 3 else ''}",
                     round=rnd,
                 )
@@ -125,7 +125,7 @@ def rich_messages():
         ),
         FakeMessage(
             role="proposer",
-            agent="gpt4",
+            agent="gpt-5.5",
             content='I suggest a token bucket. "Industry standard approach" is widely adopted.',
             round=1,
         ),
@@ -143,7 +143,7 @@ def rich_messages():
         ),
         FakeMessage(
             role="proposer",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="I support the hybrid approach. We concur on combining sliding window and token bucket.",
             round=3,
         ),
@@ -221,7 +221,7 @@ class TestLoadDebateContext:
         assert debate_context.confidence == 0.85
         assert len(debate_context.all_messages) == 9
         assert debate_context.total_rounds == 3
-        assert set(debate_context.agent_names) == {"claude", "gemini", "gpt4"}
+        assert set(debate_context.agent_names) == {"claude", "gemini", "gpt-5.5"}
 
     def test_dict_messages(self):
         """Should handle messages that are plain dicts."""
@@ -421,7 +421,7 @@ class TestSearchDebate:
     def test_regex_pattern(self, rich_context):
         """Should support regex patterns."""
         results = search_debate(rich_context, r"agree|consensus")
-        assert len(results) >= 2  # claude round 2 agrees, gpt4 round 3 concurs
+        assert len(results) >= 2  # claude round 2 agrees, gpt-5.5 round 3 concurs
 
     def test_empty_pattern(self, debate_context):
         """Empty pattern should match all messages (regex '.' matches any)."""
@@ -517,16 +517,16 @@ class TestGetCritiques:
         """Should filter critiques mentioning the target agent."""
         # Gemini critiques the "sliding window" proposed by claude
         # But target_agent filters by agent name in content
-        # Need a message that mentions "gpt4" by name
+        # Need a message that mentions "gpt-5.5" by name
         messages = [
-            FakeMessage(agent="claude", content="I disagree with gpt4 on this point.", round=1),
+            FakeMessage(agent="claude", content="I disagree with gpt-5.5 on this point.", round=1),
             FakeMessage(agent="gemini", content="However, claude made a good argument.", round=1),
         ]
         result = FakeDebateResult(messages=messages)
         ctx = load_debate_context(result)
-        critiques_of_gpt4 = get_critiques(ctx, target_agent="gpt4")
-        assert len(critiques_of_gpt4) == 1
-        assert critiques_of_gpt4[0]["agent"] == "claude"
+        critiques_of_gpt55 = get_critiques(ctx, target_agent="gpt-5.5")
+        assert len(critiques_of_gpt55) == 1
+        assert critiques_of_gpt55[0]["agent"] == "claude"
 
     def test_no_critiques(self):
         """Should return empty list when no critique markers found."""
@@ -568,7 +568,7 @@ class TestSummarizeRound:
     def test_agents_listed(self, debate_context):
         """Summary should include agent names."""
         summary = summarize_round(debate_context, 1)
-        for agent in ["claude", "gemini", "gpt4"]:
+        for agent in ["claude", "gemini", "gpt-5.5"]:
             assert agent in summary
 
     def test_nonexistent_round(self, debate_context):
@@ -605,7 +605,7 @@ class TestPartitionDebate:
     def test_partition_by_agent(self, debate_context):
         """Should partition by agent name."""
         partitions = partition_debate(debate_context, "agent")
-        assert set(partitions.keys()) == {"claude", "gemini", "gpt4"}
+        assert set(partitions.keys()) == {"claude", "gemini", "gpt-5.5"}
         for agent, msgs in partitions.items():
             assert len(msgs) == 3
 
@@ -644,7 +644,7 @@ class TestRLM_M:
         """Should detect and synthesize proposal-related queries."""
         msgs = [
             {"agent": "claude", "content": "I propose using Redis for caching.", "round": 1},
-            {"agent": "gpt4", "content": "I suggest Memcached instead.", "round": 1},
+            {"agent": "gpt-5.5", "content": "I suggest Memcached instead.", "round": 1},
         ]
         result = RLM_M("What proposals were made?", subset=msgs)
         assert (
@@ -657,7 +657,7 @@ class TestRLM_M:
         """Should detect and synthesize critique-related queries."""
         msgs = [
             {
-                "agent": "gpt4",
+                "agent": "gpt-5.5",
                 "content": "I disagree with using Redis. The problem with it is latency.",
                 "round": 2,
             },
@@ -670,7 +670,7 @@ class TestRLM_M:
         """Should detect and synthesize consensus-related queries."""
         msgs = [
             {"agent": "claude", "content": "I agree with the hybrid approach.", "round": 3},
-            {"agent": "gpt4", "content": "I support this consensus direction.", "round": 3},
+            {"agent": "gpt-5.5", "content": "I support this consensus direction.", "round": 3},
         ]
         result = RLM_M("Was consensus reached?", subset=msgs)
         assert "agree" in result.lower() or "support" in result.lower()
@@ -679,7 +679,7 @@ class TestRLM_M:
         """Should provide an overview for summary-type queries."""
         msgs = [
             {"agent": "claude", "content": "First point about architecture.", "round": 1},
-            {"agent": "gpt4", "content": "Second point about testing.", "round": 2},
+            {"agent": "gpt-5.5", "content": "Second point about testing.", "round": 2},
         ]
         result = RLM_M("Summarize the key points", subset=msgs)
         assert "synthesis" in result.lower() or "message" in result.lower()
@@ -688,7 +688,7 @@ class TestRLM_M:
         """Should detect round-specific query and summarize by round."""
         msgs = [
             {"agent": "claude", "content": "Round 1 content here.", "round": 1},
-            {"agent": "gpt4", "content": "Round 2 content here.", "round": 2},
+            {"agent": "gpt-5.5", "content": "Round 2 content here.", "round": 2},
         ]
         result = RLM_M("What happened in each round?", subset=msgs)
         assert "round" in result.lower()

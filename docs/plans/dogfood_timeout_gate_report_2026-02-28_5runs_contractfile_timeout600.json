@@ -10,7 +10,7 @@
     "-m",
     "aragora",
     "ask",
-    "Dogfood Aragora using planning docs and produce an orchestration-ready self-improvement plan/spec. Include concrete implementation sequencing, tests, rollback, explicit quantitative gates, and dissent preservation. Debate protocol must include Claude Opus 4.6, GPT-5.3 Codex, Gemini 3.1 Pro Preview, and Grok 4.20 with light role guidance.",
+    "Dogfood Aragora using planning docs and produce an orchestration-ready self-improvement plan/spec. Include concrete implementation sequencing, tests, rollback, explicit quantitative gates, and dissent preservation. Debate protocol must include Claude Opus 4.6, GPT-5.5 Codex, Gemini 3.1 Pro Preview, and Grok 4.20 with light role guidance.",
     "--agents",
     "anthropic-api,openai-api,gemini,grok",
     "--rounds",

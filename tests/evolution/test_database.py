@@ -458,8 +458,8 @@ class TestIntegration:
             data = [
                 ("e1", "claude", 0, 5, 3),
                 ("e2", "claude", 1, 8, 2),
-                ("e3", "gpt4", 0, 4, 4),
-                ("e4", "gpt4", 1, 6, 4),
+                ("e3", "gpt-5.5", 0, 4, 4),
+                ("e4", "gpt-5.5", 1, 6, 4),
             ]
             cursor.executemany(
                 "INSERT INTO experiments VALUES (?, ?, ?, ?, ?)",

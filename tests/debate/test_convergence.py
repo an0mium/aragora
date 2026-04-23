@@ -36,7 +36,7 @@ class TestConvergenceResult:
             status="converged",
             min_similarity=0.87,
             avg_similarity=0.91,
-            per_agent_similarity={"claude": 0.87, "gpt4": 0.95},
+            per_agent_similarity={"claude": 0.87, "gpt-5.5": 0.95},
             consecutive_stable_rounds=2,
         )
 
@@ -404,7 +404,7 @@ class TestAdvancedConvergenceAnalyzer:
         """Test argument diversity computation."""
         agent_responses = {
             "claude": "We should use Redis for caching. This improves performance significantly.",
-            "gpt4": "Memory caching with Redis is recommended. It reduces database load effectively.",
+            "gpt-5.5": "Memory caching with Redis is recommended. It reduces database load effectively.",
             "gemini": "Consider using PostgreSQL JSONB for data storage. This simplifies the architecture.",
         }
 
@@ -417,7 +417,7 @@ class TestAdvancedConvergenceAnalyzer:
         """Test argument diversity with empty responses."""
         agent_responses = {
             "claude": "Yes.",
-            "gpt4": "No.",
+            "gpt-5.5": "No.",
         }
 
         metric = analyzer.compute_argument_diversity(agent_responses)
@@ -429,7 +429,7 @@ class TestAdvancedConvergenceAnalyzer:
         """Test evidence convergence computation."""
         agent_responses = {
             "claude": "According to https://redis.io the performance is excellent.",
-            "gpt4": "The Redis documentation at https://redis.io shows good benchmarks.",
+            "gpt-5.5": "The Redis documentation at https://redis.io shows good benchmarks.",
             "gemini": "Based on https://mongodb.com the alternative is also good.",
         }
 
@@ -442,7 +442,7 @@ class TestAdvancedConvergenceAnalyzer:
         """Test evidence convergence with no citations."""
         agent_responses = {
             "claude": "The approach seems reasonable.",
-            "gpt4": "I agree with the proposal.",
+            "gpt-5.5": "I agree with the proposal.",
         }
 
         metric = analyzer.compute_evidence_convergence(agent_responses)
@@ -453,21 +453,21 @@ class TestAdvancedConvergenceAnalyzer:
     def test_compute_stance_volatility(self, analyzer):
         """Test stance volatility computation."""
         response_history = [
-            {"claude": "I agree with this approach.", "gpt4": "I disagree."},
-            {"claude": "I still agree strongly.", "gpt4": "I now support this."},
-            {"claude": "Agreement confirmed.", "gpt4": "Yes, I support it."},
+            {"claude": "I agree with this approach.", "gpt-5.5": "I disagree."},
+            {"claude": "I still agree strongly.", "gpt-5.5": "I now support this."},
+            {"claude": "Agreement confirmed.", "gpt-5.5": "Yes, I support it."},
         ]
 
         metric = analyzer.compute_stance_volatility(response_history)
 
-        # gpt4 changed stance from oppose to support
+        # gpt-5.5 changed stance from oppose to support
         assert metric.stance_changes >= 1
         assert metric.total_responses == 6
 
     def test_compute_stance_volatility_single_round(self, analyzer):
         """Test stance volatility with single round."""
         response_history = [
-            {"claude": "I agree.", "gpt4": "I disagree."},
+            {"claude": "I agree.", "gpt-5.5": "I disagree."},
         ]
 
         metric = analyzer.compute_stance_volatility(response_history)
@@ -480,11 +480,11 @@ class TestAdvancedConvergenceAnalyzer:
         """Test comprehensive analysis."""
         current_responses = {
             "claude": "Redis is the best choice for caching. It provides excellent performance.",
-            "gpt4": "I recommend Redis for caching. Performance benchmarks are impressive.",
+            "gpt-5.5": "I recommend Redis for caching. Performance benchmarks are impressive.",
         }
         previous_responses = {
             "claude": "We should consider caching options. Redis might be good.",
-            "gpt4": "Caching is important. Let's evaluate Redis and Memcached.",
+            "gpt-5.5": "Caching is important. Let's evaluate Redis and Memcached.",
         }
 
         metrics = analyzer.analyze(
@@ -525,7 +525,7 @@ class TestConvergenceDetector:
     def test_check_convergence_no_common_agents(self, detector):
         """Test with no common agents between rounds."""
         current = {"claude": "Response from Claude"}
-        previous = {"gpt4": "Response from GPT-4"}
+        previous = {"gpt-5.5": "Response from GPT-5.5"}
 
         result = detector.check_convergence(current, previous, round_number=2)
 
@@ -535,8 +535,8 @@ class TestConvergenceDetector:
         """Test detection of converged state."""
         # Use nearly identical responses
         response = "The system should use Redis for caching with a TTL of 15 minutes"
-        current = {"claude": response, "gpt4": response}
-        previous = {"claude": response, "gpt4": response}
+        current = {"claude": response, "gpt-5.5": response}
+        previous = {"claude": response, "gpt-5.5": response}
 
         result = detector.check_convergence(current, previous, round_number=2)
 
@@ -549,11 +549,11 @@ class TestConvergenceDetector:
         """Test detection of diverging state."""
         current = {
             "claude": "apple orange banana cherry grape",
-            "gpt4": "dog cat elephant mouse tiger",
+            "gpt-5.5": "dog cat elephant mouse tiger",
         }
         previous = {
             "claude": "carrot potato tomato onion pepper",
-            "gpt4": "house building apartment office store",
+            "gpt-5.5": "house building apartment office store",
         }
 
         result = detector.check_convergence(current, previous, round_number=2)
@@ -567,11 +567,11 @@ class TestConvergenceDetector:
         """Test detection of refining state."""
         current = {
             "claude": "We should use Redis for caching to improve performance",
-            "gpt4": "Redis caching would help with better performance metrics",
+            "gpt-5.5": "Redis caching would help with better performance metrics",
         }
         previous = {
             "claude": "Consider using caching for the system performance",
-            "gpt4": "Caching might improve the overall system performance",
+            "gpt-5.5": "Caching might improve the overall system performance",
         }
 
         result = detector.check_convergence(current, previous, round_number=2)
@@ -585,14 +585,14 @@ class TestConvergenceDetector:
     def test_check_convergence_per_agent_similarity(self, detector):
         """Test that per-agent similarity is tracked."""
         response = "Identical response text for testing"
-        current = {"claude": response, "gpt4": response, "gemini": response}
-        previous = {"claude": response, "gpt4": response, "gemini": response}
+        current = {"claude": response, "gpt-5.5": response, "gemini": response}
+        previous = {"claude": response, "gpt-5.5": response, "gemini": response}
 
         result = detector.check_convergence(current, previous, round_number=2)
 
         assert result is not None
         assert "claude" in result.per_agent_similarity
-        assert "gpt4" in result.per_agent_similarity
+        assert "gpt-5.5" in result.per_agent_similarity
         assert "gemini" in result.per_agent_similarity
         # All should be 1.0 for identical text
         for sim in result.per_agent_similarity.values():

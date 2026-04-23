@@ -34,10 +34,7 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
         "claude-haiku-4.5": (Decimal("0.80"), Decimal("4.00")),
     },
     "openai": {
-        "gpt-4.1": (Decimal("2.00"), Decimal("8.00")),
-        "gpt-4.1-mini": (Decimal("0.40"), Decimal("1.60")),
-        "gpt-4o": (Decimal("2.50"), Decimal("10.00")),
-        "gpt-4o-mini": (Decimal("0.15"), Decimal("0.60")),
+        "gpt-5.5": (Decimal("2.50"), Decimal("10.00")),
     },
     "google": {
         "gemini-3.1-pro": (Decimal("2.00"), Decimal("12.00")),

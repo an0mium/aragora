@@ -41,7 +41,7 @@ def main() -> None:
         name="Code Review Pipeline",
         description="Multi-stage code review with AI agents",
         category="security",
-        agents=["claude", "gpt-4"],
+        agents=["claude", "gpt-5.5"],
     )
 
     workflow_id = workflow["workflow_id"]

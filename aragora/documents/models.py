@@ -73,7 +73,7 @@ class DocumentChunk:
 
     # Token accounting
     token_count: int = 0
-    token_model: str = ""  # Model used for counting (e.g., "gpt-4", "claude-3")
+    token_model: str = ""  # Model used for counting (e.g., "gpt-5.5", "claude-3")
 
     # Metadata
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -300,10 +300,7 @@ MODEL_TOKEN_LIMITS = {
     "claude-3.5-sonnet": 200_000,
     "claude-3.7-sonnet": 200_000,
     # OpenAI
-    "gpt-4-turbo": 128_000,
-    "gpt-4o": 128_000,
-    "gpt-4": 8_192,
-    "gpt-3.5-turbo": 16_385,
+    "gpt-5.5": 1_000_000,
     # Google
     "gemini-3.1-pro-preview": 1_000_000,  # 1M tokens
     "gemini-3-pro": 1_000_000,

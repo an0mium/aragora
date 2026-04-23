@@ -812,7 +812,7 @@ class TestDecisionReceiptAgentResponses:
                     },
                     "gpt": {
                         "provider": "openai",
-                        "model": "gpt-4.1",
+                        "model": "gpt-5.5",
                     },
                 }
             },
@@ -822,7 +822,7 @@ class TestDecisionReceiptAgentResponses:
 
         assert [response.agent for response in receipt.agent_responses] == ["claude", "gpt"]
         assert receipt.agent_responses[0].llm_label == "claude-sonnet-4 via Anthropic"
-        assert receipt.agent_responses[1].llm_label == "gpt-4.1 via OpenAI"
+        assert receipt.agent_responses[1].llm_label == "gpt-5.5 via OpenAI"
 
     @pytest.mark.asyncio
     async def test_receipt_defaults_for_missing_fields(self, mixin, mock_storage):

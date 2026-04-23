@@ -329,16 +329,16 @@ class TestInitOfficialRLM:
         """When sub_backend_model is None, should fall back to sub_model_name."""
         from aragora.rlm.bridge import RLMBackendConfig
 
-        # sub_model_name defaults to "gpt-4o-mini"
+        # sub_model_name defaults to "gpt-5.5"
         inst, mock_cls, _ = self._build_rlm_with_mock(
             sub_backend="openrouter",
             sub_backend_model=None,
         )
         call_kwargs = mock_cls.call_args.kwargs
         assert call_kwargs.get("other_backends") == ["openrouter"]
-        # should fall back to sub_model_name (gpt-4o-mini) since no explicit sub_backend_model
+        # should fall back to sub_model_name (gpt-5.5) since no explicit sub_backend_model
         backend_kwargs = call_kwargs.get("other_backend_kwargs", [{}])
-        assert backend_kwargs[0]["model_name"] == "gpt-4o-mini"
+        assert backend_kwargs[0]["model_name"] == "gpt-5.5"
 
     def test_no_sub_backend_means_no_other_backends(self):
         """When sub_backend is None, other_backends should NOT be in kwargs."""
@@ -389,11 +389,11 @@ class TestInitOfficialRLM:
         inst, mock_cls, _ = self._build_rlm_with_mock(
             sub_backend="openai",
             sub_backend_model=None,
-            env_overrides={"ARAGORA_RLM_SUB_MODEL": "gpt-4o-mini-from-env"},
+            env_overrides={"ARAGORA_RLM_SUB_MODEL": "gpt-5.5"},
         )
         call_kwargs = mock_cls.call_args.kwargs
         backend_kwargs = call_kwargs.get("other_backend_kwargs", [{}])
-        assert backend_kwargs[0]["model_name"] == "gpt-4o-mini-from-env"
+        assert backend_kwargs[0]["model_name"] == "gpt-5.5"
 
 
 # ===================================================================

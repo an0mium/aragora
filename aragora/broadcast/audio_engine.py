@@ -276,7 +276,7 @@ def get_voice_for_agent(agent_name: str) -> str:
     Maps agent names to TTS voice identifiers.
 
     Args:
-        agent_name: Name of the agent (e.g., "claude", "gpt4")
+        agent_name: Name of the agent (e.g., "claude", "gpt-5.5")
 
     Returns:
         Voice identifier string for TTS backend

@@ -33,7 +33,7 @@ curl -X POST http://localhost:8080/api/debates \
   -H "Content-Type: application/json" \
   -d '{
     "task": "What is the best approach to implement rate limiting?",
-    "agents": ["claude", "gpt4"],
+    "agents": ["claude", "gpt-5.5"],
     "rounds": 3
   }'
 ```
@@ -62,13 +62,13 @@ event: agent_message
 data: {"agent": "claude", "role": "proposer", "content": "I propose..."}
 
 event: critique
-data: {"agent": "gpt4", "target": "claude", "severity": 0.6, "content": "While valid..."}
+data: {"agent": "gpt-5.5", "target": "claude", "severity": 0.6, "content": "While valid..."}
 
 event: agent_error
 data: {"agent": "claude", "error_type": "timeout", "message": "Agent response was empty", "recoverable": true, "phase": "proposal"}
 
 event: vote
-data: {"agent": "claude", "choice": "gpt4", "confidence": 0.85}
+data: {"agent": "claude", "choice": "gpt-5.5", "confidence": 0.85}
 
 event: consensus
 data: {"reached": true, "confidence": 0.82, "answer": "...", "status": "consensus_reached", "agent_failures": {}}
@@ -89,13 +89,13 @@ curl http://localhost:8080/api/debates/d-abc123
   "id": "d-abc123",
   "task": "What is the best approach to implement rate limiting?",
   "final_answer": "Token bucket algorithm with Redis backend...",
-  "winner": "gpt4",
+  "winner": "gpt-5.5",
   "confidence": 0.82,
   "consensus_reached": true,
   "status": "consensus_reached",
   "agent_failures": {},
   "rounds_used": 3,
-  "participants": ["claude", "gpt4"],
+  "participants": ["claude", "gpt-5.5"],
   "messages": [...],
   "votes": [...],
   "duration_ms": 12500
@@ -111,7 +111,7 @@ from aragora.agents.api_agents import AnthropicAgent, OpenAIAgent
 # Create agents
 agents = [
     AnthropicAgent(name="claude"),
-    OpenAIAgent(name="gpt4")
+    OpenAIAgent(name="gpt-5.5")
 ]
 
 # Configure the debate
@@ -150,7 +150,7 @@ asyncio.run(main())
 ```json
 {
   "task": "Your question or task",
-  "agents": ["claude", "gpt4", "gemini"],
+  "agents": ["claude", "gpt-5.5", "gemini"],
   "rounds": 3,
   "consensus": "majority",           // "majority" | "unanimous" | "judge"
   "early_stopping": true,            // Stop if agents converge
@@ -164,7 +164,7 @@ asyncio.run(main())
 | Agent | Provider | Model |
 |-------|----------|-------|
 | `claude` | Anthropic | claude-3-5-sonnet |
-| `gpt4` | OpenAI | gpt-4-turbo |
+| `gpt-5.5` | OpenAI | gpt-5.5 |
 | `gemini` | Google | gemini-pro |
 | `mistral` | Mistral | mistral-large |
 | `grok` | xAI | grok-beta |

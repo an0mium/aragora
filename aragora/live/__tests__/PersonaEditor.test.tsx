@@ -27,7 +27,7 @@ describe('PersonaEditor', () => {
       updated_at: '2024-01-16T00:00:00Z',
     },
     {
-      agent_name: 'gpt4',
+      agent_name: 'gpt-5.5',
       description: 'An advanced language model',
       traits: ['versatile'],
       expertise: ['general'],
@@ -114,7 +114,7 @@ describe('PersonaEditor', () => {
         expect(screen.getByText('claude')).toBeInTheDocument();
       });
       expect(screen.getByText('gemini')).toBeInTheDocument();
-      expect(screen.getByText('gpt4')).toBeInTheDocument();
+      expect(screen.getByText('gpt-5.5')).toBeInTheDocument();
     });
 
     it('shows persona count in header', async () => {

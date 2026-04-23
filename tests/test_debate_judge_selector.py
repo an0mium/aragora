@@ -960,7 +960,7 @@ class TestJudgeVoteRecord:
     def test_create_record_with_weight(self):
         """Test creating vote record with custom weight."""
         record = JudgeVoteRecord(
-            judge_name="gpt4",
+            judge_name="gpt-5.5",
             vote=JudgeVote.REJECT,
             confidence=0.7,
             reasoning="Missing edge case",
@@ -1002,7 +1002,7 @@ class TestJudgePanel:
     def mock_judges(self):
         """Create mock judges."""
         judges = []
-        for name in ["claude", "gpt4", "gemini"]:
+        for name in ["claude", "gpt-5.5", "gemini"]:
             judge = Mock()
             judge.name = name
             judges.append(judge)
@@ -1030,7 +1030,7 @@ class TestJudgePanel:
         """Test majority voting approves."""
         panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.MAJORITY)
         panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
-        panel.record_vote("gpt4", JudgeVote.APPROVE, 0.8, "Also good")
+        panel.record_vote("gpt-5.5", JudgeVote.APPROVE, 0.8, "Also good")
         panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Not convinced")
 
         result = panel.get_result()
@@ -1041,7 +1041,7 @@ class TestJudgePanel:
         """Test majority voting rejects."""
         panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.MAJORITY)
         panel.record_vote("claude", JudgeVote.REJECT, 0.9, "Bad")
-        panel.record_vote("gpt4", JudgeVote.REJECT, 0.8, "Also bad")
+        panel.record_vote("gpt-5.5", JudgeVote.REJECT, 0.8, "Also bad")
         panel.record_vote("gemini", JudgeVote.APPROVE, 0.7, "It's fine")
 
         result = panel.get_result()
@@ -1052,7 +1052,7 @@ class TestJudgePanel:
         """Test supermajority voting requires 2/3."""
         panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.SUPERMAJORITY)
         panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
-        panel.record_vote("gpt4", JudgeVote.APPROVE, 0.8, "Also good")
+        panel.record_vote("gpt-5.5", JudgeVote.APPROVE, 0.8, "Also good")
         panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Not convinced")
 
         result = panel.get_result()
@@ -1062,7 +1062,7 @@ class TestJudgePanel:
         """Test supermajority rejects with simple majority."""
         panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.SUPERMAJORITY)
         panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
-        panel.record_vote("gpt4", JudgeVote.REJECT, 0.8, "Bad")
+        panel.record_vote("gpt-5.5", JudgeVote.REJECT, 0.8, "Bad")
         panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Also bad")
 
         result = panel.get_result()
@@ -1072,7 +1072,7 @@ class TestJudgePanel:
         """Test unanimous voting."""
         panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.UNANIMOUS)
         panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
-        panel.record_vote("gpt4", JudgeVote.APPROVE, 0.8, "Good")
+        panel.record_vote("gpt-5.5", JudgeVote.APPROVE, 0.8, "Good")
         panel.record_vote("gemini", JudgeVote.APPROVE, 0.7, "Good")
 
         result = panel.get_result()
@@ -1082,7 +1082,7 @@ class TestJudgePanel:
         """Test unanimous rejects with any rejection."""
         panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.UNANIMOUS)
         panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
-        panel.record_vote("gpt4", JudgeVote.APPROVE, 0.8, "Good")
+        panel.record_vote("gpt-5.5", JudgeVote.APPROVE, 0.8, "Good")
         panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Bad")
 
         result = panel.get_result()
@@ -1093,12 +1093,12 @@ class TestJudgePanel:
         panel = JudgePanel(
             judges=mock_judges,
             strategy=JudgingStrategy.WEIGHTED,
-            judge_weights={"claude": 2.0, "gpt4": 1.0, "gemini": 1.0},
+            judge_weights={"claude": 2.0, "gpt-5.5": 1.0, "gemini": 1.0},
         )
-        # claude (weight 2) approves, gpt4 and gemini (weight 1 each) reject
+        # claude (weight 2) approves, gpt-5.5 and gemini (weight 1 each) reject
         # weighted: 2/4 = 0.5, not > 0.5 so rejected
         panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
-        panel.record_vote("gpt4", JudgeVote.REJECT, 0.8, "Bad")
+        panel.record_vote("gpt-5.5", JudgeVote.REJECT, 0.8, "Bad")
         panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Bad")
 
         result = panel.get_result()
@@ -1109,14 +1109,14 @@ class TestJudgePanel:
         """Test abstentions don't count in ratios."""
         panel = JudgePanel(judges=mock_judges, strategy=JudgingStrategy.MAJORITY)
         panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Good")
-        panel.record_vote("gpt4", JudgeVote.ABSTAIN, 0.5, "Can't decide")
+        panel.record_vote("gpt-5.5", JudgeVote.ABSTAIN, 0.5, "Can't decide")
         panel.record_vote("gemini", JudgeVote.REJECT, 0.7, "Bad")
 
         result = panel.get_result()
         # 1 approve, 1 reject, 1 abstain = 1/2 = 50%
         assert result.approval_ratio == pytest.approx(0.5)
         assert result.approved is False  # Needs > 50%
-        assert "gpt4" in result.abstaining_judges
+        assert "gpt-5.5" in result.abstaining_judges
 
     def test_no_votes_returns_false(self, mock_judges):
         """Test empty panel returns not approved."""
@@ -1141,7 +1141,7 @@ class TestCreateJudgePanel:
     def mock_candidates(self):
         """Create mock candidate agents."""
         candidates = []
-        for name in ["claude", "gpt4", "gemini", "llama", "mistral"]:
+        for name in ["claude", "gpt-5.5", "gemini", "llama", "mistral"]:
             agent = Mock()
             agent.name = name
             candidates.append(agent)
@@ -1151,7 +1151,7 @@ class TestCreateJudgePanel:
     def mock_participants(self):
         """Create mock debate participants."""
         participants = []
-        for name in ["claude", "gpt4"]:
+        for name in ["claude", "gpt-5.5"]:
             agent = Mock()
             agent.name = name
             participants.append(agent)
@@ -1166,7 +1166,7 @@ class TestCreateJudgePanel:
         )
         judge_names = [j.name for j in panel.judges]
         assert "claude" not in judge_names
-        assert "gpt4" not in judge_names
+        assert "gpt-5.5" not in judge_names
         assert len(panel.judges) <= 3
 
     def test_create_panel_with_elo(self, mock_candidates, mock_participants):

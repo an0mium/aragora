@@ -737,7 +737,7 @@ class TestTwitterContentFormatter:
         formatter = DebateContentFormatter()
         tweet = formatter.format_announcement(
             task="Should AI have rights?",
-            agents=["Claude", "GPT-4", "Gemini"],
+            agents=["Claude", "GPT-5.5", "Gemini"],
             debate_url="https://example.com/debate/123",
         )
 
@@ -1175,14 +1175,14 @@ class TestYouTubeMetadataFromDebate:
 
         metadata = create_video_metadata_from_debate(
             task="Should AI have rights?",
-            agents=["Claude", "GPT-4"],
+            agents=["Claude", "GPT-5.5"],
             consensus_reached=True,
             debate_id="debate-123",
         )
 
         assert "AI Debate" in metadata.title
         assert "Claude" in metadata.description
-        assert "GPT-4" in metadata.description
+        assert "GPT-5.5" in metadata.description
         assert "Consensus reached" in metadata.description
         assert "debate-123" in metadata.description
         assert "AI" in metadata.tags

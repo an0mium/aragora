@@ -111,7 +111,7 @@ class TestEvidenceQualityScore:
             EvidenceMarker(EvidenceType.DATA, "50%", 20, 0.85),
         ]
         score = EvidenceQualityScore(
-            agent="gpt4",
+            agent="gpt-5.5",
             round_num=2,
             citation_density=0.8,
             specificity_score=0.7,
@@ -123,7 +123,7 @@ class TestEvidenceQualityScore:
             backed_claim_count=4,
         )
 
-        assert score.agent == "gpt4"
+        assert score.agent == "gpt-5.5"
         assert score.citation_density == 0.8
         assert score.specificity_score == 0.7
         assert len(score.evidence_markers) == 2
@@ -242,7 +242,7 @@ class TestEvidenceQualityAnalyzer:
         Costs decreased by $1,500 per month.
         """
 
-        score = analyzer.analyze(response, "gpt4", 2)
+        score = analyzer.analyze(response, "gpt-5.5", 2)
 
         data_markers = [m for m in score.evidence_markers if m.evidence_type == EvidenceType.DATA]
         assert len(data_markers) >= 3
@@ -378,7 +378,7 @@ class TestEvidenceQualityAnalyzer:
         """Test batch analysis of multiple responses."""
         responses = {
             "claude": "According to [1], the system works. Performance is 50ms.",
-            "gpt4": "The documentation shows good results. For example, Netflix uses this.",
+            "gpt-5.5": "The documentation shows good results. For example, Netflix uses this.",
             "gemini": "Generally speaking, it might work well.",
         }
 
@@ -386,7 +386,7 @@ class TestEvidenceQualityAnalyzer:
 
         assert len(scores) == 3
         assert "claude" in scores
-        assert "gpt4" in scores
+        assert "gpt-5.5" in scores
         assert "gemini" in scores
         assert all(s.round_num == 2 for s in scores.values())
 
@@ -489,7 +489,7 @@ class TestHollowConsensusAlert:
             detected=True,
             severity=0.75,
             reason="Low evidence quality (35%); claude lacks citations",
-            agent_scores={"claude": 0.35, "gpt4": 0.55},
+            agent_scores={"claude": 0.35, "gpt-5.5": 0.55},
             recommended_challenges=[
                 "Challenge to claude: Provide specific references.",
             ],
@@ -541,7 +541,7 @@ class TestHollowConsensusDetector:
         """Test check when responses are not converging."""
         responses = {
             "claude": "Some response here.",
-            "gpt4": "Another different response.",
+            "gpt-5.5": "Another different response.",
         }
 
         alert = detector.check(responses, convergence_similarity=0.3, round_num=1)
@@ -564,7 +564,7 @@ class TestHollowConsensusDetector:
                 For example, Netflix uses this architecture. Therefore, it's recommended.
                 The documentation at https://redis.io confirms this specifically.
             """,
-            "gpt4": """
+            "gpt-5.5": """
                 Based on the 2025 performance report [2], Redis achieves 45ms latency.
                 For instance, Uber employs similar caching. Hence, this is the best approach.
                 The official docs at https://redis.io show measured improvements of 40%.
@@ -582,7 +582,7 @@ class TestHollowConsensusDetector:
         """Test check with low quality converging responses."""
         responses = {
             "claude": "Generally speaking, it might work. Usually these things depend.",
-            "gpt4": "Typically this could potentially be good. Various factors matter.",
+            "gpt-5.5": "Typically this could potentially be good. Various factors matter.",
         }
 
         alert = detector.check(responses, convergence_similarity=0.85, round_num=2)
@@ -598,7 +598,7 @@ class TestHollowConsensusDetector:
                 According to [1], Redis provides 50ms latency. Specifically, the 2024
                 benchmark shows a 40% improvement. For example, Netflix uses this.
             """,
-            "gpt4": "It might work well generally. Depends on various factors.",
+            "gpt-5.5": "It might work well generally. Depends on various factors.",
             "gemini": "Usually this is fine. Typically acceptable.",
         }
 
@@ -609,14 +609,14 @@ class TestHollowConsensusDetector:
         # claude should have higher score
         if alert.agent_scores:
             claude_score = alert.agent_scores.get("claude", 0)
-            gpt4_score = alert.agent_scores.get("gpt4", 0)
-            assert claude_score > gpt4_score
+            gpt55_score = alert.agent_scores.get("gpt-5.5", 0)
+            assert claude_score > gpt55_score
 
     def test_check_generates_challenges_low_citations(self, detector):
         """Test that challenges are generated for low citation density."""
         responses = {
             "claude": "The system works well. It's a good approach.",
-            "gpt4": "I agree, the system is reliable.",
+            "gpt-5.5": "I agree, the system is reliable.",
         }
 
         alert = detector.check(responses, convergence_similarity=0.85, round_num=2)
@@ -631,7 +631,7 @@ class TestHollowConsensusDetector:
         """Test that challenges are generated for vague language."""
         responses = {
             "claude": "Generally it might potentially work. Various factors involved.",
-            "gpt4": "Typically this could be good. Depends on many considerations.",
+            "gpt-5.5": "Typically this could be good. Depends on many considerations.",
         }
 
         alert = detector.check(responses, convergence_similarity=0.85, round_num=2)
@@ -649,7 +649,7 @@ class TestHollowConsensusDetector:
         """Test that challenges are generated for weak reasoning."""
         responses = {
             "claude": "Redis is good. Use it.",
-            "gpt4": "Caching helps. Recommended.",
+            "gpt-5.5": "Caching helps. Recommended.",
         }
 
         alert = detector.check(responses, convergence_similarity=0.85, round_num=2)
@@ -663,7 +663,7 @@ class TestHollowConsensusDetector:
         """Test that at most 3 challenges are returned."""
         responses = {
             "claude": "Maybe.",
-            "gpt4": "Perhaps.",
+            "gpt-5.5": "Perhaps.",
             "gemini": "Possibly.",
             "llama": "Could be.",
         }
@@ -676,7 +676,7 @@ class TestHollowConsensusDetector:
         """Test severity calculation bounds."""
         responses = {
             "claude": "Yes.",
-            "gpt4": "Sure.",
+            "gpt-5.5": "Sure.",
         }
 
         alert = detector.check(responses, convergence_similarity=0.95, round_num=2)
@@ -687,7 +687,7 @@ class TestHollowConsensusDetector:
     def test_check_detection_threshold(self, detector):
         """Test detection requires both severity and convergence."""
         # Low quality but not converging
-        responses = {"claude": "Maybe.", "gpt4": "Perhaps."}
+        responses = {"claude": "Maybe.", "gpt-5.5": "Perhaps."}
 
         alert = detector.check(responses, convergence_similarity=0.5, round_num=2)
         assert alert.detected is False  # Not converging
@@ -740,8 +740,8 @@ class TestHollowConsensusDetector:
                 specificity_score=0.5,
                 logical_chain_score=0.5,
             ),
-            "gpt4": EvidenceQualityScore(
-                agent="gpt4",
+            "gpt-5.5": EvidenceQualityScore(
+                agent="gpt-5.5",
                 round_num=1,
                 citation_density=0.15,
                 specificity_score=0.5,
@@ -754,7 +754,7 @@ class TestHollowConsensusDetector:
         # Challenge should mention both agents
         if challenges:
             combined = " ".join(challenges)
-            assert "claude" in combined or "gpt4" in combined
+            assert "claude" in combined or "gpt-5.5" in combined
 
 
 class TestEvidenceQualityAnalyzerEdgeCases:
@@ -885,7 +885,7 @@ class TestEvidenceQualityIntegration:
                 Twitter uses Redis for timeline caching. Therefore, Redis is recommended
                 for our use case because it matches our latency requirements of <10ms.
             """,
-            "gpt4": """
+            "gpt-5.5": """
                 The 2025 cloud infrastructure report [2] shows Redis achieving 0.5ms
                 average latency. Specifically, the P99 is measured at 2ms. For instance,
                 Snapchat employs Redis clusters for session storage. Thus, given that
@@ -904,7 +904,7 @@ class TestEvidenceQualityIntegration:
 
         # Check individual scores
         assert scores["claude"].overall_quality > scores["gemini"].overall_quality
-        assert scores["gpt4"].overall_quality > scores["gemini"].overall_quality
+        assert scores["gpt-5.5"].overall_quality > scores["gemini"].overall_quality
 
         # Check hollow consensus
         detector = HollowConsensusDetector()
@@ -923,7 +923,7 @@ class TestEvidenceQualityIntegration:
                 For example, similar systems at scale achieve this.
                 Therefore, based on these metrics, we recommend this approach.
             """,
-            "gpt4": """
+            "gpt-5.5": """
                 The documentation [3] confirms 45ms average latency in 2024.
                 Precisely, the P95 is measured at 85ms under load.
                 For instance, production deployments validate this.

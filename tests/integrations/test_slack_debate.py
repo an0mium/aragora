@@ -39,7 +39,7 @@ def lifecycle():
 
 @pytest.fixture
 def config():
-    return SlackDebateConfig(rounds=3, agents=["claude", "gpt4"])
+    return SlackDebateConfig(rounds=3, agents=["claude", "gpt-5.5"])
 
 
 def _make_debate_result(**kwargs):
@@ -52,7 +52,7 @@ def _make_debate_result(**kwargs):
     result.confidence = kwargs.get("confidence", 0.85)
     result.rounds_used = kwargs.get("rounds_used", 3)
     result.winner = kwargs.get("winner", "claude")
-    result.participants = kwargs.get("participants", ["claude", "gpt4"])
+    result.participants = kwargs.get("participants", ["claude", "gpt-5.5"])
     return result
 
 
@@ -65,7 +65,7 @@ class TestSlackDebateConfig:
     def test_default_values(self):
         cfg = SlackDebateConfig()
         assert cfg.rounds == 3
-        assert cfg.agents == ["claude", "gpt4"]
+        assert cfg.agents == ["claude", "gpt-5.5"]
         assert cfg.consensus_threshold == 0.7
         assert cfg.timeout_seconds == 300.0
         assert cfg.metadata == {}
@@ -73,7 +73,7 @@ class TestSlackDebateConfig:
     def test_custom_values(self):
         cfg = SlackDebateConfig(
             rounds=5,
-            agents=["claude", "gpt4", "gemini"],
+            agents=["claude", "gpt-5.5", "gemini"],
             consensus_threshold=0.9,
             timeout_seconds=600.0,
             metadata={"team": "engineering"},
@@ -123,7 +123,7 @@ class TestBuildDebateStartedBlocks:
         blocks = _build_debate_started_blocks("d-123", "Topic", config)
         block_text = str(blocks)
         assert "claude" in block_text
-        assert "gpt4" in block_text
+        assert "gpt-5.5" in block_text
 
     def test_debate_id_in_blocks(self, config):
         blocks = _build_debate_started_blocks("debate-abcdef123456", "Topic", config)
@@ -159,7 +159,7 @@ class TestBuildRoundUpdateBlocks:
         data = {
             "round": 1,
             "total_rounds": 3,
-            "agent": "gpt4",
+            "agent": "gpt-5.5",
             "proposal": "x" * 500,
         }
         blocks = _build_round_update_blocks(data)
@@ -388,7 +388,7 @@ class TestStartDebateFromThread:
         with patch.object(
             lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True
         ) as mock_post:
-            config.agents = ["claude", "gpt4", "gemini"]
+            config.agents = ["claude", "gpt-5.5", "gemini"]
             config.rounds = 5
             await lifecycle.start_debate_from_thread(
                 channel_id="C01ABC",
@@ -1006,7 +1006,7 @@ class TestRunDebate:
         mock_result = _make_debate_result()
         mock_result.rounds = [
             {"round": 1, "total_rounds": 2, "agent": "claude", "phase": "proposal"},
-            {"round": 2, "total_rounds": 2, "agent": "gpt4", "phase": "critique"},
+            {"round": 2, "total_rounds": 2, "agent": "gpt-5.5", "phase": "critique"},
         ]
         mock_result.receipt = None
 

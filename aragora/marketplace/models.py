@@ -89,7 +89,7 @@ class AgentTemplate:
     """Template for creating an agent configuration."""
 
     metadata: TemplateMetadata
-    agent_type: str  # e.g., "claude", "gpt4", "custom"
+    agent_type: str  # e.g., "claude", "gpt-5.5", "custom"
     system_prompt: str
     model_config: dict[str, Any] = field(default_factory=dict)
     capabilities: list[str] = field(default_factory=list)

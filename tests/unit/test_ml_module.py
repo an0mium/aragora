@@ -272,7 +272,7 @@ class TestAgentRouter:
         router = get_agent_router()
         decision = router.route(
             "Implement a binary search algorithm in Python",
-            available_agents=["claude", "gpt-4", "codex", "gemini"],
+            available_agents=["claude", "gpt-5.5", "codex", "gemini"],
             team_size=3,
         )
 
@@ -287,7 +287,7 @@ class TestAgentRouter:
         router = get_agent_router()
         decision = router.route(
             "Analyze the pros and cons of microservices architecture",
-            available_agents=["claude", "gpt-4", "gemini"],
+            available_agents=["claude", "gpt-5.5", "gemini"],
             team_size=2,
         )
 
@@ -301,7 +301,7 @@ class TestAgentRouter:
         router = get_agent_router()
         decision = router.route(
             "Write a short story about AI",
-            available_agents=["claude", "gpt-4", "grok"],
+            available_agents=["claude", "gpt-5.5", "grok"],
             team_size=2,
         )
 
@@ -314,7 +314,7 @@ class TestAgentRouter:
         router = get_agent_router()
         decision = router.route(
             "Calculate the derivative of x^2 + 3x",
-            available_agents=["claude", "gpt-4", "deepseek"],
+            available_agents=["claude", "gpt-5.5", "deepseek"],
             team_size=2,
         )
 
@@ -341,7 +341,7 @@ class TestAgentRouter:
         router = get_agent_router()
         decision = router.route(
             "Analyze this image",
-            available_agents=["claude", "gpt-4", "llama"],
+            available_agents=["claude", "gpt-5.5", "llama"],
             team_size=2,
             constraints={"require_vision": True},
         )
@@ -379,7 +379,7 @@ class TestAgentRouter:
         router = get_agent_router()
         decision = router.route(
             "Test task",
-            available_agents=["claude", "gpt-4"],
+            available_agents=["claude", "gpt-5.5"],
             team_size=2,
         )
 
@@ -564,7 +564,7 @@ class TestMLModuleIntegration:
         # Score some hypothetical responses
         responses = [
             ("claude", "Comprehensive analysis of the problem..."),
-            ("gpt-4", "Brief answer."),
+            ("gpt-5.5", "Brief answer."),
         ]
 
         scores = {}
@@ -574,7 +574,7 @@ class TestMLModuleIntegration:
         # Use scores to inform routing
         decision = router.route(
             "Analyze a complex problem",
-            available_agents=["claude", "gpt-4"],
+            available_agents=["claude", "gpt-5.5"],
             team_size=2,
         )
 
@@ -615,7 +615,7 @@ class TestMLModuleIntegration:
         router = get_agent_router()
         decision = router.route(
             "Implement error handling",
-            available_agents=["claude", "codex", "gpt-4"],
+            available_agents=["claude", "codex", "gpt-5.5"],
             team_size=2,
         )
         assert len(decision.selected_agents) == 2

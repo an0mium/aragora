@@ -39,10 +39,10 @@ def store(tmp_path):
 
 
 def test_normalize_cache_key_strips_and_lowercases():
-    key = normalize_cache_key("  Should We Use RUST?  ", ["openai/gpt-4o", "anthropic/claude-sonnet-4"], 2)
+    key = normalize_cache_key("  Should We Use RUST?  ", ["openai/gpt-5.5", "anthropic/claude-sonnet-4"], 2)
     assert "should we use rust?" in key  # normalized topic is in the hash input
     # Same content, different whitespace → same key
-    key2 = normalize_cache_key("should we use rust?", ["anthropic/claude-sonnet-4", "openai/gpt-4o"], 2)
+    key2 = normalize_cache_key("should we use rust?", ["anthropic/claude-sonnet-4", "openai/gpt-5.5"], 2)
     assert key == key2  # model order doesn't matter
 
 
@@ -461,7 +461,7 @@ In `aragora/server/handlers/playground.py`, add near the top constants (after li
 # Each agent gets a different model architecture for genuine adversarial diversity.
 OPENROUTER_PLAYGROUND_MODELS: list[tuple[str, str]] = [
     ("analyst", "anthropic/claude-sonnet-4"),
-    ("critic", "openai/gpt-4o"),
+    ("critic", "openai/gpt-5.5"),
     ("synthesizer", "google/gemini-2.0-flash-001"),
     ("contrarian", "mistralai/mistral-large-latest"),
     ("auditor", "deepseek/deepseek-chat"),
@@ -593,8 +593,8 @@ def test_cache_hit_returns_cached_result():
     mock_store.get_by_cache_key.return_value = cached_result
 
     with patch("aragora.server.handlers.playground.get_debate_store", return_value=mock_store):
-        with patch("aragora.server.handlers.playground._get_available_live_agents", return_value=["openrouter:anthropic/claude-sonnet-4", "openrouter:openai/gpt-4o", "openrouter:google/gemini-2.0-flash-001"]):
-            key = normalize_cache_key("should we use rust?", ["anthropic/claude-sonnet-4", "google/gemini-2.0-flash-001", "openai/gpt-4o"], 2)
+        with patch("aragora.server.handlers.playground._get_available_live_agents", return_value=["openrouter:anthropic/claude-sonnet-4", "openrouter:openai/gpt-5.5", "openrouter:google/gemini-2.0-flash-001"]):
+            key = normalize_cache_key("should we use rust?", ["anthropic/claude-sonnet-4", "google/gemini-2.0-flash-001", "openai/gpt-5.5"], 2)
             result = mock_store.get_by_cache_key(key)
 
     assert result is not None
@@ -603,8 +603,8 @@ def test_cache_hit_returns_cached_result():
 
 def test_cache_key_normalization_for_playground():
     """Playground topics should normalize consistently."""
-    key1 = normalize_cache_key("Should we use Rust?", ["anthropic/claude-sonnet-4", "openai/gpt-4o"], 2)
-    key2 = normalize_cache_key("  should  we  use  rust?  ", ["openai/gpt-4o", "anthropic/claude-sonnet-4"], 2)
+    key1 = normalize_cache_key("Should we use Rust?", ["anthropic/claude-sonnet-4", "openai/gpt-5.5"], 2)
+    key2 = normalize_cache_key("  should  we  use  rust?  ", ["openai/gpt-5.5", "anthropic/claude-sonnet-4"], 2)
     assert key1 == key2
 
 
@@ -943,7 +943,7 @@ def store(tmp_path):
 def test_same_topic_returns_cached_after_first_run(store):
     """First call stores result; second call returns cached."""
     topic = "Should we use Rust?"
-    models = ["anthropic/claude-sonnet-4", "openai/gpt-4o", "google/gemini-2.0-flash-001"]
+    models = ["anthropic/claude-sonnet-4", "openai/gpt-5.5", "google/gemini-2.0-flash-001"]
     rounds = 2
 
     # Simulate first debate result

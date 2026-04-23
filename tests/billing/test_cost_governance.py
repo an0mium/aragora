@@ -107,11 +107,11 @@ class TestModelRestriction:
 
     def test_to_dict_minimal_fields(self):
         """Test serialization with minimal fields."""
-        restriction = ModelRestriction(model_pattern="gpt-4*")
+        restriction = ModelRestriction(model_pattern="gpt-5.5*")
 
         data = restriction.to_dict()
 
-        assert data["model_pattern"] == "gpt-4*"
+        assert data["model_pattern"] == "gpt-5.5*"
         assert data["allowed"] is True
         assert data["max_requests_per_hour"] is None
         assert data["max_tokens_per_request"] is None
@@ -121,22 +121,22 @@ class TestModelRestriction:
     def test_from_dict_all_fields(self):
         """Test deserialization with all fields."""
         data = {
-            "model_pattern": "gpt-4*",
+            "model_pattern": "gpt-5.5*",
             "allowed": False,
             "max_requests_per_hour": 50,
             "max_tokens_per_request": 8000,
             "allowed_operations": ["chat", "completion"],
-            "fallback_model": "gpt-3.5-turbo",
+            "fallback_model": "gpt-5.5",
         }
 
         restriction = ModelRestriction.from_dict(data)
 
-        assert restriction.model_pattern == "gpt-4*"
+        assert restriction.model_pattern == "gpt-5.5*"
         assert restriction.allowed is False
         assert restriction.max_requests_per_hour == 50
         assert restriction.max_tokens_per_request == 8000
         assert restriction.allowed_operations == ["chat", "completion"]
-        assert restriction.fallback_model == "gpt-3.5-turbo"
+        assert restriction.fallback_model == "gpt-5.5"
 
     def test_from_dict_minimal_fields(self):
         """Test deserialization with minimal fields."""
@@ -201,7 +201,7 @@ class TestModelRestriction:
     def test_multiple_operations(self):
         """Test restriction with multiple allowed operations."""
         restriction = ModelRestriction(
-            model_pattern="gpt-4*",
+            model_pattern="gpt-5.5*",
             allowed_operations=["chat", "completion", "analysis", "code_review"],
         )
 
@@ -261,10 +261,10 @@ class TestModelRestriction:
         restriction = ModelRestriction(
             model_pattern="claude-opus*",
             allowed=False,
-            fallback_model="gpt-4-turbo",
+            fallback_model="gpt-5.5",
         )
 
-        assert restriction.fallback_model == "gpt-4-turbo"
+        assert restriction.fallback_model == "gpt-5.5"
 
 
 # =============================================================================
@@ -1411,13 +1411,13 @@ class TestCostGovernanceEngine:
         model_policy = CostGovernancePolicy(
             name="model",
             policy_type=CostPolicyType.MODEL_RESTRICTION,
-            model_restrictions=[ModelRestriction(model_pattern="gpt-4*", allowed=True)],
+            model_restrictions=[ModelRestriction(model_pattern="gpt-5.5*", allowed=True)],
         )
         engine.add_policy(spending_policy)
         engine.add_policy(model_policy)
 
         context = PolicyEvaluationContext(
-            model="gpt-4-turbo",
+            model="gpt-5.5",
             current_daily_spend=Decimal("50"),
         )
 
@@ -1434,7 +1434,7 @@ class TestCostGovernanceEngine:
 
         assert engine._count_recent_requests("claude-sonnet") == 2
         assert engine._count_recent_requests("claude-opus") == 1
-        assert engine._count_recent_requests("gpt-4") == 0
+        assert engine._count_recent_requests("gpt-5.5") == 0
 
     def test_count_recent_requests_window(self, engine):
         """Test that old requests are cleaned from the window."""

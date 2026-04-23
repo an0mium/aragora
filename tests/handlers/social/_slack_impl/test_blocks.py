@@ -59,7 +59,7 @@ def _make_debate_result(
         id=debate_id,
         consensus_reached=consensus_reached,
         confidence=confidence,
-        participants=participants or ["claude", "gpt-4", "gemini"],
+        participants=participants or ["claude", "gpt-5.5", "gemini"],
         rounds_used=rounds_used,
         final_answer=final_answer,
         winner=winner,
@@ -175,11 +175,11 @@ class TestBuildStartingBlocks:
             topic="topic",
             user_id="U1",
             debate_id="d-1",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
         )
         text = blocks[2]["elements"][0]["text"]
         assert "claude" in text
-        assert "gpt-4" in text
+        assert "gpt-5.5" in text
         assert "Agents:" in text
 
     def test_with_expected_rounds(self, slack_handler):
@@ -339,7 +339,7 @@ class TestPostRoundUpdate:
             topic="Topic",
             round_num=1,
             total_rounds=3,
-            agent="gpt-4",
+            agent="gpt-5.5",
         )
 
         slack_handler._post_to_response_url.assert_awaited_once()
@@ -357,7 +357,7 @@ class TestPostRoundUpdate:
             topic="Topic",
             round_num=1,
             total_rounds=3,
-            agent="gpt-4",
+            agent="gpt-5.5",
             channel_id=None,
             thread_ts="12345.67890",
         )
@@ -377,7 +377,7 @@ class TestPostRoundUpdate:
             topic="Topic",
             round_num=1,
             total_rounds=3,
-            agent="gpt-4",
+            agent="gpt-5.5",
             channel_id="C123",
             thread_ts=None,
         )
@@ -1216,7 +1216,7 @@ class TestBlocksIntegration:
             topic="Python vs Rust",
             user_id="U1",
             debate_id="d-1",
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
             expected_rounds=5,
         )
         assert len(starting) == 3
@@ -1225,7 +1225,7 @@ class TestBlocksIntegration:
             debate_id="d-1",
             consensus_reached=True,
             confidence=0.9,
-            participants=["claude", "gpt-4"],
+            participants=["claude", "gpt-5.5"],
             rounds_used=5,
             final_answer="Use Rust for performance-critical paths.",
             winner="claude",

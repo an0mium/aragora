@@ -190,7 +190,7 @@ def _patch_answer_runtime(
         return_value=detected
         or [
             ("anthropic", "claude-sonnet"),
-            ("openai", "gpt-5"),
+            ("openai", "gpt-5.5"),
             ("google", "gemini-pro"),
         ]
     )

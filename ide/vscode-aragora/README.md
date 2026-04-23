@@ -40,7 +40,7 @@ Open Settings (`Ctrl+,`) and search for "Aragora":
 |---------|-------------|---------|
 | `aragora.apiUrl` | Aragora API URL | `https://api.aragora.ai` |
 | `aragora.apiKey` | Your API key | (empty) |
-| `aragora.defaultAgents` | Default agents for debates | `claude,gpt-4` |
+| `aragora.defaultAgents` | Default agents for debates | `claude,gpt-5.5` |
 | `aragora.defaultRounds` | Default number of rounds | `3` |
 
 Or use the command `Aragora: Configure API` from the command palette.

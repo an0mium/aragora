@@ -67,13 +67,13 @@ class TestCalibrationFeedback:
         tracker = MagicMock()
         phase = FeedbackPhase(calibration_tracker=tracker)
 
-        votes = [_make_vote("gpt4", "gpt4", 0.85)]
+        votes = [_make_vote("gpt-5.5", "gpt-5.5", 0.85)]
         ctx = _make_ctx(consensus_reached=True, winner="claude", votes=votes)
 
         phase._apply_calibration_feedback(ctx)
 
         tracker.record_prediction.assert_called_once_with(
-            agent="gpt4",
+            agent="gpt-5.5",
             confidence=0.85,
             correct=False,
             domain="general",
@@ -108,7 +108,7 @@ class TestCalibrationFeedback:
 
         votes = [
             _make_vote("claude", "claude", 0.5),  # Below threshold
-            _make_vote("gpt4", "claude", 0.7),  # At threshold (excluded)
+            _make_vote("gpt-5.5", "claude", 0.7),  # At threshold (excluded)
         ]
         ctx = _make_ctx(consensus_reached=True, winner="claude", votes=votes)
 
@@ -123,7 +123,7 @@ class TestCalibrationFeedback:
 
         votes = [
             _make_vote("claude", "claude", 0.9),
-            _make_vote("gpt4", "gpt4", 0.85),
+            _make_vote("gpt-5.5", "gpt-5.5", 0.85),
             _make_vote("gemini", "claude", 0.75),
         ]
         ctx = _make_ctx(consensus_reached=True, winner="claude", votes=votes)
@@ -142,9 +142,9 @@ class TestCalibrationFeedback:
             prediction_type="consensus_feedback",
         )
 
-        # gpt4 voted incorrectly
+        # gpt-5.5 voted incorrectly
         tracker.record_prediction.assert_any_call(
-            agent="gpt4",
+            agent="gpt-5.5",
             confidence=0.85,
             correct=False,
             domain="general",

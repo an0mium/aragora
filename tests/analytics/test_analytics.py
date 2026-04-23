@@ -229,7 +229,7 @@ class TestCostBreakdown:
             period_end=end,
             total_cost=Decimal("100.50"),
             by_provider={"anthropic": Decimal("60"), "openai": Decimal("40.50")},
-            by_model={"claude-3": Decimal("60"), "gpt-4": Decimal("40.50")},
+            by_model={"claude-3": Decimal("60"), "gpt-5.5": Decimal("40.50")},
             by_user={"user1": Decimal("50"), "user2": Decimal("50.50")},
             by_org={"org1": Decimal("100.50")},
             daily_costs=[("2025-01-01", Decimal("5.00"))],
@@ -502,7 +502,7 @@ class TestDebateAnalyticsRecordDebate:
             rounds=3,
             consensus_reached=True,
             duration_seconds=120.5,
-            agents=["claude", "gpt-4"],
+            agents=["claude", "gpt-5.5"],
             org_id="org1",
             user_id="user1",
             protocol="majority",
@@ -1386,7 +1386,7 @@ class TestAnalyticsDashboardAgentMetrics:
                     },
                     {
                         "agent_id": "gpt",
-                        "agent_name": "GPT-4",
+                        "agent_name": "GPT-5.5",
                         "findings": [
                             {"severity": "critical", "status": "open"},
                         ],

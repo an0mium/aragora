@@ -31,7 +31,7 @@ from aragora.utils.json_helpers import safe_json_loads
 class ModelConfig:
     """Configuration for a specific model."""
 
-    model_id: str  # e.g., "gpt-4-turbo", "claude-3-opus"
+    model_id: str  # e.g., "gpt-5.5", "claude-3-opus"
     provider: str  # e.g., "openai", "anthropic", "local"
     version: str | None = None  # Model version if known
 

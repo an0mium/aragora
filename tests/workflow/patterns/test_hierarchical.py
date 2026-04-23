@@ -33,12 +33,12 @@ class TestHierarchicalPatternInit:
 
         pattern = HierarchicalPattern(name="Test Hierarchical")
         assert pattern.name == "Test Hierarchical"
-        # Base class sets self.agents to default ["claude", "gpt4"]
-        assert pattern.agents == ["claude", "gpt4"]
+        # Base class sets self.agents to default ["claude", "gpt-5.5"]
+        assert pattern.agents == ["claude", "gpt-5.5"]
         assert pattern.task == ""
         assert pattern.manager_agent == "claude"
         # worker_agents uses local `agents` param which is None, so falls through to default
-        assert pattern.worker_agents == ["gpt4", "gemini"]
+        assert pattern.worker_agents == ["gpt-5.5", "gemini"]
         assert pattern.max_subtasks == 4
         assert pattern.delegation_prompt == ""
         assert pattern.review_prompt == ""
@@ -49,10 +49,10 @@ class TestHierarchicalPatternInit:
         from aragora.workflow.patterns.hierarchical import HierarchicalPattern
 
         # When agents is explicitly passed, worker_agents uses that list
-        pattern = HierarchicalPattern(name="Test", agents=["claude", "gpt4"])
-        assert pattern.agents == ["claude", "gpt4"]
+        pattern = HierarchicalPattern(name="Test", agents=["claude", "gpt-5.5"])
+        assert pattern.agents == ["claude", "gpt-5.5"]
         assert pattern.manager_agent == "claude"
-        assert pattern.worker_agents == ["claude", "gpt4"]
+        assert pattern.worker_agents == ["claude", "gpt-5.5"]
 
     def test_custom_agents(self):
         """Test initialization with custom agents list."""
@@ -60,13 +60,13 @@ class TestHierarchicalPatternInit:
 
         pattern = HierarchicalPattern(
             name="Custom",
-            agents=["gpt4", "gemini", "mistral"],
+            agents=["gpt-5.5", "gemini", "mistral"],
         )
-        assert pattern.agents == ["gpt4", "gemini", "mistral"]
+        assert pattern.agents == ["gpt-5.5", "gemini", "mistral"]
         # Manager defaults to first agent in list
-        assert pattern.manager_agent == "gpt4"
+        assert pattern.manager_agent == "gpt-5.5"
         # Workers default to agents list
-        assert pattern.worker_agents == ["gpt4", "gemini", "mistral"]
+        assert pattern.worker_agents == ["gpt-5.5", "gemini", "mistral"]
 
     def test_explicit_manager_agent(self):
         """Test explicit manager agent configuration."""
@@ -74,11 +74,11 @@ class TestHierarchicalPatternInit:
 
         pattern = HierarchicalPattern(
             name="Explicit Manager",
-            agents=["gpt4", "gemini"],
+            agents=["gpt-5.5", "gemini"],
             manager_agent="claude",
         )
         assert pattern.manager_agent == "claude"
-        assert pattern.worker_agents == ["gpt4", "gemini"]
+        assert pattern.worker_agents == ["gpt-5.5", "gemini"]
 
     def test_explicit_worker_agents(self):
         """Test explicit worker agents configuration."""
@@ -87,10 +87,10 @@ class TestHierarchicalPatternInit:
         pattern = HierarchicalPattern(
             name="Explicit Workers",
             agents=["claude"],
-            worker_agents=["gpt4", "gemini", "mistral"],
+            worker_agents=["gpt-5.5", "gemini", "mistral"],
         )
         assert pattern.manager_agent == "claude"
-        assert pattern.worker_agents == ["gpt4", "gemini", "mistral"]
+        assert pattern.worker_agents == ["gpt-5.5", "gemini", "mistral"]
 
     def test_max_subtasks_configuration(self):
         """Test max_subtasks parameter."""
@@ -203,7 +203,7 @@ class TestHierarchicalWorkflowGeneration:
         """Test workflow description includes manager and worker info."""
         wf = self._create_workflow(
             manager_agent="claude",
-            worker_agents=["gpt4", "gemini"],
+            worker_agents=["gpt-5.5", "gemini"],
         )
         assert "claude" in wf.description
         assert "2 workers" in wf.description
@@ -219,12 +219,12 @@ class TestHierarchicalWorkflowGeneration:
         """Test workflow metadata includes pattern information."""
         wf = self._create_workflow(
             manager_agent="claude",
-            worker_agents=["gpt4", "gemini"],
+            worker_agents=["gpt-5.5", "gemini"],
             max_subtasks=6,
         )
         assert wf.metadata["pattern"] == "hierarchical"
         assert wf.metadata["manager_agent"] == "claude"
-        assert wf.metadata["worker_agents"] == ["gpt4", "gemini"]
+        assert wf.metadata["worker_agents"] == ["gpt-5.5", "gemini"]
         assert wf.metadata["max_subtasks"] == 6
 
     def test_workflow_category(self):
@@ -274,9 +274,9 @@ class TestHierarchicalStepConfig:
 
     def test_decompose_step_uses_manager_agent(self):
         """Test decompose step uses manager agent."""
-        wf = self._create_workflow(manager_agent="gpt4")
+        wf = self._create_workflow(manager_agent="gpt-5.5")
         step = next(s for s in wf.steps if s.id == "decompose")
-        assert step.config["agent_type"] == "gpt4"
+        assert step.config["agent_type"] == "gpt-5.5"
 
     def test_decompose_step_has_system_prompt(self):
         """Test decompose step has system prompt for project manager."""
@@ -308,12 +308,12 @@ class TestHierarchicalStepConfig:
     def test_dispatch_workers_handler(self):
         """Test dispatch_workers step uses correct handler."""
         wf = self._create_workflow(
-            worker_agents=["gpt4", "gemini"],
+            worker_agents=["gpt-5.5", "gemini"],
             timeout_per_worker=90.0,
         )
         step = next(s for s in wf.steps if s.id == "dispatch_workers")
         assert step.config["handler"] == "hierarchical_dispatch"
-        assert step.config["args"]["worker_agents"] == ["gpt4", "gemini"]
+        assert step.config["args"]["worker_agents"] == ["gpt-5.5", "gemini"]
         assert step.config["args"]["timeout"] == 90.0
 
     def test_review_step_type(self):
@@ -465,12 +465,12 @@ class TestHierarchicalFactory:
         wf = HierarchicalPattern.create(
             name="Factory Test",
             manager_agent="claude",
-            worker_agents=["gpt4", "gemini"],
+            worker_agents=["gpt-5.5", "gemini"],
             max_subtasks=3,
         )
         assert isinstance(wf, WorkflowDefinition)
         assert wf.metadata["manager_agent"] == "claude"
-        assert wf.metadata["worker_agents"] == ["gpt4", "gemini"]
+        assert wf.metadata["worker_agents"] == ["gpt-5.5", "gemini"]
         assert wf.metadata["max_subtasks"] == 3
 
     def test_create_with_task(self):

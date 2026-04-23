@@ -31,7 +31,7 @@ Clear, predictable pricing for businesses of all sizes.
 |---------|---------|-----|------------|
 | OpenRouter Models | Yes | Yes | Yes |
 | Claude (Anthropic) | Yes | Yes | Yes |
-| GPT-4 (OpenAI) | Yes | Yes | Yes |
+| GPT-5.5 (OpenAI) | Yes | Yes | Yes |
 | Gemini (Google) | - | Yes | Yes |
 | DeepSeek/Qwen/Llama | - | Yes | Yes |
 | Custom Model Integration | - | - | Yes |
@@ -84,7 +84,7 @@ Perfect for:
 **Includes:**
 - 100 debates per month
 - Up to 3 rounds per debate
-- Access to OpenRouter, Claude, and GPT-4
+- Access to OpenRouter, Claude, and GPT-5.5
 - REST API and SDK access
 - 30-day decision history
 - Community support
@@ -151,7 +151,7 @@ Perfect for:
 
 ### Debate Costs (estimated)
 
-| Debate Type | Rounds | Est. Cost (OpenRouter) | Est. Cost (Claude/GPT-4) |
+| Debate Type | Rounds | Est. Cost (OpenRouter) | Est. Cost (Claude/GPT-5.5) |
 |-------------|--------|------------------------|--------------------------|
 | Quick check | 1-2 | $0.02-0.05 | $0.10-0.20 |
 | Standard decision | 3-5 | $0.05-0.15 | $0.20-0.50 |

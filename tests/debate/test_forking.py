@@ -42,7 +42,7 @@ class TestForkPoint:
         fp = ForkPoint(
             round=3,
             reason="Fundamental disagreement on architecture",
-            disagreeing_agents=["claude", "gpt4"],
+            disagreeing_agents=["claude", "gpt-5.5"],
             parent_debate_id="debate-123",
             branch_ids=["branch-1", "branch-2"],
         )
@@ -166,7 +166,7 @@ class TestForkDecision:
             reason="Fundamental disagreement on tech stack",
             branches=[
                 {"hypothesis": "Claude's Redis approach", "lead_agent": "claude"},
-                {"hypothesis": "GPT4's Memcached approach", "lead_agent": "gpt4"},
+                {"hypothesis": "GPT-5.5's Memcached approach", "lead_agent": "gpt-5.5"},
             ],
             disagreement_score=0.85,
         )
@@ -341,13 +341,13 @@ class TestForkDetector:
 
         messages = [
             self._create_mock_message("claude", "I think we should use Redis"),
-            self._create_mock_message("gpt4", "Yes, Redis is a good choice"),
+            self._create_mock_message("gpt-5.5", "Yes, Redis is a good choice"),
             self._create_mock_message("claude", "Redis provides persistence"),
-            self._create_mock_message("gpt4", "Agreed on Redis"),
+            self._create_mock_message("gpt-5.5", "Agreed on Redis"),
         ]
         agents = [
             self._create_mock_agent("claude"),
-            self._create_mock_agent("gpt4"),
+            self._create_mock_agent("gpt-5.5"),
         ]
 
         decision = detector.should_fork(messages, round_num=3, agents=agents)
@@ -364,18 +364,19 @@ class TestForkDetector:
                 "I strongly disagree with the monolith approach. We should use microservices instead.",
             ),
             self._create_mock_message(
-                "gpt4", "On the contrary, monoliths are better. I disagree with microservices."
+                "gpt-5.5", "On the contrary, monoliths are better. I disagree with microservices."
             ),
             self._create_mock_message(
                 "claude", "The fundamentally different approach is wrong. I suggest microservices."
             ),
             self._create_mock_message(
-                "gpt4", "I cannot accept that. Monoliths should be used rather than microservices."
+                "gpt-5.5",
+                "I cannot accept that. Monoliths should be used rather than microservices.",
             ),
         ]
         agents = [
             self._create_mock_agent("claude"),
-            self._create_mock_agent("gpt4"),
+            self._create_mock_agent("gpt-5.5"),
         ]
 
         decision = detector.should_fork(messages, round_num=3, agents=agents)
@@ -390,11 +391,11 @@ class TestForkDetector:
 
         messages = [
             self._create_mock_message("claude", "We should use caching for performance"),
-            self._create_mock_message("gpt4", "We should not use caching due to complexity"),
+            self._create_mock_message("gpt-5.5", "We should not use caching due to complexity"),
         ]
         agents = [
             self._create_mock_agent("claude"),
-            self._create_mock_agent("gpt4"),
+            self._create_mock_agent("gpt-5.5"),
         ]
 
         decision = detector.should_fork(messages, round_num=3, agents=agents)
@@ -408,11 +409,11 @@ class TestForkDetector:
 
         messages = [
             self._create_mock_message("claude", "We should use sql database for this"),
-            self._create_mock_message("gpt4", "I prefer nosql for flexibility"),
+            self._create_mock_message("gpt-5.5", "I prefer nosql for flexibility"),
         ]
         agents = [
             self._create_mock_agent("claude"),
-            self._create_mock_agent("gpt4"),
+            self._create_mock_agent("gpt-5.5"),
         ]
 
         decision = detector.should_fork(messages, round_num=3, agents=agents)
@@ -479,7 +480,7 @@ class TestDebateForker:
 
         messages = [
             self._create_mock_message("claude", "Test message", 1),
-            self._create_mock_message("gpt4", "Another message", 1),
+            self._create_mock_message("gpt-5.5", "Another message", 1),
         ]
 
         decision = ForkDecision(
@@ -487,7 +488,7 @@ class TestDebateForker:
             reason="Test fork",
             branches=[
                 {"hypothesis": "Claude's approach", "lead_agent": "claude"},
-                {"hypothesis": "GPT4's approach", "lead_agent": "gpt4"},
+                {"hypothesis": "GPT-5.5's approach", "lead_agent": "gpt-5.5"},
             ],
             disagreement_score=0.8,
         )
@@ -687,7 +688,7 @@ class TestDebateForker:
                 parent_debate_id="debate-123",
                 fork_round=2,
                 hypothesis="Approach B",
-                lead_agent="gpt4",
+                lead_agent="gpt-5.5",
                 result=result2,
             ),
         ]
@@ -884,7 +885,7 @@ class TestDebateForker:
                 parent_debate_id="debate-123",
                 fork_round=1,
                 hypothesis="B",
-                lead_agent="gpt4",
+                lead_agent="gpt-5.5",
                 result=result2,
             ),
         ]
@@ -893,7 +894,7 @@ class TestDebateForker:
 
         assert len(insights) == 2
         assert "[claude]" in insights[0]
-        assert "[gpt4]" in insights[1]
+        assert "[gpt-5.5]" in insights[1]
 
     def test_get_fork_history(self):
         """Test getting fork history for debate."""
@@ -1432,13 +1433,13 @@ class TestExtractPositionsDeep:
         resolver = DeadlockResolver()
 
         msgs = [
-            self._create_msg("gpt4", "I agree that we should use this method.", 1),
+            self._create_msg("gpt-5.5", "I agree that we should use this method.", 1),
         ]
 
         positions = resolver._extract_positions(msgs)
 
-        assert "gpt4" in positions
-        assert "support" in positions["gpt4"]
+        assert "gpt-5.5" in positions
+        assert "support" in positions["gpt-5.5"]
 
     def test_extract_oppose_keyword(self):
         """Test _extract_positions detects oppose via 'oppose' keyword."""
@@ -1485,14 +1486,14 @@ class TestExtractPositionsDeep:
 
         msgs = [
             self._create_msg("claude", "I definitely think Redis is the answer.", 1),
-            self._create_msg("gpt4", "I oppose the Redis approach entirely.", 1),
+            self._create_msg("gpt-5.5", "I oppose the Redis approach entirely.", 1),
         ]
 
         positions = resolver._extract_positions(msgs)
 
         assert len(positions) == 2
         assert "strong_support" in positions["claude"]
-        assert "oppose" in positions["gpt4"]
+        assert "oppose" in positions["gpt-5.5"]
 
 
 # =============================================================================
@@ -1867,16 +1868,16 @@ class TestCreateCounterfactualDecisionDeep:
         signal = self._create_signal()
         messages = [
             self._create_msg("claude", "My position is X", 3),
-            self._create_msg("gpt4", "My position is Y", 3),
+            self._create_msg("gpt-5.5", "My position is Y", 3),
         ]
-        agents = [Mock(name="claude"), Mock(name="gpt4")]
+        agents = [Mock(name="claude"), Mock(name="gpt-5.5")]
 
         decision = resolver._create_counterfactual_decision(signal, messages, agents)
 
         assert decision.should_fork is True
         assert len(decision.branches) == 3  # agent1, agent2, synthesis
-        # reversed() iteration: gpt4 found first, then claude
-        assert "gpt4" in decision.branches[0]["hypothesis"]
+        # reversed() iteration: gpt-5.5 found first, then claude
+        assert "gpt-5.5" in decision.branches[0]["hypothesis"]
         assert "claude" in decision.branches[1]["hypothesis"]
         assert "synthesis" in decision.branches[2]["hypothesis"].lower()
 
@@ -1886,11 +1887,11 @@ class TestCreateCounterfactualDecisionDeep:
         signal = self._create_signal()
         messages = [
             self._create_msg("claude", "First position", 1),
-            self._create_msg("gpt4", "First position", 1),
+            self._create_msg("gpt-5.5", "First position", 1),
             self._create_msg("claude", "Updated position", 3),
-            self._create_msg("gpt4", "Updated position", 3),
+            self._create_msg("gpt-5.5", "Updated position", 3),
         ]
-        agents = [Mock(name="claude"), Mock(name="gpt4")]
+        agents = [Mock(name="claude"), Mock(name="gpt-5.5")]
 
         decision = resolver._create_counterfactual_decision(signal, messages, agents)
 
@@ -2090,7 +2091,7 @@ class TestCountUniqueArgumentsDeep:
 
         msgs = [
             self._create_msg("claude", "I argue that Redis is the best choice.", 1),
-            self._create_msg("gpt4", "I argue that Redis is the best choice.", 1),
+            self._create_msg("gpt-5.5", "I argue that Redis is the best choice.", 1),
         ]
 
         count = resolver._count_unique_arguments(msgs)
@@ -2135,13 +2136,13 @@ class TestForkDetectorBranchCreation:
                 "I propose using microservices for scalability. This is fundamentally different from monoliths. I disagree with the monolith approach.",
             ),
             self._create_mock_message(
-                "gpt4",
+                "gpt-5.5",
                 "On the contrary, I disagree completely. We should use monolith architecture instead. I propose using a simpler design.",
             ),
         ]
         agents = [
             self._create_mock_agent("claude"),
-            self._create_mock_agent("gpt4"),
+            self._create_mock_agent("gpt-5.5"),
         ]
 
         decision = detector.should_fork(messages, round_num=3, agents=agents)
@@ -2154,7 +2155,7 @@ class TestForkDetectorBranchCreation:
             for branch in decision.branches:
                 assert "hypothesis" in branch
                 assert "lead_agent" in branch
-                assert branch["lead_agent"] in ["claude", "gpt4"]
+                assert branch["lead_agent"] in ["claude", "gpt-5.5"]
 
     def test_extract_approach_with_i_propose(self):
         """Test _extract_approach extracts text after 'I propose'."""
@@ -2295,7 +2296,7 @@ class TestExtractMergedInsightsEdgeCases:
             parent_debate_id="debate-123",
             fork_round=3,
             hypothesis="B",
-            lead_agent="gpt4",
+            lead_agent="gpt-5.5",
             result=None,
         )
 
@@ -2331,7 +2332,7 @@ class TestExtractMergedInsightsEdgeCases:
             parent_debate_id="debate-123",
             fork_round=3,
             hypothesis="B",
-            lead_agent="gpt4",
+            lead_agent="gpt-5.5",
             result=result_empty_answer,
         )
 
@@ -2759,7 +2760,7 @@ class TestMergeWinnerLookupEdgeCases:
             parent_debate_id="debate-123",
             fork_round=3,
             hypothesis="Worst",
-            lead_agent="gpt4",
+            lead_agent="gpt-5.5",
             result=result2,
         )
         branch3 = Branch(

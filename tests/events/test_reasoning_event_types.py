@@ -40,7 +40,7 @@ class TestReasoningEventTypes:
         event = StreamEvent(
             type=StreamEventType.AGENT_EVIDENCE,
             data={
-                "agent": "gpt-4",
+                "agent": "gpt-5.5",
                 "sources": [
                     {
                         "title": "Research Paper A",

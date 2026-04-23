@@ -218,7 +218,7 @@ class TestDebateStateCache:
         event = StreamEvent(
             type=StreamEventType.DEBATE_START,
             loop_id="debate-1",
-            data={"task": "Test task", "agents": ["claude", "gpt4"]},
+            data={"task": "Test task", "agents": ["claude", "gpt-5.5"]},
         )
 
         debate_state_cache.update_from_event(event)
@@ -226,7 +226,7 @@ class TestDebateStateCache:
         state = debate_state_cache.get_state("debate-1")
         assert state is not None
         assert state["task"] == "Test task"
-        assert state["agents"] == ["claude", "gpt4"]
+        assert state["agents"] == ["claude", "gpt-5.5"]
         assert state["messages"] == []
         assert state["consensus_reached"] is False
         assert state["ended"] is False
@@ -723,7 +723,7 @@ class TestWebSocketBroadcaster:
             StreamEvent(
                 type=StreamEventType.TOKEN_DELTA,
                 loop_id="test",
-                agent="gpt4",
+                agent="gpt-5.5",
                 data={"token": "X"},
                 agent_seq=1,
             ),
@@ -737,7 +737,7 @@ class TestWebSocketBroadcaster:
             StreamEvent(
                 type=StreamEventType.TOKEN_DELTA,
                 loop_id="test",
-                agent="gpt4",
+                agent="gpt-5.5",
                 data={"token": "Y"},
                 agent_seq=2,
             ),
@@ -746,13 +746,13 @@ class TestWebSocketBroadcaster:
         grouped = broadcaster._group_events_by_agent(events)
 
         # Should be grouped by agent
-        # Claude's tokens should be together, GPT4's tokens should be together
+        # Claude's tokens should be together, GPT-5.5's tokens should be together
         claude_indices = [i for i, e in enumerate(grouped) if e.agent == "claude"]
-        gpt4_indices = [i for i, e in enumerate(grouped) if e.agent == "gpt4"]
+        gpt55_indices = [i for i, e in enumerate(grouped) if e.agent == "gpt-5.5"]
 
         # Check that each agent's tokens are contiguous
         assert claude_indices == [0, 1] or claude_indices == [2, 3]
-        assert gpt4_indices == [0, 1] or gpt4_indices == [2, 3]
+        assert gpt55_indices == [0, 1] or gpt55_indices == [2, 3]
 
     def test_group_events_non_token_flushes(self, broadcaster):
         """Non-token events flush buffered tokens."""
@@ -876,7 +876,7 @@ class TestBroadcasterIntegration:
         start_event = StreamEvent(
             type=StreamEventType.DEBATE_START,
             loop_id="debate-1",
-            data={"task": "Test question", "agents": ["claude", "gpt4"]},
+            data={"task": "Test question", "agents": ["claude", "gpt-5.5"]},
         )
         broadcaster.emitter.emit(start_event)
         await broadcaster.broadcast(start_event)
@@ -886,7 +886,7 @@ class TestBroadcasterIntegration:
             msg_event = StreamEvent(
                 type=StreamEventType.AGENT_MESSAGE,
                 loop_id="debate-1",
-                agent="claude" if i % 2 == 0 else "gpt4",
+                agent="claude" if i % 2 == 0 else "gpt-5.5",
                 round=1,
                 data={"content": f"Response {i}", "role": "proposer"},
             )

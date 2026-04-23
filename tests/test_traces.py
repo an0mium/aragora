@@ -68,7 +68,7 @@ def trace_event_with_metadata():
         event_type=EventType.TOOL_RESULT,
         timestamp="2025-01-01T12:01:00",
         round_num=1,
-        agent="gpt4",
+        agent="gpt-5.5",
         content={"tool": "search", "result": "found data"},
         parent_event_id="debate-001-e0001",
         duration_ms=1500,
@@ -83,7 +83,7 @@ def debate_trace(trace_event):
         trace_id="trace-debate-001",
         debate_id="debate-001",
         task="Design a system architecture",
-        agents=["claude", "gpt4"],
+        agents=["claude", "gpt-5.5"],
         random_seed=42,
         events=[trace_event],
         started_at="2025-01-01T12:00:00",
@@ -97,7 +97,7 @@ def completed_debate_trace(trace_event):
         trace_id="trace-debate-001",
         debate_id="debate-001",
         task="Design a system",
-        agents=["claude", "gpt4"],
+        agents=["claude", "gpt-5.5"],
         random_seed=42,
         events=[trace_event],
         started_at="2025-01-01T12:00:00",
@@ -227,7 +227,7 @@ class TestTraceEvent:
         assert data["event_type"] == "tool_result"
         assert data["timestamp"] == "2025-01-01T12:01:00"
         assert data["round_num"] == 1
-        assert data["agent"] == "gpt4"
+        assert data["agent"] == "gpt-5.5"
         assert data["parent_event_id"] == "debate-001-e0001"
         assert data["duration_ms"] == 1500
         assert data["metadata"]["call_event_id"] == "debate-001-e0001"
@@ -245,7 +245,7 @@ class TestTraceEvent:
             "event_type": "agent_synthesis",
             "timestamp": "2025-01-01T12:00:00",
             "round_num": 2,
-            "agent": "gpt4",
+            "agent": "gpt-5.5",
             "content": {"text": "Synthesis"},
             "parent_event_id": None,
             "duration_ms": None,
@@ -254,7 +254,7 @@ class TestTraceEvent:
         event = TraceEvent.from_dict(data)
         assert event.event_id == "e-003"
         assert event.event_type == EventType.AGENT_SYNTHESIS
-        assert event.agent == "gpt4"
+        assert event.agent == "gpt-5.5"
 
     def test_from_dict_enum_reconstruction(self):
         """Should reconstruct enum from string value."""
@@ -346,7 +346,7 @@ class TestDebateTrace:
         """Should filter events by agent."""
         debate_trace.events.append(trace_event_with_metadata)
         claude_events = debate_trace.get_events_by_agent("claude")
-        gpt_events = debate_trace.get_events_by_agent("gpt4")
+        gpt_events = debate_trace.get_events_by_agent("gpt-5.5")
         assert len(claude_events) == 1
         assert len(gpt_events) == 1
 
@@ -659,7 +659,7 @@ class TestSpecializedRecordMethods:
 
     def test_record_critique(self, tracer):
         """Should record critique event."""
-        tracer.record_critique("gpt4", "claude", ["Issue 1", "Issue 2"], 0.7, ["Fix A"])
+        tracer.record_critique("gpt-5.5", "claude", ["Issue 1", "Issue 2"], 0.7, ["Fix A"])
         events = tracer.trace.get_events_by_type(EventType.AGENT_CRITIQUE)
         assert len(events) == 1
         assert events[0].content["target_agent"] == "claude"
@@ -667,7 +667,7 @@ class TestSpecializedRecordMethods:
 
     def test_record_critique_with_severity(self, tracer):
         """Should include severity in critique."""
-        tracer.record_critique("gpt4", "claude", ["Bug"], 0.9, ["Fix it"])
+        tracer.record_critique("gpt-5.5", "claude", ["Bug"], 0.9, ["Fix it"])
         event = tracer.trace.events[-1]
         assert event.content["severity"] == 0.9
 
@@ -680,7 +680,7 @@ class TestSpecializedRecordMethods:
 
     def test_record_consensus(self, tracer):
         """Should record consensus event."""
-        tracer.record_consensus(True, 0.85, {"claude": True, "gpt4": True})
+        tracer.record_consensus(True, 0.85, {"claude": True, "gpt-5.5": True})
         events = tracer.trace.get_events_by_type(EventType.CONSENSUS_CHECK)
         assert len(events) == 1
         assert events[0].content["reached"] is True

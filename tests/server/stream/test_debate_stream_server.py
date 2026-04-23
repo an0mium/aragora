@@ -362,7 +362,7 @@ class TestDebateStateUpdates:
             type=StreamEventType.DEBATE_START,
             data={
                 "task": "Test question",
-                "agents": ["claude", "gpt4"],
+                "agents": ["claude", "gpt-5.5"],
             },
             loop_id="debate-1",
         )
@@ -372,7 +372,7 @@ class TestDebateStateUpdates:
         assert "debate-1" in server.debate_states
         state = server.debate_states["debate-1"]
         assert state["task"] == "Test question"
-        assert state["agents"] == ["claude", "gpt4"]
+        assert state["agents"] == ["claude", "gpt-5.5"]
         assert state["ended"] is False
 
     def test_appends_messages_on_agent_message(self):
@@ -598,7 +598,7 @@ class TestTokenGrouping:
             StreamEvent(
                 type=StreamEventType.TOKEN_DELTA,
                 data={"token": "World"},
-                agent="gpt4",
+                agent="gpt-5.5",
                 agent_seq=1,
             ),
             StreamEvent(

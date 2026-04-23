@@ -384,13 +384,13 @@ def _check_model_pins_frontier_aligned() -> ClaimCheck:
         return ClaimCheck(
             claim_id=claim_id,
             status="fail",
-            claimed="OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO exported",
+            claimed="OPUS_4_7, GPT_5_5, GEMINI_3_1_PRO exported",
             observed="<aragora/config/model_pins.py missing>",
             tolerance="exact",
             message="aragora/config/model_pins.py is missing — likely PR #6194 has not merged yet.",
         )
     text = MODEL_PINS.read_text(encoding="utf-8")
-    required = ("OPUS_4_7", "GPT_5_4", "GEMINI_3_1_PRO")
+    required = ("OPUS_4_7", "GPT_5_5", "GEMINI_3_1_PRO")
     missing = [
         name for name in required if not re.search(rf"^\s*{name}\s*[:=]", text, re.MULTILINE)
     ]
@@ -398,7 +398,7 @@ def _check_model_pins_frontier_aligned() -> ClaimCheck:
         return ClaimCheck(
             claim_id=claim_id,
             status="pass",
-            claimed="OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO exported",
+            claimed="OPUS_4_7, GPT_5_5, GEMINI_3_1_PRO exported",
             observed="all three frontier constants present",
             tolerance="exact",
             message="model_pins registry exports the three canonical frontier IDs.",
@@ -406,7 +406,7 @@ def _check_model_pins_frontier_aligned() -> ClaimCheck:
     return ClaimCheck(
         claim_id=claim_id,
         status="fail",
-        claimed="OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO exported",
+        claimed="OPUS_4_7, GPT_5_5, GEMINI_3_1_PRO exported",
         observed=f"missing: {', '.join(missing)}",
         tolerance="exact",
         message=(

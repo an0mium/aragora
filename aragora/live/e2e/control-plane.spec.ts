@@ -22,9 +22,9 @@ const mockAgents = [
     tokens_used: 125000,
   },
   {
-    id: 'gpt-1',
-    name: 'GPT-4',
-    model: 'gpt-4-turbo',
+    id: 'gpt-5.5',
+    name: 'GPT-5.5',
+    model: 'gpt-5.5',
     status: 'busy',
     capabilities: ['code', 'analysis'],
     current_task: 'Code review',

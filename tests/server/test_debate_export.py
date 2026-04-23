@@ -49,7 +49,7 @@ def sample_debate():
             },
             {
                 "round": 1,
-                "agent": "GPT-4",
+                "agent": "GPT-5.5",
                 "role": "speaker",
                 "content": "Regulation must balance innovation with safety.",
                 "timestamp": "2024-01-15T10:10:00Z",
@@ -58,7 +58,7 @@ def sample_debate():
                 "round": 2,
                 "agent": "Claude",
                 "role": "critic",
-                "content": "GPT-4's point about innovation is valid.",
+                "content": "GPT-5.5's point about innovation is valid.",
                 "timestamp": "2024-01-15T10:20:00Z",
             },
         ],
@@ -66,7 +66,7 @@ def sample_debate():
             {
                 "round": 1,
                 "critic": "Claude",
-                "target": "GPT-4",
+                "target": "GPT-5.5",
                 "severity": 0.3,
                 "summary": "Valid point but needs more specifics.",
                 "timestamp": "2024-01-15T10:15:00Z",
@@ -295,7 +295,7 @@ class TestFormatDebateTxt:
         txt = result.content.decode("utf-8")
 
         assert "CRITIQUES" in txt
-        assert "Claude -> GPT-4" in txt
+        assert "Claude -> GPT-5.5" in txt
 
     def test_txt_contains_conclusion(self, sample_debate):
         """Text contains conclusion."""

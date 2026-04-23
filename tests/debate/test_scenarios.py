@@ -406,12 +406,12 @@ class TestScenarioResult:
             consensus_reached=True,
             duration_seconds=45.5,
             rounds=3,
-            metadata={"agents": ["claude", "gpt4"], "votes": {"agree": 3, "disagree": 1}},
+            metadata={"agents": ["claude", "gpt-5.5"], "votes": {"agree": 3, "disagree": 1}},
         )
 
         assert result.duration_seconds == 45.5
         assert result.rounds == 3
-        assert result.metadata["agents"] == ["claude", "gpt4"]
+        assert result.metadata["agents"] == ["claude", "gpt-5.5"]
 
     def test_result_to_dict(self):
         """Test ScenarioResult serialization."""

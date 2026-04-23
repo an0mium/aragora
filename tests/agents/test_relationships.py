@@ -68,13 +68,13 @@ def populated_tracker(tracker):
             critiques=[{"agent": "claude", "target": "gemini"}],
         )
 
-    # claude vs gpt4: 5 debates, high agreement (allies)
+    # claude vs gpt-5.5: 5 debates, high agreement (allies)
     for i in range(5):
         tracker.update_from_debate(
             debate_id=f"ally_debate_{i}",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             winner="claude" if i == 0 else None,
-            votes={"claude": "yes", "gpt4": "yes"},  # Always agree
+            votes={"claude": "yes", "gpt-5.5": "yes"},  # Always agree
             critiques=[],
         )
 
@@ -533,7 +533,7 @@ class TestGetAllRelationships:
             agent_names.append(other)
 
         assert "gemini" in agent_names
-        assert "gpt4" in agent_names
+        assert "gpt-5.5" in agent_names
 
     def test_get_all_relationships_returns_agent_relationship(self, populated_tracker):
         """Test that get_all_relationships returns AgentRelationship objects."""
@@ -786,13 +786,13 @@ class TestEdgeCasesAndErrors:
         """Test handling of unicode characters in agent names."""
         tracker.update_from_debate(
             debate_id="test1",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             winner="claude",
             votes={},
             critiques=[],
         )
 
-        rel = tracker.get_relationship("claude", "gpt4")
+        rel = tracker.get_relationship("claude", "gpt-5.5")
         assert rel.debate_count == 1
 
     def test_very_long_agent_names(self, tracker):
@@ -854,12 +854,12 @@ class TestIntegration:
         # First debate
         tracker.update_from_debate(
             debate_id="debate1",
-            participants=["claude", "gemini", "gpt4"],
+            participants=["claude", "gemini", "gpt-5.5"],
             winner="claude",
-            votes={"claude": "yes", "gemini": "no", "gpt4": "yes"},
+            votes={"claude": "yes", "gemini": "no", "gpt-5.5": "yes"},
             critiques=[
                 {"agent": "gemini", "target": "claude"},
-                {"agent": "gpt4", "target": "claude"},
+                {"agent": "gpt-5.5", "target": "claude"},
                 {"agent": "claude", "target": "gemini"},
             ],
         )
@@ -867,9 +867,9 @@ class TestIntegration:
         # Second debate
         tracker.update_from_debate(
             debate_id="debate2",
-            participants=["claude", "gemini", "gpt4"],
+            participants=["claude", "gemini", "gpt-5.5"],
             winner="gemini",
-            votes={"claude": "yes", "gemini": "yes", "gpt4": "yes"},
+            votes={"claude": "yes", "gemini": "yes", "gpt-5.5": "yes"},
             critiques=[
                 {"agent": "claude", "target": "gemini"},
             ],
@@ -882,8 +882,8 @@ class TestIntegration:
         assert rel_cg.a_wins_over_b == 1  # claude won debate1
         assert rel_cg.b_wins_over_a == 1  # gemini won debate2
 
-        # Check claude-gpt4 relationship
-        rel_cg4 = tracker.get_relationship("claude", "gpt4")
+        # Check claude-gpt-5.5 relationship
+        rel_cg4 = tracker.get_relationship("claude", "gpt-5.5")
         assert rel_cg4.debate_count == 2
         assert rel_cg4.agreement_count == 2  # Agreed in both
 

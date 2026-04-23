@@ -509,13 +509,13 @@ class TestSetDebateContext:
             set_debate_context(
                 "debate-123",
                 domain="security",
-                agent_names=["claude", "gpt4", "gemini"],
+                agent_names=["claude", "gpt-5.5", "gemini"],
                 round_number=3,
             )
 
             mock_sentry.set_tag.assert_any_call("debate_id", "debate-123")
             mock_sentry.set_tag.assert_any_call("debate_domain", "security")
-            mock_sentry.set_tag.assert_any_call("agents", "claude,gpt4,gemini")
+            mock_sentry.set_tag.assert_any_call("agents", "claude,gpt-5.5,gemini")
             mock_sentry.set_tag.assert_any_call("round", "3")
 
     def test_set_debate_context_limits_agents(self):

@@ -22,7 +22,7 @@ definition = WorkflowDefinition(
             id="analyze",
             name="Risk Analysis",
             step_type="debate",
-            config={"agents": ["claude", "gpt4"]}
+            config={"agents": ["claude", "gpt-5.5"]}
         )
     ],
     entry_step="extract"
@@ -81,7 +81,7 @@ workflow/
 from aragora.workflow.patterns import SequentialPattern
 
 pattern = SequentialPattern(
-    agents=["claude", "gpt4"],
+    agents=["claude", "gpt-5.5"],
     task="Review this code"
 )
 workflow = pattern.create_workflow()
@@ -92,7 +92,7 @@ workflow = pattern.create_workflow()
 from aragora.workflow.patterns import HiveMindPattern
 
 pattern = HiveMindPattern(
-    agents=["claude", "gpt4", "gemini"],
+    agents=["claude", "gpt-5.5", "gemini"],
     merge_mode="weighted"
 )
 ```
@@ -103,7 +103,7 @@ from aragora.workflow.patterns import MapReducePattern
 
 pattern = MapReducePattern(
     mapper_agent="claude",
-    reducer_agent="gpt4",
+    reducer_agent="gpt-5.5",
     split_strategy="chunks"
 )
 ```

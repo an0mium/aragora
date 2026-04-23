@@ -345,37 +345,37 @@ class TestParseRequest:
         assert rc.thread_id == "t-1"
 
     def test_complexity_router_alias(self):
-        rc = self._parse({"agent_by_complexity": {"low": "gpt-4"}})
-        assert rc.complexity_router == {"low": "gpt-4"}
+        rc = self._parse({"agent_by_complexity": {"low": "gpt-5.5"}})
+        assert rc.complexity_router == {"low": "gpt-5.5"}
 
     def test_task_type_router_alias(self):
         rc = self._parse({"agent_by_task_type": {"code": "claude"}})
         assert rc.task_type_router == {"code": "claude"}
 
     def test_capability_router_alias(self):
-        rc = self._parse({"agent_by_capability": {"vision": "gpt-4v"}})
-        assert rc.capability_router == {"vision": "gpt-4v"}
+        rc = self._parse({"agent_by_capability": {"vision": "gpt-5.5"}})
+        assert rc.capability_router == {"vision": "gpt-5.5"}
 
     def test_fabric_fields(self):
         rc = self._parse(
             {
-                "fabric_models": ["claude", "gpt-4"],
+                "fabric_models": ["claude", "gpt-5.5"],
                 "fabric_pool_id": "pool-1",
                 "fabric_min_agents": 2,
                 "fabric_max_agents": 5,
                 "fabric_timeout_seconds": 60,
             }
         )
-        assert rc.fabric_models == ["claude", "gpt-4"]
+        assert rc.fabric_models == ["claude", "gpt-5.5"]
         assert rc.fabric_pool_id == "pool-1"
         assert rc.fabric_min_agents == 2
         assert rc.fabric_max_agents == 5
         assert rc.fabric_timeout_seconds == 60
 
     def test_implementers_and_critic(self):
-        rc = self._parse({"implementers": ["claude"], "critic": "gpt-4", "reviser": "gemini"})
+        rc = self._parse({"implementers": ["claude"], "critic": "gpt-5.5", "reviser": "gemini"})
         assert rc.implementers == ["claude"]
-        assert rc.critic == "gpt-4"
+        assert rc.critic == "gpt-5.5"
         assert rc.reviser == "gemini"
 
     def test_strategy_and_max_revisions(self):

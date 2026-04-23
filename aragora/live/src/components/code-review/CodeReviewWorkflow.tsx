@@ -62,7 +62,7 @@ export interface ReviewResult {
 
 const DEFAULT_AGENTS: ReviewAgent[] = [
   { id: 'anthropic', name: 'Claude', icon: '🟣', specialty: 'Security & Architecture', enabled: true },
-  { id: 'openai', name: 'GPT-4', icon: '🟢', specialty: 'Code Quality & Patterns', enabled: true },
+  { id: 'openai', name: 'GPT-5.5', icon: '🟢', specialty: 'Code Quality & Patterns', enabled: true },
   { id: 'gemini', name: 'Gemini', icon: '🔵', specialty: 'Performance & Optimization', enabled: true },
   { id: 'mistral', name: 'Mistral', icon: '🟠', specialty: 'Logic & Edge Cases', enabled: false },
 ];
@@ -212,7 +212,7 @@ export function CodeReviewWorkflow() {
       { phase: 'Analyzing code changes...', percent: 20 },
       { phase: 'Security review debate', percent: 35, currentAgent: 'Claude', debateRound: 1 },
       { phase: 'Performance review debate', percent: 50, currentAgent: 'Gemini', debateRound: 1 },
-      { phase: 'Code quality debate', percent: 65, currentAgent: 'GPT-4', debateRound: 2 },
+      { phase: 'Code quality debate', percent: 65, currentAgent: 'GPT-5.5', debateRound: 2 },
       { phase: 'Synthesizing findings...', percent: 80, debateRound: 2 },
       { phase: 'Building consensus...', percent: 90, debateRound: 3 },
       { phase: 'Generating report...', percent: 95, debateRound: 3 },
@@ -282,7 +282,7 @@ export function CodeReviewWorkflow() {
         },
         {
           id: '4',
-          agent: 'GPT-4',
+          agent: 'GPT-5.5',
           category: 'quality',
           severity: 'medium',
           title: 'Missing Error Handling',
@@ -293,7 +293,7 @@ export function CodeReviewWorkflow() {
         },
         {
           id: '5',
-          agent: 'GPT-4',
+          agent: 'GPT-5.5',
           category: 'quality',
           severity: 'low',
           title: 'Magic Number in Business Logic',
@@ -326,7 +326,7 @@ export function CodeReviewWorkflow() {
               timestamp: new Date(Date.now() - 180000).toISOString(),
             },
             {
-              agent: 'GPT-4',
+              agent: 'GPT-5.5',
               content: 'Agreed. Additionally, the authentication middleware is missing from several endpoints, creating unauthorized access vectors.',
               timestamp: new Date(Date.now() - 170000).toISOString(),
             },
@@ -349,7 +349,7 @@ export function CodeReviewWorkflow() {
               timestamp: new Date(Date.now() - 120000).toISOString(),
             },
             {
-              agent: 'GPT-4',
+              agent: 'GPT-5.5',
               content: 'Good catch. I also noticed missing error handling in the payment handler - unhandled rejections could crash the server.',
               timestamp: new Date(Date.now() - 110000).toISOString(),
             },
@@ -372,7 +372,7 @@ export function CodeReviewWorkflow() {
               timestamp: new Date(Date.now() - 60000).toISOString(),
             },
             {
-              agent: 'GPT-4',
+              agent: 'GPT-5.5',
               content: 'I agree. Security vulnerabilities take priority. Once those are addressed, the remaining issues can be handled in follow-up PRs.',
               timestamp: new Date(Date.now() - 50000).toISOString(),
             },

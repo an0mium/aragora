@@ -119,7 +119,7 @@ class TestDissentingView:
 
     def test_role_is_optional(self) -> None:
         view = DissentingView(
-            agent="gpt-5-4",
+            agent="gpt-5.5",
             position=DissentPosition.DEFER,
             reason="Not enough evidence to settle.",
         )
@@ -150,7 +150,7 @@ class TestReviewBrief:
             disagreement_score=0.05,
             total_cost_usd=0.18,
             total_wall_clock_ms=4200,
-            agent_roster=("claude-opus-4-7", "gpt-5-4", "gemini-3-1-pro"),
+            agent_roster=("claude-opus-4-7", "gpt-5.5", "gemini-3-1-pro"),
             generated_at=datetime.now(UTC).isoformat(),
         )
         defaults.update(overrides)
@@ -228,7 +228,7 @@ class TestReviewBrief:
                 ),
             ),
             dissent=(),
-            agent_roster=("claude-opus-4-7", "gpt-5-4"),
+            agent_roster=("claude-opus-4-7", "gpt-5.5"),
         )
         assert isinstance(brief.role_findings, tuple)
         assert isinstance(brief.dissent, tuple)
@@ -293,7 +293,7 @@ class TestReviewBrief:
 class TestPRReviewProtocol:
     def _protocol(self, **overrides) -> PRReviewProtocol:
         defaults = dict(
-            model_panel=("claude-opus-4-7-1m", "gpt-5-4", "grok-3"),
+            model_panel=("claude-opus-4-7-1m", "gpt-5.5", "grok-3"),
         )
         defaults.update(overrides)
         return PRReviewProtocol(**defaults)
@@ -416,7 +416,7 @@ class TestPRReviewProtocol:
         d = protocol.to_dict()
         assert d["synthesis_policy"] == "unanimous_or_escalate"
         # Tuple field serializes to JSON-compatible list.
-        assert d["model_panel"] == ["claude-opus-4-7-1m", "gpt-5-4", "grok-3"]
+        assert d["model_panel"] == ["claude-opus-4-7-1m", "gpt-5.5", "grok-3"]
         assert d["rounds"] == 1
         assert d["require_heterogeneous_models"] is True
         assert d["advisory_only"] is True
@@ -424,7 +424,7 @@ class TestPRReviewProtocol:
     def test_json_roundtrip(self) -> None:
         protocol = self._protocol()
         roundtrip = json.loads(json.dumps(protocol.to_dict()))
-        assert roundtrip["model_panel"] == ["claude-opus-4-7-1m", "gpt-5-4", "grok-3"]
+        assert roundtrip["model_panel"] == ["claude-opus-4-7-1m", "gpt-5.5", "grok-3"]
         assert roundtrip["synthesis_policy"] == "weighted"
         assert roundtrip["advisory_only"] is True
 

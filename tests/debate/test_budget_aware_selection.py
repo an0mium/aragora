@@ -34,7 +34,7 @@ def agents():
     """Create a standard set of test agents."""
     return [
         _make_agent("claude-3"),
-        _make_agent("gpt-4"),
+        _make_agent("gpt-5.5"),
         _make_agent("gemini-pro"),
         _make_agent("llama-70b"),
         _make_agent("deepseek-r1"),
@@ -172,7 +172,7 @@ class TestBudgetWarn:
         # Should only include cheap agents: gemini, llama, deepseek, mistral
         names = [a.name for a in result]
         assert "claude-3" not in names
-        assert "gpt-4" not in names
+        assert "gpt-5.5" not in names
         assert "gemini-pro" in names
         assert "llama-70b" in names
         assert "deepseek-r1" in names
@@ -180,7 +180,7 @@ class TestBudgetWarn:
 
     def test_warn_falls_back_to_all_when_no_cheap(self, budget_manager):
         """WARN returns all agents if no cheap agents match."""
-        agents = [_make_agent("claude-3"), _make_agent("gpt-4")]
+        agents = [_make_agent("claude-3"), _make_agent("gpt-5.5")]
         budget_manager.check_budget.return_value = (True, "Warning", BudgetAction.WARN)
         selector = TeamSelector(
             budget_manager=budget_manager,

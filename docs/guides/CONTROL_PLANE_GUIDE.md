@@ -184,7 +184,7 @@ agent = await coordinator.register_agent(
         AgentCapability.CODE,
         "custom-capability",  # Custom string capability
     ],
-    model="gpt-4",
+    model="gpt-5.5",
     provider="openai",
     metadata={
         "version": "1.0",

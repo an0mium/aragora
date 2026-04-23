@@ -55,7 +55,7 @@ def run_demo():
 
     agents = [
         ("claude-proposer", "proposer"),
-        ("gpt4-critic", "critic"),
+        ("gpt-5.5", "critic"),
         ("gemini-synthesizer", "synthesizer"),
     ]
     print(f"Agents: {[name for name, _ in agents]}")
@@ -70,7 +70,7 @@ def run_demo():
             "Redis sorted sets for O(log N) window queries. Graceful degradation via "
             "priority queues that shed low-priority traffic first."
         ),
-        "gpt4-critic": (
+        "gpt-5.5": (
             "The token bucket approach is solid but I'd add a leaky bucket for global "
             "limits. Consider: PUT /api/v1/limits (admin config), DELETE "
             "/api/v1/limits/{user_id}/reset. Error handling: 429 with Retry-After "
@@ -79,7 +79,7 @@ def run_demo():
         ),
     }
     critiques = {
-        "gpt4-critic": (
+        "gpt-5.5": (
             "Missing admin endpoints for limit configuration. No mention of "
             "distributed rate limiting across multiple nodes. Retry-After header "
             "not specified. Severity: 4/10."
@@ -125,7 +125,7 @@ def run_demo():
 
     print("\n--- Result ---")
     print("Consensus: Yes (85% confidence)")
-    print("Votes: claude-proposer -> synthesis, gpt4-critic -> synthesis")
+    print("Votes: claude-proposer -> synthesis, gpt-5.5 -> synthesis")
     print(f"Final answer length: {len(synthesis)} chars")
     return True
 

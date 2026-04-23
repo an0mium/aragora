@@ -15,7 +15,7 @@ from aragora.debate.molecules import MoleculeStatus, MoleculeType
 class SimpleAgent:
     """Simple agent for testing."""
 
-    def __init__(self, name: str, model: str = "gpt-4"):
+    def __init__(self, name: str, model: str = "gpt-5.5"):
         self.name = name
         self.model = model
 
@@ -44,7 +44,7 @@ class TestAgentProfileWrapper:
 
     def test_gpt_capabilities(self):
         """Test GPT agents get correct capabilities."""
-        agent = SimpleAgent("gpt4", model="openai-gpt-4")
+        agent = SimpleAgent("gpt-5.5", model="openai-gpt-5.5")
         profile = AgentProfileWrapper.from_agent(agent)
 
         assert "quality_assessment" in profile.capabilities
@@ -87,7 +87,7 @@ class TestMoleculeOrchestrator:
         """Create test agents."""
         return [
             SimpleAgent("claude"),
-            SimpleAgent("gpt4", model="openai-gpt-4"),
+            SimpleAgent("gpt-5.5", model="openai-gpt-5.5"),
             SimpleAgent("gemini", model="google-gemini"),
         ]
 
@@ -96,7 +96,7 @@ class TestMoleculeOrchestrator:
         orchestrator.register_agents(agents)
 
         assert orchestrator.get_agent_profile("claude") is not None
-        assert orchestrator.get_agent_profile("gpt4") is not None
+        assert orchestrator.get_agent_profile("gpt-5.5") is not None
         assert orchestrator.get_agent_profile("gemini") is not None
         assert orchestrator.get_agent_profile("nonexistent") is None
 
@@ -265,7 +265,7 @@ class TestMoleculeOrchestrator:
 
         reassigned = await orchestrator.recover_failed_molecules("test_debate")
 
-        # Should reassign to a different agent (gpt4 or gemini)
+        # Should reassign to a different agent (gpt-5.5 or gemini)
         vote_reassigned = [(m, a) for m, a in reassigned if m == vote.molecule_id]
         assert len(vote_reassigned) == 1
         mol_id, new_agent = vote_reassigned[0]

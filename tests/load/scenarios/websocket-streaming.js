@@ -48,7 +48,7 @@ export default function () {
   // First, create a debate via REST
   const createPayload = JSON.stringify({
     question: randomQuestion(),
-    agents: ['claude', 'gpt4'],
+    agents: ['claude', 'gpt-5.5'],
     protocol: { rounds: 1 },
     context: { user_id: userId },
   });

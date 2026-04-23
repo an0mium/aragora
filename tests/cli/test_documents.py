@@ -130,7 +130,7 @@ class TestCreateDocumentsParser:
                 "--filter-prompt",
                 "Only relevant docs",
                 "--filter-model",
-                "gpt-4",
+                "gpt-5.5",
                 "--dry-run",
                 "--config",
                 "config.yaml",
@@ -148,7 +148,7 @@ class TestCreateDocumentsParser:
         assert args.max_files == 500
         assert args.agent_filter is True
         assert args.filter_prompt == "Only relevant docs"
-        assert args.filter_model == "gpt-4"
+        assert args.filter_model == "gpt-5.5"
         assert args.dry_run is True
         assert args.config == "config.yaml"
         assert args.follow_symlinks is True

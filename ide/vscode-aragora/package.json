@@ -225,7 +225,7 @@
         },
         "aragora.defaultAgents": {
           "type": "string",
-          "default": "claude,gpt-4",
+          "default": "claude,gpt-5.5",
           "description": "Default agents for debates (comma-separated)"
         },
         "aragora.defaultRounds": {

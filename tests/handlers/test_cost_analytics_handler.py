@@ -37,7 +37,7 @@ class TestAgentCosts:
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = {
             "total_cost_usd": "1.50",
-            "cost_by_agent": {"claude": "1.00", "gpt4": "0.50"},
+            "cost_by_agent": {"claude": "1.00", "gpt-5.5": "0.50"},
             "total_tokens_in": 500,
             "total_tokens_out": 200,
             "total_api_calls": 3,
@@ -48,7 +48,7 @@ class TestAgentCosts:
         body = result[0]
         assert body["count"] == 2
         assert body["agents"]["claude"] == "1.00"
-        assert body["agents"]["gpt4"] == "0.50"
+        assert body["agents"]["gpt-5.5"] == "0.50"
         assert body["total_cost_usd"] == "1.50"
 
     def test_agent_costs_empty_state(self, handler, mock_http_handler):

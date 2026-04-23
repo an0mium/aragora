@@ -70,7 +70,7 @@ def mock_elo_system():
     elo = Mock()
     elo.get_leaderboard.return_value = [
         MockAgentRanking("claude", 1650, 20),
-        MockAgentRanking("gpt4", 1580, 18),
+        MockAgentRanking("gpt-5.5", 1580, 18),
         MockAgentRanking("gemini", 1520, 15),
     ]
     return elo

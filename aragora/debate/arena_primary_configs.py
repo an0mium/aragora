@@ -98,7 +98,7 @@ class AgentConfig:
         agent_config = AgentConfig(
             use_performance_selection=True,
             use_airlock=True,
-            agent_weights={"claude": 1.2, "gpt4": 1.0},
+            agent_weights={"claude": 1.2, "gpt-5.5": 1.0},
         )
         arena = Arena(env, agents, agent_config=agent_config)
     """

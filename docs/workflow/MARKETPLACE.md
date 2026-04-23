@@ -109,7 +109,7 @@ results = registry.search(
 @dataclass
 class AgentTemplate:
     metadata: TemplateMetadata
-    agent_type: str              # e.g., "claude", "gpt4", "custom"
+    agent_type: str              # e.g., "claude", "gpt-5.5", "custom"
     system_prompt: str           # The agent's system prompt
     model_config: dict           # Model-specific configuration
     capabilities: list[str]      # What the agent can do

@@ -74,7 +74,7 @@ class TestDebateContentFormatter:
         formatter = DebateContentFormatter()
         tweet = formatter.format_announcement(
             task="Should we use microservices?",
-            agents=["Claude", "GPT-4", "Gemini"],
+            agents=["Claude", "GPT-5.5", "Gemini"],
         )
         assert "microservices" in tweet
         assert len(tweet) <= 280
@@ -91,7 +91,7 @@ class TestDebateContentFormatter:
         formatter = DebateContentFormatter()
         tweet = formatter.format_result(
             task="Rate limiting strategy",
-            agents=["Claude", "GPT-4"],
+            agents=["Claude", "GPT-5.5"],
             consensus_reached=True,
         )
         assert "Consensus" in tweet
@@ -100,7 +100,7 @@ class TestDebateContentFormatter:
         formatter = DebateContentFormatter()
         tweet = formatter.format_result(
             task="Architecture choice",
-            agents=["Claude", "GPT-4"],
+            agents=["Claude", "GPT-5.5"],
             consensus_reached=False,
             winner="Claude",
         )
@@ -110,7 +110,7 @@ class TestDebateContentFormatter:
         formatter = DebateContentFormatter()
         tweets = formatter.format_thread(
             task="API design",
-            agents=["Claude", "GPT-4"],
+            agents=["Claude", "GPT-5.5"],
             highlights=["Key point 1", "Key point 2"],
             consensus_reached=True,
         )

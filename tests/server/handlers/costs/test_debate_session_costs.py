@@ -131,7 +131,7 @@ class TestDebateCosts:
                 agent_name="gpt",
                 agent_id="agent_2",
                 provider="openai",
-                model="gpt-4o",
+                model="gpt-5.5",
                 cost_usd="0.015",
                 tokens_in=800,
                 tokens_out=400,

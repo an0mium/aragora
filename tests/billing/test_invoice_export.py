@@ -48,7 +48,7 @@ def sample_invoice():
                 "amount": 1000.00,
             },
             {
-                "description": "API Usage - GPT-4",
+                "description": "API Usage - GPT-5.5",
                 "quantity": 500000,
                 "unit_price": 0.001,
                 "amount": 500.00,
@@ -121,7 +121,7 @@ class TestInvoiceHTMLExport:
         html = await exporter.export_html(sample_invoice)
 
         assert "API Usage - Claude Opus" in html
-        assert "API Usage - GPT-4" in html
+        assert "API Usage - GPT-5.5" in html
 
     @pytest.mark.asyncio
     async def test_export_html_contains_dates(self, exporter, sample_invoice):

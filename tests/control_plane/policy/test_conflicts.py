@@ -107,7 +107,7 @@ class TestPolicyConflictDetector:
         )
         policy2 = ControlPlanePolicy(
             name="only-gpt",
-            agent_allowlist=["gpt-4"],  # Only gpt
+            agent_allowlist=["gpt-5.5"],  # Only gpt
         )
         conflicts = detector.detect_conflicts([policy1, policy2])
         # Two allowlists with no overlap = impossible to satisfy

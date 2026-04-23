@@ -77,8 +77,8 @@ def sample_agent_states():
             stance="affirmative",
         ),
         AgentState(
-            agent_name="gpt4",
-            agent_model="gpt-4-turbo",
+            agent_name="gpt-5.5",
+            agent_model="gpt-5.5",
             agent_role="critic",
             system_prompt="You critique proposals.",
             stance="skeptical",
@@ -106,7 +106,7 @@ def sample_messages():
         ),
         Message(
             role="critic",
-            agent="gpt4",
+            agent="gpt-5.5",
             content="The token bucket approach has merit, but consider edge cases.",
             timestamp=datetime.now(),
             round=1,
@@ -126,7 +126,7 @@ def sample_critiques():
     """Create sample Critique objects."""
     return [
         Critique(
-            agent="gpt4",
+            agent="gpt-5.5",
             target_agent="claude",
             target_content="Token bucket proposal",
             issues=["Doesn't handle burst traffic", "Memory overhead concerns"],
@@ -136,7 +136,7 @@ def sample_critiques():
         ),
         Critique(
             agent="claude",
-            target_agent="gpt4",
+            target_agent="gpt-5.5",
             target_content="Edge case critique",
             issues=["Overly pessimistic"],
             suggestions=["Consider practical constraints"],
@@ -158,7 +158,7 @@ def sample_votes():
             continue_debate=False,
         ),
         Vote(
-            agent="gpt4",
+            agent="gpt-5.5",
             choice="proposal_a",
             confidence=0.75,
             reasoning="Agreed on the hybrid approach with reservations.",
@@ -195,7 +195,7 @@ def sample_checkpoint(sample_agent_states):
         ],
         critiques=[
             {
-                "agent": "gpt4",
+                "agent": "gpt-5.5",
                 "target_agent": "claude",
                 "target_content": "Proposal",
                 "issues": ["Issue 1"],
@@ -526,7 +526,7 @@ class TestCheckpointSerialization:
         assert "agent_states" in d
         assert len(d["agent_states"]) == 3
         assert d["agent_states"][0]["agent_name"] == "claude"
-        assert d["agent_states"][1]["agent_name"] == "gpt4"
+        assert d["agent_states"][1]["agent_name"] == "gpt-5.5"
         assert d["agent_states"][2]["agent_name"] == "gemini"
 
     def test_to_dict_includes_optional_states(self, sample_checkpoint):

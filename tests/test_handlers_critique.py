@@ -134,7 +134,7 @@ class TestCanHandle:
     def test_can_handle_agent_reputation_route(self, critique_handler):
         """Test matching agent reputation endpoint."""
         assert critique_handler.can_handle("/api/v1/agent/claude/reputation")
-        assert critique_handler.can_handle("/api/v1/agent/gpt4/reputation")
+        assert critique_handler.can_handle("/api/v1/agent/gpt-5.5/reputation")
 
     def test_cannot_handle_unknown_route(self, critique_handler):
         """Test rejection of unknown routes."""
@@ -424,8 +424,8 @@ class TestAgentNameExtraction:
 
     def test_extract_agent_with_version(self, critique_handler):
         """Test extraction of agent name with version suffix."""
-        agent = critique_handler._extract_agent_name("/api/agent/gpt4_v2/reputation")
-        assert agent == "gpt4_v2"
+        agent = critique_handler._extract_agent_name("/api/agent/gpt55_v2/reputation")
+        assert agent == "gpt55_v2"
 
     def test_extract_path_traversal_returns_none(self, critique_handler):
         """Test path traversal attempts return None."""

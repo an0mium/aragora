@@ -682,7 +682,7 @@ results = client._request("POST", "/api/evidence/search", json={
 
 # Collect evidence for a debate
 evidence = client._request("POST", "/api/evidence/collect", json={
-    "task": "Compare GPT-4 vs Claude 3.5",
+    "task": "Compare GPT-5.5 vs Claude 3.5",
     "debate_id": "debate-123",
     "connectors": ["arxiv", "hackernews"]
 })

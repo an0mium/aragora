@@ -65,7 +65,7 @@ class TestDeliberationsGet:
                 "status": "active",
                 "current_round": 2,
                 "total_rounds": 5,
-                "agents": ["claude", "gpt-4", "gemini"],
+                "agents": ["claude", "gpt-5.5", "gemini"],
             }
 
             client = AragoraClient(base_url="https://api.aragora.ai")

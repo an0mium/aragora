@@ -35,7 +35,7 @@ steps:
     type: debate
     config:
       topic: "{topic}"
-      agents: ["claude", "gpt4", "gemini"]
+      agents: ["claude", "gpt-5.5", "gemini"]
       rounds: 3
       topology: "round_robin"
       consensus_mechanism: "weighted"
@@ -57,7 +57,7 @@ steps:
     type: debate
     config:
       topic: "Continue the discussion: {topic}"
-      agents: ["claude", "gpt4"]
+      agents: ["claude", "gpt-5.5"]
       rounds: 2
       consensus_mechanism: "unanimous"
       timeout_seconds: 60

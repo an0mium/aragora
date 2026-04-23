@@ -416,7 +416,7 @@ function TeamPerformanceCard({ apiBase }: { apiBase: string }) {
       // Show mock data
       setTeam([
         { agent: 'Claude', elo: 1823, wins: 42, losses: 8, trend: 'up' },
-        { agent: 'GPT-4', elo: 1756, wins: 38, losses: 12, trend: 'stable' },
+        { agent: 'GPT-5.5', elo: 1756, wins: 38, losses: 12, trend: 'stable' },
         { agent: 'Gemini', elo: 1698, wins: 31, losses: 19, trend: 'up' },
         { agent: 'Grok', elo: 1642, wins: 28, losses: 22, trend: 'down' },
         { agent: 'Mistral', elo: 1589, wins: 24, losses: 26, trend: 'stable' },
@@ -434,8 +434,8 @@ function TeamPerformanceCard({ apiBase }: { apiBase: string }) {
   const getAgentColor = (agent: string): string => {
     const colors: Record<string, string> = {
       claude: '#00ffff',
-      gpt4: '#10b981',
-      'gpt-4': '#10b981',
+      gpt-5.5: '#10b981',
+      'gpt-5.5': '#10b981',
       gemini: '#a855f7',
       grok: '#ef4444',
       mistral: '#f59e0b',

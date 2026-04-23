@@ -84,11 +84,11 @@ class TestPostDebatePatternInit:
         pattern = PostDebatePattern(
             name="Custom Post",
             config=config,
-            agents=["gpt4", "claude"],
+            agents=["gpt-5.5", "claude"],
             task="Custom task",
         )
         assert pattern.name == "Custom Post"
-        assert pattern.agents == ["gpt4", "claude"]
+        assert pattern.agents == ["gpt-5.5", "claude"]
         assert pattern.post_config.store_consensus is False
 
     def test_default_config_when_none(self):
@@ -386,9 +386,9 @@ class TestPostDebateStepConfig:
         """Test that summary step uses the first agent from the list."""
         from aragora.workflow.patterns.post_debate import PostDebatePattern
 
-        wf = PostDebatePattern(agents=["gpt4", "gemini"]).create_workflow()
+        wf = PostDebatePattern(agents=["gpt-5.5", "gemini"]).create_workflow()
         step = next(s for s in wf.steps if s.id == "generate_summary")
-        assert step.config["agent_type"] == "gpt4"
+        assert step.config["agent_type"] == "gpt-5.5"
 
     def test_complete_step_config(self):
         """Test complete step configuration."""

@@ -232,7 +232,7 @@ describe('GatewayAPI', () => {
           total_messages: 50000,
           messages_today: 1200,
           messages_by_channel: { slack: 30000, email: 15000 },
-          messages_by_agent: { claude: 25000, gpt4: 20000 },
+          messages_by_agent: { claude: 25000, gpt-5.5: 20000 },
           average_latency_ms: 45,
         },
       };
@@ -260,7 +260,7 @@ describe('GatewayAPI', () => {
             rule_id: 'rule_2',
             name: 'Email routing',
             channel: 'email',
-            agent_id: 'gpt4',
+            agent_id: 'gpt-5.5',
             priority: 2,
             active: true,
           },
@@ -310,7 +310,7 @@ describe('GatewayAPI', () => {
     it('should route a message to a different channel', async () => {
       const mockResult = {
         routed: true,
-        agent_id: 'gpt4',
+        agent_id: 'gpt-5.5',
         message_id: 'msg_124',
       };
       mockClient.request.mockResolvedValue(mockResult);

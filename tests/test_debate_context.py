@@ -99,7 +99,7 @@ class TestDebateContextInit:
     def test_full_creation(self):
         """Should create with all fields."""
         env = MockEnvironment(task="Full test")
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
 
         ctx = DebateContext(
             env=env,
@@ -139,15 +139,15 @@ class TestAgentLookup:
         """Should find agent by name."""
         agents = [
             MockAgent(name="claude"),
-            MockAgent(name="gpt4"),
+            MockAgent(name="gpt-5.5"),
             MockAgent(name="gemini"),
         ]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
 
-        result = ctx.get_agent_by_name("gpt4")
+        result = ctx.get_agent_by_name("gpt-5.5")
 
         assert result is not None
-        assert result.name == "gpt4"
+        assert result.name == "gpt-5.5"
 
     def test_get_agent_by_name_not_found(self):
         """Should return None when agent not found."""
@@ -178,7 +178,7 @@ class TestProposals:
     def test_get_proposal_exists(self):
         """Should return proposal when exists."""
         ctx = DebateContext(env=MockEnvironment())
-        ctx.proposals = {"claude": "My proposal", "gpt4": "Other proposal"}
+        ctx.proposals = {"claude": "My proposal", "gpt-5.5": "Other proposal"}
 
         assert ctx.get_proposal("claude") == "My proposal"
 
@@ -353,7 +353,7 @@ class TestSummaryDict:
 
     def test_to_summary_dict_with_agents(self):
         """Should include agent names in summary."""
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         proposers = [MockAgent(name="claude")]
         ctx = DebateContext(
             env=MockEnvironment(),
@@ -363,7 +363,7 @@ class TestSummaryDict:
 
         summary = ctx.to_summary_dict()
 
-        assert summary["agents"] == ["claude", "gpt4"]
+        assert summary["agents"] == ["claude", "gpt-5.5"]
         assert summary["proposers"] == ["claude"]
 
     def test_to_summary_dict_with_state(self):
@@ -407,7 +407,7 @@ class TestConvergenceState:
 
         ctx.convergence_status = "converged"
         ctx.convergence_similarity = 0.95
-        ctx.per_agent_similarity = {"claude": 0.96, "gpt4": 0.94}
+        ctx.per_agent_similarity = {"claude": 0.96, "gpt-5.5": 0.94}
         ctx.early_termination = True
 
         assert ctx.convergence_status == "converged"

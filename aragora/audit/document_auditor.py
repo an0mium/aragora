@@ -261,7 +261,7 @@ class AuditConfig:
     # Model settings
     primary_model: str = "gemini-3-pro"  # Large context for initial scan
     verification_model: str = "claude-3.5-sonnet"  # Deep reasoning for verification
-    adversarial_model: str = "gpt-4-turbo"  # Adversarial checking
+    adversarial_model: str = "gpt-5.5"  # Adversarial checking
 
     # Processing settings
     max_tokens_per_call: int = 500000

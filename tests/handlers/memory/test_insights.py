@@ -99,7 +99,7 @@ class MockInsight:
     title: str = "Test Insight"
     description: str = "A test insight description"
     confidence: float = 0.85
-    agents_involved: list = field(default_factory=lambda: ["claude", "gpt4"])
+    agents_involved: list = field(default_factory=lambda: ["claude", "gpt-5.5"])
     evidence: list = field(default_factory=lambda: ["ev1", "ev2", "ev3", "ev4"])
     created_at: str = "2026-01-15T10:00:00"
 
@@ -138,16 +138,16 @@ def mock_insight_store():
                 title="Consensus Shifted",
                 description="Agents converged on option A",
                 confidence=0.9,
-                agents_involved=["claude", "gpt4"],
+                agents_involved=["claude", "gpt-5.5"],
                 evidence=["ev1", "ev2", "ev3", "ev4"],
             ),
             MockInsight(
                 id="ins-002",
                 type=MockInsightType.POSITION_REVERSAL,
                 title="Agent Reversed Position",
-                description="gpt4 changed stance on encryption",
+                description="gpt-5.5 changed stance on encryption",
                 confidence=0.75,
-                agents_involved=["gpt4"],
+                agents_involved=["gpt-5.5"],
                 evidence=["ev5"],
             ),
             MockInsight(
@@ -267,7 +267,7 @@ class TestRecentInsights:
         assert first["title"] == "Consensus Shifted"
         assert first["description"] == "Agents converged on option A"
         assert first["confidence"] == 0.9
-        assert first["agents_involved"] == ["claude", "gpt4"]
+        assert first["agents_involved"] == ["claude", "gpt-5.5"]
 
     @pytest.mark.asyncio
     async def test_recent_insights_evidence_truncated(self, handler, mock_http):
@@ -378,7 +378,7 @@ class TestRecentFlips:
         assert len(body["flips"]) == 1
         flip = body["flips"][0]
         assert flip["id"] == "ins-002"
-        assert flip["agent"] == "gpt4"
+        assert flip["agent"] == "gpt-5.5"
         assert flip["new_position"] == "Agent Reversed Position"
         assert flip["confidence"] == 0.75
 
@@ -388,7 +388,7 @@ class TestRecentFlips:
         result = await handler.handle("/api/flips/recent", {}, mock_http)
         body = _body(result)
         flip = body["flips"][0]
-        assert flip["previous_position"] == "gpt4 changed stance on encryption"
+        assert flip["previous_position"] == "gpt-5.5 changed stance on encryption"
         assert len(flip["previous_position"]) <= 200
 
     @pytest.mark.asyncio

@@ -679,7 +679,7 @@ def with_agent_provider_metrics(
         model: Optional model name
 
     Example:
-        @with_agent_provider_metrics("openai", model="gpt-4")
+        @with_agent_provider_metrics("openai", model="gpt-5.5")
         async def call_openai(prompt: str) -> str:
             ...
     """
@@ -722,7 +722,7 @@ def with_agent_provider_metrics_sync(
         model: Optional model name
 
     Example:
-        @with_agent_provider_metrics_sync("openai", model="gpt-4")
+        @with_agent_provider_metrics_sync("openai", model="gpt-5.5")
         def call_openai(prompt: str) -> str:
             ...
     """

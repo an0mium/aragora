@@ -53,7 +53,7 @@ def _make_debate_result(**kwargs):
     result.rounds_used = kwargs.get("rounds_used", 3)
     result.winner = kwargs.get("winner", "claude")
     result.debate_id = kwargs.get("debate_id", "debate-abc123")
-    result.participants = kwargs.get("participants", ["claude", "gpt4"])
+    result.participants = kwargs.get("participants", ["claude", "gpt-5.5"])
     return result
 
 

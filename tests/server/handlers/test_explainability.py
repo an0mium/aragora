@@ -102,7 +102,7 @@ def _make_decision(debate_id: str = "debate-123", **overrides) -> Decision:
         "task": "Evaluate proposal",
         "domain": "engineering",
         "rounds_used": 3,
-        "agents_participated": ["claude", "gpt4", "gemini"],
+        "agents_participated": ["claude", "gpt-5.5", "gemini"],
         "evidence_chain": [
             _make_evidence("ev-1", 0.9),
             _make_evidence("ev-2", 0.7),
@@ -110,7 +110,7 @@ def _make_decision(debate_id: str = "debate-123", **overrides) -> Decision:
         ],
         "vote_pivots": [
             _make_vote_pivot("claude", 0.9),
-            _make_vote_pivot("gpt4", 0.5),
+            _make_vote_pivot("gpt-5.5", 0.5),
             _make_vote_pivot("gemini", 0.2),
         ],
         "counterfactuals": [

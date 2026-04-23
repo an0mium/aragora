@@ -468,7 +468,7 @@ class TestProviderRoutingIntegration:
     def test_team_selector_accepts_provider_hints(self):
         """TeamSelector should use provider_hints to weight agent selection."""
         selector = TeamSelector(agents=[...])
-        hints = {"claude-sonnet-4": 0.9, "gpt-4o": 0.7, "deepseek-r1": 0.5}
+        hints = {"claude-sonnet-4": 0.9, "gpt-5.5": 0.7, "deepseek-r1": 0.5}
         team = selector.select(task="code review", num_agents=3, provider_hints=hints)
         # Agents backed by higher-scoring providers should be preferred
         assert len(team) == 3

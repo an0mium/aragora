@@ -49,7 +49,7 @@ def _make_workspace_stats(
         "total_tokens_out": 25000,
         "cost_by_agent": {
             "claude": "5.00",
-            "gpt-4": "3.00",
+            "gpt-5.5": "3.00",
             "gemini": "2.00",
         }
         if agent_costs is None
@@ -138,7 +138,7 @@ class TestCostBreakdownEndpoint:
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
     def test_agent_costs_returned(self, mock_get_tracker):
-        agent_costs = {"claude": "15.00", "gpt-4": "10.00"}
+        agent_costs = {"claude": "15.00", "gpt-5.5": "10.00"}
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats(
             agent_costs=agent_costs
@@ -150,7 +150,7 @@ class TestCostBreakdownEndpoint:
         result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         assert body["agent_costs"]["claude"] == "15.00"
-        assert body["agent_costs"]["gpt-4"] == "10.00"
+        assert body["agent_costs"]["gpt-5.5"] == "10.00"
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
     def test_empty_agent_costs(self, mock_get_tracker):
@@ -182,7 +182,7 @@ class TestCostBreakdownEndpoint:
             total_cost=Decimal("12.3400"),
             by_model=[
                 {"model": "anthropic/claude-opus-4-7", "cost": "7.3400"},
-                {"model": "openai/gpt-4.1", "cost": "5.0000"},
+                {"model": "openai/gpt-5.5", "cost": "5.0000"},
             ],
             by_provider=[],
         )
@@ -197,7 +197,7 @@ class TestCostBreakdownEndpoint:
         assert body["total_spend_usd"] == "12.34"
         assert body["agent_costs"] == {
             "anthropic/claude-opus-4-7": "7.34",
-            "openai/gpt-4.1": "5.00",
+            "openai/gpt-5.5": "5.00",
         }
         mock_meter.get_usage_breakdown.assert_awaited_once_with(org_id="ws_123")
 

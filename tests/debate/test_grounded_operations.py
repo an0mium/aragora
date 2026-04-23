@@ -318,10 +318,10 @@ class TestUpdateRelationships:
         mock_elo_system: MagicMock,
     ) -> None:
         """Test successful relationship update."""
-        participants = ["claude", "gpt4", "gemini"]
+        participants = ["claude", "gpt-5.5", "gemini"]
         votes = [
             MockVote(agent="claude", choice="option_a"),
-            MockVote(agent="gpt4", choice="option_a"),
+            MockVote(agent="gpt-5.5", choice="option_a"),
             MockVote(agent="gemini", choice="option_b"),
         ]
 
@@ -336,7 +336,7 @@ class TestUpdateRelationships:
         call_args = mock_elo_system.update_relationships_batch.call_args
         updates = call_args[0][0]
 
-        # Should have 3 pairs: (claude, gpt4), (claude, gemini), (gpt4, gemini)
+        # Should have 3 pairs: (claude, gpt-5.5), (claude, gemini), (gpt-5.5, gemini)
         assert len(updates) == 3
 
     def test_update_relationships_computes_correct_pairs(
@@ -379,10 +379,10 @@ class TestUpdateRelationships:
         mock_elo_system: MagicMock,
     ) -> None:
         """Test that agreement is tracked correctly."""
-        participants = ["claude", "gpt4"]
+        participants = ["claude", "gpt-5.5"]
         votes = [
             MockVote(agent="claude", choice="same_choice"),
-            MockVote(agent="gpt4", choice="same_choice"),
+            MockVote(agent="gpt-5.5", choice="same_choice"),
         ]
 
         grounded_ops.update_relationships(
@@ -404,10 +404,10 @@ class TestUpdateRelationships:
         mock_elo_system: MagicMock,
     ) -> None:
         """Test that disagreement is tracked correctly."""
-        participants = ["claude", "gpt4"]
+        participants = ["claude", "gpt-5.5"]
         votes = [
             MockVote(agent="claude", choice="option_a"),
-            MockVote(agent="gpt4", choice="option_b"),
+            MockVote(agent="gpt-5.5", choice="option_b"),
         ]
 
         grounded_ops.update_relationships(
@@ -429,7 +429,7 @@ class TestUpdateRelationships:
         mock_elo_system: MagicMock,
     ) -> None:
         """Test that wins are tracked correctly."""
-        participants = ["claude", "gpt4"]
+        participants = ["claude", "gpt-5.5"]
         votes = []
 
         grounded_ops.update_relationships(
@@ -451,13 +451,13 @@ class TestUpdateRelationships:
         mock_elo_system: MagicMock,
     ) -> None:
         """Test that wins for agent_b are tracked correctly."""
-        participants = ["claude", "gpt4"]
+        participants = ["claude", "gpt-5.5"]
         votes = []
 
         grounded_ops.update_relationships(
             debate_id="debate-123",
             participants=participants,
-            winner="gpt4",
+            winner="gpt-5.5",
             votes=votes,
         )
 
@@ -473,7 +473,7 @@ class TestUpdateRelationships:
         mock_elo_system: MagicMock,
     ) -> None:
         """Test relationship update when there is no winner."""
-        participants = ["claude", "gpt4"]
+        participants = ["claude", "gpt-5.5"]
         votes = []
 
         grounded_ops.update_relationships(
@@ -497,7 +497,7 @@ class TestUpdateRelationships:
         # Should not raise
         minimal_ops.update_relationships(
             debate_id="debate-123",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             winner="claude",
             votes=[],
         )
@@ -547,7 +547,7 @@ class TestUpdateRelationships:
         # Should not raise, just log warning
         ops.update_relationships(
             debate_id="debate-123",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             winner="claude",
             votes=[],
         )
@@ -563,7 +563,7 @@ class TestUpdateRelationships:
         # Should not raise, just log warning
         ops.update_relationships(
             debate_id="debate-123",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             winner="claude",
             votes=[],
         )
@@ -579,7 +579,7 @@ class TestUpdateRelationships:
         # Should not raise, just log warning
         ops.update_relationships(
             debate_id="debate-123",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             winner="claude",
             votes=[],
         )
@@ -595,7 +595,7 @@ class TestUpdateRelationships:
         # Should not raise, just log warning
         ops.update_relationships(
             debate_id="debate-123",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             winner="claude",
             votes=[],
         )
@@ -611,7 +611,7 @@ class TestUpdateRelationships:
         # Should not raise, just log warning
         ops.update_relationships(
             debate_id="debate-123",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             winner="claude",
             votes=[],
         )
@@ -627,7 +627,7 @@ class TestUpdateRelationships:
         # Should not raise, just log warning
         ops.update_relationships(
             debate_id="debate-123",
-            participants=["claude", "gpt4"],
+            participants=["claude", "gpt-5.5"],
             winner="claude",
             votes=[],
         )
@@ -638,7 +638,7 @@ class TestUpdateRelationships:
         mock_elo_system: MagicMock,
     ) -> None:
         """Test handling of votes missing agent attribute."""
-        participants = ["claude", "gpt4"]
+        participants = ["claude", "gpt-5.5"]
         # Create a mock without 'agent' attribute
         bad_vote = MagicMock(spec=[])  # Empty spec means no attributes
 
@@ -658,7 +658,7 @@ class TestUpdateRelationships:
         mock_elo_system: MagicMock,
     ) -> None:
         """Test handling of votes missing choice attribute."""
-        participants = ["claude", "gpt4"]
+        participants = ["claude", "gpt-5.5"]
         # Create a mock with only 'agent' attribute
         bad_vote = MagicMock(spec=["agent"])
         bad_vote.agent = "claude"
@@ -898,7 +898,7 @@ class TestEdgeCases:
         mock_elo_system: MagicMock,
     ) -> None:
         """Test that debate_increment is always 1."""
-        participants = ["claude", "gpt4", "gemini"]
+        participants = ["claude", "gpt-5.5", "gemini"]
 
         grounded_ops.update_relationships(
             debate_id="debate-123",
@@ -981,7 +981,7 @@ class TestLogging:
         with caplog.at_level(logging.WARNING):
             ops.update_relationships(
                 debate_id="debate-123",
-                participants=["claude", "gpt4"],
+                participants=["claude", "gpt-5.5"],
                 winner="claude",
                 votes=[],
             )

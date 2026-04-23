@@ -142,7 +142,7 @@ class TestELORecording:
         elo_system = MagicMock()
         feedback = FeedbackPhase(elo_system=elo_system)
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(
             env=MockEnvironment(),
             agents=agents,
@@ -156,7 +156,7 @@ class TestELORecording:
         elo_system.record_match.assert_called_once()
         call_args = elo_system.record_match.call_args
         assert call_args[0][0] == "debate_001"  # debate_id
-        assert set(call_args[0][1]) == {"claude", "gpt4"}  # participants
+        assert set(call_args[0][1]) == {"claude", "gpt-5.5"}  # participants
         assert call_args[0][2]["claude"] == 1.0  # winner score
         assert call_args[1]["domain"] == "security"
 
@@ -166,7 +166,7 @@ class TestELORecording:
         elo_system = MagicMock()
         feedback = FeedbackPhase(elo_system=elo_system)
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="d1")
         ctx.result = MockDebateResult(winner="claude", consensus_reached=True)
 
@@ -174,7 +174,7 @@ class TestELORecording:
 
         scores = elo_system.record_match.call_args[0][2]
         assert scores["claude"] == 1.0
-        assert scores["gpt4"] == 0.5  # Draw for non-winner in consensus
+        assert scores["gpt-5.5"] == 0.5  # Draw for non-winner in consensus
 
     @pytest.mark.asyncio
     async def test_elo_scores_without_consensus(self):
@@ -182,14 +182,14 @@ class TestELORecording:
         elo_system = MagicMock()
         feedback = FeedbackPhase(elo_system=elo_system)
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="d1")
         ctx.result = MockDebateResult(winner="claude", consensus_reached=False)
 
         await feedback.execute(ctx)
 
         scores = elo_system.record_match.call_args[0][2]
-        assert scores["gpt4"] == 0.0
+        assert scores["gpt-5.5"] == 0.0
 
     @pytest.mark.asyncio
     async def test_no_elo_without_winner(self):
@@ -233,7 +233,7 @@ class TestPersonaUpdate:
         persona_manager = MagicMock()
         feedback = FeedbackPhase(persona_manager=persona_manager)
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, domain="security")
         ctx.result = MockDebateResult(winner="claude", consensus_reached=False)
 
@@ -253,7 +253,7 @@ class TestPersonaUpdate:
         persona_manager = MagicMock()
         feedback = FeedbackPhase(persona_manager=persona_manager)
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents)
         ctx.result = MockDebateResult(winner="claude", consensus_reached=True, confidence=0.9)
 
@@ -315,7 +315,7 @@ class TestPositionResolution:
         ]
         feedback = FeedbackPhase(position_ledger=position_ledger)
 
-        agents = [MockAgent(name="gpt4")]  # Not the winner
+        agents = [MockAgent(name="gpt-5.5")]  # Not the winner
         ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="debate_001")
         ctx.result = MockDebateResult(winner="claude", final_answer="Answer")
 
@@ -356,11 +356,11 @@ class TestRelationshipTracking:
         relationship_tracker = MagicMock()
         feedback = FeedbackPhase(relationship_tracker=relationship_tracker)
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="debate_001")
         ctx.result = MockDebateResult(
             winner="claude",
-            messages=[MockMessage(role="critic", agent="gpt4", target_agent="claude")],
+            messages=[MockMessage(role="critic", agent="gpt-5.5", target_agent="claude")],
             votes=[MockVote(agent="claude", choice="claude")],
         )
 
@@ -369,7 +369,7 @@ class TestRelationshipTracking:
         relationship_tracker.update_from_debate.assert_called_once()
         call = relationship_tracker.update_from_debate.call_args
         assert call[1]["debate_id"] == "debate_001"
-        assert set(call[1]["participants"]) == {"claude", "gpt4"}
+        assert set(call[1]["participants"]) == {"claude", "gpt-5.5"}
         assert call[1]["winner"] == "claude"
 
     @pytest.mark.asyncio
@@ -382,7 +382,7 @@ class TestRelationshipTracking:
         ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="d1")
         ctx.result = MockDebateResult(
             messages=[
-                MockMessage(role="critic", agent="gpt4", target_agent="claude"),
+                MockMessage(role="critic", agent="gpt-5.5", target_agent="claude"),
                 MockMessage(role="proposer", agent="claude"),  # Not a critique
             ]
         )
@@ -391,7 +391,7 @@ class TestRelationshipTracking:
 
         critiques = relationship_tracker.update_from_debate.call_args[1]["critiques"]
         assert len(critiques) == 1
-        assert critiques[0]["agent"] == "gpt4"
+        assert critiques[0]["agent"] == "gpt-5.5"
 
 
 # ============================================================================
@@ -417,7 +417,7 @@ class TestMomentDetection:
             emit_moment_event=emit_moment,
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(env=MockEnvironment(), agents=agents, debate_id="debate_001")
         ctx.result = MockDebateResult(winner="claude")
 
@@ -631,7 +631,7 @@ class TestDebateIndexing:
         ctx.result = MockDebateResult(
             messages=[
                 MockMessage(agent="claude", content="First message"),
-                MockMessage(agent="gpt4", content="Second message"),
+                MockMessage(agent="gpt-5.5", content="Second message"),
             ]
         )
 
@@ -673,7 +673,7 @@ class TestFeedbackPhaseIntegration:
             continuum_memory=continuum_memory,
         )
 
-        agents = [MockAgent(name="claude"), MockAgent(name="gpt4")]
+        agents = [MockAgent(name="claude"), MockAgent(name="gpt-5.5")]
         ctx = DebateContext(
             env=MockEnvironment(),
             agents=agents,
@@ -762,7 +762,7 @@ class TestKnowledgeExtraction:
             final_answer="Consensus answer",
             messages=[
                 MockMessage(agent="claude", content="I believe X is true"),
-                MockMessage(agent="gpt4", content="I agree, X is true"),
+                MockMessage(agent="gpt-5.5", content="I agree, X is true"),
             ],
         )
 

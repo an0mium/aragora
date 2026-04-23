@@ -799,7 +799,7 @@ def _synthetic_receipt() -> dict:
         "consensus_proof": {
             "reached": True,
             "confidence": 0.78,
-            "supporting_agents": ["claude-analyst", "mistral-auditor", "gpt4-ethics"],
+            "supporting_agents": ["claude-analyst", "mistral-auditor", "gpt-5.5"],
             "dissenting_agents": ["gemini-challenger"],
             "method": "weighted_majority",
             "agreement_ratio": 0.75,
@@ -811,7 +811,7 @@ def _synthetic_receipt() -> dict:
             {"event_type": "critique_submitted", "timestamp": now, "actor": "gemini-challenger"},
             {"event_type": "revision_submitted", "timestamp": now, "actor": "mistral-auditor"},
             {"event_type": "vote_cast", "timestamp": now, "actor": "claude-analyst"},
-            {"event_type": "vote_cast", "timestamp": now, "actor": "gpt4-ethics"},
+            {"event_type": "vote_cast", "timestamp": now, "actor": "gpt-5.5"},
             {"event_type": "vote_cast", "timestamp": now, "actor": "gemini-challenger"},
             {"event_type": "vote_cast", "timestamp": now, "actor": "mistral-auditor"},
             {

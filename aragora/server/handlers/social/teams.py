@@ -739,7 +739,7 @@ class TeamsIntegrationHandler(BaseHandler):
             if not agent_list:
                 agent_list = [
                     {"name": "anthropic-api", "model": "claude-3"},
-                    {"name": "openai-api", "model": "gpt-4"},
+                    {"name": "openai-api", "model": "gpt-5.5"},
                     {"name": "gemini", "model": "gemini-pro"},
                 ]
 

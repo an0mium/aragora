@@ -125,7 +125,7 @@ class TestAgentDisplayNames:
         from aragora.server.handlers.bots.teams.handler import AGENT_DISPLAY_NAMES
 
         # Check for common agents
-        common_agents = ["claude", "gpt4", "gemini"]
+        common_agents = ["claude", "gpt-5.5", "gemini"]
         for agent in common_agents:
             assert agent in AGENT_DISPLAY_NAMES
 

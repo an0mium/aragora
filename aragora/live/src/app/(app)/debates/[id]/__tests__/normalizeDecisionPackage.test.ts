@@ -28,13 +28,13 @@ describe('normalizeDecisionPackage', () => {
     const normalized = normalizeDecisionPackage(
       {
         id: 'debate-2',
-        agents: ['claude', 7, null, 'gpt-5'],
+        agents: ['claude', 7, null, 'gpt-5.5'],
         next_steps: ['step one', { bad: true }, 'step two'],
       },
       'fallback-id'
     );
 
-    expect(normalized.agents).toEqual(['claude', 'gpt-5']);
+    expect(normalized.agents).toEqual(['claude', 'gpt-5.5']);
     expect(normalized.next_steps).toEqual([
       { action: 'step one', priority: 'medium' },
       { action: 'step two', priority: 'medium' },
@@ -68,12 +68,12 @@ describe('normalizeDecisionPackage', () => {
         consensus_reached: true,
         explanation_summary: 'Agents aligned on shipping with minor caveats.',
         final_answer: 'Ship the release.',
-        participants: ['claude', 'gpt-4'],
+        participants: ['claude', 'gpt-5.5'],
         cost: {
           total_cost_usd: 0.0042,
           per_agent_cost: {
             claude: 0.002,
-            'gpt-4': 0.0022,
+            'gpt-5.5': 0.0022,
           },
         },
         next_steps: [
@@ -96,11 +96,11 @@ describe('normalizeDecisionPackage', () => {
     expect(normalized.debate_status_source).toBe('synthetic');
     expect(normalized.synthetic).toBe(true);
     expect(normalized.explanation).toBe('Agents aligned on shipping with minor caveats.');
-    expect(normalized.agents).toEqual(['claude', 'gpt-4']);
+    expect(normalized.agents).toEqual(['claude', 'gpt-5.5']);
     expect(normalized.total_cost).toBe(0.0042);
     expect(normalized.cost_breakdown).toEqual([
       { agent: 'claude', tokens: 0, cost: 0.002 },
-      { agent: 'gpt-4', tokens: 0, cost: 0.0022 },
+      { agent: 'gpt-5.5', tokens: 0, cost: 0.0022 },
     ]);
     expect(normalized.next_steps).toEqual([
       { action: 'Ship the release.', priority: 'high' },
@@ -120,7 +120,7 @@ describe('normalizeDecisionPackage', () => {
     const normalized = normalizeDecisionPackage(
       {
         debate_id: 'debate-43',
-        participants: ['claude', 'gpt-4'],
+        participants: ['claude', 'gpt-5.5'],
         receipt: {
           checksum: 'cost123',
           created_at: '2026-03-25T12:34:56Z',

@@ -272,7 +272,7 @@ class TestRegisteredFactCreation:
             contradiction_count=1,
             source_type=ProvenanceType.DEBATE,
             source_ids=["src1", "src2"],
-            contributing_agents=["claude", "gpt4"],
+            contributing_agents=["claude", "gpt-5.5"],
             workspace_id="ws_prod",
             topics=["security", "web"],
             supports=["fact_100"],
@@ -297,7 +297,7 @@ class TestRegisteredFactCreation:
         assert fact.contradiction_count == 1
         assert fact.source_type == ProvenanceType.DEBATE
         assert fact.source_ids == ["src1", "src2"]
-        assert fact.contributing_agents == ["claude", "gpt4"]
+        assert fact.contributing_agents == ["claude", "gpt-5.5"]
         assert fact.workspace_id == "ws_prod"
         assert fact.topics == ["security", "web"]
         assert fact.supports == ["fact_100"]

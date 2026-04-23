@@ -257,22 +257,22 @@ class TestQuotaFallbackMixin:
 
         class TestAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gpt-4": "openai/gpt-4",
+                "gpt-5.5": "openai/gpt-5.5",
                 "claude-3-opus": "anthropic/claude-3-opus",
             }
             DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
 
         agent = TestAgent()
-        agent.model = "gpt-4"
+        agent.model = "gpt-5.5"
 
         mapped = agent.OPENROUTER_MODEL_MAP.get(agent.model, agent.DEFAULT_FALLBACK_MODEL)
-        assert mapped == "openai/gpt-4"
+        assert mapped == "openai/gpt-5.5"
 
     def test_fallback_model_default(self):
         """Should use default fallback model when no mapping exists."""
 
         class TestAgent(QuotaFallbackMixin):
-            OPENROUTER_MODEL_MAP = {"gpt-4": "openai/gpt-4"}
+            OPENROUTER_MODEL_MAP = {"gpt-5.5": "openai/gpt-5.5"}
             DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
 
         agent = TestAgent()
@@ -390,9 +390,9 @@ class TestOpenRouterFallbackIntegration:
 
         class MockOpenAIAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "gpt-4o": "openai/gpt-4o",
+                "gpt-5.5": "openai/gpt-5.5",
             }
-            DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+            DEFAULT_FALLBACK_MODEL = "openai/gpt-5.5"
 
         agent = MockOpenAIAgent()
 
@@ -450,8 +450,8 @@ class TestContextPreservationDuringFallback:
         from aragora.agents.fallback import QuotaFallbackMixin
 
         class TestAgent(QuotaFallbackMixin):
-            OPENROUTER_MODEL_MAP = {"test-model": "openai/gpt-4o"}
-            DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+            OPENROUTER_MODEL_MAP = {"test-model": "openai/gpt-5.5"}
+            DEFAULT_FALLBACK_MODEL = "openai/gpt-5.5"
 
             def __init__(self):
                 self.name = "test-agent"
@@ -464,7 +464,7 @@ class TestContextPreservationDuringFallback:
 
         # Test that model mapping works
         fallback_model = agent.get_fallback_model()
-        assert fallback_model == "openai/gpt-4o"
+        assert fallback_model == "openai/gpt-5.5"
 
     @pytest.mark.asyncio
     async def test_conversation_context_passed_to_fallback(self):

@@ -68,7 +68,7 @@ class MockSignificantMoment:
     description: str = "Achieved strong consensus on policy decision."
     significance_score: float = 0.85
     debate_id: str = "debate-123"
-    other_agents: list = field(default_factory=lambda: ["gpt4", "gemini"])
+    other_agents: list = field(default_factory=lambda: ["gpt-5.5", "gemini"])
     metadata: dict = field(default_factory=dict)
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -293,14 +293,14 @@ class TestGetSummary:
             MockSignificantMoment(
                 id="m3",
                 moment_type="upset_victory",
-                agent_name="gpt4",
+                agent_name="gpt-5.5",
                 significance_score=0.75,
             ),
         ]
         detector = MockMomentDetector()
         detector._moment_cache = {
             "claude": moments[:2],
-            "gpt4": [moments[2]],
+            "gpt-5.5": [moments[2]],
         }
         handler = create_handler({"moment_detector": detector})
 
@@ -315,7 +315,7 @@ class TestGetSummary:
         assert body["by_type"]["upset_victory"] == 2
         assert body["by_type"]["consensus_breakthrough"] == 1
         assert body["by_agent"]["claude"] == 2
-        assert body["by_agent"]["gpt4"] == 1
+        assert body["by_agent"]["gpt-5.5"] == 1
         assert body["most_significant"]["significance"] == 0.9
 
 
@@ -542,7 +542,7 @@ class TestMomentToDict:
             description="Achieved consensus",
             significance_score=0.85,
             debate_id="debate-456",
-            other_agents=["gpt4", "gemini"],
+            other_agents=["gpt-5.5", "gemini"],
             metadata={"round": 3},
             created_at="2025-01-15T10:00:00Z",
         )
@@ -556,7 +556,7 @@ class TestMomentToDict:
         assert result["description"] == "Achieved consensus"
         assert result["significance"] == 0.85
         assert result["debate_id"] == "debate-456"
-        assert result["other_agents"] == ["gpt4", "gemini"]
+        assert result["other_agents"] == ["gpt-5.5", "gemini"]
         assert result["metadata"] == {"round": 3}
         assert result["created_at"] == "2025-01-15T10:00:00Z"
 

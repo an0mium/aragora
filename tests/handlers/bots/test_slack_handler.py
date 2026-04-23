@@ -481,7 +481,7 @@ class TestCommandAgents:
         rating1.agent_name = "Claude"
         rating1.elo = 1800.0
         rating2 = MagicMock()
-        rating2.agent_name = "GPT-4"
+        rating2.agent_name = "GPT-5.5"
         rating2.elo = 1750.0
         mock_elo.get_all_ratings.return_value = [rating1, rating2]
         with patch(
@@ -491,7 +491,7 @@ class TestCommandAgents:
             result = handler._command_agents()
             body = _body(result)
             assert "Claude" in body["text"]
-            assert "GPT-4" in body["text"]
+            assert "GPT-5.5" in body["text"]
             assert "1800" in body["text"]
 
     def test_agents_import_error_handled(self, handler):

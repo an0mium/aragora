@@ -144,7 +144,7 @@ class TestAgentHierarchy:
                 task_affinity={"security": 0.9},
             ),
             AgentProfile(
-                name="gpt-4",
+                name="gpt-5.5",
                 agent_type="codex",
                 elo_rating=1700.0,
                 capabilities={"analysis", "quality_assessment", "reasoning"},
