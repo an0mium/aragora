@@ -63,6 +63,14 @@ _SCRUBBED_VERIFICATION_ENV_VARS: frozenset[str] = frozenset(
 )
 
 
+# Pytest plugins suppressed when rewrapping a verification command as
+# ``pytest.main``. Named here rather than inlined so the policy choice is
+# discoverable: ``pytest-rerunfailures`` uses socket-based state that is not
+# reset between ``pytest.main`` invocations in the same process, which causes
+# merge-gate replays to behave differently from a fresh CI run.
+_VERIFICATION_SUPPRESSED_PYTEST_PLUGINS: tuple[str, ...] = ("rerunfailures",)
+
+
 def _strip_github_tokens(env: dict[str, str]) -> None:
     for key in (
         "GH_TOKEN",
@@ -2028,10 +2036,13 @@ class WorkerLauncher:
         if not pytest_args:
             return normalized
         prepared_args = list(pytest_args)
-        # Keep verification replays off pytest-rerunfailures' socket-based state
-        # so merge-gate checks behave the same in disposable worktrees and CI.
-        if "no:rerunfailures" not in prepared_args:
-            prepared_args = ["-p", "no:rerunfailures", *prepared_args]
+        # Suppress the plugins listed in _VERIFICATION_SUPPRESSED_PYTEST_PLUGINS
+        # so merge-gate replays behave the same in disposable worktrees and CI.
+        # See the constant for the policy rationale.
+        for plugin in _VERIFICATION_SUPPRESSED_PYTEST_PLUGINS:
+            disable_token = f"no:{plugin}"
+            if disable_token not in prepared_args:
+                prepared_args = ["-p", disable_token, *prepared_args]
         serialized_args = ", ".join(repr(arg) for arg in prepared_args)
         return (
             f"{shlex.quote(sys.executable)} - <<'PY'\n"
