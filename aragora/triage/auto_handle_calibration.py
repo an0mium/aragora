@@ -104,6 +104,7 @@ __all__ = [
     "OUTCOME_INCIDENT",
     "OUTCOME_REVERT",
     "OUTCOME_SUCCESS",
+    "SCHEMA_VERSION",
     "auto_handle_decision_id",
     "bucket_count",
     "classify_scope",
@@ -121,6 +122,14 @@ DEFAULT_WINDOW_DAYS = 30
 DEFAULT_MIN_SAMPLES = 20
 DEFAULT_MIN_SUCCESS_RATE = 0.95
 DEFAULT_DRIFT_THRESHOLD = 0.05
+
+#: Schema version stamped into ``PRAGMA user_version`` on fresh databases
+#: and verified on every subsequent open. Bump this (and add an
+#: explicit upgrade branch to ``_init_schema``) when the on-disk tables
+#: change. Keeping it pinned to a known landmark lets us detect mismatched
+#: stores early instead of silently running modern code against an old
+#: schema.
+SCHEMA_VERSION = 1
 
 OUTCOME_SUCCESS = "success"
 OUTCOME_HUMAN_OVERRIDE = "merge_then_human_override"
@@ -341,6 +350,23 @@ class AutoHandleCalibrationStore:
     def _init_schema(self) -> None:
         try:
             with self._connection() as conn:
+                # Inspect the user-version *outside* the write tx so we
+                # can distinguish a fresh DB (or legacy, unversioned DB)
+                # from a future version without holding a write lock
+                # during the raise. ``PRAGMA user_version`` is a read;
+                # it defaults to 0 on new databases.
+                version_row = conn.execute("PRAGMA user_version").fetchone()
+                current_version = int(version_row[0]) if version_row is not None else 0
+                if current_version not in (0, SCHEMA_VERSION):
+                    raise AutoHandleStoreError(
+                        f"Auto-handle calibration schema version mismatch at "
+                        f"{self.db_path!r}: store reports user_version="
+                        f"{current_version}, code expects "
+                        f"{SCHEMA_VERSION}. Refusing to run against an "
+                        "incompatible schema; migrate or point at a "
+                        "fresh database."
+                    )
+
                 conn.execute("BEGIN IMMEDIATE")
                 committed = False
                 try:
@@ -385,6 +411,12 @@ class AutoHandleCalibrationStore:
                         )
                         """
                     )
+                    # Stamp the version *after* CREATE TABLE IF NOT EXISTS
+                    # so fresh DBs and existing DBs (which already match
+                    # v1 shape) both land on user_version=SCHEMA_VERSION.
+                    # PRAGMA user_version cannot be parameterised, so we
+                    # format the int literal (trusted module constant).
+                    conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
                     conn.execute("COMMIT")
                     committed = True
                 finally:

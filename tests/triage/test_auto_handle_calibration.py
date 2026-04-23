@@ -29,6 +29,7 @@ from aragora.triage.auto_handle_calibration import (
     AUTO_HANDLE_PATH_FIRE_AND_FORGET,
     OUTCOME_HUMAN_OVERRIDE,
     OUTCOME_SUCCESS,
+    SCHEMA_VERSION,
     AutoHandleCalibrationStore,
     AutoHandleStoreError,
     auto_handle_decision_id,
@@ -106,6 +107,107 @@ class TestSchemaCreation:
         )
         assert summary.total_samples == 0
         assert summary.success_rate is None
+
+    def test_schema_version_stamp_is_set_on_fresh_store(self, tmp_path: Path) -> None:
+        """Fresh stores land at ``PRAGMA user_version = SCHEMA_VERSION``."""
+        db_path = tmp_path / "versioned.db"
+        AutoHandleCalibrationStore(db_path=str(db_path))
+        with closing(sqlite3.connect(str(db_path))) as conn:
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+        assert version == SCHEMA_VERSION
+        assert SCHEMA_VERSION > 0  # guard against accidental downgrade
+
+    def test_schema_version_mismatch_raises(self, tmp_path: Path) -> None:
+        """A DB with a future user_version refuses to open.
+
+        The 8/8 Mode 3 panel on PR #6468 asked for a schema landmark so
+        future migration work has something to pivot on. A store
+        stamped at a higher user_version than this code understands
+        must raise, not silently run against an unknown schema.
+        """
+        db_path = tmp_path / "future.db"
+        # Seed a valid v1 schema first.
+        AutoHandleCalibrationStore(db_path=str(db_path))
+        # Then simulate a forward-incompatible stamp on disk.
+        with closing(sqlite3.connect(str(db_path))) as conn:
+            conn.execute("PRAGMA user_version = 999")
+            conn.commit()
+
+        with pytest.raises(AutoHandleStoreError, match="user_version"):
+            AutoHandleCalibrationStore(db_path=str(db_path))
+
+    def test_schema_version_zero_is_upgraded_transparently(self, tmp_path: Path) -> None:
+        """Legacy DBs without user_version stamp are treated as v1.
+
+        A database written by the pre-versioning iteration of this
+        module has ``PRAGMA user_version = 0`` by default and the same
+        table shape as v1. Opening it with the new code should stamp
+        it to ``SCHEMA_VERSION`` without raising or losing data.
+        """
+        db_path = tmp_path / "legacy.db"
+        # Hand-roll a legacy-shaped DB with user_version=0 and a seed row.
+        with closing(sqlite3.connect(str(db_path))) as conn:
+            conn.executescript(
+                """
+                CREATE TABLE auto_handle_decisions (
+                    decision_id TEXT PRIMARY KEY,
+                    auto_handle_path TEXT NOT NULL,
+                    decision_class TEXT NOT NULL,
+                    pr_url TEXT NOT NULL DEFAULT '',
+                    pr_number INTEGER,
+                    outcome TEXT NOT NULL,
+                    decided_at REAL NOT NULL,
+                    metadata_json TEXT NOT NULL DEFAULT '{}'
+                );
+                CREATE TABLE auto_handle_drift_alerts (
+                    auto_handle_path TEXT NOT NULL,
+                    decision_class TEXT NOT NULL,
+                    alert_id TEXT NOT NULL,
+                    previous_success_rate REAL,
+                    current_success_rate REAL,
+                    window_days INTEGER NOT NULL,
+                    min_samples INTEGER NOT NULL,
+                    min_success_rate REAL NOT NULL,
+                    drift_threshold REAL NOT NULL,
+                    detected_at REAL NOT NULL,
+                    remediation_action TEXT NOT NULL,
+                    receipt_path TEXT,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    PRIMARY KEY (auto_handle_path, decision_class)
+                );
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO auto_handle_decisions
+                (decision_id, auto_handle_path, decision_class, pr_url,
+                 pr_number, outcome, decided_at, metadata_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "legacy-1",
+                    AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+                    TEST_CLASS,
+                    "",
+                    None,
+                    OUTCOME_SUCCESS,
+                    time.time(),
+                    "{}",
+                ),
+            )
+            conn.commit()
+
+        # Opening it with the new code stamps user_version and preserves data.
+        store = AutoHandleCalibrationStore(db_path=str(db_path))
+        summary = store.summarize_class(
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            decision_class=TEST_CLASS,
+        )
+        assert summary.total_samples == 1
+        with closing(sqlite3.connect(str(db_path))) as conn:
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+        assert version == SCHEMA_VERSION
 
 
 # ---------------------------------------------------------------------------
