@@ -2335,6 +2335,7 @@ jobs:
           {
             echo "summary<<$SUMMARY_DELIM"
             cat test-summary.md
+            printf '\n'
             echo "$SUMMARY_DELIM"
           } >> "$GITHUB_OUTPUT"
 
