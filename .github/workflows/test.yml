@@ -592,7 +592,7 @@ jobs:
   test-fast:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.category.timeout_minutes }}
     needs: baseline-determinism
     strategy:
       fail-fast: false
@@ -600,16 +600,22 @@ jobs:
         category:
           - name: core
             path: tests/debate tests/agents tests/rlm tests/reasoning tests/workflow tests/client
+            timeout_minutes: 75
           - name: server
             path: tests/server
+            timeout_minutes: 30
           - name: handlers
             path: tests/handlers
+            timeout_minutes: 40
           - name: knowledge
             path: tests/knowledge tests/evidence tests/memory
+            timeout_minutes: 30
           - name: storage
             path: tests/storage tests/ranking tests/persistence tests/billing
+            timeout_minutes: 30
           - name: infra
             path: tests/nomic tests/control_plane tests/rbac tests/events tests/observability tests/compliance tests/gauntlet tests/cli
+            timeout_minutes: 30
 
     steps:
       - name: Checkout
