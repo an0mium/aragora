@@ -179,9 +179,12 @@ def _summarize_result(result: PDBExecutionResult, *, quiet: bool) -> None:
     if brief.dissent:
         print(f"\ndissent ({len(brief.dissent)} view(s)):")
         for view in brief.dissent:
-            dissent_conf = _format_confidence(view.confidence, include_raw=False)
-            print(f"  - {view.slot_id}: {view.position.value} ({dissent_conf})")
-            print(f"    {view.reason[:200]}")
+            position = getattr(view.position, "value", view.position)
+            agent = getattr(view, "agent", getattr(view, "slot_id", "?"))
+            print(f"  - {agent}: {position}")
+            reason = getattr(view, "reason", "")
+            if reason:
+                print(f"    {reason[:200]}")
 
     if quiet:
         return
