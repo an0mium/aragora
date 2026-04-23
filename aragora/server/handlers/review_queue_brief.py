@@ -162,6 +162,68 @@ def _translate_input_error(err: InputLoaderError) -> HandlerResult:
     return error_response(err.detail or reason.value, status=502)
 
 
+_CREDENTIAL_KEYS_FOR_INVOKER: tuple[str, ...] = (
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",  # invoker_factory accepts either GEMINI_API_KEY or GOOGLE_API_KEY for the Gemini slot
+    "GROK_API_KEY",
+    "XAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "MISTRAL_API_KEY",
+)
+
+
+def _collect_provider_credentials() -> dict[str, str]:
+    """Read provider credentials for this specific brief request.
+
+    Returns a per-call env mapping suitable for passing to
+    ``build_default_invoker(env=...)``. This function is non-mutating:
+    it does NOT write to ``os.environ``. That matters because the
+    server handles concurrent requests, and mutating process-global
+    env from a live request path would make provider credentials
+    shared mutable global state — a correctness bug on any deployment
+    with more than one concurrent brief request.
+
+    Ambient env wins over Secrets Manager so local-dev workflows
+    (direnv / ``.env``) keep working without extra config. Secrets
+    Manager fills in gaps when ``ARAGORA_USE_SECRETS_MANAGER=true``.
+    """
+
+    env: dict[str, str] = {}
+    # Start with whatever is already in ambient env for these keys.
+    for name in _CREDENTIAL_KEYS_FOR_INVOKER:
+        value = os.environ.get(name)
+        if value:
+            env[name] = value
+
+    # Fill missing keys from Secrets Manager (non-mutating: uses the
+    # single-value getter, does not touch os.environ).
+    try:
+        from aragora.config.secrets import get_secret
+    except ImportError:
+        return env
+
+    for name in _CREDENTIAL_KEYS_FOR_INVOKER:
+        if name in env:
+            continue
+        try:
+            # strict=False: Secrets Manager may not be configured;
+            # that's fine — we'll hand whatever we collected to the
+            # invoker factory, which raises a clean InvokerFactoryError
+            # if required core slots are missing.
+            value = get_secret(name, strict=False)
+        except Exception:  # noqa: BLE001 — credential lookup must never block briefs
+            logger.warning(
+                "review_queue_brief: get_secret(%r) failed; falling back to whatever env is set",
+                name,
+            )
+            continue
+        if value:
+            env[name] = value
+    return env
+
+
 def _resolve_invoker_factory() -> Callable[[], ProviderInvoker]:
     if _INVOKER_FACTORY_OVERRIDE is not None:
         return _INVOKER_FACTORY_OVERRIDE
@@ -172,8 +234,13 @@ def _resolve_invoker_factory() -> Callable[[], ProviderInvoker]:
         # qwen / mistral) degrade gracefully via the executor's
         # per-slot unavailable path. See
         # :mod:`aragora.pdb.invoker_factory`.
+        #
+        # Per-call credentials instead of os.environ mutation — the
+        # server handles concurrent requests and must not share
+        # provider credentials as a mutable global.
+        env = _collect_provider_credentials()
         try:
-            return build_default_invoker()
+            return build_default_invoker(env=env)
         except InvokerFactoryError as exc:
             # Re-raise with the factory's message; the handler turns
             # this into a 503 so the UI explains which env var is

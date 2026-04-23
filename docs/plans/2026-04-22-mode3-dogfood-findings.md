@@ -129,3 +129,28 @@ role findings:
 Mode 3 has passed its own first test: it correctly reviewed PR #6421 with a `repair_first` verdict that aligns with reality. 3 runs produced consistent findings. Total cost of full dogfood: **$0.06** (three runs × $0.02). Wall-clock per run was longer than target but well under the 20-min budget.
 
 The 8 surfaced issues are concrete, addressable follow-ups — not architectural problems. Mode 3 is ready to be trusted on real PRs once P0 and P1 fixes land.
+
+## Calibration update — 2026-04-22 afternoon
+
+Four total briefs now on the record. Adding the panel's precision data:
+
+| Brief | Target PR | Verdict | Findings result |
+|---|---|---|---|
+| 1 | #6421 (CLI self-review) | repair_first | All correct (private API, __dict__ hack) |
+| 2 | #6443 (rotator hardening v1) | repair_first | All correct (destructive default history truncate) |
+| 3 | #6393 (SecurityReportBrief design) | repair_first | Correct (HTTP 503 misuse, god-hook, race) |
+| 4 | #6448 (calibration drift, pre-repair) | repair_first | All correct (F1, F2, sync-in-async, exception swallowing) |
+
+**One documented false positive on a fifth brief** (#6437 via bounded probe):
+
+- Panel claimed `pr_review_protocol.py` defines `PRReviewProtocolPacket` as a frozen dataclass and would crash. Codex inspected and confirmed the class is NOT frozen; no crash possible.
+- Documented by codex in #6448 follow-up comments.
+
+Panel track record so far: **one confirmed false positive** against ~20 findings spanning 4 briefs. Too early to commit to a precision number; reassess after another 5-10 briefs.
+
+### Operational lessons
+
+1. **Panel output is high-signal but verifiable, not gospel.** Codex's discipline of inspecting each finding before patching is correct.
+2. **The `claude_core` provider timeout had to be raised** from 20s → 90s → 300s. Panel reliability depends on its own infra tolerating real-world reasoning latency (Opus worst-case 120-180s on large diffs). Per-slot timeout too tight = panel becomes unreliable. See #6452.
+3. **Codex+panel loop demonstrated on #6448**: panel flagged 6 issues, codex fixed 6 issues, re-dogfood verified. Neither process alone would have produced equivalent output in equivalent time.
+4. **For trust-surface PRs**, Mode 3 + code review by a technical peer is more robust than either alone. Every PR that lands on trust-affecting code paths (triage, drift gates, review protocol, storage, settlement) should go through this loop.

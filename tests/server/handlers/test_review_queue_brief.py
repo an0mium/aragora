@@ -534,3 +534,145 @@ class TestLoaderErrors:
             _mock_http_handler("POST", body=b"{}"),
         )
         assert result.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Regression: Secrets Manager only, no ambient env (codex review of #6454)
+# ---------------------------------------------------------------------------
+
+
+class TestSecretsManagerOnlyInvokerPath:
+    """Regression tests for the non-mutating credential collection.
+
+    The prior handler fix called ``hydrate_env_from_secrets`` inside the
+    per-request factory, which writes to ``os.environ`` one key at a
+    time. On a server handling concurrent brief requests that made
+    provider credentials shared mutable global state. The fix replaces
+    it with ``_collect_provider_credentials()`` which returns a per-call
+    dict and leaves ``os.environ`` untouched; the dict is handed to
+    ``build_default_invoker(env=...)``.
+
+    These tests pin that contract so a future refactor cannot silently
+    regress back to mutating process-global env from the request path.
+    """
+
+    def _clear_credential_env(self, monkeypatch):
+        for name in rqb._CREDENTIAL_KEYS_FOR_INVOKER:
+            monkeypatch.delenv(name, raising=False)
+
+    def test_collect_does_not_mutate_os_environ(self, monkeypatch):
+        import os
+
+        self._clear_credential_env(monkeypatch)
+        secrets = {
+            "ANTHROPIC_API_KEY": "sm-anth",
+            "OPENAI_API_KEY": "sm-openai",
+            "GOOGLE_API_KEY": "sm-google",
+        }
+        monkeypatch.setattr(
+            "aragora.config.secrets.get_secret",
+            lambda name, default=None, strict=None: secrets.get(name),
+        )
+
+        before = dict(os.environ)
+        env = rqb._collect_provider_credentials()
+        after = dict(os.environ)
+
+        assert before == after, "os.environ was mutated by credential collection"
+        assert env["ANTHROPIC_API_KEY"] == "sm-anth"
+        assert env["OPENAI_API_KEY"] == "sm-openai"
+        assert env["GOOGLE_API_KEY"] == "sm-google"
+        for name in rqb._CREDENTIAL_KEYS_FOR_INVOKER:
+            assert name not in os.environ
+
+    def test_collect_calls_get_secret_for_missing_keys(self, monkeypatch):
+        self._clear_credential_env(monkeypatch)
+        called: list[str] = []
+
+        def _fake_get_secret(name, default=None, strict=None):
+            called.append(name)
+            return f"sm-{name.lower()}"
+
+        monkeypatch.setattr("aragora.config.secrets.get_secret", _fake_get_secret)
+
+        env = rqb._collect_provider_credentials()
+
+        assert set(called) == set(rqb._CREDENTIAL_KEYS_FOR_INVOKER)
+        assert set(env) == set(rqb._CREDENTIAL_KEYS_FOR_INVOKER)
+
+    def test_ambient_env_wins_over_secrets_manager(self, monkeypatch):
+        self._clear_credential_env(monkeypatch)
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "ambient-anth")
+        called: list[str] = []
+
+        def _fake_get_secret(name, default=None, strict=None):
+            called.append(name)
+            return f"sm-{name.lower()}"
+
+        monkeypatch.setattr("aragora.config.secrets.get_secret", _fake_get_secret)
+
+        env = rqb._collect_provider_credentials()
+
+        assert env["ANTHROPIC_API_KEY"] == "ambient-anth"
+        assert "ANTHROPIC_API_KEY" not in called
+        assert env["OPENAI_API_KEY"] == "sm-openai_api_key"
+
+    def test_google_api_key_is_collected(self, monkeypatch):
+        """invoker_factory accepts either GEMINI_API_KEY or GOOGLE_API_KEY."""
+        self._clear_credential_env(monkeypatch)
+        monkeypatch.setattr(
+            "aragora.config.secrets.get_secret",
+            lambda name, default=None, strict=None: (
+                "sm-google-value" if name == "GOOGLE_API_KEY" else None
+            ),
+        )
+
+        env = rqb._collect_provider_credentials()
+
+        assert env.get("GOOGLE_API_KEY") == "sm-google-value"
+        assert "GOOGLE_API_KEY" in rqb._CREDENTIAL_KEYS_FOR_INVOKER
+
+    def test_get_secret_exception_is_swallowed(self, monkeypatch):
+        self._clear_credential_env(monkeypatch)
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "ambient-anth")
+
+        def _boom(name, default=None, strict=None):
+            raise RuntimeError("secrets manager unreachable")
+
+        monkeypatch.setattr("aragora.config.secrets.get_secret", _boom)
+
+        env = rqb._collect_provider_credentials()
+
+        assert env == {"ANTHROPIC_API_KEY": "ambient-anth"}
+
+    def test_resolve_invoker_factory_passes_env_to_builder(self, monkeypatch):
+        """The default factory must call build_default_invoker(env=...) with the collected dict."""
+        self._clear_credential_env(monkeypatch)
+        secrets = {
+            "ANTHROPIC_API_KEY": "sm-anth",
+            "OPENAI_API_KEY": "sm-openai",
+            "GOOGLE_API_KEY": "sm-google",
+        }
+        monkeypatch.setattr(
+            "aragora.config.secrets.get_secret",
+            lambda name, default=None, strict=None: secrets.get(name),
+        )
+
+        captured: dict[str, Any] = {}
+        sentinel = object()
+
+        def _fake_build(*, config=None, env=None, **kwargs):
+            captured["env"] = env
+            captured["kwargs"] = kwargs
+            return sentinel
+
+        monkeypatch.setattr(rqb, "build_default_invoker", _fake_build)
+
+        factory = rqb._resolve_invoker_factory()
+        result = factory()
+
+        assert result is sentinel
+        assert isinstance(captured["env"], dict)
+        assert captured["env"]["ANTHROPIC_API_KEY"] == "sm-anth"
+        assert captured["env"]["OPENAI_API_KEY"] == "sm-openai"
+        assert captured["env"]["GOOGLE_API_KEY"] == "sm-google"
