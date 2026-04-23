@@ -673,6 +673,7 @@ class TestRecordOutcomeAtomicity:
         self,
         store: AutoHandleCalibrationStore,
         monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
         """A failure inside the compound must leave the store unchanged.
 
@@ -692,6 +693,8 @@ class TestRecordOutcomeAtomicity:
             )
         baseline_rows = _count_decision_rows(store.db_path)
         baseline_alerts = _snapshot_alert_rows(store.db_path)
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
 
         def boom(**kwargs: object) -> None:
             raise sqlite3.OperationalError("synthetic alert upsert failure")
@@ -704,6 +707,7 @@ class TestRecordOutcomeAtomicity:
                 auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
                 decision_class=TEST_CLASS,
                 outcome=OUTCOME_HUMAN_OVERRIDE,
+                repo_root=repo_root,
             )
         assert isinstance(excinfo.value.__cause__, sqlite3.Error)
 
@@ -718,6 +722,11 @@ class TestRecordOutcomeAtomicity:
 
         # 2. The alert state is unchanged — no partial upsert survived.
         assert _snapshot_alert_rows(store.db_path) == baseline_alerts
+
+        # 3. Receipts are written only after the DB transaction commits.
+        #    A failed alert upsert must not leave an orphan JSON receipt.
+        drift_dir = repo_root / ".aragora" / "review-queue" / "drift"
+        assert not drift_dir.exists() or list(drift_dir.glob("*.json")) == []
 
 
 def _count_decision_rows(db_path: str) -> int:
@@ -819,6 +828,41 @@ class TestDriftAlertRoundTrip:
 
 
 class TestReceiptWrite:
+    def test_record_outcome_writes_receipt_after_db_commit(
+        self, store: AutoHandleCalibrationStore, tmp_path: Path
+    ) -> None:
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        store.record_outcome(
+            decision_id="receipt-seed",
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            decision_class=TEST_CLASS,
+            outcome=OUTCOME_SUCCESS,
+        )
+
+        result = store.record_outcome(
+            decision_id="receipt-trigger",
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            decision_class=TEST_CLASS,
+            outcome=OUTCOME_HUMAN_OVERRIDE,
+            repo_root=repo_root,
+        )
+
+        assert result["alert"] is not None
+        receipt_path = Path(result["alert"]["receipt_path"])
+        assert receipt_path.exists()
+        with closing(sqlite3.connect(store.db_path)) as conn:
+            row = conn.execute(
+                """
+                SELECT receipt_path
+                FROM auto_handle_drift_alerts
+                WHERE alert_id = ?
+                """,
+                (result["alert"]["alert_id"],),
+            ).fetchone()
+        assert row is not None
+        assert row[0] == str(receipt_path)
+
     def test_receipt_json_is_written_under_review_queue_drift(
         self, store: AutoHandleCalibrationStore, tmp_path: Path
     ) -> None:

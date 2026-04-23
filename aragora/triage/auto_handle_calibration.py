@@ -595,7 +595,6 @@ class AutoHandleCalibrationStore:
                     )
                     conn.execute("COMMIT")
                     committed = True
-                    return result
                 finally:
                     if not committed:
                         conn.execute("ROLLBACK")
@@ -603,6 +602,12 @@ class AutoHandleCalibrationStore:
             raise AutoHandleStoreError(
                 f"SQLite failure while recording outcome for {decision_id!r}"
             ) from exc
+
+        alert_to_attach = result.pop("_alert_to_attach", None)
+        if isinstance(alert_to_attach, AutoHandleDriftAlert) and repo_root is not None:
+            attached = self._attach_receipt_after_commit(alert=alert_to_attach, repo_root=repo_root)
+            result["alert"] = attached.to_dict()
+        return result
 
     def _record_outcome_locked(
         self,
@@ -733,7 +738,6 @@ class AutoHandleCalibrationStore:
                 decision_class=decision_class,
                 previous_success_rate=previous_rate,
                 current_success_rate=current_rate,
-                repo_root=repo_root,
             )
             self._upsert_alert_with_conn(conn=conn, alert=alert)
         elif recovered and active_alert is not None:
@@ -752,6 +756,7 @@ class AutoHandleCalibrationStore:
             "recorded": True,
             "duplicate": False,
             "existing_outcome": None,
+            "_alert_to_attach": alert if should_block and active_alert is None else None,
         }
 
     def _upsert_alert(
@@ -776,7 +781,6 @@ class AutoHandleCalibrationStore:
             decision_class=decision_class,
             previous_success_rate=previous_success_rate,
             current_success_rate=current_success_rate,
-            repo_root=repo_root,
         )
         try:
             with self._connection() as conn:
@@ -793,6 +797,8 @@ class AutoHandleCalibrationStore:
             raise AutoHandleStoreError(
                 f"Failed to upsert drift alert for {auto_handle_path}/{decision_class}"
             ) from exc
+        if repo_root is not None:
+            return self._attach_receipt_after_commit(alert=alert, repo_root=repo_root)
         return alert
 
     def _upsert_alert_with_conn(
@@ -884,16 +890,15 @@ class AutoHandleCalibrationStore:
         decision_class: str,
         previous_success_rate: float | None,
         current_success_rate: float | None,
-        repo_root: Path | None,
     ) -> AutoHandleDriftAlert:
-        """Construct an :class:`AutoHandleDriftAlert`, writing a receipt if requested.
+        """Construct an :class:`AutoHandleDriftAlert`.
 
         Kept separate from the persistence calls so the pure domain
-        construction and the optional filesystem receipt write happen
-        outside the ``record_outcome`` transaction body, which should
-        only touch SQLite.
+        construction can run inside ``record_outcome``'s transaction
+        body without touching the filesystem. Receipt files are attached
+        only after the DB transaction commits.
         """
-        alert = AutoHandleDriftAlert(
+        return AutoHandleDriftAlert(
             alert_id=f"auto-handle-drift-{uuid.uuid4().hex[:12]}",
             auto_handle_path=auto_handle_path,
             decision_class=decision_class,
@@ -908,24 +913,91 @@ class AutoHandleCalibrationStore:
             receipt_path=None,
             active=True,
         )
-        if repo_root is not None:
-            alert = AutoHandleDriftAlert(
-                **{
-                    **alert.to_dict(),
-                    "receipt_path": self._write_receipt(alert=alert, repo_root=repo_root),
-                }
-            )
-        return alert
 
-    def _write_receipt(self, *, alert: AutoHandleDriftAlert, repo_root: Path) -> str:
+    def _attach_receipt_after_commit(
+        self, *, alert: AutoHandleDriftAlert, repo_root: Path
+    ) -> AutoHandleDriftAlert:
+        """Write a receipt after alert persistence succeeds and update the DB row.
+
+        SQLite and the filesystem cannot share one atomic transaction, so we
+        deliberately order side effects to avoid orphan drift receipts:
+
+        1. ``record_outcome`` / ``_upsert_alert`` commits the alert row with
+           ``receipt_path = NULL``.
+        2. This method writes the receipt file.
+        3. A short follow-up transaction stores the receipt path on the
+           already-persisted alert row.
+
+        If step 3 fails, the receipt file is removed before surfacing a typed
+        store error, keeping DB and filesystem state consistent.
+        """
+        receipt_path = self._receipt_path(alert=alert, repo_root=repo_root)
+        attached = AutoHandleDriftAlert(
+            **{
+                **alert.to_dict(),
+                "receipt_path": str(receipt_path),
+            }
+        )
+        try:
+            self._write_receipt(alert=attached, path=receipt_path)
+            self._set_alert_receipt_path(alert=attached)
+        except OSError as exc:
+            raise AutoHandleStoreError(
+                f"Failed to write drift receipt for alert {alert.alert_id!r}"
+            ) from exc
+        except sqlite3.Error as exc:
+            try:
+                receipt_path.unlink()
+            except OSError:
+                pass
+            raise AutoHandleStoreError(
+                f"Failed to attach drift receipt path for alert {alert.alert_id!r}"
+            ) from exc
+        return attached
+
+    def _receipt_path(self, *, alert: AutoHandleDriftAlert, repo_root: Path) -> Path:
         receipts_dir = repo_root / ".aragora" / "review-queue" / "drift"
+        return receipts_dir / f"{alert.alert_id}.json"
+
+    def _write_receipt(self, *, alert: AutoHandleDriftAlert, path: Path) -> None:
+        receipts_dir = path.parent
         receipts_dir.mkdir(parents=True, exist_ok=True)
-        path = receipts_dir / f"{alert.alert_id}.json"
         path.write_text(
             json.dumps(alert.to_dict(), indent=2, sort_keys=True),
             encoding="utf-8",
         )
-        return str(path)
+
+    def _set_alert_receipt_path(self, *, alert: AutoHandleDriftAlert) -> None:
+        if alert.receipt_path is None:
+            return
+        with self._connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            committed = False
+            try:
+                cursor = conn.execute(
+                    """
+                    UPDATE auto_handle_drift_alerts
+                    SET receipt_path = ?
+                    WHERE auto_handle_path = ?
+                      AND decision_class = ?
+                      AND alert_id = ?
+                    """,
+                    (
+                        alert.receipt_path,
+                        alert.auto_handle_path,
+                        alert.decision_class,
+                        alert.alert_id,
+                    ),
+                )
+                if cursor.rowcount != 1:
+                    raise sqlite3.OperationalError(
+                        f"alert row missing for receipt update: {alert.alert_id}"
+                    )
+                conn.execute("COMMIT")
+                committed = True
+            finally:
+                if not committed:
+                    conn.execute("ROLLBACK")
 
     @staticmethod
     def _alert_from_row(row: sqlite3.Row) -> AutoHandleDriftAlert:
