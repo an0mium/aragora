@@ -1053,14 +1053,3 @@ async def dispatch_issue(
         repo_root=Path.cwd(),
     )
     return result
-
-
-async def dispatch_issue_under_claim(
-    loop: "BossLoop",
-    issue: GitHubIssue,
-    freshness: RunnerFreshnessResult,
-) -> dict[str, Any]:
-    try:
-        return await dispatch_issue(loop, issue, freshness)
-    finally:
-        loop._release_issue_dispatch_claim(issue.number)

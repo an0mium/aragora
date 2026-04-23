@@ -21,7 +21,7 @@ Covers:
   - gate unresolved_missing targets
   - dispatch_enabled=False preview mode
   - require_validation_contract missing criteria
-- dispatch_issue_under_claim: delegates and releases claim
+- BossLoop._dispatch_issue_under_claim: releases claim on success + exception
 """
 
 from __future__ import annotations
@@ -43,7 +43,6 @@ from aragora.swarm.boss_loop import (
 )
 from aragora.swarm.boss_worker_lifecycle import (
     dispatch_issue,
-    dispatch_issue_under_claim,
     finalize_worker_result,
 )
 from aragora.swarm.task_sanitizer import SanitizationOutcome, SanitizationResult
@@ -859,9 +858,7 @@ class TestDispatchIssueSanitizerBlocking:
         sanitization = _make_sanitization(SanitizationOutcome.DROPPED)
 
         with _patch_sanitizer_and_module(SanitizationOutcome.DROPPED, sanitization, loop):
-            result = asyncio.get_event_loop().run_until_complete(
-                dispatch_issue(loop, issue, _fresh_result())
-            )
+            result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert result["status"] == "needs_human"
         assert result["outcome"] == "sanitation_failed"
@@ -872,9 +869,7 @@ class TestDispatchIssueSanitizerBlocking:
         sanitization = _make_sanitization(SanitizationOutcome.DROPPED)
 
         with _patch_sanitizer_and_module(SanitizationOutcome.DROPPED, sanitization, loop):
-            result = asyncio.get_event_loop().run_until_complete(
-                dispatch_issue(loop, issue, _fresh_result())
-            )
+            result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert "sanitizer_outcome" in result
         assert result["sanitizer_outcome"] == "dropped"
@@ -889,9 +884,7 @@ class TestDispatchIssueSanitizerBlocking:
         )
 
         with _patch_sanitizer_and_module(SanitizationOutcome.DROPPED, sanitization, loop):
-            result = asyncio.get_event_loop().run_until_complete(
-                dispatch_issue(loop, issue, _fresh_result())
-            )
+            result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert result["outcome"] == "verification_target_missing"
 
@@ -1009,9 +1002,7 @@ class TestDispatchIssuePreDispatchGate:
                 "aragora.swarm.dispatch_followups.maybe_upgrade_dispatch_spec",
                 side_effect=lambda **kw: kw.get("spec"),
             ):
-                result = asyncio.get_event_loop().run_until_complete(
-                    dispatch_issue(loop, issue, _fresh_result())
-                )
+                result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert result["status"] == "needs_human"
         assert result["outcome"] == "sanitation_failed"
@@ -1028,9 +1019,7 @@ class TestDispatchIssuePreDispatchGate:
                 "aragora.swarm.dispatch_followups.maybe_upgrade_dispatch_spec",
                 side_effect=lambda **kw: kw.get("spec"),
             ):
-                result = asyncio.get_event_loop().run_until_complete(
-                    dispatch_issue(loop, issue, _fresh_result())
-                )
+                result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert result["status"] == "needs_human"
         assert result["outcome"] == "verification_target_missing"
@@ -1092,16 +1081,18 @@ class TestDispatchIssueDispatchDisabled:
                     "aragora.swarm.dispatch_followups.maybe_upgrade_dispatch_spec",
                     return_value=spec_mock,
                 ):
-                    result = asyncio.get_event_loop().run_until_complete(
-                        dispatch_issue(loop, issue, _fresh_result())
-                    )
+                    result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
 
         assert result["status"] == "needs_human"
         assert result["outcome"] == "preview_only"
 
 
 # ---------------------------------------------------------------------------
-# dispatch_issue_under_claim
+# BossLoop._dispatch_issue_under_claim
+#
+# The claim-release contract lives on the loop itself so the dispatch hook
+# is never reached through an external helper. These tests cover the
+# claim/dispatch contract on the class method directly.
 # ---------------------------------------------------------------------------
 
 
@@ -1109,52 +1100,43 @@ class TestDispatchIssueUnderClaim:
     def test_releases_claim_on_success(self):
         loop = _make_loop()
         loop._release_issue_dispatch_claim = MagicMock()
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
         issue = _make_issue(number=5)
+        freshness = _fresh_result()
 
-        with patch(
-            "aragora.swarm.boss_worker_lifecycle.dispatch_issue",
-            new=AsyncMock(return_value={"status": "completed"}),
-        ):
-            result = asyncio.get_event_loop().run_until_complete(
-                dispatch_issue_under_claim(loop, issue, _fresh_result())
-            )
+        result = asyncio.run(loop._dispatch_issue_under_claim(issue, freshness))
 
         loop._release_issue_dispatch_claim.assert_called_once_with(5)
+        loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
         assert result["status"] == "completed"
 
     def test_releases_claim_on_exception(self):
         loop = _make_loop()
         loop._release_issue_dispatch_claim = MagicMock()
         issue = _make_issue(number=6)
+        freshness = _fresh_result()
 
         async def _raise(*args: Any, **kwargs: Any) -> dict[str, Any]:
             raise RuntimeError("dispatch error")
 
-        with patch(
-            "aragora.swarm.boss_worker_lifecycle.dispatch_issue",
-            new=_raise,
-        ):
-            with pytest.raises(RuntimeError, match="dispatch error"):
-                asyncio.get_event_loop().run_until_complete(
-                    dispatch_issue_under_claim(loop, issue, _fresh_result())
-                )
+        loop._dispatch_issue = AsyncMock(side_effect=_raise)
+        with pytest.raises(RuntimeError, match="dispatch error"):
+            asyncio.run(loop._dispatch_issue_under_claim(issue, freshness))
 
         loop._release_issue_dispatch_claim.assert_called_once_with(6)
+        loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
 
     def test_returns_dispatch_issue_result(self):
         loop = _make_loop()
         loop._release_issue_dispatch_claim = MagicMock()
         issue = _make_issue(number=7)
         expected = {"status": "running", "run_id": "run-123"}
+        freshness = _fresh_result()
 
-        with patch(
-            "aragora.swarm.boss_worker_lifecycle.dispatch_issue",
-            new=AsyncMock(return_value=expected),
-        ):
-            result = asyncio.get_event_loop().run_until_complete(
-                dispatch_issue_under_claim(loop, issue, _fresh_result())
-            )
+        loop._dispatch_issue = AsyncMock(return_value=expected)
+        result = asyncio.run(loop._dispatch_issue_under_claim(issue, freshness))
 
+        loop._dispatch_issue.assert_awaited_once_with(issue, freshness)
         assert result == expected
 
 
