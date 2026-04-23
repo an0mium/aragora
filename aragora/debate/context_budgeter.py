@@ -98,6 +98,50 @@ SECTION_LIMITS = {
 }
 
 
+# Runtime overrides for the admin ``PUT /api/v1/context/budget`` endpoint.
+# Kept as module-level Python state rather than being written back to
+# ``os.environ`` — see ``aragora/server/handlers/context_budget.py`` — so
+# admin updates don't corrupt the process-global environment that
+# subprocess invocations and unrelated readers inherit. The import-time
+# constants above remain the defaults; overrides only win when set.
+_runtime_total_tokens: int | None = None
+_runtime_section_limits: dict[str, int] | None = None
+
+
+def get_total_tokens() -> int:
+    """Return the runtime override for total tokens, or the import-time default."""
+    if _runtime_total_tokens is not None:
+        return _runtime_total_tokens
+    return DEFAULT_TOTAL_TOKENS
+
+
+def get_section_limits() -> dict[str, int]:
+    """Return the runtime-overridden section limits, or the import-time defaults."""
+    if _runtime_section_limits is not None:
+        return dict(_runtime_section_limits)
+    return dict(SECTION_LIMITS)
+
+
+def set_total_tokens(value: int | None) -> None:
+    """Install (or clear) the runtime override for total tokens.
+
+    Pass ``None`` to reset to the import-time default.
+    """
+    global _runtime_total_tokens
+    _runtime_total_tokens = value
+
+
+def set_section_limits(limits: Mapping[str, int] | None) -> None:
+    """Install (or clear) the runtime override for section limits.
+
+    Pass ``None`` to reset. A non-``None`` mapping replaces the override
+    wholesale — callers merge with ``SECTION_LIMITS`` themselves if they
+    want partial overrides.
+    """
+    global _runtime_section_limits
+    _runtime_section_limits = dict(limits) if limits is not None else None
+
+
 @dataclass
 class ContextSection:
     """Represents a single context section to be budgeted."""
@@ -123,9 +167,13 @@ class ContextBudgeter:
         total_tokens: int | None = None,
         section_limits: Mapping[str, int] | None = None,
     ) -> None:
-        self.total_tokens = total_tokens if total_tokens is not None else DEFAULT_TOTAL_TOKENS
+        # Read via the module-level getters so admin runtime overrides
+        # take effect without callers having to thread the values
+        # through every construction site. Explicit constructor args
+        # still win over runtime overrides.
+        self.total_tokens = total_tokens if total_tokens is not None else get_total_tokens()
         self.section_limits = (
-            dict(section_limits) if section_limits is not None else dict(SECTION_LIMITS)
+            dict(section_limits) if section_limits is not None else get_section_limits()
         )
 
     def section_limit(self, key: str) -> int | None:
