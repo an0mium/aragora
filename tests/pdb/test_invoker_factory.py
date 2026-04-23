@@ -704,6 +704,8 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     ),
     "kimi": frozenset(
         {
+            "moonshotai/kimi-k2.6",
+            "moonshotai/kimi-k2.5",
             "moonshotai/kimi-k2-0905",
             "moonshotai/kimi-k2",
             "moonshotai/kimi-k2-thinking",
