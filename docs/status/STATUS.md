@@ -1,11 +1,11 @@
 # Aragora Project Status
 
-*Last updated: April 21, 2026*
+*Last updated: April 22, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](../INDEX.md) for the curated technical reference map.
 > For roadmap extraction, doc drift, and partial-feature tracking, see [DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md](DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md).
 
-## April 21, 2026 — Thesis Landed, PDB Execution Is Shipping, Canonical Triage Still Needs Closure
+## April 22, 2026 — Thesis Landed, Heterogeneous PR Review Shipped, Legacy Fallback Needs Truthful Labeling
 
 ### Canonical Current Reality
 
@@ -16,6 +16,9 @@
     - [#6389](https://github.com/synaptent/aragora/pull/6389) Protocol B executor + panel config + budget
     - [#6391](https://github.com/synaptent/aragora/pull/6391) brief generation endpoints + in-process worker
     - [#6393](https://github.com/synaptent/aragora/pull/6393) PR 4 UI design
+    - [#6404](https://github.com/synaptent/aragora/pull/6404) real Claude + GPT provider invocation
+    - [#6425](https://github.com/synaptent/aragora/pull/6425) Phase B provider slots (gemini / grok / deepseek / kimi / qwen / mistral)
+    - [#6421](https://github.com/synaptent/aragora/pull/6421) single-PR dogfood CLI for generating a real brief
   - The agent-bridge lane advanced with [#6392](https://github.com/synaptent/aragora/pull/6392) backend core, plus scoping/design docs in [#6390](https://github.com/synaptent/aragora/pull/6390) and [#6386](https://github.com/synaptent/aragora/pull/6386).
   - Receipt and dissent substrates also hardened via [#6353](https://github.com/synaptent/aragora/pull/6353) and [#6376](https://github.com/synaptent/aragora/pull/6376).
 - The open PR queue is small again: 6 open PRs at the time of this refresh, with 2 drafts and 4 ready.
@@ -28,14 +31,15 @@
   - `prompts.py`
   - `input_loader.py`
   - `worker.py`
-- The key honest qualifier is still active:
-  - `aragora/swarm/pr_review_protocol.py` still declares `PROTOCOL_STATUS = "metadata_heuristic"`
-  - the newer PDB execution path is shipping alongside it
-  - therefore the canonical PR review packet path is not yet fully upgraded to the thesis's heterogeneous-ensemble standard
+- The key honest qualifier has narrowed:
+  - the active PR-review realization now lives in `aragora/pdb/` and `aragora/brief_engine/`, not in the schema-only fallback module
+  - that active path invokes heterogeneous providers, preserves real dissent, and emits execution statuses distinct from `metadata_heuristic`
+  - `aragora/swarm/pr_review_protocol.py` still declares `PROTOCOL_STATUS = "metadata_heuristic"` because it remains the schema/fallback default for packets constructed without execution
+  - the remaining work is source-of-truth alignment: docs and any schema-only callers must treat the PDB path as canonical and the metadata-only packet as an explicit fallback
 - The thesis implementation-gap issues are now explicit and open:
   - [#6372](https://github.com/synaptent/aragora/issues/6372) auto-handle calibration + drift gating
   - [#6373](https://github.com/synaptent/aragora/issues/6373) rolling-window triage metrics
-  - [#6374](https://github.com/synaptent/aragora/issues/6374) upgrade PR review from `metadata_heuristic` to `heterogeneous_ensemble_v1`
+  - [#6374](https://github.com/synaptent/aragora/issues/6374) now narrows to aligning the legacy schema/fallback labeling with the shipped heterogeneous PDB path
   - [#6375](https://github.com/synaptent/aragora/issues/6375) empirical threshold grounding
 
 ### What Recently Landed On `main`
@@ -48,14 +52,15 @@ The April merge stream maps directly to the thesis and review-queue execution pa
 4. **PDB PR 3 — brief generation endpoints + in-process worker** via [#6391](https://github.com/synaptent/aragora/pull/6391)
 5. **Mode 3 PR 4 UI design** via [#6393](https://github.com/synaptent/aragora/pull/6393)
 6. **Provider slot resolver and output schemas** via [#6368](https://github.com/synaptent/aragora/pull/6368), [#6380](https://github.com/synaptent/aragora/pull/6380), and [#6383](https://github.com/synaptent/aragora/pull/6383)
-7. **CI and baseline discipline** via [#6379](https://github.com/synaptent/aragora/pull/6379), [#6381](https://github.com/synaptent/aragora/pull/6381), and [#6394](https://github.com/synaptent/aragora/pull/6394)
-8. **Agent-bridge backend core** via [#6392](https://github.com/synaptent/aragora/pull/6392)
+7. **Real heterogeneous provider execution for PDB** via [#6404](https://github.com/synaptent/aragora/pull/6404), [#6425](https://github.com/synaptent/aragora/pull/6425), and [#6421](https://github.com/synaptent/aragora/pull/6421)
+8. **CI and baseline discipline** via [#6379](https://github.com/synaptent/aragora/pull/6379), [#6381](https://github.com/synaptent/aragora/pull/6381), and [#6394](https://github.com/synaptent/aragora/pull/6394)
+9. **Agent-bridge backend core** via [#6392](https://github.com/synaptent/aragora/pull/6392)
 
 ### Current Frontier
 
 The frontier is now:
 
-- **finish the canonical heterogeneous PR-review upgrade** — close [#6374](https://github.com/synaptent/aragora/issues/6374) by making the primary packet path genuinely ensemble-backed and dissent-preserving
+- **finish source-of-truth alignment on the PR-review path** — narrow [#6374](https://github.com/synaptent/aragora/issues/6374) to the remaining legacy-schema/fallback cleanup rather than the already-shipped heterogeneous execution path
 - **ship rolling-window triage metrics** — close [#6373](https://github.com/synaptent/aragora/issues/6373) so the triage layer is measured by outcomes, not daily counts only
 - **add auto-handle calibration + drift gating** — close [#6372](https://github.com/synaptent/aragora/issues/6372) so low-stakes automation is constrained by real outcome history
 - **ground threshold claims empirically** — close [#6375](https://github.com/synaptent/aragora/issues/6375) after the metrics layer exists
@@ -65,10 +70,10 @@ The frontier is now:
 
 The current bounded queue should be treated in this order:
 
-1. close [#6374](https://github.com/synaptent/aragora/issues/6374) on the canonical PR-review path
-2. close [#6373](https://github.com/synaptent/aragora/issues/6373) with rolling-window metrics and outcome linkage
-3. close [#6372](https://github.com/synaptent/aragora/issues/6372) with calibration + drift gating for auto-handle paths
-4. close [#6375](https://github.com/synaptent/aragora/issues/6375) using the metrics substrate above
+1. close [#6373](https://github.com/synaptent/aragora/issues/6373) with rolling-window metrics and outcome linkage
+2. close [#6372](https://github.com/synaptent/aragora/issues/6372) with calibration + drift gating for auto-handle paths
+3. close [#6375](https://github.com/synaptent/aragora/issues/6375) using the metrics substrate above
+4. narrow and then close [#6374](https://github.com/synaptent/aragora/issues/6374) as the remaining legacy-schema/fallback alignment work is completed
 5. keep the agent-bridge lane scoped to bounded, observable increments rather than a parallel subsystem explosion
 
 ### Strategic Direction
@@ -77,7 +82,7 @@ The strategy document is now [docs/THESIS.md](../THESIS.md).
 The short version on April 21, 2026:
 
 - the project is executing on the thesis in real code, especially in the PDB lane
-- the most important remaining gap is not “more infrastructure,” but closing the heuristic-to-ensemble upgrade on the canonical PR packet path
+- the most important remaining product gaps are metrics, calibration, and empirical grounding; the heterogeneous PR-review execution path itself is now shipped
 - human settlement remains the controlling boundary
 - the next wins come from truthful metrics, calibration, and bounded slice discipline rather than wider speculative expansion
 

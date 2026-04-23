@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from aragora.pdb.invoker_factory import (
+    CLAUDE_MODEL_DEFAULT,
     CLAUDE_MODEL_ENV,
     DEEPSEEK_MODEL_DEFAULT,
     DEEPSEEK_MODEL_ENV,
@@ -25,6 +26,7 @@ from aragora.pdb.invoker_factory import (
     KIMI_MODEL_ENV,
     MISTRAL_MODEL_DEFAULT,
     MISTRAL_MODEL_ENV,
+    OPENAI_MODEL_DEFAULT,
     OPENAI_MODEL_ENV,
     QWEN_MODEL_DEFAULT,
     QWEN_MODEL_ENV,
@@ -612,3 +614,164 @@ class TestHeterodoxKeyWiring:
             "qwen/qwen3-max",
         }
         assert calls["mistral"] == [("mistral-medium-latest", "mi")]
+
+
+# ---------------------------------------------------------------------------
+# Model ID regressions (P0 fix — dogfood finding 2026-04-22 #6441)
+# ---------------------------------------------------------------------------
+
+
+# Authoritative current-model allowlist. Frozen fixture — when a
+# provider publishes a new snapshot, add the id here rather than
+# loosening the assertion. Keeping the list frozen means a careless
+# typo (e.g. the historical ``grok-4.2`` regression) fails CI instead
+# of reaching production.
+#
+# Sources (April 2026):
+#   - https://docs.anthropic.com/claude/docs/models-overview
+#   - https://platform.openai.com/docs/models
+#   - https://ai.google.dev/gemini-api/docs/models
+#   - https://docs.x.ai/developers/models
+#   - https://docs.mistral.ai/getting-started/models/models_overview/
+#   - https://openrouter.ai/models (for deepseek/kimi/qwen passthroughs)
+_VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
+    "anthropic": frozenset(
+        {
+            "claude-opus-4-7",
+            "claude-opus-4-6",
+            "claude-opus-4",
+            "claude-sonnet-4-6",
+            "claude-sonnet-4",
+            "claude-haiku-4-5",
+        }
+    ),
+    "openai": frozenset(
+        {
+            "gpt-5.4",
+            "gpt-5.4-pro",
+            "gpt-5.3",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4o",
+        }
+    ),
+    "gemini": frozenset(
+        {
+            "gemini-3.1-pro-preview",
+            "gemini-3.1-pro",
+            "gemini-3-pro-preview",
+            "gemini-3-flash-preview",
+            "gemini-2.5-pro",
+            "gemini-2.5-flash",
+        }
+    ),
+    # xAI published snapshots — does NOT include ``grok-4.2`` (that was
+    # the dogfood bug). See docs.x.ai/developers/models.
+    "grok": frozenset(
+        {
+            "grok-4.20-0309-reasoning",
+            "grok-4.20-0309-non-reasoning",
+            "grok-4.20-multi-agent-0309",
+            "grok-4-1-fast-reasoning",
+            "grok-4-1-fast-non-reasoning",
+            "grok-4-fast-reasoning",
+            "grok-4-0709",
+            "grok-4-latest",
+        }
+    ),
+    "mistral": frozenset(
+        {
+            "mistral-large-2512",
+            "mistral-large-2411",
+            "mistral-large-latest",
+            "mistral-medium-latest",
+            "mistral-small-latest",
+            "codestral-latest",
+            "ministral-8b-latest",
+            "ministral-3b-latest",
+        }
+    ),
+    "deepseek": frozenset(
+        {
+            "deepseek/deepseek-chat",
+            "deepseek/deepseek-chat-v3.1",
+            "deepseek/deepseek-chat-v3-0324",
+            "deepseek/deepseek-r1",
+            "deepseek/deepseek-reasoner",
+            "deepseek/deepseek-v3.2",
+            "deepseek/deepseek-v3.2-exp",
+        }
+    ),
+    "kimi": frozenset(
+        {
+            "moonshotai/kimi-k2-0905",
+            "moonshotai/kimi-k2",
+            "moonshotai/kimi-k2-thinking",
+        }
+    ),
+    "qwen": frozenset(
+        {
+            "qwen/qwen3-235b-a22b",
+            "qwen/qwen3-max",
+            "qwen/qwen3.5-plus-02-15",
+            "qwen/qwen-2.5-72b-instruct",
+        }
+    ),
+}
+
+
+class TestModelDefaultsAreValid:
+    """Guard every default model id against the authoritative allowlist.
+
+    This catches regressions like the 2026-04-22 Mode 3 dogfood bug
+    where ``GROK_MODEL_DEFAULT`` was pinned to ``grok-4.2`` — a model
+    id xAI never published — causing every ``grok_heterodox`` slot to
+    fail with ``Model not found: grok-4.2`` and dropping the roster
+    from 8/8 to 7/8.
+    """
+
+    def test_grok_default_is_a_valid_xai_model(self) -> None:
+        # Explicit assertion for the regression we fixed: the historical
+        # ``grok-4.2`` string must NEVER be the shipped default again.
+        assert GROK_MODEL_DEFAULT != "grok-4.2", (
+            "GROK_MODEL_DEFAULT must not revert to 'grok-4.2' — that id is "
+            "not published on xAI's /v1/models endpoint and caused every "
+            "Mode 3 heterodox-Grok slot to fail on 2026-04-22 (PR #6441 / "
+            "docs/plans/2026-04-22-mode3-dogfood-findings.md)."
+        )
+        assert GROK_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["grok"], (
+            f"GROK_MODEL_DEFAULT={GROK_MODEL_DEFAULT!r} is not on the "
+            f"frozen xAI allowlist. Add the new snapshot to "
+            f"_VALID_MODELS_BY_PROVIDER['grok'] after verifying it "
+            f"against https://docs.x.ai/developers/models."
+        )
+
+    def test_claude_default_is_valid(self) -> None:
+        assert CLAUDE_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["anthropic"]
+
+    def test_openai_default_is_valid(self) -> None:
+        assert OPENAI_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["openai"]
+
+    def test_gemini_default_is_valid(self) -> None:
+        assert GEMINI_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["gemini"]
+
+    def test_mistral_default_is_valid(self) -> None:
+        assert MISTRAL_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["mistral"]
+
+    def test_deepseek_default_is_valid(self) -> None:
+        assert DEEPSEEK_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["deepseek"]
+
+    def test_kimi_default_is_valid(self) -> None:
+        assert KIMI_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["kimi"]
+
+    def test_qwen_default_is_valid(self) -> None:
+        assert QWEN_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["qwen"]
+
+    def test_grok_default_has_price_entry(self) -> None:
+        """Every default model must have a rate entry so cost=0 never happens silently."""
+        from aragora.pdb.real_invoker import _PRICE_PER_MTOK
+
+        assert GROK_MODEL_DEFAULT in _PRICE_PER_MTOK, (
+            f"{GROK_MODEL_DEFAULT!r} missing from _PRICE_PER_MTOK; "
+            "estimate_cost_usd would record $0.00 for every call."
+        )

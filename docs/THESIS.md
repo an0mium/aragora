@@ -432,16 +432,21 @@ evaluated against the target, not the current implementation.
   to rolling windows; compute drift per window; surface in the
   dashboard and settlement receipts.
 
-- **Heterogeneous PR review.** Premise 3 requires heterogeneous
-  adversarial cross-check with different priors, different evidence,
-  and active dissent. The shipped PR review protocol
-  (`aragora/swarm/pr_review_protocol.py`, `PROTOCOL_STATUS =
-  "metadata_heuristic"`) emits packets with `dissenting_views=[]`
-  and self-describes as *"No heterogeneous dissent recorded yet."*
-  Work needed: wire actual heterogeneous agents through the
-  protocol; populate `dissenting_views` with real per-reviewer
-  output; upgrade `PROTOCOL_STATUS` when the path exercises live
-  ensembles.
+- **PR review source-of-truth alignment.** Premise 3 is now exercised
+  on the active PDB / brief-engine path
+  (`aragora/pdb/real_invoker.py`, `aragora/pdb/invoker_factory.py`,
+  `aragora/pdb/protocol.py`, `aragora/pdb/worker.py`; shipped via
+  `#6404`, `#6425`, and dogfooded via `#6421`). That path invokes
+  heterogeneous providers, preserves real `dissenting_views`, and
+  emits execution statuses such as `STATUS_PANEL_EXECUTED` rather than
+  the schema fallback. The remaining gap is alignment of legacy
+  schema-only surfaces:
+  `aragora/swarm/pr_review_protocol.py` still keeps
+  `PROTOCOL_STATUS = "metadata_heuristic"` as the default for packets
+  constructed without execution. Work needed: keep that fallback
+  explicit, de-emphasize schema-only callers, and update status/docs
+  surfaces so they treat the PDB execution path as the canonical PR
+  review realization.
 
 - **Empirical threshold grounding.** Commitment 3's 5% auto-handle
   outcome-invalidation threshold is a placeholder for "substantially
