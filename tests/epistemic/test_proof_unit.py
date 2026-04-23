@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-import aragora.epistemic.proof_unit as _proof_unit_mod
+import aragora.epistemic.proof_unit_scanner as _proof_unit_scanner
 from aragora.epistemic.proof_unit import (
     DecayPolicy,
     FallbackPolicy,
@@ -202,7 +202,7 @@ class TestScanFlag:
         monkeypatch.delenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", raising=False)
         enable_proof_unit_scan()
         assert proof_unit_scan_enabled()
-        assert _proof_unit_mod._scan_enabled_override is True  # noqa: SLF001
+        assert _proof_unit_scanner._scan_enabled_override is True  # noqa: SLF001
 
     def test_enable_does_not_mutate_environ(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ARAGORA_PROOF_UNIT_SCAN_ENABLED", raising=False)
@@ -213,7 +213,7 @@ class TestScanFlag:
     def test_reset_clears_override(self) -> None:
         enable_proof_unit_scan()
         reset_proof_unit_scan()
-        assert _proof_unit_mod._scan_enabled_override is None  # noqa: SLF001
+        assert _proof_unit_scanner._scan_enabled_override is None  # noqa: SLF001
         assert not proof_unit_scan_enabled()
 
     def test_override_takes_priority_over_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -232,7 +232,9 @@ class TestScanFlag:
         assert len(units) == 1
         assert units[0].code_unit_id == "test.scan.alpha"
 
-    def test_load_from_dir_skips_invalid_silently(self, tmp_path: Path) -> None:
+    def test_load_from_dir_logs_validation_errors(
+        self, caplog: pytest.LogCaptureFixture, tmp_path: Path
+    ) -> None:
         enable_proof_unit_scan()
         (tmp_path / "bad.yaml").write_text(
             "code_unit_id: x\nfreshness_sla_hours: 0\n"
@@ -241,7 +243,19 @@ class TestScanFlag:
             "decay_policy: {failed_claim: report_only, stale_evidence: report_only, unresolved_crux: report_only}\n"
             "fallback_policy: {default: fail_closed, operator_message: ''}\n"
         )
-        assert load_proof_units_from_dir(tmp_path) == []
+        with caplog.at_level("WARNING", logger="aragora.epistemic.proof_unit_scanner"):
+            assert load_proof_units_from_dir(tmp_path) == []
+        assert "skipping invalid proof unit" in caplog.text
+
+    def test_load_from_dir_logs_malformed_with_traceback(
+        self, caplog: pytest.LogCaptureFixture, tmp_path: Path
+    ) -> None:
+        enable_proof_unit_scan()
+        (tmp_path / "bad.yaml").write_text("- not-a-mapping\n")
+        with caplog.at_level("WARNING", logger="aragora.epistemic.proof_unit_scanner"):
+            assert load_proof_units_from_dir(tmp_path) == []
+        assert "skipping malformed proof unit" in caplog.text
+        assert any(record.exc_info for record in caplog.records)
 
     def test_load_from_dir_returns_sorted_order(self, tmp_path: Path) -> None:
         enable_proof_unit_scan()
