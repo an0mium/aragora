@@ -79,7 +79,7 @@ gh api repos/synaptent/aragora/actions/runners --jq '.runners | map(select(.name
 # Expected: macbook-m1-16gb and macbook-intel-64gb
 ```
 
-Then bump `BASELINE_COUNT` in `.github/workflows/runner-headcount-monitor.yml` from 10 → 12 in a follow-up PR.
+`BASELINE_COUNT` in `.github/workflows/runner-headcount-monitor.yml` is now 12 to match the restored fleet.
 
 ### Mitigation for next time (not-yet-opened follow-up)
 

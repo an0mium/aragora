@@ -34,7 +34,7 @@ env:
   # Baseline matches the roster in docs/runners/FLEET.md.
   # Bump this when a new runner joins the fleet (same PR that updates
   # FLEET.md).
-  BASELINE_COUNT: 10
+  BASELINE_COUNT: 12
 
 jobs:
   audit:
