@@ -24,14 +24,19 @@ _UNHEALTHY = frozenset({"fail", "stale", "error"})
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Verify DIC-14 executable claim manifests.")
-    p.add_argument("--claims-dir", type=Path,
-                   default=_REPO_ROOT / "docs" / "status" / "claims", metavar="DIR")
+    p.add_argument(
+        "--claims-dir", type=Path, default=_REPO_ROOT / "docs" / "status" / "claims", metavar="DIR"
+    )
     p.add_argument("--repo-root", type=Path, default=_REPO_ROOT, metavar="DIR")
-    p.add_argument("--dry-run", action="store_true",
-                   help="Skip command execution; return UNSUPPORTED for command claims.")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Skip command execution; return UNSUPPORTED for command claims.",
+    )
     p.add_argument("--output", type=Path, default=None, metavar="FILE")
-    p.add_argument("--exit-code", action="store_true",
-                   help="Exit 1 when any claim is fail, stale, or error.")
+    p.add_argument(
+        "--exit-code", action="store_true", help="Exit 1 when any claim is fail, stale, or error."
+    )
     return p.parse_args(argv)
 
 
@@ -62,8 +67,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if not manifest_paths:
         print(f"warning: no *.yaml manifests found in {claims_dir}", file=sys.stderr)
-        _emit({"schema_version": 1, "manifests_scanned": 0, "results": [],
-               "summary": empty_summary}, args.output)
+        _emit(
+            {"schema_version": 1, "manifests_scanned": 0, "results": [], "summary": empty_summary},
+            args.output,
+        )
         return 0
 
     verifier = ClaimVerifier(repo_root=args.repo_root, dry_run=args.dry_run)
@@ -74,10 +81,17 @@ def main(argv: list[str] | None = None) -> int:
         try:
             results = verifier.verify_manifest(path)
         except Exception as exc:  # noqa: BLE001
-            result_dicts.append({"claim_id": f"<manifest:{path.name}>", "status": "error",
-                                  "message": f"failed to load manifest: {exc}",
-                                  "severity": "warning", "allowed_action": "report_only",
-                                  "elapsed_ms": 0.0, "detail": {}})
+            result_dicts.append(
+                {
+                    "claim_id": f"<manifest:{path.name}>",
+                    "status": "error",
+                    "message": f"failed to load manifest: {exc}",
+                    "severity": "warning",
+                    "allowed_action": "report_only",
+                    "elapsed_ms": 0.0,
+                    "detail": {},
+                }
+            )
             summary["error"] += 1
             continue
         for r in results:

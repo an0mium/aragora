@@ -41,15 +41,21 @@ claims:
       - type: test
 """
 
-_CMD_DRY = _MANUAL.replace("kind: manual", "kind: command").replace(
-    'command: ""', 'command: "true"'
-).replace("manifest_id: test_manual", "manifest_id: test_cmd")
+_CMD_DRY = (
+    _MANUAL.replace("kind: manual", "kind: command")
+    .replace('command: ""', 'command: "true"')
+    .replace("manifest_id: test_manual", "manifest_id: test_cmd")
+)
 
 
 def _available() -> bool:
     try:
-        return subprocess.run([_PYTHON, str(_SCRIPT), "--help"],
-                              capture_output=True, timeout=15).returncode == 0
+        return (
+            subprocess.run(
+                [_PYTHON, str(_SCRIPT), "--help"], capture_output=True, timeout=15
+            ).returncode
+            == 0
+        )
     except Exception:
         return False
 
@@ -93,7 +99,8 @@ class TestBasic:
         multi = _MANUAL
         for i in range(1, 3):
             extra = _MANUAL.replace("test.manual.claim", f"test.claim.{i}").replace(
-                "manifest_id: test_manual", f"manifest_id: test_{i}")
+                "manifest_id: test_manual", f"manifest_id: test_{i}"
+            )
             _write(tmp_path, f"m{i}.yaml", extra)
         _write(tmp_path, "m0.yaml", multi)
         rc, payload, _ = _run(tmp_path)
