@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from scripts.github_cli_health import GitHubCLIHealth
 import scripts.publish_automation_handoffs as mod
 from scripts.publish_automation_handoffs import Handoff, PublishDecision
 
@@ -165,6 +166,36 @@ def test_decide_handoffs_marks_duplicate_issue(monkeypatch: Any, tmp_path: Path)
     ]
 
 
+def test_run_uses_user_auth_for_issue_create(monkeypatch: Any, tmp_path: Path) -> None:
+    recorded: dict[str, Any] = {}
+
+    def fake_gh_run(
+        args: list[str],
+        *,
+        timeout: float,
+        prefer_app: bool,
+        write_op: bool,
+        env: dict[str, str],
+        max_retries: int,
+    ) -> subprocess.CompletedProcess[str]:
+        recorded["args"] = args
+        recorded["prefer_app"] = prefer_app
+        recorded["write_op"] = write_op
+        recorded["env"] = env
+        recorded["max_retries"] = max_retries
+        return subprocess.CompletedProcess(args=["gh", *args], returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod, "gh_subprocess_run", fake_gh_run)
+
+    result = mod._run(["gh", "issue", "create", "--title", "Example"], cwd=tmp_path)
+
+    assert result.returncode == 0
+    assert recorded["args"][:2] == ["issue", "create"]
+    assert recorded["prefer_app"] is True
+    assert recorded["write_op"] is True
+    assert recorded["max_retries"] == 0
+
+
 def test_decide_handoffs_marks_duplicate_pr(monkeypatch: Any, tmp_path: Path) -> None:
     handoff = Handoff(
         source_file=str(tmp_path / "memory.md"),
@@ -213,6 +244,63 @@ def test_decide_handoffs_marks_duplicate_pr(monkeypatch: Any, tmp_path: Path) ->
     ]
 
 
+def test_decide_handoffs_routes_explicit_pr_followup_before_issue_cap(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "memory.md"),
+        task_title="Prevent draft approval packets in PR #6288",
+        priority="HIGH",
+        body=(
+            "Why Now: PR #6288 already carries the active review-queue implementation.\n"
+            "Repo Evidence:\n- gh pr view 6288 --json number,title,headRefName,url,isDraft\n"
+        ),
+        labels={},
+        expires_at=None,
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, json.dumps([{"number": 1}]), "")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "pr", "view"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    {
+                        "number": 6288,
+                        "title": "feat(review): add read-only queue packet builder",
+                        "url": "https://github.com/synaptent/aragora/pull/6288",
+                        "state": "OPEN",
+                    }
+                ),
+                "",
+            )
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=1,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="target_open_pr",
+            existing_pr_url="https://github.com/synaptent/aragora/pull/6288",
+        )
+    ]
+
+
 def test_decide_handoffs_respects_open_issue_cap(monkeypatch: Any, tmp_path: Path) -> None:
     handoff = Handoff(
         source_file=str(tmp_path / "memory.md"),
@@ -240,6 +328,19 @@ def test_decide_handoffs_respects_open_issue_cap(monkeypatch: Any, tmp_path: Pat
 
     assert decisions[0].eligible is False
     assert decisions[0].reason == "open_issue_cap"
+
+
+def test_referenced_pr_numbers_deduplicates_multiple_mentions(tmp_path: Path) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "memory.md"),
+        task_title="Amend PR #6288 packet recommendation logic",
+        priority="HIGH",
+        body="Repo Evidence:\n- pull request #6288 still marks drafts as approve_candidate.\n",
+        labels={},
+        expires_at=None,
+    )
+
+    assert mod._referenced_pr_numbers(handoff) == [6288]
 
 
 def test_publish_handoffs_creates_issue_with_labels(monkeypatch: Any, tmp_path: Path) -> None:
@@ -292,6 +393,40 @@ def test_publish_handoffs_creates_issue_with_labels(monkeypatch: Any, tmp_path: 
         "--add-label",
         "boss-ready,autonomous",
     ]
+
+
+def test_main_reports_github_health_when_unavailable(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "memory.md"),
+        task_title="Fix tmux readiness detection for named Claude lanes",
+        priority="MEDIUM",
+        body="body",
+        labels={},
+        expires_at=None,
+    )
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [handoff])
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=True,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--codex-home", str(tmp_path), "--json"])
+
+    assert exit_code == 1
+    out = capsys.readouterr().out
+    assert '"mode": "connectivity_failed"' in out
+    assert '"reason": "github_unavailable"' in out
 
 
 def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path) -> None:

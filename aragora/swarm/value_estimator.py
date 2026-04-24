@@ -384,7 +384,7 @@ async def estimate_with_llm(
     body: str,
     *,
     heuristic_estimate: ValueEstimate | None = None,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "claude-opus-4-7",
 ) -> ValueEstimate:
     """Refine a value estimate using a frontier LLM.
 

@@ -65,6 +65,7 @@ GauntletHeatmapExportHandler = _safe_import(
 
 # Review & evaluation handlers
 ReviewsHandler = _safe_import("aragora.server.handlers", "ReviewsHandler")
+ReviewQueueHandler = _safe_import("aragora.server.handlers", "ReviewQueueHandler")
 EvaluationHandler = _safe_import("aragora.server.handlers", "EvaluationHandler")
 
 # Receipts handler
@@ -135,6 +136,7 @@ DEBATE_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_gauntlet_handler", GauntletHandler),
     ("_formal_verification_handler", FormalVerificationHandler),
     ("_reviews_handler", ReviewsHandler),
+    ("_review_queue_handler", ReviewQueueHandler),
     ("_evaluation_handler", EvaluationHandler),
     ("_orchestration_handler", OrchestrationHandler),
     ("_uncertainty_handler", UncertaintyHandler),
@@ -209,6 +211,7 @@ __all__ = [
     "GauntletHeatmapExportHandler",
     # Review handlers
     "ReviewsHandler",
+    "ReviewQueueHandler",
     "EvaluationHandler",
     "ReceiptsHandler",
     # Other debate handlers

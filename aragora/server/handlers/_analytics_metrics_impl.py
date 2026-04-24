@@ -216,7 +216,7 @@ def _demo_response(normalized: str) -> HandlerResult | None:
             "by_model": {
                 "claude-opus-4": {"cost": "5.82", "percentage": 46.7},
                 "gpt-4o": {"cost": "3.91", "percentage": 31.4},
-                "claude-sonnet-4": {"cost": "1.64", "percentage": 13.1},
+                "claude-opus-4-7": {"cost": "1.64", "percentage": 13.1},
                 "gemini-1.5-pro": {"cost": "0.78", "percentage": 6.3},
                 "mistral-large": {"cost": "0.32", "percentage": 2.6},
             },

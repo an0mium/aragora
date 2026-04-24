@@ -63,6 +63,23 @@ def make_handler(method: str, body: dict | None = None) -> MagicMock:
     return mock
 
 
+@pytest.fixture(autouse=True)
+def _reset_context_budget_overrides():
+    """Reset module-level runtime overrides so tests don't leak state.
+
+    The admin PUT handler installs runtime overrides via
+    ``context_budgeter.set_total_tokens`` / ``set_section_limits``; tests
+    that exercise that path must not poison tests that follow.
+    """
+    from aragora.debate import context_budgeter
+
+    context_budgeter.set_total_tokens(None)
+    context_budgeter.set_section_limits(None)
+    yield
+    context_budgeter.set_total_tokens(None)
+    context_budgeter.set_section_limits(None)
+
+
 # ===========================================================================
 # Instantiation and Routes
 # ===========================================================================

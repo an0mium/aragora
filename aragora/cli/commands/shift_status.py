@@ -5,14 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH, ShiftLedger
-
-
-def _resolve_ledger_path(repo_root: Path, value: object | None) -> Path:
-    candidate = Path(str(value or DEFAULT_LEDGER_PATH)).expanduser()
-    if candidate.is_absolute():
-        return candidate
-    return repo_root / candidate
+from aragora.swarm.live_shift_status import load_shift_status
 
 
 def _float_arg(value: object, *, default: float) -> float:
@@ -24,42 +17,6 @@ def _float_arg(value: object, *, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
-
-
-def load_shift_status(
-    repo_root: Path,
-    *,
-    ledger_path: object | None = None,
-    max_age_hours: float = 24.0,
-) -> dict[str, Any]:
-    """Load the proof-first shift ledger status summary."""
-    path = _resolve_ledger_path(repo_root, ledger_path)
-    existed = path.exists()
-    if existed:
-        payload = ShiftLedger(path=path).get_status_summary(max_age_hours=max_age_hours)
-    else:
-        payload = {
-            "period_hours": max_age_hours,
-            "total_entries": 0,
-            "shifts_started": 0,
-            "shifts_stopped": 0,
-            "last_stop_reason": "",
-            "cycle_ticks": 0,
-            "prs_merged": 0,
-            "pr_numbers_merged": [],
-            "current_queue_size": None,
-            "current_open_prs": None,
-            "current_boss_running": None,
-            "current_merge_running": None,
-            "current_benchmark_fresh": None,
-            "failure_policy": {},
-            "green_shift": {},
-        }
-    return {
-        "available": existed,
-        "ledger_path": str(path),
-        **payload,
-    }
 
 
 def render_shift_status(payload: dict[str, Any]) -> str:
@@ -103,6 +60,19 @@ def render_shift_status(payload: dict[str, Any]) -> str:
                 reason=failure_policy.get("reason") or "-",
             )
         )
+    observer_bits: list[str] = []
+    if payload.get("observer_branch"):
+        observer_bits.append(f"branch={payload.get('observer_branch')}")
+    if payload.get("observer_has_uncommitted_changes") is not None:
+        observer_bits.append(f"dirty={payload.get('observer_has_uncommitted_changes')}")
+    if payload.get("observer_behind_origin_main") is not None:
+        observer_bits.append(f"behind_origin_main={payload.get('observer_behind_origin_main')}")
+    if payload.get("observer_ahead_of_origin_main") is not None:
+        observer_bits.append(f"ahead_of_origin_main={payload.get('observer_ahead_of_origin_main')}")
+    if observer_bits:
+        lines.append("observer=" + " ".join(observer_bits))
+    if payload.get("observer_warning"):
+        lines.append(f"observer_warning={payload.get('observer_warning')}")
     return "\n".join(lines)
 
 

@@ -95,7 +95,7 @@ class PromptInterrogator:
                 from aragora.agents.api_agents.openrouter import OpenRouterAgent
 
                 self._agent = OpenRouterAgent(
-                    name="interrogator", model="anthropic/claude-sonnet-4"
+                    name="interrogator", model="anthropic/claude-opus-4.7"
                 )
                 return self._agent
         except (ImportError, RuntimeError, ValueError) as e:

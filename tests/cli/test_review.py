@@ -232,7 +232,18 @@ class TestGetAvailableAgents:
 
         result = get_available_agents()
         assert "anthropic-api" in result
-        assert "openrouter-api" in result
+        assert "openrouter" in result
+
+    def test_available_agent_ids_are_registered(self, monkeypatch):
+        """Auto-detected review agent IDs should map to registered agent types."""
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
+        monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+        monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+
+        result = get_available_agents()
+        assert result == "openrouter,gemini"
 
 
 # ===========================================================================

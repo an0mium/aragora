@@ -771,7 +771,14 @@ class TestAgentAvailability:
                         agent_info = body["agents"]["anthropic-api"]
                         assert agent_info["available"] is True
                         assert agent_info["uses_openrouter_fallback"] is True
-                        assert agent_info["fallback_model"] == "anthropic/claude-sonnet-4.6"
+                        from aragora.server.handlers.agents.agents import (
+                            _OPENROUTER_FALLBACK_MODELS,
+                        )
+
+                        assert (
+                            agent_info["fallback_model"]
+                            == _OPENROUTER_FALLBACK_MODELS["anthropic-api"]
+                        )
 
     @pytest.mark.asyncio
     async def test_availability_not_available(self, handler, mock_http_handler):

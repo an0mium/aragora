@@ -18,7 +18,10 @@ import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    pass
+    from aragora.debate.breakpoints import (
+        BreakpointManager as DebateBreakpointManager,
+        HumanGuidance as DebateHumanGuidance,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +41,17 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 # Rate limiter for breakpoints endpoints (60 requests per minute - debug feature)
 _breakpoints_limiter = RateLimiter(requests_per_minute=60)
 
-HumanGuidance: Any = None
-BreakpointManager: Any = None
 try:
-    from aragora.debate.breakpoints import HumanGuidance, BreakpointManager
+    from aragora.debate.breakpoints import (
+        BreakpointManager as ImportedBreakpointManager,
+        HumanGuidance as ImportedHumanGuidance,
+    )
 except ImportError:
-    pass
+    HumanGuidance: type[DebateHumanGuidance] | None = None
+    BreakpointManager: type[DebateBreakpointManager] | None = None
+else:
+    HumanGuidance = ImportedHumanGuidance
+    BreakpointManager = ImportedBreakpointManager
 
 
 class BreakpointsHandler(BaseHandler):
@@ -65,11 +73,11 @@ class BreakpointsHandler(BaseHandler):
     def __init__(self, storage: Any = None):
         """Initialize with optional storage backend."""
         super().__init__(storage)
-        self._breakpoint_manager: Any = None
+        self._breakpoint_manager: DebateBreakpointManager | None = None
         self._breakpoint_manager_loaded = False
 
     @property
-    def breakpoint_manager(self) -> Any:
+    def breakpoint_manager(self) -> DebateBreakpointManager | None:
         """Lazy-load breakpoint manager."""
         if self._breakpoint_manager is None and not self._breakpoint_manager_loaded:
             manager_cls = BreakpointManager
@@ -79,7 +87,7 @@ class BreakpointsHandler(BaseHandler):
         return self._breakpoint_manager
 
     @breakpoint_manager.setter
-    def breakpoint_manager(self, value: Any) -> None:
+    def breakpoint_manager(self, value: DebateBreakpointManager | None) -> None:
         self._breakpoint_manager = value
         self._breakpoint_manager_loaded = True
 
@@ -87,6 +95,67 @@ class BreakpointsHandler(BaseHandler):
     def breakpoint_manager(self) -> None:
         self._breakpoint_manager = None
         self._breakpoint_manager_loaded = False
+
+    @staticmethod
+    def _serialize_snapshot(snapshot: object | None) -> dict[str, Any] | None:
+        """Serialize debate snapshot objects from real dataclasses or test doubles."""
+        if snapshot is None:
+            return None
+
+        round_num = getattr(snapshot, "round_num", getattr(snapshot, "current_round", 0))
+        confidence = getattr(
+            snapshot,
+            "current_confidence",
+            getattr(snapshot, "confidence", None),
+        )
+        agents = getattr(snapshot, "agent_names", None)
+        if agents is None:
+            positions = getattr(snapshot, "agent_positions", None)
+            if isinstance(positions, dict):
+                agents = list(positions.keys())
+            else:
+                agents = []
+        elif not isinstance(agents, (list, tuple, set)):
+            agents = []
+
+        return {
+            "debate_id": getattr(snapshot, "debate_id", ""),
+            "round_num": round_num,
+            "task": getattr(snapshot, "task", ""),
+            "confidence": confidence,
+            "agents": [str(agent) for agent in agents],
+        }
+
+    @staticmethod
+    def _breakpoint_message(bp: object) -> str:
+        """Return an operator-facing message for real breakpoints and test doubles."""
+        message = getattr(bp, "message", None)
+        if isinstance(message, str) and message:
+            return message
+        trigger = getattr(getattr(bp, "trigger", None), "value", "unknown")
+        return f"Breakpoint triggered: {trigger}"
+
+    @staticmethod
+    def _breakpoint_created_at(bp: object) -> str | None:
+        created_at = getattr(bp, "created_at", None)
+        if isinstance(created_at, str):
+            return created_at
+        triggered_at = getattr(bp, "triggered_at", None)
+        return triggered_at if isinstance(triggered_at, str) else None
+
+    @staticmethod
+    def _breakpoint_status(bp: object) -> str:
+        status = getattr(bp, "status", None)
+        if isinstance(status, str) and status:
+            return status
+        resolved = getattr(bp, "resolved", False)
+        return "resolved" if resolved else "pending"
+
+    @staticmethod
+    def _breakpoint_snapshot(bp: object) -> object | None:
+        if hasattr(bp, "snapshot"):
+            return getattr(bp, "snapshot")
+        return getattr(bp, "debate_snapshot", None)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -115,7 +184,7 @@ class BreakpointsHandler(BaseHandler):
             # Validate breakpoint ID
             is_valid, err = validate_path_segment(breakpoint_id, "breakpoint_id", SAFE_ID_PATTERN)
             if not is_valid:
-                return error_response(err, 400)
+                return error_response(err or "Invalid breakpoint_id", 400)
 
             if action == "status":
                 return self._get_breakpoint_status(breakpoint_id)
@@ -142,7 +211,7 @@ class BreakpointsHandler(BaseHandler):
         # Validate breakpoint ID
         is_valid, err = validate_path_segment(breakpoint_id, "breakpoint_id", SAFE_ID_PATTERN)
         if not is_valid:
-            return error_response(err, 400)
+            return error_response(err or "Invalid breakpoint_id", 400)
 
         if action == "resolve":
             return self._resolve_breakpoint(breakpoint_id, body)
@@ -167,20 +236,10 @@ class BreakpointsHandler(BaseHandler):
                         {
                             "breakpoint_id": bp.breakpoint_id,
                             "trigger": bp.trigger.value,
-                            "message": bp.message,
-                            "created_at": bp.created_at,
+                            "message": self._breakpoint_message(bp),
+                            "created_at": self._breakpoint_created_at(bp),
                             "timeout_minutes": bp.timeout_minutes,
-                            "snapshot": (
-                                {
-                                    "debate_id": bp.snapshot.debate_id,
-                                    "round_num": bp.snapshot.round_num,
-                                    "task": bp.snapshot.task,
-                                    "confidence": bp.snapshot.current_confidence,
-                                    "agents": bp.snapshot.agent_names,
-                                }
-                                if bp.snapshot
-                                else None
-                            ),
+                            "snapshot": self._serialize_snapshot(self._breakpoint_snapshot(bp)),
                         }
                         for bp in pending
                     ],
@@ -217,20 +276,11 @@ class BreakpointsHandler(BaseHandler):
                 {
                     "breakpoint_id": bp.breakpoint_id,
                     "trigger": bp.trigger.value,
-                    "message": bp.message,
-                    "status": bp.status if hasattr(bp, "status") else "pending",
-                    "created_at": bp.created_at,
+                    "message": self._breakpoint_message(bp),
+                    "status": self._breakpoint_status(bp),
+                    "created_at": self._breakpoint_created_at(bp),
                     "resolved_at": bp.resolved_at if hasattr(bp, "resolved_at") else None,
-                    "snapshot": (
-                        {
-                            "debate_id": bp.snapshot.debate_id,
-                            "round_num": bp.snapshot.round_num,
-                            "task": bp.snapshot.task,
-                            "confidence": bp.snapshot.current_confidence,
-                        }
-                        if bp.snapshot
-                        else None
-                    ),
+                    "snapshot": self._serialize_snapshot(self._breakpoint_snapshot(bp)),
                 }
             )
 
@@ -246,7 +296,7 @@ class BreakpointsHandler(BaseHandler):
             body: Request body with resolution details:
                 - action: "continue" | "abort" | "redirect" | "inject"
                 - message: Human guidance message
-                - redirect_task: New task if redirecting (optional)
+                - redirect_task: New task if redirecting (required for "redirect")
 
         Returns:
             Resolution confirmation
@@ -273,10 +323,10 @@ class BreakpointsHandler(BaseHandler):
             return error_response("Field 'message' must be a string", 400)
         if redirect_task is not None and not isinstance(redirect_task, str):
             return error_response("Field 'redirect_task' must be a string", 400)
+        if isinstance(redirect_task, str):
+            redirect_task = redirect_task.strip() or None
         if not isinstance(reviewer_id, str) or not reviewer_id.strip():
             return error_response("Field 'reviewer_id' must be a non-empty string", 400)
-        if action == "redirect" and (redirect_task is None or not redirect_task.strip()):
-            return error_response("Field 'redirect_task' is required for redirect action", 400)
 
         try:
             import uuid

@@ -1,63 +1,66 @@
 'use client';
 
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme, type Theme } from '@/context/ThemeContext';
+
+const THEME_OPTIONS: Array<{ value: Theme; label: string; glyph: string; title: string }> = [
+  { value: 'warm', label: 'Warm', glyph: '☀', title: 'Warm theme — humanistic cream + forest green' },
+  { value: 'dark', label: 'Dark', glyph: '◐', title: 'Dark theme — demoscene black + acid green' },
+  { value: 'professional', label: 'Pro', glyph: '◆', title: 'Professional theme — muted, enterprise-ready' },
+];
 
 export function ThemeToggle() {
-  const { effectiveTheme, toggleTheme, isInitialized } = useTheme();
+  const { theme, setTheme, isInitialized } = useTheme();
 
-  // Show placeholder during SSR/hydration to prevent mismatch
   if (!isInitialized) {
     return (
-      <button
-        className="p-2 text-text-muted hover:text-text transition-colors"
-        aria-label="Toggle theme"
-      >
-        <span className="w-4 h-4 block" />
-      </button>
+      <div
+        aria-label="Theme selector"
+        className="inline-flex"
+        style={{ width: '120px', height: '28px' }}
+      />
     );
   }
 
   return (
-    <button
-      onClick={toggleTheme}
-      className="p-2 text-text-muted hover:text-text transition-colors rounded hover:bg-surface"
-      aria-label={`Switch to ${effectiveTheme === 'dark' ? 'light' : 'dark'} mode`}
-      title={`Switch to ${effectiveTheme === 'dark' ? 'light' : 'dark'} mode`}
+    <div
+      role="radiogroup"
+      aria-label="Theme selector"
+      className="inline-flex items-center rounded-md border"
+      style={{
+        borderColor: 'var(--border)',
+        backgroundColor: 'var(--surface-elevated)',
+        padding: '2px',
+        gap: '2px',
+      }}
     >
-      {effectiveTheme === 'dark' ? (
-        // Sun icon for switching to light mode
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={1.5}
-          stroke="currentColor"
-          className="w-4 h-4"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"
-          />
-        </svg>
-      ) : (
-        // Moon icon for switching to dark mode
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={1.5}
-          stroke="currentColor"
-          className="w-4 h-4"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"
-          />
-        </svg>
-      )}
-    </button>
+      {THEME_OPTIONS.map((opt) => {
+        const active = theme === opt.value;
+        return (
+          <button
+            key={opt.value}
+            role="radio"
+            aria-checked={active}
+            title={opt.title}
+            onClick={() => setTheme(opt.value)}
+            className="font-theme-data transition-colors"
+            style={{
+              padding: '2px 8px',
+              fontSize: '11px',
+              borderRadius: '4px',
+              backgroundColor: active ? 'var(--accent-glow)' : 'transparent',
+              color: active ? 'var(--accent)' : 'var(--text-muted)',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <span aria-hidden="true" style={{ marginRight: '4px' }}>
+              {opt.glyph}
+            </span>
+            <span>{opt.label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

@@ -19,6 +19,7 @@ import subprocess
 import time
 from dataclasses import dataclass, field
 from functools import lru_cache
+from pathlib import Path
 
 from aragora.swarm.github_app_auth import gh_subprocess_run
 
@@ -47,6 +48,14 @@ REDUCED_LANE_ONLY_CHECKS = frozenset(
         "publish-draft-pr",
         "review",
         "changes",
+    }
+)
+AUTOMATION_REVIEWER_LOGINS = frozenset(
+    {
+        "an0mium",
+        "github-actions[bot]",
+        "dependabot[bot]",
+        "aragora-automation[bot]",
     }
 )
 
@@ -234,7 +243,7 @@ def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
             "--state",
             "open",
             "--json",
-            "number,headRefName,headRefOid,isDraft",
+            "number,headRefName,headRefOid,isDraft,reviewDecision",
             "--limit",
             "100",
         ]
@@ -281,6 +290,73 @@ def _get_check_status(pr_number: int, repo: str) -> dict[str, str]:
     return {c["name"]: c.get("state", "").upper() for c in checks if "name" in c}
 
 
+def _list_pr_reviews(pr_number: int, repo: str) -> list[dict]:
+    """Return PR review events as raw GitHub API payloads."""
+    result = _run_gh(
+        [
+            "api",
+            f"repos/{repo}/pulls/{pr_number}/reviews",
+            "--paginate",
+        ]
+    )
+    if result.returncode != 0:
+        logger.debug("gh api pulls/%d/reviews failed: %s", pr_number, result.stderr.strip())
+        return []
+    try:
+        payload = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    if not isinstance(payload, list):
+        return []
+    return [item for item in payload if isinstance(item, dict)]
+
+
+def _review_counts_as_human_approval(review: dict, head_sha: str | None) -> bool:
+    """Return True when a review is an approval tied to the current head and not automation."""
+    if str(review.get("state", "")).upper() != "APPROVED":
+        return False
+    if head_sha and str(review.get("commit_id", "")).strip() != str(head_sha).strip():
+        return False
+    user = review.get("user") or {}
+    if not isinstance(user, dict):
+        return False
+    login = str(user.get("login", "")).strip()
+    user_type = str(user.get("type", "")).strip().lower()
+    if not login:
+        return False
+    if login in AUTOMATION_REVIEWER_LOGINS or login.endswith("[bot]") or user_type == "bot":
+        return False
+    return True
+
+
+def _has_matching_human_approval(pr_number: int, repo: str, head_sha: str | None) -> bool:
+    """Require an explicit human approval on the current PR head SHA."""
+    for review in reversed(_list_pr_reviews(pr_number, repo)):
+        if _review_counts_as_human_approval(review, head_sha):
+            return True
+    return False
+
+
+def _has_local_settlement_receipt(
+    pr_number: int, head_sha: str | None, repo_root: Path | None = None
+) -> bool:
+    """Accept a local review-queue approval receipt as an explicit settlement signal."""
+    if not head_sha:
+        return False
+    root = (repo_root or Path.cwd()) / ".aragora" / "review-queue" / "settlements"
+    receipt = root / f"pr-{pr_number}-{str(head_sha)[:12]}-approve.json"
+    if not receipt.exists():
+        return False
+    try:
+        payload = json.loads(receipt.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return (
+        str(payload.get("action", "")).strip() == "approve"
+        and str(payload.get("head_sha", "")).strip() == str(head_sha).strip()
+    )
+
+
 def _promote_draft(pr_number: int, repo: str) -> bool:
     """Mark a draft PR as ready for review."""
     result = _run_gh(
@@ -322,6 +398,7 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
     branch: str = pr.get("headRefName", "")
     head_sha = pr.get("headRefOid")
     is_draft: bool = pr.get("isDraft", False)
+    review_decision = str(pr.get("reviewDecision", "")).strip().upper()
     required_checks = _get_required_checks(config.repo)
 
     if is_draft:
@@ -402,6 +479,18 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
             branch,
             False,
             f"failing full-suite checks: {', '.join(failing_ready)}",
+        )
+
+    has_settlement = _has_local_settlement_receipt(pr_number, head_sha) or (
+        review_decision == "APPROVED"
+        and _has_matching_human_approval(pr_number, config.repo, head_sha)
+    )
+    if not has_settlement:
+        return MergeResult(
+            pr_number,
+            branch,
+            False,
+            "waiting for explicit human settlement on the current head SHA",
         )
 
     if config.dry_run:

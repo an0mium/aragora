@@ -5,6 +5,17 @@ import re
 from pathlib import Path
 from typing import Any
 
+from tests.benchmarks.test_rescue_productization import (
+    expected_counted_class_bullets,
+    expected_issue_drafts,
+    expected_issue_linkage_actions,
+    expected_repeated_class_rows,
+    parse_counted_class_bullets,
+    parse_issue_drafts,
+    parse_issue_linkage_actions,
+    parse_repeated_class_rows,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -243,13 +254,16 @@ def test_tw03_rescue_productization_status_matches_latest_report_json() -> None:
         report_payload["issue_drafts"]
     )
 
-    for rescue_class in report_payload["repeated_classes"]:
-        assert f"`{rescue_class['class']}`" in markdown
-    for linkage in report_payload["issue_linkage_results"]:
-        assert linkage["action"] in markdown
-    for draft in report_payload["issue_drafts"]:
-        assert draft["title"] in markdown
-    for rescue_class in report_payload["one_off_classes"]:
-        assert rescue_class["class"] in markdown
-    for rescue_class in report_payload["below_threshold_classes"]:
-        assert rescue_class["class"] in markdown
+    assert parse_repeated_class_rows(markdown) == expected_repeated_class_rows(
+        report_payload["repeated_classes"]
+    )
+    assert parse_issue_linkage_actions(markdown) == expected_issue_linkage_actions(
+        report_payload["issue_linkage_results"]
+    )
+    assert parse_issue_drafts(markdown) == expected_issue_drafts(report_payload["issue_drafts"])
+    assert parse_counted_class_bullets(markdown, "One-Off Rescue Classes") == (
+        expected_counted_class_bullets(report_payload["one_off_classes"])
+    )
+    assert parse_counted_class_bullets(markdown, "Below-Threshold Rescue Classes") == (
+        expected_counted_class_bullets(report_payload["below_threshold_classes"])
+    )

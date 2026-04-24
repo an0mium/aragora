@@ -434,12 +434,12 @@ class HierarchicalCoordinator:
             agents: list[Any] = [
                 AnthropicAPIAgent(
                     name="judge-1",
-                    model="claude-sonnet-4-20250514",
+                    model="claude-opus-4-7",
                     api_key=anthropic_key,
                 ),
                 AnthropicAPIAgent(
                     name="judge-2",
-                    model="claude-sonnet-4-20250514",
+                    model="claude-opus-4-7",
                     api_key=anthropic_key,
                 ),
             ]

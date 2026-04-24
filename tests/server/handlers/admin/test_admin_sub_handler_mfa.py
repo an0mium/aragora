@@ -226,13 +226,15 @@ class TestSecurityHandlerMFA:
         user = FakeAdminUser(mfa_enabled=False)
         store = FakeUserStore(user)
         mock_handler = MagicMock()
+        mock_handler.headers = {"Content-Length": "16"}
         mock_handler.auth_context = MagicMock()
         mock_handler.auth_context.user_id = "admin-1"
 
         sec_handler = SecurityHandler(ctx={"user_store": store})
+        sec_handler.read_json_body = MagicMock(return_value={"dry_run": True})
         result = sec_handler.handle_post(
             path="/api/v1/admin/security/rotate-key",
-            data={"dry_run": True},
+            query_params={},
             handler=mock_handler,
         )
         assert result is not None

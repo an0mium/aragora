@@ -2,8 +2,10 @@
 # General-purpose proposal generation
 
 name: proposer
-model_type: anthropic-api
-model: claude-3-5-sonnet-20241022
+# OpenRouter-first so a missing Anthropic key never blocks debates.
+# anthropic/claude-opus-4.7 via OpenRouter is the frontier Claude model.
+model_type: openrouter
+model: anthropic/claude-opus-4.7
 
 role: proposer
 stance: affirmative

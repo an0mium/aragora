@@ -275,9 +275,9 @@ class TestRLMContextHandlerCompressEndpoint:
         result = rlm_handler.handle_post("/api/v1/rlm/compress", {}, handler)
 
         assert result is not None
-        # Handler returns None for body when content length > 10MB
-        # which results in a 400 "Request body required" - this is the actual behavior
-        assert result.status_code == 400
+        assert result.status_code == 413
+        body = json.loads(result.body)
+        assert "Request body too large" in body["error"]
 
     def test_compress_validates_source_type(self, rlm_handler):
         """Compress endpoint validates source_type parameter."""

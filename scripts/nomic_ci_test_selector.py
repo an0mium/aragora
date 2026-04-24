@@ -42,6 +42,15 @@ def infer_test_paths(changed_files: list[str]) -> list[str]:
     return list(dict.fromkeys(test_paths))
 
 
+def changed_python_files(changed_files: list[str]) -> list[str]:
+    """Return changed Aragora Python source files relevant to PR-scoped coverage."""
+    return [
+        path
+        for path in changed_files
+        if path.strip() and path.startswith("aragora/") and path.endswith(".py")
+    ]
+
+
 def main():
     parser = argparse.ArgumentParser(description="Nomic CI test selector")
     parser.add_argument("--changed-files", nargs="*", default=[])
@@ -50,14 +59,24 @@ def main():
     args = parser.parse_args()
 
     test_paths = infer_test_paths(args.changed_files)
+    python_files = changed_python_files(args.changed_files)
 
     result = {
         "changed_files": args.changed_files,
+        "changed_python_files": python_files,
         "test_paths": test_paths,
         "test_count": len(test_paths),
     }
 
     if not test_paths:
+        if python_files:
+            print("No mapped test files found for changed Python files")
+            for path in python_files:
+                print(f"::error::untested new Python module: {path}")
+            result["status"] = "unmapped_python_changes"
+            result["exit_code"] = 1
+            Path(".nomic-ci-result.json").write_text(json.dumps(result, indent=2))
+            return 1
         print("No matching test files found for changed files")
         result["status"] = "skipped"
         Path(".nomic-ci-result.json").write_text(json.dumps(result, indent=2))

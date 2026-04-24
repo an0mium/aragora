@@ -130,7 +130,7 @@ class SynthesisGenerator:
             # Create dedicated synthesizer (always Opus 4.5)
             synthesizer = AnthropicAPIAgent(
                 name="synthesis-agent",
-                model="claude-opus-4-5-20251101",
+                model="claude-opus-4-7",
             )
 
             # Build synthesis prompt — split into system (format) and user (content)
@@ -169,7 +169,7 @@ class SynthesisGenerator:
 
                 synthesizer = AnthropicAPIAgent(
                     name="synthesis-agent-fallback",
-                    model="claude-sonnet-4-20250514",
+                    model="claude-opus-4-7",
                 )
                 system_prompt, user_prompt = self._build_synthesis_prompt_parts(ctx)
                 synthesizer.system_prompt = system_prompt

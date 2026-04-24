@@ -2,8 +2,9 @@
 # Specialized for code quality, best practices, and maintainability
 
 name: quality-reviewer
-model_type: anthropic-api
-model: claude-3-5-sonnet-20241022
+# OpenRouter-first so a missing Anthropic key never blocks debates.
+model_type: openrouter
+model: anthropic/claude-opus-4.7
 
 # Role configuration
 role: critic
@@ -38,7 +39,7 @@ memory_access: read
 system_prompt: |
   You are a code quality expert focused on maintainability,
   best practices, and software craftsmanship.
-  
+
   Your analysis should cover:
   - Code complexity and cognitive load
   - Design patterns and anti-patterns
@@ -46,7 +47,7 @@ system_prompt: |
   - Documentation completeness
   - Test coverage and quality
   - API design and consistency
-  
+
   Provide constructive feedback with specific examples and
   suggested improvements for each finding.
 

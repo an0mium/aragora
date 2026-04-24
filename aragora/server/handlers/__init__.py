@@ -320,6 +320,7 @@ if TYPE_CHECKING:
     from .laboratory import LaboratoryHandler
     from .marketplace_browse import MarketplaceBrowseHandler
     from .marketplace_pilot import MarketplacePilotHandler
+    from .mcp_tools_handler import MCPToolsHandler
     from .memory import (
         CoordinatorHandler,
         InsightsHandler,
@@ -337,6 +338,7 @@ if TYPE_CHECKING:
     from .nomic import NomicHandler
     from .notifications.history import NotificationHistoryHandler
     from .notifications.preferences import NotificationPreferencesHandler
+    from .notifications.templates import NotificationTemplatesHandler
     from .oauth import OAuthHandler
     from .oauth_wizard import OAuthWizardHandler
     from .onboarding import (
@@ -374,6 +376,7 @@ if TYPE_CHECKING:
     from .receipts import ReceiptsHandler
     from .replays import ReplaysHandler
     from .repository import RepositoryHandler
+    from .review_queue import ReviewQueueHandler
     from .reviews import ReviewsHandler
     from .rlm import RLMContextHandler
     from .routing import RoutingHandler
@@ -680,6 +683,8 @@ __all__ = [
     "GauntletHeatmapExportHandler",
     "GauntletValidateReceiptHandler",
     "GAUNTLET_V1_HANDLERS",
+    "ReviewQueueHandler",
+    "AgentBridgeHandler",
     "ReviewsHandler",
     "FormalVerificationHandler",
     "SlackHandler",
@@ -833,6 +838,7 @@ __all__ = [
     # notifications
     "NotificationHistoryHandler",
     "NotificationPreferencesHandler",
+    "NotificationTemplatesHandler",
     # payments
     "PaymentRoutesHandler",
     # pipeline
@@ -871,6 +877,7 @@ __all__ = [
     "GDPRDeletionHandler",
     "MarketplaceBrowseHandler",
     "MarketplacePilotHandler",
+    "MCPToolsHandler",
     "ModerationHandler",
     "ModerationAnalyticsHandler",
     "PartnerHandler",

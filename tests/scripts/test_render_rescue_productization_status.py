@@ -9,6 +9,17 @@ if _scripts_dir not in sys.path:
 
 import render_rescue_productization_status as mod  # noqa: E402
 
+from tests.benchmarks.test_rescue_productization import (
+    expected_counted_class_bullets,
+    expected_issue_drafts,
+    expected_issue_linkage_actions,
+    expected_repeated_class_rows,
+    parse_counted_class_bullets,
+    parse_issue_drafts,
+    parse_issue_linkage_actions,
+    parse_repeated_class_rows,
+)
+
 
 def test_render_status_markdown_includes_repeated_classes_and_actions(tmp_path: Path) -> None:
     report_path = tmp_path / "latest.json"
@@ -64,11 +75,18 @@ def test_render_status_markdown_includes_repeated_classes_and_actions(tmp_path: 
     markdown = mod.render_status_markdown(report_path=report_path, payload=payload)
 
     assert "# TW-03 Rescue Productization Status" in markdown
-    assert "`followup_prompt:needs explicit next step from founder`" in markdown
-    assert "`manual_merge:required review gate`" in markdown
-    assert "[link](https://github.com/synaptent/aragora/issues/6001)" in markdown
+    assert parse_repeated_class_rows(markdown) == expected_repeated_class_rows(
+        payload["repeated_classes"]
+    )
+    assert parse_issue_linkage_actions(markdown) == expected_issue_linkage_actions(
+        payload["issue_linkage_results"]
+    )
+    assert parse_issue_drafts(markdown) == expected_issue_drafts(payload["issue_drafts"])
+    assert parse_counted_class_bullets(markdown, "One-Off Rescue Classes") == (
+        expected_counted_class_bullets(payload["one_off_classes"])
+    )
+    assert parse_counted_class_bullets(markdown, "Below-Threshold Rescue Classes") == []
     assert "Issue drafts remaining: `1`" in markdown
-    assert "issue_rewrite:scope contradicted itself" in markdown
 
 
 def test_main_writes_output_from_latest_report(tmp_path: Path) -> None:

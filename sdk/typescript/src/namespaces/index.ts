@@ -144,6 +144,7 @@ export {
   type TemplateDeployment,
   type TemplateRatings,
 } from './marketplace';
+export { MCPAPI } from './mcp';
 
 export {
   PromptEngineAPI,
@@ -213,6 +214,7 @@ export {
   type RecordMetricOptions,
   type GetAnomaliesOptions,
 } from './monitoring';
+export { SettlementAPI, type SettlementBatchItem } from './settlements';
 
 // System Administration
 export {
@@ -1480,6 +1482,13 @@ export {
   type Review,
 } from './reviews';
 
+export {
+  ReviewQueueAPI,
+  type ReviewQueuePR,
+  type ReviewQueueStats,
+  type BriefVerdict,
+} from './review-queue';
+
 // Checkpoints (Debate Pause/Resume)
 export {
   CheckpointsAPI,
@@ -1716,8 +1725,6 @@ export {
   ServicesNamespace,
   type ServiceHealthStatus,
   type Service as DiscoveredService,
-  type ServiceDependency,
-  type RegisterServiceRequest,
 } from './services';
 
 // E-commerce (Product & Order Management)
@@ -1817,6 +1824,9 @@ export { ReadinessAPI } from './readiness';
 
 // Tasks
 export { TasksAPI } from './tasks';
+
+// Settlements
+export { SettlementsAPI } from './settlements';
 
 // Templates
 export { TemplatesAPI } from './templates';

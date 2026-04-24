@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 # Map model config strings to AgentType identifiers
 _MODEL_TO_AGENT_TYPE: dict[str, AgentType] = {
-    "claude-sonnet-4": "anthropic-api",
+    "claude-opus-4-7": "anthropic-api",
     "claude-opus-4": "anthropic-api",
     "claude-haiku-4": "anthropic-api",
     # Legacy model names (backwards compat)
@@ -90,7 +90,7 @@ class QueryConfig:
     require_citations: bool = True  # Always cite sources
 
     # Model selection
-    model: str = "claude-sonnet-4"  # Primary model for answer generation
+    model: str = "claude-opus-4-7"  # Primary model for answer generation
     fallback_model: str = "gemini-3-flash-preview"  # Fallback if primary fails
 
     # Query enhancement

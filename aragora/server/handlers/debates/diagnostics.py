@@ -32,6 +32,7 @@ _AGENT_PROVIDER_MAP: dict[str, str] = {
     "claude-haiku": "anthropic",
     "gpt-4": "openai",
     "gpt-4.1": "openai",
+    "gpt-5.4": "openai",
     "gpt-4o": "openai",
     "gpt-4o-mini": "openai",
     "gpt-4.1-mini": "openai",

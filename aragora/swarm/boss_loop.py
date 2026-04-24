@@ -31,7 +31,6 @@ from aragora.swarm.boss_loop_outcome import (
 )
 from aragora.swarm.boss_worker_lifecycle import (
     dispatch_issue as _dispatch_issue_impl,
-    dispatch_issue_under_claim as _dispatch_issue_under_claim_impl,
     finalize_worker_result as _finalize_worker_result_impl,
 )
 from aragora.swarm.debate_gate import DebateGate, DebateGateConfig, DebateGateRequest
@@ -41,6 +40,11 @@ from aragora.swarm.proof_first_queue import filter_noncanonical_boss_ready_issue
 from aragora.swarm.roadmap_priority import load_roadmap_priority_policy
 from aragora.swarm.task_sanitizer import SanitizationOutcome, TaskSanitizer  # noqa: F401
 from aragora.swarm.mission import GateType, GateVerdict
+from aragora.swarm.session_state import (
+    SessionState,
+    SessionStateStore,
+    summarize_session_blocker,
+)
 from aragora.swarm.terminal_truth import (
     extract_run_deliverable,
     extract_run_worker_outcome,
@@ -617,6 +621,7 @@ class BossLoop:
         freshness_checker: Any | None = None,
         env: dict[str, str] | None = None,
         exec_argv: list[str] | None = None,
+        session_state_store: SessionStateStore | None = None,
     ) -> None:
         self.config = config or BossLoopConfig()
         self.run_id = f"boss-{uuid.uuid4().hex[:12]}"
@@ -636,6 +641,7 @@ class BossLoop:
         self._freshness_checker = freshness_checker or check_runner_freshness
         self._env = env
         self._exec_argv = exec_argv
+        self._session_state_store = session_state_store or SessionStateStore()
         self._attempted_issues: list[dict[str, Any]] = []
         self._completed_issues: list[dict[str, Any]] = []
         self._failed_issues: list[dict[str, Any]] = []
@@ -867,6 +873,24 @@ class BossLoop:
             normalized.append(runner_type)
         return normalized
 
+    def _hydrate_issue_attempt_count(
+        self,
+        issue_number: int,
+        *,
+        repo_slug: str | None = None,
+    ) -> int:
+        if issue_number <= 0:
+            return 0
+        current = max(0, int(self._issue_attempt_counts.get(issue_number, 0) or 0))
+        state = self._session_state_for_issue(issue_number, repo_slug=repo_slug)
+        persisted = 0
+        if state is not None:
+            persisted = max(0, int(state.retry_count or 0), len(state.attempts))
+        if persisted > current:
+            self._issue_attempt_counts[issue_number] = persisted
+            return persisted
+        return current
+
     def _selected_issues_need_retry_routing(self, issues: list[GitHubIssue]) -> bool:
         for issue in issues:
             issue_number = int(getattr(issue, "number", 0) or 0)
@@ -874,7 +898,13 @@ class BossLoop:
                 continue
             if issue_number in self._pending_handoff_prompts:
                 return True
-            if int(self._issue_attempt_counts.get(issue_number, 0) or 0) > 0:
+            if (
+                self._hydrate_issue_attempt_count(
+                    issue_number,
+                    repo_slug=self._repo_slug_for_issue(issue),
+                )
+                > 0
+            ):
                 return True
         return False
 
@@ -906,6 +936,14 @@ class BossLoop:
 
     def _already_maxed_issue_numbers(self, issues: list[GitHubIssue]) -> set[int]:
         already_maxed: set[int] = set()
+        for issue in issues:
+            issue_number = int(getattr(issue, "number", 0) or 0)
+            if issue_number <= 0:
+                continue
+            self._hydrate_issue_attempt_count(
+                issue_number,
+                repo_slug=self._repo_slug_for_issue(issue),
+            )
         for num, count in self._issue_attempt_counts.items():
             if count >= self.config.max_retries_per_issue:
                 try:
@@ -1009,8 +1047,13 @@ class BossLoop:
             except Exception:
                 logger.debug("Failed to refresh heartbeat for runner %s", runner_id, exc_info=True)
 
-    def _requested_target_agent_for_issue(self, issue_number: int) -> str | None:
-        attempt_count = max(0, int(self._issue_attempt_counts.get(issue_number, 0) or 0))
+    def _requested_target_agent_for_issue(
+        self,
+        issue_number: int,
+        *,
+        repo_slug: str | None = None,
+    ) -> str | None:
+        attempt_count = self._hydrate_issue_attempt_count(issue_number, repo_slug=repo_slug)
         default_target = str(self.config.default_target_agent or "").strip().lower() or None
         if attempt_count <= 1:
             return default_target
@@ -1159,6 +1202,8 @@ class BossLoop:
             sanitation_summary = "Skipped by sanitation: " + "; ".join(sanitation)
             needs_human_reasons.append(sanitation_summary)
             next_actions.append(sanitation_summary)
+        for blocker_summary in self._session_blocker_summaries(already_maxed):
+            needs_human_reasons.append(blocker_summary)
         return needs_human_reasons, next_actions
 
     def _emit_terminal_receipt(self, result: BossLoopResult) -> None:
@@ -1246,6 +1291,207 @@ class BossLoop:
                 if isinstance(paths, list):
                     files.extend(str(p) for p in paths if str(p).strip())
         return files
+
+    @staticmethod
+    def _extract_worker_exit_code(worker_result: dict[str, Any]) -> int | None:
+        run = worker_result.get("run")
+        if not isinstance(run, dict):
+            return None
+        exit_codes: list[int] = []
+        for work_order in run.get("work_orders", []) or []:
+            if not isinstance(work_order, dict):
+                continue
+            raw_exit_code = work_order.get("exit_code")
+            if isinstance(raw_exit_code, bool):
+                continue
+            if isinstance(raw_exit_code, int):
+                exit_codes.append(raw_exit_code)
+                continue
+            text = str(raw_exit_code or "").strip()
+            if not text:
+                continue
+            try:
+                exit_codes.append(int(text))
+            except ValueError:
+                continue
+        if not exit_codes:
+            return None
+        for exit_code in exit_codes:
+            if exit_code != 0:
+                return exit_code
+        return exit_codes[0]
+
+    @staticmethod
+    def _first_work_order_text(worker_result: dict[str, Any], *keys: str) -> str | None:
+        run = worker_result.get("run")
+        if not isinstance(run, dict):
+            return None
+        for work_order in run.get("work_orders", []) or []:
+            if not isinstance(work_order, dict):
+                continue
+            for key in keys:
+                value = str(work_order.get(key, "")).strip()
+                if value:
+                    return value
+        return None
+
+    @staticmethod
+    def _extract_worker_failing_verification(
+        worker_result: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        run = worker_result.get("run")
+        if not isinstance(run, dict):
+            return None
+        for work_order in run.get("work_orders", []) or []:
+            if not isinstance(work_order, dict):
+                continue
+            verification_results = work_order.get("verification_results", [])
+            if not isinstance(verification_results, list):
+                continue
+            for entry in verification_results:
+                if not isinstance(entry, dict) or entry.get("passed") is True:
+                    continue
+                result: dict[str, Any] = {}
+                command = str(entry.get("command", "")).strip()
+                if command:
+                    result["command"] = command
+                exit_code = entry.get("exit_code")
+                if isinstance(exit_code, int) and not isinstance(exit_code, bool):
+                    result["exit_code"] = exit_code
+                stderr_tail = str(entry.get("stderr_tail", "")).strip()
+                if stderr_tail:
+                    result["stderr_tail"] = stderr_tail
+                stdout_tail = str(entry.get("stdout_tail", "")).strip()
+                if stdout_tail:
+                    result["stdout_tail"] = stdout_tail
+                if result:
+                    return result
+        return None
+
+    def _session_state_for_issue(
+        self,
+        issue_number: int,
+        *,
+        repo_slug: str | None = None,
+    ) -> SessionState | None:
+        try:
+            resolved_repo_slug = repo_slug or str(self.config.repo or "").strip() or None
+            return self._session_state_store.latest_for_issue(
+                issue_number,
+                repo_slug=resolved_repo_slug,
+            )
+        except Exception:
+            logger.debug(
+                "Boss loop session-state lookup failed for issue #%s",
+                issue_number,
+                exc_info=True,
+            )
+            return None
+
+    def _session_blocker_summaries(self, issue_numbers: set[int]) -> list[str]:
+        summaries: list[str] = []
+        for issue_number in sorted(issue_numbers):
+            try:
+                summary = summarize_session_blocker(self._session_state_for_issue(issue_number))
+            except Exception:
+                logger.debug(
+                    "Boss loop session-state blocker classification failed for issue #%s",
+                    issue_number,
+                    exc_info=True,
+                )
+                continue
+            if summary:
+                summaries.append(summary)
+        return summaries
+
+    def _record_session_attempt(
+        self,
+        issue: GitHubIssue,
+        worker_result: dict[str, Any],
+        *,
+        selected_runner: dict[str, Any] | None = None,
+        requested_target_agent: str | None = None,
+    ) -> None:
+        receipt_metadata = worker_result.get("receipt_metadata")
+        if not isinstance(receipt_metadata, dict):
+            receipt_metadata = {}
+        reasons = [
+            str(item).strip()
+            for item in worker_result.get("reasons", []) or []
+            if str(item).strip()
+        ]
+        deliverable = worker_result.get("deliverable")
+        branch_name = self._first_work_order_text(worker_result, "branch", "branch_name")
+        if not branch_name and isinstance(deliverable, dict):
+            branch_name = str(deliverable.get("branch", "")).strip() or None
+        pr_url = self._published_pr_url(worker_result)
+        target_agent = (
+            str(
+                receipt_metadata.get("actual_target_agent")
+                or requested_target_agent
+                or receipt_metadata.get("requested_target_agent")
+                or ""
+            ).strip()
+            or None
+        )
+        runner_type = (
+            str(
+                receipt_metadata.get("runner_type")
+                or (selected_runner or {}).get("runner_type")
+                or ""
+            ).strip()
+            or None
+        )
+        metadata: dict[str, Any] = {}
+        run_id = str(worker_result.get("run_id", "")).strip()
+        if run_id:
+            metadata["run_id"] = run_id
+        receipt_id = str(worker_result.get("receipt_id", "")).strip()
+        if receipt_id:
+            metadata["receipt_id"] = receipt_id
+        if reasons:
+            metadata["failure_reason"] = reasons[0]
+        failing_verification = self._extract_worker_failing_verification(worker_result)
+        if failing_verification:
+            metadata["failing_verification"] = failing_verification
+        stderr_tail = self._first_work_order_text(worker_result, "stderr_tail")
+        if stderr_tail:
+            metadata["stderr_tail"] = stderr_tail
+        stdout_tail = self._first_work_order_text(worker_result, "stdout_tail")
+        if stdout_tail:
+            metadata["stdout_tail"] = stdout_tail
+        if branch_name:
+            metadata["branch_name"] = branch_name
+        if pr_url:
+            metadata["pr_url"] = pr_url
+        repo_slug = self._repo_slug_for_issue(issue)
+        if repo_slug:
+            metadata["repo_slug"] = repo_slug
+
+        try:
+            self._session_state_store.record_attempt(
+                issue_number=issue.number,
+                repo_slug=repo_slug,
+                status=str(worker_result.get("status", "")).strip() or "unknown",
+                outcome=str(worker_result.get("outcome", "")).strip()
+                or str(worker_result.get("status", "")).strip()
+                or "unknown",
+                exit_code=self._extract_worker_exit_code(worker_result),
+                changed_files=self._extract_worker_files_changed(worker_result),
+                target_agent=target_agent,
+                runner_type=runner_type,
+                worktree_path=self._first_work_order_text(worker_result, "worktree_path"),
+                branch_name=branch_name,
+                pr_url=pr_url,
+                resume_hint=reasons[0] if reasons else None,
+                metadata=metadata,
+            )
+        except Exception:
+            logger.debug(
+                "Boss loop session-state attempt record failed for issue #%s",
+                issue.number,
+                exc_info=True,
+            )
 
     def _repo_slug_for_issue(self, issue: GitHubIssue) -> str | None:
         configured_repo = str(self.config.repo or "").strip()
@@ -3857,7 +4103,10 @@ class BossLoop:
         )
         requested_target_agent = (
             self._pending_handoff_prompts.get(selected.number, (None, None))[1]
-            or self._requested_target_agent_for_issue(selected.number)
+            or self._requested_target_agent_for_issue(
+                selected.number,
+                repo_slug=self._repo_slug_for_issue(selected),
+            )
             or self.config.default_target_agent
             or ""
         )
@@ -4086,7 +4335,10 @@ class BossLoop:
             )
             requested_target_agent = (
                 self._pending_handoff_prompts.get(issue.number, (None, None))[1]
-                or self._requested_target_agent_for_issue(issue.number)
+                or self._requested_target_agent_for_issue(
+                    issue.number,
+                    repo_slug=self._repo_slug_for_issue(issue),
+                )
                 or self.config.default_target_agent
                 or ""
             )
@@ -4141,7 +4393,10 @@ class BossLoop:
                     )
                     requested_target_agent = (
                         self._pending_handoff_prompts.get(next_issue.number, (None, None))[1]
-                        or self._requested_target_agent_for_issue(next_issue.number)
+                        or self._requested_target_agent_for_issue(
+                            next_issue.number,
+                            repo_slug=self._repo_slug_for_issue(next_issue),
+                        )
                         or self.config.default_target_agent
                         or ""
                     )
@@ -4279,13 +4534,31 @@ class BossLoop:
         issue: GitHubIssue,
         freshness: RunnerFreshnessResult,
     ) -> dict[str, Any]:
-        return await _dispatch_issue_under_claim_impl(self, issue, freshness)
+        """Dispatch an issue and release the per-issue claim in all paths.
 
-    def _attach_issue_handoff_metadata(self, spec: Any, issue: GitHubIssue) -> None:
+        The claim-release ``finally`` lives on the loop itself so that the
+        dispatch hook (``_dispatch_issue``) is never reached through an
+        external helper. Keeping this wrapper in-class makes the
+        claim/dispatch contract a single object rather than a pair of
+        modules coupled through a private method name.
+        """
+        try:
+            return await self._dispatch_issue(issue, freshness)
+        finally:
+            self._release_issue_dispatch_claim(issue.number)
+
+    def _attach_issue_handoff_metadata(
+        self,
+        spec: Any,
+        issue: GitHubIssue,
+        *,
+        session_state: SessionState | None = None,
+    ) -> None:
         repo_slug = self._repo_slug_for_issue(issue) or ""
         work_orders = getattr(spec, "work_orders", None)
         if not isinstance(work_orders, list):
             return
+        resume_context = session_state.resume_payload() if session_state is not None else {}
         for index, work_order in enumerate(work_orders, start=1):
             if not isinstance(work_order, dict):
                 continue
@@ -4300,6 +4573,18 @@ class BossLoop:
                 "handoff_key",
                 f"github-issue:{repo_part}:{issue.number}:{work_order_id}",
             )
+            if resume_context:
+                metadata["resume_context"] = dict(resume_context)
+                repair_journal = resume_context.get("repair_journal")
+                if (
+                    isinstance(repair_journal, list)
+                    and repair_journal
+                    and not metadata.get("repair_journal")
+                ):
+                    metadata["repair_journal"] = [dict(item) for item in repair_journal]
+                resume_hint = str(resume_context.get("resume_hint", "")).strip()
+                if resume_hint:
+                    metadata.setdefault("resume_hint", resume_hint)
             work_order["metadata"] = metadata
 
     def _receipt_metadata_for_result(

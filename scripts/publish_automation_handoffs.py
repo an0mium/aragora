@@ -14,10 +14,17 @@ import json
 import os
 import re
 import subprocess
+import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.github_cli_health import check_github_cli_health
 
 UTC = timezone.utc
 DEFAULT_CODEX_HOME = Path("/Users/armand/.codex")
@@ -50,6 +57,7 @@ BLOCK_POSITION_KEY = "__block_position"
 BLOCK_TIMESTAMP_PATTERN = re.compile(
     r"(?m)(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)"
 )
+PR_REFERENCE_PATTERN = re.compile(r"(?i)\b(?:PR|pull request)\s*#(\d+)\b")
 STOPWORDS = {
     "a",
     "an",
@@ -69,15 +77,37 @@ STOPWORDS = {
 }
 
 try:
-    from aragora.swarm.github_app_auth import github_cli_env
+    from aragora.swarm.github_app_auth import gh_subprocess_run, github_cli_env
 except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
 
     def github_cli_env(
-        base_env: dict[str, str] | None = None,
+        base_env: Mapping[str, str] | None = None,
         *,
         prefer_app: bool = True,
     ) -> dict[str, str]:
         return dict(os.environ if base_env is None else base_env)
+
+    def gh_subprocess_run(
+        args: Sequence[str],
+        *,
+        timeout: float = 30.0,
+        prefer_app: bool = True,
+        write_op: bool = False,
+        env: Mapping[str, str] | None = None,
+        max_retries: int = 0,
+        base_backoff: float = 5.0,
+        max_backoff: float = 600.0,
+        sleep: Callable[[float], None] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        del prefer_app, write_op, max_retries, base_backoff, max_backoff, sleep
+        return subprocess.run(
+            ["gh", *list(args)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=dict(os.environ if env is None else env),
+            check=False,
+        )
 
 
 @dataclass(frozen=True)
@@ -101,8 +131,25 @@ class PublishDecision:
     created_issue_url: str | None = None
 
 
+def _gh_write_op(args: list[str]) -> bool:
+    return len(args) >= 2 and (args[0], args[1]) in {
+        ("issue", "create"),
+        ("issue", "edit"),
+        ("issue", "comment"),
+    }
+
+
 def _run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     env = github_cli_env(os.environ) if args and args[0] == "gh" else None
+    if args and args[0] == "gh":
+        return gh_subprocess_run(
+            args[1:],
+            timeout=DEFAULT_COMMAND_TIMEOUT_SECONDS,
+            prefer_app=True,
+            write_op=_gh_write_op(args[1:]),
+            env=dict(os.environ if env is None else env),
+            max_retries=0,
+        )
     try:
         return subprocess.run(
             args,
@@ -297,9 +344,9 @@ def load_handoffs(
 
 
 def _ensure_gh_auth(repo_root: Path) -> None:
-    proc = _run(["gh", "auth", "status"], cwd=repo_root)
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh auth failed")
+    health = check_github_cli_health(repo_root)
+    if not health.ready:
+        raise RuntimeError(health.error or health.mode)
 
 
 def _title_tokens(title: str) -> set[str]:
@@ -390,6 +437,52 @@ def _existing_pr(repo_root: Path, repo: str, title: str) -> dict[str, Any] | Non
         existing_title = str(item.get("title") or "")
         if _looks_duplicate(title, existing_title):
             return item
+    return None
+
+
+def _referenced_pr_numbers(handoff: Handoff) -> list[int]:
+    seen: set[int] = set()
+    numbers: list[int] = []
+    for match in PR_REFERENCE_PATTERN.finditer(f"{handoff.task_title}\n{handoff.body}"):
+        try:
+            number = int(match.group(1))
+        except (TypeError, ValueError):
+            continue
+        if number in seen:
+            continue
+        seen.add(number)
+        numbers.append(number)
+    return numbers
+
+
+def _pr_by_number(repo_root: Path, repo: str, number: int) -> dict[str, Any] | None:
+    proc = _run(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(number),
+            "--repo",
+            repo,
+            "--json",
+            "number,title,url,state",
+        ],
+        cwd=repo_root,
+    )
+    if proc.returncode != 0:
+        stderr = (proc.stderr or proc.stdout or "").lower()
+        if "could not resolve to a pull request" in stderr or "not found" in stderr:
+            return None
+        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "failed to view PR")
+    payload = json.loads(proc.stdout or "{}")
+    return payload if isinstance(payload, dict) else None
+
+
+def _target_open_pr(repo_root: Path, repo: str, handoff: Handoff) -> dict[str, Any] | None:
+    for number in _referenced_pr_numbers(handoff):
+        pr = _pr_by_number(repo_root, repo, number)
+        if isinstance(pr, dict) and str(pr.get("state") or "").upper() == "OPEN":
+            return pr
     return None
 
 
@@ -496,6 +589,18 @@ def decide_handoffs(
                     eligible=False,
                     reason="existing_issue",
                     existing_issue_url=str(existing.get("url") or ""),
+                )
+            )
+            continue
+        target_pr = _target_open_pr(repo_root, repo, handoff)
+        if target_pr:
+            decisions.append(
+                PublishDecision(
+                    task_title=handoff.task_title,
+                    source_file=handoff.source_file,
+                    eligible=False,
+                    reason="target_open_pr",
+                    existing_pr_url=str(target_pr.get("url") or ""),
                 )
             )
             continue
@@ -630,9 +735,35 @@ def main(argv: list[str] | None = None) -> int:
     codex_home = _codex_home(args.codex_home)
     labels = list(dict.fromkeys(args.labels))
     automation_ids = set(args.automation_ids or DEFAULT_AUTOMATION_IDS)
-
-    _ensure_gh_auth(repo_root)
     handoffs = load_handoffs(codex_home, automation_ids=automation_ids)
+    github_health = check_github_cli_health(repo_root)
+    if not github_health.ready:
+        payload = {
+            "repo": str(repo_root),
+            "codex_home": str(codex_home),
+            "github_repo": args.github_repo,
+            "labels": labels,
+            "automation_ids": sorted(automation_ids),
+            "handoff_count": len(handoffs),
+            "github_health": github_health.to_dict(),
+            "decisions": [
+                asdict(
+                    PublishDecision(
+                        task_title=handoff.task_title,
+                        source_file=handoff.source_file,
+                        eligible=False,
+                        reason="github_unavailable",
+                    )
+                )
+                for handoff in handoffs
+            ],
+        }
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
+        return 1
+
     decisions = decide_handoffs(
         handoffs,
         repo_root=repo_root,
@@ -660,6 +791,7 @@ def main(argv: list[str] | None = None) -> int:
         "labels": labels,
         "automation_ids": sorted(automation_ids),
         "handoff_count": len(handoffs),
+        "github_health": github_health.to_dict(),
         "decisions": [asdict(item) for item in results],
     }
     if args.json:

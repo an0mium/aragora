@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import ANY, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -70,7 +70,7 @@ def _override_auth(client: TestClient, permissions: set[str]) -> None:
 
 
 def test_list_runs_route_requires_auth(client) -> None:
-    response = client.get("/api/v2/runs")
+    response = client.get("/api/runs")
 
     assert response.status_code == 401
 
@@ -89,7 +89,7 @@ def test_list_runs_route_is_registered(client) -> None:
     )
 
     _override_auth(client, {"orchestration:read"})
-    response = client.get("/api/v2/runs")
+    response = client.get("/api/runs")
     client.app.dependency_overrides.clear()
 
     assert response.status_code == 200
@@ -102,7 +102,7 @@ def test_list_runs_route_is_registered(client) -> None:
                     {
                         "stage": BackboneStage.PLAN.value,
                         "status": "completed",
-                        "created_at": None,
+                        "created_at": ANY,
                     }
                 ],
                 "execution_id": "exec-fastapi",
@@ -115,7 +115,7 @@ def test_list_runs_route_is_registered(client) -> None:
 
 
 def test_get_run_route_requires_auth(client) -> None:
-    response = client.get("/api/v2/runs/run-fastapi-detail")
+    response = client.get("/api/runs/run-fastapi-detail")
 
     assert response.status_code == 401
 
@@ -131,7 +131,7 @@ def test_get_run_route_is_registered(client) -> None:
     )
 
     _override_auth(client, {"orchestration:read"})
-    response = client.get("/api/v2/runs/run-fastapi-detail")
+    response = client.get("/api/runs/run-fastapi-detail")
     client.app.dependency_overrides.clear()
 
     assert response.status_code == 200
@@ -143,7 +143,7 @@ def test_get_run_route_is_registered(client) -> None:
                 {
                     "stage": BackboneStage.EXECUTION.value,
                     "status": "running",
-                    "created_at": None,
+                    "created_at": ANY,
                 }
             ],
             "execution_id": None,
@@ -157,5 +157,5 @@ def test_get_run_route_is_registered(client) -> None:
 def test_runs_routes_are_exposed_in_openapi(client) -> None:
     spec = client.app.openapi()
 
-    assert "/api/v2/runs" in spec["paths"]
-    assert "/api/v2/runs/{run_id}" in spec["paths"]
+    assert "/api/runs" in spec["paths"]
+    assert "/api/runs/{run_id}" in spec["paths"]

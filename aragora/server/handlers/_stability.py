@@ -97,6 +97,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "KnowledgeMoundHandler": Stability.STABLE,
     "KnowledgeChatHandler": Stability.STABLE,
     "ReviewsHandler": Stability.STABLE,
+    "ReviewQueueHandler": Stability.STABLE,
+    "AgentBridgeHandler": Stability.EXPERIMENTAL,
     "FormalVerificationHandler": Stability.STABLE,
     "OrganizationsHandler": Stability.STABLE,
     "SocialMediaHandler": Stability.STABLE,

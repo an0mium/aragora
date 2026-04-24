@@ -17,18 +17,26 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.github_cli_health import check_github_cli_health
+
 UTC = timezone.utc
 DEFAULT_SINCE_HOURS = 72
-DEFAULT_PUBLISH_LIMIT = 1
-DEFAULT_MAX_OPEN_PRS = 1
+DEFAULT_PUBLISH_LIMIT = 2
+DEFAULT_MAX_OPEN_PRS = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
-DEFAULT_GIT_TIMEOUT_SECONDS = 15
+DEFAULT_GIT_TIMEOUT_SECONDS = 60
 DEFAULT_SCAN_LIMIT = 12
 CODEX_BRANCH_PREFIX = "codex/"
 DEFAULT_PREFLIGHT_SCRIPT = "scripts/automation_pr_preflight.sh"
+DEFAULT_PRE_PUSH_SKIP_HOOKS = "mypy-baseline"
+UNHEALTHY_OPEN_PR_MERGE_STATES = {"BLOCKED", "DIRTY"}
 STOPWORDS = {
     "and",
     "are",
@@ -61,15 +69,37 @@ ACTIVE_SESSION_FILES = (
 )
 
 try:
-    from aragora.swarm.github_app_auth import github_cli_env
+    from aragora.swarm.github_app_auth import gh_subprocess_run, github_cli_env
 except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
 
     def github_cli_env(
-        base_env: dict[str, str] | None = None,
+        base_env: Mapping[str, str] | None = None,
         *,
         prefer_app: bool = True,
     ) -> dict[str, str]:
         return dict(os.environ if base_env is None else base_env)
+
+    def gh_subprocess_run(
+        args: Sequence[str],
+        *,
+        timeout: float = 30.0,
+        prefer_app: bool = True,
+        write_op: bool = False,
+        env: Mapping[str, str] | None = None,
+        max_retries: int = 0,
+        base_backoff: float = 5.0,
+        max_backoff: float = 600.0,
+        sleep: Callable[[float], None] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        del prefer_app, write_op, max_retries, base_backoff, max_backoff, sleep
+        return subprocess.run(
+            ["gh", *list(args)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=dict(os.environ if env is None else env),
+            check=False,
+        )
 
 
 @dataclass(frozen=True)
@@ -104,16 +134,46 @@ class PublishDecision:
     worktree_paths: list[str]
 
 
+def _gh_write_op(args: list[str]) -> bool:
+    return len(args) >= 2 and (args[0], args[1]) in {
+        ("pr", "create"),
+        ("pr", "edit"),
+    }
+
+
 def _run(
     args: list[str],
     *,
     cwd: Path,
     check: bool = False,
+    env_overrides: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     env = github_cli_env(os.environ) if args and args[0] == "gh" else None
-    timeout = (
-        DEFAULT_COMMAND_TIMEOUT_SECONDS if args and args[0] == "gh" else DEFAULT_GIT_TIMEOUT_SECONDS
-    )
+    if env_overrides:
+        env = dict(os.environ if env is None else env)
+        env.update(env_overrides)
+    if args and args[0] == "gh":
+        timeout = int(
+            os.environ.get(
+                "ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS",
+                str(DEFAULT_COMMAND_TIMEOUT_SECONDS),
+            )
+        )
+        return gh_subprocess_run(
+            args[1:],
+            timeout=timeout,
+            prefer_app=True,
+            write_op=_gh_write_op(args[1:]),
+            env=dict(os.environ if env is None else env),
+            max_retries=0,
+        )
+    else:
+        timeout = int(
+            os.environ.get(
+                "ARAGORA_AUTOMATION_GIT_TIMEOUT_SECONDS",
+                str(DEFAULT_GIT_TIMEOUT_SECONDS),
+            )
+        )
     try:
         return subprocess.run(
             args,
@@ -261,7 +321,7 @@ def _list_worktrees(
     return snapshots
 
 
-def _open_pr_heads(repo_root: Path, repo: str) -> set[str]:
+def _open_codex_prs(repo_root: Path, repo: str) -> list[dict[str, Any]]:
     proc = _run(
         [
             "gh",
@@ -274,20 +334,36 @@ def _open_pr_heads(repo_root: Path, repo: str) -> set[str]:
             "--limit",
             "200",
             "--json",
-            "headRefName",
+            "headRefName,mergeStateStatus",
         ],
         cwd=repo_root,
     )
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or "failed to list open PRs")
     payload = json.loads(proc.stdout or "[]")
-    return {
-        item["headRefName"]
+    return [
+        item
         for item in payload
         if isinstance(item, dict)
         and isinstance(item.get("headRefName"), str)
         and item["headRefName"].startswith(CODEX_BRANCH_PREFIX)
+    ]
+
+
+def _open_pr_heads(repo_root: Path, repo: str) -> set[str]:
+    return {
+        item["headRefName"]
+        for item in _open_codex_prs(repo_root, repo)
+        if isinstance(item.get("headRefName"), str)
     }
+
+
+def _branch_remote_head(repo_root: Path, branch: str) -> str | None:
+    proc = _run(["git", "rev-parse", f"refs/remotes/origin/{branch}"], cwd=repo_root)
+    if proc.returncode != 0:
+        return None
+    remote_head = proc.stdout.strip()
+    return remote_head or None
 
 
 def _branches_with_pr_history(repo_root: Path, repo: str, branches: list[str]) -> set[str]:
@@ -432,6 +508,7 @@ def select_publishable_branches(
     is_patch_equivalent: dict[str, bool] | None = None,
     historical_pr_branches: set[str] | None = None,
     resolved_related_branches: set[str] | None = None,
+    remote_head_lookup: dict[str, str | None] | None = None,
 ) -> list[PublishDecision]:
     worktrees_by_branch: dict[str, list[WorktreeSnapshot]] = {}
     for worktree in worktrees:
@@ -442,6 +519,7 @@ def select_publishable_branches(
     patch_equivalent_lookup = is_patch_equivalent or {}
     historical_lookup = historical_pr_branches or set()
     resolved_related_lookup = resolved_related_branches or set()
+    remote_lookup = remote_head_lookup or {}
     decisions: list[PublishDecision] = []
 
     for branch in sorted(branches, key=lambda item: item.committed_at, reverse=True):
@@ -462,6 +540,8 @@ def select_publishable_branches(
             reason = "open_pr_exists"
         elif branch.branch in historical_lookup:
             reason = "historical_pr_exists"
+        elif remote_lookup.get(branch.branch) not in (None, "", branch.head_sha):
+            reason = "remote_branch_conflict"
         elif any(worktree.active_session for worktree in attached):
             reason = "active_session"
         elif any(worktree.dirty for worktree in attached):
@@ -485,13 +565,22 @@ def select_publishable_branches(
 
 
 def _ensure_gh_auth(repo_root: Path) -> None:
-    proc = _run(["gh", "auth", "status"], cwd=repo_root)
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh auth failed")
+    health = check_github_cli_health(repo_root)
+    if not health.ready:
+        raise RuntimeError(health.error or health.mode)
 
 
 def _github_base_ref(base: str) -> str:
     return base.removeprefix("origin/")
+
+
+def _merge_skip_hooks(existing: str | None, additions: str) -> str:
+    merged: list[str] = []
+    for raw in (existing or "").split(",") + additions.split(","):
+        hook_id = raw.strip()
+        if hook_id and hook_id not in merged:
+            merged.append(hook_id)
+    return ",".join(merged)
 
 
 def _push_branch(repo_root: Path, branch: str, upstream: str | None) -> None:
@@ -500,7 +589,14 @@ def _push_branch(repo_root: Path, branch: str, upstream: str | None) -> None:
         args.extend(["origin", branch])
     else:
         args.extend(["-u", "origin", branch])
-    proc = _run(args, cwd=repo_root)
+    pre_push_skip = os.environ.get(
+        "ARAGORA_AUTOMATION_PRE_PUSH_SKIP",
+        DEFAULT_PRE_PUSH_SKIP_HOOKS,
+    ).strip()
+    env_overrides = None
+    if pre_push_skip:
+        env_overrides = {"SKIP": _merge_skip_hooks(os.environ.get("SKIP"), pre_push_skip)}
+    proc = _run(args, cwd=repo_root, env_overrides=env_overrides)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or f"failed to push {branch}")
 
@@ -635,11 +731,23 @@ def _publish_decisions(
                 )
                 continue
 
-        _push_branch(repo_root, decision.branch, decision.upstream)
-        number = _existing_pr_number(repo_root, repo, decision.branch, base)
-        if number is None:
-            number = _create_pr(repo_root, repo, decision.branch, base)
-        _add_labels(repo_root, repo, number, labels)
+        try:
+            _push_branch(repo_root, decision.branch, decision.upstream)
+            number = _existing_pr_number(repo_root, repo, decision.branch, base)
+            if number is None:
+                number = _create_pr(repo_root, repo, decision.branch, base)
+            _add_labels(repo_root, repo, number, labels)
+        except RuntimeError as exc:
+            results.append(
+                {
+                    "branch": decision.branch,
+                    "status": "publish_failed",
+                    "subject": decision.subject,
+                    "head_sha": decision.head_sha,
+                    "reason": str(exc)[:2000],
+                }
+            )
+            continue
         published += 1
         results.append(
             {
@@ -769,7 +877,27 @@ def main(argv: list[str] | None = None) -> int:
         for branch in branches
     ]
 
-    open_pr_heads = _open_pr_heads(repo_root, args.github_repo)
+    github_health = check_github_cli_health(repo_root)
+    if not github_health.ready:
+        unavailable_payload: dict[str, Any] = {
+            "repo": str(repo_root),
+            "base": args.base,
+            "cutoff": cutoff.isoformat(),
+            "open_pr_count": 0,
+            "max_open_prs": args.max_open_prs,
+            "github_health": github_health.to_dict(),
+            "decisions": [],
+        }
+        if args.json:
+            print(json.dumps(unavailable_payload, indent=2))
+        else:
+            print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
+        return 1
+
+    open_codex_prs = _open_codex_prs(repo_root, args.github_repo)
+    open_pr_heads = {
+        item["headRefName"] for item in open_codex_prs if isinstance(item.get("headRefName"), str)
+    }
     historical_pr_branches = _branches_with_pr_history(
         repo_root,
         args.github_repo,
@@ -790,6 +918,18 @@ def main(argv: list[str] | None = None) -> int:
         is_patch_equivalent=patch_equivalent_lookup,
         historical_pr_branches=historical_pr_branches,
         resolved_related_branches=resolved_related_branches,
+        remote_head_lookup={
+            branch.branch: _branch_remote_head(repo_root, branch.branch)
+            for branch in hydrated_branches
+        },
+    )
+    merge_state_counts: dict[str, int] = {}
+    for item in open_codex_prs:
+        state = str(item.get("mergeStateStatus") or "UNKNOWN").upper()
+        merge_state_counts[state] = merge_state_counts.get(state, 0) + 1
+    all_open_prs_unhealthy = bool(open_codex_prs) and all(
+        str(item.get("mergeStateStatus") or "UNKNOWN").upper() in UNHEALTHY_OPEN_PR_MERGE_STATES
+        for item in open_codex_prs
     )
 
     payload: dict[str, Any] = {
@@ -798,22 +938,32 @@ def main(argv: list[str] | None = None) -> int:
         "cutoff": cutoff.isoformat(),
         "open_pr_count": len(open_pr_heads),
         "max_open_prs": args.max_open_prs,
+        "queue_health": {
+            "open_codex_pr_count": len(open_codex_prs),
+            "merge_state_counts": merge_state_counts,
+            "all_open_prs_unhealthy": all_open_prs_unhealthy,
+        },
+        "github_health": github_health.to_dict(),
         "decisions": [asdict(decision) for decision in decisions],
     }
 
     if args.apply:
-        published = _publish_decisions(
-            repo_root,
-            args.github_repo,
-            args.base,
-            decisions,
-            limit=args.limit,
-            open_pr_count=len(open_pr_heads),
-            max_open_prs=args.max_open_prs,
-            labels=list(dict.fromkeys(args.labels)),
-            preflight_script=None if args.skip_preflight else str(args.preflight_script),
-        )
-        payload["published"] = published
+        if all_open_prs_unhealthy:
+            payload["published"] = []
+            payload["publish_paused_reason"] = "open_pr_queue_unhealthy"
+        else:
+            published = _publish_decisions(
+                repo_root,
+                args.github_repo,
+                args.base,
+                decisions,
+                limit=args.limit,
+                open_pr_count=len(open_pr_heads),
+                max_open_prs=args.max_open_prs,
+                labels=list(dict.fromkeys(args.labels)),
+                preflight_script=None if args.skip_preflight else str(args.preflight_script),
+            )
+            payload["published"] = published
 
     if args.json:
         print(json.dumps(payload, indent=2))

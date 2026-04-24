@@ -10,6 +10,7 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 from aragora_sdk.namespaces.audit import AsyncAuditAPI
 from aragora_sdk.namespaces.debates import AsyncDebatesAPI
 from aragora_sdk.namespaces.marketplace import AsyncMarketplaceAPI
+from aragora_sdk.namespaces.notifications import AsyncNotificationsAPI, NotificationsAPI
 from aragora_sdk.namespaces.orchestration import AsyncOrchestrationAPI
 from aragora_sdk.namespaces.selection import AsyncSelectionAPI
 from aragora_sdk.namespaces.tasks import AsyncTasksAPI
@@ -52,6 +53,26 @@ class TestSyncParityRoutes:
             client.marketplace.star_template("tpl_123")
             client.marketplace.export_template("tpl_123")
             client.marketplace.get_marketplace_status()
+            client.marketplace.list_listings(
+                item_type="template",
+                tag="ops",
+                category="analysis",
+                search="risk",
+                limit=4,
+                offset=1,
+            )
+            client.marketplace.list_featured_listings(limit=3)
+            client.marketplace.get_listing_stats()
+            client.marketplace.get_listing("listing_123")
+            notifications = NotificationsAPI(client)
+            notifications.list_templates()
+            notifications.get_template("budget_alert")
+            notifications.update_template("budget_alert", subject="Updated", body="Body")
+            notifications.preview_template(
+                "budget_alert",
+                values={"percent_used": "80", "user_name": "Alex"},
+            )
+            notifications.reset_template("budget_alert")
 
             expected_calls = [
                 call(
@@ -114,6 +135,34 @@ class TestSyncParityRoutes:
                 call("POST", "/api/v2/marketplace/templates/tpl_123/star"),
                 call("GET", "/api/v2/marketplace/templates/tpl_123/export"),
                 call("GET", "/api/v2/marketplace/status"),
+                call(
+                    "GET",
+                    "/api/v1/marketplace/listings",
+                    params={
+                        "limit": 4,
+                        "offset": 1,
+                        "type": "template",
+                        "tag": "ops",
+                        "category": "analysis",
+                        "search": "risk",
+                    },
+                ),
+                call("GET", "/api/v1/marketplace/listings/featured", params={"limit": 3}),
+                call("GET", "/api/v1/marketplace/listings/stats"),
+                call("GET", "/api/v1/marketplace/listings/listing_123"),
+                call("GET", "/api/notifications/templates"),
+                call("GET", "/api/notifications/templates/budget_alert"),
+                call(
+                    "PUT",
+                    "/api/notifications/templates/budget_alert",
+                    json={"subject": "Updated", "body": "Body"},
+                ),
+                call(
+                    "POST",
+                    "/api/notifications/templates/budget_alert/preview",
+                    json={"values": {"percent_used": "80", "user_name": "Alex"}},
+                ),
+                call("POST", "/api/notifications/templates/budget_alert/reset"),
             ]
             mock_request.assert_has_calls(expected_calls)
             client.close()
@@ -136,6 +185,7 @@ class TestAsyncParityRoutes:
                 templates = AsyncTemplatesAPI(client)
                 orchestration = AsyncOrchestrationAPI(client)
                 marketplace = AsyncMarketplaceAPI(client)
+                notifications = AsyncNotificationsAPI(client)
 
                 await audit.get_resource_history("debate", "deb_123")
                 await selection.get_scorer("elo-scorer")
@@ -165,6 +215,25 @@ class TestAsyncParityRoutes:
                 await marketplace.star_template("tpl_123")
                 await marketplace.export_template("tpl_123")
                 await marketplace.get_marketplace_status()
+                await marketplace.list_listings(
+                    item_type="template",
+                    tag="ops",
+                    category="analysis",
+                    search="risk",
+                    limit=4,
+                    offset=1,
+                )
+                await marketplace.list_featured_listings(limit=3)
+                await marketplace.get_listing_stats()
+                await marketplace.get_listing("listing_123")
+                await notifications.list_templates()
+                await notifications.get_template("budget_alert")
+                await notifications.update_template("budget_alert", subject="Updated", body="Body")
+                await notifications.preview_template(
+                    "budget_alert",
+                    values={"percent_used": "80", "user_name": "Alex"},
+                )
+                await notifications.reset_template("budget_alert")
 
                 expected_calls = [
                     call(
@@ -231,5 +300,33 @@ class TestAsyncParityRoutes:
                     call("POST", "/api/v2/marketplace/templates/tpl_123/star"),
                     call("GET", "/api/v2/marketplace/templates/tpl_123/export"),
                     call("GET", "/api/v2/marketplace/status"),
+                    call(
+                        "GET",
+                        "/api/v1/marketplace/listings",
+                        params={
+                            "limit": 4,
+                            "offset": 1,
+                            "type": "template",
+                            "tag": "ops",
+                            "category": "analysis",
+                            "search": "risk",
+                        },
+                    ),
+                    call("GET", "/api/v1/marketplace/listings/featured", params={"limit": 3}),
+                    call("GET", "/api/v1/marketplace/listings/stats"),
+                    call("GET", "/api/v1/marketplace/listings/listing_123"),
+                    call("GET", "/api/notifications/templates"),
+                    call("GET", "/api/notifications/templates/budget_alert"),
+                    call(
+                        "PUT",
+                        "/api/notifications/templates/budget_alert",
+                        json={"subject": "Updated", "body": "Body"},
+                    ),
+                    call(
+                        "POST",
+                        "/api/notifications/templates/budget_alert/preview",
+                        json={"values": {"percent_used": "80", "user_name": "Alex"}},
+                    ),
+                    call("POST", "/api/notifications/templates/budget_alert/reset"),
                 ]
                 mock_request.assert_has_calls(expected_calls)

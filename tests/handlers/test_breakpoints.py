@@ -1105,6 +1105,8 @@ class TestEdgeCases:
         for action in valid_actions:
             mock_manager.resolve_breakpoint.return_value = True
             body = {"action": action, "message": "test"}
+            if action == "redirect":
+                body["redirect_task"] = "Escalate alternative path"
 
             with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
                 mock_guidance_cls.return_value = MagicMock()
@@ -1119,7 +1121,11 @@ class TestEdgeCases:
     def test_guidance_receives_correct_action(self, handler, mock_manager, mock_http_handler):
         """HumanGuidance is constructed with the correct action."""
         mock_manager.resolve_breakpoint.return_value = True
-        body = {"action": "redirect", "message": "go elsewhere"}
+        body = {
+            "action": "redirect",
+            "message": "go elsewhere",
+            "redirect_task": "Review the fallback proposal",
+        }
 
         with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_guidance_cls:
             mock_guidance_cls.return_value = MagicMock()
@@ -1131,6 +1137,7 @@ class TestEdgeCases:
             call_kwargs = mock_guidance_cls.call_args[1]
             assert call_kwargs["action"] == "redirect"
             assert call_kwargs["reasoning"] == "go elsewhere"
+            assert call_kwargs["preferred_direction"] == "Review the fallback proposal"
 
     def test_guidance_id_is_uuid(self, handler, mock_manager, mock_http_handler):
         """HumanGuidance is constructed with a UUID guidance_id."""

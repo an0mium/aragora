@@ -174,7 +174,7 @@ def test_load_claims_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", "1")
     result = load_claims_from_dir(CLAIMS_DIR)
     assert len(result) >= 1
-    assert result[0].manifest_id == "proof_first_claims"
+    assert {manifest.manifest_id for manifest in result} >= {"proof_first_claims"}
 
 
 def test_enable_helper_sets_env(monkeypatch: pytest.MonkeyPatch) -> None:

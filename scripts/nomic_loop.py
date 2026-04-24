@@ -1717,7 +1717,7 @@ class NomicLoop:
         self.max_cycle_seconds = max_cycle_seconds
         self.cycle_count = 0
         self._estimated_cost_usd = 0.0  # Accumulated estimated API cost
-        self.history = []
+        self.history: list[Any] = []
 
         # Circuit breaker for agent reliability
         # Threshold=5 gives agents more chances before trip, cooldown=1 allows faster recovery
@@ -1780,10 +1780,10 @@ class NomicLoop:
             if constitution_path.exists():
                 self.constitution_verifier = _ConstitutionVerifier(constitution_path)
                 if self.constitution_verifier.is_available():
-                    rules = len(self.constitution_verifier.constitution.rules)
-                    print(
-                        f"[constitution] Loaded v{self.constitution_verifier.constitution.version} with {rules} rules"
-                    )
+                    constitution = self.constitution_verifier.constitution
+                    assert constitution is not None  # is_available() implies loaded constitution
+                    rules = len(constitution.rules)
+                    print(f"[constitution] Loaded v{constitution.version} with {rules} rules")
                 else:
                     print("[constitution] File exists but failed to load")
             else:
@@ -1807,8 +1807,8 @@ class NomicLoop:
             print(f"[outcomes] Failed to initialize: {e}")
 
         # Initialize CycleLearningStore for cross-cycle learning
-        self.cycle_store = None
-        self._current_cycle_record = None
+        self.cycle_store: Any = None
+        self._current_cycle_record: Any = None
         try:
             from aragora.nomic.cycle_store import CycleLearningStore
 
@@ -1854,7 +1854,7 @@ class NomicLoop:
             print("[continuum] Multi-timescale memory initialized")
 
         # ReplayRecorder will be created per cycle
-        self.replay_recorder = None
+        self.replay_recorder: Any = None
 
         # MetaLearner for self-tuning hyperparameters (runs every 5 cycles)
         self.meta_learner = None
@@ -1864,7 +1864,7 @@ class NomicLoop:
             print("[meta] MetaLearner initialized for hyperparameter tuning")
 
         # ArgumentCartographer will be created per cycle for visualization
-        self.cartographer = None
+        self.cartographer: Any = None
         self.visualizations_dir = self.nomic_dir / "visualizations"
         self.visualizations_dir.mkdir(exist_ok=True)
         if CARTOGRAPHER_AVAILABLE:
@@ -2327,7 +2327,7 @@ class NomicLoop:
             )
         print("[phases] Using extracted modular phase classes")
         self._setup_phase_metrics()
-        self._extracted_phases = {}
+        self._extracted_phases: dict[str, Any] = {}
 
         # Initialize agents
         self._init_agents()
@@ -4074,7 +4074,7 @@ The most valuable proposals combine deep analysis with actionable implementation
         Returns:
             dict with "deleted" count and "preserved" count
         """
-        result = {"deleted": 0, "preserved": 0, "errors": []}
+        result: dict[str, Any] = {"deleted": 0, "preserved": 0, "errors": []}
         try:
             # List failed branches
             list_result = subprocess.run(
@@ -4482,14 +4482,18 @@ The most valuable proposals combine deep analysis with actionable implementation
             self._log(f"  [pulse] Error fetching trending topics: {e}")
             return ""
 
-    def _get_structured_topic(self) -> tuple[str, "Issue"]:
+    def _get_structured_topic(self) -> tuple[str | None, "Issue | None"]:
         """Get a specific, scoped improvement topic from issue backlog.
 
         Instead of asking "what should we improve?", scans the codebase for
         concrete issues and selects one to focus the debate on.
 
         Returns:
-            Tuple of (task_string, Issue) or (fallback_task, None)
+            Tuple of (task_string, Issue), or (None, None) when no issue
+            is available / the optional IssueGenerator dependency is missing.
+            Callers already handle the ``None`` sentinel path (see
+            e.g. ``run_cycle``); the annotation here just makes that contract
+            honest for type checkers.
         """
         if not _ISSUE_GENERATOR_AVAILABLE:
             self._log("  [topics] IssueGenerator not available, using fallback")
@@ -5165,11 +5169,10 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                     lines.append("\n### Recent Insights:")
                     for insight in recent[:3]:
                         insight_type = getattr(insight, "type", None)
-                        type_str = (
-                            insight_type.value
-                            if hasattr(insight_type, "value")
-                            else str(insight_type or "insight")
-                        )
+                        if insight_type is not None and hasattr(insight_type, "value"):
+                            type_str = insight_type.value
+                        else:
+                            type_str = str(insight_type or "insight")
                         title = getattr(insight, "title", "")
                         desc = getattr(insight, "description", "")[:100]
                         lines.append(f"- [{type_str}] {title}: {desc}...")
@@ -5743,7 +5746,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             final_answer = getattr(result, "final_answer", "") or ""
 
             # Extract vote tally to determine winner even without formal consensus
-            vote_tally = {}
+            vote_tally: dict[str, int] = {}
             vote_winner = None
             if hasattr(result, "votes") and result.votes:
                 for v in result.votes:
@@ -5836,7 +5839,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 self._log(f"  [elo] Changes: {changes}")
 
                 # Determine winner based on scores (highest score wins)
-                winner = max(scores, key=scores.get) if scores else None
+                winner = max(scores, key=lambda k: scores[k]) if scores else None
                 if winner:
                     self._log(f"  [elo] Winner: {winner} (score={scores.get(winner, 0):.2f})")
                 self._stream_emit(
@@ -5892,12 +5895,14 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         """Select optimal agent team for the task (P14: AgentSelector + P10: ProbeFilter)."""
         agent_pool = getattr(self, "agent_pool", {})
         preferred_names = AgentSettings().default_agent_list
-        ordered_agents = [
-            agent_pool.get(name) for name in preferred_names if agent_pool.get(name) is not None
+        # Use walrus operator so mypy narrows each element to non-None for
+        # downstream ``agent.name`` / ``agent.model`` attribute accesses.
+        ordered_agents: list[Any] = [
+            agent for name in preferred_names if (agent := agent_pool.get(name)) is not None
         ]
         if not ordered_agents:
             ordered_agents = [a for a in agent_pool.values() if a is not None]
-        all_agents = ordered_agents
+        all_agents: list[Any] = ordered_agents
 
         # Single-agent mode for evaluation baselines
         if os.environ.get("NOMIC_SINGLE_AGENT", "0") == "1":
@@ -6756,8 +6761,8 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         messages: list,
         confidence: float,
         round_num: int,
-        critiques: list = None,
-    ) -> "Breakpoint":
+        critiques: list | None = None,
+    ) -> "Breakpoint | None":
         """Check if debate triggers breakpoint for human review (P23: BreakpointManager)."""
         if not BREAKPOINT_AVAILABLE or not self.breakpoint_manager:
             return None
@@ -6779,7 +6784,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             self._log(f"  [breakpoint] Check error: {e}")
             return None
 
-    async def _handle_breakpoint(self, breakpoint: "Breakpoint") -> "HumanGuidance":
+    async def _handle_breakpoint(self, breakpoint: "Breakpoint") -> "HumanGuidance | None":
         """Handle breakpoint by getting human guidance (P23: BreakpointManager)."""
         if not BREAKPOINT_AVAILABLE or not self.breakpoint_manager or not breakpoint:
             return None
@@ -6875,35 +6880,39 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             self._current_tracer = None
             self._log(f"  [tracer] Start error: {e}")
 
-    def _trace_event(self, event_type: str, content: str, agent: str = None) -> None:
+    def _trace_event(self, event_type: str, content: str, agent: str | None = None) -> None:
         """Record an event to the debate trace (P25: DebateTracer)."""
-        if not DEBATE_TRACER_AVAILABLE or not getattr(self, "_current_tracer", None):
+        tracer = getattr(self, "_current_tracer", None)
+        if not DEBATE_TRACER_AVAILABLE or tracer is None:
             return
         try:
             # Use specialized record methods where available
             if event_type == "proposal" and agent:
-                self._current_tracer.record_proposal(agent, content)
+                tracer.record_proposal(agent, content)
             elif event_type == "round_start":
                 round_num = int(content) if content.isdigit() else 0
-                self._current_tracer.start_round(round_num)
+                tracer.start_round(round_num)
             elif event_type == "round_end":
-                self._current_tracer.end_round()
+                tracer.end_round()
             else:
                 # Fallback to generic record
-                type_map = {
+                type_map: dict[str, Any] = {
                     "critique": EventType.AGENT_CRITIQUE if EventType else None,
-                    "vote": EventType.AGENT_VOTE if EventType else None,
-                    "consensus": EventType.CONSENSUS_REACHED if EventType else None,
+                    "vote": getattr(EventType, "AGENT_VOTE", None) if EventType else None,
+                    "consensus": getattr(EventType, "CONSENSUS_REACHED", None)
+                    if EventType
+                    else None,
                 }
                 event_enum = type_map.get(event_type)
                 if event_enum:
-                    self._current_tracer.record(event_enum, {"content": content}, agent=agent)
+                    tracer.record(event_enum, {"content": content}, agent=agent)
         except Exception as e:
             self._log(f"  [tracer] Event error: {e}")
 
     def _finalize_debate_trace(self, result: "DebateResult") -> str:
         """Finalize and save the debate trace (P25: DebateTracer)."""
-        if not DEBATE_TRACER_AVAILABLE or not getattr(self, "_current_tracer", None):
+        tracer = getattr(self, "_current_tracer", None)
+        if not DEBATE_TRACER_AVAILABLE or tracer is None:
             return ""
         try:
             # Build result dict for finalize
@@ -6912,7 +6921,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 "consensus_reached": getattr(result, "consensus_reached", False),
                 "confidence": getattr(result, "confidence", 0.0),
             }
-            trace = self._current_tracer.finalize(result_dict)
+            trace = tracer.finalize(result_dict)
             trace_id = trace.trace_id if trace else ""
             self._log(f"  [tracer] Finalized trace: {trace_id}")
             self._current_tracer = None  # Clear for next debate
@@ -7045,15 +7054,15 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             traits_shared = 0
             if self.cycle_count % 20 == 0 and self.elo_system:
                 try:
-                    ratings = [
+                    raw_ratings = [
                         (a, self.elo_system.get_rating(a))
                         for a in ["gemini", "claude", "codex", "grok"]
                     ]
-                    ratings = [(a, r.elo) for a, r in ratings if r]
-                    if len(ratings) >= 2:
-                        ratings.sort(key=lambda x: x[1], reverse=True)
-                        best_agent, best_elo = ratings[0]
-                        worst_agent, worst_elo = ratings[-1]
+                    elo_ratings: list[tuple[str, float]] = [(a, r.elo) for a, r in raw_ratings if r]
+                    if len(elo_ratings) >= 2:
+                        elo_ratings.sort(key=lambda x: x[1], reverse=True)
+                        best_agent, best_elo = elo_ratings[0]
+                        worst_agent, worst_elo = elo_ratings[-1]
                         if best_elo - worst_elo > 100:
                             best_persona = (
                                 self.persona_lab.get_persona(best_agent)
@@ -7171,7 +7180,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         except Exception as e:
             self._log(f"  [formal] Proof recording error: {e}")
 
-    def _create_debate_graph(self, debate_id: str, task: str) -> "DebateGraph":
+    def _create_debate_graph(self, debate_id: str, task: str) -> "DebateGraph | None":
         """Create a new debate graph (P29: DebateGraph)."""
         if not DEBATE_GRAPH_AVAILABLE or not DebateGraph:
             return None
@@ -7211,7 +7220,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             return False
         return True
 
-    async def _run_graph_debate(self, task: str, agents: list) -> "DebateResult":
+    async def _run_graph_debate(self, task: str, agents: list) -> "DebateResult | None":
         """Run a graph-based debate (P29: DebateGraph)."""
         if not DEBATE_GRAPH_AVAILABLE or not self.graph_debate_enabled:
             return None
@@ -7230,7 +7239,9 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             self._log(f"  [graph] Debate error: {e}")
             return None
 
-    def _check_should_fork(self, messages: list, round_num: int, agents: list) -> "ForkDecision":
+    def _check_should_fork(
+        self, messages: list, round_num: int, agents: list
+    ) -> "ForkDecision | None":
         """Check if debate should fork (P30: DebateForker)."""
         if not DEBATE_FORKER_AVAILABLE or not self.fork_debate_enabled:
             return None
@@ -7255,7 +7266,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         round_num: int,
         debate_id: str,
         base_context: str,
-    ) -> "MergeResult":
+    ) -> "MergeResult | None":
         """Run forked parallel debates (P30: DebateForker)."""
         if not DEBATE_FORKER_AVAILABLE or not self.fork_debate_enabled or not fork_decision:
             return None
@@ -8038,7 +8049,7 @@ Synthesize these suggestions into a coherent, working implementation.
             )
             # Track which agents consistently disagree
             if not hasattr(self, "_agent_disagreement_patterns"):
-                self._agent_disagreement_patterns = {}
+                self._agent_disagreement_patterns: dict[str, Any] = {}
 
             # Store for pattern analysis
             actions["escalate_to"] = "cross_examination"
@@ -8463,6 +8474,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         try:
             # Get or create population from agent names
             agent_names = [a.name.split("_")[0] for a in agents]
+            assert self.population_manager is not None  # guarded by fractal-mode selection above
             population = self.population_manager.get_or_create_population(agent_names)
 
             self._log(f"    Population: {population.size} genomes, gen {population.generation}")
@@ -8649,7 +8661,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             "confidence": result["confidence"],
         }
 
-    async def phase_design(self, improvement: str, belief_analysis: dict = None) -> dict:
+    async def phase_design(self, improvement: str, belief_analysis: dict | None = None) -> dict:
         """Phase 2: All agents design the implementation together.
 
         Args:
@@ -8702,7 +8714,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             belief_ctx = BeliefContext(
                 contested_count=belief_analysis.get("contested_count", 0),
                 crux_count=belief_analysis.get("crux_count", 0),
-                posteriors=belief_analysis.get("posteriors"),
+                posteriors=belief_analysis.get("posteriors") or {},
                 convergence_achieved=belief_analysis.get("convergence_achieved", False),
             )
         result = await design_phase.execute(
@@ -8719,7 +8731,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         }
 
     async def _design_subtask(
-        self, subtask, parent_improvement: str, belief_analysis: dict = None
+        self, subtask, parent_improvement: str, belief_analysis: dict | None = None
     ) -> dict:
         """Design a single subtask from decomposition."""
         design_phase = self._create_design_phase()
@@ -8730,7 +8742,7 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             belief_ctx = BeliefContext(
                 contested_count=belief_analysis.get("contested_count", 0),
                 crux_count=belief_analysis.get("crux_count", 0),
-                posteriors=belief_analysis.get("posteriors"),
+                posteriors=belief_analysis.get("posteriors") or {},
                 convergence_achieved=belief_analysis.get("convergence_achieved", False),
             )
 
@@ -9533,7 +9545,7 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
 
     async def _run_cycle_impl_inner(self, cycle_start: datetime, cycle_deadline: datetime) -> dict:
         """Inner implementation of cycle logic."""
-        cycle_result = {"outcome": "unknown", "cycle": self.cycle_count}
+        cycle_result: dict[str, Any] = {"outcome": "unknown", "cycle": self.cycle_count}
         # Store reference for finally block in outer function
         self._current_cycle_result = cycle_result
 
@@ -9651,9 +9663,9 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
                         "outcome": "constitution_violation",
                         "error": "Constitution signature verification failed",
                     }
-                self._log(
-                    f"  [constitution] Signature verified (v{self.constitution_verifier.constitution.version})"
-                )
+                _constitution = self.constitution_verifier.constitution
+                assert _constitution is not None  # is_available() implies loaded
+                self._log(f"  [constitution] Signature verified (v{_constitution.version})")
             else:
                 self._log(
                     "  [constitution] WARNING: Verifier not available — skipping signature check"
@@ -9666,7 +9678,7 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
                 "  [constitution] No verifier configured — running without constitution checks"
             )
 
-        cycle_result = {
+        cycle_result: dict[str, Any] = {
             "cycle": self.cycle_count,
             "started": cycle_start.isoformat(),
             "backup_path": str(backup_path),
@@ -9755,7 +9767,7 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
         self._log(f"\nConsensus improvement:\n{improvement}")  # Full content, no truncation
 
         # Phase 2: Design (with belief analysis from debate)
-        belief_analysis = debate_result.get("belief_analysis")
+        belief_analysis = debate_result.get("belief_analysis") or {}
         try:
             design_result = await self._run_with_phase_timeout(
                 "design", self.phase_design(improvement, belief_analysis=belief_analysis)
@@ -10139,7 +10151,7 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
             iteration_duration = (datetime.now() - iteration_start).total_seconds()
             iteration_times.append(iteration_duration)
 
-            iteration_result = {
+            iteration_result: dict[str, Any] = {
                 "iteration": fix_iteration,
                 "verify_result": verify_result,
                 "test_counts": test_counts,
@@ -11033,10 +11045,11 @@ def list_backups(aragora_path: Path) -> None:
             print(f"  {backup.name} (no manifest)")
 
 
-def restore_backup_cli(aragora_path: Path, backup_name: str = None) -> bool:
+def restore_backup_cli(aragora_path: Path, backup_name: str | None = None) -> bool:
     """Restore from a specific backup or the latest one."""
     backup_dir = aragora_path / ".nomic" / "backups"
 
+    backup_path: Path | None
     if backup_name:
         backup_path = backup_dir / backup_name
         if not backup_path.exists():
@@ -11054,6 +11067,7 @@ def restore_backup_cli(aragora_path: Path, backup_name: str = None) -> bool:
             print("No valid backups found.")
             return False
 
+    assert backup_path is not None  # guarded by the None-return branches above
     manifest_file = backup_path / "manifest.json"
     with open(manifest_file) as f:
         manifest = json.load(f)

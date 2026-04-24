@@ -71,7 +71,7 @@ _FAST_TRIAGE_PROVIDERS = (
     ),
     ExtractionProvider(
         agent_type="openai-api",
-        model="gpt-4.1-mini",
+        model="gpt-5.4",
         role="analyst",
         name="triage-fast",
         env_vars=("OPENAI_API_KEY",),
@@ -427,7 +427,7 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
             "openai-api",
             name="triage-proposer",
             role="proposer",
-            model="gpt-4.1-mini",
+            model="gpt-5.4",
         )
     elif os.environ.get("ANTHROPIC_API_KEY"):
         _append_agent(
@@ -456,7 +456,7 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
             "openai-api",
             name="triage-critic",
             role="critic",
-            model="gpt-4.1-mini",
+            model="gpt-5.4",
         )
     elif os.environ.get("ANTHROPIC_API_KEY"):
         _append_agent(
@@ -478,7 +478,7 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
             "openai-api",
             name="triage-reviewer",
             role="synthesizer",
-            model="gpt-4.1-mini",
+            model="gpt-5.4",
         )
     elif os.environ.get("OPENROUTER_API_KEY") and len(agents) < 3:
         # Use a different model family for heterogeneous consensus

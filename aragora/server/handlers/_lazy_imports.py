@@ -20,6 +20,7 @@ HANDLER_MODULES: dict[str, str] = {
     "HealthHandler": "aragora.server.handlers.admin",
     "LivenessHandler": "aragora.server.handlers.admin.health.liveness",
     "ReadinessHandler": "aragora.server.handlers.admin.health.readiness",
+    "RotationStatusHandler": "aragora.server.handlers.admin.rotation_status",
     "StorageHealthHandler": "aragora.server.handlers.admin.health.storage_health",
     "SystemHandler": "aragora.server.handlers.admin",
     "SystemIntelligenceHandler": "aragora.server.handlers.system_intelligence",
@@ -53,6 +54,7 @@ HANDLER_MODULES: dict[str, str] = {
     "AudienceSuggestionsHandler": "aragora.server.handlers.audience_suggestions",
     "AutomationHandler": "aragora.server.handlers.integrations.automation",
     "AutonomousLearningHandler": "aragora.server.handlers.autonomous_learning",
+    "AgentBridgeHandler": "aragora.server.handlers.agent_bridge",
     # approvals inbox
     "UnifiedApprovalsHandler": "aragora.server.handlers.approvals_inbox",
     # bots/ directory
@@ -64,6 +66,7 @@ HANDLER_MODULES: dict[str, str] = {
     "ZoomHandler": "aragora.server.handlers.bots",
     # chat/ directory
     "ChatHandler": "aragora.server.handlers.chat.router",
+    "InboxCommandHandler": "aragora.server.handlers.inbox_command",
     # codebase/ directory
     "IntelligenceHandler": "aragora.server.handlers.codebase",
     # connectors/ directory
@@ -160,6 +163,7 @@ HANDLER_MODULES: dict[str, str] = {
     # notifications/ directory
     "NotificationHistoryHandler": "aragora.server.handlers.notifications.history",
     "NotificationPreferencesHandler": "aragora.server.handlers.notifications.preferences",
+    "NotificationTemplatesHandler": "aragora.server.handlers.notifications.templates",
     # pipeline/ directory
     "PipelineGraphHandler": "aragora.server.handlers.pipeline_graph",
     "PipelineTransitionsHandler": "aragora.server.handlers.pipeline.transitions",
@@ -201,6 +205,7 @@ HANDLER_MODULES: dict[str, str] = {
     "AuditingHandler": "aragora.server.handlers.auditing",
     "AuditTrailHandler": "aragora.server.handlers.audit_trail",
     "SecurityDebateHandler": "aragora.server.handlers.security_debate",
+    "SettlementHandler": "aragora.server.handlers.settlements",
     "AuthHandler": "aragora.server.handlers.auth",
     "BackupHandler": "aragora.server.handlers.backup_handler",
     "BeliefHandler": "aragora.server.handlers.belief",
@@ -262,6 +267,7 @@ HANDLER_MODULES: dict[str, str] = {
     "LaboratoryHandler": "aragora.server.handlers.laboratory",
     "MarketplaceBrowseHandler": "aragora.server.handlers.marketplace_browse",
     "MarketplacePilotHandler": "aragora.server.handlers.marketplace_pilot",
+    "MCPToolsHandler": "aragora.server.handlers.mcp_tools_handler",
     "MetricsHandler": "aragora.server.handlers.metrics",
     "ModerationHandler": "aragora.server.handlers.moderation",
     "ModerationAnalyticsHandler": "aragora.server.handlers.moderation_analytics",
@@ -286,6 +292,7 @@ HANDLER_MODULES: dict[str, str] = {
     "ReceiptsHandler": "aragora.server.handlers.receipts",
     "ReplaysHandler": "aragora.server.handlers.replays",
     "RepositoryHandler": "aragora.server.handlers.repository",
+    "ReviewQueueHandler": "aragora.server.handlers.review_queue",
     "ReviewsHandler": "aragora.server.handlers.reviews",
     "RLMContextHandler": "aragora.server.handlers.rlm",
     "RoutingHandler": "aragora.server.handlers.routing",
@@ -488,6 +495,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "OAuthWizardHandler",
     "GmailIngestHandler",
     "GmailQueryHandler",
+    "InboxCommandHandler",
     "UnifiedInboxHandler",
     "SharedInboxHandler",
     "EmailWebhooksHandler",
@@ -500,6 +508,8 @@ ALL_HANDLER_NAMES: list[str] = [
     "GauntletHeatmapExportHandler",
     "GauntletValidateReceiptHandler",
     "GauntletHandler",
+    "ReviewQueueHandler",
+    "AgentBridgeHandler",
     "ReviewsHandler",
     "FormalVerificationHandler",
     "SlackHandler",
@@ -592,6 +602,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "FeatureFlagAdminHandler",
     "LivenessHandler",
     "ReadinessHandler",
+    "RotationStatusHandler",
     "StorageHealthHandler",
     # agents/ sub-handlers
     "AgentRecommendationHandler",
@@ -631,6 +642,7 @@ ALL_HANDLER_NAMES: list[str] = [
     # notifications
     "NotificationHistoryHandler",
     "NotificationPreferencesHandler",
+    "NotificationTemplatesHandler",
     # payments
     "PaymentRoutesHandler",
     # pipeline
@@ -659,6 +671,7 @@ ALL_HANDLER_NAMES: list[str] = [
     # top-level handlers
     "AuditTrailHandler",
     "BenchmarkingHandler",
+    "CoordinationHandler",
     "DifferentiationHandler",
     "ComplianceReportHandler",
     "ContextBudgetHandler",
@@ -669,6 +682,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "GDPRDeletionHandler",
     "MarketplaceBrowseHandler",
     "MarketplacePilotHandler",
+    "MCPToolsHandler",
     "ModerationHandler",
     "ModerationAnalyticsHandler",
     "PartnerHandler",
@@ -678,6 +692,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "PromptEngineHandler",
     "ReceiptExportHandler",
     "ReceiptsHandler",
+    "SettlementHandler",
     "SkillMarketplaceHandler",
     "SMESuccessDashboardHandler",
     "SMEWorkflowsHandler",

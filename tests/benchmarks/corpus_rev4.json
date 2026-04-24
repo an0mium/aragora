@@ -1,0 +1,344 @@
+{
+  "corpus_id": "tw-01-bounded-execution-v1",
+  "revision": 4,
+  "status": "staging",
+  "recorded_on": "2026-04-18",
+  "success_contract": "mergeable_pr_or_merged_pr",
+  "run_cadence": "weekly_or_better",
+  "change_control": "rev-4 membership stays fixed until an explicit revision edits this file.",
+  "promotion_target": "docs/benchmarks/corpus.json",
+  "promotion_requirements": [
+    "Each entry must have at least one recorded worker_outcome in .aragora/overnight/boss_metrics.jsonl before it can graduate to in_progress on the canonical corpus.",
+    "Entries without dispatch evidence remain in staging and are scored against rev-4 independently.",
+    "Once the first 15 entries have dispatch evidence, open the staged promotion PR that replaces docs/benchmarks/corpus.json rev-3 with this manifest (minus un-dispatched entries)."
+  ],
+  "membership_criteria": [
+    "bounded",
+    "single_pr_resolution",
+    "no_external_dependency_chain",
+    "open_at_authoring_time",
+    "autonomous_or_boss_stuck_labelled_or_obvious_bounded_shape"
+  ],
+  "execution_class_targets": {
+    "missing_test_coverage": 10,
+    "exception_narrowing": 8,
+    "silent_exception_replacement": 8,
+    "validation_tightening": 2,
+    "small_refactor": 3,
+    "docs_reconciliation": 2
+  },
+  "sha256_signature_scope": "hashlib.sha256 over json.dumps(body, sort_keys=True, separators=(',', ':')) where body = this object with the sha256_signature key removed and issues sorted by issue_id",
+  "sha256_signature": "f18f5d62e2f583e2dc8f1b6aa820bf1e8f59374628ead64e16bdf0341a5f838a",
+  "issues": [
+    {
+      "issue_id": 5126,
+      "title": "[B0-cohort] Add unit tests for server/handlers/admin/health/liveness.py",
+      "execution_class": "missing_test_coverage",
+      "scope_hint": [
+        "aragora/server/handlers/admin/health/liveness.py",
+        "tests/server/handlers/admin/health/test_liveness.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5200"
+    },
+    {
+      "issue_id": 5128,
+      "title": "[B0-cohort] Add unit tests for channels/docks/telegram.py",
+      "execution_class": "missing_test_coverage",
+      "scope_hint": [
+        "aragora/channels/docks/telegram.py",
+        "tests/channels/docks/test_telegram.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5128"
+    },
+    {
+      "issue_id": 5130,
+      "title": "[B0-cohort] Add unit tests for connectors/registry.py",
+      "execution_class": "missing_test_coverage",
+      "scope_hint": [
+        "aragora/connectors/registry.py",
+        "tests/connectors/test_registry.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5130"
+    },
+    {
+      "issue_id": 5176,
+      "title": "[B0-cohort] Add unit tests for modes/builtin/architect.py",
+      "execution_class": "missing_test_coverage",
+      "scope_hint": [
+        "aragora/modes/builtin/architect.py",
+        "tests/modes/builtin/test_architect.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5176"
+    },
+    {
+      "issue_id": 5180,
+      "title": "[B0-cohort] Add unit tests for docs_only.py",
+      "execution_class": "missing_test_coverage",
+      "scope_hint": [
+        "aragora/docs_only.py",
+        "tests/test_docs_only.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5180"
+    },
+    {
+      "issue_id": 5185,
+      "title": "[B0-cohort] Add unit tests for utils/sql_helpers.py",
+      "execution_class": "missing_test_coverage",
+      "scope_hint": [
+        "aragora/utils/sql_helpers.py",
+        "tests/utils/test_sql_helpers.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5185"
+    },
+    {
+      "issue_id": 5187,
+      "title": "[B0-cohort] Add unit tests for storage/governance/metrics.py",
+      "execution_class": "missing_test_coverage",
+      "scope_hint": [
+        "aragora/storage/governance/metrics.py",
+        "tests/storage/governance/test_metrics.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5187"
+    },
+    {
+      "issue_id": 5188,
+      "title": "[B0-cohort] Add unit tests for utils/error_sanitizer.py",
+      "execution_class": "missing_test_coverage",
+      "scope_hint": [
+        "aragora/utils/error_sanitizer.py",
+        "tests/utils/test_error_sanitizer.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5188"
+    },
+    {
+      "issue_id": 5197,
+      "title": "[B0-cohort] Add unit tests for tournaments/database.py",
+      "execution_class": "missing_test_coverage",
+      "scope_hint": [
+        "aragora/tournaments/database.py",
+        "tests/tournaments/test_database.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5197"
+    },
+    {
+      "issue_id": 5198,
+      "title": "[B0-cohort] Add unit tests for server/debate_origin/models.py",
+      "execution_class": "missing_test_coverage",
+      "scope_hint": [
+        "aragora/server/debate_origin/models.py",
+        "tests/server/debate_origin/test_models.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5198"
+    },
+    {
+      "issue_id": 5788,
+      "title": "Narrow broad except Exception in performance_monitor.py",
+      "execution_class": "exception_narrowing",
+      "scope_hint": [
+        "aragora/performance_monitor.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5788"
+    },
+    {
+      "issue_id": 5789,
+      "title": "Narrow broad except Exception in mfa_enforcement.py",
+      "execution_class": "exception_narrowing",
+      "scope_hint": [
+        "aragora/auth/mfa_enforcement.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5789"
+    },
+    {
+      "issue_id": 5790,
+      "title": "Narrow broad except Exception in swarm_status.py",
+      "execution_class": "exception_narrowing",
+      "scope_hint": [
+        "aragora/swarm/swarm_status.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5790"
+    },
+    {
+      "issue_id": 5791,
+      "title": "Narrow broad except Exception in deletion_coordinator.py",
+      "execution_class": "exception_narrowing",
+      "scope_hint": [
+        "aragora/privacy/deletion_coordinator.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5791"
+    },
+    {
+      "issue_id": 5792,
+      "title": "Narrow broad except Exception in rubric.py",
+      "execution_class": "exception_narrowing",
+      "scope_hint": [
+        "aragora/evaluation/rubric.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5792"
+    },
+    {
+      "issue_id": 5793,
+      "title": "Narrow broad except Exception in rss_feeds.py",
+      "execution_class": "exception_narrowing",
+      "scope_hint": [
+        "aragora/pulse/rss_feeds.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5793"
+    },
+    {
+      "issue_id": 5794,
+      "title": "Narrow broad except Exception in streams.py",
+      "execution_class": "exception_narrowing",
+      "scope_hint": [
+        "aragora/connectors/enterprise/streaming/streams.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5794"
+    },
+    {
+      "issue_id": 5801,
+      "title": "Narrow broad except Exception in triggers.py",
+      "execution_class": "exception_narrowing",
+      "scope_hint": [
+        "aragora/hooks/triggers.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5801"
+    },
+    {
+      "issue_id": 5808,
+      "title": "Replace silent exception swallowing in session.py",
+      "execution_class": "silent_exception_replacement",
+      "scope_hint": [
+        "aragora/swarm/session.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5808"
+    },
+    {
+      "issue_id": 5809,
+      "title": "Replace silent exception swallowing in settlement.py",
+      "execution_class": "silent_exception_replacement",
+      "scope_hint": [
+        "aragora/settlement.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5809"
+    },
+    {
+      "issue_id": 5810,
+      "title": "Replace silent exception swallowing in settlement_scheduler.py",
+      "execution_class": "silent_exception_replacement",
+      "scope_hint": [
+        "aragora/scheduler/settlement_scheduler.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5810"
+    },
+    {
+      "issue_id": 5811,
+      "title": "Replace silent exception swallowing in team_selector.py",
+      "execution_class": "silent_exception_replacement",
+      "scope_hint": [
+        "aragora/debate/team_selector.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5811"
+    },
+    {
+      "issue_id": 5812,
+      "title": "Replace silent exception swallowing in witness.py",
+      "execution_class": "silent_exception_replacement",
+      "scope_hint": [
+        "aragora/witness.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5812"
+    },
+    {
+      "issue_id": 5821,
+      "title": "Replace silent exception swallowing in elo_analysis.py",
+      "execution_class": "silent_exception_replacement",
+      "scope_hint": [
+        "aragora/ranking/elo_analysis.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5821"
+    },
+    {
+      "issue_id": 5823,
+      "title": "Replace silent exception swallowing in triage_runner.py",
+      "execution_class": "silent_exception_replacement",
+      "scope_hint": [
+        "aragora/inbox/triage_runner.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5823"
+    },
+    {
+      "issue_id": 5825,
+      "title": "Replace silent exception swallowing in debate_router.py",
+      "execution_class": "silent_exception_replacement",
+      "scope_hint": [
+        "aragora/server/debate_router.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5825"
+    },
+    {
+      "issue_id": 5764,
+      "title": "[from #5759] Update QualityPipelineConfig.from_dict() to validate boolean types",
+      "execution_class": "validation_tightening",
+      "scope_hint": [
+        "aragora/quality/pipeline_config.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5764"
+    },
+    {
+      "issue_id": 5765,
+      "title": "[from #5759] Add regression tests for string boolean validation",
+      "execution_class": "validation_tightening",
+      "scope_hint": [
+        "tests/quality/test_pipeline_config_boolean_validation.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5765"
+    },
+    {
+      "issue_id": 5426,
+      "title": "Add operator-snapshot subcommand to agent_bridge.py",
+      "execution_class": "small_refactor",
+      "scope_hint": [
+        "aragora/swarm/agent_bridge.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5426"
+    },
+    {
+      "issue_id": 5427,
+      "title": "Add __all__ exports to aragora/swarm/rescue_events.py and rescue_planner.py",
+      "execution_class": "small_refactor",
+      "scope_hint": [
+        "aragora/swarm/rescue_events.py",
+        "aragora/swarm/rescue_planner.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5427"
+    },
+    {
+      "issue_id": 5428,
+      "title": "Add type annotations to aragora/swarm/boss_loop_outcome.py public functions",
+      "execution_class": "small_refactor",
+      "scope_hint": [
+        "aragora/swarm/boss_loop_outcome.py"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5428"
+    },
+    {
+      "issue_id": 5844,
+      "title": "[CS-01..03] Reconcile docs/status surfaces to current proof",
+      "execution_class": "docs_reconciliation",
+      "scope_hint": [
+        "docs/status/NEXT_STEPS_CANONICAL.md",
+        "docs/status/ACTIVE_EXECUTION_ISSUES.md",
+        "docs/status/B0_BENCHMARK_TRUTH_STATUS.md"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5844"
+    },
+    {
+      "issue_id": 5883,
+      "title": "[CS-01b] Reconcile ACTIVE_EXECUTION_ISSUES.md to current state",
+      "execution_class": "docs_reconciliation",
+      "scope_hint": [
+        "docs/status/ACTIVE_EXECUTION_ISSUES.md"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5883"
+    }
+  ]
+}

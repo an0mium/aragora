@@ -44,8 +44,8 @@ Status note: use `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW0
 
 Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 
-- Do now: `CS-01..03`
-- Delay: `BC-07..09`, `RS-11..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
+- Do now: `BC-07..09`, `RS-11..12`
+- Delay: `TW-07..09`, `UDW-01..06`, `MCF-01..03`
 - Future decision-integrity planning: `DIC-13..22` is tracked but delayed until proof-first Foreman reliability is stable; these issues must not be added to `boss-ready` during the current tranche
 - Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
 - Queue rule: only **Do now** roadmap codes may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue

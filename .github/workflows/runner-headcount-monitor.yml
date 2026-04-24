@@ -1,0 +1,180 @@
+name: Runner Headcount Monitor
+
+# Polls the self-hosted runner API and fails if the count drifts from
+# the baseline in docs/runners/FLEET.md. Runs daily (scheduled) and on
+# manual dispatch for ad-hoc audits.
+#
+# Failure mode: job fails + opens a targeted issue titled "runners:
+# headcount drift" (or updates the most recent open one). This is
+# deliberately lightweight — no Slack/PagerDuty wiring in this
+# workflow; the GitHub-native issue path is the canonical alert.
+
+on:
+  schedule:
+    # Every day at 14:00 UTC (09:00 America/Chicago).
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+    inputs:
+      expected_count:
+        description: "Override expected runner count (default reads BASELINE from this workflow)"
+        required: false
+        type: number
+
+permissions:
+  actions: read
+  issues: write
+  contents: read
+
+concurrency:
+  # Only one audit at a time.
+  group: runner-headcount-monitor
+  cancel-in-progress: false
+
+env:
+  # Baseline matches the roster in docs/runners/FLEET.md.
+  # Bump this when a new runner joins the fleet (same PR that updates
+  # FLEET.md).
+  BASELINE_COUNT: 12
+
+jobs:
+  audit:
+    name: Runner headcount audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query runner API
+        id: runners
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          echo "Fetching runner roster..."
+          ROSTER_JSON=$(gh api "repos/$REPO/actions/runners")
+          TOTAL=$(echo "$ROSTER_JSON" | jq '.total_count')
+          ONLINE=$(echo "$ROSTER_JSON" | jq '[.runners[] | select(.status == "online")] | length')
+          OFFLINE=$(echo "$ROSTER_JSON" | jq '[.runners[] | select(.status == "offline")] | length')
+
+          ROSTER=$(echo "$ROSTER_JSON" | jq -r '.runners | map("- " + .name + " (" + .status + (if .busy then ", busy" else "" end) + ")") | join("\n")')
+
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+          echo "online=$ONLINE" >> "$GITHUB_OUTPUT"
+          echo "offline=$OFFLINE" >> "$GITHUB_OUTPUT"
+          {
+            echo "roster<<EOF"
+            echo "$ROSTER"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo ""
+          echo "Roster:"
+          echo "$ROSTER"
+          echo ""
+          echo "Totals: total=$TOTAL online=$ONLINE offline=$OFFLINE"
+
+      - name: Compare against baseline
+        id: check
+        env:
+          EXPECTED_INPUT: ${{ inputs.expected_count }}
+          BASELINE: ${{ env.BASELINE_COUNT }}
+          ONLINE: ${{ steps.runners.outputs.online }}
+          TOTAL: ${{ steps.runners.outputs.total }}
+        run: |
+          set -euo pipefail
+
+          # Use manual-dispatch override if set, else BASELINE_COUNT.
+          if [ -n "$EXPECTED_INPUT" ]; then
+            EXPECTED="$EXPECTED_INPUT"
+          else
+            EXPECTED="$BASELINE"
+          fi
+
+          echo "Expected: $EXPECTED"
+          echo "Online:   $ONLINE"
+          echo "Total:    $TOTAL"
+
+          DRIFT=0
+          REASON=""
+          if [ "$ONLINE" -lt "$EXPECTED" ]; then
+            DRIFT=1
+            REASON="Only $ONLINE of $EXPECTED expected runners are online"
+          elif [ "$ONLINE" -gt "$EXPECTED" ]; then
+            DRIFT=1
+            REASON="Runner count ($ONLINE) exceeds baseline ($EXPECTED) — update docs/runners/FLEET.md"
+          fi
+
+          echo "drift=$DRIFT" >> "$GITHUB_OUTPUT"
+          echo "expected=$EXPECTED" >> "$GITHUB_OUTPUT"
+          {
+            echo "reason<<EOF"
+            echo "$REASON"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open drift issue (drift detected)
+        if: steps.check.outputs.drift == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REASON: ${{ steps.check.outputs.reason }}
+          EXPECTED: ${{ steps.check.outputs.expected }}
+          ONLINE: ${{ steps.runners.outputs.online }}
+          OFFLINE: ${{ steps.runners.outputs.offline }}
+          TOTAL: ${{ steps.runners.outputs.total }}
+          ROSTER: ${{ steps.runners.outputs.roster }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          TITLE="runners: headcount drift detected on $(date -u +%Y-%m-%d)"
+
+          BODY=$(cat <<BODY_END
+          ## Drift detected
+
+          $REASON
+
+          | Metric | Value |
+          |---|---|
+          | Expected | $EXPECTED |
+          | Currently online | $ONLINE |
+          | Currently offline | $OFFLINE |
+          | Total registered | $TOTAL |
+
+          ### Current roster
+
+          $ROSTER
+
+          ### What to check
+
+          - If a runner was intentionally removed, update \`BASELINE_COUNT\` in
+            \`.github/workflows/runner-headcount-monitor.yml\` **and**
+            \`docs/runners/FLEET.md\` in the same PR, then close this issue.
+          - If a runner is missing and should still be online, see the
+            "re-register a stale runner" section of \`docs/runners/FLEET.md\`.
+          - If the count is higher than baseline, a new runner was added
+            without updating docs — reconcile per the "How to add a runner"
+            section.
+
+          ### Audit run
+
+          [Workflow run $RUN_ID]($SERVER_URL/$REPO/actions/runs/$RUN_ID)
+          BODY_END
+          )
+
+          # Reuse an open drift issue if present; otherwise create.
+          EXISTING=$(gh issue list --label runner-drift --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Reusing open drift issue #$EXISTING"
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            echo "Opening new drift issue"
+            gh issue create --title "$TITLE" --body "$BODY" --label runner-drift
+          fi
+
+      - name: Report green
+        if: steps.check.outputs.drift != '1'
+        env:
+          ONLINE: ${{ steps.runners.outputs.online }}
+        run: |
+          echo "::notice::Runner headcount audit clean — $ONLINE online, matches baseline."

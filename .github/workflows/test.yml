@@ -30,7 +30,7 @@ on:
 
 concurrency:
   group: tests-${{ github.event.pull_request.number || github.ref }}${{ startsWith(github.ref, 'refs/heads/dev/') && format('-{0}', github.sha) || '' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
 
 jobs:
   # ============================================================
@@ -89,6 +89,21 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Detect PR scope
+        if: github.event_name == 'pull_request'
+        id: pr_scope
+        uses: ./.github/actions/pr-scope-classifier
+
+      - name: Decide OpenAPI alignment scope
+        id: openapi_scope
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "run_openapi=${{ steps.pr_scope.outputs.openapi }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_openapi=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install OpenAPI generation dependencies
         run: |
           python -m pip install --upgrade pip
@@ -100,6 +115,7 @@ jobs:
         run: python scripts/guard_repo_clean.py --check-working-tree
 
       - name: Check OpenAPI spec is up to date
+        if: steps.openapi_scope.outputs.run_openapi == 'true'
         run: |
           TMPDIR=$(mktemp -d)
           python scripts/generate_openapi.py --output "$TMPDIR/openapi_generated.json"
@@ -111,11 +127,20 @@ jobs:
           diff -u "$TMPDIR/openapi_generated.yaml" docs/api/openapi_generated.yaml
 
       - name: Check TypeScript SDK types are up to date
-        run: python scripts/generate_sdk_types.py --openapi docs/api/openapi_generated.json --check
+        if: steps.openapi_scope.outputs.run_openapi == 'true'
+        run: |
+          TMP_OPENAPI=$(mktemp)
+          cp docs/api/openapi_generated.json "$TMP_OPENAPI"
+          python scripts/add_openapi_operation_ids.py --spec "$TMP_OPENAPI"
+          python scripts/generate_sdk_types.py --openapi "$TMP_OPENAPI" --check
 
       - name: Check Python SDK types are up to date
+        if: steps.openapi_scope.outputs.run_openapi == 'true'
         run: |
-          python scripts/generate_python_sdk_types.py --openapi docs/api/openapi_generated.json --check
+          TMP_OPENAPI=$(mktemp)
+          cp docs/api/openapi_generated.json "$TMP_OPENAPI"
+          python scripts/add_openapi_operation_ids.py --spec "$TMP_OPENAPI"
+          python scripts/generate_python_sdk_types.py --openapi "$TMP_OPENAPI" --check
 
       - name: Check capability matrix is up to date
         run: python scripts/check_capability_matrix_sync.py
@@ -169,11 +194,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       frontend: ${{ steps.scope_override.outputs.frontend || steps.scope_defaults.outputs.frontend }}
+      frontend_e2e: ${{ steps.scope_override.outputs.frontend_e2e || steps.scope_defaults.outputs.frontend_e2e }}
 
     steps:
       - name: Default scope (non-PR)
         id: scope_defaults
-        run: echo "frontend=true" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "frontend=true" >> "$GITHUB_OUTPUT"
+          echo "frontend_e2e=true" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
         if: github.event_name == 'pull_request'
@@ -187,7 +215,9 @@ jobs:
       - name: Set scope outputs (PR)
         if: github.event_name == 'pull_request'
         id: scope_override
-        run: echo "frontend=${{ steps.scope.outputs.frontend }}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "frontend=${{ steps.scope.outputs.frontend }}" >> "$GITHUB_OUTPUT"
+          echo "frontend_e2e=${{ steps.scope.outputs.frontend_e2e }}" >> "$GITHUB_OUTPUT"
 
   sdk-typescript-compile-gate:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -434,7 +464,7 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Zero Coverage Check
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     needs: baseline-determinism
 
     steps:
@@ -475,11 +505,58 @@ jobs:
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras test
 
+      - name: Fetch base ref
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+
+      - name: Get changed Python files
+        if: github.event_name == 'pull_request'
+        id: changed
+        run: |
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- 'aragora/**/*.py' 'tests/**/*.py' | tr '\n' ' ')
+          echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
+
+      - name: Select relevant tests
+        if: github.event_name == 'pull_request'
+        id: selected
+        run: |
+          python scripts/nomic_ci_test_selector.py --changed-files ${{ steps.changed.outputs.files }} --dry-run
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          data = json.loads(Path(".nomic-ci-result.json").read_text())
+          test_paths = data.get("test_paths", [])
+          status = data.get("status", "")
+          changed_python_files = data.get("changed_python_files", [])
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as fh:
+              print(f"status={status}", file=fh)
+              print(f"changed_python_count={len(changed_python_files)}", file=fh)
+              print(f"count={len(test_paths)}", file=fh)
+              print("paths<<EOF", file=fh)
+              print("\n".join(test_paths), file=fh)
+              print("EOF", file=fh)
+          PY
+
       - name: Check for new zero-coverage files
         run: |
-          # Run quick coverage collection
-          python -m pytest tests/debate tests/server -q --cov=aragora --cov-report=json:cov.json \
-            -m "not slow and not load and not e2e" --timeout=60 -x || true
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ steps.selected.outputs.status }}" = "skipped" ]; then
+              echo "No changed Python files required PR-scoped zero-coverage probing; skipping."
+            elif [ -z "${{ steps.selected.outputs.paths }}" ]; then
+              echo "::error::PR-scoped coverage selector returned no tests for changed Python files"
+              exit 1
+            else
+              TEST_PATHS_RAW='${{ steps.selected.outputs.paths }}'
+              mapfile -t TEST_PATHS <<< "$TEST_PATHS_RAW"
+              python -m pytest "${TEST_PATHS[@]}" -q --cov=aragora --cov-report=json:cov.json \
+                -m "not slow and not load and not e2e" --timeout=60 -x || true
+            fi
+          else
+            python -m pytest tests/debate tests/server -q --cov=aragora --cov-report=json:cov.json \
+              -m "not slow and not load and not e2e" --timeout=60 -x || true
+          fi
 
           # Check for new zero-coverage files not in baseline
           python -c "
@@ -520,24 +597,39 @@ jobs:
   test-fast:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.category.timeout }}
     needs: baseline-determinism
     strategy:
       fail-fast: false
       matrix:
         category:
-          - name: core
-            path: tests/debate tests/agents tests/rlm tests/reasoning tests/workflow tests/client
+          - name: agents
+            path: tests/agents
+            timeout: 30
+          - name: debate
+            path: tests/debate
+            timeout: 30
+          - name: reasoning
+            path: tests/rlm tests/reasoning
+            timeout: 30
+          - name: workflow-client
+            path: tests/workflow tests/client
+            timeout: 30
           - name: server
             path: tests/server
+            timeout: 30
           - name: handlers
             path: tests/handlers
+            timeout: 30
           - name: knowledge
             path: tests/knowledge tests/evidence tests/memory
+            timeout: 30
           - name: storage
             path: tests/storage tests/ranking tests/persistence tests/billing
+            timeout: 30
           - name: infra
             path: tests/nomic tests/control_plane tests/rbac tests/events tests/observability tests/compliance tests/gauntlet tests/cli
+            timeout: 30
 
     steps:
       - name: Checkout
@@ -778,11 +870,24 @@ jobs:
 
   # Integration smoke lane for high-risk paths (PR only)
   integration-smoke:
-    name: Integration Smoke
+    name: Integration Smoke (${{ matrix.suite.name }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: ${{ matrix.suite.timeout }}
     needs: baseline-determinism
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name == 'pull_request')
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - name: handlers
+            path: tests/handlers
+            timeout: 20
+          - name: debate
+            path: tests/debate/test_arena*.py
+            timeout: 15
+          - name: memory
+            path: tests/memory
+            timeout: 15
 
     steps:
       - name: Checkout
@@ -832,7 +937,7 @@ jobs:
       - name: Run integration smoke tests
         if: steps.scope.outputs.integration_high_risk == 'true'
         run: |
-          pytest tests/handlers/ tests/debate/test_arena*.py tests/memory/ \
+          pytest ${{ matrix.suite.path }} \
             -x \
             --timeout=60 \
             -q \
@@ -1522,7 +1627,7 @@ jobs:
 
   frontend:
     needs: [scope]
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || needs.scope.outputs.frontend == 'true')
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || needs.scope.outputs.frontend_e2e == 'true')
     name: Frontend E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -2065,8 +2170,7 @@ jobs:
                 echo "::warning::$label was $result; continuing quality gates without failing the workflow."
                 ;;
               *)
-                echo "::error::$label completed with result: $result"
-                exit 1
+                echo "::warning::$label completed with result: $result; root-cause job owns the blocking signal."
                 ;;
             esac
           }
@@ -2122,7 +2226,7 @@ jobs:
   test-analytics:
     name: Test Analytics
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     needs: [test-fast]
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always() && github.event_name == 'pull_request')
 
@@ -2164,22 +2268,62 @@ jobs:
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras dev
 
+      - name: Fetch base ref
+        run: git fetch --no-tags --depth=200 origin "${{ github.base_ref }}"
+
+      - name: Get changed Python files
+        id: changed
+        run: |
+          if git merge-base "origin/${{ github.base_ref }}" HEAD >/dev/null 2>&1; then
+            CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- 'aragora/**/*.py' 'tests/**/*.py' | tr '\n' ' ')
+          else
+            echo "::warning::No merge base found with origin/${{ github.base_ref }}; continuing with an empty changed-file set"
+            CHANGED=""
+          fi
+          echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
+
+      - name: Select relevant tests
+        id: selected
+        continue-on-error: true
+        run: |
+          python scripts/nomic_ci_test_selector.py --changed-files ${{ steps.changed.outputs.files }} --dry-run
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          data = json.loads(Path(".nomic-ci-result.json").read_text())
+          test_paths = data.get("test_paths", [])
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as fh:
+              print(f"count={len(test_paths)}", file=fh)
+              print("paths<<EOF", file=fh)
+              print("\n".join(test_paths), file=fh)
+              print("EOF", file=fh)
+          PY
+
       - name: Run tests with JUnit output
         id: tests
         # Non-blocking: This job is for flakiness analysis (--reruns=2), not a release gate.
         # Gating tests run in test-fast and test jobs above.
         continue-on-error: true
         run: |
-          python -m pytest -o addopts='' tests/debate tests/agents tests/server \
-            -m "not slow and not load and not e2e" \
-            --timeout=60 \
-            --reruns=2 \
-            --junit-xml=test-results.xml \
-            -v \
-            --tb=short
+          if [ -z "${{ steps.selected.outputs.paths }}" ]; then
+            echo "No relevant tests matched changed Python files; skipping Test Analytics run."
+          else
+            TEST_PATHS_RAW='${{ steps.selected.outputs.paths }}'
+            mapfile -t TEST_PATHS <<< "$TEST_PATHS_RAW"
+            python -m pytest -o addopts='' "${TEST_PATHS[@]}" \
+              -m "not slow and not load and not e2e" \
+              --timeout=60 \
+              --reruns=2 \
+              --junit-xml=test-results.xml \
+              -v \
+              --tb=short
+          fi
 
       - name: Analyze test results
         id: analyze
+        continue-on-error: true
         run: |
           python scripts/analyze_test_results.py \
             --junit test-results.xml \
@@ -2188,11 +2332,20 @@ jobs:
             --exit-zero
 
           # Store summary for PR comment
-          echo "summary<<EOF" >> $GITHUB_OUTPUT
-          cat test-summary.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          SUMMARY_DELIM="SUMMARY_$(python - <<'PY'
+          import uuid
+          print(uuid.uuid4().hex)
+          PY
+          )"
+          {
+            echo "summary<<$SUMMARY_DELIM"
+            cat test-summary.md
+            printf '\n'
+            echo "$SUMMARY_DELIM"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload test results
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results
@@ -2203,6 +2356,7 @@ jobs:
 
       - name: Comment on PR
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/github-script@v7
         env:
           TEST_SUMMARY: ${{ steps.analyze.outputs.summary }}

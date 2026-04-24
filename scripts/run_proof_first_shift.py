@@ -23,6 +23,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.nomic.checkpoints import load_latest_checkpoint  # noqa: E402
 from aragora.nomic.shift_controller import ShiftConfig, ShiftController, ShiftState  # noqa: E402
 from aragora.swarm.shift_ledger import ShiftLedger  # noqa: E402
+from scripts.build_benchmark_truth_artifact import detect_post_generation_issue_state_drift  # noqa: E402
 from scripts.reconcile_proof_first_queue import reconcile_proof_first_queue  # noqa: E402
 from scripts.watch_boss_lane import collect_snapshot  # noqa: E402
 
@@ -48,6 +49,9 @@ DEFAULT_BOSS_MAX_HOURS = "8"
 DEFAULT_BOSS_MAX_PARALLEL_DISPATCHES = "1"
 DEFAULT_BOSS_AUTONOMY_MODE = "full-auto"
 DEFAULT_BOSS_BOOTSTRAP_LOG = ".aragora/overnight/proof-first-boss-loop-bootstrap.log"
+DEFAULT_BENCHMARK_TRUTH_ARTIFACT = Path(
+    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/latest.json"
+)
 LAUNCHD_THROTTLE_GRACE_SECONDS = 60.0
 AUTH_FAILURE_STOP_AFTER = 2
 PUBLICATION_FAILURE_STOP_AFTER = 2
@@ -312,6 +316,14 @@ def _run_json(args: list[str], *, cwd: Path, timeout: int = 30) -> Any:
     return json.loads(proc.stdout or "{}")
 
 
+def _timeout_output_text(value: str | bytes | None) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace").strip()
+    if isinstance(value, str):
+        return value.strip()
+    return ""
+
+
 def restore_shift_controller(
     controller: ShiftController,
     *,
@@ -413,6 +425,24 @@ def _parse_timestamp(value: str | None) -> datetime | None:
     return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(UTC)
 
 
+def load_latest_benchmark_truth_artifact(*, repo_root: Path) -> dict[str, Any] | None:
+    artifact_path = repo_root / DEFAULT_BENCHMARK_TRUTH_ARTIFACT
+    if not artifact_path.exists():
+        return None
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else None
+
+
+def benchmark_truth_state_drift(*, repo_root: Path, repo: str) -> dict[str, Any]:
+    artifact = load_latest_benchmark_truth_artifact(repo_root=repo_root)
+    if artifact is None:
+        return {"status": "missing_artifact", "issue_count": 0, "issues": []}
+    try:
+        return detect_post_generation_issue_state_drift(artifact=artifact, repo=repo)
+    except (RuntimeError, OSError, json.JSONDecodeError, ValueError) as exc:
+        return {"status": "error", "issue_count": 0, "issues": [], "error": str(exc)}
+
+
 def should_trigger_benchmark_rerun(
     *,
     benchmark_mode: str,
@@ -421,14 +451,13 @@ def should_trigger_benchmark_rerun(
     automation_backlog: int,
     automation_backlog_limit: int,
     last_triggered_run_id: int | None,
+    truth_state_drift_detected: bool = False,
     max_age_hours: float = 24.0,
 ) -> tuple[bool, str]:
     if benchmark_mode != "hybrid":
         return False, "benchmark_mode_disabled"
     if has_open_publication_pr:
         return False, "benchmark_pr_open"
-    if automation_backlog >= automation_backlog_limit:
-        return False, "automation_backlog_full"
     if latest_run is None:
         if int(last_triggered_run_id or 0) == -1:
             return False, "awaiting_first_run_visibility"
@@ -446,6 +475,10 @@ def should_trigger_benchmark_rerun(
     conclusion = str(latest_run.get("conclusion") or "").strip().lower()
     if conclusion == "failure" and run_id != int(last_triggered_run_id or 0):
         return True, "retry_after_failed_run"
+    if truth_state_drift_detected:
+        if run_id and run_id == int(last_triggered_run_id or 0):
+            return False, "awaiting_new_benchmark_run"
+        return True, "post_generation_issue_state_drift"
     return False, "fresh_enough"
 
 
@@ -739,8 +772,8 @@ def kickstart_launchd(label: str) -> tuple[bool, str]:
     except OSError as exc:
         return False, f"launchctl unavailable for {label}: {exc}"
     except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout.strip() if isinstance(exc.stdout, str) else ""
-        stderr = exc.stderr.strip() if isinstance(exc.stderr, str) else ""
+        stdout = _timeout_output_text(exc.stdout)
+        stderr = _timeout_output_text(exc.stderr)
         detail = stderr or stdout or f"launchctl kickstart timed out for {label}"
         return False, detail
     if proc.returncode != 0:
@@ -943,9 +976,9 @@ def run_shift_cycle(
         runtime_state.github_outage_count += 1
         if ledger:
             ledger.record_failure(failure_type=GITHUB_OUTAGE_FAILURE, detail=detail)
-        actions: list[str] = []
+        outage_actions: list[str] = []
         stop_reason = ""
-        repeated_failure_classes: list[str] = []
+        outage_repeated_failure_classes: list[str] = []
         if recovery_budget_remaining(runtime_state, GITHUB_OUTAGE_FAILURE) > 0:
             record_recovery_attempt(
                 ledger,
@@ -955,10 +988,10 @@ def run_shift_cycle(
                 success=False,
                 detail=detail,
             )
-            actions.append("retry_github_outage_next_cycle")
+            outage_actions.append("retry_github_outage_next_cycle")
         else:
             stop_reason = RECOVERY_STOP_REASONS[GITHUB_OUTAGE_FAILURE]
-            repeated_failure_classes.append(GITHUB_OUTAGE_FAILURE)
+            outage_repeated_failure_classes.append(GITHUB_OUTAGE_FAILURE)
         failure_policy = build_failure_policy_status(runtime_state)
         if ledger:
             ledger.record_cycle_tick(
@@ -968,7 +1001,7 @@ def run_shift_cycle(
                 boss_running=False,
                 merge_running=False,
                 benchmark_fresh=False,
-                actions=actions,
+                actions=outage_actions,
                 stop_reason=stop_reason,
             )
         return {
@@ -977,7 +1010,7 @@ def run_shift_cycle(
             "open_pr_count": 0,
             "automation_backlog": 0,
             "latest_benchmark_run": None,
-            "actions": actions,
+            "actions": outage_actions,
             "stop_reason": stop_reason,
             "failure_policy": failure_policy,
             "green_shift_evaluation": evaluate_green_shift(
@@ -991,7 +1024,7 @@ def run_shift_cycle(
                 runtime_state=runtime_state,
                 max_age_hours=max_hours,
                 stop_reason=stop_reason,
-                repeated_failure_classes=repeated_failure_classes,
+                repeated_failure_classes=outage_repeated_failure_classes,
             ),
         }
     snapshot = collect_boss_lane_snapshot(repo_root=repo_root, repo=repo)
@@ -1091,6 +1124,7 @@ def run_shift_cycle(
                 ledger.record_pr_merged(pr_number=int(num))
 
     latest_run = latest_benchmark_run(repo_root=repo_root, repo=repo)
+    benchmark_truth_drift = benchmark_truth_state_drift(repo_root=repo_root, repo=repo)
     latest_failure_class = ""
     latest_failure_detail = ""
     if latest_run is not None:
@@ -1163,6 +1197,7 @@ def run_shift_cycle(
         automation_backlog=automation_backlog,
         automation_backlog_limit=automation_backlog_limit,
         last_triggered_run_id=runtime_state.last_triggered_benchmark_run_id,
+        truth_state_drift_detected=bool(int(benchmark_truth_drift.get("issue_count", 0) or 0)),
         max_age_hours=max_hours,
     )
     stop_reason = ""
@@ -1278,6 +1313,7 @@ def run_shift_cycle(
         "total_open_pr_count": len(prs),
         "automation_backlog": automation_backlog,
         "latest_benchmark_run": latest_run,
+        "benchmark_truth_state_drift": benchmark_truth_drift,
         "actions": actions,
         "stop_reason": stop_reason,
         "failure_policy": failure_policy,

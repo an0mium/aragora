@@ -108,6 +108,21 @@ class CoordinationHandler(BaseHandler):
         "/api/v1/coordination/stats",
         "/api/v1/coordination/health",
     ]
+    _ROUTE_MAP = {
+        "GET /api/v1/coordination/workspaces": "handle",
+        "POST /api/v1/coordination/workspaces": "handle_post",
+        "DELETE /api/v1/coordination/workspaces/{workspace_id}": "handle_delete",
+        "GET /api/v1/coordination/federation": "handle",
+        "POST /api/v1/coordination/federation": "handle_post",
+        "POST /api/v1/coordination/execute": "handle_post",
+        "GET /api/v1/coordination/executions": "handle",
+        "GET /api/v1/coordination/consent": "handle",
+        "POST /api/v1/coordination/consent": "handle_post",
+        "POST /api/v1/coordination/approve/{request_id}": "handle_post",
+        "DELETE /api/v1/coordination/consent/{consent_id}": "handle_delete",
+        "GET /api/v1/coordination/stats": "handle",
+        "GET /api/v1/coordination/health": "handle",
+    }
 
     def __init__(self, ctx: dict[str, Any] | None = None):
         """Initialize handler with optional context."""

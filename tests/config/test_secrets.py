@@ -541,9 +541,17 @@ class TestStrictMode:
         assert is_critical_secret("JWT_SECRET_KEY") is True
         assert is_critical_secret("DATABASE_URL") is True
         assert is_critical_secret("STRIPE_SECRET_KEY") is True
+        assert is_critical_secret("OPENAI_API_KEY") is True
+        assert is_critical_secret("ANTHROPIC_API_KEY") is True
+        assert is_critical_secret("OPENROUTER_API_KEY") is True
+        assert is_critical_secret("GEMINI_API_KEY") is True
+        assert is_critical_secret("XAI_API_KEY") is True
+        assert is_critical_secret("GROK_API_KEY") is True
+        assert is_critical_secret("MISTRAL_API_KEY") is True
+        assert is_critical_secret("DEEPSEEK_API_KEY") is True
+        assert is_critical_secret("KIMI_API_KEY") is True
 
         # Non-critical secrets
-        assert is_critical_secret("OPENAI_API_KEY") is False
         assert is_critical_secret("SENTRY_DSN") is False
         assert is_critical_secret("RANDOM_CONFIG") is False
 
@@ -565,6 +573,40 @@ class TestStrictMode:
                 manager.get("JWT_SECRET_KEY")
 
             assert "JWT_SECRET_KEY" in str(exc_info.value)
+            assert "Secrets Manager" in str(exc_info.value)
+
+    @pytest.mark.parametrize(
+        "provider_key",
+        [
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "OPENROUTER_API_KEY",
+            "GEMINI_API_KEY",
+            "XAI_API_KEY",
+            "GROK_API_KEY",
+            "MISTRAL_API_KEY",
+            "DEEPSEEK_API_KEY",
+            "KIMI_API_KEY",
+        ],
+    )
+    def test_strict_mode_raises_for_provider_api_keys_not_in_aws(self, provider_key):
+        """Provider API keys must not fall back to env vars in strict mode."""
+
+        config = SecretsConfig(use_aws=True)
+        manager = SecretManager(config)
+        manager._cached_secrets = {}
+        manager._cache_timestamp = time.time()
+        manager._initialized = True
+
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "production", provider_key: "env_value"},
+            clear=True,
+        ):
+            with pytest.raises(SecretNotFoundError) as exc_info:
+                manager.get(provider_key)
+
+            assert provider_key in str(exc_info.value)
             assert "Secrets Manager" in str(exc_info.value)
 
     def test_strict_mode_allows_non_critical_env_fallback(self):

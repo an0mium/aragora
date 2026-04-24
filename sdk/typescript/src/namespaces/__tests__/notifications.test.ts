@@ -296,4 +296,101 @@ describe('NotificationsAPI Namespace', () => {
       });
     });
   });
+
+  // ===========================================================================
+  // Notification Templates
+  // ===========================================================================
+
+  describe('Notification Templates', () => {
+    it('should list notification templates', async () => {
+      mockClient.request.mockResolvedValue({
+        templates: [{ id: 'debate_completed', name: 'Debate Completed', subject: 'Done', body: 'Hi' }],
+        count: 1,
+      });
+
+      const result = await api.listTemplates();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/notifications/templates');
+      expect(result.count).toBe(1);
+      expect(result.templates[0].id).toBe('debate_completed');
+    });
+
+    it('should get a notification template by id', async () => {
+      mockClient.request.mockResolvedValue({
+        template: { id: 'budget_alert', name: 'Budget Alert', subject: 'Alert', body: 'Hi' },
+      });
+
+      const result = await api.getTemplate('budget_alert');
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/notifications/templates/budget_alert'
+      );
+      expect(result.template.id).toBe('budget_alert');
+    });
+
+    it('should update a notification template', async () => {
+      mockClient.request.mockResolvedValue({
+        template: { id: 'budget_alert', name: 'Budget Alert', subject: 'Updated', body: 'Hi' },
+        updated: true,
+      });
+
+      const result = await api.updateTemplate('budget_alert', {
+        subject: 'Updated',
+        body: 'Hi',
+      });
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'PUT',
+        '/api/notifications/templates/budget_alert',
+        {
+          json: {
+            subject: 'Updated',
+            body: 'Hi',
+          },
+        }
+      );
+      expect(result.updated).toBe(true);
+    });
+
+    it('should reset a notification template', async () => {
+      mockClient.request.mockResolvedValue({
+        template: { id: 'budget_alert', name: 'Budget Alert', subject: 'Default', body: 'Hi' },
+        reset: true,
+      });
+
+      const result = await api.resetTemplate('budget_alert');
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'POST',
+        '/api/notifications/templates/budget_alert/reset'
+      );
+      expect(result.reset).toBe(true);
+    });
+
+    it('should preview a notification template with values', async () => {
+      mockClient.request.mockResolvedValue({
+        template_id: 'budget_alert',
+        rendered_subject: 'Budget alert: 80% used',
+        rendered_body: 'Hello Alex',
+        values_used: { percent_used: '80', user_name: 'Alex' },
+      });
+
+      const result = await api.previewTemplate('budget_alert', {
+        percent_used: '80',
+        user_name: 'Alex',
+      });
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'POST',
+        '/api/notifications/templates/budget_alert/preview',
+        {
+          json: {
+            values: { percent_used: '80', user_name: 'Alex' },
+          },
+        }
+      );
+      expect(result.rendered_subject).toContain('80%');
+    });
+  });
 });

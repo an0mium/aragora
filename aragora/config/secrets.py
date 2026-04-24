@@ -136,7 +136,13 @@ MANAGED_SECRETS = frozenset(
 )
 
 # CRITICAL SECRETS - These MUST NOT fall back to environment variables in production
-# These are high-value secrets where env var fallback could indicate a security issue
+# These are high-value secrets where env var fallback could indicate a security issue.
+#
+# Hardening note (2026-04-17, HIGH-GRAVITY incident response): LLM API keys
+# were added to this set because the Anthropic key leak demonstrated that
+# local plaintext copies are a real attack surface. In strict mode, a missing
+# AWS Secrets Manager entry will now raise SecretNotFoundError instead of
+# silently consuming a stale .env value.
 CRITICAL_SECRETS = frozenset(
     {
         # Authentication - Compromise allows session forging
@@ -155,6 +161,17 @@ CRITICAL_SECRETS = frozenset(
         # Payment - Financial data access
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET",
+        # LLM API keys - Compromise allows direct spend + model abuse
+        # (added 2026-04-17 after HIGH-GRAVITY leak of an Anthropic key)
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GEMINI_API_KEY",
+        "XAI_API_KEY",
+        "GROK_API_KEY",
+        "MISTRAL_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "KIMI_API_KEY",
     }
 )
 

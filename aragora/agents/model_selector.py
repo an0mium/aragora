@@ -176,7 +176,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # OpenAI
     "gpt4": ModelProfile(
-        model_id="gpt-4.1",
+        model_id="gpt-5.4",
         display_name="GPT-4.1",
         provider="openai",
         capabilities={
@@ -223,8 +223,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         reliability_score=0.97,
         supports_vision=True,
     ),
-    "gpt-4.1-mini": ModelProfile(
-        model_id="gpt-4.1-mini",
+    "gpt-5.4": ModelProfile(
+        model_id="gpt-5.4",
         display_name="GPT-4.1 Mini",
         provider="openai",
         capabilities={
@@ -446,8 +446,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # Kimi (Moonshot AI)
     "kimi": ModelProfile(
-        model_id="kimi-k2",
-        display_name="Kimi K2",
+        model_id="kimi-k2.6",
+        display_name="Kimi K2.6",
         provider="moonshot",
         capabilities={
             ModelCapability.REASONING: 0.91,
@@ -464,8 +464,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         },
         max_context_tokens=256000,
         max_output_tokens=8192,
-        cost_input_per_1k=0.001,
-        cost_output_per_1k=0.005,
+        cost_input_per_1k=0.0007448,
+        cost_output_per_1k=0.004655,
         avg_latency_ms=800,
         reliability_score=0.91,
     ),

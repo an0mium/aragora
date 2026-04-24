@@ -28,6 +28,7 @@ The strict status reconciler requires this canonical map to link the live execut
 - Enterprise assurance carryover: [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509)
 - Execution epics (closed): [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), [#806](https://github.com/synaptent/aragora/issues/806) — all closed as of April 2026; current obligation is operationalizing the proof-first loop
 - Current execution lanes: [#807](https://github.com/synaptent/aragora/issues/807), [#808](https://github.com/synaptent/aragora/issues/808), [#809](https://github.com/synaptent/aragora/issues/809), [#810](https://github.com/synaptent/aragora/issues/810), [#811](https://github.com/synaptent/aragora/issues/811), [#812](https://github.com/synaptent/aragora/issues/812), [#813](https://github.com/synaptent/aragora/issues/813), [#814](https://github.com/synaptent/aragora/issues/814), [#815](https://github.com/synaptent/aragora/issues/815), [#816](https://github.com/synaptent/aragora/issues/816), [#817](https://github.com/synaptent/aragora/issues/817), [#818](https://github.com/synaptent/aragora/issues/818), [#819](https://github.com/synaptent/aragora/issues/819), [#820](https://github.com/synaptent/aragora/issues/820)
+- Inbox/design-partner trust-wedge planning: [#6159](https://github.com/synaptent/aragora/issues/6159), [#6160](https://github.com/synaptent/aragora/issues/6160), [#6161](https://github.com/synaptent/aragora/issues/6161), [#6162](https://github.com/synaptent/aragora/issues/6162), [#6163](https://github.com/synaptent/aragora/issues/6163), [#6164](https://github.com/synaptent/aragora/issues/6164) — planning truth only; keep out of `boss-ready` until the canonical queue gate changes
 - Future decision-integrity tranche: [#6023](https://github.com/synaptent/aragora/issues/6023), [#6024](https://github.com/synaptent/aragora/issues/6024), [#6025](https://github.com/synaptent/aragora/issues/6025), [#6026](https://github.com/synaptent/aragora/issues/6026), [#6027](https://github.com/synaptent/aragora/issues/6027), [#6028](https://github.com/synaptent/aragora/issues/6028), [#6030](https://github.com/synaptent/aragora/issues/6030), [#6031](https://github.com/synaptent/aragora/issues/6031), [#6032](https://github.com/synaptent/aragora/issues/6032), [#6033](https://github.com/synaptent/aragora/issues/6033) — Epistemic CI, Crux Engine, and Epistemic Runtime planning; not live `boss-ready` work
 
 ## Reverse-Staged Rocket Bootstrap
@@ -48,8 +49,8 @@ Status note: use `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW0
 
 Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 
-- Do now: `CS-01..03`
-- Delay: `BC-07..09`, `RS-11..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
+- Do now: `BC-07..09`, `RS-11..12`
+- Delay: `TW-07..09`, `UDW-01..06`, `MCF-01..03`
 - Future decision-integrity planning: `DIC-13..22` is tracked but delayed until proof-first Foreman reliability is stable; these issues must not be added to `boss-ready` during the current tranche
 - Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
 - Queue rule: only **Do now** roadmap codes may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
@@ -124,9 +125,9 @@ Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 
 ### Milestone 3.2 — Inbox / Operator Action Loops `[30-90d]`
 
-- [ ] **TW-04** Preserve receipt-before-action guarantees for inbox workflows
-- [ ] **TW-05** Reuse contracts, memory, and approval policies across non-code actions
-- [ ] **TW-06** Capture operator feedback tied to receipts
+- [ ] **TW-04** Preserve receipt-before-action guarantees for inbox workflows ([#6159](https://github.com/synaptent/aragora/issues/6159))
+- [ ] **TW-05** Reuse contracts, memory, and approval policies across non-code actions ([#6160](https://github.com/synaptent/aragora/issues/6160))
+- [ ] **TW-06** Capture operator feedback tied to receipts ([#6161](https://github.com/synaptent/aragora/issues/6161))
 
 ### Milestone 3.3 — Prompt-to-Spec Handoff `[30-90d]`
 
@@ -136,9 +137,9 @@ Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 
 ### Milestone 3.4 — Design-Partner Recurrence `[90-365d]`
 
-- [ ] **TW-10** Establish weekly design-partner operating cadence on real workloads
-- [ ] **TW-11** Publish truthful proof packs and before/after benchmarks
-- [ ] **TW-12** Decide which wedges graduate to packaged offerings
+- [ ] **TW-10** Establish weekly design-partner operating cadence on real workloads ([#6162](https://github.com/synaptent/aragora/issues/6162))
+- [ ] **TW-11** Publish truthful proof packs and before/after benchmarks ([#6163](https://github.com/synaptent/aragora/issues/6163))
+- [ ] **TW-12** Decide which wedges graduate to packaged offerings ([#6164](https://github.com/synaptent/aragora/issues/6164))
 
 ## Epic 4 — Unified DAG Workbench
 

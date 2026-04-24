@@ -17,6 +17,9 @@
     "verified_expected_count": 0
   },
   "corpus_freshness": {
+    "closure_hygiene_issue_count": 0,
+    "closure_hygiene_issue_numbers": [],
+    "closure_hygiene_issues": [],
     "issue_drafts": [],
     "issue_linkage_results": [],
     "issue_map_path": "docs/benchmarks/benchmark_corpus_freshness.json",
@@ -41,17 +44,17 @@
     "blocked_auth_failure": 2,
     "blocked_not_dispatch_bounded": 7
   },
-  "generated_at": "2026-04-17T14:33:07Z",
+  "generated_at": "2026-04-22T11:33:30Z",
   "in_flight_metrics": {
     "in_progress_attempted_count": 3,
     "in_progress_expected_count": 3,
-    "in_progress_graduation_rate": 0.0,
+    "in_progress_graduation_rate": 0.3333,
     "in_progress_issue_numbers": [
       5844,
       5887,
       5903
     ],
-    "in_progress_success_count": 0,
+    "in_progress_success_count": 1,
     "note": "In-flight corpus issues are bounded open tasks autonomy is on the hook to resolve. Graduation occurs when a merged PR closes them; they then move to verified via a corpus revision."
   },
   "issues": [
@@ -98,29 +101,41 @@
     {
       "expected_status": "in_progress",
       "had_rescue": false,
-      "issue_closed_at": null,
+      "issue_closed_at": "2026-04-17T15:45:52Z",
       "issue_number": 5903,
-      "issue_state": "OPEN",
-      "issue_state_reason": "",
+      "issue_state": "CLOSED",
+      "issue_state_reason": "COMPLETED",
       "issue_title": "[CS-01] Add roadmap priority policy classification tests",
       "issue_url": "https://github.com/synaptent/aragora/issues/5903",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [],
-      "no_rescue_truth_success": false,
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-04-17T15:45:51Z",
+          "number": 6130,
+          "state": "MERGED",
+          "title": "test(swarm): cover roadmap priority policy",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/6130"
+        }
+      ],
+      "no_rescue_truth_success": true,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "in_progress_open",
-      "truth_success": false
+      "truth_state": "merged_pr",
+      "truth_success": true
     }
   ],
-  "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+  "metrics_file": "/Users/armand/Development/aragora/.aragora/overnight/boss_metrics.jsonl",
   "primary_metrics": {
-    "merged_only_rate": 0.0,
-    "no_rescue_truth_success_rate": 0.0,
-    "truth_success_rate": 0.0,
+    "merged_only_rate": 0.3333,
+    "no_rescue_truth_success_rate": 0.3333,
+    "truth_success_rate": 0.3333,
     "truth_success_rate_verified": 0.0
   },
   "proxy_metrics": {

@@ -7,6 +7,10 @@
 
 import type { PaginationParams } from '../types';
 
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 // Admin-specific types
 export interface Organization {
   id: string;
@@ -374,9 +378,47 @@ export class AdminAPI {
     return this.client.request('GET', '/api/v1/admin/emergency/status');
   }
 
+  /** List admin feature flags. */
+  async listFeatureFlags(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/feature-flags');
+  }
+
   /** Update feature flags. */
   async updateFeatureFlags(data: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('PUT', '/api/v1/admin/feature-flags', { body: data });
+    const originalValues = new Map<string, unknown>();
+    const results: Record<string, unknown> = {};
+    const appliedFlags: string[] = [];
+
+    try {
+      for (const [name, value] of Object.entries(data)) {
+        const currentFlag = await this.getFeatureFlag(name);
+        originalValues.set(name, currentFlag.value);
+        results[name] = await this.setFeatureFlag(name, value);
+        appliedFlags.push(name);
+      }
+    } catch (error) {
+      const rollbackFailures: string[] = [];
+      for (const name of appliedFlags.reverse()) {
+        try {
+          await this.setFeatureFlag(name, originalValues.get(name));
+        } catch (rollbackError) {
+          rollbackFailures.push(`${name}: ${formatError(rollbackError)}`);
+        }
+      }
+      if (rollbackFailures.length > 0) {
+        const failureCause = error instanceof Error ? error : new Error(String(error));
+        throw Object.assign(
+          new Error(
+            'Bulk feature flag update failed and rollback did not restore all prior values: ' +
+              rollbackFailures.join('; '),
+          ),
+          { cause: failureCause },
+        );
+      }
+      throw error;
+    }
+
+    return results;
   }
 
   /** Get a specific feature flag by name. */

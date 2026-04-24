@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"019db172-4d01-7072-860c-99114afe8792"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"Reviewed the backend core.\n\n---BRIDGE-FOOTER---\nsummary: Reviewed the backend core\nnext_actor: implementer\nneeds_human: false\ndone: false\nartifacts: []\ntests_run: [\"pytest tests/swarm/agent_bridge\"]\n---BRIDGE-FOOTER-END---"}}
+{"type":"turn.completed","usage":{"input_tokens":27138,"output_tokens":64},"stop_reason":"completed"}

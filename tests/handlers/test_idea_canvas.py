@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from aragora.server.handlers.idea_canvas import IdeaCanvasHandler
+from aragora.server.handlers.idea_canvas import IdeaCanvasHandler, InvalidRequestError
 
 
 # ---------------------------------------------------------------------------
@@ -624,7 +624,7 @@ class TestUpdateCanvas:
         store.update_canvas.side_effect = TypeError("bad type")
         mock_get_store.return_value = store
 
-        result = handler._update_canvas(_ctx(), "ic-1", {}, "u1")
+        result = handler._update_canvas(_ctx(), "ic-1", {"name": "Updated"}, "u1")
         assert _status(result) == 500
 
 
@@ -1420,7 +1420,8 @@ class TestGetRequestBody:
         h = MagicMock()
         h.request = MagicMock()
         h.request.body = b"not-json"
-        assert handler._get_request_body(h) == {}
+        with pytest.raises(InvalidRequestError, match="Request body must be valid JSON"):
+            handler._get_request_body(h)
 
     def test_no_request_attr(self, handler):
         h = MagicMock(spec=[])
@@ -1430,7 +1431,8 @@ class TestGetRequestBody:
         h = MagicMock()
         h.request = MagicMock()
         h.request.body = b"\xff\xfe"
-        assert handler._get_request_body(h) == {}
+        with pytest.raises(InvalidRequestError, match="Request body must be valid UTF-8 JSON"):
+            handler._get_request_body(h)
 
 
 # ---------------------------------------------------------------------------

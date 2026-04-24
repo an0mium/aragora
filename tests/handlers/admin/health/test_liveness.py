@@ -125,8 +125,11 @@ class TestLivenessHandlerInit:
         assert h.ctx == {}
 
     def test_none_ctx_becomes_empty_dict(self):
-        h = LivenessHandler(ctx=None)
-        assert h.ctx == {}
+        first = LivenessHandler(ctx=None)
+        second = LivenessHandler(ctx=None)
+        assert first.ctx == {}
+        assert second.ctx == {}
+        assert first.ctx is not second.ctx
 
     def test_ctx_preserved_when_provided(self):
         ctx = {"storage": "fake_storage", "key": 42}
@@ -135,13 +138,12 @@ class TestLivenessHandlerInit:
         assert h.ctx["storage"] == "fake_storage"
         assert h.ctx["key"] == 42
 
-    def test_ctx_with_empty_dict_creates_new_dict(self):
-        """Empty dict is falsy, so `ctx or {}` creates a new empty dict."""
+    def test_ctx_with_empty_dict_is_preserved(self):
+        """An explicitly provided empty dict remains the handler context."""
         ctx = {}
         h = LivenessHandler(ctx=ctx)
         assert h.ctx == {}
-        # Because empty dict is falsy, `ctx or {}` creates a fresh dict
-        assert h.ctx is not ctx
+        assert h.ctx is ctx
 
 
 # ===========================================================================

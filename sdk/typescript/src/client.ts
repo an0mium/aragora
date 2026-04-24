@@ -180,10 +180,12 @@ import {
   WorkspacesAPI,
   IntegrationsAPI,
   MarketplaceAPI,
+  MCPAPI,
   CodebaseAPI,
   ConsensusAPI,
   OAuthAPI,
   MonitoringAPI,
+  SettlementAPI,
   SystemAPI,
   NomicAPI,
   CrossPollinationAPI,
@@ -275,6 +277,7 @@ import {
   SocialAPI,
   SecurityAPI,
   ReviewsAPI,
+  ReviewQueueAPI,
   CheckpointsAPI,
   UncertaintyAPI,
   AudioAPI,
@@ -537,6 +540,9 @@ export class AragoraClient {
    */
   readonly marketplace: MarketplaceAPI;
 
+  /** MCP API - Tool discovery surface. */
+  readonly mcp: MCPAPI;
+
   /**
    * Codebase Analysis API namespace.
    * Provides methods for security scanning, dependency analysis, metrics, and code intelligence.
@@ -560,6 +566,9 @@ export class AragoraClient {
    * Provides methods for metric recording, trend analysis, and anomaly detection.
    */
   readonly monitoring: MonitoringAPI;
+
+  /** Settlements API - Debate settlement and accuracy routes. */
+  readonly settlements: SettlementAPI;
 
   /**
    * System API namespace.
@@ -889,6 +898,8 @@ export class AragoraClient {
 
   /** Reviews API - Debate and decision review management. */
   readonly reviews: ReviewsAPI;
+  /** Review Queue API - Browser-based PR settlement triage for PDB briefs. */
+  readonly reviewQueue: ReviewQueueAPI;
 
   /** Checkpoints API - Debate checkpoint and pause/resume management. */
   readonly checkpoints: CheckpointsAPI;
@@ -1048,10 +1059,12 @@ export class AragoraClient {
     this.workspaces = new WorkspacesAPI(this);
     this.integrations = new IntegrationsAPI(this);
     this.marketplace = new MarketplaceAPI(this);
+    this.mcp = new MCPAPI(this);
     this.codebase = new CodebaseAPI(this);
     this.consensus = new ConsensusAPI(this);
     this.oauth = new OAuthAPI(this);
     this.monitoring = new MonitoringAPI(this);
+    this.settlements = new SettlementAPI(this);
     this.system = new SystemAPI(this);
     this.nomic = new NomicAPI(this);
     this.crossPollination = new CrossPollinationAPI(this);
@@ -1151,6 +1164,7 @@ export class AragoraClient {
     this.social = new SocialAPI(this);
     this.security = new SecurityAPI(this);
     this.reviews = new ReviewsAPI(this);
+    this.reviewQueue = new ReviewQueueAPI(this);
     this.checkpoints = new CheckpointsAPI(this);
     this.uncertainty = new UncertaintyAPI(this);
     this.audio = new AudioAPI(this);

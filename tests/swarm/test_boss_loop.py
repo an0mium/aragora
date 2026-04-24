@@ -55,6 +55,7 @@ from aragora.swarm.boss_loop import (
     select_eligible_issue,
 )
 from aragora.swarm.roadmap_priority import RoadmapPriorityPolicy
+from aragora.swarm.session_state import SessionStateStore
 from aragora.swarm.task_sanitizer import SanitizationOutcome
 from aragora.swarm.terminal_truth import qualify_work_order_terminal_state
 
@@ -4204,6 +4205,251 @@ async def test_dispatch_issue_preserves_issue_header_with_refined_prompt() -> No
     spec = mock_commander_cls.return_value.run_supervised_from_spec.await_args.args[0]
     assert spec.raw_goal.startswith("[Issue #1641] Wire prompt refiner env")
     assert "Use the refined goal only." in spec.raw_goal
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_injects_session_resume_context_into_work_order_metadata(
+    tmp_path: Path,
+) -> None:
+    issue = _make_issue(
+        1734,
+        "Reuse prior repair context",
+        body=(
+            "Summary:\n"
+            "- Retry the bounded boss-loop fix with the prior failure context.\n\n"
+            "Acceptance Criteria:\n"
+            "- pytest -q tests/swarm/test_boss_loop.py\n\n"
+            "Scope hints:\n"
+            "- aragora/swarm/boss_loop.py\n"
+        ),
+    )
+    store = SessionStateStore(state_dir=tmp_path)
+    store.record_attempt(
+        issue_number=1734,
+        repo_slug="synaptent/aragora",
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=["aragora/swarm/boss_loop.py"],
+        target_agent="codex",
+        runner_type="codex",
+        resume_hint="pytest -q tests/swarm/test_boss_loop.py failed",
+        metadata={
+            "failure_reason": "pytest -q tests/swarm/test_boss_loop.py failed",
+            "failing_verification": {
+                "command": "pytest -q tests/swarm/test_boss_loop.py",
+                "exit_code": 1,
+            },
+        },
+    )
+    store.record_attempt(
+        issue_number=1734,
+        repo_slug="other/repo",
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=["other/repo.py"],
+        target_agent="codex",
+        runner_type="codex",
+        resume_hint="other repo should not leak",
+        metadata={
+            "failure_reason": "other repo should not leak",
+            "failing_verification": {
+                "command": "pytest -q tests/other_repo.py",
+                "exit_code": 1,
+            },
+        },
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1), session_state_store=store)
+    spec = SimpleNamespace(
+        work_orders=[
+            {
+                "work_order_id": "work-1",
+                "title": "Retry the bounded boss-loop fix",
+                "description": "Use the prior verification failure as repair context.",
+                "file_scope": ["aragora/swarm/boss_loop.py"],
+                "expected_tests": ["pytest -q tests/swarm/test_boss_loop.py"],
+            }
+        ]
+    )
+    loop._attach_issue_handoff_metadata(
+        spec,
+        issue,
+        session_state=store.latest_for_issue(issue.number, repo_slug="synaptent/aragora"),
+    )
+    metadata = spec.work_orders[0]["metadata"]
+
+    assert metadata["resume_context"]["issue_number"] == 1734
+    assert metadata["resume_context"]["retry_count"] == 1
+    assert (
+        metadata["resume_context"]["resume_hint"]
+        == "pytest -q tests/swarm/test_boss_loop.py failed"
+    )
+    assert metadata["repair_journal"][0]["failing_verification"]["command"] == (
+        "pytest -q tests/swarm/test_boss_loop.py"
+    )
+
+
+def test_record_session_attempt_persists_session_state_after_dispatch(tmp_path: Path) -> None:
+    issue = _make_issue(
+        1735,
+        "Persist retry attempt",
+        body=(
+            "Summary:\n"
+            "- Persist the retry attempt after dispatch.\n\n"
+            "Acceptance Criteria:\n"
+            "- pytest -q tests/swarm/test_boss_loop.py\n\n"
+            "Scope hints:\n"
+            "- aragora/swarm/boss_loop.py\n"
+        ),
+    )
+    store = SessionStateStore(state_dir=tmp_path)
+    loop = BossLoop(config=_boss_config(max_iterations=1), session_state_store=store)
+
+    fake_result = {
+        "status": "needs_human",
+        "outcome": "blocked",
+        "reasons": ["Verification failed during pytest run."],
+        "run_id": "run-1735",
+        "receipt_id": "receipt-1735",
+        "run": {
+            "work_orders": [
+                {
+                    "status": "failed",
+                    "target_agent": "codex",
+                    "worktree_path": "/tmp/aragora-1735",
+                    "branch": "codex/issue-1735",
+                    "exit_code": 1,
+                    "changed_paths": ["aragora/swarm/boss_loop.py"],
+                    "verification_results": [
+                        {
+                            "command": "pytest -q tests/swarm/test_boss_loop.py",
+                            "exit_code": 1,
+                            "passed": False,
+                            "stderr_tail": "assert False",
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+
+    loop._record_session_attempt(
+        issue,
+        fake_result,
+        selected_runner={"runner_id": "codex-runner-1", "runner_type": "codex"},
+        requested_target_agent="codex",
+    )
+
+    state = store.latest_for_issue(issue.number, repo_slug="synaptent/aragora")
+
+    assert state is not None
+    assert state.retry_count == 1
+    assert state.target_agent == "codex"
+    assert state.branch_name == "codex/issue-1735"
+    assert state.metadata["repo_slug"] == "synaptent/aragora"
+    assert state.attempts[-1]["exit_code"] == 1
+    assert state.attempts[-1]["changed_paths"] == ["aragora/swarm/boss_loop.py"]
+
+
+def test_maxed_issue_needs_human_includes_session_blocker_summary(tmp_path: Path) -> None:
+    issue = _make_issue(1736, "Exhausted repair loop")
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [issue]
+    store = SessionStateStore(state_dir=tmp_path)
+    store.record_attempt(
+        issue_number=1736,
+        repo_slug="synaptent/aragora",
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=["aragora/swarm/boss_loop.py"],
+        resume_hint="Verification failed during pytest run.",
+        metadata={
+            "failure_reason": "Verification failed during pytest run.",
+            "failing_verification": {
+                "command": "pytest -q tests/swarm/test_boss_loop.py",
+                "exit_code": 1,
+            },
+        },
+    )
+    store.record_attempt(
+        issue_number=1736,
+        repo_slug="other/repo",
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=["other/repo.py"],
+        resume_hint="other repo should not leak",
+        metadata={"failure_reason": "other repo should not leak"},
+    )
+
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=1,
+            max_retries_per_issue=1,
+            repo="synaptent/aragora",
+        ),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: (_ for _ in ()).throw(
+            AssertionError("freshness should not be checked for maxed issues")
+        ),
+        session_state_store=store,
+    )
+
+    assert loop._issue_attempt_counts == {}
+    assert loop._selected_issues_need_retry_routing([issue]) is True
+    assert loop._issue_attempt_counts[1736] == 1
+
+    result = asyncio.run(loop.run())
+
+    assert result.stop_reason == BossStopReason.NO_SUITABLE_ISSUE.value
+    assert any(
+        "Issue #1736 exhausted retries; last blocker was failing verification" in reason
+        for reason in result.needs_human_reasons
+    )
+    assert any(
+        "pytest -q tests/swarm/test_boss_loop.py" in reason for reason in result.needs_human_reasons
+    )
+    assert all("other repo should not leak" not in reason for reason in result.needs_human_reasons)
+
+
+def test_requested_target_agent_hydrates_repo_scoped_retry_count(tmp_path: Path) -> None:
+    store = SessionStateStore(state_dir=tmp_path)
+    store.record_attempt(
+        issue_number=1737,
+        repo_slug="synaptent/aragora",
+        status="needs_human",
+        outcome="blocked",
+        target_agent="claude",
+    )
+    store.record_attempt(
+        issue_number=1737,
+        repo_slug="synaptent/aragora",
+        status="needs_human",
+        outcome="blocked",
+        target_agent="codex",
+    )
+    store.record_attempt(
+        issue_number=1737,
+        repo_slug="other/repo",
+        status="needs_human",
+        outcome="blocked",
+        target_agent="gemini",
+    )
+
+    loop = BossLoop(
+        config=_boss_config(
+            repo="synaptent/aragora",
+            default_target_agent="claude",
+            model_rotation=["claude", "codex", "gemini"],
+        ),
+        session_state_store=store,
+    )
+
+    assert loop._issue_attempt_counts == {}
+    assert loop._requested_target_agent_for_issue(1737, repo_slug="synaptent/aragora") == "codex"
+    assert loop._issue_attempt_counts[1737] == 2
 
 
 @pytest.mark.asyncio

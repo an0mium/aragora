@@ -276,7 +276,7 @@ from aragora.server.handlers.mixins import (
 logger = logging.getLogger(__name__)
 
 # Default host from environment (used when Host header is missing)
-_DEFAULT_HOST = os.environ.get("ARAGORA_DEFAULT_HOST", "localhost:8080")
+_DEFAULT_HOST: str = os.environ.get("ARAGORA_DEFAULT_HOST") or "localhost:8080"
 
 # Re-export DB_TIMEOUT_SECONDS for backwards compatibility
 __all__ = [
@@ -414,11 +414,11 @@ def get_host_header(handler: HTTPRequestHandler | None, default: str | None = No
         # After:
         host = get_host_header(handler)
     """
-    if default is None:
-        default = _DEFAULT_HOST
-    if handler is None:
-        return default
-    return handler.headers.get("Host", default) if hasattr(handler, "headers") else default
+    fallback = default if default is not None else _DEFAULT_HOST
+    if handler is None or not hasattr(handler, "headers"):
+        return fallback
+    host = handler.headers.get("Host")
+    return host if host is not None else fallback
 
 
 def get_agent_name(agent: dict[str, Any] | AgentRating | Any | None) -> str | None:
@@ -858,7 +858,7 @@ class BaseHandler:
 
         is_valid, err_msg = validate_path_segment(value, param_name, pattern)
         if not is_valid:
-            return None, error_response(err_msg, 400)
+            return None, error_response(err_msg or f"Invalid {param_name}", 400)
 
         return value, None
 
@@ -1022,6 +1022,8 @@ class BaseHandler:
         user, err = self.require_auth_or_error(handler)
         if err:
             return None, err
+        if user is None:
+            raise RuntimeError("authenticated user missing after auth check")
 
         # Check for admin role or permission
         roles = getattr(user, "roles", []) or []
@@ -1065,6 +1067,8 @@ class BaseHandler:
         user, err = self.require_auth_or_error(handler)
         if err:
             return None, err
+        if user is None:
+            raise RuntimeError("authenticated user missing after auth check")
 
         # Check permission using role and permissions
         roles = getattr(user, "roles", []) or []
@@ -1079,9 +1083,27 @@ class BaseHandler:
         if "owner" in roles or role == "owner":
             return user, None
 
-        # Check specific permission
-        if permission in permissions:
+        permission_set = set(permissions)
+
+        # Check specific permission or wildcard
+        if permission in permission_set or "*" in permission_set:
             return user, None
+
+        # Accept equivalent dot/colon aliases for the same RBAC permission.
+        try:
+            from aragora.rbac.defaults import get_permission
+
+            required_permission = get_permission(permission)
+            if required_permission is not None:
+                for granted_permission in permission_set:
+                    resolved_permission = get_permission(granted_permission)
+                    if (
+                        resolved_permission is not None
+                        and resolved_permission.id == required_permission.id
+                    ):
+                        return user, None
+        except ImportError:
+            pass
 
         # Check using PERMISSION_MATRIX from decorators
         try:
@@ -1094,10 +1116,89 @@ class BaseHandler:
 
         return None, error_response("Permission denied", 403)
 
+    def require_user(
+        self,
+        handler: HTTPRequestHandler,
+        permission: str | None = None,
+    ) -> UserAuthContext | HandlerResult:
+        """Require authentication (and optionally a permission) with narrow typing.
+
+        Thin wrapper around :meth:`require_auth_or_error` / :meth:`require_permission_or_error`
+        that collapses the ``(user | None, err | None)`` tuple into a single
+        return value amenable to mypy narrowing at the call site.
+
+        Args:
+            handler: HTTP request handler with headers.
+            permission: Optional required permission string (e.g. ``"read"``).
+                When ``None``, only authentication is required.
+
+        Returns:
+            ``UserAuthContext`` on success, or a ``HandlerResult`` error
+            response (401/403) on failure.
+
+        Example:
+            def handle_post(self, path, query_params, handler):
+                user = self.require_user(handler, permission="write")
+                if isinstance(user, HandlerResult):
+                    return user
+                # mypy narrows `user` to UserAuthContext here.
+                return json_response({"user_id": user.user_id})
+        """
+        if permission is None:
+            user, err = self.require_auth_or_error(handler)
+        else:
+            user, err = self.require_permission_or_error(handler, permission)
+        if err is not None:
+            return err
+        if user is None:  # pragma: no cover - defensive, the helpers guarantee this
+            raise RuntimeError("authenticated user missing after auth check")
+        return user
+
     # === POST Body Parsing Support ===
 
     # Maximum request body size (10MB default)
     MAX_BODY_SIZE = 10 * 1024 * 1024
+    _INVALID_JSON_BODY = object()
+
+    def _read_json_body_value(self, handler: Any, max_size: int | None = None) -> Any:
+        """Read and parse a JSON request body while preserving non-object payloads."""
+        max_size = max_size or self.MAX_BODY_SIZE
+        try:
+            for raw_body in (
+                getattr(handler, "body", None),
+                getattr(getattr(handler, "request", None), "body", None),
+            ):
+                if isinstance(raw_body, str):
+                    raw_body = raw_body.encode("utf-8")
+                if isinstance(raw_body, (bytes, bytearray)):
+                    if len(raw_body) > max_size:
+                        return self._INVALID_JSON_BODY
+                    if not raw_body:
+                        return {}
+                    return json.loads(bytes(raw_body))
+
+            content_length = int(handler.headers.get("Content-Length", 0))
+            is_chunked = "chunked" in (handler.headers.get("Transfer-Encoding", "") or "").lower()
+
+            if content_length > max_size:
+                return self._INVALID_JSON_BODY
+
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+            elif is_chunked or content_length == 0:
+                # Missing or zero Content-Length: read available data up to max_size.
+                # This handles Cloudflare HTTP/2 -> HTTP/1.1 proxy scenarios.
+                body = handler.rfile.read(max_size)
+            else:
+                return {}
+
+            if not body:
+                return {}
+            if len(body) > max_size:
+                return self._INVALID_JSON_BODY
+            return json.loads(body)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return self._INVALID_JSON_BODY
 
     def read_json_body(self, handler: Any, max_size: int | None = None) -> dict[str, Any] | None:
         """Read and parse JSON body from request handler.
@@ -1115,45 +1216,8 @@ class BaseHandler:
             Parsed JSON dict, empty dict for no content, or None for parse errors
             or non-object JSON payloads
         """
-        max_size = max_size or self.MAX_BODY_SIZE
-        try:
-            for raw_body in (
-                getattr(handler, "body", None),
-                getattr(getattr(handler, "request", None), "body", None),
-            ):
-                if isinstance(raw_body, str):
-                    raw_body = raw_body.encode("utf-8")
-                if isinstance(raw_body, (bytes, bytearray)):
-                    if len(raw_body) > max_size:
-                        return None
-                    if not raw_body:
-                        return {}
-                    parsed = json.loads(bytes(raw_body))
-                    return parsed if isinstance(parsed, dict) else None
-
-            content_length = int(handler.headers.get("Content-Length", 0))
-            is_chunked = "chunked" in (handler.headers.get("Transfer-Encoding", "") or "").lower()
-
-            if content_length > max_size:
-                return None  # Body too large
-
-            if content_length > 0:
-                body = handler.rfile.read(content_length)
-            elif is_chunked or content_length == 0:
-                # Missing or zero Content-Length: read available data up to max_size.
-                # This handles Cloudflare HTTP/2 -> HTTP/1.1 proxy scenarios.
-                body = handler.rfile.read(max_size)
-            else:
-                return {}
-
-            if not body:
-                return {}
-            if len(body) > max_size:
-                return None  # Body too large after read
-            parsed = json.loads(body)
-            return parsed if isinstance(parsed, dict) else None
-        except (json.JSONDecodeError, ValueError, TypeError):
-            return None
+        parsed = self._read_json_body_value(handler, max_size)
+        return parsed if isinstance(parsed, dict) else None
 
     def validate_content_length(self, handler: Any, max_size: int | None = None) -> int | None:
         """Validate Content-Length header.
@@ -1227,8 +1291,8 @@ class BaseHandler:
             return None, content_type_error
 
         # Read and parse body
-        body = self.read_json_body(handler, max_size)
-        if body is None:
+        body = self._read_json_body_value(handler, max_size)
+        if body is self._INVALID_JSON_BODY:
             return None, error_response("Invalid or too large JSON body", 400)
         if not isinstance(body, dict):
             return None, error_response("Request body must be a JSON object", 400)

@@ -30,6 +30,13 @@ from aragora.reputation.anchor import (
 )
 from aragora.reputation.bridge import bridge_from_market_position
 from aragora.reputation.settlement import settle_claim
+from aragora.reputation.store import (
+    AgentScore,
+    ReputationStore,
+    ReputationStoreError,
+    enable_store,
+    store_enabled,
+)
 from aragora.reputation.types import (
     DOMAIN_CODE_PR,
     DOMAIN_CRUX_RESOLUTION,
@@ -60,6 +67,12 @@ __all__ = [
     "enable_reputation_flow",
     "reputation_flow_enabled",
     "settle_claim",
+    # store
+    "AgentScore",
+    "ReputationStore",
+    "ReputationStoreError",
+    "enable_store",
+    "store_enabled",
 ]
 
 

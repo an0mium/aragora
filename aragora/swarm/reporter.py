@@ -12,8 +12,9 @@ import re
 from pathlib import Path
 
 from aragora.harnesses.base import AnalysisType
+from aragora.swarm.live_shift_status import load_shift_status
 from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
-from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH, ShiftLedger
+from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH
 from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.terminal_truth import (
     qualify_work_order_terminal_state,
@@ -577,15 +578,27 @@ def _resolve_shift_ledger_status(
     path = ledger_path if ledger_path is not None else root / Path(DEFAULT_LEDGER_PATH)
     if not path.is_absolute():
         path = root / path
-    if not path.exists():
-        return {}
-
     try:
-        payload = ShiftLedger(path=path).get_status_summary(max_age_hours=max_age_hours)
+        payload = load_shift_status(root, ledger_path=path, max_age_hours=max_age_hours)
     except (OSError, RuntimeError, TypeError, ValueError) as exc:
         logger.debug("shift_ledger_status_fetch_failed: %s: %s", type(exc).__name__, exc)
         return {}
-    return dict(payload) if isinstance(payload, dict) and payload else {}
+    if not isinstance(payload, dict) or not payload:
+        return {}
+    if payload.get("available"):
+        return dict(payload)
+    if any(
+        payload.get(key) is not None
+        for key in (
+            "current_queue_size",
+            "current_open_prs",
+            "current_boss_running",
+            "current_merge_running",
+            "current_benchmark_fresh",
+        )
+    ):
+        return dict(payload)
+    return {}
 
 
 def _operator_status_from_ledger(ledger_status: dict[str, Any]) -> dict[str, Any]:

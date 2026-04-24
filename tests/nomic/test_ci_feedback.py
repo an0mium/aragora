@@ -583,6 +583,73 @@ class TestNomicCITestSelector:
         result = infer_test_paths(["scripts/foo.py"])
         assert result == []
 
+    def test_changed_python_files_filters_aragora_modules(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+        from nomic_ci_test_selector import changed_python_files
+
+        result = changed_python_files(
+            [
+                "aragora/foo/bar.py",
+                "tests/foo/test_bar.py",
+                "docs/notes.md",
+                "aragora/foo/bar.txt",
+                "aragora/baz/qux.py",
+            ]
+        )
+
+        assert result == ["aragora/foo/bar.py", "aragora/baz/qux.py"]
+
+    def test_main_skips_when_no_changed_python_files(self, monkeypatch, tmp_path, capsys):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+        import nomic_ci_test_selector
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["nomic_ci_test_selector.py", "--changed-files", "docs/notes.md", "--dry-run"],
+        )
+
+        exit_code = nomic_ci_test_selector.main()
+
+        assert exit_code == 0
+        result = json.loads((tmp_path / ".nomic-ci-result.json").read_text())
+        assert result["status"] == "skipped"
+        assert result["changed_python_files"] == []
+        assert "No matching test files found for changed files" in capsys.readouterr().out
+
+    def test_main_fails_for_changed_python_without_mapped_tests(
+        self,
+        monkeypatch,
+        tmp_path,
+        capsys,
+    ):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+        import nomic_ci_test_selector
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "nomic_ci_test_selector.py",
+                "--changed-files",
+                "aragora/foo/new_module.py",
+                "--dry-run",
+            ],
+        )
+
+        exit_code = nomic_ci_test_selector.main()
+
+        assert exit_code == 1
+        result = json.loads((tmp_path / ".nomic-ci-result.json").read_text())
+        assert result["status"] == "unmapped_python_changes"
+        assert result["exit_code"] == 1
+        assert result["changed_python_files"] == ["aragora/foo/new_module.py"]
+        captured = capsys.readouterr().out
+        assert "No mapped test files found for changed Python files" in captured
+        assert "::error::untested new Python module: aragora/foo/new_module.py" in captured
+
 
 # ============================================================
 # SemanticConflictDetector (basic wiring)

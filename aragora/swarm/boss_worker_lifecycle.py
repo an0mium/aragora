@@ -739,12 +739,12 @@ async def dispatch_issue(
             )
         )
 
-    loop._attach_issue_handoff_metadata(spec, issue)
+    repo_slug = loop._repo_slug_for_issue(issue)
+    prior_session_state = loop._session_state_for_issue(issue.number, repo_slug=repo_slug)
+    loop._attach_issue_handoff_metadata(spec, issue, session_state=prior_session_state)
 
     try:
-        from aragora.swarm.session_state import load_resume_context_for_issue
-
-        resume_context = load_resume_context_for_issue(issue.number)
+        resume_context = prior_session_state.resume_context() if prior_session_state else ""
         if resume_context:
             spec.raw_goal = (
                 f"{spec.raw_goal}\n\n## Resume Context (from prior attempt)\n{resume_context}"
@@ -855,7 +855,10 @@ async def dispatch_issue(
     requested_target_agent = (
         str(pending_handoff[1]).strip().lower()
         if pending_handoff is not None and str(pending_handoff[1]).strip()
-        else loop._requested_target_agent_for_issue(issue.number)
+        else loop._requested_target_agent_for_issue(
+            issue.number,
+            repo_slug=loop._repo_slug_for_issue(issue),
+        )
     )
 
     backbone_run_id = None
@@ -992,6 +995,12 @@ async def dispatch_issue(
     dispatch_status = boss_loop_mod._backbone_dispatch_status(result)
     result = loop._postprocess_issue_result(issue, result)
     postprocess_metadata = loop._apply_postprocess_metadata(result)
+    loop._record_session_attempt(
+        issue,
+        result,
+        selected_runner=selected_runner,
+        requested_target_agent=requested_target_agent,
+    )
     if (
         backbone_run_id
         and runtime is not None
@@ -1044,14 +1053,3 @@ async def dispatch_issue(
         repo_root=Path.cwd(),
     )
     return result
-
-
-async def dispatch_issue_under_claim(
-    loop: "BossLoop",
-    issue: GitHubIssue,
-    freshness: RunnerFreshnessResult,
-) -> dict[str, Any]:
-    try:
-        return await dispatch_issue(loop, issue, freshness)
-    finally:
-        loop._release_issue_dispatch_claim(issue.number)

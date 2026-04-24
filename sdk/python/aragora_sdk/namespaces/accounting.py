@@ -306,23 +306,20 @@ class AccountingAPI:
         self,
         invoice_id: str | None = None,
         status: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> Any:
         """
-        Update invoice processing status.
+        Guard unsupported write access until the API contract publishes this route.
 
         Args:
             invoice_id: Invoice to update.
             status: New status value.
 
-        Returns:
-            Updated invoice status.
+        Raises:
+            NotImplementedError: The current public API contract exposes only the read path.
         """
-        data: dict[str, Any] = {}
-        if invoice_id is not None:
-            data["invoice_id"] = invoice_id
-        if status is not None:
-            data["status"] = status
-        return self._client.request("POST", "/api/v1/accounting/invoices/status", json=data)
+        raise NotImplementedError(
+            "POST /api/v1/accounting/invoices/status is not part of the current Aragora API contract."
+        )
 
 
 class AsyncAccountingAPI:
@@ -565,11 +562,8 @@ class AsyncAccountingAPI:
         self,
         invoice_id: str | None = None,
         status: str | None = None,
-    ) -> dict[str, Any]:
-        """Update invoice processing status."""
-        data: dict[str, Any] = {}
-        if invoice_id is not None:
-            data["invoice_id"] = invoice_id
-        if status is not None:
-            data["status"] = status
-        return await self._client.request("POST", "/api/v1/accounting/invoices/status", json=data)
+    ) -> Any:
+        """Guard unsupported write access until the API contract publishes this route."""
+        raise NotImplementedError(
+            "POST /api/v1/accounting/invoices/status is not part of the current Aragora API contract."
+        )

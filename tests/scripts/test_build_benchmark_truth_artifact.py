@@ -543,6 +543,66 @@ def test_build_benchmark_truth_artifact_surfaces_linkage_warnings_without_stale_
     assert artifact["issues"][0]["linkage_verification_incomplete"] is False
 
 
+def test_build_benchmark_truth_artifact_surfaces_closure_hygiene_drift(
+    tmp_path: Path,
+) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(
+        json.dumps(
+            {
+                "issue_number": 5903,
+                "issue_title": "Roadmap-priority tests",
+                "terminal_class": "deliverable_pr_created",
+                "publish_action": "pr_created",
+                "worker_outcome": "pr_adopted",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 4,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [
+                {"issue_id": 5903, "title": "Roadmap-priority tests"},
+            ],
+        },
+    )
+    client = FakeGitHubTruthClient(
+        issues={
+            5903: {
+                "title": "Roadmap-priority tests",
+                "url": "https://github.com/synaptent/aragora/issues/5903",
+                "state": "OPEN",
+                "stateReason": "",
+                "closedAt": None,
+                "closedByPullRequestsReferences": [],
+                "comments": [],
+            }
+        },
+        prs={},
+    )
+
+    artifact = mod.build_benchmark_truth_artifact(
+        repo="synaptent/aragora",
+        metrics_file=metrics_path,
+        corpus_path=corpus_path,
+        client=client,
+        generated_at="2026-04-14T01:00:00Z",
+    )
+
+    assert artifact["corpus_freshness"]["status"] == "closure_hygiene_drift_detected"
+    assert artifact["corpus_freshness"]["stale_closed_issue_count"] == 0
+    assert artifact["corpus_freshness"]["closure_hygiene_issue_numbers"] == [5903]
+    assert artifact["issues"][0]["proxy_pr_signal"] is True
+    assert artifact["issues"][0]["truth_state"] == "no_linked_pr"
+    assert artifact["issues"][0]["issue_state"] == "OPEN"
+
+
 def test_build_benchmark_truth_artifact_surfaces_freshness_issue_draft(
     tmp_path: Path,
 ) -> None:
@@ -690,6 +750,93 @@ def test_build_benchmark_truth_artifact_reopens_draft_when_linked_issue_is_close
     assert artifact["corpus_freshness"]["linked_issue_count"] == 0
     assert artifact["corpus_freshness"]["unlinked_issue_count"] == 1
     assert artifact["corpus_freshness"]["issue_drafts"][0]["stale_issue_numbers"] == [1733]
+
+
+def test_detect_post_generation_issue_state_drift_flags_issue_closed_after_artifact() -> None:
+    artifact = {
+        "generated_at": "2026-04-17T14:33:07Z",
+        "issues": [
+            {
+                "issue_number": 5903,
+                "issue_title": "[CS-01] Add roadmap priority policy classification tests",
+                "issue_url": "https://github.com/synaptent/aragora/issues/5903",
+                "issue_state": "OPEN",
+                "issue_state_reason": "",
+                "issue_closed_at": None,
+            }
+        ],
+    }
+    client = FakeGitHubTruthClient(
+        issues={
+            5903: {
+                "title": "[CS-01] Add roadmap priority policy classification tests",
+                "url": "https://github.com/synaptent/aragora/issues/5903",
+                "state": "CLOSED",
+                "stateReason": "COMPLETED",
+                "closedAt": "2026-04-17T15:45:52Z",
+                "updatedAt": "2026-04-17T15:45:52Z",
+                "closedByPullRequestsReferences": [],
+                "comments": [],
+            }
+        },
+        prs={},
+    )
+
+    drift = mod.detect_post_generation_issue_state_drift(
+        artifact=artifact,
+        repo="synaptent/aragora",
+        client=client,
+    )
+
+    assert drift["status"] == "post_generation_issue_state_drift"
+    assert drift["issue_count"] == 1
+    assert drift["issues"][0]["issue_number"] == 5903
+    assert drift["issues"][0]["artifact_issue_state"] == "OPEN"
+    assert drift["issues"][0]["live_issue_state"] == "CLOSED"
+
+
+def test_detect_post_generation_issue_state_drift_ignores_unchanged_issue_state() -> None:
+    artifact = {
+        "generated_at": "2026-04-17T14:33:07Z",
+        "issues": [
+            {
+                "issue_number": 5903,
+                "issue_title": "[CS-01] Add roadmap priority policy classification tests",
+                "issue_url": "https://github.com/synaptent/aragora/issues/5903",
+                "issue_state": "OPEN",
+                "issue_state_reason": "",
+                "issue_closed_at": None,
+            }
+        ],
+    }
+    client = FakeGitHubTruthClient(
+        issues={
+            5903: {
+                "title": "[CS-01] Add roadmap priority policy classification tests",
+                "url": "https://github.com/synaptent/aragora/issues/5903",
+                "state": "OPEN",
+                "stateReason": "",
+                "closedAt": None,
+                "updatedAt": "2026-04-17T15:45:52Z",
+                "closedByPullRequestsReferences": [],
+                "comments": [],
+            }
+        },
+        prs={},
+    )
+
+    drift = mod.detect_post_generation_issue_state_drift(
+        artifact=artifact,
+        repo="synaptent/aragora",
+        client=client,
+    )
+
+    assert drift == {
+        "status": "fresh",
+        "generated_at": "2026-04-17T14:33:07Z",
+        "issue_count": 0,
+        "issues": [],
+    }
 
 
 def test_attach_corpus_freshness_follow_up_reopens_draft_when_stale_set_drifts(

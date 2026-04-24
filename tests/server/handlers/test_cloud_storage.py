@@ -511,7 +511,7 @@ class TestCloudStorageHandlerUploadFiles:
         assert result is not None
         assert result.status == 400
         data = json.loads(result.body)
-        assert "Filename" in data.get("error", "")
+        assert "filename is required" in data.get("error", "")
 
     @pytest.mark.asyncio
     async def test_upload_file_missing_content(self, handler):

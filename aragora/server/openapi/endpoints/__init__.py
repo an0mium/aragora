@@ -18,6 +18,7 @@ from aragora.server.openapi.endpoints.metrics import METRICS_ENDPOINTS
 from aragora.server.openapi.endpoints.verification import VERIFICATION_ENDPOINTS
 from aragora.server.openapi.endpoints.documents import DOCUMENT_ENDPOINTS
 from aragora.server.openapi.endpoints.plugins import PLUGIN_ENDPOINTS
+from aragora.server.openapi.endpoints.mcp import MCP_ENDPOINTS
 from aragora.server.openapi.endpoints.additional import ADDITIONAL_ENDPOINTS
 from aragora.server.openapi.endpoints.oauth import OAUTH_ENDPOINTS
 from aragora.server.openapi.endpoints.privacy import PRIVACY_ENDPOINTS
@@ -86,6 +87,7 @@ from aragora.server.openapi.endpoints.self_improve_details import (
     SELF_IMPROVE_DETAILS_ENDPOINTS,
 )
 from aragora.server.openapi.endpoints.status import STATUS_ENDPOINTS
+from aragora.server.openapi.endpoints.agent_bridge import AGENT_BRIDGE_ENDPOINTS
 
 
 import logging
@@ -126,6 +128,7 @@ ALL_ENDPOINTS = {
     **VERIFICATION_ENDPOINTS,
     **DOCUMENT_ENDPOINTS,
     **PLUGIN_ENDPOINTS,
+    **MCP_ENDPOINTS,
     **ADDITIONAL_ENDPOINTS,
     **OAUTH_ENDPOINTS,
     **PRIVACY_ENDPOINTS,
@@ -188,6 +191,7 @@ ALL_ENDPOINTS = {
     **RALPH_ENDPOINTS,
     **SELF_IMPROVE_DETAILS_ENDPOINTS,
     **STATUS_ENDPOINTS,
+    **AGENT_BRIDGE_ENDPOINTS,
 }
 
 # Deep merge decorator endpoints: manual specs take precedence over decorator
@@ -214,6 +218,7 @@ __all__ = [
     "VERIFICATION_ENDPOINTS",
     "DOCUMENT_ENDPOINTS",
     "PLUGIN_ENDPOINTS",
+    "MCP_ENDPOINTS",
     "ADDITIONAL_ENDPOINTS",
     "OAUTH_ENDPOINTS",
     "PRIVACY_ENDPOINTS",
@@ -276,5 +281,6 @@ __all__ = [
     "RALPH_ENDPOINTS",
     "SELF_IMPROVE_DETAILS_ENDPOINTS",
     "STATUS_ENDPOINTS",
+    "AGENT_BRIDGE_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

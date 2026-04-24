@@ -395,6 +395,58 @@ def test_audit_read_attempt_count_existing_marker():
     assert valid is True
 
 
+def test_audit_read_attempt_count_gh_failure_fails_open():
+    ap = AuditPersistence(issue_number=5898)
+    with patch.object(
+        ap,
+        "_gh_list_comments",
+        side_effect=subprocess.CalledProcessError(1, ["gh", "api"]),
+    ):
+        count, valid = ap.read_attempt_count()
+    assert count == 0
+    assert valid is True
+
+
+def test_audit_list_comments_flattens_paginated_pages():
+    ap = AuditPersistence(issue_number=5898)
+    with patch(
+        "aragora.swarm.spec_upgrader.subprocess.check_output",
+        return_value='[[{"id": 1, "body": "first"}], [{"id": 2, "body": "second"}]]',
+    ) as check_output:
+        comments = ap._gh_list_comments()
+
+    assert comments == [
+        {"id": 1, "body": "first"},
+        {"id": 2, "body": "second"},
+    ]
+    assert "--slurp" in check_output.call_args.args[0]
+
+
+def test_audit_list_comments_accepts_plain_array_payload():
+    ap = AuditPersistence(issue_number=5898)
+    with patch(
+        "aragora.swarm.spec_upgrader.subprocess.check_output",
+        return_value='[{"id": 1, "body": "first"}]',
+    ):
+        comments = ap._gh_list_comments()
+
+    assert comments == [{"id": 1, "body": "first"}]
+
+
+def test_audit_list_comments_flattens_newline_delimited_pages():
+    ap = AuditPersistence(issue_number=5898)
+    with patch(
+        "aragora.swarm.spec_upgrader.subprocess.check_output",
+        return_value='[{"id": 1, "body": "first"}]\n[{"id": 2, "body": "second"}]\n',
+    ):
+        comments = ap._gh_list_comments()
+
+    assert comments == [
+        {"id": 1, "body": "first"},
+        {"id": 2, "body": "second"},
+    ]
+
+
 def test_audit_upsert_creates_when_missing():
     ap = AuditPersistence(issue_number=5898)
     with (
@@ -611,6 +663,39 @@ def test_upgrade_spec_escalates_on_max_attempts(tmp_path):
 
     assert result.status == "escalated"
     ESC.return_value.escalate.assert_called_once()
+
+
+def test_upgrade_spec_tolerates_audit_read_failure(tmp_path):
+    (tmp_path / "aragora" / "swarm").mkdir(parents=True)
+    (tmp_path / "aragora" / "swarm" / "boss_loop.py").write_text("")
+    spec = _make_unbounded_spec()
+    ctx = UpgradeFailureContext(
+        missing_bounds=["acceptance criterion", "file-scope hint"],
+        preflight_diff=None,
+        prior_attempts=0,
+        original_issue_body="Fix `aragora/swarm/boss_loop.py` behaviour.",
+        issue_title="[TW-02] Fix boss loop",
+        track_tag="TW-02",
+    )
+    metrics = tmp_path / "boss_metrics.jsonl"
+
+    with patch(
+        "aragora.swarm.spec_upgrader.AuditPersistence._gh_list_comments",
+        side_effect=subprocess.CalledProcessError(1, ["gh", "api"]),
+    ):
+        result = upgrade_spec(
+            spec,
+            ctx,
+            issue_number=5898,
+            seam="A",
+            repo_root=Path(tmp_path),
+            metrics_path=metrics,
+            llm_client=None,
+        )
+
+    assert result.status == "upgraded"
+    records = [json.loads(line) for line in metrics.read_text().splitlines() if line.strip()]
+    assert records[-1]["audit_failed"] is True
 
 
 def test_upgrade_spec_llm_unavailable_bubbles(tmp_path):

@@ -20,6 +20,10 @@ if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 
+def _format_bulk_feature_flag_rollback_failures(rollback_failures: dict[str, str]) -> str:
+    return "; ".join(f"{flag_name}: {message}" for flag_name, message in rollback_failures.items())
+
+
 class AdminAPI:
     """
     Synchronous Admin API.
@@ -265,6 +269,10 @@ class AdminAPI:
     # Feature Flags
     # ===========================================================================
 
+    def list_feature_flags(self) -> dict[str, Any]:
+        """List admin feature flags."""
+        return self._client.request("GET", "/api/v1/admin/feature-flags")
+
     def update_feature_flags(self, flags: dict[str, Any]) -> dict[str, Any]:
         """Update admin feature flags.
 
@@ -272,9 +280,33 @@ class AdminAPI:
             flags: Feature flag key-value pairs to update.
 
         Returns:
-            Dict with updated flags.
+            Dict keyed by flag name with individual update results.
         """
-        return self._client.request("PUT", "/api/v1/admin/feature-flags", json=flags)
+        original_values: dict[str, Any] = {}
+        results: dict[str, Any] = {}
+        applied_flags: list[str] = []
+
+        try:
+            for flag_name, value in flags.items():
+                original_values[flag_name] = self.get_feature_flag(flag_name)["value"]
+                results[flag_name] = self.set_feature_flag(flag_name, value)
+                applied_flags.append(flag_name)
+        except Exception as exc:
+            rollback_failures: dict[str, str] = {}
+            for flag_name in reversed(applied_flags):
+                try:
+                    self.set_feature_flag(flag_name, original_values[flag_name])
+                except Exception as rollback_exc:
+                    rollback_failures[flag_name] = str(rollback_exc)
+
+            if rollback_failures:
+                raise RuntimeError(
+                    "Bulk feature flag update failed and rollback did not restore all prior "
+                    f"values: {_format_bulk_feature_flag_rollback_failures(rollback_failures)}"
+                ) from exc
+            raise
+
+        return results
 
     def get_feature_flag(self, flag_name: str) -> dict[str, Any]:
         """Get a specific feature flag by name.
@@ -598,9 +630,37 @@ class AsyncAdminAPI:
     # Feature Flags
     # ===========================================================================
 
+    async def list_feature_flags(self) -> dict[str, Any]:
+        """List admin feature flags."""
+        return await self._client.request("GET", "/api/v1/admin/feature-flags")
+
     async def update_feature_flags(self, flags: dict[str, Any]) -> dict[str, Any]:
         """Update admin feature flags."""
-        return await self._client.request("PUT", "/api/v1/admin/feature-flags", json=flags)
+        original_values: dict[str, Any] = {}
+        results: dict[str, Any] = {}
+        applied_flags: list[str] = []
+
+        try:
+            for flag_name, value in flags.items():
+                original_values[flag_name] = (await self.get_feature_flag(flag_name))["value"]
+                results[flag_name] = await self.set_feature_flag(flag_name, value)
+                applied_flags.append(flag_name)
+        except Exception as exc:
+            rollback_failures: dict[str, str] = {}
+            for flag_name in reversed(applied_flags):
+                try:
+                    await self.set_feature_flag(flag_name, original_values[flag_name])
+                except Exception as rollback_exc:
+                    rollback_failures[flag_name] = str(rollback_exc)
+
+            if rollback_failures:
+                raise RuntimeError(
+                    "Bulk feature flag update failed and rollback did not restore all prior "
+                    f"values: {_format_bulk_feature_flag_rollback_failures(rollback_failures)}"
+                ) from exc
+            raise
+
+        return results
 
     async def get_feature_flag(self, flag_name: str) -> dict[str, Any]:
         """Get a specific feature flag by name."""

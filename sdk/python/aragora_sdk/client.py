@@ -253,6 +253,7 @@ class AragoraClient:
         from .namespaces.marketplace import MarketplaceAPI
         from .namespaces.matches import MatchesAPI
         from .namespaces.matrix_debates import MatrixDebatesAPI
+        from .namespaces.mcp import MCPAPI
         from .namespaces.media import MediaAPI
         from .namespaces.memory import MemoryAPI
         from .namespaces.metrics import MetricsAPI
@@ -301,6 +302,7 @@ class AragoraClient:
         from .namespaces.repository import RepositoryAPI
         from .namespaces.reputation import ReputationAPI
         from .namespaces.retention import RetentionAPI
+        from .namespaces.review_queue import ReviewQueueAPI
         from .namespaces.reviews import ReviewsAPI
         from .namespaces.rlm import RLMAPI
         from .namespaces.routing import RoutingAPI
@@ -310,6 +312,7 @@ class AragoraClient:
         from .namespaces.selection import SelectionAPI
         from .namespaces.self_improve import SelfImproveAPI
         from .namespaces.services import ServicesAPI
+        from .namespaces.settlements import SettlementAPI
         from .namespaces.shared_inbox import SharedInboxAPI
         from .namespaces.skills import SkillsAPI
         from .namespaces.slo import SLOAPI
@@ -443,6 +446,7 @@ class AragoraClient:
         self.marketplace = MarketplaceAPI(self)
         self.memory = MemoryAPI(self)
         self.matches = MatchesAPI(self)
+        self.mcp = MCPAPI(self)
         self.matrix_debates = MatrixDebatesAPI(self)
         self.media = MediaAPI(self)
         self.metrics = MetricsAPI(self)
@@ -488,12 +492,14 @@ class AragoraClient:
         self.reviews = ReviewsAPI(self)
         self.relationships = RelationshipsAPI(self)
         self.replays = ReplaysAPI(self)
+        self.review_queue = ReviewQueueAPI(self)
         self.repository = RepositoryAPI(self)
         self.rlm = RLMAPI(self)
         self.routing = RoutingAPI(self)
         self.scim = SCIMAPI(self)
         self.search = SearchAPI(self)
         self.security = SecurityAPI(self)
+        self.settlements = SettlementAPI(self)
         self.selection = SelectionAPI(self)
         self.self_improve = SelfImproveAPI(self)
         self.services = ServicesAPI(self)
@@ -904,6 +910,7 @@ class AragoraAsyncClient:
         from .namespaces.marketplace import AsyncMarketplaceAPI
         from .namespaces.matches import AsyncMatchesAPI
         from .namespaces.matrix_debates import AsyncMatrixDebatesAPI
+        from .namespaces.mcp import AsyncMCPAPI
         from .namespaces.media import AsyncMediaAPI
         from .namespaces.memory import AsyncMemoryAPI
         from .namespaces.metrics import AsyncMetricsAPI
@@ -947,6 +954,7 @@ class AragoraAsyncClient:
         from .namespaces.repository import AsyncRepositoryAPI
         from .namespaces.reputation import AsyncReputationAPI
         from .namespaces.retention import AsyncRetentionAPI
+        from .namespaces.review_queue import AsyncReviewQueueAPI
         from .namespaces.reviews import AsyncReviewsAPI
         from .namespaces.rlm import AsyncRLMAPI
         from .namespaces.routing import AsyncRoutingAPI
@@ -956,6 +964,7 @@ class AragoraAsyncClient:
         from .namespaces.selection import AsyncSelectionAPI
         from .namespaces.self_improve import AsyncSelfImproveAPI
         from .namespaces.services import AsyncServicesAPI
+        from .namespaces.settlements import AsyncSettlementAPI
         from .namespaces.shared_inbox import AsyncSharedInboxAPI
         from .namespaces.skills import AsyncSkillsAPI
         from .namespaces.slo import AsyncSLOAPI
@@ -1081,6 +1090,7 @@ class AragoraAsyncClient:
         self.marketplace = AsyncMarketplaceAPI(self)
         self.memory = AsyncMemoryAPI(self)
         self.matches = AsyncMatchesAPI(self)
+        self.mcp = AsyncMCPAPI(self)
         self.matrix_debates = AsyncMatrixDebatesAPI(self)
         self.media = AsyncMediaAPI(self)
         self.metrics = AsyncMetricsAPI(self)
@@ -1121,12 +1131,14 @@ class AragoraAsyncClient:
         self.reviews = AsyncReviewsAPI(self)
         self.relationships = AsyncRelationshipsAPI(self)
         self.replays = AsyncReplaysAPI(self)
+        self.review_queue = AsyncReviewQueueAPI(self)
         self.repository = AsyncRepositoryAPI(self)
         self.rlm = AsyncRLMAPI(self)
         self.routing = AsyncRoutingAPI(self)
         self.scim = AsyncSCIMAPI(self)
         self.search = AsyncSearchAPI(self)
         self.security = AsyncSecurityAPI(self)
+        self.settlements = AsyncSettlementAPI(self)
         self.selection = AsyncSelectionAPI(self)
         self.self_improve = AsyncSelfImproveAPI(self)
         self.services = AsyncServicesAPI(self)

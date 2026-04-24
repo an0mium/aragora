@@ -20,6 +20,8 @@ For local Codex app automation branches, `scripts/publish_codex_automation_branc
 
 For local Codex app automation handoffs, `scripts/publish_automation_handoffs.py --apply` reads structured memory blocks, deduplicates them against existing GitHub issues and PRs, and creates missing `boss-ready` issues from a normal shell with working `gh` access. Scout automations should leave structured handoffs in memory/inbox when GitHub writes fail instead of using browser fallback for issue or PR creation.
 
+If a handoff explicitly targets an already-open pull request (for example `PR #6288` in the task title or evidence block), the handoff publisher should treat it as PR follow-up work instead of minting a new `boss-ready` issue. PR-targeted follow-ups must not consume boss-ready issue capacity.
+
 For Aragora boss-loop workers, run the same script against the worker branch before merge arbitration:
 
 ```bash
@@ -53,15 +55,42 @@ Automation PRs are merge candidates only when:
 
 If any gate fails, the next useful action is a repair attempt with the failure output in the handoff envelope, not another fresh worker staring at the same repo state.
 
+## Required vs Advisory Checks
+
+The merge decision should use GitHub branch protection as the authoritative hard gate. As of this contract, that means the required status checks configured on `main`, one approving review, and a scoped diff with validation evidence in the PR body.
+
+Advisory workflows are still useful evidence, but they should not create a hidden second merge policy. Treat advisory checks as follows:
+
+- Passing advisory checks increase confidence but are not required for low-risk automation PRs.
+- Cancelled advisory checks caused by a newer push are queue churn, not a blocker. Re-run them only when the cancelled workflow is directly relevant to the changed files.
+- Failed advisory checks are blockers only when the failure is in-scope for the PR diff or reveals a mainline regression that would be worsened by the PR.
+- Summary-only jobs such as analytics, admission signals, and AI review comments should prefer warnings and PR comments over failing statuses.
+
+Use a fast lane for docs-only, tests-only, and narrow CI reliability PRs: if the required checks pass, the diff is scoped, and one reviewer approves, the PR is mergeable even if unrelated advisory lanes are pending or skipped. Use the full lane for product, security, deploy, data migration, and cross-cutting architecture changes: relevant advisory lanes should be green or explicitly waived in the PR body before admin merge.
+
+## Queue Hygiene
+
+High-churn automation loses throughput when multiple branches compete for the same issue or when stale PRs keep requesting review. Before opening or merging another PR, check for duplicate open PRs, dirty draft branches, and obsolete salvage branches for the same task. Close, draft, or supersede stale PRs with a short comment that names the replacement branch or next repair action.
+
 ## Publish Bridge
 
 `scripts/run_codex_automation_publisher.sh` is the non-coding publish bridge for local automation output. It should run from a user shell or LaunchAgent context with stable `gh` credentials. It first drains structured handoffs into GitHub issues with `scripts/publish_automation_handoffs.py`, then publishes eligible clean `codex/*` branches into PRs with `scripts/publish_codex_automation_branches.py`.
 
 The bridge intentionally does not use browser fallback. Browser profiles can be locked by other tools, and interactive safety prompts make browser-based GitHub publishing unreliable for unattended automations. If `gh` is unavailable, automations should keep the handoff in memory/inbox and let the next bridge pass retry.
 
+The publisher bridge now has an explicit GitHub health probe at `scripts/github_cli_health.py`. Sandboxed coding automations should treat a failed probe as a hard boundary and switch into handoff-only mode immediately instead of retrying `gh issue create`, `gh pr create`, `gh workflow run`, or merge-watch commands from inside the sandbox.
+
+For steady local operation, install the publisher bridge as a LaunchAgent from a normal user shell:
+
+```bash
+bash scripts/install_codex_automation_publisher_launchd.sh
+```
+
+Use `bash scripts/status_codex_automation_publisher_launchd.sh` to inspect the job and `bash scripts/uninstall_codex_automation_publisher_launchd.sh` to remove it.
+
 ## Prompt Snippet For Codex App Automations
 
-Use this repo's automation merge contract at `docs/briefs/automation-merge-contract.md`. Work on one bounded issue or maintenance task. Make the smallest credible change, run the targeted validation, and before publishing run `bash scripts/automation_pr_preflight.sh origin/main HEAD`. If validation or publishing fails, leave an exact handoff with branch, failing command, blocker, and next action instead of opening a misleading PR. Do not use browser fallback for GitHub publishing; leave structured memory/inbox evidence for `scripts/run_codex_automation_publisher.sh`.
+Use this repo's automation merge contract at `docs/briefs/automation-merge-contract.md`. Work on one bounded issue or maintenance task. Make the smallest credible change, run the targeted validation, and before publishing run `bash scripts/automation_pr_preflight.sh origin/main HEAD`. If GitHub health is degraded or publishing fails, switch to handoff-only mode: leave the exact branch, failing command, blocker, and next action in structured memory/inbox evidence for `scripts/run_codex_automation_publisher.sh` instead of opening a misleading PR. Do not use browser fallback for GitHub publishing.
 
 ## Prompt Snippet For Boss-Loop Operators
 

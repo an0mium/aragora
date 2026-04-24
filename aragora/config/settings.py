@@ -683,6 +683,11 @@ class FeatureSettings(BaseSettings):
 
     # Deprecated features
     cli_agents: bool = Field(default=False, alias="ARAGORA_FEATURE_CLI_AGENTS")
+    agent_bridge: bool = Field(
+        default=False,
+        alias="ARAGORA_FEATURE_AGENT_BRIDGE",
+        description="Enable the experimental read-only Agent Bridge API and UI surface.",
+    )
 
     # Demo mode - when enabled, endpoints return mock data instead of requiring backend services
     # This is useful for frontend development and demos without full backend setup

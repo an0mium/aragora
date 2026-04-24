@@ -14,7 +14,17 @@ This module contains imports and registry entries for:
 
 from __future__ import annotations
 
+from aragora.config.settings import get_settings
+
 from .core import _safe_import
+
+
+def _agent_bridge_enabled() -> bool:
+    try:
+        return bool(get_settings().features.agent_bridge)
+    except Exception:
+        return False
+
 
 # =============================================================================
 # Core System Handler Imports
@@ -335,6 +345,11 @@ PartnerHandler = _safe_import("aragora.server.handlers.partner", "PartnerHandler
 PlaygroundHandler = _safe_import("aragora.server.handlers.playground", "PlaygroundHandler")
 
 # Autonomous handlers
+AgentBridgeHandler = (
+    _safe_import("aragora.server.handlers", "AgentBridgeHandler")
+    if _agent_bridge_enabled()
+    else None
+)
 AlertHandler = _safe_import("aragora.server.handlers.autonomous.alerts", "AlertHandler")
 ApprovalHandler = _safe_import("aragora.server.handlers.autonomous.approvals", "ApprovalHandler")
 TriggerHandler = _safe_import("aragora.server.handlers.autonomous.triggers", "TriggerHandler")
@@ -473,6 +488,10 @@ TemplateRegistryHandler = _safe_import(
 # =============================================================================
 # Admin Handler Registry Entries
 # =============================================================================
+
+_AGENT_BRIDGE_REGISTRY_ENTRIES: list[tuple[str, object]] = (
+    [("_agent_bridge_handler", AgentBridgeHandler)] if AgentBridgeHandler is not None else []
+)
 
 ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     # Core system
@@ -617,6 +636,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_smart_upload_handler", SmartUploadHandler),
     ("_partner_handler", PartnerHandler),
     # Autonomous
+    *_AGENT_BRIDGE_REGISTRY_ENTRIES,
     ("_alert_handler", AlertHandler),
     ("_approval_handler", ApprovalHandler),
     ("_trigger_handler", TriggerHandler),
@@ -812,6 +832,7 @@ __all__ = [
     "SmartUploadHandler",
     "PartnerHandler",
     # Autonomous
+    "AgentBridgeHandler",
     "AlertHandler",
     "ApprovalHandler",
     "TriggerHandler",

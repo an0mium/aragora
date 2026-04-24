@@ -1,8 +1,13 @@
 """OpenAPI endpoint definitions for FastAPI v2 marketplace routes."""
 
-from typing import Any
+from typing import Any, cast
 
 from aragora.server.openapi.helpers import _ok_response, AUTH_REQUIREMENTS, STANDARD_ERRORS
+
+SecurityRequirements = list[dict[str, list[str]]]
+
+PUBLIC_SECURITY = cast(SecurityRequirements, AUTH_REQUIREMENTS["none"]["security"])
+REQUIRED_SECURITY = cast(SecurityRequirements, AUTH_REQUIREMENTS["required"]["security"])
 
 _TEMPLATE_ID_PARAM = {
     "name": "template_id",
@@ -118,6 +123,30 @@ def _marketplace_listing_summary_schema() -> dict[str, Any]:
     }
 
 
+def _marketplace_template_summary_schema() -> dict[str, Any]:
+    """Schema for a marketplace template recommendation summary object."""
+    return {
+        "type": "object",
+        "additionalProperties": True,
+        "properties": {
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "category": {"type": "string"},
+            "pattern": {"type": "string"},
+            "author_name": {"type": "string"},
+            "version": {"type": "string"},
+            "tags": {"type": "array", "items": {"type": "string"}},
+            "rating": {"type": "number"},
+            "rating_count": {"type": "integer"},
+            "download_count": {"type": "integer"},
+            "is_featured": {"type": "boolean"},
+            "is_verified": {"type": "boolean"},
+            "created_at": {"type": "number"},
+        },
+    }
+
+
 def _marketplace_list_response_schema() -> dict[str, Any]:
     """Schema for listing and featured responses."""
     return _marketplace_data_schema(
@@ -131,6 +160,20 @@ def _marketplace_list_response_schema() -> dict[str, Any]:
             "offset": {"type": "integer"},
         }
     )
+
+
+def _marketplace_recommendations_response_schema() -> dict[str, Any]:
+    """Schema for marketplace recommendations payloads."""
+    return {
+        "type": "object",
+        "properties": {
+            "recommendations": {
+                "type": "array",
+                "items": _marketplace_template_summary_schema(),
+            },
+            "total": {"type": "integer"},
+        },
+    }
 
 
 def _marketplace_stats_response_schema() -> dict[str, Any]:
@@ -154,7 +197,7 @@ def _marketplace_listing_operation(
     response_schema: dict[str, Any],
     parameters: list[dict[str, Any]] | None = None,
     request_body: dict[str, Any] | None = None,
-    security: list[dict[str, list[str]]] | None = None,
+    security: SecurityRequirements | None = None,
     deprecated: bool = False,
     include_404: bool = False,
 ) -> dict[str, Any]:
@@ -169,7 +212,7 @@ def _marketplace_listing_operation(
             "400": STANDARD_ERRORS["400"],
             "500": STANDARD_ERRORS["500"],
         },
-        "security": security or AUTH_REQUIREMENTS["none"]["security"],
+        "security": security or PUBLIC_SECURITY,
     }
     if parameters:
         operation["parameters"] = parameters
@@ -177,7 +220,7 @@ def _marketplace_listing_operation(
         operation["requestBody"] = request_body
     if include_404:
         operation["responses"]["404"] = STANDARD_ERRORS["404"]
-    if security == AUTH_REQUIREMENTS["required"]["security"]:
+    if security == REQUIRED_SECURITY:
         operation["responses"]["401"] = STANDARD_ERRORS["401"]
         operation["responses"]["403"] = STANDARD_ERRORS["403"]
     if deprecated:
@@ -197,7 +240,7 @@ MARKETPLACE_ENDPOINTS = {
             ),
             response_schema=_marketplace_list_response_schema(),
             parameters=_MARKETPLACE_LISTINGS_QUERY_PARAMETERS,
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
         )
     },
     "/api/v1/marketplace/listings/featured": {
@@ -214,7 +257,7 @@ MARKETPLACE_ENDPOINTS = {
                     "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
                 }
             ],
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
         )
     },
     "/api/v1/marketplace/listings/stats": {
@@ -223,7 +266,27 @@ MARKETPLACE_ENDPOINTS = {
             summary="Get marketplace listing stats",
             description="Return marketplace listing counts grouped by type. Requires `marketplace:read`.",
             response_schema=_marketplace_stats_response_schema(),
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
+        )
+    },
+    "/api/v1/marketplace/recommendations": {
+        "get": _marketplace_listing_operation(
+            operation_id="marketplaceGetRecommendations",
+            summary="Get marketplace recommendations",
+            description=(
+                "Return featured marketplace template recommendations ranked by marketplace "
+                "signals. Requires `marketplace:read`."
+            ),
+            response_schema=_marketplace_recommendations_response_schema(),
+            parameters=[
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "description": "Maximum number of recommendations to return.",
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 20, "default": 5},
+                }
+            ],
+            security=REQUIRED_SECURITY,
         )
     },
     "/api/v1/marketplace/listings/{listing_id}": {
@@ -238,7 +301,7 @@ MARKETPLACE_ENDPOINTS = {
                 {"item": _marketplace_listing_summary_schema()}
             ),
             parameters=[_LISTING_ID_PARAM],
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
             include_404=True,
         )
     },
@@ -249,7 +312,7 @@ MARKETPLACE_ENDPOINTS = {
             description="Install a marketplace listing for the authenticated user.",
             response_schema=_marketplace_data_schema(),
             parameters=[_LISTING_ID_PARAM],
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
             include_404=True,
         )
     },
@@ -275,7 +338,7 @@ MARKETPLACE_ENDPOINTS = {
                     }
                 },
             },
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
             include_404=True,
         )
     },
@@ -301,7 +364,7 @@ MARKETPLACE_ENDPOINTS = {
                     }
                 },
             },
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
             include_404=True,
         )
     },
@@ -312,7 +375,7 @@ MARKETPLACE_ENDPOINTS = {
             description="Legacy alias for listing marketplace listings. Requires `marketplace:read`.",
             response_schema=_marketplace_list_response_schema(),
             parameters=_MARKETPLACE_LISTINGS_QUERY_PARAMETERS,
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
             deprecated=True,
         )
     },
@@ -330,7 +393,7 @@ MARKETPLACE_ENDPOINTS = {
                     "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
                 }
             ],
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
             deprecated=True,
         )
     },
@@ -340,7 +403,7 @@ MARKETPLACE_ENDPOINTS = {
             summary="Get marketplace listing stats",
             description="Legacy alias for marketplace listing stats. Requires `marketplace:read`.",
             response_schema=_marketplace_stats_response_schema(),
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
             deprecated=True,
         )
     },
@@ -353,7 +416,7 @@ MARKETPLACE_ENDPOINTS = {
                 {"item": _marketplace_listing_summary_schema()}
             ),
             parameters=[_LISTING_ID_PARAM],
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
             deprecated=True,
             include_404=True,
         )
@@ -365,7 +428,7 @@ MARKETPLACE_ENDPOINTS = {
             description="Legacy alias for installing a marketplace listing.",
             response_schema=_marketplace_data_schema(),
             parameters=[_LISTING_ID_PARAM],
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
             deprecated=True,
             include_404=True,
         )
@@ -392,7 +455,7 @@ MARKETPLACE_ENDPOINTS = {
                     }
                 },
             },
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
             deprecated=True,
             include_404=True,
         )
@@ -419,7 +482,7 @@ MARKETPLACE_ENDPOINTS = {
                     }
                 },
             },
-            security=AUTH_REQUIREMENTS["required"]["security"],
+            security=REQUIRED_SECURITY,
             deprecated=True,
             include_404=True,
         )
@@ -433,7 +496,7 @@ MARKETPLACE_ENDPOINTS = {
                 "List/search marketplace templates with optional filters "
                 "(query, category, type, tags, pagination)."
             ),
-            "security": AUTH_REQUIREMENTS["none"]["security"],
+            "security": PUBLIC_SECURITY,
             "parameters": [
                 {
                     "name": "q",
@@ -491,7 +554,7 @@ MARKETPLACE_ENDPOINTS = {
             "summary": "Create marketplace template",
             "operationId": "createMarketplaceTemplateV2",
             "description": "Create/import a marketplace template. Requires `marketplace:write`.",
-            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "security": REQUIRED_SECURITY,
             "requestBody": _CREATE_TEMPLATE_BODY,
             "responses": {
                 "201": _ok_response(
@@ -514,7 +577,7 @@ MARKETPLACE_ENDPOINTS = {
             "summary": "List marketplace categories",
             "operationId": "listMarketplaceCategoriesV2",
             "description": "List available marketplace categories.",
-            "security": AUTH_REQUIREMENTS["none"]["security"],
+            "security": PUBLIC_SECURITY,
             "responses": {
                 "200": _ok_response(
                     "Marketplace categories.",
@@ -530,7 +593,7 @@ MARKETPLACE_ENDPOINTS = {
             "summary": "Get marketplace status",
             "operationId": "getMarketplaceStatusV2",
             "description": "Get marketplace health/circuit-breaker status.",
-            "security": AUTH_REQUIREMENTS["none"]["security"],
+            "security": PUBLIC_SECURITY,
             "responses": {
                 "200": _ok_response(
                     "Marketplace status.",
@@ -548,7 +611,7 @@ MARKETPLACE_ENDPOINTS = {
             "summary": "Import marketplace template",
             "operationId": "importMarketplaceTemplateV2",
             "description": "Import a marketplace template. Requires `marketplace:write`.",
-            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "security": REQUIRED_SECURITY,
             "requestBody": _CREATE_TEMPLATE_BODY,
             "responses": {
                 "201": _ok_response(
@@ -571,7 +634,7 @@ MARKETPLACE_ENDPOINTS = {
             "summary": "Get template ratings",
             "operationId": "getMarketplaceTemplateRatingsV2",
             "description": "Get ratings and average score for a marketplace template.",
-            "security": AUTH_REQUIREMENTS["none"]["security"],
+            "security": PUBLIC_SECURITY,
             "parameters": [_TEMPLATE_ID_PARAM],
             "responses": {
                 "200": _ok_response(
@@ -603,7 +666,7 @@ MARKETPLACE_ENDPOINTS = {
             "summary": "Rate template",
             "operationId": "rateMarketplaceTemplateV2",
             "description": "Add a template rating. Requires `marketplace:write`.",
-            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "security": REQUIRED_SECURITY,
             "parameters": [_TEMPLATE_ID_PARAM],
             "requestBody": {
                 "required": True,
@@ -639,7 +702,7 @@ MARKETPLACE_ENDPOINTS = {
             "summary": "Export template",
             "operationId": "exportMarketplaceTemplateV2",
             "description": "Export a marketplace template as JSON.",
-            "security": AUTH_REQUIREMENTS["none"]["security"],
+            "security": PUBLIC_SECURITY,
             "parameters": [_TEMPLATE_ID_PARAM],
             "responses": {
                 "200": {
@@ -658,7 +721,7 @@ MARKETPLACE_ENDPOINTS = {
             "summary": "Get template",
             "operationId": "getMarketplaceTemplateV2",
             "description": "Get template details by ID.",
-            "security": AUTH_REQUIREMENTS["none"]["security"],
+            "security": PUBLIC_SECURITY,
             "parameters": [_TEMPLATE_ID_PARAM],
             "responses": {
                 "200": _ok_response(
@@ -685,7 +748,7 @@ MARKETPLACE_ENDPOINTS = {
             "summary": "Delete template",
             "operationId": "deleteMarketplaceTemplateV2",
             "description": "Delete a marketplace template. Requires `marketplace:delete`.",
-            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "security": REQUIRED_SECURITY,
             "parameters": [_TEMPLATE_ID_PARAM],
             "responses": {
                 "200": _ok_response(
@@ -709,7 +772,7 @@ MARKETPLACE_ENDPOINTS = {
             "summary": "Star template",
             "operationId": "starMarketplaceTemplateV2",
             "description": "Star a marketplace template. Requires `marketplace:write`.",
-            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "security": REQUIRED_SECURITY,
             "parameters": [_TEMPLATE_ID_PARAM],
             "responses": {
                 "200": _ok_response(

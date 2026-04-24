@@ -1,0 +1,16 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 24785,
+  "duration_api_ms": 24808,
+  "num_turns": 1,
+  "result": "Synthesized the review findings.\n\n---BRIDGE-FOOTER---\nsummary: Synthesized the review findings\nnext_actor: reviewer\nneeds_human: false\ndone: false\nartifacts: []\ntests_run: [\"pytest tests/swarm/agent_bridge/test_harnesses_droid.py\"]\n---BRIDGE-FOOTER-END---",
+  "session_id": "16329fce-3484-47a4-ad98-6676fdfb7477",
+  "usage": {
+    "input_tokens": 6,
+    "output_tokens": 6,
+    "cache_creation_input_tokens": 0
+  },
+  "total_cost_usd": 0
+}

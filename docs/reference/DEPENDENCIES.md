@@ -108,7 +108,7 @@ pip install aragora[ml]
 |---------|---------|----------|
 | aiohttp>=3.13.3 | Async HTTP client | CVE fixes in 3.13.3 |
 | websockets>=12.0 | WebSocket support | - |
-| pyyaml>=6.0 | Config parsing | - |
+| pyyaml>=6.0.3 | Config parsing | Security floor aligned with dependency lock |
 | pydantic>=2.0 | Data validation | - |
 | bcrypt>=4.0 | Password hashing | - |
 | markupsafe>=2.1.0 | XSS prevention | - |

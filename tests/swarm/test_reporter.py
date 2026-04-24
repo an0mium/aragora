@@ -2358,23 +2358,26 @@ class TestBossPayload:
             stop_reason="completed",
         )
         ledger.record_pr_merged(pr_number=5857)
+        ledger_status = {"available": True, "ledger_path": str(ledger.path)}
+        ledger_status.update(ledger.get_status_summary())
 
-        integrator_view = build_integrator_view(ledger_path=ledger.path)
-        payload = build_boss_payload(
-            run={
-                "run_id": "run-ledger",
-                "status": "active",
-                "goal": "Continue proof-first shift",
-                "target_branch": "main",
-                "work_orders": [
-                    {"work_order_id": "wo-stale", "status": "queued"},
-                    {"work_order_id": "wo-stale-2", "status": "queued"},
-                ],
-            },
-            integrator_view=integrator_view,
-            coordination={"counts": {"fleet_merge_queue": 99}},
-            ledger_path=tmp_path / "missing-ledger.jsonl",
-        )
+        with patch("aragora.swarm.reporter.load_shift_status", return_value=ledger_status):
+            integrator_view = build_integrator_view(ledger_path=ledger.path)
+            payload = build_boss_payload(
+                run={
+                    "run_id": "run-ledger",
+                    "status": "active",
+                    "goal": "Continue proof-first shift",
+                    "target_branch": "main",
+                    "work_orders": [
+                        {"work_order_id": "wo-stale", "status": "queued"},
+                        {"work_order_id": "wo-stale-2", "status": "queued"},
+                    ],
+                },
+                integrator_view=integrator_view,
+                coordination={"counts": {"fleet_merge_queue": 99}},
+                ledger_path=tmp_path / "missing-ledger.jsonl",
+            )
 
         assert integrator_view["summary"]["proof_first"]["queue_depth"] == 1
         assert payload["ledger_status"]["current_queue_size"] == 1
@@ -2390,20 +2393,34 @@ class TestBossPayload:
         assert "reporter-fallback" not in text
 
     def test_build_boss_payload_falls_back_when_shift_ledger_absent(self, tmp_path: Path) -> None:
-        payload = build_boss_payload(
-            run={
-                "run_id": "run-fallback",
-                "status": "active",
-                "goal": "Continue proof-first shift",
-                "target_branch": "main",
-                "work_orders": [
-                    {"work_order_id": "wo-queued", "status": "queued"},
-                    {"work_order_id": "wo-done", "status": "completed"},
-                ],
+        with patch(
+            "aragora.swarm.reporter.load_shift_status",
+            return_value={
+                "available": False,
+                "ledger_path": str(
+                    tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl"
+                ),
+                "current_queue_size": None,
+                "current_open_prs": None,
+                "current_boss_running": None,
+                "current_merge_running": None,
+                "current_benchmark_fresh": None,
             },
-            coordination={"counts": {"fleet_merge_queue": 3}},
-            ledger_path=tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl",
-        )
+        ):
+            payload = build_boss_payload(
+                run={
+                    "run_id": "run-fallback",
+                    "status": "active",
+                    "goal": "Continue proof-first shift",
+                    "target_branch": "main",
+                    "work_orders": [
+                        {"work_order_id": "wo-queued", "status": "queued"},
+                        {"work_order_id": "wo-done", "status": "completed"},
+                    ],
+                },
+                coordination={"counts": {"fleet_merge_queue": 3}},
+                ledger_path=tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl",
+            )
 
         assert payload["ledger_status"] == {}
         assert payload["operator_status"] == {
@@ -2416,6 +2433,45 @@ class TestBossPayload:
 
         assert "reporter-fallback queue=3" in text
         assert "proof-first queue=" not in text
+
+    def test_build_boss_payload_uses_live_shift_truth_without_ledger(self, tmp_path: Path) -> None:
+        with patch(
+            "aragora.swarm.reporter.load_shift_status",
+            return_value={
+                "available": False,
+                "ledger_path": str(tmp_path / "missing-ledger.jsonl"),
+                "current_queue_size": 2,
+                "current_open_prs": 4,
+                "current_boss_running": True,
+                "current_merge_running": True,
+                "current_benchmark_fresh": False,
+                "prs_merged": 0,
+                "pr_numbers_merged": [],
+                "last_stop_reason": "completed",
+                "green_shift": {"is_green": False},
+            },
+        ):
+            payload = build_boss_payload(
+                run={
+                    "run_id": "run-live-truth",
+                    "status": "active",
+                    "goal": "Continue proof-first shift",
+                    "target_branch": "main",
+                    "work_orders": [{"work_order_id": "wo-queued", "status": "queued"}],
+                },
+                coordination={"counts": {"fleet_merge_queue": 7}},
+                ledger_path=tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl",
+            )
+
+        assert payload["ledger_status"]["current_queue_size"] == 2
+        assert payload["operator_status"]["source"] == "shift_ledger"
+        assert payload["operator_status"]["queue_depth"] == 2
+        assert payload["operator_status"]["open_prs"] == 4
+
+        text = render_boss_text(payload)
+
+        assert "proof-first queue=2 open_prs=4 boss=True merge=True" in text
+        assert "reporter-fallback" not in text
 
     def test_build_boss_payload_redacts_transcript_shaped_blocker_evidence(self) -> None:
         transcript = """OpenAI Codex v0.1

@@ -53,18 +53,21 @@ class RLMContextHandler(BaseHandler):
     """
 
     ROUTES = {
-        "/api/v1/rlm/stats": "handle_stats",
-        "/api/v1/rlm/strategies": "handle_strategies",
-        "/api/v1/rlm/compress": "handle_compress",
-        "/api/v1/rlm/query": "handle_query",
-        "/api/v1/rlm/contexts": "handle_list_contexts",
-        "/api/v1/rlm/stream": "handle_stream",
-        "/api/v1/rlm/stream/modes": "handle_stream_modes",
-        "/api/v1/rlm/codebase/health": "handle_codebase_health",
+        "/api/v1/rlm/stats": ["GET"],
+        "/api/v1/rlm/strategies": ["GET"],
+        "/api/v1/rlm/compress": ["POST"],
+        "/api/v1/rlm/query": ["POST"],
+        "/api/v1/rlm/contexts": ["GET"],
+        "/api/v1/rlm/stream": ["POST"],
+        "/api/v1/rlm/stream/modes": ["GET"],
+        "/api/v1/rlm/codebase/health": ["GET"],
     }
 
     # Dynamic routes for context operations
     CONTEXT_ROUTE_PREFIX = "/api/v1/rlm/context/"
+    DYNAMIC_ROUTES = {
+        "/api/v1/rlm/context/{context_id}": ["GET", "DELETE"],
+    }
 
     def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
@@ -556,10 +559,14 @@ class RLMContextHandler(BaseHandler):
         )
         if body_error:
             return body_error
+        if body is None:
+            return error_response("Request body required", 400)
 
         content, content_error = self._require_string_field(body, "content")
         if content_error:
             return content_error
+        if content is None:
+            return error_response("'content' field required and must be a string", 400)
 
         # Validate content size
         if len(content) > 10_000_000:  # 10MB limit
@@ -686,13 +693,19 @@ class RLMContextHandler(BaseHandler):
         )
         if body_error:
             return body_error
+        if body is None:
+            return error_response("Request body required", 400)
 
         context_id, context_id_error = self._require_string_field(body, "context_id")
         if context_id_error:
             return context_id_error
+        if context_id is None:
+            return error_response("'context_id' field required and must be a string", 400)
         query, query_error = self._require_string_field(body, "query")
         if query_error:
             return query_error
+        if query is None:
+            return error_response("'query' field required and must be a string", 400)
 
         # Validate query length
         if len(query) > 10000:
@@ -1074,10 +1087,14 @@ class RLMContextHandler(BaseHandler):
         body, body_error = self._read_json_object_body(handler)
         if body_error:
             return body_error
+        if body is None:
+            return error_response("JSON request body required", 400)
 
         context_id, context_id_error = self._require_string_field(body, "context_id")
         if context_id_error:
             return context_id_error
+        if context_id is None:
+            return error_response("'context_id' field required and must be a string", 400)
 
         if context_id not in self._contexts:
             return error_response(f"Context not found: {context_id}", 404)
@@ -1089,18 +1106,22 @@ class RLMContextHandler(BaseHandler):
         mode_str = body.get("mode", "top_down")
         if not isinstance(mode_str, str):
             return error_response("'mode' must be a string", 400)
-        query = body.get("query")
-        level = body.get("level")
-        if query is not None:
-            if not isinstance(query, str):
+        raw_query = body.get("query")
+        query: str | None = None
+        if raw_query is not None:
+            if not isinstance(raw_query, str):
                 return error_response("'query' must be a string when provided", 400)
-            if not query.strip():
+            if not raw_query.strip():
                 return error_response("'query' must be a non-empty string when provided", 400)
-        if level is not None:
-            if not isinstance(level, str):
+            query = raw_query
+        raw_level = body.get("level")
+        level: str | None = None
+        if raw_level is not None:
+            if not isinstance(raw_level, str):
                 return error_response("'level' must be a string when provided", 400)
-            if not level.strip():
+            if not raw_level.strip():
                 return error_response("'level' must be a non-empty string when provided", 400)
+            level = raw_level
         chunk_size, chunk_size_error = self._optional_int_field(
             body,
             "chunk_size",

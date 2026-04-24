@@ -27,13 +27,41 @@ import shlex
 import subprocess
 import sys
 import tempfile
-from typing import Any, Coroutine, TypeVar
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Coroutine, TypeVar
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
 JsonDict = dict[str, Any]
 T = TypeVar("T")
+
+
+# ``DevCoordinationStore`` is an optional dependency: importing it pulls in
+# nomic coordination state which may not be available in every environment.
+# To keep mypy type narrowing intact without losing the runtime fallback,
+# we expose the type to type-checkers unconditionally while tolerating
+# runtime import failures.
+if TYPE_CHECKING:
+    from aragora.nomic.dev_coordination import (  # noqa: F401
+        DevCoordinationStore as DevCoordinationStore,
+    )
+else:
+    try:
+        from aragora.nomic.dev_coordination import DevCoordinationStore
+    except (ImportError, RuntimeError, OSError, ValueError):  # pragma: no cover - defensive
+        DevCoordinationStore = None  # type: ignore[misc,assignment]
+
+
+def _dev_coordination_store_cls() -> "type[DevCoordinationStore] | None":
+    """Return the optional :class:`DevCoordinationStore` class or ``None``.
+
+    Centralised helper so callers do not have to re-import the class or
+    re-check the optional-dependency sentinel on every use. Returning a
+    narrow ``type | None`` keeps mypy happy on both branches.
+    """
+
+    return DevCoordinationStore if DevCoordinationStore is not None else None
 
 
 def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | None]:
@@ -116,7 +144,7 @@ def _print_table(
         print("  ".join(str(row.get(key, "") or "").ljust(widths[key]) for key, _label in headers))
 
 
-def _initiative_rows(items: list[object]) -> list[dict[str, object]]:
+def _initiative_rows(items: "Sequence[object]") -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for item in items:
         rows.append(
@@ -923,10 +951,7 @@ def _build_boss_payload(
     from aragora.swarm.reporter import build_boss_payload, build_integrator_view
     from aragora.worktree.fleet import FleetCoordinationStore, build_fleet_rows
 
-    try:
-        from aragora.nomic.dev_coordination import DevCoordinationStore
-    except (ImportError, RuntimeError, OSError, ValueError):
-        DevCoordinationStore = None  # type: ignore[assignment]
+    dev_store_cls = _dev_coordination_store_cls()
 
     worktrees = build_fleet_rows(
         repo_root,
@@ -934,14 +959,17 @@ def _build_boss_payload(
         tail=0,
         include_git_metrics=False,
     )
-    store = FleetCoordinationStore(repo_root)
-    claims = store.list_claims()
-    merge_queue = store.list_merge_queue()
-    coordination = store.status_summary()
-    if DevCoordinationStore is not None:
+    fleet_store = FleetCoordinationStore(repo_root)
+    claims = fleet_store.list_claims()
+    merge_queue = fleet_store.list_merge_queue()
+    # Fleet-only coordination has no dedicated status summary; the richer
+    # integrator view is populated from ``DevCoordinationStore`` below when
+    # it is available.
+    coordination: JsonDict = {}
+    if dev_store_cls is not None:
         try:
-            coordination = DevCoordinationStore(repo_root=repo_root).status_summary(
-                include_integrator_artifacts=True
+            coordination = dict(
+                dev_store_cls(repo_root=repo_root).status_summary(include_integrator_artifacts=True)
             )
         except (RuntimeError, OSError, ValueError) as exc:
             logger.debug("coordination_status_fetch_failed: %s: %s", type(exc).__name__, exc)
@@ -1011,10 +1039,7 @@ def _load_integrator_view(repo_root: Path, *, base_branch: str) -> dict[str, obj
     from aragora.swarm.reporter import build_integrator_view
     from aragora.worktree.fleet import FleetCoordinationStore, build_fleet_rows
 
-    try:
-        from aragora.nomic.dev_coordination import DevCoordinationStore
-    except (ImportError, RuntimeError, OSError, ValueError):
-        DevCoordinationStore = None  # type: ignore[assignment]
+    dev_store_cls = _dev_coordination_store_cls()
 
     worktrees = build_fleet_rows(
         repo_root,
@@ -1022,14 +1047,14 @@ def _load_integrator_view(repo_root: Path, *, base_branch: str) -> dict[str, obj
         tail=0,
         include_git_metrics=False,
     )
-    store = FleetCoordinationStore(repo_root)
-    claims = store.list_claims()
-    merge_queue = store.list_merge_queue()
+    fleet_store = FleetCoordinationStore(repo_root)
+    claims = fleet_store.list_claims()
+    merge_queue = fleet_store.list_merge_queue()
     coordination: dict[str, object] = {}
-    if DevCoordinationStore is not None:
+    if dev_store_cls is not None:
         try:
-            coordination = DevCoordinationStore(repo_root=repo_root).status_summary(
-                include_integrator_artifacts=True
+            coordination = dict(
+                dev_store_cls(repo_root=repo_root).status_summary(include_integrator_artifacts=True)
             )
         except (RuntimeError, OSError, ValueError):
             coordination = {}
@@ -1150,6 +1175,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         resolve_repo_root,
     )
 
+    # ``payload`` and ``response`` are reused across action branches with
+    # heterogeneous concrete types (dict literals, dataclass.to_dict() results,
+    # helper returns). Pinning them to ``JsonDict`` here lets mypy narrow
+    # each assignment locally without the whole-function union drift that
+    # previously inferred ``dict[str, Collection[str] | None]``.
+    payload: JsonDict = {}
+    response: JsonDict = {}
+
     action, goal = _resolve_swarm_action_goal(args)
     spec_file = getattr(args, "spec", None)
     skip_interrogation = getattr(args, "skip_interrogation", False)
@@ -1253,14 +1286,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 ),
             }
         else:
-            result = run_preflight(
+            preflight_result = run_preflight(
                 repo_root=repo_root,
                 agent=str(getattr(args, "worker_model", "claude") or "claude"),
                 base_ref=str(target_branch or "main"),
                 skip_publication=skip_publication,
                 contract_path=None,
             )
-            payload = {"mode": "swarm-preflight", **result.to_dict()}
+            payload = {"mode": "swarm-preflight", **preflight_result.to_dict()}
         if as_json:
             print(json.dumps(payload, indent=2))
         else:
@@ -1272,11 +1305,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 print(f"check_type={receipt_payload.get('check_type', '')}")
                 print(f"passed={receipt_payload.get('passed', False)}")
                 print(f"expires_at={receipt_payload.get('expires_at', '')}")
-                failure_terminal_class = str(
-                    payload.get("failure_terminal_class", "") or ""
-                ).strip()
-                if failure_terminal_class:
-                    print(f"failure_terminal_class={failure_terminal_class}")
+                failure_terminal_text = str(payload.get("failure_terminal_class", "") or "").strip()
+                if failure_terminal_text:
+                    print(f"failure_terminal_class={failure_terminal_text}")
             else:
                 print("swarm preflight: ok")
                 print(f"repo_root={payload['repo_root']}")
@@ -1351,12 +1382,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             except ValueError:
                 print(f"Error: invalid PR number: {pr_text}")
                 return
-            payload = coord_claim_pr(
-                pr_number,
-                session_id,
-                intent=_optional_text(getattr(args, "claim_intent", None)) or "",
-                ttl_minutes=max(1, int(getattr(args, "ttl_minutes", 30) or 30)),
-                repo_root=repo_root,
+            payload = dict(
+                coord_claim_pr(
+                    pr_number,
+                    session_id,
+                    intent=_optional_text(getattr(args, "claim_intent", None)) or "",
+                    ttl_minutes=max(1, int(getattr(args, "ttl_minutes", 30) or 30)),
+                    repo_root=repo_root,
+                )
             )
             response = {"mode": "coordination-claim-pr", "pr": pr_number, **payload}
             if as_json:
@@ -1439,23 +1472,24 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             sys.exit(1)
         issued_by = _coordination_assigned_by(args)
         dry_run = bool(getattr(args, "dry_run", False))
-        result = dispatch_runbook(
+        dispatch_result: JsonDict = dispatch_runbook(
             runbook_path,
             issued_by=issued_by,
             repo_root=repo_root,
             dry_run=dry_run,
         )
         if as_json:
-            print(json.dumps(result, indent=2))
+            print(json.dumps(dispatch_result, indent=2))
         else:
             print(
-                f"runbook={result.get('name', '')} dispatched={len(result.get('directives', []))}"
+                f"runbook={dispatch_result.get('name', '')} "
+                f"dispatched={len(dispatch_result.get('directives', []))}"
             )
-            for directive in result.get("directives", []):
+            for directive in dispatch_result.get("directives", []):
                 target = directive.get("target", "")
                 task = str(directive.get("task", "") or "")
-                summary = task.splitlines()[0] if task else ""
-                print(f"  {target}: {summary}")
+                task_summary = task.splitlines()[0] if task else ""
+                print(f"  {target}: {task_summary}")
         return
 
     if action == "initiative":
@@ -1556,19 +1590,19 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         if subaction == "show":
             if not initiative_id:
                 raise ValueError("initiative show requires an initiative id as the third argument")
-            item = store.get(initiative_id)
-            if item is None:
+            show_record = store.get(initiative_id)
+            if show_record is None:
                 raise FileNotFoundError(f"initiative not found: {initiative_id}")
             payload = {
                 "mode": "initiative-show",
                 "action": subaction,
-                "initiative": item.to_dict(),
+                "initiative": show_record.to_dict(),
                 "state_dir": str(store.state_dir),
             }
             if as_json:
                 print(json.dumps(payload, indent=2))
             else:
-                _render_initiative(item)
+                _render_initiative(show_record)
             return
 
         goal_text = initiative_id
@@ -1664,7 +1698,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         if subaction == "register":
             inspections = discover_runner_inspections(
                 runner_type,
-                env=os.environ,
+                env=dict(os.environ),
                 repo_root=Path.cwd(),
                 profiles=allowed_runner_profiles or None,
             )
@@ -1686,7 +1720,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         elif subaction == "heartbeat":
             inspections = discover_runner_inspections(
                 runner_type,
-                env=os.environ,
+                env=dict(os.environ),
                 repo_root=Path.cwd(),
                 profiles=allowed_runner_profiles or None,
             )
@@ -1713,14 +1747,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     runner_type,
                     registry=registry,
                     owner_context=owner_context,
-                    env=os.environ,
+                    env=dict(os.environ),
                     repo_root=Path.cwd(),
                     profiles=allowed_runner_profiles or None,
                 )
                 if owner_context is not None
                 else discover_runner_inspections(
                     runner_type,
-                    env=os.environ,
+                    env=dict(os.environ),
                     repo_root=Path.cwd(),
                     profiles=allowed_runner_profiles or None,
                 )
@@ -1740,7 +1774,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             registry = LocalRunnerRegistry()
             inspections = discover_runner_inspections(
                 runner_type,
-                env=os.environ,
+                env=dict(os.environ),
                 repo_root=Path.cwd(),
                 profiles=allowed_runner_profiles or None,
             )
@@ -1792,14 +1826,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     runner_type,
                     registry=registry,
                     owner_context=owner_context,
-                    env=os.environ,
+                    env=dict(os.environ),
                     repo_root=Path.cwd(),
                     profiles=allowed_runner_profiles or None,
                 )
                 if owner_context is not None
                 else discover_runner_inspections(
                     runner_type,
-                    env=os.environ,
+                    env=dict(os.environ),
                     repo_root=Path.cwd(),
                     profiles=allowed_runner_profiles or None,
                 )
@@ -1864,7 +1898,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         else:
             inspections = discover_runner_inspections(
                 runner_type,
-                env=os.environ,
+                env=dict(os.environ),
                 repo_root=Path.cwd(),
                 profiles=allowed_runner_profiles or None,
             )
@@ -2048,7 +2082,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         decided_by = str(getattr(args, "decided_by", "cli-integrator") or "cli-integrator").strip()
 
         if subaction in {"merge", "archive"}:
-            from aragora.nomic.dev_coordination import DevCoordinationStore, IntegrationDecisionType
+            from aragora.nomic.dev_coordination import IntegrationDecisionType
+
+            if DevCoordinationStore is None:
+                print(
+                    "Error: DevCoordinationStore is unavailable in this environment",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
             resolved_receipt_id = str(
                 getattr(args, "receipt_id", None) or lane.get("receipt_id") or ""
@@ -2282,23 +2323,23 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             for action_text in status_dict.get("next_actions", [])[:2]:
                 print(f"  next: {action_text}")
 
-        result = asyncio.run(loop.run(on_status=_on_status))
+        loop_result = asyncio.run(loop.run(on_status=_on_status))
         if as_json:
-            print(json.dumps(result.to_dict(), indent=2))
+            print(json.dumps(loop_result.to_dict(), indent=2))
         else:
-            print(f"\nBoss loop finished: {result.stop_reason}")
+            print(f"\nBoss loop finished: {loop_result.stop_reason}")
             print(
-                f"iterations={result.iterations_completed} "
-                f"attempted={len(result.issues_attempted)} "
-                f"completed={len(result.issues_completed)} "
-                f"failed={len(result.issues_failed)} "
-                f"elapsed={result.total_elapsed_seconds:.1f}s "
-                f"parallel={result.configured_max_parallel_dispatches}/"
-                f"{result.effective_parallel_dispatches_observed if result.effective_parallel_dispatches_observed is not None else '?'}"
+                f"iterations={loop_result.iterations_completed} "
+                f"attempted={len(loop_result.issues_attempted)} "
+                f"completed={len(loop_result.issues_completed)} "
+                f"failed={len(loop_result.issues_failed)} "
+                f"elapsed={loop_result.total_elapsed_seconds:.1f}s "
+                f"parallel={loop_result.configured_max_parallel_dispatches}/"
+                f"{loop_result.effective_parallel_dispatches_observed if loop_result.effective_parallel_dispatches_observed is not None else '?'}"
             )
-            for reason in result.needs_human_reasons[:3]:
+            for reason in loop_result.needs_human_reasons[:3]:
                 print(f"  needs_human: {reason}")
-            for action_text in result.next_actions[:3]:
+            for action_text in loop_result.next_actions[:3]:
                 print(f"  next: {action_text}")
         return
 
@@ -2508,7 +2549,6 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         return
 
     if action == "tranche":
-        from aragora.nomic.dev_coordination import DevCoordinationStore
         from aragora.ralph.github_control import GitHubControl
         from aragora.swarm.pr_registry import PullRequestRegistry
         from aragora.swarm.tranche import (
@@ -2570,12 +2610,12 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 print(json.dumps(payload, indent=2))
             return
         if subaction == "list":
-            items = list_tranche_states(repo_root)
+            tranche_items = list_tranche_states(repo_root)
             payload = {
                 "mode": "tranche-list",
                 "action": subaction,
-                "count": len(items),
-                "items": items,
+                "count": len(tranche_items),
+                "items": tranche_items,
             }
             if as_json:
                 print(json.dumps(payload, indent=2))
@@ -2733,8 +2773,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 tranche_output_path = Path(output_arg).resolve()
             elif manifest_arg and manifest_arg != ".aragora/campaign_manifest.yaml":
                 tranche_output_path = Path(manifest_arg).resolve()
-            planner = TranchePlanner(repo_root=repo_root)
-            manifest, saved_path = planner.plan_from_prompt_bundle(
+            tranche_planner = TranchePlanner(repo_root=repo_root)
+            manifest, saved_path = tranche_planner.plan_from_prompt_bundle(
                 prompt_path,
                 output_path=tranche_output_path,
             )
@@ -2783,7 +2823,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             executor = TrancheExecutor(repo_root=repo_root) if driver_mode else None  # type: ignore[assignment]
             supervisor = None
             github = None
-            registry = None
+            watch_pr_registry: "PullRequestRegistry | None" = None
 
             async def _watch_run_fn(*, manifest):
                 if executor is None:
@@ -2830,9 +2870,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                         "status": "blocked_nonreviewable",
                         "findings": [f"Supervisor run {run_id} is not available."],
                     }
-                lane = manifest.lane(lane_id)
+                tranche_lane = manifest.lane(lane_id)
                 tier = select_review_tier(
-                    write_scope=list(getattr(lane, "allowed_write_scope", [])),
+                    write_scope=list(getattr(tranche_lane, "allowed_write_scope", [])),
                     diff_lines=int(getattr(artifact, "metadata", {}).get("diff_lines", 0) or 0),
                     verification_passed=bool(getattr(artifact, "commands", [])),
                     risk_tolerance=str(
@@ -2850,13 +2890,19 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 )
 
             async def _watch_integrate_fn(*, manifest, lane_id, artifact, approve, run_state=None):
-                nonlocal github, registry
+                nonlocal github, watch_pr_registry
                 if artifact is None:
                     return {"recommendation": "needs_human", "executed": False}
                 if github is None:
                     github = GitHubControl(repo_root=repo_root)
-                if registry is None:
-                    registry = PullRequestRegistry()
+                if watch_pr_registry is None:
+                    watch_pr_registry = PullRequestRegistry()
+                if DevCoordinationStore is None:
+                    return {
+                        "recommendation": "needs_human",
+                        "executed": False,
+                        "reason": "DevCoordinationStore unavailable",
+                    }
                 coord_store = DevCoordinationStore(repo_root=repo_root)
                 return await integrate_lane(
                     artifact=artifact,
@@ -2864,7 +2910,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     approve=bool(approve),
                     repo_root=repo_root,
                     github=github,
-                    registry=registry,
+                    registry=watch_pr_registry,
                     store=coord_store,
                     target_branch=str(getattr(args, "target_branch", "main") or "main"),
                     decided_by="tranche-watch",
@@ -2915,7 +2961,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 save_design_review,
             )
 
-            inspection = TrancheInspector(repo_root=repo_root).inspect(manifest)
+            tranche_inspection = TrancheInspector(repo_root=repo_root).inspect(manifest)
             normalized_path = manifest_path.with_name("normalized_bundle.yaml")
             if normalized_path.exists():
                 normalized_bundle = _load_structured_object(str(normalized_path))
@@ -2933,7 +2979,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 run_design_review(
                     manifest=manifest,
                     normalized_bundle=normalized_bundle,
-                    inspection=inspection,
+                    inspection=tranche_inspection,
                     max_rounds=int(getattr(args, "rounds", 2) or 2),
                 )
             )
@@ -2982,9 +3028,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     raise ValueError(f"Supervisor run {run_id} is not available.") from None
                 tier_arg = str(getattr(args, "tier", "auto") or "auto").strip()
                 if tier_arg == "auto":
-                    lane = manifest.lane(artifact.lane_id)
+                    tranche_lane = manifest.lane(artifact.lane_id)
                     tier = select_review_tier(
-                        write_scope=list(getattr(lane, "allowed_write_scope", [])),
+                        write_scope=list(getattr(tranche_lane, "allowed_write_scope", [])),
                         diff_lines=int(getattr(artifact, "metadata", {}).get("diff_lines", 0) or 0),
                         verification_passed=bool(getattr(artifact, "commands", [])),
                         risk_tolerance=str(
@@ -3038,8 +3084,16 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 raise ValueError("No matching tranche artifacts found for integrate.")
 
             github = GitHubControl(repo_root=repo_root)
-            registry = PullRequestRegistry()
-            store = DevCoordinationStore(repo_root=repo_root) if approve else None
+            pr_registry = PullRequestRegistry()
+            if approve and DevCoordinationStore is None:
+                raise RuntimeError(
+                    "tranche integrate --approve requires DevCoordinationStore (unavailable)"
+                )
+            tranche_store = (
+                DevCoordinationStore(repo_root=repo_root)
+                if approve and DevCoordinationStore is not None
+                else None
+            )
             state_path = run_state_path_for_manifest(manifest_path)
             run_state = None
             try:
@@ -3049,15 +3103,15 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 run_state = None
             tranche_results: list[JsonDict] = []
             for artifact in selected_artifacts:
-                result = asyncio.run(
+                lane_result: JsonDict = asyncio.run(
                     integrate_lane(
                         manifest=manifest,
                         artifact=artifact,
                         approve=approve,
                         repo_root=repo_root,
                         github=github,
-                        registry=registry,
-                        store=store,
+                        registry=pr_registry,
+                        store=tranche_store,
                         artifact_store=artifact_store,
                         target_branch=str(getattr(args, "target_branch", "main") or "main"),
                         decided_by=str(getattr(args, "decided_by", None) or "tranche-integrate"),
@@ -3069,7 +3123,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                         autonomy_mode=str(getattr(args, "autonomy", "adaptive") or "adaptive"),
                     )
                 )
-                tranche_results.append(result)
+                tranche_results.append(lane_result)
 
                 if run_state is not None:
                     run_state.save(state_path)
@@ -3088,13 +3142,13 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     print(json.dumps(payload, indent=2))
             return
 
-        executor = TrancheExecutor(repo_root=repo_root)
+        tranche_executor = TrancheExecutor(repo_root=repo_root)
         lane_id = str(getattr(args, "lane_id", "") or "").strip()
         all_ready = bool(getattr(args, "all_ready", False))
         owner_agent = _optional_text(getattr(args, "owner_agent", None))
         owner_session_id = _optional_text(getattr(args, "owner_session_id", None))
         if subaction == "prepare":
-            payload = executor.prepare(
+            payload = tranche_executor.prepare(
                 manifest,
                 lane_id=lane_id,
                 all_ready=all_ready,
@@ -3104,7 +3158,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             )
         elif subaction == "run":
             payload = asyncio.run(
-                executor.run(
+                tranche_executor.run(
                     manifest,
                     lane_id=lane_id,
                     all_ready=all_ready,
@@ -3168,9 +3222,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             tail=0,
             include_git_metrics=False,
         )
-        store = FleetCoordinationStore(repo_root)
-        claims = store.list_claims()
-        merge_queue = store.list_merge_queue()
+        status_fleet_store = FleetCoordinationStore(repo_root)
+        claims = status_fleet_store.list_claims()
+        merge_queue = status_fleet_store.list_merge_queue()
         payload["integrator_view"] = build_integrator_view(
             runs=payload.get("runs", []),
             worktrees=worktrees,
@@ -3338,12 +3392,13 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         else:
             _print_supervisor_run(run_payload)
     elif dry_run:
+        goal_text = goal or ""
         if skip_interrogation:
             spec = SwarmSpec(
                 id=str(uuid4()),
                 created_at=datetime.now(timezone.utc),
-                raw_goal=goal,
-                refined_goal=goal,
+                raw_goal=goal_text,
+                refined_goal=goal_text,
                 budget_limit_usd=budget_limit,
                 requires_approval=require_approval,
                 interrogation_turns=0,
@@ -3352,14 +3407,15 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             print("\n[DRY RUN] Skipping interrogation and building a direct spec.\n")
             print(spec.to_json(indent=2))
         else:
-            spec = asyncio.run(commander.dry_run(goal))
+            spec = asyncio.run(commander.dry_run(goal_text))
         save_path = getattr(args, "save_spec", None)
         if save_path:
             Path(save_path).write_text(spec.to_yaml())
             print(f"\nSpec saved to {save_path}")
     elif skip_interrogation:
+        goal_text = goal or ""
         spec = SwarmSpec.from_direct_goal(
-            goal,
+            goal_text,
             budget_limit_usd=budget_limit,
             requires_approval=require_approval,
             user_expertise="developer",
@@ -3407,7 +3463,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     else:
         run = _run_supervised_or_report(
             commander.run_supervised(
-                goal,
+                goal or "",
                 repo_path=Path.cwd(),
                 target_branch=target_branch,
                 max_concurrency=concurrency_cap,

@@ -148,7 +148,7 @@ export class RLMAPI {
    * Get RLM compression statistics.
    */
   async getStats(): Promise<RLMStats> {
-    return this.client.request('POST', '/api/v1/rlm/stats');
+    return this.client.request('GET', '/api/v1/rlm/stats');
   }
 
   /**
@@ -159,7 +159,7 @@ export class RLMAPI {
     default: string;
     documentation: string;
   }> {
-    return this.client.request('POST', '/api/v1/rlm/strategies');
+    return this.client.request('GET', '/api/v1/rlm/strategies');
   }
 
   /**
@@ -233,7 +233,7 @@ export class RLMAPI {
     if (options?.limit) params.limit = options.limit;
     if (options?.offset) params.offset = options.offset;
 
-    return this.client.request('POST', '/api/v1/rlm/contexts', {
+    return this.client.request('GET', '/api/v1/rlm/contexts', {
       params: Object.keys(params).length > 0 ? params : undefined,
     });
   }
@@ -270,7 +270,7 @@ export class RLMAPI {
   async getStreamModes(): Promise<{
     modes: Array<{ mode: string; description: string; use_case: string }>;
   }> {
-    return this.client.request('POST', '/api/v1/rlm/stream/modes');
+    return this.client.request('GET', '/api/v1/rlm/stream/modes');
   }
 
   /**
@@ -322,25 +322,23 @@ export class RLMAPI {
   }
 
   /**
-   * Reset codebase health data.
-   *
-   * @route DELETE /api/v1/rlm/codebase/health
+   * Guard unsupported write access until the API contract publishes this route.
    */
-  async resetCodebaseHealth(): Promise<{ reset: boolean }> {
-    return this.client.request('DELETE', '/api/v1/rlm/codebase/health');
+  async resetCodebaseHealth(): Promise<never> {
+    throw new Error(
+      'DELETE /api/v1/rlm/codebase/health is not part of the current Aragora API contract.'
+    );
   }
 
   /**
-   * Trigger codebase health analysis.
-   *
-   * @route POST /api/v1/rlm/codebase/health
+   * Guard unsupported write access until the API contract publishes this route.
    */
-  async analyzeCodebaseHealth(body?: {
+  async analyzeCodebaseHealth(_body?: {
     paths?: string[];
     deep?: boolean;
-  }): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/rlm/codebase/health', {
-      json: body as Record<string, unknown>,
-    });
+  }): Promise<never> {
+    throw new Error(
+      'POST /api/v1/rlm/codebase/health is not part of the current Aragora API contract.'
+    );
   }
 }

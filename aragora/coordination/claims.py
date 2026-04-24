@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from fnmatch import fnmatch
@@ -29,6 +30,40 @@ logger = logging.getLogger(__name__)
 
 _COORD_DIR = ".aragora_coordination"
 _CLAIMS_DIR = "claims"
+
+
+def _coerce_string_list(value: object) -> list[str]:
+    if isinstance(value, Iterable) and not isinstance(value, (str, bytes, bytearray)):
+        return [str(item) for item in value]
+    return []
+
+
+def _coerce_float(value: object, default: float = 0.0) -> float:
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
+
+
+def _coerce_int(value: object, default: int) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
 
 
 class ClaimStatus(str, Enum):
@@ -72,10 +107,10 @@ class FileClaim:
         return cls(
             claim_id=str(data.get("claim_id", "")),
             session_id=str(data.get("session_id", "")),
-            paths=list(data.get("paths", [])),  # type: ignore[arg-type]
+            paths=_coerce_string_list(data.get("paths")),
             intent=str(data.get("intent", "")),
-            claimed_at=float(data.get("claimed_at", 0)),
-            ttl_minutes=int(data.get("ttl_minutes", 30)),
+            claimed_at=_coerce_float(data.get("claimed_at"), 0.0),
+            ttl_minutes=_coerce_int(data.get("ttl_minutes"), 30),
             released=bool(data.get("released", False)),
         )
 

@@ -57,6 +57,15 @@ HANDLER_ROUTE_PREFIXES: list[tuple[str, list[str]]] = [
     ("billing_handler", ["/api/billing/test-123", "/api/v1/billing/test-123"]),
     ("budget_handler", ["/api/v1/budgets"]),
     ("checkpoint_handler", ["/api/checkpoints"]),
+    (
+        "settlements_handler",
+        [
+            "/api/settlements",
+            "/api/v1/settlements",
+            "/api/v1/settlements/history",
+            "/api/v1/settlements/test-123/settle",
+        ],
+    ),
     ("knowledge_handler", ["/api/knowledge/search", "/api/v1/knowledge/search"]),
     ("inbox_handler", ["/api/inbox", "/api/v1/inbox"]),
     ("canvas_handler", ["/api/canvas", "/api/v1/canvas/test-123"]),
@@ -179,6 +188,8 @@ class TestRouteCoverage:
             ("/api/v1/knowledge/search", True),
             ("/api/v1/canvas/abc-123", True),
             ("/api/v1/codebase/search", True),
+            ("/api/v1/settlements", True),
+            ("/api/v1/settlements/test-123/settle", True),
         ],
     )
     def test_specific_routes_have_coverage(self, path, should_match):

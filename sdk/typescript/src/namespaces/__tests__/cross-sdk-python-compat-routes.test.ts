@@ -195,6 +195,17 @@ describe('Cross SDK Python Compatibility Routes', () => {
     await api.getMarketplaceStatus();
     await api.getCircuitBreaker();
     await api.listMyDeployments({ limit: 5, offset: 0 });
+    await api.listListings({
+      type: 'template',
+      tag: 'ops',
+      category: 'analysis',
+      search: 'risk',
+      limit: 4,
+      offset: 1,
+    });
+    await api.listFeaturedListings({ limit: 3 });
+    await api.getListingStats();
+    await api.getListing('listing/123');
 
     expect(mockClient.request).toHaveBeenNthCalledWith(1, 'GET', '/api/v2/marketplace/templates', {
       params: { q: 'risk', category: 'ops', limit: 3, offset: 1 },
@@ -227,6 +238,21 @@ describe('Cross SDK Python Compatibility Routes', () => {
     expect(mockClient.request).toHaveBeenNthCalledWith(9, 'GET', '/api/v1/marketplace/my-deployments', {
       params: { limit: 5, offset: 0 },
     });
+    expect(mockClient.request).toHaveBeenNthCalledWith(10, 'GET', '/api/v1/marketplace/listings', {
+      params: {
+        type: 'template',
+        tag: 'ops',
+        category: 'analysis',
+        search: 'risk',
+        limit: 4,
+        offset: 1,
+      },
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(11, 'GET', '/api/v1/marketplace/listings/featured', {
+      params: { limit: 3 },
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(12, 'GET', '/api/v1/marketplace/listings/stats');
+    expect(mockClient.request).toHaveBeenNthCalledWith(13, 'GET', '/api/v1/marketplace/listings/listing%2F123');
   });
 
   it('maps orchestration v2 routes with legacy compatibility preserved', async () => {

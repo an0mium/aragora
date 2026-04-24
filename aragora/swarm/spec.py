@@ -48,7 +48,7 @@ _FALSE_POSITIVE_SCOPE_HINTS = frozenset(
 _PATH_WRAPPER_CHARS = "`'\".,;:()[]{}<>"
 _DIRECT_GOAL_TRACK_HINTS = frozenset({"sme", "developer", "self_hosted", "qa", "core", "security"})
 _DIRECT_GOAL_COMPLEXITIES = frozenset({"low", "medium", "high"})
-_DIRECT_GOAL_OPENROUTER_MODEL = "anthropic/claude-haiku-4-5-20251001"
+_DIRECT_GOAL_OPENROUTER_MODEL = "anthropic/claude-opus-4.7"
 _DIRECT_GOAL_SPEC_PROMPT = """\
 You are refining a developer's direct goal into a dispatch-bounded swarm spec.
 
@@ -260,24 +260,27 @@ class SwarmSpec:
 
     @classmethod
     def _direct_goal_providers(cls) -> tuple[ExtractionProvider, ...]:
+        # Frontier-first provider preference so the swarm uses Opus 4.7 / GPT-5.4
+        # / Gemini 3.1 Pro wherever a direct key is available, and OpenRouter-Opus
+        # when only the unified key is configured.
         return (
             ExtractionProvider(
                 agent_type="anthropic-api",
-                model="claude-haiku-4-5-20251001",
+                model="claude-opus-4-7",
                 role="critic",
                 name="swarm-direct-goal-refiner",
                 env_vars=("ANTHROPIC_API_KEY",),
             ),
             ExtractionProvider(
                 agent_type="openai-api",
-                model="gpt-4.1-mini",
+                model="gpt-5.4",
                 role="critic",
                 name="swarm-direct-goal-refiner",
                 env_vars=("OPENAI_API_KEY",),
             ),
             ExtractionProvider(
                 agent_type="gemini",
-                model="gemini-2.0-flash",
+                model="gemini-3.1-pro",
                 role="critic",
                 name="swarm-direct-goal-refiner",
                 env_vars=("GEMINI_API_KEY", "GOOGLE_API_KEY"),

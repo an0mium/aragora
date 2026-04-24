@@ -13,6 +13,7 @@ __pycache__/
 .aragora_sessions.yaml
 .aragora_sessions.json
 .aragora_events/
+.aragora_coordination/
 
 # Worktree session lock files (created by SessionStart hook, removed on Stop)
 .claude-session-active
@@ -222,3 +223,18 @@ shoggoth/
 fire-alarm-essay-v3.md
 unified-outline.md
 MagicMock/
+
+# Forensic scan outputs that contain real exposed secrets (would re-expose if committed)
+benchmarks/bench_readiness/incident_scans/raw/
+benchmarks/bench_readiness/incident_scans/RingRift_gitleaks.json
+benchmarks/bench_readiness/incident_scans/aragora_gitleaks.json
+
+# Repo-root hygiene — prevents re-introduction of cleaned clutter (cold audit 2026-04-18)
+# Sales / strategy collateral kept out of the code repo
+Enterprise_Multi_Agent_Control_Plane_Report.docx
+/Aragora Idea-to-Execution Strategy.docx
+# Unrelated images at repo root
+/aragora icon.png
+godmod3-homepage.png
+# Test/runtime artifacts written to repo root
+coverage-handlers.json

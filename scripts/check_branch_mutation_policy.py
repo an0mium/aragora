@@ -148,14 +148,21 @@ def find_mutating_workflow_violations(workflows: dict[str, str]) -> list[Violati
                         message="must not push directly to main",
                     )
                 )
-            if "gh pr create" in text:
+            if "gh pr create" not in text:
                 violations.append(
                     Violation(
                         path=f".github/workflows/{name}",
                         message=(
-                            "must delegate pull request creation to Auto PR Publisher "
-                            "instead of invoking gh pr create"
+                            "must create a draft pull request in-band for "
+                            "benchmark-truth-publication/* branches"
                         ),
+                    )
+                )
+            elif "--draft" not in text:
+                violations.append(
+                    Violation(
+                        path=f".github/workflows/{name}",
+                        message="must create the benchmark publication pull request as a draft",
                     )
                 )
     return violations
