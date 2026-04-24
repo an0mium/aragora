@@ -232,23 +232,19 @@ def garden_resolved_crux(
         elif has_contradiction:
             status = STATUS_NEW_CONTRADICTION
             detail = f"coherence issues detected: {', '.join(coh_kinds)}"
-        elif (
-            observed_claims
-            or coh_kinds
-            or (claim_results is not None and not entry.affected_claims)
-        ):
-            # We had evidence (at least one claim was observed, or
-            # coherence issues were computed, or the crux has no
-            # affected claims and claim_results was supplied) and
-            # nothing flagged.
+        elif entry.affected_claims and set(observed_claims) >= set(entry.affected_claims):
+            # We had ClaimResults for every affected claim and nothing
+            # flagged. Partial claim coverage is insufficient evidence:
+            # otherwise one passing claim can mask missing data for the
+            # rest of the crux.
             status = STATUS_HEALTHY
             detail = "evidence fresh; no new contradictions"
+        elif claim_results is not None and not entry.affected_claims:
+            status = STATUS_HEALTHY
+            detail = "no affected claims; no contradictions"
         else:
             status = STATUS_INSUFFICIENT_EVIDENCE
-            detail = (
-                "no ClaimResults for any affected claim and no coherence "
-                "issues provided; cannot evaluate"
-            )
+            detail = "missing ClaimResults for one or more affected claims; cannot evaluate"
 
         needs_followup = cfg.followup_eligible and status not in (
             STATUS_HEALTHY,

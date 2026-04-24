@@ -426,6 +426,17 @@ def test_resolved_crux_healthy_only_when_evidence_was_observed() -> None:
     assert results_unobserved[0].status == STATUS_INSUFFICIENT_EVIDENCE
 
 
+def test_resolved_crux_partial_claim_coverage_is_insufficient_evidence() -> None:
+    """One observed claim must not make a multi-claim crux look healthy."""
+    receipt = _receipt(affected_claims=["claim-a", "claim-b"])
+    results = garden_resolved_crux(
+        receipt,
+        config=_CFG,
+        claim_results={"claim-a": _pass_result("claim-a")},
+    )
+    assert results[0].status == STATUS_INSUFFICIENT_EVIDENCE
+
+
 def test_summary_counts_mixed_findings() -> None:
     """run_gardening_pass summary counts all status buckets correctly."""
     # 2 resolved receipts: 1 stale, 1 contradiction
