@@ -173,6 +173,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "claude-sonnet-4": (3.00, 15.00),
     "claude-haiku-4-5": (0.80, 4.00),
     # OpenAI
+    "gpt-5.5": (2.50, 10.00),
     "gpt-5.4": (2.50, 10.00),
     "gpt-5.4-pro": (5.00, 20.00),
     "gpt-5.3": (2.50, 10.00),

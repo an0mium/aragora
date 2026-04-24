@@ -935,9 +935,9 @@ class TestOpenAIAgent:
     """Tests for OpenAIAgent."""
 
     def test_initialization_with_default_model(self):
-        """Should use the current GPT CLI default model."""
+        """Should use gpt-5.5 as default model."""
         agent = OpenAIAgent(name="openai")
-        assert agent.model == "gpt-5.3"
+        assert agent.model == "gpt-5.5"
 
     def test_initialization_with_custom_model(self):
         """Should accept custom model."""
@@ -1133,6 +1133,11 @@ class TestCLIAgentFallback:
             agent = CodexAgent(name="test", model="test")
         assert agent.enable_fallback is False
 
+    def test_enable_fallback_default_true(self):
+        """Should enable fallback by default for graceful degradation."""
+        agent = CodexAgent(name="test", model="test")
+        assert agent.enable_fallback is True
+
     def test_enable_fallback_can_be_enabled(self):
         """Should allow enabling fallback explicitly."""
         agent = CodexAgent(name="test", model="test", enable_fallback=True)
@@ -1256,8 +1261,8 @@ class TestCLIAgentGetFallbackAgent:
                 agent._get_fallback_agent()
 
                 call_kwargs = mock_or.call_args[1]
-                # Legacy Codex model aliases should map to the current OpenAI fallback.
-                assert call_kwargs["model"] == "openai/gpt-5.4"
+                # Legacy Codex models upgrade to the current OpenAI frontier.
+                assert call_kwargs["model"] == "openai/gpt-5.5"
                 # Should not pass api_key (OpenRouterAgent reads from env)
                 assert "api_key" not in call_kwargs
 
@@ -1424,7 +1429,7 @@ class TestCLIAgentModelMapping:
     def test_codex_model_mapping(self):
         """Should map Codex models correctly."""
         agent = CodexAgent(name="test", model="gpt-4.1-codex")
-        assert agent.OPENROUTER_MODEL_MAP.get("gpt-4.1-codex") == "openai/gpt-5.4"
+        assert agent.OPENROUTER_MODEL_MAP.get("gpt-4.1-codex") == "openai/gpt-5.5"
 
     def test_gemini_model_mapping(self):
         """Should map Gemini models correctly."""
@@ -1459,7 +1464,7 @@ class TestCLIAgentModelMapping:
                 agent._get_fallback_agent()
 
                 call_kwargs = mock_or.call_args[1]
-                # Should default to the current frontier Claude model
+                # Should default to the current frontier Claude model.
                 assert call_kwargs["model"] == "anthropic/claude-opus-4.7"
 
 

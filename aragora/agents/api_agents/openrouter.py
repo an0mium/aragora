@@ -55,31 +55,31 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "qwen/qwen3-235b-a22b": DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen3-max": DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen3.5-plus-02-15": DEEPSEEK_V4_PRO_MODEL,
-    # DeepSeek -> GPT-5.3-chat (fast, reliable). Keep legacy keys so
+    # DeepSeek -> GPT-5.5 (fast, reliable). Keep legacy keys so
     # callers that pin an older OpenRouter id still get a safe fallback.
-    DEEPSEEK_V4_PRO_MODEL: "openai/gpt-5.3-chat",
-    "deepseek/deepseek-chat": "openai/gpt-5.3-chat",
-    "deepseek/deepseek-chat-v3-0324": "openai/gpt-5.3-chat",
-    "deepseek/deepseek-v3.2": "openai/gpt-5.3-chat",
-    "deepseek/deepseek-v3.2-exp": "openai/gpt-5.3-chat",
-    "deepseek/deepseek-chat-v3.1": "openai/gpt-5.3-chat",
-    "deepseek/deepseek-r1": "openai/gpt-5.3-chat",
-    "deepseek/deepseek-reasoner": "openai/gpt-5.3-chat",
+    DEEPSEEK_V4_PRO_MODEL: "openai/gpt-5.5",
+    "deepseek/deepseek-chat": "openai/gpt-5.5",
+    "deepseek/deepseek-chat-v3-0324": "openai/gpt-5.5",
+    "deepseek/deepseek-v3.2": "openai/gpt-5.5",
+    "deepseek/deepseek-v3.2-exp": "openai/gpt-5.5",
+    "deepseek/deepseek-chat-v3.1": "openai/gpt-5.5",
+    "deepseek/deepseek-r1": "openai/gpt-5.5",
+    "deepseek/deepseek-reasoner": "openai/gpt-5.5",
     # Kimi -> Claude Opus 4.7
     "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.7",
     "moonshotai/kimi-k2.5": "anthropic/claude-opus-4.7",
     "moonshotai/kimi-k2-0905": "anthropic/claude-opus-4.7",
     "moonshotai/kimi-k2-thinking": "anthropic/claude-opus-4.7",
     "moonshot/moonshot-v1-128k": "anthropic/claude-opus-4.7",
-    # Mistral -> GPT-5.2-chat
-    "mistralai/mistral-large-2411": "openai/gpt-5.3-chat",
-    "mistralai/mistral-large-2512": "openai/gpt-5.3-chat",
+    # Mistral -> GPT-5.5
+    "mistralai/mistral-large-2411": "openai/gpt-5.5",
+    "mistralai/mistral-large-2512": "openai/gpt-5.5",
     # Yi -> DeepSeek
     "01-ai/yi-large": DEEPSEEK_V4_PRO_MODEL,
-    # Llama -> GPT-5.3-chat
-    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-5.3-chat",
-    "meta-llama/llama-4-maverick": "openai/gpt-5.3-chat",
-    "meta-llama/llama-4-scout": "openai/gpt-5.3-chat",
+    # Llama -> GPT-5.5
+    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-5.5",
+    "meta-llama/llama-4-maverick": "openai/gpt-5.5",
+    "meta-llama/llama-4-scout": "openai/gpt-5.5",
 }
 
 
@@ -107,7 +107,7 @@ class OpenRouterAgent(APIAgent):
     - moonshotai/kimi-k2.6 (Kimi K2.6)
     - google/gemini-3.1-pro (Gemini 3.1 Pro)
     - anthropic/claude-opus-4.7
-    - openai/gpt-5.3
+    - openai/gpt-5.5
     """
 
     def __init__(

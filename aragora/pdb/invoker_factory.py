@@ -73,7 +73,7 @@ QWEN_MODEL_ENV = "ARAGORA_PDB_QWEN_MODEL"
 MISTRAL_MODEL_ENV = "ARAGORA_PDB_MISTRAL_MODEL"
 
 CLAUDE_MODEL_DEFAULT = "claude-sonnet-4-6"
-OPENAI_MODEL_DEFAULT = "gpt-5.4"
+OPENAI_MODEL_DEFAULT = "gpt-5.5"
 GEMINI_MODEL_DEFAULT = "gemini-3.1-pro-preview"
 # Grok default pins the reasoning-capable 4.20 snapshot. The prior default
 # ``grok-4.2`` was never a valid xAI model id and every Mode 3 brief that
