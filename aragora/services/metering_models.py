@@ -77,10 +77,12 @@ MODEL_PRICING: dict[str, dict[str, Decimal]] = {
         "default-output": Decimal("5.00"),
     },
     "deepseek": {
+        "deepseek-v4-pro": Decimal("1.74"),
+        "deepseek-v4-pro-output": Decimal("3.48"),
         "deepseek-v3": Decimal("0.14"),
         "deepseek-v3-output": Decimal("0.28"),
-        "default": Decimal("0.14"),
-        "default-output": Decimal("0.28"),
+        "default": Decimal("1.74"),
+        "default-output": Decimal("3.48"),
     },
     "xai": {
         "grok-2": Decimal("2.00"),

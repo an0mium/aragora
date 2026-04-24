@@ -11,7 +11,7 @@ The fastest truthful path to a real result is to run `aragora review-pr` against
 > ```bash
 > docker compose -f deploy/demo/docker-compose.yml up --build
 > ```
-> Backend at `localhost:8080`, frontend at `localhost:3000`. See [Docker Quickstart](https://github.com/synaptent/aragora/blob/main/docs/guides/QUICKSTART_DOCKER.md) for details.
+> Backend at `localhost:8080`, frontend at `localhost:3000`. See [Docker Quickstart](guides/QUICKSTART_DOCKER.md) for details.
 
 ---
 

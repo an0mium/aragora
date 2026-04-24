@@ -43,7 +43,7 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "jamba": "AI21 Jamba",
     "yi": "Yi Large",
     "openrouter": "OpenRouter",
-    "deepseek-r1": "DeepSeek R1",
+    "deepseek-r1": "DeepSeek V4 Pro",
     "ollama": "Ollama (Local)",
     "claude": "Claude",
     "codex": "Codex",

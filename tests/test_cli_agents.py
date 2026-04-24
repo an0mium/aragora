@@ -883,9 +883,9 @@ class TestDeepseekCLIAgent:
 
     def test_initialization(self):
         """Should initialize correctly."""
-        agent = DeepseekCLIAgent(name="deepseek", model="deepseek-v3")
+        agent = DeepseekCLIAgent(name="deepseek", model="deepseek-v4-pro")
         assert agent.name == "deepseek"
-        assert agent.model == "deepseek-v3"
+        assert agent.model == "deepseek-v4-pro"
 
     @pytest.mark.asyncio
     async def test_generate_command_format(self):
@@ -935,9 +935,9 @@ class TestOpenAIAgent:
     """Tests for OpenAIAgent."""
 
     def test_initialization_with_default_model(self):
-        """Should use gpt-4.1 as default model."""
+        """Should use gpt-5.5 as default model."""
         agent = OpenAIAgent(name="openai")
-        assert agent.model == "gpt-4.1"
+        assert agent.model == "gpt-5.5"
 
     def test_initialization_with_custom_model(self):
         """Should accept custom model."""
@@ -1127,10 +1127,16 @@ class TestListAvailableAgents:
 class TestCLIAgentFallback:
     """Tests for CLI agent fallback to OpenRouter functionality."""
 
-    def test_enable_fallback_default_false(self):
-        """Should disable fallback by default (opt-in via ARAGORA_OPENROUTER_FALLBACK_ENABLED)."""
-        agent = CodexAgent(name="test", model="test")
+    def test_enable_fallback_can_be_disabled_by_env(self):
+        """Should allow disabling fallback via ARAGORA_OPENROUTER_FALLBACK_ENABLED=false."""
+        with patch.dict("os.environ", {"ARAGORA_OPENROUTER_FALLBACK_ENABLED": "false"}):
+            agent = CodexAgent(name="test", model="test")
         assert agent.enable_fallback is False
+
+    def test_enable_fallback_default_true(self):
+        """Should enable fallback by default for graceful degradation."""
+        agent = CodexAgent(name="test", model="test")
+        assert agent.enable_fallback is True
 
     def test_enable_fallback_can_be_enabled(self):
         """Should allow enabling fallback explicitly."""
@@ -1255,8 +1261,8 @@ class TestCLIAgentGetFallbackAgent:
                 agent._get_fallback_agent()
 
                 call_kwargs = mock_or.call_args[1]
-                # gpt-4.1-codex should map to openai/gpt-4.1
-                assert call_kwargs["model"] == "openai/gpt-4.1"
+                # Legacy Codex models upgrade to the current OpenAI frontier.
+                assert call_kwargs["model"] == "openai/gpt-5.5"
                 # Should not pass api_key (OpenRouterAgent reads from env)
                 assert "api_key" not in call_kwargs
 
@@ -1423,12 +1429,12 @@ class TestCLIAgentModelMapping:
     def test_codex_model_mapping(self):
         """Should map Codex models correctly."""
         agent = CodexAgent(name="test", model="gpt-4.1-codex")
-        assert agent.OPENROUTER_MODEL_MAP.get("gpt-4.1-codex") == "openai/gpt-4.1"
+        assert agent.OPENROUTER_MODEL_MAP.get("gpt-4.1-codex") == "openai/gpt-5.5"
 
     def test_gemini_model_mapping(self):
         """Should map Gemini models correctly."""
         agent = GeminiCLIAgent(name="test", model="gemini-3-pro")
-        assert agent.OPENROUTER_MODEL_MAP.get("gemini-3-pro") == "google/gemini-3.1-pro-preview"
+        assert agent.OPENROUTER_MODEL_MAP.get("gemini-3-pro") == "google/gemini-3.1-pro"
 
     def test_grok_model_mapping(self):
         """Should map Grok models correctly."""
@@ -1437,8 +1443,8 @@ class TestCLIAgentModelMapping:
 
     def test_deepseek_model_mapping(self):
         """Should map Deepseek models correctly."""
-        agent = DeepseekCLIAgent(name="test", model="deepseek-v3")
-        assert agent.OPENROUTER_MODEL_MAP.get("deepseek-v3") == "deepseek/deepseek-chat"
+        agent = DeepseekCLIAgent(name="test", model="deepseek-v4-pro")
+        assert agent.OPENROUTER_MODEL_MAP.get("deepseek-v4-pro") == "deepseek/deepseek-v4-pro"
 
     def test_qwen_model_mapping(self):
         """Should map Qwen models correctly."""
@@ -1458,8 +1464,8 @@ class TestCLIAgentModelMapping:
                 agent._get_fallback_agent()
 
                 call_kwargs = mock_or.call_args[1]
-                # Should default to the current frontier Claude model
-                assert call_kwargs["model"] == "anthropic/claude-sonnet-4.6"
+                # Should default to the current frontier Claude model.
+                assert call_kwargs["model"] == "anthropic/claude-opus-4.7"
 
 
 # =============================================================================

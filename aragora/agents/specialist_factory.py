@@ -83,8 +83,9 @@ class SpecialistAgentFactory:
             "llama-3.1-8b": "openrouter:meta-llama/llama-3.1-8b-instruct",
             "qwen-2.5-72b": "openrouter:qwen/qwen-2.5-72b-instruct",
             "qwen-3-32b": "openrouter:qwen/qwen3-32b",
-            "deepseek-v3": "openrouter:deepseek/deepseek-v3",
-            "deepseek-r1": "openrouter:deepseek/deepseek-r1",
+            "deepseek-v3": "openrouter:deepseek/deepseek-v4-pro",
+            "deepseek-v4-pro": "openrouter:deepseek/deepseek-v4-pro",
+            "deepseek-r1": "openrouter:deepseek/deepseek-v4-pro",
         }
 
         # Vertical-specific system prompts

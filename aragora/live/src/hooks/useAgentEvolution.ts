@@ -166,7 +166,7 @@ const MOCK_TIMELINE: EvolutionTimeline = {
     },
     {
       id: 'evt-007',
-      agent_name: 'deepseek-v3',
+      agent_name: 'deepseek-v4-pro',
       event_type: 'persona_change',
       timestamp: new Date(now - 48 * 60 * 60 * 1000).toISOString(),
       description: 'Graduated from "novice" to "intermediate analyst" after 50 successful debate participations',

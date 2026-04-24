@@ -104,8 +104,8 @@ Agent (core.py)
 
 | Agent Class | Model | Description |
 |-------------|-------|-------------|
-| `DeepSeekAgent` | deepseek-reasoner | Chain-of-thought reasoning |
-| `DeepSeekReasonerAgent` | deepseek-r1 | Chain-of-thought reasoning |
+| `DeepSeekAgent` | deepseek-v4-pro | Frontier long-context model |
+| `DeepSeekReasonerAgent` | deepseek-v4-pro | DeepSeek V4 Pro compatibility alias |
 | `LlamaAgent` | llama-3.3-70b | Meta's flagship open model |
 | `Llama4MaverickAgent` | llama-4-maverick | 400B MoE, 1M context |
 | `Llama4ScoutAgent` | llama-4-scout | 109B MoE, 10M context |
@@ -193,16 +193,15 @@ When a provider fails (rate limit, quota exceeded, auth error), agents automatic
 agent = AnthropicAPIAgent(enable_fallback=True)
 
 # Fallback chain for OpenRouter models
-# qwen/qwen3-235b -> deepseek/deepseek-chat -> openai/gpt-4o-mini
+# qwen/qwen3-235b -> deepseek/deepseek-v4-pro -> openai/gpt-5.3-chat
 ```
 
 #### Fallback Model Chain
 
 ```python
 OPENROUTER_FALLBACK_MODELS = {
-    "qwen/qwen3-235b-a22b": "deepseek/deepseek-chat",
-    "deepseek/deepseek-chat": "openai/gpt-4o-mini",
-    "deepseek/deepseek-reasoner": "anthropic/claude-3-haiku",
+    "qwen/qwen3-235b-a22b": "deepseek/deepseek-v4-pro",
+    "deepseek/deepseek-v4-pro": "openai/gpt-5.3-chat",
     "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.7",
     "meta-llama/llama-3.3-70b-instruct": "openai/gpt-4o-mini",
     # ... more mappings
@@ -523,7 +522,7 @@ from aragora.agents.api_agents import OpenRouterAgent, DeepSeekAgent
 agent = OpenRouterAgent(model="anthropic/claude-3.5-sonnet")
 
 # Or use model-specific class for defaults
-agent = DeepSeekAgent()  # Uses deepseek-v3.2
+agent = DeepSeekAgent()  # Uses deepseek-v4-pro
 ```
 
 ### Fine-Tuned Models

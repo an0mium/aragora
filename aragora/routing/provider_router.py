@@ -28,11 +28,10 @@ MIN_DEBATES_FOR_METRICS = 10
 DEFAULT_PROVIDER_ORDER = [
     "claude-sonnet-4",
     "gpt-4o",
-    "deepseek-r1",
+    "deepseek-v4-pro",
     "mistral-large",
     "gemini-2.0-flash",
     "gpt-4o-mini",
-    "deepseek-chat",
     "claude-opus-4",
 ]
 

@@ -70,7 +70,7 @@ class TestOpenRouterGenerate:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             return OpenRouterAgent(
                 name="test-router",
-                model="deepseek/deepseek-chat",
+                model="deepseek/deepseek-v4-pro",
             )
 
     @pytest.mark.asyncio
@@ -213,7 +213,7 @@ class TestOpenRouterStreaming:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             return OpenRouterAgent(
                 name="test-router",
-                model="deepseek/deepseek-chat",
+                model="deepseek/deepseek-v4-pro",
             )
 
     @pytest.mark.asyncio
@@ -296,7 +296,7 @@ class TestOpenRouterCritique:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             return OpenRouterAgent(
                 name="test-router",
-                model="deepseek/deepseek-chat",
+                model="deepseek/deepseek-v4-pro",
             )
 
     @pytest.mark.asyncio
@@ -347,7 +347,7 @@ class TestDeepSeekReasonerAgent:
             agent = DeepSeekReasonerAgent()
 
         assert "deepseek" in agent.model.lower()
-        assert "r1" in agent.model.lower()
+        assert agent.model == "deepseek/deepseek-v4-pro"
         assert agent.agent_type == "deepseek-r1"
 
 
@@ -390,7 +390,7 @@ class TestOpenRouterHeaders:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             agent = OpenRouterAgent(
                 name="test-router",
-                model="deepseek/deepseek-chat",
+                model="deepseek/deepseek-v4-pro",
             )
 
         mock_response = MagicMock()
@@ -433,7 +433,7 @@ class TestOpenRouterRateLimiter:
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             agent = OpenRouterAgent(
                 name="test-router",
-                model="deepseek/deepseek-chat",
+                model="deepseek/deepseek-v4-pro",
             )
 
         mock_response = MagicMock()

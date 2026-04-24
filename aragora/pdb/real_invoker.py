@@ -173,6 +173,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "claude-sonnet-4": (3.00, 15.00),
     "claude-haiku-4-5": (0.80, 4.00),
     # OpenAI
+    "gpt-5.5": (2.50, 10.00),
     "gpt-5.4": (2.50, 10.00),
     "gpt-5.4-pro": (5.00, 20.00),
     "gpt-5.3": (2.50, 10.00),
@@ -220,6 +221,9 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # through (plus the standard platform markup); both the ``family/``
     # and un-prefixed forms below work because ``estimate_cost_usd``
     # strips provider prefixes before lookup.
+    "deepseek-v4-pro": (1.74, 3.48),
+    # Legacy DeepSeek aliases are retained for older env overrides and
+    # historical receipts, but new defaults should use ``deepseek-v4-pro``.
     "deepseek-chat": (0.27, 1.10),
     "deepseek-chat-v3-0324": (0.27, 1.10),
     "deepseek-chat-v3.1": (0.27, 1.10),

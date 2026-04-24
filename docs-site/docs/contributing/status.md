@@ -8,7 +8,7 @@ description: Aragora Project Status
 *Last updated: April 23, 2026*
 
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](./status).
-> The thesis settlement ledger lives at [status/2026-04-21-thesis-settlement-session.md](https://github.com/synaptent/aragora/blob/main/docs/status/2026-04-21-thesis-settlement-session.md).
+> The thesis settlement ledger lives at [status/2026-04-21-thesis-settlement-session.md](status/2026-04-21-thesis-settlement-session.md).
 > Historical sections below are retained for continuity, but the active source of truth for current project status is `docs/status/STATUS.md`.
 > See [README](../analysis/adr) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
 
@@ -2277,7 +2277,7 @@ All stabilization items addressed:
 | `grok` | grok-4-latest | xAI |
 | `anthropic-api` | claude-opus-4-5-20251101 | Anthropic |
 | `openai-api` | gpt-5.3 | OpenAI |
-| `deepseek` | deepseek/deepseek-reasoner | OpenRouter |
+| `deepseek` | deepseek/deepseek-v4-pro | OpenRouter |
 | `mistral-api` | mistral-large-2512 | Mistral |
 | `gemini` | gemini-3-pro-preview | Google |
 | `qwen-max` | qwen/qwen3-max | OpenRouter |

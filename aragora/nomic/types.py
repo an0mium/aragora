@@ -45,7 +45,7 @@ KILOCODE_PROVIDER_MAPPING = {
     "gemini-cli": "google/gemini-3.1-pro",
     "grok": "openrouter/x-ai/grok-4",  # Grok via OpenRouter
     "grok-cli": "openrouter/x-ai/grok-4",
-    "deepseek": "openrouter/deepseek/deepseek-chat-v3-0324",  # DeepSeek via OpenRouter
+    "deepseek": "openrouter/deepseek/deepseek-v4-pro",  # DeepSeek via OpenRouter
     "qwen": "openrouter/qwen/qwen-2.5-coder-32b-instruct",  # Qwen via OpenRouter
 }
 

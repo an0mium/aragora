@@ -742,4 +742,4 @@ satisfied (100%), partially satisfied (50%), or not satisfied (0%):
 - [API Reference](../api/reference) -- REST API documentation
 - [Gauntlet Testing](../analysis/adr) -- Adversarial stress testing
 - [Decision Receipts](../api/cli) -- Receipt command and verification workflow
-- [Demo Script](https://github.com/synaptent/aragora/blob/main/scripts/demo_compliance.sh) -- End-to-end walkthrough in 2 minutes
+- [Demo Script](../../scripts/demo_compliance.sh) -- End-to-end walkthrough in 2 minutes

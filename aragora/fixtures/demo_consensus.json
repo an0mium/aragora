@@ -13,7 +13,7 @@
     "confidence": 0.8,
     "strength": "strong",
     "domain": "architecture",
-    "participants": ["gemini-visionary", "deepseek-v3", "claude-visionary", "codex-engineer"]
+    "participants": ["gemini-visionary", "deepseek-v4-pro", "claude-visionary", "codex-engineer"]
   },
   {
     "topic": "Public Debate Archive with Stabilized IDs",
@@ -21,7 +21,7 @@
     "confidence": 0.8,
     "strength": "strong",
     "domain": "architecture",
-    "participants": ["claude-visionary", "deepseek-v3", "gemini-visionary", "codex-engineer"]
+    "participants": ["claude-visionary", "deepseek-v4-pro", "gemini-visionary", "codex-engineer"]
   },
   {
     "topic": "Stream Package Refactoring",
@@ -37,7 +37,7 @@
     "confidence": 0.85,
     "strength": "strong",
     "domain": "architecture",
-    "participants": ["claude-visionary", "gemini-visionary", "deepseek-v3", "grok-lateral-thinker"]
+    "participants": ["claude-visionary", "gemini-visionary", "deepseek-v4-pro", "grok-lateral-thinker"]
   },
   {
     "topic": "Rate Limiting Strategy for Public APIs",
@@ -53,7 +53,7 @@
     "confidence": 0.9,
     "strength": "strong",
     "domain": "security",
-    "participants": ["codex-pragmatist", "claude-synthesizer", "deepseek-v3"]
+    "participants": ["codex-pragmatist", "claude-synthesizer", "deepseek-v4-pro"]
   },
   {
     "topic": "Authentication Token Management",
@@ -69,7 +69,7 @@
     "confidence": 0.82,
     "strength": "strong",
     "domain": "performance",
-    "participants": ["deepseek-v3", "codex-engineer", "claude-synthesizer"]
+    "participants": ["deepseek-v4-pro", "codex-engineer", "claude-synthesizer"]
   },
   {
     "topic": "Response Caching with TTL Strategy",
@@ -85,7 +85,7 @@
     "confidence": 0.75,
     "strength": "medium",
     "domain": "performance",
-    "participants": ["deepseek-v3", "claude-synthesizer", "codex-engineer"]
+    "participants": ["deepseek-v4-pro", "claude-synthesizer", "codex-engineer"]
   },
   {
     "topic": "Integration Test Strategy for WebSocket Endpoints",
@@ -101,7 +101,7 @@
     "confidence": 0.8,
     "strength": "strong",
     "domain": "testing",
-    "participants": ["codex-engineer", "claude-visionary", "deepseek-v3"]
+    "participants": ["codex-engineer", "claude-visionary", "deepseek-v4-pro"]
   },
   {
     "topic": "Property-Based Testing for Consensus Algorithms",
@@ -117,7 +117,7 @@
     "confidence": 0.82,
     "strength": "strong",
     "domain": "design",
-    "participants": ["gemini-visionary", "claude-visionary", "deepseek-v3"]
+    "participants": ["gemini-visionary", "claude-visionary", "deepseek-v4-pro"]
   },
   {
     "topic": "Plugin Architecture for Custom Agents",
@@ -133,7 +133,7 @@
     "confidence": 0.8,
     "strength": "strong",
     "domain": "design",
-    "participants": ["deepseek-v3", "claude-synthesizer", "codex-pragmatist"]
+    "participants": ["deepseek-v4-pro", "claude-synthesizer", "codex-pragmatist"]
   },
   {
     "topic": "Distributed Tracing for Multi-Agent Debates",
@@ -149,7 +149,7 @@
     "confidence": 0.85,
     "strength": "strong",
     "domain": "debugging",
-    "participants": ["claude-visionary", "codex-pragmatist", "deepseek-v3"]
+    "participants": ["claude-visionary", "codex-pragmatist", "deepseek-v4-pro"]
   },
   {
     "topic": "Replay System for Debugging Failed Debates",
@@ -173,7 +173,7 @@
     "confidence": 0.88,
     "strength": "strong",
     "domain": "api",
-    "participants": ["claude-synthesizer", "codex-engineer", "deepseek-v3"]
+    "participants": ["claude-synthesizer", "codex-engineer", "deepseek-v4-pro"]
   },
   {
     "topic": "Database Schema Migration Strategy",
@@ -181,7 +181,7 @@
     "confidence": 0.82,
     "strength": "strong",
     "domain": "database",
-    "participants": ["deepseek-v3", "codex-engineer", "claude-synthesizer"]
+    "participants": ["deepseek-v4-pro", "codex-engineer", "claude-synthesizer"]
   },
   {
     "topic": "Database Index Optimization for Common Queries",

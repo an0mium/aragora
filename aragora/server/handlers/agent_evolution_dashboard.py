@@ -136,7 +136,7 @@ def _get_demo_timeline(limit: int = 20, offset: int = 0) -> dict:
         },
         {
             "id": "evt-007",
-            "agent_name": "deepseek-v3",
+            "agent_name": "deepseek-v4-pro",
             "event_type": "persona_change",
             "timestamp": _iso(now - 48 * 3600),
             "description": "Graduated from 'novice' to 'intermediate analyst' after 50 successful debates",

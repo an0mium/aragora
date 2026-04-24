@@ -165,7 +165,7 @@ class TestEstimateCostUsd:
         assert cost == pytest.approx(18.0)
 
     def test_known_openai_model(self) -> None:
-        cost = estimate_cost_usd(model="gpt-5.4", tokens_in=1_000_000, tokens_out=1_000_000)
+        cost = estimate_cost_usd(model="gpt-5.5", tokens_in=1_000_000, tokens_out=1_000_000)
         # (2.50, 10.00) → 12.50
         assert cost == pytest.approx(12.5)
 
@@ -182,7 +182,7 @@ class TestEstimateCostUsd:
         assert cost == pytest.approx(3.0)
 
     def test_negative_tokens_clamped(self) -> None:
-        cost = estimate_cost_usd(model="gpt-5.4", tokens_in=-100, tokens_out=-100)
+        cost = estimate_cost_usd(model="gpt-5.5", tokens_in=-100, tokens_out=-100)
         assert cost == 0.0
 
 
@@ -195,7 +195,7 @@ class TestProviderUnavailable:
     def test_heterodox_families_raise(self) -> None:
         invoker = RealProviderInvoker(
             claude=_make_mock_agent(),
-            gpt=_make_mock_agent(model="gpt-5.4"),
+            gpt=_make_mock_agent(model="gpt-5.5"),
         )
         for family in HETERODOX_FAMILIES:
             slot = _slot(f"{family}_slot", family=family, lens="heterodox")
@@ -267,7 +267,7 @@ class TestFindings:
 
     def test_gpt_findings_parses_and_dispatches(self) -> None:
         agent = _make_mock_agent(
-            model="gpt-5.4",
+            model="gpt-5.5",
             response_text=_findings_payload_json("request_changes", slot_id="gpt_core"),
             tokens_in=1500,
             tokens_out=400,
@@ -332,7 +332,7 @@ class TestFindings:
 
     def test_deepseek_findings_dispatch(self) -> None:
         agent = _make_mock_agent(
-            model="deepseek/deepseek-chat",
+            model="deepseek/deepseek-v4-pro",
             response_text=_findings_payload_json("approve", slot_id="deepseek_heterodox"),
             tokens_in=1000,
             tokens_out=500,
@@ -349,7 +349,7 @@ class TestFindings:
             lens="heterodox",
         )
         result = invoker.findings(slot=slot, provider="deepseek", prompt="p", binding=_binding())
-        assert result.model == "deepseek/deepseek-chat"
+        assert result.model == "deepseek/deepseek-v4-pro"
         # Provider-prefixed models resolve through the price table too.
         assert result.cost_usd > 0
 
@@ -521,7 +521,7 @@ class TestCritique:
         fixtures = [
             (FAMILY_GEMINI, "gemini-3.1-pro-preview", "gemini"),
             (FAMILY_GROK, "grok-4.2", "grok"),
-            (FAMILY_DEEPSEEK, "deepseek/deepseek-chat", "deepseek"),
+            (FAMILY_DEEPSEEK, "deepseek/deepseek-v4-pro", "deepseek"),
             (FAMILY_KIMI, "moonshotai/kimi-k2.6", "kimi"),
             (FAMILY_QWEN, "qwen/qwen3-235b-a22b", "qwen"),
             (FAMILY_MISTRAL, "mistral-large-2512", "mistral"),
@@ -589,7 +589,7 @@ class TestSynthesize:
                 finding=RoleFinding(
                     role=ReviewRole.SECURITY,
                     agent="gpt_core:openai",
-                    model="gpt-5.4",
+                    model="gpt-5.5",
                     confidence=0.7,
                     finding_text="",
                 ),
@@ -749,11 +749,11 @@ class TestNewFamilyCostTracking:
     def test_deepseek_chat_cost_with_prefix(self) -> None:
         assert (
             estimate_cost_usd(
-                model="deepseek/deepseek-chat",
+                model="deepseek/deepseek-v4-pro",
                 tokens_in=1_000_000,
                 tokens_out=1_000_000,
             )
-            == pytest.approx(1.37)  # 0.27 + 1.10
+            == pytest.approx(5.22)  # 1.74 + 3.48
         )
 
     def test_kimi_k2_cost(self) -> None:
@@ -918,7 +918,7 @@ class TestEndToEndWithRealInvoker:
         claude_mock.generate.side_effect = _claude_generate
 
         gpt_mock = MagicMock()
-        gpt_mock.model = "gpt-5.4"
+        gpt_mock.model = "gpt-5.5"
         gpt_mock.last_tokens_in = 900
         gpt_mock.last_tokens_out = 400
 

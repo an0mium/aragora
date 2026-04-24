@@ -799,8 +799,8 @@ def test_create_triage_agents_prefers_fast_pair(monkeypatch):
 
     assert len(agents) == 3
     assert calls == [
-        ("openai-api", "proposer", "gpt-4.1-mini"),
-        ("openrouter", "critic", "deepseek/deepseek-chat"),
+        ("openai-api", "proposer", "gpt-5.4"),
+        ("openrouter", "critic", "deepseek/deepseek-v4-pro"),
         ("anthropic-api", "synthesizer", "claude-haiku-4-5-20251001"),
     ]
 
@@ -827,8 +827,8 @@ def test_create_triage_agents_falls_back_to_openai_when_needed(monkeypatch):
 
     assert len(agents) == 3
     assert calls == [
-        ("openai-api", "proposer", "gpt-4.1-mini"),
-        ("openai-api", "critic", "gpt-4.1-mini"),
+        ("openai-api", "proposer", "gpt-5.4"),
+        ("openai-api", "critic", "gpt-5.4"),
         ("anthropic-api", "synthesizer", "claude-haiku-4-5-20251001"),
     ]
 

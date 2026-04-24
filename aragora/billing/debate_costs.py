@@ -55,6 +55,7 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
         "grok-2": (Decimal("2.00"), Decimal("10.00")),
     },
     "deepseek": {
+        "deepseek-v4-pro": (Decimal("1.74"), Decimal("3.48")),
         "deepseek-v3.2": (Decimal("0.28"), Decimal("0.42")),
         "deepseek-v3": (Decimal("0.28"), Decimal("0.42")),
         "deepseek-r1": (Decimal("0.28"), Decimal("0.42")),

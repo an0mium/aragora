@@ -625,7 +625,7 @@ class TestBillingEdgeCases:
         # Small amounts should round correctly
         cost = calculate_token_cost(
             provider="deepseek",
-            model="deepseek-v3",
+            model="deepseek-v4-pro",
             tokens_in=1,
             tokens_out=1,
         )

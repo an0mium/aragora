@@ -36,7 +36,7 @@ DECLARED_MODEL_PINS = {
     "gemini": "gemini-3.1-pro-preview",
     "xai": "grok-4-latest",
     "mistral": "mistral-large-2512",
-    "openrouter.deepseek": "deepseek/deepseek-reasoner",
+    "openrouter.deepseek": "deepseek/deepseek-v4-pro",
     "openrouter.llama": "meta-llama/llama-3.3-70b-instruct",
     "openrouter.qwen": "qwen/qwen3-max",
     "openrouter.kimi": "moonshotai/kimi-k2-0905",
