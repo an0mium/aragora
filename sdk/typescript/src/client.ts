@@ -207,6 +207,7 @@ import {
   PaymentsAPI,
   TrainingAPI,
   AdminAPI,
+  AgentBridgeAPI,
   // Additional namespaces (SDK Parity Sprint)
   AccountingAPI,
   APAutomationAPI,
@@ -901,6 +902,9 @@ export class AragoraClient {
   /** Review Queue API - Browser-based PR settlement triage for PDB briefs. */
   readonly reviewQueue: ReviewQueueAPI;
 
+  /** Agent Bridge API - Recorded agent-bridge run visibility. */
+  readonly agentBridge: AgentBridgeAPI;
+
   /** Checkpoints API - Debate checkpoint and pause/resume management. */
   readonly checkpoints: CheckpointsAPI;
 
@@ -1165,6 +1169,7 @@ export class AragoraClient {
     this.security = new SecurityAPI(this);
     this.reviews = new ReviewsAPI(this);
     this.reviewQueue = new ReviewQueueAPI(this);
+    this.agentBridge = new AgentBridgeAPI(this);
     this.checkpoints = new CheckpointsAPI(this);
     this.uncertainty = new UncertaintyAPI(this);
     this.audio = new AudioAPI(this);

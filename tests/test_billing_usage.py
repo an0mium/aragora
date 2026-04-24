@@ -65,9 +65,9 @@ class TestTokenCostCalculation:
 
     def test_deepseek_pricing(self):
         """Test DeepSeek pricing."""
-        cost = calculate_token_cost("deepseek", "deepseek-v3", 10_000_000, 5_000_000)
-        # $0.28 per 1M * 10 + $0.42 per 1M * 5 = $2.80 + $2.10 = $4.90
-        assert cost == Decimal("4.90")
+        cost = calculate_token_cost("deepseek", "deepseek-v4-pro", 10_000_000, 5_000_000)
+        # $1.74 per 1M * 10 + $3.48 per 1M * 5 = $17.40 + $17.40 = $34.80
+        assert cost == Decimal("34.80")
 
     def test_unknown_provider_uses_openrouter_default(self):
         """Test that unknown providers use OpenRouter default pricing."""

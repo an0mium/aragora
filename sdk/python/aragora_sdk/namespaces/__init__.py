@@ -9,6 +9,7 @@ from .accounting import AccountingAPI, AsyncAccountingAPI
 from .actions import ActionsAPI, AsyncActionsAPI
 from .admin import AdminAPI, AsyncAdminAPI
 from .advertising import AdvertisingAPI, AsyncAdvertisingAPI
+from .agent_bridge import AgentBridgeAPI, AsyncAgentBridgeAPI
 from .agent_dashboard import AgentDashboardAPI, AsyncAgentDashboardAPI
 from .agent_selection import AgentSelectionAPI, AsyncAgentSelectionAPI
 from .agents import AgentsAPI, AsyncAgentsAPI
@@ -192,6 +193,8 @@ __all__ = [
     "AsyncAccountingAPI",
     "AgentDashboardAPI",
     "AsyncAgentDashboardAPI",
+    "AgentBridgeAPI",
+    "AsyncAgentBridgeAPI",
     "ActionsAPI",
     "AsyncActionsAPI",
     "AdvertisingAPI",

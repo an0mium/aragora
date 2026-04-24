@@ -234,9 +234,10 @@ class CLIAgent(CritiqueMixin, Agent):
         "grok-3": "x-ai/grok-4",
         "grok-2": "x-ai/grok-4",
         # Deepseek models
-        "deepseek-coder": "deepseek/deepseek-chat",
-        "deepseek-v3": "deepseek/deepseek-chat",
-        "deepseek-v3.2": "deepseek/deepseek-v3.2",
+        "deepseek-coder": "deepseek/deepseek-v4-pro",
+        "deepseek-v3": "deepseek/deepseek-v4-pro",
+        "deepseek-v4-pro": "deepseek/deepseek-v4-pro",
+        "deepseek-v3.2": "deepseek/deepseek-v4-pro",
         # Qwen models
         "qwen-2.5-coder": "qwen/qwen-2.5-coder-32b-instruct",
         "qwen3-coder": "qwen/qwen3-coder-next",
@@ -1061,7 +1062,7 @@ class QwenCLIAgent(CLIAgent):
 
 @AgentRegistry.register(
     "deepseek-cli",
-    default_model="deepseek-v3",
+    default_model="deepseek-v4-pro",
     agent_type="CLI",
     requires="deepseek CLI (pip install deepseek-cli)",
     env_vars="DEEPSEEK_API_KEY",

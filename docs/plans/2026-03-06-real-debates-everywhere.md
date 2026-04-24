@@ -464,7 +464,7 @@ OPENROUTER_PLAYGROUND_MODELS: list[tuple[str, str]] = [
     ("critic", "openai/gpt-4o"),
     ("synthesizer", "google/gemini-2.0-flash-001"),
     ("contrarian", "mistralai/mistral-large-latest"),
-    ("auditor", "deepseek/deepseek-chat"),
+    ("auditor", "deepseek/deepseek-v4-pro"),
 ]
 ```
 

@@ -78,12 +78,19 @@ PROVIDER_PRICING: dict[str, ProviderPricing] = {
         output_cost_per_1k=0.0006,
         context_window=128_000,
     ),
+    "deepseek-v4-pro": ProviderPricing(
+        provider_name="deepseek",
+        model_name="deepseek-v4-pro",
+        input_cost_per_1k=0.00174,
+        output_cost_per_1k=0.00348,
+        context_window=1_048_576,
+    ),
     "deepseek-r1": ProviderPricing(
         provider_name="deepseek",
-        model_name="deepseek-r1",
-        input_cost_per_1k=0.00028,
-        output_cost_per_1k=0.00042,
-        context_window=64_000,
+        model_name="deepseek-v4-pro",
+        input_cost_per_1k=0.00174,
+        output_cost_per_1k=0.00348,
+        context_window=1_048_576,
     ),
     "deepseek-chat": ProviderPricing(
         provider_name="deepseek",

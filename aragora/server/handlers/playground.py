@@ -77,7 +77,7 @@ OPENROUTER_PLAYGROUND_MODELS: list[tuple[str, str]] = [
     ("critic", "openai/gpt-5.4"),
     ("synthesizer", "google/gemini-3.1-pro"),
     ("contrarian", "mistralai/mistral-large-latest"),
-    ("auditor", "deepseek/deepseek-chat-v3-0324"),
+    ("auditor", "deepseek/deepseek-v4-pro"),
 ]
 
 # IP -> list of timestamps
@@ -895,10 +895,10 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
     },
     {
         "provider": "openrouter",
-        "model": "deepseek/deepseek-chat-v3-0324",
+        "model": "deepseek/deepseek-v4-pro",
         "name": "deepseek",
         "env": "OPENROUTER_API_KEY",
-        "openrouter_model": "deepseek/deepseek-chat-v3-0324",
+        "openrouter_model": "deepseek/deepseek-v4-pro",
     },
     {
         "provider": "openrouter",

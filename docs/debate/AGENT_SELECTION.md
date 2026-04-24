@@ -20,9 +20,9 @@ Perspective coverage note: Mistral adds an EU lens, and Chinese models like Deep
 
 | Agent ID | Model | Best For | Cost |
 |----------|-------|----------|------|
-| `openrouter` | model parameter (default: deepseek/deepseek-chat-v3-0324) | Fallback when primary fails | Varies |
-| `deepseek` | deepseek/deepseek-reasoner | Code, math, reasoning | $ |
-| `deepseek-r1` | deepseek/deepseek-r1 | Chain-of-thought reasoning | $ |
+| `openrouter` | model parameter (default: deepseek/deepseek-v4-pro) | Fallback when primary fails | Varies |
+| `deepseek` | deepseek/deepseek-v4-pro | Code, math, reasoning | $ |
+| `deepseek-r1` | deepseek/deepseek-v4-pro | DeepSeek V4 Pro compatibility alias | $ |
 | `mistral` | mistralai/mistral-large-2411 | Fast, high-quality reasoning | $$ |
 | `qwen` | qwen/qwen3-max | Multilingual, code | $ |
 | `qwen-max` | qwen/qwen3-max | Flagship reasoning | $$ |

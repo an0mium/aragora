@@ -55,6 +55,7 @@ AGENT_CREDENTIAL_MAP: dict[str, list[str]] = {
     # OpenRouter (fallback for many models)
     "openrouter": ["OPENROUTER_API_KEY"],
     "deepseek": ["OPENROUTER_API_KEY", "DEEPSEEK_API_KEY"],  # Direct or via OpenRouter
+    "deepseek-v4-pro": ["OPENROUTER_API_KEY", "DEEPSEEK_API_KEY"],
     "deepseek-v3": ["OPENROUTER_API_KEY", "DEEPSEEK_API_KEY"],
     "deepseek-reasoner": ["OPENROUTER_API_KEY", "DEEPSEEK_API_KEY"],
     "llama": ["OPENROUTER_API_KEY"],

@@ -687,7 +687,7 @@ models:
     - mistral-large
     - codestral
   openrouter:
-    - deepseek-v3
+    - deepseek-v4-pro
     - llama-3.3-70b
     - qwen-72b
     - yi-large

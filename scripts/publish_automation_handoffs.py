@@ -3,8 +3,9 @@
 
 Local Codex automations can verify bounded work while running in contexts where
 GitHub writes are unreliable. This bridge runs from a normal shell, reads the
-structured handoffs those automations leave in memory, deduplicates against
-existing GitHub issues, and creates the missing issue records with ``gh``.
+structured handoffs those automations leave in memory or in the local automation
+outbox, deduplicates against existing GitHub issues, and creates the missing
+issue records with ``gh``.
 """
 
 from __future__ import annotations
@@ -34,6 +35,8 @@ DEFAULT_LIMIT = 2
 DEFAULT_MAX_OPEN_ISSUES = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
 MAX_ISSUE_BODY_CHARS = 60_000
+DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
+DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_AUTOMATION_IDS = (
     "founder-review",
     "founder-triage",
@@ -118,6 +121,8 @@ class Handoff:
     body: str
     labels: dict[str, str]
     expires_at: str | None
+    idempotency_key: str | None = None
+    source_kind: str = "memory"
 
 
 @dataclass(frozen=True)
@@ -196,6 +201,69 @@ def _memory_files(codex_home: Path, automation_ids: set[str] | None = None) -> l
         path
         for automation_id in automation_ids
         if (path := automations / automation_id / "memory.md").exists()
+    )
+
+
+def _outbox_files(outbox_dir: Path) -> list[Path]:
+    if not outbox_dir.exists():
+        return []
+    return sorted(path for path in outbox_dir.glob("*.json") if path.is_file())
+
+
+def _source_mtime(source_file: str) -> float:
+    try:
+        return Path(source_file).stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def _receipt_path(receipt_dir: Path, idempotency_key: str) -> Path:
+    safe_key = re.sub(r"[^A-Za-z0-9_.-]+", "-", idempotency_key).strip("-")
+    if not safe_key:
+        safe_key = "handoff"
+    return receipt_dir / f"{safe_key}.json"
+
+
+def _terminal_receipt_exists(receipt_dir: Path, idempotency_key: str) -> bool:
+    path = _receipt_path(receipt_dir, idempotency_key)
+    if not path.exists():
+        return False
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return str(payload.get("status") or "") in {"published", "already_satisfied"}
+
+
+def _write_receipt(
+    receipt_dir: Path,
+    handoff: Handoff,
+    decision: PublishDecision,
+    *,
+    repo: str,
+) -> None:
+    if handoff.source_kind != "outbox" or not handoff.idempotency_key:
+        return
+    terminal_reasons = {"published", "existing_issue", "existing_pr", "target_open_pr"}
+    if decision.reason not in terminal_reasons:
+        return
+    status = "published" if decision.reason == "published" else "already_satisfied"
+    receipt_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "idempotency_key": handoff.idempotency_key,
+        "task": handoff.task_title,
+        "source_file": handoff.source_file,
+        "repo": repo,
+        "status": status,
+        "reason": decision.reason,
+        "created_issue_url": decision.created_issue_url,
+        "existing_issue_url": decision.existing_issue_url,
+        "existing_pr_url": decision.existing_pr_url,
+        "recorded_at": datetime.now(UTC).isoformat(),
+    }
+    _receipt_path(receipt_dir, handoff.idempotency_key).write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
 
 
@@ -289,6 +357,41 @@ def _format_body(values: dict[str, str], source_file: Path) -> str:
     return "\n".join(lines).strip()
 
 
+def _format_json_block(value: Any) -> str:
+    if value is None or value == "":
+        return "NONE"
+    if isinstance(value, str):
+        return value.strip() or "NONE"
+    return json.dumps(value, indent=2, sort_keys=True)
+
+
+def _format_outbox_body(payload: dict[str, Any], source_file: Path) -> str:
+    fields = [
+        ("Task", payload.get("task")),
+        ("Requested Action", payload.get("requested_action")),
+        ("Requires GitHub", payload.get("requires_github")),
+        ("Repo", payload.get("repo")),
+        ("Created At", payload.get("created_at")),
+        ("Idempotency Key", payload.get("idempotency_key")),
+        ("Local Evidence", payload.get("local_evidence")),
+        ("Validation", payload.get("validation")),
+    ]
+    lines: list[str] = []
+    for label, value in fields:
+        formatted = _format_json_block(value)
+        lines.append(f"{label}:")
+        if "\n" in formatted or formatted.startswith("{") or formatted.startswith("["):
+            lines.append("```json" if formatted.startswith(("{", "[")) else "```")
+            lines.append(formatted)
+            lines.append("```")
+        else:
+            lines.append(formatted)
+        lines.append("")
+    lines.append("---")
+    lines.append(f"Published from automation outbox: `{source_file}`")
+    return "\n".join(lines).strip()
+
+
 def _latest_block(parsed_blocks: list[dict[str, str]]) -> dict[str, str]:
     def key(values: dict[str, str]) -> tuple[datetime, int]:
         block_time = _parse_block_datetime(values) or datetime.min.replace(tzinfo=UTC)
@@ -338,7 +441,59 @@ def load_handoffs(
 
     return sorted(
         handoffs,
-        key=lambda item: (Path(item.source_file).stat().st_mtime, item.priority),
+        key=lambda item: (_source_mtime(item.source_file), item.priority),
+        reverse=True,
+    )
+
+
+def load_outbox_handoffs(
+    repo_root: Path,
+    *,
+    outbox_dir: Path | None = None,
+    receipt_dir: Path | None = None,
+    now: datetime | None = None,
+) -> list[Handoff]:
+    outbox_root = (outbox_dir or repo_root / DEFAULT_OUTBOX_DIR).resolve()
+    receipt_root = (receipt_dir or repo_root / DEFAULT_RECEIPT_DIR).resolve()
+    current_time = now or datetime.now(UTC)
+    handoffs: list[Handoff] = []
+    for source_file in _outbox_files(outbox_root):
+        try:
+            payload = json.loads(source_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        task_title = str(payload.get("task") or payload.get("title") or "").strip()
+        requested_action = str(payload.get("requested_action") or "").strip()
+        idempotency_key = str(payload.get("idempotency_key") or "").strip()
+        requires_github = payload.get("requires_github", True)
+        if isinstance(requires_github, str):
+            requires_github = requires_github.strip().lower() not in {"0", "false", "no"}
+        if requires_github is False:
+            continue
+        if not task_title or not requested_action or not idempotency_key:
+            continue
+        expires_at = str(payload.get("expires_at") or "").strip() or None
+        if _is_expired(expires_at, now=current_time):
+            continue
+        if _terminal_receipt_exists(receipt_root, idempotency_key):
+            continue
+        handoffs.append(
+            Handoff(
+                source_file=str(source_file),
+                task_title=task_title,
+                priority=str(payload.get("priority") or "MEDIUM").strip() or "MEDIUM",
+                body=_format_outbox_body(payload, source_file),
+                labels={key: _format_json_block(value) for key, value in payload.items()},
+                expires_at=expires_at,
+                idempotency_key=idempotency_key,
+                source_kind="outbox",
+            )
+        )
+    return sorted(
+        handoffs,
+        key=lambda item: (_source_mtime(item.source_file), item.priority),
         reverse=True,
     )
 
@@ -645,6 +800,7 @@ def publish_handoffs(
     repo: str,
     labels: list[str],
     limit: int,
+    receipt_dir: Path | None = None,
 ) -> list[PublishDecision]:
     by_key = {(item.task_title, item.source_file): item for item in handoffs}
     published: list[PublishDecision] = []
@@ -666,15 +822,16 @@ def publish_handoffs(
         handoff = by_key[(decision.task_title, decision.source_file)]
         url = _create_issue(repo_root, repo, handoff, labels=labels)
         count += 1
-        published.append(
-            PublishDecision(
-                task_title=decision.task_title,
-                source_file=decision.source_file,
-                eligible=False,
-                reason="published",
-                created_issue_url=url,
-            )
+        published_decision = PublishDecision(
+            task_title=decision.task_title,
+            source_file=decision.source_file,
+            eligible=False,
+            reason="published",
+            created_issue_url=url,
         )
+        if receipt_dir is not None:
+            _write_receipt(receipt_dir, handoff, published_decision, repo=repo)
+        published.append(published_decision)
     return published
 
 
@@ -722,6 +879,27 @@ def _build_parser() -> argparse.ArgumentParser:
             + ", ".join(DEFAULT_AUTOMATION_IDS)
         ),
     )
+    parser.add_argument(
+        "--outbox-dir",
+        default=None,
+        help=(
+            "Directory containing JSON automation outbox handoffs. Defaults to "
+            ".aragora/automation-outbox under the repository."
+        ),
+    )
+    parser.add_argument(
+        "--receipt-dir",
+        default=None,
+        help=(
+            "Directory for JSON automation publish receipts. Defaults to "
+            ".aragora/automation-receipts under the repository."
+        ),
+    )
+    parser.add_argument(
+        "--no-outbox",
+        action="store_true",
+        help="Disable loading JSON automation outbox handoffs.",
+    )
     parser.add_argument("--apply", action="store_true", help="Create eligible GitHub issues")
     parser.add_argument("--json", action="store_true", help="Print machine-readable output")
     return parser
@@ -733,9 +911,25 @@ def main(argv: list[str] | None = None) -> int:
 
     repo_root = _repo_root(Path(args.repo))
     codex_home = _codex_home(args.codex_home)
+    outbox_dir = (
+        Path(args.outbox_dir).resolve() if args.outbox_dir else repo_root / DEFAULT_OUTBOX_DIR
+    )
+    receipt_dir = (
+        Path(args.receipt_dir).resolve() if args.receipt_dir else repo_root / DEFAULT_RECEIPT_DIR
+    )
     labels = list(dict.fromkeys(args.labels))
     automation_ids = set(args.automation_ids or DEFAULT_AUTOMATION_IDS)
-    handoffs = load_handoffs(codex_home, automation_ids=automation_ids)
+    memory_handoffs = load_handoffs(codex_home, automation_ids=automation_ids)
+    outbox_handoffs = (
+        []
+        if args.no_outbox
+        else load_outbox_handoffs(repo_root, outbox_dir=outbox_dir, receipt_dir=receipt_dir)
+    )
+    handoffs = sorted(
+        memory_handoffs + outbox_handoffs,
+        key=lambda item: (_source_mtime(item.source_file), item.priority),
+        reverse=True,
+    )
     github_health = check_github_cli_health(repo_root)
     if not github_health.ready:
         payload = {
@@ -744,6 +938,10 @@ def main(argv: list[str] | None = None) -> int:
             "github_repo": args.github_repo,
             "labels": labels,
             "automation_ids": sorted(automation_ids),
+            "outbox_dir": str(outbox_dir),
+            "receipt_dir": str(receipt_dir),
+            "memory_handoff_count": len(memory_handoffs),
+            "outbox_handoff_count": len(outbox_handoffs),
             "handoff_count": len(handoffs),
             "github_health": github_health.to_dict(),
             "decisions": [
@@ -779,10 +977,17 @@ def main(argv: list[str] | None = None) -> int:
             repo=args.github_repo,
             labels=labels,
             limit=args.limit,
+            receipt_dir=receipt_dir,
         )
         if args.apply
         else decisions
     )
+    by_key = {(item.task_title, item.source_file): item for item in handoffs}
+    if args.apply:
+        for item in results:
+            handoff = by_key.get((item.task_title, item.source_file))
+            if handoff is not None:
+                _write_receipt(receipt_dir, handoff, item, repo=args.github_repo)
 
     payload = {
         "repo": str(repo_root),
@@ -790,6 +995,10 @@ def main(argv: list[str] | None = None) -> int:
         "github_repo": args.github_repo,
         "labels": labels,
         "automation_ids": sorted(automation_ids),
+        "outbox_dir": str(outbox_dir),
+        "receipt_dir": str(receipt_dir),
+        "memory_handoff_count": len(memory_handoffs),
+        "outbox_handoff_count": len(outbox_handoffs),
         "handoff_count": len(handoffs),
         "github_health": github_health.to_dict(),
         "decisions": [asdict(item) for item in results],

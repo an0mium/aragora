@@ -198,9 +198,11 @@ class TestResolvePlaygroundAgents:
         assert result == "anthropic-api,openai-api,mistral-api"
 
     def test_mixed_tags(self):
-        tags = ["anthropic-api", "openrouter:openai/gpt-4o", "openrouter:deepseek/deepseek-chat"]
+        tags = ["anthropic-api", "openrouter:openai/gpt-4o", "openrouter:deepseek/deepseek-v4-pro"]
         result = _resolve_playground_agents(tags)
-        assert result == "anthropic-api,openrouter|openai/gpt-4o,openrouter|deepseek/deepseek-chat"
+        assert (
+            result == "anthropic-api,openrouter|openai/gpt-4o,openrouter|deepseek/deepseek-v4-pro"
+        )
 
     def test_resolved_agents_parse_with_agent_spec(self):
         tags = ["anthropic-api", "openrouter:anthropic/claude-opus-4.7", "openai-api"]

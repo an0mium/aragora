@@ -1522,9 +1522,9 @@ API (direct):
 OpenRouter:
 | Type | Default Model | Notes |
 |------|---------------|-------|
-| `openrouter` | deepseek/deepseek-chat-v3-0324 | Model via `model` parameter |
-| `deepseek` | deepseek/deepseek-reasoner | DeepSeek R1 (reasoning) |
-| `deepseek-r1` | deepseek/deepseek-r1 | DeepSeek reasoning |
+| `openrouter` | deepseek/deepseek-v4-pro | Model via `model` parameter |
+| `deepseek` | deepseek/deepseek-v4-pro | DeepSeek V4 Pro |
+| `deepseek-r1` | deepseek/deepseek-v4-pro | DeepSeek V4 Pro compatibility alias |
 | `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
 | `mistral` | mistralai/mistral-large-2411 | Mistral Large |
 | `qwen` | qwen/qwen3-max | Qwen3 Max |
@@ -1541,7 +1541,7 @@ CLI:
 | `gemini-cli` | gemini-3-pro-preview | Gemini CLI |
 | `grok-cli` | grok-4-latest | Grok CLI |
 | `qwen-cli` | qwen3-coder | Qwen CLI |
-| `deepseek-cli` | deepseek-v3 | DeepSeek CLI |
+| `deepseek-cli` | deepseek-v4-pro | DeepSeek CLI |
 | `kilocode` | gemini-explorer | Codebase explorer |
 
 **Response:**

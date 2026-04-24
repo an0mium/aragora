@@ -620,7 +620,7 @@ class TestHeterodoxKeyWiring:
                 "MISTRAL_API_KEY": "mi",
                 GEMINI_MODEL_ENV: "gemini-3-flash-preview",
                 GROK_MODEL_ENV: "grok-4-fast",
-                DEEPSEEK_MODEL_ENV: "deepseek/deepseek-r1",
+                DEEPSEEK_MODEL_ENV: "deepseek/deepseek-v4-pro",
                 KIMI_MODEL_ENV: "moonshotai/kimi-k2-thinking",
                 QWEN_MODEL_ENV: "qwen/qwen3-max",
                 MISTRAL_MODEL_ENV: "mistral-medium-latest",
@@ -637,7 +637,7 @@ class TestHeterodoxKeyWiring:
         # Openrouter factory is called once per family.
         openrouter_models = {m for m, _ in calls["openrouter"]}
         assert openrouter_models == {
-            "deepseek/deepseek-r1",
+            "deepseek/deepseek-v4-pro",
             "moonshotai/kimi-k2-thinking",
             "qwen/qwen3-max",
         }
@@ -721,13 +721,7 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     ),
     "deepseek": frozenset(
         {
-            "deepseek/deepseek-chat",
-            "deepseek/deepseek-chat-v3.1",
-            "deepseek/deepseek-chat-v3-0324",
-            "deepseek/deepseek-r1",
-            "deepseek/deepseek-reasoner",
-            "deepseek/deepseek-v3.2",
-            "deepseek/deepseek-v3.2-exp",
+            "deepseek/deepseek-v4-pro",
         }
     ),
     "kimi": frozenset(

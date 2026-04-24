@@ -220,6 +220,9 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # through (plus the standard platform markup); both the ``family/``
     # and un-prefixed forms below work because ``estimate_cost_usd``
     # strips provider prefixes before lookup.
+    "deepseek-v4-pro": (1.74, 3.48),
+    # Legacy DeepSeek aliases are retained for older env overrides and
+    # historical receipts, but new defaults should use ``deepseek-v4-pro``.
     "deepseek-chat": (0.27, 1.10),
     "deepseek-chat-v3-0324": (0.27, 1.10),
     "deepseek-chat-v3.1": (0.27, 1.10),

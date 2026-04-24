@@ -332,7 +332,7 @@ class TestFindings:
 
     def test_deepseek_findings_dispatch(self) -> None:
         agent = _make_mock_agent(
-            model="deepseek/deepseek-chat",
+            model="deepseek/deepseek-v4-pro",
             response_text=_findings_payload_json("approve", slot_id="deepseek_heterodox"),
             tokens_in=1000,
             tokens_out=500,
@@ -349,7 +349,7 @@ class TestFindings:
             lens="heterodox",
         )
         result = invoker.findings(slot=slot, provider="deepseek", prompt="p", binding=_binding())
-        assert result.model == "deepseek/deepseek-chat"
+        assert result.model == "deepseek/deepseek-v4-pro"
         # Provider-prefixed models resolve through the price table too.
         assert result.cost_usd > 0
 
@@ -521,7 +521,7 @@ class TestCritique:
         fixtures = [
             (FAMILY_GEMINI, "gemini-3.1-pro-preview", "gemini"),
             (FAMILY_GROK, "grok-4.2", "grok"),
-            (FAMILY_DEEPSEEK, "deepseek/deepseek-chat", "deepseek"),
+            (FAMILY_DEEPSEEK, "deepseek/deepseek-v4-pro", "deepseek"),
             (FAMILY_KIMI, "moonshotai/kimi-k2.6", "kimi"),
             (FAMILY_QWEN, "qwen/qwen3-235b-a22b", "qwen"),
             (FAMILY_MISTRAL, "mistral-large-2512", "mistral"),
@@ -749,11 +749,11 @@ class TestNewFamilyCostTracking:
     def test_deepseek_chat_cost_with_prefix(self) -> None:
         assert (
             estimate_cost_usd(
-                model="deepseek/deepseek-chat",
+                model="deepseek/deepseek-v4-pro",
                 tokens_in=1_000_000,
                 tokens_out=1_000_000,
             )
-            == pytest.approx(1.37)  # 0.27 + 1.10
+            == pytest.approx(5.22)  # 1.74 + 3.48
         )
 
     def test_kimi_k2_cost(self) -> None:

@@ -45,20 +45,26 @@ from aragora.observability.metrics.agents import (
 
 logger = logging.getLogger(__name__)
 
+DEEPSEEK_V4_PRO_MODEL = "deepseek/deepseek-v4-pro"
+
 # Fallback model chain for resilience when primary models fail
 # Maps primary model -> fallback model (used after max_retries exhausted)
 OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     # Qwen models -> DeepSeek
-    "qwen/qwen-2.5-72b-instruct": "deepseek/deepseek-chat",
-    "qwen/qwen3-235b-a22b": "deepseek/deepseek-chat",
-    "qwen/qwen3-max": "deepseek/deepseek-chat",
-    "qwen/qwen3.5-plus-02-15": "deepseek/deepseek-chat",
-    # DeepSeek -> GPT-5.2-chat (fast, reliable)
+    "qwen/qwen-2.5-72b-instruct": DEEPSEEK_V4_PRO_MODEL,
+    "qwen/qwen3-235b-a22b": DEEPSEEK_V4_PRO_MODEL,
+    "qwen/qwen3-max": DEEPSEEK_V4_PRO_MODEL,
+    "qwen/qwen3.5-plus-02-15": DEEPSEEK_V4_PRO_MODEL,
+    # DeepSeek -> GPT-5.3-chat (fast, reliable). Keep legacy keys so
+    # callers that pin an older OpenRouter id still get a safe fallback.
+    DEEPSEEK_V4_PRO_MODEL: "openai/gpt-5.3-chat",
     "deepseek/deepseek-chat": "openai/gpt-5.3-chat",
-    "deepseek/deepseek-chat-v3-0324": "anthropic/claude-opus-4.7",
+    "deepseek/deepseek-chat-v3-0324": "openai/gpt-5.3-chat",
     "deepseek/deepseek-v3.2": "openai/gpt-5.3-chat",
     "deepseek/deepseek-v3.2-exp": "openai/gpt-5.3-chat",
     "deepseek/deepseek-chat-v3.1": "openai/gpt-5.3-chat",
+    "deepseek/deepseek-r1": "openai/gpt-5.3-chat",
+    "deepseek/deepseek-reasoner": "openai/gpt-5.3-chat",
     # Kimi -> Claude Opus 4.7
     "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.7",
     "moonshotai/kimi-k2.5": "anthropic/claude-opus-4.7",
@@ -69,8 +75,8 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "mistralai/mistral-large-2411": "openai/gpt-5.3-chat",
     "mistralai/mistral-large-2512": "openai/gpt-5.3-chat",
     # Yi -> DeepSeek
-    "01-ai/yi-large": "deepseek/deepseek-chat",
-    # Llama -> GPT-5.2-chat
+    "01-ai/yi-large": DEEPSEEK_V4_PRO_MODEL,
+    # Llama -> GPT-5.3-chat
     "meta-llama/llama-3.3-70b-instruct": "openai/gpt-5.3-chat",
     "meta-llama/llama-4-maverick": "openai/gpt-5.3-chat",
     "meta-llama/llama-4-scout": "openai/gpt-5.3-chat",
@@ -79,7 +85,7 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
 
 @AgentRegistry.register(
     "openrouter",
-    default_model="deepseek/deepseek-chat",
+    default_model=DEEPSEEK_V4_PRO_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
     description="Generic OpenRouter - specify model via 'model' parameter",
@@ -91,9 +97,7 @@ class OpenRouterAgent(APIAgent):
     and others through an OpenAI-compatible API.
 
     Supported models (via model parameter):
-    - deepseek/deepseek-chat-v3-0324 (DeepSeek R1)
-    - deepseek/deepseek-chat (DeepSeek V3.2)
-    - deepseek/deepseek-v3.2 (DeepSeek V3.2 direct)
+    - deepseek/deepseek-v4-pro (DeepSeek V4 Pro, 1M context)
     - meta-llama/llama-4-maverick (Llama 4 Maverick 400B MoE)
     - meta-llama/llama-4-scout (Llama 4 Scout 109B MoE)
     - meta-llama/llama-3.3-70b-instruct
@@ -110,7 +114,7 @@ class OpenRouterAgent(APIAgent):
         self,
         name: str = "openrouter",
         role: AgentRole = "proposer",
-        model: str = "deepseek/deepseek-chat",
+        model: str = DEEPSEEK_V4_PRO_MODEL,
         system_prompt: str | None = None,
         timeout: int = 300,
         # Generation parameters (used by SpecialistFactory and elsewhere)
@@ -551,19 +555,19 @@ REASONING: explanation"""
 # Convenience aliases for specific OpenRouter models
 @AgentRegistry.register(
     "deepseek",
-    default_model="deepseek/deepseek-chat-v3-0324",
+    default_model=DEEPSEEK_V4_PRO_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="DeepSeek V3 via OpenRouter - fast, capable chat model",
+    description="DeepSeek V4 Pro via OpenRouter - frontier long-context model",
 )
 class DeepSeekAgent(OpenRouterAgent):
-    """DeepSeek V3 via OpenRouter - fast, capable chat model."""
+    """DeepSeek V4 Pro via OpenRouter - frontier long-context model."""
 
     def __init__(
         self,
         name: str = "deepseek",
         role: AgentRole = "analyst",
-        model: str = "deepseek/deepseek-chat-v3-0324",
+        model: str = DEEPSEEK_V4_PRO_MODEL,
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -577,19 +581,19 @@ class DeepSeekAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "deepseek-r1",
-    default_model="deepseek/deepseek-r1",
+    default_model=DEEPSEEK_V4_PRO_MODEL,
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="DeepSeek R1 - chain-of-thought reasoning model",
+    description="DeepSeek V4 Pro via OpenRouter - reasoning-capable compatibility alias",
 )
 class DeepSeekReasonerAgent(OpenRouterAgent):
-    """DeepSeek R1 via OpenRouter - reasoning model with chain-of-thought."""
+    """Compatibility alias for DeepSeek V4 Pro via OpenRouter."""
 
     def __init__(
         self,
         name: str = "deepseek-r1",
         role: AgentRole = "analyst",
-        model: str = "deepseek/deepseek-r1",
+        model: str = DEEPSEEK_V4_PRO_MODEL,
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -602,7 +606,7 @@ class DeepSeekReasonerAgent(OpenRouterAgent):
 
 
 class DeepSeekV3Agent(OpenRouterAgent):
-    """DeepSeek V3.2 via OpenRouter - integrated thinking + tool-use, frontier reasoning."""
+    """Compatibility alias for DeepSeek V4 Pro via OpenRouter."""
 
     def __init__(
         self,
@@ -613,7 +617,7 @@ class DeepSeekV3Agent(OpenRouterAgent):
         super().__init__(
             name=name,
             role=role,
-            model="deepseek/deepseek-v3.2",  # V3.2 with DeepSeek Sparse Attention + tool-use
+            model=DEEPSEEK_V4_PRO_MODEL,
             system_prompt=system_prompt,
         )
         self.agent_type = "deepseek-v3"

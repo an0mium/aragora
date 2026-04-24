@@ -10,6 +10,12 @@ MAX_OPEN_ISSUES="${ARAGORA_AUTOMATION_MAX_OPEN_ISSUES:-16}"
 BRANCH_LIMIT="${ARAGORA_AUTOMATION_BRANCH_PUBLISH_LIMIT:-2}"
 MAX_OPEN_PRS="${ARAGORA_AUTOMATION_MAX_OPEN_PRS:-12}"
 BRANCH_SCAN_LIMIT="${ARAGORA_AUTOMATION_BRANCH_SCAN_LIMIT:-40}"
+AUTOMATION_STATE_ROOT="${ARAGORA_AUTOMATION_STATE_ROOT:-/Users/armand/Development/aragora}"
+if [[ ! -d "${AUTOMATION_STATE_ROOT}/.aragora" ]]; then
+  AUTOMATION_STATE_ROOT="${REPO_ROOT}"
+fi
+HANDOFF_OUTBOX_DIR="${ARAGORA_AUTOMATION_OUTBOX_DIR:-${AUTOMATION_STATE_ROOT}/.aragora/automation-outbox}"
+HANDOFF_RECEIPT_DIR="${ARAGORA_AUTOMATION_RECEIPT_DIR:-${AUTOMATION_STATE_ROOT}/.aragora/automation-receipts}"
 STAMP() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
@@ -52,10 +58,13 @@ if ! git fetch --no-write-fetch-head --prune origin '+refs/heads/*:refs/remotes/
 fi
 
 echo "$(STAMP) [codex-automation-publisher] starting handoff publish pass"
+mkdir -p "${HANDOFF_OUTBOX_DIR}" "${HANDOFF_RECEIPT_DIR}"
 if python3 scripts/publish_automation_handoffs.py \
   --apply \
   --limit "${HANDOFF_LIMIT}" \
   --max-open-issues "${MAX_OPEN_ISSUES}" \
+  --outbox-dir "${HANDOFF_OUTBOX_DIR}" \
+  --receipt-dir "${HANDOFF_RECEIPT_DIR}" \
   --json; then
   echo "$(STAMP) [codex-automation-publisher] handoff publish pass complete"
 else

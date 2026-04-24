@@ -40,7 +40,7 @@ MODELS: dict[str, str] = {
     "claude": "anthropic/claude-opus-4.7",
     "gpt": "openai/gpt-5.3",
     "grok": "x-ai/grok-4.1-fast",
-    "deepseek": "deepseek/deepseek-v3.2",
+    "deepseek": "deepseek/deepseek-v4-pro",
     "gemini": "google/gemini-3.1-pro-preview",
     "mistral": "mistralai/mistral-large-2512",
 }

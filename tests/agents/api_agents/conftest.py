@@ -198,7 +198,7 @@ def mock_openrouter_response():
         "id": "gen-123",
         "object": "chat.completion",
         "created": 1677652288,
-        "model": "deepseek/deepseek-chat",
+        "model": "deepseek/deepseek-v4-pro",
         "choices": [
             {
                 "index": 0,

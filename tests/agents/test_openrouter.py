@@ -36,15 +36,17 @@ class TestFallbackModelChain:
         """Test DeepSeek models have fallbacks."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
-        assert "deepseek/deepseek-chat" in OPENROUTER_FALLBACK_MODELS
-        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-chat"] == "openai/gpt-5.3-chat"
+        assert "deepseek/deepseek-v4-pro" in OPENROUTER_FALLBACK_MODELS
+        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro"] == "openai/gpt-5.3-chat"
 
     def test_qwen_has_fallback(self):
         """Test Qwen models have fallbacks."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
         assert "qwen/qwen-2.5-72b-instruct" in OPENROUTER_FALLBACK_MODELS
-        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen-2.5-72b-instruct"] == "deepseek/deepseek-chat"
+        assert (
+            OPENROUTER_FALLBACK_MODELS["qwen/qwen-2.5-72b-instruct"] == "deepseek/deepseek-v4-pro"
+        )
 
     def test_kimi_has_fallback(self):
         """Test Kimi models have fallbacks."""
@@ -79,7 +81,7 @@ class TestOpenRouterAgentInit:
             agent = OpenRouterAgent()
 
             assert agent.name == "openrouter"
-            assert agent.model == "deepseek/deepseek-chat"
+            assert agent.model == "deepseek/deepseek-v4-pro"
             assert agent.agent_type == "openrouter"
 
     def test_init_with_custom_model(self):

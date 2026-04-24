@@ -324,8 +324,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # DeepSeek
     "deepseek": ModelProfile(
-        model_id="deepseek-chat",
-        display_name="DeepSeek V3.2",
+        model_id="deepseek-v4-pro",
+        display_name="DeepSeek V4 Pro",
         provider="deepseek",
         capabilities={
             ModelCapability.REASONING: 0.92,
@@ -339,16 +339,16 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.88,
             ModelCapability.FACTUAL_ACCURACY: 0.82,
         },
-        max_context_tokens=128000,
+        max_context_tokens=1048576,
         max_output_tokens=8192,
-        cost_input_per_1k=0.00028,
-        cost_output_per_1k=0.00042,
+        cost_input_per_1k=0.00174,
+        cost_output_per_1k=0.00348,
         avg_latency_ms=500,
         reliability_score=0.92,
     ),
     "deepseek-r1": ModelProfile(
-        model_id="deepseek-reasoner",
-        display_name="DeepSeek R1",
+        model_id="deepseek-v4-pro",
+        display_name="DeepSeek V4 Pro",
         provider="deepseek",
         capabilities={
             ModelCapability.REASONING: 0.96,
@@ -362,10 +362,10 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.90,
             ModelCapability.FACTUAL_ACCURACY: 0.87,
         },
-        max_context_tokens=128000,
+        max_context_tokens=1048576,
         max_output_tokens=8192,
-        cost_input_per_1k=0.00028,
-        cost_output_per_1k=0.00042,
+        cost_input_per_1k=0.00174,
+        cost_output_per_1k=0.00348,
         avg_latency_ms=1800,  # Slower due to reasoning
         reliability_score=0.92,
     ),

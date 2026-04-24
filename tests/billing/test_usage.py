@@ -123,8 +123,8 @@ class TestProviderPricing:
     def test_deepseek_pricing_exists(self):
         """Test DeepSeek pricing is configured."""
         assert "deepseek" in PROVIDER_PRICING
-        assert "deepseek-v3" in PROVIDER_PRICING["deepseek"]
-        assert "deepseek-v3-output" in PROVIDER_PRICING["deepseek"]
+        assert "deepseek-v4-pro" in PROVIDER_PRICING["deepseek"]
+        assert "deepseek-v4-pro-output" in PROVIDER_PRICING["deepseek"]
 
     def test_openrouter_default_pricing(self):
         """Test OpenRouter has default pricing."""
@@ -188,11 +188,11 @@ class TestCalculateTokenCost:
         expected = Decimal("1.25") + Decimal("5.00")
         assert cost == expected
 
-    def test_deepseek_v3(self):
-        """Test cost calculation for DeepSeek V3."""
-        cost = calculate_token_cost("deepseek", "deepseek-v3", 1_000_000, 1_000_000)
-        # Input: $0.28/1M, Output: $0.42/1M
-        expected = Decimal("0.28") + Decimal("0.42")
+    def test_deepseek_v4_pro(self):
+        """Test cost calculation for DeepSeek V4 Pro."""
+        cost = calculate_token_cost("deepseek", "deepseek-v4-pro", 1_000_000, 1_000_000)
+        # Input: $1.74/1M, Output: $3.48/1M
+        expected = Decimal("1.74") + Decimal("3.48")
         assert cost == expected
 
     def test_unknown_provider_uses_openrouter_default(self):
