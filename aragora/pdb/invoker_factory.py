@@ -84,7 +84,7 @@ GEMINI_MODEL_DEFAULT = "gemini-3.1-pro-preview"
 GROK_MODEL_DEFAULT = "grok-4.20-0309-reasoning"
 # The mission brief anchors these to specific OpenRouter model ids.
 DEEPSEEK_MODEL_DEFAULT = "deepseek/deepseek-chat"
-KIMI_MODEL_DEFAULT = "moonshotai/kimi-k2-0905"
+KIMI_MODEL_DEFAULT = "moonshotai/kimi-k2.6"
 QWEN_MODEL_DEFAULT = "qwen/qwen3-235b-a22b"
 MISTRAL_MODEL_DEFAULT = "mistral-large-2512"
 

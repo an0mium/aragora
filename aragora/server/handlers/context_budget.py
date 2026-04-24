@@ -47,15 +47,15 @@ class ContextBudgetHandler(BaseHandler):
             return perm_err
 
         try:
-            from aragora.debate.context_budgeter import (
-                DEFAULT_TOTAL_TOKENS,
-                DEFAULT_SECTION_LIMITS,
-            )
+            from aragora.debate.context_budgeter import get_section_limits, get_total_tokens
 
+            # Read the current effective values (runtime overrides if set,
+            # otherwise the import-time defaults) so GET reflects what a
+            # fresh ``ContextBudgeter`` would actually see.
             return json_response(
                 {
-                    "total_tokens": DEFAULT_TOTAL_TOKENS,
-                    "section_limits": DEFAULT_SECTION_LIMITS,
+                    "total_tokens": get_total_tokens(),
+                    "section_limits": get_section_limits(),
                 }
             )
         except (ImportError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
@@ -80,15 +80,21 @@ class ContextBudgetHandler(BaseHandler):
         if section_limits is not None and not isinstance(section_limits, dict):
             return error_response("section_limits must be a dict", 400)
 
-        import os
+        # Apply via module-level setters instead of mutating ``os.environ``.
+        # The previous implementation wrote to the process environment, but
+        # the downstream module already read those env vars at import time
+        # and cached them as constants — so the mutation had no runtime
+        # effect on ``ContextBudgeter`` and only polluted the process env
+        # for subprocesses and unrelated readers. The setters install a
+        # runtime override that ``ContextBudgeter`` consults via
+        # ``get_total_tokens`` / ``get_section_limits`` at construction.
+        from aragora.debate.context_budgeter import set_section_limits, set_total_tokens
 
         if total_tokens is not None:
-            os.environ["ARAGORA_CONTEXT_TOTAL_TOKENS"] = str(total_tokens)
+            set_total_tokens(total_tokens)
 
         if section_limits is not None:
-            import json
-
-            os.environ["ARAGORA_CONTEXT_SECTION_LIMITS"] = json.dumps(section_limits)
+            set_section_limits(section_limits)
 
         return json_response(
             {

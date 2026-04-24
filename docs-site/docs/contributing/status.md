@@ -5,69 +5,44 @@ description: Aragora Project Status
 
 # Aragora Project Status
 
-*Last updated: March 23, 2026*
+*Last updated: April 23, 2026*
 
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](./status).
+> The thesis settlement ledger lives at [status/2026-04-21-thesis-settlement-session.md](status/2026-04-21-thesis-settlement-session.md).
+> Historical sections below are retained for continuity, but the active source of truth for current project status is `docs/status/STATUS.md`.
 > See [README](../analysis/adr) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
 
-## March 23, 2026 — Structural PMF Slices Landed, Live Gate Still Open
+## April 21, 2026 — Canonical Reality Moved to Thesis + PDB Execution
 
-The earlier March docs overstated readiness. Current `main` is materially better, but the right statement is:
+The older March note is no longer a truthful description of `main`.
 
-- the structural PMF slices are landed
-- the mocked founder-loop proof passes on `main`
-- the live founder loop still needs repeatable dogfood proof before external selling
+Current `main` is materially defined by:
 
-Focused verification on current `main`:
+- [#6370](https://github.com/synaptent/aragora/pull/6370) landing `docs/THESIS.md` as the canonical source of authority
+- the PDB lane moving from plan to code:
+  - [#6369](https://github.com/synaptent/aragora/pull/6369) lifecycle state/storage
+  - [#6389](https://github.com/synaptent/aragora/pull/6389) Protocol B executor + panel config + budget
+  - [#6391](https://github.com/synaptent/aragora/pull/6391) brief generation endpoints + in-process worker
+  - [#6393](https://github.com/synaptent/aragora/pull/6393) PR 4 UI design
+- the agent-bridge lane landing backend core in [#6392](https://github.com/synaptent/aragora/pull/6392)
+- the receipt/dissent substrate hardening via [#6353](https://github.com/synaptent/aragora/pull/6353) and [#6376](https://github.com/synaptent/aragora/pull/6376)
 
-```bash
-python3 -m pytest tests/e2e/test_user_journey.py tests/cli/test_quickstart.py -q
-```
+Important qualifier:
 
-Observed result on March 23, 2026: `57 passed` in `33.75s`.
+- `aragora/swarm/pr_review_protocol.py` still declares `PROTOCOL_STATUS = "metadata_heuristic"`
+- the newer `aragora/pdb/` execution path is shipping alongside it
+- so the canonical PR packet path is not yet fully upgraded to the thesis's heterogeneous-ensemble standard
 
-Recent `main` improvements relevant to the founder loop:
+The current bounded queue is:
 
-1. **ProviderRouter wired into DebateFactory** ([#1167](https://github.com/synaptent/aragora/pull/1167))
-2. **KnowledgeMound retrieval wired into DebateFactory** ([#1168](https://github.com/synaptent/aragora/pull/1168))
-3. **Versioned API key management endpoints** ([#1169](https://github.com/synaptent/aragora/pull/1169))
-4. **Interactive onboarding/get-started flow** ([#1170](https://github.com/synaptent/aragora/pull/1170))
-5. **Debate outcome -> KM ingestion** ([#1176](https://github.com/synaptent/aragora/pull/1176))
-6. **Demo wired to real backend** ([#1177](https://github.com/synaptent/aragora/pull/1177))
-7. **Wave 2 surfaces productized** ([#1188](https://github.com/synaptent/aragora/pull/1188))
-8. **Quickstart fails fast on bad TLS** ([#1180](https://github.com/synaptent/aragora/pull/1180))
-9. **Quickstart inline provider keys and structured receipts** ([#1192](https://github.com/synaptent/aragora/pull/1192))
-10. **Integrations dashboard uses truthful backend state** ([#1196](https://github.com/synaptent/aragora/pull/1196))
+1. close [#6374](https://github.com/synaptent/aragora/issues/6374) on the canonical PR-review path
+2. close [#6373](https://github.com/synaptent/aragora/issues/6373) with rolling-window triage metrics
+3. close [#6372](https://github.com/synaptent/aragora/issues/6372) with auto-handle calibration + drift gating
+4. close [#6375](https://github.com/synaptent/aragora/issues/6375) with empirical threshold grounding
 
-The current execution order is now:
+For the full current-status narrative, use the canonical doc:
 
-1. prove the canonical founder loop live
-2. harvest the concrete blockers from that proof
-3. feed only those blockers into the idea-to-execution / swarm machinery
-4. defer GTM and enterprise-assurance expansion until the live loop is repeatable
-
-Canonical references:
-
-- [docs/status/NEXT_STEPS_CANONICAL.md](./next-steps-canonical)
-- [docs/status/ACTIVE_EXECUTION_ISSUES.md](./active-execution-issues)
-- [docs/plans/PMF_DOGFOOD_EXECUTION_PLAN.md](./pmf-dogfood-execution-plan)
-
-### Wave 2 Surface Productization
-
-| Surface | Status | Notes |
-|---------|--------|-------|
-| **Spectate** | productized | Frontend wired to real WebSocket + polling. Conditional auth redacts debate IDs for unauthenticated callers. |
-| **SME Onboarding** | productized | 3-step wizard wired to backend. 9 starter templates including SME-specific profiles. |
-| **Conditional Public Endpoints** | productized | `GET /api/v1/public/surfaces` lists all public surfaces with readiness. Auth manifest declares spectate + onboarding as public. |
-
-### Current Frontier
-
-The frontier is no longer building or wiring. It is:
-
-- **continuous operation** — run the product loop with real users, collect feedback, fix what breaks
-- **Wave 2 polish** — SME onboarding, spectate, conditional public endpoints ([#820](https://github.com/synaptent/aragora/issues/820))
-- **design partner refresh** — repeatable external usage ([#1011](https://github.com/synaptent/aragora/issues/1011))
-- **enterprise assurance when ready** — pentest, SOC 2, certification parked at P3
+- [docs/status/STATUS.md](./status)
 
 ## March 12-18, 2026 — Ralph Autonomous Loop Validation
 

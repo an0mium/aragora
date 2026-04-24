@@ -47,6 +47,18 @@ def _make_handler(command: str = "GET", body: dict | None = None) -> MagicMock:
     return handler
 
 
+@pytest.fixture(autouse=True)
+def _reset_context_budget_overrides():
+    """Reset module-level runtime overrides so PUT tests don't leak state."""
+    from aragora.debate import context_budgeter
+
+    context_budgeter.set_total_tokens(None)
+    context_budgeter.set_section_limits(None)
+    yield
+    context_budgeter.set_total_tokens(None)
+    context_budgeter.set_section_limits(None)
+
+
 # ============================================================================
 # Initialization
 # ============================================================================
@@ -279,23 +291,45 @@ class TestUpdateBudget:
         assert body["total_tokens"] is None
         assert body["section_limits"] is None
 
-    def test_sets_env_var_total_tokens(self):
-        h = ContextBudgetHandler({})
-        mock_h = _make_handler("PUT", {"total_tokens": 9999})
-        with patch.dict(os.environ, {}, clear=False):
-            result = h.handle("/api/v1/context/budget", {}, mock_h)
-            assert _status(result) == 200
-            assert os.environ.get("ARAGORA_CONTEXT_TOTAL_TOKENS") == "9999"
+    def test_put_installs_runtime_total_tokens_override(self):
+        """PUT total_tokens installs a runtime override without mutating os.environ."""
+        from aragora.debate import context_budgeter
 
-    def test_sets_env_var_section_limits(self):
-        h = ContextBudgetHandler({})
-        limits = {"env_context": 1500}
-        mock_h = _make_handler("PUT", {"section_limits": limits})
-        with patch.dict(os.environ, {}, clear=False):
+        # Snapshot env so we can assert no mutation happened.
+        env_before = dict(os.environ)
+        try:
+            h = ContextBudgetHandler({})
+            mock_h = _make_handler("PUT", {"total_tokens": 9999})
             result = h.handle("/api/v1/context/budget", {}, mock_h)
+
             assert _status(result) == 200
-            stored = json.loads(os.environ.get("ARAGORA_CONTEXT_SECTION_LIMITS", "{}"))
-            assert stored == limits
+            assert context_budgeter.get_total_tokens() == 9999
+            # os.environ must not have been used as the persistence channel.
+            assert os.environ == env_before
+
+            # A fresh ContextBudgeter sees the override at construction.
+            assert context_budgeter.ContextBudgeter().total_tokens == 9999
+        finally:
+            context_budgeter.set_total_tokens(None)
+
+    def test_put_installs_runtime_section_limits_override(self):
+        from aragora.debate import context_budgeter
+
+        env_before = dict(os.environ)
+        limits = {"env_context": 1500}
+        try:
+            h = ContextBudgetHandler({})
+            mock_h = _make_handler("PUT", {"section_limits": limits})
+            result = h.handle("/api/v1/context/budget", {}, mock_h)
+
+            assert _status(result) == 200
+            assert context_budgeter.get_section_limits() == limits
+            assert os.environ == env_before
+
+            # A fresh ContextBudgeter sees the override at construction.
+            assert context_budgeter.ContextBudgeter().section_limits == limits
+        finally:
+            context_budgeter.set_section_limits(None)
 
     def test_invalid_json_body_returns_400(self):
         h = ContextBudgetHandler({})

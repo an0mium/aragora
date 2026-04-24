@@ -22,6 +22,27 @@ from aragora.server.fastapi import create_app
 from aragora.server.fastapi.routes.health import router
 
 
+@pytest.fixture(autouse=True)
+def clear_health_cache():
+    """Clear module-level readiness cache around each test.
+
+    The fast `/readyz` probe caches results in the health package for 5 seconds.
+    Other server tests intentionally write `readiness_fast` cache entries, so if
+    those run earlier on the same xdist worker these FastAPI route tests can
+    inherit a stale `not_ready` response and fail with 503 despite a healthy app.
+    """
+    from aragora.server.handlers.admin.health import (
+        _HEALTH_CACHE,
+        _HEALTH_CACHE_TIMESTAMPS,
+    )
+
+    _HEALTH_CACHE.clear()
+    _HEALTH_CACHE_TIMESTAMPS.clear()
+    yield
+    _HEALTH_CACHE.clear()
+    _HEALTH_CACHE_TIMESTAMPS.clear()
+
+
 @pytest.fixture
 def app():
     """Create a test FastAPI app."""

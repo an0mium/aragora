@@ -296,6 +296,55 @@ def _feature_flag_update_operation(*, operation_id: str) -> dict[str, Any]:
     }
 
 
+def _feature_flag_collection_update_operation(*, operation_id: str) -> dict[str, Any]:
+    """OpenAPI operation for updating multiple admin feature flags."""
+    return {
+        "tags": ["Admin"],
+        "summary": "Update admin feature flags",
+        "operationId": operation_id,
+        "description": "Updates multiple admin-manageable feature flags in one request.",
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "description": "Feature flag updates keyed by flag name.",
+                        "additionalProperties": _feature_flag_value_schema(),
+                    }
+                }
+            },
+        },
+        "responses": {
+            "200": {
+                "description": "Feature flags updated",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "value": _feature_flag_value_schema(),
+                                    "previous_default": _feature_flag_value_schema(),
+                                    "updated": {"type": "boolean"},
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "400": STANDARD_ERRORS["400"],
+            "401": STANDARD_ERRORS["401"],
+            "403": STANDARD_ERRORS["403"],
+            "404": STANDARD_ERRORS["404"],
+            "503": {"description": "Feature flag system not available"},
+        },
+        "security": [{"bearerAuth": []}],
+    }
+
+
 ADMIN_ENDPOINTS = {
     # =========================================================================
     # Admin MFA Compliance
@@ -425,14 +474,22 @@ ADMIN_ENDPOINTS = {
     # Admin Feature Flags
     # =========================================================================
     "/api/v1/admin/feature-flags": {
-        "get": _feature_flag_list_operation(operation_id="adminListFeatureFlags")
+        "get": _feature_flag_list_operation(operation_id="adminListFeatureFlags"),
+        "put": _feature_flag_collection_update_operation(operation_id="updateAdminFeatureFlags"),
     },
     "/api/admin/feature-flags": {
         "get": {
             **_feature_flag_list_operation(operation_id="adminListFeatureFlagsLegacy"),
             "deprecated": True,
             "x-preserve-legacy-operation-id": True,
-        }
+        },
+        "put": {
+            **_feature_flag_collection_update_operation(
+                operation_id="updateAdminFeatureFlagsLegacy"
+            ),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        },
     },
     "/api/v1/admin/feature-flags/{name}": {
         "get": _feature_flag_detail_operation(operation_id="adminGetFeatureFlag"),

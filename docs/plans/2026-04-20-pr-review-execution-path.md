@@ -1,8 +1,8 @@
 # PR Review Execution Path
 
-Last updated: 2026-04-20
+Last updated: 2026-04-22
 
-Status: design doc for issue #6306
+Status: historical design doc; active realization shipped via #6404, #6425, and #6421
 
 Related:
 - [docs/plans/2026-04-19-pr-intelligence-brief.md](2026-04-19-pr-intelligence-brief.md)
@@ -14,6 +14,18 @@ Related:
 This document defines the execution path for turning the existing
 `metadata_heuristic` PR review packet into a real heterogeneous settlement
 brief without weakening the human settlement gate.
+
+That execution path is now materially shipped on `main`:
+
+- `aragora/pdb/real_invoker.py` + `aragora/pdb/invoker_factory.py` wire
+  real provider families
+- `aragora/pdb/protocol.py` + `aragora/pdb/worker.py` run the active
+  bounded review path
+- `scripts/generate_one_brief.py` provides the single-PR dogfood CLI
+
+This document remains useful as the pre-ship design rationale. The
+canonical current-state description now lives in `docs/THESIS.md` and
+`docs/status/STATUS.md`.
 
 The immediate goal is not "automated review comments." The goal is a bounded,
 auditable, SHA-bound brief that the founder can settle from the browser or CLI

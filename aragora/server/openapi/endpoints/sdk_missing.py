@@ -164,43 +164,6 @@ SDK_MISSING_ENDPOINTS: dict = {
             "responses": {"200": _ok_response("Calibration history", _arr_obj)},
         },
     },
-    # --- services ---
-    "/api/services/{service_id}/health": {
-        "get": {
-            "tags": ["Services"],
-            "summary": "Get service health",
-            "description": "Return health information for an external or internal service registered with Aragora.",
-            "operationId": "getServiceHealth",
-            "parameters": [
-                {
-                    "name": "service_id",
-                    "in": "path",
-                    "required": True,
-                    "description": "Unique service identifier.",
-                    "schema": _str,
-                }
-            ],
-            "responses": {"200": _ok_response("Service health", _obj)},
-        },
-    },
-    "/api/services/{service_id}/metrics": {
-        "get": {
-            "tags": ["Services"],
-            "summary": "Get service metrics",
-            "description": "Return operational metrics for a registered service.",
-            "operationId": "getServiceMetrics",
-            "parameters": [
-                {
-                    "name": "service_id",
-                    "in": "path",
-                    "required": True,
-                    "description": "Unique service identifier.",
-                    "schema": _str,
-                }
-            ],
-            "responses": {"200": _ok_response("Service metrics", _obj)},
-        },
-    },
     # --- flips ---
     "/api/flips/{flip_id}": {
         "get": {

@@ -79,6 +79,21 @@ repos:
         files: ^aragora/server/handlers/
         stages: [pre-push]
 
+  # Env-mutation audit — block new os.environ writes from concurrent surfaces.
+  # Writing to os.environ in a concurrent request or feature path shares config
+  # as mutable global state across requests (defect pattern flagged by the
+  # Mode 3 panel on #6454, #6447, #6442, #6472). Known intentional mutations
+  # are allowlisted in the script with a rationale.
+  - repo: local
+    hooks:
+      - id: env-mutation-audit
+        name: Audit os.environ mutation in concurrent surfaces
+        entry: python scripts/audit_env_mutation.py
+        language: python
+        pass_filenames: false
+        files: ^aragora/(server/handlers|epistemic)/.*\.py$
+        stages: [pre-push]
+
   # TypeScript type checking for frontend
   - repo: local
     hooks:

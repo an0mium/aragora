@@ -31,7 +31,6 @@ from aragora.swarm.boss_loop_outcome import (
 )
 from aragora.swarm.boss_worker_lifecycle import (
     dispatch_issue as _dispatch_issue_impl,
-    dispatch_issue_under_claim as _dispatch_issue_under_claim_impl,
     finalize_worker_result as _finalize_worker_result_impl,
 )
 from aragora.swarm.debate_gate import DebateGate, DebateGateConfig, DebateGateRequest
@@ -4535,7 +4534,18 @@ class BossLoop:
         issue: GitHubIssue,
         freshness: RunnerFreshnessResult,
     ) -> dict[str, Any]:
-        return await _dispatch_issue_under_claim_impl(self, issue, freshness)
+        """Dispatch an issue and release the per-issue claim in all paths.
+
+        The claim-release ``finally`` lives on the loop itself so that the
+        dispatch hook (``_dispatch_issue``) is never reached through an
+        external helper. Keeping this wrapper in-class makes the
+        claim/dispatch contract a single object rather than a pair of
+        modules coupled through a private method name.
+        """
+        try:
+            return await self._dispatch_issue(issue, freshness)
+        finally:
+            self._release_issue_dispatch_claim(issue.number)
 
     def _attach_issue_handoff_metadata(
         self,
