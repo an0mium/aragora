@@ -96,6 +96,7 @@ STATUS_FAILED_CLOSED = "failed_closed"
 
 _RECOMMENDATION_CLASS_BY_DECISION: Mapping[Recommendation, str] = {
     Recommendation.APPROVE_CANDIDATE: "approve_candidate",
+    Recommendation.APPROVE_WITH_FOLLOWUPS: "approve_with_followups",
     Recommendation.REPAIR_FIRST: "repair_first",
     Recommendation.NEEDS_HUMAN_ATTENTION: "needs_human_attention",
 }

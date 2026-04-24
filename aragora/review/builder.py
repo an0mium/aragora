@@ -117,13 +117,17 @@ def build_brief(
     if output_roles is not None:
         _validate_output_role_coverage(votes_tuple, output_roles)
 
-    recommendation = _resolve_recommendation(votes_tuple, synthesis_policy)
+    recommendation = _resolve_recommendation(
+        votes_tuple,
+        synthesis_policy,
+        findings_severity_counts=findings_severity_counts,
+    )
     dissent = _build_dissent(votes_tuple, recommendation)
     overall_confidence = _aggregate_confidence(votes_tuple)
     disagreement_score = _disagreement_score(votes_tuple)
     role_findings = tuple(v.finding for v in votes_tuple)
     agent_roster = tuple(v.finding.agent for v in votes_tuple)
-    severity_counts = dict(findings_severity_counts) if findings_severity_counts else {}
+    severity_counts = dict(findings_severity_counts) if findings_severity_counts is not None else {}
 
     def _make(packet_sha: str) -> ReviewBrief:
         return ReviewBrief(
@@ -172,6 +176,16 @@ def compute_packet_sha(brief: ReviewBrief) -> str:
 def _resolve_recommendation(
     votes: tuple[PanelVote, ...],
     policy: SynthesisPolicy,
+    *,
+    findings_severity_counts: Mapping[str, int] | None = None,
+) -> Recommendation:
+    primary = _primary_verdict(votes, policy)
+    return _apply_severity_gate(primary, findings_severity_counts)
+
+
+def _primary_verdict(
+    votes: tuple[PanelVote, ...],
+    policy: SynthesisPolicy,
 ) -> Recommendation:
     if policy is SynthesisPolicy.MAJORITY:
         return _majority(votes)
@@ -182,6 +196,44 @@ def _resolve_recommendation(
     if policy is SynthesisPolicy.UNANIMOUS_OR_ESCALATE:
         return _unanimous(votes)
     raise ValueError(f"unsupported synthesis policy: {policy!r}")
+
+
+def _apply_severity_gate(
+    primary: Recommendation,
+    findings_severity_counts: Mapping[str, int] | None,
+) -> Recommendation:
+    """Downgrade ``REPAIR_FIRST`` to ``APPROVE_WITH_FOLLOWUPS`` when no high.
+
+    Added under #6505 to address the calibration bias where 8 skeptical
+    lenses all looking for problems produce ``REPAIR_FIRST`` on every
+    non-trivial diff. The gate only touches ``REPAIR_FIRST``; every
+    other verdict passes through unchanged.
+
+    Semantics:
+
+    - ``None`` (legacy caller, no aggregator run) → preserve ``REPAIR_FIRST``
+      so briefs built without severity data keep the old three-class
+      behavior.
+    - Dict missing the ``high`` key (malformed input) → preserve
+      ``REPAIR_FIRST``; do not guess.
+    - ``high`` key present and value > 0 → at least one slot flagged a
+      hard blocker; preserve ``REPAIR_FIRST``.
+    - ``high`` key present and value == 0 → real findings exist but none
+      are blockers; downgrade to ``APPROVE_WITH_FOLLOWUPS``.
+
+    The gate currently operates on the total high-severity count across
+    all lenses, not the narrower "high from a CORE lens" rule proposed
+    in the epic. That refinement is a follow-up; restricting to core
+    lenses needs a per-lens count field, not yet plumbed.
+    """
+    if primary is not Recommendation.REPAIR_FIRST:
+        return primary
+    if findings_severity_counts is None:
+        return primary
+    high = findings_severity_counts.get("high")
+    if high is None or high > 0:
+        return primary
+    return Recommendation.APPROVE_WITH_FOLLOWUPS
 
 
 def _majority(votes: tuple[PanelVote, ...]) -> Recommendation:

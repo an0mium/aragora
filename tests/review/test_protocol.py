@@ -458,10 +458,19 @@ class TestContractCoherence:
         # ReviewBrief.recommendation values must match ReviewPacket
         # machine_recommendation values, since downstream consumers (queue,
         # UI, ledger) may receive either output kind.
-        from aragora.cli.commands.review_queue import ReviewPacket
+        from aragora.cli.commands.review_queue import ReviewPacket  # noqa: F401
 
         # Build a minimal ReviewPacket and confirm its machine_recommendation
         # field accepts the same strings ReviewBrief.recommendation produces.
-        packet_recommendations = {"approve_candidate", "needs_human_attention", "repair_first"}
+        # ``approve_with_followups`` was added under #6505; the CLI
+        # heuristic path still emits only the three classic strings, but
+        # the downstream type must know about all four so brief-driven
+        # consumers can render the extra class.
+        packet_recommendations = {
+            "approve_candidate",
+            "approve_with_followups",
+            "needs_human_attention",
+            "repair_first",
+        }
         brief_recommendations = {r.value for r in Recommendation}
         assert packet_recommendations == brief_recommendations

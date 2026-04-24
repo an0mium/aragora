@@ -64,6 +64,7 @@ def _build(
     policy: SynthesisPolicy = SynthesisPolicy.MAJORITY,
     head_sha: str = "deadbeef",
     base_sha: str = "feedface",
+    findings_severity_counts: dict[str, int] | None = None,
 ) -> ReviewBrief:
     return build_brief(
         votes=votes,
@@ -75,6 +76,7 @@ def _build(
         validation_summary="checks green",
         generated_at="2026-04-20T12:00:00+00:00",
         synthesis_policy=policy,
+        findings_severity_counts=findings_severity_counts,
     )
 
 
@@ -615,3 +617,87 @@ class TestConfidenceClamping:
         ]
         brief = _build(votes)
         assert brief.overall_confidence == pytest.approx(0.6)
+
+
+# --- Severity-gated verdict (#6505) --------------------------------------
+
+
+class TestSeverityGate:
+    """Gate downgrades REPAIR_FIRST → APPROVE_WITH_FOLLOWUPS when no high findings.
+
+    Core behavioral fix from the Mode 3 rubric calibration epic. The
+    primary verdict logic is unchanged; only the specific
+    ``REPAIR_FIRST`` → ``APPROVE_WITH_FOLLOWUPS`` downgrade is added.
+    """
+
+    def _request_changes_votes(self) -> list[PanelVote]:
+        # Majority request_changes → primary verdict is REPAIR_FIRST.
+        return [
+            _vote(role=ReviewRole.LOGIC, agent="a1", position=DissentPosition.REQUEST_CHANGES),
+            _vote(role=ReviewRole.SECURITY, agent="a2", position=DissentPosition.REQUEST_CHANGES),
+            _vote(
+                role=ReviewRole.MAINTAINABILITY,
+                agent="a3",
+                position=DissentPosition.REQUEST_CHANGES,
+            ),
+        ]
+
+    def test_no_high_severity_downgrades_to_approve_with_followups(self) -> None:
+        votes = self._request_changes_votes()
+        brief = _build(
+            votes,
+            findings_severity_counts={"high": 0, "medium": 2, "low": 5},
+        )
+        assert brief.recommendation is Recommendation.APPROVE_WITH_FOLLOWUPS
+
+    def test_high_severity_preserves_repair_first(self) -> None:
+        votes = self._request_changes_votes()
+        brief = _build(
+            votes,
+            findings_severity_counts={"high": 1, "medium": 0, "low": 0},
+        )
+        assert brief.recommendation is Recommendation.REPAIR_FIRST
+
+    def test_legacy_caller_without_severity_preserves_repair_first(self) -> None:
+        # Backwards compatibility: briefs built without severity counts
+        # (legacy path, degraded runs, older callers) must keep the old
+        # three-class behavior.
+        votes = self._request_changes_votes()
+        brief = _build(votes)  # no findings_severity_counts passed
+        assert brief.recommendation is Recommendation.REPAIR_FIRST
+
+    def test_malformed_severity_map_missing_high_key_preserves_repair_first(self) -> None:
+        # Defensive: if upstream ever emits a counts dict without the
+        # canonical key, do not guess. Preserve the conservative verdict.
+        votes = self._request_changes_votes()
+        brief = _build(
+            votes,
+            findings_severity_counts={"medium": 3, "low": 1},
+        )
+        assert brief.recommendation is Recommendation.REPAIR_FIRST
+
+    def test_approve_primary_unchanged_by_gate(self) -> None:
+        # The gate only ever fires on REPAIR_FIRST. APPROVE_CANDIDATE
+        # cannot be downgraded (and should not be). Confirm regardless
+        # of severity input.
+        votes = [
+            _vote(role=ReviewRole.LOGIC, agent="a1", position=DissentPosition.APPROVE),
+            _vote(role=ReviewRole.SECURITY, agent="a2", position=DissentPosition.APPROVE),
+        ]
+        for counts in (None, {"high": 0, "medium": 0, "low": 0}, {"high": 5}):
+            brief = _build(votes, findings_severity_counts=counts)
+            assert brief.recommendation is Recommendation.APPROVE_CANDIDATE
+
+    def test_defer_primary_unchanged_by_gate(self) -> None:
+        # DEFER → NEEDS_HUMAN_ATTENTION is never downgraded; operator
+        # attention is a signal in its own right, not a symptom of
+        # finding severity.
+        votes = [
+            _vote(role=ReviewRole.LOGIC, agent="a1", position=DissentPosition.DEFER),
+            _vote(role=ReviewRole.SECURITY, agent="a2", position=DissentPosition.DEFER),
+        ]
+        brief = _build(
+            votes,
+            findings_severity_counts={"high": 0, "medium": 0, "low": 0},
+        )
+        assert brief.recommendation is Recommendation.NEEDS_HUMAN_ATTENTION

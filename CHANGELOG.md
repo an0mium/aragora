@@ -7,6 +7,10 @@ _Changes landing on `main` after the v2.9.0-rc.1 tag will be collected here unti
 
 ### Added
 - **Mode 3 brief severity counts (#6505):** `ReviewBrief` now carries `findings_severity_counts` — aggregate `{high, medium, low}` counts derived from each slot's top findings — and surfaces it in the stored brief JSON. Operators can now distinguish "1 high-severity blocker" from "5 low-severity editorial comments" without reading every finding. Legacy callers that omit the new `build_brief` kwarg get an empty map rather than a crash.
+- **`Recommendation.APPROVE_WITH_FOLLOWUPS` verdict class (#6505):** Fourth brief recommendation for the "real findings but none are blockers" case. `ReviewBrief.recommendation` can now emit `approve_with_followups` (string value); downstream triage classifies it in the approve family.
+
+### Changed
+- **Mode 3 verdict severity gate (#6505):** `REPAIR_FIRST` is now downgraded to `APPROVE_WITH_FOLLOWUPS` when the aggregated severity map reports zero `high` findings. Fixes the calibration bias identified in `docs/status/2026-04-24-mode3-rc1-calibration.md` where 8 skeptical lenses all looking for problems always produced `REPAIR_FIRST` regardless of severity. Legacy callers without severity data preserve the old three-class behavior. `APPROVE_CANDIDATE` and `NEEDS_HUMAN_ATTENTION` paths are untouched.
 
 
 ## [v2.9.0-rc.1] - 2026-04-24

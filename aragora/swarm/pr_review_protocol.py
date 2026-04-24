@@ -65,6 +65,7 @@ EXECUTED_PROTOCOL_STATUS = "heterogeneous_ensemble_v1"
 FALLBACK_PROTOCOL_STATUS = "metadata_heuristic_fallback"
 
 RECOMMEND_APPROVE = "approve_candidate"
+RECOMMEND_APPROVE_WITH_FOLLOWUPS = "approve_with_followups"
 RECOMMEND_ATTENTION = "needs_human_attention"
 RECOMMEND_REPAIR = "repair_first"
 
@@ -901,7 +902,7 @@ class PRReviewProtocol:
             '  "provider": "set to any non-empty placeholder; caller will overwrite",\n'
             '  "lens": "set to any non-empty placeholder; caller will overwrite",\n'
             '  "family": "set to any non-empty placeholder; caller will overwrite",\n'
-            '  "recommendation_class": "approve_candidate | needs_human_attention | repair_first",\n'
+            '  "recommendation_class": "approve_candidate | approve_with_followups | needs_human_attention | repair_first",\n'
             '  "confidence": 0.0,\n'
             '  "summary": "1-2 sentence reviewer summary",\n'
             '  "top_findings": [\n'

@@ -437,6 +437,7 @@ _APPROVE_RECOMMENDATIONS = frozenset(
     {
         "approve",
         "approve_candidate",
+        "approve_with_followups",
         "approve_now",
         "ready_now",
         "safe_to_merge",

@@ -95,7 +95,14 @@ _ESCALATION_RECOMMENDATIONS = frozenset(
 # ``defer`` is neither an agreement nor an override — it's a "come back
 # later" signal. We record it as non-override.
 _APPROVE_RECS = frozenset(
-    {"approve", "approve_candidate", "approve_now", "ready_now", "safe_to_merge"}
+    {
+        "approve",
+        "approve_candidate",
+        "approve_with_followups",
+        "approve_now",
+        "ready_now",
+        "safe_to_merge",
+    }
 )
 _REJECT_RECS = frozenset(
     {"reject", "request_changes", "needs_human_attention", "needs_human_review", "block"}

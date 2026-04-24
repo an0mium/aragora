@@ -51,12 +51,22 @@ class ReviewRole(str, Enum):
 class Recommendation(str, Enum):
     """Top-line recommendation classes a brief can produce.
 
-    Same three classes used by ``aragora.cli.commands.review_queue.ReviewPacket``
-    so downstream consumers (queue, UI, ledger) can treat brief and packet
-    outputs uniformly when both are present.
+    Four classes, originally three. The ``APPROVE_WITH_FOLLOWUPS`` class
+    was added under #6505 to separate "the panel surfaced real issues
+    but none are hard blockers" from "the panel found a real blocker."
+    The verdict rule downgrades ``REPAIR_FIRST`` to
+    ``APPROVE_WITH_FOLLOWUPS`` when no slot reports a ``high``-severity
+    finding, so the sharp-end class (``REPAIR_FIRST``) is reserved for
+    cases where at least one lens flags a high-severity issue.
+
+    Same class strings are used by
+    ``aragora.cli.commands.review_queue.ReviewPacket`` so downstream
+    consumers (queue, UI, ledger) can treat brief and packet outputs
+    uniformly when both are present.
     """
 
     APPROVE_CANDIDATE = "approve_candidate"
+    APPROVE_WITH_FOLLOWUPS = "approve_with_followups"
     NEEDS_HUMAN_ATTENTION = "needs_human_attention"
     REPAIR_FIRST = "repair_first"
 
