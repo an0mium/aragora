@@ -1056,12 +1056,12 @@ class TestDashboardStats:
         handler.get_elo_system = MagicMock(return_value=None)
         handler.ctx = {}
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
         records = [
             _dashboard_record(
                 "d1",
                 "tech",
-                created_at=now - timedelta(hours=1),
+                created_at=now,
                 confidence=0.9,
                 total_tokens=120,
                 artifact_bytes=200,
@@ -1322,12 +1322,12 @@ class TestOverviewWired:
         handler.get_storage = MagicMock(return_value=storage)
         handler.get_elo_system = MagicMock(return_value=None)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
         records = [
             _dashboard_record(
                 "d1",
                 "tech",
-                created_at=now - timedelta(hours=1),
+                created_at=now,
                 confidence=0.9,
                 rounds_used=3,
                 duration_seconds=2.5,
