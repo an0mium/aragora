@@ -176,8 +176,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # OpenAI
     "gpt4": ModelProfile(
-        model_id="gpt-5.4",
-        display_name="GPT-4.1",
+        model_id="gpt-5.5",
+        display_name="GPT-5.5",
         provider="openai",
         capabilities={
             ModelCapability.REASONING: 0.94,
