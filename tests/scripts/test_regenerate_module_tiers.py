@@ -64,6 +64,14 @@ def test_core_tier_non_empty_with_known_members(report):
         )
 
 
+def test_shipped_non_python_surfaces_are_not_deprecated(report):
+    """Non-Python product surfaces can be live without Python import references."""
+    by_name = {m.name: m for m in report.modules}
+    live = by_name["live"]
+    assert live.tier == "integrated"
+    assert live.override_reason
+
+
 def test_no_module_has_both_zero_importers_and_zero_tests_in_core(report):
     """A module with no importers AND no tests cannot be tier=core.
 

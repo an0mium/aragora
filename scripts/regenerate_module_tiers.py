@@ -77,6 +77,8 @@ MANUAL_TIER_OVERRIDES: dict[str, tuple[str, str]] = {
     "server": ("core", "FastAPI server + 3K+ API operations"),
     "storage": ("core", "persistence layer"),
     "db": ("core", "database abstraction"),
+    # Shipped non-Python surfaces that pure Python import/test counts underweight.
+    "live": ("integrated", "Next.js frontend app — tracked outside Python import graph"),
 }
 
 

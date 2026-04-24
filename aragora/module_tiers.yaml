@@ -25,9 +25,9 @@ thresholds:
 
 summary:
   core: 21
-  integrated: 85
+  integrated: 86
   experimental: 26
-  deprecated: 3
+  deprecated: 2
   total: 135
 
 modules:
@@ -148,7 +148,7 @@ modules:
     test_file_count: 164
     override_reason: "persistence layer"
 
-  # --- integrated (85) ---
+  # --- integrated (86) ---
   - name: analysis
     tier: integrated
     py_files: 29
@@ -354,6 +354,12 @@ modules:
     py_files: 2
     importer_count: 3
     test_file_count: 6
+  - name: live
+    tier: integrated
+    py_files: 5
+    importer_count: 0
+    test_file_count: 0
+    override_reason: "Next.js frontend app — tracked outside Python import graph"
   - name: marketplace
     tier: integrated
     py_files: 7
@@ -707,12 +713,7 @@ modules:
     importer_count: 1
     test_file_count: 1
 
-  # --- deprecated (3) ---
-  - name: live
-    tier: deprecated
-    py_files: 5
-    importer_count: 0
-    test_file_count: 0
+  # --- deprecated (2) ---
   - name: operations
     tier: deprecated
     py_files: 2
