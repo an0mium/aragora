@@ -191,12 +191,8 @@ class TestRecordAndQuery:
 class TestAgentScore:
     def test_agent_score_structure(self) -> None:
         store = ReputationStore()
-        store.record_delta(
-            _delta(agent_id="alice", delta=30.0, domain=DOMAIN_PREDICTION_MARKET)
-        )
-        store.record_delta(
-            _delta(agent_id="alice", delta=10.0, domain=DOMAIN_DEBATE_POSITION)
-        )
+        store.record_delta(_delta(agent_id="alice", delta=30.0, domain=DOMAIN_PREDICTION_MARKET))
+        store.record_delta(_delta(agent_id="alice", delta=10.0, domain=DOMAIN_DEBATE_POSITION))
         score = store.agent_score("alice", apply_decay=False)
         assert score.agent_id == "alice"
         assert score.delta_count == 2
@@ -256,8 +252,8 @@ class TestDecay:
     def test_one_half_life_old_delta_halves(self) -> None:
         store = ReputationStore()
         thirty_days_ago = (
-            datetime.now(tz=UTC) - timedelta(days=30)
-        ).isoformat().replace("+00:00", "Z")
+            (datetime.now(tz=UTC) - timedelta(days=30)).isoformat().replace("+00:00", "Z")
+        )
         d = _delta(delta=100.0, decay_half_life_days=30.0, applied_at=thirty_days_ago)
         store.record_delta(d)
         score = store.get_score("alice", apply_decay=True)
@@ -265,9 +261,7 @@ class TestDecay:
 
     def test_very_old_delta_decays_near_zero(self) -> None:
         store = ReputationStore()
-        old = (datetime.now(tz=UTC) - timedelta(days=365)).isoformat().replace(
-            "+00:00", "Z"
-        )
+        old = (datetime.now(tz=UTC) - timedelta(days=365)).isoformat().replace("+00:00", "Z")
         d = _delta(delta=100.0, decay_half_life_days=30.0, applied_at=old)
         store.record_delta(d)
         score = store.get_score("alice", apply_decay=True)

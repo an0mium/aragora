@@ -85,9 +85,7 @@ def _decay_weight(delta: ReputationDelta, now: datetime) -> float:
     if delta.decay_half_life_days is None:
         return 1.0
     try:
-        applied = datetime.fromisoformat(
-            delta.applied_at.replace("Z", "+00:00")
-        ).astimezone(UTC)
+        applied = datetime.fromisoformat(delta.applied_at.replace("Z", "+00:00")).astimezone(UTC)
     except (ValueError, TypeError):
         return 1.0
     age_days = max(0.0, (now - applied).total_seconds() / 86_400.0)
@@ -177,9 +175,7 @@ class ReputationStore:
 
     def all_scores(self, *, apply_decay: bool = True) -> list[AgentScore]:
         """Return per-agent score summaries, sorted descending by score."""
-        scores = [
-            self.agent_score(aid, apply_decay=apply_decay) for aid in self._deltas
-        ]
+        scores = [self.agent_score(aid, apply_decay=apply_decay) for aid in self._deltas]
         return sorted(scores, key=lambda s: s.running_score, reverse=True)
 
     def __len__(self) -> int:
