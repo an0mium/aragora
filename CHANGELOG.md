@@ -1,10 +1,41 @@
 # Changelog
 
 
-## [Unreleased] - v2.9.0
+## [Unreleased]
+
+_Changes landing on `main` after the v2.9.0-rc.1 tag will be collected here until promotion to v2.9.0 stable._
+
+
+## [v2.9.0-rc.1] - 2026-04-24
+
+### Highlights
+
+- **Mode 3 heterogeneous PR review operational.** 8-provider panel (Claude + GPT core, Gemini / Grok / DeepSeek / Kimi / Qwen heterodox, Mistral regulatory), end-to-end regression-tested on the shipped path, ~95% precision on the calibration sample to date. Settlement ledger at `docs/status/2026-04-21-thesis-settlement-session.md`.
+- **Dialectical Runtime Synthesis Layer (DIC-series) underway.** Executable claim manifest (DIC-13), proof-carrying code unit scanner with flag gate (DIC-19), proactive crux gardening (DIC-28), operator crux arbitration (DIC-27), and agent bridge handler landed behind feature gates.
+- **Triage auto-handle calibration gate integrated.** Low-risk `fire_and_forget` and `admin_merge_allowed` paths now consult an outcome-history SQLite store and surface drift alerts before gating merges.
+- **Mac runner fleet hardened.** Canonical `docs/runners/FLEET.md`, daily headcount monitor, TIME_WAIT LaunchAgent + weekly GH Actions check, SSM deploy pinned to workflow SHA.
+- **CI advisory gate bottlenecks reduced.** `test-fast` split into targeted shards, draft-PR gating tightened, timeouts rationalized.
 
 ### Added
+- **Mode 3 end-to-end regression test (#6471):** Locks in the shipped 8-provider panel topology against accidental reversion. Replaces the old dev-only Mode 2 assertion.
+- **Agent bridge handler (#6465):** Wires autonomous-navigation agent bridge into the handler registry with CLI-resume transport. Live smoke harness available via `scripts/agent_bridge_live_smoke.py` (opt-in).
+- **AGT-05 ReputationStore (#6490):** Per-agent JSONL-backed reputation ledger — tracks task outcomes, calibration deltas, and drift signals. Foundation piece for the agent-civilization substrate.
+- **DIC-13 ExecutableClaim manifest (#6456):** Typed manifest model + flag-gated directory scanner. Establishes the claim-schema landing site for DIC-14/25/26 to build on.
+- **DIC-19 ProofCarryingCodeUnit scanner (#6472):** Flag-gated scanner + package export. Separates concerns between proof-unit discovery and verification.
+- **DIC-28 proactive crux gardening (#6459):** Scheduled re-examination of resolved and outstanding cruxes with explicit `insufficient_evidence` status distinguishing "not evaluated" from "healthy". Boundary-only env reads via `GardeningConfig`.
+- **Auto-handle calibration SQLite store (#6468):** Outcome-history store with transactional `record_outcome` (BEGIN IMMEDIATE wrapping), WAL mode enforcement, schema versioning, and extracted fingerprint helpers. Used by the triage calibration gate.
+- **Triage auto-handle calibration integration (#6448):** Drift gating on low-risk merge paths. Backed by rolling outcome windows and per-path thresholds.
+- **Canonical runner fleet documentation (#6476, #6486):** `docs/runners/FLEET.md` enumerates the 12-runner roster (3 Hetzner + 6 EC2 + 3 Mac + 1 Mac Studio). TIME_WAIT monitor (`scripts/runners/mac_timewait_check.sh`) under LaunchAgent surfaces TCP-port exhaustion before it drops a runner.
 - **Rolling-window triage metrics (#6373):** New `aragora.triage` package and
+  `GET /api/v1/review-queue/triage-metrics` endpoint emit the four Commitment-5
+  metrics named in `docs/THESIS.md` (escalation rate, auto-handle override
+  rate, human-override-outcome correlation, time-per-settlement median+p95)
+  over rolling 7-day and 30-day windows, with advisory drift detection and
+  ETag support. Pure-function aggregator in `aragora/triage/metrics.py` is
+  testable with synthetic event sequences; the on-disk adapter in
+  `aragora/triage/event_source.py` reads existing settlement receipts without
+  modifying their schema. Legacy `/api/v1/review-queue/stats` (daily counters)
+  remains unchanged. New `aragora.triage` package and
   `GET /api/v1/review-queue/triage-metrics` endpoint emit the four Commitment-5
   metrics named in `docs/THESIS.md` (escalation rate, auto-handle override
   rate, human-override-outcome correlation, time-per-settlement median+p95)
@@ -38,6 +69,7 @@
 - **Compliance bundle:** Unified compliance entry point linking SOC 2, GDPR, HIPAA, EU AI Act, and data residency artifacts
 
 ### Changed
+- **CI advisory gate split (#6479):** `test-fast` decomposed into targeted shards to avoid the previous 45-minute cap on the `core` shard; advisory gate cycle times reduced, draft-PR gating tightened.
 - **Exception elimination:** All bare `except Exception: pass` handlers eliminated across the entire codebase; 130+ files narrowed to specific exception types
 - **Contract drift governance artifacts:** Refreshed contract drift backlog + issue plan snapshots and weekly burndown targets to current baseline
 - **str(e) sanitization:** All handler/auth/security/client/middleware `str(e)` leaks replaced with static messages and `logger.warning("...: %s", e)` pattern
@@ -52,6 +84,9 @@
 - **asyncio modernization:** `asyncio.get_event_loop().run_until_complete()` replaced with `asyncio.run()` across 13 test files (94 replacements)
 
 ### Fixed
+- **PDB provider call bounding (#6462):** Mode 3 execution no longer fans out unbounded provider calls; concurrency and timeout caps enforced at the protocol boundary.
+- **Secure deploy SHA race (#6483):** SSM-based secure deploys are now pinned to the triggering workflow SHA rather than `origin/main`, closing a short window where a concurrent merge could deploy a different commit than the one that passed checks.
+- **Nightly test pollution (#6466):** Four standing nightly failures traced to xdist worker pollution; isolated via per-worker fixture ordering. Underlying failures tracked separately in #6464.
 - **API contract alignment:** Cost handler (7 endpoints) and usage dashboard (6 endpoints) now return `{"data": {...}}` wrapper matching frontend hook expectations
 - **StructuredLogger.exception():** Now accepts `*args` for `%s` formatting, matching stdlib logging API
 - **CLI startup:** `aragora serve --demo` now works end-to-end; server starts in ~14s
