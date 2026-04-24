@@ -21,6 +21,12 @@ Exposes:
   :class:`FragilityReport`, :class:`StressTestResult`,
   :func:`run_stress_test`, :func:`stress_test_enabled`)
   Flag gate: ``ARAGORA_STRESS_TEST_ENABLED`` (default off).
+- DIC-19: proof-carrying code unit schema and scanner
+  (:class:`ProofCarryingCodeUnit`, :class:`DecayPolicy`,
+  :class:`FallbackPolicy`, :func:`load_proof_unit`,
+  :func:`load_proof_unit_from_yaml`, :func:`load_proof_units_from_dir`)
+  Flag gate: ``ARAGORA_PROOF_UNIT_SCAN_ENABLED`` (default off; dataclasses
+  are always importable).
 - DIC-26: belief coherence monitor (:class:`BeliefEntry`,
   :class:`CoherenceReport`, :func:`scan_coherence`)
 - DIC-28: proactive crux gardening (:class:`GardeningConfig`,
@@ -103,6 +109,17 @@ from .gardening import (
     garden_resolved_crux,
     run_gardening_pass,
 )
+from .proof_unit import (
+    DecayPolicy,
+    FallbackPolicy,
+    ProofCarryingCodeUnit,
+    enable_proof_unit_scan,
+    load_proof_unit,
+    load_proof_unit_from_yaml,
+    load_proof_units_from_dir,
+    proof_unit_scan_enabled,
+    reset_proof_unit_scan,
+)
 from .truth_map import (
     OrgTruthMapReport,
     build_truth_map,
@@ -141,9 +158,18 @@ __all__ = [
     "QuarantineDecision",
     "QuarantinePolicy",
     "RepairSpec",
+    "DecayPolicy",
+    "FallbackPolicy",
+    "ProofCarryingCodeUnit",
     "StressPerturbation",
     "StressTestResult",
     "IncoherenceKind",
+    "enable_proof_unit_scan",
+    "load_proof_unit",
+    "load_proof_unit_from_yaml",
+    "load_proof_units_from_dir",
+    "proof_unit_scan_enabled",
+    "reset_proof_unit_scan",
     "apply_quarantine_policy",
     "build_crux_receipt",
     "crux_gardening_enabled",
