@@ -104,7 +104,7 @@ class PreflightHealthCheck:
         "codex-engineer": "openai",
         "gemini-visionary": "gemini",
         "grok-lateral-thinker": "xai",
-        "deepseek-v3": "openrouter",
+        "deepseek-v4-pro": "openrouter",
     }
 
     def __init__(self, min_required_agents: int = 2):

@@ -35,7 +35,7 @@ _WEB_SEARCH_PATTERNS = [
 
 @AgentRegistry.register(
     "openai-api",
-    default_model="gpt-5.4",
+    default_model="gpt-5.5",
     default_name="openai-api",
     agent_type="API",
     env_vars="OPENAI_API_KEY",
@@ -53,35 +53,36 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     Uses OpenAICompatibleMixin for standard OpenAI API implementation.
     """
 
-    # Every OpenAI ID maps to the current frontier (GPT-5.4) via OpenRouter
+    # Every OpenAI ID maps to the current frontier (GPT-5.5) via OpenRouter
     # so weaker historical models are transparently upgraded and a missing
     # OPENAI_API_KEY never blocks a debate. Distinct OpenRouter model IDs
     # are kept only where the Pro tier is explicitly requested.
     OPENROUTER_MODEL_MAP = {
-        "gpt-5.4": "openai/gpt-5.4",
-        "gpt-5.4-pro": "openai/gpt-5.4-pro",
-        "gpt-5.3": "openai/gpt-5.4",
-        "gpt-5.3-chat-latest": "openai/gpt-5.4",
-        "gpt-5.3-codex": "openai/gpt-5.4",
-        "gpt-4.1": "openai/gpt-5.4",
-        "gpt-4.1-mini": "openai/gpt-5.4",
-        "gpt-4.1-nano": "openai/gpt-5.4",
-        "gpt-4o": "openai/gpt-5.4",
-        "gpt-4o-mini": "openai/gpt-5.4",
-        "gpt-4-turbo": "openai/gpt-5.4",
-        "gpt-4": "openai/gpt-5.4",
-        "gpt-3.5-turbo": "openai/gpt-5.4",
-        "gpt-4o-search-preview": "openai/gpt-5.4",
-        "o3": "openai/gpt-5.4",
-        "o3-mini": "openai/gpt-5.4",
-        "o4-mini": "openai/gpt-5.4",
+        "gpt-5.5": "openai/gpt-5.5",
+        "gpt-5.4": "openai/gpt-5.5",
+        "gpt-5.4-pro": "openai/gpt-5.5",
+        "gpt-5.3": "openai/gpt-5.5",
+        "gpt-5.3-chat-latest": "openai/gpt-5.5",
+        "gpt-5.3-codex": "openai/gpt-5.5",
+        "gpt-4.1": "openai/gpt-5.5",
+        "gpt-4.1-mini": "openai/gpt-5.5",
+        "gpt-4.1-nano": "openai/gpt-5.5",
+        "gpt-4o": "openai/gpt-5.5",
+        "gpt-4o-mini": "openai/gpt-5.5",
+        "gpt-4-turbo": "openai/gpt-5.5",
+        "gpt-4": "openai/gpt-5.5",
+        "gpt-3.5-turbo": "openai/gpt-5.5",
+        "gpt-4o-search-preview": "openai/gpt-5.5",
+        "o3": "openai/gpt-5.5",
+        "o3-mini": "openai/gpt-5.5",
+        "o4-mini": "openai/gpt-5.5",
     }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-5.4"
+    DEFAULT_FALLBACK_MODEL = "openai/gpt-5.5"
 
     def __init__(
         self,
         name: str = "openai-api",
-        model: str = "gpt-5.4",
+        model: str = "gpt-5.5",
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

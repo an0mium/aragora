@@ -443,20 +443,20 @@ class TestTokenCostCalculation:
         assert input_cost == Decimal("1.25")
         assert output_cost == Decimal("5.00")
 
-    def test_known_model_deepseek_v3(self):
-        """Test cost calculation for DeepSeek V3."""
+    def test_known_model_deepseek_v4_pro(self):
+        """Test cost calculation for DeepSeek V4 Pro."""
         from aragora.services.usage_metering import UsageMeter
 
         meter = UsageMeter(db_path=Path("/tmp/test_cost_calc.db"))
         input_cost, output_cost = meter._calculate_token_cost(
             provider="deepseek",
-            model="deepseek-v3",
+            model="deepseek-v4-pro",
             input_tokens=1_000_000,
             output_tokens=1_000_000,
         )
-        # deepseek-v3 input: $0.14/1M, output: $0.28/1M
-        assert input_cost == Decimal("0.14")
-        assert output_cost == Decimal("0.28")
+        # deepseek-v4-pro input: $1.74/1M, output: $3.48/1M
+        assert input_cost == Decimal("1.74")
+        assert output_cost == Decimal("3.48")
 
     def test_known_model_xai_grok(self):
         """Test cost calculation for Grok 2."""

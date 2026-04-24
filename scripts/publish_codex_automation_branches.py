@@ -249,6 +249,15 @@ def _branch_patch_equivalent_to_base(repo_root: Path, base: str, branch: str) ->
     return bool(statuses) and all(status == "-" for status in statuses)
 
 
+def _branch_has_pr_diff(repo_root: Path, base: str, branch: str) -> bool:
+    proc = _run(["git", "diff", "--quiet", f"{base}...{branch}", "--"], cwd=repo_root)
+    if proc.returncode == 0:
+        return False
+    if proc.returncode == 1:
+        return True
+    return False
+
+
 def _local_codex_branches(repo_root: Path) -> list[BranchSnapshot]:
     proc = _run(
         [
@@ -567,6 +576,7 @@ def select_publishable_branches(
     historical_pr_branches: set[str] | None = None,
     resolved_related_branches: set[str] | None = None,
     remote_head_lookup: dict[str, str | None] | None = None,
+    has_pr_diff: dict[str, bool] | None = None,
 ) -> list[PublishDecision]:
     worktrees_by_branch: dict[str, list[WorktreeSnapshot]] = {}
     for worktree in worktrees:
@@ -578,6 +588,7 @@ def select_publishable_branches(
     historical_lookup = historical_pr_branches or set()
     resolved_related_lookup = resolved_related_branches or set()
     remote_lookup = remote_head_lookup or {}
+    pr_diff_lookup = has_pr_diff or {}
     decisions: list[PublishDecision] = []
 
     for branch in sorted(branches, key=lambda item: item.committed_at, reverse=True):
@@ -592,6 +603,8 @@ def select_publishable_branches(
             reason = "related_resolved_work_exists"
         elif branch.unique_commit_count <= 0:
             reason = "no_unique_commits"
+        elif pr_diff_lookup.get(branch.branch, True) is False:
+            reason = "empty_pr_diff"
         elif branch.committed_at < cutoff:
             reason = "older_than_cutoff"
         elif branch.branch in open_pr_heads:
@@ -926,6 +939,11 @@ def main(argv: list[str] | None = None) -> int:
         for branch in branches
         if not merged_lookup.get(branch.branch, False)
     }
+    pr_diff_lookup = {
+        branch.branch: _branch_has_pr_diff(repo_root, args.base, branch.branch)
+        for branch in branches
+        if not merged_lookup.get(branch.branch, False)
+    }
     hydrated_branches = [
         BranchSnapshot(
             branch=branch.branch,
@@ -983,6 +1001,7 @@ def main(argv: list[str] | None = None) -> int:
             branch.branch: _branch_remote_head(repo_root, branch.branch)
             for branch in hydrated_branches
         },
+        has_pr_diff=pr_diff_lookup,
     )
     merge_state_counts: dict[str, int] = {}
     for item in open_codex_prs:

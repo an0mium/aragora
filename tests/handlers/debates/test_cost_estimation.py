@@ -261,8 +261,8 @@ class TestEstimateDebateCostProviderLookup:
         assert entry["provider"] == "google"
 
     def test_deepseek_provider(self):
-        """deepseek-v3 resolves to deepseek provider."""
-        result = estimate_debate_cost(num_agents=1, model_types=["deepseek-v3"])
+        """deepseek-v4-pro resolves to deepseek provider."""
+        result = estimate_debate_cost(num_agents=1, model_types=["deepseek-v4-pro"])
         entry = result["breakdown_by_model"][0]
         assert entry["provider"] == "deepseek"
 
@@ -381,7 +381,7 @@ class TestEstimateDebateCostPricingAccuracy:
             ("gpt-4o", "openai", "gpt-4o"),
             ("gpt-4o-mini", "openai", "gpt-4o-mini"),
             ("gemini-pro", "google", "gemini-pro"),
-            ("deepseek-v3", "deepseek", "deepseek-v3"),
+            ("deepseek-v4-pro", "deepseek", "deepseek-v4-pro"),
         ],
     )
     def test_known_model_input_cost(self, model, provider, price_key):
@@ -403,7 +403,7 @@ class TestEstimateDebateCostPricingAccuracy:
             ("gpt-4o", "openai", "gpt-4o"),
             ("gpt-4o-mini", "openai", "gpt-4o-mini"),
             ("gemini-pro", "google", "gemini-pro"),
-            ("deepseek-v3", "deepseek", "deepseek-v3"),
+            ("deepseek-v4-pro", "deepseek", "deepseek-v4-pro"),
         ],
     )
     def test_known_model_output_cost(self, model, provider, price_key):
@@ -620,8 +620,8 @@ class TestEstimateDebateCostCostComparisons:
         assert full["total_estimated_cost_usd"] > mini["total_estimated_cost_usd"]
 
     def test_deepseek_cheaper_than_frontier_models(self):
-        """DeepSeek v3 should be cheaper than frontier models."""
-        deepseek = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=["deepseek-v3"])
+        """DeepSeek V4 Pro should be cheaper than frontier models."""
+        deepseek = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=["deepseek-v4-pro"])
         for model in ["claude-opus-4", "claude-sonnet-4", "gpt-4o", "gemini-pro"]:
             other = estimate_debate_cost(num_agents=1, num_rounds=1, model_types=[model])
             assert deepseek["total_estimated_cost_usd"] <= other["total_estimated_cost_usd"], (

@@ -223,7 +223,7 @@ panel:
       model: grok-4
     - slot: pdb.heterodox.deepseek
       provider: openrouter
-      model: deepseek/deepseek-chat-v3-0324
+      model: deepseek/deepseek-v4-pro
     - slot: pdb.heterodox.kimi
       provider: openrouter
       model: moonshotai/kimi-k2-0905

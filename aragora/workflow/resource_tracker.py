@@ -70,7 +70,8 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
     "grok": {"input": 0.005, "output": 0.015},
     "grok-2": {"input": 0.005, "output": 0.015},
     # DeepSeek
-    "deepseek": {"input": 0.00014, "output": 0.00028},
+    "deepseek": {"input": 0.00174, "output": 0.00348},
+    "deepseek-v4-pro": {"input": 0.00174, "output": 0.00348},
     "deepseek-v3": {"input": 0.00014, "output": 0.00028},
     # Others
     "llama": {"input": 0.0002, "output": 0.0002},

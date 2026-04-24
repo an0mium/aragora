@@ -30,6 +30,7 @@ MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "gpt-4o": ("openai", "gpt-4o"),
     "gpt-4o-mini": ("openai", "gpt-4o-mini"),
     "gemini-pro": ("google", "gemini-pro"),
+    "deepseek-v4-pro": ("deepseek", "deepseek-v4-pro"),
     "deepseek-v3": ("deepseek", "deepseek-v3"),
 }
 

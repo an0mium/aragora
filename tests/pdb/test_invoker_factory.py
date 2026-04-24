@@ -372,7 +372,7 @@ class TestBuildDefaultInvoker:
                 "ANTHROPIC_API_KEY": "sk-ant-test",
                 "OPENAI_API_KEY": "sk-oa-test",
                 CLAUDE_MODEL_ENV: "claude-opus-4-7",
-                OPENAI_MODEL_ENV: "gpt-5.4-pro",
+                OPENAI_MODEL_ENV: "gpt-5.5",
             },
             anthropic_agent_factory=_recording_claude,
             openai_agent_factory=_recording_gpt,
@@ -383,7 +383,7 @@ class TestBuildDefaultInvoker:
         )
         by_family = {family: (model, key) for family, model, key in calls}
         assert by_family["claude"][0] == "claude-opus-4-7"
-        assert by_family["gpt"][0] == "gpt-5.4-pro"
+        assert by_family["gpt"][0] == "gpt-5.5"
         # API keys get passed through verbatim.
         assert by_family["claude"][1] == "sk-ant-test"
         assert by_family["gpt"][1] == "sk-oa-test"
@@ -620,7 +620,7 @@ class TestHeterodoxKeyWiring:
                 "MISTRAL_API_KEY": "mi",
                 GEMINI_MODEL_ENV: "gemini-3-flash-preview",
                 GROK_MODEL_ENV: "grok-4-fast",
-                DEEPSEEK_MODEL_ENV: "deepseek/deepseek-r1",
+                DEEPSEEK_MODEL_ENV: "deepseek/deepseek-v4-pro",
                 KIMI_MODEL_ENV: "moonshotai/kimi-k2-thinking",
                 QWEN_MODEL_ENV: "qwen/qwen3-max",
                 MISTRAL_MODEL_ENV: "mistral-medium-latest",
@@ -637,7 +637,7 @@ class TestHeterodoxKeyWiring:
         # Openrouter factory is called once per family.
         openrouter_models = {m for m, _ in calls["openrouter"]}
         assert openrouter_models == {
-            "deepseek/deepseek-r1",
+            "deepseek/deepseek-v4-pro",
             "moonshotai/kimi-k2-thinking",
             "qwen/qwen3-max",
         }
@@ -677,6 +677,7 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
         {
             "gpt-5.4",
             "gpt-5.4-pro",
+            "gpt-5.5",
             "gpt-5.3",
             "gpt-4.1",
             "gpt-4.1-mini",
@@ -721,13 +722,7 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     ),
     "deepseek": frozenset(
         {
-            "deepseek/deepseek-chat",
-            "deepseek/deepseek-chat-v3.1",
-            "deepseek/deepseek-chat-v3-0324",
-            "deepseek/deepseek-r1",
-            "deepseek/deepseek-reasoner",
-            "deepseek/deepseek-v3.2",
-            "deepseek/deepseek-v3.2-exp",
+            "deepseek/deepseek-v4-pro",
         }
     ),
     "kimi": frozenset(

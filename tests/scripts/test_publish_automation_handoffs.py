@@ -12,6 +12,21 @@ import scripts.publish_automation_handoffs as mod
 from scripts.publish_automation_handoffs import Handoff, PublishDecision
 
 
+def _outbox_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "task": "Publish validated repair branch",
+        "requires_github": True,
+        "requested_action": "open_pr",
+        "repo": "synaptent/aragora",
+        "local_evidence": {},
+        "validation": [],
+        "idempotency_key": "open-pr-codex-example-abc123",
+        "created_at": "2026-04-24T16:00:00+00:00",
+    }
+    payload.update(overrides)
+    return payload
+
+
 def _memory(root: Path, automation_id: str, text: str) -> Path:
     path = root / "automations" / automation_id / "memory.md"
     path.parent.mkdir(parents=True)
@@ -58,19 +73,14 @@ def test_load_outbox_handoffs_parses_structured_json(tmp_path: Path) -> None:
     source = outbox / "repair-branch.json"
     source.write_text(
         json.dumps(
-            {
-                "task": "Publish validated repair branch",
-                "requires_github": True,
-                "requested_action": "open_pr",
-                "repo": str(tmp_path),
-                "local_evidence": {
+            _outbox_payload(
+                repo=str(tmp_path),
+                local_evidence={
                     "branch": "codex/example",
                     "head": "abc123",
                 },
-                "validation": ["pytest tests/example.py -q"],
-                "idempotency_key": "open-pr-codex-example-abc123",
-                "created_at": "2026-04-24T16:00:00+00:00",
-            }
+                validation=["pytest tests/example.py -q"],
+            )
         ),
         encoding="utf-8",
     )
@@ -92,18 +102,7 @@ def test_load_outbox_handoffs_skips_terminal_receipt(tmp_path: Path) -> None:
     receipts.mkdir(parents=True)
     key = "open-pr-codex-example-abc123"
     (outbox / "repair-branch.json").write_text(
-        json.dumps(
-            {
-                "task": "Publish validated repair branch",
-                "requires_github": True,
-                "requested_action": "open_pr",
-                "repo": str(tmp_path),
-                "local_evidence": {},
-                "validation": [],
-                "idempotency_key": key,
-                "created_at": "2026-04-24T16:00:00+00:00",
-            }
-        ),
+        json.dumps(_outbox_payload(repo=str(tmp_path), idempotency_key=key)),
         encoding="utf-8",
     )
     (receipts / f"{key}.json").write_text(
@@ -146,6 +145,16 @@ def test_load_outbox_handoffs_skips_non_github_and_expired(tmp_path: Path) -> No
         ),
         encoding="utf-8",
     )
+    (outbox / "bad-expiration.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                repo=str(tmp_path),
+                idempotency_key="bad-expiration",
+                expires_at="not-a-date",
+            )
+        ),
+        encoding="utf-8",
+    )
 
     assert (
         mod.load_outbox_handoffs(
@@ -154,6 +163,21 @@ def test_load_outbox_handoffs_skips_non_github_and_expired(tmp_path: Path) -> No
         )
         == []
     )
+
+
+def test_load_outbox_handoffs_skips_incomplete_contract_payloads(tmp_path: Path) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+
+    for field in mod.REQUIRED_OUTBOX_KEYS:
+        payload = _outbox_payload(idempotency_key=f"missing-{field}")
+        del payload[field]
+        (outbox / f"missing-{field}.json").write_text(
+            json.dumps(payload),
+            encoding="utf-8",
+        )
+
+    assert mod.load_outbox_handoffs(tmp_path) == []
 
 
 def test_load_handoffs_skips_expired_and_none_tasks(tmp_path: Path) -> None:

@@ -7,7 +7,7 @@ description: "Aragora: Canonical Goals & Foundational Thesis"
 
 **Single source of truth for WHAT Aragora is and WHY it exists.**
 **The [Evolution Roadmap](./aragora-evolution-roadmap) defines HOW we get there in outcome terms.**
-**The [3-Horizon Execution Roadmap](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-18-3-horizon-roadmap.md) operationalizes the next 30/90/365 days of concrete deliverables.**
+**The [3-Horizon Execution Roadmap](plans/2026-04-18-3-horizon-roadmap.md) operationalizes the next 30/90/365 days of concrete deliverables.**
 **Last updated: April 18, 2026**
 
 ## Canonical Metrics (March 2026 baseline)
@@ -100,7 +100,7 @@ Important organizational claims should also become executable, evidence-linked o
 
 The same trust model should eventually apply to code paths themselves. Proof-carrying code units should link functions, routes, scripts, and policies to the claims, assumptions, receipts, verifiers, and fallback rules that justify them. When the evidence behind a code path decays, Aragora should detect that decay, fail safely, and produce a verified repair candidate before any opt-in runtime replacement is considered.
 
-The decision-integrity layer should also close the loop between those primitives so code behaves less like static text and more like a continuous, inspectable argument between an organisation's intent and the world it operates in. That means: decay signals, crux-finder debates, quarantine policy, and verified replacements must be joinable into a single receipt-carrying lineage, operator judgment on persistent cruxes must be a first-class reversible receipt rather than tribal knowledge, and the system must be able to probe its own fragility against plausible-future world states before reality invalidates it. The additive synthesis plan for this layer lives in [plans/2026-04-18-dialectical-runtime-synthesis.md](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-18-dialectical-runtime-synthesis.md); it extends the Decision Integrity Core tranche without replacing any of it and remains planning truth until the proof-first Foreman and DIC-20/21/22 gates open.
+The decision-integrity layer should also close the loop between those primitives so code behaves less like static text and more like a continuous, inspectable argument between an organisation's intent and the world it operates in. That means: decay signals, crux-finder debates, quarantine policy, and verified replacements must be joinable into a single receipt-carrying lineage, operator judgment on persistent cruxes must be a first-class reversible receipt rather than tribal knowledge, and the system must be able to probe its own fragility against plausible-future world states before reality invalidates it. The additive synthesis plan for this layer lives in [plans/2026-04-18-dialectical-runtime-synthesis.md](plans/2026-04-18-dialectical-runtime-synthesis.md); it extends the Decision Integrity Core tranche without replacing any of it and remains planning truth until the proof-first Foreman and DIC-20/21/22 gates open.
 
 ### 6. SMB Operator Leverage
 
@@ -120,7 +120,7 @@ This pillar pulls the existing identity, reputation, staking, validation, A2A, m
 
 Heterogeneous agent support means both the incumbent foundation-model agents (Claude, Codex/GPT, Gemini, Grok, DeepSeek, Qwen, Mistral, Llama, Kimi, Yi) and external frameworks and agents (OpenClaw, Nous Hermes, Pi Agent, Anthropic Agent Framework, LangGraph, AutoGen, CrewAI, plus future entrants) interoperate with the same debate, memory, contract, and receipt substrate. No one agent vendor should be a critical dependency. The marketplace should let users opt into their preferred mix — for detailed control over what agents run, what memory they touch, and what evidence they leave — without forcing them to rebuild the substrate for each choice.
 
-The vision-layer planning for this pillar lives in [plans/AGENT_CIVILIZATION_SUBSTRATE.md](https://github.com/synaptent/aragora/blob/main/docs/plans/AGENT_CIVILIZATION_SUBSTRATE.md) with sibling specs [plans/AGENT_CONSUMER_SURFACE.md](https://github.com/synaptent/aragora/blob/main/docs/plans/AGENT_CONSUMER_SURFACE.md), [plans/SKIN_IN_THE_GAME_REPUTATION.md](https://github.com/synaptent/aragora/blob/main/docs/plans/SKIN_IN_THE_GAME_REPUTATION.md), and [plans/2026-04-17-prediction-market-validation.md](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-17-prediction-market-validation.md). Live queue scope continues to follow the substrate-first gate in [status/NEXT_STEPS_CANONICAL.md](./next-steps-canonical); these plans are planning truth, not active dispatch scope.
+The vision-layer planning for this pillar lives in [plans/AGENT_CIVILIZATION_SUBSTRATE.md](plans/AGENT_CIVILIZATION_SUBSTRATE.md) with sibling specs [plans/AGENT_CONSUMER_SURFACE.md](plans/AGENT_CONSUMER_SURFACE.md), [plans/SKIN_IN_THE_GAME_REPUTATION.md](plans/SKIN_IN_THE_GAME_REPUTATION.md), and [plans/2026-04-17-prediction-market-validation.md](plans/2026-04-17-prediction-market-validation.md). Live queue scope continues to follow the substrate-first gate in [status/NEXT_STEPS_CANONICAL.md](./next-steps-canonical); these plans are planning truth, not active dispatch scope.
 
 ## Architectural Doctrine
 

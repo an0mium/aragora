@@ -93,7 +93,7 @@ DEMO_DEBATES = [
         "question": "Is React or Vue better for our enterprise dashboard?",
         "decision": "React is preferred due to team expertise and ecosystem maturity.",
         "confidence": 0.84,
-        "agents": ["claude-opus", "gpt-4o", "deepseek-v3"],
+        "agents": ["claude-opus", "gpt-4o", "deepseek-v4-pro"],
         "outcome": "consensus",
     },
     {
@@ -114,7 +114,7 @@ DEMO_DEBATES = [
         "question": "Should we migrate from REST to GraphQL?",
         "decision": "Adopt GraphQL for new endpoints; keep REST for existing stable APIs.",
         "confidence": 0.79,
-        "agents": ["gpt-4o", "gemini-pro", "deepseek-v3", "llama-405b"],
+        "agents": ["gpt-4o", "gemini-pro", "deepseek-v4-pro", "llama-405b"],
         "outcome": "consensus",
     },
 ]

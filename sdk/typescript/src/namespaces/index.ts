@@ -26,6 +26,7 @@ export {
 export { AgentDashboardAPI } from './agent-dashboard';
 export {
   AgentBridgeAPI,
+  type AgentBridgeRunListResponse,
   type AgentBridgeRun,
   type ListAgentBridgeRunsOptions,
 } from './agent-bridge';

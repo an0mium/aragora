@@ -47,7 +47,7 @@ The wizard guides you through:
 - Database selection (SQLite/PostgreSQL)
 - Optional integrations (Slack, GitHub, Telegram)
 
-See the [Developer Quickstart](./quickstart) for detailed local setup options.
+See the [Developer Quickstart](DEVELOPER_QUICKSTART.md) for detailed local setup options.
 
 #### Option B: Manual Configuration
 

@@ -3326,9 +3326,9 @@ The most valuable proposals are those that others wouldn't think of."""
             + safety_footer
         )
 
-        # DeepSeek V3 - latest general model via OpenRouter
+        # DeepSeek V4 Pro - latest frontier model via OpenRouter
         self.deepseek = DeepSeekV3Agent(
-            name="deepseek-v3",
+            name="deepseek-v4-pro",
             role="proposer",
         )
         self.deepseek.system_prompt = (

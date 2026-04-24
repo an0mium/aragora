@@ -87,7 +87,7 @@ _FAST_TRIAGE_PROVIDERS = (
     ),
     ExtractionProvider(
         agent_type="openrouter",
-        model="deepseek/deepseek-chat",
+        model="deepseek/deepseek-v4-pro",
         role="analyst",
         name="triage-fast",
         env_vars=("OPENROUTER_API_KEY",),
@@ -449,7 +449,7 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
             "openrouter",
             name="triage-critic",
             role="critic",
-            model="deepseek/deepseek-chat",
+            model="deepseek/deepseek-v4-pro",
         )
     elif os.environ.get("OPENAI_API_KEY"):
         _append_agent(

@@ -86,6 +86,7 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
             _branch("codex/cherry-picked"),
             _branch("codex/related-resolved"),
             _branch("codex/no-unique", unique_commit_count=0),
+            _branch("codex/empty-diff", unique_commit_count=2),
         ],
         [],
         {"codex/already-open"},
@@ -98,8 +99,10 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
             "codex/cherry-picked": False,
             "codex/related-resolved": False,
             "codex/no-unique": False,
+            "codex/empty-diff": False,
         },
         is_patch_equivalent={"codex/cherry-picked": True},
+        has_pr_diff={"codex/empty-diff": False},
         historical_pr_branches=set(),
         resolved_related_branches={"codex/related-resolved"},
     )
@@ -111,6 +114,7 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
     assert by_branch["codex/cherry-picked"].reason == "patch_equivalent_to_base"
     assert by_branch["codex/related-resolved"].reason == "related_resolved_work_exists"
     assert by_branch["codex/no-unique"].reason == "no_unique_commits"
+    assert by_branch["codex/empty-diff"].reason == "empty_pr_diff"
 
 
 def test_select_publishable_branches_skips_dirty_and_active_worktrees() -> None:

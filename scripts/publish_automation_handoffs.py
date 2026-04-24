@@ -37,6 +37,16 @@ DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
 MAX_ISSUE_BODY_CHARS = 60_000
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
+REQUIRED_OUTBOX_KEYS = (
+    "task",
+    "requires_github",
+    "requested_action",
+    "repo",
+    "local_evidence",
+    "validation",
+    "idempotency_key",
+    "created_at",
+)
 DEFAULT_AUTOMATION_IDS = (
     "founder-review",
     "founder-triage",
@@ -342,7 +352,13 @@ def _expiration(values: dict[str, str], source_file: Path) -> str | None:
 def _is_expired(expires_at: str | None, *, now: datetime) -> bool:
     if not expires_at:
         return False
-    return datetime.fromisoformat(expires_at) < now
+    try:
+        parsed = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC) < now
 
 
 def _format_body(values: dict[str, str], source_file: Path) -> str:
@@ -390,6 +406,18 @@ def _format_outbox_body(payload: dict[str, Any], source_file: Path) -> str:
     lines.append("---")
     lines.append(f"Published from automation outbox: `{source_file}`")
     return "\n".join(lines).strip()
+
+
+def _has_required_outbox_contract(payload: dict[str, Any]) -> bool:
+    for key in REQUIRED_OUTBOX_KEYS:
+        if key not in payload:
+            return False
+        value = payload[key]
+        if value is None:
+            return False
+        if isinstance(value, str) and not value.strip():
+            return False
+    return True
 
 
 def _latest_block(parsed_blocks: list[dict[str, str]]) -> dict[str, str]:
@@ -463,6 +491,8 @@ def load_outbox_handoffs(
         except (OSError, json.JSONDecodeError):
             continue
         if not isinstance(payload, dict):
+            continue
+        if not _has_required_outbox_contract(payload):
             continue
         task_title = str(payload.get("task") or payload.get("title") or "").strip()
         requested_action = str(payload.get("requested_action") or "").strip()

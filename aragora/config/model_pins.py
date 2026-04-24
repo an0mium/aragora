@@ -4,7 +4,7 @@ Canonical frontier-model pin registry.
 All code that needs a "best available" model for a given role should import
 constants from this module instead of hardcoding IDs. The goal is:
 
-1. One place to bump the frontier (Opus 4.7 -> 4.8, GPT 5.4 -> 5.5, etc.)
+1. One place to bump the frontier (Opus 4.7 -> 4.8, GPT 5.5 -> 5.6, etc.)
 2. OpenRouter aliases are the default transport so a missing direct-provider
    key never blocks functionality. Set ARAGORA_ROUTE_THROUGH_OPENROUTER=true
    to force every call through OpenRouter even if a direct key is present.
@@ -32,16 +32,19 @@ logger = logging.getLogger(__name__)
 
 
 # -----------------------------------------------------------------------------
-# Frontier pins (user-requested floor: Opus 4.7 / GPT 5.4 / Gemini 3.1 Pro)
+# Frontier pins (user-requested floor: Opus 4.7 / GPT 5.5 / Gemini 3.1 Pro)
 # -----------------------------------------------------------------------------
 
 # Anthropic Claude Opus 4.7 - top-tier reasoning, debate, synthesis
 OPUS_47_DIRECT: Final = "claude-opus-4-7"
 OPUS_47_VIA_OPENROUTER: Final = "anthropic/claude-opus-4.7"
 
-# OpenAI GPT-5.4 - top-tier general reasoning
-GPT54_DIRECT: Final = "gpt-5.4"
-GPT54_VIA_OPENROUTER: Final = "openai/gpt-5.4"
+# OpenAI GPT-5.5 - top-tier general reasoning
+GPT55_DIRECT: Final = "gpt-5.5"
+GPT55_VIA_OPENROUTER: Final = "openai/gpt-5.5"
+# Backwards-compatible constant names for callers that have not migrated yet.
+GPT54_DIRECT: Final = GPT55_DIRECT
+GPT54_VIA_OPENROUTER: Final = GPT55_VIA_OPENROUTER
 
 # Google Gemini 3.1 Pro - top-tier long-context + multimodal
 GEMINI_31_PRO_DIRECT: Final = "gemini-3.1-pro"
@@ -91,7 +94,7 @@ _ROLE_TO_PIN: Final[dict[Role, _RolePin]] = {
     "synthesizer": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "devils_advocate": _RolePin(GROK_4_DIRECT, GROK_4_VIA_OPENROUTER),
     "researcher": _RolePin(GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
-    "reviewer": _RolePin(GPT54_DIRECT, GPT54_VIA_OPENROUTER),
+    "reviewer": _RolePin(GPT55_DIRECT, GPT55_VIA_OPENROUTER),
     "quality_reviewer": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "security_auditor": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "compliance_auditor": _RolePin(OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
@@ -174,25 +177,28 @@ _LEGACY_UPGRADES: Final[dict[str, tuple[str, str]]] = {
     "claude-3-opus": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "claude-3-haiku-20240307": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "claude-3-haiku": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    # GPT family -> GPT-5.4
-    "gpt-4.1": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
-    "gpt-4.1-mini": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
-    "gpt-4.1-nano": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
-    "gpt-4o": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
-    "gpt-4o-mini": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
-    "gpt-4": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
-    "gpt-4-turbo": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
-    "gpt-5": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
-    "gpt-5.3": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
-    "gpt-5.3-codex": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
+    # GPT family -> GPT-5.5
+    "gpt-4.1": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "gpt-4.1-mini": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "gpt-4.1-nano": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "gpt-4o": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "gpt-4o-mini": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "gpt-4": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "gpt-4-turbo": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "gpt-5": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "gpt-5.3": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "gpt-5.3-codex": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "gpt-5.4": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "gpt-5.4-pro": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
     # OpenRouter-style legacy -> OpenRouter-style frontier
     "anthropic/claude-opus-4.5": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "anthropic/claude-sonnet-4": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "anthropic/claude-sonnet-4.6": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "anthropic/claude-haiku-4.5": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "anthropic/claude-3.5-sonnet": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
-    "openai/gpt-4o": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
-    "openai/gpt-4-turbo": (GPT54_DIRECT, GPT54_VIA_OPENROUTER),
+    "openai/gpt-4o": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "openai/gpt-4-turbo": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
+    "openai/gpt-5.4": (GPT55_DIRECT, GPT55_VIA_OPENROUTER),
     # Gemini family -> Gemini 3.1 Pro
     "gemini-2.5-pro": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
     "gemini-2.5-flash": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
@@ -225,6 +231,8 @@ def upgrade_legacy_pin(model_id: str) -> str:
 __all__ = [
     "OPUS_47_DIRECT",
     "OPUS_47_VIA_OPENROUTER",
+    "GPT55_DIRECT",
+    "GPT55_VIA_OPENROUTER",
     "GPT54_DIRECT",
     "GPT54_VIA_OPENROUTER",
     "GEMINI_31_PRO_DIRECT",

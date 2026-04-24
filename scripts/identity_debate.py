@@ -320,7 +320,7 @@ async def create_agents():
                 "openrouter",
                 name="deepseek_engineer",
                 role="critic",
-                model="deepseek/deepseek-chat",
+                model="deepseek/deepseek-v4-pro",
             )
         )
         logger.info("Added DeepSeek V3 (engineer/critic) via OpenRouter")

@@ -68,7 +68,7 @@ class DeepSeekProverTranslator:
 
     # Model identifiers on OpenRouter
     PRIMARY_MODEL = "deepseek/deepseek-prover-v2"
-    FALLBACK_MODEL = "deepseek/deepseek-chat"  # Fallback if prover unavailable
+    FALLBACK_MODEL = "deepseek/deepseek-v4-pro"  # Fallback if prover unavailable
 
     # Mathlib 4 common imports
     MATHLIB_IMPORTS = """

@@ -393,6 +393,7 @@ class TestProviderPricing:
             "claude-sonnet-4",
             "gpt-4o",
             "gpt-4o-mini",
+            "deepseek-v4-pro",
             "deepseek-r1",
             "deepseek-chat",
             "mistral-large",

@@ -38,7 +38,7 @@ def parse_debate_transcript(transcript_path: Path) -> dict:
         "gemini-google",
         "grok-xai",
         "mistral-ai",
-        "deepseek-v3",
+        "deepseek-v4-pro",
         "deepseek-r1",
         "qwen-coder",
         "llama-meta",

@@ -242,7 +242,7 @@ class TestSpecialistAgentFactoryInit:
 
         assert "llama-3.3-70b" in factory._base_models
         assert "qwen-2.5-72b" in factory._base_models
-        assert "deepseek-v3" in factory._base_models
+        assert "deepseek-v4-pro" in factory._base_models
 
     def test_has_vertical_prompts(self):
         """Test factory has vertical-specific prompts."""

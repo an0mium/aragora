@@ -269,7 +269,7 @@ EXEC_TIMEOUT_SECONDS = 5.0
 
 # DeepSeek model
 PRIMARY_MODEL = "deepseek/deepseek-prover-v2"
-FALLBACK_MODEL = "deepseek/deepseek-chat"
+FALLBACK_MODEL = "deepseek/deepseek-v4-pro"
 
 # Z3 cache TTL (default: 1 hour)
 CACHE_TTL = 3600
