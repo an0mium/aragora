@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""Audit ``os.environ`` mutation inside server request handlers.
+"""Audit ``os.environ`` mutation inside concurrent feature surfaces.
 
-Writing to ``os.environ`` from a module that runs in the concurrent
-request path shares provider credentials / config as mutable global
-state across requests. The panel flagged this pattern on #6454, #6447,
-and #6442 as a correctness defect.
+Writing to ``os.environ`` from a module that runs in a concurrent request
+path or feature-gated epistemic surface shares credentials / config as
+mutable global state across requests. The panel flagged this pattern on
+#6454, #6447, #6442, and #6472 as a correctness defect.
 
-This script flags new occurrences under ``aragora/server/handlers/``
-and fails CI when one appears. Known intentional mutations (feature
-flag storage, context-budget admin path) are listed in
-``_ALLOWLIST`` with a short rationale so future readers can see why
-they aren't caught.
+This script flags new occurrences under the default target paths and
+fails CI when one appears. Known intentional or legacy mutations are
+listed in ``_ALLOWLIST`` with a short rationale so future readers can see
+why they aren't caught.
 
 Pattern detection uses AST so comments and string literals can't
 trigger false positives and nested attribute access (``os.environ[x]
@@ -18,7 +17,7 @@ trigger false positives and nested attribute access (``os.environ[x]
 module scope or inside a function.
 
 Usage:
-    python scripts/audit_env_mutation.py                # scan default dir
+    python scripts/audit_env_mutation.py                # scan default targets
     python scripts/audit_env_mutation.py PATH [PATH...]  # scan given files
     python scripts/audit_env_mutation.py --json          # machine-readable
 """
@@ -32,7 +31,10 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_TARGET = REPO_ROOT / "aragora" / "server" / "handlers"
+DEFAULT_TARGETS = [
+    REPO_ROOT / "aragora" / "server" / "handlers",
+    REPO_ROOT / "aragora" / "epistemic",
+]
 
 # Files where an ``os.environ[...] = ...`` (or equivalent) is the
 # current product behavior and should not fail the audit. Add with a
@@ -49,6 +51,18 @@ _ALLOWLIST: dict[str, str] = {
     # pattern established in #6454. Tracked by panel review.
     "aragora/server/handlers/context_budget.py": (
         "legacy env-based config write; TODO repair to non-mutating pattern"
+    ),
+    # Existing DIC-17 bridge helper writes an opt-in flag globally. New
+    # epistemic helpers should follow the non-mutating override/config pattern
+    # used by DIC-19 proof-unit scanning instead of adding more entries here.
+    "aragora/epistemic/__init__.py": (
+        "legacy DIC-17 env opt-in helper; keep until replaced by injected config"
+    ),
+    "aragora/epistemic/crux_receipt.py": (
+        "legacy test/process opt-in helper; future DIC repairs should avoid env writes"
+    ),
+    "aragora/epistemic/repair.py": (
+        "legacy test/process opt-in helper; future DIC repairs should avoid env writes"
     ),
 }
 
@@ -146,7 +160,7 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="Emit JSON findings on stdout.")
     args = parser.parse_args()
 
-    targets = iter_targets(args.paths or [DEFAULT_TARGET])
+    targets = iter_targets(args.paths or DEFAULT_TARGETS)
 
     all_findings: list[dict[str, object]] = []
     for path in targets:
@@ -160,7 +174,7 @@ def main() -> int:
         print(json.dumps({"findings": all_findings, "allowlist": _ALLOWLIST}, indent=2))
     else:
         if all_findings:
-            print("env-mutation audit: violations found (request-path os.environ writes)")
+            print("env-mutation audit: violations found (concurrent-surface os.environ writes)")
             print("")
             for finding in all_findings:
                 print(f"  {finding['file']}:{finding['line']}  {finding['pattern']}")
@@ -168,8 +182,8 @@ def main() -> int:
             print("If this mutation is intentional product behavior, add the file to the")
             print("_ALLOWLIST in scripts/audit_env_mutation.py with a short rationale.")
             print("If the mutation is an accidental leak of config state into a concurrent")
-            print("request path, repair to a non-mutating per-call pattern (see #6454 for a")
-            print("worked example using get_secret + build_default_invoker(env=...)).")
+            print("request or feature path, repair to a non-mutating per-call/config")
+            print("pattern (see #6454 and #6472 for worked examples).")
         else:
             print("env-mutation audit: no new violations.")
 
