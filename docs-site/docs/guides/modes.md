@@ -14,7 +14,7 @@ Operational modes for focused AI agent behavior. Modes control what tools an age
 | Document | Purpose |
 |----------|---------|
 | **MODES_GUIDE.md** (this) | Operational modes (Architect, Coder, etc.) + advanced debate modes |
-| [PIPELINE_GUIDE.md](https://github.com/synaptent/aragora/blob/main/docs/guides/PIPELINE_GUIDE.md) | Idea-to-Execution pipeline (uses modes per stage) |
+| [PIPELINE_GUIDE.md](PIPELINE_GUIDE.md) | Idea-to-Execution pipeline (uses modes per stage) |
 | [GAUNTLET.md](./gauntlet) | Comprehensive stress-testing |
 | [PROBE_STRATEGIES.md](./probe-strategies) | Probing strategies reference |
 
@@ -394,4 +394,4 @@ Architect (understand/plan) → Coder (implement) → Reviewer (verify) → Debu
 
 - [PROBE_STRATEGIES.md](./probe-strategies) — Red-teaming and capability testing
 - [AGENT_SELECTION.md](../core-concepts/agent-selection) — Choosing agents for debates
-- [PIPELINE_GUIDE.md](https://github.com/synaptent/aragora/blob/main/docs/guides/PIPELINE_GUIDE.md) — Pipeline mode assignments per stage
+- [PIPELINE_GUIDE.md](PIPELINE_GUIDE.md) — Pipeline mode assignments per stage

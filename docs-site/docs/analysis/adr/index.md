@@ -27,11 +27,11 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [014](./014-knowledge-mound-architecture) | Knowledge Mound Architecture | Accepted | Jan 2026 |
 | [015](./015-lazy-import-patterns) | Lazy Import Patterns | Accepted | Jan 2026 |
 | [016](./016-marketplace-architecture) | Agent Template Marketplace Architecture | Accepted | Feb 2026 |
-| [017](https://github.com/synaptent/aragora/blob/main/docs/ADR/017-backend-runtime-entrypoint-and-compatibility.md) | Backend Runtime Entrypoint and Compatibility | Accepted | Mar 2026 |
-| [018](https://github.com/synaptent/aragora/blob/main/docs/ADR/018-self-hosted-worker-canonicalization.md) | Self-Hosted Worker Canonicalization | Accepted | Mar 2026 |
-| [019](https://github.com/synaptent/aragora/blob/main/docs/ADR/019-standardized-health-check-endpoints.md) | Standardized Health Check Endpoints | Accepted | Mar 2026 |
-| [020](https://github.com/synaptent/aragora/blob/main/docs/ADR/020-event-dispatch-consolidation.md) | Event Dispatch Consolidation | Accepted | Mar 2026 |
-| [021](https://github.com/synaptent/aragora/blob/main/docs/ADR/021-storage-layer-consolidation.md) | Storage Layer Consolidation | Accepted | Mar 2026 |
+| [017](017-backend-runtime-entrypoint-and-compatibility.md) | Backend Runtime Entrypoint and Compatibility | Accepted | Mar 2026 |
+| [018](018-self-hosted-worker-canonicalization.md) | Self-Hosted Worker Canonicalization | Accepted | Mar 2026 |
+| [019](019-standardized-health-check-endpoints.md) | Standardized Health Check Endpoints | Accepted | Mar 2026 |
+| [020](020-event-dispatch-consolidation.md) | Event Dispatch Consolidation | Accepted | Mar 2026 |
+| [021](021-storage-layer-consolidation.md) | Storage Layer Consolidation | Accepted | Mar 2026 |
 
 ## ADR Format
 

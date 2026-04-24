@@ -8,7 +8,7 @@ description: Aragora Evolution Roadmap
 > **Last updated:** 2026-04-19
 > **Current transition:** early `Teammate` -> reliable `Foreman`
 > **Planning rule:** preserve the maximalist vision; sequence through a narrow reliability wedge first.
-> **Concrete execution overlay:** [2026-04-18 3-Horizon Execution Roadmap](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-18-3-horizon-roadmap.md) operationalizes this doc's outcome map into bounded 30/90/365-day deliverables.
+> **Concrete execution overlay:** [2026-04-18 3-Horizon Execution Roadmap](2026-04-18-3-horizon-roadmap.md) operationalizes this doc's outcome map into bounded 30/90/365-day deliverables.
 
 ## Executive Thesis
 
@@ -127,7 +127,7 @@ This track makes runtime truth inspectable and operable.
 - optimize for skim-first human settlement with drill-down on dissent, evidence, and risky files
 - keep machine review advisory and preserve the human settlement gate on merge
 
-Design brief: [2026-04-19 PR Intelligence Brief](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-19-pr-intelligence-brief.md).
+Design brief: [2026-04-19 PR Intelligence Brief](2026-04-19-pr-intelligence-brief.md).
 
 #### B4. Multi-Host Soak and Unattended Criteria
 
@@ -232,11 +232,11 @@ This track preserves Aragora's core differentiation from generic agent platforms
 - fail closed through report-only, degrade, fallback, quarantine, or repair-required policies before any live runtime mutation
 - route decayed proof into verified replacement candidates through Arena debate, receipt capture, formal-verifier hooks where available, and PR or shadow output before considering opt-in hot-swap classes
 
-Design brief: [Epistemic CI, Crux Engine, and Epistemic Runtime Plan](https://github.com/synaptent/aragora/blob/main/docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md).
+Design brief: [Epistemic CI, Crux Engine, and Epistemic Runtime Plan](EPISTEMIC_CI_AND_CRUX_ENGINE.md).
 
 ### Track G — Agent-as-Consumer Substrate (Vision-Layer Planning)
 
-This track extends the Decision Integrity Core into a consumer surface that serves software agents as first-rate consumers alongside humans. It is **planning truth only** until queue governance permits it; it does not enter the live `boss-ready` queue. Detailed plan: [AGENT_CIVILIZATION_SUBSTRATE](https://github.com/synaptent/aragora/blob/main/docs/plans/AGENT_CIVILIZATION_SUBSTRATE.md).
+This track extends the Decision Integrity Core into a consumer surface that serves software agents as first-rate consumers alongside humans. It is **planning truth only** until queue governance permits it; it does not enter the live `boss-ready` queue. Detailed plan: [AGENT_CIVILIZATION_SUBSTRATE](AGENT_CIVILIZATION_SUBSTRATE.md).
 
 #### G1. Agent Consumer Surface (`AGT-02`)
 
@@ -247,7 +247,7 @@ This track extends the Decision Integrity Core into a consumer surface that serv
 - reputation read endpoints (write path lives in G3)
 - operator-parity surfaces so humans can do everything agents can do, and vice versa
 
-Detailed plan: [AGENT_CONSUMER_SURFACE](https://github.com/synaptent/aragora/blob/main/docs/plans/AGENT_CONSUMER_SURFACE.md).
+Detailed plan: [AGENT_CONSUMER_SURFACE](AGENT_CONSUMER_SURFACE.md).
 
 #### G2. External Truth Oracles via Prediction Markets (`AGT-03`, `AGT-04`)
 
@@ -257,7 +257,7 @@ Detailed plan: [AGENT_CONSUMER_SURFACE](https://github.com/synaptent/aragora/blo
 - per-agent rolling Brier scoring with calibration curves
 - explicit deferral of real-money venues until calibration is stable
 
-Detailed plan: [2026-04-17-prediction-market-validation](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-17-prediction-market-validation.md).
+Detailed plan: [2026-04-17-prediction-market-validation](2026-04-17-prediction-market-validation.md).
 
 #### G3. Skin-in-the-Game Reputation Flow (`AGT-05`)
 
@@ -266,7 +266,7 @@ Detailed plan: [2026-04-17-prediction-market-validation](https://github.com/syna
 - soft dispatch downweighting by default; hard suspension only on explicit policy
 - settlement-window enforcement, dispute path, and reversal handling for re-opened resolutions
 
-Detailed plan: [SKIN_IN_THE_GAME_REPUTATION](https://github.com/synaptent/aragora/blob/main/docs/plans/SKIN_IN_THE_GAME_REPUTATION.md).
+Detailed plan: [SKIN_IN_THE_GAME_REPUTATION](SKIN_IN_THE_GAME_REPUTATION.md).
 
 #### G4. Productivity Metric Replacing Empty-Queue Idle Soaks (`AGT-06`)
 
@@ -373,7 +373,7 @@ Cross-functional idea-to-execution work lives on one DAG with permissioned memor
 
 - [ROADMAP.md](./roadmap) is the short external/internal doorway.
 - [CANONICAL_GOALS.md](./canonical-goals) defines the product boundary.
-- [2026-04-18 3-Horizon Execution Roadmap](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-18-3-horizon-roadmap.md) operationalizes this doc into concrete 30/90/365-day deliverables. That doc is the authoritative source for H1/H2/H3 sprint scope.
+- [2026-04-18 3-Horizon Execution Roadmap](2026-04-18-3-horizon-roadmap.md) operationalizes this doc into concrete 30/90/365-day deliverables. That doc is the authoritative source for H1/H2/H3 sprint scope.
 - [NEXT_STEPS_CANONICAL.md](./next-steps-canonical) defines the current tranche.
 - [ACTIVE_EXECUTION_ISSUES.md](./active-execution-issues) holds the epic/milestone/execution tree.
-- [EPISTEMIC_CI_AND_CRUX_ENGINE.md](https://github.com/synaptent/aragora/blob/main/docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md) specifies DIC-13..28 including the Dialectical Runtime synthesis layer (DIC-23..28) staged for H3 behind H2 production-green gates.
+- [EPISTEMIC_CI_AND_CRUX_ENGINE.md](EPISTEMIC_CI_AND_CRUX_ENGINE.md) specifies DIC-13..28 including the Dialectical Runtime synthesis layer (DIC-23..28) staged for H3 behind H2 production-green gates.

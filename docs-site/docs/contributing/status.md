@@ -8,7 +8,7 @@ description: Aragora Project Status
 *Last updated: April 23, 2026*
 
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](./status).
-> The thesis settlement ledger lives at [status/2026-04-21-thesis-settlement-session.md](https://github.com/synaptent/aragora/blob/main/docs/status/2026-04-21-thesis-settlement-session.md).
+> The thesis settlement ledger lives at [status/2026-04-21-thesis-settlement-session.md](status/2026-04-21-thesis-settlement-session.md).
 > Historical sections below are retained for continuity, but the active source of truth for current project status is `docs/status/STATUS.md`.
 > See [README](../analysis/adr) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
 
