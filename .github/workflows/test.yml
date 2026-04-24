@@ -2269,12 +2269,17 @@ jobs:
           bash scripts/ci_install_project.sh --extras dev
 
       - name: Fetch base ref
-        run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+        run: git fetch --no-tags --depth=200 origin "${{ github.base_ref }}"
 
       - name: Get changed Python files
         id: changed
         run: |
-          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- 'aragora/**/*.py' 'tests/**/*.py' | tr '\n' ' ')
+          if git merge-base "origin/${{ github.base_ref }}" HEAD >/dev/null 2>&1; then
+            CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- 'aragora/**/*.py' 'tests/**/*.py' | tr '\n' ' ')
+          else
+            echo "::warning::No merge base found with origin/${{ github.base_ref }}; continuing with an empty changed-file set"
+            CHANGED=""
+          fi
           echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
 
       - name: Select relevant tests

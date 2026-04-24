@@ -1,8 +1,7 @@
 /**
  * Services Namespace API
  *
- * Provides endpoints for service discovery including
- * service registration, health checks, and dependency mapping.
+ * Provides endpoints for service discovery and detail lookup.
  */
 
 import type { AragoraClient } from '../client';
@@ -23,25 +22,8 @@ export interface Service {
   registered_at: string;
 }
 
-/** Service dependency */
-export interface ServiceDependency {
-  service_id: string;
-  depends_on: string;
-  type: 'required' | 'optional';
-  health: ServiceHealthStatus;
-}
-
-/** Service registration request */
-export interface RegisterServiceRequest {
-  name: string;
-  version: string;
-  endpoint: string;
-  tags?: string[];
-  metadata?: Record<string, unknown>;
-}
-
 /**
- * Services namespace for service discovery and registration.
+ * Services namespace for service discovery.
  *
  * @example
  * ```typescript
@@ -68,39 +50,5 @@ export class ServicesNamespace {
       'GET',
       `/api/v1/services/${encodeURIComponent(serviceId)}`
     );
-  }
-
-  /** Register a new service. */
-  async register(request: RegisterServiceRequest): Promise<Service> {
-    return this.client.request<Service>('POST', '/api/v1/services', {
-      body: request,
-    });
-  }
-
-  /** Deregister a service. */
-  async deregister(serviceId: string): Promise<{ success: boolean }> {
-    return this.client.request<{ success: boolean }>(
-      'DELETE',
-      `/api/v1/services/${encodeURIComponent(serviceId)}`
-    );
-  }
-
-  /** Get service dependencies. */
-  async getDependencies(serviceId: string): Promise<ServiceDependency[]> {
-    const response = await this.client.request<{ dependencies: ServiceDependency[] }>(
-      'GET',
-      `/api/v1/services/${encodeURIComponent(serviceId)}/dependencies`
-    );
-    return response.dependencies;
-  }
-
-  /** Get health status for a specific service. */
-  async getHealth(serviceId: string): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/v1/services/${encodeURIComponent(serviceId)}/health`);
-  }
-
-  /** Get metrics for a specific service. */
-  async getMetrics(serviceId: string): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/v1/services/${encodeURIComponent(serviceId)}/metrics`);
   }
 }

@@ -12,6 +12,7 @@ Covers:
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Mapping, Sequence
 from unittest.mock import MagicMock
 
@@ -447,6 +448,42 @@ class TestFindings:
         invoker = RealProviderInvoker(claude=agent, gpt=_make_mock_agent())
         slot = _slot("claude_core", family=FAMILY_CLAUDE, required=True)
         with pytest.raises(RuntimeError, match="upstream timeout"):
+            invoker.findings(slot=slot, provider="claude", prompt="p", binding=_binding())
+
+    def test_agent_timeout_is_bounded(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        agent = MagicMock()
+        agent.model = "claude-sonnet-4-6"
+        agent.last_tokens_in = 0
+        agent.last_tokens_out = 0
+
+        async def _stall(prompt: str, context: Any = None, **kwargs: Any) -> str:
+            await asyncio.sleep(0.2)
+            return "never reached"
+
+        agent.generate.side_effect = _stall
+        monkeypatch.setenv("ARAGORA_PDB_SLOT_TIMEOUT_SECONDS", "0.1")
+
+        invoker = RealProviderInvoker(claude=agent, gpt=_make_mock_agent())
+        slot = _slot("claude_core", family=FAMILY_CLAUDE, required=True)
+        with pytest.raises(TimeoutError, match="provider call timed out after 0.1s"):
+            invoker.findings(slot=slot, provider="claude", prompt="p", binding=_binding())
+
+    def test_agent_timeout_catches_asyncio_timeout_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        agent = MagicMock()
+        agent.model = "claude-sonnet-4-6"
+        agent.last_tokens_in = 0
+        agent.last_tokens_out = 0
+
+        monkeypatch.setattr(
+            "aragora.pdb.real_invoker._run_sync",
+            lambda _coro, *, timeout_seconds: (_ for _ in ()).throw(asyncio.TimeoutError()),
+        )
+
+        invoker = RealProviderInvoker(claude=agent, gpt=_make_mock_agent())
+        slot = _slot("claude_core", family=FAMILY_CLAUDE, required=True)
+        with pytest.raises(TimeoutError, match=r"provider call timed out after \d+\.\d+s"):
             invoker.findings(slot=slot, provider="claude", prompt="p", binding=_binding())
 
 
