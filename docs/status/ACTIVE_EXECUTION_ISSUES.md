@@ -44,11 +44,12 @@ Status note: use `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW0
 
 Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 
-- Do now: `BC-07..09`, `RS-11..12`
+- Do now: `CS-01..03`, observer truth, and benchmark publication freshness/completeness
+- Conditional/reopen only on fresh evidence: `BC-07..09`, `RS-11..12`
 - Delay: `TW-07..09`, `UDW-01..06`, `MCF-01..03`
 - Future decision-integrity planning: `DIC-13..22` is tracked but delayed until proof-first Foreman reliability is stable; these issues must not be added to `boss-ready` during the current tranche
 - Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
-- Queue rule: only **Do now** roadmap codes may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
+- Queue rule: only **Do now** roadmap codes, recurring proof-surface regressions, or freshly evidenced BC/RS regressions may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
 - Live boss-ready queue: no dedicated open trust-loop issue right now; `TW-01`, `TW-02`, and `TW-03` now publish through `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`, and the recurring surfaces should keep the queue empty unless they expose a fresh bounded regression or repeated rescue class
 - `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; the live queue should not recycle them as active blockers unless a concrete regression appears
 

@@ -4,15 +4,19 @@ Welcome to Aragora's documentation. The `docs/` directory is the canonical
 source. The published site in `docs-site/` is synced from these files via
 `docs-site/scripts/sync-docs.js`.
 
-Aragora is the **control plane for multi-agent vetted decisionmaking across
-organizational knowledge and channels**.
+Aragora is an **auditable execution control plane for consequential
+AI-assisted work**. It uses multi-model review, receipts, provenance, and
+truthful gates so consequential work can be inspected instead of merely
+trusted.
 
 ## What Are You Trying To Do?
 
 | Goal | Document |
 |------|----------|
+| Review or audit the project quickly | [Cold Reviewer Guide](./COLD_REVIEWER_GUIDE.md) |
 | **Run your first debate in 5 minutes** | [Quickstart](./guides/QUICKSTART.md) |
 | Full onboarding guide | [Getting Started](./guides/GETTING_STARTED.md) |
+| Understand the supported API contract | [Supported API Surface](./api/SUPPORTED_SURFACE.md) |
 | See 20 runnable code examples | [API Cookbook](./guides/API_COOKBOOK.md) |
 | Build a Python integration | [SDK Guide](./SDK_GUIDE.md) |
 | Build a TypeScript integration | [TypeScript SDK](./guides/SDK_TYPESCRIPT.md) |

@@ -7,14 +7,14 @@ receipts, provenance, and truthful gates.
 ### Govern AI-Assisted Work With Receipts, Review, and Truthful Gates
 
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
-[![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
-[![Smoke Tests](https://github.com/an0mium/aragora/actions/workflows/smoke.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/smoke.yml)
-[![Docker Build](https://github.com/an0mium/aragora/actions/workflows/docker.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/docker.yml)
-[![Deploy](https://github.com/an0mium/aragora/actions/workflows/deploy-lightsail.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/deploy-lightsail.yml)
+[![Tests](https://github.com/synaptent/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/test.yml)
+[![Smoke Tests](https://github.com/synaptent/aragora/actions/workflows/smoke.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/smoke.yml)
+[![Docker Build](https://github.com/synaptent/aragora/actions/workflows/docker.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/docker.yml)
+[![Deploy](https://github.com/synaptent/aragora/actions/workflows/deploy-lightsail.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/deploy-lightsail.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll have a working debate in under a minute. For a deeper overview, see [Start Here](docs/START_HERE.md). For strategic framing, see [Positioning And Messaging](docs/strategy/POSITIONING_AND_MESSAGING.md) (includes competitive positioning), [Boundaries And Scope](docs/strategy/BOUNDARIES_AND_SCOPE.md) (includes when-to-use-Aragora-vs-execution-substrates), and [Precision And Terms](docs/strategy/PRECISION_AND_TERMS.md) (includes the terminology glossary). The consolidation of earlier-dated strategy files is tracked in [STRATEGY_INDEX.md](docs/STRATEGY_INDEX.md).
+**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll have a working debate in under a minute. For a cold reviewer or auditor path, start with [Cold Reviewer Guide](docs/COLD_REVIEWER_GUIDE.md). For a deeper overview, see [Start Here](docs/START_HERE.md). For strategic framing, see [Positioning And Messaging](docs/strategy/POSITIONING_AND_MESSAGING.md) (includes competitive positioning), [Boundaries And Scope](docs/strategy/BOUNDARIES_AND_SCOPE.md) (includes when-to-use-Aragora-vs-execution-substrates), and [Precision And Terms](docs/strategy/PRECISION_AND_TERMS.md) (includes the terminology glossary). The consolidation of earlier-dated strategy files is tracked in [STRATEGY_INDEX.md](docs/STRATEGY_INDEX.md).
 
 | I want to... | Install |
 |--------------|---------|
@@ -197,7 +197,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: an0mium/aragora@main
+      - uses: synaptent/aragora@main
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -313,7 +313,7 @@ See [docs/guides/GETTING_STARTED.md](docs/guides/GETTING_STARTED.md) for the com
 
 ```bash
 # Clone and deploy
-git clone https://github.com/an0mium/aragora && cd aragora
+git clone https://github.com/synaptent/aragora && cd aragora
 
 # Production deployment (secrets from AWS Secrets Manager)
 cd deploy/liftmode && ./setup.sh
