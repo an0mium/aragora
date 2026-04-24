@@ -29,6 +29,9 @@ outputs:
   frontend:
     description: Frontend application paths changed.
     value: ${{ steps.filter.outputs.frontend }}
+  frontend_e2e:
+    description: Frontend changes that need browser E2E coverage.
+    value: ${{ steps.filter.outputs.frontend_e2e }}
   smoke:
     description: Smoke-test relevant paths changed.
     value: ${{ steps.filter.outputs.smoke }}
@@ -127,6 +130,24 @@ runs:
             - 'aragora/storage/**'
           frontend:
             - 'aragora/live/**'
+          frontend_e2e:
+            - 'aragora/live/package*.json'
+            - 'aragora/live/next.config.*'
+            - 'aragora/live/tsconfig*.json'
+            - 'aragora/live/playwright*.config.*'
+            - 'aragora/live/e2e/**'
+            - 'aragora/live/functions/**'
+            - 'aragora/live/public/**'
+            - 'aragora/live/scripts/**'
+            - 'aragora/live/src/api/**'
+            - 'aragora/live/src/app/**'
+            - 'aragora/live/src/components/**'
+            - 'aragora/live/src/context/**'
+            - 'aragora/live/src/hooks/**'
+            - 'aragora/live/src/lib/**'
+            - 'aragora/live/src/store/**'
+            - 'aragora/live/src/styles/**'
+            - 'aragora/live/src/utils/**'
           smoke:
             - 'aragora/agents/**'
             - 'aragora/cli/**'

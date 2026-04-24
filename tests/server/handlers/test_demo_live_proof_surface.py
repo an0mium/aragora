@@ -9,6 +9,7 @@ import pytest
 
 from aragora.server.handlers.base import error_response
 from aragora.server.handlers.playground import (
+    OPENROUTER_PLAYGROUND_MODELS,
     PlaygroundHandler,
     _reset_oracle_sessions,
     _reset_rate_limits,
@@ -164,6 +165,15 @@ def test_demo_source_can_replay_cached_live_results(handler):
         patch(
             "aragora.storage.debate_store.DebateResultStore.get_by_cache_key",
             return_value=cached_live,
+        ),
+        patch(
+            "aragora.server.handlers.playground._get_available_live_agents",
+            # Anchor to the canonical playground roster so the stub doesn't rot
+            # as model IDs evolve. Slice the first three to match the demo's
+            # three-agent shape.
+            return_value=[
+                f"openrouter:{model}" for _role, model in OPENROUTER_PLAYGROUND_MODELS[:3]
+            ],
         ),
         patch("aragora.server.handlers.playground._try_oracle_tentacles") as mock_tentacles,
     ):

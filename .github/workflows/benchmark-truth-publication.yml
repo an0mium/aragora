@@ -349,6 +349,8 @@ jobs:
           branch="benchmark-truth-publication/${GITHUB_RUN_ID}"
           title="docs(status): refresh recurring trust-loop surfaces"
           body_file="$RUNNER_TEMP/benchmark-truth-publication-pr.md"
+          compare_url="https://github.com/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
+          permission_blocked=0
 
           find_draft_pr() {
             gh pr list \
@@ -399,6 +401,10 @@ jobs:
             set -e
             if [[ $create_status -ne 0 ]]; then
               echo "$create_output"
+              if grep -Fq "GitHub Actions is not permitted to create or approve pull requests" <<<"$create_output"; then
+                permission_blocked=1
+                echo "::notice::GitHub Actions token cannot create draft PRs in this repository; leaving a branch-backed handoff instead."
+              fi
             fi
           fi
 
@@ -411,6 +417,16 @@ jobs:
           done
 
           if [[ -z "$pr_url" ]]; then
+            if [[ $permission_blocked -eq 1 ]]; then
+              {
+                echo "Published automation branch: \`$branch\`"
+                echo ""
+                echo "Draft PR auto-creation is blocked for GitHub Actions in this repository."
+                echo "Open draft PR manually: $compare_url"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
             echo "::error::Benchmark publication branch was pushed but no draft PR exists for $branch"
             exit 1
           fi

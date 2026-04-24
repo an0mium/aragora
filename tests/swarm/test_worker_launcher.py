@@ -1227,6 +1227,8 @@ class TestVerificationCommands:
 
         assert "import pytest" in prepared
         assert "pytest.main" in prepared
+        assert "'-p'" in prepared
+        assert "'no:rerunfailures'" in prepared
         assert "'tests/swarm/test_supervisor.py'" in prepared
         assert "'--timeout=60'" in prepared
         assert "'-x'" in prepared
