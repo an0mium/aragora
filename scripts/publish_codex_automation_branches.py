@@ -40,19 +40,14 @@ VERIFY_AUTOMATION_GIT_PUSH_ENV = "ARAGORA_AUTOMATION_GIT_PUSH_VERIFY"
 UNHEALTHY_OPEN_PR_MERGE_STATES = {"BLOCKED", "DIRTY"}
 UNHEALTHY_CHECK_STATES = {
     "ACTION_REQUIRED",
-    "CANCELLED",
     "ERROR",
     "FAILURE",
     "FAILED",
     "TIMED_OUT",
 }
-PENDING_CHECK_STATES = {
-    "EXPECTED",
-    "IN_PROGRESS",
-    "PENDING",
-    "QUEUED",
-    "REQUESTED",
-    "WAITING",
+CANCELLED_ADVISORY_WORKFLOWS = {
+    "Metrics Drift",
+    "Module Tier Drift",
 }
 STOPWORDS = {
     "and",
@@ -394,6 +389,17 @@ def _rollup_state(item: dict[str, Any]) -> str:
     return ""
 
 
+def _check_rollup_is_unhealthy(item: dict[str, Any]) -> bool:
+    state = _rollup_state(item)
+    if state in UNHEALTHY_CHECK_STATES:
+        return True
+    if state != "CANCELLED":
+        return False
+
+    workflow_name = str(item.get("workflowName") or "")
+    return workflow_name not in CANCELLED_ADVISORY_WORKFLOWS
+
+
 def _open_codex_pr_is_unhealthy(item: dict[str, Any]) -> bool:
     """Return true only for PR states that should pause more automation publishing.
 
@@ -413,10 +419,9 @@ def _open_codex_pr_is_unhealthy(item: dict[str, Any]) -> bool:
 
     check_rollup = item.get("statusCheckRollup") or []
     if isinstance(check_rollup, list):
-        states = [_rollup_state(check) for check in check_rollup if isinstance(check, dict)]
-        if any(state in UNHEALTHY_CHECK_STATES for state in states):
-            return True
-        if any(state in PENDING_CHECK_STATES for state in states):
+        if any(
+            _check_rollup_is_unhealthy(check) for check in check_rollup if isinstance(check, dict)
+        ):
             return True
 
     review_decision = str(item.get("reviewDecision") or "").upper()

@@ -760,3 +760,54 @@ def test_main_does_not_pause_for_green_review_required_codex_pr(
     out = capsys.readouterr().out
     assert '"publish_paused_reason"' not in out
     assert '"unhealthy_open_pr_count": 0' in out
+
+
+def test_review_required_inflight_pr_does_not_pause_for_pending_or_advisory_cancelled() -> None:
+    assert (
+        mod._open_codex_pr_is_unhealthy(
+            {
+                "headRefName": "codex/inflight",
+                "isDraft": False,
+                "mergeStateStatus": "BLOCKED",
+                "reviewDecision": "REVIEW_REQUIRED",
+                "statusCheckRollup": [
+                    {"conclusion": "CANCELLED", "workflowName": "Metrics Drift"},
+                    {"conclusion": "CANCELLED", "workflowName": "Module Tier Drift"},
+                    {"status": "IN_PROGRESS", "workflowName": "Tests"},
+                    {"status": "QUEUED", "workflowName": "Aragora Code Review"},
+                ],
+            }
+        )
+        is False
+    )
+
+
+def test_review_required_pr_still_pauses_for_hard_failures_or_non_advisory_cancels() -> None:
+    assert (
+        mod._open_codex_pr_is_unhealthy(
+            {
+                "headRefName": "codex/failing",
+                "isDraft": False,
+                "mergeStateStatus": "BLOCKED",
+                "reviewDecision": "REVIEW_REQUIRED",
+                "statusCheckRollup": [
+                    {"conclusion": "FAILURE", "workflowName": "Tests"},
+                ],
+            }
+        )
+        is True
+    )
+    assert (
+        mod._open_codex_pr_is_unhealthy(
+            {
+                "headRefName": "codex/cancelled-required",
+                "isDraft": False,
+                "mergeStateStatus": "BLOCKED",
+                "reviewDecision": "REVIEW_REQUIRED",
+                "statusCheckRollup": [
+                    {"conclusion": "CANCELLED", "workflowName": "Tests"},
+                ],
+            }
+        )
+        is True
+    )
