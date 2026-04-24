@@ -161,6 +161,7 @@ class AragoraClient:
         from .namespaces.actions import ActionsAPI
         from .namespaces.admin import AdminAPI
         from .namespaces.advertising import AdvertisingAPI
+        from .namespaces.agent_bridge import AgentBridgeAPI
         from .namespaces.agent_dashboard import AgentDashboardAPI
         from .namespaces.agent_selection import AgentSelectionAPI
         from .namespaces.agents import AgentsAPI
@@ -350,6 +351,7 @@ class AragoraClient:
         self.accounting = AccountingAPI(self)
         self.actions = ActionsAPI(self)
         self.admin = AdminAPI(self)
+        self.agent_bridge = AgentBridgeAPI(self)
         self.advertising = AdvertisingAPI(self)
         self.agent_dashboard = AgentDashboardAPI(self)
         self.agent_selection = AgentSelectionAPI(self)
@@ -823,6 +825,7 @@ class AragoraAsyncClient:
         from .namespaces.actions import AsyncActionsAPI
         from .namespaces.admin import AsyncAdminAPI
         from .namespaces.advertising import AsyncAdvertisingAPI
+        from .namespaces.agent_bridge import AsyncAgentBridgeAPI
         from .namespaces.agent_dashboard import AsyncAgentDashboardAPI
         from .namespaces.agent_selection import AsyncAgentSelectionAPI
         from .namespaces.agents import AsyncAgentsAPI
@@ -999,6 +1002,7 @@ class AragoraAsyncClient:
         self.accounting = AsyncAccountingAPI(self)
         self.actions = AsyncActionsAPI(self)
         self.admin = AsyncAdminAPI(self)
+        self.agent_bridge = AsyncAgentBridgeAPI(self)
         self.advertising = AsyncAdvertisingAPI(self)
         self.agent_dashboard = AsyncAgentDashboardAPI(self)
         self.agent_selection = AsyncAgentSelectionAPI(self)
