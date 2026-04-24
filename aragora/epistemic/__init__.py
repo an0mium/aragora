@@ -86,7 +86,6 @@ from .executable_claim import (
     FailureAction,
     FailureSeverity,
     VerificationKind,
-    enable_executable_claims,
     load_claims_from_dir,
 )
 from .followup import (
@@ -159,7 +158,6 @@ __all__ = [
     "FailureAction",
     "FailureSeverity",
     "VerificationKind",
-    "enable_executable_claims",
     "load_claims_from_dir",
     "CruxArbitration",
     "CruxArbitrationReversal",

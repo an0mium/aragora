@@ -24,11 +24,6 @@ def _claims_enabled() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
-def enable_executable_claims() -> None:
-    """Enable claim directory scanning for the current process."""
-    os.environ["ARAGORA_EPISTEMIC_CLAIMS_ENABLED"] = "1"
-
-
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------

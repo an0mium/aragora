@@ -1,8 +1,6 @@
 """Unit tests for the ExecutableClaim manifest model (DIC-13 / #6023)."""
 
 from __future__ import annotations
-
-import os
 from pathlib import Path
 
 import pytest
@@ -18,7 +16,6 @@ from aragora.epistemic.executable_claim import (
     FailureAction,
     FailureSeverity,
     VerificationKind,
-    enable_executable_claims,
     load_claims_from_dir,
 )
 
@@ -177,7 +174,7 @@ def test_load_claims_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     assert {manifest.manifest_id for manifest in result} >= {"proof_first_claims"}
 
 
-def test_enable_helper_sets_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", raising=False)
-    enable_executable_claims()
-    assert os.environ.get("ARAGORA_EPISTEMIC_CLAIMS_ENABLED") == "1"
+def test_load_claims_accepts_true_string(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ARAGORA_EPISTEMIC_CLAIMS_ENABLED", "true")
+    result = load_claims_from_dir(CLAIMS_DIR)
+    assert {manifest.manifest_id for manifest in result} >= {"proof_first_claims"}
