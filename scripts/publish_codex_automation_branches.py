@@ -37,6 +37,22 @@ CODEX_BRANCH_PREFIX = "codex/"
 DEFAULT_PREFLIGHT_SCRIPT = "scripts/automation_pr_preflight.sh"
 DEFAULT_PRE_PUSH_SKIP_HOOKS = "mypy-baseline"
 UNHEALTHY_OPEN_PR_MERGE_STATES = {"BLOCKED", "DIRTY"}
+UNHEALTHY_CHECK_STATES = {
+    "ACTION_REQUIRED",
+    "CANCELLED",
+    "ERROR",
+    "FAILURE",
+    "FAILED",
+    "TIMED_OUT",
+}
+PENDING_CHECK_STATES = {
+    "EXPECTED",
+    "IN_PROGRESS",
+    "PENDING",
+    "QUEUED",
+    "REQUESTED",
+    "WAITING",
+}
 STOPWORDS = {
     "and",
     "are",
@@ -334,7 +350,7 @@ def _open_codex_prs(repo_root: Path, repo: str) -> list[dict[str, Any]]:
             "--limit",
             "200",
             "--json",
-            "headRefName,mergeStateStatus",
+            "headRefName,isDraft,mergeStateStatus,reviewDecision,statusCheckRollup",
         ],
         cwd=repo_root,
     )
@@ -356,6 +372,47 @@ def _open_pr_heads(repo_root: Path, repo: str) -> set[str]:
         for item in _open_codex_prs(repo_root, repo)
         if isinstance(item.get("headRefName"), str)
     }
+
+
+def _rollup_state(item: dict[str, Any]) -> str:
+    for key in ("conclusion", "state", "status"):
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip().upper()
+    return ""
+
+
+def _open_codex_pr_is_unhealthy(item: dict[str, Any]) -> bool:
+    """Return true only for PR states that should pause more automation publishing.
+
+    GitHub reports review-required but otherwise green PRs as
+    ``mergeStateStatus=BLOCKED``. That is a human-review gate, not an unhealthy
+    code queue, and should not stop the publisher while the open PR count remains
+    below budget.
+    """
+
+    merge_state = str(item.get("mergeStateStatus") or "UNKNOWN").upper()
+    if merge_state == "DIRTY":
+        return True
+    if merge_state != "BLOCKED":
+        return False
+    if item.get("isDraft") is True:
+        return True
+
+    check_rollup = item.get("statusCheckRollup") or []
+    if isinstance(check_rollup, list):
+        states = [_rollup_state(check) for check in check_rollup if isinstance(check, dict)]
+        if any(state in UNHEALTHY_CHECK_STATES for state in states):
+            return True
+        if any(state in PENDING_CHECK_STATES for state in states):
+            return True
+
+    review_decision = str(item.get("reviewDecision") or "").upper()
+    if review_decision == "REVIEW_REQUIRED":
+        return False
+    if review_decision == "CHANGES_REQUESTED":
+        return True
+    return True
 
 
 def _branch_remote_head(repo_root: Path, branch: str) -> str | None:
@@ -927,10 +984,8 @@ def main(argv: list[str] | None = None) -> int:
     for item in open_codex_prs:
         state = str(item.get("mergeStateStatus") or "UNKNOWN").upper()
         merge_state_counts[state] = merge_state_counts.get(state, 0) + 1
-    all_open_prs_unhealthy = bool(open_codex_prs) and all(
-        str(item.get("mergeStateStatus") or "UNKNOWN").upper() in UNHEALTHY_OPEN_PR_MERGE_STATES
-        for item in open_codex_prs
-    )
+    unhealthy_open_pr_count = sum(1 for item in open_codex_prs if _open_codex_pr_is_unhealthy(item))
+    all_open_prs_unhealthy = bool(open_codex_prs) and unhealthy_open_pr_count == len(open_codex_prs)
 
     payload: dict[str, Any] = {
         "repo": str(repo_root),
@@ -940,6 +995,7 @@ def main(argv: list[str] | None = None) -> int:
         "max_open_prs": args.max_open_prs,
         "queue_health": {
             "open_codex_pr_count": len(open_codex_prs),
+            "unhealthy_open_pr_count": unhealthy_open_pr_count,
             "merge_state_counts": merge_state_counts,
             "all_open_prs_unhealthy": all_open_prs_unhealthy,
         },

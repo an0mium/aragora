@@ -654,3 +654,66 @@ def test_main_pauses_apply_when_open_codex_queue_is_unhealthy(
     assert publish_called is False
     out = capsys.readouterr().out
     assert '"publish_paused_reason": "open_pr_queue_unhealthy"' in out
+
+
+def test_main_does_not_pause_for_green_review_required_codex_pr(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(mod, "_branches_with_pr_history", lambda repo_root, repo, branches: set())
+    monkeypatch.setattr(
+        mod,
+        "_branches_with_resolved_related_work",
+        lambda repo_root, repo, branches: set(),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: [
+            {
+                "headRefName": "codex/review-only",
+                "isDraft": False,
+                "mergeStateStatus": "BLOCKED",
+                "reviewDecision": "REVIEW_REQUIRED",
+                "statusCheckRollup": [
+                    {"conclusion": "SUCCESS"},
+                    {"conclusion": "SKIPPED"},
+                ],
+            },
+        ],
+    )
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    publish_called = False
+
+    def fake_publish(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        nonlocal publish_called
+        publish_called = True
+        return []
+
+    monkeypatch.setattr(mod, "_publish_decisions", fake_publish)
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--apply", "--json"])
+
+    assert exit_code == 0
+    assert publish_called is True
+    out = capsys.readouterr().out
+    assert '"publish_paused_reason"' not in out
+    assert '"unhealthy_open_pr_count": 0' in out
