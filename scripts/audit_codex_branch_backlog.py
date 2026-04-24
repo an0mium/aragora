@@ -12,11 +12,17 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.github_cli_health import check_github_cli_health
 
 ACTIVE_SESSION_FILES = (
     ".claude-session-active",
@@ -265,7 +271,8 @@ def audit(
     remotes = remote_branch_names(root, prefix)
     merged_branches = merged_branch_names(root, base, prefix)
     worktrees = worktree_map(root)
-    prs = open_pr_heads(root, repo, prefix)
+    github_health = check_github_cli_health(root)
+    prs = open_pr_heads(root, repo, prefix) if github_health.ready else {}
 
     records: list[BranchRecord] = []
     for row in rows:
@@ -331,6 +338,8 @@ def audit(
         "prefix": prefix,
         "recent_hours": recent_hours,
         "include_patch_equivalence": include_patch_equivalence,
+        "github_health": github_health.to_dict(),
+        "open_pr_lookup_skipped": not github_health.ready,
         "branch_count": len(records),
         "summary": {
             "safe_cleanup_candidates": safe_cleanup,
