@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol as _TypingProtocol, Sequence
@@ -81,6 +82,24 @@ __all__ = [
 
 
 logger = logging.getLogger(__name__)
+
+_SLOT_TIMEOUT_ENV = "ARAGORA_PDB_SLOT_TIMEOUT_SECONDS"
+# Default per-slot provider-call timeout.
+#
+# Deliberately generous (5 minutes). The goal of this timeout is to
+# surface a genuinely-hung provider — never to cap a legitimately
+# slow reasoning response. Empirically:
+#   - Haiku:     typical 5-15s, worst ~30s
+#   - Sonnet:    typical 20-45s, worst ~90s
+#   - Opus:      typical 60s, worst 120-180s on large diffs
+#   - Gemini / Grok / DeepSeek / Kimi / Qwen via OpenRouter: wide variance
+#
+# Earlier iterations set this to 20s and then 90s, both of which
+# false-positive tripped on legitimately-long Opus reviews during
+# Mode 3 dogfood. 300s ensures timeout is only a last-resort safety
+# net, not a review-blocking heuristic. Operators who want tighter
+# bounds (e.g. CI) can override via ARAGORA_PDB_SLOT_TIMEOUT_SECONDS.
+_DEFAULT_SLOT_TIMEOUT_SECONDS = 300.0
 
 FAMILY_CLAUDE = "claude"
 FAMILY_GPT = "gpt"
@@ -142,7 +161,7 @@ OPENROUTER_BACKED_FAMILIES: frozenset[str] = frozenset({FAMILY_DEEPSEEK, FAMILY_
 # - OpenAI pricing page (GPT-5 / GPT-4.1 family)
 # - Google Gemini API pricing (Gemini 3.1 Pro / 3 Flash)
 # - xAI docs (Grok 4 / 4.2 pricing)
-# - OpenRouter model catalog (DeepSeek chat, Moonshot Kimi K2,
+# - OpenRouter model catalog (DeepSeek chat, Moonshot Kimi K2.6,
 #   Qwen3-235B-A22B and Qwen3 Max variants)
 # - Mistral La Plateforme pricing (Mistral Large 2411 / 2512)
 _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
@@ -208,6 +227,8 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "deepseek-v3.2-exp": (0.27, 1.10),
     "deepseek-r1": (0.55, 2.19),
     "deepseek-reasoner": (0.55, 2.19),
+    "kimi-k2.6": (0.7448, 4.655),
+    "kimi-k2.5": (0.44, 2.00),
     "kimi-k2": (0.57, 2.30),
     "kimi-k2-0905": (0.57, 2.30),
     "kimi-k2-thinking": (0.57, 2.30),
@@ -536,8 +557,17 @@ class RealProviderInvoker:
     def _call_agent(self, agent: _AgentLike, prompt: str) -> _AgentCallResult:
         """Invoke ``agent.generate`` synchronously with latency + cost tracking."""
         start = time.monotonic()
+        timeout_seconds = _slot_timeout_seconds()
         try:
-            text = _run_sync(agent.generate(prompt))
+            text = _run_sync(agent.generate(prompt), timeout_seconds=timeout_seconds)
+        except TimeoutError as exc:
+            latency_ms = int((time.monotonic() - start) * 1000)
+            logger.warning(
+                "pdb.real_invoker: agent call timed out after %.1fs (model=%r)",
+                timeout_seconds,
+                getattr(agent, "model", "unknown"),
+            )
+            raise TimeoutError(f"provider call timed out after {timeout_seconds:.1f}s") from exc
         except Exception:
             latency_ms = int((time.monotonic() - start) * 1000)
             logger.warning(
@@ -566,7 +596,39 @@ class RealProviderInvoker:
 # ---------------------------------------------------------------------------
 
 
-def _run_sync(coro: Any) -> str:
+def _slot_timeout_seconds() -> float:
+    """Return the per-slot timeout for live provider calls.
+
+    The default keeps a single slow provider from wedging the entire
+    Protocol B run indefinitely. Operators can tune the bound via
+    ``ARAGORA_PDB_SLOT_TIMEOUT_SECONDS`` when dogfooding or running
+    in production-like environments.
+    """
+    raw = os.environ.get(_SLOT_TIMEOUT_ENV, "").strip()
+    if not raw:
+        return _DEFAULT_SLOT_TIMEOUT_SECONDS
+    try:
+        parsed = float(raw)
+    except ValueError:
+        logger.warning(
+            "pdb.real_invoker: invalid %s=%r; using default %.1fs",
+            _SLOT_TIMEOUT_ENV,
+            raw,
+            _DEFAULT_SLOT_TIMEOUT_SECONDS,
+        )
+        return _DEFAULT_SLOT_TIMEOUT_SECONDS
+    if parsed <= 0:
+        logger.warning(
+            "pdb.real_invoker: non-positive %s=%r; using default %.1fs",
+            _SLOT_TIMEOUT_ENV,
+            raw,
+            _DEFAULT_SLOT_TIMEOUT_SECONDS,
+        )
+        return _DEFAULT_SLOT_TIMEOUT_SECONDS
+    return parsed
+
+
+def _run_sync(coro: Any, *, timeout_seconds: float) -> str:
     """Run ``coro`` on a fresh event loop and return its string result.
 
     The worker's :func:`asyncio.to_thread` already ensures this helper
@@ -574,7 +636,11 @@ def _run_sync(coro: Any) -> str:
     :func:`asyncio.run` is safe here. Returning an empty string on
     ``None`` keeps the downstream parsers happy.
     """
-    result = asyncio.run(coro)
+
+    async def _runner() -> Any:
+        return await asyncio.wait_for(coro, timeout=timeout_seconds)
+
+    result = asyncio.run(_runner())
     if result is None:
         return ""
     return str(result)

@@ -386,13 +386,28 @@ class TestPostSecurityDebate:
                             "aragora.events.security_events": mock_sec_events,
                         },
                     ):
+                        # Drain any stale coroutines left on the worker's heap
+                        # by unrelated earlier tests BEFORE opening the capture
+                        # window — otherwise their "was never awaited"
+                        # RuntimeWarnings get attributed to this test and it
+                        # fails under xdist pollution. See #6464.
+                        gc.collect()
                         with warnings.catch_warnings(record=True) as caught:
                             warnings.simplefilter("always", RuntimeWarning)
                             result = handler.post_api_v1_audit_security_debate()
                             del result
                             gc.collect()
 
-        leaked = [warning for warning in caught if "was never awaited" in str(warning.message)]
+        # Filter to coroutines we actually own: the handler's _run_debate
+        # and _store_security_debate_result. Stale cross-test coroutines
+        # named differently are not our leak.
+        our_coroutines = ("_run_debate", "_store_security_debate_result")
+        leaked = [
+            warning
+            for warning in caught
+            if "was never awaited" in str(warning.message)
+            and any(name in str(warning.message) for name in our_coroutines)
+        ]
         assert leaked == []
 
 

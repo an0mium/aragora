@@ -59,7 +59,9 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "deepseek/deepseek-v3.2": "openai/gpt-5.3-chat",
     "deepseek/deepseek-v3.2-exp": "openai/gpt-5.3-chat",
     "deepseek/deepseek-chat-v3.1": "openai/gpt-5.3-chat",
-    # Kimi -> Claude Haiku 4.5
+    # Kimi -> Claude Opus 4.7
+    "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.7",
+    "moonshotai/kimi-k2.5": "anthropic/claude-opus-4.7",
     "moonshotai/kimi-k2-0905": "anthropic/claude-opus-4.7",
     "moonshotai/kimi-k2-thinking": "anthropic/claude-opus-4.7",
     "moonshot/moonshot-v1-128k": "anthropic/claude-opus-4.7",
@@ -98,7 +100,7 @@ class OpenRouterAgent(APIAgent):
     - mistralai/mistral-large-2512 (Mistral Large 3)
     - qwen/qwen3-max (Qwen3 Max)
     - qwen/qwen3.5-plus-02-15 (Qwen3.5 Plus)
-    - moonshotai/kimi-k2-0905 (Kimi K2)
+    - moonshotai/kimi-k2.6 (Kimi K2.6)
     - google/gemini-3.1-pro (Gemini 3.1 Pro)
     - anthropic/claude-opus-4.7
     - openai/gpt-5.3
@@ -775,19 +777,19 @@ class YiAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "kimi",
-    default_model="moonshotai/kimi-k2-0905",
+    default_model="moonshotai/kimi-k2.6",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Kimi K2 - Moonshot AI's 1T param MoE, 256K context, strong agentic capabilities",
+    description="Kimi K2.6 - Moonshot AI's latest frontier Kimi model on OpenRouter",
 )
 class KimiK2Agent(OpenRouterAgent):
-    """Moonshot AI Kimi K2 via OpenRouter - trillion-parameter MoE with agentic capabilities."""
+    """Moonshot AI Kimi K2.6 via OpenRouter - latest frontier Kimi model."""
 
     def __init__(
         self,
         name: str = "kimi",
         role: AgentRole = "analyst",
-        model: str = "moonshotai/kimi-k2-0905",
+        model: str = "moonshotai/kimi-k2.6",
         system_prompt: str | None = None,
     ):
         super().__init__(

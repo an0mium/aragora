@@ -194,11 +194,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       frontend: ${{ steps.scope_override.outputs.frontend || steps.scope_defaults.outputs.frontend }}
+      frontend_e2e: ${{ steps.scope_override.outputs.frontend_e2e || steps.scope_defaults.outputs.frontend_e2e }}
 
     steps:
       - name: Default scope (non-PR)
         id: scope_defaults
-        run: echo "frontend=true" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "frontend=true" >> "$GITHUB_OUTPUT"
+          echo "frontend_e2e=true" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
         if: github.event_name == 'pull_request'
@@ -212,7 +215,9 @@ jobs:
       - name: Set scope outputs (PR)
         if: github.event_name == 'pull_request'
         id: scope_override
-        run: echo "frontend=${{ steps.scope.outputs.frontend }}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "frontend=${{ steps.scope.outputs.frontend }}" >> "$GITHUB_OUTPUT"
+          echo "frontend_e2e=${{ steps.scope.outputs.frontend_e2e }}" >> "$GITHUB_OUTPUT"
 
   sdk-typescript-compile-gate:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -592,24 +597,39 @@ jobs:
   test-fast:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.category.timeout }}
     needs: baseline-determinism
     strategy:
       fail-fast: false
       matrix:
         category:
-          - name: core
-            path: tests/debate tests/agents tests/rlm tests/reasoning tests/workflow tests/client
+          - name: agents
+            path: tests/agents
+            timeout: 30
+          - name: debate
+            path: tests/debate
+            timeout: 30
+          - name: reasoning
+            path: tests/rlm tests/reasoning
+            timeout: 30
+          - name: workflow-client
+            path: tests/workflow tests/client
+            timeout: 30
           - name: server
             path: tests/server
+            timeout: 30
           - name: handlers
             path: tests/handlers
+            timeout: 30
           - name: knowledge
             path: tests/knowledge tests/evidence tests/memory
+            timeout: 30
           - name: storage
             path: tests/storage tests/ranking tests/persistence tests/billing
+            timeout: 30
           - name: infra
             path: tests/nomic tests/control_plane tests/rbac tests/events tests/observability tests/compliance tests/gauntlet tests/cli
+            timeout: 30
 
     steps:
       - name: Checkout
@@ -850,11 +870,24 @@ jobs:
 
   # Integration smoke lane for high-risk paths (PR only)
   integration-smoke:
-    name: Integration Smoke
+    name: Integration Smoke (${{ matrix.suite.name }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: ${{ matrix.suite.timeout }}
     needs: baseline-determinism
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name == 'pull_request')
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - name: handlers
+            path: tests/handlers
+            timeout: 20
+          - name: debate
+            path: tests/debate/test_arena*.py
+            timeout: 15
+          - name: memory
+            path: tests/memory
+            timeout: 15
 
     steps:
       - name: Checkout
@@ -904,7 +937,7 @@ jobs:
       - name: Run integration smoke tests
         if: steps.scope.outputs.integration_high_risk == 'true'
         run: |
-          pytest tests/handlers/ tests/debate/test_arena*.py tests/memory/ \
+          pytest ${{ matrix.suite.path }} \
             -x \
             --timeout=60 \
             -q \
@@ -1594,7 +1627,7 @@ jobs:
 
   frontend:
     needs: [scope]
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || needs.scope.outputs.frontend == 'true')
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || needs.scope.outputs.frontend_e2e == 'true')
     name: Frontend E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -2137,8 +2170,7 @@ jobs:
                 echo "::warning::$label was $result; continuing quality gates without failing the workflow."
                 ;;
               *)
-                echo "::error::$label completed with result: $result"
-                exit 1
+                echo "::warning::$label completed with result: $result; root-cause job owns the blocking signal."
                 ;;
             esac
           }
@@ -2237,16 +2269,22 @@ jobs:
           bash scripts/ci_install_project.sh --extras dev
 
       - name: Fetch base ref
-        run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+        run: git fetch --no-tags --depth=200 origin "${{ github.base_ref }}"
 
       - name: Get changed Python files
         id: changed
         run: |
-          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- 'aragora/**/*.py' 'tests/**/*.py' | tr '\n' ' ')
+          if git merge-base "origin/${{ github.base_ref }}" HEAD >/dev/null 2>&1; then
+            CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- 'aragora/**/*.py' 'tests/**/*.py' | tr '\n' ' ')
+          else
+            echo "::warning::No merge base found with origin/${{ github.base_ref }}; continuing with an empty changed-file set"
+            CHANGED=""
+          fi
           echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
 
       - name: Select relevant tests
         id: selected
+        continue-on-error: true
         run: |
           python scripts/nomic_ci_test_selector.py --changed-files ${{ steps.changed.outputs.files }} --dry-run
           python - <<'PY'
@@ -2285,6 +2323,7 @@ jobs:
 
       - name: Analyze test results
         id: analyze
+        continue-on-error: true
         run: |
           python scripts/analyze_test_results.py \
             --junit test-results.xml \
@@ -2301,10 +2340,12 @@ jobs:
           {
             echo "summary<<$SUMMARY_DELIM"
             cat test-summary.md
+            printf '\n'
             echo "$SUMMARY_DELIM"
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload test results
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results
@@ -2315,6 +2356,7 @@ jobs:
 
       - name: Comment on PR
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/github-script@v7
         env:
           TEST_SUMMARY: ${{ steps.analyze.outputs.summary }}

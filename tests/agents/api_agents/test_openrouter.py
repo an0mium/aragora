@@ -538,16 +538,16 @@ class TestYiAgent:
 
 
 class TestKimiK2Agent:
-    """Tests for Kimi K2 agent."""
+    """Tests for the default Kimi frontier agent."""
 
     def test_init_with_defaults(self, mock_env_with_api_keys):
-        """Should initialize with Kimi K2 defaults."""
+        """Should initialize with Kimi K2.6 defaults."""
         from aragora.agents.api_agents.openrouter import KimiK2Agent
 
         agent = KimiK2Agent()
 
         assert agent.name == "kimi"
-        assert "kimi" in agent.model
+        assert agent.model == "moonshotai/kimi-k2.6"
         assert agent.agent_type == "kimi"
 
     def test_agent_registry_registration(self, mock_env_with_api_keys):

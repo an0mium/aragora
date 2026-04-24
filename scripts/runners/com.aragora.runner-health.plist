@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.aragora.runner-health</string>
+
+    <!-- Run daily at 06:00 local time. Runs as the logged-in user;
+         sudo calls inside the script will prompt (must be in sudoers
+         NOPASSWD for the netstat+tee paths or the plist adjusted to
+         run as root). For the initial deploy we prefer user-context
+         and write to a user-owned log instead. -->
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/armand/actions-runner/runner-health/mac_timewait_check.sh</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>THRESHOLD</key>
+        <string>5000</string>
+        <key>LOG_FILE</key>
+        <string>/Users/armand/Library/Logs/aragora-runner-health.log</string>
+        <key>ALERT_FILE</key>
+        <string>/Users/armand/Library/Logs/aragora-runner-health.alert</string>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>6</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Also run once right after load so we have a fresh data point
+         without waiting 24 hours for the first tick. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/armand/Library/Logs/aragora-runner-health.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/armand/Library/Logs/aragora-runner-health.stderr.log</string>
+</dict>
+</plist>

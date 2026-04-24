@@ -67,11 +67,11 @@ def test_select_publishable_branches_marks_recent_clean_branch_eligible() -> Non
     assert decisions[0].reason == "eligible"
 
 
-def test_parser_defaults_to_single_branch_publish_budget() -> None:
+def test_parser_defaults_match_publisher_budget_constants() -> None:
     args = _build_parser().parse_args([])
 
-    assert args.limit == 1
-    assert args.max_open_prs == 1
+    assert args.limit == mod.DEFAULT_PUBLISH_LIMIT
+    assert args.max_open_prs == mod.DEFAULT_MAX_OPEN_PRS
     assert args.scan_limit == mod.DEFAULT_SCAN_LIMIT
     assert args.skip_preflight is False
     assert args.preflight_script == mod.DEFAULT_PREFLIGHT_SCRIPT

@@ -1,0 +1,174 @@
+name: Mac Runner Health Poll
+
+# Weekly SSH into each Mac runner to read the TIME_WAIT / health log.
+# Alerts via a runner-health labeled issue if:
+#   (a) any host's latest log line shows TIME_WAIT > threshold, or
+#   (b) any host's log hasn't been appended to in >48h (indicates the
+#       launchd job itself is stuck — the condition we CAN'T detect
+#       from the host's own alerting path).
+#
+# Survives the failure mode from issue #6474: the host's outbound TCP
+# was broken, so a host-initiated alert would not have reached GH.
+# This workflow runs on GH-hosted ubuntu and SSHes IN to the Macs.
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  issues: write
+  contents: read
+
+concurrency:
+  group: mac-runner-health-poll
+  cancel-in-progress: false
+
+env:
+  THRESHOLD: "5000"
+  STALE_HOURS: "48"
+
+jobs:
+  poll:
+    name: Poll Mac runner TIME_WAIT logs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ssh client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openssh-client
+
+      - name: Setup SSH key
+        env:
+          MAC_RUNNER_SSH_KEY: ${{ secrets.MAC_RUNNER_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          if [ -n "${MAC_RUNNER_SSH_KEY:-}" ]; then
+            echo "$MAC_RUNNER_SSH_KEY" > ~/.ssh/mac_runner
+            chmod 600 ~/.ssh/mac_runner
+            echo "KEY_READY=1" >> "$GITHUB_ENV"
+          else
+            echo "::warning::MAC_RUNNER_SSH_KEY secret not set; poll will be skipped"
+          fi
+
+      - name: Poll each Mac
+        id: poll
+        if: env.KEY_READY == '1'
+        env:
+          HOSTS_JSON: |
+            [
+              {"name": "mac-studio-m3ultra", "host": "mac-studio.aragora.ts.net"},
+              {"name": "macbook-m1-16gb", "host": "macbook-pro16gb.aragora.ts.net"},
+              {"name": "macbook-intel-64gb", "host": "macbook-pro-3.aragora.ts.net"}
+            ]
+        run: |
+          set +e
+          declare -a alerts=()
+
+          while read -r entry; do
+            name=$(echo "$entry" | jq -r '.name')
+            host=$(echo "$entry" | jq -r '.host')
+
+            echo "=== Polling $name ($host) ==="
+
+            LAST_LINE=$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+                           -i ~/.ssh/mac_runner \
+                           armand@"$host" \
+                           'tail -n 1 ~/Library/Logs/aragora-runner-health.log 2>/dev/null || echo no-log' \
+                           2>/dev/null || echo "ssh-failed")
+
+            echo "  last: $LAST_LINE"
+
+            if [ "$LAST_LINE" = "ssh-failed" ]; then
+              alerts+=("$name: SSH unreachable")
+              continue
+            fi
+
+            if [ "$LAST_LINE" = "no-log" ]; then
+              alerts+=("$name: health log missing")
+              continue
+            fi
+
+            TS=$(echo "$LAST_LINE" | grep -oE 'ts=[^ ]+' | cut -d= -f2 | head -1)
+            TW=$(echo "$LAST_LINE" | grep -oE 'timewait=[0-9]+' | cut -d= -f2 | head -1)
+
+            if [ -z "$TW" ]; then
+              alerts+=("$name: could not parse timewait from: $LAST_LINE")
+              continue
+            fi
+
+            if [ "$TW" -gt "$THRESHOLD" ]; then
+              alerts+=("$name: TIME_WAIT=$TW > threshold $THRESHOLD (at $TS)")
+            fi
+
+            if [ -n "$TS" ]; then
+              NOW_EPOCH=$(date -u +%s)
+              LAST_EPOCH=$(date -u -d "$TS" +%s 2>/dev/null || echo 0)
+              HOURS_STALE=$(( (NOW_EPOCH - LAST_EPOCH) / 3600 ))
+              if [ "$HOURS_STALE" -gt "$STALE_HOURS" ]; then
+                alerts+=("$name: log stale by ${HOURS_STALE}h > $STALE_HOURS")
+              fi
+            fi
+          done < <(echo "$HOSTS_JSON" | jq -c '.[]')
+
+          if [ ${#alerts[@]} -gt 0 ]; then
+            {
+              echo "alerts<<EOF"
+              printf '%s\n' "${alerts[@]}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "drift=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open alert issue
+        if: steps.poll.outputs.drift == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALERTS: ${{ steps.poll.outputs.alerts }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TITLE="runners: Mac health alert $(date -u +%Y-%m-%d)"
+          BODY=$(cat <<BODY_END
+          ## Mac runner health alert
+
+          Weekly poll detected one or more issues:
+
+          \`\`\`
+          $ALERTS
+          \`\`\`
+
+          ### What to check
+
+          - **TIME_WAIT > threshold**: reboot the affected host. See docs/runners/FLEET.md "Past incidents" section for the #6474 playbook.
+          - **Health log missing or stale**: SSH in and verify the \`com.aragora.runner-health\` launchd job is loaded: \`launchctl list | grep runner-health\`.
+          - **SSH unreachable**: host may be off, on a different network, or have SSH disabled.
+
+          [Run log]($SERVER_URL/$REPO/actions/runs/$RUN_ID)
+          BODY_END
+          )
+
+          gh label create runner-health \
+            --description "Mac runner health and TIME_WAIT alerts" \
+            --color "B60205" \
+            2>/dev/null || true
+
+          EXISTING=$(gh issue list --label runner-health --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY" --label runner-health
+          fi
+
+      - name: Report clean
+        if: steps.poll.outputs.drift != '1' && env.KEY_READY == '1'
+        run: echo "::notice::All Mac runners healthy — TIME_WAIT within threshold, logs fresh."

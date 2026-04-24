@@ -65,6 +65,7 @@ AGENT_CREDENTIAL_MAP: dict[str, list[str]] = {
     "yi": ["OPENROUTER_API_KEY"],
     "kimi": ["OPENROUTER_API_KEY", "KIMI_API_KEY"],
     "kimi-k2": ["OPENROUTER_API_KEY", "KIMI_API_KEY"],
+    "kimi-k2.6": ["OPENROUTER_API_KEY", "KIMI_API_KEY"],
     "kimi-thinking": ["OPENROUTER_API_KEY", "KIMI_API_KEY"],
     "sonar": ["OPENROUTER_API_KEY"],
     "command-r": ["OPENROUTER_API_KEY"],
