@@ -540,6 +540,9 @@ jobs:
           PY
 
       - name: Check for new zero-coverage files
+        env:
+          SELECTOR_STATUS: ${{ steps.selected.outputs.status }}
+          CHANGED_PYTHON_COUNT: ${{ steps.selected.outputs.changed_python_count || 0 }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             if [ "${{ steps.selected.outputs.status }}" = "skipped" ]; then
@@ -558,40 +561,11 @@ jobs:
               -m "not slow and not load and not e2e" --timeout=60 -x || true
           fi
 
-          # Check for new zero-coverage files not in baseline
-          python -c "
-          import json
-          import sys
-          from pathlib import Path
-
-          baseline_file = Path('tests/.zero_coverage_baseline')
-          baseline = set()
-          if baseline_file.exists():
-              baseline = set(line.strip() for line in baseline_file.read_text().splitlines() if line.strip())
-
-          try:
-              with open('cov.json') as f:
-                  data = json.load(f)
-          except (FileNotFoundError, json.JSONDecodeError):
-              print('Coverage data not available, skipping check')
-              sys.exit(0)
-
-          zero_cov = []
-          for file, info in data.get('files', {}).items():
-              if info.get('summary', {}).get('percent_covered', 100) == 0:
-                  if file not in baseline:
-                      zero_cov.append(file)
-
-          if zero_cov:
-              print('::error::New zero-coverage files detected:')
-              for f in sorted(zero_cov)[:20]:
-                  print(f'  - {f}')
-              if len(zero_cov) > 20:
-                  print(f'  ... and {len(zero_cov) - 20} more')
-              print('Add to tests/.zero_coverage_baseline if intentional')
-              sys.exit(1)
-          print('No new zero-coverage files detected')
-          "
+          python scripts/check_zero_coverage_gate.py \
+            --coverage-path cov.json \
+            --baseline-path tests/.zero_coverage_baseline \
+            --selector-status "${SELECTOR_STATUS}" \
+            --changed-python-count "${CHANGED_PYTHON_COUNT}"
 
   # Fast parallel tests by category (Ubuntu only, primary Python)
   test-fast:
