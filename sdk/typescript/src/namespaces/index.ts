@@ -24,6 +24,11 @@ export {
   type MatrixComparison,
 } from './debates';
 export { AgentDashboardAPI } from './agent-dashboard';
+export {
+  AgentBridgeAPI,
+  type AgentBridgeRun,
+  type ListAgentBridgeRunsOptions,
+} from './agent-bridge';
 export { AgentsAPI } from './agents';
 export { WorkflowsAPI } from './workflows';
 export { SMEAPI } from './sme';
