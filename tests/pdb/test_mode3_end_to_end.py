@@ -110,7 +110,7 @@ def _heuristic_packet() -> PRReviewProtocolPacket:
     )
 
 
-def _input(panel_id: str, budget_usd: float = 8.0) -> PDBExecutionInput:
+def _input(panel_id: str, budget_usd: float = 10.0) -> PDBExecutionInput:
     return PDBExecutionInput(
         binding=_binding(),
         packet=_heuristic_packet(),
@@ -290,14 +290,18 @@ class _MockPanelInvoker:
 # ---------------------------------------------------------------------------
 
 
-def test_default_panel_executes_all_eight_slots_end_to_end(
+def test_default_panel_executes_all_shipped_slots_end_to_end(
     default_config: PDBPanelConfig,
 ) -> None:
-    """Happy path: 8 providers available, panel executes cleanly, brief ships.
+    """Happy path: every provider available, panel executes cleanly, brief ships.
 
     This is the contract regression test for the shipped
     ``aragora/config/pdb_panel.yaml`` — if the YAML or the executor
     drift apart, this test should be the first to notice.
+
+    Originally covered 8 slots; now covers 9 after #6505 added the
+    advocate lens. ``expected_slots`` is derived from the config rather
+    than hard-coded so future slot changes don't require a test edit.
     """
     resolver = _AllAvailableResolver(default_config)
     invoker = _MockPanelInvoker()
@@ -311,13 +315,13 @@ def test_default_panel_executes_all_eight_slots_end_to_end(
 
     assert result.status is PDBExecutionStatus.SUCCESS, result.failure_reason
     assert result.brief is not None
-    # All 8 shipped slots must participate in findings + critique.
+    # Every shipped slot must participate in findings + critique.
     expected_slots = set(default_config.slots.keys())
     assert set(invoker.findings_calls) == expected_slots
     assert set(invoker.critique_calls) == expected_slots
     # Synthesizer runs exactly once.
     assert len(invoker.synth_calls) == 1
-    # Active roster reflects all 8 slots.
+    # Active roster reflects every shipped slot.
     assert set(result.active_roster) == expected_slots
     assert not result.missing_slots
     assert not result.degrade_reasons

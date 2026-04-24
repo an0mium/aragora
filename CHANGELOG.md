@@ -11,6 +11,7 @@ _Changes landing on `main` after the v2.9.0-rc.1 tag will be collected here unti
 
 ### Changed
 - **Mode 3 verdict severity gate (#6505):** `REPAIR_FIRST` is now downgraded to `APPROVE_WITH_FOLLOWUPS` when the aggregated severity map reports zero `high` findings. Fixes the calibration bias identified in `docs/status/2026-04-24-mode3-rc1-calibration.md` where 8 skeptical lenses all looking for problems always produced `REPAIR_FIRST` regardless of severity. Legacy callers without severity data preserve the old three-class behavior. `APPROVE_CANDIDATE` and `NEEDS_HUMAN_ATTENTION` paths are untouched.
+- **Mode 3 advocate lens (#6505):** A ninth panel slot with `lens: advocate` is added to the shipped `protocol_b_default` panel. The advocate's prompt explicitly asks for the STRONGEST case FOR the PR, counterweighting the seven skeptical lenses. Structural bias from an all-skeptics panel was the root driver of the 100%-`repair_first` sample behind #6505. The slot is optional (`required: false`) so an absent Anthropic key degrades the panel gracefully instead of failing closed. `per_brief_usd` budget ceiling raised 8.00 → 10.00 to accommodate the ninth slot at conservative estimator cost (real-world cost stays ~$0.18/brief).
 
 
 ## [v2.9.0-rc.1] - 2026-04-24

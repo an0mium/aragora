@@ -55,6 +55,15 @@ LENS_INSTRUCTIONS: Mapping[str, str] = {
         "disclosure, or cross-border obligations WITHOUT claiming the code "
         "itself is unlawful — you are a perspective, not a compliance oracle."
     ),
+    "advocate": (
+        "You hold the ADVOCATE lens. Deliberately argue the STRONGEST case FOR "
+        "this PR: why it should ship, what problem it solves well, and which "
+        "alternatives would be worse. Your counterweight to the skeptic lenses "
+        "is the point; do not invent benefits, but do name the concrete ones you "
+        "find. Prefer an empty findings list to manufactured virtues. If no lens "
+        "is defending the change, the panel is structurally biased toward "
+        "rejection — that is the gap this lens closes."
+    ),
 }
 
 

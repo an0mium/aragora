@@ -24,7 +24,11 @@ version: 1
 default_panel: protocol_b_default
 default_prompt_set: protocol_b_v1
 budgets:
-  per_brief_usd: 8.0
+  # Nine findings slots × 0.85 conservative estimator + 1.10 synthesis ≈
+  # 8.75; the 10.00 ceiling gives headroom without affecting real-world
+  # runs (actual cost is ~$0.18 per brief — see
+  # docs/status/2026-04-24-mode3-rc1-calibration.md).
+  per_brief_usd: 10.0
   per_day_usd: 200.0
   reserve_for_manual_escalation_usd: 40.0
 slots:
@@ -76,11 +80,25 @@ slots:
     family: mistral
     candidates: [mistral-api, mistral]
     required: false
+  # Advocate lens — argues FOR the PR. Added under #6505 to counter the
+  # structural bias where 8 skeptical lenses over-produce ``repair_first``.
+  # Shares the ``claude`` family with claude_core because the closest
+  # counterweight is the same family arguing the opposite position; runtime
+  # de-duplication is handled by the provider-slot resolver. ``required``
+  # stays false so a missing Anthropic key degrades gracefully instead of
+  # failing closed.
+  claude_advocate:
+    review_role: skeptic
+    lens: advocate
+    family: claude
+    candidates: [claude, anthropic-api]
+    required: false
 panels:
   protocol_b_default:
     findings_slots:
       - claude_core
       - gpt_core
+      - claude_advocate
       - gemini_heterodox
       - grok_heterodox
       - deepseek_heterodox

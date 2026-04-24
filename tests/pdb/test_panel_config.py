@@ -112,6 +112,19 @@ def test_load_committed_default_config_succeeds() -> None:
     assert {"claude_core", "gpt_core"} <= required
 
 
+def test_committed_default_config_includes_advocate_lens() -> None:
+    # Advocate lens (#6505 fix #3) is the counterweight to the 7 skeptic
+    # slots. Must appear in the default panel OR the panel is structurally
+    # back to the all-skeptics bias that motivated #6505 in the first place.
+    cfg = load_panel_config()
+    advocate_slots = [s for s in cfg.slots.values() if s.lens == "advocate"]
+    assert advocate_slots, "default panel config is missing the advocate lens"
+    default_findings = cfg.panels[cfg.default_panel].findings_slots
+    assert any(s.slot_id in default_findings for s in advocate_slots), (
+        "advocate lens slot defined but not included in default panel findings_slots"
+    )
+
+
 def test_default_config_projects_to_provider_slot_definitions() -> None:
     cfg = load_panel_config()
     defs = provider_slot_definitions(cfg, cfg.default_panel)

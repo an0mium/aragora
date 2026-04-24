@@ -177,6 +177,29 @@ def test_findings_prompt_preserves_regulatory_lens_identity() -> None:
     assert "compliance oracle" in text
 
 
+def test_findings_prompt_preserves_advocate_lens_identity() -> None:
+    # Advocate lens (#6505 fix #3) is the counterweight to the skeptic
+    # lenses. Prompt must ask for the STRONGEST case FOR the PR, not
+    # flatten into approval-cheerleading.
+    slot = _slot("claude_advocate", "advocate", "skeptic")
+    text = findings_prompt(
+        slot=slot,
+        binding=_binding(),
+        pr_title="t",
+        pr_body="",
+        labels=(),
+        changed_files=(),
+        diff_excerpt="",
+    )
+    _require_binding_anchors(text)
+    assert "ADVOCATE lens" in text
+    # Framed as a position, not a rubber stamp
+    assert "STRONGEST case FOR" in text
+    # The anti-invention guard is load-bearing: prevents the advocate
+    # from manufacturing benefits absent from the diff.
+    assert "Prefer an empty findings list to manufactured virtues" in text
+
+
 def test_findings_prompt_handles_missing_validation_summary() -> None:
     slot = _slot("claude_core", "core", "logic_reviewer")
     text = findings_prompt(
