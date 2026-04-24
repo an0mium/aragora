@@ -124,16 +124,18 @@ class ReputationStore:
         """
         if not str(delta.agent_id).strip():
             raise ReputationStoreError("delta.agent_id must be non-empty")
-        self._deltas[delta.agent_id].append(delta)
         if self._path is not None:
             self._append_to_file(delta)
+        self._deltas[delta.agent_id].append(delta)
 
     def _append_to_file(self, delta: ReputationDelta) -> None:
         try:
             with self._path.open("a", encoding="utf-8") as fh:  # type: ignore[union-attr]
                 fh.write(json.dumps(delta.to_json(), sort_keys=True) + "\n")
         except OSError as exc:
-            logger.warning("ReputationStore: could not write to %s: %s", self._path, exc)
+            raise ReputationStoreError(
+                f"could not persist reputation delta to {self._path}: {exc}"
+            ) from exc
 
     # ------------------------------------------------------------------
     # Query

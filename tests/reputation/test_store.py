@@ -6,6 +6,7 @@ import json
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -317,3 +318,12 @@ class TestPersistence:
         store = ReputationStore(path=None)
         store.record_delta(_delta(delta=10.0))
         assert not any(tmp_path.iterdir())
+
+    def test_write_failure_raises_without_mutating_memory(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "rep.jsonl"
+        store = ReputationStore(path=ledger)
+        with patch.object(Path, "open", side_effect=OSError("disk full")):
+            with pytest.raises(ReputationStoreError, match="could not persist"):
+                store.record_delta(_delta(delta=10.0))
+        assert len(store) == 0
+        assert store.get_score("alice", apply_decay=False) == 0.0
