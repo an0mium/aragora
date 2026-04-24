@@ -45,8 +45,8 @@ What is already true:
 - proof-first runtime truth is now persisted in `ShiftLedger` on `main` via [#5857](https://github.com/synaptent/aragora/pull/5857)
 - proof-first shifts now fail closed after repeated recovery failures for the implemented failure classes via [#5867](https://github.com/synaptent/aragora/pull/5867)
 - `swarm status`, FastAPI swarm-status routes, and `studio-health.sh` now prefer ledger-backed operator truth on `main` via [#5861](https://github.com/synaptent/aragora/pull/5861) and [#5868](https://github.com/synaptent/aragora/pull/5868)
-- the future Decision Integrity expansion is now tracked as an additive Epistemic CI / Crux Engine / Epistemic Runtime tranche in [EPISTEMIC_CI_AND_CRUX_ENGINE](https://github.com/synaptent/aragora/blob/main/docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md) and issues [#6023](https://github.com/synaptent/aragora/issues/6023)-[#6028](https://github.com/synaptent/aragora/issues/6028) plus [#6030](https://github.com/synaptent/aragora/issues/6030)-[#6033](https://github.com/synaptent/aragora/issues/6033); it is planning truth, not current live queue scope
-- the Dialectical Runtime synthesis layer (DIC-23..28) is tracked as an additive extension of the same tranche in [2026-04-18-dialectical-runtime-synthesis](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-18-dialectical-runtime-synthesis.md); it is planning truth only, activation-gated on DIC-20/21/22 production-green, and no issues under it may carry `boss-ready` until the proof-first Foreman gate opens
+- the future Decision Integrity expansion is now tracked as an additive Epistemic CI / Crux Engine / Epistemic Runtime tranche in [EPISTEMIC_CI_AND_CRUX_ENGINE](../plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md) and issues [#6023](https://github.com/synaptent/aragora/issues/6023)-[#6028](https://github.com/synaptent/aragora/issues/6028) plus [#6030](https://github.com/synaptent/aragora/issues/6030)-[#6033](https://github.com/synaptent/aragora/issues/6033); it is planning truth, not current live queue scope
+- the Dialectical Runtime synthesis layer (DIC-23..28) is tracked as an additive extension of the same tranche in [2026-04-18-dialectical-runtime-synthesis](../plans/2026-04-18-dialectical-runtime-synthesis.md); it is planning truth only, activation-gated on DIC-20/21/22 production-green, and no issues under it may carry `boss-ready` until the proof-first Foreman gate opens
 
 What is still missing:
 
@@ -255,22 +255,22 @@ The agent-civilization substrate work is now tracked as a parallel planning lane
 
 | Code | Title | Detailed plan | Activation gate |
 |------|-------|---------------|-----------------|
-| `AGT-01` | Activate CruxDetector in live Arena debates | [crux-mode design](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-16-crux-mode-design.md), Issue [#6035](https://github.com/synaptent/aragora/issues/6035), [agent-civilization substrate](https://github.com/synaptent/aragora/blob/main/docs/plans/AGENT_CIVILIZATION_SUBSTRATE.md) | DIC-15 CruxSet contract landed; substrate gate permits debate-path flag flip |
-| `AGT-02` | A2A consumer surface (registration, capability discovery, billing, agent receipts) | [agent consumer surface](https://github.com/synaptent/aragora/blob/main/docs/plans/AGENT_CONSUMER_SURFACE.md) | substrate gate permits upper-layer tranche; existing A2A and marketplace primitives stable |
-| `AGT-03` | Manifold integration with rolling Brier scoring | [prediction-market validation](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-17-prediction-market-validation.md) | AGT-02 stable; rate-limit / GitHub-app token strategy in place for non-Manifold dependencies |
-| `AGT-04` | Synthetic GitHub prediction markets | [prediction-market validation](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-17-prediction-market-validation.md) | none (internal); proof-first reconciler stable enough not to be disrupted by added market objects |
-| `AGT-05` | Skin-in-the-game reputation flow wiring | [skin-in-the-game reputation](https://github.com/synaptent/aragora/blob/main/docs/plans/SKIN_IN_THE_GAME_REPUTATION.md) | AGT-03 and AGT-04 producing resolved outcomes; DIC-16 receipt/KM provenance landed |
-| `AGT-06` | Verifiable improvements per agent-hour (VIAH) metric | [agent-civilization substrate](https://github.com/synaptent/aragora/blob/main/docs/plans/AGENT_CIVILIZATION_SUBSTRATE.md) §4 | RS-10 ShiftLedger stable on `main` (already true); BC-12 substrate gate decision to retire empty-queue soaks in favour of VIAH |
+| `AGT-01` | Activate CruxDetector in live Arena debates | [crux-mode design](../plans/2026-04-16-crux-mode-design.md), Issue [#6035](https://github.com/synaptent/aragora/issues/6035), [agent-civilization substrate](../plans/AGENT_CIVILIZATION_SUBSTRATE.md) | DIC-15 CruxSet contract landed; substrate gate permits debate-path flag flip |
+| `AGT-02` | A2A consumer surface (registration, capability discovery, billing, agent receipts) | [agent consumer surface](../plans/AGENT_CONSUMER_SURFACE.md) | substrate gate permits upper-layer tranche; existing A2A and marketplace primitives stable |
+| `AGT-03` | Manifold integration with rolling Brier scoring | [prediction-market validation](../plans/2026-04-17-prediction-market-validation.md) | AGT-02 stable; rate-limit / GitHub-app token strategy in place for non-Manifold dependencies |
+| `AGT-04` | Synthetic GitHub prediction markets | [prediction-market validation](../plans/2026-04-17-prediction-market-validation.md) | none (internal); proof-first reconciler stable enough not to be disrupted by added market objects |
+| `AGT-05` | Skin-in-the-game reputation flow wiring | [skin-in-the-game reputation](../plans/SKIN_IN_THE_GAME_REPUTATION.md) | AGT-03 and AGT-04 producing resolved outcomes; DIC-16 receipt/KM provenance landed |
+| `AGT-06` | Verifiable improvements per agent-hour (VIAH) metric | [agent-civilization substrate](../plans/AGENT_CIVILIZATION_SUBSTRATE.md) §4 | RS-10 ShiftLedger stable on `main` (already true); BC-12 substrate gate decision to retire empty-queue soaks in favour of VIAH |
 
-Capability checkpoints for the booster-rocket thesis (CP-1..CP-5) live in [agent-civilization substrate §5](https://github.com/synaptent/aragora/blob/main/docs/plans/AGENT_CIVILIZATION_SUBSTRATE.md). Failing a checkpoint downscales the next investment rather than pausing the whole vision.
+Capability checkpoints for the booster-rocket thesis (CP-1..CP-5) live in [agent-civilization substrate §5](../plans/AGENT_CIVILIZATION_SUBSTRATE.md). Failing a checkpoint downscales the next investment rather than pausing the whole vision.
 
 ## References
 
 - [Evolution roadmap](./aragora-evolution-roadmap)
 - [Active execution issues](./active-execution-issues)
 - [Commercial overview](../enterprise/commercial-overview)
-- [Agent-civilization substrate](https://github.com/synaptent/aragora/blob/main/docs/plans/AGENT_CIVILIZATION_SUBSTRATE.md)
-- [Agent consumer surface](https://github.com/synaptent/aragora/blob/main/docs/plans/AGENT_CONSUMER_SURFACE.md)
-- [Skin-in-the-game reputation](https://github.com/synaptent/aragora/blob/main/docs/plans/SKIN_IN_THE_GAME_REPUTATION.md)
-- [Prediction-market validation](https://github.com/synaptent/aragora/blob/main/docs/plans/2026-04-17-prediction-market-validation.md)
-- [Epistemic CI and Crux Engine](https://github.com/synaptent/aragora/blob/main/docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md)
+- [Agent-civilization substrate](../plans/AGENT_CIVILIZATION_SUBSTRATE.md)
+- [Agent consumer surface](../plans/AGENT_CONSUMER_SURFACE.md)
+- [Skin-in-the-game reputation](../plans/SKIN_IN_THE_GAME_REPUTATION.md)
+- [Prediction-market validation](../plans/2026-04-17-prediction-market-validation.md)
+- [Epistemic CI and Crux Engine](../plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md)
