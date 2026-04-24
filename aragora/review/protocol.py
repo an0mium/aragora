@@ -21,10 +21,10 @@ trusting prose.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Mapping
 
 UTC = timezone.utc
 
@@ -188,6 +188,11 @@ class ReviewBrief:
     generated_at: str  # ISO-8601 with timezone
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
+    # Aggregate severity counts across the panel's top findings. Keys are
+    # "high" | "medium" | "low"; values are ints. Empty when no structured
+    # severity signal was supplied (legacy/degraded briefs). Exposed at the
+    # brief level so operators can triage without reading every finding.
+    findings_severity_counts: Mapping[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -195,6 +200,7 @@ class ReviewBrief:
         d["role_findings"] = [f.to_dict() for f in self.role_findings]
         d["dissent"] = [v.to_dict() for v in self.dissent]
         d["agent_roster"] = list(self.agent_roster)
+        d["findings_severity_counts"] = dict(self.findings_severity_counts)
         return d
 
 

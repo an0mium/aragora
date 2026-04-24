@@ -5,6 +5,9 @@
 
 _Changes landing on `main` after the v2.9.0-rc.1 tag will be collected here until promotion to v2.9.0 stable._
 
+### Added
+- **Mode 3 brief severity counts (#6505):** `ReviewBrief` now carries `findings_severity_counts` — aggregate `{high, medium, low}` counts derived from each slot's top findings — and surfaces it in the stored brief JSON. Operators can now distinguish "1 high-severity blocker" from "5 low-severity editorial comments" without reading every finding. Legacy callers that omit the new `build_brief` kwarg get an empty map rather than a crash.
+
 
 ## [v2.9.0-rc.1] - 2026-04-24
 

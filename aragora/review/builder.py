@@ -88,6 +88,7 @@ def build_brief(
     output_roles: tuple[ReviewRole, ...] | None = None,
     total_cost_usd: float = 0.0,
     total_wall_clock_ms: int = 0,
+    findings_severity_counts: Mapping[str, int] | None = None,
 ) -> ReviewBrief:
     """Build a deterministic ReviewBrief from panel votes.
 
@@ -122,6 +123,7 @@ def build_brief(
     disagreement_score = _disagreement_score(votes_tuple)
     role_findings = tuple(v.finding for v in votes_tuple)
     agent_roster = tuple(v.finding.agent for v in votes_tuple)
+    severity_counts = dict(findings_severity_counts) if findings_severity_counts else {}
 
     def _make(packet_sha: str) -> ReviewBrief:
         return ReviewBrief(
@@ -141,6 +143,7 @@ def build_brief(
             total_wall_clock_ms=total_wall_clock_ms,
             agent_roster=agent_roster,
             generated_at=generated_at,
+            findings_severity_counts=severity_counts,
         )
 
     return _make(compute_packet_sha(_make("")))

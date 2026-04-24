@@ -168,6 +168,22 @@ class TestReviewBrief:
         assert d["overall_confidence"] == 0.72
         assert d["disagreement_score"] == 0.41
 
+    def test_findings_severity_counts_defaults_to_empty(self) -> None:
+        # Briefs built without structured severity input (legacy callers,
+        # degraded paths) must not crash; the field carries an empty dict.
+        brief = self._brief()
+        assert brief.findings_severity_counts == {}
+        assert brief.to_dict()["findings_severity_counts"] == {}
+
+    def test_findings_severity_counts_round_trip(self) -> None:
+        # First-class operator triage signal per #6505: "1 high finding"
+        # and "5 low-severity editorial comments" must be mechanically
+        # distinguishable without reading every finding's prose.
+        counts = {"high": 1, "medium": 2, "low": 5}
+        brief = self._brief(findings_severity_counts=counts)
+        assert brief.findings_severity_counts == counts
+        assert brief.to_dict()["findings_severity_counts"] == counts
+
     def test_advisory_only_default_is_true(self) -> None:
         # SAFETY INVARIANT: a brief is never an approval.
         brief = self._brief()

@@ -620,6 +620,7 @@ def run_brief_protocol_b(
     # own SYNTHESIZER-role vote as an extra, which the builder permits.
     synthesizer_vote = _synthesizer_panel_vote(synthesizer_slot, synthesis)
     votes_for_brief = panel_votes + (synthesizer_vote,)
+    severity_counts = _severity_counts_from_slot_findings(findings_by_slot)
     brief = build_brief(
         votes=votes_for_brief,
         pr_number=input.binding.pr_number,
@@ -635,6 +636,7 @@ def run_brief_protocol_b(
         total_wall_clock_ms=sum(resp.latency_ms for resp in findings_by_slot.values())
         + sum(resp.latency_ms for resp in critiques_by_slot.values())
         + synthesis.latency_ms,
+        findings_severity_counts=severity_counts,
     )
 
     # packet-facing projection
@@ -780,6 +782,29 @@ def _position_to_recommendation(position: DissentPosition) -> Recommendation:
     if position is DissentPosition.REQUEST_CHANGES:
         return Recommendation.REPAIR_FIRST
     return Recommendation.NEEDS_HUMAN_ATTENTION
+
+
+_VALID_SEVERITIES: tuple[str, ...] = ("high", "medium", "low")
+
+
+def _severity_counts_from_slot_findings(
+    findings_by_slot: Mapping[str, SlotFindingsResponse],
+) -> dict[str, int]:
+    """Aggregate severity counts across every slot's top_findings.
+
+    Returned dict always has the three canonical severity keys (``high``,
+    ``medium``, ``low``) so downstream consumers can index without a
+    default-get dance. Unknown severity strings are silently dropped
+    rather than counted — the input is LLM-parsed and we never want
+    ``{"high": 0, "medium": 0, "low": 0, "???": 3}`` polluting the UI.
+    """
+    counts: dict[str, int] = {sev: 0 for sev in _VALID_SEVERITIES}
+    for resp in findings_by_slot.values():
+        for finding in resp.top_findings:
+            sev = (finding.severity or "").strip().lower()
+            if sev in counts:
+                counts[sev] += 1
+    return counts
 
 
 def _aggregate_top_findings(
