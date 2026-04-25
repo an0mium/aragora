@@ -243,6 +243,15 @@ def terminal_handoff_keys(receipt_root: Path) -> set[str]:
     return terminal_keys
 
 
+def _outbox_payload_branch(payload: dict[str, Any]) -> str:
+    local_evidence = payload.get("local_evidence")
+    if isinstance(local_evidence, dict):
+        branch = str(local_evidence.get("branch") or "").strip()
+        if branch:
+            return branch
+    return str(payload.get("branch") or "").strip()
+
+
 def terminal_receipted_handoff_branches(
     root: Path,
     *,
@@ -268,10 +277,7 @@ def terminal_receipted_handoff_branches(
         idempotency_key = str(payload.get("idempotency_key") or "").strip()
         if idempotency_key not in terminal_keys:
             continue
-        local_evidence = payload.get("local_evidence")
-        if not isinstance(local_evidence, dict):
-            continue
-        branch = str(local_evidence.get("branch") or "").strip()
+        branch = _outbox_payload_branch(payload)
         if branch:
             branches.add(branch)
     return branches
@@ -299,10 +305,7 @@ def unresolved_outbox_handoff_branches(
         idempotency_key = str(payload.get("idempotency_key") or "").strip()
         if not idempotency_key or idempotency_key in terminal_keys:
             continue
-        local_evidence = payload.get("local_evidence")
-        if not isinstance(local_evidence, dict):
-            continue
-        branch = str(local_evidence.get("branch") or "").strip()
+        branch = _outbox_payload_branch(payload)
         if branch:
             branches.add(branch)
     return branches
