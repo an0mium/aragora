@@ -6,7 +6,7 @@
 _Post-v2.9.0 changes land here until the next stable tag._
 
 
-## [2.9.0] - 2026-04-24
+## [2.9.0] - 2026-04-25
 
 _Promoted from `v2.9.0-rc.1` after the chronic-red CI sweep, the npm vulnerability flush, and the self-hosted runner Docker provisioning. All six chronic-red CI workflows fixed; 19 of 19 Dependabot alerts addressed; secret scanning migrated to TruffleHog. Detailed readiness record at `docs/status/2026-04-25-rc1-to-stable-receipt.md`._
 
@@ -30,7 +30,8 @@ _Promoted from `v2.9.0-rc.1` after the chronic-red CI sweep, the npm vulnerabili
 - **Security Pentest pip-audit (#6559):** Added `--ignore-vuln CVE-2026-3219` to pip-audit. CVE is on the pip binary in the CI image, not the Aragora runtime; pip 26.0.1 IS the latest published version (no upstream fix exists yet).
 - **Security Pentest Secret Scanning (#6567 → #6576):** First made `gitleaks-action@v2` `continue-on-error: true` (#6567). Then in #6576 fully migrated CI secret-scanning to TruffleHog (`trufflesecurity/trufflehog@main` with `--only-verified`) in both `security.yml` and `lint.yml`. gitleaks-action requires a paid `GITLEAKS_LICENSE` for organization accounts; TruffleHog is free, well-maintained, and `--only-verified` mode produces zero false positives. Local pre-commit still uses the gitleaks binary (free for individual use).
 - **Integration Tests `webhook_configs` schema (#6575):** Aligned `aragora/db/schema/postgres_schema.sql` with `PostgresWebhookConfigStore.INITIAL_SCHEMA` (`user_id`, `workspace_id`, `active`, `events_json`, `description`, `last_delivery_at`, `last_delivery_status`, `delivery_count`). Added migration `v20260424000000_align_webhook_configs_schema.py` (idempotent ALTER TABLE; preserves `org_id → workspace_id`, `is_active → active`, `events → events_json` data). Closes the four `TestPostgresWebhookConfigStore` UndefinedColumnError test failures.
-- **Load Tests back to self-hosted (#6577):** Reverted #6554 after Docker 25.0.14 was provisioned on the AL2023 self-hosted runner `i-0aae2ccd2f68b94d2` (`ip-172-31-24-39`) via AWS Systems Manager. Runner agent restarted, GitHub registration online, `sudo -u ec2-user docker ps` succeeds. Documentation: `docs/operations/SELF_HOSTED_RUNNER_DOCKER.md`.
+- **Load Tests back to self-hosted (#6577):** Reverted #6554 after Docker 25.0.14 was provisioned on the AL2023 self-hosted runner `i-0aae2ccd2f68b94d2` (`ip-172-31-24-39`) via AWS Systems Manager. The workflow now targets the narrower `aws-vpc-loadtest` label, runs k6 through Docker instead of AL2023-incompatible `apt-get`, sends the required `aragora-v1` WebSocket subprotocol, and uses the CI dependency bootstrap for the memory stress job. Documentation: `docs/operations/SELF_HOSTED_RUNNER_DOCKER.md`.
+- **Route collision accounting (#6579):** Deduplicated handler collision owners by `(path, attr_name)` and ratcheted the known collision bound `61 → 51`, clearing the v2.9.0 baseline for the post-release route-consolidation waves.
 
 ### Security
 - **Trivy action bump (#6557):** `aquasecurity/trivy-action 0.28.0 → 0.35.0`. Closes 2× CRITICAL CVE-2026-33634 in the prior version.
@@ -39,6 +40,7 @@ _Promoted from `v2.9.0-rc.1` after the chronic-red CI sweep, the npm vulnerabili
 ### Documentation
 - **Release prep checklist progress (#6493):** 8 of 10 acceptance criteria addressed directly; the 48h/main-nightly evidence criteria remain pending until the next scheduled observation. Readiness receipt (`docs/status/2026-04-25-rc1-to-stable-receipt.md`) captures the rc.1 → stable readiness arc.
 - **Mode 3 calibration sample N≥20:** 20 briefs total ($2.71 + $0.66 = $3.37 cumulative API spend); rubric-replay (#6552) shows 3/17 downgrades on the post-fix path.
+- **Architecture reconciliation (#6580):** Updated the source and docs-site architecture narratives to match the current package layout, handler scale, operation count, and strict-mypy baseline before cutting the stable tag.
 
 
 ## [v2.9.0-rc.1] - 2026-04-24
