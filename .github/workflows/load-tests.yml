@@ -118,6 +118,8 @@ jobs:
           fi
 
           ports=(8080 8765 8766 8767 8768 9090)
+          declare -A stale_pids=()
+
           for port in "${ports[@]}"; do
             mapfile -t pids < <(
               ss -H -ltnp "sport = :$port" 2>/dev/null \
@@ -128,20 +130,60 @@ jobs:
             for pid in "${pids[@]}"; do
               [[ -z "$pid" ]] && continue
               cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)
-              if [[ "$cmdline" != *aragora* && "$cmdline" != *python* ]]; then
+              if [[ "$cmdline" != *aragora* ]]; then
                 echo "::error::Port $port is held by non-Aragora process $pid: $cmdline"
                 exit 1
               fi
 
-              echo "::warning::Stopping stale Aragora process $pid on port $port: $cmdline"
-              kill "$pid" || true
+              stale_pids["$pid"]="$cmdline"
             done
           done
 
-          sleep 2
+          for pid in "${!stale_pids[@]}"; do
+            echo "::warning::Stopping stale Aragora process $pid: ${stale_pids[$pid]}"
+            kill -TERM "$pid" || true
+          done
+
+          for _ in {1..10}; do
+            occupied=false
+            for port in "${ports[@]}"; do
+              if ss -H -ltn "sport = :$port" | grep -q .; then
+                occupied=true
+                break
+              fi
+            done
+            [[ "$occupied" == false ]] && break
+            sleep 1
+          done
+
+          declare -A stubborn_pids=()
           for port in "${ports[@]}"; do
-            if ss -H -ltn "sport = :$port" | grep -q .; then
-              echo "::error::Port $port is still occupied after cleanup"
+            mapfile -t pids < <(
+              ss -H -ltnp "sport = :$port" 2>/dev/null \
+                | sed -nE 's/.*pid=([0-9]+).*/\1/p' \
+                | sort -u
+            )
+            for pid in "${pids[@]}"; do
+              [[ -z "$pid" ]] && continue
+              cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)
+              if [[ "$cmdline" != *aragora* ]]; then
+                echo "::error::Port $port is still held by non-Aragora process $pid: $cmdline"
+                ss -H -ltnp "sport = :$port" || true
+                exit 1
+              fi
+              stubborn_pids["$pid"]="$cmdline"
+            done
+          done
+
+          for pid in "${!stubborn_pids[@]}"; do
+            echo "::warning::Force-stopping stale Aragora process $pid: ${stubborn_pids[$pid]}"
+            kill -KILL "$pid" || true
+          done
+
+          sleep 1
+          for port in "${ports[@]}"; do
+            if ss -H -ltnp "sport = :$port" | grep -q .; then
+              echo "::error::Port $port is still occupied after TERM/KILL cleanup"
               ss -H -ltnp "sport = :$port" || true
               exit 1
             fi
