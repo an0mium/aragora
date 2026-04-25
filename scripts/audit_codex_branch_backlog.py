@@ -166,7 +166,14 @@ def worktree_map(root: Path) -> dict[str, list[Path]]:
 
 
 def dirty_worktree(path: Path) -> bool:
-    proc = run_git(["status", "--porcelain"], path)
+    if not path.is_dir():
+        return False
+    try:
+        proc = run_git(["status", "--porcelain"], path)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
     return proc.returncode == 0 and bool(proc.stdout.strip())
 
 

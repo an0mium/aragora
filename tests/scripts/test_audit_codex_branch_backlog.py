@@ -108,6 +108,44 @@ def test_audit_uses_open_pr_lookup_when_github_health_is_ready(
     assert payload["records"][0]["category"] == "protected_open_pr"
 
 
+def test_audit_ignores_missing_worktree_paths(tmp_path: Path, monkeypatch: Any) -> None:
+    row = _branch_row("codex/stale-worktree")
+    missing_worktree = tmp_path / "missing-worktree"
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: [row])
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(
+        mod, "worktree_map", lambda _root: {"codex/stale-worktree": [missing_worktree]}
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=1,
+    )
+
+    assert payload["records"][0]["worktree_paths"] == [str(missing_worktree)]
+    assert payload["records"][0]["dirty_worktree_paths"] == []
+    assert payload["records"][0]["category"] == "salvage_recent_unique"
+
+
 def test_audit_publishable_backlog_excludes_stale_local_only_branches(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
