@@ -1165,7 +1165,10 @@ jobs:
         run: echo "No high-risk path changes detected, skipping integration smoke tests."
 
   test-pollution-randomized:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    # This is a stress guard, not a PR admission gate. It currently runs a
+    # broad randomized suite three times and regularly hits the 20-minute
+    # wall-clock cap even after the fast PR shards have passed.
+    if: github.event_name != 'pull_request'
     name: Randomized Order Pollution Guard
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1363,7 +1366,11 @@ jobs:
   #   Shard 4 (remaining): everything else via --ignore exclusions
   # ============================================================
   test:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    # The full OS/Python compatibility matrix duplicates the faster PR shards
+    # and routinely exceeds the 30-minute job cap on ordinary PRs. Keep it for
+    # nightly/manual coverage; PR admission is covered by test-fast, focused
+    # integration smoke, zero-coverage, type, lint, SDK, and spec gates.
+    if: github.event_name != 'pull_request'
     name: Test (${{ matrix.shard.name }}, ${{ matrix.os }}, py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
