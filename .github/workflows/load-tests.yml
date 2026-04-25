@@ -120,6 +120,19 @@ jobs:
           ports=(8080 8765 8766 8767 8768 9090)
           declare -A stale_pids=()
 
+          # Interrupted self-hosted runs can leave an Aragora server process
+          # alive even after its listener sockets briefly disappear. Kill the
+          # server process itself, not just the currently-visible socket owner.
+          for cmdline_path in /proc/[0-9]*/cmdline; do
+            pid="${cmdline_path#/proc/}"
+            pid="${pid%/cmdline}"
+            [[ "$pid" == "$$" ]] && continue
+            cmdline=$(tr '\0' ' ' < "$cmdline_path" 2>/dev/null || true)
+            if [[ "$cmdline" == *"python -m aragora.server"* || "$cmdline" == *"python -m aragora serve"* ]]; then
+              stale_pids["$pid"]="$cmdline"
+            fi
+          done
+
           for port in "${ports[@]}"; do
             mapfile -t pids < <(
               ss -H -ltnp "sport = :$port" 2>/dev/null \
@@ -245,17 +258,27 @@ jobs:
           echo "Database files created:"
           ls -la "$ARAGORA_DATA_DIR" || true
 
-          # Start server with rate limiting disabled (all load test requests come from localhost)
-          ARAGORA_DISABLE_ALL_RATE_LIMITS=1 ARAGORA_DATA_DIR="$ARAGORA_DATA_DIR" python -m aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
+          # Start server with very high rate limits (all load test requests come from localhost)
+          ARAGORA_RATE_LIMIT=100000 ARAGORA_IP_RATE_LIMIT=100000 ARAGORA_BURST_MULTIPLIER=10 ARAGORA_DISABLE_ALL_RATE_LIMITS=1 ARAGORA_DATA_DIR="$ARAGORA_DATA_DIR" python -m aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
 
           # Give server time to fully initialize
           sleep 10
+          if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo "Server exited during startup. Server logs:"
+            cat /tmp/aragora-server.log
+            exit 1
+          fi
 
           # Wait for server to be healthy (increased timeout for CI)
           # Use /healthz (liveness probe) instead of /api/health (requires auth)
           for i in {1..60}; do
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "Server exited while waiting for health. Server logs:"
+              cat /tmp/aragora-server.log
+              exit 1
+            fi
             if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
               echo "Server is healthy"
               break
@@ -277,11 +300,21 @@ jobs:
             cat /tmp/aragora-server.log
             exit 1
           fi
+          if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo "Server exited after health check. Server logs:"
+            cat /tmp/aragora-server.log
+            exit 1
+          fi
 
           # Wait for critical endpoints to be ready (not just health)
           # These endpoints are used by the load test scripts
           echo "Waiting for critical endpoints to be ready..."
           for i in {1..30}; do
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "Server exited while waiting for endpoints. Server logs:"
+              cat /tmp/aragora-server.log
+              exit 1
+            fi
             READY=true
 
             # Check leaderboard-view - verify endpoint returns valid JSON
@@ -325,6 +358,9 @@ jobs:
           ARAGORA_REDIS_URL: redis://localhost:6379/0
           # Disable rate limiting for load tests - all requests come from same IP (localhost)
           ARAGORA_ENABLE_REDIS_RATE_LIMIT: "0"
+          ARAGORA_RATE_LIMIT: "100000"
+          ARAGORA_IP_RATE_LIMIT: "100000"
+          ARAGORA_BURST_MULTIPLIER: "10"
           # Disable ALL rate limiters (both Redis and local in-memory) for load tests
           ARAGORA_DISABLE_ALL_RATE_LIMITS: "1"
           # AI provider keys are set via GITHUB_ENV in "Fetch AI provider credentials" step

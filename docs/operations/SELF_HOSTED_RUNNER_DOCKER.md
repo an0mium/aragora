@@ -92,9 +92,12 @@ pinned `grafana/k6` image and runs k6 with Docker host networking so
 
 Because self-hosted runners are persistent, `load-tests.yml` also checks the
 fixed server ports (`8080`, `8765`-`8768`, and `9090`) before startup and stops
-stale Aragora processes left by prior interrupted jobs. Cleanup sends `TERM`,
-waits for listeners to drain, escalates to `KILL` only for remaining Aragora
-listeners, and fails closed if another service owns one of those ports.
+stale Aragora server processes left by prior interrupted jobs. Cleanup sends
+`TERM`, waits for listeners to drain, escalates to `KILL` only for remaining
+Aragora server listeners, and fails closed if another service owns one of those
+ports. The workflow also asserts that the server process it started is still
+alive after health/readiness checks, so a stale listener cannot mask a failed
+fresh startup.
 
 Note: `docker-compose-plugin` is NOT available in the default AL2023 repo.
 Workflows that rely on `docker compose` should either install it via the
@@ -168,6 +171,9 @@ gh api repos/synaptent/aragora/actions/runners --jq '.runners[] | select(.name =
 - **2026-04-25 (cleanup hardening)** — Stale-port cleanup now deduplicates
   listener PIDs and escalates from `TERM` to `KILL` if an interrupted
   `aragora.server` process does not release the fixed load-test ports.
+- **2026-04-25 (startup verification)** — Cleanup now also targets orphaned
+  `python -m aragora.server` / `python -m aragora serve` processes, and the
+  workflow verifies the newly-started server PID is alive before running k6.
 
 ## When to add ubuntu-latest fallback
 
