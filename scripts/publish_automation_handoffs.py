@@ -202,6 +202,50 @@ def _repo_root(path: Path) -> Path:
     return Path(proc.stdout.strip()).resolve()
 
 
+def _repo_relative(root: Path, path: Path) -> Path:
+    if path.is_absolute():
+        return path
+    return root / path
+
+
+def _same_git_origin(left: Path, right: Path) -> bool:
+    left_proc = _run(["git", "config", "--get", "remote.origin.url"], cwd=left)
+    right_proc = _run(["git", "config", "--get", "remote.origin.url"], cwd=right)
+    if left_proc.returncode != 0 or right_proc.returncode != 0:
+        return False
+    return bool(left_proc.stdout.strip()) and left_proc.stdout.strip() == right_proc.stdout.strip()
+
+
+def _automation_state_root(root: Path) -> Path:
+    """Return the checkout whose shared .aragora state should back handoff publishing."""
+
+    if (root / ".aragora").is_dir():
+        return root
+
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    candidates: list[tuple[Path, bool]] = []
+    if configured:
+        candidates.append((Path(configured).expanduser(), True))
+    candidates.append((Path.home() / "Development" / "aragora", False))
+
+    for candidate, explicit in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        if not (resolved / ".aragora").is_dir():
+            continue
+        if explicit or _same_git_origin(root, resolved):
+            return resolved
+    return root
+
+
+def _automation_state_path(root: Path, path: Path | None, default_relative: Path) -> Path:
+    if path is not None:
+        return _repo_relative(root, path)
+    return _automation_state_root(root) / default_relative
+
+
 def _memory_files(codex_home: Path, automation_ids: set[str] | None = None) -> list[Path]:
     automations = codex_home / "automations"
     if not automations.exists():
@@ -563,8 +607,8 @@ def load_outbox_handoffs(
     receipt_dir: Path | None = None,
     now: datetime | None = None,
 ) -> list[Handoff]:
-    outbox_root = (outbox_dir or repo_root / DEFAULT_OUTBOX_DIR).resolve()
-    receipt_root = (receipt_dir or repo_root / DEFAULT_RECEIPT_DIR).resolve()
+    outbox_root = _automation_state_path(repo_root, outbox_dir, DEFAULT_OUTBOX_DIR).resolve()
+    receipt_root = _automation_state_path(repo_root, receipt_dir, DEFAULT_RECEIPT_DIR).resolve()
     current_time = now or datetime.now(UTC)
     terminal_keys = _terminal_receipt_keys(receipt_root)
     terminal_fingerprints = _terminal_outbox_fingerprints(outbox_root, receipt_root)
@@ -1015,7 +1059,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Directory containing JSON automation outbox handoffs. Defaults to "
-            ".aragora/automation-outbox under the repository."
+            ".aragora/automation-outbox under the shared automation state root."
         ),
     )
     parser.add_argument(
@@ -1023,7 +1067,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Directory for JSON automation publish receipts. Defaults to "
-            ".aragora/automation-receipts under the repository."
+            ".aragora/automation-receipts under the shared automation state root."
         ),
     )
     parser.add_argument(
@@ -1042,12 +1086,16 @@ def main(argv: list[str] | None = None) -> int:
 
     repo_root = _repo_root(Path(args.repo))
     codex_home = _codex_home(args.codex_home)
-    outbox_dir = (
-        Path(args.outbox_dir).resolve() if args.outbox_dir else repo_root / DEFAULT_OUTBOX_DIR
-    )
-    receipt_dir = (
-        Path(args.receipt_dir).resolve() if args.receipt_dir else repo_root / DEFAULT_RECEIPT_DIR
-    )
+    outbox_dir = _automation_state_path(
+        repo_root,
+        Path(args.outbox_dir).expanduser() if args.outbox_dir else None,
+        DEFAULT_OUTBOX_DIR,
+    ).resolve()
+    receipt_dir = _automation_state_path(
+        repo_root,
+        Path(args.receipt_dir).expanduser() if args.receipt_dir else None,
+        DEFAULT_RECEIPT_DIR,
+    ).resolve()
     labels = list(dict.fromkeys(args.labels))
     automation_ids = set(args.automation_ids or DEFAULT_AUTOMATION_IDS)
     memory_handoffs = load_handoffs(codex_home, automation_ids=automation_ids)

@@ -95,6 +95,40 @@ def test_load_outbox_handoffs_parses_structured_json(tmp_path: Path) -> None:
     assert "Published from automation outbox" in handoffs[0].body
 
 
+def test_load_outbox_handoffs_uses_automation_state_root_for_default_dirs(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    repo_root = tmp_path / "worktree"
+    state_root = tmp_path / "state-root"
+    repo_root.mkdir()
+    outbox = state_root / ".aragora" / "automation-outbox"
+    receipts = state_root / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    source = outbox / "repair-branch.json"
+    source.write_text(
+        json.dumps(
+            _outbox_payload(
+                repo="synaptent/aragora",
+                local_evidence={
+                    "branch": "codex/example",
+                    "head": "abc123",
+                },
+                validation=["pytest tests/example.py -q"],
+            )
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+
+    handoffs = mod.load_outbox_handoffs(repo_root)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].source_file == str(source.resolve())
+    assert handoffs[0].task_title == "Publish validated repair branch"
+
+
 def test_load_outbox_handoffs_skips_terminal_receipt(tmp_path: Path) -> None:
     outbox = tmp_path / ".aragora" / "automation-outbox"
     receipts = tmp_path / ".aragora" / "automation-receipts"
