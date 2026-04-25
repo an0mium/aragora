@@ -426,13 +426,16 @@ evaluated against the target, not the current implementation.
   beyond merge-confirmed success, and more expressive decision-class
   fingerprints once enough samples accumulate.
 
-- **Triage metrics.** Commitment 5 requires rolling-window triage
-  metrics (escalation rate, auto-handle override rate, human-
-  override-outcome correlation, time-per-settlement). The current
-  code (`aragora/server/handlers/review_queue.py`) emits only daily
-  counts plus total decision seconds. Work needed: extend telemetry
-  to rolling windows; compute drift per window; surface in the
-  dashboard and settlement receipts.
+- **Triage metrics.** Commitment 5 — rolling-window triage metrics
+  (escalation rate, auto-handle override rate, human-override-outcome
+  correlation, time-per-settlement) — shipped via #6440 (gap #6373).
+  `aragora/server/handlers/review_queue.py` now exposes
+  `GET /api/v1/review-queue/triage-metrics` over a 7-day default
+  window (configurable; 30-day window also computed for the
+  Commitment 3 revision trigger). The metrics surface in
+  `review-queue status` CLI output and in settlement receipts.
+  Remaining refinement work: dashboard surfacing, per-class
+  breakdown stability once enough samples accumulate.
 
 - **PR review source-of-truth alignment.** Premise 3 is now exercised
   on the active PDB / brief-engine path
@@ -484,7 +487,7 @@ reading; status is explicit rather than implied.
 | Distillation | Batched review-queue (#6288) `[shipped]`; PDB UI v0 (#6328) `[scaffolded]`; receipt summaries `[shipped]`; progressive disclosure (brief A/B/C densities) `[planned]` | Time-to-decision; brief-coverage-of-load-bearing-structure |
 | Informed consent / feedback | Settlement signals (#6297) `[shipped]`; `BriefReceipt` + `SettlementLinkage` (#6353) `[shipped]`; dissent preservation in receipts `[shipped]` | Signal-to-settlement rate; human-override outcome correlation |
 | Self-test on own codebase | Nomic loop `[shipped]`; self-develop CLI `[shipped]`; H1 dogfood wedge `[in progress]`; this review-queue rollout `[in progress]` | H1 exit criteria; dogfood session cadence |
-| Triage (premise 6) | Review-queue triage buckets (`ready_now`, `needs_attention`, `repairable`, `parked`) in review-queue CLI `[shipped]`; machine recommendation packets (#6279) `[shipped]`; `fire_and_forget` low-risk auto-handle path in `aragora/swarm/tranche_integrate.py` `[shipped]`; `admin_merge_allowed` green-CI path in `docs/STATUS.md` `[shipped]`; `merge_arbiter` human-settlement gate `[shipped]`; triage-drift metrics per commitment #5 `[planned]` | Escalation rate; auto-handle override rate; human-override-outcome correlation; time-per-settlement; drift per rolling window |
+| Triage (premise 6) | Review-queue triage buckets (`ready_now`, `needs_attention`, `repairable`, `parked`) in review-queue CLI `[shipped]`; machine recommendation packets (#6279) `[shipped]`; `fire_and_forget` low-risk auto-handle path in `aragora/swarm/tranche_integrate.py` with calibration + drift gating (#6468, #6448, gap #6372) `[shipped]`; `admin_merge_allowed` green-CI path in `aragora/ralph/supervisor.py` with same calibration layer `[shipped]`; `merge_arbiter` human-settlement gate `[shipped]`; rolling-window triage metrics per commitment #5 (#6440, gap #6373) `[shipped]` | Escalation rate; auto-handle override rate; human-override-outcome correlation; time-per-settlement; drift per rolling window |
 
 **The strongest proof point is that the product is being applied to
 itself.** The arc from problem statement → heterogeneous critique →
