@@ -25,6 +25,7 @@ concurrency:
 
 env:
   PYTHON_VERSION: '3.11'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   K6_DOCKER_IMAGE: grafana/k6:0.57.0
   K6_NO_USAGE_REPORT: "true"
   LOAD_HTTP_PORT: '18080'
