@@ -676,3 +676,26 @@ class TestSecretsManagerOnlyInvokerPath:
         assert captured["env"]["ANTHROPIC_API_KEY"] == "sm-anth"
         assert captured["env"]["OPENAI_API_KEY"] == "sm-openai"
         assert captured["env"]["GOOGLE_API_KEY"] == "sm-google"
+
+    def test_resolve_invoker_factory_maps_builder_error(self, monkeypatch):
+        """Missing provider config should surface as the handler's 503 factory error."""
+        self._clear_credential_env(monkeypatch)
+        calls: list[str] = []
+
+        def _fake_collect() -> dict[str, str]:
+            calls.append("collect")
+            return {}
+
+        def _fake_build(*, env: dict[str, str]):
+            calls.append("build")
+            assert env == {}
+            raise rqb.InvokerFactoryError("missing OPENAI_API_KEY")
+
+        monkeypatch.setattr(rqb, "_collect_provider_credentials", _fake_collect)
+        monkeypatch.setattr(rqb, "build_default_invoker", _fake_build)
+
+        factory = rqb._resolve_invoker_factory()
+
+        with pytest.raises(NotImplementedError, match="missing OPENAI_API_KEY"):
+            factory()
+        assert calls == ["collect", "build"]
