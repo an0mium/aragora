@@ -28,12 +28,12 @@ Important qualifier:
 - the newer `aragora/pdb/` execution path is shipping alongside it
 - so the canonical PR packet path is not yet fully upgraded to the thesis's heterogeneous-ensemble standard
 
-The current bounded queue is:
+The current bounded queue (updated 2026-04-25):
 
-1. close [#6374](https://github.com/synaptent/aragora/issues/6374) on the canonical PR-review path
-2. close [#6373](https://github.com/synaptent/aragora/issues/6373) with rolling-window triage metrics
-3. close [#6372](https://github.com/synaptent/aragora/issues/6372) with auto-handle calibration + drift gating
-4. close [#6375](https://github.com/synaptent/aragora/issues/6375) with empirical threshold grounding
+1. ~~close [#6374](https://github.com/synaptent/aragora/issues/6374) on the canonical PR-review path~~ — **CLOSED**
+2. ~~close [#6373](https://github.com/synaptent/aragora/issues/6373) with rolling-window triage metrics~~ — **CLOSED**
+3. ~~close [#6372](https://github.com/synaptent/aragora/issues/6372) with auto-handle calibration + drift gating~~ — **CLOSED**
+4. close [#6375](https://github.com/synaptent/aragora/issues/6375) with empirical threshold grounding — **OPEN, sole remaining H1 gap**
 
 For the full current-status narrative, use the canonical doc:
 

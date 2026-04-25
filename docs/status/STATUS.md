@@ -63,11 +63,11 @@ Readiness receipt: [2026-04-25-rc1-to-stable-receipt.md](2026-04-25-rc1-to-stabl
   - that active path invokes heterogeneous providers, preserves real dissent, and emits execution statuses distinct from `metadata_heuristic`
   - `aragora/swarm/pr_review_protocol.py` still declares `PROTOCOL_STATUS = "metadata_heuristic"` because it remains the schema/fallback default for packets constructed without execution
   - the remaining work is source-of-truth alignment: docs and any schema-only callers must treat the PDB path as canonical and the metadata-only packet as an explicit fallback
-- The thesis implementation-gap issues are now explicit and open:
-  - [#6372](https://github.com/synaptent/aragora/issues/6372) auto-handle calibration + drift gating `[shipped on this branch; close on merge]`
-  - [#6373](https://github.com/synaptent/aragora/issues/6373) rolling-window triage metrics
-  - [#6374](https://github.com/synaptent/aragora/issues/6374) now narrows to aligning the legacy schema/fallback labeling with the shipped heterogeneous PDB path
-  - [#6375](https://github.com/synaptent/aragora/issues/6375) empirical threshold grounding
+- The thesis implementation-gap issues — three of four CLOSED as of 2026-04-25:
+  - [#6372](https://github.com/synaptent/aragora/issues/6372) auto-handle calibration + drift gating — **CLOSED**
+  - [#6373](https://github.com/synaptent/aragora/issues/6373) rolling-window triage metrics — **CLOSED**
+  - [#6374](https://github.com/synaptent/aragora/issues/6374) source-of-truth alignment on PR-review path — **CLOSED**
+  - [#6375](https://github.com/synaptent/aragora/issues/6375) empirical threshold grounding — **OPEN** (sole remaining H1 gap)
 
 ### What Recently Landed On `main`
 
@@ -85,22 +85,20 @@ The April merge stream maps directly to the thesis and review-queue execution pa
 
 ### Current Frontier
 
-The frontier is now:
+The frontier is now (updated 2026-04-25 after #6372/#6373/#6374 closed):
 
-- **finish source-of-truth alignment on the PR-review path** — narrow [#6374](https://github.com/synaptent/aragora/issues/6374) to the remaining legacy-schema/fallback cleanup rather than the already-shipped heterogeneous execution path
-- **ship rolling-window triage metrics** — close [#6373](https://github.com/synaptent/aragora/issues/6373) so the triage layer is measured by outcomes, not daily counts only
-- **refine auto-handle calibration + invalidation sources** — build on [#6372](https://github.com/synaptent/aragora/issues/6372) now that the base calibration gate is implemented
-- **ground threshold claims empirically** — close [#6375](https://github.com/synaptent/aragora/issues/6375) after the metrics layer exists
+- **ground threshold claims empirically** — close [#6375](https://github.com/synaptent/aragora/issues/6375); this is the sole remaining H1 implementation gap. Per thesis Commitment 3, the 5% auto-handle invalidation cap must move from placeholder to a measured baseline + safety margin from accumulated settlement data.
 - **keep queue growth bounded** — continue the single-slice cadence in the PDB lane rather than opening large successor chains in parallel
+- **hold v2.9.0 release** — the v2.9.0 release PR (#6578) merged on 2026-04-25 but the git tag is intentionally held until #6375 closes, so the release surface reflects an honestly-validated H1.
 
 ### Canonical Execution Order
 
-The current bounded queue should be treated in this order:
+The current bounded queue (updated 2026-04-25):
 
-1. merge [#6448](https://github.com/synaptent/aragora/pull/6448) to close [#6372](https://github.com/synaptent/aragora/issues/6372) with calibration + drift gating for auto-handle paths
-2. close [#6375](https://github.com/synaptent/aragora/issues/6375) using the metrics and calibration substrates above
-3. narrow and then close [#6374](https://github.com/synaptent/aragora/issues/6374) as the remaining legacy-schema/fallback alignment work is completed
-4. keep refining [#6373](https://github.com/synaptent/aragora/issues/6373) from rolling-window metrics into outcome-linked reporting
+1. ~~merge [#6448](https://github.com/synaptent/aragora/pull/6448) to close [#6372](https://github.com/synaptent/aragora/issues/6372)~~ — **DONE**
+2. close [#6375](https://github.com/synaptent/aragora/issues/6375) using the metrics and calibration substrates above — **active work**
+3. ~~narrow and then close [#6374](https://github.com/synaptent/aragora/issues/6374)~~ — **DONE**
+4. ~~keep refining [#6373](https://github.com/synaptent/aragora/issues/6373) from rolling-window metrics~~ — **DONE** (rolling-window endpoint live)
 5. keep the agent-bridge lane scoped to bounded, observable increments rather than a parallel subsystem explosion
 
 ### Strategic Direction
@@ -109,9 +107,9 @@ The strategy document is now [docs/THESIS.md](../THESIS.md).
 The short version on April 21, 2026:
 
 - the project is executing on the thesis in real code, especially in the PDB lane
-- the most important remaining product gaps are metrics, calibration, and empirical grounding; the heterogeneous PR-review execution path itself is now shipped
+- three of four named H1 implementation gaps closed on 2026-04-25; only [#6375](https://github.com/synaptent/aragora/issues/6375) (empirical threshold grounding) remains open
 - human settlement remains the controlling boundary
-- the next wins come from truthful metrics, calibration, and bounded slice discipline rather than wider speculative expansion
+- the next wins come from closing #6375 (empirical baseline grounding for the 5% auto-handle invalidation cap) and from the bounded-slice discipline that produced the H1 closure burst
 
 ## March 2026 Sprint — Closed-Loop Backbone, Trust Wedge & Infrastructure
 
