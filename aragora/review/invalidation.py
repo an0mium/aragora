@@ -171,6 +171,15 @@ class InvalidatedDecision:
     was_auto_handled: bool
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "signals", tuple(self.signals))
+        object.__setattr__(self, "rationales", tuple(self.rationales))
+        if bool(self.was_human_settled) == bool(self.was_auto_handled):
+            raise ValueError(
+                "exactly one of was_human_settled or was_auto_handled must be true; "
+                f"saw was_human_settled={self.was_human_settled!r} "
+                f"and was_auto_handled={self.was_auto_handled!r} "
+                f"for {self.decision_id!r}"
+            )
         if len(self.signals) != len(self.rationales):
             raise ValueError(
                 "signals and rationales must be the same length; "
@@ -342,9 +351,10 @@ def classify_invalidation(
         settled_at: When the decision was settled (timezone-aware
             preferred; naive timestamps are coerced to UTC).
         was_human_settled: True when a human took the settlement
-            action. Mutually exclusive with ``was_auto_handled``.
+            action. Exactly one of this or ``was_auto_handled`` must be
+            true.
         was_auto_handled: True when the auto-handle lane handled it.
-            Mutually exclusive with ``was_human_settled``.
+            Exactly one of this or ``was_human_settled`` must be true.
         reverted_at: When the change was reverted, if it was. ``None``
             means no revert.
         incident_attributed: True when a post-merge incident was
@@ -359,13 +369,14 @@ def classify_invalidation(
             :data:`DEFAULT_REVERT_WINDOW_DAYS`.
 
     Raises:
-        ValueError: If ``was_human_settled`` and ``was_auto_handled``
-            are both True (a decision cannot be both).
+        ValueError: If the settlement source is ambiguous (both flags
+            true or both false).
     """
-    if was_human_settled and was_auto_handled:
+    if bool(was_human_settled) == bool(was_auto_handled):
         raise ValueError(
-            "decision cannot be both human-settled and auto-handled; "
-            f"saw was_human_settled=True and was_auto_handled=True for {decision_id!r}"
+            "decision must have exactly one settlement source: "
+            f"saw was_human_settled={was_human_settled!r} "
+            f"and was_auto_handled={was_auto_handled!r} for {decision_id!r}"
         )
     if revert_window_days <= 0:
         raise ValueError("revert_window_days must be positive")

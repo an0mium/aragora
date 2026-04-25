@@ -179,12 +179,23 @@ def test_classify_multiple_signals_preserved_in_order() -> None:
 
 
 def test_classify_rejects_both_human_and_auto() -> None:
-    with pytest.raises(ValueError, match="cannot be both"):
+    with pytest.raises(ValueError, match="exactly one settlement source"):
         classify_invalidation(
             decision_id="pr-6",
             settled_at=_settled(),
             was_human_settled=True,
             was_auto_handled=True,
+            reverted_at=_settled() + timedelta(days=1),
+        )
+
+
+def test_classify_rejects_neither_human_nor_auto() -> None:
+    with pytest.raises(ValueError, match="exactly one settlement source"):
+        classify_invalidation(
+            decision_id="pr-6b",
+            settled_at=_settled(),
+            was_human_settled=False,
+            was_auto_handled=False,
             reverted_at=_settled() + timedelta(days=1),
         )
 
@@ -247,6 +258,18 @@ def test_invalidated_decision_rejects_unknown_signal_at_construction() -> None:
             signals=("not_a_real_signal",),
             rationales=("anything",),
             was_human_settled=True,
+            was_auto_handled=False,
+        )
+
+
+def test_invalidated_decision_requires_exactly_one_settlement_source() -> None:
+    with pytest.raises(ValueError, match="exactly one"):
+        InvalidatedDecision(
+            decision_id="pr-x",
+            settled_at=datetime.now(UTC),
+            signals=(INVALIDATION_REVERT_WITHIN_WINDOW,),
+            rationales=("reverted",),
+            was_human_settled=False,
             was_auto_handled=False,
         )
 
