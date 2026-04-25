@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -150,11 +151,12 @@ def test_should_trigger_benchmark_rerun_waits_for_new_run_after_trigger() -> Non
 
 
 def test_should_trigger_benchmark_rerun_when_truth_state_drift_detected() -> None:
+    fresh_created_at = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
     trigger, reason = mod.should_trigger_benchmark_rerun(
         benchmark_mode="hybrid",
         latest_run={
             "databaseId": 123,
-            "createdAt": "2026-04-18T00:00:00Z",
+            "createdAt": fresh_created_at,
             "status": "completed",
             "conclusion": "success",
         },
@@ -205,17 +207,6 @@ def test_has_open_benchmark_publication_pr_matches_branch_namespace() -> None:
             {"headRefName": "feature/manual"},
         ]
     )
-
-
-def test_count_automation_backlog_ignores_draft_prs() -> None:
-    prs = [
-        {"headRefName": "codex/draft", "isDraft": True},
-        {"headRefName": "codex/ready", "isDraft": False},
-        {"headRefName": "feature/manual", "isDraft": False},
-    ]
-
-    assert mod.count_automation_backlog(prs) == 1
-    assert mod.actionable_open_prs(prs) == prs[1:]
 
 
 def test_count_automation_backlog_ignores_draft_prs() -> None:
