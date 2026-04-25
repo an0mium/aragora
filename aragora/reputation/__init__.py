@@ -2,10 +2,10 @@
 
 This package is the in-memory Python layer of the AGT-05 spec in
 ``docs/plans/SKIN_IN_THE_GAME_REPUTATION.md``. It unifies the AGT-04
-synthetic-market resolution stream and (in a later PR) the AGT-01
-CruxSet resolution stream into a single shape — :class:`StakeableClaim`
-plus :class:`ResolvedClaim` — from which :func:`settle_claim` computes
-a :class:`ReputationDelta` using a proper scoring rule.
+synthetic-market resolution stream and the AGT-01 CruxSet resolution
+stream into a single shape — :class:`StakeableClaim` plus
+:class:`ResolvedClaim` — from which :func:`settle_claim` computes a
+:class:`ReputationDelta` using a proper scoring rule.
 
 The on-chain anchoring via
 :class:`aragora.blockchain.contracts.reputation.ReputationRegistry`
@@ -29,6 +29,11 @@ from aragora.reputation.anchor import (
     enable_anchoring,
 )
 from aragora.reputation.bridge import bridge_from_market_position
+from aragora.reputation.crux_bridge import (
+    CruxPositionRecord,
+    CruxResolutionEvent,
+    bridge_from_crux_position,
+)
 from aragora.reputation.settlement import settle_claim
 from aragora.reputation.store import (
     AgentScore,
@@ -62,6 +67,9 @@ __all__ = [
     "anchor_delta",
     "anchoring_enabled",
     "bridge_from_market_position",
+    "CruxPositionRecord",
+    "CruxResolutionEvent",
+    "bridge_from_crux_position",
     "delta_to_feedback_args",
     "enable_anchoring",
     "enable_reputation_flow",
