@@ -372,6 +372,36 @@ def is_patch_equivalent(root: Path, base: str, branch: str) -> bool:
     return bool(statuses) and all(status == "-" for status in statuses)
 
 
+def branch_patch_id(root: Path, base: str, branch: str) -> str | None:
+    """Return a stable patch-id for a branch diff against base, if available."""
+
+    diff_proc = run_git(["diff", f"{base}...{branch}"], root, timeout=120)
+    if diff_proc.returncode != 0 or not diff_proc.stdout.strip():
+        return None
+    proc = subprocess.run(
+        ["git", "patch-id", "--stable"],
+        cwd=root,
+        text=True,
+        input=diff_proc.stdout,
+        capture_output=True,
+        check=False,
+        timeout=120,
+    )
+    if proc.returncode != 0:
+        return None
+    first_line = next((line for line in proc.stdout.splitlines() if line.strip()), "")
+    return first_line.split(" ", 1)[0] or None
+
+
+def branch_patch_ids(root: Path, base: str, branches: set[str]) -> set[str]:
+    patch_ids: set[str] = set()
+    for branch in sorted(branches):
+        patch_id = branch_patch_id(root, base, branch)
+        if patch_id:
+            patch_ids.add(patch_id)
+    return patch_ids
+
+
 def classify(
     *,
     open_pr: int | None,
@@ -443,6 +473,16 @@ def audit(
         outbox_dir=resolved_outbox_dir,
         receipt_dir=resolved_receipt_dir,
     )
+    handoff_receipted_patch_ids = (
+        branch_patch_ids(root, base, handoff_receipted_branches)
+        if include_patch_equivalence
+        else set()
+    )
+    handoff_outbox_patch_ids = (
+        branch_patch_ids(root, base, handoff_outbox_branches)
+        if include_patch_equivalence
+        else set()
+    )
 
     records: list[BranchRecord] = []
     for row in rows:
@@ -457,11 +497,18 @@ def audit(
             ahead_count = count_ahead(root, base, branch)
         merged_to_base = branch in merged_branches
         patch_equivalent = False
+        patch_id = None
         if include_patch_equivalence and ahead_count > 0 and not merged_to_base:
             patch_equivalent = is_patch_equivalent(root, base, branch)
+            if not patch_equivalent:
+                patch_id = branch_patch_id(root, base, branch)
         remote_exists = branch in remotes
-        handoff_receipted = branch in handoff_receipted_branches
-        handoff_outbox = branch in handoff_outbox_branches
+        handoff_receipted = branch in handoff_receipted_branches or (
+            patch_id is not None and patch_id in handoff_receipted_patch_ids
+        )
+        handoff_outbox = branch in handoff_outbox_branches or (
+            patch_id is not None and patch_id in handoff_outbox_patch_ids
+        )
         category = classify(
             open_pr=prs.get(branch),
             active_paths=active_paths,
