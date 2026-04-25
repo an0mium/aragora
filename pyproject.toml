@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aragora-debate"
-version = "2.8.0"
+version = "2.9.0"
 description = "Standalone adversarial debate package for offline and mock-agent deliberation"
 readme = {text = "# Aragora Debate\n\nA standalone Python package for running bounded multi-agent debates with mock or real agents. The published default surface is intentionally small: `Environment`, `DebateProtocol`, and `Arena`.", content-type = "text/markdown"}
 license = "MIT"

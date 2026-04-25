@@ -556,8 +556,9 @@ class TestMigrationRunnerIntegration:
         # Tables should exist
         assert backend.table_exists("agent_performance")
 
-        # Rollback several steps
-        runner.rollback_steps(steps=5)
+        # Roll back through the "new migrations" block without depending on
+        # how many later migrations have been added since this test was written.
+        runner.downgrade(target_version=20260201000000)
 
         # Tables should be gone
         assert not backend.table_exists("agent_performance")

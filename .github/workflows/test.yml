@@ -567,49 +567,260 @@ jobs:
             --selector-status "${SELECTOR_STATUS}" \
             --changed-python-count "${CHANGED_PYTHON_COUNT}"
 
-  # Fast parallel tests by category (Ubuntu only, primary Python)
-  test-fast:
+  # ==========================================================================
+  # test-shard-scope (NEW): classify which test-fast shards must run for this
+  # change. Heavy shards (debate, server-handlers, handlers) skip when no
+  # relevant code/test paths changed; their job still reports success so the
+  # `needs: test-fast` downstream gates remain satisfied.
+  #
+  # Triggered always on push/schedule; scope-filtered only on pull_request.
+  # The `core` filter, when matched, forces ALL shards to run (covers
+  # workflow/script/dependency/version edits that touch the whole repo).
+  # ==========================================================================
+  test-shard-scope:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: Classify test-fast Shard Scope
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ matrix.category.timeout }}
-    needs: baseline-determinism
-    strategy:
-      fail-fast: false
-      matrix:
-        category:
-          - name: agents
-            path: tests/agents
-            timeout: 30
-          - name: debate
-            path: tests/debate
-            timeout: 30
-          - name: reasoning
-            path: tests/rlm tests/reasoning
-            timeout: 30
-          - name: workflow-client
-            path: tests/workflow tests/client
-            timeout: 30
-          - name: server
-            path: tests/server
-            timeout: 30
-          - name: handlers
-            path: tests/handlers
-            timeout: 30
-          - name: knowledge
-            path: tests/knowledge tests/evidence tests/memory
-            timeout: 30
-          - name: storage
-            path: tests/storage tests/ranking tests/persistence tests/billing
-            timeout: 30
-          - name: infra
-            path: tests/nomic tests/control_plane tests/rbac tests/events tests/observability tests/compliance tests/gauntlet tests/cli
-            timeout: 30
-
+    timeout-minutes: 3
+    outputs:
+      scopes_changed: ${{ steps.filter.outputs.changes }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect scopes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            core:
+              - 'pyproject.toml'
+              - 'requirements*.txt'
+              - 'scripts/ci_install_project.sh'
+              - '.github/workflows/test.yml'
+              - '.github/actions/setup-python-safe/**'
+              - 'aragora/__init__.py'
+              - 'aragora/__version__.py'
+              - 'aragora/_version.py'
+              - 'aragora/core.py'
+              - 'aragora/config/**'
+              - 'aragora/protocols/**'
+              - 'tests/conftest.py'
+              - 'conftest.py'
+            agents:
+              - 'aragora/agents/**'
+              - 'tests/agents/**'
+            debate:
+              - 'aragora/debate/**'
+              - 'tests/debate/**'
+              - 'aragora/agents/**'
+              - 'aragora/memory/**'
+              - 'aragora/reasoning/**'
+            reasoning:
+              - 'aragora/rlm/**'
+              - 'aragora/reasoning/**'
+              - 'tests/rlm/**'
+              - 'tests/reasoning/**'
+            workflow_client:
+              - 'aragora/workflow/**'
+              - 'aragora/client/**'
+              - 'tests/workflow/**'
+              - 'tests/client/**'
+            server_handlers:
+              - 'aragora/server/handlers/**'
+              - 'tests/server/handlers/**'
+              - 'aragora/server/handler_registry/**'
+              - 'aragora/server/openapi/**'
+              - 'aragora/server/openapi_impl.py'
+            server_rest:
+              - 'aragora/server/**'
+              - 'tests/server/**'
+            handlers:
+              - 'aragora/server/handlers/**'
+              - 'tests/handlers/**'
+              - 'aragora/control_plane/**'
+            knowledge:
+              - 'aragora/knowledge/**'
+              - 'aragora/memory/**'
+              - 'aragora/evidence/**'
+              - 'tests/knowledge/**'
+              - 'tests/evidence/**'
+              - 'tests/memory/**'
+            storage:
+              - 'aragora/storage/**'
+              - 'aragora/persistence/**'
+              - 'aragora/billing/**'
+              - 'aragora/ranking/**'
+              - 'tests/storage/**'
+              - 'tests/persistence/**'
+              - 'tests/billing/**'
+              - 'tests/ranking/**'
+            infra:
+              - 'aragora/nomic/**'
+              - 'aragora/control_plane/**'
+              - 'aragora/rbac/**'
+              - 'aragora/events/**'
+              - 'aragora/observability/**'
+              - 'aragora/compliance/**'
+              - 'aragora/gauntlet/**'
+              - 'aragora/cli/**'
+              - 'tests/nomic/**'
+              - 'tests/control_plane/**'
+              - 'tests/rbac/**'
+              - 'tests/events/**'
+              - 'tests/observability/**'
+              - 'tests/compliance/**'
+              - 'tests/gauntlet/**'
+              - 'tests/cli/**'
+
+      - name: Report scopes
+        run: |
+          echo "Scopes changed: ${{ steps.filter.outputs.changes }}"
+
+  # ==========================================================================
+  # Fast parallel tests by category (Ubuntu only, primary Python)
+  #
+  # Sub-sharding history:
+  #   2026-04-25: Heavy shards split to fit within 30-min runner cap.
+  #     - debate (1 shard, 30+ min) -> debate-am, debate-nz, debate-phases
+  #     - server (1 shard, 23 min)  -> server-handlers-am, server-handlers-nz, server-rest
+  #     - handlers (1 shard, 26 min) -> handlers-features, handlers-amk-no-features, handlers-lz
+  #   Path-filter (test-shard-scope) added: PRs touching only docs/CI/integration
+  #     tests skip irrelevant heavy shards entirely.
+  # ==========================================================================
+  test-fast:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.category.timeout }}
+    needs: [baseline-determinism, test-shard-scope]
+    strategy:
+      fail-fast: false
+      matrix:
+        category:
+          # Light shards (unchanged from prior 9-shard layout)
+          - name: agents
+            pytest_args: tests/agents
+            scope: agents
+            timeout: 30
+          - name: reasoning
+            pytest_args: tests/rlm tests/reasoning
+            scope: reasoning
+            timeout: 30
+          - name: workflow-client
+            pytest_args: tests/workflow tests/client
+            scope: workflow_client
+            timeout: 30
+          - name: knowledge
+            pytest_args: tests/knowledge tests/evidence tests/memory
+            scope: knowledge
+            timeout: 30
+          - name: storage
+            pytest_args: tests/storage tests/ranking tests/persistence tests/billing
+            scope: storage
+            timeout: 30
+          - name: infra
+            pytest_args: tests/nomic tests/control_plane tests/rbac tests/events tests/observability tests/compliance tests/gauntlet tests/cli
+            scope: infra
+            timeout: 30
+
+          # debate (was 1 shard hitting 30-min cap, now 3 sub-shards by alphabet)
+          # Top-level debate test files a-m (~5500 tests)
+          - name: debate-am
+            pytest_args: ""
+            resolver: debate-am
+            scope: debate
+            timeout: 30
+          # Top-level debate test files n-z (~5600 tests)
+          - name: debate-nz
+            pytest_args: ""
+            resolver: debate-nz
+            scope: debate
+            timeout: 30
+          # Subdirectories under tests/debate/ (~3000 tests)
+          - name: debate-phases
+            pytest_args: ""
+            resolver: debate-phases
+            scope: debate
+            timeout: 30
+
+          # server (was 1 shard at 23 min, now 3 sub-shards)
+          # tests/server/handlers/ a-m subdirs + files (~16K tests)
+          - name: server-handlers-am
+            pytest_args: ""
+            resolver: server-handlers-am
+            scope: server_handlers
+            timeout: 30
+          # tests/server/handlers/ n-z subdirs + files (~8K tests)
+          - name: server-handlers-nz
+            pytest_args: ""
+            resolver: server-handlers-nz
+            scope: server_handlers
+            timeout: 30
+          # tests/server/ minus tests/server/handlers/ (~7500 tests)
+          - name: server-rest
+            pytest_args: ""
+            resolver: server-rest
+            scope: server_rest
+            timeout: 30
+
+          # handlers (was 1 shard at 26 min, now 3 sub-shards)
+          # tests/handlers/features/ alone (~7700 tests, biggest single subdir)
+          - name: handlers-features
+            pytest_args: ""
+            resolver: handlers-features
+            scope: handlers
+            timeout: 30
+          # tests/handlers/ A-K subdirs (incl. underscore-prefixed) + A-K files,
+          # excluding ``features``. Mutually-exclusive with handlers-lz.
+          - name: handlers-amk-no-features
+            pytest_args: ""
+            resolver: handlers-amk-no-features
+            scope: handlers
+            timeout: 30
+          # tests/handlers/ L-Z subdirs + L-Z files. Mutually-exclusive with
+          # handlers-amk-no-features. See scripts/ci_resolve_test_shard.py.
+          - name: handlers-lz
+            pytest_args: ""
+            resolver: handlers-lz
+            scope: handlers
+            timeout: 30
+
+    steps:
+      - name: Resolve shard relevance
+        id: relevance
+        shell: bash
+        env:
+          SCOPES: ${{ needs.test-shard-scope.outputs.scopes_changed }}
+          MY_SCOPE: ${{ matrix.category.scope }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # Always run on push/schedule/dispatch (non-PR)
+          if [[ "$EVENT" != "pull_request" ]]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Reason: not a pull_request"
+            exit 0
+          fi
+          # If 'core' (workflow/dependency/version) changed, all shards run
+          if echo "$SCOPES" | grep -q '"core"'; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Reason: core scope matched (deps/workflow/version)"
+            exit 0
+          fi
+          # If our scope matched, run
+          if echo "$SCOPES" | grep -q "\"$MY_SCOPE\""; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Reason: scope '$MY_SCOPE' matched"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Shard ${{ matrix.category.name }} skipped (scope '$MY_SCOPE' not in changes: $SCOPES)"
+          fi
+
+      - name: Checkout
+        if: steps.relevance.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
       - name: Verify checkout integrity
+        if: steps.relevance.outputs.should_run == 'true'
         shell: bash
         run: |
           if [[ ! -f pyproject.toml ]]; then
@@ -632,6 +843,7 @@ jobs:
           fi
 
       - name: Set up Python
+        if: steps.relevance.outputs.should_run == 'true'
         uses: ./.github/actions/setup-python-safe
         with:
           python-version: "3.11"
@@ -639,14 +851,37 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
+        if: steps.relevance.outputs.should_run == 'true'
         run: |
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras test
           python -m pip install pytest-timeout pytest-xdist
 
-      - name: Run ${{ matrix.category.name }} tests
+      - name: Resolve shard test paths
+        id: shard_paths
+        if: steps.relevance.outputs.should_run == 'true'
+        shell: bash
+        env:
+          RESOLVER: ${{ matrix.category.resolver }}
+          INLINE_ARGS: ${{ matrix.category.pytest_args }}
         run: |
-          pytest ${{ matrix.category.path }} \
+          # Light shards encode their paths inline via pytest_args. Heavy
+          # shards delegate to scripts/ci_resolve_test_shard.py so the
+          # alphabetic partitioning lives in versioned Python rather than
+          # 5KB of fragile YAML --ignore-glob soup. See script header for
+          # rationale.
+          if [[ -n "$RESOLVER" ]]; then
+            args=$(python3 scripts/ci_resolve_test_shard.py "$RESOLVER" --check)
+          else
+            args="$INLINE_ARGS"
+          fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+          echo "Resolved pytest args: $args"
+
+      - name: Run ${{ matrix.category.name }} tests
+        if: steps.relevance.outputs.should_run == 'true'
+        run: |
+          pytest ${{ steps.shard_paths.outputs.args }} \
             -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
             --timeout=120 \
             -n auto \
@@ -657,6 +892,11 @@ jobs:
             --durations-min=1.0
         env:
           PYTHONPATH: .:aragora-debate/src
+
+      - name: Mark shard as skipped (no-op success)
+        if: steps.relevance.outputs.should_run != 'true'
+        run: |
+          echo "::notice::Shard ${{ matrix.category.name }} skipped: scope '${{ matrix.category.scope }}' not in changed scopes"
 
   epistemic-settlement-gate:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft

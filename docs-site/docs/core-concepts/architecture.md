@@ -5,7 +5,9 @@ description: Aragora Architecture
 
 # Aragora Architecture
 
-> **Last Updated:** 2026-01-21
+> **Last Updated:** 2026-04-24
+>
+> **Scope:** This document is a hand-curated overview of the **core debate-engine subsystems** (agents, debate, reasoning, verification, memory, evolution, connectors, server, RLM, ops, persistence) — about 13 of the ~169 packages in `aragora/`. For the **full module index** (every package, with one-line descriptions), see [`CLAUDE.md`](../contributing/claude). For per-track deep dives, see the other documents in `docs/architecture/`.
 
 
 This document describes the high-level architecture of Aragora, the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels. The multi-agent debate system is the engine that powers adversarial validation and decision assurance.
@@ -88,12 +90,12 @@ aragora/
 ├── agents/                 # Agent implementations
 │   ├── base.py            # Abstract Agent class
 │   ├── cli_agents.py      # CLI tool wrappers (Claude, Codex, etc.)
-│   ├── api_agents.py      # API-based agents (Anthropic, OpenAI, etc.)
+│   ├── api_agents/        # API-based agents (Anthropic, OpenAI, Mistral, Grok, OpenRouter)
 │   ├── fallback.py        # QuotaFallbackMixin for provider failover
 │   ├── streaming.py       # StreamingMixin for SSE parsing
-│   ├── personas.py        # PersonaManager for agent traits
+│   ├── personas/          # PersonaManager for agent traits
 │   ├── laboratory.py      # PersonaLaboratory for A/B testing
-│   ├── prober.py          # CapabilityProber for quality assurance
+│   ├── calibration.py     # CalibrationTracker for prediction-accuracy scoring
 │   ├── grounded.py        # GroundedPersona (truth-based personas)
 │   ├── relationships.py   # RelationshipTracker (agent relationships)
 │   └── positions.py       # PositionTracker (position history)
@@ -177,13 +179,13 @@ aragora/
 │   └── public/            # Static assets
 │
 ├── server/                 # WebSocket/HTTP server
-│   ├── unified_server.py  # Unified server (3,000+ API operations)
+│   ├── unified_server.py  # Unified server (3,100+ API operations across 2,900+ paths)
 │   ├── handlers/          # Request handlers by domain
 │   │   ├── base.py        # BaseHandler, ttl_cache decorator
 │   │   ├── debates.py     # Debate CRUD and exports
 │   │   ├── agents.py      # Agent profiles and rankings
 │   │   ├── analytics.py   # System analytics
-│   │   └── ...            # 41 handler modules
+│   │   └── ...            # 700+ handler modules across handler_registry/
 │   └── stream/            # Streaming infrastructure (refactored)
 │       ├── servers.py     # WebSocket server classes
 │       ├── broadcaster.py # Event broadcasting
@@ -753,7 +755,10 @@ Critical operations use explicit transactions:
 
 - **Debate latency**: 2-5 seconds per round (depends on agent response time)
 - **Memory tiers**: Fast (1min TTL), Medium (1hr), Slow (1day), Glacial (1week)
-- **Test coverage**: 38,000+ test functions across 1,100+ test files
+- **Test coverage**: 210,000+ tests across 5,000+ test files
 - **Type safety**: 250+ modules in strict mypy mode
-- **Source LOC**: 495,713 lines across 1,203 modules
-- **Storage tests**: 468 tests covering all backends
+- **Source modules**: 3,800+ Python modules
+- **Storage tests**: 4,300+ tests across all backends including KM (Phase A2)
+- **API surface**: 3,100+ API operations across 2,900+ paths
+- **SDK breadth**: 185 Python / 183 TypeScript SDK namespaces
+- **KM adapters**: 42 registered adapters (see `aragora/knowledge/mound/adapters/`)

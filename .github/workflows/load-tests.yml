@@ -17,7 +17,7 @@ on:
       api_url:
         description: 'API URL to test'
         required: false
-        default: 'http://localhost:8080'
+        default: 'http://localhost:18080'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,6 +25,15 @@ concurrency:
 
 env:
   PYTHON_VERSION: '3.11'
+  K6_DOCKER_IMAGE: grafana/k6:0.57.0
+  K6_NO_USAGE_REPORT: "true"
+  LOAD_HTTP_PORT: '18080'
+  LOAD_WS_PORT: '18765'
+  LOAD_CONTROL_PLANE_PORT: '18766'
+  LOAD_NOMIC_LOOP_PORT: '18767'
+  LOAD_CANVAS_PORT: '18768'
+  LOAD_METRICS_PORT: '19090'
+  LOAD_WS_SUBPROTOCOL: aragora-v1
 
 # Permissions needed for AWS OIDC
 permissions:
@@ -35,7 +44,20 @@ jobs:
   load-test:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Load Test Suite
-    runs-on: ubuntu-latest
+    # Runs on the subset of `aragora`-labeled self-hosted runners that have
+    # Docker provisioned. The `docker-ready` custom label is added to a
+    # runner ONLY after the SSM Docker install dance has completed and
+    # `sudo -u ec2-user docker ps` succeeds (see
+    # docs/operations/SELF_HOSTED_RUNNER_DOCKER.md).
+    #
+    # As of 2026-04-24, exactly ONE runner has the `docker-ready` label:
+    #   - i-0aae2ccd2f68b94d2 (ip-172-31-24-39, runner ID 26)
+    #
+    # As more runners are provisioned (see follow-up: bake Docker into the
+    # AMI), the label is added via:
+    #   gh api -X POST /repos/synaptent/aragora/actions/runners/<id>/labels \
+    #     -f 'labels[]=docker-ready'
+    runs-on: [self-hosted, Linux, X64, aragora, docker-ready]
     timeout-minutes: 30
 
     services:
@@ -50,6 +72,14 @@ jobs:
           --health-retries 5
 
     steps:
+      - name: Pre-clean persistent workspace
+        shell: bash
+        run: |
+          # Self-hosted runners reuse workspaces across jobs. Remove any
+          # leftover files before checkout so generated status docs or test
+          # artifacts from a prior run cannot block actions/checkout.
+          find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -80,18 +110,106 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install k6
+      - name: Verify Docker and k6 image
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update
-          sudo apt-get install k6
+          docker version
+          docker info
+          docker pull "$K6_DOCKER_IMAGE"
+          docker run --rm -e HOME=/tmp -e K6_NO_USAGE_REPORT "$K6_DOCKER_IMAGE" version
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras dev,redis,test
+
+      - name: Clear stale load-test ports
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v ss >/dev/null 2>&1; then
+            echo "::error::ss is required to inspect stale listener ports on self-hosted runners"
+            exit 1
+          fi
+
+          ports=(
+            "$LOAD_HTTP_PORT"
+            "$LOAD_WS_PORT"
+            "$LOAD_CONTROL_PLANE_PORT"
+            "$LOAD_NOMIC_LOOP_PORT"
+            "$LOAD_CANVAS_PORT"
+            "$LOAD_METRICS_PORT"
+          )
+          declare -A stale_pids=()
+
+          for port in "${ports[@]}"; do
+            mapfile -t pids < <(
+              ss -H -ltnp "sport = :$port" 2>/dev/null \
+                | sed -nE 's/.*pid=([0-9]+).*/\1/p' \
+                | sort -u
+            )
+
+            for pid in "${pids[@]}"; do
+              [[ -z "$pid" ]] && continue
+              cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)
+              if [[ "$cmdline" != *aragora* ]]; then
+                echo "::error::Port $port is held by non-Aragora process $pid: $cmdline"
+                exit 1
+              fi
+
+              stale_pids["$pid"]="$cmdline"
+            done
+          done
+
+          for pid in "${!stale_pids[@]}"; do
+            echo "::warning::Stopping stale Aragora process $pid: ${stale_pids[$pid]}"
+            kill -TERM "$pid" || true
+          done
+
+          for _ in {1..10}; do
+            occupied=false
+            for port in "${ports[@]}"; do
+              if ss -H -ltn "sport = :$port" | grep -q .; then
+                occupied=true
+                break
+              fi
+            done
+            [[ "$occupied" == false ]] && break
+            sleep 1
+          done
+
+          declare -A stubborn_pids=()
+          for port in "${ports[@]}"; do
+            mapfile -t pids < <(
+              ss -H -ltnp "sport = :$port" 2>/dev/null \
+                | sed -nE 's/.*pid=([0-9]+).*/\1/p' \
+                | sort -u
+            )
+            for pid in "${pids[@]}"; do
+              [[ -z "$pid" ]] && continue
+              cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)
+              if [[ "$cmdline" != *aragora* ]]; then
+                echo "::error::Port $port is still held by non-Aragora process $pid: $cmdline"
+                ss -H -ltnp "sport = :$port" || true
+                exit 1
+              fi
+              stubborn_pids["$pid"]="$cmdline"
+            done
+          done
+
+          for pid in "${!stubborn_pids[@]}"; do
+            echo "::warning::Force-stopping stale Aragora process $pid: ${stubborn_pids[$pid]}"
+            kill -KILL "$pid" || true
+          done
+
+          sleep 1
+          for port in "${ports[@]}"; do
+            if ss -H -ltnp "sport = :$port" | grep -q .; then
+              echo "::error::Port $port is still occupied after TERM/KILL cleanup"
+              ss -H -ltnp "sport = :$port" || true
+              exit 1
+            fi
+          done
 
       - name: Configure AWS credentials
         id: aws-creds
@@ -149,18 +267,29 @@ jobs:
           echo "Database files created:"
           ls -la "$ARAGORA_DATA_DIR" || true
 
-          # Start server with rate limiting disabled (all load test requests come from localhost)
-          ARAGORA_DISABLE_ALL_RATE_LIMITS=1 ARAGORA_DATA_DIR="$ARAGORA_DATA_DIR" python -m aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
+          # Start server on isolated load-test ports so resident runner
+          # services on 8080/8765/9090 cannot interfere.
+          ARAGORA_RATE_LIMIT=100000 ARAGORA_IP_RATE_LIMIT=100000 ARAGORA_BURST_MULTIPLIER=10 ARAGORA_DISABLE_ALL_RATE_LIMITS=1 ARAGORA_DATA_DIR="$ARAGORA_DATA_DIR" METRICS_PORT="$LOAD_METRICS_PORT" python -m aragora serve --api-port "$LOAD_HTTP_PORT" --ws-port "$LOAD_WS_PORT" --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
 
           # Give server time to fully initialize
           sleep 10
+          if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo "Server exited during startup. Server logs:"
+            cat /tmp/aragora-server.log
+            exit 1
+          fi
 
           # Wait for server to be healthy (increased timeout for CI)
           # Use /healthz (liveness probe) instead of /api/health (requires auth)
           for i in {1..60}; do
-            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "Server exited while waiting for health. Server logs:"
+              cat /tmp/aragora-server.log
+              exit 1
+            fi
+            if curl -fsS "http://127.0.0.1:${LOAD_HTTP_PORT}/healthz" >/dev/null 2>&1; then
               echo "Server is healthy"
               break
             fi
@@ -176,8 +305,13 @@ jobs:
 
           # Final health check with better error output
           # Use /healthz (liveness probe) instead of /api/health (requires auth)
-          if ! curl -fsS http://127.0.0.1:8080/healthz; then
+          if ! curl -fsS "http://127.0.0.1:${LOAD_HTTP_PORT}/healthz"; then
             echo "Health check failed. Server logs:"
+            cat /tmp/aragora-server.log
+            exit 1
+          fi
+          if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo "Server exited after health check. Server logs:"
             cat /tmp/aragora-server.log
             exit 1
           fi
@@ -186,16 +320,21 @@ jobs:
           # These endpoints are used by the load test scripts
           echo "Waiting for critical endpoints to be ready..."
           for i in {1..30}; do
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "Server exited while waiting for endpoints. Server logs:"
+              cat /tmp/aragora-server.log
+              exit 1
+            fi
             READY=true
 
             # Check leaderboard-view - verify endpoint returns valid JSON
-            LEADERBOARD_RESP=$(curl -s http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10)
+            LEADERBOARD_RESP=$(curl -s "http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/leaderboard-view?limit=10")
             if ! echo "$LEADERBOARD_RESP" | jq -e 'type' >/dev/null 2>&1; then
               READY=false
             fi
 
             # Check agents list - verify endpoint returns valid JSON
-            AGENTS_RESP=$(curl -s http://127.0.0.1:8080/api/v1/agents)
+            AGENTS_RESP=$(curl -s "http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/agents")
             if ! echo "$AGENTS_RESP" | jq -e 'type' >/dev/null 2>&1; then
               READY=false
             fi
@@ -211,17 +350,17 @@ jobs:
 
           # Log endpoint status for debugging
           echo "=== Endpoint status ==="
-          echo "Healthz: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/healthz)"
-          echo "Leaderboard: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10)"
-          echo "Agents: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/agents)"
-          echo "Debates: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/debates?limit=10)"
+          echo "Healthz: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${LOAD_HTTP_PORT}/healthz)"
+          echo "Leaderboard: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/leaderboard-view?limit=10)"
+          echo "Agents: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/agents)"
+          echo "Debates: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/debates?limit=10)"
 
           # Warm-up requests to prime caches before k6 tests
           echo "=== Warm-up requests ==="
           for i in {1..5}; do
-            curl -s http://127.0.0.1:8080/api/v1/agents >/dev/null
-            curl -s http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10 >/dev/null
-            curl -s http://127.0.0.1:8080/api/v1/debates?limit=10 >/dev/null
+            curl -s "http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/agents" >/dev/null
+            curl -s "http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/leaderboard-view?limit=10" >/dev/null
+            curl -s "http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/debates?limit=10" >/dev/null
           done
           echo "Warm-up complete"
           echo "=== End status ==="
@@ -229,36 +368,67 @@ jobs:
           ARAGORA_REDIS_URL: redis://localhost:6379/0
           # Disable rate limiting for load tests - all requests come from same IP (localhost)
           ARAGORA_ENABLE_REDIS_RATE_LIMIT: "0"
+          ARAGORA_RATE_LIMIT: "100000"
+          ARAGORA_IP_RATE_LIMIT: "100000"
+          ARAGORA_BURST_MULTIPLIER: "10"
+          ARAGORA_CONTROL_PLANE_WS_PORT: ${{ env.LOAD_CONTROL_PLANE_PORT }}
+          ARAGORA_NOMIC_LOOP_WS_PORT: ${{ env.LOAD_NOMIC_LOOP_PORT }}
+          ARAGORA_CANVAS_WS_PORT: ${{ env.LOAD_CANVAS_PORT }}
+          METRICS_ENABLED: "false"
+          METRICS_PORT: ${{ env.LOAD_METRICS_PORT }}
           # Disable ALL rate limiters (both Redis and local in-memory) for load tests
           ARAGORA_DISABLE_ALL_RATE_LIMITS: "1"
           # AI provider keys are set via GITHUB_ENV in "Fetch AI provider credentials" step
 
       - name: Run API load tests
         run: |
-          k6 run tests/load/api_load.js \
+          docker run --rm --network host \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD:/work" \
+            -w /work \
+            -e HOME=/tmp \
+            -e K6_NO_USAGE_REPORT \
+            -e API_URL \
+            "$K6_DOCKER_IMAGE" run tests/load/api_load.js \
             --vus ${{ github.event.inputs.concurrent_users || '50' }} \
             --duration ${{ github.event.inputs.duration || '60s' }} \
             --out json=load-results.json \
             --summary-export=load-summary.json
         env:
-          API_URL: ${{ github.event.inputs.api_url || 'http://localhost:8080' }}
+          API_URL: ${{ github.event.inputs.api_url || format('http://localhost:{0}', env.LOAD_HTTP_PORT) }}
 
       - name: Run WebSocket burst test
         run: |
-          k6 run tests/load/websocket_burst.js \
+          docker run --rm --network host \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD:/work" \
+            -w /work \
+            -e HOME=/tmp \
+            -e K6_NO_USAGE_REPORT \
+            -e WS_URL \
+            -e WS_SUBPROTOCOL \
+            "$K6_DOCKER_IMAGE" run tests/load/websocket_burst.js \
             --vus 100 \
             --duration 30s \
             --out json=ws-results.json
         env:
-          WS_URL: ws://localhost:8765
+          WS_URL: ${{ format('ws://localhost:{0}', env.LOAD_WS_PORT) }}
+          WS_SUBPROTOCOL: ${{ env.LOAD_WS_SUBPROTOCOL }}
 
       - name: Run rate limit validation
         run: |
-          k6 run tests/load/rate_limit_test.js \
+          docker run --rm --network host \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD:/work" \
+            -w /work \
+            -e HOME=/tmp \
+            -e K6_NO_USAGE_REPORT \
+            -e API_URL \
+            "$K6_DOCKER_IMAGE" run tests/load/rate_limit_test.js \
             --vus 10 \
             --duration 30s
         env:
-          API_URL: http://localhost:8080
+          API_URL: ${{ format('http://localhost:{0}', env.LOAD_HTTP_PORT) }}
 
       - name: Check SLO thresholds
         id: slo_check
@@ -421,7 +591,8 @@ jobs:
   memory-stress:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Memory Stress Test
-    # Match load-test runner choice above.
+    # This job does not need Docker or VPC access, so keep it on GitHub-hosted
+    # Linux instead of consuming the narrow docker-ready runner pool.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: load-test
@@ -460,26 +631,60 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,redis]"
+          bash scripts/ci_install_project.sh --extras dev,redis,test
           python -m pip install memory_profiler psutil
 
       - name: Start server with memory monitoring
         run: |
-          python -c "
+          python <<'PY'
+          import os
           import subprocess
-          import time
           import psutil
           import sys
+          import time
 
-          # Start server
+          api_port = os.environ.get('LOAD_HTTP_PORT', '18080')
+          ws_port = os.environ.get('LOAD_WS_PORT', '18765')
+          server_env = os.environ.copy()
+          server_env.update({
+              'ARAGORA_DATA_DIR': os.path.join(os.getcwd(), '.nomic-memory'),
+              'ARAGORA_DISABLE_ALL_RATE_LIMITS': '1',
+              'ARAGORA_CONTROL_PLANE_WS_PORT': os.environ.get('LOAD_CONTROL_PLANE_PORT', '18766'),
+              'ARAGORA_NOMIC_LOOP_WS_PORT': os.environ.get('LOAD_NOMIC_LOOP_PORT', '18767'),
+              'ARAGORA_CANVAS_WS_PORT': os.environ.get('LOAD_CANVAS_PORT', '18768'),
+              'METRICS_ENABLED': 'false',
+              'METRICS_PORT': os.environ.get('LOAD_METRICS_PORT', '19090'),
+          })
+          os.makedirs(server_env['ARAGORA_DATA_DIR'], exist_ok=True)
+
+          log_path = '/tmp/aragora-memory-server.log'
+          log = open(log_path, 'w', encoding='utf-8')
           proc = subprocess.Popen(
-              ['aragora', 'serve', '--api-port', '8080', '--host', '127.0.0.1'],
-              stdout=subprocess.PIPE,
-              stderr=subprocess.PIPE
+              [
+                  sys.executable,
+                  '-m',
+                  'aragora',
+                  'serve',
+                  '--api-port',
+                  api_port,
+                  '--ws-port',
+                  ws_port,
+                  '--host',
+                  '127.0.0.1',
+              ],
+              stdout=log,
+              stderr=subprocess.STDOUT,
+              env=server_env,
           )
 
           # Wait for startup
           time.sleep(5)
+          if proc.poll() is not None:
+              log.close()
+              print('FAIL: server exited during startup')
+              with open(log_path, encoding='utf-8') as f:
+                  print(f.read())
+              sys.exit(1)
 
           # Monitor memory for 60 seconds under simulated load
           max_memory = 0
@@ -490,33 +695,79 @@ jobs:
                   max_memory = max(max_memory, mem)
                   print(f'Memory: {mem:.1f}MB')
               except psutil.NoSuchProcess:
-                  break
+                  log.close()
+                  print('FAIL: server exited during memory monitoring')
+                  with open(log_path, encoding='utf-8') as f:
+                      print(f.read())
+                  sys.exit(1)
               time.sleep(1)
 
           proc.terminate()
+          try:
+              proc.wait(timeout=10)
+          except subprocess.TimeoutExpired:
+              proc.kill()
+              proc.wait(timeout=10)
+          log.close()
 
           # Check memory threshold (2GB)
           if max_memory > 2048:
               print(f'FAIL: Max memory {max_memory:.1f}MB > 2048MB')
               sys.exit(1)
           print(f'PASS: Max memory {max_memory:.1f}MB')
-          "
+          PY
 
       - name: Check for memory leaks
         run: |
-          python -c "
+          python <<'PY'
+          import os
           import subprocess
-          import time
           import psutil
+          import sys
+          import time
+          import urllib.request
 
-          # Start server
+          api_port = os.environ.get('LOAD_HTTP_PORT', '18080')
+          ws_port = os.environ.get('LOAD_WS_PORT', '18765')
+          server_env = os.environ.copy()
+          server_env.update({
+              'ARAGORA_DATA_DIR': os.path.join(os.getcwd(), '.nomic-memory-leak'),
+              'ARAGORA_DISABLE_ALL_RATE_LIMITS': '1',
+              'ARAGORA_CONTROL_PLANE_WS_PORT': os.environ.get('LOAD_CONTROL_PLANE_PORT', '18766'),
+              'ARAGORA_NOMIC_LOOP_WS_PORT': os.environ.get('LOAD_NOMIC_LOOP_PORT', '18767'),
+              'ARAGORA_CANVAS_WS_PORT': os.environ.get('LOAD_CANVAS_PORT', '18768'),
+              'METRICS_ENABLED': 'false',
+              'METRICS_PORT': os.environ.get('LOAD_METRICS_PORT', '19090'),
+          })
+          os.makedirs(server_env['ARAGORA_DATA_DIR'], exist_ok=True)
+
+          log_path = '/tmp/aragora-memory-leak-server.log'
+          log = open(log_path, 'w', encoding='utf-8')
           proc = subprocess.Popen(
-              ['aragora', 'serve', '--api-port', '8080', '--host', '127.0.0.1'],
-              stdout=subprocess.PIPE,
-              stderr=subprocess.PIPE
+              [
+                  sys.executable,
+                  '-m',
+                  'aragora',
+                  'serve',
+                  '--api-port',
+                  api_port,
+                  '--ws-port',
+                  ws_port,
+                  '--host',
+                  '127.0.0.1',
+              ],
+              stdout=log,
+              stderr=subprocess.STDOUT,
+              env=server_env,
           )
 
           time.sleep(3)
+          if proc.poll() is not None:
+              log.close()
+              print('FAIL: server exited during startup')
+              with open(log_path, encoding='utf-8') as f:
+                  print(f.read())
+              sys.exit(1)
 
           # Get initial memory
           p = psutil.Process(proc.pid)
@@ -524,11 +775,10 @@ jobs:
 
           # Make 1000 requests
           # Use /healthz (liveness probe) instead of /api/health (requires auth)
-          import urllib.request
           for _ in range(1000):
               try:
-                  urllib.request.urlopen('http://localhost:8080/healthz', timeout=1)
-              except:
+                  urllib.request.urlopen(f'http://localhost:{api_port}/healthz', timeout=1)
+              except Exception:
                   pass
 
           # Check memory growth
@@ -536,6 +786,12 @@ jobs:
           growth = final_mem - initial_mem
 
           proc.terminate()
+          try:
+              proc.wait(timeout=10)
+          except subprocess.TimeoutExpired:
+              proc.kill()
+              proc.wait(timeout=10)
+          log.close()
 
           print(f'Initial memory: {initial_mem:.1f}MB')
           print(f'Final memory: {final_mem:.1f}MB')
@@ -546,4 +802,4 @@ jobs:
               print(f'WARNING: Memory grew by {growth:.1f}MB (possible leak)')
           else:
               print('PASS: No significant memory leak detected')
-          "
+          PY

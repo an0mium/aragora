@@ -1,6 +1,7 @@
 self-hosted-runner:
   labels:
     - aragora
+    - docker-ready
     - hetzner
     - mac-studio
 

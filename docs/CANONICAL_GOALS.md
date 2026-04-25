@@ -11,7 +11,7 @@ Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](METRICS.m
 
 | Metric | Value | Source |
 |--------|-------|--------|
-| Version | 2.8.0 | `pyproject.toml` |
+| Version | 2.9.0 | `pyproject.toml` |
 | Python files under `aragora/` | 4,069 | `docs/METRICS.md` |
 | Python modules | 135 top-level package directories | `docs/METRICS.md` |
 | Lines of code under `aragora/` | 1,915,420 | `docs/METRICS.md` |
