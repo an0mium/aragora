@@ -35,7 +35,12 @@ jobs:
   load-test:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Load Test Suite
-    runs-on: ubuntu-latest
+    # Runs on the self-hosted aragora-labeled AL2023 runner fleet.
+    # Docker is installed on these runners (see
+    # docs/operations/SELF_HOSTED_RUNNER_DOCKER.md for provisioning). This
+    # gives load tests VPC access to private AWS resources while keeping
+    # the `services: redis:...` container support working.
+    runs-on: [self-hosted, Linux, X64, aragora]
     timeout-minutes: 30
 
     services:
