@@ -18,6 +18,7 @@ const messagesReceived = new Counter('ws_messages_received');
 
 // Configuration
 const WS_URL = __ENV.WS_URL || 'ws://localhost:8766';
+const WS_SUBPROTOCOL = __ENV.WS_SUBPROTOCOL || 'aragora-v1';
 
 // Test options
 export const options = {
@@ -43,53 +44,57 @@ export const options = {
 export default function() {
   const startTime = Date.now();
 
-  const res = ws.connect(WS_URL, {}, function(socket) {
-    connectionTime.add(Date.now() - startTime);
+  const res = ws.connect(
+    WS_URL,
+    { headers: { 'Sec-WebSocket-Protocol': WS_SUBPROTOCOL } },
+    function(socket) {
+      connectionTime.add(Date.now() - startTime);
 
-    socket.on('open', function() {
-      connectionErrors.add(0);
+      socket.on('open', function() {
+        connectionErrors.add(0);
 
-      // Subscribe to debate updates
-      const subscribeMsg = JSON.stringify({
-        type: 'subscribe',
-        channel: 'debates',
-      });
-      socket.send(subscribeMsg);
-      messagesSent.add(1);
-
-      // Send ping
-      socket.send(JSON.stringify({ type: 'ping' }));
-      messagesSent.add(1);
-    });
-
-    socket.on('message', function(data) {
-      messagesReceived.add(1);
-      messageErrors.add(0);
-
-      try {
-        const msg = JSON.parse(data);
-        check(msg, {
-          'message has type': (m) => m.type !== undefined,
+        // Subscribe to debate updates
+        const subscribeMsg = JSON.stringify({
+          type: 'subscribe',
+          channel: 'debates',
         });
-      } catch (e) {
-        messageErrors.add(1);
-      }
-    });
+        socket.send(subscribeMsg);
+        messagesSent.add(1);
 
-    socket.on('error', function(e) {
-      connectionErrors.add(1);
-      console.error(`WebSocket error: ${e.message || e}`);
-    });
+        // Send ping
+        socket.send(JSON.stringify({ type: 'ping' }));
+        messagesSent.add(1);
+      });
 
-    socket.on('close', function() {
-      // Normal close
-    });
+      socket.on('message', function(data) {
+        messagesReceived.add(1);
+        messageErrors.add(0);
 
-    // Keep connection open for a short time
-    socket.setTimeout(function() {
-      socket.close();
-    }, 5000);
-  });
+        try {
+          const msg = JSON.parse(data);
+          check(msg, {
+            'message has type': (m) => m.type !== undefined,
+          });
+        } catch (e) {
+          messageErrors.add(1);
+        }
+      });
+
+      socket.on('error', function(e) {
+        connectionErrors.add(1);
+        console.error(`WebSocket error: ${e.message || e}`);
+      });
+
+      socket.on('close', function() {
+        // Normal close
+      });
+
+      // Keep connection open for a short time
+      socket.setTimeout(function() {
+        socket.close();
+      }, 5000);
+    }
+  );
 
   // Check connection result
   check(res, {
