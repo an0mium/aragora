@@ -50,7 +50,9 @@ def _canonical_metrics() -> dict[str, CanonicalMetric]:
     key_for = {
         "python modules": "modules",
         "automated tests": "tests",
+        "test files": "test_files",
         "api operations": "api_operations",
+        "api paths": "api_paths",
         "knowledge mound adapters": "adapters",
         "agent types": "agent_types",
     }
@@ -256,11 +258,19 @@ def patch_docs(stats: Stats, write: bool) -> int:
     canonical = _canonical_metrics()
     modules_approx = _canonical_count(canonical, "modules", _approx(stats.python_modules, 1000))
     tests_approx = _canonical_count(canonical, "tests", _approx(stats.test_count, 1000))
-    test_files_approx = _approx(stats.test_files, 1000)
+    test_files_approx = _canonical_count(
+        canonical,
+        "test_files",
+        _approx(stats.test_files, 1000),
+    )
     api_ops_approx = _canonical_count(
         canonical, "api_operations", _approx(stats.api_operations, 1000)
     )
-    api_paths_approx = _approx(stats.api_paths, 100)
+    api_paths_approx = _canonical_count(
+        canonical,
+        "api_paths",
+        _approx(stats.api_paths, 100),
+    )
     ws_events_approx = _approx(stats.ws_event_types, 10)
     templates_approx = _approx(stats.workflow_templates, 10)
     agent_types_approx = _canonical_count(

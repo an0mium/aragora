@@ -10,19 +10,21 @@ description: "Aragora: Canonical Goals & Foundational Thesis"
 **The [3-Horizon Execution Roadmap](plans/2026-04-18-3-horizon-roadmap.md) operationalizes the next 30/90/365 days of concrete deliverables.**
 **Last updated: April 18, 2026**
 
-## Canonical Metrics (March 2026 baseline)
+## Canonical Metrics
 
-These are the current baseline numbers used across docs until the next explicit refresh.
+Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](METRICS.md). If a numeric claim in this document or any other doc disagrees with `docs/METRICS.md`, the generated metrics doc wins.
 
 | Metric | Value | Source |
 |--------|-------|--------|
 | Version | 2.8.0 | `pyproject.toml` |
-| Python modules | 3,800+ | `aragora/` file count |
-| Lines of code | 1,490,000 | LOC count |
-| Automated tests | 210,000+ | repo-wide `def test_` count |
-| Test files | 5,000+ | `tests/` file count |
-| API operations | 3,100+ across 2,600+ paths | OpenAPI spec |
-| Knowledge Mound adapters | 42 registered adapter specs | adapter factory registry |
+| Python files under `aragora/` | 4,069 | `docs/METRICS.md` |
+| Python modules | 135 top-level package directories | `docs/METRICS.md` |
+| Lines of code under `aragora/` | 1,915,420 | `docs/METRICS.md` |
+| Automated tests | 216,016 test functions | `docs/METRICS.md` |
+| Test files | 5,078 | `docs/METRICS.md` |
+| API operations | 3,386 across 2,928 paths | `docs/METRICS.md` |
+| API paths | 2,928 | `docs/METRICS.md` |
+| Knowledge Mound adapters | 41 registered specs / 45 adapter files | `docs/METRICS.md` |
 | Agent types | 43 across 6+ LLM providers | agent registry |
 | Workflow templates | 50+ across 6 categories | template registry |
 | Handler modules | 580+ | handlers directory |

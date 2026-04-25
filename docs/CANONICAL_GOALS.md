@@ -18,6 +18,7 @@ Live project-scale numbers are auto-regenerated in [`docs/METRICS.md`](METRICS.m
 | Automated tests | 216,016 test functions | `docs/METRICS.md` |
 | Test files | 5,078 | `docs/METRICS.md` |
 | API operations | 3,386 across 2,928 paths | `docs/METRICS.md` |
+| API paths | 2,928 | `docs/METRICS.md` |
 | Knowledge Mound adapters | 41 registered specs / 45 adapter files | `docs/METRICS.md` |
 | Agent types | 43 across 6+ LLM providers | agent registry |
 | Workflow templates | 50+ across 6 categories | template registry |
