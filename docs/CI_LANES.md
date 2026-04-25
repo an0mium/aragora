@@ -11,6 +11,9 @@ The lane system is automation-assisted, not merge-blocking:
 - **Auto-revert safety rail:** `.github/workflows/main-required-checks-auto-revert.yml` reverts the latest `main` commit when required checks finish in a failed terminal state.
 - **Agent throughput first:** keep parallel PR flow and rely on fast detection + cheap rollback over hard admission gates.
 
+For the autonomy boundary around workflow, runner, release, and main-branch
+changes, see [`docs/governance/ci-main-guardrails.md`](governance/ci-main-guardrails.md).
+
 Operator quick commands:
 
 ```bash

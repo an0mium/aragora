@@ -3,12 +3,12 @@
 
 ## [Unreleased]
 
-_Changes landing on `main` before the v2.9.0 stable tag remain here until the final release-confirmation PR cuts or verifies the tag._
+_Post-v2.9.0 changes land here until the next stable tag._
 
 
-## [v2.9.0 pending stable] - 2026-04-25
+## [2.9.0] - 2026-04-25
 
-_Prepared for promotion from `v2.9.0-rc.1` after the chronic-red CI sweep landed and post-merge validation confirmed 0 npm vulnerabilities + clean frontend build. Stable release still requires the next nightly confirmation and `v2.9.0` tag. Detailed readiness record at `docs/status/2026-04-25-rc1-to-stable-receipt.md`._
+_Promoted from `v2.9.0-rc.1` after the chronic-red CI sweep, the npm vulnerability flush, and the self-hosted runner Docker provisioning. All six chronic-red CI workflows fixed; 19 of 19 Dependabot alerts addressed; secret scanning migrated to TruffleHog. Detailed readiness record at `docs/status/2026-04-25-rc1-to-stable-receipt.md`._
 
 ### Added (post-rc.1)
 - **Mode 3 brief severity counts (#6505 / #6506):** `ReviewBrief` now carries `findings_severity_counts` — aggregate `{high, medium, low}` counts derived from each slot's top findings — and surfaces it in the stored brief JSON. Operators can now distinguish "1 high-severity blocker" from "5 low-severity editorial comments" without reading every finding. Legacy callers that omit the new `build_brief` kwarg get an empty map rather than a crash.
@@ -28,7 +28,10 @@ _Prepared for promotion from `v2.9.0-rc.1` after the chronic-red CI sweep landed
 - **Coverage Gate (#6556):** Bumped `timeout-minutes: 30 → 90`. Full-suite-under-coverage on 215k tests exceeds 30 min serially.
 - **Integration Tests (#6562):** Repaired `MockAgent` fixture (added `system_prompt` + Vote-shape return values) to match current Arena API. Bumped route-collision known-bound `60 → 61` (one new accidental collision; underlying handler consolidation tracked for v2.10).
 - **Security Pentest pip-audit (#6559):** Added `--ignore-vuln CVE-2026-3219` to pip-audit. CVE is on the pip binary in the CI image, not the Aragora runtime; pip 26.0.1 IS the latest published version (no upstream fix exists yet).
-- **Security Pentest Secret Scanning (#6567):** Made `gitleaks-action@v2` step `continue-on-error: true`. Action introduced a paid-license requirement for organization accounts; `GITLEAKS_LICENSE` secret isn't provisioned. TruffleHog (next step) provides redundant secret-scanning coverage during the transition.
+- **Security Pentest Secret Scanning (#6567 → #6576):** First made `gitleaks-action@v2` `continue-on-error: true` (#6567). Then in #6576 fully migrated CI secret-scanning to TruffleHog (`trufflesecurity/trufflehog@main` with `--only-verified`) in both `security.yml` and `lint.yml`. gitleaks-action requires a paid `GITLEAKS_LICENSE` for organization accounts; TruffleHog is free, well-maintained, and `--only-verified` mode produces zero false positives. Local pre-commit still uses the gitleaks binary (free for individual use).
+- **Integration Tests `webhook_configs` schema (#6575):** Aligned `aragora/db/schema/postgres_schema.sql` with `PostgresWebhookConfigStore.INITIAL_SCHEMA` (`user_id`, `workspace_id`, `active`, `events_json`, `description`, `last_delivery_at`, `last_delivery_status`, `delivery_count`). Added migration `v20260424000000_align_webhook_configs_schema.py` (idempotent ALTER TABLE; preserves `org_id → workspace_id`, `is_active → active`, `events → events_json` data). Closes the four `TestPostgresWebhookConfigStore` UndefinedColumnError test failures.
+- **Load Tests back to self-hosted (#6577):** Reverted #6554 after Docker 25.0.14 was provisioned on the AL2023 self-hosted runner `i-0aae2ccd2f68b94d2` (`ip-172-31-24-39`) via AWS Systems Manager. The workflow now targets the narrower `aws-vpc-loadtest` label, runs k6 through Docker instead of AL2023-incompatible `apt-get`, sends the required `aragora-v1` WebSocket subprotocol, and uses the CI dependency bootstrap for the memory stress job. Documentation: `docs/operations/SELF_HOSTED_RUNNER_DOCKER.md`.
+- **Route collision accounting (#6579):** Deduplicated handler collision owners by `(path, attr_name)` and ratcheted the known collision bound `61 → 51`, clearing the v2.9.0 baseline for the post-release route-consolidation waves.
 
 ### Security
 - **Trivy action bump (#6557):** `aquasecurity/trivy-action 0.28.0 → 0.35.0`. Closes 2× CRITICAL CVE-2026-33634 in the prior version.
@@ -37,6 +40,7 @@ _Prepared for promotion from `v2.9.0-rc.1` after the chronic-red CI sweep landed
 ### Documentation
 - **Release prep checklist progress (#6493):** 8 of 10 acceptance criteria addressed directly; the 48h/main-nightly evidence criteria remain pending until the next scheduled observation. Readiness receipt (`docs/status/2026-04-25-rc1-to-stable-receipt.md`) captures the rc.1 → stable readiness arc.
 - **Mode 3 calibration sample N≥20:** 20 briefs total ($2.71 + $0.66 = $3.37 cumulative API spend); rubric-replay (#6552) shows 3/17 downgrades on the post-fix path.
+- **Architecture reconciliation (#6580):** Updated the source and docs-site architecture narratives to match the current package layout, handler scale, operation count, and strict-mypy baseline before cutting the stable tag.
 
 
 ## [v2.9.0-rc.1] - 2026-04-24

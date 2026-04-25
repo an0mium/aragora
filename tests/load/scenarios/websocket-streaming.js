@@ -40,6 +40,7 @@ export const options = {
 const envConfig = getEnvConfig();
 const BASE_URL = envConfig.baseUrl;
 const WS_URL = envConfig.wsUrl;
+const WS_SUBPROTOCOL = __ENV.WS_SUBPROTOCOL || 'aragora-v1';
 
 export default function () {
   const userId = randomUserId();
@@ -68,61 +69,65 @@ export default function () {
   const wsUrl = `${WS_URL}/ws/debates/${debateId}`;
   const connectStart = Date.now();
 
-  const res = ws.connect(wsUrl, {}, function (socket) {
-    const connectDuration = Date.now() - connectStart;
-    wsConnectDuration.add(connectDuration);
+  const res = ws.connect(
+    wsUrl,
+    { headers: { 'Sec-WebSocket-Protocol': WS_SUBPROTOCOL } },
+    function (socket) {
+      const connectDuration = Date.now() - connectStart;
+      wsConnectDuration.add(connectDuration);
 
-    socket.on('open', () => {
-      check(socket, {
-        'WebSocket connected': () => true,
-      });
-
-      // Subscribe to debate events
-      socket.send(JSON.stringify({
-        type: 'subscribe',
-        debate_id: debateId,
-      }));
-    });
-
-    socket.on('message', (msg) => {
-      messagesReceived.add(1);
-
-      try {
-        const data = JSON.parse(msg);
-        const now = Date.now();
-
-        if (data.timestamp) {
-          const latency = now - new Date(data.timestamp).getTime();
-          wsMessageLatency.add(latency);
-        }
-
-        check(data, {
-          'message has type': (d) => d.type !== undefined,
+      socket.on('open', () => {
+        check(socket, {
+          'WebSocket connected': () => true,
         });
 
-        // Close on debate completion
-        if (data.type === 'debate_end' || data.type === 'complete') {
-          socket.close();
+        // Subscribe to debate events
+        socket.send(JSON.stringify({
+          type: 'subscribe',
+          debate_id: debateId,
+        }));
+      });
+
+      socket.on('message', (msg) => {
+        messagesReceived.add(1);
+
+        try {
+          const data = JSON.parse(msg);
+          const now = Date.now();
+
+          if (data.timestamp) {
+            const latency = now - new Date(data.timestamp).getTime();
+            wsMessageLatency.add(latency);
+          }
+
+          check(data, {
+            'message has type': (d) => d.type !== undefined,
+          });
+
+          // Close on debate completion
+          if (data.type === 'debate_end' || data.type === 'complete') {
+            socket.close();
+          }
+        } catch (e) {
+          console.error(`Failed to parse message: ${e}`);
         }
-      } catch (e) {
-        console.error(`Failed to parse message: ${e}`);
-      }
-    });
+      });
 
-    socket.on('error', (e) => {
-      wsErrors.add(1);
-      console.error(`WebSocket error: ${e}`);
-    });
+      socket.on('error', (e) => {
+        wsErrors.add(1);
+        console.error(`WebSocket error: ${e}`);
+      });
 
-    socket.on('close', () => {
-      // Connection closed
-    });
+      socket.on('close', () => {
+        // Connection closed
+      });
 
-    // Keep connection open for debate duration (max 60s)
-    socket.setTimeout(() => {
-      socket.close();
-    }, 60000);
-  });
+      // Keep connection open for debate duration (max 60s)
+      socket.setTimeout(() => {
+        socket.close();
+      }, 60000);
+    }
+  );
 
   check(res, {
     'WebSocket connection successful': (r) => r && r.status === 101,
