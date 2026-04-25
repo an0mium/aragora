@@ -17,7 +17,7 @@ on:
       api_url:
         description: 'API URL to test'
         required: false
-        default: 'http://localhost:8080'
+        default: 'http://localhost:18080'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,6 +27,9 @@ env:
   PYTHON_VERSION: '3.11'
   K6_DOCKER_IMAGE: grafana/k6:0.57.0
   K6_NO_USAGE_REPORT: "true"
+  LOAD_HTTP_PORT: '18080'
+  LOAD_WS_PORT: '18765'
+  LOAD_METRICS_PORT: '19090'
 
 # Permissions needed for AWS OIDC
 permissions:
@@ -65,6 +68,14 @@ jobs:
           --health-retries 5
 
     steps:
+      - name: Pre-clean persistent workspace
+        shell: bash
+        run: |
+          # Self-hosted runners reuse workspaces across jobs. Remove any
+          # leftover files before checkout so generated status docs or test
+          # artifacts from a prior run cannot block actions/checkout.
+          find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -117,21 +128,15 @@ jobs:
             exit 1
           fi
 
-          ports=(8080 8765 8766 8767 8768 9090)
+          ports=(
+            "$LOAD_HTTP_PORT"
+            "$LOAD_WS_PORT"
+            "$((LOAD_WS_PORT + 1))"
+            "$((LOAD_WS_PORT + 2))"
+            "$((LOAD_WS_PORT + 3))"
+            "$LOAD_METRICS_PORT"
+          )
           declare -A stale_pids=()
-
-          # Interrupted self-hosted runs can leave an Aragora server process
-          # alive even after its listener sockets briefly disappear. Kill the
-          # server process itself, not just the currently-visible socket owner.
-          for cmdline_path in /proc/[0-9]*/cmdline; do
-            pid="${cmdline_path#/proc/}"
-            pid="${pid%/cmdline}"
-            [[ "$pid" == "$$" ]] && continue
-            cmdline=$(tr '\0' ' ' < "$cmdline_path" 2>/dev/null || true)
-            if [[ "$cmdline" == *"python -m aragora.server"* || "$cmdline" == *"python -m aragora serve"* ]]; then
-              stale_pids["$pid"]="$cmdline"
-            fi
-          done
 
           for port in "${ports[@]}"; do
             mapfile -t pids < <(
@@ -258,8 +263,9 @@ jobs:
           echo "Database files created:"
           ls -la "$ARAGORA_DATA_DIR" || true
 
-          # Start server with very high rate limits (all load test requests come from localhost)
-          ARAGORA_RATE_LIMIT=100000 ARAGORA_IP_RATE_LIMIT=100000 ARAGORA_BURST_MULTIPLIER=10 ARAGORA_DISABLE_ALL_RATE_LIMITS=1 ARAGORA_DATA_DIR="$ARAGORA_DATA_DIR" python -m aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
+          # Start server on isolated load-test ports so resident runner
+          # services on 8080/8765/9090 cannot interfere.
+          ARAGORA_RATE_LIMIT=100000 ARAGORA_IP_RATE_LIMIT=100000 ARAGORA_BURST_MULTIPLIER=10 ARAGORA_DISABLE_ALL_RATE_LIMITS=1 ARAGORA_DATA_DIR="$ARAGORA_DATA_DIR" METRICS_PORT="$LOAD_METRICS_PORT" python -m aragora serve --api-port "$LOAD_HTTP_PORT" --ws-port "$LOAD_WS_PORT" --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
 
@@ -279,7 +285,7 @@ jobs:
               cat /tmp/aragora-server.log
               exit 1
             fi
-            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
+            if curl -fsS "http://127.0.0.1:${LOAD_HTTP_PORT}/healthz" >/dev/null 2>&1; then
               echo "Server is healthy"
               break
             fi
@@ -295,7 +301,7 @@ jobs:
 
           # Final health check with better error output
           # Use /healthz (liveness probe) instead of /api/health (requires auth)
-          if ! curl -fsS http://127.0.0.1:8080/healthz; then
+          if ! curl -fsS "http://127.0.0.1:${LOAD_HTTP_PORT}/healthz"; then
             echo "Health check failed. Server logs:"
             cat /tmp/aragora-server.log
             exit 1
@@ -318,13 +324,13 @@ jobs:
             READY=true
 
             # Check leaderboard-view - verify endpoint returns valid JSON
-            LEADERBOARD_RESP=$(curl -s http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10)
+            LEADERBOARD_RESP=$(curl -s "http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/leaderboard-view?limit=10")
             if ! echo "$LEADERBOARD_RESP" | jq -e 'type' >/dev/null 2>&1; then
               READY=false
             fi
 
             # Check agents list - verify endpoint returns valid JSON
-            AGENTS_RESP=$(curl -s http://127.0.0.1:8080/api/v1/agents)
+            AGENTS_RESP=$(curl -s "http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/agents")
             if ! echo "$AGENTS_RESP" | jq -e 'type' >/dev/null 2>&1; then
               READY=false
             fi
@@ -340,17 +346,17 @@ jobs:
 
           # Log endpoint status for debugging
           echo "=== Endpoint status ==="
-          echo "Healthz: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/healthz)"
-          echo "Leaderboard: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10)"
-          echo "Agents: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/agents)"
-          echo "Debates: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/v1/debates?limit=10)"
+          echo "Healthz: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${LOAD_HTTP_PORT}/healthz)"
+          echo "Leaderboard: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/leaderboard-view?limit=10)"
+          echo "Agents: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/agents)"
+          echo "Debates: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/debates?limit=10)"
 
           # Warm-up requests to prime caches before k6 tests
           echo "=== Warm-up requests ==="
           for i in {1..5}; do
-            curl -s http://127.0.0.1:8080/api/v1/agents >/dev/null
-            curl -s http://127.0.0.1:8080/api/v1/leaderboard-view?limit=10 >/dev/null
-            curl -s http://127.0.0.1:8080/api/v1/debates?limit=10 >/dev/null
+            curl -s "http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/agents" >/dev/null
+            curl -s "http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/leaderboard-view?limit=10" >/dev/null
+            curl -s "http://127.0.0.1:${LOAD_HTTP_PORT}/api/v1/debates?limit=10" >/dev/null
           done
           echo "Warm-up complete"
           echo "=== End status ==="
@@ -380,7 +386,7 @@ jobs:
             --out json=load-results.json \
             --summary-export=load-summary.json
         env:
-          API_URL: ${{ github.event.inputs.api_url || 'http://localhost:8080' }}
+          API_URL: ${{ github.event.inputs.api_url || format('http://localhost:{0}', env.LOAD_HTTP_PORT) }}
 
       - name: Run WebSocket burst test
         run: |
@@ -396,7 +402,7 @@ jobs:
             --duration 30s \
             --out json=ws-results.json
         env:
-          WS_URL: ws://localhost:8765
+          WS_URL: ${{ format('ws://localhost:{0}', env.LOAD_WS_PORT) }}
 
       - name: Run rate limit validation
         run: |
@@ -411,7 +417,7 @@ jobs:
             --vus 10 \
             --duration 30s
         env:
-          API_URL: http://localhost:8080
+          API_URL: ${{ format('http://localhost:{0}', env.LOAD_HTTP_PORT) }}
 
       - name: Check SLO thresholds
         id: slo_check
