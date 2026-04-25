@@ -31,7 +31,7 @@ Exposes:
   are always importable).
 - DIC-23: dialectical runtime loop orchestrator (:class:`DialecticalEvent`,
   :class:`DialecticalRuntimeError`, :func:`run_dialectical_loop`,
-  :func:`dialectical_runtime_enabled`, :func:`enable_dialectical_runtime`)
+  :func:`dialectical_runtime_enabled`)
   Flag gate: ``ARAGORA_DIALECTICAL_RUNTIME_ENABLED`` (default off).
 - DIC-26: belief coherence monitor (:class:`BeliefEntry`,
   :class:`CoherenceReport`, :func:`scan_coherence`)
@@ -53,7 +53,6 @@ from .runtime_loop import (
     DialecticalEvent,
     DialecticalRuntimeError,
     dialectical_runtime_enabled,
-    enable_dialectical_runtime,
     run_dialectical_loop,
 )
 from .arbitration import (
@@ -156,7 +155,6 @@ __all__ = [
     "DialecticalEvent",
     "DialecticalRuntimeError",
     "dialectical_runtime_enabled",
-    "enable_dialectical_runtime",
     "run_dialectical_loop",
     "ArbitrationSide",
     "BeliefEntry",

@@ -16,7 +16,9 @@ follow-on PR and will clear the ``crux_probe_skipped`` field.
 Flag: ``ARAGORA_DIALECTICAL_RUNTIME_ENABLED`` (default off).
 Dataclasses and ``run_dialectical_loop`` are always importable; the
 flag is checked only when ``require_enabled=True`` (the default for
-production callers) to avoid silent no-ops.
+production callers) to avoid silent no-ops. Tests and demos should set
+the flag at the process boundary; this module does not mutate
+``os.environ``.
 
 Advances: #6217 (DIC-23)
 See also: ``docs/plans/2026-04-18-dialectical-runtime-synthesis.md``
@@ -47,11 +49,6 @@ def dialectical_runtime_enabled() -> bool:
     """Return True if the DIC-23 runtime loop is enabled for this process."""
     raw = str(os.environ.get(_FLAG) or "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
-
-
-def enable_dialectical_runtime() -> None:
-    """Enable the DIC-23 runtime loop for the current process (tests/demo)."""
-    os.environ[_FLAG] = "1"
 
 
 def _utc_now_iso() -> str:
@@ -160,8 +157,7 @@ def run_dialectical_loop(
     if require_enabled and not dialectical_runtime_enabled():
         raise DialecticalRuntimeError(
             "DIC-23 dialectical runtime is disabled; "
-            "set ARAGORA_DIALECTICAL_RUNTIME_ENABLED=1 "
-            "or call enable_dialectical_runtime()"
+            "set ARAGORA_DIALECTICAL_RUNTIME_ENABLED=1 at the process boundary"
         )
 
     resolved_policy = policy or DEFAULT_POLICIES.get(code_unit_class, DEFAULT_POLICIES["default"])
@@ -192,6 +188,5 @@ __all__ = [
     "DialecticalEvent",
     "DialecticalRuntimeError",
     "dialectical_runtime_enabled",
-    "enable_dialectical_runtime",
     "run_dialectical_loop",
 ]

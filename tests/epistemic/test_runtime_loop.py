@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import pytest
 
 from aragora.epistemic.decay_monitor import DecayReason, DecaySignal
@@ -11,7 +10,6 @@ from aragora.epistemic.runtime_loop import (
     DialecticalEvent,
     DialecticalRuntimeError,
     dialectical_runtime_enabled,
-    enable_dialectical_runtime,
     run_dialectical_loop,
 )
 
@@ -42,20 +40,17 @@ def _signal(
 
 
 class TestFeatureFlag:
-    def setup_method(self):
-        os.environ.pop("ARAGORA_DIALECTICAL_RUNTIME_ENABLED", None)
-
-    def teardown_method(self):
-        os.environ.pop("ARAGORA_DIALECTICAL_RUNTIME_ENABLED", None)
-
-    def test_disabled_by_default(self):
+    def test_disabled_by_default(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.delenv("ARAGORA_DIALECTICAL_RUNTIME_ENABLED", raising=False)
         assert not dialectical_runtime_enabled()
 
-    def test_enable_sets_flag(self):
-        enable_dialectical_runtime()
-        assert dialectical_runtime_enabled()
+    @pytest.mark.parametrize("value", ["1", "true", "yes", "on"])
+    def test_truthy_values_enable_runtime(self, monkeypatch: pytest.MonkeyPatch, value: str):
+        monkeypatch.setenv("ARAGORA_DIALECTICAL_RUNTIME_ENABLED", value)
+        assert dialectical_runtime_enabled() is True
 
-    def test_raises_when_flag_off_and_require_enabled(self):
+    def test_raises_when_flag_off_and_require_enabled(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.delenv("ARAGORA_DIALECTICAL_RUNTIME_ENABLED", raising=False)
         with pytest.raises(DialecticalRuntimeError, match="ARAGORA_DIALECTICAL_RUNTIME_ENABLED"):
             run_dialectical_loop(_signal())
 
@@ -63,8 +58,8 @@ class TestFeatureFlag:
         event = run_dialectical_loop(_signal(), require_enabled=False)
         assert isinstance(event, DialecticalEvent)
 
-    def test_flag_on_allows_call(self):
-        enable_dialectical_runtime()
+    def test_flag_on_allows_call(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("ARAGORA_DIALECTICAL_RUNTIME_ENABLED", "1")
         event = run_dialectical_loop(_signal())
         assert isinstance(event, DialecticalEvent)
 
