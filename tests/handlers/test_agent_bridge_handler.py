@@ -687,8 +687,12 @@ def test_start_run_write_api_persists_role_keyed_sessions(bridge_repo: Path) -> 
     assert payload["run_id"] == "bridge-http-start"
     assert payload["status"] == "running"
     assert payload["next_actor"] == "implementer"
-    assert set(payload["roles"]) == {"implementer", "reviewer"}
-    assert payload["roles"]["implementer"]["harness_options"] == {"reasoning_effort": "low"}
+    roles = payload["roles"]
+    assert isinstance(roles, dict)
+    assert set(roles) == {"implementer", "reviewer"}
+    implementer_role = roles["implementer"]
+    assert isinstance(implementer_role, dict)
+    assert implementer_role["harness_options"] == {"reasoning_effort": "low"}
 
 
 def test_start_run_rejects_write_gate_disabled(bridge_repo: Path) -> None:
@@ -842,6 +846,39 @@ def test_auto_step_dispatches_next_actor_with_composed_prompt(
     assert "Implemented a patch." in kwargs["prompt"]
     payload = _parse_json_body(result)
     assert payload["auto_step"] == {"role": "reviewer", "context_turns": 1}
+
+
+def test_auto_step_rejects_awaiting_human_run(
+    bridge_repo: Path,
+    store: BridgeStore,
+) -> None:
+    _write_run(
+        store,
+        run_id="bridge-needs-human",
+        created_at="2026-04-21T20:00:00Z",
+        updated_at="2026-04-21T20:01:00Z",
+        status="awaiting_human",
+        next_actor="reviewer",
+    )
+    broker = MagicMock()
+    handler = AgentBridgeHandler(
+        ctx={
+            "agent_bridge_repo_root": str(bridge_repo),
+            "agent_bridge_write_enabled": True,
+            "agent_bridge_broker": broker,
+        }
+    )
+
+    result = handler.handle(
+        "/api/v1/agent-bridge/runs/bridge-needs-human/auto-step",
+        {},
+        _mock_json_post({"context_turns": 1}),
+    )
+
+    assert result is not None
+    assert result.status_code == 409
+    assert _parse_json_body(result)["error"] == "Bridge run is awaiting human input"
+    broker.dispatch_turn.assert_not_called()
 
 
 @pytest.mark.no_auto_auth

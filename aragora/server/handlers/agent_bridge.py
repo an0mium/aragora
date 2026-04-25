@@ -335,7 +335,10 @@ class AgentBridgeHandler(BaseHandler):
         return self._dispatch_turn(run_id=run.run_id, role=role, prompt=prompt)
 
     def _handle_auto_step(self, run_id: str, body: dict[str, Any]) -> HandlerResult:
-        run, registry, error = self._load_dispatchable_run(run_id)
+        run, registry, error = self._load_dispatchable_run(
+            run_id,
+            allow_awaiting_human=False,
+        )
         if error is not None:
             return error
         if run is None or registry is None:
@@ -368,6 +371,8 @@ class AgentBridgeHandler(BaseHandler):
     def _load_dispatchable_run(
         self,
         run_id: str,
+        *,
+        allow_awaiting_human: bool = True,
     ) -> tuple[BridgeRun | None, SessionRegistry | None, HandlerResult | None]:
         if not self._is_valid_run_id(run_id):
             return None, None, self._not_found()
@@ -376,6 +381,8 @@ class AgentBridgeHandler(BaseHandler):
             return None, None, self._not_found()
         if run.status in {"completed", "failed"}:
             return None, None, error_response("Bridge run is not dispatchable", 409)
+        if run.status == "awaiting_human" and not allow_awaiting_human:
+            return None, None, error_response("Bridge run is awaiting human input", 409)
         try:
             registry = self._store.load_sessions(run_id)
         except FileNotFoundError:

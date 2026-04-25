@@ -23,7 +23,8 @@ export function BridgeOperatorActions({ run, onDispatched }: BridgeOperatorActio
   const [prompt, setPrompt] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const isDispatchable = run.status === 'running' || run.status === 'awaiting_human';
+  const canAutoStep = run.status === 'running';
+  const canManualDispatch = run.status === 'running' || run.status === 'awaiting_human';
 
   const dispatch = (mode: 'auto-step' | 'dispatch') => {
     setMessage(null);
@@ -80,7 +81,7 @@ export function BridgeOperatorActions({ run, onDispatched }: BridgeOperatorActio
         </div>
         <button
           type="button"
-          disabled={!isDispatchable || isPending || !run.next_actor}
+          disabled={!canAutoStep || isPending || !run.next_actor}
           onClick={() => dispatch('auto-step')}
           className="rounded border border-amber-200/30 bg-amber-200/10 px-3 py-2 text-sm text-amber-100 transition-colors hover:bg-amber-200/20 disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -92,7 +93,7 @@ export function BridgeOperatorActions({ run, onDispatched }: BridgeOperatorActio
         <select
           value={role}
           onChange={(event) => setRole(event.target.value)}
-          disabled={!isDispatchable || isPending}
+          disabled={!canManualDispatch || isPending}
           className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
         >
           {roles.map((item) => (
@@ -104,13 +105,13 @@ export function BridgeOperatorActions({ run, onDispatched }: BridgeOperatorActio
         <input
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          disabled={!isDispatchable || isPending}
+          disabled={!canManualDispatch || isPending}
           placeholder="Manual dispatch prompt"
           className="rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30"
         />
         <button
           type="button"
-          disabled={!isDispatchable || isPending || !role}
+          disabled={!canManualDispatch || isPending || !role}
           onClick={() => dispatch('dispatch')}
           className="rounded border border-cyan-200/30 bg-cyan-200/10 px-3 py-2 text-sm text-cyan-100 transition-colors hover:bg-cyan-200/20 disabled:cursor-not-allowed disabled:opacity-40"
         >
