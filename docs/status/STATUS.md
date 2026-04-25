@@ -89,7 +89,7 @@ The frontier is now (updated 2026-04-25 after #6372/#6373/#6374 closed):
 
 - **ground threshold claims empirically** — close [#6375](https://github.com/synaptent/aragora/issues/6375); this is the sole remaining H1 implementation gap. Per thesis Commitment 3, the 5% auto-handle invalidation cap must move from placeholder to a measured baseline + safety margin from accumulated settlement data.
 - **keep queue growth bounded** — continue the single-slice cadence in the PDB lane rather than opening large successor chains in parallel
-- **hold v2.9.0 release** — the v2.9.0 release PR (#6578) merged on 2026-04-25 but the git tag is intentionally held until #6375 closes, so the release surface reflects an honestly-validated H1.
+- **continue post-v2.9.0 threshold grounding** — v2.9.0 was tagged on 2026-04-25 after the empirical threshold framework substrate landed; #6375 remains the post-release work to convert that substrate into measured baselines and operating thresholds.
 
 ### Canonical Execution Order
 
