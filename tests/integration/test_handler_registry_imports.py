@@ -310,7 +310,13 @@ class TestRouteCollisionDetection:
         from aragora.server.handler_registry import HANDLER_REGISTRY
         from aragora.server.handler_registry.core import _DeferredImport
 
-        route_owners: dict[str, list[str]] = defaultdict(list)
+        # Map path -> set of distinct handler attr_names that own it.
+        # Using a set (not list) means a single handler that registers
+        # multiple HTTP methods on the same path (e.g. POST + GET + DELETE
+        # /api/v1/pipeline/graph) counts as ONE owner, not three. Real
+        # collisions — two distinct handlers claiming the same path — are
+        # what we actually care about.
+        route_owners: dict[str, set[str]] = defaultdict(set)
 
         for attr_name, handler_ref in HANDLER_REGISTRY:
             if isinstance(handler_ref, _DeferredImport):
@@ -329,18 +335,25 @@ class TestRouteCollisionDetection:
                     path = route[1] if len(route) >= 2 else route[0]
                 else:
                     continue
-                route_owners[path].append(attr_name)
+                route_owners[path].add(attr_name)
 
-        collisions = {path: owners for path, owners in route_owners.items() if len(owners) > 1}
+        # Sort owners for deterministic error messages.
+        collisions = {
+            path: sorted(owners) for path, owners in route_owners.items() if len(owners) > 1
+        }
 
-        # Known collision count: 61 as of Apr 2026 (was 60 in Feb 2026).
-        # If this grows, investigate whether new collisions are intentional.
-        # Several existing entries are clearly duplicate-registration bugs
-        # (same handler name appearing twice for one path, e.g.
-        # `_pipeline_graph_handler, _pipeline_graph_handler`); a follow-up
-        # cleanup PR should reduce this below 50, after which the bound
-        # should be ratcheted back down to detect regressions.
-        max_known_collisions = 61
+        # Known collision count: 51 as of Apr 2026.
+        # Previously 61 because the test counted same-handler different-method
+        # registrations as duplicates (e.g. PipelineGraphHandler.ROUTES has
+        # POST/GET/DELETE for /api/v1/pipeline/graph -- the legacy code added
+        # the same attr_name three times to the owners list). The new
+        # (path, attr_name) set semantics measures actual cross-handler
+        # collisions only: 10 pure self-duplicates collapse to single owners.
+        # The remaining 51 are real overlaps where TWO DISTINCT handlers both
+        # claim the same path; some are intentional (dispatch order resolves
+        # them), others are pending consolidation. If this grows, investigate
+        # whether new collisions are intentional.
+        max_known_collisions = 51
         assert len(collisions) <= max_known_collisions, (
             f"{len(collisions)} route collisions exceeds known bound "
             f"of {max_known_collisions}. New collisions:\n"
