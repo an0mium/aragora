@@ -88,6 +88,16 @@ from aragora.review.invalidation_event_source import (
     measure_baseline_from_stores,
     resolve_review_queue_root,
 )
+from aragora.review.threshold_recalibration import (
+    DEFAULT_THRESHOLD_RECEIPT_DIR,
+    THRESHOLD_UPDATE_RECEIPT_SCHEMA_VERSION,
+    InvalidationEventSource,
+    InvalidationRecalibrationSample,
+    ThresholdRecalibrationScheduler,
+    ThresholdUpdateReceipt,
+    compute_threshold_update_receipt_id,
+    write_threshold_update_receipt,
+)
 
 __all__ = [
     "ADVISORY_NOTE",
@@ -101,6 +111,7 @@ __all__ = [
     "DEFAULT_MINIMUM_MEANINGFUL_RATE",
     "DEFAULT_REVERT_WINDOW_DAYS",
     "DEFAULT_SAFETY_MARGIN",
+    "DEFAULT_THRESHOLD_RECEIPT_DIR",
     "DepthTrigger",
     "DissentingView",
     "DissentPosition",
@@ -114,6 +125,8 @@ __all__ = [
     "INVALIDATION_REVERT_WITHIN_WINDOW",
     "INVALIDATION_ROLLBACK",
     "INVALIDATION_SIGNALS",
+    "InvalidationEventSource",
+    "InvalidationRecalibrationSample",
     "InvalidatedDecision",
     "PRReviewProtocol",
     "ProviderCandidateCheck",
@@ -138,6 +151,9 @@ __all__ = [
     "SettlementLinkage",
     "SynthesisPolicy",
     "ThresholdProposal",
+    "ThresholdRecalibrationScheduler",
+    "ThresholdUpdateReceipt",
+    "THRESHOLD_UPDATE_RECEIPT_SCHEMA_VERSION",
     "ValidationKind",
     "ValidationRef",
     "ValidationResult",
@@ -145,6 +161,7 @@ __all__ = [
     "classify_invalidation",
     "compute_baseline",
     "compute_packet_sha",
+    "compute_threshold_update_receipt_id",
     "count_decisions_from_settlement_receipts",
     "derive_threshold",
     "is_invalidated",
@@ -153,4 +170,5 @@ __all__ = [
     "measure_baseline_from_stores",
     "resolve_review_queue_root",
     "validate_reviewer_outputs",
+    "write_threshold_update_receipt",
 ]

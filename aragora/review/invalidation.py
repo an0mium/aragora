@@ -15,10 +15,15 @@ Composes against the existing
 :class:`aragora.triage.metrics.TriageDecisionEvent` shape rather than
 defining a parallel event type.
 
-Deferred to follow-ups:
+Composed by follow-ups:
 
-  - Recalibration scheduler that emits ``ThresholdUpdateReceipt`` (issue
-    #6375 work breakdown step 5).
+  - Recalibration scheduler in :mod:`aragora.review.threshold_recalibration`
+    that emits ``ThresholdUpdateReceipt`` (issue #6375 Step B).
+  - Event-source adapter in ``aragora.triage.invalidation_event_source``
+    (issue #6375 Step A) that scans live receipt stores.
+
+Still deferred:
+
   - CLI surfacing through ``aragora review-queue baseline`` (separate PR).
   - Replacing the literal ``5%`` in ``docs/THESIS.md`` Commitment 3 with
     the empirically measured value (separate PR; requires real settled-
