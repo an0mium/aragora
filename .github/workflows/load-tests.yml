@@ -25,6 +25,8 @@ concurrency:
 
 env:
   PYTHON_VERSION: '3.11'
+  K6_DOCKER_IMAGE: grafana/k6:0.57.0
+  K6_NO_USAGE_REPORT: "true"
 
 # Permissions needed for AWS OIDC
 permissions:
@@ -93,13 +95,12 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install k6
+      - name: Verify Docker and k6 image
         run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update
-          sudo apt-get install k6
+          docker version
+          docker info
+          docker pull "$K6_DOCKER_IMAGE"
+          docker run --rm -e HOME=/tmp -e K6_NO_USAGE_REPORT "$K6_DOCKER_IMAGE" version
 
       - name: Install Python dependencies
         run: |
@@ -248,7 +249,14 @@ jobs:
 
       - name: Run API load tests
         run: |
-          k6 run tests/load/api_load.js \
+          docker run --rm --network host \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD:/work" \
+            -w /work \
+            -e HOME=/tmp \
+            -e K6_NO_USAGE_REPORT \
+            -e API_URL \
+            "$K6_DOCKER_IMAGE" run tests/load/api_load.js \
             --vus ${{ github.event.inputs.concurrent_users || '50' }} \
             --duration ${{ github.event.inputs.duration || '60s' }} \
             --out json=load-results.json \
@@ -258,7 +266,14 @@ jobs:
 
       - name: Run WebSocket burst test
         run: |
-          k6 run tests/load/websocket_burst.js \
+          docker run --rm --network host \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD:/work" \
+            -w /work \
+            -e HOME=/tmp \
+            -e K6_NO_USAGE_REPORT \
+            -e WS_URL \
+            "$K6_DOCKER_IMAGE" run tests/load/websocket_burst.js \
             --vus 100 \
             --duration 30s \
             --out json=ws-results.json
@@ -267,7 +282,14 @@ jobs:
 
       - name: Run rate limit validation
         run: |
-          k6 run tests/load/rate_limit_test.js \
+          docker run --rm --network host \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD:/work" \
+            -w /work \
+            -e HOME=/tmp \
+            -e K6_NO_USAGE_REPORT \
+            -e API_URL \
+            "$K6_DOCKER_IMAGE" run tests/load/rate_limit_test.js \
             --vus 10 \
             --duration 30s
         env:
@@ -434,7 +456,8 @@ jobs:
   memory-stress:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Memory Stress Test
-    # Match load-test runner choice above.
+    # This job does not need Docker or VPC access, so keep it on GitHub-hosted
+    # Linux instead of consuming the narrow docker-ready runner pool.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: load-test

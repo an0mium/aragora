@@ -3,7 +3,8 @@
 The `aragora`-labeled self-hosted GitHub Actions runners host VPC-resident
 workflows that need Docker — notably:
 
-- `load-tests.yml` — uses `services: redis:7-alpine` container
+- `load-tests.yml` — uses `services: redis:7-alpine` and runs k6 through
+  the pinned `grafana/k6` Docker image
 
 This document captures how Docker is provisioned on those runners and how to
 provision new ones consistently.
@@ -83,6 +84,12 @@ unit `actions.runner.synaptent-aragora.<hostname>.service`). Mac runners use
 - The runner service must be restarted after group membership changes so
   that new supplementary groups take effect in the runner process
 
+The workflow intentionally does **not** install k6 with OS packages. Amazon
+Linux 2023 does not have `apt-get`, and the previous GitHub-hosted runner
+version used Debian package commands. Instead, `load-tests.yml` pulls the
+pinned `grafana/k6` image and runs k6 with Docker host networking so
+`localhost` continues to reach the Aragora server started by the job.
+
 Note: `docker-compose-plugin` is NOT available in the default AL2023 repo.
 Workflows that rely on `docker compose` should either install it via the
 upstream docker-ce repo or use `services:` containers instead.
@@ -146,6 +153,9 @@ gh api repos/synaptent/aragora/actions/runners --jq '.runners[] | select(.name =
   `ip-172-31-24-39` (id=26). `load-tests.yml` updated to target
   `[self-hosted, Linux, X64, aragora, docker-ready]` so the workflow
   no longer races against runners that lack Docker.
+- **2026-04-25** — k6 execution moved from Ubuntu/Debian `apt-get`
+  installation to the pinned `grafana/k6` Docker image, making the workflow
+  compatible with the AL2023 runner targeted by the `docker-ready` label.
 
 ## When to add ubuntu-latest fallback
 
