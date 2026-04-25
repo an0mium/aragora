@@ -10,7 +10,6 @@ from aragora.epistemic.genealogy import (
     GenealogyStore,
     InMemoryGenealogyStore,
     _chain_checksum,
-    enable_genealogy,
     get_genealogy,
 )
 
@@ -297,13 +296,6 @@ class TestGetGenealogy:
 
     def test_flag_enabled_via_true_string(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("ARAGORA_GENEALOGY_ENABLED", "true")
-        store = InMemoryGenealogyStore()
-        g = get_genealogy("unit.x", store)
-        assert g.code_unit_id == "unit.x"
-
-    def test_enable_genealogy_helper(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.delenv("ARAGORA_GENEALOGY_ENABLED", raising=False)
-        enable_genealogy()
         store = InMemoryGenealogyStore()
         g = get_genealogy("unit.x", store)
         assert g.code_unit_id == "unit.x"

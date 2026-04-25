@@ -11,6 +11,8 @@ wiring to receipt/KM stores is deferred to the DIC-23..28 activation gate.
 Flag: ``ARAGORA_GENEALOGY_ENABLED`` (default False).  The data classes and
 store implementations are always importable; only ``get_genealogy`` checks
 the flag when ``require_enabled=True`` (the default for production callers).
+Tests and demos should set the flag at the process boundary; this module does
+not mutate ``os.environ``.
 """
 
 from __future__ import annotations
@@ -31,11 +33,6 @@ _ENTRY_KINDS: frozenset[str] = frozenset(get_args(EntryKind))
 def _genealogy_enabled() -> bool:
     raw = str(os.environ.get("ARAGORA_GENEALOGY_ENABLED") or "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
-
-
-def enable_genealogy() -> None:
-    """Enable genealogy actions for the current process (tests/demo)."""
-    os.environ["ARAGORA_GENEALOGY_ENABLED"] = "1"
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +178,7 @@ def get_genealogy(
 
     When *require_enabled* is True (default), raises ``RuntimeError`` if
     ``ARAGORA_GENEALOGY_ENABLED`` is not set.  Tests can pass
-    ``require_enabled=False`` or set the env var via ``enable_genealogy()``.
+    ``require_enabled=False`` or set the env var with ``monkeypatch``.
     """
     if not code_unit_id:
         raise ValueError("code_unit_id must be non-empty")
