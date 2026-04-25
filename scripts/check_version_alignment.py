@@ -184,9 +184,29 @@ def main() -> int:
             r"^(Current released version is \*\*v?)(\d+\.\d+\.\d+)(\*\*\.)$",
         ),
         (
-            "docs/GETTING_STARTED.md",
-            Path("docs/GETTING_STARTED.md"),
+            "docs/guides/GETTING_STARTED.md",
+            Path("docs/guides/GETTING_STARTED.md"),
             r"^(\s*aragora:\s*)(\d+\.\d+\.\d+)(.*)$",
+        ),
+        (
+            "docs/deployment/SCALING.md",
+            Path("docs/deployment/SCALING.md"),
+            r'(\s*"version":\s*")(\d+\.\d+\.\d+)(",)',
+        ),
+        (
+            "docs/api/API_REFERENCE.md",
+            Path("docs/api/API_REFERENCE.md"),
+            r"^(\|\s*TypeScript\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+        ),
+        (
+            "docs/api/API_REFERENCE.md (Python SDK)",
+            Path("docs/api/API_REFERENCE.md"),
+            r"^(\|\s*Python\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+        ),
+        (
+            "docs/CANONICAL_GOALS.md",
+            Path("docs/CANONICAL_GOALS.md"),
+            r"^(\|\s*Version\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
         ),
         (
             "docs/SELF_HOSTED_QUICKSTART.md",
@@ -212,6 +232,11 @@ def main() -> int:
             "docs-site/docs/api/reference.md",
             Path("docs-site/docs/api/reference.md"),
             r"^(\|\s*TypeScript\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
+        ),
+        (
+            "docs-site/docs/api/reference.md (Python SDK)",
+            Path("docs-site/docs/api/reference.md"),
+            r"^(\|\s*Python\s*\([^)]+\)\s*\|\s*)(\d+\.\d+\.\d+)(\s*\|.*)$",
         ),
     ]
 
