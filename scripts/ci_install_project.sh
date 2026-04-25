@@ -20,8 +20,8 @@ LEGACY_CONTROL_PLANE_BASE_DEPS=(
   "pyyaml>=6.0.3,<7.0"
   "pydantic>=2.13.2,<3.0"            # aligned to pyproject [test]
   "pydantic-settings>=2.0,<3.0"
-  "bcrypt>=4.0,<6.0"
-  "cryptography>=46.0,<48.0"
+  "bcrypt>=4.2,<6.0"                 # security floor: 4.0 -> 4.2 (defensive)
+  "cryptography>=46.0.7,<48.0"       # security floor: 46.0 -> 46.0.7 (latest 46.x patch)
   "markupsafe>=2.1.0,<4.0"
   "defusedxml>=0.7,<1.0"
   "pyotp>=2.9,<3.0"
@@ -31,10 +31,10 @@ LEGACY_CONTROL_PLANE_BASE_DEPS=(
   "numpy>=2.0,<3.0"
   "watchfiles>=0.21,<2.0"
   "boto3>=1.34,<2.0"
-  "PyJWT>=2.8,<3.0"
+  "PyJWT>=2.10.1,<3.0"               # security floor: 2.8 -> 2.10.1
   "fastapi>=0.135.3,<1.0"            # aligned to pyproject [gateway]/[all]
   "uvicorn[standard]>=0.44.0,<1.0"   # aligned to pyproject [gateway]/[all]
-  "python-multipart>=0.0.22"
+  "python-multipart>=0.0.26"         # security floor: 0.0.22 -> 0.0.26 (CVE-2024-53981 covered by 0.0.18+)
   "mcp>=1.0,<2.0"
 )
 
