@@ -308,9 +308,7 @@ class TestBridgeClaimShape:
 
     def test_statement_carried_from_crux(self) -> None:
         crux = _make_crux(statement="The deployment window is safe")
-        claim, _ = bridge_from_crux_position(
-            _make_position(), crux, _make_resolution("for")
-        )
+        claim, _ = bridge_from_crux_position(_make_position(), crux, _make_resolution("for"))
         assert claim.statement == "The deployment window is safe"
 
     def test_provenance_contains_agent_side(self) -> None:
@@ -327,9 +325,7 @@ class TestBridgeClaimShape:
 
     def test_provenance_contains_load_bearing_score(self) -> None:
         crux = _make_crux(score=0.88)
-        claim, _ = bridge_from_crux_position(
-            _make_position(), crux, _make_resolution("for")
-        )
+        claim, _ = bridge_from_crux_position(_make_position(), crux, _make_resolution("for"))
         assert claim.provenance["load_bearing_score"] == pytest.approx(0.88)
 
     def test_resolution_id_encodes_cruxset_and_crux(self) -> None:

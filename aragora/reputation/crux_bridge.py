@@ -250,8 +250,7 @@ def bridge_from_crux_position(
     """
     if position.crux_id != crux.crux_id:
         raise ValueError(
-            f"position.crux_id={position.crux_id!r} does not match "
-            f"crux.crux_id={crux.crux_id!r}"
+            f"position.crux_id={position.crux_id!r} does not match crux.crux_id={crux.crux_id!r}"
         )
     if position.crux_id != resolution.crux_id:
         raise ValueError(
