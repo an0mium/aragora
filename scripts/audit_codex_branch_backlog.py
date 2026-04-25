@@ -359,6 +359,12 @@ def is_merged(root: Path, base: str, branch: str) -> bool:
 
 
 def is_patch_equivalent(root: Path, base: str, branch: str) -> bool:
+    diff_proc = run_git(["diff", "--quiet", f"{base}...{branch}"], root)
+    if diff_proc.returncode == 0:
+        return True
+    if diff_proc.returncode != 1:
+        return False
+
     proc = run_git(["cherry", base, branch], root)
     if proc.returncode != 0:
         return False

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from scripts.github_cli_health import GitHubCLIHealth
@@ -504,3 +505,38 @@ def test_parser_can_skip_patch_equivalence() -> None:
     args = mod.build_parser().parse_args(["--skip-patch-equivalence"])
 
     assert args.include_patch_equivalence is False
+
+
+def test_patch_equivalence_treats_empty_branch_diff_as_cleanup(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_git(args: list[str], _cwd: Path) -> SimpleNamespace:
+        calls.append(args)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.is_patch_equivalent(tmp_path, "origin/main", "codex/cancels-out") is True
+    assert calls == [["diff", "--quiet", "origin/main...codex/cancels-out"]]
+
+
+def test_patch_equivalence_falls_back_to_cherry_when_branch_has_diff(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_git(args: list[str], _cwd: Path) -> SimpleNamespace:
+        calls.append(args)
+        if args[:2] == ["diff", "--quiet"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="")
+        return SimpleNamespace(returncode=0, stdout="- abc123 already applied\n", stderr="")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.is_patch_equivalent(tmp_path, "origin/main", "codex/replayed") is True
+    assert calls == [
+        ["diff", "--quiet", "origin/main...codex/replayed"],
+        ["cherry", "origin/main", "codex/replayed"],
+    ]
