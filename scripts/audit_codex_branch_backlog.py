@@ -51,6 +51,7 @@ class BranchRecord:
     dirty_worktree_paths: list[str]
     active_worktree_paths: list[str]
     handoff_receipt_exists: bool
+    handoff_outbox_exists: bool
     category: str
 
 
@@ -223,16 +224,9 @@ def _json_files(path: Path) -> list[Path]:
     return sorted(item for item in path.glob("*.json") if item.is_file())
 
 
-def terminal_receipted_handoff_branches(
-    root: Path,
-    *,
-    outbox_dir: Path | None = None,
-    receipt_dir: Path | None = None,
-) -> set[str]:
-    """Return branch names that already have terminal automation handoff receipts."""
+def terminal_handoff_keys(receipt_root: Path) -> set[str]:
+    """Return terminal automation handoff idempotency keys."""
 
-    outbox_root = _automation_state_path(root, outbox_dir, DEFAULT_OUTBOX_DIR)
-    receipt_root = _automation_state_path(root, receipt_dir, DEFAULT_RECEIPT_DIR)
     terminal_keys: set[str] = set()
     for receipt_file in _json_files(receipt_root):
         try:
@@ -246,7 +240,20 @@ def terminal_receipted_handoff_branches(
         idempotency_key = str(payload.get("idempotency_key") or receipt_file.stem).strip()
         if idempotency_key:
             terminal_keys.add(idempotency_key)
+    return terminal_keys
 
+
+def terminal_receipted_handoff_branches(
+    root: Path,
+    *,
+    outbox_dir: Path | None = None,
+    receipt_dir: Path | None = None,
+) -> set[str]:
+    """Return branch names that already have terminal automation handoff receipts."""
+
+    outbox_root = _automation_state_path(root, outbox_dir, DEFAULT_OUTBOX_DIR)
+    receipt_root = _automation_state_path(root, receipt_dir, DEFAULT_RECEIPT_DIR)
+    terminal_keys = terminal_handoff_keys(receipt_root)
     if not terminal_keys:
         return set()
 
@@ -260,6 +267,37 @@ def terminal_receipted_handoff_branches(
             continue
         idempotency_key = str(payload.get("idempotency_key") or "").strip()
         if idempotency_key not in terminal_keys:
+            continue
+        local_evidence = payload.get("local_evidence")
+        if not isinstance(local_evidence, dict):
+            continue
+        branch = str(local_evidence.get("branch") or "").strip()
+        if branch:
+            branches.add(branch)
+    return branches
+
+
+def unresolved_outbox_handoff_branches(
+    root: Path,
+    *,
+    outbox_dir: Path | None = None,
+    receipt_dir: Path | None = None,
+) -> set[str]:
+    """Return branch names that already have unresolved automation outbox handoffs."""
+
+    outbox_root = _automation_state_path(root, outbox_dir, DEFAULT_OUTBOX_DIR)
+    receipt_root = _automation_state_path(root, receipt_dir, DEFAULT_RECEIPT_DIR)
+    terminal_keys = terminal_handoff_keys(receipt_root)
+    branches: set[str] = set()
+    for outbox_file in _json_files(outbox_root):
+        try:
+            payload = json.loads(outbox_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        idempotency_key = str(payload.get("idempotency_key") or "").strip()
+        if not idempotency_key or idempotency_key in terminal_keys:
             continue
         local_evidence = payload.get("local_evidence")
         if not isinstance(local_evidence, dict):
@@ -334,6 +372,7 @@ def classify(
     merged_to_base: bool,
     patch_equivalent_to_base: bool,
     handoff_receipt_exists: bool,
+    handoff_outbox_exists: bool,
     committed_at: datetime,
     recent_cutoff: datetime,
     remote_branch_exists: bool,
@@ -350,6 +389,8 @@ def classify(
         return "cleanup_patch_equivalent"
     if handoff_receipt_exists:
         return "protected_handoff_receipt"
+    if handoff_outbox_exists:
+        return "protected_handoff_outbox"
     if committed_at >= recent_cutoff:
         return "salvage_recent_unique"
     if remote_branch_exists:
@@ -388,6 +429,11 @@ def audit(
         outbox_dir=resolved_outbox_dir,
         receipt_dir=resolved_receipt_dir,
     )
+    handoff_outbox_branches = unresolved_outbox_handoff_branches(
+        root,
+        outbox_dir=resolved_outbox_dir,
+        receipt_dir=resolved_receipt_dir,
+    )
 
     records: list[BranchRecord] = []
     for row in rows:
@@ -406,6 +452,7 @@ def audit(
             patch_equivalent = is_patch_equivalent(root, base, branch)
         remote_exists = branch in remotes
         handoff_receipted = branch in handoff_receipted_branches
+        handoff_outbox = branch in handoff_outbox_branches
         category = classify(
             open_pr=prs.get(branch),
             active_paths=active_paths,
@@ -414,6 +461,7 @@ def audit(
             merged_to_base=merged_to_base,
             patch_equivalent_to_base=patch_equivalent,
             handoff_receipt_exists=handoff_receipted,
+            handoff_outbox_exists=handoff_outbox,
             committed_at=committed_at,
             recent_cutoff=recent_cutoff,
             remote_branch_exists=remote_exists,
@@ -434,6 +482,7 @@ def audit(
                 dirty_worktree_paths=dirty_paths,
                 active_worktree_paths=active_paths,
                 handoff_receipt_exists=handoff_receipted,
+                handoff_outbox_exists=handoff_outbox,
                 category=category,
             )
         )
@@ -445,6 +494,7 @@ def audit(
         + counts["protected_active_worktree"]
         + counts["protected_dirty_worktree"]
         + counts["protected_handoff_receipt"]
+        + counts["protected_handoff_outbox"]
     )
     salvage = (
         counts["salvage_recent_unique"]
@@ -473,6 +523,7 @@ def audit(
             "publishable_branch_backlog": publishable_branch_backlog,
             "stale_local_only_salvage_candidates": counts["salvage_stale_local_unique"],
             "handoff_receipted_branches": counts["protected_handoff_receipt"],
+            "handoff_outbox_branches": counts["protected_handoff_outbox"],
             "writer_should_pause_for_branch_backlog": (
                 publishable_branch_backlog >= publisher_backlog_limit
             ),
@@ -492,6 +543,7 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     print(f"- Salvage candidates: `{summary['salvage_candidates']}`")
     print(f"- Publishable branch backlog: `{summary['publishable_branch_backlog']}`")
     print(f"- Handoff-receipted branches: `{summary['handoff_receipted_branches']}`")
+    print(f"- Handoff-outbox branches: `{summary['handoff_outbox_branches']}`")
     print(
         "- Writer should pause for branch backlog: "
         f"`{summary['writer_should_pause_for_branch_backlog']}`"
@@ -512,6 +564,7 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
         "protected_active_worktree",
         "protected_dirty_worktree",
         "protected_handoff_receipt",
+        "protected_handoff_outbox",
     ):
         matches = [record for record in records if record["category"] == category]
         if not matches:
