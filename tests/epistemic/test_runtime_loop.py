@@ -20,6 +20,7 @@ from aragora.epistemic.runtime_loop import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _signal(
     *,
     unit_id: str = "unit.test",
@@ -38,6 +39,7 @@ def _signal(
 # ---------------------------------------------------------------------------
 # Feature flag
 # ---------------------------------------------------------------------------
+
 
 class TestFeatureFlag:
     def setup_method(self):
@@ -71,6 +73,7 @@ class TestFeatureFlag:
 # Report-only (default) trace
 # ---------------------------------------------------------------------------
 
+
 class TestReportOnlyTrace:
     def test_event_fields_populated(self):
         sig = _signal(unit_id="unit.alpha", integrity_score=0.75)
@@ -96,19 +99,16 @@ class TestReportOnlyTrace:
 
     def test_prior_receipt_ids_preserved(self):
         receipts = ["rcpt-001", "rcpt-002"]
-        event = run_dialectical_loop(
-            _signal(), prior_receipt_ids=receipts, require_enabled=False
-        )
+        event = run_dialectical_loop(_signal(), prior_receipt_ids=receipts, require_enabled=False)
         assert event.prior_receipt_ids == receipts
 
     def test_metadata_preserved(self):
-        event = run_dialectical_loop(
-            _signal(), metadata={"source": "test"}, require_enabled=False
-        )
+        event = run_dialectical_loop(_signal(), metadata={"source": "test"}, require_enabled=False)
         assert event.metadata == {"source": "test"}
 
     def test_to_dict_is_json_friendly(self):
         import json
+
         event = run_dialectical_loop(_signal(), require_enabled=False)
         d = event.to_dict()
         serialized = json.dumps(d)
@@ -124,12 +124,11 @@ class TestReportOnlyTrace:
 # Repair-proposal path
 # ---------------------------------------------------------------------------
 
+
 class TestRepairProposal:
     def test_repair_spec_none_when_flag_false(self):
         sig = _signal(integrity_score=0.1, recommended_action="repair_required")
-        event = run_dialectical_loop(
-            sig, enable_repair_proposal=False, require_enabled=False
-        )
+        event = run_dialectical_loop(sig, enable_repair_proposal=False, require_enabled=False)
         assert event.repair_spec is None
 
     def test_repair_spec_produced_when_action_repair_required(self):
@@ -150,6 +149,7 @@ class TestRepairProposal:
 
     def test_repair_spec_produced_with_custom_policy(self):
         from aragora.epistemic.quarantine_policy import EscalationMap
+
         sig = _signal(integrity_score=0.5, recommended_action="repair_required")
         # Custom policy: repair_required stays repair_required, threshold=0.3
         policy = QuarantinePolicy(
@@ -174,9 +174,11 @@ class TestRepairProposal:
 # Policy resolution
 # ---------------------------------------------------------------------------
 
+
 class TestPolicyResolution:
     def test_explicit_policy_overrides_class(self):
         from aragora.epistemic.quarantine_policy import EscalationMap
+
         sig = _signal(integrity_score=0.9, recommended_action="report_only")
         policy = QuarantinePolicy(
             code_unit_class="strict",
@@ -189,23 +191,20 @@ class TestPolicyResolution:
     def test_code_unit_class_live_dispatch(self):
         # live_dispatch policy has fail_closed_threshold=0.6; score=0.5 → fail_closed
         sig = _signal(integrity_score=0.5, recommended_action="report_only")
-        event = run_dialectical_loop(
-            sig, code_unit_class="live_dispatch", require_enabled=False
-        )
+        event = run_dialectical_loop(sig, code_unit_class="live_dispatch", require_enabled=False)
         assert event.quarantine_action == "fail_closed"
 
     def test_code_unit_class_report_surface(self):
         # report_surface policy has fail_closed_threshold=0.3; score=0.5 → degrade
         sig = _signal(integrity_score=0.5, recommended_action="repair_required")
-        event = run_dialectical_loop(
-            sig, code_unit_class="report_surface", require_enabled=False
-        )
+        event = run_dialectical_loop(sig, code_unit_class="report_surface", require_enabled=False)
         assert event.quarantine_action in {"degrade", "repair_required", "report_only"}
 
 
 # ---------------------------------------------------------------------------
 # Serialization round-trip
 # ---------------------------------------------------------------------------
+
 
 class TestSerialization:
     def test_to_dict_keys(self):
@@ -233,9 +232,7 @@ class TestSerialization:
 
     def test_prior_receipt_ids_is_list_copy(self):
         receipts = ["r1", "r2"]
-        event = run_dialectical_loop(
-            _signal(), prior_receipt_ids=receipts, require_enabled=False
-        )
+        event = run_dialectical_loop(_signal(), prior_receipt_ids=receipts, require_enabled=False)
         d = event.to_dict()
         assert d["prior_receipt_ids"] == ["r1", "r2"]
         # Mutation of original list does not affect the event
@@ -244,6 +241,7 @@ class TestSerialization:
 
     def test_with_repair_spec_in_dict(self):
         from aragora.epistemic.quarantine_policy import EscalationMap
+
         sig = _signal(integrity_score=0.5, recommended_action="repair_required")
         policy = QuarantinePolicy(
             code_unit_class="custom",

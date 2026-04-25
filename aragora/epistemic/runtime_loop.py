@@ -28,7 +28,7 @@ import hashlib
 import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 from aragora.epistemic.decay_monitor import DecaySignal
 from aragora.epistemic.quarantine_policy import (
@@ -37,9 +37,6 @@ from aragora.epistemic.quarantine_policy import (
     apply_quarantine_policy,
 )
 from aragora.epistemic.repair import RepairSpec, propose_repair
-
-if TYPE_CHECKING:
-    pass
 
 _FLAG = "ARAGORA_DIALECTICAL_RUNTIME_ENABLED"
 
