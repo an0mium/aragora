@@ -29,4 +29,44 @@ describe('AgentBridgeAPI', () => {
       params: { limit: 10, cursor: 'run:first' },
     });
   });
+
+  it('maps startRun to the write-gated bridge route', async () => {
+    mockClient.request.mockResolvedValue({ schema_version: 1, run_id: 'bridge-1' });
+
+    await api.startRun({
+      task: 'Coordinate review',
+      actors: [{ role: 'implementer', harness: 'codex' }],
+      run_id: 'bridge-1',
+      next_actor: 'implementer',
+    });
+
+    expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/agent-bridge/runs', {
+      body: {
+        task: 'Coordinate review',
+        actors: [{ role: 'implementer', harness: 'codex' }],
+        run_id: 'bridge-1',
+        next_actor: 'implementer',
+      },
+    });
+  });
+
+  it('maps dispatchTurn and autoStep to run-scoped write routes', async () => {
+    mockClient.request.mockResolvedValue({ schema_version: 1, event_id: 'evt-1' });
+
+    await api.dispatchTurn('bridge-1', { role: 'reviewer', prompt: 'Review this' });
+    await api.autoStep('bridge-1', { context_turns: 3 });
+
+    expect(mockClient.request).toHaveBeenNthCalledWith(
+      1,
+      'POST',
+      '/api/v1/agent-bridge/runs/bridge-1/dispatch',
+      { body: { role: 'reviewer', prompt: 'Review this' } }
+    );
+    expect(mockClient.request).toHaveBeenNthCalledWith(
+      2,
+      'POST',
+      '/api/v1/agent-bridge/runs/bridge-1/auto-step',
+      { body: { context_turns: 3 } }
+    );
+  });
 });

@@ -33,6 +33,10 @@ export default function AgentBridgeRunDetailPage() {
               <span className="text-white/50">Metadata</span>
               <span className="text-white/60">run.json + sessions.json</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-white/50">Actions</span>
+              <span className="text-amber-200">Write-gated</span>
+            </div>
           </div>
         </div>
       ),

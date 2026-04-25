@@ -684,4 +684,70 @@ CONTROL_PLANE_ENDPOINTS = {
             },
         }
     },
+    "/api/v1/coordination/active-work": {
+        "get": {
+            "tags": ["Coordination"],
+            "summary": "Get active agent work snapshot",
+            "operationId": "getCoordinationActiveWork",
+            "description": (
+                "Return a compact, agent-readable snapshot over existing fleet claims, "
+                "developer leases, merge queue entries, worktree sessions, and active "
+                "agent bridge runs."
+            ),
+            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "parameters": [
+                {
+                    "name": "base",
+                    "in": "query",
+                    "required": False,
+                    "description": "Base branch for worktree status.",
+                    "schema": {"type": "string", "default": "main"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Active work snapshot",
+                    {
+                        "type": "object",
+                        "required": [
+                            "schema_version",
+                            "repo_root",
+                            "base_branch",
+                            "generated_at",
+                            "active_owners",
+                            "claimed_paths",
+                            "avoid_paths",
+                            "worktrees",
+                            "fleet_claims",
+                            "active_leases",
+                            "merge_queue",
+                            "bridge_runs",
+                            "counts",
+                            "source_errors",
+                        ],
+                        "properties": {
+                            "schema_version": {"type": "integer", "enum": [1]},
+                            "repo_root": {"type": "string"},
+                            "base_branch": {"type": "string"},
+                            "generated_at": {"type": "string", "format": "date-time"},
+                            "active_owners": {"type": "array", "items": {"type": "object"}},
+                            "claimed_paths": {"type": "array", "items": {"type": "string"}},
+                            "avoid_paths": {"type": "array", "items": {"type": "string"}},
+                            "avoid_path_hints": {"type": "array", "items": {"type": "object"}},
+                            "worktrees": {"type": "array", "items": {"type": "object"}},
+                            "fleet_claims": {"type": "array", "items": {"type": "object"}},
+                            "active_leases": {"type": "array", "items": {"type": "object"}},
+                            "merge_queue": {"type": "array", "items": {"type": "object"}},
+                            "bridge_runs": {"type": "array", "items": {"type": "object"}},
+                            "counts": {"type": "object", "additionalProperties": True},
+                            "source_errors": {"type": "array", "items": {"type": "object"}},
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
 }

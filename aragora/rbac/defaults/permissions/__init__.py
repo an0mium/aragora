@@ -393,6 +393,7 @@ from .security import (
 # Route permissions (middleware-referenced resources)
 from .routes import (
     PERM_AGENT_BRIDGE_READ,
+    PERM_AGENT_BRIDGE_WRITE,
     PERM_AUDITING_CREATE,
     PERM_AUDITING_READ,
     PERM_BELIEF_READ,
@@ -886,6 +887,7 @@ __all__ = [
     "PERM_CVE_READ",
     # Route permissions (middleware-referenced resources)
     "PERM_AGENT_BRIDGE_READ",
+    "PERM_AGENT_BRIDGE_WRITE",
     "PERM_AUDITING_READ",
     "PERM_AUDITING_CREATE",
     "PERM_BELIEF_READ",

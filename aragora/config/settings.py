@@ -688,6 +688,14 @@ class FeatureSettings(BaseSettings):
         alias="ARAGORA_FEATURE_AGENT_BRIDGE",
         description="Enable the experimental read-only Agent Bridge API and UI surface.",
     )
+    agent_bridge_write: bool = Field(
+        default=False,
+        alias="ARAGORA_FEATURE_AGENT_BRIDGE_WRITE",
+        description=(
+            "Enable operator-local Agent Bridge write endpoints that can spawn or resume "
+            "local model harness processes."
+        ),
+    )
 
     # Demo mode - when enabled, endpoints return mock data instead of requiring backend services
     # This is useful for frontend development and demos without full backend setup

@@ -13,18 +13,22 @@ export default function AgentBridgeRunsPage() {
   useEffect(() => {
     setContext({
       title: 'Agent Bridge',
-      subtitle: 'Read-only broker state',
+      subtitle: 'Operator-gated broker state',
       statsContent: (
         <div className="space-y-4">
           <div className="text-xs uppercase tracking-wider text-white/40">Mode</div>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-white/50">Surface</span>
-              <span className="text-[var(--accent)]">Read only</span>
+              <span className="text-[var(--accent)]">Read + gated write</span>
             </div>
             <div className="flex justify-between">
               <span className="text-white/50">Transport</span>
               <span className="text-cyan-300">HTTP polling</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-white/50">Write gate</span>
+              <span className="text-amber-200">ARAGORA_FEATURE_AGENT_BRIDGE_WRITE</span>
             </div>
             <div className="flex justify-between">
               <span className="text-white/50">Broker store</span>
@@ -61,8 +65,8 @@ export default function AgentBridgeRunsPage() {
             </div>
             <h1 className="text-3xl font-bold text-white">Agent Bridge Runs</h1>
             <p className="mt-2 max-w-3xl text-sm text-white/55">
-              Inspect persistent bridge runs and role-keyed session state without mutation controls
-              or WebSocket transport.
+              Inspect persistent bridge runs, role-keyed session state, and operator-gated
+              one-step dispatch controls for local harness cross-check loops.
             </p>
           </div>
 

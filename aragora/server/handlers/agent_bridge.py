@@ -1,4 +1,4 @@
-"""Read-only HTTP handler for agent bridge run data."""
+"""HTTP handler for agent bridge run data and operator-gated dispatch."""
 
 from __future__ import annotations
 
@@ -6,17 +6,22 @@ __all__ = ["AgentBridgeHandler"]
 
 import base64
 import binascii
+import json
 import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from aragora.config.settings import get_settings
 from aragora.rbac.defaults.permissions import PERM_AGENT_BRIDGE_READ
+from aragora.rbac.defaults.permissions import PERM_AGENT_BRIDGE_WRITE
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_caching import etag_matches
 from aragora.server.validation import validate_path_segment
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.swarm.agent_bridge.broker import AgentBridgeBroker
+from aragora.swarm.agent_bridge.exceptions import TransportError
 from aragora.swarm.agent_bridge.footer import extract_footer
 from aragora.swarm.agent_bridge.store import BridgeStore
 from aragora.swarm.agent_bridge.types import BridgeFooter
@@ -138,7 +143,7 @@ def _parse_limit(raw: Any) -> int:
 
 
 class AgentBridgeHandler(BaseHandler):
-    """Expose persisted agent-bridge run state through read-only HTTP endpoints."""
+    """Expose persisted agent-bridge state and feature-gated operator writes."""
 
     ROUTES = ["/api/v1/agent-bridge/runs"]
 
@@ -147,15 +152,31 @@ class AgentBridgeHandler(BaseHandler):
         self._store = BridgeStore(_bridge_repo_root(self.ctx))
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
-        if method.upper() != "GET":
-            return False
+        method = method.upper()
         normalized = strip_version_prefix(path).rstrip("/")
-        return normalized == _RUNS_PATH or normalized.startswith(_RUNS_PREFIX)
+        if method == "GET":
+            return normalized == _RUNS_PATH or normalized.startswith(_RUNS_PREFIX)
+        if method == "POST":
+            if normalized == _RUNS_PATH:
+                return True
+            if not normalized.startswith(_RUNS_PREFIX):
+                return False
+            segments = [
+                segment for segment in normalized[len(_RUNS_PREFIX) :].split("/") if segment
+            ]
+            return len(segments) == 2 and segments[1] in {"dispatch", "auto-step"}
+        return False
 
     @handle_errors("agent bridge read API")  # type: ignore[untyped-decorator]
     @require_permission(PERM_AGENT_BRIDGE_READ.key)
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+        method = str(getattr(handler, "command", "GET") or "GET").upper()
         normalized = strip_version_prefix(path).rstrip("/")
+        if method == "POST":
+            return self._handle_post(normalized, handler)
+        if method != "GET":
+            return error_response("Method not allowed", 405)
+
         if normalized == _RUNS_PATH:
             return self._handle_list_runs(query_params)
         if not normalized.startswith(_RUNS_PREFIX):
@@ -174,6 +195,240 @@ class AgentBridgeHandler(BaseHandler):
         if len(segments) == 2 and segments[1] == "transcript":
             return self._handle_get_transcript(run_id)
         return error_response("Not found", 404)
+
+    @require_permission(PERM_AGENT_BRIDGE_WRITE.key)
+    def _handle_post(self, normalized: str, handler: Any) -> HandlerResult:
+        if not self._write_enabled():
+            return error_response("Agent bridge write API is disabled", 403)
+
+        body, body_error = self.read_json_body_validated(handler)
+        if body_error:
+            return body_error
+        if body is None:
+            return error_response("Request body must be a JSON object", 400)
+
+        if normalized == _RUNS_PATH:
+            return self._handle_start_run(body)
+        if not normalized.startswith(_RUNS_PREFIX):
+            return error_response("Not found", 404)
+
+        segments = [segment for segment in normalized[len(_RUNS_PREFIX) :].split("/") if segment]
+        if len(segments) != 2:
+            return error_response("Not found", 404)
+        run_id, action = segments
+        if action == "dispatch":
+            return self._handle_dispatch_turn(run_id, body)
+        if action == "auto-step":
+            return self._handle_auto_step(run_id, body)
+        return error_response("Not found", 404)
+
+    def _write_enabled(self) -> bool:
+        override = self.ctx.get("agent_bridge_write_enabled")
+        if override is not None:
+            return bool(override)
+        try:
+            return bool(get_settings().features.agent_bridge_write)
+        except Exception:
+            logger.exception("Unable to read agent bridge write feature flag")
+            return False
+
+    def _broker(self) -> Any:
+        broker = self.ctx.get("agent_bridge_broker")
+        if broker is not None:
+            return broker
+        factory = self.ctx.get("agent_bridge_broker_factory", AgentBridgeBroker)
+        return factory(_bridge_repo_root(self.ctx), store=self._store)
+
+    def _handle_start_run(self, body: dict[str, Any]) -> HandlerResult:
+        task = str(body.get("task", "")).strip()
+        if not task:
+            return error_response("task is required", 400)
+
+        raw_actors = body.get("actors")
+        if not isinstance(raw_actors, list) or not raw_actors:
+            return error_response("actors must be a non-empty list", 400)
+
+        sessions: dict[str, BridgeSession] = {}
+        top_worktree_path = self._optional_string(body.get("worktree_path"))
+        top_worktree_agent_slug = str(body.get("worktree_agent_slug", "codex")).strip() or "codex"
+        for raw_actor in raw_actors:
+            if not isinstance(raw_actor, dict):
+                return error_response("each actor must be a JSON object", 400)
+            role = str(raw_actor.get("role", "")).strip()
+            harness = str(raw_actor.get("harness", "")).strip()
+            if not role or not harness:
+                return error_response("each actor requires role and harness", 400)
+            if not self._is_valid_slug(role):
+                return error_response(f"invalid actor role: {role}", 400)
+            if role in sessions:
+                return error_response(f"duplicate actor role: {role}", 400)
+            harness_options = raw_actor.get("harness_options", {})
+            if not isinstance(harness_options, dict):
+                return error_response("actor harness_options must be an object", 400)
+            sessions[role] = BridgeSession(
+                role=role,
+                harness=harness,
+                model=str(raw_actor.get("model", "") or ""),
+                session_id=self._optional_string(raw_actor.get("session_id")),
+                worktree_agent_slug=self._optional_string(raw_actor.get("worktree_agent_slug"))
+                or top_worktree_agent_slug,
+                worktree_path=self._optional_string(raw_actor.get("worktree_path"))
+                or top_worktree_path,
+                branch=self._optional_string(raw_actor.get("branch")),
+                session_status="not_started",
+                started_at=None,
+                last_turn_index=0,
+                last_completed_at=None,
+                harness_options=dict(harness_options),
+            )
+
+        run_id = self._optional_string(body.get("run_id"))
+        if run_id is not None and not self._is_valid_run_id(run_id):
+            return error_response("invalid run_id", 400)
+        if run_id is not None and self._load_run_or_none(run_id) is not None:
+            return error_response("Bridge run already exists", 409)
+
+        next_actor = self._optional_string(body.get("next_actor"))
+        if next_actor is not None and next_actor not in sessions:
+            return error_response("next_actor must match an actor role", 400)
+
+        repair_budget, repair_error = self._parse_nonnegative_int(
+            body.get("repair_budget_per_turn", 1),
+            "repair_budget_per_turn",
+        )
+        if repair_error:
+            return repair_error
+
+        broker = self._broker()
+        try:
+            run = broker.start_run(
+                task=task,
+                sessions=sessions,
+                next_actor=next_actor,
+                run_id=run_id,
+                worktree_path=top_worktree_path,
+                worktree_agent_slug=top_worktree_agent_slug,
+                repair_budget_per_turn=repair_budget,
+            )
+            registry = self._store.load_sessions(run.run_id)
+        except Exception as exc:
+            logger.exception("Agent bridge start-run failed")
+            return error_response(f"Agent bridge start-run failed: {exc}", 500)
+        return json_response(self._serialize_run_detail(run, registry), status=201)
+
+    def _handle_dispatch_turn(self, run_id: str, body: dict[str, Any]) -> HandlerResult:
+        run, registry, error = self._load_dispatchable_run(run_id)
+        if error is not None:
+            return error
+        if run is None or registry is None:
+            return self._not_found()
+
+        role = str(body.get("role", "")).strip()
+        prompt = str(body.get("prompt", "")).strip()
+        if not role:
+            return error_response("role is required", 400)
+        if not prompt:
+            return error_response("prompt is required", 400)
+        if role not in registry.sessions:
+            return error_response("Unknown role for bridge run", 400)
+
+        return self._dispatch_turn(run_id=run.run_id, role=role, prompt=prompt)
+
+    def _handle_auto_step(self, run_id: str, body: dict[str, Any]) -> HandlerResult:
+        run, registry, error = self._load_dispatchable_run(run_id)
+        if error is not None:
+            return error
+        if run is None or registry is None:
+            return self._not_found()
+
+        role = run.next_actor
+        if not role:
+            return error_response("Bridge run has no next_actor", 409)
+        if role not in registry.sessions:
+            return error_response("Bridge run next_actor is not a registered role", 409)
+
+        context_turns, turns_error = self._parse_nonnegative_int(
+            body.get("context_turns", 5),
+            "context_turns",
+        )
+        if turns_error:
+            return turns_error
+        context_turns = min(max(context_turns, 1), 20)
+
+        prompt = str(body.get("prompt", "")).strip()
+        if not prompt:
+            prompt = self._compose_auto_step_prompt(run, context_turns=context_turns)
+        result = self._dispatch_turn(run_id=run.run_id, role=role, prompt=prompt)
+        if result.status_code != 200:
+            return result
+        payload = _json_payload(result)
+        payload["auto_step"] = {"role": role, "context_turns": context_turns}
+        return json_response(payload)
+
+    def _load_dispatchable_run(
+        self,
+        run_id: str,
+    ) -> tuple[BridgeRun | None, SessionRegistry | None, HandlerResult | None]:
+        if not self._is_valid_run_id(run_id):
+            return None, None, self._not_found()
+        run = self._load_run_or_none(run_id)
+        if run is None:
+            return None, None, self._not_found()
+        if run.status in {"completed", "failed"}:
+            return None, None, error_response("Bridge run is not dispatchable", 409)
+        try:
+            registry = self._store.load_sessions(run_id)
+        except FileNotFoundError:
+            return None, None, self._not_found()
+        return run, registry, None
+
+    def _dispatch_turn(self, *, run_id: str, role: str, prompt: str) -> HandlerResult:
+        try:
+            event = self._broker().dispatch_turn(run_id=run_id, role=role, prompt=prompt)
+        except KeyError:
+            return error_response("Unknown role for bridge run", 400)
+        except FileNotFoundError:
+            return self._not_found()
+        except TransportError as exc:
+            logger.warning("Agent bridge transport failed for %s/%s: %s", run_id, role, exc)
+            return error_response(f"Agent bridge transport failed: {exc}", 502)
+        except Exception as exc:
+            logger.exception("Agent bridge dispatch failed")
+            return error_response(f"Agent bridge dispatch failed: {exc}", 500)
+        return json_response(event.to_dict())
+
+    def _compose_auto_step_prompt(self, run: BridgeRun, *, context_turns: int) -> str:
+        try:
+            events = self._store.load_events(run.run_id)
+            turns = self._reconstruct_transcript(run, events)[-context_turns:]
+        except Exception:
+            logger.exception("Unable to reconstruct bridge transcript for auto-step")
+            turns = []
+
+        recent_parts: list[str] = []
+        for turn in turns:
+            body = str(turn.get("body_markdown", "")).strip()
+            footer = turn.get("footer")
+            if len(body) > 2500:
+                body = body[:2500].rstrip() + "\n[truncated]"
+            recent_parts.append(
+                "\n".join(
+                    [
+                        f"Turn {turn.get('turn_index')} by {turn.get('author_role')}:",
+                        body or "[no body captured]",
+                        f"Footer: {footer if footer is not None else '[missing]'}",
+                    ]
+                )
+            )
+        recent = "\n\n".join(recent_parts) if recent_parts else "[no prior turns captured]"
+        return (
+            "Continue this agent-bridge run by taking the next useful step.\n\n"
+            f"Task:\n{run.task}\n\n"
+            f"Recent transcript:\n{recent}\n\n"
+            "Return a normal response followed by a valid bridge footer. "
+            "Set needs_human=true if blocked by missing authority, secrets, protected files, "
+            "conflicting ownership, or any irreversible action."
+        )
 
     def _handle_list_runs(self, query_params: dict[str, Any]) -> HandlerResult:
         limit = _parse_limit(query_params.get("limit"))
@@ -304,6 +559,25 @@ class AgentBridgeHandler(BaseHandler):
     def _is_valid_run_id(self, run_id: str) -> bool:
         ok, _ = validate_path_segment(run_id, "run_id", SAFE_SLUG_PATTERN)
         return ok
+
+    def _is_valid_slug(self, slug: str) -> bool:
+        ok, _ = validate_path_segment(slug, "slug", SAFE_SLUG_PATTERN)
+        return ok
+
+    def _optional_string(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    def _parse_nonnegative_int(self, value: Any, name: str) -> tuple[int, HandlerResult | None]:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return 0, error_response(f"{name} must be an integer", 400)
+        if parsed < 0:
+            return 0, error_response(f"{name} must be non-negative", 400)
+        return parsed, None
 
     def _serialize_run_summary(self, run: BridgeRun) -> dict[str, Any]:
         payload = run.to_dict()
@@ -449,3 +723,12 @@ class AgentBridgeHandler(BaseHandler):
     def _bridge_store_unavailable(self) -> HandlerResult:
         logger.exception("Agent bridge store unavailable")
         return error_response("bridge store unavailable", 500)
+
+
+def _json_payload(result: HandlerResult) -> dict[str, Any]:
+    raw = result.body.decode("utf-8") if isinstance(result.body, bytes) else str(result.body)
+    try:
+        payload = json.loads(raw) if raw else {}
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}

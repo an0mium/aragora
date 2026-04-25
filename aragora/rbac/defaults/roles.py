@@ -261,6 +261,7 @@ from .permissions import (
     PERM_ALERTS_WRITE,
     PERM_ALERTS_ADMIN,
     PERM_AGENT_BRIDGE_READ,
+    PERM_AGENT_BRIDGE_WRITE,
 )
 
 
@@ -501,6 +502,8 @@ ROLE_ADMIN = Role(
         PERM_ALERTS_READ.key,
         PERM_ALERTS_WRITE.key,
         PERM_ALERTS_ADMIN.key,
+        PERM_AGENT_BRIDGE_READ.key,
+        PERM_AGENT_BRIDGE_WRITE.key,
     },
     parent_roles=[],
     priority=80,

@@ -21,6 +21,12 @@ PERM_AGENT_BRIDGE_READ = _permission(
     "View Agent Bridge Runs",
     "View persisted agent bridge runs, sessions, events, and transcripts",
 )
+PERM_AGENT_BRIDGE_WRITE = _permission(
+    ResourceType.AGENT_BRIDGE,
+    Action.WRITE,
+    "Operate Agent Bridge Runs",
+    "Start bridge runs and dispatch turns to local agent harnesses",
+)
 
 # ============================================================================
 # AUDITING PERMISSIONS (Red team operations)
@@ -221,6 +227,7 @@ PERM_EVOLUTION_WRITE = _permission(
 
 __all__ = [
     "PERM_AGENT_BRIDGE_READ",
+    "PERM_AGENT_BRIDGE_WRITE",
     "PERM_AUDITING_READ",
     "PERM_AUDITING_CREATE",
     "PERM_BELIEF_READ",

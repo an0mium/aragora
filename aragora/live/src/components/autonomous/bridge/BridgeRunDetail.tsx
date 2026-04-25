@@ -3,6 +3,7 @@
 import { TabPanel, Tabs } from '@/components/Tabs';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { BridgeEventStream } from '@/components/autonomous/bridge/BridgeEventStream';
+import { BridgeOperatorActions } from '@/components/autonomous/bridge/BridgeOperatorActions';
 import { BridgeRoleCard } from '@/components/autonomous/bridge/BridgeRoleCard';
 import { BridgeTranscriptView } from '@/components/autonomous/bridge/BridgeTranscriptView';
 import { useAgentBridgeEvents } from '@/hooks/useAgentBridgeEvents';
@@ -153,6 +154,15 @@ export function BridgeRunDetail({ runId }: BridgeRunDetailProps) {
           <span>cleanup: {run.worktree_cleanup_mode}</span>
         </div>
       </section>
+
+      <BridgeOperatorActions
+        run={run}
+        onDispatched={() => {
+          runQuery.retry();
+          eventsQuery.retry();
+          transcriptQuery.retry();
+        }}
+      />
 
       <section className="space-y-3">
         <div className="text-xs uppercase tracking-[0.25em] text-white/35">Participant sessions</div>

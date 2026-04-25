@@ -24,10 +24,21 @@ def _parse_json_body(result: object) -> dict[str, object]:
     return json.loads(body) if body else {}
 
 
-def _mock_http_handler(*, headers: dict[str, str] | None = None) -> MagicMock:
+def _mock_http_handler(*, headers: dict[str, str] | None = None, command: str = "GET") -> MagicMock:
     mock = MagicMock()
     mock.headers = headers or {}
+    mock.command = command
     mock.client_address = ("127.0.0.1", 12345)
+    return mock
+
+
+def _mock_json_post(body: dict[str, object]) -> MagicMock:
+    raw = json.dumps(body).encode("utf-8")
+    mock = _mock_http_handler(
+        headers={"Content-Length": str(len(raw)), "Content-Type": "application/json"},
+        command="POST",
+    )
+    mock.rfile.read.return_value = raw
     return mock
 
 
@@ -640,6 +651,223 @@ def test_malformed_cursor_returns_400(
     assert result is not None
     assert result.status_code == 400
     assert _parse_json_body(result) == {"error": "Invalid bridge cursor"}
+
+
+def test_start_run_write_api_persists_role_keyed_sessions(bridge_repo: Path) -> None:
+    handler = AgentBridgeHandler(
+        ctx={"agent_bridge_repo_root": str(bridge_repo), "agent_bridge_write_enabled": True}
+    )
+
+    result = handler.handle(
+        "/api/v1/agent-bridge/runs",
+        {},
+        _mock_json_post(
+            {
+                "run_id": "bridge-http-start",
+                "task": "Coordinate a no-op smoke",
+                "next_actor": "implementer",
+                "worktree_path": str(bridge_repo),
+                "worktree_agent_slug": "codex-http",
+                "actors": [
+                    {
+                        "role": "implementer",
+                        "harness": "codex",
+                        "model": "gpt-5.5",
+                        "harness_options": {"reasoning_effort": "low"},
+                    },
+                    {"role": "reviewer", "harness": "claude", "model": "claude-opus-4-7"},
+                ],
+            }
+        ),
+    )
+
+    assert result is not None
+    assert result.status_code == 201
+    payload = _parse_json_body(result)
+    assert payload["run_id"] == "bridge-http-start"
+    assert payload["status"] == "running"
+    assert payload["next_actor"] == "implementer"
+    assert set(payload["roles"]) == {"implementer", "reviewer"}
+    assert payload["roles"]["implementer"]["harness_options"] == {"reasoning_effort": "low"}
+
+
+def test_start_run_rejects_write_gate_disabled(bridge_repo: Path) -> None:
+    handler = AgentBridgeHandler(ctx={"agent_bridge_repo_root": str(bridge_repo)})
+
+    result = handler.handle(
+        "/api/v1/agent-bridge/runs",
+        {},
+        _mock_json_post({"task": "blocked", "actors": [{"role": "a", "harness": "codex"}]}),
+    )
+
+    assert result is not None
+    assert result.status_code == 403
+    assert _parse_json_body(result) == {"error": "Agent bridge write API is disabled"}
+
+
+def test_dispatch_turn_write_api_uses_injected_broker(
+    bridge_repo: Path,
+    store: BridgeStore,
+) -> None:
+    run = _write_run(
+        store,
+        run_id="bridge-dispatch",
+        created_at="2026-04-21T20:00:00Z",
+        updated_at="2026-04-21T20:01:00Z",
+    )
+    fake_event = _turn_event(
+        run_id=run.run_id,
+        turn_index=1,
+        seq=2,
+        event_type="footer_ok",
+        role="reviewer",
+        ts="2026-04-21T20:02:00Z",
+        parse_status="ok",
+        payload={"footer": BridgeFooter("ok", None, False, True, [], []).to_dict()},
+    )
+    broker = MagicMock()
+    broker.dispatch_turn.return_value = fake_event
+    handler = AgentBridgeHandler(
+        ctx={
+            "agent_bridge_repo_root": str(bridge_repo),
+            "agent_bridge_write_enabled": True,
+            "agent_bridge_broker": broker,
+        }
+    )
+
+    result = handler.handle(
+        "/api/v1/agent-bridge/runs/bridge-dispatch/dispatch",
+        {},
+        _mock_json_post({"role": "reviewer", "prompt": "Review this"}),
+    )
+
+    assert result is not None
+    assert result.status_code == 200
+    broker.dispatch_turn.assert_called_once_with(
+        run_id="bridge-dispatch",
+        role="reviewer",
+        prompt="Review this",
+    )
+    payload = _parse_json_body(result)
+    assert payload["event_id"] == fake_event.event_id
+
+
+def test_dispatch_rejects_completed_run(
+    bridge_repo: Path,
+    store: BridgeStore,
+) -> None:
+    _write_run(
+        store,
+        run_id="bridge-completed",
+        created_at="2026-04-21T20:00:00Z",
+        updated_at="2026-04-21T20:01:00Z",
+        status="completed",
+        next_actor=None,
+    )
+    handler = AgentBridgeHandler(
+        ctx={"agent_bridge_repo_root": str(bridge_repo), "agent_bridge_write_enabled": True}
+    )
+
+    result = handler.handle(
+        "/api/v1/agent-bridge/runs/bridge-completed/dispatch",
+        {},
+        _mock_json_post({"role": "reviewer", "prompt": "Review this"}),
+    )
+
+    assert result is not None
+    assert result.status_code == 409
+
+
+def test_auto_step_dispatches_next_actor_with_composed_prompt(
+    bridge_repo: Path,
+    store: BridgeStore,
+) -> None:
+    run = _write_run(
+        store,
+        run_id="bridge-auto-step",
+        created_at="2026-04-21T20:00:00Z",
+        updated_at="2026-04-21T20:01:00Z",
+        next_actor="reviewer",
+    )
+    store.append_event(
+        run.run_id,
+        _turn_event(
+            run_id=run.run_id,
+            turn_index=1,
+            seq=0,
+            event_type="turn.result",
+            role="implementer",
+            ts="2026-04-21T20:01:00Z",
+            parse_status="ok",
+            payload={
+                "message_text": _footer_text(
+                    "Implemented a patch.",
+                    summary="patch ready",
+                    next_actor="reviewer",
+                )
+            },
+        ),
+    )
+    fake_event = _turn_event(
+        run_id=run.run_id,
+        turn_index=2,
+        seq=2,
+        event_type="footer_ok",
+        role="reviewer",
+        ts="2026-04-21T20:02:00Z",
+        parse_status="ok",
+        payload={"footer": BridgeFooter("reviewed", None, False, True, [], []).to_dict()},
+    )
+    broker = MagicMock()
+    broker.dispatch_turn.return_value = fake_event
+    handler = AgentBridgeHandler(
+        ctx={
+            "agent_bridge_repo_root": str(bridge_repo),
+            "agent_bridge_write_enabled": True,
+            "agent_bridge_broker": broker,
+        }
+    )
+
+    result = handler.handle(
+        "/api/v1/agent-bridge/runs/bridge-auto-step/auto-step",
+        {},
+        _mock_json_post({"context_turns": 1}),
+    )
+
+    assert result is not None
+    assert result.status_code == 200
+    kwargs = broker.dispatch_turn.call_args.kwargs
+    assert kwargs["run_id"] == "bridge-auto-step"
+    assert kwargs["role"] == "reviewer"
+    assert "Implemented a patch." in kwargs["prompt"]
+    payload = _parse_json_body(result)
+    assert payload["auto_step"] == {"role": "reviewer", "context_turns": 1}
+
+
+@pytest.mark.no_auto_auth
+def test_rbac_write_requires_agent_bridge_write_permission(
+    bridge_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from aragora.server.auth import auth_config
+
+    monkeypatch.setattr(auth_config, "enabled", True)
+    handler = AgentBridgeHandler(
+        ctx={"agent_bridge_repo_root": str(bridge_repo), "agent_bridge_write_enabled": True}
+    )
+    http = _mock_json_post({"task": "blocked", "actors": [{"role": "a", "harness": "codex"}]})
+    http._auth_context = AuthorizationContext(
+        user_id="viewer-1",
+        user_email="viewer@example.com",
+        org_id="org-1",
+        roles={"developer"},
+        permissions={"agent_bridge:read"},
+    )
+
+    result = handler.handle("/api/v1/agent-bridge/runs", {}, http)
+
+    assert result is not None
+    assert result.status_code == 403
 
 
 @pytest.mark.no_auto_auth
