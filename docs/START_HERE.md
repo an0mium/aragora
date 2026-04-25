@@ -15,8 +15,8 @@
      my Python code            REST API           contribute
               |                   |                   |
     pip install aragora-debate  Python or TS SDK    Clone the repo
-       (zero dependencies,     (API client for      (3,700+ modules,
-        works offline)         a running server)    full platform)
+       (zero dependencies,     (API client for      (full platform;
+        works offline)         a running server)    see METRICS.md)
 ```
 
 | Goal | Package | Install |

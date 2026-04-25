@@ -11,7 +11,7 @@
 - [Core Workflows](#core-workflows)
 - [Architecture](#architecture)
 - [Programmatic Usage](#programmatic-usage)
-- [Implemented Features (3,700+ Modules)](#implemented-features-3700-modules)
+- [Implemented Features](#implemented-features)
 - [Prerequisites](#prerequisites)
 - [Deployment](#deployment)
 - [API Endpoints](#api-endpoints)
@@ -35,7 +35,7 @@ Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / s
 
 ### 3. Extensible and Modular
 
-Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript (186 Python / 185 TypeScript namespaces). 3,100+ API operations across 2,900+ paths and 270+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 60+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack.
+Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript (186 Python / 185 TypeScript namespaces). 3,386 API operations across 2,928 paths and 270+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 60+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack.
 
 ### 4. Multi-Agent Robustness
 
@@ -336,7 +336,7 @@ aragora/
 └── cli/              # Command-line interface
 ```
 
-**Scale:** 3,800+ Python modules | 210,000+ tests across 5,000+ test files | 185 Python / 191 TypeScript SDK namespaces
+**Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions across 5,078 test files | canonical counts in [METRICS.md](METRICS.md)
 
 ---
 
@@ -477,7 +477,7 @@ See [SDK_COMPARISON.md](SDK_COMPARISON.md) for detailed feature comparison.
 
 ---
 
-## Implemented Features (3,700+ Modules)
+## Implemented Features
 
 Aragora has evolved through 21+ phases of self-improvement, with the Nomic Loop debating and implementing each feature.
 
@@ -681,7 +681,7 @@ aragora serve --api-port 8080 --ws-port 8765
 
 ## API Endpoints
 
-The server exposes 3,100+ API operations across 2,900+ paths. Key categories:
+The server exposes 3,386 API operations across 2,928 paths. Key categories:
 
 | Category | Description |
 |----------|-------------|

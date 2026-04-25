@@ -450,7 +450,7 @@ Use selectively. These are evidence atoms to support the wedge, not hero copy.
 - production debate engine with heterogeneous agent support
 - decision receipts and provenance already wired into real flows
 - bounded autonomous repo-improvement path with receipt gates
-- heavy automated test coverage and broad knowledge-adapter surface (exact counts in [../CANONICAL_GOALS.md](../CANONICAL_GOALS.md#canonical-metrics-march-2026-baseline) — this doc should not drift from the canonical baseline)
+- heavy automated test coverage and broad knowledge-adapter surface (exact counts in [../CANONICAL_GOALS.md](../CANONICAL_GOALS.md#canonical-metrics) — this doc should not drift from the canonical baseline)
 
 ### Proof Points That Fit The Story
 

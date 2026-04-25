@@ -5,6 +5,10 @@
 >
 > **Written:** Early March 2026 (Run 001-003 era). **March 5 update:** Several blockers
 > described below have since been resolved — see update notes inline.
+>
+> **Metrics note:** This document is a historical assessment. Current live scale
+> numbers are auto-regenerated in [`docs/METRICS.md`](METRICS.md), and that file
+> wins over any stale numeric snapshot below.
 
 ---
 
@@ -43,7 +47,7 @@ The debate engine is real, functional, and battle-tested.
 | ELO rankings | Domain-specific ratings, Brier score calibration, persistent leaderboards |
 | Demo mode | Works end-to-end with no API keys required |
 | CLI | `aragora review`, `aragora gauntlet` work in both live and demo modes |
-| Test coverage | 208,000+ automated tests, 0 mypy type errors |
+| Test coverage | Historical snapshot; current test-function and mypy-baseline counts live in [`docs/METRICS.md`](METRICS.md) |
 
 ### Idea-to-Execution Pipeline (90% Working)
 
@@ -189,7 +193,7 @@ Why it resists commoditization:
 
 - It is architecturally different from cooperative frameworks. Adversarial vs. cooperative is a design philosophy, not a feature toggle.
 - The receipt format, dissent tracking, and evidence chains create a document standard that represents years of domain expertise.
-- 210+ debate modules encode deep knowledge of structured argumentation that cannot be bolted onto a cooperative framework.
+- The debate subsystem encodes deep knowledge of structured argumentation that cannot be bolted onto a cooperative framework.
 
 #### 2. Heterogeneous Model Consensus as Bias Countermeasure
 
@@ -285,7 +289,7 @@ Aragora's core value proposition is **real and defensible**: multi-agent adversa
 - The CLI works.
 - The API works.
 - The enterprise security works.
-- 210,000+ tests prove it.
+- A large, auto-counted test suite and the quality gates support it; see [`docs/METRICS.md`](METRICS.md) for current counts.
 
 This combination is unique. No funded competitor does it. It represents a new category -- Decision Integrity -- not a feature added to an existing category.
 

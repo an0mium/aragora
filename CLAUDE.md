@@ -184,7 +184,7 @@ Aragora is the **Decision Integrity Platform** -- orchestrating 43 agent types t
 
 **Five Pillars:** (1) SMB-ready with enterprise-grade security, (2) leading-edge memory and context processing, (3) extensible/modular with broad connectors and SDKs, (4) multi-agent robustness via heterogeneous model consensus, (5) self-healing and self-extending via the Nomic Loop.
 
-**Codebase Scale:** 3,800+ Python modules | 210,000+ tests | 5,000+ test files | 210+ debate modules | 3,100+ API operations across 2,900+ paths | 42 registered KM adapters | 185 Python / 183 TypeScript SDK namespaces
+**Codebase Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions | 5,078 test files | 3,386 API operations across 2,928 paths | canonical counts in `docs/METRICS.md`
 
 ## Architecture
 
@@ -225,7 +225,7 @@ aragora/
 │           ├── kafka.py    # Apache Kafka consumer
 │           └── rabbitmq.py # RabbitMQ consumer/publisher
 ├── server/           # HTTP/WebSocket API
-│   ├── unified_server.py   # Main server (3,100+ API operations)
+│   ├── unified_server.py   # Main server (3,386 API operations)
 │   ├── startup.py          # Server startup sequence
 │   ├── debate_origin.py    # Bidirectional chat result routing
 │   ├── handlers/           # HTTP endpoint handlers (700+ modules)
@@ -432,7 +432,7 @@ See `docs/reference/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 210,000+ tests across 5,000+ test files
+**Test Suite:** 216,000+ test functions across 5,078 test files (canonical counts in `docs/METRICS.md`)
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)
@@ -500,7 +500,7 @@ See `docs/reference/ENVIRONMENT.md` for full reference.
 
 **Integrated:**
 - Knowledge Mound - STABLE Phase A2 (100% integrated, 4,300+ tests passing)
-  - 42 adapters (Belief, CalibrationFusion, ClaudeMem, Codebase, Compliance, ComputerUse, Confluence, Consensus, Continuum, ControlPlane, Cost, Critique, Culture, Debate, DecisionPlan, ELO, Email, ERC8004, Evidence, Explainability, Extraction, Fabric, Gateway, Genesis, GoalCanvas, IdeaCanvas, Insights, Jira, LangExtract, NomicCycle, Obsidian, OpenClaw, Outcome, Performance, Pipeline, Provenance, Pulse, Ranking, Receipt, RLM, RLMContext, Supermemory, Trickster, Workflow, Workspace)
+  - Knowledge Mound adapters (canonical adapter counts live in `docs/METRICS.md`)
   - Visibility, sharing, federation, global knowledge
   - Semantic search, validation feedback, cross-debate learning
   - SLO alerting with Prometheus metrics

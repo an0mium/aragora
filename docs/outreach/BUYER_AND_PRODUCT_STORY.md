@@ -322,7 +322,7 @@ undocumented operator rescue, we treat that as a blocker, not a success.
 
 ### Supporting Facts, Not Opening Claims
 
-- **210,000+ tests** across 4,700+ test files
+- **216,016 automated tests** across 5,078 test files
 - **Receipt-gated repo improvement** validated on the benchmark path
 - **Inbox trust wedge** shipped from debate to signed receipt to action
 - **Heterogeneous provider support** across CLI, API, and local-model workers
