@@ -98,6 +98,9 @@ instead of `8080`/`8765`/`9090`:
 - WebSocket family: `18765`-`18768`
 - Prometheus metrics: `19090`
 
+The debate WebSocket burst test connects with the `aragora-v1` subprotocol,
+matching `DebateStreamServer`'s handshake contract.
+
 Before startup the workflow checks only those isolated ports and stops stale
 Aragora listeners left by prior interrupted load-test jobs. Cleanup sends
 `TERM`, waits for listeners to drain, escalates to `KILL` only for remaining
@@ -193,6 +196,8 @@ gh api repos/synaptent/aragora/actions/runners --jq '.runners[] | select(.name =
   `ARAGORA_CANVAS_WS_PORT`, allowing CI to isolate the full WebSocket family.
 - **2026-04-25 (workspace isolation)** — Added a pre-checkout workspace clean
   so generated files from prior self-hosted runs cannot block checkout updates.
+- **2026-04-25 (WebSocket handshake)** — k6 WebSocket load scripts now request
+  the `aragora-v1` subprotocol required by the debate stream server.
 
 ## When to add ubuntu-latest fallback
 

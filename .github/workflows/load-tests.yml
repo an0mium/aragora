@@ -33,6 +33,7 @@ env:
   LOAD_NOMIC_LOOP_PORT: '18767'
   LOAD_CANVAS_PORT: '18768'
   LOAD_METRICS_PORT: '19090'
+  LOAD_WS_SUBPROTOCOL: aragora-v1
 
 # Permissions needed for AWS OIDC
 permissions:
@@ -405,12 +406,14 @@ jobs:
             -e HOME=/tmp \
             -e K6_NO_USAGE_REPORT \
             -e WS_URL \
+            -e WS_SUBPROTOCOL \
             "$K6_DOCKER_IMAGE" run tests/load/websocket_burst.js \
             --vus 100 \
             --duration 30s \
             --out json=ws-results.json
         env:
           WS_URL: ${{ format('ws://localhost:{0}', env.LOAD_WS_PORT) }}
+          WS_SUBPROTOCOL: ${{ env.LOAD_WS_SUBPROTOCOL }}
 
       - name: Run rate limit validation
         run: |
