@@ -17378,7 +17378,11 @@ export interface paths {
          */
         get: operations["listAgentBridgeRuns"];
         put?: never;
-        post?: never;
+        /**
+         * Start agent bridge run
+         * @description Start a persisted bridge run without dispatching a turn. This operator-local write endpoint is separately feature-gated because subsequent dispatch can spawn local model harness processes.
+         */
+        post: operations["startAgentBridgeRun"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17399,6 +17403,46 @@ export interface paths {
         get: operations["getAgentBridgeRun"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-bridge/runs/{run_id}/auto-step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Auto-dispatch the next bridge actor
+         * @description Compose a continuation prompt from the run task and recent transcript, then dispatch one turn to next_actor. This is one-step automation, not a daemon.
+         */
+        post: operations["autoStepAgentBridgeRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-bridge/runs/{run_id}/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dispatch one bridge turn
+         * @description Dispatch one prompt to a registered role in an active bridge run.
+         */
+        post: operations["dispatchAgentBridgeTurn"];
         delete?: never;
         options?: never;
         head?: never;
@@ -28666,6 +28710,26 @@ export interface paths {
          * @description Mark a task as failed.
          */
         post: operations["createControlPlaneTasksFail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/coordination/active-work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get active agent work snapshot
+         * @description Return a compact, agent-readable snapshot over existing fleet claims, developer leases, merge queue entries, worktree sessions, and active agent bridge runs.
+         */
+        get: operations["getCoordinationActiveWork"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -98671,6 +98735,165 @@ export interface operations {
             };
         };
     };
+    startAgentBridgeRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    task: string;
+                    actors: {
+                        role: string;
+                        harness: string;
+                        model?: string;
+                        session_id?: string;
+                        worktree_path?: string;
+                        worktree_agent_slug?: string;
+                        branch?: string;
+                        harness_options?: {
+                            [key: string]: unknown;
+                        };
+                    }[];
+                    run_id?: string;
+                    next_actor?: string;
+                    worktree_path?: string;
+                    worktree_agent_slug?: string;
+                    /** @default 1 */
+                    repair_budget_per_turn?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Started agent bridge run */
+            201: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version: 1;
+                        run_id: string;
+                        task: string;
+                        status: string;
+                        /** Format: date-time */
+                        created_at: string;
+                        /** Format: date-time */
+                        updated_at: string;
+                        /** Format: date-time */
+                        completed_at: string | null;
+                        last_turn_index: number;
+                        next_actor: string | null;
+                        repair_budget_per_turn: number;
+                        footer_mode: string;
+                        worktree_cleanup_mode: string;
+                        participants: {
+                            role: string;
+                            harness: string;
+                            model: string;
+                        }[];
+                        last_event_id: string | null;
+                        roles: {
+                            [key: string]: {
+                                role: string;
+                                harness: string;
+                                model: string;
+                                session_id: string | null;
+                                worktree_agent_slug: string | null;
+                                worktree_path: string | null;
+                                branch: string | null;
+                                /** @enum {string} */
+                                session_status: "not_started" | "active" | "completed" | "failed";
+                                /** Format: date-time */
+                                started_at: string | null;
+                                last_turn_index: number;
+                                /** Format: date-time */
+                                last_completed_at: string | null;
+                                harness_options?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                        worktree_path: string | null;
+                        worktree_agent_slug: string | null;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict - The request could not be completed */
+            409: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getAgentBridgeRun: {
         parameters: {
             query?: never;
@@ -98785,6 +99008,273 @@ export interface operations {
             };
             /** @description Not found - The requested resource does not exist */
             404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    autoStepAgentBridgeRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Bridge run identifier. */
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    prompt?: string;
+                    /** @default 5 */
+                    context_turns?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Auto-step dispatch result */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version?: 1;
+                        event_id?: string;
+                        run_id?: string;
+                        /** Format: date-time */
+                        ts?: string;
+                        /** @enum {string} */
+                        event_type?: "run_started" | "run_failed" | "run_completed" | "turn.started" | "turn.result" | "turn.completed" | "turn.repair_requested" | "footer_ok" | "footer_malformed" | "footer_missing";
+                        turn_index?: number;
+                        role?: string;
+                        harness?: string;
+                        session_id?: string | null;
+                        /** @enum {string|null} */
+                        parse_status?: "ok" | "missing" | "malformed" | null;
+                        payload?: {
+                            [key: string]: unknown;
+                        };
+                        auto_step: {
+                            role: string;
+                            context_turns: number;
+                        };
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict - The request could not be completed */
+            409: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    dispatchAgentBridgeTurn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Bridge run identifier. */
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    role: string;
+                    prompt: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Agent bridge turn event */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version: 1;
+                        event_id: string;
+                        run_id: string;
+                        /** Format: date-time */
+                        ts: string;
+                        /** @enum {string} */
+                        event_type: "run_started" | "run_failed" | "run_completed" | "turn.started" | "turn.result" | "turn.completed" | "turn.repair_requested" | "footer_ok" | "footer_malformed" | "footer_missing";
+                        turn_index: number;
+                        role: string;
+                        harness: string;
+                        session_id: string | null;
+                        /** @enum {string|null} */
+                        parse_status: "ok" | "missing" | "malformed" | null;
+                        payload: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict - The request could not be completed */
+            409: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -121441,6 +121931,92 @@ export interface operations {
             };
             /** @description Not found - The requested resource does not exist */
             404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCoordinationActiveWork: {
+        parameters: {
+            query?: {
+                /** @description Base branch for worktree status. */
+                base?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active work snapshot */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version: 1;
+                        repo_root: string;
+                        base_branch: string;
+                        /** Format: date-time */
+                        generated_at: string;
+                        active_owners: Record<string, never>[];
+                        claimed_paths: string[];
+                        avoid_paths: string[];
+                        avoid_path_hints?: Record<string, never>[];
+                        worktrees: Record<string, never>[];
+                        fleet_claims: Record<string, never>[];
+                        active_leases: Record<string, never>[];
+                        merge_queue: Record<string, never>[];
+                        bridge_runs: Record<string, never>[];
+                        counts: {
+                            [key: string]: unknown;
+                        };
+                        source_errors: Record<string, never>[];
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
