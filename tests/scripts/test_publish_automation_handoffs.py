@@ -85,6 +85,37 @@ def _repo_with_merged_codex_branch(tmp_path: Path) -> tuple[Path, str]:
     return repo, head
 
 
+def _repo_with_patch_equivalent_codex_branch(tmp_path: Path) -> tuple[Path, str]:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return proc.stdout.strip()
+
+    git("init")
+    git("checkout", "-b", "main")
+    git("config", "user.email", "codex@example.com")
+    git("config", "user.name", "Codex")
+    (repo / "README.md").write_text("base\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-m", "base")
+    git("checkout", "-b", "codex/example")
+    (repo / "README.md").write_text("base\nbranch change\n", encoding="utf-8")
+    git("commit", "-am", "change from branch")
+    head = git("rev-parse", "HEAD")
+    git("checkout", "main")
+    (repo / "README.md").write_text("base\nbranch change\n", encoding="utf-8")
+    git("commit", "-am", "same change from main")
+    return repo, head
+
+
 def test_load_handoffs_parses_structured_memory(tmp_path: Path) -> None:
     _memory(tmp_path, "founder-review", _handoff())
 
@@ -360,6 +391,28 @@ def test_load_outbox_handoffs_skips_already_merged_top_level_head(tmp_path: Path
                 branch="codex/example",
                 head_sha=head,
                 base="main",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod.load_outbox_handoffs(repo) == []
+
+
+def test_load_outbox_handoffs_skips_patch_equivalent_branch(tmp_path: Path) -> None:
+    repo, head = _repo_with_patch_equivalent_codex_branch(tmp_path)
+    outbox = repo / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "patch-equivalent.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                repo="synaptent/aragora",
+                idempotency_key="open-pr-codex-example-patch-equivalent",
+                local_evidence={
+                    "branch": "codex/example",
+                    "head_sha": head,
+                    "base": "main",
+                },
             )
         ),
         encoding="utf-8",

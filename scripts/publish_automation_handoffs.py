@@ -507,6 +507,20 @@ def _git_is_ancestor(repo_root: Path, ancestor: str, descendant: str) -> bool:
     return proc.returncode == 0
 
 
+def _git_patch_equivalent(repo_root: Path, base: str, candidate: str) -> bool:
+    diff_proc = _run(["git", "diff", "--quiet", f"{base}...{candidate}"], cwd=repo_root)
+    if diff_proc.returncode == 0:
+        return True
+    if diff_proc.returncode != 1:
+        return False
+
+    proc = _run(["git", "cherry", base, candidate], cwd=repo_root)
+    if proc.returncode != 0:
+        return False
+    statuses = [line[:1] for line in proc.stdout.splitlines() if line.strip()]
+    return bool(statuses) and all(status == "-" for status in statuses)
+
+
 def _outbox_branch_already_merged(repo_root: Path, payload: dict[str, Any]) -> bool:
     requested_action = str(payload.get("requested_action") or "").strip()
     if requested_action != "open_pr":
@@ -524,6 +538,27 @@ def _outbox_branch_already_merged(repo_root: Path, payload: dict[str, Any]) -> b
     ]
     for candidate in dict.fromkeys(item for item in candidates if item):
         if _git_is_ancestor(repo_root, candidate, base_ref):
+            return True
+    return False
+
+
+def _outbox_branch_patch_equivalent(repo_root: Path, payload: dict[str, Any]) -> bool:
+    requested_action = str(payload.get("requested_action") or "").strip()
+    if requested_action != "open_pr":
+        return False
+
+    base_ref = _outbox_evidence_value(payload, "base") or DEFAULT_BASE_REF
+    if not base_ref:
+        return False
+
+    candidates = [
+        _outbox_evidence_value(payload, "branch"),
+        _outbox_evidence_value(payload, "head"),
+        _outbox_evidence_value(payload, "head_sha"),
+        _outbox_evidence_value(payload, "commit"),
+    ]
+    for candidate in dict.fromkeys(item for item in candidates if item):
+        if _git_patch_equivalent(repo_root, base_ref, candidate):
             return True
     return False
 
@@ -644,6 +679,8 @@ def load_outbox_handoffs(
         if branch_fingerprint and branch_fingerprint in terminal_fingerprints:
             continue
         if _outbox_branch_already_merged(repo_root, payload):
+            continue
+        if _outbox_branch_patch_equivalent(repo_root, payload):
             continue
         handoff = Handoff(
             source_file=str(source_file),
