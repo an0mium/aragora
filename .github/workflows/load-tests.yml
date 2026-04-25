@@ -107,6 +107,46 @@ jobs:
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras dev,redis,test
 
+      - name: Clear stale load-test ports
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v ss >/dev/null 2>&1; then
+            echo "::error::ss is required to inspect stale listener ports on self-hosted runners"
+            exit 1
+          fi
+
+          ports=(8080 8765 8766 8767 8768 9090)
+          for port in "${ports[@]}"; do
+            mapfile -t pids < <(
+              ss -H -ltnp "sport = :$port" 2>/dev/null \
+                | sed -nE 's/.*pid=([0-9]+).*/\1/p' \
+                | sort -u
+            )
+
+            for pid in "${pids[@]}"; do
+              [[ -z "$pid" ]] && continue
+              cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)
+              if [[ "$cmdline" != *aragora* && "$cmdline" != *python* ]]; then
+                echo "::error::Port $port is held by non-Aragora process $pid: $cmdline"
+                exit 1
+              fi
+
+              echo "::warning::Stopping stale Aragora process $pid on port $port: $cmdline"
+              kill "$pid" || true
+            done
+          done
+
+          sleep 2
+          for port in "${ports[@]}"; do
+            if ss -H -ltn "sport = :$port" | grep -q .; then
+              echo "::error::Port $port is still occupied after cleanup"
+              ss -H -ltnp "sport = :$port" || true
+              exit 1
+            fi
+          done
+
       - name: Configure AWS credentials
         id: aws-creds
         # Non-blocking: AWS credentials may not be available in forks/PRs; load tests degrade gracefully

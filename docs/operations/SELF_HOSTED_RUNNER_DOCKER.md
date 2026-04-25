@@ -90,6 +90,11 @@ version used Debian package commands. Instead, `load-tests.yml` pulls the
 pinned `grafana/k6` image and runs k6 with Docker host networking so
 `localhost` continues to reach the Aragora server started by the job.
 
+Because self-hosted runners are persistent, `load-tests.yml` also checks the
+fixed server ports (`8080`, `8765`-`8768`, and `9090`) before startup and stops
+stale Aragora/Python processes left by prior interrupted jobs. It fails closed
+if another service owns one of those ports.
+
 Note: `docker-compose-plugin` is NOT available in the default AL2023 repo.
 Workflows that rely on `docker compose` should either install it via the
 upstream docker-ce repo or use `services:` containers instead.
@@ -156,6 +161,9 @@ gh api repos/synaptent/aragora/actions/runners --jq '.runners[] | select(.name =
 - **2026-04-25** — k6 execution moved from Ubuntu/Debian `apt-get`
   installation to the pinned `grafana/k6` Docker image, making the workflow
   compatible with the AL2023 runner targeted by the `docker-ready` label.
+- **2026-04-25 (later)** — Added stale-port cleanup for persistent self-hosted
+  runners after a dispatch proved stale listeners on `8080`/`8765` can survive
+  previous interrupted jobs and break a fresh load-test run.
 
 ## When to add ubuntu-latest fallback
 
