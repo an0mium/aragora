@@ -70,9 +70,11 @@ class DialecticalEvent:
     a repair spec.  ``crux_probe_skipped`` is always ``True`` in this
     slice; crux-finder integration (DIC-15) updates it in a follow-on PR.
 
-    ``prior_receipt_ids`` is the caller-supplied ancestry chain, allowing
-    the event to be linked to the decision receipts that originally
-    justified the code unit.
+    ``prior_receipt_ids`` is the caller-supplied ancestry chain stored as
+    an immutable tuple.  ``metadata`` is a shallow-frozen dict copy: the
+    outer reference is immutable but nested mutable values are not
+    deep-copied.  Callers must not store references to mutable nested
+    objects in metadata when receipt-chain immutability matters.
     """
 
     event_id: str
@@ -82,7 +84,7 @@ class DialecticalEvent:
     quarantine_action: str
     crux_probe_skipped: bool
     repair_spec: RepairSpec | None
-    prior_receipt_ids: list[str]
+    prior_receipt_ids: tuple[str, ...]
     created_at: str
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -175,7 +177,7 @@ def run_dialectical_loop(
         quarantine_action=quarantine.policy_action,
         crux_probe_skipped=True,
         repair_spec=repair_spec,
-        prior_receipt_ids=list(prior_receipt_ids or []),
+        prior_receipt_ids=tuple(prior_receipt_ids or []),
         created_at=ts,
         metadata=dict(metadata or {}),
     )

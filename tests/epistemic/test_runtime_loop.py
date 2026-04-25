@@ -84,7 +84,7 @@ class TestReportOnlyTrace:
         assert event.recommended_action == "report_only"
         assert event.repair_spec is None
         assert event.crux_probe_skipped is True
-        assert event.prior_receipt_ids == []
+        assert event.prior_receipt_ids == ()
         assert event.created_at  # non-empty timestamp
 
     def test_event_id_has_drt_prefix(self):
@@ -100,7 +100,7 @@ class TestReportOnlyTrace:
     def test_prior_receipt_ids_preserved(self):
         receipts = ["rcpt-001", "rcpt-002"]
         event = run_dialectical_loop(_signal(), prior_receipt_ids=receipts, require_enabled=False)
-        assert event.prior_receipt_ids == receipts
+        assert event.prior_receipt_ids == tuple(receipts)
 
     def test_metadata_preserved(self):
         event = run_dialectical_loop(_signal(), metadata={"source": "test"}, require_enabled=False)
@@ -131,21 +131,19 @@ class TestRepairProposal:
         event = run_dialectical_loop(sig, enable_repair_proposal=False, require_enabled=False)
         assert event.repair_spec is None
 
-    def test_repair_spec_produced_when_action_repair_required(self):
-        # Use a policy that maps repair_required → repair_required
+    def test_repair_spec_absent_when_policy_escalates_to_fail_closed(self):
+        # score=0.1 is below default fail_closed_threshold=0.4, so the policy
+        # escalates to fail_closed — NOT repair_required.  repair_spec must stay
+        # None even when enable_repair_proposal=True.
         sig = _signal(integrity_score=0.1, recommended_action="repair_required")
-        # Default policy with score=0.1 is below fail_closed_threshold=0.4 → fail_closed
-        # Use the "pure_policy" class which has a default escalation map
         event = run_dialectical_loop(
             sig,
             code_unit_class="default",
             enable_repair_proposal=True,
             require_enabled=False,
         )
-        # With integrity_score=0.1, default policy produces fail_closed, not repair_required,
-        # so repair_spec stays None (correct: spec is only produced for repair_required).
-        # We test the repair path explicitly via a relaxed-threshold policy.
-        assert event.repair_spec is None  # fail_closed branch, not repair_required
+        assert event.quarantine_action == "fail_closed"
+        assert event.repair_spec is None
 
     def test_repair_spec_produced_with_custom_policy(self):
         from aragora.epistemic.quarantine_policy import EscalationMap
@@ -230,14 +228,18 @@ class TestSerialization:
         d = event.to_dict()
         assert d["integrity_score"] == round(0.123456789, 4)
 
-    def test_prior_receipt_ids_is_list_copy(self):
+    def test_prior_receipt_ids_is_immutable_tuple(self):
         receipts = ["r1", "r2"]
         event = run_dialectical_loop(_signal(), prior_receipt_ids=receipts, require_enabled=False)
+        # Stored as an immutable tuple
+        assert isinstance(event.prior_receipt_ids, tuple)
+        assert event.prior_receipt_ids == ("r1", "r2")
+        # to_dict() returns a list for JSON-serializability
         d = event.to_dict()
         assert d["prior_receipt_ids"] == ["r1", "r2"]
-        # Mutation of original list does not affect the event
+        # Mutation of the original list does not affect the event
         receipts.append("r3")
-        assert event.prior_receipt_ids == ["r1", "r2"]
+        assert event.prior_receipt_ids == ("r1", "r2")
 
     def test_with_repair_spec_in_dict(self):
         from aragora.epistemic.quarantine_policy import EscalationMap
