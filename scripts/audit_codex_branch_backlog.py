@@ -252,6 +252,45 @@ def _outbox_payload_branch(payload: dict[str, Any]) -> str:
     return str(payload.get("branch") or "").strip()
 
 
+def _add_branch_reference(branches: set[str], value: Any) -> None:
+    if isinstance(value, str):
+        branch = value.strip()
+        if branch:
+            branches.add(branch)
+    elif isinstance(value, dict):
+        branch = str(value.get("branch") or "").strip()
+        if branch:
+            branches.add(branch)
+
+
+def _outbox_payload_branches(payload: dict[str, Any]) -> set[str]:
+    """Return primary and explicitly superseded branch references from a handoff."""
+
+    branches: set[str] = set()
+    _add_branch_reference(branches, _outbox_payload_branch(payload))
+
+    containers: list[dict[str, Any]] = [payload]
+    local_evidence = payload.get("local_evidence")
+    if isinstance(local_evidence, dict):
+        containers.insert(0, local_evidence)
+
+    for container in containers:
+        _add_branch_reference(branches, container.get("supersedes_branch"))
+        supersedes_branches = container.get("supersedes_branches")
+        if isinstance(supersedes_branches, list):
+            for item in supersedes_branches:
+                _add_branch_reference(branches, item)
+
+        supersedes = container.get("supersedes")
+        if isinstance(supersedes, list):
+            for item in supersedes:
+                _add_branch_reference(branches, item)
+        else:
+            _add_branch_reference(branches, supersedes)
+
+    return branches
+
+
 def terminal_receipted_handoff_branches(
     root: Path,
     *,
@@ -277,9 +316,7 @@ def terminal_receipted_handoff_branches(
         idempotency_key = str(payload.get("idempotency_key") or "").strip()
         if idempotency_key not in terminal_keys:
             continue
-        branch = _outbox_payload_branch(payload)
-        if branch:
-            branches.add(branch)
+        branches.update(_outbox_payload_branches(payload))
     return branches
 
 
@@ -305,9 +342,7 @@ def unresolved_outbox_handoff_branches(
         idempotency_key = str(payload.get("idempotency_key") or "").strip()
         if not idempotency_key or idempotency_key in terminal_keys:
             continue
-        branch = _outbox_payload_branch(payload)
-        if branch:
-            branches.add(branch)
+        branches.update(_outbox_payload_branches(payload))
     return branches
 
 

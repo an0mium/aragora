@@ -295,6 +295,134 @@ def test_audit_excludes_unresolved_outbox_handoffs_from_publishable_backlog(
     assert handed_off["category"] == "protected_handoff_outbox"
 
 
+def test_audit_treats_superseded_branch_as_unresolved_handoff(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row("codex/stale-original", committed_at=now),
+        _branch_row("codex/new-work", committed_at=now),
+    ]
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "refresh.json").write_text(
+        json.dumps(
+            {
+                "task": "Publish refreshed branch",
+                "requires_github": True,
+                "requested_action": "open_pr",
+                "repo": "synaptent/aragora",
+                "local_evidence": {
+                    "branch": "codex/stale-original-refresh",
+                    "head": "def456",
+                    "supersedes_branch": "codex/stale-original",
+                },
+                "validation": ["pytest tests/example.py -q"],
+                "idempotency_key": "open-pr-codex-stale-original-refresh-def456",
+                "created_at": "2026-04-24T16:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    assert payload["summary"]["handoff_outbox_branches"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 1
+    original = next(
+        record for record in payload["records"] if record["name"] == "codex/stale-original"
+    )
+    assert original["handoff_outbox_exists"] is True
+    assert original["category"] == "protected_handoff_outbox"
+
+
+def test_audit_treats_superseded_branch_as_terminal_receipt(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-stale-original-refresh-def456"
+    (outbox / "refresh.json").write_text(
+        json.dumps(
+            {
+                "task": "Publish refreshed branch",
+                "requires_github": True,
+                "requested_action": "open_pr",
+                "repo": "synaptent/aragora",
+                "local_evidence": {
+                    "branch": "codex/stale-original-refresh",
+                    "head": "def456",
+                    "supersedes": {"branch": "codex/stale-original", "head_sha": "abc123"},
+                },
+                "validation": ["pytest tests/example.py -q"],
+                "idempotency_key": key,
+                "created_at": "2026-04-24T16:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "published"}),
+        encoding="utf-8",
+    )
+    _stub_git_inventory(monkeypatch, _branch_row("codex/stale-original"))
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=1,
+    )
+
+    assert payload["summary"]["handoff_receipted_branches"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 0
+    assert payload["records"][0]["handoff_receipt_exists"] is True
+    assert payload["records"][0]["category"] == "protected_handoff_receipt"
+
+
 def test_audit_reads_top_level_branch_for_terminal_outbox_receipts(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
