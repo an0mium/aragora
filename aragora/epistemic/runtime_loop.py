@@ -26,8 +26,10 @@ from __future__ import annotations
 
 import hashlib
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from types import MappingProxyType
 from typing import Any
 
 from aragora.epistemic.decay_monitor import DecaySignal
@@ -71,8 +73,8 @@ class DialecticalEvent:
     slice; crux-finder integration (DIC-15) updates it in a follow-on PR.
 
     ``prior_receipt_ids`` is the caller-supplied ancestry chain stored as
-    an immutable tuple.  ``metadata`` is a shallow-frozen dict copy: the
-    outer reference is immutable but nested mutable values are not
+    an immutable tuple.  ``metadata`` is stored as a shallow-frozen mapping:
+    the outer mapping is immutable but nested mutable values are not
     deep-copied.  Callers must not store references to mutable nested
     objects in metadata when receipt-chain immutability matters.
     """
@@ -86,7 +88,10 @@ class DialecticalEvent:
     repair_spec: RepairSpec | None
     prior_receipt_ids: tuple[str, ...]
     created_at: str
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
     def to_dict(self) -> dict[str, Any]:
         return {

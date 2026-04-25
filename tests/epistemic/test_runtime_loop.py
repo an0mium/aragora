@@ -106,6 +106,12 @@ class TestReportOnlyTrace:
         event = run_dialectical_loop(_signal(), metadata={"source": "test"}, require_enabled=False)
         assert event.metadata == {"source": "test"}
 
+    def test_metadata_outer_mapping_is_immutable(self):
+        event = run_dialectical_loop(_signal(), metadata={"source": "test"}, require_enabled=False)
+
+        with pytest.raises(TypeError):
+            event.metadata["source"] = "mutated"  # type: ignore[index]
+
     def test_to_dict_is_json_friendly(self):
         import json
 
