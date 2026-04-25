@@ -1,4 +1,4 @@
-"""Epistemic CI and crux-engine helpers (DIC-13..22 + DIC-25/26 tranche).
+"""Epistemic CI and crux-engine helpers (DIC-13..22 + DIC-23..28 tranche).
 
 Exposes:
 - DIC-13: typed ExecutableClaim manifest model (:class:`ExecutableClaim`,
@@ -29,6 +29,10 @@ Exposes:
   :func:`load_proof_unit_from_yaml`, :func:`load_proof_units_from_dir`)
   Flag gate: ``ARAGORA_PROOF_UNIT_SCAN_ENABLED`` (default off; dataclasses
   are always importable).
+- DIC-23: dialectical runtime loop orchestrator (:class:`DialecticalEvent`,
+  :class:`DialecticalRuntimeError`, :func:`run_dialectical_loop`,
+  :func:`dialectical_runtime_enabled`, :func:`enable_dialectical_runtime`)
+  Flag gate: ``ARAGORA_DIALECTICAL_RUNTIME_ENABLED`` (default off).
 - DIC-26: belief coherence monitor (:class:`BeliefEntry`,
   :class:`CoherenceReport`, :func:`scan_coherence`)
 - DIC-28: proactive crux gardening (:class:`GardeningConfig`,
@@ -45,6 +49,13 @@ from __future__ import annotations
 
 import os
 
+from .runtime_loop import (
+    DialecticalEvent,
+    DialecticalRuntimeError,
+    dialectical_runtime_enabled,
+    enable_dialectical_runtime,
+    run_dialectical_loop,
+)
 from .arbitration import (
     PERSISTENT_CRUX_MIN_CONSECUTIVE,
     PERSISTENT_CRUX_MIN_SCORE,
@@ -142,6 +153,11 @@ from .truth_map import (
 )
 
 __all__ = [
+    "DialecticalEvent",
+    "DialecticalRuntimeError",
+    "dialectical_runtime_enabled",
+    "enable_dialectical_runtime",
+    "run_dialectical_loop",
     "ArbitrationSide",
     "BeliefEntry",
     "ClaimConfidence",
