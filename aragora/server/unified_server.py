@@ -1414,6 +1414,9 @@ class UnifiedServer:
 async def run_unified_server(
     http_port: int = 8080,
     ws_port: int = 8765,
+    control_plane_port: int | None = None,
+    nomic_loop_port: int | None = None,
+    canvas_port: int | None = None,
     http_host: str | None = None,
     ws_host: str | None = None,
     static_dir: Path | None = None,
@@ -1427,6 +1430,12 @@ async def run_unified_server(
     Args:
         http_port: Port for HTTP API (default 8080)
         ws_port: Port for WebSocket streaming (default 8765)
+        control_plane_port: Port for control plane WebSocket
+            (default: ARAGORA_CONTROL_PLANE_WS_PORT or 8766)
+        nomic_loop_port: Port for nomic loop WebSocket
+            (default: ARAGORA_NOMIC_LOOP_WS_PORT or 8767)
+        canvas_port: Port for canvas WebSocket
+            (default: ARAGORA_CANVAS_WS_PORT or 8768)
         http_host: Bind address for HTTP (default: from ARAGORA_BIND_HOST or 127.0.0.1)
         ws_host: Bind address for WebSocket (default: from ARAGORA_BIND_HOST or 127.0.0.1)
         static_dir: Directory containing static files (dashboard build)
@@ -1436,6 +1445,9 @@ async def run_unified_server(
 
     Environment variables:
         ARAGORA_BIND_HOST: Default bind address (default: 127.0.0.1)
+        ARAGORA_CONTROL_PLANE_WS_PORT: Control plane WebSocket port
+        ARAGORA_NOMIC_LOOP_WS_PORT: Nomic loop WebSocket port
+        ARAGORA_CANVAS_WS_PORT: Canvas WebSocket port
         ARAGORA_SSL_ENABLED: Set to 'true' to enable SSL
         ARAGORA_SSL_CERT: Path to SSL certificate
         ARAGORA_SSL_KEY: Path to SSL private key
@@ -1541,6 +1553,21 @@ async def run_unified_server(
     server_kwargs: dict[str, Any] = {
         "http_port": http_port,
         "ws_port": ws_port,
+        "control_plane_port": (
+            control_plane_port
+            if control_plane_port is not None
+            else int(os.environ.get("ARAGORA_CONTROL_PLANE_WS_PORT", "8766"))
+        ),
+        "nomic_loop_port": (
+            nomic_loop_port
+            if nomic_loop_port is not None
+            else int(os.environ.get("ARAGORA_NOMIC_LOOP_WS_PORT", "8767"))
+        ),
+        "canvas_port": (
+            canvas_port
+            if canvas_port is not None
+            else int(os.environ.get("ARAGORA_CANVAS_WS_PORT", "8768"))
+        ),
         "static_dir": static_dir,
         "nomic_dir": nomic_dir,
         "storage": storage,

@@ -188,6 +188,9 @@ gh api repos/synaptent/aragora/actions/runners --jq '.runners[] | select(.name =
 - **2026-04-25 (port isolation)** — Load tests moved from the default
   `8080`/`8765`/`9090` ports to isolated `18080`/`18765+`/`19090` ports so the
   workflow does not fight resident services on persistent self-hosted runners.
+- **2026-04-25 (auxiliary WS ports)** — `run_unified_server()` now honors
+  `ARAGORA_CONTROL_PLANE_WS_PORT`, `ARAGORA_NOMIC_LOOP_WS_PORT`, and
+  `ARAGORA_CANVAS_WS_PORT`, allowing CI to isolate the full WebSocket family.
 - **2026-04-25 (workspace isolation)** — Added a pre-checkout workspace clean
   so generated files from prior self-hosted runs cannot block checkout updates.
 
