@@ -81,6 +81,13 @@ from aragora.review.invalidation import (
     derive_threshold,
     is_invalidated,
 )
+from aragora.review.invalidation_event_source import (
+    count_decisions_from_settlement_receipts,
+    iter_invalidations_from_calibration_store,
+    iter_invalidations_from_settlement_receipts,
+    measure_baseline_from_stores,
+    resolve_review_queue_root,
+)
 
 __all__ = [
     "ADVISORY_NOTE",
@@ -138,7 +145,12 @@ __all__ = [
     "classify_invalidation",
     "compute_baseline",
     "compute_packet_sha",
+    "count_decisions_from_settlement_receipts",
     "derive_threshold",
     "is_invalidated",
+    "iter_invalidations_from_calibration_store",
+    "iter_invalidations_from_settlement_receipts",
+    "measure_baseline_from_stores",
+    "resolve_review_queue_root",
     "validate_reviewer_outputs",
 ]
