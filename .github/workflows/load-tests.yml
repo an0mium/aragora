@@ -636,21 +636,55 @@ jobs:
 
       - name: Start server with memory monitoring
         run: |
-          python -c "
+          python <<'PY'
+          import os
           import subprocess
-          import time
           import psutil
           import sys
+          import time
 
-          # Start server
+          api_port = os.environ.get('LOAD_HTTP_PORT', '18080')
+          ws_port = os.environ.get('LOAD_WS_PORT', '18765')
+          server_env = os.environ.copy()
+          server_env.update({
+              'ARAGORA_DATA_DIR': os.path.join(os.getcwd(), '.nomic-memory'),
+              'ARAGORA_DISABLE_ALL_RATE_LIMITS': '1',
+              'ARAGORA_CONTROL_PLANE_WS_PORT': os.environ.get('LOAD_CONTROL_PLANE_PORT', '18766'),
+              'ARAGORA_NOMIC_LOOP_WS_PORT': os.environ.get('LOAD_NOMIC_LOOP_PORT', '18767'),
+              'ARAGORA_CANVAS_WS_PORT': os.environ.get('LOAD_CANVAS_PORT', '18768'),
+              'METRICS_ENABLED': 'false',
+              'METRICS_PORT': os.environ.get('LOAD_METRICS_PORT', '19090'),
+          })
+          os.makedirs(server_env['ARAGORA_DATA_DIR'], exist_ok=True)
+
+          log_path = '/tmp/aragora-memory-server.log'
+          log = open(log_path, 'w', encoding='utf-8')
           proc = subprocess.Popen(
-              ['aragora', 'serve', '--api-port', '8080', '--host', '127.0.0.1'],
-              stdout=subprocess.PIPE,
-              stderr=subprocess.PIPE
+              [
+                  sys.executable,
+                  '-m',
+                  'aragora',
+                  'serve',
+                  '--api-port',
+                  api_port,
+                  '--ws-port',
+                  ws_port,
+                  '--host',
+                  '127.0.0.1',
+              ],
+              stdout=log,
+              stderr=subprocess.STDOUT,
+              env=server_env,
           )
 
           # Wait for startup
           time.sleep(5)
+          if proc.poll() is not None:
+              log.close()
+              print('FAIL: server exited during startup')
+              with open(log_path, encoding='utf-8') as f:
+                  print(f.read())
+              sys.exit(1)
 
           # Monitor memory for 60 seconds under simulated load
           max_memory = 0
@@ -661,33 +695,79 @@ jobs:
                   max_memory = max(max_memory, mem)
                   print(f'Memory: {mem:.1f}MB')
               except psutil.NoSuchProcess:
-                  break
+                  log.close()
+                  print('FAIL: server exited during memory monitoring')
+                  with open(log_path, encoding='utf-8') as f:
+                      print(f.read())
+                  sys.exit(1)
               time.sleep(1)
 
           proc.terminate()
+          try:
+              proc.wait(timeout=10)
+          except subprocess.TimeoutExpired:
+              proc.kill()
+              proc.wait(timeout=10)
+          log.close()
 
           # Check memory threshold (2GB)
           if max_memory > 2048:
               print(f'FAIL: Max memory {max_memory:.1f}MB > 2048MB')
               sys.exit(1)
           print(f'PASS: Max memory {max_memory:.1f}MB')
-          "
+          PY
 
       - name: Check for memory leaks
         run: |
-          python -c "
+          python <<'PY'
+          import os
           import subprocess
-          import time
           import psutil
+          import sys
+          import time
+          import urllib.request
 
-          # Start server
+          api_port = os.environ.get('LOAD_HTTP_PORT', '18080')
+          ws_port = os.environ.get('LOAD_WS_PORT', '18765')
+          server_env = os.environ.copy()
+          server_env.update({
+              'ARAGORA_DATA_DIR': os.path.join(os.getcwd(), '.nomic-memory-leak'),
+              'ARAGORA_DISABLE_ALL_RATE_LIMITS': '1',
+              'ARAGORA_CONTROL_PLANE_WS_PORT': os.environ.get('LOAD_CONTROL_PLANE_PORT', '18766'),
+              'ARAGORA_NOMIC_LOOP_WS_PORT': os.environ.get('LOAD_NOMIC_LOOP_PORT', '18767'),
+              'ARAGORA_CANVAS_WS_PORT': os.environ.get('LOAD_CANVAS_PORT', '18768'),
+              'METRICS_ENABLED': 'false',
+              'METRICS_PORT': os.environ.get('LOAD_METRICS_PORT', '19090'),
+          })
+          os.makedirs(server_env['ARAGORA_DATA_DIR'], exist_ok=True)
+
+          log_path = '/tmp/aragora-memory-leak-server.log'
+          log = open(log_path, 'w', encoding='utf-8')
           proc = subprocess.Popen(
-              ['aragora', 'serve', '--api-port', '8080', '--host', '127.0.0.1'],
-              stdout=subprocess.PIPE,
-              stderr=subprocess.PIPE
+              [
+                  sys.executable,
+                  '-m',
+                  'aragora',
+                  'serve',
+                  '--api-port',
+                  api_port,
+                  '--ws-port',
+                  ws_port,
+                  '--host',
+                  '127.0.0.1',
+              ],
+              stdout=log,
+              stderr=subprocess.STDOUT,
+              env=server_env,
           )
 
           time.sleep(3)
+          if proc.poll() is not None:
+              log.close()
+              print('FAIL: server exited during startup')
+              with open(log_path, encoding='utf-8') as f:
+                  print(f.read())
+              sys.exit(1)
 
           # Get initial memory
           p = psutil.Process(proc.pid)
@@ -695,11 +775,10 @@ jobs:
 
           # Make 1000 requests
           # Use /healthz (liveness probe) instead of /api/health (requires auth)
-          import urllib.request
           for _ in range(1000):
               try:
-                  urllib.request.urlopen('http://localhost:8080/healthz', timeout=1)
-              except:
+                  urllib.request.urlopen(f'http://localhost:{api_port}/healthz', timeout=1)
+              except Exception:
                   pass
 
           # Check memory growth
@@ -707,6 +786,12 @@ jobs:
           growth = final_mem - initial_mem
 
           proc.terminate()
+          try:
+              proc.wait(timeout=10)
+          except subprocess.TimeoutExpired:
+              proc.kill()
+              proc.wait(timeout=10)
+          log.close()
 
           print(f'Initial memory: {initial_mem:.1f}MB')
           print(f'Final memory: {final_mem:.1f}MB')
@@ -717,4 +802,4 @@ jobs:
               print(f'WARNING: Memory grew by {growth:.1f}MB (possible leak)')
           else:
               print('PASS: No significant memory leak detected')
-          "
+          PY
