@@ -17,7 +17,7 @@ import sqlite3
 from datetime import UTC
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Awaitable, cast
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -64,7 +64,7 @@ class CoordinationHandlerMixin:
         """Get the cross-workspace coordinator."""
         return self.ctx.get("coordination_coordinator")
 
-    def _require_coordination_coordinator(self) -> tuple[Any | None, HandlerResult | None]:
+    def _require_coordination_coordinator(self) -> tuple[Any, HandlerResult | None]:
         """Return coordinator and None, or None and error response if not available."""
         coord = self._get_coordination_coordinator()
         if not coord:
@@ -687,7 +687,11 @@ class CoordinationHandlerMixin:
         if bool(body.get("dispatch_workers", True)):
             dispatch_result = supervisor.dispatch_workers(run.run_id)
             if inspect.isawaitable(dispatch_result):
-                asyncio.run(dispatch_result)
+
+                async def await_dispatch_result(awaitable: Awaitable[Any]) -> Any:
+                    return await awaitable
+
+                asyncio.run(await_dispatch_result(dispatch_result))
             if bool(body.get("watch", False)):
                 run = asyncio.run(
                     SwarmReconciler(supervisor=supervisor).watch_run(
@@ -957,7 +961,7 @@ class CoordinationHandlerMixin:
             if entry is None:
                 return error_response(f"Branch not found: {branch}", 404)
             if is_dataclass(entry):
-                entry_payload = asdict(entry)
+                entry_payload = asdict(cast(Any, entry))
             elif isinstance(entry, dict):
                 entry_payload = dict(entry)
             else:
