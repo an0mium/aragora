@@ -15,13 +15,16 @@ def _branch_row(
     name: str = "codex/example",
     *,
     committed_at: datetime | None = None,
+    ahead_count: str = "1",
+    behind_count: str = "0",
 ) -> dict[str, str]:
     return {
         "name": name,
         "upstream": "",
         "head_sha": "abc1234",
         "committed_at": (committed_at or datetime.now(timezone.utc)).isoformat(),
-        "ahead_count": "1",
+        "ahead_count": ahead_count,
+        "behind_count": behind_count,
         "subject": "test branch",
     }
 
@@ -154,6 +157,64 @@ def test_audit_publishable_backlog_excludes_stale_local_only_branches(
     assert payload["summary"]["publishable_branch_backlog"] == 2
     assert payload["summary"]["stale_local_only_salvage_candidates"] == 1
     assert payload["summary"]["writer_should_pause_for_branch_backlog"] is False
+
+
+def test_audit_excludes_diverged_branches_from_publishable_backlog(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row("codex/recent-ready", committed_at=now),
+        _branch_row("codex/recent-diverged", committed_at=now, behind_count="12"),
+        _branch_row(
+            "codex/stale-remote-diverged",
+            committed_at=now.replace(year=now.year - 1),
+            behind_count="4",
+        ),
+    ]
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(
+        mod, "remote_branch_names", lambda _root, _prefix: {"codex/stale-remote-diverged"}
+    )
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    by_category = payload["summary"]["by_category"]
+    assert by_category["salvage_recent_unique"] == 1
+    assert by_category["salvage_diverged_recent"] == 1
+    assert by_category["salvage_diverged_remote"] == 1
+    assert payload["summary"]["salvage_candidates"] == 3
+    assert payload["summary"]["publishable_branch_backlog"] == 1
+    assert payload["summary"]["diverged_salvage_candidates"] == 2
+    assert payload["summary"]["writer_should_pause_for_branch_backlog"] is False
+    diverged = next(
+        record for record in payload["records"] if record["name"] == "codex/recent-diverged"
+    )
+    assert diverged["behind_count"] == 12
+    assert diverged["category"] == "salvage_diverged_recent"
 
 
 def test_audit_excludes_terminal_outbox_receipts_from_publishable_backlog(

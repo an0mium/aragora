@@ -43,6 +43,7 @@ class BranchRecord:
     committed_at: str
     subject: str
     ahead_count: int
+    behind_count: int
     merged_to_base: bool
     patch_equivalent_to_base: bool
     remote_branch_exists: bool
@@ -106,14 +107,15 @@ def local_branches(root: Path, prefix: str, base: str) -> list[dict[str, str]]:
         if not line.strip():
             continue
         name, upstream, head_sha, committed_at, ahead_behind, subject = line.split("|", 5)
-        ahead_count = ahead_behind.split(" ", 1)[0] or "0"
+        ahead_count, _, behind_count = ahead_behind.partition(" ")
         rows.append(
             {
                 "name": name,
                 "upstream": upstream,
                 "head_sha": head_sha,
                 "committed_at": committed_at,
-                "ahead_count": ahead_count,
+                "ahead_count": ahead_count or "0",
+                "behind_count": behind_count or "0",
                 "subject": subject,
             }
         )
@@ -378,6 +380,7 @@ def classify(
     active_paths: list[str],
     dirty_paths: list[str],
     ahead_count: int,
+    behind_count: int,
     merged_to_base: bool,
     patch_equivalent_to_base: bool,
     handoff_receipt_exists: bool,
@@ -400,6 +403,12 @@ def classify(
         return "protected_handoff_receipt"
     if handoff_outbox_exists:
         return "protected_handoff_outbox"
+    if behind_count > 0:
+        if committed_at >= recent_cutoff:
+            return "salvage_diverged_recent"
+        if remote_branch_exists:
+            return "salvage_diverged_remote"
+        return "salvage_diverged_local"
     if committed_at >= recent_cutoff:
         return "salvage_recent_unique"
     if remote_branch_exists:
@@ -455,6 +464,10 @@ def audit(
             ahead_count = int(row["ahead_count"])
         except ValueError:
             ahead_count = count_ahead(root, base, branch)
+        try:
+            behind_count = int(row.get("behind_count", "0"))
+        except ValueError:
+            behind_count = 0
         merged_to_base = branch in merged_branches
         patch_equivalent = False
         if include_patch_equivalence and ahead_count > 0 and not merged_to_base:
@@ -467,6 +480,7 @@ def audit(
             active_paths=active_paths,
             dirty_paths=dirty_paths,
             ahead_count=ahead_count,
+            behind_count=behind_count,
             merged_to_base=merged_to_base,
             patch_equivalent_to_base=patch_equivalent,
             handoff_receipt_exists=handoff_receipted,
@@ -483,6 +497,7 @@ def audit(
                 committed_at=committed_at.isoformat(),
                 subject=row["subject"],
                 ahead_count=ahead_count,
+                behind_count=behind_count,
                 merged_to_base=merged_to_base,
                 patch_equivalent_to_base=patch_equivalent,
                 remote_branch_exists=remote_exists,
@@ -509,6 +524,14 @@ def audit(
         counts["salvage_recent_unique"]
         + counts["salvage_stale_remote_unique"]
         + counts["salvage_stale_local_unique"]
+        + counts["salvage_diverged_recent"]
+        + counts["salvage_diverged_remote"]
+        + counts["salvage_diverged_local"]
+    )
+    diverged_salvage = (
+        counts["salvage_diverged_recent"]
+        + counts["salvage_diverged_remote"]
+        + counts["salvage_diverged_local"]
     )
     publishable_branch_backlog = (
         counts["salvage_recent_unique"] + counts["salvage_stale_remote_unique"]
@@ -530,6 +553,7 @@ def audit(
             "protected": protected,
             "salvage_candidates": salvage,
             "publishable_branch_backlog": publishable_branch_backlog,
+            "diverged_salvage_candidates": diverged_salvage,
             "stale_local_only_salvage_candidates": counts["salvage_stale_local_unique"],
             "handoff_receipted_branches": counts["protected_handoff_receipt"],
             "handoff_outbox_branches": counts["protected_handoff_outbox"],
@@ -551,6 +575,7 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     print(f"- Safe cleanup candidates: `{summary['safe_cleanup_candidates']}`")
     print(f"- Salvage candidates: `{summary['salvage_candidates']}`")
     print(f"- Publishable branch backlog: `{summary['publishable_branch_backlog']}`")
+    print(f"- Diverged salvage candidates: `{summary['diverged_salvage_candidates']}`")
     print(f"- Handoff-receipted branches: `{summary['handoff_receipted_branches']}`")
     print(f"- Handoff-outbox branches: `{summary['handoff_outbox_branches']}`")
     print(
@@ -567,6 +592,9 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
         "salvage_recent_unique",
         "salvage_stale_remote_unique",
         "salvage_stale_local_unique",
+        "salvage_diverged_recent",
+        "salvage_diverged_remote",
+        "salvage_diverged_local",
         "cleanup_local_merged",
         "cleanup_patch_equivalent",
         "protected_open_pr",
@@ -583,6 +611,7 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
             print(
                 f"- `{record['name']}` "
                 f"ahead={record['ahead_count']} "
+                f"behind={record['behind_count']} "
                 f"sha={record['head_sha']} "
                 f"subject={record['subject']}"
             )

@@ -81,7 +81,7 @@ The bridge intentionally does not use browser fallback. Browser profiles can be 
 
 The publisher bridge now has an explicit GitHub health probe at `scripts/github_cli_health.py`. Sandboxed coding automations should treat a failed probe as a hard boundary and switch into handoff-only mode immediately instead of retrying `gh issue create`, `gh pr create`, `gh workflow run`, or merge-watch commands from inside the sandbox.
 
-Do not use a raw local `git branch --list 'codex/*'` count as the unpublished-work backlog gate. Local developer machines can retain thousands of stale historical `codex/*` refs that are already merged, patch-equivalent, or local-only archaeology. Use `python3 scripts/audit_codex_branch_backlog.py --json` and gate on `summary.publishable_branch_backlog` instead. That metric counts recent unique local work and stale unique remote branches, but intentionally excludes stale local-only refs so writer automations keep producing useful local code when GitHub is sandboxed.
+Do not use a raw local `git branch --list 'codex/*'` count as the unpublished-work backlog gate. Local developer machines can retain thousands of stale historical `codex/*` refs that are already merged, patch-equivalent, diverged from the current base, or local-only archaeology. Use `python3 scripts/audit_codex_branch_backlog.py --json` and gate on `summary.publishable_branch_backlog` instead. That metric counts recent unique local work and stale unique remote branches that are not behind the base, but intentionally excludes stale local-only refs and diverged repair candidates so writer automations keep producing useful local code when GitHub is sandboxed.
 
 For steady local operation, install the publisher bridge as a LaunchAgent from a normal user shell:
 
