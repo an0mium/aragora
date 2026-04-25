@@ -667,3 +667,312 @@ def test_full_pipeline_auto_handled_path_below_baseline() -> None:
     # Auto-handle rate currently at threshold — borderline, would alert
     # in a realistic monitor.
     assert measurement.auto_handle_rate == pytest.approx(proposal.threshold)
+
+
+# --------------------------------------------------------------------------
+# Step D: per-class invalidation numerator (gap #6608 step D)
+# --------------------------------------------------------------------------
+
+
+def test_invalidated_decision_decision_class_defaults_to_none():
+    now = datetime.now(timezone.utc)
+    decision = InvalidatedDecision(
+        decision_id="d1",
+        settled_at=now,
+        signals=(INVALIDATION_REVERT_WITHIN_WINDOW,),
+        rationales=("test",),
+        was_human_settled=True,
+        was_auto_handled=False,
+    )
+    assert decision.decision_class is None
+
+
+def test_invalidated_decision_to_dict_includes_decision_class():
+    now = datetime.now(timezone.utc)
+    decision = InvalidatedDecision(
+        decision_id="d1",
+        settled_at=now,
+        signals=(INVALIDATION_REVERT_WITHIN_WINDOW,),
+        rationales=("test",),
+        was_human_settled=True,
+        was_auto_handled=False,
+        decision_class="small-bugfix",
+    )
+    payload = decision.to_dict()
+    assert payload["decision_class"] == "small-bugfix"
+
+
+def test_invalidated_decision_to_dict_serialises_none_decision_class():
+    now = datetime.now(timezone.utc)
+    decision = InvalidatedDecision(
+        decision_id="d1",
+        settled_at=now,
+        signals=(INVALIDATION_REVERT_WITHIN_WINDOW,),
+        rationales=("test",),
+        was_human_settled=True,
+        was_auto_handled=False,
+    )
+    assert "decision_class" in decision.to_dict()
+    assert decision.to_dict()["decision_class"] is None
+
+
+def test_classify_invalidation_propagates_decision_class():
+    now = datetime.now(timezone.utc)
+    decision = classify_invalidation(
+        decision_id="d1",
+        settled_at=now,
+        was_human_settled=True,
+        was_auto_handled=False,
+        reverted_at=now,
+        decision_class="big-refactor",
+    )
+    assert decision is not None
+    assert decision.decision_class == "big-refactor"
+
+
+def test_classify_invalidation_decision_class_remains_none_by_default():
+    now = datetime.now(timezone.utc)
+    decision = classify_invalidation(
+        decision_id="d1",
+        settled_at=now,
+        was_human_settled=True,
+        was_auto_handled=False,
+        reverted_at=now,
+    )
+    assert decision is not None
+    assert decision.decision_class is None
+
+
+def test_compute_baseline_populates_per_class_human_numerator_when_decisions_carry_class():
+    now = datetime.now(timezone.utc)
+    decisions = [
+        InvalidatedDecision(
+            "d1",
+            now,
+            (INVALIDATION_REVERT_WITHIN_WINDOW,),
+            ("r",),
+            True,
+            False,
+            decision_class="bugfix",
+        ),
+        InvalidatedDecision(
+            "d2",
+            now,
+            (INVALIDATION_REVERT_WITHIN_WINDOW,),
+            ("r",),
+            True,
+            False,
+            decision_class="bugfix",
+        ),
+        InvalidatedDecision(
+            "d3",
+            now,
+            (INVALIDATION_REVERT_WITHIN_WINDOW,),
+            ("r",),
+            True,
+            False,
+            decision_class="refactor",
+        ),
+    ]
+    measurement = compute_baseline(
+        decisions,
+        total_human_settled=200,
+        total_auto_handled=0,
+        window_end=now,
+        per_class_human={"bugfix": 100, "refactor": 60, "docs": 40},
+    )
+    assert measurement.per_class_human == {
+        "bugfix": (2, 100),
+        "refactor": (1, 60),
+        "docs": (0, 40),
+    }
+
+
+def test_compute_baseline_populates_per_class_auto_numerator_when_decisions_carry_class():
+    now = datetime.now(timezone.utc)
+    decisions = [
+        InvalidatedDecision(
+            "a1",
+            now,
+            (INVALIDATION_ROLLBACK,),
+            ("r",),
+            False,
+            True,
+            decision_class="auto-merge",
+        ),
+        InvalidatedDecision(
+            "a2",
+            now,
+            (INVALIDATION_ROLLBACK,),
+            ("r",),
+            False,
+            True,
+            decision_class="auto-merge",
+        ),
+    ]
+    measurement = compute_baseline(
+        decisions,
+        total_human_settled=DEFAULT_MIN_BASELINE_SAMPLES,
+        total_auto_handled=50,
+        window_end=now,
+        per_class_auto={"auto-merge": 30, "auto-decline": 20},
+    )
+    assert measurement.per_class_auto == {
+        "auto-merge": (2, 30),
+        "auto-decline": (0, 20),
+    }
+
+
+def test_compute_baseline_emits_coverage_note_when_invalidations_lack_decision_class():
+    now = datetime.now(timezone.utc)
+    decisions = [
+        InvalidatedDecision(
+            "typed",
+            now,
+            (INVALIDATION_REVERT_WITHIN_WINDOW,),
+            ("r",),
+            True,
+            False,
+            decision_class="bugfix",
+        ),
+        InvalidatedDecision(
+            "untyped",
+            now,
+            (INVALIDATION_REVERT_WITHIN_WINDOW,),
+            ("r",),
+            True,
+            False,
+        ),
+    ]
+    measurement = compute_baseline(
+        decisions,
+        total_human_settled=200,
+        total_auto_handled=0,
+        window_end=now,
+        per_class_human={"bugfix": 100},
+    )
+    assert "per_class_breakdown_coverage" in measurement.notes
+    assert (
+        "1 human + 0 auto invalidations carry no decision_class"
+        in (measurement.notes["per_class_breakdown_coverage"])
+    )
+
+
+def test_compute_baseline_emits_coverage_note_for_unmatched_classes():
+    now = datetime.now(timezone.utc)
+    decisions = [
+        InvalidatedDecision(
+            "d1",
+            now,
+            (INVALIDATION_REVERT_WITHIN_WINDOW,),
+            ("r",),
+            True,
+            False,
+            decision_class="ghost-class",
+        ),
+    ]
+    measurement = compute_baseline(
+        decisions,
+        total_human_settled=200,
+        total_auto_handled=0,
+        window_end=now,
+        per_class_human={"bugfix": 100},  # ghost-class is not here
+    )
+    assert "per_class_breakdown_coverage" in measurement.notes
+    assert (
+        "absent from the per-class denominator inputs"
+        in (measurement.notes["per_class_breakdown_coverage"])
+    )
+
+
+def test_compute_baseline_keeps_phase1_note_when_no_decisions_carry_class():
+    now = datetime.now(timezone.utc)
+    decisions = [
+        InvalidatedDecision(
+            "d1",
+            now,
+            (INVALIDATION_REVERT_WITHIN_WINDOW,),
+            ("r",),
+            True,
+            False,
+        ),
+    ]
+    measurement = compute_baseline(
+        decisions,
+        total_human_settled=200,
+        total_auto_handled=0,
+        window_end=now,
+        per_class_human={"bugfix": 100},
+    )
+    # When no invalidation carries decision_class, the original phase-1
+    # note still fires so callers know plumbing is incomplete on their side.
+    assert measurement.notes.get("per_class_breakdown_numerator", "").startswith(
+        "per-class denominators provided but no invalidation"
+    )
+
+
+def test_compute_baseline_no_per_class_inputs_skips_breakdown_entirely():
+    now = datetime.now(timezone.utc)
+    decisions = [
+        InvalidatedDecision(
+            "d1",
+            now,
+            (INVALIDATION_REVERT_WITHIN_WINDOW,),
+            ("r",),
+            True,
+            False,
+            decision_class="bugfix",
+        ),
+    ]
+    measurement = compute_baseline(
+        decisions,
+        total_human_settled=200,
+        total_auto_handled=0,
+        window_end=now,
+    )
+    assert measurement.per_class_human == {}
+    assert measurement.per_class_auto == {}
+    assert "per_class_breakdown_numerator" not in measurement.notes
+    assert "per_class_breakdown_coverage" not in measurement.notes
+
+
+def test_decision_from_dict_round_trips_decision_class():
+    now = datetime.now(timezone.utc)
+    original = InvalidatedDecision(
+        decision_id="d1",
+        settled_at=now,
+        signals=(INVALIDATION_REVERT_WITHIN_WINDOW,),
+        rationales=("test",),
+        was_human_settled=True,
+        was_auto_handled=False,
+        decision_class="big-refactor",
+    )
+    payload = original.to_dict()
+    measurement = compute_baseline(
+        [payload],
+        total_human_settled=200,
+        total_auto_handled=0,
+        window_end=now,
+        per_class_human={"big-refactor": 50},
+    )
+    assert measurement.per_class_human == {"big-refactor": (1, 50)}
+
+
+def test_decision_from_dict_round_trips_missing_decision_class_field():
+    now = datetime.now(timezone.utc)
+    payload = {
+        "decision_id": "d1",
+        "settled_at": now.isoformat(),
+        "signals": [INVALIDATION_REVERT_WITHIN_WINDOW],
+        "rationales": ["test"],
+        "was_human_settled": True,
+        "was_auto_handled": False,
+        # decision_class intentionally omitted to simulate legacy payload
+    }
+    measurement = compute_baseline(
+        [payload],
+        total_human_settled=200,
+        total_auto_handled=0,
+        window_end=now,
+    )
+    assert measurement.invalidated_human_settled == 1

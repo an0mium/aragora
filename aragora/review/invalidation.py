@@ -169,6 +169,7 @@ class InvalidatedDecision:
     rationales: tuple[str, ...]  # parallel to signals
     was_human_settled: bool
     was_auto_handled: bool
+    decision_class: str | None = None  # optional taxonomy class for per-class breakdown
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "signals", tuple(self.signals))
@@ -202,6 +203,7 @@ class InvalidatedDecision:
             "rationales": list(self.rationales),
             "was_human_settled": bool(self.was_human_settled),
             "was_auto_handled": bool(self.was_auto_handled),
+            "decision_class": self.decision_class,
         }
 
 
@@ -339,6 +341,7 @@ def classify_invalidation(
     pr_reopened: bool = False,
     human_override_redo_pr: str | None = None,
     revert_window_days: int = DEFAULT_REVERT_WINDOW_DAYS,
+    decision_class: str | None = None,
 ) -> InvalidatedDecision | None:
     """Classify a settled decision against the invalidation vocabulary.
 
@@ -421,6 +424,7 @@ def classify_invalidation(
         rationales=tuple(rationales),
         was_human_settled=bool(was_human_settled),
         was_auto_handled=bool(was_auto_handled),
+        decision_class=decision_class,
     )
 
 
@@ -548,24 +552,82 @@ def compute_baseline(
     per_class_human_breakdown: dict[str, tuple[int, int]] = {}
     per_class_auto_breakdown: dict[str, tuple[int, int]] = {}
 
-    # Group classified invalidations by an implicit decision_class field.
-    # Since InvalidatedDecision does not carry class today, callers are
-    # expected to embed it via the decision_id prefix when needed; for
-    # this phase 1 module, per-class breakdown is populated only when
-    # the caller passes per-class denominators. The numerator side
-    # remains a follow-up (issue #6375 work breakdown step 2 sub-bullet
-    # "split by decision class where the sample supports it").
+    per_class_human_numerator: dict[str, int] = {}
+    per_class_auto_numerator: dict[str, int] = {}
+    untyped_human_invalidations = 0
+    untyped_auto_invalidations = 0
+    for d in invalidations:
+        if d.decision_class is None:
+            if d.was_human_settled:
+                untyped_human_invalidations += 1
+            else:
+                untyped_auto_invalidations += 1
+            continue
+        if d.was_human_settled:
+            per_class_human_numerator[d.decision_class] = (
+                per_class_human_numerator.get(d.decision_class, 0) + 1
+            )
+        else:
+            per_class_auto_numerator[d.decision_class] = (
+                per_class_auto_numerator.get(d.decision_class, 0) + 1
+            )
+
     if per_class_human:
         for cls, total in per_class_human.items():
-            per_class_human_breakdown[cls] = (0, int(total))
+            per_class_human_breakdown[cls] = (
+                per_class_human_numerator.get(cls, 0),
+                int(total),
+            )
     if per_class_auto:
         for cls, total in per_class_auto.items():
-            per_class_auto_breakdown[cls] = (0, int(total))
+            per_class_auto_breakdown[cls] = (
+                per_class_auto_numerator.get(cls, 0),
+                int(total),
+            )
 
-    if (per_class_human or per_class_auto) and "per_class_breakdown_numerator" not in notes:
+    typed_human_total = sum(per_class_human_numerator.values())
+    typed_auto_total = sum(per_class_auto_numerator.values())
+    if (per_class_human or per_class_auto) and (typed_human_total or typed_auto_total):
+        unmatched_human = (
+            sum(
+                count
+                for cls, count in per_class_human_numerator.items()
+                if cls not in (per_class_human or {})
+            )
+            if per_class_human
+            else typed_human_total
+        )
+        unmatched_auto = (
+            sum(
+                count
+                for cls, count in per_class_auto_numerator.items()
+                if cls not in (per_class_auto or {})
+            )
+            if per_class_auto
+            else typed_auto_total
+        )
+        if (
+            unmatched_human
+            or unmatched_auto
+            or untyped_human_invalidations
+            or untyped_auto_invalidations
+        ):
+            parts: list[str] = []
+            if untyped_human_invalidations or untyped_auto_invalidations:
+                parts.append(
+                    f"{untyped_human_invalidations} human + {untyped_auto_invalidations} auto "
+                    "invalidations carry no decision_class and are excluded from the breakdown"
+                )
+            if unmatched_human or unmatched_auto:
+                parts.append(
+                    f"{unmatched_human} human + {unmatched_auto} auto invalidations have classes "
+                    "absent from the per-class denominator inputs and are excluded"
+                )
+            notes["per_class_breakdown_coverage"] = "; ".join(parts)
+    elif (per_class_human or per_class_auto) and not (typed_human_total or typed_auto_total):
         notes["per_class_breakdown_numerator"] = (
-            "per-class invalidation numerators are 0 in phase 1; "
-            "follow-up PR will plumb decision_class through InvalidatedDecision"
+            "per-class denominators provided but no invalidation in window carries a "
+            "decision_class — pass decision_class to classify_invalidation to populate numerators"
         )
 
     if not sample_size_acceptable:
@@ -749,6 +811,11 @@ def _decision_from_dict(payload: dict[str, Any]) -> InvalidatedDecision:
             rationales=tuple(payload.get("rationales", ())),
             was_human_settled=bool(payload.get("was_human_settled", False)),
             was_auto_handled=bool(payload.get("was_auto_handled", False)),
+            decision_class=(
+                str(payload["decision_class"])
+                if payload.get("decision_class") is not None
+                else None
+            ),
         )
     except KeyError as exc:
         raise ValueError(
