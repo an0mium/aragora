@@ -8,20 +8,73 @@ workflows that need Docker — notably:
 This document captures how Docker is provisioned on those runners and how to
 provision new ones consistently.
 
-## Current fleet (as of 2026-04-24)
+## The `docker-ready` label convention
 
-AWS EC2, us-east-2, Amazon Linux 2023, IAM profile `aragora-ec2-ssm`:
+Workflows that need Docker MUST target the `docker-ready` custom label
+in addition to `aragora`:
 
-| Instance ID | Private IP | Runner Name |
-|---|---|---|
-| `i-07e538fafbe61696d` | 172.31.31.173 | `ip-172-31-31-173` |
-| `i-0aae2ccd2f68b94d2` | 172.31.24.39 | `ip-172-31-24-39` |
-| `i-092c2d3b4dafc1f24` | 172.31.11.203 | `ip-172-31-11-203` |
-| `i-014ecbcb79c4474b6` | 172.31.7.189 | `ip-172-31-7-189` |
-| `i-0823e60c7c4b924e1` | 172.31.38.234 | `i-0823e60c7c4b924e1` |
+```yaml
+runs-on: [self-hosted, Linux, X64, aragora, docker-ready]
+```
 
-The GitHub Actions runner service runs as `ec2-user` (systemd unit
-`actions.runner.synaptent-aragora.<hostname>.service`).
+The `aragora` label alone is insufficient because the fleet is heterogeneous
+— see the `aragora` fleet table below — and not every runner has Docker.
+
+The `docker-ready` label is added to a runner ONLY after the SSM Docker
+install dance (Steps 1-3 below) has completed AND
+`sudo -u ec2-user docker ps` returns successfully.
+
+### Adding the label to a runner
+
+```bash
+# Find the runner ID:
+gh api repos/synaptent/aragora/actions/runners --jq \
+  '.runners[] | select(.name == "<runner-name>") | .id'
+
+# Add the label:
+gh api -X POST /repos/synaptent/aragora/actions/runners/<id>/labels \
+  -f 'labels[]=docker-ready'
+
+# Verify:
+gh api /repos/synaptent/aragora/actions/runners/<id>/labels
+```
+
+### Removing the label (e.g. if Docker is broken on that runner)
+
+```bash
+gh api -X DELETE \
+  /repos/synaptent/aragora/actions/runners/<id>/labels/docker-ready
+```
+
+## Current `aragora` fleet (as of 2026-04-24)
+
+| Runner Name | Type | Status | Docker? | `docker-ready` label? |
+|---|---|---|---|---|
+| `aragora-hetzner-cpu1` | Hetzner CPU | online | unknown | no |
+| `aragora-hetzner-cpu2` | Hetzner CPU | online | unknown | no |
+| `aragora-hetzner-cpu3` | Hetzner CPU | online | unknown | no |
+| `i-07e538fafbe61696d` | EC2 AL2023 | online | no | no |
+| `i-0823e60c7c4b924e1` | EC2 AL2023 | online | no | no |
+| `ip-10-50-1-235` | unknown | online | unknown | no |
+| `ip-172-31-11-203` | EC2 AL2023 | online | no | no |
+| `ip-172-31-24-39` (id=26) | EC2 AL2023 (i-0aae2ccd2f68b94d2) | online | **yes (25.0.14)** | **yes** |
+| `ip-172-31-7-189` | EC2 AL2023 | online | no | no |
+| `macbook-intel-64gb` | Mac Intel | online | unknown | no |
+| `macbook-m1-16gb` | Mac M1 | online | unknown | no |
+| `mac-studio-m3ultra` | Mac M3 Ultra | online | unknown | no |
+
+The GitHub Actions runner service on EC2 AL2023 runs as `ec2-user` (systemd
+unit `actions.runner.synaptent-aragora.<hostname>.service`). Mac runners use
+`launchd` and Hetzner runners use systemd as well.
+
+### Outstanding fleet work (tracked separately)
+
+- Provision Docker on the remaining 4 EC2 AL2023 runners using the SSM
+  procedure below; add `docker-ready` to each as `docker ps` succeeds.
+- Audit Hetzner runner Docker state; if Docker is present, add `docker-ready`.
+- Audit Mac runner Docker state (Docker Desktop or colima); if present, add
+  `docker-ready`.
+- Bake Docker into a custom AMI so newly-rotated EC2 runners inherit it.
 
 ## Required packages
 
@@ -89,6 +142,10 @@ gh api repos/synaptent/aragora/actions/runners --jq '.runners[] | select(.name =
   Load Tests to self-hosted (reverts #6554 which had temporarily moved
   Load Tests to `ubuntu-latest` because Docker was missing). See
   `.github/workflows/load-tests.yml`.
+- **2026-04-24 (later)** — `docker-ready` custom label added to runner
+  `ip-172-31-24-39` (id=26). `load-tests.yml` updated to target
+  `[self-hosted, Linux, X64, aragora, docker-ready]` so the workflow
+  no longer races against runners that lack Docker.
 
 ## When to add ubuntu-latest fallback
 

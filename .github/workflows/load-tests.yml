@@ -35,12 +35,20 @@ jobs:
   load-test:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Load Test Suite
-    # Runs on the self-hosted aragora-labeled AL2023 runner fleet.
-    # Docker is installed on these runners (see
-    # docs/operations/SELF_HOSTED_RUNNER_DOCKER.md for provisioning). This
-    # gives load tests VPC access to private AWS resources while keeping
-    # the `services: redis:...` container support working.
-    runs-on: [self-hosted, Linux, X64, aragora]
+    # Runs on the subset of `aragora`-labeled self-hosted runners that have
+    # Docker provisioned. The `docker-ready` custom label is added to a
+    # runner ONLY after the SSM Docker install dance has completed and
+    # `sudo -u ec2-user docker ps` succeeds (see
+    # docs/operations/SELF_HOSTED_RUNNER_DOCKER.md).
+    #
+    # As of 2026-04-24, exactly ONE runner has the `docker-ready` label:
+    #   - i-0aae2ccd2f68b94d2 (ip-172-31-24-39, runner ID 26)
+    #
+    # As more runners are provisioned (see follow-up: bake Docker into the
+    # AMI), the label is added via:
+    #   gh api -X POST /repos/synaptent/aragora/actions/runners/<id>/labels \
+    #     -f 'labels[]=docker-ready'
+    runs-on: [self-hosted, Linux, X64, aragora, docker-ready]
     timeout-minutes: 30
 
     services:
