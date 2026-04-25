@@ -32,6 +32,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.review.invalidation import (
+    BaselineMeasurement,
+    DEFAULT_BASELINE_WINDOW_DAYS,
+    DEFAULT_MIN_BASELINE_SAMPLES,
+    DEFAULT_MINIMUM_MEANINGFUL_RATE,
+    DEFAULT_SAFETY_MARGIN,
+    ThresholdProposal,
+    derive_threshold,
+)
+from aragora.review.invalidation_event_source import measure_baseline_from_stores
 from aragora.review.reviewer_output import ReviewerOutput
 from aragora.swarm.pr_review_protocol import (
     PRReviewerExecutionFailure,
@@ -250,6 +260,86 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     act_p.add_argument("--json", action="store_true", help="Output settlement receipt as JSON")
 
+    baseline_p = sub.add_parser(
+        "baseline",
+        help="Measure empirical invalidation baseline from on-disk stores (#6375)",
+        description=(
+            "Read the auto-handle calibration store (failure outcomes) and the\n"
+            "settlement-receipt tree (denominator for human-settled decisions),\n"
+            "compute the empirical invalidation baseline, and propose an auto-\n"
+            "handle invalidation threshold.\n\n"
+            "Read-only: this command does NOT mutate the calibration store, the\n"
+            "receipt tree, or any threshold configuration. It is the operator-\n"
+            "facing surface for the empirical-threshold framework that landed\n"
+            "in #6602 (phase 1) and #6615 (phase 2 adapter)."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    baseline_p.add_argument(
+        "--window-days",
+        type=int,
+        default=DEFAULT_BASELINE_WINDOW_DAYS,
+        help=(f"Measurement-window width in days (default: {DEFAULT_BASELINE_WINDOW_DAYS})."),
+    )
+    baseline_p.add_argument(
+        "--min-samples",
+        type=int,
+        default=DEFAULT_MIN_BASELINE_SAMPLES,
+        help=(
+            "Minimum human-settled sample size before the baseline is "
+            f"considered usable for non-placeholder threshold derivation "
+            f"(default: {DEFAULT_MIN_BASELINE_SAMPLES})."
+        ),
+    )
+    baseline_p.add_argument(
+        "--safety-margin",
+        type=float,
+        default=DEFAULT_SAFETY_MARGIN,
+        help=(
+            "Multiplier applied to the baseline when deriving the threshold "
+            f"(default: {DEFAULT_SAFETY_MARGIN}). Must be in (0, 1]."
+        ),
+    )
+    baseline_p.add_argument(
+        "--minimum-meaningful-rate",
+        type=float,
+        default=DEFAULT_MINIMUM_MEANINGFUL_RATE,
+        help=(
+            "Floor below which threshold drift is indistinguishable from "
+            f"sample noise (default: {DEFAULT_MINIMUM_MEANINGFUL_RATE})."
+        ),
+    )
+    baseline_p.add_argument(
+        "--placeholder-value",
+        type=float,
+        default=0.05,
+        help=(
+            "Threshold to use when the baseline is below the sample-size "
+            "floor (default: 0.05, matching the THESIS Commitment 3 placeholder)."
+        ),
+    )
+    baseline_p.add_argument(
+        "--calibration-db",
+        default=None,
+        help=(
+            "Override the auto-handle calibration store path. Defaults to "
+            "the canonical store under aragora's data dir."
+        ),
+    )
+    baseline_p.add_argument(
+        "--review-queue-root",
+        default=None,
+        help=(
+            "Override the review-queue store root used for settlement "
+            "receipts. Defaults to <repo>/.aragora/review-queue."
+        ),
+    )
+    baseline_p.add_argument(
+        "--json",
+        action="store_true",
+        help="Output the BaselineMeasurement + ThresholdProposal as JSON.",
+    )
+
     parser.set_defaults(func=cmd_review_queue)
 
 
@@ -264,8 +354,10 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_run(args)
     if command == "act":
         return _cmd_act(args)
+    if command == "baseline":
+        return _cmd_baseline(args)
     print(
-        "Usage: aragora review-queue {build,packet,run,act} [...]\n"
+        "Usage: aragora review-queue {build,packet,run,act,baseline} [...]\n"
         "Run 'aragora review-queue run --help' for the human settlement loop.",
         file=sys.stderr,
     )
@@ -441,6 +533,74 @@ def _cmd_act(args: argparse.Namespace) -> int:
         print(json.dumps(receipt.to_dict(), indent=2))
     else:
         _render_settlement_receipt(receipt)
+    return 0
+
+
+def _cmd_baseline(args: argparse.Namespace) -> int:
+    """Measure the empirical invalidation baseline + propose a threshold.
+
+    Read-only against the calibration store and the settlement-receipt
+    tree. Does not mutate either; does not write a receipt; does not
+    apply the proposed threshold anywhere. The recalibration receipt
+    flow is #6375 step B (codex).
+    """
+    if args.window_days <= 0:
+        print("error: --window-days must be positive", file=sys.stderr)
+        return 2
+    if args.min_samples <= 0:
+        print("error: --min-samples must be positive", file=sys.stderr)
+        return 2
+    if not 0 < args.safety_margin <= 1:
+        print("error: --safety-margin must be in (0, 1]", file=sys.stderr)
+        return 2
+    if args.minimum_meaningful_rate <= 0:
+        print("error: --minimum-meaningful-rate must be positive", file=sys.stderr)
+        return 2
+    if not 0 < args.placeholder_value < 1:
+        print("error: --placeholder-value must be in (0, 1)", file=sys.stderr)
+        return 2
+
+    json_output = bool(getattr(args, "json", False))
+
+    try:
+        store = AutoHandleCalibrationStore(db_path=args.calibration_db)
+    except (OSError, RuntimeError, sqlite3.Error, ValueError, TypeError) as exc:
+        print(f"error: cannot open calibration store: {exc}", file=sys.stderr)
+        return 1
+
+    window_end = datetime.now(UTC)
+    try:
+        measurement = measure_baseline_from_stores(
+            calibration_store=store,
+            review_queue_root=args.review_queue_root,
+            window_end=window_end,
+            window_days=args.window_days,
+            min_samples=args.min_samples,
+        )
+    except (OSError, RuntimeError, sqlite3.Error, ValueError) as exc:
+        print(f"error: baseline measurement failed: {exc}", file=sys.stderr)
+        return 1
+
+    proposal = derive_threshold(
+        measurement,
+        safety_margin=args.safety_margin,
+        minimum_meaningful_rate=args.minimum_meaningful_rate,
+        measured_at=window_end,
+        placeholder_value=args.placeholder_value,
+    )
+
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "measurement": measurement.to_dict(),
+                    "proposal": proposal.to_dict(),
+                },
+                indent=2,
+            )
+        )
+    else:
+        _render_baseline_report(measurement=measurement, proposal=proposal)
     return 0
 
 
@@ -1214,6 +1374,83 @@ def _render_settlement_receipt(receipt: SettlementReceipt) -> None:
     if receipt.elapsed_seconds is not None:
         print(f"  elapsed:      {receipt.elapsed_seconds:.3f}s")
     print(f"  receipt:      {receipt.receipt_path}")
+
+
+def _render_baseline_report(
+    *,
+    measurement: BaselineMeasurement,
+    proposal: ThresholdProposal,
+) -> None:
+    """Print a human-readable empirical-threshold baseline report."""
+    print("# Empirical invalidation baseline (gap #6375)")
+    print()
+    print(f"window:       {measurement.window_start.isoformat()}")
+    print(f"           -> {measurement.window_end.isoformat()}")
+    print(f"              ({measurement.window_days}d)")
+    print()
+    print("samples:")
+    print(
+        f"  human-settled:   {measurement.invalidated_human_settled} invalidated "
+        f"/ {measurement.total_human_settled} total"
+    )
+    print(
+        f"  auto-handled:    {measurement.invalidated_auto_handled} invalidated "
+        f"/ {measurement.total_auto_handled} total"
+    )
+    print(
+        f"  min required:    {measurement.min_samples_required}  "
+        f"(acceptable: {measurement.sample_size_acceptable})"
+    )
+    print()
+    print("rates (with Wilson 95% CI):")
+    print(
+        "  human baseline:  "
+        f"{_fmt_rate(measurement.baseline_human_rate)}  "
+        f"[{_fmt_rate(measurement.baseline_human_rate_ci_low)}, "
+        f"{_fmt_rate(measurement.baseline_human_rate_ci_high)}]"
+    )
+    print(
+        "  auto-handle:     "
+        f"{_fmt_rate(measurement.auto_handle_rate)}  "
+        f"[{_fmt_rate(measurement.auto_handle_rate_ci_low)}, "
+        f"{_fmt_rate(measurement.auto_handle_rate_ci_high)}]"
+    )
+    print()
+    if measurement.per_class_human:
+        print("per-class human breakdown (invalidated/total):")
+        for cls, (inv, tot) in sorted(measurement.per_class_human.items()):
+            print(f"  - {cls}: {inv}/{tot}")
+        print()
+    if measurement.per_class_auto:
+        print("per-class auto-handle breakdown (invalidated/total):")
+        for cls, (inv, tot) in sorted(measurement.per_class_auto.items()):
+            print(f"  - {cls}: {inv}/{tot}")
+        print()
+    if measurement.notes:
+        print("notes (data-availability caveats):")
+        for key, note in sorted(measurement.notes.items()):
+            print(f"  - {key}: {note}")
+        print()
+    print("proposed threshold:")
+    print(f"  value:         {_fmt_rate(proposal.threshold)}")
+    print(f"  baseline:      {_fmt_rate(proposal.baseline)}")
+    print(f"  safety margin: {proposal.safety_margin:.2f}")
+    print(f"  min meaningful rate: {proposal.minimum_meaningful_rate:.4f}")
+    print(f"  placeholder:   {proposal.is_placeholder}")
+    print(f"  rationale:     {proposal.rationale}")
+    print(f"  measured at:   {proposal.measured_at.isoformat()}")
+    print()
+    print(
+        "Note: this command is read-only and advisory. Applying the proposed "
+        "threshold or persisting a recalibration receipt is the recalibration "
+        "scheduler's job (#6375 step B), not this CLI."
+    )
+
+
+def _fmt_rate(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:.4f} ({value:.2%})"
 
 
 def _render_active_auto_handle_alerts() -> None:
