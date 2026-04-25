@@ -55,6 +55,36 @@ Backup Task: NONE
 """.strip()
 
 
+def _repo_with_merged_codex_branch(tmp_path: Path) -> tuple[Path, str]:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return proc.stdout.strip()
+
+    git("init")
+    git("checkout", "-b", "main")
+    git("config", "user.email", "codex@example.com")
+    git("config", "user.name", "Codex")
+    (repo / "README.md").write_text("base\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-m", "base")
+    git("checkout", "-b", "codex/example")
+    (repo / "README.md").write_text("base\nchange\n", encoding="utf-8")
+    git("commit", "-am", "change")
+    head = git("rev-parse", "HEAD")
+    git("checkout", "main")
+    git("merge", "--ff-only", "codex/example")
+    return repo, head
+
+
 def test_load_handoffs_parses_structured_memory(tmp_path: Path) -> None:
     _memory(tmp_path, "founder-review", _handoff())
 
@@ -189,6 +219,45 @@ def test_load_outbox_handoffs_deduplicates_unresolved_branch_handoffs(
     assert handoffs[0].source_file == str(newer)
 
 
+def test_load_outbox_handoffs_deduplicates_top_level_branch_handoffs(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    older = outbox / "older.json"
+    newer = outbox / "newer.json"
+    older.write_text(
+        json.dumps(
+            _outbox_payload(
+                task="Publish older branch snapshot",
+                branch="codex/example",
+                head_sha="abc123",
+                idempotency_key="open-pr-codex-example-old",
+            )
+        ),
+        encoding="utf-8",
+    )
+    newer.write_text(
+        json.dumps(
+            _outbox_payload(
+                task="Publish newer branch snapshot",
+                idempotency_key="open-pr-codex-example-new",
+                local_evidence={"branch": "codex/example", "head": "def456"},
+            )
+        ),
+        encoding="utf-8",
+    )
+    os.utime(older, (1_000, 1_000))
+    os.utime(newer, (2_000, 2_000))
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].task_title == "Publish newer branch snapshot"
+    assert handoffs[0].idempotency_key == "open-pr-codex-example-new"
+    assert handoffs[0].source_file == str(newer)
+
+
 def test_load_outbox_handoffs_skips_terminal_receipt_for_same_branch(
     tmp_path: Path,
 ) -> None:
@@ -224,33 +293,7 @@ def test_load_outbox_handoffs_skips_terminal_receipt_for_same_branch(
 
 
 def test_load_outbox_handoffs_skips_already_merged_branch_head(tmp_path: Path) -> None:
-    repo = tmp_path / "repo"
-    repo.mkdir()
-
-    def git(*args: str) -> str:
-        proc = subprocess.run(
-            ["git", *args],
-            cwd=repo,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        return proc.stdout.strip()
-
-    git("init")
-    git("checkout", "-b", "main")
-    git("config", "user.email", "codex@example.com")
-    git("config", "user.name", "Codex")
-    (repo / "README.md").write_text("base\n", encoding="utf-8")
-    git("add", "README.md")
-    git("commit", "-m", "base")
-    git("checkout", "-b", "codex/example")
-    (repo / "README.md").write_text("base\nchange\n", encoding="utf-8")
-    git("commit", "-am", "change")
-    head = git("rev-parse", "HEAD")
-    git("checkout", "main")
-    git("merge", "--ff-only", "codex/example")
-
+    repo, head = _repo_with_merged_codex_branch(tmp_path)
     outbox = repo / ".aragora" / "automation-outbox"
     outbox.mkdir(parents=True)
     (outbox / "merged.json").write_text(
@@ -263,6 +306,26 @@ def test_load_outbox_handoffs_skips_already_merged_branch_head(tmp_path: Path) -
                     "head_sha": head,
                     "base": "main",
                 },
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod.load_outbox_handoffs(repo) == []
+
+
+def test_load_outbox_handoffs_skips_already_merged_top_level_head(tmp_path: Path) -> None:
+    repo, head = _repo_with_merged_codex_branch(tmp_path)
+    outbox = repo / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "merged.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                repo="synaptent/aragora",
+                idempotency_key="open-pr-codex-example-merged",
+                branch="codex/example",
+                head_sha=head,
+                base="main",
             )
         ),
         encoding="utf-8",

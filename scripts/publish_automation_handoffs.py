@@ -440,13 +440,19 @@ def _has_required_outbox_contract(payload: dict[str, Any]) -> bool:
     return True
 
 
-def _outbox_branch_fingerprint(payload: dict[str, Any]) -> str | None:
+def _outbox_evidence_value(payload: dict[str, Any], key: str) -> str:
     local_evidence = payload.get("local_evidence")
-    if not isinstance(local_evidence, dict):
-        return None
+    if isinstance(local_evidence, dict):
+        value = str(local_evidence.get(key) or "").strip()
+        if value:
+            return value
+    return str(payload.get(key) or "").strip()
+
+
+def _outbox_branch_fingerprint(payload: dict[str, Any]) -> str | None:
     requested_action = str(payload.get("requested_action") or "").strip()
     repo = str(payload.get("repo") or "").strip()
-    branch = str(local_evidence.get("branch") or "").strip()
+    branch = _outbox_evidence_value(payload, "branch")
     if not requested_action or not repo or not branch:
         return None
     return "\0".join((requested_action, repo, branch))
@@ -458,22 +464,19 @@ def _git_is_ancestor(repo_root: Path, ancestor: str, descendant: str) -> bool:
 
 
 def _outbox_branch_already_merged(repo_root: Path, payload: dict[str, Any]) -> bool:
-    local_evidence = payload.get("local_evidence")
-    if not isinstance(local_evidence, dict):
-        return False
     requested_action = str(payload.get("requested_action") or "").strip()
     if requested_action != "open_pr":
         return False
 
-    base_ref = str(local_evidence.get("base") or payload.get("base") or DEFAULT_BASE_REF).strip()
+    base_ref = _outbox_evidence_value(payload, "base") or DEFAULT_BASE_REF
     if not base_ref:
         return False
 
     candidates = [
-        str(local_evidence.get("head") or "").strip(),
-        str(local_evidence.get("head_sha") or "").strip(),
-        str(local_evidence.get("commit") or "").strip(),
-        str(local_evidence.get("branch") or "").strip(),
+        _outbox_evidence_value(payload, "head"),
+        _outbox_evidence_value(payload, "head_sha"),
+        _outbox_evidence_value(payload, "commit"),
+        _outbox_evidence_value(payload, "branch"),
     ]
     for candidate in dict.fromkeys(item for item in candidates if item):
         if _git_is_ancestor(repo_root, candidate, base_ref):
