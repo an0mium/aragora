@@ -29,7 +29,77 @@ runs:
         echo "AGENT_TOOLSDIRECTORY=${TOOL_CACHE}" >> "${GITHUB_ENV}"
         echo "RUNNER_TOOL_CACHE=${TOOL_CACHE}" >> "${GITHUB_ENV}"
 
+    - name: Use matching system Python on self-hosted runners
+      id: system-python
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if [[ "${RUNNER_ENVIRONMENT:-}" != "self-hosted" ]]; then
+          echo "found=false" >> "${GITHUB_OUTPUT}"
+          exit 0
+        fi
+
+        REQUESTED="${{ inputs.python-version }}"
+        PY_BIN=""
+
+        for cmd in "python${REQUESTED}" python3 python; do
+          if ! command -v "${cmd}" >/dev/null 2>&1; then
+            continue
+          fi
+
+          CANDIDATE="$(command -v "${cmd}")"
+          if "${CANDIDATE}" - "${REQUESTED}" <<'PY'
+        import sys
+
+        requested = sys.argv[1].split(".")
+        if len(requested) < 2:
+            sys.exit(1)
+
+        try:
+            major = int(requested[0])
+            minor = int(requested[1])
+        except ValueError:
+            sys.exit(1)
+
+        sys.exit(0 if sys.version_info[:2] == (major, minor) else 1)
+        PY
+          then
+            PY_BIN="${CANDIDATE}"
+            break
+          fi
+        done
+
+        if [[ -z "${PY_BIN}" ]]; then
+          echo "found=false" >> "${GITHUB_OUTPUT}"
+          exit 0
+        fi
+
+        echo "Using self-hosted system Python: ${PY_BIN} ($("${PY_BIN}" --version))"
+        LOCAL_BIN="${RUNNER_TEMP:-$HOME}/setup-python-safe-bin"
+        mkdir -p "${LOCAL_BIN}"
+        cat > "${LOCAL_BIN}/python" <<EOF
+        #!/usr/bin/env bash
+        exec "${PY_BIN}" "\$@"
+        EOF
+        chmod +x "${LOCAL_BIN}/python"
+        ln -sf "${LOCAL_BIN}/python" "${LOCAL_BIN}/python3"
+
+        "${LOCAL_BIN}/python" -m ensurepip --upgrade || true
+        "${LOCAL_BIN}/python" -m pip --version
+
+        cat > "${LOCAL_BIN}/pip" <<EOF
+        #!/usr/bin/env bash
+        exec "${PY_BIN}" -m pip "\$@"
+        EOF
+        chmod +x "${LOCAL_BIN}/pip"
+        ln -sf "${LOCAL_BIN}/pip" "${LOCAL_BIN}/pip3"
+
+        echo "${LOCAL_BIN}" >> "${GITHUB_PATH}"
+        echo "found=true" >> "${GITHUB_OUTPUT}"
+
     - name: Set up Python ${{ inputs.python-version }}
+      if: steps.system-python.outputs.found != 'true'
       id: setup-python
       uses: actions/setup-python@v6
       with:
@@ -39,7 +109,7 @@ runs:
       continue-on-error: true
 
     - name: Fallback to system Python
-      if: steps.setup-python.outcome == 'failure'
+      if: steps.system-python.outputs.found != 'true' && steps.setup-python.outcome == 'failure'
       shell: bash
       run: |
         set -euo pipefail
