@@ -16,12 +16,15 @@ from aragora.server.fastapi.dependencies.auth import require_authenticated
 
 @pytest.fixture(autouse=True)
 def reset_health_probe_cache():
-    """Prevent stale admin health cache entries from leaking into FastAPI routes."""
+    """Prevent stale admin health state from leaking into FastAPI routes."""
+    from aragora.server.degraded_mode import clear_degraded
     from aragora.server.handlers.admin.health import _HEALTH_CACHE, _HEALTH_CACHE_TIMESTAMPS
 
+    clear_degraded()
     _HEALTH_CACHE.clear()
     _HEALTH_CACHE_TIMESTAMPS.clear()
     yield
+    clear_degraded()
     _HEALTH_CACHE.clear()
     _HEALTH_CACHE_TIMESTAMPS.clear()
 

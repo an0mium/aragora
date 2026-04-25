@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from aragora.server import leak_detector as leak_detector_module
 from aragora.server.leak_detector import (
     AcquisitionRecord,
     LeakAlert,
@@ -574,32 +575,35 @@ class TestIntegrationScenarios:
 
     def test_connection_lifecycle(self):
         """Test full connection lifecycle."""
-        detector = LeakDetector(warn_seconds=0.05, critical_seconds=0.1)
+        current_time = 1000.0
 
-        # Acquire connection
-        conn_id = detector.acquire("postgres", conn_id="pg-lifecycle")
-        assert detector.get_stats()["currently_active"] == 1
+        with patch.object(leak_detector_module.time, "time", side_effect=lambda: current_time):
+            detector = LeakDetector(warn_seconds=0.05, critical_seconds=0.1)
 
-        # Wait for warning threshold
-        time.sleep(0.06)
-        alerts = detector.check_leaks()
-        assert len(alerts) == 1
-        assert alerts[0].level == "warning"
+            # Acquire connection
+            conn_id = detector.acquire("postgres", conn_id="pg-lifecycle")
+            assert detector.get_stats()["currently_active"] == 1
 
-        # Wait for critical threshold
-        time.sleep(0.05)
-        alerts = detector.check_leaks()
-        assert len(alerts) == 1
-        assert alerts[0].level == "critical"
+            # Advance to the warning threshold without relying on scheduler timing.
+            current_time += 0.06
+            alerts = detector.check_leaks()
+            assert len(alerts) == 1
+            assert alerts[0].level == "warning"
 
-        # Release connection
-        detector.release(conn_id)
-        assert detector.get_stats()["currently_active"] == 0
+            # Advance to the critical threshold.
+            current_time += 0.05
+            alerts = detector.check_leaks()
+            assert len(alerts) == 1
+            assert alerts[0].level == "critical"
 
-        # Verify final stats
-        stats = detector.get_stats()
-        assert stats["total_warn_alerts"] >= 1
-        assert stats["total_critical_alerts"] >= 1
+            # Release connection
+            detector.release(conn_id)
+            assert detector.get_stats()["currently_active"] == 0
+
+            # Verify final stats
+            stats = detector.get_stats()
+            assert stats["total_warn_alerts"] >= 1
+            assert stats["total_critical_alerts"] >= 1
 
     @pytest.mark.asyncio
     async def test_concurrent_async_operations(self):
