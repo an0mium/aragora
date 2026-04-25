@@ -101,6 +101,15 @@ def test_check_github_cli_health_detects_connectivity_failure(monkeypatch) -> No
     assert mod.is_github_connectivity_error(health.error) is True
 
 
+def test_github_connectivity_error_detects_dns_lookup_failures() -> None:
+    assert mod.is_github_connectivity_error(
+        'Get "https://api.github.com/rate_limit": dial tcp: lookup api.github.com: no such host'
+    )
+    assert mod.is_github_connectivity_error(
+        'Post "https://api.github.com/graphql": dial tcp: lookup github.com: no such host'
+    )
+
+
 def test_check_github_cli_health_prefers_connectivity_error_when_auth_status_is_stale(
     monkeypatch,
 ) -> None:

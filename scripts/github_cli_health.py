@@ -36,6 +36,9 @@ CONNECTIVITY_ERROR_TOKENS = (
     "connection timed out",
     "connection refused",
     "temporary failure in name resolution",
+    "lookup api.github.com",
+    "lookup github.com",
+    "no such host",
     "no route to host",
 )
 
