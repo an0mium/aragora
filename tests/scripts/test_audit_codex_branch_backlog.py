@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -627,11 +628,15 @@ def test_audit_protects_patch_equivalent_unresolved_handoff_branches(
     monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
     monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
     monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
-    monkeypatch.setattr(mod, "is_patch_equivalent", lambda _root, _base, _branch: False)
+    monkeypatch.setattr(
+        mod,
+        "is_patch_equivalent",
+        lambda _root, _base, _branch, **_kwargs: False,
+    )
     monkeypatch.setattr(
         mod,
         "branch_patch_id",
-        lambda _root, _base, branch: {
+        lambda _root, _base, branch, **_kwargs: {
             "codex/refreshed": "same-patch",
             "codex/stale-copy": "same-patch",
             "codex/new-work": "new-patch",
@@ -1005,12 +1010,77 @@ def test_parser_checks_patch_equivalence_by_default() -> None:
     args = mod.build_parser().parse_args([])
 
     assert args.include_patch_equivalence is True
+    assert args.patch_equivalence_time_budget_seconds == 90.0
 
 
 def test_parser_can_skip_patch_equivalence() -> None:
     args = mod.build_parser().parse_args(["--skip-patch-equivalence"])
 
     assert args.include_patch_equivalence is False
+
+
+def test_parser_can_disable_patch_equivalence_time_budget() -> None:
+    args = mod.build_parser().parse_args(["--patch-equivalence-time-budget-seconds", "-1"])
+
+    assert args.patch_equivalence_time_budget_seconds == -1
+
+
+def test_run_git_returns_completed_process_on_timeout(tmp_path: Path, monkeypatch: Any) -> None:
+    def raise_timeout(*_args: Any, **kwargs: Any) -> SimpleNamespace:
+        raise subprocess.TimeoutExpired(cmd=["git", "status"], timeout=kwargs["timeout"])
+
+    monkeypatch.setattr(mod.subprocess, "run", raise_timeout)
+
+    proc = mod.run_git(["status"], tmp_path, timeout=3)
+
+    assert proc.returncode == 124
+    assert "command timed out after 3s: git status" in proc.stderr
+
+
+def test_audit_skips_patch_equivalence_after_time_budget(tmp_path: Path, monkeypatch: Any) -> None:
+    rows = [_branch_row("codex/one"), _branch_row("codex/two")]
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(mod, "terminal_receipted_handoff_branches", lambda *_args, **_kwargs: set())
+    monkeypatch.setattr(mod, "unresolved_outbox_handoff_branches", lambda *_args, **_kwargs: set())
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    def fail_patch_equivalence(*_args: Any, **_kwargs: Any) -> bool:
+        raise AssertionError("patch equivalence should not run after budget exhaustion")
+
+    monkeypatch.setattr(mod, "is_patch_equivalent", fail_patch_equivalence)
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=True,
+        patch_equivalence_time_budget_seconds=0,
+        publisher_backlog_limit=12,
+    )
+
+    assert payload["patch_equivalence_budget_exhausted"] is True
+    assert payload["patch_equivalence_skipped_branches"] == 2
+    assert [record["category"] for record in payload["records"]] == [
+        "salvage_recent_unique",
+        "salvage_recent_unique",
+    ]
 
 
 def test_audit_skip_patch_equivalence_still_cleans_empty_branch_diff(
@@ -1028,11 +1098,11 @@ def test_audit_skip_patch_equivalence_still_cleans_empty_branch_diff(
     monkeypatch.setattr(
         mod,
         "has_empty_branch_diff",
-        lambda _root, _base, branch: branch == "codex/cancels-out",
+        lambda _root, _base, branch, **_kwargs: branch == "codex/cancels-out",
     )
     patch_checked_branches: list[str] = []
 
-    def is_patch_equivalent(_root: Path, _base: str, branch: str) -> bool:
+    def is_patch_equivalent(_root: Path, _base: str, branch: str, **_kwargs: Any) -> bool:
         patch_checked_branches.append(branch)
         return False
 
@@ -1105,10 +1175,10 @@ def test_audit_skip_patch_equivalence_verifies_salvage_candidates(
     monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
     monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
     monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
-    monkeypatch.setattr(mod, "has_empty_branch_diff", lambda *_args: False)
+    monkeypatch.setattr(mod, "has_empty_branch_diff", lambda *_args, **_kwargs: False)
     patch_checked_branches: list[str] = []
 
-    def is_patch_equivalent(_root: Path, _base: str, branch: str) -> bool:
+    def is_patch_equivalent(_root: Path, _base: str, branch: str, **_kwargs: Any) -> bool:
         patch_checked_branches.append(branch)
         return branch == "codex/replayed-diverged"
 
@@ -1156,7 +1226,7 @@ def test_patch_equivalence_treats_empty_branch_diff_as_cleanup(
 ) -> None:
     calls: list[list[str]] = []
 
-    def fake_run_git(args: list[str], _cwd: Path) -> SimpleNamespace:
+    def fake_run_git(args: list[str], _cwd: Path, **_kwargs: Any) -> SimpleNamespace:
         calls.append(args)
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
@@ -1171,7 +1241,7 @@ def test_patch_equivalence_falls_back_to_cherry_when_branch_has_diff(
 ) -> None:
     calls: list[list[str]] = []
 
-    def fake_run_git(args: list[str], _cwd: Path) -> SimpleNamespace:
+    def fake_run_git(args: list[str], _cwd: Path, **_kwargs: Any) -> SimpleNamespace:
         calls.append(args)
         if args[:2] == ["diff", "--quiet"]:
             return SimpleNamespace(returncode=1, stdout="", stderr="")

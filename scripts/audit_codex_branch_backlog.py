@@ -21,6 +21,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -70,14 +71,21 @@ class BranchRecord:
 
 
 def run_git(args: list[str], cwd: Path, *, timeout: int = 60) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args],
-        cwd=cwd,
-        text=True,
-        capture_output=True,
-        check=False,
-        timeout=timeout,
-    )
+    cmd = ["git", *args]
+    try:
+        return subprocess.run(
+            cmd,
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout if isinstance(exc.stdout, str) else ""
+        stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+        message = stderr or f"command timed out after {timeout}s: {' '.join(cmd)}"
+        return subprocess.CompletedProcess(args=cmd, returncode=124, stdout=stdout, stderr=message)
 
 
 def run_gh(args: list[str], cwd: Path, *, timeout: int = 45) -> subprocess.CompletedProcess[str]:
@@ -472,49 +480,102 @@ def is_merged(root: Path, base: str, branch: str) -> bool:
     return run_git(["merge-base", "--is-ancestor", branch, base], root).returncode == 0
 
 
-def has_empty_branch_diff(root: Path, base: str, branch: str) -> bool:
-    return run_git(["diff", "--quiet", f"{base}...{branch}"], root).returncode == 0
+def _patch_budget_deadline(time_budget_seconds: float | None) -> float | None:
+    if time_budget_seconds is None:
+        return None
+    return monotonic() + max(0.0, time_budget_seconds)
 
 
-def is_patch_equivalent(root: Path, base: str, branch: str) -> bool:
-    diff_proc = run_git(["diff", "--quiet", f"{base}...{branch}"], root)
+def _patch_budget_exhausted(deadline: float | None) -> bool:
+    return deadline is not None and monotonic() >= deadline
+
+
+def _patch_timeout(deadline: float | None, default: int) -> int:
+    if deadline is None:
+        return default
+    remaining = deadline - monotonic()
+    if remaining <= 0:
+        return 1
+    return max(1, min(default, int(remaining)))
+
+
+def has_empty_branch_diff(
+    root: Path,
+    base: str,
+    branch: str,
+    *,
+    timeout: int = 60,
+) -> bool:
+    return run_git(["diff", "--quiet", f"{base}...{branch}"], root, timeout=timeout).returncode == 0
+
+
+def is_patch_equivalent(
+    root: Path,
+    base: str,
+    branch: str,
+    *,
+    timeout: int = 60,
+) -> bool:
+    diff_proc = run_git(["diff", "--quiet", f"{base}...{branch}"], root, timeout=timeout)
     if diff_proc.returncode == 0:
         return True
     if diff_proc.returncode != 1:
         return False
 
-    proc = run_git(["cherry", base, branch], root)
+    proc = run_git(["cherry", base, branch], root, timeout=timeout)
     if proc.returncode != 0:
         return False
     statuses = [line[:1] for line in proc.stdout.splitlines() if line.strip()]
     return bool(statuses) and all(status == "-" for status in statuses)
 
 
-def branch_patch_id(root: Path, base: str, branch: str) -> str | None:
+def branch_patch_id(
+    root: Path,
+    base: str,
+    branch: str,
+    *,
+    timeout: int = 120,
+) -> str | None:
     """Return a stable patch-id for a branch diff against base, if available."""
 
-    diff_proc = run_git(["diff", f"{base}...{branch}"], root, timeout=120)
+    diff_proc = run_git(["diff", f"{base}...{branch}"], root, timeout=timeout)
     if diff_proc.returncode != 0 or not diff_proc.stdout.strip():
         return None
-    proc = subprocess.run(
-        ["git", "patch-id", "--stable"],
-        cwd=root,
-        text=True,
-        input=diff_proc.stdout,
-        capture_output=True,
-        check=False,
-        timeout=120,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "patch-id", "--stable"],
+            cwd=root,
+            text=True,
+            input=diff_proc.stdout,
+            capture_output=True,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return None
     if proc.returncode != 0:
         return None
     first_line = next((line for line in proc.stdout.splitlines() if line.strip()), "")
     return first_line.split(" ", 1)[0] or None
 
 
-def branch_patch_ids(root: Path, base: str, branches: set[str]) -> set[str]:
+def branch_patch_ids(
+    root: Path,
+    base: str,
+    branches: set[str],
+    *,
+    deadline: float | None = None,
+) -> set[str]:
     patch_ids: set[str] = set()
     for branch in sorted(branches):
-        patch_id = branch_patch_id(root, base, branch)
+        if _patch_budget_exhausted(deadline):
+            break
+        patch_id = branch_patch_id(
+            root,
+            base,
+            branch,
+            timeout=_patch_timeout(deadline, 120),
+        )
         if patch_id:
             patch_ids.add(patch_id)
     return patch_ids
@@ -571,6 +632,7 @@ def audit(
     recent_hours: int,
     max_branches: int | None,
     include_patch_equivalence: bool,
+    patch_equivalence_time_budget_seconds: float | None = None,
     publisher_backlog_limit: int,
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
@@ -607,18 +669,23 @@ def audit(
         outbox_dir=resolved_outbox_dir,
         receipt_dir=resolved_receipt_dir,
     )
+    patch_deadline = _patch_budget_deadline(patch_equivalence_time_budget_seconds)
+    handoff_outbox_patch_ids = set()
     handoff_receipted_patch_ids = (
-        branch_patch_ids(root, base, handoff_receipted_branches)
+        branch_patch_ids(root, base, handoff_receipted_branches, deadline=patch_deadline)
         if include_patch_equivalence
         else set()
     )
-    handoff_outbox_patch_ids = (
-        branch_patch_ids(root, base, handoff_outbox_branches)
-        if include_patch_equivalence
-        else set()
-    )
+    if include_patch_equivalence and not _patch_budget_exhausted(patch_deadline):
+        handoff_outbox_patch_ids = branch_patch_ids(
+            root,
+            base,
+            handoff_outbox_branches,
+            deadline=patch_deadline,
+        )
 
     records: list[BranchRecord] = []
+    patch_equivalence_skipped_branches = 0
     for row in rows:
         branch = row["name"]
         committed_at = parse_dt(row["committed_at"])
@@ -637,12 +704,34 @@ def audit(
         patch_equivalent = False
         patch_id = None
         if ahead_count > 0 and not merged_to_base:
-            if include_patch_equivalence:
-                patch_equivalent = is_patch_equivalent(root, base, branch)
+            if _patch_budget_exhausted(patch_deadline):
+                patch_equivalence_skipped_branches += 1
             else:
-                patch_equivalent = has_empty_branch_diff(root, base, branch)
-            if include_patch_equivalence and not patch_equivalent:
-                patch_id = branch_patch_id(root, base, branch)
+                if include_patch_equivalence:
+                    patch_equivalent = is_patch_equivalent(
+                        root,
+                        base,
+                        branch,
+                        timeout=_patch_timeout(patch_deadline, 60),
+                    )
+                else:
+                    patch_equivalent = has_empty_branch_diff(
+                        root,
+                        base,
+                        branch,
+                        timeout=_patch_timeout(patch_deadline, 60),
+                    )
+                if (
+                    include_patch_equivalence
+                    and not patch_equivalent
+                    and not _patch_budget_exhausted(patch_deadline)
+                ):
+                    patch_id = branch_patch_id(
+                        root,
+                        base,
+                        branch,
+                        timeout=_patch_timeout(patch_deadline, 120),
+                    )
         remote_exists = branch in remotes
         handoff_receipted = branch in handoff_receipted_branches or (
             patch_id is not None and patch_id in handoff_receipted_patch_ids
@@ -669,7 +758,15 @@ def audit(
             and not patch_equivalent
             and category in SALVAGE_CATEGORIES
         ):
-            patch_equivalent = is_patch_equivalent(root, base, branch)
+            if _patch_budget_exhausted(patch_deadline):
+                patch_equivalence_skipped_branches += 1
+            else:
+                patch_equivalent = is_patch_equivalent(
+                    root,
+                    base,
+                    branch,
+                    timeout=_patch_timeout(patch_deadline, 60),
+                )
             if patch_equivalent:
                 category = classify(
                     open_pr=prs.get(branch),
@@ -739,6 +836,9 @@ def audit(
         "recent_hours": recent_hours,
         "publisher_backlog_limit": publisher_backlog_limit,
         "include_patch_equivalence": include_patch_equivalence,
+        "patch_equivalence_time_budget_seconds": patch_equivalence_time_budget_seconds,
+        "patch_equivalence_budget_exhausted": _patch_budget_exhausted(patch_deadline),
+        "patch_equivalence_skipped_branches": patch_equivalence_skipped_branches,
         "outbox_dir": str(resolved_outbox_dir),
         "receipt_dir": str(resolved_receipt_dir),
         "github_health": github_health.to_dict(),
@@ -864,6 +964,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--patch-equivalence-time-budget-seconds",
+        type=float,
+        default=90.0,
+        help=(
+            "Wall-clock budget for patch-equivalence and patch-id checks. "
+            "Use 0 to skip them immediately or a negative value for no budget."
+        ),
+    )
+    parser.add_argument(
         "--publisher-backlog-limit",
         type=int,
         default=12,
@@ -902,6 +1011,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = repo_root(Path(args.repo))
+    patch_budget = (
+        None
+        if args.patch_equivalence_time_budget_seconds < 0
+        else args.patch_equivalence_time_budget_seconds
+    )
     payload = audit(
         root=root,
         base=args.base,
@@ -910,6 +1024,7 @@ def main(argv: list[str] | None = None) -> int:
         recent_hours=args.recent_hours,
         max_branches=args.max_branches,
         include_patch_equivalence=args.include_patch_equivalence,
+        patch_equivalence_time_budget_seconds=patch_budget,
         publisher_backlog_limit=args.publisher_backlog_limit,
         outbox_dir=args.outbox_dir,
         receipt_dir=args.receipt_dir,
