@@ -22,6 +22,7 @@ def _run_shift_cycle(
     restart_service_side_effect: list[tuple[bool, str]] | None = None,
     trigger_benchmark_side_effect: Exception | None = None,
     ledger: ShiftLedger | None = None,
+    launchd_throttle_healthy: tuple[bool, str] = (False, "test default: throttle health off"),
 ) -> dict[str, object]:
     boss_restart_patch = (
         patch(
@@ -48,6 +49,10 @@ def _run_shift_cycle(
         patch(
             "scripts.run_proof_first_shift.process_running",
             side_effect=process_running_side_effect,
+        ),
+        patch(
+            "scripts.run_proof_first_shift.is_launchd_throttle_healthy",
+            return_value=launchd_throttle_healthy,
         ),
         boss_restart_patch,
         patch("scripts.run_proof_first_shift.restart_service_via_launchd", return_value=(True, "")),
@@ -708,6 +713,8 @@ def test_inspect_launchd_service_keeps_top_level_state() -> None:
 gui/501/com.aragora.swarm-boss-loop = {
     state = spawn scheduled
     minimum runtime = 300
+    last exit code = 0
+    stdout path = /Users/armand/Development/aragora/.aragora/overnight/boss-loop-launchd.log
     resource coalition = {
         state = active
     }
@@ -726,6 +733,135 @@ gui/501/com.aragora.swarm-boss-loop = {
 
     assert status.state == "spawn scheduled"
     assert status.minimum_runtime_seconds == 300
+    assert status.last_exit_code == 0
+    assert status.stdout_path == (
+        "/Users/armand/Development/aragora/.aragora/overnight/boss-loop-launchd.log"
+    )
+
+
+# ---------------------------------------------------------------------------
+# is_launchd_throttle_healthy: A3 fix for shift health vs periodic launchd job
+# ---------------------------------------------------------------------------
+
+
+def _healthy_status() -> "mod.LaunchdServiceStatus":
+    return mod.LaunchdServiceStatus(
+        state="spawn scheduled",
+        minimum_runtime_seconds=300,
+        last_exit_code=0,
+        stdout_path="/tmp/boss-loop.log",
+        detail="state = spawn scheduled\nlast exit code = 0",
+    )
+
+
+def test_recent_clean_spawn_scheduled_is_healthy_without_restart() -> None:
+    """A clean exit + spawn-scheduled within freshness window must NOT
+    register as restart failure or burn the boss-restart budget."""
+    status = _healthy_status()
+    ok, reason = mod.is_launchd_throttle_healthy(
+        "com.aragora.swarm-boss-loop",
+        inspector=lambda label: status,
+        log_mtime_provider=lambda path: 1_000.0,
+        now=lambda: 1_100.0,  # 100s after log mtime
+        freshness_seconds=600.0,
+    )
+    assert ok is True, reason
+    assert "throttle-healthy" in reason
+    assert "log age=100s" in reason
+
+
+def test_stale_spawn_scheduled_fails_closed() -> None:
+    """spawn-scheduled but stdout log mtime older than freshness window =
+    genuinely stale; must fail closed so the recovery path runs."""
+    status = _healthy_status()
+    ok, reason = mod.is_launchd_throttle_healthy(
+        "com.aragora.swarm-boss-loop",
+        inspector=lambda label: status,
+        log_mtime_provider=lambda path: 0.0,
+        now=lambda: 100_000.0,  # 100k seconds since log mtime
+        freshness_seconds=600.0,
+    )
+    assert ok is False
+    assert "stdout log mtime is" in reason
+    assert "100000s old" in reason
+
+
+def test_nonzero_last_exit_fails_closed() -> None:
+    """spawn-scheduled but the last run exited with a non-zero code is a real
+    failure, not a healthy idle. Must fail closed."""
+    status = mod.LaunchdServiceStatus(
+        state="spawn scheduled",
+        last_exit_code=1,
+        stdout_path="/tmp/boss-loop.log",
+        minimum_runtime_seconds=300,
+    )
+    ok, reason = mod.is_launchd_throttle_healthy(
+        "com.aragora.swarm-boss-loop",
+        inspector=lambda label: status,
+        log_mtime_provider=lambda path: 1_000.0,
+        now=lambda: 1_100.0,
+        freshness_seconds=600.0,
+    )
+    assert ok is False
+    assert "last exit code=1" in reason
+
+
+def test_missing_launchd_state_fails_closed() -> None:
+    """No state field at all (e.g., launchctl print failure) must fail closed."""
+    status = mod.LaunchdServiceStatus(state="", detail="launchctl unavailable")
+    ok, reason = mod.is_launchd_throttle_healthy(
+        "com.aragora.swarm-boss-loop",
+        inspector=lambda label: status,
+    )
+    assert ok is False
+    assert "not 'spawn scheduled'" in reason
+
+
+def test_missing_stdout_log_fails_closed() -> None:
+    """spawn-scheduled + clean exit, but log file is missing on disk =
+    cannot determine freshness, fail closed."""
+    status = _healthy_status()
+    ok, reason = mod.is_launchd_throttle_healthy(
+        "com.aragora.swarm-boss-loop",
+        inspector=lambda label: status,
+        log_mtime_provider=lambda path: None,
+        now=lambda: 1_100.0,
+    )
+    assert ok is False
+    assert "stdout log" in reason
+    assert "missing" in reason
+
+
+def test_missing_last_exit_code_fails_closed() -> None:
+    """spawn-scheduled but launchd did not report a last_exit_code (no run yet
+    or parsing failure) is ambiguous. Fail closed."""
+    status = mod.LaunchdServiceStatus(
+        state="spawn scheduled",
+        last_exit_code=None,
+        stdout_path="/tmp/boss-loop.log",
+    )
+    ok, reason = mod.is_launchd_throttle_healthy(
+        "com.aragora.swarm-boss-loop",
+        inspector=lambda label: status,
+    )
+    assert ok is False
+    assert "did not report a last exit code" in reason
+
+
+def test_run_shift_cycle_does_not_burn_restart_budget_when_throttle_healthy() -> None:
+    """End-to-end: when boss process isn't running but launchd reports a
+    throttle-healthy state, run_shift_cycle must NOT trigger restart_boss_service
+    and must NOT increment boss_restart_count."""
+    state = mod.ProofFirstRuntimeState(boss_restart_count=0)
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[False, True],
+        prs=[],
+        launchd_throttle_healthy=(True, "launchd throttle-healthy: log age=42s"),
+    )
+    assert state.boss_restart_count == 0
+    # No service-failure entries for boss restart
+    assert all("BossRestartFailed" not in str(f) for f in report.get("service_failures", []))
 
 
 def test_run_shift_cycle_exhausts_restart_budget_within_shift_window() -> None:
@@ -930,6 +1066,10 @@ def test_run_shift_cycle_records_direct_bootstrap_when_launchd_service_is_missin
         ),
         patch("scripts.run_proof_first_shift.list_open_prs", return_value=[]),
         patch("scripts.run_proof_first_shift.process_running", side_effect=[False, True]),
+        patch(
+            "scripts.run_proof_first_shift.is_launchd_throttle_healthy",
+            return_value=(False, "test default: throttle health off"),
+        ),
         patch("scripts.run_proof_first_shift.restart_service_via_launchd", return_value=(True, "")),
         patch("scripts.run_proof_first_shift.run_merge_arbiter_apply", return_value={"merged": []}),
         patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=None),

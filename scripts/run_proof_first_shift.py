@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -53,6 +53,12 @@ DEFAULT_BENCHMARK_TRUTH_ARTIFACT = Path(
     "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/latest.json"
 )
 LAUNCHD_THROTTLE_GRACE_SECONDS = 60.0
+# Default freshness window for "launchd-throttle-healthy" classification of
+# periodic launchd jobs (e.g., com.aragora.swarm-boss-loop with
+# ThrottleInterval=300). At 2× ThrottleInterval, a clean exit followed by a
+# scheduled-but-not-yet-respawned state is the EXPECTED idle pattern, not a
+# failure. Beyond this window the job is genuinely stuck or stopped.
+LAUNCHD_THROTTLE_HEALTH_FRESHNESS_SECONDS = 600.0
 AUTH_FAILURE_STOP_AFTER = 2
 PUBLICATION_FAILURE_STOP_AFTER = 2
 RUNTIME_FAILURE_STOP_AFTER = 1
@@ -143,6 +149,8 @@ class ProofFirstRuntimeState:
 class LaunchdServiceStatus:
     state: str = ""
     minimum_runtime_seconds: int | None = None
+    last_exit_code: int | None = None
+    stdout_path: str = ""
     detail: str = ""
 
 
@@ -609,6 +617,8 @@ def inspect_launchd_service(label: str) -> LaunchdServiceStatus:
 
     state = ""
     minimum_runtime_seconds: int | None = None
+    last_exit_code: int | None = None
+    stdout_path = ""
     for raw_line in detail.splitlines():
         line = raw_line.strip()
         if line.startswith("state = ") and not state:
@@ -617,9 +627,19 @@ def inspect_launchd_service(label: str) -> LaunchdServiceStatus:
             value = line.removeprefix("minimum runtime = ").strip()
             if value.isdigit():
                 minimum_runtime_seconds = int(value)
+        elif line.startswith("last exit code = ") and last_exit_code is None:
+            value = line.removeprefix("last exit code = ").strip()
+            try:
+                last_exit_code = int(value)
+            except ValueError:
+                last_exit_code = None
+        elif line.startswith("stdout path = ") and not stdout_path:
+            stdout_path = line.removeprefix("stdout path = ").strip()
     return LaunchdServiceStatus(
         state=state,
         minimum_runtime_seconds=minimum_runtime_seconds,
+        last_exit_code=last_exit_code,
+        stdout_path=stdout_path,
         detail=detail,
     )
 
@@ -663,6 +683,60 @@ def should_restart_service(
 def launchd_service_missing(status: LaunchdServiceStatus) -> bool:
     detail = status.detail.lower()
     return "could not find service" in detail
+
+
+def is_launchd_throttle_healthy(
+    label: str,
+    *,
+    freshness_seconds: float = LAUNCHD_THROTTLE_HEALTH_FRESHNESS_SECONDS,
+    inspector: Callable[[str], LaunchdServiceStatus] | None = None,
+    log_mtime_provider: Callable[[Path], float | None] | None = None,
+    now: Callable[[], float] | None = None,
+) -> tuple[bool, str]:
+    """Return (healthy, reason) for a launchd-managed periodic process.
+
+    Periodic launchd jobs (e.g. ``com.aragora.swarm-boss-loop`` configured
+    with ``ThrottleInterval=300``) intentionally short-live. After a clean
+    exit, launchd reports state ``spawn scheduled`` until the throttle
+    window elapses. Treating that idle window as a process failure burns
+    the boss-restart budget on a non-failure.
+
+    Healthy when ALL hold:
+      - ``launchctl print`` reports ``state = spawn scheduled``
+      - ``last exit code = 0`` (prior run completed cleanly)
+      - the job's stdout log was modified within ``freshness_seconds``
+        (default 2x typical ThrottleInterval)
+
+    Returns ``(False, reason)`` for stale, missing, nonzero-exit, or
+    unknown launchd states so the caller fails closed in those cases.
+    """
+    inspect = inspector or inspect_launchd_service
+    status = inspect(label)
+    if status.state != "spawn scheduled":
+        return False, f"launchd state={status.state!r} not 'spawn scheduled'"
+    if status.last_exit_code is None:
+        return False, "launchd did not report a last exit code"
+    if status.last_exit_code != 0:
+        return False, f"last exit code={status.last_exit_code} (not 0)"
+    if not status.stdout_path:
+        return False, "launchd did not report a stdout path"
+    log_path = Path(status.stdout_path)
+    mtime_fn = log_mtime_provider or (lambda p: p.stat().st_mtime if p.exists() else None)
+    log_mtime = mtime_fn(log_path)
+    if log_mtime is None:
+        return False, f"stdout log {log_path} missing"
+    now_fn = now or time.time
+    age_seconds = now_fn() - log_mtime
+    if age_seconds > freshness_seconds:
+        return (
+            False,
+            f"stdout log mtime is {age_seconds:.0f}s old "
+            f"(freshness window {freshness_seconds:.0f}s)",
+        )
+    return (
+        True,
+        f"launchd throttle-healthy: state=spawn scheduled, last_exit=0, log age={age_seconds:.0f}s",
+    )
 
 
 def _env_or_default(name: str, default: str) -> str:
@@ -1035,7 +1109,17 @@ def run_shift_cycle(
     draft_pr_count = len(prs) - open_pr_count
     canonical_queue_count = len(queue_report["kept"])
 
-    boss_running = process_running(DEFAULT_BOSS_PROCESS_PATTERN)
+    boss_process_running = process_running(DEFAULT_BOSS_PROCESS_PATTERN)
+    boss_throttle_healthy = False
+    boss_throttle_reason = ""
+    if not boss_process_running:
+        boss_throttle_healthy, boss_throttle_reason = is_launchd_throttle_healthy(
+            DEFAULT_BOSS_LABEL
+        )
+    # The boss-loop launchd job intentionally short-lives on no_suitable_issue
+    # and respawns after ThrottleInterval. Treat the throttle window as healthy
+    # so the shift does not burn its restart budget on a non-failure.
+    boss_running = boss_process_running or boss_throttle_healthy
     merge_running = process_running(DEFAULT_MERGE_PROCESS_PATTERN)
 
     actions: list[str] = []
