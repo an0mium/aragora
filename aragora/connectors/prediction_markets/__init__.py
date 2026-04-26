@@ -28,8 +28,17 @@ from aragora.connectors.prediction_markets.metaculus import (
     MetaculusResolution,
     metaculus_to_market_resolution,
 )
+from aragora.connectors.prediction_markets.synthetic_github import (
+    DEFAULT_POSITION_CAP,
+    SYNTHETIC_MARKETS_FLAG,
+    SyntheticGitHubAdapter,
+    SyntheticGitHubError,
+    open_adapter,
+    synthetic_markets_enabled,
+)
 
 __all__ = [
+    "DEFAULT_POSITION_CAP",
     "MANIFOLD_API_BASE",
     "MANIFOLD_WRITE_FLAG",
     "ManifoldAdapter",
@@ -38,12 +47,17 @@ __all__ = [
     "ManifoldError",
     "ManifoldMarket",
     "ManifoldResolution",
-    "manifold_to_market_resolution",
-    "manifold_write_enabled",
     "METACULUS_API_BASE",
     "MetaculusAdapter",
     "MetaculusError",
     "MetaculusQuestion",
     "MetaculusResolution",
+    "SYNTHETIC_MARKETS_FLAG",
+    "SyntheticGitHubAdapter",
+    "SyntheticGitHubError",
+    "manifold_to_market_resolution",
+    "manifold_write_enabled",
     "metaculus_to_market_resolution",
+    "open_adapter",
+    "synthetic_markets_enabled",
 ]
