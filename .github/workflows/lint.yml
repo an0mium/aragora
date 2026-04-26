@@ -737,7 +737,12 @@ jobs:
       - name: Run TruffleHog
         uses: trufflesecurity/trufflehog@v3.95.2
         with:
-          version: v3.95.2
+          # GHCR publishes the trufflehog image without the leading "v"
+          # (ghcr.io/trufflesecurity/trufflehog:3.95.2 exists; :v3.95.2 does not),
+          # so the action's docker pull fails with "manifest unknown" when we
+          # pass version: v3.95.2. Action ref `@v3.95.2` is correct (release tag);
+          # only the docker tag drops the v.
+          version: 3.95.2
           extra_args: --only-verified
 
   helm-lint:
