@@ -339,6 +339,14 @@ class BossLoopConfig:
     auto_refill_threshold: int = 5
     auto_refill_max: int = 10
 
+    # Long-running boss-loop keepalive: when true, NO_SUITABLE_ISSUE no
+    # longer terminates the run. The loop logs the empty queue and sleeps
+    # for iteration_interval_seconds before retrying, until max_iterations
+    # or another terminal stop reason fires. Off by default so the
+    # short-lived launchd lifecycle (clean exit + ThrottleInterval respawn)
+    # remains the default behavior.
+    no_suitable_issue_keepalive: bool = False
+
 
 # ---------------------------------------------------------------------------
 # Boss Loop
@@ -3778,8 +3786,20 @@ class BossLoop:
                 None,
             )
             if terminal_status is not None:
-                self._stop_reason = terminal_status.stop_reason
-                break
+                if (
+                    self.config.no_suitable_issue_keepalive
+                    and terminal_status.stop_reason == BossStopReason.NO_SUITABLE_ISSUE.value
+                ):
+                    logger.info(
+                        "no_suitable_issue at iteration %d/%d; keepalive enabled, "
+                        "sleeping %.0fs before retry",
+                        iteration,
+                        self.config.max_iterations,
+                        self.config.iteration_interval_seconds,
+                    )
+                else:
+                    self._stop_reason = terminal_status.stop_reason
+                    break
 
             # Periodic status logging
             if iteration % self.config.status_report_interval == 0:

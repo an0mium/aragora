@@ -2897,6 +2897,18 @@ def _add_swarm_parser(subparsers) -> None:
         ),
     )
     swarm_parser.add_argument(
+        "--no-suitable-issue-keepalive",
+        action="store_true",
+        dest="no_suitable_issue_keepalive",
+        help=(
+            "Opt in to long-running boss-loop: when no eligible issues are found, "
+            "log and sleep for --interval-seconds before retrying instead of exiting. "
+            "Use this to keep the boss-loop process alive for the full --max-hours window "
+            "(e.g. when launchd ThrottleInterval gaps would otherwise interfere). "
+            "Default off, preserving short-lived clean-exit lifecycle."
+        ),
+    )
+    swarm_parser.add_argument(
         "--source-file",
         help="Campaign planner or initiative rationale input markdown/text file",
     )

@@ -1601,6 +1601,83 @@ class TestBossLoop:
         assert len(result.issues_attempted) == 0
         assert "No suitable open issue" in result.needs_human_reasons[0]
 
+    def test_no_suitable_issue_keepalive_continues_until_max_iterations(self):
+        """With keepalive on, empty queues should not terminate the run."""
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = []
+
+        config = _boss_config(no_suitable_issue_keepalive=True, max_iterations=4)
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        result = asyncio.run(loop.run())
+
+        # Loop should drain to max_iterations rather than exit on first empty queue.
+        assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
+        assert result.iterations_completed == 4
+        # Every iteration's per-iteration stop_reason was still recorded so
+        # observers can see the queue was empty each tick.
+        per_iteration_reasons = [status.get("stop_reason") for status in result.iteration_statuses]
+        assert per_iteration_reasons == [BossStopReason.NO_SUITABLE_ISSUE.value] * 4
+
+    def test_no_suitable_issue_keepalive_off_terminates_on_first_empty_queue(self):
+        """Default behavior (keepalive off) must continue to short-exit cleanly."""
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = []
+
+        config = _boss_config(no_suitable_issue_keepalive=False, max_iterations=4)
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.NO_SUITABLE_ISSUE.value
+        assert result.iterations_completed == 1
+
+    def test_no_suitable_issue_keepalive_does_not_swallow_other_terminal_reasons(self):
+        """Other terminal stop reasons must still terminate even with keepalive on."""
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = []
+
+        config = _boss_config(no_suitable_issue_keepalive=True, max_iterations=4)
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            # Force NO_FRESH_RUNNER on every iteration; keepalive must not catch it.
+            freshness_checker=lambda **kw: _fresh_result(
+                fresh=False, blocked_reason="runner_not_fresh"
+            ),
+        )
+
+        result = asyncio.run(loop.run())
+
+        # Empty queue is hit first, so NO_SUITABLE_ISSUE wins (and keepalive
+        # does swallow it). But once we feed an issue, freshness blocks it,
+        # which is a different terminal reason and must NOT be swallowed.
+        # Re-run with one available issue:
+        feed.fetch.return_value = [_make_issue(909, "Meta benchmark issue")]
+        loop2 = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(
+                fresh=False, blocked_reason="runner_not_fresh"
+            ),
+        )
+        result2 = asyncio.run(loop2.run())
+        assert result2.stop_reason == BossStopReason.NO_FRESH_RUNNER.value
+        assert result2.iterations_completed == 1
+
+        # First run with no issues: keepalive should let it ride out to
+        # max_iterations even though _every_ iteration emitted NO_SUITABLE_ISSUE.
+        assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
+        assert result.iterations_completed == 4
+
     def test_specific_issue_number_selects_target_issue(self):
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = [
