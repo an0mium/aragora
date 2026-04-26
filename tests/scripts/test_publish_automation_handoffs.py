@@ -208,6 +208,24 @@ def test_load_outbox_handoffs_skips_terminal_receipt(tmp_path: Path) -> None:
     assert mod.load_outbox_handoffs(tmp_path) == []
 
 
+def test_load_outbox_handoffs_skips_terminal_receipt_named_by_file(tmp_path: Path) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-example-abc123"
+    (outbox / "repair-branch.json").write_text(
+        json.dumps(_outbox_payload(repo=str(tmp_path), idempotency_key=key)),
+        encoding="utf-8",
+    )
+    (receipts / f"{key}.json").write_text(
+        json.dumps({"status": "published"}),
+        encoding="utf-8",
+    )
+
+    assert mod.load_outbox_handoffs(tmp_path) == []
+
+
 def test_load_outbox_handoffs_deduplicates_unresolved_idempotency_keys(
     tmp_path: Path,
 ) -> None:

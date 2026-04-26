@@ -76,7 +76,7 @@ def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
             continue
         status = str(payload.get("status") or "").strip().lower()
         if status in ("published", "already_satisfied", "completed", "skipped"):
-            key = str(payload.get("idempotency_key") or "").strip()
+            key = str(payload.get("idempotency_key") or path.stem).strip()
             if key:
                 keys.add(key)
     return keys

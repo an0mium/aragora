@@ -304,7 +304,7 @@ def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
             continue
         if str(payload.get("status") or "") not in {"published", "already_satisfied"}:
             continue
-        idempotency_key = str(payload.get("idempotency_key") or "").strip()
+        idempotency_key = str(payload.get("idempotency_key") or receipt_file.stem).strip()
         if idempotency_key:
             terminal.add(idempotency_key)
     return terminal
