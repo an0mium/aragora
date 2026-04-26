@@ -22,7 +22,7 @@ def _run_shift_cycle(
     restart_service_side_effect: list[tuple[bool, str]] | None = None,
     trigger_benchmark_side_effect: Exception | None = None,
     ledger: ShiftLedger | None = None,
-    launchd_throttle_healthy: tuple[bool, str] = (False, "test default: throttle health off"),
+    launchd_throttle_healthy: tuple[bool, str] = (False, ""),
 ) -> dict[str, object]:
     boss_restart_patch = (
         patch(
@@ -864,6 +864,40 @@ def test_run_shift_cycle_does_not_burn_restart_budget_when_throttle_healthy() ->
     assert all("BossRestartFailed" not in str(f) for f in report.get("service_failures", []))
 
 
+def test_run_shift_cycle_records_throttle_healthy_diagnostic_in_actions() -> None:
+    """When the boss process isn't running and the throttle helper is healthy,
+    the cycle's actions list must surface the helper verdict so operators can
+    see WHY the cycle treated the boss as healthy without a live process."""
+    state = mod.ProofFirstRuntimeState(boss_restart_count=0)
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[False, True],
+        prs=[],
+        launchd_throttle_healthy=(True, "launchd throttle-healthy: log age=42s"),
+    )
+    assert any(
+        action.startswith("boss_throttle_healthy:") and "log age=42s" in action
+        for action in report["actions"]
+    ), f"expected throttle_healthy diagnostic in actions, got {report['actions']!r}"
+
+
+def test_run_shift_cycle_records_throttle_unhealthy_diagnostic_in_actions() -> None:
+    """When the throttle helper returns False, the cycle's actions list must
+    surface the helper's reason so a transient launchd failure mode (e.g.
+    launchctl-print stall after kickstart) is visible without rerunning."""
+    state = mod.ProofFirstRuntimeState(boss_restart_count=0)
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[False, True],
+        prs=[],
+        launchd_throttle_healthy=(False, "launchctl print timed out for boss-loop"),
+    )
+    assert any(
+        action.startswith("boss_throttle_unhealthy:") and "launchctl print timed out" in action
+        for action in report["actions"]
+    ), f"expected throttle_unhealthy diagnostic in actions, got {report['actions']!r}"
+
+
 def test_run_shift_cycle_exhausts_restart_budget_within_shift_window() -> None:
     state = mod.ProofFirstRuntimeState(boss_restart_count=1, merge_restart_count=1)
 
@@ -1068,7 +1102,7 @@ def test_run_shift_cycle_records_direct_bootstrap_when_launchd_service_is_missin
         patch("scripts.run_proof_first_shift.process_running", side_effect=[False, True]),
         patch(
             "scripts.run_proof_first_shift.is_launchd_throttle_healthy",
-            return_value=(False, "test default: throttle health off"),
+            return_value=(False, ""),
         ),
         patch("scripts.run_proof_first_shift.restart_service_via_launchd", return_value=(True, "")),
         patch("scripts.run_proof_first_shift.run_merge_arbiter_apply", return_value={"merged": []}),

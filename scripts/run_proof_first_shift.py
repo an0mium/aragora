@@ -604,7 +604,7 @@ def inspect_launchd_service(label: str) -> LaunchdServiceStatus:
             ["launchctl", "print", f"gui/{uid}/{label}"],
             text=True,
             capture_output=True,
-            timeout=5,
+            timeout=15,
             check=False,
         )
     except OSError as exc:
@@ -1123,6 +1123,13 @@ def run_shift_cycle(
     merge_running = process_running(DEFAULT_MERGE_PROCESS_PATTERN)
 
     actions: list[str] = []
+    # Surface the throttle-helper's verdict in the cycle_tick payload so that
+    # transient launchd states (e.g. brief launchctl-print stalls right after
+    # a kickstart) can be diagnosed without re-running the shift. The marker
+    # is purely diagnostic: it does not influence restart logic.
+    if not boss_process_running and boss_throttle_reason:
+        verdict = "throttle_healthy" if boss_throttle_healthy else "throttle_unhealthy"
+        actions.append(f"boss_{verdict}: {boss_throttle_reason}")
     service_failures: list[str] = []
     runtime_failures: list[str] = []
     repeated_failure_classes: list[str] = []
