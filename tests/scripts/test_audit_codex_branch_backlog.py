@@ -36,6 +36,22 @@ def _stub_git_inventory(monkeypatch: Any, row: dict[str, str]) -> None:
     monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
 
 
+def test_summary_only_payload_omits_records_without_mutating_source() -> None:
+    payload = {
+        "branch_count": 2,
+        "summary": {"publishable_branch_backlog": 0},
+        "records": [{"name": "codex/one"}, {"name": "codex/two"}],
+    }
+
+    compact = mod.summary_only_payload(payload)
+
+    assert compact["branch_count"] == 2
+    assert compact["summary"] == {"publishable_branch_backlog": 0}
+    assert compact["records"] == []
+    assert compact["records_omitted"] is True
+    assert payload["records"] == [{"name": "codex/one"}, {"name": "codex/two"}]
+
+
 def test_audit_skips_open_pr_lookup_when_github_health_degraded(
     tmp_path: Path, monkeypatch: Any
 ) -> None:

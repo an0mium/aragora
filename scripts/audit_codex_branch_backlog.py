@@ -672,6 +672,13 @@ def audit(
     }
 
 
+def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    compact = dict(payload)
+    compact["records"] = []
+    compact["records_omitted"] = True
+    return compact
+
+
 def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     summary = payload["summary"]
     print("# Codex Branch Backlog Audit\n")
@@ -746,6 +753,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="Print JSON")
     parser.add_argument("--markdown", action="store_true", help="Print Markdown")
     parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Omit detailed per-branch records from output for compact automation gating.",
+    )
+    parser.add_argument(
         "--include-patch-equivalence",
         action="store_true",
         default=True,
@@ -808,6 +820,8 @@ def main(argv: list[str] | None = None) -> int:
         outbox_dir=args.outbox_dir,
         receipt_dir=args.receipt_dir,
     )
+    if args.summary_only:
+        payload = summary_only_payload(payload)
     if args.markdown:
         print_markdown(payload, examples=args.examples)
     else:
