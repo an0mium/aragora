@@ -380,10 +380,10 @@ class TestMetricsRegistryInit:
     def test_handles_runtime_error(self):
         MetricsRegistry._initialized = False
 
-        def raise_runtime(*a, **kw):
-            raise RuntimeError("bad")
-
-        with patch("builtins.__import__", side_effect=RuntimeError("bad")):
+        with patch(
+            "aragora.observability.metrics.init_core_metrics",
+            side_effect=RuntimeError("bad"),
+        ):
             result = MetricsRegistry.ensure_initialized()
             assert MetricsRegistry._initialized is True
 
