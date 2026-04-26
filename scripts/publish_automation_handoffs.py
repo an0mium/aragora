@@ -38,6 +38,7 @@ MAX_ISSUE_BODY_CHARS = 60_000
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_BASE_REF = "origin/main"
+PR_OPEN_REQUEST_ACTIONS = {"open_pr", "push_branch_and_open_pr"}
 REQUIRED_OUTBOX_KEYS = (
     "task",
     "requires_github",
@@ -523,7 +524,7 @@ def _git_patch_equivalent(repo_root: Path, base: str, candidate: str) -> bool:
 
 def _outbox_branch_already_merged(repo_root: Path, payload: dict[str, Any]) -> bool:
     requested_action = str(payload.get("requested_action") or "").strip()
-    if requested_action != "open_pr":
+    if requested_action not in PR_OPEN_REQUEST_ACTIONS:
         return False
 
     base_ref = _outbox_evidence_value(payload, "base") or DEFAULT_BASE_REF
@@ -544,7 +545,7 @@ def _outbox_branch_already_merged(repo_root: Path, payload: dict[str, Any]) -> b
 
 def _outbox_branch_patch_equivalent(repo_root: Path, payload: dict[str, Any]) -> bool:
     requested_action = str(payload.get("requested_action") or "").strip()
-    if requested_action != "open_pr":
+    if requested_action not in PR_OPEN_REQUEST_ACTIONS:
         return False
 
     base_ref = _outbox_evidence_value(payload, "base") or DEFAULT_BASE_REF

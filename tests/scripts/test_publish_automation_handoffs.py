@@ -421,6 +421,29 @@ def test_load_outbox_handoffs_skips_patch_equivalent_branch(tmp_path: Path) -> N
     assert mod.load_outbox_handoffs(repo) == []
 
 
+def test_load_outbox_handoffs_skips_merged_push_branch_request(tmp_path: Path) -> None:
+    repo, head = _repo_with_merged_codex_branch(tmp_path)
+    outbox = repo / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "merged-push.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                repo="synaptent/aragora",
+                requested_action="push_branch_and_open_pr",
+                idempotency_key="open-pr-codex-example-merged-push",
+                local_evidence={
+                    "branch": "codex/example",
+                    "head_sha": head,
+                    "base": "main",
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod.load_outbox_handoffs(repo) == []
+
+
 def test_load_outbox_handoffs_skips_non_github_and_expired(tmp_path: Path) -> None:
     outbox = tmp_path / ".aragora" / "automation-outbox"
     outbox.mkdir(parents=True)
