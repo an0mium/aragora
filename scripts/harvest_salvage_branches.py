@@ -5,20 +5,18 @@ Reads the Phase 2 classification JSON, finds every branch categorised as
 salvage_*_unique, and for each one:
 
   - Computes diff stat (LOC added/removed, files touched) and commit log
-  - Auto-discards trivial/no-op branches (whitespace-only, .lock-only, etc.)
-  - Auto-PRs candidates that match a known archetype (single-purpose,
-    bounded LOC, includes tests, clean commit msg) — opens a PR with the
-    'salvage' label, branched as salvage/<slug>-<sha>
+  - Classifies trivial/no-op branches (whitespace-only, .lock-only, etc.)
+  - Classifies candidates that match a known archetype (single-purpose,
+    bounded LOC, includes tests, clean commit msg)
   - Routes everything else to .aragora/cleanup-state/salvage-review-queue.jsonl
     for human triage
 
-Conservative by default: --auto-pr is OFF unless explicitly enabled.
+Conservative by default: this script never opens PRs or deletes branches.
+It writes decision artifacts for operator-reviewed follow-up.
 
 Usage:
     python3 scripts/harvest_salvage_branches.py \\
         --classification .aragora/cleanup-state/branch-classification.json \\
-        [--auto-discard]    # default off; opt in to discard trivial branches
-        [--auto-pr]         # default off; opt in to open salvage PRs
         [--review-queue .aragora/cleanup-state/salvage-review-queue.jsonl]
 """
 
@@ -35,7 +33,7 @@ from typing import Any
 SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from audit_codex_branch_backlog import run_git, run_gh  # noqa: E402
+from audit_codex_branch_backlog import run_git  # noqa: E402
 
 UTC = timezone.utc
 
@@ -172,8 +170,6 @@ def _process_branch(
     record: dict[str, Any],
     root: Path,
     base: str,
-    apply_auto_discard: bool,
-    apply_auto_pr: bool,
 ) -> dict[str, Any]:
     branch = record["branch"]
     diff_stat = _diff_stat(root, base, branch)
@@ -233,16 +229,6 @@ def main(argv: list[str] | None = None) -> int:
         default=".aragora/cleanup-state/salvage-review-queue.jsonl",
     )
     parser.add_argument(
-        "--auto-discard",
-        action="store_true",
-        help="Apply auto-discard decisions (default: only classify, don't act)",
-    )
-    parser.add_argument(
-        "--auto-pr",
-        action="store_true",
-        help="Open salvage PRs for auto-pr-categorised branches (default: off)",
-    )
-    parser.add_argument(
         "--max-branches",
         type=int,
         default=None,
@@ -265,8 +251,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"loaded {len(records)} total records")
     print(f"  salvage_*_unique: {len(salvage_records)}")
-    print(f"  auto_discard: {args.auto_discard}")
-    print(f"  auto_pr: {args.auto_pr}\n")
+    print("  mode: classify-only (no branch deletion, no PR creation)\n")
 
     decisions: list[dict[str, Any]] = []
     for i, r in enumerate(salvage_records, 1):
@@ -274,8 +259,6 @@ def main(argv: list[str] | None = None) -> int:
             record=r,
             root=root,
             base=args.base,
-            apply_auto_discard=args.auto_discard,
-            apply_auto_pr=args.auto_pr,
         )
         decisions.append(d)
         if i % 50 == 0:
@@ -302,16 +285,16 @@ def main(argv: list[str] | None = None) -> int:
     out = state_dir / f"salvage-decisions-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.json"
     out.write_text(
         json.dumps(
-            {"counts": counts, "decisions": decisions, "applied_auto_pr": args.auto_pr},
+            {"counts": counts, "decisions": decisions, "mode": "classify_only"},
             indent=2,
             sort_keys=True,
         )
     )
     print(f"  full report: {out}")
 
-    print("\n  Use --auto-pr to actually open salvage PRs (default off).")
     print(
-        "  Operator-review queue items: review and either run --auto-pr <branch> or mark DISCARDED."
+        "  Operator-review queue items: review and turn valuable entries into focused PRs "
+        "or mark them discarded with evidence."
     )
     return 0
 
