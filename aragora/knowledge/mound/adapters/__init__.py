@@ -115,6 +115,10 @@ from .receipt_adapter import (
     ReceiptNotFoundError,
     ReceiptIngestionResult,
 )
+from .crux_receipt_adapter import (
+    CruxReceiptAdapter,
+    CruxIngestionResult,
+)
 from .decision_plan_adapter import (
     DecisionPlanAdapter,
     DecisionPlanAdapterError,
@@ -275,6 +279,9 @@ __all__ = [
     "ReceiptAdapterError",
     "ReceiptNotFoundError",
     "ReceiptIngestionResult",
+    # CruxReceipt adapter (DIC-16: crux-finder runs → Knowledge Mound)
+    "CruxReceiptAdapter",
+    "CruxIngestionResult",
     # Decision Plan adapter (Gold Path → Knowledge Mound)
     "DecisionPlanAdapter",
     "DecisionPlanAdapterError",
