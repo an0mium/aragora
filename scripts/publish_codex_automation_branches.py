@@ -36,6 +36,7 @@ DEFAULT_SCAN_LIMIT = 12
 CODEX_BRANCH_PREFIX = "codex/"
 DEFAULT_PREFLIGHT_SCRIPT = "scripts/automation_pr_preflight.sh"
 DEFAULT_PRE_PUSH_SKIP_HOOKS = "mypy-baseline"
+DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 VERIFY_AUTOMATION_GIT_PUSH_ENV = "ARAGORA_AUTOMATION_GIT_PUSH_VERIFY"
 UNHEALTHY_OPEN_PR_MERGE_STATES = {"BLOCKED", "DIRTY"}
 UNHEALTHY_CHECK_STATES = {
@@ -253,6 +254,95 @@ def _branch_has_pr_diff(repo_root: Path, base: str, branch: str) -> bool:
     # Fail open on unexpected git errors: a missing ref or transient git
     # failure should not silently suppress a branch as "empty_pr_diff".
     return True
+
+
+def _same_git_origin(left: Path, right: Path) -> bool:
+    left_proc = _run(["git", "config", "--get", "remote.origin.url"], cwd=left)
+    right_proc = _run(["git", "config", "--get", "remote.origin.url"], cwd=right)
+    if left_proc.returncode != 0 or right_proc.returncode != 0:
+        return False
+    return bool(left_proc.stdout.strip()) and left_proc.stdout.strip() == right_proc.stdout.strip()
+
+
+def _automation_state_root(repo_root: Path) -> Path:
+    if (repo_root / ".aragora").is_dir():
+        return repo_root
+
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    candidates: list[tuple[Path, bool]] = []
+    if configured:
+        candidates.append((Path(configured).expanduser(), True))
+    candidates.append((Path.home() / "Development" / "aragora", False))
+
+    for candidate, explicit in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        if not (resolved / ".aragora").is_dir():
+            continue
+        if explicit or _same_git_origin(repo_root, resolved):
+            return resolved
+    return repo_root
+
+
+def _automation_state_path(repo_root: Path, path: Path | None, default_relative: Path) -> Path:
+    if path is not None:
+        return path if path.is_absolute() else repo_root / path
+    return _automation_state_root(repo_root) / default_relative
+
+
+def _json_files(path: Path) -> list[Path]:
+    if not path.exists():
+        return []
+    return sorted(item for item in path.glob("*.json") if item.is_file())
+
+
+def _add_branch_reference(branches: set[str], value: Any) -> None:
+    if isinstance(value, str):
+        branch = value.strip()
+        if branch.startswith(CODEX_BRANCH_PREFIX):
+            branches.add(branch)
+
+
+def _superseded_branches_from_payload(payload: dict[str, Any]) -> set[str]:
+    branches: set[str] = set()
+
+    def collect(container: dict[str, Any]) -> None:
+        _add_branch_reference(branches, container.get("supersedes_branch"))
+        supersedes_branches = container.get("supersedes_branches")
+        if isinstance(supersedes_branches, list):
+            for item in supersedes_branches:
+                _add_branch_reference(branches, item)
+        supersedes = container.get("supersedes")
+        if isinstance(supersedes, list):
+            for item in supersedes:
+                _add_branch_reference(branches, item)
+        else:
+            _add_branch_reference(branches, supersedes)
+
+    collect(payload)
+    local_evidence = payload.get("local_evidence")
+    if isinstance(local_evidence, dict):
+        collect(local_evidence)
+    return branches
+
+
+def outbox_superseded_branches(
+    repo_root: Path,
+    *,
+    outbox_dir: Path | None = None,
+) -> set[str]:
+    outbox_root = _automation_state_path(repo_root, outbox_dir, DEFAULT_OUTBOX_DIR)
+    superseded: set[str] = set()
+    for outbox_file in _json_files(outbox_root):
+        try:
+            payload = json.loads(outbox_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(payload, dict):
+            superseded.update(_superseded_branches_from_payload(payload))
+    return superseded
 
 
 def _local_codex_branches(repo_root: Path) -> list[BranchSnapshot]:
@@ -584,6 +674,7 @@ def select_publishable_branches(
     resolved_related_branches: set[str] | None = None,
     remote_head_lookup: dict[str, str | None] | None = None,
     has_pr_diff: dict[str, bool] | None = None,
+    superseded_outbox_branches: set[str] | None = None,
 ) -> list[PublishDecision]:
     worktrees_by_branch: dict[str, list[WorktreeSnapshot]] = {}
     for worktree in worktrees:
@@ -596,6 +687,7 @@ def select_publishable_branches(
     resolved_related_lookup = resolved_related_branches or set()
     remote_lookup = remote_head_lookup or {}
     pr_diff_lookup = has_pr_diff or {}
+    superseded_lookup = superseded_outbox_branches or set()
     decisions: list[PublishDecision] = []
 
     for branch in sorted(branches, key=lambda item: item.committed_at, reverse=True):
@@ -606,6 +698,8 @@ def select_publishable_branches(
             reason = "already_merged"
         elif patch_equivalent_lookup.get(branch.branch, False):
             reason = "patch_equivalent_to_base"
+        elif branch.branch in superseded_lookup:
+            reason = "superseded_by_outbox_handoff"
         elif branch.branch in resolved_related_lookup:
             reason = "related_resolved_work_exists"
         elif branch.unique_commit_count <= 0:
@@ -915,6 +1009,15 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip the automation PR preflight before publishing.",
     )
+    parser.add_argument(
+        "--outbox-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Automation outbox directory used to skip locally superseded branches. "
+            "Defaults to the shared .aragora automation state root when available."
+        ),
+    )
     return parser
 
 
@@ -951,6 +1054,7 @@ def main(argv: list[str] | None = None) -> int:
         for branch in branches
         if not merged_lookup.get(branch.branch, False)
     }
+    superseded_outbox_lookup = outbox_superseded_branches(repo_root, outbox_dir=args.outbox_dir)
     hydrated_branches = [
         BranchSnapshot(
             branch=branch.branch,
@@ -1009,6 +1113,7 @@ def main(argv: list[str] | None = None) -> int:
             for branch in hydrated_branches
         },
         has_pr_diff=pr_diff_lookup,
+        superseded_outbox_branches=superseded_outbox_lookup,
     )
     merge_state_counts: dict[str, int] = {}
     for item in open_codex_prs:

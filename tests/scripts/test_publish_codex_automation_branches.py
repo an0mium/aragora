@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -75,6 +76,7 @@ def test_parser_defaults_match_publisher_budget_constants() -> None:
     assert args.scan_limit == mod.DEFAULT_SCAN_LIMIT
     assert args.skip_preflight is False
     assert args.preflight_script == mod.DEFAULT_PREFLIGHT_SCRIPT
+    assert args.outbox_dir is None
 
 
 def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() -> None:
@@ -84,6 +86,7 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
             _branch("codex/old", hours_ago=200),
             _branch("codex/merged"),
             _branch("codex/cherry-picked"),
+            _branch("codex/superseded"),
             _branch("codex/related-resolved"),
             _branch("codex/no-unique", unique_commit_count=0),
             _branch("codex/empty-diff", unique_commit_count=2),
@@ -97,12 +100,14 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
             "codex/old": False,
             "codex/merged": True,
             "codex/cherry-picked": False,
+            "codex/superseded": False,
             "codex/related-resolved": False,
             "codex/no-unique": False,
             "codex/empty-diff": False,
         },
         is_patch_equivalent={"codex/cherry-picked": True},
         has_pr_diff={"codex/empty-diff": False},
+        superseded_outbox_branches={"codex/superseded"},
         historical_pr_branches=set(),
         resolved_related_branches={"codex/related-resolved"},
     )
@@ -112,9 +117,37 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
     assert by_branch["codex/old"].reason == "older_than_cutoff"
     assert by_branch["codex/merged"].reason == "already_merged"
     assert by_branch["codex/cherry-picked"].reason == "patch_equivalent_to_base"
+    assert by_branch["codex/superseded"].reason == "superseded_by_outbox_handoff"
     assert by_branch["codex/related-resolved"].reason == "related_resolved_work_exists"
     assert by_branch["codex/no-unique"].reason == "no_unique_commits"
     assert by_branch["codex/empty-diff"].reason == "empty_pr_diff"
+
+
+def test_outbox_superseded_branches_reads_local_supersession_metadata(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "repair.json").write_text(
+        json.dumps(
+            {
+                "task": "Open PR for stronger repair branch",
+                "local_evidence": {
+                    "branch": "codex/stronger",
+                    "supersedes_branch": "codex/stale-local",
+                    "supersedes": ["codex/stale-sibling"],
+                },
+                "supersedes_branches": ["codex/top-level-stale"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod.outbox_superseded_branches(tmp_path, outbox_dir=outbox) == {
+        "codex/stale-local",
+        "codex/stale-sibling",
+        "codex/top-level-stale",
+    }
 
 
 def test_select_publishable_branches_skips_dirty_and_active_worktrees() -> None:
