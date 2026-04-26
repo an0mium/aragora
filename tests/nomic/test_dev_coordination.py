@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -73,6 +74,30 @@ def test_connect_sets_busy_timeout(store: DevCoordinationStore) -> None:
     finally:
         conn.close()
     assert timeout_ms == 60_000
+
+
+def test_connect_closes_connection_when_pragma_setup_fails(repo: Path) -> None:
+    class FailingConnection:
+        row_factory: object = None
+        closed = False
+
+        def execute(self, _sql: str) -> None:
+            raise sqlite3.OperationalError("unable to open database file")
+
+        def close(self) -> None:
+            self.closed = True
+
+    conn = FailingConnection()
+    store = object.__new__(DevCoordinationStore)
+    store.db_path = repo / ".git" / "aragora-agent-state" / "dev_coordination.db"
+
+    with (
+        patch("aragora.nomic.dev_coordination.core.sqlite3.connect", return_value=conn),
+        pytest.raises(sqlite3.OperationalError, match="unable to open database file"),
+    ):
+        store._connect()
+
+    assert conn.closed is True
 
 
 def test_dev_coordination_store_allows_shared_db_env_override(

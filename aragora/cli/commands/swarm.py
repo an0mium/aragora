@@ -24,6 +24,7 @@ import logging
 import os
 from pathlib import Path
 import shlex
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -3209,12 +3210,28 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         from aragora.swarm.session_coordinator import read_directives as coord_read
 
         repo_root = resolve_repo_root(Path.cwd())
-        supervisor = SwarmSupervisor(repo_root=repo_root)
-        payload = supervisor.status_summary(
-            run_id=run_id,
-            limit=int(getattr(args, "status_limit", 20)),
-            refresh_scaling=refresh_scaling,
-        )
+        try:
+            supervisor = SwarmSupervisor(repo_root=repo_root)
+            payload = supervisor.status_summary(
+                run_id=run_id,
+                limit=int(getattr(args, "status_limit", 20)),
+                refresh_scaling=refresh_scaling,
+            )
+        except (sqlite3.Error, OSError, RuntimeError) as exc:
+            payload = {
+                "runs": [],
+                "counts": {
+                    "runs": 0,
+                    "queued_work_orders": 0,
+                    "leased_work_orders": 0,
+                    "completed_work_orders": 0,
+                },
+                "coordination": {
+                    "available": False,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                },
+            }
         base_branch = str(getattr(args, "target_branch", "main") or "main")
         worktrees = build_fleet_rows(
             repo_root,
