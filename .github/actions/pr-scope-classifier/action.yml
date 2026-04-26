@@ -131,9 +131,6 @@ runs:
           frontend:
             - 'aragora/live/**'
           frontend_e2e:
-            # test.yml owns the frontend E2E job. Workflow edits must exercise
-            # the browser matrix they change, even when no app files changed.
-            - '.github/workflows/test.yml'
             - 'aragora/live/package*.json'
             - 'aragora/live/next.config.*'
             - 'aragora/live/tsconfig*.json'
