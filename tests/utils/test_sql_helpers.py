@@ -30,6 +30,20 @@ def test_escape_like_pattern_escapes_mixed_metacharacters():
     assert escape_like_pattern(r"100%_match\path") == r"100\%\_match\\path"
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("%%", "\\%\\%"),
+        ("__init__", "\\_\\_init\\_\\_"),
+        ("%_\\", "\\%\\_\\\\"),
+        ("\\%", "\\\\\\%"),
+    ],
+)
+def test_escape_like_pattern_escapes_repeated_metacharacters(value: str, expected: str):
+    """Escapes repeated and adjacent LIKE metacharacters consistently."""
+    assert escape_like_pattern(value) == expected
+
+
 def test_escape_like_pattern_returns_empty_string_for_empty_input():
     """Preserves empty string input."""
     assert escape_like_pattern("") == ""
