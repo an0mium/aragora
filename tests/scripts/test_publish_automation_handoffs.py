@@ -1031,3 +1031,34 @@ def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path)
 
     assert len(bodies[0]) <= mod.MAX_ISSUE_BODY_CHARS
     assert "truncated this issue body" in bodies[0]
+
+
+def test_create_issue_preserves_boundary_sized_body(monkeypatch: Any, tmp_path: Path) -> None:
+    bodies: list[str] = []
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "create"]:
+            bodies.append(args[args.index("--body") + 1])
+            return subprocess.CompletedProcess(
+                args, 0, "https://github.com/synaptent/aragora/issues/6001\n", ""
+            )
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+    body = "x" * mod.MAX_ISSUE_BODY_CHARS
+
+    mod._create_issue(
+        tmp_path,
+        "synaptent/aragora",
+        Handoff(
+            source_file=str(tmp_path / "memory.md"),
+            task_title="Boundary sized issue body",
+            priority="HIGH",
+            body=body,
+            labels={},
+            expires_at=None,
+        ),
+        labels=["boss-ready"],
+    )
+
+    assert bodies == [body]
