@@ -293,6 +293,23 @@ def _outbox_payload_branches(payload: dict[str, Any]) -> set[str]:
     return branches
 
 
+def terminal_receipt_branches(receipt_root: Path) -> set[str]:
+    """Return branch references stored directly in terminal receipt payloads."""
+
+    branches: set[str] = set()
+    for receipt_file in _json_files(receipt_root):
+        try:
+            payload = json.loads(receipt_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if str(payload.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
+            continue
+        branches.update(_outbox_payload_branches(payload))
+    return branches
+
+
 def terminal_receipted_handoff_branches(
     root: Path,
     *,
@@ -307,7 +324,7 @@ def terminal_receipted_handoff_branches(
     if not terminal_keys:
         return set()
 
-    branches: set[str] = set()
+    branches = terminal_receipt_branches(receipt_root)
     for outbox_file in _json_files(outbox_root):
         try:
             payload = json.loads(outbox_file.read_text(encoding="utf-8"))

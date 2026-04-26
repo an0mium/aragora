@@ -289,6 +289,65 @@ def test_audit_excludes_terminal_outbox_receipts_from_publishable_backlog(
     assert receipted["category"] == "protected_handoff_receipt"
 
 
+def test_audit_excludes_terminal_receipt_branch_without_outbox_payload(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row("codex/receipted", committed_at=now),
+        _branch_row("codex/new-work", committed_at=now),
+    ]
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-receipted-abc123"
+    (receipts / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "branch": "codex/receipted",
+                "idempotency_key": key,
+                "status": "already_satisfied",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    by_category = payload["summary"]["by_category"]
+    assert by_category["protected_handoff_receipt"] == 1
+    assert by_category["salvage_recent_unique"] == 1
+    assert payload["summary"]["handoff_receipted_branches"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 1
+    receipted = next(record for record in payload["records"] if record["name"] == "codex/receipted")
+    assert receipted["handoff_receipt_exists"] is True
+    assert receipted["category"] == "protected_handoff_receipt"
+
+
 def test_audit_excludes_unresolved_outbox_handoffs_from_publishable_backlog(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
