@@ -418,7 +418,7 @@ def get_host_header(handler: HTTPRequestHandler | None, default: str | None = No
     if handler is None or not hasattr(handler, "headers"):
         return fallback
     host = handler.headers.get("Host")
-    return host if host is not None else fallback
+    return host or fallback
 
 
 def get_agent_name(agent: dict[str, Any] | AgentRating | Any | None) -> str | None:
@@ -1020,7 +1020,7 @@ class BaseHandler:
                 return json_response({"admin_action": "completed"})
         """
         user, err = self.require_auth_or_error(handler)
-        if err:
+        if err is not None:
             return None, err
         if user is None:
             raise RuntimeError("authenticated user missing after auth check")

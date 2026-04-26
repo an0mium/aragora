@@ -18,10 +18,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aragora.debate.breakpoints import (
-        BreakpointManager as DebateBreakpointManager,
-        HumanGuidance as DebateHumanGuidance,
-    )
+    from aragora.debate.breakpoints import BreakpointManager as DebateBreakpointManager
 
 logger = logging.getLogger(__name__)
 
@@ -41,17 +38,17 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 # Rate limiter for breakpoints endpoints (60 requests per minute - debug feature)
 _breakpoints_limiter = RateLimiter(requests_per_minute=60)
 
+_breakpoints_module: Any = None
+
 try:
-    from aragora.debate.breakpoints import (
-        BreakpointManager as ImportedBreakpointManager,
-        HumanGuidance as ImportedHumanGuidance,
-    )
+    from aragora.debate import breakpoints as _loaded_breakpoints_module
 except ImportError:
-    HumanGuidance: type[DebateHumanGuidance] | None = None
-    BreakpointManager: type[DebateBreakpointManager] | None = None
+    pass
 else:
-    HumanGuidance = ImportedHumanGuidance
-    BreakpointManager = ImportedBreakpointManager
+    _breakpoints_module = _loaded_breakpoints_module
+
+HumanGuidance: Any = getattr(_breakpoints_module, "HumanGuidance", None)
+BreakpointManager: Any = getattr(_breakpoints_module, "BreakpointManager", None)
 
 
 class BreakpointsHandler(BaseHandler):

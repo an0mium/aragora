@@ -109,7 +109,7 @@ except Exception:  # pragma: no cover - fallback for partially bootstrapped scri
         prefer_app: bool = True,
         write_op: bool = False,
         env: Mapping[str, str] | None = None,
-        max_retries: int = 0,
+        max_retries: int = 3,
         base_backoff: float = 5.0,
         max_backoff: float = 600.0,
         sleep: Callable[[float], None] | None = None,

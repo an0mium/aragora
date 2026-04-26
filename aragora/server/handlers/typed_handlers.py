@@ -282,7 +282,7 @@ class TypedHandler(BaseHandler):
             or (None, HandlerResult) with 401/403 error if not
         """
         user, err = self.require_auth_or_error(handler)
-        if err:
+        if err is not None:
             return None, err
         if user is None:
             raise RuntimeError("authenticated user missing after auth check")
@@ -312,7 +312,7 @@ class TypedHandler(BaseHandler):
             or (None, HandlerResult) with 401/403 error if not
         """
         user, err = self.require_auth_or_error(handler)
-        if err:
+        if err is not None:
             return None, err
         if user is None:
             raise RuntimeError("authenticated user missing after auth check")
@@ -420,7 +420,7 @@ class AuthenticatedHandler(TypedHandler):
                 # Use user.user_id, user.email, etc.
         """
         user, err = self.require_auth_or_error(handler)
-        if err:
+        if err is not None:
             self._current_user = None
             return None, err
         if user is None:
@@ -442,7 +442,7 @@ class AuthenticatedHandler(TypedHandler):
             or (None, error_response) if not authenticated or not admin
         """
         user, err = self.require_admin_or_error(handler)
-        if err:
+        if err is not None:
             self._current_user = None
             return None, err
         if user is None:
@@ -504,7 +504,7 @@ class PermissionHandler(AuthenticatedHandler):
         """
         # First ensure authentication
         user, err = self._ensure_authenticated(handler)
-        if err:
+        if err is not None:
             return None, err
         if user is None:
             raise RuntimeError("authenticated user missing after auth check")
@@ -520,7 +520,7 @@ class PermissionHandler(AuthenticatedHandler):
 
         # Check the permission
         user_with_perm, perm_err = self.require_permission_or_error(handler, permission)
-        if perm_err:
+        if perm_err is not None:
             return None, perm_err
         if user_with_perm is None:
             raise RuntimeError("authenticated user missing after permission check")
