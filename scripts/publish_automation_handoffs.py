@@ -11,6 +11,7 @@ issue records with ``gh``.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -38,7 +39,17 @@ MAX_ISSUE_BODY_CHARS = 60_000
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_BASE_REF = "origin/main"
-PR_OPEN_REQUEST_ACTIONS = {"open_pr", "push_branch_and_open_pr"}
+PR_OPEN_REQUEST_CANONICAL_ACTION = "open_pr"
+PR_OPEN_REQUEST_ACTIONS = {
+    "open_pr",
+    "open_pull_request",
+    "open_or_update_pr",
+    "open_or_update_pull_request",
+    "push_branch_and_open_pr",
+    "push_branch_and_open_pull_request",
+    "push_branch_and_open_or_update_pr",
+    "push_branch_and_open_or_update_pull_request",
+}
 REQUIRED_OUTBOX_KEYS = (
     "task",
     "requires_github",
@@ -494,8 +505,39 @@ def _outbox_evidence_value(payload: dict[str, Any], key: str) -> str:
     return str(payload.get(key) or "").strip()
 
 
+def _normalized_requested_action(value: Any) -> str:
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("{") and text.endswith("}"):
+            try:
+                parsed = ast.literal_eval(text)
+            except (SyntaxError, ValueError):
+                parsed = None
+            if isinstance(parsed, Mapping):
+                return _normalized_requested_action(parsed)
+        action = text
+    elif isinstance(value, Mapping):
+        action = str(
+            value.get("type") or value.get("action") or value.get("requested_action") or ""
+        )
+    else:
+        action = str(value or "")
+
+    normalized = action.strip().lower().replace("-", "_")
+    if normalized in PR_OPEN_REQUEST_ACTIONS:
+        return PR_OPEN_REQUEST_CANONICAL_ACTION
+    return normalized
+
+
+def _is_pr_open_request(payload: dict[str, Any]) -> bool:
+    return (
+        _normalized_requested_action(payload.get("requested_action"))
+        == PR_OPEN_REQUEST_CANONICAL_ACTION
+    )
+
+
 def _outbox_branch_fingerprint(payload: dict[str, Any]) -> str | None:
-    requested_action = str(payload.get("requested_action") or "").strip()
+    requested_action = _normalized_requested_action(payload.get("requested_action"))
     repo = str(payload.get("repo") or "").strip()
     branch = _outbox_evidence_value(payload, "branch")
     if not requested_action or not repo or not branch:
@@ -523,8 +565,7 @@ def _git_patch_equivalent(repo_root: Path, base: str, candidate: str) -> bool:
 
 
 def _outbox_branch_already_merged(repo_root: Path, payload: dict[str, Any]) -> bool:
-    requested_action = str(payload.get("requested_action") or "").strip()
-    if requested_action not in PR_OPEN_REQUEST_ACTIONS:
+    if not _is_pr_open_request(payload):
         return False
 
     base_ref = _outbox_evidence_value(payload, "base") or DEFAULT_BASE_REF
@@ -544,8 +585,7 @@ def _outbox_branch_already_merged(repo_root: Path, payload: dict[str, Any]) -> b
 
 
 def _outbox_branch_patch_equivalent(repo_root: Path, payload: dict[str, Any]) -> bool:
-    requested_action = str(payload.get("requested_action") or "").strip()
-    if requested_action not in PR_OPEN_REQUEST_ACTIONS:
+    if not _is_pr_open_request(payload):
         return False
 
     base_ref = _outbox_evidence_value(payload, "base") or DEFAULT_BASE_REF
@@ -662,7 +702,7 @@ def load_outbox_handoffs(
         if not _has_required_outbox_contract(payload):
             continue
         task_title = str(payload.get("task") or payload.get("title") or "").strip()
-        requested_action = str(payload.get("requested_action") or "").strip()
+        requested_action = _normalized_requested_action(payload.get("requested_action"))
         idempotency_key = str(payload.get("idempotency_key") or "").strip()
         requires_github = payload.get("requires_github", True)
         if isinstance(requires_github, str):
