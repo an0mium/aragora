@@ -20,18 +20,28 @@ from aragora.knowledge.unified.types import ConfidenceLevel, KnowledgeSource
 
 def _entry(crux_id: str = "crux-001", score: float = 0.80) -> CruxEntry:
     return CruxEntry(
-        crux_id=crux_id, statement="X depends on Y", load_bearing_score=score,
-        uncertainty_score=0.20, contesting_agents=["alice"], affected_claims=["claim-A"],
+        crux_id=crux_id,
+        statement="X depends on Y",
+        load_bearing_score=score,
+        uncertainty_score=0.20,
+        contesting_agents=["alice"],
+        affected_claims=["claim-A"],
         resolution_impact=0.60,
     )
 
 
 def _receipt(cruxes: list[CruxEntry] | None = None, receipt_id: str = "rcpt-abc") -> CruxReceipt:
     return CruxReceipt(
-        receipt_id=receipt_id, debate_id="debate-001", question="Q?",
+        receipt_id=receipt_id,
+        debate_id="debate-001",
+        question="Q?",
         cruxes=cruxes if cruxes is not None else [_entry()],
-        convergence_barrier=0.45, counterfactuals=[], agents=["alice"], rounds=3,
-        metadata={}, checksum="a" * 64,
+        convergence_barrier=0.45,
+        counterfactuals=[],
+        agents=["alice"],
+        rounds=3,
+        metadata={},
+        checksum="a" * 64,
     )
 
 
@@ -110,8 +120,11 @@ class TestIngestWithMound:
 
     def test_stores_each_crux(self) -> None:
         adapter, mound = self._adapter()
-        r = asyncio.run(adapter.ingest_crux_receipt(
-            _receipt(cruxes=[_entry("c1"), _entry("c2")]), require_enabled=False))
+        r = asyncio.run(
+            adapter.ingest_crux_receipt(
+                _receipt(cruxes=[_entry("c1"), _entry("c2")]), require_enabled=False
+            )
+        )
         assert r.cruxes_ingested == 2 and mound.store.call_count == 2
 
     def test_empty_cruxes(self) -> None:
@@ -123,7 +136,9 @@ class TestIngestWithMound:
     def test_error_captured(self) -> None:
         mound = MagicMock()
         mound.store = AsyncMock(side_effect=RuntimeError("db down"))
-        r = asyncio.run(CruxReceiptAdapter(mound=mound).ingest_crux_receipt(_receipt(), require_enabled=False))
+        r = asyncio.run(
+            CruxReceiptAdapter(mound=mound).ingest_crux_receipt(_receipt(), require_enabled=False)
+        )
         assert r.cruxes_ingested == 0 and any("crux-001" in e for e in r.errors)
 
     def test_set_mound(self) -> None:
@@ -137,6 +152,8 @@ class TestIngestWithMound:
     def test_fallback_ingest(self) -> None:
         mound = MagicMock(spec=["ingest"])
         mound.ingest = AsyncMock()
-        r = asyncio.run(CruxReceiptAdapter(mound=mound).ingest_crux_receipt(_receipt(), require_enabled=False))
+        r = asyncio.run(
+            CruxReceiptAdapter(mound=mound).ingest_crux_receipt(_receipt(), require_enabled=False)
+        )
         mound.ingest.assert_called_once()
         assert len(r.knowledge_item_ids) == 1
