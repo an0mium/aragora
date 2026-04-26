@@ -1,4 +1,13 @@
 {
   "schema_version": 1,
-  "entries": []
+  "entries": [
+    {
+      "issue": 5839,
+      "track": "TW-02",
+      "corpus": "tw-01-bounded-execution-v1",
+      "revision": "rev-1",
+      "status": "restock_pending",
+      "action": "Retire or replace stale closed issues before the next recurring benchmark truth publication."
+    }
+  ]
 }
