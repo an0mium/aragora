@@ -322,7 +322,10 @@ def viah_trend_enabled() -> bool:
     False so the surface is dormant until the AGT-06 activation gate opens.
     """
     return str(os.environ.get(VIAH_TREND_FLAG) or "").strip().lower() in {
-        "1", "true", "yes", "on",
+        "1",
+        "true",
+        "yes",
+        "on",
     }
 
 

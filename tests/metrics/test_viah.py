@@ -459,18 +459,14 @@ class TestRollingViahTrend:
     ) -> None:
         monkeypatch.setenv(VIAH_TREND_FLAG, "1")
         ledger = _seed_ledger(tmp_path, [])
-        trend = rolling_viah_trend(
-            ledger=ledger, weeks=2, now=datetime(2026, 4, 26, tzinfo=UTC)
-        )
+        trend = rolling_viah_trend(ledger=ledger, weeks=2, now=datetime(2026, 4, 26, tzinfo=UTC))
         d = trend.to_dict()
         assert d["weeks_requested"] == 2
         assert len(d["points"]) == 2
         assert all("window_start" in p and "window_end" in p for p in d["points"])
         assert "trend_direction" in d
 
-    def test_invalid_weeks_raises(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
+    def test_invalid_weeks_raises(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.setenv(VIAH_TREND_FLAG, "1")
         ledger = _seed_ledger(tmp_path, [])
         with pytest.raises(ValueError, match="weeks"):
