@@ -259,6 +259,13 @@ def _automation_state_path(root: Path, path: Path | None, default_relative: Path
     return _automation_state_root(root) / default_relative
 
 
+def _automation_state_default_path(state_root: Path, default_relative: Path) -> Path:
+    expanded = state_root.expanduser()
+    if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
+        return expanded.joinpath(*default_relative.parts[1:])
+    return expanded / default_relative
+
+
 def _memory_files(codex_home: Path, automation_ids: set[str] | None = None) -> list[Path]:
     automations = codex_home / "automations"
     if not automations.exists():
@@ -1190,6 +1197,15 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--state-root",
+        default=None,
+        help=(
+            "Shared automation state root used to derive default outbox/receipt dirs. "
+            "Accepts either a repo root containing .aragora or the .aragora directory "
+            "itself. Explicit --outbox-dir/--receipt-dir override it."
+        ),
+    )
+    parser.add_argument(
         "--outbox-dir",
         default=None,
         help=(
@@ -1221,14 +1237,22 @@ def main(argv: list[str] | None = None) -> int:
 
     repo_root = _repo_root(Path(args.repo))
     codex_home = _codex_home(args.codex_home)
+    state_root = Path(args.state_root).expanduser() if args.state_root else None
+    outbox_arg = Path(args.outbox_dir).expanduser() if args.outbox_dir else None
+    receipt_arg = Path(args.receipt_dir).expanduser() if args.receipt_dir else None
+    if state_root is not None:
+        if outbox_arg is None:
+            outbox_arg = _automation_state_default_path(state_root, DEFAULT_OUTBOX_DIR)
+        if receipt_arg is None:
+            receipt_arg = _automation_state_default_path(state_root, DEFAULT_RECEIPT_DIR)
     outbox_dir = _automation_state_path(
         repo_root,
-        Path(args.outbox_dir).expanduser() if args.outbox_dir else None,
+        outbox_arg,
         DEFAULT_OUTBOX_DIR,
     ).resolve()
     receipt_dir = _automation_state_path(
         repo_root,
-        Path(args.receipt_dir).expanduser() if args.receipt_dir else None,
+        receipt_arg,
         DEFAULT_RECEIPT_DIR,
     ).resolve()
     labels = list(dict.fromkeys(args.labels))

@@ -1189,6 +1189,56 @@ def test_main_preview_does_not_write_outbox_receipt(
     assert '"reason": "existing_issue"' in capsys.readouterr().out
 
 
+def test_main_derives_outbox_dirs_from_explicit_aragora_state_root(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    state_root = tmp_path / ".aragora"
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: tmp_path / "worktree")
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
+
+    def fake_load_outbox_handoffs(
+        repo_root: Path,
+        outbox_dir: Path | None = None,
+        receipt_dir: Path | None = None,
+    ) -> list[Handoff]:
+        captured["repo_root"] = repo_root
+        captured["outbox_dir"] = outbox_dir
+        captured["receipt_dir"] = receipt_dir
+        return []
+
+    monkeypatch.setattr(mod, "load_outbox_handoffs", fake_load_outbox_handoffs)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(repo_root),
+        ),
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path),
+            "--state-root",
+            str(state_root),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 1
+    assert captured["outbox_dir"] == (state_root / "automation-outbox").resolve()
+    assert captured["receipt_dir"] == (state_root / "automation-receipts").resolve()
+    assert str((state_root / "automation-outbox").resolve()) in capsys.readouterr().out
+
+
 def test_main_reports_github_health_when_unavailable(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:

@@ -1221,6 +1221,35 @@ def test_audit_skip_patch_equivalence_verifies_salvage_candidates(
     assert patch_checked_branches == ["codex/replayed-diverged", "codex/real-diverged"]
 
 
+def test_main_derives_handoff_dirs_from_explicit_aragora_state_root(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    state_root = tmp_path / ".aragora"
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(mod, "repo_root", lambda _path: tmp_path / "worktree")
+
+    def fake_audit(**kwargs: Any) -> dict[str, object]:
+        captured.update(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(mod, "audit", fake_audit)
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--state-root",
+            str(state_root),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["outbox_dir"] == state_root / "automation-outbox"
+    assert captured["receipt_dir"] == state_root / "automation-receipts"
+    assert '"ok": true' in capsys.readouterr().out
+
+
 def test_patch_equivalence_treats_empty_branch_diff_as_cleanup(
     tmp_path: Path, monkeypatch: Any
 ) -> None:

@@ -248,6 +248,13 @@ def _automation_state_path(root: Path, path: Path | None, default_relative: Path
     return _automation_state_root(root) / default_relative
 
 
+def _automation_state_default_path(state_root: Path, default_relative: Path) -> Path:
+    expanded = state_root.expanduser()
+    if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
+        return expanded.joinpath(*default_relative.parts[1:])
+    return expanded / default_relative
+
+
 def _json_files(path: Path) -> list[Path]:
     if not path.exists():
         return []
@@ -983,6 +990,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--state-root",
+        type=Path,
+        default=None,
+        help=(
+            "Shared automation state root used to derive default handoff dirs. "
+            "Accepts either a repo root containing .aragora or the .aragora "
+            "directory itself. Explicit --outbox-dir/--receipt-dir override it."
+        ),
+    )
+    parser.add_argument(
         "--outbox-dir",
         type=Path,
         default=None,
@@ -1016,6 +1033,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.patch_equivalence_time_budget_seconds < 0
         else args.patch_equivalence_time_budget_seconds
     )
+    state_root = args.state_root.expanduser() if args.state_root else None
+    outbox_dir = args.outbox_dir
+    receipt_dir = args.receipt_dir
+    if state_root is not None:
+        if outbox_dir is None:
+            outbox_dir = _automation_state_default_path(state_root, DEFAULT_OUTBOX_DIR)
+        if receipt_dir is None:
+            receipt_dir = _automation_state_default_path(state_root, DEFAULT_RECEIPT_DIR)
     payload = audit(
         root=root,
         base=args.base,
@@ -1026,8 +1051,8 @@ def main(argv: list[str] | None = None) -> int:
         include_patch_equivalence=args.include_patch_equivalence,
         patch_equivalence_time_budget_seconds=patch_budget,
         publisher_backlog_limit=args.publisher_backlog_limit,
-        outbox_dir=args.outbox_dir,
-        receipt_dir=args.receipt_dir,
+        outbox_dir=outbox_dir,
+        receipt_dir=receipt_dir,
     )
     if args.summary_only:
         payload = summary_only_payload(payload)
