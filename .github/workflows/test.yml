@@ -1095,13 +1095,16 @@ jobs:
         suite:
           - name: handlers
             path: tests/handlers
-            timeout: 20
+            timeout: 40
+            parallel_args: "-n auto --dist loadscope"
           - name: debate
             path: tests/debate/test_arena*.py
             timeout: 15
+            parallel_args: ""
           - name: memory
             path: tests/memory
             timeout: 15
+            parallel_args: ""
 
     steps:
       - name: Checkout
@@ -1146,7 +1149,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras test
-          python -m pip install pytest-timeout
+          python -m pip install pytest-timeout pytest-xdist
 
       - name: Run integration smoke tests
         if: steps.scope.outputs.integration_high_risk == 'true'
@@ -1154,6 +1157,7 @@ jobs:
           pytest ${{ matrix.suite.path }} \
             -x \
             --timeout=60 \
+            ${{ matrix.suite.parallel_args }} \
             -q \
             --ignore=tests/connectors \
             -k "not benchmark and not slow"
