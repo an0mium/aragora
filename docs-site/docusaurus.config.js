@@ -5,7 +5,7 @@
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Aragora Documentation',
-  tagline: 'Control plane for multi-agent vetted decisionmaking across org knowledge and channels',
+  tagline: 'Auditable execution control plane for consequential AI-assisted work',
   favicon: 'img/favicon.ico',
 
   // Production URL
@@ -13,7 +13,7 @@ const config = {
   baseUrl: '/',
 
   // GitHub Pages deployment config (if using)
-  organizationName: 'aragora',
+  organizationName: 'synaptent',
   projectName: 'aragora',
 
   onBrokenLinks: 'warn',
@@ -39,7 +39,7 @@ const config = {
       ({
         docs: {
           sidebarPath: './sidebars.js',
-          editUrl: 'https://github.com/aragora/aragora/tree/main/docs/',
+          editUrl: 'https://github.com/synaptent/aragora/tree/main/docs/',
           showLastUpdateTime: true,
           showLastUpdateAuthor: true,
         },
@@ -121,7 +121,7 @@ const config = {
             position: 'right',
           },
           {
-            href: 'https://github.com/aragora/aragora',
+            href: 'https://github.com/synaptent/aragora',
             label: 'GitHub',
             position: 'right',
           },
@@ -159,7 +159,7 @@ const config = {
             items: [
               {
                 label: 'GitHub Discussions',
-                href: 'https://github.com/aragora/aragora/discussions',
+                href: 'https://github.com/synaptent/aragora/discussions',
               },
               {
                 label: 'Discord',
@@ -209,9 +209,9 @@ const config = {
 
       // Announcement bar
       announcementBar: {
-        id: 'v2_4_release',
+        id: 'proof_first_rc1',
         content:
-          'Aragora v2.4 is out! Expanded Python SDK with 10+ new resource namespaces. <a href="/docs/changelog">See what\'s new</a>.',
+          'Aragora v2.9.0-rc.1 is out: proof-first PR settlement, calibration gates, and Decision Integrity Core slices. <a href="/docs/contributing/b0-benchmark-truth-status">See the proof surfaces</a>.',
         backgroundColor: '#4F46E5',
         textColor: '#FFFFFF',
         isCloseable: true,

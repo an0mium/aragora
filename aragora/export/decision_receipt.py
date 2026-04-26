@@ -65,12 +65,24 @@ class ReceiptDissent:
 
 @dataclass
 class ReceiptVerification:
-    """Verification result for receipt export."""
+    """Verification result for receipt export.
+
+    The optional DIC-16 provenance fields (``claim_id``, ``crux_id``,
+    ``evidence_ids``, ``verification_status``, ``source_receipt_id``) are
+    backwards-compatible additions. Existing callers that construct
+    ``ReceiptVerification`` without these fields continue to work unchanged.
+    """
 
     claim: str
     verified: bool
     method: str
     proof_hash: str | None = None
+    # DIC-16: epistemic provenance — all optional for backwards compat
+    claim_id: str | None = None
+    crux_id: str | None = None
+    evidence_ids: list[str] = field(default_factory=list)
+    verification_status: str | None = None  # "pass"|"fail"|"stale"|"unsupported"|"error"|"open"
+    source_receipt_id: str | None = None
 
 
 def _coerce_float(value: Any, default: float = 0.0) -> float:

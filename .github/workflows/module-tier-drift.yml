@@ -1,0 +1,94 @@
+name: Module Tier Drift
+
+# Validates aragora/module_tiers.yaml against ground truth. The
+# script scripts/regenerate_module_tiers.py re-classifies every
+# top-level aragora/ package by evidence (importer count + test
+# coverage) and fails if any module's tier has drifted.
+#
+# Thesis alignment: Commitment 4 (respect the limits) + Premise 3
+# (surface tier is the first thing a cold auditor reads). Silent
+# promotion/demotion is as harmful as silent metric drift.
+#
+# Triggers:
+#   - PR: when aragora/, tests/, the script, the yaml, or this
+#     workflow itself changes.
+#   - Weekly Monday 06:00 UTC (independent of main tests).
+#   - Manual dispatch.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/**'
+      - 'aragora/module_tiers.yaml'
+      - 'scripts/regenerate_module_tiers.py'
+      - '.github/workflows/module-tier-drift.yml'
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: module-tier-drift-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pyyaml
+        run: python3 -m pip install --quiet pyyaml
+
+      - name: Verify drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp aragora/module_tiers.yaml /tmp/tiers-committed.yaml
+          if ! python3 scripts/regenerate_module_tiers.py --check; then
+            echo "::error::aragora/module_tiers.yaml is stale. Run 'python3 scripts/regenerate_module_tiers.py' locally and commit."
+            echo ""
+            echo "=== DIFF: committed yaml vs current ground truth ==="
+            python3 scripts/regenerate_module_tiers.py
+            diff -u /tmp/tiers-committed.yaml aragora/module_tiers.yaml | head -400 || true
+            cp /tmp/tiers-committed.yaml aragora/module_tiers.yaml
+            exit 1
+          fi
+
+      - name: Emit summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              echo "## Module Tier Drift Check"
+              echo ""
+              if [ "${{ job.status }}" = "success" ]; then
+                echo "- Status: passed (no module tier changed since last commit)"
+              else
+                echo "- Status: failed — \`aragora/module_tiers.yaml\` is stale"
+                echo ""
+                echo "Run locally:"
+                echo ""
+                echo '```sh'
+                echo 'python3 scripts/regenerate_module_tiers.py'
+                echo 'git add aragora/module_tiers.yaml'
+                echo 'git commit -m "chore(tiers): refresh module_tiers.yaml"'
+                echo '```'
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

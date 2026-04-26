@@ -14,8 +14,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import sqlite3
+from datetime import UTC
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Awaitable, cast
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -29,6 +31,7 @@ from aragora.server.handlers.utils.decorators import (
     require_permission,
 )
 from aragora.swarm.reporter import build_integrator_view
+from aragora.swarm.agent_bridge.store import BridgeStore
 from aragora.worktree.fleet import (
     FleetCoordinationStore,
     build_fleet_rows,
@@ -61,7 +64,7 @@ class CoordinationHandlerMixin:
         """Get the cross-workspace coordinator."""
         return self.ctx.get("coordination_coordinator")
 
-    def _require_coordination_coordinator(self) -> tuple[Any | None, HandlerResult | None]:
+    def _require_coordination_coordinator(self) -> tuple[Any, HandlerResult | None]:
         """Return coordinator and None, or None and error response if not available."""
         coord = self._get_coordination_coordinator()
         if not coord:
@@ -684,7 +687,11 @@ class CoordinationHandlerMixin:
         if bool(body.get("dispatch_workers", True)):
             dispatch_result = supervisor.dispatch_workers(run.run_id)
             if inspect.isawaitable(dispatch_result):
-                asyncio.run(dispatch_result)
+
+                async def await_dispatch_result(awaitable: Awaitable[Any]) -> Any:
+                    return await awaitable
+
+                asyncio.run(await_dispatch_result(dispatch_result))
             if bool(body.get("watch", False)):
                 run = asyncio.run(
                     SwarmReconciler(supervisor=supervisor).watch_run(
@@ -954,7 +961,7 @@ class CoordinationHandlerMixin:
             if entry is None:
                 return error_response(f"Branch not found: {branch}", 404)
             if is_dataclass(entry):
-                entry_payload = asdict(entry)
+                entry_payload = asdict(cast(Any, entry))
             elif isinstance(entry, dict):
                 entry_payload = dict(entry)
             else:
@@ -1040,6 +1047,243 @@ class CoordinationHandlerMixin:
                 "total": len(rows),
             }
         )
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/coordination/active-work",
+        summary="Get compact active work snapshot for agent coordination",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:stats.read")
+    def _handle_active_work(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Return one compact, agent-readable view of active ownership surfaces."""
+        base_branch = str(query_params.get("base", "main")).strip() or "main"
+        repo_root = self._fleet_repo_root()
+        source_errors: list[dict[str, str]] = []
+
+        try:
+            worktrees = build_fleet_rows(
+                repo_root,
+                base_branch=base_branch,
+                tail=0,
+                include_git_metrics=False,
+            )
+        except Exception as exc:
+            logger.exception("active-work worktree snapshot failed")
+            worktrees = []
+            source_errors.append({"source": "worktrees", "error": str(exc)})
+
+        try:
+            fleet_store = self._fleet_store(repo_root)
+            claims = fleet_store.list_claims()
+            merge_queue = fleet_store.list_merge_queue()
+        except Exception as exc:
+            logger.exception("active-work fleet snapshot failed")
+            claims = []
+            merge_queue = []
+            source_errors.append({"source": "fleet", "error": str(exc)})
+
+        try:
+            from aragora.nomic.dev_coordination import DevCoordinationStore
+
+            coordination = DevCoordinationStore(repo_root=repo_root).status_summary(
+                include_integrator_artifacts=True
+            )
+        except (ImportError, RuntimeError, OSError, ValueError, sqlite3.Error) as exc:
+            coordination = {"active_leases": [], "counts": {}, "error": str(exc)}
+            source_errors.append({"source": "dev_coordination", "error": str(exc)})
+
+        bridge_runs = self._active_bridge_runs(repo_root, source_errors)
+        active_owners = self._active_work_owners(
+            worktrees=worktrees,
+            claims=claims,
+            active_leases=coordination.get("active_leases", []),
+            bridge_runs=bridge_runs,
+        )
+        avoid_paths = self._active_work_avoid_paths(
+            claims=claims,
+            active_leases=coordination.get("active_leases", []),
+        )
+
+        return json_response(
+            {
+                "schema_version": 1,
+                "repo_root": str(repo_root),
+                "base_branch": base_branch,
+                "generated_at": datetime.now(UTC)
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z"),
+                "active_owners": active_owners,
+                "claimed_paths": self._claim_paths(claims),
+                "avoid_paths": avoid_paths,
+                "avoid_path_hints": [
+                    {"path": path, "reason": "claimed_or_leased"} for path in avoid_paths
+                ],
+                "worktrees": worktrees,
+                "fleet_claims": claims,
+                "active_leases": coordination.get("active_leases", []),
+                "merge_queue": merge_queue,
+                "bridge_runs": bridge_runs,
+                "counts": {
+                    "worktrees": len(worktrees),
+                    "fleet_claims": len(claims),
+                    "active_leases": len(coordination.get("active_leases", []))
+                    if isinstance(coordination.get("active_leases"), list)
+                    else 0,
+                    "merge_queue": len(merge_queue),
+                    "bridge_runs": len(bridge_runs),
+                },
+                "source_errors": source_errors,
+            }
+        )
+
+    def _active_bridge_runs(
+        self,
+        repo_root: Path,
+        source_errors: list[dict[str, str]],
+    ) -> list[dict[str, Any]]:
+        try:
+            store = BridgeStore(repo_root)
+            runs = []
+            for run_path in store.runs_root().glob("*/run.json"):
+                run = store.load_run(run_path.parent.name)
+                if run.status not in {"running", "awaiting_human"}:
+                    continue
+                runs.append(
+                    {
+                        "run_id": run.run_id,
+                        "task": run.task,
+                        "status": run.status,
+                        "next_actor": run.next_actor,
+                        "updated_at": run.updated_at,
+                        "last_turn_index": run.last_turn_index,
+                        "worktree_path": run.worktree_path,
+                        "worktree_agent_slug": run.worktree_agent_slug,
+                        "participants": [participant.to_dict() for participant in run.participants],
+                    }
+                )
+            runs.sort(key=lambda item: str(item.get("updated_at", "")), reverse=True)
+            return runs
+        except Exception as exc:
+            logger.exception("active-work bridge snapshot failed")
+            source_errors.append({"source": "agent_bridge", "error": str(exc)})
+            return []
+
+    def _active_work_owners(
+        self,
+        *,
+        worktrees: list[dict[str, Any]],
+        claims: list[dict[str, Any]],
+        active_leases: Any,
+        bridge_runs: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        owners: dict[str, dict[str, Any]] = {}
+
+        def owner(session_id: str) -> dict[str, Any]:
+            key = session_id.strip() or "unknown"
+            return owners.setdefault(
+                key,
+                {
+                    "session_id": key,
+                    "agent": "",
+                    "branches": [],
+                    "worktree_paths": [],
+                    "claimed_paths": [],
+                    "lease_ids": [],
+                    "receipt_ids": [],
+                    "bridge_run_ids": [],
+                },
+            )
+
+        for row in worktrees:
+            session_id = str(row.get("session_id", "")).strip()
+            if not session_id:
+                continue
+            entry = owner(session_id)
+            entry["agent"] = entry["agent"] or str(row.get("agent", "")).strip()
+            self._append_unique(entry["branches"], str(row.get("branch", "")).strip())
+            self._append_unique(entry["worktree_paths"], str(row.get("path", "")).strip())
+
+        for claim in claims:
+            entry = owner(str(claim.get("session_id", "")).strip())
+            self._append_unique(entry["claimed_paths"], str(claim.get("path", "")).strip())
+            self._append_unique(entry["branches"], str(claim.get("branch", "")).strip())
+
+        if isinstance(active_leases, list):
+            for lease in active_leases:
+                if not isinstance(lease, dict):
+                    continue
+                entry = owner(str(lease.get("owner_session_id", "")).strip())
+                entry["agent"] = entry["agent"] or str(lease.get("owner_agent", "")).strip()
+                self._append_unique(entry["branches"], str(lease.get("branch", "")).strip())
+                self._append_unique(
+                    entry["worktree_paths"],
+                    str(lease.get("worktree_path", "")).strip(),
+                )
+                self._append_unique(entry["lease_ids"], str(lease.get("lease_id", "")).strip())
+                metadata = lease.get("metadata")
+                if isinstance(metadata, dict):
+                    self._append_unique(
+                        entry["receipt_ids"],
+                        str(metadata.get("receipt_id", "")).strip(),
+                    )
+                for path in self._lease_paths(lease):
+                    self._append_unique(entry["claimed_paths"], path)
+
+        for run in bridge_runs:
+            participants = run.get("participants")
+            if not isinstance(participants, list):
+                continue
+            for participant in participants:
+                if not isinstance(participant, dict):
+                    continue
+                role = str(participant.get("role", "")).strip()
+                if not role:
+                    continue
+                entry = owner(f"bridge:{run.get('run_id')}:{role}")
+                entry["agent"] = str(participant.get("harness", "")).strip()
+                self._append_unique(entry["bridge_run_ids"], str(run.get("run_id", "")).strip())
+                self._append_unique(
+                    entry["worktree_paths"], str(run.get("worktree_path", "")).strip()
+                )
+
+        return sorted(owners.values(), key=lambda item: str(item.get("session_id", "")))
+
+    def _active_work_avoid_paths(
+        self,
+        *,
+        claims: list[dict[str, Any]],
+        active_leases: Any,
+    ) -> list[str]:
+        paths = set(self._claim_paths(claims))
+        if isinstance(active_leases, list):
+            for lease in active_leases:
+                if isinstance(lease, dict):
+                    paths.update(self._lease_paths(lease))
+        return sorted(path for path in paths if path)
+
+    def _claim_paths(self, claims: list[dict[str, Any]]) -> list[str]:
+        return sorted(
+            {
+                str(claim.get("path", "")).strip()
+                for claim in claims
+                if str(claim.get("path", "")).strip()
+            }
+        )
+
+    def _lease_paths(self, lease: dict[str, Any]) -> list[str]:
+        paths: list[str] = []
+        for key in ("claimed_paths", "allowed_globs"):
+            raw = lease.get(key)
+            if not isinstance(raw, list):
+                continue
+            paths.extend(str(item).strip() for item in raw if str(item).strip())
+        return sorted(set(paths))
+
+    def _append_unique(self, values: list[Any], value: Any) -> None:
+        if value and value not in values:
+            values.append(value)
 
     @api_endpoint(
         method="GET",

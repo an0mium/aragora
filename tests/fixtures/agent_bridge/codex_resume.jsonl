@@ -1,0 +1,3 @@
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Applied the requested fix.\n\n---BRIDGE-FOOTER---\nsummary: Applied the requested fix\nnext_actor: reviewer\nneeds_human: false\ndone: false\nartifacts: [\"aragora/swarm/agent_bridge/broker.py\"]\ntests_run: [\"pytest tests/swarm/agent_bridge/test_broker.py\"]\n---BRIDGE-FOOTER-END---"}}
+{"type":"turn.completed","usage":{"input_tokens":1602,"output_tokens":52},"stop_reason":"completed"}

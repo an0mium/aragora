@@ -160,11 +160,11 @@ def get_available_agents() -> str:
     # Check OpenRouter as fallback
     if os.environ.get("OPENROUTER_API_KEY"):
         if len(agents) < 2:
-            agents.append("openrouter-api")
+            agents.append("openrouter")
 
     # Check other providers
     if os.environ.get("GEMINI_API_KEY") and len(agents) < 2:
-        agents.append("gemini-api")
+        agents.append("gemini")
 
     if os.environ.get("MISTRAL_API_KEY") and len(agents) < 2:
         agents.append("mistral-api")

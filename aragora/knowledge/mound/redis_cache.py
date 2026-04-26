@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 import time
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any, TYPE_CHECKING
 
@@ -65,6 +66,12 @@ class RedisCache:
         self._client: Any | None = None
         self._connected = False
         self._event_emitter = event_emitter
+        # Unsubscribe handle returned by the cache invalidation bus when
+        # `subscribe_to_invalidation_bus()` runs. Declared here so mypy
+        # treats every access as `Callable[[], None] | None` instead of
+        # inferring `Callable[[], None]` from the first assignment and
+        # then rejecting the `None` reset in `unsubscribe_from_invalidation_bus`.
+        self._unsubscribe: Callable[[], None] | None = None
 
     async def connect(self) -> None:
         """Connect to Redis."""
@@ -103,16 +110,28 @@ class RedisCache:
         if not self._connected or not self._client:
             raise RuntimeError("Redis not connected. Call connect() first.")
 
+    def _require_client(self) -> Any:
+        """Return the Redis client, raising if it is not connected.
+
+        Internal narrowing helper: once :meth:`connect` succeeds, ``_client`` is
+        non-None for the rest of the cache's lifetime (until :meth:`close`).
+        Routing every client access through this helper gives mypy a
+        non-optional type without duplicating the ``_ensure_connected`` check.
+        """
+        if not self._connected or self._client is None:
+            raise RuntimeError("Redis not connected. Call connect() first.")
+        return self._client
+
     # =========================================================================
     # Node Caching
     # =========================================================================
 
     async def get_node(self, node_id: str) -> KnowledgeItem | None:
         """Get a cached node."""
-        self._ensure_connected()
+        client = self._require_client()
 
         key = f"{self._prefix}:node:{node_id}"
-        data = await self._client.get(key)
+        data = await client.get(key)
 
         if data:
             try:
@@ -122,7 +141,7 @@ class RedisCache:
                 return KnowledgeItem.from_dict(json.loads(data))
             except (ValueError, KeyError, json.JSONDecodeError, TypeError) as e:
                 logger.warning("Failed to deserialize cached node: %s", e)
-                await self._client.delete(key)
+                await client.delete(key)
                 await self._untrack_entry(key)
 
         return None
@@ -134,21 +153,21 @@ class RedisCache:
         ttl: int | None = None,
     ) -> None:
         """Cache a node."""
-        self._ensure_connected()
+        client = self._require_client()
 
         key = f"{self._prefix}:node:{node_id}"
         data = json.dumps(node.to_dict())
 
         await self._enforce_max_entries()
-        await self._client.setex(key, ttl or self._default_ttl, data)
+        await client.setex(key, ttl or self._default_ttl, data)
         await self._track_entry(key)
 
     async def invalidate_node(self, node_id: str) -> None:
         """Invalidate a cached node."""
-        self._ensure_connected()
+        client = self._require_client()
 
         key = f"{self._prefix}:node:{node_id}"
-        await self._client.delete(key)
+        await client.delete(key)
         await self._untrack_entry(key)
 
     async def invalidate_nodes(self, node_ids: list[str]) -> None:
@@ -156,10 +175,10 @@ class RedisCache:
         if not node_ids:
             return
 
-        self._ensure_connected()
+        client = self._require_client()
 
         keys = [f"{self._prefix}:node:{nid}" for nid in node_ids]
-        await self._client.delete(*keys)
+        await client.delete(*keys)
         await self._untrack_entries(keys)
 
     # =========================================================================
@@ -168,10 +187,10 @@ class RedisCache:
 
     async def get_query(self, cache_key: str) -> QueryResult | None:
         """Get a cached query result."""
-        self._ensure_connected()
+        client = self._require_client()
 
         key = f"{self._prefix}:query:{self._hash_key(cache_key)}"
-        data = await self._client.get(key)
+        data = await client.get(key)
 
         if data:
             try:
@@ -188,7 +207,7 @@ class RedisCache:
                 )
             except (ValueError, KeyError, json.JSONDecodeError, TypeError) as e:
                 logger.warning("Failed to deserialize cached query: %s", e)
-                await self._client.delete(key)
+                await client.delete(key)
                 await self._untrack_entry(key)
 
         return None
@@ -200,28 +219,28 @@ class RedisCache:
         ttl: int | None = None,
     ) -> None:
         """Cache a query result."""
-        self._ensure_connected()
+        client = self._require_client()
 
         key = f"{self._prefix}:query:{self._hash_key(cache_key)}"
         data = json.dumps(result.to_dict())
 
         await self._enforce_max_entries()
         # Shorter TTL for queries (1 minute default)
-        await self._client.setex(key, ttl or 60, data)
+        await client.setex(key, ttl or 60, data)
         await self._track_entry(key)
 
     async def invalidate_queries(self, workspace_id: str) -> None:
         """Invalidate all cached queries for a workspace."""
-        self._ensure_connected()
+        client = self._require_client()
 
         # Use pattern matching to find and delete query keys
         pattern = f"{self._prefix}:query:*"
 
         cursor = 0
         while True:
-            cursor, keys = await self._client.scan(cursor, match=pattern, count=100)
+            cursor, keys = await client.scan(cursor, match=pattern, count=100)
             if keys:
-                await self._client.delete(*keys)
+                await client.delete(*keys)
                 await self._untrack_entries(keys)
             if cursor == 0:
                 break
@@ -232,10 +251,10 @@ class RedisCache:
 
     async def get_culture(self, workspace_id: str) -> CultureProfile | None:
         """Get cached culture profile."""
-        self._ensure_connected()
+        client = self._require_client()
 
         key = f"{self._prefix}:{workspace_id}:culture"
-        data = await self._client.get(key)
+        data = await client.get(key)
 
         if data:
             try:
@@ -277,7 +296,7 @@ class RedisCache:
                 )
             except (ValueError, KeyError, json.JSONDecodeError, TypeError) as e:
                 logger.warning("Failed to deserialize cached culture: %s", e)
-                await self._client.delete(key)
+                await client.delete(key)
                 await self._untrack_entry(key)
 
         return None
@@ -289,7 +308,7 @@ class RedisCache:
         ttl: int | None = None,
     ) -> None:
         """Cache a culture profile."""
-        self._ensure_connected()
+        client = self._require_client()
 
         key = f"{self._prefix}:{workspace_id}:culture"
 
@@ -322,15 +341,15 @@ class RedisCache:
         )
 
         await self._enforce_max_entries()
-        await self._client.setex(key, ttl or self._culture_ttl, data)
+        await client.setex(key, ttl or self._culture_ttl, data)
         await self._track_entry(key)
 
     async def invalidate_culture(self, workspace_id: str) -> None:
         """Invalidate cached culture profile."""
-        self._ensure_connected()
+        client = self._require_client()
 
         key = f"{self._prefix}:{workspace_id}:culture"
-        await self._client.delete(key)
+        await client.delete(key)
         await self._untrack_entry(key)
 
     # =========================================================================
@@ -339,27 +358,27 @@ class RedisCache:
 
     async def add_stale_node(self, node_id: str, staleness_score: float) -> None:
         """Add a node to the staleness tracking set."""
-        self._ensure_connected()
+        client = self._require_client()
 
         key = f"{self._prefix}:staleness:pending"
-        await self._client.zadd(key, {node_id: staleness_score})
+        await client.zadd(key, {node_id: staleness_score})
 
     async def get_stale_nodes(self, limit: int = 100) -> list[tuple]:
         """Get nodes pending revalidation, ordered by staleness."""
-        self._ensure_connected()
+        client = self._require_client()
 
         key = f"{self._prefix}:staleness:pending"
         # Get highest staleness scores first
-        results = await self._client.zrevrange(key, 0, limit - 1, withscores=True)
+        results = await client.zrevrange(key, 0, limit - 1, withscores=True)
 
         return [(node_id, score) for node_id, score in results]
 
     async def remove_stale_node(self, node_id: str) -> None:
         """Remove a node from staleness tracking."""
-        self._ensure_connected()
+        client = self._require_client()
 
         key = f"{self._prefix}:staleness:pending"
-        await self._client.zrem(key, node_id)
+        await client.zrem(key, node_id)
 
     # =========================================================================
     # Statistics
@@ -367,16 +386,16 @@ class RedisCache:
 
     async def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
-        self._ensure_connected()
+        client = self._require_client()
 
-        info = await self._client.info("memory")
+        info = await client.info("memory")
 
         # Count keys by type
         node_count = 0
         query_count = 0
         culture_count = 0
 
-        async for key in self._client.scan_iter(f"{self._prefix}:*"):
+        async for key in client.scan_iter(f"{self._prefix}:*"):
             if ":node:" in key:
                 node_count += 1
             elif ":query:" in key:
@@ -394,7 +413,7 @@ class RedisCache:
 
     async def clear_all(self, workspace_id: str | None = None) -> int:
         """Clear all cached items for a workspace or all."""
-        self._ensure_connected()
+        client = self._require_client()
 
         if workspace_id:
             pattern = f"{self._prefix}:{workspace_id}:*"
@@ -404,9 +423,9 @@ class RedisCache:
         deleted = 0
         cursor = 0
         while True:
-            cursor, keys = await self._client.scan(cursor, match=pattern, count=100)
+            cursor, keys = await client.scan(cursor, match=pattern, count=100)
             if keys:
-                deleted += await self._client.delete(*keys)
+                deleted += await client.delete(*keys)
                 await self._untrack_entries(keys)
             if cursor == 0:
                 break
@@ -474,8 +493,9 @@ class RedisCache:
 
     def unsubscribe_from_invalidation_bus(self) -> None:
         """Unsubscribe from the CacheInvalidationBus."""
-        if hasattr(self, "_unsubscribe") and self._unsubscribe:
-            self._unsubscribe()
+        unsubscribe = self._unsubscribe
+        if unsubscribe is not None:
+            unsubscribe()
             self._unsubscribe = None
             logger.info("Redis cache unsubscribed from invalidation bus")
 
@@ -512,22 +532,26 @@ class RedisCache:
 
     async def _track_entry(self, cache_key: str) -> None:
         """Register a cache key in the LRU tracker with current timestamp."""
-        await self._client.zadd(self._tracker_key, {cache_key: time.time()})
+        client = self._require_client()
+        await client.zadd(self._tracker_key, {cache_key: time.time()})
 
     async def _touch_entry(self, cache_key: str) -> None:
         """Update access time for a cache key (LRU refresh)."""
-        score = await self._client.zscore(self._tracker_key, cache_key)
+        client = self._require_client()
+        score = await client.zscore(self._tracker_key, cache_key)
         if score is not None:
-            await self._client.zadd(self._tracker_key, {cache_key: time.time()})
+            await client.zadd(self._tracker_key, {cache_key: time.time()})
 
     async def _untrack_entry(self, cache_key: str) -> None:
         """Remove a cache key from the LRU tracker."""
-        await self._client.zrem(self._tracker_key, cache_key)
+        client = self._require_client()
+        await client.zrem(self._tracker_key, cache_key)
 
     async def _untrack_entries(self, cache_keys: list[str]) -> None:
         """Remove multiple cache keys from the LRU tracker."""
         if cache_keys:
-            await self._client.zrem(self._tracker_key, *cache_keys)
+            client = self._require_client()
+            await client.zrem(self._tracker_key, *cache_keys)
 
     async def _enforce_max_entries(self) -> int:
         """Evict oldest entries if cache exceeds max_entries.
@@ -535,21 +559,22 @@ class RedisCache:
         Returns:
             Number of entries evicted.
         """
-        count = await self._client.zcard(self._tracker_key)
+        client = self._require_client()
+        count = await client.zcard(self._tracker_key)
         if count < self._max_entries:
             return 0
 
         overage = count - self._max_entries + 1  # +1 to make room for the new entry
         # Get the oldest entries (lowest scores = oldest access times)
-        victims = await self._client.zrange(self._tracker_key, 0, overage - 1)
+        victims = await client.zrange(self._tracker_key, 0, overage - 1)
 
         if not victims:
             return 0
 
         # Delete the actual cache keys
-        await self._client.delete(*victims)
+        await client.delete(*victims)
         # Remove from tracker
-        await self._client.zremrangebyrank(self._tracker_key, 0, overage - 1)
+        await client.zremrangebyrank(self._tracker_key, 0, overage - 1)
 
         logger.debug(
             "LRU eviction: removed %s entries (max_entries=%s)", len(victims), self._max_entries
@@ -558,8 +583,9 @@ class RedisCache:
 
     async def get_entry_count(self) -> int:
         """Get the current number of tracked cache entries."""
-        self._ensure_connected()
-        return await self._client.zcard(self._tracker_key)
+        client = self._require_client()
+        result: int = await client.zcard(self._tracker_key)
+        return result
 
     async def get_memory_stats(self) -> dict[str, Any]:
         """Get cache memory statistics including entry count and limits.
@@ -567,10 +593,10 @@ class RedisCache:
         Returns:
             Dict with entry_count, max_entries, utilization, and memory info.
         """
-        self._ensure_connected()
+        client = self._require_client()
 
-        entry_count = await self._client.zcard(self._tracker_key)
-        info = await self._client.info("memory")
+        entry_count = await client.zcard(self._tracker_key)
+        info = await client.info("memory")
 
         return {
             "entry_count": entry_count,

@@ -336,6 +336,10 @@ class ControlPlaneHandler(
         if path == "/api/v1/coordination/fleet/status":
             return self._handle_fleet_status(query_params)
 
+        # /api/v1/coordination/active-work
+        if path == "/api/v1/coordination/active-work":
+            return self._handle_active_work(query_params)
+
         # /api/v1/coordination/fleet/logs
         if path == "/api/v1/coordination/fleet/logs":
             return self._handle_fleet_logs(query_params)

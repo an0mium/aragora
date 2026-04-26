@@ -17,6 +17,17 @@ The founder loop is proven repeatable: 5/5 consecutive live runs, 35-62s range, 
 
 The current objective is to **dogfood the second workflow** (inbox trust wedge) and **prepare for design partner outreach**.
 
+Related execution artifacts:
+
+- `docs/plans/INBOX_TRUST_WEDGE_ACTIVATION_PLAN.md`
+- `docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md`
+- `docs/examples/inbox-trust-wedge-activation-prompt-pack.yaml`
+- `docs/examples/inbox-trust-wedge-activation-sources.yaml`
+- `docs/examples/decision-quality-delta-benchmark-prompt-pack.yaml`
+- `docs/examples/decision-quality-delta-benchmark-sources.yaml`
+- `docs/templates/INBOX_TRUST_WEDGE_PROOF_PACK_TEMPLATE.md`
+- `docs/templates/DECISION_QUALITY_DELTA_BENCHMARK_REPORT_TEMPLATE.md`
+
 ## Founder Metrics Tree
 
 The founder scorecard should answer one question in decision order:

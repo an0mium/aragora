@@ -104,7 +104,7 @@ jobs:
           docker run --rm test-backend:latest python -c "import aragora; print('Aragora imported successfully')"
 
       - name: Run Trivy vulnerability scanner (backend)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: 'test-backend:latest'
           format: 'sarif'
@@ -203,7 +203,7 @@ jobs:
           docker build -f deploy/Dockerfile.frontend -t test-frontend:latest .
 
       - name: Run Trivy vulnerability scanner (frontend)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: 'test-frontend:latest'
           format: 'sarif'
@@ -302,7 +302,7 @@ jobs:
           docker build -f aragora-operator/Dockerfile -t test-operator:latest aragora-operator/
 
       - name: Run Trivy vulnerability scanner (operator)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: 'test-operator:latest'
           format: 'sarif'

@@ -138,6 +138,10 @@ k6 run tests/load/scenarios/stress-test.js
 k6 run tests/load/scenarios/websocket-streaming.js
 ```
 
+The k6 WebSocket scenarios default to the `aragora-v1` subprotocol, matching
+the debate stream server handshake. Override with `WS_SUBPROTOCOL` only when
+testing a different stream server contract.
+
 ## Environment Variables
 
 | Variable | Description | Default |
@@ -149,6 +153,7 @@ k6 run tests/load/scenarios/websocket-streaming.js
 | `ARAGORA_LOAD_TEST_ENABLED` | Enable expensive load tests | `0` |
 | `ARAGORA_TEST_AGENT` | Agent for debate tests | `echo` |
 | `ARAGORA_WS_URL` | WebSocket URL | `ws://localhost:8080/ws` |
+| `WS_SUBPROTOCOL` | k6 WebSocket subprotocol | `aragora-v1` |
 | `ARAGORA_CONCURRENT_WS` | Concurrent WebSocket connections | `50` |
 | `ARAGORA_AUTH_CONCURRENT` | Concurrent auth operations | `20` |
 | `ARAGORA_KM_CONCURRENT` | Concurrent KM operations | `20` |

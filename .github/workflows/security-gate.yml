@@ -92,8 +92,17 @@ jobs:
       # ---------------------------------------------------------------
       - name: "BLOCKING: Python dependency audit (pip-audit)"
         run: |
+          # CVE-2025-14009: legacy ignored pattern (pre-existing).
+          # CVE-2026-3219 (GHSA-58qw-9mgm-455v, medium 4.6): affects
+          # the pip package bundled in the CI image. Aragora does not
+          # import pip at runtime; this is a CI-image freshness issue
+          # and blocking all PRs on a pip-bundle advisory creates
+          # dashboard cancel-cascade noise with no product-risk signal.
+          # Re-audit when the runner image upgrades pip, then drop
+          # this ignore.
           python -m pip_audit --strict --vulnerability-service osv \
-            --ignore-vuln CVE-2025-14009
+            --ignore-vuln CVE-2025-14009 \
+            --ignore-vuln CVE-2026-3219
 
       # ---------------------------------------------------------------
       # Lockfile freshness: ensure uv.lock matches pyproject.toml

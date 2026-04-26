@@ -1,9 +1,27 @@
 /**
- * Tests for ThemeToggle component
+ * Tests for ThemeToggle component (3-way segmented control).
+ *
+ * The component renders a radiogroup with three radio buttons —
+ * Warm / Dark / Pro — each mapping to a Theme value:
+ * 'warm' | 'dark' | 'professional'.
+ *
+ * Contract:
+ *   - <div role="radiogroup" aria-label="Theme selector">
+ *   - Three <button role="radio" aria-checked={active}> children
+ *   - Click → setTheme(opt.value), persists to localStorage 'aragora-theme',
+ *     and sets data-theme on document.documentElement
+ *   - Uses text glyphs (no SVG icons)
  */
 
-import { renderWithProviders, screen, fireEvent, act } from '@/test-utils';
+import {
+  renderWithProviders,
+  screen,
+  fireEvent,
+  act,
+} from '@/test-utils';
 import { ThemeToggle } from '../src/components/ThemeToggle';
+
+const STORAGE_KEY = 'aragora-theme';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -41,188 +59,172 @@ const mockMatchMedia = (matches: boolean) => {
   });
 };
 
-describe('ThemeToggle', () => {
+const flush = async () => {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+};
+
+describe('ThemeToggle (3-way segmented control)', () => {
   beforeEach(() => {
     localStorageMock.clear();
-    document.body.removeAttribute('data-theme');
-    mockMatchMedia(true); // Default to preferring dark mode
+    document.documentElement.removeAttribute('data-theme');
+    mockMatchMedia(true); // system prefers dark
   });
 
-  describe('Initial State', () => {
-    it('renders without crashing', () => {
+  describe('Structure', () => {
+    it('renders a radiogroup with three radio buttons', async () => {
       renderWithProviders(<ThemeToggle />);
-      expect(screen.getByRole('button')).toBeInTheDocument();
+      await flush();
+
+      const group = screen.getByRole('radiogroup', { name: /theme/i });
+      expect(group).toBeInTheDocument();
+
+      const radios = screen.getAllByRole('radio');
+      expect(radios).toHaveLength(3);
     });
 
-    it('has aria-label for accessibility', async () => {
+    it('labels each radio Warm, Dark, and Pro', async () => {
       renderWithProviders(<ThemeToggle />);
+      await flush();
 
-      // Wait for mount
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      const button = screen.getByRole('button');
-      expect(button).toHaveAttribute('aria-label');
-    });
-  });
-
-  describe('Theme Persistence', () => {
-    it('loads dark theme from localStorage', async () => {
-      localStorageMock.setItem('aragora-theme', 'dark');
-      renderWithProviders(<ThemeToggle />);
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      expect(screen.getByRole('button')).toHaveAttribute(
-        'aria-label',
-        'Switch to light mode'
-      );
+      expect(screen.getByRole('radio', { name: /warm/i })).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /dark/i })).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /pro/i })).toBeInTheDocument();
     });
 
-    it('loads light theme from localStorage', async () => {
-      localStorageMock.setItem('aragora-theme', 'light');
+    it('has an aria-label on the radiogroup for accessibility', async () => {
       renderWithProviders(<ThemeToggle />);
+      await flush();
 
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      expect(screen.getByRole('button')).toHaveAttribute(
-        'aria-label',
-        'Switch to dark mode'
-      );
-    });
-
-    it('saves theme to localStorage on toggle', async () => {
-      renderWithProviders(<ThemeToggle />);
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      fireEvent.click(screen.getByRole('button'));
-
-      expect(localStorageMock.getItem('aragora-theme')).toBe('warm');
+      const group = screen.getByRole('radiogroup');
+      expect(group).toHaveAttribute('aria-label', 'Theme selector');
     });
   });
 
-  describe('System Preference', () => {
-    it('uses dark theme when system prefers dark', async () => {
-      mockMatchMedia(true);
+  describe('Selected state', () => {
+    it('marks the dark radio aria-checked when theme is dark', async () => {
+      localStorageMock.setItem(STORAGE_KEY, 'dark');
       renderWithProviders(<ThemeToggle />);
+      await flush();
 
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
+      const darkRadio = screen.getByRole('radio', { name: /dark/i });
+      expect(darkRadio).toHaveAttribute('aria-checked', 'true');
 
-      expect(screen.getByRole('button')).toHaveAttribute(
-        'aria-label',
-        'Switch to light mode'
-      );
+      const warmRadio = screen.getByRole('radio', { name: /warm/i });
+      expect(warmRadio).toHaveAttribute('aria-checked', 'false');
     });
 
-    it('uses light theme when system prefers light', async () => {
-      mockMatchMedia(false);
-      // renderWithProviders uses defaultPreference="dark", so system preference
-      // does not override the explicit dark preference. The effective theme stays dark.
+    it('marks the warm radio aria-checked when theme is warm', async () => {
+      localStorageMock.setItem(STORAGE_KEY, 'warm');
       renderWithProviders(<ThemeToggle />);
+      await flush();
 
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
+      const warmRadio = screen.getByRole('radio', { name: /warm/i });
+      expect(warmRadio).toHaveAttribute('aria-checked', 'true');
 
-      expect(screen.getByRole('button')).toHaveAttribute(
-        'aria-label',
-        'Switch to light mode'
-      );
+      const darkRadio = screen.getByRole('radio', { name: /dark/i });
+      expect(darkRadio).toHaveAttribute('aria-checked', 'false');
+    });
+
+    it('marks the pro radio aria-checked when theme is professional', async () => {
+      localStorageMock.setItem(STORAGE_KEY, 'professional');
+      renderWithProviders(<ThemeToggle />);
+      await flush();
+
+      const proRadio = screen.getByRole('radio', { name: /pro/i });
+      expect(proRadio).toHaveAttribute('aria-checked', 'true');
     });
   });
 
-  describe('Toggle Behavior', () => {
-    it('toggles from dark to light', async () => {
+  describe('Click behavior', () => {
+    it('clicking Warm persists "warm" to localStorage and sets data-theme', async () => {
+      localStorageMock.setItem(STORAGE_KEY, 'dark');
       renderWithProviders(<ThemeToggle />);
+      await flush();
 
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
+      fireEvent.click(screen.getByRole('radio', { name: /warm/i }));
 
-      const button = screen.getByRole('button');
-      expect(button).toHaveAttribute('aria-label', 'Switch to light mode');
-
-      fireEvent.click(button);
-
-      expect(button).toHaveAttribute('aria-label', 'Switch to dark mode');
-    });
-
-    it('toggles from light to dark', async () => {
-      localStorageMock.setItem('aragora-theme', 'light');
-      renderWithProviders(<ThemeToggle />);
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      const button = screen.getByRole('button');
-      expect(button).toHaveAttribute('aria-label', 'Switch to dark mode');
-
-      fireEvent.click(button);
-
-      expect(button).toHaveAttribute('aria-label', 'Switch to light mode');
-    });
-
-    it('sets data-theme attribute on the document element for warm mode', async () => {
-      renderWithProviders(<ThemeToggle />);
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      fireEvent.click(screen.getByRole('button'));
-
+      expect(localStorageMock.getItem(STORAGE_KEY)).toBe('warm');
       expect(document.documentElement.getAttribute('data-theme')).toBe('warm');
     });
 
-    it('sets data-theme attribute on the document element for dark mode', async () => {
-      localStorageMock.setItem('aragora-theme', 'light');
-      document.documentElement.setAttribute('data-theme', 'warm');
-
+    it('clicking Dark persists "dark" to localStorage and sets data-theme', async () => {
+      localStorageMock.setItem(STORAGE_KEY, 'warm');
       renderWithProviders(<ThemeToggle />);
+      await flush();
 
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
+      fireEvent.click(screen.getByRole('radio', { name: /dark/i }));
 
-      fireEvent.click(screen.getByRole('button'));
-
+      expect(localStorageMock.getItem(STORAGE_KEY)).toBe('dark');
       expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    });
+
+    it('clicking Pro persists "professional" to localStorage and sets data-theme', async () => {
+      localStorageMock.setItem(STORAGE_KEY, 'warm');
+      renderWithProviders(<ThemeToggle />);
+      await flush();
+
+      fireEvent.click(screen.getByRole('radio', { name: /pro/i }));
+
+      expect(localStorageMock.getItem(STORAGE_KEY)).toBe('professional');
+      expect(document.documentElement.getAttribute('data-theme')).toBe(
+        'professional',
+      );
+    });
+
+    it('updates aria-checked when switching between radios', async () => {
+      localStorageMock.setItem(STORAGE_KEY, 'warm');
+      renderWithProviders(<ThemeToggle />);
+      await flush();
+
+      const warmRadio = screen.getByRole('radio', { name: /warm/i });
+      const darkRadio = screen.getByRole('radio', { name: /dark/i });
+
+      expect(warmRadio).toHaveAttribute('aria-checked', 'true');
+      expect(darkRadio).toHaveAttribute('aria-checked', 'false');
+
+      fireEvent.click(darkRadio);
+
+      expect(warmRadio).toHaveAttribute('aria-checked', 'false');
+      expect(darkRadio).toHaveAttribute('aria-checked', 'true');
     });
   });
 
-  describe('Icons', () => {
-    it('shows sun icon in dark mode (to switch to light)', async () => {
+  describe('Persistence on reload', () => {
+    it('loads dark theme from localStorage on mount', async () => {
+      localStorageMock.setItem(STORAGE_KEY, 'dark');
       renderWithProviders(<ThemeToggle />);
+      await flush();
 
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      const svg = document.querySelector('svg');
-      expect(svg).toBeInTheDocument();
+      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+      expect(
+        screen.getByRole('radio', { name: /dark/i }),
+      ).toHaveAttribute('aria-checked', 'true');
     });
 
-    it('shows moon icon in light mode (to switch to dark)', async () => {
-      localStorageMock.setItem('aragora-theme', 'light');
+    it('loads professional theme from localStorage on mount', async () => {
+      localStorageMock.setItem(STORAGE_KEY, 'professional');
       renderWithProviders(<ThemeToggle />);
+      await flush();
 
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
+      expect(document.documentElement.getAttribute('data-theme')).toBe(
+        'professional',
+      );
+      expect(
+        screen.getByRole('radio', { name: /pro/i }),
+      ).toHaveAttribute('aria-checked', 'true');
+    });
+  });
 
+  describe('Rendering', () => {
+    it('uses text glyphs (aria-hidden) rather than SVG icons', async () => {
+      renderWithProviders(<ThemeToggle />);
+      await flush();
+
+      // The 3-way selector is text-only — no SVG elements.
       const svg = document.querySelector('svg');
-      expect(svg).toBeInTheDocument();
+      expect(svg).toBeNull();
     });
   });
 });

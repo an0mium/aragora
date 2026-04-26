@@ -293,6 +293,23 @@ register_cache("inbox_priority", _priority_results._cache)
 class InboxCommandHandler(InboxActionsMixin, InboxServicesMixin):
     """Handler for inbox command center API endpoints."""
 
+    ROUTES = [
+        "/api/v1/inbox/command",
+        "/api/v1/inbox/actions",
+        "/api/v1/inbox/bulk-actions",
+        "/api/v1/inbox/sender-profile",
+        "/api/v1/inbox/daily-digest",
+        "/api/v1/inbox/reprioritize",
+    ]
+    _ROUTE_MAP = {
+        "GET /api/v1/inbox/command": "handle_get_inbox",
+        "POST /api/v1/inbox/actions": "handle_quick_action",
+        "POST /api/v1/inbox/bulk-actions": "handle_bulk_action",
+        "GET /api/v1/inbox/sender-profile": "handle_get_sender_profile",
+        "GET /api/v1/inbox/daily-digest": "handle_get_daily_digest",
+        "POST /api/v1/inbox/reprioritize": "handle_reprioritize",
+    }
+
     gmail_connector: GmailConnector | None = None
     prioritizer: EmailPrioritizer | None = None
     sender_history: SenderHistoryService | None = None

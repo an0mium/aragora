@@ -30,7 +30,7 @@ class UsageEventType(Enum):
     AGENT_CALL = "agent_call"
 
 
-# Provider pricing per 1M tokens (as of Feb 2026)
+# Provider pricing per 1M tokens.
 PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
     "anthropic": {
         "claude-opus-4.7": Decimal("5.00"),  # Input
@@ -63,6 +63,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "gemini-pro-output": Decimal("5.00"),
     },
     "deepseek": {
+        "deepseek-v4-pro": Decimal("1.74"),
+        "deepseek-v4-pro-output": Decimal("3.48"),
         "deepseek-v3.2": Decimal("0.28"),
         "deepseek-v3.2-output": Decimal("0.42"),
         "deepseek-v3": Decimal("0.28"),

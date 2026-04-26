@@ -29,6 +29,24 @@ def reset_admin_rate_limiter():
     _admin_limiter._buckets.clear()
 
 
+@pytest.fixture(autouse=True)
+def reset_health_probe_cache():
+    """Keep health probe cache state local to each admin-handler test.
+
+    `/readyz` uses a process-global 5-second cache. Admin health tests
+    intentionally seed both ready and not-ready entries to assert caching
+    behavior, so the cache must be cleared after the test that seeded it, not
+    only before the next test in the same module.
+    """
+    from aragora.server.handlers.admin.health import _HEALTH_CACHE, _HEALTH_CACHE_TIMESTAMPS
+
+    _HEALTH_CACHE.clear()
+    _HEALTH_CACHE_TIMESTAMPS.clear()
+    yield
+    _HEALTH_CACHE.clear()
+    _HEALTH_CACHE_TIMESTAMPS.clear()
+
+
 @pytest.fixture
 def admin_context_builder():
     """Build common server context dictionaries for admin handler tests."""

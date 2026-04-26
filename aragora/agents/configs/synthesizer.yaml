@@ -2,8 +2,9 @@
 # Specialized for aggregating and summarizing findings
 
 name: synthesizer
-model_type: anthropic-api
-model: claude-3-5-sonnet-20241022
+# OpenRouter-first so a missing Anthropic key never blocks debates.
+model_type: openrouter
+model: anthropic/claude-opus-4.7
 
 role: synthesizer
 stance: neutral

@@ -1,0 +1,111 @@
+name: Metrics Drift
+
+# Validates docs/METRICS.md against ground truth. The script
+# scripts/regenerate_metrics.py recounts every canonical metric
+# (tests, LOC, OpenAPI paths, adapters, etc.) and fails if any value
+# drifts more than 0.5% from the committed doc.
+#
+# Thesis alignment (Commitment 4: respect the limits): public numeric
+# claims must remain honest as the codebase grows. Silent staleness
+# is a failure mode.
+#
+# Triggers:
+#   - PR: when the script, the doc, or any counted surface changes.
+#   - Weekly (Monday 05:00 UTC): catch drift introduced by changes
+#     that didn't touch the script but did change counted surfaces
+#     (new tests, new routes, new adapters, etc.).
+#   - Manual: workflow_dispatch.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/**'
+      - 'sdk/python/aragora_sdk/**'
+      - 'sdk/typescript/src/**'
+      - 'docs/api/openapi.json'
+      - 'docs/METRICS.md'
+      - 'scripts/regenerate_metrics.py'
+      - '.mypy-baseline'
+      - '.github/workflows/metrics-drift.yml'
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: metrics-drift-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ripgrep
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep
+
+      - name: Verify drift
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Snapshot the committed doc into a backup BEFORE any regeneration
+          # so the post-check diff is unambiguous: committed-doc vs what-live-
+          # numbers-would-produce. Without this snapshot, a reviewer cannot
+          # tell whether the diff was between two regenerations or between
+          # the committed state and current truth.
+          cp docs/METRICS.md /tmp/metrics-committed.md
+
+          if ! python3 scripts/regenerate_metrics.py --check; then
+            echo "::error::docs/METRICS.md is stale. Run 'python3 scripts/regenerate_metrics.py' locally and commit the updated doc."
+            echo ""
+            echo "=== DIFF: committed doc vs current ground truth ==="
+            # Regenerate into a temp file without touching the tracked file,
+            # then diff the two explicit artifacts.
+            python3 scripts/regenerate_metrics.py --json > /tmp/metrics-live.json
+            python3 scripts/regenerate_metrics.py
+            diff -u /tmp/metrics-committed.md docs/METRICS.md | head -200 || true
+            # Restore the committed doc so downstream steps see the original.
+            cp /tmp/metrics-committed.md docs/METRICS.md
+            exit 1
+          fi
+
+      - name: Emit summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              echo "## Metrics Drift Check"
+              echo ""
+              if [ "${{ job.status }}" = "success" ]; then
+                echo "- Status: passed (no metric drifted more than 0.5%)"
+              else
+                echo "- Status: failed — \`docs/METRICS.md\` is stale"
+                echo ""
+                echo "Run locally:"
+                echo ""
+                echo '```sh'
+                echo 'python3 scripts/regenerate_metrics.py'
+                echo 'git add docs/METRICS.md'
+                echo 'git commit -m "chore(docs): refresh METRICS.md"'
+                echo '```'
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -8,6 +8,8 @@ from aragora.swarm.session_state import (
     SessionState,
     SessionStateStore,
     classify_session_blocker,
+    load_resume_context_for_issue,
+    summarize_session_blocker,
 )
 from aragora.swarm.supervisor_workers import _record_session_state
 
@@ -433,3 +435,231 @@ def test_classify_session_blocker_defaults_to_test_failure() -> None:
 
     assert result["blocker_type"] == "test_failure"
     assert "AssertionError" in result["evidence"]
+
+
+def test_session_state_record_attempt_builds_resume_payload() -> None:
+    state = SessionState(session_id="issue-8101", issue_number=8101)
+
+    state.record_attempt(
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=[
+            "aragora/swarm/boss_loop.py",
+            "aragora/swarm/boss_loop.py",
+            "tests/swarm/test_boss_loop.py",
+        ],
+        target_agent="codex",
+        runner_type="codex",
+        branch_name="codex/session2-boss-loop-state",
+        resume_hint="pytest -q tests/swarm/test_boss_loop.py failed",
+        metadata={
+            "failure_reason": "pytest -q tests/swarm/test_boss_loop.py failed",
+            "failing_verification": {
+                "command": "pytest -q tests/swarm/test_boss_loop.py",
+                "exit_code": 1,
+                "stderr_tail": "assert False",
+            },
+        },
+    )
+
+    context = state.resume_payload()
+
+    assert state.retry_count == 1
+    assert state.status == "needs_human"
+    assert context["resume_hint"] == "pytest -q tests/swarm/test_boss_loop.py failed"
+    assert context["target_agent"] == "codex"
+    assert context["repair_journal"][0]["changed_paths"] == [
+        "aragora/swarm/boss_loop.py",
+        "tests/swarm/test_boss_loop.py",
+    ]
+    assert context["last_attempt"]["failing_verification"]["command"] == (
+        "pytest -q tests/swarm/test_boss_loop.py"
+    )
+
+
+def test_session_state_store_latest_for_issue_returns_newest(tmp_path: Path) -> None:
+    store = SessionStateStore(state_dir=tmp_path)
+    older = SessionState(
+        session_id="older-issue",
+        issue_number=8102,
+        updated_at=_dt("2026-04-13T08:00:00+00:00"),
+    )
+    newer = SessionState(
+        session_id="newer-issue",
+        issue_number=8102,
+        updated_at=_dt("2026-04-13T09:00:00+00:00"),
+    )
+
+    store.save(older)
+    store.save(newer)
+
+    latest = store.latest_for_issue(8102)
+
+    assert latest is not None
+    assert latest.session_id == "newer-issue"
+
+
+def test_session_state_store_latest_for_issue_filters_by_repo_slug(tmp_path: Path) -> None:
+    store = SessionStateStore(state_dir=tmp_path)
+    current_repo = SessionState(
+        session_id="current-repo-issue",
+        issue_number=8102,
+        updated_at=_dt("2026-04-13T08:00:00+00:00"),
+        metadata={"repo_slug": "synaptent/aragora"},
+    )
+    other_repo = SessionState(
+        session_id="other-repo-issue",
+        issue_number=8102,
+        updated_at=_dt("2026-04-13T09:00:00+00:00"),
+        metadata={"repo_slug": "other/repo"},
+    )
+
+    store.save(current_repo)
+    store.save(other_repo)
+
+    latest = store.latest_for_issue(8102, repo_slug="synaptent/aragora")
+
+    assert latest is not None
+    assert latest.session_id == "current-repo-issue"
+
+
+def test_session_state_store_record_attempt_reuses_latest_issue_session(tmp_path: Path) -> None:
+    store = SessionStateStore(state_dir=tmp_path)
+    existing = SessionState(session_id="issue-8103", issue_number=8103, retry_count=1)
+    store.save(existing)
+
+    updated = store.record_attempt(
+        issue_number=8103,
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=["aragora/swarm/boss_loop.py"],
+        target_agent="codex",
+        runner_type="codex",
+        resume_hint="verification failed",
+        metadata={"failure_reason": "verification failed"},
+    )
+    reloaded = store.load("issue-8103")
+
+    assert updated.session_id == "issue-8103"
+    assert reloaded is not None
+    assert reloaded.retry_count == 2
+    assert reloaded.attempts[-1]["exit_code"] == 1
+    assert reloaded.attempts[-1]["changed_paths"] == ["aragora/swarm/boss_loop.py"]
+
+
+def test_session_state_store_record_attempt_does_not_cross_repo_slug(tmp_path: Path) -> None:
+    store = SessionStateStore(state_dir=tmp_path)
+    other_repo_state = SessionState(
+        session_id="issue-other-repo-8103",
+        issue_number=8103,
+        retry_count=1,
+        metadata={"repo_slug": "other/repo"},
+    )
+    store.save(other_repo_state)
+
+    updated = store.record_attempt(
+        issue_number=8103,
+        repo_slug="synaptent/aragora",
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=["aragora/swarm/boss_loop.py"],
+        target_agent="codex",
+        runner_type="codex",
+        resume_hint="verification failed",
+        metadata={"failure_reason": "verification failed"},
+    )
+
+    assert updated.session_id == "issue-synaptent-aragora-8103"
+    assert updated.metadata["repo_slug"] == "synaptent/aragora"
+    reloaded_other = store.load("issue-other-repo-8103")
+    assert reloaded_other is not None
+    assert reloaded_other.retry_count == 1
+
+
+def test_load_resume_context_for_issue_filters_by_repo_slug(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    store = SessionStateStore()
+    store.record_attempt(
+        issue_number=1734,
+        repo_slug="synaptent/aragora",
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=["aragora/swarm/session_state.py"],
+        resume_hint="current repo hint",
+        metadata={"failure_reason": "current repo failure"},
+    )
+    store.record_attempt(
+        issue_number=1734,
+        repo_slug="other/repo",
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=["other/repo.py"],
+        resume_hint="other repo hint",
+        metadata={"failure_reason": "other repo failure"},
+    )
+
+    resume_context = load_resume_context_for_issue(1734, repo_slug="synaptent/aragora")
+
+    assert "current repo hint" in resume_context
+    assert "other repo hint" not in resume_context
+
+
+def test_summarize_session_blocker_prefers_failing_verification_summary() -> None:
+    state = SessionState(
+        session_id="issue-8104",
+        issue_number=8104,
+        retry_count=2,
+        attempts=[
+            {
+                "at": "2026-04-13T10:00:00+00:00",
+                "worker_outcome": "blocked",
+                "exit_code": 1,
+                "failure_reason": "pytest failed",
+                "failing_verification": {
+                    "command": "pytest -q tests/swarm/test_boss_loop.py",
+                    "exit_code": 1,
+                },
+            }
+        ],
+    )
+
+    summary = summarize_session_blocker(state)
+
+    assert summary == (
+        "Issue #8104 exhausted retries; last blocker was failing verification "
+        "`pytest -q tests/swarm/test_boss_loop.py` (exit 1)."
+    )
+
+
+def test_summarize_session_blocker_reports_no_committed_changes() -> None:
+    state = SessionState(
+        session_id="issue-8105",
+        issue_number=8105,
+        retry_count=2,
+        resume_hint="Worker exited cleanly with no deliverable",
+        attempts=[
+            {
+                "at": "2026-04-13T10:30:00+00:00",
+                "worker_outcome": "clean_exit_no_deliverable",
+                "exit_code": 0,
+                "failure_reason": "Worker exited cleanly with no deliverable",
+                "changed_paths": [],
+            }
+        ],
+    )
+
+    summary = summarize_session_blocker(state)
+
+    assert summary == (
+        "Issue #8105 exhausted retries; last attempt made no committed file changes: "
+        "Worker exited cleanly with no deliverable."
+    )

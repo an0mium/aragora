@@ -5,9 +5,10 @@ description: Aragora Evolution Roadmap
 
 # Aragora Evolution Roadmap
 
-> **Last updated:** 2026-04-16
+> **Last updated:** 2026-04-19
 > **Current transition:** early `Teammate` -> reliable `Foreman`
 > **Planning rule:** preserve the maximalist vision; sequence through a narrow reliability wedge first.
+> **Concrete execution overlay:** [2026-04-18 3-Horizon Execution Roadmap](2026-04-18-3-horizon-roadmap.md) operationalizes this doc's outcome map into bounded 30/90/365-day deliverables.
 
 ## Executive Thesis
 
@@ -118,6 +119,15 @@ This track makes runtime truth inspectable and operable.
 - unify host, runner, lane, publication, and merge-readiness state into one operator model
 - expose pause, resume, retry, salvage, and quarantine operations against live state
 - make the status surface match reality even when the system is degraded
+
+#### B3a. PR Intelligence Brief Surface
+
+- turn the review queue into a receipt-backed settlement brief rather than a comment bot
+- use heterogeneous review to surface disagreement, not just a single model verdict
+- optimize for skim-first human settlement with drill-down on dissent, evidence, and risky files
+- keep machine review advisory and preserve the human settlement gate on merge
+
+Design brief: [2026-04-19 PR Intelligence Brief](2026-04-19-pr-intelligence-brief.md).
 
 #### B4. Multi-Host Soak and Unattended Criteria
 
@@ -300,6 +310,28 @@ This track converts technical proof into market proof.
 - publish truthful proof packs and before/after benchmarks
 - package the strongest repeatable wedges before expanding the story further
 
+#### F5. EU AI Act Packaging (Aug 2, 2026 Enforcement Window)
+
+- package existing compliance artifacts (decision receipts, policy gates, dissent capture, provenance) into a sellable bundle for general-purpose AI model obligations
+- avoid building new enforcement code in the 30-day horizon; market what exists in H1, finalize the packaging in H2, engage at least one regulated design partner before the enforcement deadline
+- treat EU AI Act coverage as an evidence repackaging effort, not a compliance product rebuild
+- defer Annex IV full conformity engineering until a specific regulated customer commits
+
+#### F6. Heterogeneous Agent Marketplace (Parity Proof First)
+
+- prove parity across at least four providers running the full golden path before expanding the marketplace surface: Claude (Anthropic), Codex/GPT (OpenAI), Gemini (Google), Grok (xAI) or one OpenRouter model
+- stage external frameworks for H3 onboarding: OpenClaw, Nous Hermes, Pi Agent, Anthropic Agent Framework, LangGraph, AutoGen, CrewAI
+- enforce one `AgentContract` interface; non-conforming agents remain experimental and do not touch production substrate
+- expose the marketplace as opt-in per workspace — users choose their preferred mix rather than inheriting one vendor's stack
+- keep no single agent vendor as a critical dependency; fallback and rotation are first-class
+
+#### F7. SMB Operating-System Packaging
+
+- decouple `aragora-core` (founder-installable, ≤10min onboarding) from `aragora-enterprise` (Postgres/Redis/Kafka/SSO/compliance) as separate distribution targets
+- ship a founder-tier quickstart that runs a real workflow on a single machine or lightweight host
+- treat enterprise features as additive, not subtractive — SMB users should never see capabilities hidden behind enterprise licensing for the core decision-integrity loop
+- position the product as an operating system for SMBs, not a feature-reduced enterprise tool
+
 ## Cross-Track Rules
 
 - The same contract path should power worker launch, preflight, repair, publish, and GUI state.
@@ -341,5 +373,7 @@ Cross-functional idea-to-execution work lives on one DAG with permissioned memor
 
 - [ROADMAP.md](./roadmap) is the short external/internal doorway.
 - [CANONICAL_GOALS.md](./canonical-goals) defines the product boundary.
+- [2026-04-18 3-Horizon Execution Roadmap](2026-04-18-3-horizon-roadmap.md) operationalizes this doc into concrete 30/90/365-day deliverables. That doc is the authoritative source for H1/H2/H3 sprint scope.
 - [NEXT_STEPS_CANONICAL.md](./next-steps-canonical) defines the current tranche.
 - [ACTIVE_EXECUTION_ISSUES.md](./active-execution-issues) holds the epic/milestone/execution tree.
+- [EPISTEMIC_CI_AND_CRUX_ENGINE.md](EPISTEMIC_CI_AND_CRUX_ENGINE.md) specifies DIC-13..28 including the Dialectical Runtime synthesis layer (DIC-23..28) staged for H3 behind H2 production-green gates.

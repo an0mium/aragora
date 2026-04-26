@@ -651,6 +651,24 @@ class TestTypedHandlerRequirePermission:
             assert err is None
 
     @pytest.mark.no_auto_auth
+    @pytest.mark.parametrize(
+        ("granted_permission", "required_permission"),
+        [
+            ("knowledge:read", "knowledge.read"),
+            ("knowledge.read", "knowledge:read"),
+        ],
+    )
+    def test_permission_alias_format_is_accepted(
+        self, typed_handler, granted_permission, required_permission
+    ):
+        ctx = _make_auth_user(role="member", roles=[], permissions=[granted_permission])
+        http = _make_mock_http_handler()
+        with patch.object(typed_handler, "require_auth_or_error", return_value=(ctx, None)):
+            user, err = typed_handler.require_permission_or_error(http, required_permission)
+            assert err is None
+            assert user is ctx
+
+    @pytest.mark.no_auto_auth
     def test_permission_denied(self, typed_handler):
         ctx = _make_auth_user(role="member", roles=[], permissions=[])
         http = _make_mock_http_handler()

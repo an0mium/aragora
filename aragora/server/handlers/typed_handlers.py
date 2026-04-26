@@ -105,7 +105,8 @@ class TypedHandler(BaseHandler):
         import json
 
         try:
-            content_length = int(handler.headers.get("Content-Length", "0"))
+            content_length_raw = handler.headers.get("Content-Length", "0") or "0"
+            content_length = int(content_length_raw)
             if max_size and content_length > max_size:
                 return None
             if content_length == 0:
@@ -281,8 +282,10 @@ class TypedHandler(BaseHandler):
             or (None, HandlerResult) with 401/403 error if not
         """
         user, err = self.require_auth_or_error(handler)
-        if err:
+        if err is not None:
             return None, err
+        if user is None:
+            raise RuntimeError("authenticated user missing after auth check")
 
         # Check for admin role or permission
         roles = getattr(user, "roles", []) or []
@@ -309,8 +312,10 @@ class TypedHandler(BaseHandler):
             or (None, HandlerResult) with 401/403 error if not
         """
         user, err = self.require_auth_or_error(handler)
-        if err:
+        if err is not None:
             return None, err
+        if user is None:
+            raise RuntimeError("authenticated user missing after auth check")
 
         # Check permission using role and permissions
         roles = getattr(user, "roles", []) or []
@@ -325,9 +330,27 @@ class TypedHandler(BaseHandler):
         if "owner" in roles or role == "owner":
             return user, None
 
-        # Check specific permission
-        if permission in permissions:
+        permission_set = set(permissions)
+
+        # Check specific permission or wildcard
+        if permission in permission_set or "*" in permission_set:
             return user, None
+
+        # Accept equivalent dot/colon aliases for the same RBAC permission.
+        try:
+            from aragora.rbac.defaults import get_permission
+
+            required_permission = get_permission(permission)
+            if required_permission is not None:
+                for granted_permission in permission_set:
+                    resolved_permission = get_permission(granted_permission)
+                    if (
+                        resolved_permission is not None
+                        and resolved_permission.id == required_permission.id
+                    ):
+                        return user, None
+        except ImportError:
+            pass
 
         # Check using PERMISSION_MATRIX from decorators
         try:
@@ -397,9 +420,11 @@ class AuthenticatedHandler(TypedHandler):
                 # Use user.user_id, user.email, etc.
         """
         user, err = self.require_auth_or_error(handler)
-        if err:
+        if err is not None:
             self._current_user = None
             return None, err
+        if user is None:
+            raise RuntimeError("authenticated user missing after auth check")
         self._current_user = user
         return user, None
 
@@ -417,9 +442,11 @@ class AuthenticatedHandler(TypedHandler):
             or (None, error_response) if not authenticated or not admin
         """
         user, err = self.require_admin_or_error(handler)
-        if err:
+        if err is not None:
             self._current_user = None
             return None, err
+        if user is None:
+            raise RuntimeError("authenticated user missing after admin check")
         self._current_user = user
         return user, None
 
@@ -477,8 +504,10 @@ class PermissionHandler(AuthenticatedHandler):
         """
         # First ensure authentication
         user, err = self._ensure_authenticated(handler)
-        if err:
+        if err is not None:
             return None, err
+        if user is None:
+            raise RuntimeError("authenticated user missing after auth check")
 
         # Determine the required permission
         if method is None:
@@ -491,8 +520,10 @@ class PermissionHandler(AuthenticatedHandler):
 
         # Check the permission
         user_with_perm, perm_err = self.require_permission_or_error(handler, permission)
-        if perm_err:
+        if perm_err is not None:
             return None, perm_err
+        if user_with_perm is None:
+            raise RuntimeError("authenticated user missing after permission check")
 
         return user_with_perm, None
 
@@ -560,7 +591,7 @@ class AdminHandler(AuthenticatedHandler):
             return
 
         user = self.current_user
-        user_id = user.user_id if user else "unknown"
+        user_id = user.user_id if user is not None and user.user_id is not None else "unknown"
 
         logger.info(
             "Admin action: user=%s action=%s resource=%s details=%s",

@@ -265,20 +265,27 @@ CREATE TABLE IF NOT EXISTS integrations (
     sync_status TEXT
 );
 
+-- Must stay in sync with PostgresWebhookConfigStore.INITIAL_SCHEMA
+-- in aragora/storage/webhook_config_store.py. When the store's initialize()
+-- runs CREATE TABLE IF NOT EXISTS + CREATE INDEX ON webhook_configs(user_id),
+-- the CREATE INDEX fails with UndefinedColumnError if the CREATE TABLE is a
+-- noop against an older, drifted shape of this table.
 CREATE TABLE IF NOT EXISTS webhook_configs (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
     url TEXT NOT NULL,
-    events JSONB DEFAULT '[]',
-    secret TEXT,
-    headers JSONB DEFAULT '{}',
-    is_active BOOLEAN DEFAULT TRUE,
-    org_id TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    events_json JSONB NOT NULL,
+    secret TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    name TEXT,
+    description TEXT,
+    last_delivery_at TIMESTAMPTZ,
+    last_delivery_status INTEGER,
+    delivery_count INTEGER DEFAULT 0,
     failure_count INTEGER DEFAULT 0,
-    last_failure_at TIMESTAMPTZ,
-    last_success_at TIMESTAMPTZ
+    user_id TEXT,
+    workspace_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS webhook_deliveries (
@@ -309,7 +316,11 @@ CREATE TABLE IF NOT EXISTS gmail_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_integrations_org ON integrations(org_id);
 CREATE INDEX IF NOT EXISTS idx_integrations_type ON integrations(type);
-CREATE INDEX IF NOT EXISTS idx_webhook_configs_org ON webhook_configs(org_id);
+-- Indexes on webhook_configs must match
+-- PostgresWebhookConfigStore.INITIAL_SCHEMA (see aragora/storage/webhook_config_store.py).
+CREATE INDEX IF NOT EXISTS idx_webhook_configs_user ON webhook_configs(user_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_configs_workspace ON webhook_configs(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_configs_active ON webhook_configs(active);
 CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_status ON webhook_deliveries(status);
 
 -- ============================================================================

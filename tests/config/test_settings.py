@@ -498,12 +498,20 @@ class TestFeatureSettings:
         with patch.dict(os.environ, _clean_env(), clear=True):
             s = FeatureSettings()
         assert s.standard_debates is True
+        assert s.agent_bridge is False
         assert s.cli_agents is False  # deprecated
+
+    def test_agent_bridge_env_override(self):
+        env = {**_clean_env(), "ARAGORA_FEATURE_AGENT_BRIDGE": "true"}
+        with patch.dict(os.environ, env, clear=True):
+            s = FeatureSettings()
+        assert s.agent_bridge is True
 
     def test_is_enabled(self):
         with patch.dict(os.environ, _clean_env(), clear=True):
             s = FeatureSettings()
         assert s.is_enabled("standard_debates") is True
+        assert s.is_enabled("agent_bridge") is False
         assert s.is_enabled("cli_agents") is False
         assert s.is_enabled("nonexistent-feature") is False
 

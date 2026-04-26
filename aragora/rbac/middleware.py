@@ -214,6 +214,24 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)/run$", "POST", "debates.run", 1),
     RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)/stop$", "POST", "debates.stop", 1),
     RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)/fork$", "POST", "debates.fork", 1),
+    # Settlements
+    RoutePermission(r"^/api/(?:v1/)?settlements?$", "GET", "settlements:read"),
+    RoutePermission(r"^/api/(?:v1/)?settlements/history$", "GET", "settlements:read"),
+    RoutePermission(r"^/api/(?:v1/)?settlements/summary$", "GET", "settlements:read"),
+    RoutePermission(
+        r"^/api/(?:v1/)?settlements/agent/([^/]+)/accuracy$",
+        "GET",
+        "settlements:read",
+        1,
+    ),
+    RoutePermission(r"^/api/(?:v1/)?settlements/([^/]+)$", "GET", "settlements:read", 1),
+    RoutePermission(
+        r"^/api/(?:v1/)?settlements/([^/]+)/settle$",
+        "POST",
+        "settlements:write",
+        1,
+    ),
+    RoutePermission(r"^/api/(?:v1/)?settlements/batch$", "POST", "settlements:write"),
     # Interrogation
     RoutePermission(r"^/api/(?:v1/)?interrogation/start$", "POST", "debates.create"),
     RoutePermission(r"^/api/(?:v1/)?interrogation/answer$", "POST", "debates.create"),

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import subprocess
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -22,6 +23,8 @@ from aragora.coordination.cross_workspace import (
     SharingScope,
 )
 from aragora.server.handlers.control_plane import ControlPlaneHandler
+from aragora.swarm.agent_bridge.store import BridgeStore
+from aragora.swarm.agent_bridge.types import BridgeRun, Participant
 from aragora.worktree.integration_worker import FleetIntegrationOutcome
 
 
@@ -479,6 +482,88 @@ class TestFleetStatus:
         data = json.loads(result.body)
         assert data["coordination"]["counts"] == {}
         assert "database is locked" in data["coordination"]["error"]
+
+    @patch("aragora.server.handlers.control_plane.coordination.FleetCoordinationStore")
+    @patch("aragora.server.handlers.control_plane.coordination.build_fleet_rows")
+    @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")
+    def test_active_work_compacts_fleet_leases_and_bridge_runs(
+        self,
+        mock_resolve,
+        mock_build,
+        mock_store_cls,
+        tmp_path: Path,
+        handler: ControlPlaneHandler,
+    ):
+        from aragora.nomic.dev_coordination import DevCoordinationStore
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+        mock_resolve.return_value = repo
+        mock_build.return_value = [
+            {
+                "session_id": "session-a",
+                "agent": "codex",
+                "path": str(repo / ".worktrees" / "session-a"),
+                "branch": "codex/session-a",
+            }
+        ]
+        store = MagicMock()
+        store.list_claims.return_value = [
+            {"session_id": "session-a", "path": "aragora/server/handlers/agent_bridge.py"}
+        ]
+        store.list_merge_queue.return_value = [
+            {"session_id": "session-a", "branch": "codex/session-a", "receipt_id": "receipt-1"}
+        ]
+        mock_store_cls.return_value = store
+        DevCoordinationStore(repo_root=repo).claim_lease(
+            task_id="task-1",
+            title="Step C",
+            owner_agent="factory",
+            owner_session_id="factory-1",
+            branch="factory/step-c",
+            worktree_path=str(repo / ".worktrees" / "factory"),
+            claimed_paths=["aragora/review/invalidation.py"],
+            allowed_globs=["tests/review/**"],
+            metadata={"receipt_id": "receipt-2"},
+            allow_overlap=True,
+        )
+        bridge_store = BridgeStore(repo)
+        bridge_store.save_run(
+            BridgeRun(
+                run_id="bridge-active",
+                task="Cross-check a PR",
+                created_at="2026-04-25T15:00:00Z",
+                updated_at="2026-04-25T15:05:00Z",
+                status="running",
+                completed_at=None,
+                last_turn_index=1,
+                next_actor="reviewer",
+                repair_budget_per_turn=1,
+                footer_mode="prompt_injected",
+                worktree_cleanup_mode="operator_triggered",
+                participants=[Participant(role="reviewer", harness="claude", model="opus")],
+                worktree_path=str(repo),
+                worktree_agent_slug="codex",
+            )
+        )
+
+        result = handler._handle_active_work({})
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["repo_root"] == str(repo)
+        assert data["claimed_paths"] == ["aragora/server/handlers/agent_bridge.py"]
+        assert data["avoid_paths"] == [
+            "aragora/review/invalidation.py",
+            "aragora/server/handlers/agent_bridge.py",
+            "tests/review/**",
+        ]
+        assert data["bridge_runs"][0]["run_id"] == "bridge-active"
+        owners = {owner["session_id"]: owner for owner in data["active_owners"]}
+        assert owners["session-a"]["claimed_paths"] == ["aragora/server/handlers/agent_bridge.py"]
+        assert owners["factory-1"]["receipt_ids"] == ["receipt-2"]
+        assert owners["bridge:bridge-active:reviewer"]["bridge_run_ids"] == ["bridge-active"]
 
     @patch("aragora.server.handlers.control_plane.coordination.build_fleet_rows")
     @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")

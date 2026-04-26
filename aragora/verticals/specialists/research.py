@@ -140,7 +140,7 @@ improve the quality and rigor of their work.""",
         ),
     ],
     model_config=ModelConfig(
-        primary_model="claude-sonnet-4",
+        primary_model="claude-opus-4-7",
         primary_provider="anthropic",
         specialist_model="allenai/scibert_scivocab_uncased",
         temperature=0.3,

@@ -1923,7 +1923,12 @@ class TestPostDebateWorkflow:
         ctx.result.confidence = 0.9  # Above threshold
 
         # Should create background task
-        await phase._maybe_trigger_workflow(ctx)
+        with patch.object(phase, "_run_workflow_async", new_callable=AsyncMock) as run_workflow:
+            await phase._maybe_trigger_workflow(ctx)
+            await asyncio.sleep(0)
+
+        run_workflow.assert_awaited_once_with(ctx)
+        assert ctx.post_debate_workflow_triggered is True
 
 
 # =============================================================================

@@ -1,9 +1,78 @@
 # Changelog
 
 
-## [Unreleased] - v2.9.0
+## [Unreleased]
+
+_Post-v2.9.0 changes land here until the next stable tag._
+
+
+## [2.9.0] - 2026-04-25
+
+_Promoted from `v2.9.0-rc.1` after the chronic-red CI sweep, the npm vulnerability flush, and the self-hosted runner Docker provisioning. All six chronic-red CI workflows fixed; 19 of 19 Dependabot alerts addressed; secret scanning migrated to TruffleHog. Detailed readiness record at `docs/status/2026-04-25-rc1-to-stable-receipt.md`._
+
+### Added (post-rc.1)
+- **Mode 3 brief severity counts (#6505 / #6506):** `ReviewBrief` now carries `findings_severity_counts` — aggregate `{high, medium, low}` counts derived from each slot's top findings — and surfaces it in the stored brief JSON. Operators can now distinguish "1 high-severity blocker" from "5 low-severity editorial comments" without reading every finding. Legacy callers that omit the new `build_brief` kwarg get an empty map rather than a crash.
+- **`Recommendation.APPROVE_WITH_FOLLOWUPS` verdict class (#6505 / #6510):** Fourth brief recommendation for the "real findings but none are blockers" case. `ReviewBrief.recommendation` can now emit `approve_with_followups` (string value); downstream triage classifies it in the approve family.
+- **Mode 3 advocate lens slot (#6514):** Ninth panel slot with `lens: advocate` argues the STRONGEST case FOR the PR, counterweighting the seven skeptical lenses. Optional (`required: false`) so an absent Anthropic key degrades gracefully.
+- **Lane 1b rubric replay (#6552):** Replayed all 17 rc.1-window briefs through the post-#6505 rubric. 3/17 downgraded from `repair_first` to `approve_with_followups` — first observed evidence that the severity gate produces meaningful verdict variance.
+
+### Changed (post-rc.1)
+- **Mode 3 verdict severity gate (#6505 / #6510):** `REPAIR_FIRST` is now downgraded to `APPROVE_WITH_FOLLOWUPS` when the aggregated severity map reports zero `high` findings. Fixes the calibration bias identified in `docs/status/2026-04-24-mode3-rc1-calibration.md` where 8 skeptical lenses all looking for problems always produced `REPAIR_FIRST` regardless of severity. Legacy callers without severity data preserve the old three-class behavior. `APPROVE_CANDIDATE` and `NEEDS_HUMAN_ATTENTION` paths are untouched.
+- **Mode 3 panel budget ceiling 8.00 → 10.00 USD (#6514):** Accommodates the ninth advocate slot at the conservative estimator rate. Real-world per-brief cost stays ~$0.18.
+
+### Fixed (chronic-red CI sweep, 2026-04-24 → 2026-04-25)
+- **Load Tests (#6554):** Switched runner `aragora` self-hosted → `ubuntu-latest`. Self-hosted runner image lacked Docker, which the `services: redis` block requires. 4+ nights chronic-red.
+- **Nightly Full Matrix Pre-release Gates (#6555):** Added `bandit>=1.7,<2.0` to `pyproject.toml [dev]` extra. `pre_release_check.py --category security` invokes `bandit` but it wasn't in any declared extra.
+- **Nightly Full Matrix Regression Matrices, Security Pentest Aragora Scanner (#6560):** Switched install from `pip install -e ".[dev,research,code-intel,test,monitoring]"` (most extras nonexistent) to `bash scripts/ci_install_project.sh --extras dev,test`. The pyproject's empty `dependencies = []` means raw extras-based installs miss core deps (httpx, pydantic, fastapi).
+- **E2E Tests Python (#6563):** Same install-pattern unification as #6560.
+- **Coverage Gate (#6556):** Bumped `timeout-minutes: 30 → 90`. Full-suite-under-coverage on 215k tests exceeds 30 min serially.
+- **Integration Tests (#6562):** Repaired `MockAgent` fixture (added `system_prompt` + Vote-shape return values) to match current Arena API. Bumped route-collision known-bound `60 → 61` (one new accidental collision; underlying handler consolidation tracked for v2.10).
+- **Security Pentest pip-audit (#6559):** Added `--ignore-vuln CVE-2026-3219` to pip-audit. CVE is on the pip binary in the CI image, not the Aragora runtime; pip 26.0.1 IS the latest published version (no upstream fix exists yet).
+- **Security Pentest Secret Scanning (#6567 → #6576):** First made `gitleaks-action@v2` `continue-on-error: true` (#6567). Then in #6576 fully migrated CI secret-scanning to TruffleHog (`trufflesecurity/trufflehog@main` with `--only-verified`) in both `security.yml` and `lint.yml`. gitleaks-action requires a paid `GITLEAKS_LICENSE` for organization accounts; TruffleHog is free, well-maintained, and `--only-verified` mode produces zero false positives. Local pre-commit still uses the gitleaks binary (free for individual use).
+- **Integration Tests `webhook_configs` schema (#6575):** Aligned `aragora/db/schema/postgres_schema.sql` with `PostgresWebhookConfigStore.INITIAL_SCHEMA` (`user_id`, `workspace_id`, `active`, `events_json`, `description`, `last_delivery_at`, `last_delivery_status`, `delivery_count`). Added migration `v20260424000000_align_webhook_configs_schema.py` (idempotent ALTER TABLE; preserves `org_id → workspace_id`, `is_active → active`, `events → events_json` data). Closes the four `TestPostgresWebhookConfigStore` UndefinedColumnError test failures.
+- **Load Tests back to self-hosted (#6577):** Reverted #6554 after Docker 25.0.14 was provisioned on the AL2023 self-hosted runner `i-0aae2ccd2f68b94d2` (`ip-172-31-24-39`) via AWS Systems Manager. The workflow now targets the narrower `aws-vpc-loadtest` label, runs k6 through Docker instead of AL2023-incompatible `apt-get`, sends the required `aragora-v1` WebSocket subprotocol, and uses the CI dependency bootstrap for the memory stress job. Documentation: `docs/operations/SELF_HOSTED_RUNNER_DOCKER.md`.
+- **Route collision accounting (#6579):** Deduplicated handler collision owners by `(path, attr_name)` and ratcheted the known collision bound `61 → 51`, clearing the v2.9.0 baseline for the post-release route-consolidation waves.
+
+### Security
+- **Trivy action bump (#6557):** `aquasecurity/trivy-action 0.28.0 → 0.35.0`. Closes 2× CRITICAL CVE-2026-33634 in the prior version.
+- **17 npm Dependabot alerts → 0 (#6558):** Combined npm `overrides` sweep across 5 projects (aragora/live, sdk/typescript, examples/sveltekit, ide/vscode-aragora, ide/vscode-aragora/webview-ui, docs-site). Patched packages: lodash, picomatch, postcss, serialize-javascript, uuid, vite, yaml, cookie, brace-expansion, ajv, qs, minimatch. Verified post-merge: every project reports `npm audit: found 0 vulnerabilities`.
+
+### Documentation
+- **Release prep checklist progress (#6493):** 8 of 10 acceptance criteria addressed directly; the 48h/main-nightly evidence criteria remain pending until the next scheduled observation. Readiness receipt (`docs/status/2026-04-25-rc1-to-stable-receipt.md`) captures the rc.1 → stable readiness arc.
+- **Mode 3 calibration sample N≥20:** 20 briefs total ($2.71 + $0.66 = $3.37 cumulative API spend); rubric-replay (#6552) shows 3/17 downgrades on the post-fix path.
+- **Architecture reconciliation (#6580):** Updated the source and docs-site architecture narratives to match the current package layout, handler scale, operation count, and strict-mypy baseline before cutting the stable tag.
+
+
+## [v2.9.0-rc.1] - 2026-04-24
+
+### Highlights
+
+- **Mode 3 heterogeneous PR review operational.** 8-provider panel (Claude + GPT core, Gemini / Grok / DeepSeek / Kimi / Qwen heterodox, Mistral regulatory), end-to-end regression-tested on the shipped path, ~95% precision on the calibration sample to date. Settlement ledger at `docs/status/2026-04-21-thesis-settlement-session.md`.
+- **Dialectical Runtime Synthesis Layer (DIC-series) underway.** Executable claim manifest (DIC-13), proof-carrying code unit scanner with flag gate (DIC-19), proactive crux gardening (DIC-28), operator crux arbitration (DIC-27), and agent bridge handler landed behind feature gates.
+- **Triage auto-handle calibration gate integrated.** Low-risk `fire_and_forget` and `admin_merge_allowed` paths now consult an outcome-history SQLite store and surface drift alerts before gating merges.
+- **Mac runner fleet hardened.** Canonical `docs/runners/FLEET.md`, daily headcount monitor, TIME_WAIT LaunchAgent + weekly GH Actions check, SSM deploy pinned to workflow SHA.
+- **CI advisory gate bottlenecks reduced.** `test-fast` split into targeted shards, draft-PR gating tightened, timeouts rationalized.
 
 ### Added
+- **Mode 3 end-to-end regression test (#6471):** Locks in the shipped 8-provider panel topology against accidental reversion. Replaces the old dev-only Mode 2 assertion.
+- **Agent bridge handler (#6465):** Wires autonomous-navigation agent bridge into the handler registry with CLI-resume transport. Live smoke harness available via `scripts/agent_bridge_live_smoke.py` (opt-in).
+- **AGT-05 ReputationStore (#6490):** Per-agent JSONL-backed reputation ledger — tracks task outcomes, calibration deltas, and drift signals. Foundation piece for the agent-civilization substrate.
+- **DIC-13 ExecutableClaim manifest (#6456):** Typed manifest model + flag-gated directory scanner. Establishes the claim-schema landing site for DIC-14/25/26 to build on.
+- **DIC-19 ProofCarryingCodeUnit scanner (#6472):** Flag-gated scanner + package export. Separates concerns between proof-unit discovery and verification.
+- **DIC-28 proactive crux gardening (#6459):** Scheduled re-examination of resolved and outstanding cruxes with explicit `insufficient_evidence` status distinguishing "not evaluated" from "healthy". Boundary-only env reads via `GardeningConfig`.
+- **Auto-handle calibration SQLite store (#6468):** Outcome-history store with transactional `record_outcome` (BEGIN IMMEDIATE wrapping), WAL mode enforcement, schema versioning, and extracted fingerprint helpers. Used by the triage calibration gate.
+- **Triage auto-handle calibration integration (#6448):** Drift gating on low-risk merge paths. Backed by rolling outcome windows and per-path thresholds.
+- **Canonical runner fleet documentation (#6476, #6486):** `docs/runners/FLEET.md` enumerates the 12-runner roster (3 Hetzner + 6 EC2 + 3 Mac + 1 Mac Studio). TIME_WAIT monitor (`scripts/runners/mac_timewait_check.sh`) under LaunchAgent surfaces TCP-port exhaustion before it drops a runner.
+- **Rolling-window triage metrics (#6373):** New `aragora.triage` package and
+  `GET /api/v1/review-queue/triage-metrics` endpoint emit the four Commitment-5
+  metrics named in `docs/THESIS.md` (escalation rate, auto-handle override
+  rate, human-override-outcome correlation, time-per-settlement median+p95)
+  over rolling 7-day and 30-day windows, with advisory drift detection and
+  ETag support. Pure-function aggregator in `aragora/triage/metrics.py` is
+  testable with synthetic event sequences; the on-disk adapter in
+  `aragora/triage/event_source.py` reads existing settlement receipts without
+  modifying their schema. Legacy `/api/v1/review-queue/stats` (daily counters)
+  remains unchanged.
 - **205K+ test suite:** Test count grew from 129K to 205K+; 19,776 handler tests across 130+ files
 - **Oracle stream observability:** Added TTFT/phase/stall metrics collection, dashboard wiring, and stream-recovery E2E coverage for Oracle flows
 - **Main branch discipline workflow:** Added CI guard to flag direct pushes to `main` without associated PRs (supports explicit emergency override tag)
@@ -28,6 +97,7 @@
 - **Compliance bundle:** Unified compliance entry point linking SOC 2, GDPR, HIPAA, EU AI Act, and data residency artifacts
 
 ### Changed
+- **CI advisory gate split (#6479):** `test-fast` decomposed into targeted shards to avoid the previous 45-minute cap on the `core` shard; advisory gate cycle times reduced, draft-PR gating tightened.
 - **Exception elimination:** All bare `except Exception: pass` handlers eliminated across the entire codebase; 130+ files narrowed to specific exception types
 - **Contract drift governance artifacts:** Refreshed contract drift backlog + issue plan snapshots and weekly burndown targets to current baseline
 - **str(e) sanitization:** All handler/auth/security/client/middleware `str(e)` leaks replaced with static messages and `logger.warning("...: %s", e)` pattern
@@ -42,6 +112,9 @@
 - **asyncio modernization:** `asyncio.get_event_loop().run_until_complete()` replaced with `asyncio.run()` across 13 test files (94 replacements)
 
 ### Fixed
+- **PDB provider call bounding (#6462):** Mode 3 execution no longer fans out unbounded provider calls; concurrency and timeout caps enforced at the protocol boundary.
+- **Secure deploy SHA race (#6483):** SSM-based secure deploys are now pinned to the triggering workflow SHA rather than `origin/main`, closing a short window where a concurrent merge could deploy a different commit than the one that passed checks.
+- **Nightly test pollution (#6466):** Four standing nightly failures traced to xdist worker pollution; isolated via per-worker fixture ordering. Underlying failures tracked separately in #6464.
 - **API contract alignment:** Cost handler (7 endpoints) and usage dashboard (6 endpoints) now return `{"data": {...}}` wrapper matching frontend hook expectations
 - **StructuredLogger.exception():** Now accepts `*args` for `%s` formatting, matching stdlib logging API
 - **CLI startup:** `aragora serve --demo` now works end-to-end; server starts in ~14s

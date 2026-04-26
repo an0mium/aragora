@@ -591,12 +591,14 @@ class TestHandleSearchErrors:
     @pytest.mark.asyncio
     async def test_import_error_from_query_class(self, handler, mock_gateway):
         """ImportError when importing UnifiedMemoryQuery specifically."""
-        mock_module = MagicMock()
-        # Make accessing UnifiedMemoryQuery raise ImportError
-        del mock_module.UnifiedMemoryQuery
+        import builtins
 
-        def fail_import(*a, **kw):
-            raise ImportError("No module named 'aragora.memory.gateway'")
+        real_import = builtins.__import__
+
+        def fail_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "aragora.memory.gateway":
+                raise ImportError("No module named 'aragora.memory.gateway'")
+            return real_import(name, globals, locals, fromlist, level)
 
         with patch(
             "builtins.__import__",

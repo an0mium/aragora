@@ -188,13 +188,13 @@ AGENT_METADATA = [
     },
     # DeepSeek
     {
-        "name": "deepseek-v3",
+        "name": "deepseek-v4-pro",
         "provider": "deepseek",
-        "model_id": "deepseek-chat",
-        "context_window": 64000,
+        "model_id": "deepseek-v4-pro",
+        "context_window": 1048576,
         "specialties": ["reasoning", "coding", "math"],
-        "strengths": ["Strong reasoning", "Cost-effective", "Open weights"],
-        "release_date": "2024-12",
+        "strengths": ["Frontier reasoning", "Long-context coding", "Open weights"],
+        "release_date": "2026-04",
     },
     {
         "name": "deepseek-coder",

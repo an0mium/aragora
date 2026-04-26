@@ -11,6 +11,7 @@ jest.mock('@playwright/test', () => ({
 
 const {
   default: config,
+  CI_SMOKE_TEST_MATCH,
   SPECIALTY_PROJECT_TEST_IGNORE,
 } = require('../playwright.config') as typeof import('../playwright.config');
 
@@ -30,10 +31,24 @@ function getProject(name: string): PlaywrightProject {
 }
 
 describe('playwright config', () => {
-  it('keeps specialty suites out of the default browser matrix', () => {
-    for (const projectName of ['chromium', 'firefox', 'webkit', 'Mobile Chrome', 'Mobile Safari']) {
+  it('keeps production and specialty suites out of the default browser matrix', () => {
+    expect(SPECIALTY_PROJECT_TEST_IGNORE).toContain('**/production/**');
+
+    for (const projectName of ['chromium', 'ci-smoke', 'firefox', 'webkit', 'Mobile Chrome', 'Mobile Safari']) {
       expect(getProject(projectName).testIgnore).toEqual(SPECIALTY_PROJECT_TEST_IGNORE);
     }
+  });
+
+  it('scopes the CI smoke project to stable PR specs', () => {
+    expect(getProject('ci-smoke').testMatch).toEqual(CI_SMOKE_TEST_MATCH);
+    expect(CI_SMOKE_TEST_MATCH).toEqual(
+      expect.arrayContaining([
+        '**/config-validation.spec.ts',
+        '**/homepage.spec.ts',
+        '**/landing.spec.ts',
+        '**/navigation.spec.ts',
+      ])
+    );
   });
 
   it('keeps the specialty projects scoped to their dedicated specs', () => {

@@ -325,7 +325,7 @@ class TestWebhookHandlerRegister:
         result = handler._handle_register_webhook({"events": ["debate_end"]}, mock_handler)
 
         assert result.status_code == 400
-        assert b"URL is required" in result.body
+        assert b"URL must be a non-empty string" in result.body
 
     def test_register_webhook_missing_events(self, handler):
         """Test registration without events."""

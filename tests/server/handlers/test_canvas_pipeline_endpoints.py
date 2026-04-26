@@ -645,6 +645,24 @@ class TestHandleApproveTransitionRootPath:
         return pipeline_id
 
     @pytest.mark.asyncio
+    async def test_approve_transition_accepts_generated_transition_alias(self, handler):
+        pipeline_id = self._save_pipeline_with_transition("pipe-transition-alias")
+
+        result = await handler.handle_approve_transition(
+            pipeline_id,
+            {
+                "transition_id": "transition-ideas-goals",
+                "approved": True,
+            },
+        )
+
+        body = _body(result)
+        assert body["status"] == "approved"
+        assert body["from_stage"] == "ideas"
+        assert body["to_stage"] == "goals"
+        assert body["result"]["transitions"][0]["status"] == "approved"
+
+    @pytest.mark.asyncio
     async def test_root_approve_transition_reads_fastapi_cached_body(self, handler):
         http = _CompatFakeHandler({"pipeline_id": "pipe-fastapi-body"})
 

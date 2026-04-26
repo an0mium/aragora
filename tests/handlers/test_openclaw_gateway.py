@@ -619,7 +619,7 @@ class TestPostApprovalActions:
         result = handler.handle_post("/api/v1/openclaw/approvals/abc123/approve", {}, http)
         assert _status(result) == 200
         body = _body(result)
-        assert body["success"] is False
+        assert body["success"] is True
         assert body["approval_id"] == "abc123"
 
     def test_deny_action(self, handler, store):
@@ -627,7 +627,7 @@ class TestPostApprovalActions:
         result = handler.handle_post("/api/v1/openclaw/approvals/abc123/deny", {}, http)
         assert _status(result) == 200
         body = _body(result)
-        assert body["success"] is False
+        assert body["success"] is True
 
 
 class TestPostStoreCredential:

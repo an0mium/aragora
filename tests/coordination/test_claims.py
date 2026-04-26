@@ -25,6 +25,19 @@ class TestFileClaim:
         assert restored.paths == ["aragora/server/auth.py"]
         assert restored.intent == "OIDC refactor"
 
+    def test_from_dict_coerces_invalid_scalar_fields(self):
+        restored = FileClaim.from_dict(
+            {
+                "paths": object(),
+                "claimed_at": object(),
+                "ttl_minutes": object(),
+            }
+        )
+
+        assert restored.paths == []
+        assert restored.claimed_at == 0.0
+        assert restored.ttl_minutes == 30
+
     def test_is_active(self):
         claim = FileClaim(
             claim_id="x",

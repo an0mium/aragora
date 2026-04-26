@@ -57,14 +57,16 @@ class RLMAPI:
         """
         return self._client.request("GET", "/api/v1/rlm/codebase/health")
 
-    def reset_codebase_health(self) -> dict[str, Any]:
+    def reset_codebase_health(self) -> Any:
         """
-        Reset RLM codebase health metrics.
+        Guard unsupported write access until the API contract publishes this route.
 
-        Returns:
-            Confirmation of health reset.
+        Raises:
+            NotImplementedError: The current public API contract exposes only the read path.
         """
-        return self._client.request("POST", "/api/v1/rlm/codebase/health")
+        raise NotImplementedError(
+            "POST /api/v1/rlm/codebase/health is not part of the current Aragora API contract."
+        )
 
     def compress_and_query(
         self,
@@ -155,9 +157,11 @@ class AsyncRLMAPI:
         """Get RLM codebase health status."""
         return await self._client.request("GET", "/api/v1/rlm/codebase/health")
 
-    async def reset_codebase_health(self) -> dict[str, Any]:
-        """Reset RLM codebase health metrics."""
-        return await self._client.request("POST", "/api/v1/rlm/codebase/health")
+    async def reset_codebase_health(self) -> Any:
+        """Guard unsupported write access until the API contract publishes this route."""
+        raise NotImplementedError(
+            "POST /api/v1/rlm/codebase/health is not part of the current Aragora API contract."
+        )
 
     async def compress(self, content: str, source_type: SourceType = "text") -> dict[str, Any]:
         """Compress content using RLM hierarchical abstraction."""

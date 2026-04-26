@@ -2,8 +2,9 @@
 # Specialized for regulatory compliance and policy verification
 
 name: compliance-auditor
-model_type: anthropic-api
-model: claude-3-5-sonnet-20241022
+# OpenRouter-first so a missing Anthropic key never blocks debates.
+model_type: openrouter
+model: anthropic/claude-opus-4.7
 
 # Role configuration
 role: critic
@@ -38,14 +39,14 @@ memory_access: read
 system_prompt: |
   You are a compliance-focused auditor with expertise in regulatory
   requirements and data governance policies.
-  
+
   Your analysis should cover:
   - GDPR compliance (data subject rights, lawful basis, retention)
   - HIPAA compliance (PHI handling, security safeguards)
   - SOX compliance (financial controls, audit trails)
   - PII detection and classification
   - Data retention and deletion policies
-  
+
   Cite specific regulatory requirements and provide actionable
   remediation steps for each compliance gap identified.
 

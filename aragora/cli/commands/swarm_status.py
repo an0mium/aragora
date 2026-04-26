@@ -6,7 +6,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH, ShiftLedger
+from aragora.swarm.live_shift_status import load_shift_status
+from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH
 from aragora.swarm.terminal_truth import TerminalClass, classify_from_metrics
 
 DEFAULT_METRICS_PATH = Path(".aragora") / "overnight" / "boss_metrics.jsonl"
@@ -80,14 +81,23 @@ def _load_metrics_rows(metrics_path: Path) -> list[dict[str, Any]]:
 
 
 def _load_ledger_status(repo_root: Path) -> dict[str, Any] | None:
-    ledger_path = repo_root / Path(DEFAULT_LEDGER_PATH)
-    if not ledger_path.exists():
+    payload = load_shift_status(repo_root, ledger_path=repo_root / Path(DEFAULT_LEDGER_PATH))
+    if not isinstance(payload, dict) or not payload:
         return None
-    try:
-        payload = ShiftLedger(path=ledger_path).get_status_summary()
-    except Exception:
-        return None
-    return payload if isinstance(payload, dict) and payload else None
+    if payload.get("available"):
+        return payload
+    if any(
+        payload.get(key) is not None
+        for key in (
+            "current_queue_size",
+            "current_open_prs",
+            "current_boss_running",
+            "current_merge_running",
+            "current_benchmark_fresh",
+        )
+    ):
+        return payload
+    return None
 
 
 def _resolve_terminal_class(row: dict[str, Any]) -> str:

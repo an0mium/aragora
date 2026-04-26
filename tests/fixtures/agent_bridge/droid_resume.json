@@ -1,0 +1,16 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 15123,
+  "duration_api_ms": 15180,
+  "num_turns": 2,
+  "result": "Confirmed the baton handoff.\n\n---BRIDGE-FOOTER---\nsummary: Confirmed the baton handoff\nnext_actor: implementer\nneeds_human: false\ndone: false\nartifacts: [\"tests/swarm/agent_bridge/test_broker.py\"]\ntests_run: [\"pytest tests/swarm/agent_bridge/test_broker.py\"]\n---BRIDGE-FOOTER-END---",
+  "session_id": "16329fce-3484-47a4-ad98-6676fdfb7477",
+  "usage": {
+    "input_tokens": 9,
+    "output_tokens": 12,
+    "cache_creation_input_tokens": 0
+  },
+  "total_cost_usd": 0
+}

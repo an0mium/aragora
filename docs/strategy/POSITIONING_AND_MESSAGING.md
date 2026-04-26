@@ -8,7 +8,7 @@ Consolidated from:
 - `docs/outreach/STAKEHOLDER_NARRATIVE_VARIANTS.md`
 - `docs/outreach/FOUNDER_STORY_VARIANTS.md`
 
-Last updated: 2026-03-25
+Last updated: 2026-04-19
 
 ---
 
@@ -251,6 +251,19 @@ The clean line is:
 **Review bots are good at fast comments. Aragora is for review decisions that
 need dissent, receipts, and truthful blocker handling.**
 
+For code review specifically, the stronger product language is not "PR review
+bot." It is:
+
+**receipt-backed intelligence brief for consequential code changes**
+
+That framing matters because the user problem is shifting from "how do I get
+more review comments?" to "how do I settle more AI-generated PRs safely
+without reading every diff line first?"
+
+If automated review becomes table stakes, the wedge is not detection alone.
+The wedge is heterogeneous judgment, provenance, explicit dissent, and
+human-settled merge decisions.
+
 ### 3. Aragora Vs Workflow Tools
 
 This category includes workflow engines, queue systems, and DAG runtimes.
@@ -437,7 +450,7 @@ Use selectively. These are evidence atoms to support the wedge, not hero copy.
 - production debate engine with heterogeneous agent support
 - decision receipts and provenance already wired into real flows
 - bounded autonomous repo-improvement path with receipt gates
-- heavy automated test coverage and broad knowledge-adapter surface (exact counts in [../CANONICAL_GOALS.md](../CANONICAL_GOALS.md#canonical-metrics-march-2026-baseline) — this doc should not drift from the canonical baseline)
+- heavy automated test coverage and broad knowledge-adapter surface (exact counts in [../CANONICAL_GOALS.md](../CANONICAL_GOALS.md#canonical-metrics) — this doc should not drift from the canonical baseline)
 
 ### Proof Points That Fit The Story
 

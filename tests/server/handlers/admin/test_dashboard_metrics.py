@@ -146,6 +146,25 @@ def _call_bypassing_decorators(func, *args, **kwargs):
     return inner(*args, **kwargs)
 
 
+def _set_debate_rows(cursor: MagicMock, rows: list[dict[str, Any]]) -> None:
+    """Configure a mock cursor with rows for load_debate_records()."""
+    columns = [
+        "id",
+        "domain",
+        "consensus_reached",
+        "confidence",
+        "created_at",
+        "completed_at",
+        "status",
+        "artifact_json",
+        "result",
+        "rounds_used",
+        "task",
+    ]
+    cursor.description = [(column,) for column in columns]
+    cursor.fetchall.return_value = [tuple(row.get(column) for column in columns) for row in rows]
+
+
 # ===========================================================================
 # Tests: get_summary_metrics_sql
 # ===========================================================================
@@ -155,25 +174,51 @@ class TestGetSummaryMetricsSql:
     """Tests for SQL-based summary metrics."""
 
     def test_returns_correct_summary_with_data(self, mock_storage, auth_context):
-        """Returns correct summary when SQL returns valid data."""
+        """Returns correct summary for normalized debate rows."""
         from aragora.server.handlers.admin.dashboard_metrics import get_summary_metrics_sql
 
         storage, cursor = mock_storage
-        cursor.fetchone.return_value = (100, 75, 0.82)
+        now = datetime.now(timezone.utc).isoformat()
+        _set_debate_rows(
+            cursor,
+            [
+                {
+                    "id": "debate-1",
+                    "consensus_reached": True,
+                    "confidence": 0.9,
+                    "created_at": now,
+                    "status": "completed",
+                },
+                {
+                    "id": "debate-2",
+                    "consensus_reached": False,
+                    "confidence": 0.74,
+                    "created_at": now,
+                    "status": "completed",
+                },
+                {
+                    "id": "debate-3",
+                    "consensus_reached": True,
+                    "confidence": 0.82,
+                    "created_at": now,
+                    "status": "completed",
+                },
+            ],
+        )
 
         result = _call_bypassing_decorators(get_summary_metrics_sql, storage, None)
 
-        assert result["total_debates"] == 100
-        assert result["consensus_reached"] == 75
-        assert result["consensus_rate"] == 0.75
+        assert result["total_debates"] == 3
+        assert result["consensus_reached"] == 2
+        assert result["consensus_rate"] == round(2 / 3, 3)
         assert result["avg_confidence"] == 0.82
 
     def test_returns_zeros_when_no_data(self, mock_storage):
-        """Returns zero-valued summary when SQL returns no rows."""
+        """Returns zero-valued summary when there are no debate rows."""
         from aragora.server.handlers.admin.dashboard_metrics import get_summary_metrics_sql
 
         storage, cursor = mock_storage
-        cursor.fetchone.return_value = None
+        _set_debate_rows(cursor, [])
 
         result = _call_bypassing_decorators(get_summary_metrics_sql, storage, None)
 
@@ -183,15 +228,26 @@ class TestGetSummaryMetricsSql:
         assert result["avg_confidence"] == 0.0
 
     def test_handles_null_values_from_sql(self, mock_storage):
-        """Handles NULL values from SQL gracefully."""
+        """Handles sparse debate rows without crashing."""
         from aragora.server.handlers.admin.dashboard_metrics import get_summary_metrics_sql
 
         storage, cursor = mock_storage
-        cursor.fetchone.return_value = (0, None, None)
+        _set_debate_rows(
+            cursor,
+            [
+                {
+                    "id": "debate-null",
+                    "consensus_reached": None,
+                    "confidence": None,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "status": None,
+                }
+            ],
+        )
 
         result = _call_bypassing_decorators(get_summary_metrics_sql, storage, None)
 
-        assert result["total_debates"] == 0
+        assert result["total_debates"] == 1
         assert result["consensus_reached"] == 0
         assert result["consensus_rate"] == 0.0
         assert result["avg_confidence"] == 0.0
@@ -213,7 +269,33 @@ class TestGetSummaryMetricsSql:
         from aragora.server.handlers.admin.dashboard_metrics import get_summary_metrics_sql
 
         storage, cursor = mock_storage
-        cursor.fetchone.return_value = (3, 1, 0.123456789)
+        now = datetime.now(timezone.utc).isoformat()
+        _set_debate_rows(
+            cursor,
+            [
+                {
+                    "id": "debate-1",
+                    "consensus_reached": True,
+                    "confidence": 0.123456789,
+                    "created_at": now,
+                    "status": "completed",
+                },
+                {
+                    "id": "debate-2",
+                    "consensus_reached": False,
+                    "confidence": None,
+                    "created_at": now,
+                    "status": "completed",
+                },
+                {
+                    "id": "debate-3",
+                    "consensus_reached": False,
+                    "confidence": None,
+                    "created_at": now,
+                    "status": "completed",
+                },
+            ],
+        )
 
         result = _call_bypassing_decorators(get_summary_metrics_sql, storage, None)
 
@@ -221,16 +303,28 @@ class TestGetSummaryMetricsSql:
         assert result["avg_confidence"] == 0.123
 
     def test_domain_param_accepted(self, mock_storage):
-        """Domain parameter is accepted (reserved for future use)."""
+        """Domain parameter is accepted (currently unused)."""
         from aragora.server.handlers.admin.dashboard_metrics import get_summary_metrics_sql
 
         storage, cursor = mock_storage
-        cursor.fetchone.return_value = (5, 3, 0.8)
+        _set_debate_rows(
+            cursor,
+            [
+                {
+                    "id": "debate-1",
+                    "domain": "engineering",
+                    "consensus_reached": True,
+                    "confidence": 0.8,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "status": "completed",
+                }
+            ],
+        )
 
         # Should not raise even with a domain value
         result = _call_bypassing_decorators(get_summary_metrics_sql, storage, "engineering")
 
-        assert result["total_debates"] == 5
+        assert result["total_debates"] == 1
 
 
 # ===========================================================================
@@ -242,24 +336,44 @@ class TestGetRecentActivitySql:
     """Tests for SQL-based recent activity metrics."""
 
     def test_returns_activity_for_given_hours(self, mock_storage):
-        """Returns recent activity data for the specified time window."""
+        """Returns recent activity for rows newer than the requested window."""
         from aragora.server.handlers.admin.dashboard_metrics import get_recent_activity_sql
 
         storage, cursor = mock_storage
-        cursor.fetchone.return_value = (15, 10)
+        now = datetime.now(timezone.utc)
+        _set_debate_rows(
+            cursor,
+            [
+                {
+                    "id": "recent-consensus",
+                    "consensus_reached": True,
+                    "created_at": now.isoformat(),
+                },
+                {
+                    "id": "recent-open",
+                    "consensus_reached": False,
+                    "created_at": (now - timedelta(hours=3)).isoformat(),
+                },
+                {
+                    "id": "old",
+                    "consensus_reached": True,
+                    "created_at": (now - timedelta(hours=48)).isoformat(),
+                },
+            ],
+        )
 
         result = _call_bypassing_decorators(get_recent_activity_sql, storage, 24)
 
-        assert result["debates_last_period"] == 15
-        assert result["consensus_last_period"] == 10
+        assert result["debates_last_period"] == 2
+        assert result["consensus_last_period"] == 1
         assert result["period_hours"] == 24
 
     def test_returns_zeros_when_no_rows(self, mock_storage):
-        """Returns zeros when SQL returns no matching rows."""
+        """Returns zeros when there are no debate rows."""
         from aragora.server.handlers.admin.dashboard_metrics import get_recent_activity_sql
 
         storage, cursor = mock_storage
-        cursor.fetchone.return_value = None
+        _set_debate_rows(cursor, [])
 
         result = _call_bypassing_decorators(get_recent_activity_sql, storage, 6)
 
@@ -268,11 +382,14 @@ class TestGetRecentActivitySql:
         assert result["period_hours"] == 6
 
     def test_handles_null_sql_values(self, mock_storage):
-        """Handles NULL values from SQL."""
+        """Handles rows with missing timestamps by excluding them from the window."""
         from aragora.server.handlers.admin.dashboard_metrics import get_recent_activity_sql
 
         storage, cursor = mock_storage
-        cursor.fetchone.return_value = (None, None)
+        _set_debate_rows(
+            cursor,
+            [{"id": "debate-null", "consensus_reached": True, "created_at": None}],
+        )
 
         result = _call_bypassing_decorators(get_recent_activity_sql, storage, 12)
 
@@ -291,22 +408,17 @@ class TestGetRecentActivitySql:
         assert result["debates_last_period"] == 0
         assert result["period_hours"] == 24
 
-    def test_sql_uses_cutoff_parameter(self, mock_storage):
-        """SQL query is called with the ISO-formatted cutoff timestamp."""
+    def test_sql_loads_debate_rows_before_computing_activity(self, mock_storage):
+        """Recent activity loads debate rows before aggregation."""
         from aragora.server.handlers.admin.dashboard_metrics import get_recent_activity_sql
 
         storage, cursor = mock_storage
-        cursor.fetchone.return_value = (0, 0)
+        _set_debate_rows(cursor, [])
 
         _call_bypassing_decorators(get_recent_activity_sql, storage, 48)
 
-        # Verify cursor.execute was called with a cutoff param
         cursor.execute.assert_called_once()
-        call_args = cursor.execute.call_args
-        assert len(call_args[0]) == 2  # SQL string + params tuple
-        cutoff_value = call_args[0][1][0]
-        # The cutoff should be an ISO-formatted datetime string
-        datetime.fromisoformat(cutoff_value)  # Should not raise
+        assert cursor.execute.call_args.args == ("SELECT * FROM debates",)
 
 
 # ===========================================================================

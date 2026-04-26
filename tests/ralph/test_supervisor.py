@@ -22,6 +22,13 @@ from aragora.ralph.supervisor import (
     save_supervisor_state,
 )
 from aragora.swarm.campaign import load_campaign_manifest
+from aragora.triage.auto_handle_calibration import (
+    AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED,
+    AutoHandleCalibrationStore,
+    OUTCOME_HUMAN_OVERRIDE,
+    auto_handle_decision_id,
+    fingerprint_admin_merge_class,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -1889,6 +1896,108 @@ class TestStepDispatch:
         ):
             supervisor.step()
 
+        mock_merge.assert_not_called()
+
+    def test_wait_for_review_admin_merge_allows_pristine_warmup_class(self, tmp_path: Path) -> None:
+        manifest_path = _write_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.WAITING_FOR_MERGE.value,
+            active_repair_pr="https://github.com/org/repo/pull/99",
+        )
+
+        supervisor = RalphSupervisor(
+            state_path=state_path,
+            repo_root=tmp_path,
+            merge_policy="admin_merge_allowed",
+            auto_handle_calibration_store=AutoHandleCalibrationStore(
+                db_path=":memory:",
+                min_samples=2,
+                min_success_rate=0.75,
+            ),
+        )
+
+        with (
+            patch.object(
+                supervisor,
+                "_fetch_pr_gate_snapshot",
+                return_value=_gate_snapshot(
+                    pr_url="https://github.com/org/repo/pull/99",
+                    disposition="wait_for_review",
+                    required_checks_green=True,
+                ),
+            ),
+            patch.object(
+                supervisor,
+                "_merge_pr",
+                return_value=MagicMock(merged=True, to_dict=lambda: {"merged": True}),
+            ) as mock_merge,
+        ):
+            result = supervisor.step()
+
+        assert result.status == SupervisorStatus.WAITING_FOR_MERGE.value
+        assert "Admin merge initiated" in result.detail
+        mock_merge.assert_called_once()
+
+    def test_wait_for_review_admin_merge_blocks_uncalibrated_class_after_failure(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = _write_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.WAITING_FOR_MERGE.value,
+            active_repair_pr="https://github.com/org/repo/pull/99",
+        )
+
+        store = AutoHandleCalibrationStore(
+            db_path=":memory:",
+            min_samples=2,
+            min_success_rate=0.75,
+        )
+        decision_class = fingerprint_admin_merge_class(
+            base_branch="main",
+            required_checks_count=0,
+            target_kind="repair",
+        )
+        store.record_outcome(
+            decision_id=auto_handle_decision_id(
+                auto_handle_path=AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED,
+                pr_url="https://github.com/org/repo/pull/1",
+                decision_class=decision_class,
+            ),
+            auto_handle_path=AUTO_HANDLE_PATH_ADMIN_MERGE_ALLOWED,
+            decision_class=decision_class,
+            outcome=OUTCOME_HUMAN_OVERRIDE,
+            pr_url="https://github.com/org/repo/pull/1",
+        )
+
+        supervisor = RalphSupervisor(
+            state_path=state_path,
+            repo_root=tmp_path,
+            merge_policy="admin_merge_allowed",
+            auto_handle_calibration_store=store,
+        )
+
+        with (
+            patch.object(
+                supervisor,
+                "_fetch_pr_gate_snapshot",
+                return_value=_gate_snapshot(
+                    pr_url="https://github.com/org/repo/pull/99",
+                    disposition="wait_for_review",
+                    required_checks_green=True,
+                ),
+            ),
+            patch.object(supervisor, "_merge_pr") as mock_merge,
+        ):
+            result = supervisor.step()
+
+        assert result.status == SupervisorStatus.WAITING_FOR_MERGE.value
+        assert "calibration gate" in result.detail
         mock_merge.assert_not_called()
 
     def test_auto_merge_called_when_policy_allows(self, tmp_path: Path) -> None:

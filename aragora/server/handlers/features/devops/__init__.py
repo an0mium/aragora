@@ -100,6 +100,7 @@ class DevOpsHandler(BaseHandler):
         "/api/v1/oncall",
         "/api/v1/oncall/*",
         "/api/v1/services",
+        "/api/v1/services/{service_id}",
         "/api/v1/services/*",
         "/api/v1/webhooks/pagerduty",
         "/api/v1/devops/status",

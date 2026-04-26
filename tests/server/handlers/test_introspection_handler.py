@@ -7,6 +7,7 @@ Tests the actual handler routes:
 - GET /api/introspection/agents/{name} - Get specific agent introspection
 """
 
+import hashlib
 import json
 from io import BytesIO
 from unittest.mock import MagicMock, patch
@@ -30,10 +31,11 @@ def introspection_handler():
 
 
 @pytest.fixture
-def mock_http_handler():
+def mock_http_handler(request):
     """Create a mock HTTP handler with client address."""
     handler = MagicMock()
-    handler.client_address = ("127.0.0.1", 12345)
+    digest = hashlib.blake2s(request.node.nodeid.encode(), digest_size=3).digest()
+    handler.client_address = (f"10.{digest[0]}.{digest[1]}.{digest[2]}", 12345)
     handler.headers = {"Content-Length": "0"}
     handler.command = "GET"
     return handler
@@ -42,15 +44,20 @@ def mock_http_handler():
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
     """Reset rate limiter before each test."""
-    try:
-        from aragora.server.handlers.introspection import _introspection_limiter
 
-        # RateLimiter uses _buckets (dict of timestamp lists)
-        if hasattr(_introspection_limiter, "_buckets"):
-            _introspection_limiter._buckets.clear()
-    except ImportError:
-        pass
+    def _clear_introspection_limiter() -> None:
+        try:
+            from aragora.server.handlers.introspection import _introspection_limiter
+
+            # RateLimiter uses _buckets (dict of timestamp lists)
+            if hasattr(_introspection_limiter, "_buckets"):
+                _introspection_limiter._buckets.clear()
+        except ImportError:
+            pass
+
+    _clear_introspection_limiter()
     yield
+    _clear_introspection_limiter()
 
 
 # ============================================================================

@@ -1,0 +1,89 @@
+{
+  "results": [
+    {
+      "duration_s": 101.05281304102391,
+      "error": "off-run timed out after 30s",
+      "flag": "enable_calibration",
+      "off_diff_keys": [],
+      "on_diff_keys": [],
+      "outcome": "timeout_off"
+    },
+    {
+      "duration_s": 30.03858062485233,
+      "error": "off-run timed out after 30s",
+      "flag": "enable_trickster",
+      "off_diff_keys": [],
+      "on_diff_keys": [],
+      "outcome": "timeout_off"
+    },
+    {
+      "duration_s": 31.015795084182173,
+      "error": "off-run timed out after 30s",
+      "flag": "enable_rhetorical_observer",
+      "off_diff_keys": [],
+      "on_diff_keys": [],
+      "outcome": "timeout_off"
+    },
+    {
+      "duration_s": 31.00583624979481,
+      "error": "off-run timed out after 30s",
+      "flag": "enable_truth_ratio_weighting",
+      "off_diff_keys": [],
+      "on_diff_keys": [],
+      "outcome": "timeout_off"
+    },
+    {
+      "duration_s": 31.0730419580359,
+      "error": "off-run timed out after 30s",
+      "flag": "enable_cross_verification",
+      "off_diff_keys": [],
+      "on_diff_keys": [],
+      "outcome": "timeout_off"
+    },
+    {
+      "duration_s": 30.966816999949515,
+      "error": "off-run timed out after 30s",
+      "flag": "enable_coordinated_writes",
+      "off_diff_keys": [],
+      "on_diff_keys": [],
+      "outcome": "timeout_off"
+    },
+    {
+      "duration_s": 31.040676791919395,
+      "error": "off-run timed out after 30s",
+      "flag": "enable_performance_feedback",
+      "off_diff_keys": [],
+      "on_diff_keys": [],
+      "outcome": "timeout_off"
+    },
+    {
+      "duration_s": 61.91283441707492,
+      "error": "on-run timed out after 30s",
+      "flag": "enable_cross_debate_memory",
+      "off_diff_keys": [],
+      "on_diff_keys": [],
+      "outcome": "timeout_on"
+    },
+    {
+      "duration_s": 31.086159999947995,
+      "error": "off-run timed out after 30s",
+      "flag": "enable_live_explainability",
+      "off_diff_keys": [],
+      "on_diff_keys": [],
+      "outcome": "timeout_off"
+    },
+    {
+      "duration_s": 30.985963166924194,
+      "error": "off-run timed out after 30s",
+      "flag": "enable_introspection",
+      "off_diff_keys": [],
+      "on_diff_keys": [],
+      "outcome": "timeout_off"
+    }
+  ],
+  "summary": {
+    "timeout_off": 9,
+    "timeout_on": 1
+  },
+  "total": 10
+}

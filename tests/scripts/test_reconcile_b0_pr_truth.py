@@ -16,6 +16,7 @@ from scripts.reconcile_b0_pr_truth import (
     LinkedPullRequest,
     TruthSummary,
     aggregate_b0_issues,
+    classify_issue_truth_state,
     extract_pr_numbers_from_issue,
     main,
     reconcile_issue_truth,
@@ -220,6 +221,68 @@ def test_extract_pr_numbers_strict_keeps_closed_by_references() -> None:
     result = extract_pr_numbers_from_issue("synaptent/aragora", issue_payload, strict=True)
 
     assert result == [5763]
+
+
+@pytest.mark.parametrize(
+    ("linked_prs", "expected"),
+    [
+        (
+            [
+                LinkedPullRequest(
+                    number=5107,
+                    title="merged pr",
+                    url="https://github.com/synaptent/aragora/pull/5107",
+                    state="MERGED",
+                    mergeable="MERGEABLE",
+                    merge_state_status="CLEAN",
+                    merged_at="2026-04-12T20:40:00Z",
+                    is_draft=False,
+                ),
+                LinkedPullRequest(
+                    number=5108,
+                    title="mergeable pr",
+                    url="https://github.com/synaptent/aragora/pull/5108",
+                    state="OPEN",
+                    mergeable="MERGEABLE",
+                    merge_state_status="CLEAN",
+                    merged_at=None,
+                    is_draft=False,
+                ),
+            ],
+            "merged_pr",
+        ),
+        (
+            [
+                LinkedPullRequest(
+                    number=5111,
+                    title="mergeable pr",
+                    url="https://github.com/synaptent/aragora/pull/5111",
+                    state="OPEN",
+                    mergeable="MERGEABLE",
+                    merge_state_status="CLEAN",
+                    merged_at=None,
+                    is_draft=False,
+                ),
+                LinkedPullRequest(
+                    number=5112,
+                    title="open pr",
+                    url="https://github.com/synaptent/aragora/pull/5112",
+                    state="OPEN",
+                    mergeable="UNKNOWN",
+                    merge_state_status="UNKNOWN",
+                    merged_at=None,
+                    is_draft=True,
+                ),
+            ],
+            "mergeable_pr",
+        ),
+        ([], "no_linked_pr"),
+    ],
+)
+def test_classify_issue_truth_state_prioritizes_truth_states(
+    linked_prs: list[LinkedPullRequest], expected: str
+) -> None:
+    assert classify_issue_truth_state(linked_prs) == expected
 
 
 def test_reconcile_issue_truth_strict_linkage_ignores_forensic_references() -> None:

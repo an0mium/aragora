@@ -148,7 +148,7 @@ class TestDeepSeekProverTranslator:
     def test_model_constants(self):
         """Test model constants are defined."""
         assert DeepSeekProverTranslator.PRIMARY_MODEL == "deepseek/deepseek-prover-v2"
-        assert DeepSeekProverTranslator.FALLBACK_MODEL == "deepseek/deepseek-chat"
+        assert DeepSeekProverTranslator.FALLBACK_MODEL == "deepseek/deepseek-v4-pro"
 
     def test_mathlib_imports(self):
         """Test Mathlib imports constant."""

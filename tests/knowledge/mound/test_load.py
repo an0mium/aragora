@@ -14,6 +14,8 @@ import uuid
 
 import pytest
 
+pytestmark = pytest.mark.load
+
 
 def calculate_percentile(data: list[float], percentile: float) -> float:
     """Calculate percentile of a sorted list."""

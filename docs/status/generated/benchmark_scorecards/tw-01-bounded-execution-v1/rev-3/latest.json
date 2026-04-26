@@ -22,21 +22,21 @@
     "status": "complete"
   },
   "deltas": {
-    "merged_only_rate": -0.625,
-    "no_rescue_truth_success_rate": -0.625,
+    "merged_only_rate": 0.3333,
+    "no_rescue_truth_success_rate": 0.3333,
     "proxy_no_rescue_success_rate": 0.0,
-    "truth_success_rate": -0.625,
-    "unique_issues_attempted": -5.0
+    "truth_success_rate": 0.3333,
+    "unique_issues_attempted": 0.0
   },
   "failure_class_distribution": {
     "blocked_auth_failure": 2,
     "blocked_not_dispatch_bounded": 7
   },
-  "generated_at": "2026-04-17T14:33:09Z",
-  "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+  "generated_at": "2026-04-22T11:33:32Z",
+  "metrics_file": "/Users/armand/Development/aragora/.aragora/overnight/boss_metrics.jsonl",
   "previous_artifact": {
-    "generated_at": "2026-04-17T12:57:27Z",
-    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-3/scorecard-20260417T125727Z.json"
+    "generated_at": "2026-04-17T14:33:09Z",
+    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-3/scorecard-20260417T143309Z.json"
   },
   "proxy_metrics": {
     "corpus": {
@@ -76,12 +76,12 @@
     "unique_issues_succeeded": 0
   },
   "rescue_counts_by_type": {},
-  "truth_artifact_generated_at": "2026-04-17T14:33:07Z",
-  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/truth-20260417T143307Z.json",
+  "truth_artifact_generated_at": "2026-04-22T11:33:30Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/truth-20260422T113330Z.json",
   "truth_metrics": {
-    "merged_only_rate": 0.0,
-    "no_rescue_truth_success_rate": 0.0,
-    "truth_success_rate": 0.0,
+    "merged_only_rate": 0.3333,
+    "no_rescue_truth_success_rate": 0.3333,
+    "truth_success_rate": 0.3333,
     "truth_success_rate_verified": 0.0
   }
 }

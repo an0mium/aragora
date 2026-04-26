@@ -90,7 +90,7 @@ class DocumentExplorer:
 
     Example:
         >>> explorer = DocumentExplorer(
-        ...     agents=[ExplorationAgent(name="claude", model="claude-sonnet-4")],
+        ...     agents=[ExplorationAgent(name="claude", model="claude-opus-4-7")],
         ... )
         >>> result = await explorer.explore(
         ...     documents=["doc1.pdf", "doc2.md"],

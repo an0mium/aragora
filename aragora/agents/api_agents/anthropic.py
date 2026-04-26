@@ -76,17 +76,20 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
     """
 
     # Model mapping from Anthropic to OpenRouter format (used by QuotaFallbackMixin)
+    # Every legacy Anthropic ID maps to the current frontier (Opus 4.7) via
+    # OpenRouter so a missing or revoked direct key never blocks a debate and
+    # weaker historical models are transparently upgraded.
     OPENROUTER_MODEL_MAP = {
         "claude-opus-4-7": "anthropic/claude-opus-4.7",
-        "claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
-        "claude-opus-4-5-20251101": "anthropic/claude-opus-4.5",
-        "claude-sonnet-4-20250514": "anthropic/claude-sonnet-4",
-        "claude-haiku-4-5-20251001": "anthropic/claude-haiku-4.5",
-        "claude-3-5-sonnet-20241022": "anthropic/claude-3.5-sonnet",
-        "claude-3-opus-20240229": "anthropic/claude-3-opus",
-        "claude-3-haiku-20240307": "anthropic/claude-3-haiku",
+        "claude-sonnet-4-6": "anthropic/claude-opus-4.7",
+        "claude-opus-4-5-20251101": "anthropic/claude-opus-4.7",
+        "claude-sonnet-4-20250514": "anthropic/claude-opus-4.7",
+        "claude-haiku-4-5-20251001": "anthropic/claude-opus-4.7",
+        "claude-3-5-sonnet-20241022": "anthropic/claude-opus-4.7",
+        "claude-3-opus-20240229": "anthropic/claude-opus-4.7",
+        "claude-3-haiku-20240307": "anthropic/claude-opus-4.7",
     }
-    DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
+    DEFAULT_FALLBACK_MODEL = "anthropic/claude-opus-4.7"
 
     def __init__(
         self,

@@ -1,0 +1,80 @@
+name: mypy baseline ratchet
+
+# Prevents .mypy-baseline (the accepted-debt snapshot) from growing on a PR.
+# The existing pre-push hook + lint.yml per-file gate catch NEW errors in
+# changed files. This ratchet is a second-order protection: it prevents a
+# PR from silently expanding the accepted-debt snapshot (e.g. via
+# `mypy_with_baseline.py --sync` that adds more entries than it removes).
+#
+# Invariant: on any PR, `wc -l .mypy-baseline` at head must be <= base.
+# Intentional debt reduction (line count shrinks) passes. No change passes.
+# Growth fails with a diff showing which entries were added.
+
+on:
+  pull_request:
+    paths:
+      - '.mypy-baseline'
+      - '.github/workflows/mypy-baseline-ratchet.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ratchet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      BASE_REF: ${{ github.event.pull_request.base.ref }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Compute baseline deltas
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch --no-tags --depth=1 origin "${BASE_REF}"
+
+          base_count=$(git show "origin/${BASE_REF}:.mypy-baseline" 2>/dev/null | wc -l | tr -d ' ' || echo 0)
+          head_count=$(wc -l < .mypy-baseline | tr -d ' ')
+
+          delta=$((head_count - base_count))
+
+          echo "base_count=${base_count}" >> "$GITHUB_OUTPUT"
+          echo "head_count=${head_count}" >> "$GITHUB_OUTPUT"
+          echo "delta=${delta}" >> "$GITHUB_OUTPUT"
+
+          echo "Base (${BASE_REF}): ${base_count} entries"
+          echo "Head:            ${head_count} entries"
+          echo "Delta:           ${delta}"
+
+          if [[ "${delta}" -gt 0 ]]; then
+            echo ""
+            echo "::error::mypy-baseline grew by ${delta} entries on this PR."
+            echo "The accepted-debt snapshot must not expand. Either:"
+            echo "  1. Fix the new mypy errors (preferred), or"
+            echo "  2. If the new baseline entries reflect a deliberate, bounded"
+            echo "     scope decision, label the PR 'mypy-debt-accepted' and"
+            echo "     document the rationale in the PR body."
+            echo ""
+            echo "New entries introduced:"
+            git show "origin/${BASE_REF}:.mypy-baseline" > /tmp/base-baseline 2>/dev/null || : > /tmp/base-baseline
+            diff /tmp/base-baseline .mypy-baseline | grep '^>' | head -50 || true
+            exit 1
+          fi
+
+          if [[ "${delta}" -lt 0 ]]; then
+            echo "Baseline shrank by $(( -delta )) entries — thank you."
+          fi
+
+      - name: Allow labeled debt-accepted
+        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'mypy-debt-accepted') }}
+        run: |
+          echo "::warning::mypy-baseline grew but PR is labeled 'mypy-debt-accepted'; allowing."
+          exit 0

@@ -448,7 +448,7 @@ class TestKnowledgeChatHandlerInputValidation:
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "query is required" in body.get("error", "")
+        assert "query must be a non-empty string" in body.get("error", "")
 
     @pytest.mark.asyncio
     async def test_inject_validates_messages_required(self, handler, mock_http_handler):
@@ -466,7 +466,7 @@ class TestKnowledgeChatHandlerInputValidation:
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "messages is required" in body.get("error", "")
+        assert "messages must be a non-empty list" in body.get("error", "")
 
     @pytest.mark.asyncio
     async def test_store_validates_minimum_messages(self, handler, mock_http_handler):

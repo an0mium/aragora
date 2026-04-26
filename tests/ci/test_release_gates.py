@@ -24,6 +24,7 @@ import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS_DIR = PROJECT_ROOT / ".github" / "workflows"
+ACTIONS_DIR = PROJECT_ROOT / ".github" / "actions"
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +297,42 @@ class TestFrontendE2EWorkflow:
         env = backend_step["env"]
         assert env["ARAGORA_REDIS_URL"] == "redis://localhost:6379/0"
         assert env["ARAGORA_DATA_DIR"] == ".nomic"
+
+    def test_frontend_e2e_job_is_sharded(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["frontend"]
+
+        assert workflow["timeout-minutes"] == 25
+        assert workflow["strategy"]["fail-fast"] is False
+        assert workflow["strategy"]["matrix"]["shard"] == [1, 2, 3]
+        assert "matrix.shard" in workflow["name"]
+
+        run_step = next(step for step in workflow["steps"] if step.get("name") == "Run E2E tests")
+        assert "timeout 16m npx playwright test" in run_step["run"]
+        assert "--project=ci-smoke" in run_step["run"]
+        assert "--project=chromium" not in run_step["run"]
+        assert "--project=firefox" not in run_step["run"]
+        assert "--project=webkit" not in run_step["run"]
+        assert '--project="Mobile Chrome"' not in run_step["run"]
+        assert '--project="Mobile Safari"' not in run_step["run"]
+        assert "--shard=${{ matrix.shard }}/3" in run_step["run"]
+        assert "--pass-with-no-tests" in run_step["run"]
+
+        artifact_steps = [
+            step for step in workflow["steps"] if step.get("uses") == "actions/upload-artifact@v4"
+        ]
+        artifact_names = {step["with"]["name"] for step in artifact_steps}
+        assert "playwright-report-shard-${{ matrix.shard }}" in artifact_names
+        assert "playwright-results-shard-${{ matrix.shard }}" in artifact_names
+        assert "frontend-e2e-server-logs-shard-${{ matrix.shard }}" in artifact_names
+
+    def test_test_workflow_changes_trigger_frontend_e2e_scope(self):
+        classifier = _load_yaml(ACTIONS_DIR / "pr-scope-classifier" / "action.yml")
+        filters = classifier["runs"]["steps"][0]["with"]["filters"]
+
+        assert "frontend_e2e:" in filters
+        frontend_e2e_section = filters.split("frontend_e2e:", 1)[1].split("smoke:", 1)[0]
+        assert "- '.github/workflows/test.yml'" in frontend_e2e_section
 
 
 class TestCoverageWorkflow:

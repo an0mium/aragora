@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-04-17",
+  "commands": {
+    "aragora demo": {
+      "outcome": "fail",
+      "error": "Debate timed out after 30s; README advertises this as the one-line demo but it silently tries real LLMs and hits stale keys",
+      "remediation": "README should document `--offline` as the no-key path; `aragora demo --offline` works and produces a receipt in ~1s"
+    },
+    "aragora demo --offline": {
+      "outcome": "ok",
+      "notes": "Produces DR-MOCK-* receipt with SHA-256 hash, 4 mock agents, 2 rounds, 74% confidence. Receipt saved to ./aragora-demo-receipt.json",
+      "duration_s": "<1"
+    },
+    "aragora quickstart --demo": {
+      "outcome": "ok",
+      "notes": "Produces quickstart-demo-* receipt in 0.0s; opens HTML preview in browser",
+      "duration_s": "<1"
+    },
+    "aragora gauntlet --local --profile quick": {
+      "outcome": "fail",
+      "exit_code": 1,
+      "symptom": "Stops at 25% progress (Stress Testing); no receipt written to --output path; exits 1 with no user-visible error",
+      "remediation": "Either (a) document that gauntlet requires a valid Anthropic/OpenAI key even with --local, or (b) add a --mock-agents option that mirrors `demo --offline` for gauntlet"
+    }
+  },
+  "api_keys": {
+    "ANTHROPIC_API_KEY": {"status": "invalid", "error": "401 authentication_error, invalid x-api-key"},
+    "OPENAI_API_KEY": {"status": "quota_exceeded", "error": "429 rate limit / quota exceeded"},
+    "OPENROUTER_API_KEY": {"status": "ok"},
+    "GEMINI_API_KEY": {"status": "unusable", "error": "google-generativeai package not in venv"}
+  },
+  "implications_for_benchmark": [
+    "Tier-1 ablation harness must run against the standalone aragora-debate package (Debate class). Full Arena orchestrator drags in network calls, pipeline stages, and an execution gate even for pure demo agents, blocking offline ablation.",
+    "Tier-2 end-to-end harness requires (a) rotating Anthropic and OpenAI keys in .env, (b) installing google-generativeai, and (c) either fixing the silent-failure path in `aragora gauntlet --local` or routing through OPENROUTER_API_KEY as the sole functional provider.",
+    "The README's 'pip install aragora && aragora demo' headline is factually incorrect on the current build; demo falls back to real LLMs and times out without --offline. This should be fixed before any commercial measurement because it's the first command a new user runs."
+  ]
+}

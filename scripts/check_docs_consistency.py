@@ -35,6 +35,7 @@ METRIC_DRIFT_WHITELIST = {
     "docs/PYTHON_SDK_CONSOLIDATION.md": "SDK consolidation guide cites namespace-local modules", "docs/STRANDED_FEATURES_AUDIT.md": "audit entries cite feature-local test counts",
 }
 LINK_RE = re.compile(r"(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)")
+INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
 HTML_ID_RE = re.compile(r"""<a\s+[^>]*id=["']([^"']+)["']""", re.IGNORECASE)
 METRIC_RE = re.compile(r"\b(\d+(?:,\d+)*)(\+)?\s+(tests|adapters|agent types|API operations|modules)\b", re.IGNORECASE)
@@ -68,6 +69,15 @@ def is_relative_to(path: Path, parent: Path) -> bool:
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 def markdown_files(root: Path) -> list[Path]:
+    result = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "--", "README.md", "docs/**/*.md"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return [root / line for line in result.stdout.splitlines() if line.strip()]
+
     files: list[Path] = []
     readme = root / "README.md"
     if readme.exists():
@@ -138,7 +148,8 @@ def extract_links(path: Path) -> list[tuple[int, str, str]]:
             in_fence = not in_fence
         if fence or in_fence:
             continue
-        for match in LINK_RE.finditer(line):
+        searchable = INLINE_CODE_RE.sub("", line)
+        for match in LINK_RE.finditer(searchable):
             target = match.group(1).strip()
             links.append((line_no, target, match.group(0)))
     return links

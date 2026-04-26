@@ -680,6 +680,13 @@ class TestDefaultRoutePermissions:
             ("/api/v1/decisions/plans/plan-123/execute", "POST", "decisions.update"),
             ("/api/decisions/plans", "GET", "decisions.read"),
             ("/api/decisions/plans", "POST", "decisions.create"),
+            ("/api/v1/settlements", "GET", "settlements:read"),
+            ("/api/v1/settlements/history", "GET", "settlements:read"),
+            ("/api/v1/settlements/summary", "GET", "settlements:read"),
+            ("/api/v1/settlements/settlement-123", "GET", "settlements:read"),
+            ("/api/v1/settlements/agent/demo/accuracy", "GET", "settlements:read"),
+            ("/api/v1/settlements/settlement-123/settle", "POST", "settlements:write"),
+            ("/api/v1/settlements/batch", "POST", "settlements:write"),
         ],
     )
     def test_decision_plan_routes_have_explicit_permissions(
@@ -693,6 +700,35 @@ class TestDefaultRoutePermissions:
             mock_get.return_value = MagicMock()
             middleware = RBACMiddleware(validate_permissions=False)
             assert middleware.get_required_permission(path, method) == expected_permission
+
+    def test_settlement_routes_resolve_for_standard_roles(self):
+        """Settlement routes should allow read access to members and write access to admins."""
+        middleware = RBACMiddleware(validate_permissions=False)
+
+        member = AuthorizationContext(user_id="member-1", org_id="org-1", roles={"member"})
+        admin = AuthorizationContext(user_id="admin-1", org_id="org-1", roles={"admin"})
+        owner = AuthorizationContext(user_id="owner-1", org_id="org-1", roles={"owner"})
+
+        member_read = middleware.check_request("/api/v1/settlements", "GET", member)
+        member_write = middleware.check_request("/api/v1/settlements/batch", "POST", member)
+        admin_write = middleware.check_request("/api/v1/settlements/batch", "POST", admin)
+        owner_write = middleware.check_request("/api/v1/settlements/batch", "POST", owner)
+
+        assert member_read[0] is True
+        assert member_read[2] == "settlements:read"
+        assert "settlements.read" in member_read[1]
+
+        assert member_write[0] is False
+        assert member_write[2] == "settlements:write"
+        assert "settlements.write" in member_write[1]
+
+        assert admin_write[0] is True
+        assert admin_write[2] == "settlements:write"
+        assert "settlements.write" in admin_write[1]
+
+        assert owner_write[0] is True
+        assert owner_write[2] == "settlements:write"
+        assert "settlements.write" in owner_write[1]
 
 
 # ============================================================================

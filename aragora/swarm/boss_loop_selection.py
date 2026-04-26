@@ -31,7 +31,7 @@ def semantic_dedup_issues(issues: list[GitHubIssue]) -> list[GitHubIssue]:
         agent = None
         if os.environ.get("OPENROUTER_API_KEY"):
             agent = create_agent(
-                "openrouter", name="dedup", role="proposer", model="deepseek/deepseek-chat"
+                "openrouter", name="dedup", role="proposer", model="deepseek/deepseek-v4-pro"
             )
         elif os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
             agent = create_agent("gemini", name="dedup", role="proposer", model="gemini-2.0-flash")
@@ -277,19 +277,10 @@ def target_issue_miss_guidance(
             ],
         )
 
-    required = set(require_labels or set())
-    missing_labels = sorted(required - labels)
-    if missing_labels:
-        return (
-            [
-                f"Target issue #{issue_number} is missing required labels: {', '.join(missing_labels)}."
-            ],
-            [
-                f"Add the required labels to issue #{issue_number} or adjust --require-label settings.",
-                "Remove --boss-issue-number to return to feed-driven selection.",
-            ],
-        )
-
+    # Scope-overlap is checked before required-labels because the proof-first
+    # filter (filter_noncanonical_boss_ready_issues) mutates issue.labels to
+    # strip `boss-ready` for non-canonical issues. Reporting "missing labels"
+    # in that path masks the more actionable root cause when both apply.
     overlapping_scopes = sorted(
         {
             entry
@@ -310,6 +301,19 @@ def target_issue_miss_guidance(
             ],
             [
                 f"Merge, close, or retarget the overlapping work before redispatching issue #{issue_number}.",
+                "Remove --boss-issue-number to return to feed-driven selection.",
+            ],
+        )
+
+    required = set(require_labels or set())
+    missing_labels = sorted(required - labels)
+    if missing_labels:
+        return (
+            [
+                f"Target issue #{issue_number} is missing required labels: {', '.join(missing_labels)}."
+            ],
+            [
+                f"Add the required labels to issue #{issue_number} or adjust --require-label settings.",
                 "Remove --boss-issue-number to return to feed-driven selection.",
             ],
         )

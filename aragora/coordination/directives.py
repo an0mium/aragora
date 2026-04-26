@@ -13,11 +13,37 @@ import fcntl
 import json
 import os
 import time
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 _COORD_DIR = ".aragora_coordination"
 _DIRECTIVES_FILE = "directives.json"
+
+
+def _coerce_string_list(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return []
+
+
+def _coerce_float(value: object, default: float = 0.0) -> float:
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
+
+
+def _coerce_record_map(value: object) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {str(key): item for key, item in value.items()}
 
 
 @dataclass
@@ -41,12 +67,12 @@ class SessionDirective:
         return cls(
             target=str(data.get("target", "")),
             task=str(data.get("task", "")),
-            scope=[str(item) for item in list(data.get("scope", []))],
-            constraints=[str(item) for item in list(data.get("constraints", []))],
+            scope=_coerce_string_list(data.get("scope")),
+            constraints=_coerce_string_list(data.get("constraints")),
             assigned_by=str(data.get("assigned_by", "")),
             status=str(data.get("status", "active") or "active"),
-            created_at=float(data.get("created_at", 0.0) or 0.0),
-            updated_at=float(data.get("updated_at", 0.0) or 0.0),
+            created_at=_coerce_float(data.get("created_at"), 0.0),
+            updated_at=_coerce_float(data.get("updated_at"), 0.0),
         )
 
 
@@ -79,12 +105,10 @@ class DirectiveBoard:
             return self._default_payload()
         if not isinstance(data, dict):
             return self._default_payload()
-        directives = data.get("directives")
-        if not isinstance(directives, dict):
-            directives = {}
+        directives = _coerce_record_map(data.get("directives"))
         return {
-            "version": int(data.get("version", 1) or 1),
-            "updated_at": float(data.get("updated_at", 0.0) or 0.0),
+            "version": int(_coerce_float(data.get("version"), 1.0)),
+            "updated_at": _coerce_float(data.get("updated_at"), 0.0),
             "directives": directives,
         }
 
@@ -129,12 +153,12 @@ class DirectiveBoard:
         status: str = "active",
     ) -> SessionDirective:
         def _update(payload: dict[str, object]) -> SessionDirective:
-            directives = dict(payload.get("directives", {}))
+            directives = _coerce_record_map(payload.get("directives"))
             now = time.time()
             existing = directives.get(target)
             created_at = now
-            if isinstance(existing, dict):
-                created_at = float(existing.get("created_at", now) or now)
+            if isinstance(existing, Mapping):
+                created_at = _coerce_float(existing.get("created_at"), now)
             directive = SessionDirective(
                 target=target,
                 task=task,
@@ -153,7 +177,7 @@ class DirectiveBoard:
 
     def clear(self, target: str) -> bool:
         def _clear(payload: dict[str, object]) -> bool:
-            directives = dict(payload.get("directives", {}))
+            directives = _coerce_record_map(payload.get("directives"))
             if target not in directives:
                 return False
             directives.pop(target, None)

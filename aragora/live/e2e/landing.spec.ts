@@ -104,9 +104,11 @@ test.describe('Landing Page', () => {
       const submitButton = page.locator('button[type="submit"], button').filter({ hasText: /start|debate|submit/i }).first();
       if (await submitButton.isVisible()) {
         await submitButton.click();
-        // Error should appear
-        const errorBanner = page.locator('.bg-warning\\/10, [class*="error"], [class*="warning"]').first();
-        await expect(errorBanner).toBeVisible({ timeout: 10000 });
+        // Error should appear. The landing error state uses inline crimson
+        // styles rather than a warning/error utility class.
+        await expect(page.getByText(/Test error|Something went wrong|Could not connect/i).first()).toBeVisible({
+          timeout: 10000,
+        });
       }
     }
   });

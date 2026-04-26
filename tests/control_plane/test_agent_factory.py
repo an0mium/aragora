@@ -106,7 +106,7 @@ class TestProviderMapping:
             agent_id="a1",
             capabilities={"debate"},
             provider="deepseek",
-            model="deepseek-v3",
+            model="deepseek-v4-pro",
         )
         assert factory.resolve_agent_type(info) == "deepseek"
 

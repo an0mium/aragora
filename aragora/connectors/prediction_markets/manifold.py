@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Callable
@@ -70,6 +71,7 @@ class ManifoldMarket:
     resolution: str | None
     is_resolved: bool
     outcome_type: str
+    total_liquidity: int | None = None  # mana; used by ManifoldBetAdapter for liquidity-cap checks
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -77,6 +79,7 @@ class ManifoldMarket:
         market_id = str(payload.get("id") or "").strip()
         if not market_id:
             raise ManifoldError("Manifold market payload missing 'id'")
+        raw_liq = payload.get("totalLiquidity")
         return cls(
             market_id=market_id,
             slug=str(payload.get("slug") or ""),
@@ -91,6 +94,7 @@ class ManifoldMarket:
             ),
             is_resolved=bool(payload.get("isResolved")),
             outcome_type=str(payload.get("outcomeType") or "BINARY"),
+            total_liquidity=int(raw_liq) if raw_liq is not None else None,
             raw=dict(payload),
         )
 
@@ -282,12 +286,176 @@ def manifold_to_market_resolution(
     )
 
 
+# ---------------------------------------------------------------------------
+# Write path — AGT-03 Phase 2
+# Gated behind ARAGORA_MANIFOLD_WRITE_ENABLED (default off).
+# ---------------------------------------------------------------------------
+
+MANIFOLD_WRITE_FLAG = "ARAGORA_MANIFOLD_WRITE_ENABLED"
+
+# Stake caps per the AGT-03 plan.
+DEFAULT_PER_MARKET_CAP_MANA = 50  # mana; rises to 200 after 30d stable behaviour
+DEFAULT_PER_DAY_CAP_MANA = 1000  # mana total across all markets per UTC calendar day
+DEFAULT_LIQUIDITY_FRACTION_CAP = 0.05  # never >5% of a market's total liquidity in one bet
+
+
+def manifold_write_enabled() -> bool:
+    """Return True when ARAGORA_MANIFOLD_WRITE_ENABLED is set to a truthy value."""
+    raw = str(os.environ.get(MANIFOLD_WRITE_FLAG) or "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+@dataclass(frozen=True)
+class ManifoldBetResult:
+    """Result of a successful prediction-submission call."""
+
+    bet_id: str
+    market_id: str
+    stake_mana: int
+    probability: float
+    outcome: str  # "YES" | "NO"
+
+
+@dataclass
+class ManifoldBetAdapter(ManifoldAdapter):
+    """Write-capable Manifold adapter (AGT-03 Phase 2).
+
+    Gated behind ARAGORA_MANIFOLD_WRITE_ENABLED (default off).
+    Enforces per-market (50 mana), per-day (1 000 mana), and
+    liquidity-fraction (5%) caps before each API call.
+    """
+
+    api_key: str = ""
+    per_market_cap_mana: int = DEFAULT_PER_MARKET_CAP_MANA
+    per_day_cap_mana: int = DEFAULT_PER_DAY_CAP_MANA
+    liquidity_fraction_cap: float = DEFAULT_LIQUIDITY_FRACTION_CAP
+    _market_stakes: dict[str, int] = field(default_factory=dict)
+    _daily_stakes: dict[str, int] = field(default_factory=dict)
+
+    def _require_write_enabled(self) -> None:
+        if not manifold_write_enabled():
+            raise ManifoldError(
+                f"manifold write path is disabled; set {MANIFOLD_WRITE_FLAG}=1 to enable"
+            )
+
+    def _post(self, path: str, body: dict[str, Any]) -> Any:
+        url = f"{self.api_base.rstrip('/')}/{path.lstrip('/')}"
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": f"Key {self.api_key}",
+        }
+        try:
+            status, response = self.http_client("POST", url, headers, json.dumps(body))
+        except Exception as exc:  # noqa: BLE001
+            raise ManifoldError(f"manifold write transport error for {path}: {exc}") from exc
+        if status >= 400:
+            raise ManifoldError(f"manifold POST {path} returned HTTP {status}: {response[:200]}")
+        try:
+            return json.loads(response or "null")
+        except json.JSONDecodeError as exc:
+            raise ManifoldError(f"manifold POST {path} returned non-JSON: {exc}") from exc
+
+    def _enforce_caps(
+        self,
+        market_id: str,
+        stake_mana: int,
+        *,
+        market_liquidity: int | None = None,
+        now: datetime | None = None,
+    ) -> None:
+        market_staked = self._market_stakes.get(market_id, 0)
+        if market_staked + stake_mana > self.per_market_cap_mana:
+            raise ManifoldError(
+                f"per-market cap exceeded for {market_id}: "
+                f"already_staked={market_staked}, requested={stake_mana}, "
+                f"cap={self.per_market_cap_mana}"
+            )
+        today = (now or datetime.now(tz=UTC)).date().isoformat()
+        day_staked = self._daily_stakes.get(today, 0)
+        if day_staked + stake_mana > self.per_day_cap_mana:
+            raise ManifoldError(
+                f"per-day cap exceeded: staked_today={day_staked}, "
+                f"requested={stake_mana}, cap={self.per_day_cap_mana}"
+            )
+        if market_liquidity is not None and market_liquidity > 0:
+            fraction = stake_mana / market_liquidity
+            if fraction > self.liquidity_fraction_cap:
+                raise ManifoldError(
+                    f"liquidity fraction cap exceeded: stake={stake_mana}, "
+                    f"liquidity={market_liquidity}, fraction={fraction:.2%}, "
+                    f"cap={self.liquidity_fraction_cap:.2%}"
+                )
+
+    def place_bet(
+        self,
+        market_id: str,
+        *,
+        probability: float,
+        stake_mana: int,
+        outcome: str = "YES",
+        now: datetime | None = None,
+    ) -> ManifoldBetResult:
+        """Submit a prediction bet. Checks all caps before the API call.
+
+        Stake counters are only updated after a successful response.
+        """
+        self._require_write_enabled()
+        if not market_id:
+            raise ManifoldError("market_id is required")
+        if not 0.0 < probability < 1.0:
+            raise ManifoldError(f"probability must be strictly in (0, 1): {probability}")
+        if stake_mana < 1:
+            raise ManifoldError(f"stake_mana must be >= 1: {stake_mana}")
+        if outcome not in ("YES", "NO"):
+            raise ManifoldError(f"outcome must be 'YES' or 'NO': {outcome!r}")
+
+        market = self.fetch_market(market_id)
+        self._enforce_caps(
+            market_id,
+            stake_mana,
+            market_liquidity=market.total_liquidity,
+            now=now,
+        )
+
+        payload = self._post(
+            "bet",
+            {
+                "contractId": market_id,
+                "amount": stake_mana,
+                "outcome": outcome,
+            },
+        )
+
+        bet_id = str(payload.get("id") or payload.get("betId") or "").strip()
+        if not bet_id:
+            raise ManifoldError(f"manifold bet response missing 'id' / 'betId': {payload!r}")
+
+        today = (now or datetime.now(tz=UTC)).date().isoformat()
+        self._market_stakes[market_id] = self._market_stakes.get(market_id, 0) + stake_mana
+        self._daily_stakes[today] = self._daily_stakes.get(today, 0) + stake_mana
+
+        return ManifoldBetResult(
+            bet_id=bet_id,
+            market_id=market_id,
+            stake_mana=stake_mana,
+            probability=probability,
+            outcome=outcome,
+        )
+
+
 __all__ = [
     "DEFAULT_MIN_WINDOW_DAYS",
+    "DEFAULT_PER_DAY_CAP_MANA",
+    "DEFAULT_PER_MARKET_CAP_MANA",
     "MANIFOLD_API_BASE",
+    "MANIFOLD_WRITE_FLAG",
     "ManifoldAdapter",
+    "ManifoldBetAdapter",
+    "ManifoldBetResult",
     "ManifoldError",
     "ManifoldMarket",
     "ManifoldResolution",
     "manifold_to_market_resolution",
+    "manifold_write_enabled",
 ]

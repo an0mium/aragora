@@ -77,7 +77,7 @@ OPENROUTER_PLAYGROUND_MODELS: list[tuple[str, str]] = [
     ("critic", "openai/gpt-5.4"),
     ("synthesizer", "google/gemini-3.1-pro"),
     ("contrarian", "mistralai/mistral-large-latest"),
-    ("auditor", "deepseek/deepseek-chat-v3-0324"),
+    ("auditor", "deepseek/deepseek-v4-pro"),
 ]
 
 # IP -> list of timestamps
@@ -874,7 +874,7 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
     },
     {
         "provider": "openai",
-        "model": "gpt-4.1",
+        "model": "gpt-5.4",
         "name": "gpt",
         "env": "OPENAI_API_KEY",
         "openrouter_model": "openai/gpt-4.1",
@@ -888,17 +888,17 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
     },
     {
         "provider": "google",
-        "model": "gemini-2.5-pro",
+        "model": "gemini-3.1-pro",
         "name": "gemini",
         "env": "GEMINI_API_KEY",
-        "openrouter_model": "google/gemini-2.5-pro-preview",
+        "openrouter_model": "google/gemini-3.1-pro",
     },
     {
         "provider": "openrouter",
-        "model": "deepseek/deepseek-chat-v3-0324",
+        "model": "deepseek/deepseek-v4-pro",
         "name": "deepseek",
         "env": "OPENROUTER_API_KEY",
-        "openrouter_model": "deepseek/deepseek-chat-v3-0324",
+        "openrouter_model": "deepseek/deepseek-v4-pro",
     },
     {
         "provider": "openrouter",
@@ -2964,17 +2964,28 @@ class PlaygroundHandler(BaseHandler):
         try:
             from aragora.storage.debate_store import get_debate_store, normalize_cache_key
 
-            agent_tags = _get_available_live_agents(agent_count)
-            if not agent_tags:
-                raise ValueError("no live playground agents configured")
-            model_ids = [
-                tag.split(":", 1)[1] if tag.startswith("openrouter:") else tag for tag in agent_tags
-            ]
             effective_topic = question or topic
-            cache_key = normalize_cache_key(effective_topic, model_ids, rounds)
-
             store = get_debate_store()
-            cached = store.get_by_cache_key(cache_key)
+            agent_tags = _get_available_live_agents(agent_count)
+            cached = None
+
+            if agent_tags:
+                model_ids = [
+                    tag.split(":", 1)[1] if tag.startswith("openrouter:") else tag
+                    for tag in agent_tags
+                ]
+                cache_key = normalize_cache_key(effective_topic, model_ids, rounds)
+                cached = store.get_by_cache_key(cache_key)
+            elif source == "demo":
+                # The demo proof surface may replay a persisted live result even
+                # when the current process cannot run live agents locally.
+                cache_key = normalize_cache_key(effective_topic, model_ids, rounds)
+                cached = store.get_by_cache_key(cache_key)
+                if cached is None:
+                    cached = store.get_latest_live_by_topic(effective_topic, rounds)
+            else:
+                raise ValueError("no live playground agents configured")
+
             if cached is not None:
                 cached = _normalize_public_debate_payload(cached)
                 cached.setdefault("source", source)
@@ -3269,7 +3280,7 @@ class PlaygroundHandler(BaseHandler):
 
                 agent = _OpenRouter(
                     name="tldr-synth",
-                    model="anthropic/claude-sonnet-4.6",
+                    model="anthropic/claude-opus-4.7",
                 )
             except (ImportError, RuntimeError, ValueError, OSError) as exc:
                 logger.debug("OpenRouter agent unavailable for TL;DR: %s", exc)

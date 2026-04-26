@@ -45,11 +45,22 @@ NAMESPACE_CONTRACTS = {
             ("post", "/api/v1/integrations/teams/notify"),
         ],
     },
+    "hybrid-debates": {
+        "file": "sdk/typescript/src/namespaces/hybrid-debates.ts",
+        "endpoints": [
+            ("post", "/api/v1/debates/hybrid"),
+            ("get", "/api/v1/debates/hybrid"),
+            ("get", "/api/v1/debates/hybrid/{param}"),
+        ],
+    },
     "openapi": {
         "file": "sdk/typescript/src/namespaces/openapi.ts",
         "endpoints": [
             ("get", "/api/v1/docs/routes"),
             ("get", "/api/v1/docs/stats"),
+            ("post", "/api/v1/inbox/bulk-action"),
+            ("post", "/api/v1/inbox/connect"),
+            ("post", "/api/v1/inbox/triage"),
         ],
     },
     "receipts": {

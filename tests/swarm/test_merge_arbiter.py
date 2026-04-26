@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aragora.swarm.merge_arbiter import (
+    AUTOMATION_REVIEWER_LOGINS,
     REQUIRED_CHECKS,
     ArbiterSummary,
     MergeArbiter,
@@ -17,7 +18,10 @@ from aragora.swarm.merge_arbiter import (
     _classify_required_checks,
     _evaluate_pr,
     _get_check_status,
+    _has_local_settlement_receipt,
+    _has_matching_human_approval,
     _list_candidate_prs,
+    _review_counts_as_human_approval,
     _merge_pr,
     _promote_draft,
 )
@@ -47,12 +51,14 @@ def _pr(
     number: int = 1,
     branch: str = "aragora/boss-harvest/fix-1",
     draft: bool = False,
+    review_decision: str = "",
 ) -> dict:
     return {
         "number": number,
         "headRefName": branch,
         "headRefOid": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
         "isDraft": draft,
+        "reviewDecision": review_decision,
     }
 
 
@@ -122,6 +128,57 @@ class TestGetCheckStatus:
         with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
             mock_gh.return_value = _make_gh_result(returncode=1)
             assert _get_check_status(1, "owner/repo") == {}
+
+
+class TestHumanSettlement:
+    def test_review_counts_as_human_approval(self):
+        review = {
+            "state": "APPROVED",
+            "commit_id": "deadbeef",
+            "user": {"login": "armand", "type": "User"},
+        }
+        assert _review_counts_as_human_approval(review, "deadbeef") is True
+
+    def test_review_rejects_automation_logins_and_stale_heads(self):
+        bot_login = next(iter(AUTOMATION_REVIEWER_LOGINS))
+        bot_review = {
+            "state": "APPROVED",
+            "commit_id": "deadbeef",
+            "user": {"login": bot_login, "type": "User"},
+        }
+        stale_review = {
+            "state": "APPROVED",
+            "commit_id": "cafebabe",
+            "user": {"login": "armand", "type": "User"},
+        }
+        assert _review_counts_as_human_approval(bot_review, "deadbeef") is False
+        assert _review_counts_as_human_approval(stale_review, "deadbeef") is False
+
+    def test_has_matching_human_approval_scans_reviews(self):
+        reviews = [
+            {
+                "state": "COMMENTED",
+                "commit_id": "deadbeef",
+                "user": {"login": "armand", "type": "User"},
+            },
+            {
+                "state": "APPROVED",
+                "commit_id": "deadbeef",
+                "user": {"login": "armand", "type": "User"},
+            },
+        ]
+        with patch("aragora.swarm.merge_arbiter._list_pr_reviews", return_value=reviews):
+            assert _has_matching_human_approval(12, "owner/repo", "deadbeef") is True
+
+    def test_has_local_settlement_receipt_matches_head_sha(self, tmp_path):
+        root = tmp_path / ".aragora" / "review-queue" / "settlements"
+        root.mkdir(parents=True)
+        receipt = root / "pr-12-deadbeefdead-approve.json"
+        receipt.write_text(
+            json.dumps({"action": "approve", "head_sha": "deadbeefdead1111"}),
+            encoding="utf-8",
+        )
+        assert _has_local_settlement_receipt(12, "deadbeefdead1111", repo_root=tmp_path) is True
 
 
 class TestClassifyRequiredChecks:
@@ -211,13 +268,17 @@ class TestEvaluatePrAllPassing:
     def test_merges_ready_pr_when_required_and_full_suite_checks_pass(self):
         config = MergeArbiterConfig()
         checks = _all_passing_ready_checks("Status Doc Reconciliation")
-        pr = _pr(42, "codex/ok")
+        pr = _pr(42, "codex/ok", review_decision="APPROVED")
         with (
             patch(
                 "aragora.swarm.merge_arbiter._get_required_checks",
                 return_value=list(REQUIRED_CHECKS),
             ),
             patch("aragora.swarm.merge_arbiter._get_check_status") as mock_checks,
+            patch(
+                "aragora.swarm.merge_arbiter._has_matching_human_approval",
+                return_value=True,
+            ),
             patch("aragora.swarm.merge_arbiter._merge_pr") as mock_merge,
         ):
             mock_checks.return_value = checks
@@ -296,6 +357,28 @@ class TestEvaluatePrFailingCheck:
         assert "failing full-suite checks" in result.reason
         assert "Quality Gates=FAILURE" in result.reason
 
+    def test_ready_pr_waits_for_explicit_human_settlement(self):
+        config = MergeArbiterConfig()
+        status = _all_passing_ready_checks("Status Doc Reconciliation")
+        with (
+            patch(
+                "aragora.swarm.merge_arbiter._get_required_checks",
+                return_value=list(REQUIRED_CHECKS),
+            ),
+            patch("aragora.swarm.merge_arbiter._get_check_status", return_value=status),
+            patch(
+                "aragora.swarm.merge_arbiter._has_local_settlement_receipt",
+                return_value=False,
+            ),
+            patch(
+                "aragora.swarm.merge_arbiter._has_matching_human_approval",
+                return_value=False,
+            ),
+        ):
+            result = _evaluate_pr(_pr(14, "codex/waiting"), config)
+        assert result.success is False
+        assert "explicit human settlement" in result.reason
+
 
 # ---------------------------------------------------------------------------
 # _evaluate_pr — dry-run mode
@@ -312,10 +395,14 @@ class TestEvaluatePrDryRun:
                 return_value=list(REQUIRED_CHECKS),
             ),
             patch("aragora.swarm.merge_arbiter._get_check_status") as mock_checks,
+            patch(
+                "aragora.swarm.merge_arbiter._has_matching_human_approval",
+                return_value=True,
+            ),
             patch("aragora.swarm.merge_arbiter._merge_pr") as mock_merge,
         ):
             mock_checks.return_value = checks
-            result = _evaluate_pr(_pr(99, "codex/dry"), config)
+            result = _evaluate_pr(_pr(99, "codex/dry", review_decision="APPROVED"), config)
         assert result.success is True
         assert "dry-run" in result.reason
         mock_merge.assert_not_called()
@@ -436,7 +523,7 @@ class TestFullRun:
         )
         arbiter = MergeArbiter(config=config)
 
-        pr = _pr(7, "codex/good")
+        pr = _pr(7, "codex/good", review_decision="APPROVED")
         checks = _all_passing_ready_checks("Status Doc Reconciliation")
 
         with (
@@ -446,6 +533,10 @@ class TestFullRun:
                 return_value=list(REQUIRED_CHECKS),
             ),
             patch("aragora.swarm.merge_arbiter._get_check_status", return_value=checks),
+            patch(
+                "aragora.swarm.merge_arbiter._has_matching_human_approval",
+                return_value=True,
+            ),
             patch("aragora.swarm.merge_arbiter._merge_pr", return_value=(True, "merged")),
         ):
             summary = await arbiter.run()

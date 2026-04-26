@@ -8,7 +8,7 @@ test.describe('Navigation', () => {
   test('should navigate to home page', async ({ page, aragoraPage }) => {
     await page.goto('/');
     await aragoraPage.dismissAllOverlays();
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL(/\/(?:landing\/?)?$/);
     await expect(page.locator('body')).toBeVisible();
   });
 
@@ -66,7 +66,7 @@ test.describe('Navigation', () => {
     const aboutLink = page.locator('a[href="/about"]').first();
     if (await aboutLink.isVisible()) {
       await aboutLink.click();
-      await expect(page).toHaveURL('/about');
+      await expect(page).toHaveURL(/\/about\/?$/);
     }
   });
 

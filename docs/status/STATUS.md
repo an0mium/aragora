@@ -1,88 +1,115 @@
 # Aragora Project Status
 
-*Last updated: March 29, 2026*
+*Last updated: April 25, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](../INDEX.md) for the curated technical reference map.
 > For roadmap extraction, doc drift, and partial-feature tracking, see [DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md](DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md).
 
-## March 29, 2026 — Public Debate Sharing Landed, Queue Needs Truthful Triage
+## April 25, 2026 — v2.9.0 stable readiness after rc.1
+
+The chronic-red CI sweep landed: 10 PRs in 40 minutes (00:37–01:16 UTC) closed every chronic-red workflow with an associated fix. Post-merge audit confirms every npm project reports `0 vulnerabilities` and the Next.js frontend (aragora/live) builds end-to-end. Stable promotion is prepared but remains pending the next nightly confirmation and the `v2.9.0` tag.
+
+Key landings since rc.1 cut (2026-04-24):
+- Mode 3 rubric calibration epic (#6505): severity counts (#6506), APPROVE_WITH_FOLLOWUPS verdict + gate (#6510), advocate-lens slot (#6514). Lane 1b replay (#6552) confirms 3/17 briefs now downgrade — first observed verdict variance from the rubric fix.
+- 17 npm Dependabot alerts addressed by upgrade-first overrides (#6558), not ignore-list.
+- 2× CRITICAL trivy CVE-2026-33634 patched (#6557).
+- 6 chronic-red workflows now have associated fixes on main; next nightly is the validation signal.
+
+Readiness receipt: [2026-04-25-rc1-to-stable-receipt.md](2026-04-25-rc1-to-stable-receipt.md).
+
+## April 24, 2026 — Auto-Handle Calibration Gate Ready On #6448
 
 ### Canonical Current Reality
 
-- `main` is materially cleaner than it was on March 23:
-  - the open PR queue is back to zero
-  - the recent merge stream fixed shared CI noise, public debate auth/spectate gaps, debate-share host correctness, and workflow governance cleanup
-- The strongest current product proof on `main` is now the anonymous public debate share path:
-  - `POST /api/v1/debates/{id}/share` enables public sharing
-  - `GET /api/v1/debates/public/{id}` returns the public payload without auth
-  - the standalone `/debate/{id}` page renders the full shared argument, critiques, and transcript
-- The strongest focused verification on March 29, 2026 is:
+- `#6372` is represented on this branch in code rather than only in the thesis:
+  - `aragora/triage/auto_handle_calibration.py` adds a SQLite-backed calibration store for auto-handle paths.
+  - `fire_and_forget` low-risk auto-merge in `aragora/swarm/tranche_integrate.py` now consults calibrated decision classes before executing.
+  - The `wait_for_review` + `admin_merge_allowed` bypass in `aragora/ralph/supervisor.py` now consults the same calibration gate before issuing an admin merge.
+  - Per-event drift detection can narrow a class, emit a JSON drift receipt under `.aragora/review-queue/drift/`, and keep the class human-gated until recovery.
+  - `aragora review-queue` now surfaces active auto-handle drift alerts directly in CLI output.
+- Merging this branch closes the broad “static heuristics only” gap for Commitment 1. Remaining work is refinement:
+  - richer post-merge invalidation producers
+  - richer decision-class fingerprints once more samples exist
+  - continued empirical tuning of thresholds
 
-  ```bash
-  python3 -m pytest tests/e2e/test_demo_public_funnel.py tests/server/handlers/test_public_debate_viewer.py tests/handlers/test_debate_share.py -q
-  cd aragora/live && npx jest --ci --runInBand --runTestsByPath 'src/app/(standalone)/debate/__tests__/page.test.tsx' 'src/app/(standalone)/debate/__tests__/fetchDebate.test.ts'
-  ```
+## April 22, 2026 — Thesis Landed, Heterogeneous PR Review Shipped, Legacy Fallback Needs Truthful Labeling
 
-  Results on March 29, 2026:
-  - `19 passed` in the Python public-share suites
-  - `27 passed` in the standalone debate page/fetch suites
+### Canonical Current Reality
 
-- That is enough to say the repo contains a working public proof surface for shared debates and a cleaner CI baseline.
-- It is **not** enough to say the full operator-facing proof pack is done. Telemetry, receipt UI, cost accounting, and dashboard visibility remain the most important open product work.
-- GitHub's open issues are **not** only enterprise-assurance items anymore. The active product backlog is [#1492](https://github.com/synaptent/aragora/issues/1492) through [#1503](https://github.com/synaptent/aragora/issues/1503), plus the enterprise-assurance issues [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509).
-- [#1498](https://github.com/synaptent/aragora/issues/1498) was closed as satisfied by the merged public-share work.
+- `main` moved materially beyond the late-March status:
+  - [#6370](https://github.com/synaptent/aragora/pull/6370) landed `docs/THESIS.md` as the canonical statement of authority, settlement, triage, and heterogeneous review commitments.
+  - The PDB lane is now real code on `main`, not only design work:
+    - [#6369](https://github.com/synaptent/aragora/pull/6369) brief lifecycle state machine + storage
+    - [#6389](https://github.com/synaptent/aragora/pull/6389) Protocol B executor + panel config + budget
+    - [#6391](https://github.com/synaptent/aragora/pull/6391) brief generation endpoints + in-process worker
+    - [#6393](https://github.com/synaptent/aragora/pull/6393) PR 4 UI design
+    - [#6404](https://github.com/synaptent/aragora/pull/6404) real Claude + GPT provider invocation
+    - [#6425](https://github.com/synaptent/aragora/pull/6425) Phase B provider slots (gemini / grok / deepseek / kimi / qwen / mistral)
+    - [#6421](https://github.com/synaptent/aragora/pull/6421) single-PR dogfood CLI for generating a real brief
+  - The agent-bridge lane advanced with [#6392](https://github.com/synaptent/aragora/pull/6392) backend core, plus scoping/design docs in [#6390](https://github.com/synaptent/aragora/pull/6390) and [#6386](https://github.com/synaptent/aragora/pull/6386).
+  - Receipt and dissent substrates also hardened via [#6353](https://github.com/synaptent/aragora/pull/6353) and [#6376](https://github.com/synaptent/aragora/pull/6376).
+- The open PR queue is small again: 6 open PRs at the time of this refresh, with 2 drafts and 4 ready.
+- `main` now contains a real `aragora/pdb/` module set:
+  - `brief_state.py`
+  - `storage.py`
+  - `panel_config.py`
+  - `budget.py`
+  - `protocol.py`
+  - `prompts.py`
+  - `input_loader.py`
+  - `worker.py`
+- The key honest qualifier has narrowed:
+  - the active PR-review realization now lives in `aragora/pdb/` and `aragora/brief_engine/`, not in the schema-only fallback module
+  - that active path invokes heterogeneous providers, preserves real dissent, and emits execution statuses distinct from `metadata_heuristic`
+  - `aragora/swarm/pr_review_protocol.py` still declares `PROTOCOL_STATUS = "metadata_heuristic"` because it remains the schema/fallback default for packets constructed without execution
+  - the remaining work is source-of-truth alignment: docs and any schema-only callers must treat the PDB path as canonical and the metadata-only packet as an explicit fallback
+- The thesis implementation-gap issues — three of four CLOSED as of 2026-04-25:
+  - [#6372](https://github.com/synaptent/aragora/issues/6372) auto-handle calibration + drift gating — **CLOSED**
+  - [#6373](https://github.com/synaptent/aragora/issues/6373) rolling-window triage metrics — **CLOSED**
+  - [#6374](https://github.com/synaptent/aragora/issues/6374) source-of-truth alignment on PR-review path — **CLOSED**
+  - [#6375](https://github.com/synaptent/aragora/issues/6375) empirical threshold grounding — **OPEN** (sole remaining H1 gap)
 
 ### What Recently Landed On `main`
 
-The late-March merge stream materially improved the product proof surface:
+The April merge stream maps directly to the thesis and review-queue execution path:
 
-1. **Queue hygiene for founder/build intake artifacts** via [#1566](https://github.com/synaptent/aragora/pull/1566)
-2. **Shared CI baseline hardening** via [#1572](https://github.com/synaptent/aragora/pull/1572)
-3. **Frontend stale-test baseline cleanup** via [#1604](https://github.com/synaptent/aragora/pull/1604)
-4. **Public spectate/auth contract fix** via [#1601](https://github.com/synaptent/aragora/pull/1601)
-5. **Insights flip-detector initialization hardening** via [#1602](https://github.com/synaptent/aragora/pull/1602)
-6. **Governance workflow cancel guard** via [#1616](https://github.com/synaptent/aragora/pull/1616)
-7. **Public standalone debate share links from the detail view** via [#1617](https://github.com/synaptent/aragora/pull/1617)
-
-These are real product improvements. They also shift the next highest-value work away from more generic autonomy infrastructure and toward truthful proof surfaces.
+1. **Canonical thesis source of authority** via [#6370](https://github.com/synaptent/aragora/pull/6370)
+2. **PDB PR 1 — brief lifecycle state machine + storage** via [#6369](https://github.com/synaptent/aragora/pull/6369)
+3. **PDB PR 2 — Protocol B executor + panel config + budget** via [#6389](https://github.com/synaptent/aragora/pull/6389)
+4. **PDB PR 3 — brief generation endpoints + in-process worker** via [#6391](https://github.com/synaptent/aragora/pull/6391)
+5. **Mode 3 PR 4 UI design** via [#6393](https://github.com/synaptent/aragora/pull/6393)
+6. **Provider slot resolver and output schemas** via [#6368](https://github.com/synaptent/aragora/pull/6368), [#6380](https://github.com/synaptent/aragora/pull/6380), and [#6383](https://github.com/synaptent/aragora/pull/6383)
+7. **Real heterogeneous provider execution for PDB** via [#6404](https://github.com/synaptent/aragora/pull/6404), [#6425](https://github.com/synaptent/aragora/pull/6425), and [#6421](https://github.com/synaptent/aragora/pull/6421)
+8. **CI and baseline discipline** via [#6379](https://github.com/synaptent/aragora/pull/6379), [#6381](https://github.com/synaptent/aragora/pull/6381), and [#6394](https://github.com/synaptent/aragora/pull/6394)
+9. **Agent-bridge backend core** via [#6392](https://github.com/synaptent/aragora/pull/6392)
 
 ### Current Frontier
 
-The frontier is no longer “make more infrastructure exist.” It is:
+The frontier is now (updated 2026-04-25 after #6372/#6373/#6374 closed):
 
-- **telemetry foundation** — capture debate usage, latency, and cost data truthfully
-- **receipt proof surface** — expose that telemetry in the receipt UI and API
-- **dashboard proof** — show counts, confidence, spend, and top-agent performance from real data
-- **comparison/demo polish** — compare debate outcomes and make the public demo stronger only after the proof surface is trustworthy
-- **enterprise assurance later** — still real, but sequenced after product proof
+- **ground threshold claims empirically** — close [#6375](https://github.com/synaptent/aragora/issues/6375); this is the sole remaining H1 implementation gap. Per thesis Commitment 3, the 5% auto-handle invalidation cap must move from placeholder to a measured baseline + safety margin from accumulated settlement data.
+- **keep queue growth bounded** — continue the single-slice cadence in the PDB lane rather than opening large successor chains in parallel
+- **continue post-v2.9.0 threshold grounding** — v2.9.0 was tagged on 2026-04-25 after the empirical threshold framework substrate landed; #6375 remains the post-release work to convert that substrate into measured baselines and operating thresholds.
 
 ### Canonical Execution Order
 
-The current `boss-ready` queue should be treated in this order:
+The current bounded queue (updated 2026-04-25):
 
-1. [#1492](https://github.com/synaptent/aragora/issues/1492) Backend telemetry pipeline and analytics store
-2. [#1493](https://github.com/synaptent/aragora/issues/1493) Cost calculation and API layer
-3. [#1494](https://github.com/synaptent/aragora/issues/1494) React receipt UI component
-4. [#1501](https://github.com/synaptent/aragora/issues/1501) Dashboard counts, confidence, spend, and agent performance
-5. [#1499](https://github.com/synaptent/aragora/issues/1499) Side-by-side debate comparison
-6. [#1496](https://github.com/synaptent/aragora/issues/1496) Live debate on the landing page
-7. [#1497](https://github.com/synaptent/aragora/issues/1497) Slack debated answer with receipt
-
-The remaining idea backlog should stay open but **not** be treated as the active queue until the proof surface above is stronger:
-
-- [#1500](https://github.com/synaptent/aragora/issues/1500) learn from past debates
-- [#1502](https://github.com/synaptent/aragora/issues/1502) automatic retry across models
-- [#1503](https://github.com/synaptent/aragora/issues/1503) run model combinations and pick the best result
+1. ~~merge [#6448](https://github.com/synaptent/aragora/pull/6448) to close [#6372](https://github.com/synaptent/aragora/issues/6372)~~ — **DONE**
+2. close [#6375](https://github.com/synaptent/aragora/issues/6375) using the metrics and calibration substrates above — **active work**
+3. ~~narrow and then close [#6374](https://github.com/synaptent/aragora/issues/6374)~~ — **DONE**
+4. ~~keep refining [#6373](https://github.com/synaptent/aragora/issues/6373) from rolling-window metrics~~ — **DONE** (rolling-window endpoint live)
+5. keep the agent-bridge lane scoped to bounded, observable increments rather than a parallel subsystem explosion
 
 ### Strategic Direction
 
-The strategy document is [ARAGORA_IDEA_TO_EXECUTION_STRATEGY](../plans/ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md).
-The short version is now:
+The strategy document is now [docs/THESIS.md](../THESIS.md).
+The short version on April 21, 2026:
 
-- the repo has a working public debate proof surface
-- the next gate is truthful telemetry/receipt/dashboard proof, not more speculative expansion
-- the pipeline/workbench/swarm stack should be used on the bounded queue above, not on a flat wishlist
-- GTM starts after repeatable live proof, not before
+- the project is executing on the thesis in real code, especially in the PDB lane
+- three of four named H1 implementation gaps closed on 2026-04-25; only [#6375](https://github.com/synaptent/aragora/issues/6375) (empirical threshold grounding) remains open
+- human settlement remains the controlling boundary
+- the next wins come from closing #6375 (empirical baseline grounding for the 5% auto-handle invalidation cap) and from the bounded-slice discipline that produced the H1 closure burst
 
 ## March 2026 Sprint — Closed-Loop Backbone, Trust Wedge & Infrastructure
 
@@ -534,7 +561,7 @@ Independent verification found substantial launch-ready infrastructure, but Arag
 
 ## Current Release
 
-Current released version is **v2.8.0**.
+Current released version is **v2.9.0**.
 
 ### v2.5.0 - Type Safety & SDK Expansion (January 2026)
 
@@ -2292,7 +2319,7 @@ All stabilization items addressed:
 | `grok` | grok-4-latest | xAI |
 | `anthropic-api` | claude-opus-4-5-20251101 | Anthropic |
 | `openai-api` | gpt-5.3 | OpenAI |
-| `deepseek` | deepseek/deepseek-reasoner | OpenRouter |
+| `deepseek` | deepseek/deepseek-v4-pro | OpenRouter |
 | `mistral-api` | mistral-large-2512 | Mistral |
 | `gemini` | gemini-3-pro-preview | Google |
 | `qwen-max` | qwen/qwen3-max | OpenRouter |

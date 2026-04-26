@@ -67,8 +67,14 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const head = `${owner}:${branch}`;
-            // Match the bounded automation contract: stop opening new PRs at 12.
+            // Keep the engineering automation queue bounded at 12 open PRs.
+            // Recurring benchmark publication branches are separately deduped so
+            // proof surfaces can keep publishing even while that queue is full.
             const backlogLimit = 12;
+
+            function isBenchmarkPublicationBranch(ref) {
+              return String(ref || "").startsWith("benchmark-truth-publication/");
+            }
 
             if (String(process.env.PUBLISH_GUARD_ALLOW || "").trim().toLowerCase() !== "true") {
               const reason = String(process.env.PUBLISH_GUARD_REASON || "").trim();
@@ -86,7 +92,7 @@ jobs:
                 ref.startsWith("codex/") ||
                 ref.startsWith("factory/") ||
                 ref.startsWith("aragora/boss-harvest/") ||
-                ref.startsWith("benchmark-truth-publication/")
+                isBenchmarkPublicationBranch(ref)
               );
             }
 
@@ -160,9 +166,19 @@ jobs:
               per_page: 100,
             });
             const automationBacklog = openPulls.filter(isAutomationPull).length;
+            const isBenchmarkPublicationHead = isBenchmarkPublicationBranch(branch);
+            const benchmarkPublicationOpen = openPulls.some((pr) =>
+              isBenchmarkPublicationBranch(String(pr.head?.ref || ""))
+            );
             core.info(`Open automation PR backlog: ${automationBacklog}`);
 
-            if (automationBacklog >= backlogLimit) {
+            if (isBenchmarkPublicationHead && benchmarkPublicationOpen) {
+              core.notice("benchmark_publication_pr_open");
+              core.setOutput("status", "benchmark_publication_pr_open");
+              return;
+            }
+
+            if (!isBenchmarkPublicationHead && automationBacklog >= backlogLimit) {
               core.notice(`backlog_full count=${automationBacklog} limit=${backlogLimit}`);
               core.setOutput("status", "backlog_full");
               core.setOutput("backlog_count", String(automationBacklog));

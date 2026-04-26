@@ -10,6 +10,7 @@ from aragora.nomic.dev_coordination import IntegrationDecisionType
 from aragora.swarm.pr_registry import PullRequestRegistry
 from aragora.swarm.tranche import TrancheLane, TrancheLaneArtifact
 from aragora.swarm.tranche_integrate import (
+    _record_fire_and_forget_success,
     assess_lane_integration,
     cascade_after_merge,
     classify_check_results,
@@ -25,6 +26,14 @@ from aragora.swarm.tranche_state import (
     LANE_STATUS_WAITING_FOR_MERGE,
     LaneRunState,
     TrancheRunState,
+)
+from aragora.triage.auto_handle_calibration import (
+    AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+    AutoHandleCalibrationStore,
+    OUTCOME_HUMAN_OVERRIDE,
+    OUTCOME_SUCCESS,
+    auto_handle_decision_id,
+    fingerprint_low_risk_class,
 )
 
 
@@ -64,6 +73,34 @@ def _make_lane(
 
 def _make_manifest(*lanes: TrancheLane) -> SimpleNamespace:
     return SimpleNamespace(manifest_id="m1", lanes=list(lanes))
+
+
+def _seed_low_risk_class(
+    *,
+    store: AutoHandleCalibrationStore,
+    changed_files: list[str],
+    review_tier: int = 1,
+    lane_count: int = 1,
+    successes: int = 2,
+) -> str:
+    decision_class = fingerprint_low_risk_class(
+        changed_files=changed_files,
+        review_tier=review_tier,
+        lane_count=lane_count,
+    )
+    for idx in range(successes):
+        store.record_outcome(
+            decision_id=auto_handle_decision_id(
+                auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+                pr_url=f"https://example.com/pr/{idx}",
+                decision_class=decision_class,
+            ),
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            decision_class=decision_class,
+            outcome=OUTCOME_SUCCESS,
+            pr_url=f"https://example.com/pr/{idx}",
+        )
+    return decision_class
 
 
 class _FakeArtifactStore:
@@ -279,18 +316,201 @@ def test_assess_low_risk_fire_and_forget_auto_merges_for_single_lane_tier_1() ->
         }
     )
 
+    store = AutoHandleCalibrationStore(
+        db_path=":memory:",
+        min_samples=2,
+        min_success_rate=0.75,
+    )
+    _seed_low_risk_class(
+        store=store,
+        changed_files=["aragora/live/src/app/page.tsx"],
+    )
+
     result = assess_lane_integration(
         artifact=artifact,
         manifest=manifest,
         checks="checks_passed",
         review_status="passed",
         autonomy_mode="fire_and_forget",
+        calibration_store=store,
     )
 
     assert result["merge_class"] == "low_risk"
     assert result["recommendation"] == "merge"
     assert result["executed"] is True
     assert result["low_risk_policy"]["eligible"] is True
+
+
+def test_assess_low_risk_fire_and_forget_allows_pristine_warmup_class() -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={
+                "merge_class": "low_risk",
+                "merge_policy": "auto",
+                "enforce_cross_model_review": True,
+            },
+        )
+    )
+    artifact = _make_artifact(
+        metadata={
+            "review": {
+                "status": "passed",
+                "tier": 1,
+                "changed_files": ["aragora/live/src/app/page.tsx"],
+            }
+        }
+    )
+    store = AutoHandleCalibrationStore(db_path=":memory:", min_samples=2, min_success_rate=0.75)
+
+    result = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_passed",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+        calibration_store=store,
+    )
+
+    assert result["recommendation"] == "merge"
+    assert result["executed"] is True
+    assert result["auto_handle_calibration"]["warmup_active"] is True
+
+
+def test_assess_low_risk_fire_and_forget_blocks_uncalibrated_class_after_failure() -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={
+                "merge_class": "low_risk",
+                "merge_policy": "auto",
+                "enforce_cross_model_review": True,
+            },
+        )
+    )
+    artifact = _make_artifact(
+        metadata={
+            "review": {
+                "status": "passed",
+                "tier": 1,
+                "changed_files": ["aragora/live/src/app/page.tsx"],
+            }
+        }
+    )
+    store = AutoHandleCalibrationStore(db_path=":memory:", min_samples=2, min_success_rate=0.75)
+    decision_class = fingerprint_low_risk_class(
+        changed_files=["aragora/live/src/app/page.tsx"],
+        review_tier=1,
+        lane_count=1,
+    )
+    store.record_outcome(
+        decision_id=auto_handle_decision_id(
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            pr_url="https://example.com/pr/bad",
+            decision_class=decision_class,
+        ),
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+        outcome=OUTCOME_HUMAN_OVERRIDE,
+        pr_url="https://example.com/pr/bad",
+    )
+
+    result = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_passed",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+        calibration_store=store,
+    )
+
+    assert result["recommendation"] == "needs_human"
+    assert "remains uncalibrated" in result["rationale"]
+    assert result["auto_handle_calibration"]["warmup_active"] is False
+
+
+def test_low_risk_auto_handle_deactivates_until_class_recovers() -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={
+                "merge_class": "low_risk",
+                "merge_policy": "auto",
+                "enforce_cross_model_review": True,
+            },
+        )
+    )
+    changed_files = ["aragora/live/src/app/page.tsx", "tests/swarm/test_tranche_integrate.py"]
+    artifact = _make_artifact(
+        metadata={
+            "review": {
+                "status": "passed",
+                "tier": 1,
+                "changed_files": changed_files,
+            }
+        }
+    )
+    store = AutoHandleCalibrationStore(
+        db_path=":memory:",
+        min_samples=2,
+        min_success_rate=0.75,
+        drift_threshold=0.10,
+    )
+    decision_class = _seed_low_risk_class(store=store, changed_files=changed_files)
+
+    initial = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_passed",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+        calibration_store=store,
+    )
+    assert initial["executed"] is True
+
+    store.record_outcome(
+        decision_id=auto_handle_decision_id(
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            pr_url="https://example.com/pr/bad",
+            decision_class=decision_class,
+        ),
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+        outcome=OUTCOME_HUMAN_OVERRIDE,
+        pr_url="https://example.com/pr/bad",
+    )
+    blocked = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_passed",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+        calibration_store=store,
+    )
+    assert blocked["executed"] is False
+    assert blocked["recommendation"] == "needs_human"
+    assert "calibration gate blocked auto-handle" in blocked["rationale"]
+
+    store.record_outcome(
+        decision_id=auto_handle_decision_id(
+            auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+            pr_url="https://example.com/pr/recovery",
+            decision_class=decision_class,
+        ),
+        auto_handle_path=AUTO_HANDLE_PATH_FIRE_AND_FORGET,
+        decision_class=decision_class,
+        outcome=OUTCOME_SUCCESS,
+        pr_url="https://example.com/pr/recovery",
+    )
+    recovered = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_passed",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+        calibration_store=store,
+    )
+    assert recovered["executed"] is True
 
 
 def test_assess_low_risk_tier_two_fails_closed_to_needs_human() -> None:
@@ -439,6 +659,44 @@ def test_assess_low_risk_checks_pending_does_not_emit_merge_signal() -> None:
     assert result["recommendation"] == "awaiting_checks"
     assert result["executed"] is False
     assert result["low_risk_policy"]["eligible"] is True
+
+
+def test_record_fire_and_forget_success_missing_metadata_logs_and_returns(caplog) -> None:
+    store = MagicMock()
+
+    with caplog.at_level("WARNING"):
+        _record_fire_and_forget_success(
+            manifest=None,
+            artifact=_make_artifact(),
+            calibration_gate=None,
+            pr_url="https://example.com/pr/42",
+            store=store,
+            repo_root=Path("/tmp/repo"),
+        )
+
+    store.record_outcome.assert_not_called()
+    assert "missing calibration gate metadata" in caplog.text
+
+
+def test_record_fire_and_forget_success_store_failure_is_logged(caplog) -> None:
+    store = MagicMock()
+    store.record_outcome.side_effect = RuntimeError("sqlite busy")
+
+    with caplog.at_level("WARNING"):
+        _record_fire_and_forget_success(
+            manifest=None,
+            artifact=_make_artifact(metadata={"receipt_id": "receipt-1"}),
+            calibration_gate={
+                "decision_id": "fire_and_forget:abc123",
+                "decision_class": "tier=1|lanes=1|files=1|scope=aragora",
+            },
+            pr_url="https://example.com/pr/42",
+            store=store,
+            repo_root=Path("/tmp/repo"),
+        )
+
+    store.record_outcome.assert_called_once()
+    assert "Failed to record fire-and-forget calibration outcome" in caplog.text
 
 
 def test_assess_low_risk_cross_model_review_disabled_blocks_auto_merge() -> None:
@@ -1068,6 +1326,15 @@ async def test_integrate_lane_uses_manifest_low_risk_metadata_for_auto_merge() -
             "detail": "merged",
         }
     )
+    calibration_store = AutoHandleCalibrationStore(
+        db_path=":memory:",
+        min_samples=2,
+        min_success_rate=0.75,
+    )
+    _seed_low_risk_class(
+        store=calibration_store,
+        changed_files=["aragora/live/src/app/page.tsx"],
+    )
 
     result = await integrate_lane(
         manifest=manifest,
@@ -1079,6 +1346,7 @@ async def test_integrate_lane_uses_manifest_low_risk_metadata_for_auto_merge() -
         artifact_store=_FakeArtifactStore({}),
         target_branch="main",
         autonomy_mode="fire_and_forget",
+        calibration_store=calibration_store,
     )
 
     assert result["merge_class"] == "low_risk"

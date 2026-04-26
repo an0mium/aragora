@@ -474,8 +474,22 @@ class AuditPersistence:
         self.repo = repo
 
     def read_attempt_count(self) -> tuple[int, bool]:
-        """Scan comments for the marker and return ``(attempt_count, marker_valid)``."""
-        comments = self._gh_list_comments()
+        """Scan comments for the marker and return ``(attempt_count, marker_valid)``.
+
+        GitHub reads are advisory in degraded automation contexts. If ``gh`` cannot
+        read issue comments, continue with a fresh local attempt budget instead of
+        aborting the entire retry lane.
+        """
+        try:
+            comments = self._gh_list_comments()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            logger.warning(
+                "Spec upgrader audit read failed for issue #%s in %s; "
+                "continuing without persisted attempt count.",
+                self.issue_number,
+                self.repo,
+            )
+            return 0, True
         for comment in comments:
             body = comment.get("body") or ""
             if self.MARKER_PREFIX in body:
@@ -513,11 +527,28 @@ class AuditPersistence:
                 "gh",
                 "api",
                 "--paginate",
+                "--slurp",
                 f"/repos/{self.repo}/issues/{self.issue_number}/comments",
             ],
             text=True,
         )
-        return json.loads(out or "[]")
+        try:
+            payload = json.loads(out or "[]")
+        except json.JSONDecodeError:
+            comments: list[dict] = []
+            for raw_page in out.splitlines():
+                raw_page = raw_page.strip()
+                if not raw_page:
+                    continue
+                page = json.loads(raw_page)
+                if isinstance(page, list):
+                    comments.extend(comment for comment in page if isinstance(comment, dict))
+                elif isinstance(page, dict):
+                    comments.append(page)
+            return comments
+        if payload and all(isinstance(page, list) for page in payload):
+            return [comment for page in payload for comment in page]
+        return payload
 
     def _gh_create_comment(self, *, body: str) -> None:
         subprocess.check_call(

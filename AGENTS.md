@@ -55,7 +55,7 @@ Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, l
 | `gemini-cli` | `gemini` | gemini-3.1-pro-preview | Gemini 3.1 Pro, 1M context |
 | `grok-cli` | `grok` | grok-4-latest | Grok 4, 256K context |
 | `qwen-cli` | `qwen` | qwen3-coder | |
-| `deepseek-cli` | `deepseek` | deepseek-v3 | Requires `DEEPSEEK_API_KEY` |
+| `deepseek-cli` | `deepseek` | deepseek-v4-pro | Requires `DEEPSEEK_API_KEY` |
 | `kilocode` | `kilocode` | provider-specific | Defaults to `openrouter/google/gemini-3.1-pro-preview` via `provider_id` |
 
 ### Direct API Agents (cloud)
@@ -83,8 +83,8 @@ All OpenRouter agents require `OPENROUTER_API_KEY`.
 
 | Agent Type | Default Model | Description |
 |------------|---------------|-------------|
-| `deepseek` | deepseek/deepseek-reasoner | DeepSeek R1 (reasoning) |
-| `deepseek-r1` | deepseek/deepseek-r1 | DeepSeek R1 (chain-of-thought) |
+| `deepseek` | deepseek/deepseek-v4-pro | DeepSeek V4 Pro |
+| `deepseek-r1` | deepseek/deepseek-v4-pro | DeepSeek V4 Pro compatibility alias |
 | `llama` | meta-llama/llama-3.3-70b-instruct | Llama 3.3 70B |
 | `llama4-maverick` | meta-llama/llama-4-maverick | Llama 4 Maverick |
 | `llama4-scout` | meta-llama/llama-4-scout | Llama 4 Scout |
@@ -98,7 +98,7 @@ All OpenRouter agents require `OPENROUTER_API_KEY`.
 | `sonar` | perplexity/sonar-reasoning | Sonar (reasoning + web search) |
 | `command-r` | cohere/command-r-plus | Command R+ (RAG-optimized) |
 | `jamba` | ai21/jamba-1.6-large | Jamba (SSM-Transformer hybrid) |
-| `openrouter` | deepseek/deepseek-chat-v3-0324 | Generic OpenRouter default |
+| `openrouter` | deepseek/deepseek-v4-pro | Generic OpenRouter default |
 
 ### External Framework Proxies
 

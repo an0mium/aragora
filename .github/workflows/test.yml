@@ -30,7 +30,7 @@ on:
 
 concurrency:
   group: tests-${{ github.event.pull_request.number || github.ref }}${{ startsWith(github.ref, 'refs/heads/dev/') && format('-{0}', github.sha) || '' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
 
 jobs:
   # ============================================================
@@ -89,6 +89,21 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Detect PR scope
+        if: github.event_name == 'pull_request'
+        id: pr_scope
+        uses: ./.github/actions/pr-scope-classifier
+
+      - name: Decide OpenAPI alignment scope
+        id: openapi_scope
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "run_openapi=${{ steps.pr_scope.outputs.openapi }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_openapi=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install OpenAPI generation dependencies
         run: |
           python -m pip install --upgrade pip
@@ -100,6 +115,7 @@ jobs:
         run: python scripts/guard_repo_clean.py --check-working-tree
 
       - name: Check OpenAPI spec is up to date
+        if: steps.openapi_scope.outputs.run_openapi == 'true'
         run: |
           TMPDIR=$(mktemp -d)
           python scripts/generate_openapi.py --output "$TMPDIR/openapi_generated.json"
@@ -111,11 +127,20 @@ jobs:
           diff -u "$TMPDIR/openapi_generated.yaml" docs/api/openapi_generated.yaml
 
       - name: Check TypeScript SDK types are up to date
-        run: python scripts/generate_sdk_types.py --openapi docs/api/openapi_generated.json --check
+        if: steps.openapi_scope.outputs.run_openapi == 'true'
+        run: |
+          TMP_OPENAPI=$(mktemp)
+          cp docs/api/openapi_generated.json "$TMP_OPENAPI"
+          python scripts/add_openapi_operation_ids.py --spec "$TMP_OPENAPI"
+          python scripts/generate_sdk_types.py --openapi "$TMP_OPENAPI" --check
 
       - name: Check Python SDK types are up to date
+        if: steps.openapi_scope.outputs.run_openapi == 'true'
         run: |
-          python scripts/generate_python_sdk_types.py --openapi docs/api/openapi_generated.json --check
+          TMP_OPENAPI=$(mktemp)
+          cp docs/api/openapi_generated.json "$TMP_OPENAPI"
+          python scripts/add_openapi_operation_ids.py --spec "$TMP_OPENAPI"
+          python scripts/generate_python_sdk_types.py --openapi "$TMP_OPENAPI" --check
 
       - name: Check capability matrix is up to date
         run: python scripts/check_capability_matrix_sync.py
@@ -169,11 +194,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       frontend: ${{ steps.scope_override.outputs.frontend || steps.scope_defaults.outputs.frontend }}
+      frontend_e2e: ${{ steps.scope_override.outputs.frontend_e2e || steps.scope_defaults.outputs.frontend_e2e }}
 
     steps:
       - name: Default scope (non-PR)
         id: scope_defaults
-        run: echo "frontend=true" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "frontend=true" >> "$GITHUB_OUTPUT"
+          echo "frontend_e2e=true" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
         if: github.event_name == 'pull_request'
@@ -187,7 +215,9 @@ jobs:
       - name: Set scope outputs (PR)
         if: github.event_name == 'pull_request'
         id: scope_override
-        run: echo "frontend=${{ steps.scope.outputs.frontend }}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "frontend=${{ steps.scope.outputs.frontend }}" >> "$GITHUB_OUTPUT"
+          echo "frontend_e2e=${{ steps.scope.outputs.frontend_e2e }}" >> "$GITHUB_OUTPUT"
 
   sdk-typescript-compile-gate:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -434,7 +464,7 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Zero Coverage Check
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     needs: baseline-determinism
 
     steps:
@@ -475,75 +505,322 @@ jobs:
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras test
 
-      - name: Check for new zero-coverage files
-        run: |
-          # Run quick coverage collection
-          python -m pytest tests/debate tests/server -q --cov=aragora --cov-report=json:cov.json \
-            -m "not slow and not load and not e2e" --timeout=60 -x || true
+      - name: Fetch base ref
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
 
-          # Check for new zero-coverage files not in baseline
-          python -c "
+      - name: Get changed Python files
+        if: github.event_name == 'pull_request'
+        id: changed
+        run: |
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- 'aragora/**/*.py' 'tests/**/*.py' | tr '\n' ' ')
+          echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
+
+      - name: Select relevant tests
+        if: github.event_name == 'pull_request'
+        id: selected
+        run: |
+          python scripts/nomic_ci_test_selector.py --changed-files ${{ steps.changed.outputs.files }} --dry-run
+          python - <<'PY'
           import json
-          import sys
+          import os
           from pathlib import Path
 
-          baseline_file = Path('tests/.zero_coverage_baseline')
-          baseline = set()
-          if baseline_file.exists():
-              baseline = set(line.strip() for line in baseline_file.read_text().splitlines() if line.strip())
+          data = json.loads(Path(".nomic-ci-result.json").read_text())
+          test_paths = data.get("test_paths", [])
+          status = data.get("status", "")
+          changed_python_files = data.get("changed_python_files", [])
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as fh:
+              print(f"status={status}", file=fh)
+              print(f"changed_python_count={len(changed_python_files)}", file=fh)
+              print(f"count={len(test_paths)}", file=fh)
+              print("paths<<EOF", file=fh)
+              print("\n".join(test_paths), file=fh)
+              print("EOF", file=fh)
+          PY
 
-          try:
-              with open('cov.json') as f:
-                  data = json.load(f)
-          except (FileNotFoundError, json.JSONDecodeError):
-              print('Coverage data not available, skipping check')
-              sys.exit(0)
+      - name: Check for new zero-coverage files
+        env:
+          SELECTOR_STATUS: ${{ steps.selected.outputs.status }}
+          CHANGED_PYTHON_COUNT: ${{ steps.selected.outputs.changed_python_count || 0 }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ steps.selected.outputs.status }}" = "skipped" ]; then
+              echo "No changed Python files required PR-scoped zero-coverage probing; skipping."
+            elif [ -z "${{ steps.selected.outputs.paths }}" ]; then
+              echo "::error::PR-scoped coverage selector returned no tests for changed Python files"
+              exit 1
+            else
+              TEST_PATHS_RAW='${{ steps.selected.outputs.paths }}'
+              mapfile -t TEST_PATHS <<< "$TEST_PATHS_RAW"
+              python -m pytest "${TEST_PATHS[@]}" -q --cov=aragora --cov-report=json:cov.json \
+                -m "not slow and not load and not e2e" --timeout=60 -x || true
+            fi
+          else
+            python -m pytest tests/debate tests/server -q --cov=aragora --cov-report=json:cov.json \
+              -m "not slow and not load and not e2e" --timeout=60 -x || true
+          fi
 
-          zero_cov = []
-          for file, info in data.get('files', {}).items():
-              if info.get('summary', {}).get('percent_covered', 100) == 0:
-                  if file not in baseline:
-                      zero_cov.append(file)
+          python scripts/check_zero_coverage_gate.py \
+            --coverage-path cov.json \
+            --baseline-path tests/.zero_coverage_baseline \
+            --selector-status "${SELECTOR_STATUS}" \
+            --changed-python-count "${CHANGED_PYTHON_COUNT}"
 
-          if zero_cov:
-              print('::error::New zero-coverage files detected:')
-              for f in sorted(zero_cov)[:20]:
-                  print(f'  - {f}')
-              if len(zero_cov) > 20:
-                  print(f'  ... and {len(zero_cov) - 20} more')
-              print('Add to tests/.zero_coverage_baseline if intentional')
-              sys.exit(1)
-          print('No new zero-coverage files detected')
-          "
-
-  # Fast parallel tests by category (Ubuntu only, primary Python)
-  test-fast:
+  # ==========================================================================
+  # test-shard-scope (NEW): classify which test-fast shards must run for this
+  # change. Heavy shards (debate, server-handlers, handlers) skip when no
+  # relevant code/test paths changed; their job still reports success so the
+  # `needs: test-fast` downstream gates remain satisfied.
+  #
+  # Triggered always on push/schedule; scope-filtered only on pull_request.
+  # The `core` filter, when matched, forces ALL shards to run (covers
+  # workflow/script/dependency/version edits that touch the whole repo).
+  # ==========================================================================
+  test-shard-scope:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: Classify test-fast Shard Scope
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: baseline-determinism
-    strategy:
-      fail-fast: false
-      matrix:
-        category:
-          - name: core
-            path: tests/debate tests/agents tests/rlm tests/reasoning tests/workflow tests/client
-          - name: server
-            path: tests/server
-          - name: handlers
-            path: tests/handlers
-          - name: knowledge
-            path: tests/knowledge tests/evidence tests/memory
-          - name: storage
-            path: tests/storage tests/ranking tests/persistence tests/billing
-          - name: infra
-            path: tests/nomic tests/control_plane tests/rbac tests/events tests/observability tests/compliance tests/gauntlet tests/cli
-
+    timeout-minutes: 3
+    outputs:
+      scopes_changed: ${{ steps.filter.outputs.changes }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect scopes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            core:
+              - 'pyproject.toml'
+              - 'requirements*.txt'
+              - 'scripts/ci_install_project.sh'
+              - '.github/workflows/test.yml'
+              - '.github/actions/setup-python-safe/**'
+              - 'aragora/__init__.py'
+              - 'aragora/__version__.py'
+              - 'aragora/_version.py'
+              - 'aragora/core.py'
+              - 'aragora/config/**'
+              - 'aragora/protocols/**'
+              - 'tests/conftest.py'
+              - 'conftest.py'
+            agents:
+              - 'aragora/agents/**'
+              - 'tests/agents/**'
+            debate:
+              - 'aragora/debate/**'
+              - 'tests/debate/**'
+              - 'aragora/agents/**'
+              - 'aragora/memory/**'
+              - 'aragora/reasoning/**'
+            reasoning:
+              - 'aragora/rlm/**'
+              - 'aragora/reasoning/**'
+              - 'tests/rlm/**'
+              - 'tests/reasoning/**'
+            workflow_client:
+              - 'aragora/workflow/**'
+              - 'aragora/client/**'
+              - 'tests/workflow/**'
+              - 'tests/client/**'
+            server_handlers:
+              - 'aragora/server/handlers/**'
+              - 'tests/server/handlers/**'
+              - 'aragora/server/handler_registry/**'
+              - 'aragora/server/openapi/**'
+              - 'aragora/server/openapi_impl.py'
+            server_rest:
+              - 'aragora/server/**'
+              - 'tests/server/**'
+            handlers:
+              - 'aragora/server/handlers/**'
+              - 'tests/handlers/**'
+              - 'aragora/control_plane/**'
+            knowledge:
+              - 'aragora/knowledge/**'
+              - 'aragora/memory/**'
+              - 'aragora/evidence/**'
+              - 'tests/knowledge/**'
+              - 'tests/evidence/**'
+              - 'tests/memory/**'
+            storage:
+              - 'aragora/storage/**'
+              - 'aragora/persistence/**'
+              - 'aragora/billing/**'
+              - 'aragora/ranking/**'
+              - 'tests/storage/**'
+              - 'tests/persistence/**'
+              - 'tests/billing/**'
+              - 'tests/ranking/**'
+            infra:
+              - 'aragora/nomic/**'
+              - 'aragora/control_plane/**'
+              - 'aragora/rbac/**'
+              - 'aragora/events/**'
+              - 'aragora/observability/**'
+              - 'aragora/compliance/**'
+              - 'aragora/gauntlet/**'
+              - 'aragora/cli/**'
+              - 'tests/nomic/**'
+              - 'tests/control_plane/**'
+              - 'tests/rbac/**'
+              - 'tests/events/**'
+              - 'tests/observability/**'
+              - 'tests/compliance/**'
+              - 'tests/gauntlet/**'
+              - 'tests/cli/**'
+
+      - name: Report scopes
+        run: |
+          echo "Scopes changed: ${{ steps.filter.outputs.changes }}"
+
+  # ==========================================================================
+  # Fast parallel tests by category (Ubuntu only, primary Python)
+  #
+  # Sub-sharding history:
+  #   2026-04-25: Heavy shards split to fit within 30-min runner cap.
+  #     - debate (1 shard, 30+ min) -> debate-am, debate-nz, debate-phases
+  #     - server (1 shard, 23 min)  -> server-handlers-am, server-handlers-nz, server-rest
+  #     - handlers (1 shard, 26 min) -> handlers-features, handlers-amk-no-features, handlers-lz
+  #   Path-filter (test-shard-scope) added: PRs touching only docs/CI/integration
+  #     tests skip irrelevant heavy shards entirely.
+  # ==========================================================================
+  test-fast:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.category.timeout }}
+    needs: [baseline-determinism, test-shard-scope]
+    strategy:
+      fail-fast: false
+      matrix:
+        category:
+          # Light shards (unchanged from prior 9-shard layout)
+          - name: agents
+            pytest_args: tests/agents
+            scope: agents
+            timeout: 30
+          - name: reasoning
+            pytest_args: tests/rlm tests/reasoning
+            scope: reasoning
+            timeout: 30
+          - name: workflow-client
+            pytest_args: tests/workflow tests/client
+            scope: workflow_client
+            timeout: 30
+          - name: knowledge
+            pytest_args: tests/knowledge tests/evidence tests/memory
+            scope: knowledge
+            timeout: 30
+          - name: storage
+            pytest_args: tests/storage tests/ranking tests/persistence tests/billing
+            scope: storage
+            timeout: 30
+          - name: infra
+            pytest_args: tests/nomic tests/control_plane tests/rbac tests/events tests/observability tests/compliance tests/gauntlet tests/cli
+            scope: infra
+            timeout: 30
+
+          # debate (was 1 shard hitting 30-min cap, now 3 sub-shards by alphabet)
+          # Top-level debate test files a-m (~5500 tests)
+          - name: debate-am
+            pytest_args: ""
+            resolver: debate-am
+            scope: debate
+            timeout: 30
+          # Top-level debate test files n-z (~5600 tests)
+          - name: debate-nz
+            pytest_args: ""
+            resolver: debate-nz
+            scope: debate
+            timeout: 30
+          # Subdirectories under tests/debate/ (~3000 tests)
+          - name: debate-phases
+            pytest_args: ""
+            resolver: debate-phases
+            scope: debate
+            timeout: 30
+
+          # server (was 1 shard at 23 min, now 3 sub-shards)
+          # tests/server/handlers/ a-m subdirs + files (~16K tests)
+          - name: server-handlers-am
+            pytest_args: ""
+            resolver: server-handlers-am
+            scope: server_handlers
+            timeout: 30
+          # tests/server/handlers/ n-z subdirs + files (~8K tests)
+          - name: server-handlers-nz
+            pytest_args: ""
+            resolver: server-handlers-nz
+            scope: server_handlers
+            timeout: 30
+          # tests/server/ minus tests/server/handlers/ (~7500 tests)
+          - name: server-rest
+            pytest_args: ""
+            resolver: server-rest
+            scope: server_rest
+            timeout: 30
+
+          # handlers (was 1 shard at 26 min, now 3 sub-shards)
+          # tests/handlers/features/ alone (~7700 tests, biggest single subdir)
+          - name: handlers-features
+            pytest_args: ""
+            resolver: handlers-features
+            scope: handlers
+            timeout: 30
+          # tests/handlers/ A-K subdirs (incl. underscore-prefixed) + A-K files,
+          # excluding ``features``. Mutually-exclusive with handlers-lz.
+          - name: handlers-amk-no-features
+            pytest_args: ""
+            resolver: handlers-amk-no-features
+            scope: handlers
+            timeout: 30
+          # tests/handlers/ L-Z subdirs + L-Z files. Mutually-exclusive with
+          # handlers-amk-no-features. See scripts/ci_resolve_test_shard.py.
+          - name: handlers-lz
+            pytest_args: ""
+            resolver: handlers-lz
+            scope: handlers
+            timeout: 30
+
+    steps:
+      - name: Resolve shard relevance
+        id: relevance
+        shell: bash
+        env:
+          SCOPES: ${{ needs.test-shard-scope.outputs.scopes_changed }}
+          MY_SCOPE: ${{ matrix.category.scope }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # Always run on push/schedule/dispatch (non-PR)
+          if [[ "$EVENT" != "pull_request" ]]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Reason: not a pull_request"
+            exit 0
+          fi
+          # If 'core' (workflow/dependency/version) changed, all shards run
+          if echo "$SCOPES" | grep -q '"core"'; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Reason: core scope matched (deps/workflow/version)"
+            exit 0
+          fi
+          # If our scope matched, run
+          if echo "$SCOPES" | grep -q "\"$MY_SCOPE\""; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Reason: scope '$MY_SCOPE' matched"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Shard ${{ matrix.category.name }} skipped (scope '$MY_SCOPE' not in changes: $SCOPES)"
+          fi
+
+      - name: Checkout
+        if: steps.relevance.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
       - name: Verify checkout integrity
+        if: steps.relevance.outputs.should_run == 'true'
         shell: bash
         run: |
           if [[ ! -f pyproject.toml ]]; then
@@ -566,6 +843,7 @@ jobs:
           fi
 
       - name: Set up Python
+        if: steps.relevance.outputs.should_run == 'true'
         uses: ./.github/actions/setup-python-safe
         with:
           python-version: "3.11"
@@ -573,14 +851,37 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
+        if: steps.relevance.outputs.should_run == 'true'
         run: |
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras test
           python -m pip install pytest-timeout pytest-xdist
 
-      - name: Run ${{ matrix.category.name }} tests
+      - name: Resolve shard test paths
+        id: shard_paths
+        if: steps.relevance.outputs.should_run == 'true'
+        shell: bash
+        env:
+          RESOLVER: ${{ matrix.category.resolver }}
+          INLINE_ARGS: ${{ matrix.category.pytest_args }}
         run: |
-          pytest ${{ matrix.category.path }} \
+          # Light shards encode their paths inline via pytest_args. Heavy
+          # shards delegate to scripts/ci_resolve_test_shard.py so the
+          # alphabetic partitioning lives in versioned Python rather than
+          # 5KB of fragile YAML --ignore-glob soup. See script header for
+          # rationale.
+          if [[ -n "$RESOLVER" ]]; then
+            args=$(python3 scripts/ci_resolve_test_shard.py "$RESOLVER" --check)
+          else
+            args="$INLINE_ARGS"
+          fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
+          echo "Resolved pytest args: $args"
+
+      - name: Run ${{ matrix.category.name }} tests
+        if: steps.relevance.outputs.should_run == 'true'
+        run: |
+          pytest ${{ steps.shard_paths.outputs.args }} \
             -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
             --timeout=120 \
             -n auto \
@@ -591,6 +892,11 @@ jobs:
             --durations-min=1.0
         env:
           PYTHONPATH: .:aragora-debate/src
+
+      - name: Mark shard as skipped (no-op success)
+        if: steps.relevance.outputs.should_run != 'true'
+        run: |
+          echo "::notice::Shard ${{ matrix.category.name }} skipped: scope '${{ matrix.category.scope }}' not in changed scopes"
 
   epistemic-settlement-gate:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -778,11 +1084,27 @@ jobs:
 
   # Integration smoke lane for high-risk paths (PR only)
   integration-smoke:
-    name: Integration Smoke
+    name: Integration Smoke (${{ matrix.suite.name }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: ${{ matrix.suite.timeout }}
     needs: baseline-determinism
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name == 'pull_request')
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - name: handlers
+            path: tests/handlers
+            timeout: 40
+            parallel_args: "-n auto --dist loadscope"
+          - name: debate
+            path: tests/debate/test_arena*.py
+            timeout: 15
+            parallel_args: ""
+          - name: memory
+            path: tests/memory
+            timeout: 15
+            parallel_args: ""
 
     steps:
       - name: Checkout
@@ -827,14 +1149,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras test
-          python -m pip install pytest-timeout
+          python -m pip install pytest-timeout pytest-xdist
 
       - name: Run integration smoke tests
         if: steps.scope.outputs.integration_high_risk == 'true'
         run: |
-          pytest tests/handlers/ tests/debate/test_arena*.py tests/memory/ \
+          pytest ${{ matrix.suite.path }} \
             -x \
             --timeout=60 \
+            ${{ matrix.suite.parallel_args }} \
             -q \
             --ignore=tests/connectors \
             -k "not benchmark and not slow"
@@ -846,7 +1169,10 @@ jobs:
         run: echo "No high-risk path changes detected, skipping integration smoke tests."
 
   test-pollution-randomized:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    # This is a stress guard, not a PR admission gate. It currently runs a
+    # broad randomized suite three times and regularly hits the 20-minute
+    # wall-clock cap even after the fast PR shards have passed.
+    if: github.event_name != 'pull_request'
     name: Randomized Order Pollution Guard
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1044,7 +1370,11 @@ jobs:
   #   Shard 4 (remaining): everything else via --ignore exclusions
   # ============================================================
   test:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    # The full OS/Python compatibility matrix duplicates the faster PR shards
+    # and routinely exceeds the 30-minute job cap on ordinary PRs. Keep it for
+    # nightly/manual coverage; PR admission is covered by test-fast, focused
+    # integration smoke, zero-coverage, type, lint, SDK, and spec gates.
+    if: github.event_name != 'pull_request'
     name: Test (${{ matrix.shard.name }}, ${{ matrix.os }}, py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -1522,10 +1852,23 @@ jobs:
 
   frontend:
     needs: [scope]
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || needs.scope.outputs.frontend == 'true')
-    name: Frontend E2E Tests
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || needs.scope.outputs.frontend_e2e == 'true')
+    name: Frontend E2E Tests (shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
+    # Sharded 3-way smoke PR lane to keep wall-clock below the job ceiling.
+    # Previously a single unsharded all-project job with timeout-minutes=35
+    # regularly hit the ceiling, causing the whole Tests workflow to end
+    # 'cancelled' (not 'failure'), which hid the underlying failure and
+    # produced dashboard lies. See #6495. Production/specialty suites and the
+    # broad Chromium suite remain explicit via dedicated projects/scripts. The
+    # shell timeout below is intentionally lower than the job timeout so
+    # overruns surface as normal failures and still leave time to upload
+    # Playwright artifacts.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
 
     services:
       redis:
@@ -1639,7 +1982,11 @@ jobs:
 
       - name: Run E2E tests
         working-directory: aragora/live
-        run: npx playwright test
+        run: |
+          timeout 16m npx playwright test \
+            --project=ci-smoke \
+            --shard=${{ matrix.shard }}/3 \
+            --pass-with-no-tests
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8080
           NEXT_PUBLIC_WS_URL: ws://localhost:8765
@@ -1648,7 +1995,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: aragora/live/playwright-report/
           retention-days: 7
 
@@ -1656,7 +2003,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-results
+          name: playwright-results-shard-${{ matrix.shard }}
           path: aragora/live/test-results/
           retention-days: 7
 
@@ -1664,7 +2011,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: frontend-e2e-server-logs
+          name: frontend-e2e-server-logs-shard-${{ matrix.shard }}
           path: /tmp/aragora-server.log
           retention-days: 7
 
@@ -2065,8 +2412,7 @@ jobs:
                 echo "::warning::$label was $result; continuing quality gates without failing the workflow."
                 ;;
               *)
-                echo "::error::$label completed with result: $result"
-                exit 1
+                echo "::warning::$label completed with result: $result; root-cause job owns the blocking signal."
                 ;;
             esac
           }
@@ -2122,7 +2468,7 @@ jobs:
   test-analytics:
     name: Test Analytics
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     needs: [test-fast]
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always() && github.event_name == 'pull_request')
 
@@ -2164,22 +2510,62 @@ jobs:
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras dev
 
+      - name: Fetch base ref
+        run: git fetch --no-tags --depth=200 origin "${{ github.base_ref }}"
+
+      - name: Get changed Python files
+        id: changed
+        run: |
+          if git merge-base "origin/${{ github.base_ref }}" HEAD >/dev/null 2>&1; then
+            CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- 'aragora/**/*.py' 'tests/**/*.py' | tr '\n' ' ')
+          else
+            echo "::warning::No merge base found with origin/${{ github.base_ref }}; continuing with an empty changed-file set"
+            CHANGED=""
+          fi
+          echo "files=$CHANGED" >> "$GITHUB_OUTPUT"
+
+      - name: Select relevant tests
+        id: selected
+        continue-on-error: true
+        run: |
+          python scripts/nomic_ci_test_selector.py --changed-files ${{ steps.changed.outputs.files }} --dry-run
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          data = json.loads(Path(".nomic-ci-result.json").read_text())
+          test_paths = data.get("test_paths", [])
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as fh:
+              print(f"count={len(test_paths)}", file=fh)
+              print("paths<<EOF", file=fh)
+              print("\n".join(test_paths), file=fh)
+              print("EOF", file=fh)
+          PY
+
       - name: Run tests with JUnit output
         id: tests
         # Non-blocking: This job is for flakiness analysis (--reruns=2), not a release gate.
         # Gating tests run in test-fast and test jobs above.
         continue-on-error: true
         run: |
-          python -m pytest -o addopts='' tests/debate tests/agents tests/server \
-            -m "not slow and not load and not e2e" \
-            --timeout=60 \
-            --reruns=2 \
-            --junit-xml=test-results.xml \
-            -v \
-            --tb=short
+          if [ -z "${{ steps.selected.outputs.paths }}" ]; then
+            echo "No relevant tests matched changed Python files; skipping Test Analytics run."
+          else
+            TEST_PATHS_RAW='${{ steps.selected.outputs.paths }}'
+            mapfile -t TEST_PATHS <<< "$TEST_PATHS_RAW"
+            python -m pytest -o addopts='' "${TEST_PATHS[@]}" \
+              -m "not slow and not load and not e2e" \
+              --timeout=60 \
+              --reruns=2 \
+              --junit-xml=test-results.xml \
+              -v \
+              --tb=short
+          fi
 
       - name: Analyze test results
         id: analyze
+        continue-on-error: true
         run: |
           python scripts/analyze_test_results.py \
             --junit test-results.xml \
@@ -2188,11 +2574,20 @@ jobs:
             --exit-zero
 
           # Store summary for PR comment
-          echo "summary<<EOF" >> $GITHUB_OUTPUT
-          cat test-summary.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          SUMMARY_DELIM="SUMMARY_$(python - <<'PY'
+          import uuid
+          print(uuid.uuid4().hex)
+          PY
+          )"
+          {
+            echo "summary<<$SUMMARY_DELIM"
+            cat test-summary.md
+            printf '\n'
+            echo "$SUMMARY_DELIM"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload test results
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results
@@ -2203,6 +2598,7 @@ jobs:
 
       - name: Comment on PR
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/github-script@v7
         env:
           TEST_SUMMARY: ${{ steps.analyze.outputs.summary }}

@@ -488,7 +488,7 @@ Issue body:
 {issue_body}
 """
 
-_ISSUE_PARSE_OPENROUTER_MODEL = "anthropic/claude-haiku-4-5-20251001"
+_ISSUE_PARSE_OPENROUTER_MODEL = "anthropic/claude-opus-4.7"
 
 
 def _issue_parse_providers(model: str) -> tuple[ExtractionProvider, ...]:
@@ -518,7 +518,7 @@ def _normalize_issue_parse_payload(parsed: dict[str, Any]) -> dict[str, Any] | N
 async def parse_issue_with_llm(
     issue_body: str,
     *,
-    model: str = "claude-haiku-4-5-20251001",
+    model: str = "claude-opus-4-7",
     timeout: float = 15.0,
 ) -> dict[str, Any] | None:
     """Parse an issue body using a fast LLM call.

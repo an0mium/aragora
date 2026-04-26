@@ -691,8 +691,6 @@ jobs:
     timeout-minutes: 10
     name: Secret Scanning
     if: github.event_name != 'pull_request'
-    env:
-      GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
     steps:
       - name: Checkout
@@ -731,18 +729,16 @@ jobs:
             exit 1
           fi
 
-      - name: Skip Gitleaks when license is missing
-        if: env.GITLEAKS_LICENSE == ''
-        run: |
-          echo "::warning::GITLEAKS_LICENSE is not configured; skipping gitleaks action."
-
-      - name: Run Gitleaks
-        if: env.GITLEAKS_LICENSE != ''
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_ENABLE_COMMENTS: false
-          GITLEAKS_LICENSE: ${{ env.GITLEAKS_LICENSE }}
+      # Gitleaks removed: gitleaks-action@v2 requires a paid GITLEAKS_LICENSE
+      # for organization accounts. TruffleHog provides equivalent secret-
+      # scanning coverage for free, with --only-verified filtering to
+      # actually-live credentials (no false positives). Local pre-commit
+      # still runs gitleaks (the binary) which remains free for individual use.
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@v3.95.2
+        with:
+          version: v3.95.2
+          extra_args: --only-verified
 
   helm-lint:
     runs-on: ubuntu-latest

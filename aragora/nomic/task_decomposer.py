@@ -1558,7 +1558,7 @@ class TaskDecomposer:
         try:
             client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-opus-4-7",
                 max_tokens=1024,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -1592,7 +1592,7 @@ class TaskDecomposer:
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "anthropic/claude-sonnet-4",
+                    "model": "anthropic/claude-opus-4.7",
                     "max_tokens": 1024,
                     "messages": [{"role": "user", "content": prompt}],
                 },
@@ -2747,11 +2747,11 @@ class TaskDecomposer:
             return [
                 OpenRouterAgent(
                     name="or-claude",
-                    model="anthropic/claude-sonnet-4",
+                    model="anthropic/claude-opus-4.7",
                 ),
                 OpenRouterAgent(
                     name="or-gpt",
-                    model="openai/gpt-4o",
+                    model="openai/gpt-5.4",
                 ),
             ]
         except (ImportError, RuntimeError, OSError) as e:
@@ -2862,12 +2862,12 @@ Prioritize by impact: which improvements would provide the most value?"""
                     [
                         AnthropicAPIAgent(
                             name="claude-strategist",
-                            model="claude-sonnet-4-20250514",
+                            model="claude-opus-4-7",
                             api_key=anthropic_key,
                         ),
                         AnthropicAPIAgent(
                             name="claude-architect",
-                            model="claude-sonnet-4-20250514",
+                            model="claude-opus-4-7",
                             api_key=anthropic_key,
                         ),
                     ]
@@ -2898,11 +2898,11 @@ Prioritize by impact: which improvements would provide the most value?"""
                     [
                         OpenRouterAgent(
                             name="or-claude",
-                            model="anthropic/claude-sonnet-4",
+                            model="anthropic/claude-opus-4.7",
                         ),
                         OpenRouterAgent(
                             name="or-gpt",
-                            model="openai/gpt-4o",
+                            model="openai/gpt-5.4",
                         ),
                     ]
                 )

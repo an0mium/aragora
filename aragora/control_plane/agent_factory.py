@@ -58,6 +58,7 @@ PROVIDER_TO_AGENT_TYPE: dict[str, str] = {
     "codestral": "mistral-api",
     # OpenRouter-based providers
     "deepseek": "deepseek",
+    "deepseek-v4-pro": "deepseek",
     "deepseek-v3": "deepseek",
     "meta": "llama",
     "llama": "llama",

@@ -10,6 +10,7 @@ from aragora.utils.datetime_helpers import (
     to_iso_timestamp,
     utc_now,
 )
+from aragora.utils.git_paths import git_common_repo_root, resolve_repo_fallback_path
 from aragora.utils.json_helpers import safe_json_loads
 from aragora.utils.optional_imports import LazyImport, try_import, try_import_class
 from aragora.utils.paths import PathTraversalError, is_safe_path, safe_path, validate_path_component
@@ -25,6 +26,9 @@ __all__ = [
     "parse_timestamp",
     "timestamp_ms",
     "timestamp_s",
+    # Git/worktree helpers
+    "git_common_repo_root",
+    "resolve_repo_fallback_path",
     # JSON helpers
     "safe_json_loads",
     # Import helpers

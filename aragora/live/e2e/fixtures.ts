@@ -136,15 +136,30 @@ export class AragoraPage {
    * This fixed-top banner can intercept header clicks during E2E runs.
    */
   async dismissConfigurationWarning() {
-    const dismissButton = this.page.locator(
-      'button[aria-label="Dismiss configuration warning"], button[aria-label="Dismiss warnings"]'
-    );
     const configurationWarning = this.page
       .locator('[role="alert"]')
-      .filter({ hasText: /CONFIG|NEXT_PUBLIC_SUPABASE_URL|Supabase not configured/i });
+      .filter({ hasText: /CONFIG|NEXT_PUBLIC_SUPABASE_URL|Supabase not configured/i })
+      .first();
+
+    try {
+      await configurationWarning.waitFor({ state: 'visible', timeout: 1500 });
+    } catch {
+      return;
+    }
+
+    const dismissButton = configurationWarning.locator(
+      'button[aria-label="Dismiss configuration warning"], button[aria-label="Dismiss warnings"]'
+    );
     if (await this.isVisible(dismissButton, 'configuration warning dismiss button')) {
       await this.assertNoSensitiveWarningContent(configurationWarning, 'configuration warning');
-      await this.clickIfVisible(dismissButton, 'configuration warning dismiss button');
+      try {
+        await dismissButton.first().click({ force: true });
+      } catch (error) {
+        console.warn('[e2e] Forced config warning dismiss failed; dispatching click event:', error);
+        await dismissButton.first().evaluate((button) => {
+          button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        });
+      }
       await this.waitForHidden(configurationWarning, 'configuration warning');
     }
   }
@@ -153,11 +168,13 @@ export class AragoraPage {
    * Dismiss all overlays (boot animation, onboarding wizard).
    */
   async dismissAllOverlays() {
+    await this.page.waitForLoadState('domcontentloaded').catch(() => {});
     await this.dismissBootAnimation();
     await this.dismissOnboarding();
     await this.dismissConnectivityWarning();
     await this.dismissConfigurationWarning();
     await this.dismissToast();
+    await this.dismissConfigurationWarning();
   }
 
   async waitForAppReady() {

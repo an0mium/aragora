@@ -2965,6 +2965,12 @@ except ImportError:
     _GlobalAgent = None
     _global_real_agent_init = None
 
+_GLOBAL_OAUTH_IMPL_MODULE_NAME = "aragora.server.handlers._oauth_impl"
+try:
+    import aragora.server.handlers._oauth_impl as _global_real_oauth_impl_module
+except ImportError:
+    _global_real_oauth_impl_module = None
+
 
 @pytest.fixture(autouse=True)
 def _global_mock_pollution_guard():
@@ -2998,6 +3004,14 @@ def _global_mock_pollution_guard():
         if _GlobalAgent.__init__ is not _global_real_agent_init:
             _GlobalAgent.__init__ = _global_real_agent_init
 
+    # Some OAuth tests temporarily replace or remove _oauth_impl from
+    # sys.modules. Restore the canonical module object between tests so later
+    # re-export identity assertions see the original module again.
+    if _global_real_oauth_impl_module is not None:
+        current = sys.modules.get(_GLOBAL_OAUTH_IMPL_MODULE_NAME)
+        if current is None:
+            sys.modules[_GLOBAL_OAUTH_IMPL_MODULE_NAME] = _global_real_oauth_impl_module
+
     yield
 
     # Teardown: same repairs
@@ -3023,3 +3037,8 @@ def _global_mock_pollution_guard():
     if _GlobalAgent is not None and _global_real_agent_init is not None:
         if _GlobalAgent.__init__ is not _global_real_agent_init:
             _GlobalAgent.__init__ = _global_real_agent_init
+
+    if _global_real_oauth_impl_module is not None:
+        current = sys.modules.get(_GLOBAL_OAUTH_IMPL_MODULE_NAME)
+        if current is None:
+            sys.modules[_GLOBAL_OAUTH_IMPL_MODULE_NAME] = _global_real_oauth_impl_module

@@ -35,6 +35,7 @@ from collections.abc import Callable
 from aragora.agents.errors import _build_error_action
 from aragora.config import AGENT_TIMEOUT_SECONDS
 from aragora.observability.metrics.debate_slo import record_consensus_detection_latency
+from aragora.debate.phases._phase_invariant import require_phase_result
 from aragora.debate.phases.consensus_verification import ConsensusVerifier
 from aragora.debate.phases.synthesis_generator import SynthesisGenerator
 from aragora.debate.phases.vote_bonus_calculator import VoteBonusCalculator
@@ -343,7 +344,7 @@ class ConsensusPhase:
             await asyncio.wait_for(self._execute_consensus(ctx, consensus_mode), timeout=timeout)
 
             # Attempt formal verification if enabled and consensus reached
-            if ctx.result.consensus_reached:
+            if require_phase_result(ctx).consensus_reached:
                 await self._verify_consensus_formally(ctx)
 
         except asyncio.TimeoutError:
@@ -378,8 +379,9 @@ class ConsensusPhase:
                     fallback_synthesis = (
                         f"## Debate Summary\n\n{list(ctx.proposals.values())[0][:1000]}"
                     )
-                    ctx.result.synthesis = fallback_synthesis
-                    ctx.result.final_answer = fallback_synthesis
+                    fallback_result = require_phase_result(ctx)
+                    fallback_result.synthesis = fallback_synthesis
+                    fallback_result.final_answer = fallback_synthesis
                     try:
                         if self.hooks and "on_message" in self.hooks:
                             self.hooks["on_message"](
@@ -488,7 +490,7 @@ class ConsensusPhase:
 
     async def _handle_fallback_consensus(self, ctx: "DebateContext", reason: str) -> None:
         """Handle consensus fallback when the primary mechanism fails."""
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
 
         logger.info("consensus_fallback reason=%s proposals=%s", reason, len(proposals))
@@ -553,7 +555,7 @@ class ConsensusPhase:
 
     async def _handle_none_consensus(self, ctx: "DebateContext") -> None:
         """Handle 'none' consensus mode - combine all proposals."""
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
 
         if proposals:
@@ -571,7 +573,7 @@ class ConsensusPhase:
         threshold_override: float | None = None,
     ) -> None:
         """Handle 'majority' consensus mode - weighted voting."""
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
 
         # Compute adaptive threshold when enabled and no explicit override
@@ -679,7 +681,7 @@ class ConsensusPhase:
 
     async def _handle_unanimous_consensus(self, ctx: "DebateContext") -> None:
         """Handle 'unanimous' consensus mode - all must agree."""
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
 
         votes, voting_errors = await self._collect_votes_with_errors(ctx)
@@ -742,7 +744,7 @@ class ConsensusPhase:
         """Gate consensus based on process verification scores."""
         if not self.protocol or not getattr(self.protocol, "enable_process_verification", False):
             return
-        result = ctx.result
+        result = require_phase_result(ctx)
         if not result or not result.metadata:
             return
         metadata = result.metadata.get("process_verification", {})
@@ -763,7 +765,7 @@ class ConsensusPhase:
 
     async def _handle_judge_consensus(self, ctx: "DebateContext") -> None:
         """Handle 'judge' consensus mode - single judge synthesis with fallback."""
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
 
         if not self._select_judge or not self._generate_with_agent:
@@ -899,7 +901,7 @@ class ConsensusPhase:
             create_judge_panel,
         )
 
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
         task = ctx.env.task if ctx.env else ""
         select_judge = self._select_judge
@@ -1013,7 +1015,7 @@ class ConsensusPhase:
 
     async def _run_single_judge_synthesis(self, ctx: "DebateContext", judge) -> None:
         """Run single judge synthesis (helper for deliberation fallback)."""
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
         task = ctx.env.task if ctx.env else ""
         generate_with_agent = self._generate_with_agent
@@ -1073,7 +1075,7 @@ class ConsensusPhase:
             ByzantineConsensusConfig,
         )
 
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
         agents = ctx.agents
 
@@ -1179,7 +1181,7 @@ class ConsensusPhase:
         """
         from aragora.debate.prover_estimator import ProverEstimatorEngine
 
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
         agents = ctx.agents
 
@@ -1281,7 +1283,7 @@ class ConsensusPhase:
         from aragora.debate.consensus import build_proof_from_crux_finder
         from aragora.debate.crux_mode import build_crux_finder_result
 
-        result = ctx.result
+        result = require_phase_result(ctx)
         belief_network = getattr(ctx, "belief_network", None)
 
         if belief_network is None:
@@ -1591,7 +1593,7 @@ class ConsensusPhase:
         if vote_count >= required:
             return True
 
-        result = ctx.result
+        result = require_phase_result(ctx)
         result.final_answer = list(ctx.proposals.values())[0] if ctx.proposals else ""
         result.consensus_reached = False
         result.confidence = 0.0
@@ -1773,7 +1775,7 @@ class ConsensusPhase:
         if not formal_enabled:
             return
 
-        result = ctx.result
+        result = require_phase_result(ctx)
         if not result.final_answer:
             return
 

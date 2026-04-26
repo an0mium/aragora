@@ -493,7 +493,7 @@ async def upgrade_issue_llm(
     body: str,
     *,
     repo_root: Path,
-    model: str = "claude-haiku-4-5-20251001",
+    model: str = "claude-opus-4-7",
     timeout: float = 20.0,
 ) -> UpgradedIssue | None:
     """Upgrade an issue using LLM analysis for richer understanding."""
@@ -567,7 +567,7 @@ Return a JSON object with:
                             "Content-Type": "application/json",
                         },
                         json={
-                            "model": "anthropic/claude-haiku-4.5",
+                            "model": "anthropic/claude-opus-4.7",
                             "max_tokens": 512,
                             "messages": [{"role": "user", "content": prompt}],
                         },

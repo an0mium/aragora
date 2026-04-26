@@ -129,6 +129,13 @@ export const FEATURES: Record<string, FeatureFlag> = {
     description: 'Legacy CLI-based agents (use API agents instead)',
     showInUI: false,
   },
+  AGENT_BRIDGE: {
+    enabled: false,
+    label: 'Agent Bridge',
+    status: 'alpha',
+    description: 'Read-only bridge run inspection for experimental multi-agent handoffs',
+    showInUI: false,
+  },
 } as const;
 
 export type FeatureName = keyof typeof FEATURES;

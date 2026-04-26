@@ -296,12 +296,17 @@ class KnowledgeMoundCore:
 
         Prefers KnowledgeVectorStore (KnowledgeNode-aware) over raw WeaviateStore.
         """
+        weaviate_url = self.config.weaviate_url
+        if not weaviate_url:
+            logger.debug("Weaviate URL not configured; skipping vector store init")
+            return
+
         # Try KnowledgeVectorStore first (higher-level, KnowledgeNode-aware)
         try:
             from aragora.knowledge.vector_store import KnowledgeVectorStore, KnowledgeVectorConfig
 
             _vec_config = KnowledgeVectorConfig(
-                url=self.config.weaviate_url or "http://localhost:8080",
+                url=weaviate_url,
                 api_key=self.config.weaviate_api_key,
             )
             self._vector_store = KnowledgeVectorStore(  # type: ignore[call-arg]
@@ -319,7 +324,7 @@ class KnowledgeMoundCore:
             from aragora.documents.indexing.weaviate_store import WeaviateStore, WeaviateConfig
 
             config = WeaviateConfig(
-                url=self.config.weaviate_url,
+                url=weaviate_url,
                 api_key=self.config.weaviate_api_key,
                 collection_name=self.config.weaviate_collection,
             )
@@ -358,21 +363,35 @@ class KnowledgeMoundCore:
         if not self._initialized:
             raise RuntimeError("KnowledgeMound not initialized. Call initialize() first.")
 
+    def _require_meta_store(self) -> Any:
+        """Return the meta store, raising if it is not connected.
+
+        Internal narrowing helper: after :meth:`initialize` runs, the meta store
+        is non-None for the rest of the instance's lifetime. Routing every
+        meta-store access through this helper gives mypy a non-optional type
+        without losing the runtime assertion that tells callers they forgot
+        to call :meth:`initialize`.
+        """
+        if self._meta_store is None:
+            raise RuntimeError("KnowledgeMound meta store not connected. Call initialize() first.")
+        return self._meta_store
+
     # =========================================================================
     # Lifecycle
     # =========================================================================
 
     async def close(self) -> None:
         """Close all connections."""
-        if self._cache:
+        if self._cache is not None:
             await self._cache.close()
-        if self._vector_store:
+        if self._vector_store is not None:
             try:
                 await self._vector_store.close()
             except (RuntimeError, ConnectionError, OSError) as e:
                 logger.debug("Error closing vector store: %s", e)
-        if hasattr(self._meta_store, "close"):
-            close_result = self._meta_store.close()
+        store = self._meta_store
+        if store is not None and hasattr(store, "close"):
+            close_result = store.close()
             if inspect.isawaitable(close_result):
                 await close_result
 
@@ -401,10 +420,11 @@ class KnowledgeMoundCore:
 
     async def _get_stats(self, workspace_id: str) -> MoundStats:
         """Get statistics from storage."""
-        if hasattr(self._meta_store, "get_stats_async"):
-            return await self._meta_store.get_stats_async(workspace_id)
+        store = self._require_meta_store()
+        if hasattr(store, "get_stats_async"):
+            return await store.get_stats_async(workspace_id)
         else:
-            stats = self._meta_store.get_stats(workspace_id)
+            stats = store.get_stats(workspace_id)
             return MoundStats(
                 total_nodes=stats.get("total_nodes", 0),
                 nodes_by_type=stats.get("by_type", {}),
@@ -423,8 +443,9 @@ class KnowledgeMoundCore:
 
     async def _save_node(self, node_data: dict[str, Any]) -> None:
         """Save node to storage."""
-        if hasattr(self._meta_store, "save_node_async"):
-            await self._meta_store.save_node_async(node_data)
+        store = self._require_meta_store()
+        if hasattr(store, "save_node_async"):
+            await store.save_node_async(node_data)
         else:
             # SQLite sync fallback
             from aragora.knowledge.mound import KnowledgeNode, ProvenanceChain, ProvenanceType
@@ -462,14 +483,15 @@ class KnowledgeMoundCore:
                     agent_id=node_data.get("agent_id"),
                     user_id=node_data.get("user_id"),
                 )
-            self._meta_store.save_node(node)
+            store.save_node(node)
 
     async def _get_node(self, node_id: str) -> KnowledgeItem | None:
         """Get node from storage."""
-        if hasattr(self._meta_store, "get_node_async"):
-            return await self._meta_store.get_node_async(node_id)
+        store = self._require_meta_store()
+        if hasattr(store, "get_node_async"):
+            return await store.get_node_async(node_id)
         else:
-            node = self._meta_store.get_node(node_id)
+            node = store.get_node(node_id)
             if node:
                 return self._node_to_item(node)
             return None
@@ -477,25 +499,27 @@ class KnowledgeMoundCore:
     async def _update_node(self, node_id: str, updates: dict[str, Any]) -> None:
         """Update node in storage."""
         # For SQLite, get then save
-        if hasattr(self._meta_store, "update_node_async"):
-            await self._meta_store.update_node_async(node_id, updates)
+        store = self._require_meta_store()
+        if hasattr(store, "update_node_async"):
+            await store.update_node_async(node_id, updates)
         else:
-            node = self._meta_store.get_node(node_id)
+            node = store.get_node(node_id)
             if node:
                 for key, value in updates.items():
                     if hasattr(node, key):
                         setattr(node, key, value)
-                self._meta_store.save_node(node)
+                store.save_node(node)
 
     async def _delete_node(self, node_id: str) -> bool:
         """Delete node from storage."""
-        if hasattr(self._meta_store, "delete_node_async"):
-            return await self._meta_store.delete_node_async(node_id)
+        store = self._require_meta_store()
+        if hasattr(store, "delete_node_async"):
+            return bool(await store.delete_node_async(node_id))
         else:
             # SQLite doesn't have delete, use raw SQL
-            with self._meta_store.connection() as conn:
+            with store.connection() as conn:
                 cursor = conn.execute("DELETE FROM knowledge_nodes WHERE id = ?", (node_id,))
-                return cursor.rowcount > 0
+                return bool(cursor.rowcount > 0)
 
     async def _archive_node(self, node_id: str) -> None:
         """
@@ -534,14 +558,15 @@ class KnowledgeMoundCore:
         }
 
         # Save to archive store
-        if hasattr(self._meta_store, "archive_node_async"):
-            await self._meta_store.archive_node_async(archive_record)
-        elif hasattr(self._meta_store, "archive_node"):
-            self._meta_store.archive_node(archive_record)
+        store = self._require_meta_store()
+        if hasattr(store, "archive_node_async"):
+            await store.archive_node_async(archive_record)
+        elif hasattr(store, "archive_node"):
+            store.archive_node(archive_record)
         else:
             # Fallback: store in SQLite archive table
             try:
-                with self._meta_store.connection() as conn:
+                with store.connection() as conn:
                     # Create archive table if it doesn't exist
                     conn.execute("""
                         CREATE TABLE IF NOT EXISTS knowledge_archive (
@@ -596,8 +621,9 @@ class KnowledgeMoundCore:
 
     async def _save_relationship(self, from_id: str, to_id: str, rel_type: str) -> None:
         """Save relationship to storage."""
-        if hasattr(self._meta_store, "save_relationship_async"):
-            await self._meta_store.save_relationship_async(from_id, to_id, rel_type)
+        store = self._require_meta_store()
+        if hasattr(store, "save_relationship_async"):
+            await store.save_relationship_async(from_id, to_id, rel_type)
         else:
             from typing import cast
             from aragora.knowledge.mound import KnowledgeRelationship
@@ -615,16 +641,17 @@ class KnowledgeMoundCore:
                 to_node_id=to_id,
                 relationship_type=cast(LegacyRelationshipType, rel_type_str),
             )
-            self._meta_store.save_relationship(rel)
+            store.save_relationship(rel)
 
     async def _get_relationships(
         self, node_id: str, types: list[RelationshipType] | None = None
     ) -> list[KnowledgeLink]:
         """Get relationships for a node."""
-        if hasattr(self._meta_store, "get_relationships_async"):
-            return await self._meta_store.get_relationships_async(node_id, types)
+        store = self._require_meta_store()
+        if hasattr(store, "get_relationships_async"):
+            return list(await store.get_relationships_async(node_id, types))
         else:
-            rels = self._meta_store.get_relationships(node_id)
+            rels = store.get_relationships(node_id)
             return [self._rel_to_link(r) for r in rels]
 
     async def _get_relationships_batch(
@@ -649,8 +676,12 @@ class KnowledgeMoundCore:
             return {}
 
         # Try batch method on meta_store first (most efficient - single query)
-        if hasattr(self._meta_store, "get_relationships_batch_async"):
-            return await self._meta_store.get_relationships_batch_async(node_ids, types)
+        store = self._require_meta_store()
+        if hasattr(store, "get_relationships_batch_async"):
+            result_dict: dict[str, list[KnowledgeLink]] = await store.get_relationships_batch_async(
+                node_ids, types
+            )
+            return result_dict
 
         # Fall back to parallel fetching via asyncio.gather
         # This is still better than sequential N queries
@@ -672,10 +703,12 @@ class KnowledgeMoundCore:
 
     async def _find_by_content_hash(self, content_hash: str, workspace_id: str) -> str | None:
         """Find node by content hash."""
-        if hasattr(self._meta_store, "find_by_content_hash_async"):
-            return await self._meta_store.find_by_content_hash_async(content_hash, workspace_id)
+        store = self._require_meta_store()
+        if hasattr(store, "find_by_content_hash_async"):
+            hit: str | None = await store.find_by_content_hash_async(content_hash, workspace_id)
+            return hit
         else:
-            node = self._meta_store.find_by_content_hash(content_hash, workspace_id)
+            node = store.find_by_content_hash(content_hash, workspace_id)
             return node.id if node else None
 
     async def _increment_update_count(self, node_id: str) -> None:
@@ -688,10 +721,11 @@ class KnowledgeMoundCore:
 
     async def _get_nodes_for_workspace(self, workspace_id: str, limit: int = 1000) -> list[Any]:
         """Get all nodes for a workspace (used by dedup/pruning)."""
-        if hasattr(self._meta_store, "get_nodes_for_workspace_async"):
-            return await self._meta_store.get_nodes_for_workspace_async(workspace_id, limit)
-        elif hasattr(self._meta_store, "query_nodes"):
-            nodes = self._meta_store.query_nodes(workspace_id=workspace_id, limit=limit)
+        store = self._require_meta_store()
+        if hasattr(store, "get_nodes_for_workspace_async"):
+            return list(await store.get_nodes_for_workspace_async(workspace_id, limit))
+        elif hasattr(store, "query_nodes"):
+            nodes = store.query_nodes(workspace_id=workspace_id, limit=limit)
             return [self._node_to_item(n) for n in nodes]
         return []
 
@@ -704,9 +738,10 @@ class KnowledgeMoundCore:
         min_score: float = 0.8,
     ) -> list[Any]:
         """Search for similar nodes by embedding or content (used by dedup)."""
-        if hasattr(self._meta_store, "search_similar_async"):
-            return await self._meta_store.search_similar_async(
-                workspace_id, embedding, query, top_k, min_score
+        store = self._require_meta_store()
+        if hasattr(store, "search_similar_async"):
+            return list(
+                await store.search_similar_async(workspace_id, embedding, query, top_k, min_score)
             )
         elif self._semantic_store and query:
             # Use semantic store for similarity search
@@ -726,13 +761,14 @@ class KnowledgeMoundCore:
 
     async def _count_nodes(self, workspace_id: str) -> int:
         """Count nodes in workspace (used by dedup report)."""
-        if hasattr(self._meta_store, "count_nodes_async"):
-            return await self._meta_store.count_nodes_async(workspace_id)
-        elif hasattr(self._meta_store, "get_stats"):
-            stats = self._meta_store.get_stats(workspace_id)
-            return stats.get("total_nodes", 0)
-        elif hasattr(self._meta_store, "query_nodes"):
-            nodes = self._meta_store.query_nodes(workspace_id=workspace_id, limit=100000)
+        store = self._require_meta_store()
+        if hasattr(store, "count_nodes_async"):
+            return int(await store.count_nodes_async(workspace_id))
+        elif hasattr(store, "get_stats"):
+            stats = store.get_stats(workspace_id)
+            return int(stats.get("total_nodes", 0))
+        elif hasattr(store, "query_nodes"):
+            nodes = store.query_nodes(workspace_id=workspace_id, limit=100000)
             return len(nodes)
         return 0
 
@@ -777,8 +813,9 @@ class KnowledgeMoundCore:
         }
 
         # Save to archive
+        store = self._require_meta_store()
         try:
-            with self._meta_store.connection() as conn:
+            with store.connection() as conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS knowledge_archive (
                         id TEXT PRIMARY KEY,
@@ -832,8 +869,9 @@ class KnowledgeMoundCore:
 
     async def _restore_archived_node(self, node_id: str, workspace_id: str) -> bool:
         """Restore an archived node (used by pruning restore)."""
+        store = self._require_meta_store()
         try:
-            with self._meta_store.connection() as conn:
+            with store.connection() as conn:
                 row = conn.execute(
                     "SELECT * FROM knowledge_archive WHERE original_id = ? AND workspace_id = ? ORDER BY archived_at DESC LIMIT 1",
                     (node_id, workspace_id),
@@ -863,10 +901,14 @@ class KnowledgeMoundCore:
     async def _get_nodes_by_content_hash(self, workspace_id: str) -> dict[str, list[str]]:
         """Get nodes grouped by content hash (used by dedup auto-merge)."""
         result: dict[str, list[str]] = {}
-        if hasattr(self._meta_store, "get_nodes_by_content_hash_async"):
-            return await self._meta_store.get_nodes_by_content_hash_async(workspace_id)
-        elif hasattr(self._meta_store, "query_nodes"):
-            nodes = self._meta_store.query_nodes(workspace_id=workspace_id, limit=100000)
+        store = self._require_meta_store()
+        if hasattr(store, "get_nodes_by_content_hash_async"):
+            grouped: dict[str, list[str]] = await store.get_nodes_by_content_hash_async(
+                workspace_id
+            )
+            return grouped
+        elif hasattr(store, "query_nodes"):
+            nodes = store.query_nodes(workspace_id=workspace_id, limit=100000)
             for node in nodes:
                 content_hash = node.content_hash
                 if content_hash not in result:
@@ -883,8 +925,9 @@ class KnowledgeMoundCore:
         """Get pruning history (used by pruning operations)."""
         from aragora.knowledge.mound.ops.pruning import PruneHistory, PruningAction
 
+        store = self._require_meta_store()
         try:
-            with self._meta_store.connection() as conn:
+            with store.connection() as conn:
                 # Create table if needed
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS prune_history (
@@ -930,8 +973,9 @@ class KnowledgeMoundCore:
 
     async def _save_prune_history(self, history: Any) -> None:
         """Save pruning history (used by pruning operations)."""
+        store = self._require_meta_store()
         try:
-            with self._meta_store.connection() as conn:
+            with store.connection() as conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS prune_history (
                         id TEXT PRIMARY KEY,
@@ -979,10 +1023,11 @@ class KnowledgeMoundCore:
         workspace_id: str,
     ) -> list[KnowledgeItem]:
         """Query local mound storage."""
-        if hasattr(self._meta_store, "query_async"):
-            return await self._meta_store.query_async(query, filters, limit, workspace_id)
+        store = self._require_meta_store()
+        if hasattr(store, "query_async"):
+            return list(await store.query_async(query, filters, limit, workspace_id))
         else:
-            nodes = self._meta_store.query_nodes(
+            nodes = store.query_nodes(
                 workspace_id=workspace_id,
                 limit=limit,
             )

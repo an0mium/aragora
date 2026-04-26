@@ -69,6 +69,21 @@ def test_check_1_fix_uses_strategy_index_single_candidate(tmp_path: Path) -> Non
     assert second_fixed == 0
 
 
+def test_check_1_ignores_markdown_syntax_inside_inline_code(tmp_path: Path) -> None:
+    root = tmp_path
+    _write(
+        root / "docs" / "metrics.md",
+        r"""
+        Reproduce with `git grep -h -o -E "@require_permission\(['\"]([^'\"]+)['\"]\)" -- aragora`.
+        """,
+    )
+
+    findings, fixed = check_broken_links(root)
+
+    assert fixed == 0
+    assert findings == []
+
+
 def test_check_2_flags_live_archive_refs_except_allowed_sources(tmp_path: Path) -> None:
     root = tmp_path
     _write(root / "docs" / "archive" / "README.md", "# Archive")

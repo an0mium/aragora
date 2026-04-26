@@ -181,6 +181,8 @@ class IdeaCanvasHandler(SecureHandler):
     def _validate_position(self, value: Any) -> tuple[float, float]:
         if not isinstance(value, dict):
             raise InvalidRequestError("position must be an object")
+        if "x" not in value and "y" not in value:
+            return 0.0, 0.0
         if "x" not in value or "y" not in value:
             raise InvalidRequestError("position.x and position.y are required")
         try:
@@ -503,6 +505,8 @@ class IdeaCanvasHandler(SecureHandler):
             if not node:
                 return error_response("Canvas not found", 404)
             return json_response(node.to_dict(), status=201)
+        except InvalidRequestError as e:
+            return error_response(str(e), 400)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Failed to add idea node: %s", e)
             return error_response("Node addition failed", 500)

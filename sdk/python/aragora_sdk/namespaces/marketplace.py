@@ -51,6 +51,44 @@ class MarketplaceAPI:
 
         return self._client.request("GET", "/api/v2/marketplace/templates", params=params)
 
+    def list_listings(
+        self,
+        item_type: str | None = None,
+        tag: str | None = None,
+        category: str | None = None,
+        search: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List catalog listings from the marketplace pilot surface."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if item_type:
+            params["type"] = item_type
+        if tag:
+            params["tag"] = tag
+        if category:
+            params["category"] = category
+        if search:
+            params["search"] = search
+
+        return self._client.request("GET", "/api/v1/marketplace/listings", params=params)
+
+    def get_featured_listings(self, limit: int = 20) -> dict[str, Any]:
+        """Get featured marketplace pilot listings."""
+        return self._client.request(
+            "GET",
+            "/api/v1/marketplace/listings/featured",
+            params={"limit": limit},
+        )
+
+    def get_listing_stats(self) -> dict[str, Any]:
+        """Get marketplace pilot listing statistics."""
+        return self._client.request("GET", "/api/v1/marketplace/listings/stats")
+
+    def get_listing(self, listing_id: str) -> dict[str, Any]:
+        """Get a marketplace pilot listing by ID."""
+        return self._client.request("GET", f"/api/v1/marketplace/listings/{listing_id}")
+
     def search_templates(
         self,
         query: str,
@@ -163,6 +201,10 @@ class MarketplaceAPI:
         """
         return self._client.request("GET", "/api/v2/marketplace/categories")
 
+    def list_featured_listings(self, limit: int = 10) -> dict[str, Any]:
+        """List featured marketplace catalog listings."""
+        return self.get_featured_listings(limit=limit)
+
     def get_featured(self) -> dict[str, Any]:
         """
         Get featured templates.
@@ -171,6 +213,30 @@ class MarketplaceAPI:
             Featured templates list
         """
         return self._client.request("GET", "/api/v1/marketplace/featured")
+
+    def list_listing_templates_legacy(
+        self,
+        category: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List templates through the legacy marketplace listings alias."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if category:
+            params["category"] = category
+        return self._client.request("GET", "/api/marketplace/listings", params=params)
+
+    def get_featured_listings_legacy(self) -> dict[str, Any]:
+        """Get featured templates through the legacy marketplace listings alias."""
+        return self._client.request("GET", "/api/marketplace/listings/featured")
+
+    def get_listing_stats_legacy(self) -> dict[str, Any]:
+        """Get marketplace listing stats through the legacy alias."""
+        return self._client.request("GET", "/api/marketplace/listings/stats")
+
+    def get_listing_legacy(self, listing_id: str) -> dict[str, Any]:
+        """Get a marketplace listing by ID through the legacy alias."""
+        return self._client.request("GET", f"/api/marketplace/listings/{listing_id}")
 
     def submit_review(
         self,
@@ -284,6 +350,44 @@ class AsyncMarketplaceAPI:
 
         return await self._client.request("GET", "/api/v2/marketplace/templates", params=params)
 
+    async def list_listings(
+        self,
+        item_type: str | None = None,
+        tag: str | None = None,
+        category: str | None = None,
+        search: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List catalog listings from the marketplace pilot surface."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if item_type:
+            params["type"] = item_type
+        if tag:
+            params["tag"] = tag
+        if category:
+            params["category"] = category
+        if search:
+            params["search"] = search
+
+        return await self._client.request("GET", "/api/v1/marketplace/listings", params=params)
+
+    async def get_featured_listings(self, limit: int = 20) -> dict[str, Any]:
+        """Get featured marketplace pilot listings."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/marketplace/listings/featured",
+            params={"limit": limit},
+        )
+
+    async def get_listing_stats(self) -> dict[str, Any]:
+        """Get marketplace pilot listing statistics."""
+        return await self._client.request("GET", "/api/v1/marketplace/listings/stats")
+
+    async def get_listing(self, listing_id: str) -> dict[str, Any]:
+        """Get a marketplace pilot listing by ID."""
+        return await self._client.request("GET", f"/api/v1/marketplace/listings/{listing_id}")
+
     async def search_templates(
         self,
         query: str,
@@ -347,9 +451,37 @@ class AsyncMarketplaceAPI:
         """List available template categories."""
         return await self._client.request("GET", "/api/v2/marketplace/categories")
 
+    async def list_featured_listings(self, limit: int = 10) -> dict[str, Any]:
+        """List featured marketplace catalog listings."""
+        return await self.get_featured_listings(limit=limit)
+
     async def get_featured(self) -> dict[str, Any]:
         """Get featured templates."""
         return await self._client.request("GET", "/api/v1/marketplace/featured")
+
+    async def list_listing_templates_legacy(
+        self,
+        category: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List templates through the legacy marketplace listings alias."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if category:
+            params["category"] = category
+        return await self._client.request("GET", "/api/marketplace/listings", params=params)
+
+    async def get_featured_listings_legacy(self) -> dict[str, Any]:
+        """Get featured templates through the legacy marketplace listings alias."""
+        return await self._client.request("GET", "/api/marketplace/listings/featured")
+
+    async def get_listing_stats_legacy(self) -> dict[str, Any]:
+        """Get marketplace listing stats through the legacy alias."""
+        return await self._client.request("GET", "/api/marketplace/listings/stats")
+
+    async def get_listing_legacy(self, listing_id: str) -> dict[str, Any]:
+        """Get a marketplace listing by ID through the legacy alias."""
+        return await self._client.request("GET", f"/api/marketplace/listings/{listing_id}")
 
     async def submit_review(
         self,

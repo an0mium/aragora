@@ -14,7 +14,11 @@ jobs:
   coverage:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 30 min was not enough to complete the full test suite under coverage
+    # instrumentation — every nightly cancelled at ~0% pytest progress
+    # (chronic-red since 2026-04-22). Bumping to 90 to give headroom; if
+    # this still cancels, the next move is sharding the coverage run.
+    timeout-minutes: 90
 
     steps:
       - name: Checkout

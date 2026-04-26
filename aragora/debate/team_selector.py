@@ -2031,8 +2031,8 @@ class TeamSelector:
         """Resolve a provider hint value for an agent.
 
         Matches the agent against the provider hints dictionary by checking:
-        1. Exact agent name match (e.g., "claude-sonnet-4")
-        2. Agent name as substring of a hint key (e.g., agent "claude" matches "claude-sonnet-4")
+        1. Exact agent name match (e.g., "claude-opus-4-7")
+        2. Agent name as substring of a hint key (e.g., agent "claude" matches "claude-opus-4-7")
         3. Hint key as substring of agent name (e.g., hint "claude" matches "claude-sonnet-4-agent")
 
         Returns the hint value (0-1) if a match is found, None otherwise.

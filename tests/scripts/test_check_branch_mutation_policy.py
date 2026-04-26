@@ -46,7 +46,6 @@ def test_find_mutating_workflow_violations_requires_safe_benchmark_truth_publica
             "jobs:\n  x:\n    steps:\n      - run: |\n"
             '          branch="unsafe/tmp"\n'
             '          git push origin "$branch"\n'
-            '          gh pr create --base main --head "$branch"\n'
         ),
     }
     violations = find_mutating_workflow_violations(workflows)
@@ -58,8 +57,24 @@ def test_find_mutating_workflow_violations_requires_safe_benchmark_truth_publica
         "must push only to benchmark-truth-publication/* branch namespace" in v.message
         for v in violations
     )
+    assert any("must create a draft pull request in-band" in v.message for v in violations)
+
+
+def test_find_mutating_workflow_violations_requires_draft_benchmark_publication_pr() -> None:
+    workflows = {
+        "benchmark-truth-publication.yml": (
+            "on:\n  workflow_dispatch:\n"
+            "jobs:\n  x:\n    steps:\n      - run: |\n"
+            '          branch="benchmark-truth-publication/123"\n'
+            '          git push origin "$branch"\n'
+            '          gh pr create --base main --head "$branch"\n'
+        ),
+    }
+    violations = find_mutating_workflow_violations(workflows)
+    assert violations
     assert any(
-        "must delegate pull request creation to Auto PR Publisher" in v.message for v in violations
+        "must create the benchmark publication pull request as a draft" in v.message
+        for v in violations
     )
 
 

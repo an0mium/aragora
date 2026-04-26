@@ -3031,7 +3031,7 @@ class DebateCostEstimateRequest(BaseModel):
     model_types: Annotated[
         list[str] | None,
         Field(
-            description="Model types to use", example=["claude-sonnet-4", "gpt-4o", "gemini-pro"]
+            description="Model types to use", example=["claude-opus-4-7", "gpt-4o", "gemini-pro"]
         ),
     ] = None
 

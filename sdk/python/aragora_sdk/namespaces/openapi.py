@@ -3067,15 +3067,25 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", f"/api/v1/inbox/accounts/{account_id}", params=params)
 
+    def request_post_api_v1_inbox_bulk_action(
+        self, body: Any | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return self._client.request("POST", "/api/v1/inbox/bulk-action", json=body, params=params)
+
     def request_get_api_v1_inbox_bulk_action(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/inbox/bulk-action", params=params)
+        return self.request_post_api_v1_inbox_bulk_action(params=params)
+
+    def request_post_api_v1_inbox_connect(
+        self, body: Any | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return self._client.request("POST", "/api/v1/inbox/connect", json=body, params=params)
 
     def request_get_api_v1_inbox_connect(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/inbox/connect", params=params)
+        return self.request_post_api_v1_inbox_connect(params=params)
 
     def request_get_api_v1_inbox_messages(
         self, params: dict[str, Any] | None = None
@@ -3107,10 +3117,15 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/inbox/trends", params=params)
 
+    def request_post_api_v1_inbox_triage(
+        self, body: Any | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return self._client.request("POST", "/api/v1/inbox/triage", json=body, params=params)
+
     def request_get_api_v1_inbox_triage(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/inbox/triage", params=params)
+        return self.request_post_api_v1_inbox_triage(params=params)
 
     def request_get_api_v1_incidents(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/incidents", params=params)
@@ -8619,15 +8634,27 @@ class AsyncOpenApiAPI:
             "GET", f"/api/v1/inbox/accounts/{account_id}", params=params
         )
 
+    async def request_post_api_v1_inbox_bulk_action(
+        self, body: Any | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await self._client.request(
+            "POST", "/api/v1/inbox/bulk-action", json=body, params=params
+        )
+
     async def request_get_api_v1_inbox_bulk_action(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/inbox/bulk-action", params=params)
+        return await self.request_post_api_v1_inbox_bulk_action(params=params)
+
+    async def request_post_api_v1_inbox_connect(
+        self, body: Any | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await self._client.request("POST", "/api/v1/inbox/connect", json=body, params=params)
 
     async def request_get_api_v1_inbox_connect(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/inbox/connect", params=params)
+        return await self.request_post_api_v1_inbox_connect(params=params)
 
     async def request_get_api_v1_inbox_messages(
         self, params: dict[str, Any] | None = None
@@ -8661,10 +8688,15 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/inbox/trends", params=params)
 
+    async def request_post_api_v1_inbox_triage(
+        self, body: Any | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await self._client.request("POST", "/api/v1/inbox/triage", json=body, params=params)
+
     async def request_get_api_v1_inbox_triage(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/inbox/triage", params=params)
+        return await self.request_post_api_v1_inbox_triage(params=params)
 
     async def request_get_api_v1_incidents(
         self, params: dict[str, Any] | None = None

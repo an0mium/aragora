@@ -7,14 +7,14 @@ receipts, provenance, and truthful gates.
 ### Govern AI-Assisted Work With Receipts, Review, and Truthful Gates
 
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
-[![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
-[![Smoke Tests](https://github.com/an0mium/aragora/actions/workflows/smoke.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/smoke.yml)
-[![Docker Build](https://github.com/an0mium/aragora/actions/workflows/docker.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/docker.yml)
-[![Deploy](https://github.com/an0mium/aragora/actions/workflows/deploy-lightsail.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/deploy-lightsail.yml)
+[![Tests](https://github.com/synaptent/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/test.yml)
+[![Smoke Tests](https://github.com/synaptent/aragora/actions/workflows/smoke.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/smoke.yml)
+[![Docker Build](https://github.com/synaptent/aragora/actions/workflows/docker.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/docker.yml)
+[![Deploy](https://github.com/synaptent/aragora/actions/workflows/deploy-lightsail.yml/badge.svg)](https://github.com/synaptent/aragora/actions/workflows/deploy-lightsail.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll have a working debate in under a minute. For a deeper overview, see [Start Here](docs/START_HERE.md). For strategic framing, see [Positioning And Messaging](docs/strategy/POSITIONING_AND_MESSAGING.md) (includes competitive positioning), [Boundaries And Scope](docs/strategy/BOUNDARIES_AND_SCOPE.md) (includes when-to-use-Aragora-vs-execution-substrates), and [Precision And Terms](docs/strategy/PRECISION_AND_TERMS.md) (includes the terminology glossary). The consolidation of earlier-dated strategy files is tracked in [STRATEGY_INDEX.md](docs/STRATEGY_INDEX.md).
+**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll have a working debate in under a minute. For a cold reviewer or auditor path, start with [Cold Reviewer Guide](docs/COLD_REVIEWER_GUIDE.md). For a deeper overview, see [Start Here](docs/START_HERE.md). For strategic framing, see [Positioning And Messaging](docs/strategy/POSITIONING_AND_MESSAGING.md) (includes competitive positioning), [Boundaries And Scope](docs/strategy/BOUNDARIES_AND_SCOPE.md) (includes when-to-use-Aragora-vs-execution-substrates), and [Precision And Terms](docs/strategy/PRECISION_AND_TERMS.md) (includes the terminology glossary). The consolidation of earlier-dated strategy files is tracked in [STRATEGY_INDEX.md](docs/STRATEGY_INDEX.md).
 
 | I want to... | Install |
 |--------------|---------|
@@ -197,7 +197,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: an0mium/aragora@main
+      - uses: synaptent/aragora@main
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -234,7 +234,7 @@ Individual LLMs exhibit persona instability -- their outputs shift based on fram
 
 ### 5. Self-Healing and Self-Extending
 
-The Nomic Loop is Aragora's autonomous self-improvement system: agents debate improvements to the codebase, design solutions, implement code, run tests, and verify changes -- with human approval gates and automatic rollback on failure. This is how Aragora grew from a debate engine to 3,800+ modules. Red-team mode stress-tests the platform's own specs. The Gauntlet runs adversarial attacks against proposed changes. The system hardens itself.
+The Nomic Loop is Aragora's autonomous self-improvement system: agents debate improvements to the codebase, design solutions, implement code, run tests, and verify changes -- with human approval gates and automatic rollback on failure. This is how Aragora grew from a debate engine into a broad governed platform. Current scale is tracked in the auto-regenerated [canonical metrics](docs/METRICS.md). Red-team mode stress-tests the platform's own specs. The Gauntlet runs adversarial attacks against proposed changes. The system hardens itself.
 
 ---
 
@@ -313,7 +313,7 @@ See [docs/guides/GETTING_STARTED.md](docs/guides/GETTING_STARTED.md) for the com
 
 ```bash
 # Clone and deploy
-git clone https://github.com/an0mium/aragora && cd aragora
+git clone https://github.com/synaptent/aragora && cd aragora
 
 # Production deployment (secrets from AWS Secrets Manager)
 cd deploy/liftmode && ./setup.sh
@@ -397,7 +397,7 @@ aragora/
 ├── gauntlet/       # Adversarial stress testing
 ├── knowledge/      # Knowledge Mound with 42 registered adapter specs
 ├── memory/         # 4-tier memory (fast/medium/slow/glacial)
-├── server/         # 3,100+ API operations, 270+ WebSocket event types
+├── server/         # 3,386 API operations, 270+ WebSocket event types
 ├── pipeline/       # Decision-to-PR generation
 ├── genesis/        # Fractal debates, agent evolution
 ├── sandbox/        # Docker-based safe execution
@@ -406,7 +406,8 @@ aragora/
 └── workflow/       # DAG-based automation engine
 ```
 
-**Scale:** 3,800+ Python modules | 210,000+ tests across 5,000+ test files
+**Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions across 5,078 test files
+(canonical, auto-regenerated numbers: [`docs/METRICS.md`](docs/METRICS.md))
 
 ### Performance and Costs
 

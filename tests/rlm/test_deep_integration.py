@@ -160,12 +160,12 @@ class TestRLMBackendConfigNewFields:
 
         cfg = RLMBackendConfig(
             sub_backend="openrouter",
-            sub_backend_model="deepseek/deepseek-chat",
+            sub_backend_model="deepseek/deepseek-v4-pro",
             trajectory_log_dir="/var/log/rlm",
             custom_system_prompt="Analyse carefully.",
         )
         assert cfg.sub_backend == "openrouter"
-        assert cfg.sub_backend_model == "deepseek/deepseek-chat"
+        assert cfg.sub_backend_model == "deepseek/deepseek-v4-pro"
         assert cfg.trajectory_log_dir == "/var/log/rlm"
         assert cfg.custom_system_prompt == "Analyse carefully."
 
@@ -571,13 +571,13 @@ class TestCreateAragoraRLMNewParams:
 
         rlm = create_aragora_rlm(
             sub_backend="openrouter",
-            sub_model="deepseek/deepseek-chat",
+            sub_model="deepseek/deepseek-v4-pro",
             trajectory_log_dir="/opt/traj",
             persistent=True,
             debate_mode=True,
         )
         assert rlm.backend_config.sub_backend == "openrouter"
-        assert rlm.backend_config.sub_backend_model == "deepseek/deepseek-chat"
+        assert rlm.backend_config.sub_backend_model == "deepseek/deepseek-v4-pro"
         assert rlm.backend_config.trajectory_log_dir == "/opt/traj"
         assert rlm.backend_config.persistent is True
         assert rlm.backend_config.custom_system_prompt == DEBATE_RLM_SYSTEM_PROMPT

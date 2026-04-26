@@ -53,6 +53,8 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
+pytestmark = pytest.mark.rate_limit_test
+
 
 # =============================================================================
 # Fixtures

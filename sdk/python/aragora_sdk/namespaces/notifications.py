@@ -74,6 +74,49 @@ class NotificationsAPI:
         """
         return self._client.request("PUT", "/api/notifications/preferences", json=kwargs)
 
+    def list_templates(self) -> dict[str, Any]:
+        """List notification templates for the current user."""
+        return self._client.request("GET", "/api/notifications/templates")
+
+    def get_template(self, template_id: str) -> dict[str, Any]:
+        """Get a notification template by ID."""
+        return self._client.request("GET", f"/api/notifications/templates/{template_id}")
+
+    def update_template(
+        self,
+        template_id: str,
+        *,
+        subject: str | None = None,
+        body: str | None = None,
+    ) -> dict[str, Any]:
+        """Update subject/body overrides for a notification template."""
+        payload: dict[str, Any] = {}
+        if subject is not None:
+            payload["subject"] = subject
+        if body is not None:
+            payload["body"] = body
+        return self._client.request(
+            "PUT", f"/api/notifications/templates/{template_id}", json=payload
+        )
+
+    def reset_template(self, template_id: str) -> dict[str, Any]:
+        """Reset a notification template to its default content."""
+        return self._client.request("POST", f"/api/notifications/templates/{template_id}/reset")
+
+    def preview_template(
+        self,
+        template_id: str,
+        *,
+        values: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Render a notification template with preview values."""
+        payload = {"values": values} if values is not None else {}
+        return self._client.request(
+            "POST",
+            f"/api/notifications/templates/{template_id}/preview",
+            json=payload,
+        )
+
 
 class AsyncNotificationsAPI:
     """Asynchronous Notifications API."""
@@ -134,3 +177,50 @@ class AsyncNotificationsAPI:
     async def update_preferences(self, **kwargs: Any) -> dict[str, Any]:
         """Update notification preferences."""
         return await self._client.request("PUT", "/api/notifications/preferences", json=kwargs)
+
+    async def list_templates(self) -> dict[str, Any]:
+        """List notification templates for the current user."""
+        return await self._client.request("GET", "/api/notifications/templates")
+
+    async def get_template(self, template_id: str) -> dict[str, Any]:
+        """Get a notification template by ID."""
+        return await self._client.request("GET", f"/api/notifications/templates/{template_id}")
+
+    async def update_template(
+        self,
+        template_id: str,
+        *,
+        subject: str | None = None,
+        body: str | None = None,
+    ) -> dict[str, Any]:
+        """Update subject/body overrides for a notification template."""
+        payload: dict[str, Any] = {}
+        if subject is not None:
+            payload["subject"] = subject
+        if body is not None:
+            payload["body"] = body
+        return await self._client.request(
+            "PUT",
+            f"/api/notifications/templates/{template_id}",
+            json=payload,
+        )
+
+    async def reset_template(self, template_id: str) -> dict[str, Any]:
+        """Reset a notification template to its default content."""
+        return await self._client.request(
+            "POST", f"/api/notifications/templates/{template_id}/reset"
+        )
+
+    async def preview_template(
+        self,
+        template_id: str,
+        *,
+        values: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Render a notification template with preview values."""
+        payload = {"values": values} if values is not None else {}
+        return await self._client.request(
+            "POST",
+            f"/api/notifications/templates/{template_id}/preview",
+            json=payload,
+        )

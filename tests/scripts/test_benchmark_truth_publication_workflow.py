@@ -157,25 +157,34 @@ def test_runs_daily_and_manual_dispatch() -> None:
     assert schedule == [{"cron": "20 13 * * *"}]
 
 
-def test_publishes_refresh_via_branch_only_and_delegates_pr_creation() -> None:
+def test_publishes_refresh_via_branch_and_verifies_draft_pr() -> None:
     workflow = _benchmark_truth_publication_workflow()
     permissions = workflow.get("permissions")
     assert permissions == {
         "contents": "write",
         "issues": "write",
-        "pull-requests": "read",
+        "pull-requests": "write",
     }
 
     publish_run = str(_workflow_step("Publish tracked trust-loop surfaces").get("run", ""))
     run = str(
-        _workflow_step("Commit and publish refreshed trust-loop surfaces branch").get("run", "")
+        _workflow_step(
+            "Commit, publish, and verify draft PR for refreshed trust-loop surfaces"
+        ).get("run", "")
     )
     assert "--freshness-map docs/benchmarks/benchmark_corpus_freshness.json \\" in publish_run
     assert "--ensure-issues \\" in publish_run
     assert 'branch="benchmark-truth-publication/${GITHUB_RUN_ID}"' in run
+    assert 'body_file="$RUNNER_TEMP/benchmark-truth-publication-pr.md"' in run
     assert 'git checkout -b "$branch"' in run
     assert 'git push origin "$branch"' in run
     assert 'git commit -m "${title}"' in run
+    assert "gh pr list \\" in run
+    assert "--json url,isDraft \\" in run
+    assert "select(.isDraft == true)" in run
+    assert "gh pr create \\" in run
+    assert "--draft \\" in run
+    assert "Benchmark publication branch was pushed but no draft PR exists" in run
+    assert 'echo "Draft PR: $pr_url"' in run
     assert "[skip ci]" not in run
-    assert "gh pr create" not in run
     assert "git push origin HEAD:main" not in run

@@ -2,6 +2,76 @@
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
 
+HYBRID_DEBATE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "debate_id": {"type": "string"},
+        "task": {"type": "string"},
+        "status": {
+            "type": "string",
+            "enum": ["pending", "running", "completed", "failed"],
+        },
+        "consensus_reached": {"type": "boolean"},
+        "confidence": {"type": "number"},
+        "final_answer": {"type": ["string", "null"]},
+        "external_agent": {"type": "string"},
+        "verification_agents": {"type": "array", "items": {"type": "string"}},
+        "consensus_threshold": {"type": "number"},
+        "max_rounds": {"type": "integer"},
+        "domain": {"type": "string"},
+        "config": {"type": "object", "additionalProperties": True},
+        "rounds": {"type": "integer"},
+        "started_at": {"type": "string", "format": "date-time"},
+        "completed_at": {"type": ["string", "null"], "format": "date-time"},
+    },
+    "required": ["debate_id", "task", "status", "started_at"],
+    "additionalProperties": True,
+}
+
+HYBRID_DEBATE_LIST_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "debates": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "debate_id": {"type": "string"},
+                    "task": {"type": "string"},
+                    "status": {"type": "string"},
+                    "consensus_reached": {"type": "boolean"},
+                    "confidence": {"type": "number"},
+                    "started_at": {"type": "string", "format": "date-time"},
+                },
+                "required": ["debate_id", "task", "status"],
+                "additionalProperties": True,
+            },
+        },
+        "total": {"type": "integer"},
+    },
+    "required": ["debates", "total"],
+}
+
+HYBRID_DEBATE_CREATE_REQUEST_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "task": {"type": "string", "minLength": 1, "maxLength": 5000},
+        "external_agent": {"type": "string", "minLength": 1},
+        "verification_agents": {"type": "array", "items": {"type": "string"}},
+        "consensus_threshold": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "default": 0.7,
+        },
+        "max_rounds": {"type": "integer", "minimum": 1, "maximum": 10, "default": 3},
+        "domain": {"type": "string", "default": "general"},
+        "config": {"type": "object", "additionalProperties": True},
+    },
+    "required": ["task", "external_agent"],
+    "additionalProperties": True,
+}
+
 DEBATE_ENDPOINTS = {
     "/api/debates": {
         "get": {
@@ -776,6 +846,84 @@ real-time debate progress (proposals, critiques, votes, consensus events).""",
                 ),
                 "500": STANDARD_ERRORS["500"],
             },
+        },
+    },
+    "/api/v1/debates/hybrid": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "List hybrid debates",
+            "operationId": "listHybridDebatesV1",
+            "description": "List hybrid debates with optional status and limit filters.",
+            "parameters": [
+                {
+                    "name": "status",
+                    "in": "query",
+                    "description": "Filter by hybrid debate status.",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["pending", "running", "completed", "failed"],
+                    },
+                },
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "description": "Maximum number of hybrid debates to return.",
+                    "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Hybrid debates", HYBRID_DEBATE_LIST_SCHEMA),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "429": STANDARD_ERRORS["429"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Create hybrid debate",
+            "operationId": "createHybridDebateV1",
+            "description": "Start a hybrid debate using an external agent and internal verification agents.",
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": HYBRID_DEBATE_CREATE_REQUEST_SCHEMA}},
+            },
+            "responses": {
+                "201": _ok_response("Hybrid debate created", HYBRID_DEBATE_SCHEMA),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "429": STANDARD_ERRORS["429"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/debates/hybrid/{id}": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get hybrid debate",
+            "operationId": "getHybridDebateV1",
+            "description": "Retrieve full details for a specific hybrid debate by ID.",
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Hybrid debate identifier.",
+                    "example": "hybrid_abc123def456",
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Hybrid debate details", HYBRID_DEBATE_SCHEMA),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/v1/debates/{id}": {

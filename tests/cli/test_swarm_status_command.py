@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sqlite3
 from unittest.mock import patch
 
 from aragora.cli.commands.swarm import cmd_swarm
@@ -146,6 +147,35 @@ def test_load_operator_status_prefers_ledger_truth_for_queue_depth(tmp_path: Pat
     assert payload["ledger_status"]["prs_merged"] == 1
 
 
+def test_load_operator_status_uses_live_shift_truth_without_ledger(tmp_path: Path) -> None:
+    metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    _write_metrics(metrics_path, [])
+
+    with (
+        patch(
+            "aragora.cli.commands.swarm_status.load_shift_status",
+            return_value={
+                "available": False,
+                "ledger_path": str(tmp_path / "missing-ledger.jsonl"),
+                "current_queue_size": 2,
+                "current_open_prs": 5,
+                "current_boss_running": True,
+                "current_merge_running": True,
+                "current_benchmark_fresh": False,
+                "prs_merged": 0,
+                "last_stop_reason": "completed",
+                "green_shift": {"is_green": False},
+            },
+        ),
+        patch("aragora.cli.commands.swarm_status._boss_ready_queue_depth", return_value=9),
+    ):
+        payload = load_operator_status(tmp_path, metrics_path=metrics_path)
+
+    assert payload["summary"]["queue_depth"] == 2
+    assert payload["ledger_status"]["current_queue_size"] == 2
+    assert payload["ledger_status"]["current_boss_running"] is True
+
+
 def test_render_operator_status_includes_recent_iterations() -> None:
     text = render_operator_status(
         {
@@ -236,6 +266,49 @@ def test_cmd_swarm_status_json_includes_operator_status(tmp_path: Path, capsys) 
     payload = json.loads(capsys.readouterr().out)
     assert payload["operator_status"]["summary"]["queue_depth"] == 5
     assert payload["operator_status"]["summary"]["unique_issues_attempted"] == 1
+
+
+def test_cmd_swarm_status_json_degrades_when_coordination_store_unreadable(
+    tmp_path: Path, capsys
+) -> None:
+    with (
+        patch("aragora.worktree.fleet.resolve_repo_root", return_value=tmp_path),
+        patch("aragora.worktree.fleet.build_fleet_rows", return_value=[]),
+        patch("aragora.worktree.fleet.FleetCoordinationStore") as store_cls,
+        patch(
+            "aragora.swarm.reporter.build_integrator_view",
+            return_value={"summary": {}, "next_actions": []},
+        ),
+        patch(
+            "aragora.swarm.session_coordinator.read_directives",
+            return_value={
+                "summary": {
+                    "directive_count": 0,
+                    "session_count": 0,
+                    "claim_count": 0,
+                    "finding_count": 0,
+                },
+                "directives": [],
+                "claims": [],
+                "findings": [],
+            },
+        ),
+        patch(
+            "aragora.swarm.SwarmSupervisor",
+            side_effect=sqlite3.OperationalError("unable to open database file"),
+        ),
+        patch("aragora.cli.commands.swarm_status._boss_ready_queue_depth", return_value=0),
+    ):
+        store_cls.return_value.list_claims.return_value = []
+        store_cls.return_value.list_merge_queue.return_value = []
+
+        cmd_swarm(_swarm_status_args(json=True, boss_repo="synaptent/aragora"))
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["runs"] == 0
+    assert payload["coordination"]["available"] is False
+    assert payload["coordination"]["error_type"] == "OperationalError"
+    assert payload["operator_status"]["summary"]["queue_depth"] == 0
 
 
 def test_cmd_swarm_status_text_includes_operator_metrics(tmp_path: Path, capsys) -> None:

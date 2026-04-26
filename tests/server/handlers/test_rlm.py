@@ -506,12 +506,16 @@ class TestRLMCompress:
     def test_compress_content_too_large(self, rlm_handler):
         """Compress with content over 10MB returns 413.
 
-        We mock read_json_body to bypass the body-level size check and test
+        We mock _read_json_object_body to bypass the body-level size check and test
         the content-level size validation directly.
         """
         large_content = "x" * (10_000_001)
         handler = make_mock_handler(method="POST", authenticated=True)
-        with patch.object(rlm_handler, "read_json_body", return_value={"content": large_content}):
+        with patch.object(
+            rlm_handler,
+            "_read_json_object_body",
+            return_value=({"content": large_content}, None),
+        ):
             result = rlm_handler.handle_compress("/api/v1/rlm/compress", {}, handler)
         assert result is not None
         assert result.status_code == 413

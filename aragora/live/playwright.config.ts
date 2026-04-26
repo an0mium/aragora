@@ -1,9 +1,17 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export const SPECIALTY_PROJECT_TEST_IGNORE = [
+  '**/production/**',
   '**/accessibility.spec.ts',
   '**/visual-regression.spec.ts',
   '**/mobile/mobile-audit.spec.ts',
+] as const;
+
+export const CI_SMOKE_TEST_MATCH = [
+  '**/config-validation.spec.ts',
+  '**/homepage.spec.ts',
+  '**/landing.spec.ts',
+  '**/navigation.spec.ts',
 ] as const;
 
 /**
@@ -74,6 +82,15 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: SPECIALTY_PROJECT_TEST_IGNORE,
+    },
+
+    // Bounded PR lane: stable local smoke specs only. The broad Chromium suite
+    // remains available through the chromium project for nightly/manual runs.
+    {
+      name: 'ci-smoke',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: CI_SMOKE_TEST_MATCH,
       testIgnore: SPECIALTY_PROJECT_TEST_IGNORE,
     },
 

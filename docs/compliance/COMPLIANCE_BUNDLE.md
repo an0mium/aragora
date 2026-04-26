@@ -40,7 +40,9 @@ Unified entry point for all Aragora compliance documentation, controls mappings,
 
 | Document | Location | Content |
 |----------|----------|---------|
+| EU AI Act Package (H1-05 buyer hand-off) | [docs/compliance/EU_AI_ACT_PACKAGE.md](EU_AI_ACT_PACKAGE.md) | One-page sellable package: what Aragora provides, what the buyer owns, runbook |
 | EU AI Act Guide | [docs/compliance/EU_AI_ACT_GUIDE.md](EU_AI_ACT_GUIDE.md) | Full compliance guide with artifact generation workflows |
+| EU AI Act Customer Playbook | [docs/compliance/EU_AI_ACT_CUSTOMER_PLAYBOOK.md](EU_AI_ACT_CUSTOMER_PLAYBOOK.md) | Customer onboarding and 5-minute quickstart |
 | EU AI Act Checklist | [docs/compliance/EU_AI_ACT_CHECKLIST.md](EU_AI_ACT_CHECKLIST.md) | Article-by-article compliance checklist |
 | EU AI Act Sample | [docs/compliance/EU_AI_ACT_SAMPLE.md](EU_AI_ACT_SAMPLE.md) | Example artifact output |
 | Compliance Presets | [docs/enterprise/COMPLIANCE_PRESETS.md](../enterprise/COMPLIANCE_PRESETS.md) | Pre-configured compliance profiles |

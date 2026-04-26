@@ -54,7 +54,7 @@ def is_docs_safe_path(path: Any) -> bool:
 def infer_docs_safe_hints(text: str) -> list[str]:
     hints: list[str] = []
     for raw in re.split(r"\s+", text or ""):
-        token = raw.strip().strip("`'\".,;:()[]{}<>")
+        token = raw.strip().lstrip("`'\",;:()[]{}<>").rstrip("`'\".,;:()[]{}<>")
         normalized = normalize_docs_path(token)
         if not is_docs_safe_path(normalized):
             continue

@@ -22,6 +22,22 @@ class TestSessionDirective:
         assert restored.task == "SDK parity consolidation"
         assert restored.scope == ["#2684"]
 
+    def test_from_dict_coerces_malformed_payloads_to_safe_defaults(self):
+        restored = SessionDirective.from_dict(
+            {
+                "target": "codex-a",
+                "scope": object(),
+                "constraints": None,
+                "created_at": object(),
+                "updated_at": "bad",
+            }
+        )
+
+        assert restored.scope == []
+        assert restored.constraints == []
+        assert restored.created_at == 0.0
+        assert restored.updated_at == 0.0
+
 
 class TestDirectiveBoard:
     def test_assign_and_get(self, tmp_path):

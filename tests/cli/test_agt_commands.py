@@ -53,7 +53,12 @@ class TestMetricsViah:
 
     def test_populated_ledger_computes_positive_viah(self, tmp_path, capsys) -> None:
         ledger_path = tmp_path / "ledger.jsonl"
-        now = datetime(2026, 4, 17, 12, 0, tzinfo=UTC)
+        # Use real current time so seeded entries always fall within the
+        # 24h window evaluated by ``cmd_metrics_viah`` (which reads
+        # ``datetime.now(UTC)`` internally). Previously this test pinned
+        # ``now`` to a fixed date, causing it to break after that date
+        # fell outside the 24h window.
+        now = datetime.now(tz=UTC).replace(microsecond=0)
         _seed_ledger(
             ledger_path,
             [

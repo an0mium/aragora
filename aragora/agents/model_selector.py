@@ -176,8 +176,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # OpenAI
     "gpt4": ModelProfile(
-        model_id="gpt-4.1",
-        display_name="GPT-4.1",
+        model_id="gpt-5.5",
+        display_name="GPT-5.5",
         provider="openai",
         capabilities={
             ModelCapability.REASONING: 0.94,
@@ -223,8 +223,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         reliability_score=0.97,
         supports_vision=True,
     ),
-    "gpt-4.1-mini": ModelProfile(
-        model_id="gpt-4.1-mini",
+    "gpt-5.4": ModelProfile(
+        model_id="gpt-5.4",
         display_name="GPT-4.1 Mini",
         provider="openai",
         capabilities={
@@ -324,8 +324,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # DeepSeek
     "deepseek": ModelProfile(
-        model_id="deepseek-chat",
-        display_name="DeepSeek V3.2",
+        model_id="deepseek-v4-pro",
+        display_name="DeepSeek V4 Pro",
         provider="deepseek",
         capabilities={
             ModelCapability.REASONING: 0.92,
@@ -339,16 +339,16 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.88,
             ModelCapability.FACTUAL_ACCURACY: 0.82,
         },
-        max_context_tokens=128000,
+        max_context_tokens=1048576,
         max_output_tokens=8192,
-        cost_input_per_1k=0.00028,
-        cost_output_per_1k=0.00042,
+        cost_input_per_1k=0.00174,
+        cost_output_per_1k=0.00348,
         avg_latency_ms=500,
         reliability_score=0.92,
     ),
     "deepseek-r1": ModelProfile(
-        model_id="deepseek-reasoner",
-        display_name="DeepSeek R1",
+        model_id="deepseek-v4-pro",
+        display_name="DeepSeek V4 Pro",
         provider="deepseek",
         capabilities={
             ModelCapability.REASONING: 0.96,
@@ -362,10 +362,10 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.90,
             ModelCapability.FACTUAL_ACCURACY: 0.87,
         },
-        max_context_tokens=128000,
+        max_context_tokens=1048576,
         max_output_tokens=8192,
-        cost_input_per_1k=0.00028,
-        cost_output_per_1k=0.00042,
+        cost_input_per_1k=0.00174,
+        cost_output_per_1k=0.00348,
         avg_latency_ms=1800,  # Slower due to reasoning
         reliability_score=0.92,
     ),
@@ -446,8 +446,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
     ),
     # Kimi (Moonshot AI)
     "kimi": ModelProfile(
-        model_id="kimi-k2",
-        display_name="Kimi K2",
+        model_id="kimi-k2.6",
+        display_name="Kimi K2.6",
         provider="moonshot",
         capabilities={
             ModelCapability.REASONING: 0.91,
@@ -464,8 +464,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         },
         max_context_tokens=256000,
         max_output_tokens=8192,
-        cost_input_per_1k=0.001,
-        cost_output_per_1k=0.005,
+        cost_input_per_1k=0.0007448,
+        cost_output_per_1k=0.004655,
         avg_latency_ms=800,
         reliability_score=0.91,
     ),

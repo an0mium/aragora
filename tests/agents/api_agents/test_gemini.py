@@ -87,7 +87,11 @@ class TestGeminiAgentInitialization:
         assert agent.enable_fallback is True
 
     def test_openrouter_model_map_exists(self, mock_env_with_api_keys):
-        """Should have OpenRouter model mapping for fallback."""
+        """Should have OpenRouter model mapping for fallback.
+
+        Every legacy Gemini ID is now upgraded to Gemini 3.1 Pro via OpenRouter
+        so missing direct keys never block and weaker variants are upgraded.
+        """
         from aragora.agents.api_agents.gemini import GeminiAgent
 
         agent = GeminiAgent()
@@ -95,7 +99,7 @@ class TestGeminiAgentInitialization:
         assert hasattr(GeminiAgent, "OPENROUTER_MODEL_MAP")
         assert "gemini-3.1-pro-preview" in GeminiAgent.OPENROUTER_MODEL_MAP
         assert "gemini-2.0-flash" in GeminiAgent.OPENROUTER_MODEL_MAP
-        assert GeminiAgent.DEFAULT_FALLBACK_MODEL == "google/gemini-3.1-pro-preview"
+        assert GeminiAgent.DEFAULT_FALLBACK_MODEL == "google/gemini-3.1-pro"
 
 
 class TestGeminiWebSearchDetection:

@@ -6,8 +6,8 @@
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **93**
-- Total top-level invocations (including aliases): **94**
+- Canonical top-level commands: **94**
+- Total top-level invocations (including aliases): **95**
 
 ## Installation
 
@@ -104,6 +104,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `replay` | - | Replay stored debates | - |
 | `review` | - | Run AI code review on a diff or PR | - |
 | `review-pr` | - | Review a live GitHub PR head and optionally run a fixer loop | - |
+| `review-queue` | - | PR review queue + advisory packets + human settlement | `act`, `build`, `packet`, `run` |
 | `rlm` | - | RLM (Recursive Language Models) operations | `clear-cache`, `compress`, `query`, `stats` |
 | `security` | - | Security operations (encryption, key rotation) | `health`, `list-tokens`, `migrate`, `rotate-key`, `rotate-token`, `status`, `verify-token` |
 | `self-improve` | - | Run self-improvement pipeline with worktree isolation and validation | - |

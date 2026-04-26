@@ -43,6 +43,18 @@ PERM_DEBATE_STOP = _permission(
 PERM_DEBATE_FORK = _permission(
     ResourceType.DEBATE, Action.FORK, "Fork Debates", "Create branches from existing debates"
 )
+PERM_SETTLEMENT_READ = _permission(
+    ResourceType.SETTLEMENT,
+    Action.READ,
+    "View Settlements",
+    "View claim settlements and calibration history",
+)
+PERM_SETTLEMENT_WRITE = _permission(
+    ResourceType.SETTLEMENT,
+    Action.WRITE,
+    "Update Settlements",
+    "Resolve claim settlements and record outcomes",
+)
 
 # ============================================================================
 # AGENT PERMISSIONS
@@ -347,6 +359,8 @@ __all__ = [
     "PERM_DEBATE_RUN",
     "PERM_DEBATE_STOP",
     "PERM_DEBATE_FORK",
+    "PERM_SETTLEMENT_READ",
+    "PERM_SETTLEMENT_WRITE",
     # Agent
     "PERM_AGENT_CREATE",
     "PERM_AGENT_READ",

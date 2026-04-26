@@ -48,6 +48,18 @@ export interface MarketplaceListParams {
   offset?: number;
 }
 
+export interface MarketplaceListingParams {
+  type?: string;
+  tag?: string;
+  category?: string;
+  search?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export type MarketplaceCatalogListParams = MarketplaceListingParams;
+
 /**
  * Marketplace purchase record.
  */
@@ -192,6 +204,49 @@ export class MarketplaceAPI {
   }
 
   /**
+   * List marketplace templates through the legacy listings alias.
+   *
+   * @param params - Filter and pagination options
+   * @returns List of templates matching the criteria
+   */
+  async listListingsLegacy(params?: MarketplaceListParams): Promise<{ templates: MarketplaceTemplate[] }> {
+    return this.client.request<{ templates: MarketplaceTemplate[] }>('GET', '/api/marketplace/listings', {
+      params: {
+        category: params?.category,
+        limit: params?.limit,
+        offset: params?.offset,
+      },
+    });
+  }
+
+  /**
+   * Get featured templates through the legacy listings alias.
+   */
+  async getFeaturedListingsLegacy(): Promise<{ templates: MarketplaceTemplate[] }> {
+    return this.client.request<{ templates: MarketplaceTemplate[] }>('GET', '/api/marketplace/listings/featured');
+  }
+
+  /**
+   * Get marketplace listing stats through the legacy listings alias.
+   */
+  async getListingStatsLegacy(): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>('GET', '/api/marketplace/listings/stats');
+  }
+
+  /**
+   * Get a marketplace listing by ID through the legacy listings alias.
+   *
+   * @param listingId - The listing ID
+   * @returns The template details
+   */
+  async getListingLegacy(listingId: string): Promise<MarketplaceTemplate> {
+    return this.client.request<MarketplaceTemplate>(
+      'GET',
+      `/api/marketplace/listings/${encodeURIComponent(listingId)}`
+    );
+  }
+
+  /**
    * Get trending templates based on recent activity.
    *
    * @returns List of trending templates
@@ -226,6 +281,58 @@ export class MarketplaceAPI {
    */
   async getNewReleases(limit?: number): Promise<{ templates: MarketplaceTemplate[] }> {
     return this.client.getNewMarketplaceReleases({ limit });
+  }
+
+  /**
+   * List marketplace catalog listings from the v1 pilot surface.
+   */
+  async listListings(params?: MarketplaceListingParams): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>('GET', '/api/v1/marketplace/listings', {
+      params: {
+        type: params?.type,
+        tag: params?.tag,
+        category: params?.category,
+        search: params?.search ?? params?.q,
+        limit: params?.limit,
+        offset: params?.offset,
+      },
+    });
+  }
+
+  /**
+   * List featured marketplace catalog listings.
+   */
+  async listFeaturedListings(params?: { limit?: number }): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>('GET', '/api/v1/marketplace/listings/featured', {
+      params: { limit: params?.limit },
+    });
+  }
+
+  /**
+   * Backward-compatible alias for featured marketplace pilot listings.
+   */
+  async getFeaturedListings(limit?: number): Promise<Record<string, unknown>> {
+    return this.listFeaturedListings({ limit });
+  }
+
+  /**
+   * Get marketplace catalog listing stats.
+   */
+  async getListingStats(): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      '/api/v1/marketplace/listings/stats'
+    );
+  }
+
+  /**
+   * Get marketplace catalog listing details.
+   */
+  async getListing(listingId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/marketplace/listings/${encodeURIComponent(listingId)}`
+    );
   }
 
   /**

@@ -78,6 +78,25 @@ export interface NotificationDelivery {
   error?: string;
 }
 
+export interface NotificationTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  channel?: NotificationChannel | string;
+  subject: string;
+  body: string;
+  variables?: string[];
+  sample_values?: Record<string, string>;
+  customized?: boolean;
+}
+
+export interface NotificationTemplatePreview {
+  template_id: string;
+  rendered_subject: string;
+  rendered_body: string;
+  values_used: Record<string, unknown>;
+}
+
 /**
  * Interface for the internal client used by NotificationsAPI.
  */
@@ -223,6 +242,53 @@ export class NotificationsAPI {
   async updatePreferences(preferences: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('PUT', '/api/v1/notifications/preferences', {
       json: preferences,
+    });
+  }
+
+  /**
+   * List notification templates for the current user.
+   */
+  async listTemplates(): Promise<{ templates: NotificationTemplate[]; count: number }> {
+    return this.client.request('GET', '/api/notifications/templates');
+  }
+
+  /**
+   * Get a notification template by ID.
+   */
+  async getTemplate(templateId: string): Promise<{ template: NotificationTemplate }> {
+    return this.client.request('GET', `/api/notifications/templates/${templateId}`);
+  }
+
+  /**
+   * Update subject/body overrides for a notification template.
+   */
+  async updateTemplate(
+    templateId: string,
+    updates: { subject?: string; body?: string }
+  ): Promise<{ template: NotificationTemplate; updated: boolean }> {
+    return this.client.request('PUT', `/api/notifications/templates/${templateId}`, {
+      json: updates,
+    });
+  }
+
+  /**
+   * Reset a notification template to its default content.
+   */
+  async resetTemplate(
+    templateId: string
+  ): Promise<{ template: NotificationTemplate; reset: boolean }> {
+    return this.client.request('POST', `/api/notifications/templates/${templateId}/reset`);
+  }
+
+  /**
+   * Render a notification template with preview values.
+   */
+  async previewTemplate(
+    templateId: string,
+    values?: Record<string, unknown>
+  ): Promise<NotificationTemplatePreview> {
+    return this.client.request('POST', `/api/notifications/templates/${templateId}/preview`, {
+      json: values ? { values } : {},
     });
   }
 }

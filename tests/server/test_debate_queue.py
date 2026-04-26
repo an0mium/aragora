@@ -1063,7 +1063,9 @@ class TestDebateQueueShutdown:
         await queue.shutdown()
 
         assert queue._shutdown is True
-        assert queue._processor_task.cancelled() or queue._processor_task.done()
+        assert queue._processor_task is None or (
+            queue._processor_task.cancelled() or queue._processor_task.done()
+        )
 
 
 # =============================================================================

@@ -33,7 +33,7 @@ class TestOpenRouterAgentInitialization:
         agent = OpenRouterAgent()
 
         assert agent.name == "openrouter"
-        assert agent.model == "deepseek/deepseek-chat"
+        assert agent.model == "deepseek/deepseek-v4-pro"
         assert agent.role == "proposer"  # Default role for debate participation
         assert agent.timeout == 300
         assert agent.agent_type == "openrouter"
@@ -295,17 +295,19 @@ class TestOpenRouterModelFallback:
 
         assert len(OPENROUTER_FALLBACK_MODELS) > 0
         assert "qwen/qwen-2.5-72b-instruct" in OPENROUTER_FALLBACK_MODELS
-        assert "deepseek/deepseek-chat" in OPENROUTER_FALLBACK_MODELS
+        assert "deepseek/deepseek-v4-pro" in OPENROUTER_FALLBACK_MODELS
 
     def test_fallback_chains(self, mock_env_with_api_keys):
         """Should have sensible fallback chains."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
 
         # Qwen -> DeepSeek
-        assert OPENROUTER_FALLBACK_MODELS["qwen/qwen-2.5-72b-instruct"] == "deepseek/deepseek-chat"
+        assert (
+            OPENROUTER_FALLBACK_MODELS["qwen/qwen-2.5-72b-instruct"] == "deepseek/deepseek-v4-pro"
+        )
 
-        # DeepSeek -> GPT-5.2-chat
-        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-chat"] == "openai/gpt-5.3-chat"
+        # DeepSeek -> GPT-5.5
+        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-v4-pro"] == "openai/gpt-5.5"
 
 
 class TestOpenRouterGenerateStream:
@@ -460,7 +462,7 @@ class TestDeepSeekReasonerAgent:
         agent = DeepSeekReasonerAgent()
 
         assert agent.name == "deepseek-r1"
-        assert agent.model == "deepseek/deepseek-r1"
+        assert agent.model == "deepseek/deepseek-v4-pro"
         assert agent.agent_type == "deepseek-r1"
 
 
@@ -538,16 +540,16 @@ class TestYiAgent:
 
 
 class TestKimiK2Agent:
-    """Tests for Kimi K2 agent."""
+    """Tests for the default Kimi frontier agent."""
 
     def test_init_with_defaults(self, mock_env_with_api_keys):
-        """Should initialize with Kimi K2 defaults."""
+        """Should initialize with Kimi K2.6 defaults."""
         from aragora.agents.api_agents.openrouter import KimiK2Agent
 
         agent = KimiK2Agent()
 
         assert agent.name == "kimi"
-        assert "kimi" in agent.model
+        assert agent.model == "moonshotai/kimi-k2.6"
         assert agent.agent_type == "kimi"
 
     def test_agent_registry_registration(self, mock_env_with_api_keys):

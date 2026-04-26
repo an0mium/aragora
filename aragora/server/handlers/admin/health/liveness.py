@@ -37,7 +37,11 @@ class LivenessHandler(SecureHandler):
     """
 
     def __init__(self, ctx: dict | None = None):
-        """Initialize handler with optional context."""
+        """Initialize handler with optional context.
+
+        A provided context mapping is preserved verbatim, including an empty
+        dict, while ``None`` gets a fresh per-instance context container.
+        """
         self.ctx = {} if ctx is None else ctx
 
     ROUTES = ["/healthz"]

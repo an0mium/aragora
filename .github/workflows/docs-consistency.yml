@@ -6,8 +6,10 @@ on:
     paths:
       - "docs/**"
       - "README.md"
+      - "docs-site/**"
       - "Makefile"
       - "scripts/check_docs_consistency.py"
+      - "scripts/inspect_cold_review_surface.py"
       - "tests/scripts/test_check_docs_consistency.py"
       - ".github/workflows/docs-consistency.yml"
   pull_request:
@@ -15,8 +17,10 @@ on:
     paths:
       - "docs/**"
       - "README.md"
+      - "docs-site/**"
       - "Makefile"
       - "scripts/check_docs_consistency.py"
+      - "scripts/inspect_cold_review_surface.py"
       - "tests/scripts/test_check_docs_consistency.py"
       - ".github/workflows/docs-consistency.yml"
 
@@ -40,3 +44,6 @@ jobs:
 
       - name: Run docs consistency lint
         run: python3 scripts/check_docs_consistency.py
+
+      - name: Inspect cold-review proof surface
+        run: python3 scripts/inspect_cold_review_surface.py

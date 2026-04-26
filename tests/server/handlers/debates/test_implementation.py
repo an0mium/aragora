@@ -268,11 +268,11 @@ class TestPersistPlan:
             patch("aragora.pipeline.executor.store_plan") as mock_store,
             patch("aragora.pipeline.decision_plan.DecisionPlanFactory") as mock_factory,
             patch(
-                "aragora.server.decision_integrity_utils.ensure_decision_plan_backbone_run",
+                "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
                 return_value="run-123",
             ) as mock_seed,
             patch(
-                "aragora.server.decision_integrity_utils.sync_decision_plan_backbone_receipt",
+                "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
                 return_value=True,
             ) as mock_sync,
         ):

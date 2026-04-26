@@ -212,18 +212,53 @@ def _corpus_freshness(
         for record in records
         if record.linkage_verification_incomplete and _is_verified(record)
     ]
+    closure_hygiene_issues = [
+        {
+            "issue_number": record.issue_number,
+            "issue_title": record.issue_title,
+            "issue_url": record.issue_url,
+            "issue_state": record.issue_state,
+            "issue_state_reason": record.issue_state_reason,
+            "issue_closed_at": record.issue_closed_at,
+            "truth_state": record.truth_state,
+            "proxy_pr_signal": record.proxy_pr_signal,
+        }
+        for record in records
+        if (
+            record.proxy_pr_signal
+            and record.truth_state == "no_linked_pr"
+            and not record.linkage_verification_incomplete
+            and not record.stale_corpus_issue
+            and _is_verified(record)
+        )
+    ]
     status = "fresh"
     if stale_closed_issues:
         status = "stale_closed_issues_detected"
+    elif closure_hygiene_issues:
+        status = "closure_hygiene_drift_detected"
     elif linkage_errors:
         status = "linkage_verification_incomplete"
+    stale_closed_issue_numbers: list[int] = []
+    for item in stale_closed_issues:
+        issue_number = item.get("issue_number")
+        if isinstance(issue_number, int) and issue_number > 0:
+            stale_closed_issue_numbers.append(issue_number)
+
+    closure_hygiene_issue_numbers: list[int] = []
+    for item in closure_hygiene_issues:
+        issue_number = item.get("issue_number")
+        if isinstance(issue_number, int) and issue_number > 0:
+            closure_hygiene_issue_numbers.append(issue_number)
+
     return {
         "status": status,
         "stale_closed_issue_count": len(stale_closed_issues),
-        "stale_closed_issue_numbers": [
-            item["issue_number"] for item in stale_closed_issues if item["issue_number"] > 0
-        ],
+        "stale_closed_issue_numbers": stale_closed_issue_numbers,
         "stale_closed_issues": stale_closed_issues,
+        "closure_hygiene_issue_count": len(closure_hygiene_issues),
+        "closure_hygiene_issue_numbers": closure_hygiene_issue_numbers,
+        "closure_hygiene_issues": closure_hygiene_issues,
         "linkage_error_count": len(linkage_errors),
         "linkage_errors": linkage_errors,
     }
@@ -719,6 +754,90 @@ def _coerce_utc_datetime(value: str | None = None) -> dt.datetime:
 
 def normalize_generated_at(value: str | None = None) -> str:
     return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
+
+
+def _parse_optional_utc_datetime(value: str | None = None) -> dt.datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.UTC)
+    return parsed.astimezone(dt.UTC).replace(microsecond=0)
+
+
+def detect_post_generation_issue_state_drift(
+    *,
+    artifact: dict[str, Any],
+    repo: str,
+    client: GitHubTruthClient | None = None,
+) -> dict[str, Any]:
+    generated_at_raw = str(artifact.get("generated_at") or "").strip()
+    generated_at = _parse_optional_utc_datetime(generated_at_raw)
+    if generated_at is None:
+        return {
+            "status": "missing_generated_at",
+            "generated_at": generated_at_raw,
+            "issue_count": 0,
+            "issues": [],
+        }
+
+    truth_client = client or GitHubTruthClient()
+    drifted_issues: list[dict[str, Any]] = []
+    for issue in list(artifact.get("issues") or []):
+        if not isinstance(issue, dict):
+            continue
+        issue_number = int(issue.get("issue_number", 0) or 0)
+        if issue_number <= 0:
+            continue
+
+        live_issue = truth_client.get_issue(repo, issue_number)
+        artifact_state = str(issue.get("issue_state") or "").strip().upper()
+        artifact_state_reason = str(issue.get("issue_state_reason") or "").strip().upper()
+        artifact_closed_at = str(issue.get("issue_closed_at") or "").strip() or None
+
+        live_state = str(live_issue.get("state") or "").strip().upper()
+        live_state_reason = str(live_issue.get("stateReason") or "").strip().upper()
+        live_closed_at = str(live_issue.get("closedAt") or "").strip() or None
+        live_updated_at = str(live_issue.get("updatedAt") or "").strip() or live_closed_at
+        live_updated = _parse_optional_utc_datetime(live_updated_at)
+
+        state_changed = (
+            live_state != artifact_state
+            or live_state_reason != artifact_state_reason
+            or live_closed_at != artifact_closed_at
+        )
+        if not state_changed:
+            continue
+        if live_updated is None or live_updated <= generated_at:
+            continue
+
+        drifted_issues.append(
+            {
+                "issue_number": issue_number,
+                "issue_title": str(
+                    issue.get("issue_title") or live_issue.get("title") or ""
+                ).strip(),
+                "issue_url": str(issue.get("issue_url") or live_issue.get("url") or "").strip(),
+                "artifact_issue_state": artifact_state,
+                "artifact_issue_state_reason": artifact_state_reason,
+                "artifact_issue_closed_at": artifact_closed_at,
+                "live_issue_state": live_state,
+                "live_issue_state_reason": live_state_reason,
+                "live_issue_closed_at": live_closed_at,
+                "live_issue_updated_at": live_updated.isoformat().replace("+00:00", "Z"),
+            }
+        )
+
+    return {
+        "status": "post_generation_issue_state_drift" if drifted_issues else "fresh",
+        "generated_at": generated_at.isoformat().replace("+00:00", "Z"),
+        "issue_count": len(drifted_issues),
+        "issues": drifted_issues,
+    }
 
 
 def _repo_stable_path(path: Path) -> str:

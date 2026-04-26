@@ -268,6 +268,8 @@ class TestStabilityManifest:
 class TestTypeScriptSDKDrift:
     """TypeScript SDK endpoints should match the OpenAPI spec."""
 
+    _IGNORED_TS_NAMESPACES = {"openapi"}
+
     def test_ts_namespaces_directory_exists(self):
         """The TypeScript namespaces directory must exist."""
         assert TS_NAMESPACES.exists(), f"TypeScript namespaces not found: {TS_NAMESPACES}"
@@ -278,7 +280,11 @@ class TestTypeScriptSDKDrift:
         ns_files = [
             p
             for p in TS_NAMESPACES.glob("*.ts")
-            if p.stem != "index" and not p.name.startswith("_")
+            if (
+                p.stem != "index"
+                and not p.name.startswith("_")
+                and p.stem not in self._IGNORED_TS_NAMESPACES
+            )
         ]
         assert len(ns_files) >= 50, (
             f"Expected >= 50 TypeScript namespace files, found {len(ns_files)}"
@@ -298,7 +304,11 @@ class TestTypeScriptSDKDrift:
 
         ts_drift: list[tuple[str, str, str]] = []
         for ts_file in sorted(TS_NAMESPACES.glob("*.ts")):
-            if ts_file.stem == "index" or ts_file.name.startswith("_"):
+            if (
+                ts_file.stem == "index"
+                or ts_file.name.startswith("_")
+                or ts_file.stem in self._IGNORED_TS_NAMESPACES
+            ):
                 continue
             content = ts_file.read_text()
             eps = _extract_ts_endpoints(content)

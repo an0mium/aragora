@@ -20,6 +20,7 @@ class ResourceType(str, Enum):
     """Resource types that can be protected by permissions."""
 
     DEBATE = "debates"
+    SETTLEMENT = "settlements"
     AGENT = "agents"
     USER = "users"
     ORGANIZATION = "organization"
@@ -179,6 +180,7 @@ class ResourceType(str, Enum):
 
     # Decision plans
     PLANS = "plans"  # Decision plan lifecycle (create, approve, reject)
+    AGENT_BRIDGE = "agent_bridge"  # Agent bridge run visibility
 
 
 class Action(str, Enum):

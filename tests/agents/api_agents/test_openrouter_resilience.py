@@ -342,7 +342,7 @@ class TestGenerateDecoratorIntegration:
         from aragora.agents.api_agents.openrouter import OpenRouterAgent
         from tests.agents.api_agents.conftest import MockClientSession, MockResponse
 
-        agent = OpenRouterAgent(model="deepseek/deepseek-chat")
+        agent = OpenRouterAgent(model="deepseek/deepseek-v4-pro")
 
         call_count = [0]
 

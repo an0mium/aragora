@@ -441,6 +441,60 @@ def test_render_status_markdown_surfaces_linkage_verification_warnings(tmp_path:
     assert "## Corpus Freshness Alerts" not in markdown
 
 
+def test_render_status_markdown_surfaces_closure_hygiene_alerts(tmp_path: Path) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 1,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 5903, "title": "Issue A"}],
+        },
+    )
+    latest_paths = mod.resolve_latest_paths(
+        corpus_path=corpus_path,
+        truth_root=tmp_path / "truth",
+        scorecard_root=tmp_path / "scorecards",
+    )
+    markdown = mod.render_status_markdown(
+        corpus_path=corpus_path,
+        truth_path=latest_paths["truth_corpus_latest"],
+        scorecard_path=latest_paths["scorecard_corpus_latest"],
+        latest_paths=latest_paths,
+        truth_payload={
+            **_truth_payload(revision=1),
+            "corpus_freshness": {
+                "status": "closure_hygiene_drift_detected",
+                "stale_closed_issue_count": 0,
+                "stale_closed_issue_numbers": [],
+                "stale_closed_issues": [],
+                "closure_hygiene_issue_count": 1,
+                "closure_hygiene_issue_numbers": [5903],
+                "closure_hygiene_issues": [
+                    {
+                        "issue_number": 5903,
+                        "issue_title": "Roadmap-priority tests",
+                        "issue_state": "OPEN",
+                        "issue_state_reason": "",
+                        "truth_state": "no_linked_pr",
+                    }
+                ],
+                "linkage_error_count": 0,
+                "linkage_errors": [],
+            },
+        },
+        scorecard_payload=_scorecard_payload(revision=1),
+    )
+
+    assert "## Closure Hygiene Alerts" in markdown
+    assert "deliverable or PR-shaped signals" in markdown
+    assert "`#5903` `Roadmap-priority tests`" in markdown
+    assert "state `OPEN`" in markdown
+    assert "truth `no_linked_pr`" in markdown
+    assert "## Corpus Freshness Alerts" not in markdown
+
+
 def test_render_status_markdown_surfaces_corpus_freshness_follow_up(tmp_path: Path) -> None:
     corpus_path = _write_json(
         tmp_path / "corpus.json",

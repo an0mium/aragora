@@ -22,15 +22,20 @@ SYSTEM_PROMPT_TOKENS = 500  # one-time system prompt overhead per agent
 # Model -> (provider, model_key) mapping for cost lookup
 MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "claude-opus-4": ("anthropic", "claude-opus-4"),
+    "claude-opus-4.7": ("anthropic", "claude-opus-4.7"),
+    "claude-opus-4-7": ("anthropic", "claude-opus-4.7"),
     "claude-sonnet-4": ("anthropic", "claude-sonnet-4"),
+    "claude-sonnet-4.6": ("anthropic", "claude-sonnet-4.6"),
+    "claude-sonnet-4-6": ("anthropic", "claude-sonnet-4.6"),
     "gpt-4o": ("openai", "gpt-4o"),
     "gpt-4o-mini": ("openai", "gpt-4o-mini"),
     "gemini-pro": ("google", "gemini-pro"),
+    "deepseek-v4-pro": ("deepseek", "deepseek-v4-pro"),
     "deepseek-v3": ("deepseek", "deepseek-v3"),
 }
 
 # Default models when none specified
-DEFAULT_MODELS = ["claude-sonnet-4", "gpt-4o", "gemini-pro"]
+DEFAULT_MODELS = ["claude-opus-4-7", "gpt-4o", "gemini-pro"]
 
 
 def estimate_debate_cost(
