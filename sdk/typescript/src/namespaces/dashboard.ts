@@ -625,6 +625,54 @@ export class DashboardAPI {
     return this.client.request('GET', '/api/v1/ralph/blockers');
   }
 
+  /** Get Ralph campaign detail. */
+  async getRalphCampaign(campaignId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/ralph/campaigns/${encodeURIComponent(campaignId)}`
+    );
+  }
+
+  /** Get Ralph campaign step timeline. */
+  async getRalphCampaignTimeline(campaignId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/ralph/campaigns/${encodeURIComponent(campaignId)}/timeline`
+    );
+  }
+
+  /** Get Ralph campaign blocker breakdown. */
+  async getRalphCampaignBlockers(campaignId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/ralph/campaigns/${encodeURIComponent(campaignId)}/blockers`
+    );
+  }
+
+  /** Get Ralph campaign repair stats. */
+  async getRalphCampaignRepairs(campaignId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/ralph/campaigns/${encodeURIComponent(campaignId)}/repairs`
+    );
+  }
+
+  /** Get Ralph campaign budget summary. */
+  async getRalphCampaignBudget(campaignId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/ralph/campaigns/${encodeURIComponent(campaignId)}/budget`
+    );
+  }
+
+  /** Get Ralph campaign PR gate status. */
+  async getRalphCampaignPrGate(campaignId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/ralph/campaigns/${encodeURIComponent(campaignId)}/pr-gate`
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Outcome Dashboard
   // ---------------------------------------------------------------------------

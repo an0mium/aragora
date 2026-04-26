@@ -231,15 +231,27 @@ class TestRalphDashboard:
             client.dashboard.list_ralph_campaigns()
             client.dashboard.get_ralph_overview()
             client.dashboard.get_ralph_blockers()
+            client.dashboard.get_ralph_campaign("camp/alpha")
+            client.dashboard.get_ralph_campaign_timeline("camp/alpha")
+            client.dashboard.get_ralph_campaign_blockers("camp/alpha")
+            client.dashboard.get_ralph_campaign_repairs("camp/alpha")
+            client.dashboard.get_ralph_campaign_budget("camp/alpha")
+            client.dashboard.get_ralph_campaign_pr_gate("camp/alpha")
 
             mock_request.assert_has_calls(
                 [
                     call("GET", "/api/v1/ralph/campaigns"),
                     call("GET", "/api/v1/ralph/overview"),
                     call("GET", "/api/v1/ralph/blockers"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha/timeline"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha/blockers"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha/repairs"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha/budget"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha/pr-gate"),
                 ]
             )
-            assert mock_request.call_count == 3
+            assert mock_request.call_count == 9
             client.close()
 
     @pytest.mark.asyncio
@@ -250,15 +262,27 @@ class TestRalphDashboard:
                 await client.dashboard.list_ralph_campaigns()
                 await client.dashboard.get_ralph_overview()
                 await client.dashboard.get_ralph_blockers()
+                await client.dashboard.get_ralph_campaign("camp/alpha")
+                await client.dashboard.get_ralph_campaign_timeline("camp/alpha")
+                await client.dashboard.get_ralph_campaign_blockers("camp/alpha")
+                await client.dashboard.get_ralph_campaign_repairs("camp/alpha")
+                await client.dashboard.get_ralph_campaign_budget("camp/alpha")
+                await client.dashboard.get_ralph_campaign_pr_gate("camp/alpha")
 
             mock_request.assert_has_awaits(
                 [
                     call("GET", "/api/v1/ralph/campaigns"),
                     call("GET", "/api/v1/ralph/overview"),
                     call("GET", "/api/v1/ralph/blockers"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha/timeline"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha/blockers"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha/repairs"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha/budget"),
+                    call("GET", "/api/v1/ralph/campaigns/camp%2Falpha/pr-gate"),
                 ]
             )
-            assert mock_request.await_count == 3
+            assert mock_request.await_count == 9
 
 
 class TestDashboardUrgentItems:

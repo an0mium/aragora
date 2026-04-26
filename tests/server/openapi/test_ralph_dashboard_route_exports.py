@@ -6,6 +6,18 @@ from aragora.server.openapi import generate_openapi_schema
 
 
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "head", "options"}
+RALPH_LEGACY_PATHS = (
+    "/api/ralph/overview",
+    "/api/ralph/blockers",
+    "/api/ralph/campaigns",
+    "/api/ralph/campaigns/{campaign_id}",
+    "/api/ralph/campaigns/{campaign_id}/timeline",
+    "/api/ralph/campaigns/{campaign_id}/blockers",
+    "/api/ralph/campaigns/{campaign_id}/repairs",
+    "/api/ralph/campaigns/{campaign_id}/budget",
+    "/api/ralph/campaigns/{campaign_id}/pr-gate",
+)
+RALPH_CAMPAIGN_PATHS = RALPH_LEGACY_PATHS[3:]
 
 
 def _operation_methods(path_spec: dict[str, object]) -> set[str]:
@@ -19,19 +31,15 @@ def test_ralph_dashboard_handler_participates_in_all_handlers() -> None:
 def test_ralph_dashboard_routes_appear_in_generated_openapi() -> None:
     paths = generate_openapi_schema()["paths"]
 
-    assert _operation_methods(paths["/api/v1/ralph/overview"]) == {"get"}
-    assert _operation_methods(paths["/api/v1/ralph/blockers"]) == {"get"}
-    assert _operation_methods(paths["/api/v1/ralph/campaigns"]) == {"get"}
+    for legacy_path in RALPH_LEGACY_PATHS:
+        for path in (legacy_path, legacy_path.replace("/api/", "/api/v1/", 1)):
+            assert _operation_methods(paths[path]) == {"get"}
 
 
 def test_ralph_dashboard_routes_use_curated_operations() -> None:
     paths = generate_openapi_schema()["paths"]
 
-    for legacy_path in (
-        "/api/ralph/overview",
-        "/api/ralph/blockers",
-        "/api/ralph/campaigns",
-    ):
+    for legacy_path in RALPH_LEGACY_PATHS:
         for path in (legacy_path, legacy_path.replace("/api/", "/api/v1/", 1)):
             for method in _operation_methods(paths[path]):
                 operation = paths[path][method]
@@ -40,3 +48,20 @@ def test_ralph_dashboard_routes_use_curated_operations() -> None:
                 assert operation["tags"] == ["Ralph"]
                 if path.startswith("/api/v1/"):
                     assert operation["operationId"]
+
+
+def test_ralph_campaign_routes_define_campaign_id_parameter() -> None:
+    paths = generate_openapi_schema()["paths"]
+
+    for legacy_path in RALPH_CAMPAIGN_PATHS:
+        for path in (legacy_path, legacy_path.replace("/api/", "/api/v1/", 1)):
+            parameters = paths[path]["get"]["parameters"]
+            assert parameters == [
+                {
+                    "name": "campaign_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Ralph campaign identifier",
+                    "schema": {"type": "string"},
+                }
+            ]
