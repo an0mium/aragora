@@ -150,6 +150,31 @@ def test_outbox_superseded_branches_reads_local_supersession_metadata(
     }
 
 
+def test_outbox_superseded_branches_uses_automation_state_root_default(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    repo_root = tmp_path / "detached-worktree"
+    state_root = tmp_path / "shared-state"
+    repo_root.mkdir()
+    outbox = state_root / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "repair.json").write_text(
+        json.dumps(
+            {
+                "task": "Open PR for stronger repair branch",
+                "local_evidence": {
+                    "branch": "codex/stronger",
+                    "supersedes_branch": "codex/stale-local",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+
+    assert mod.outbox_superseded_branches(repo_root) == {"codex/stale-local"}
+
+
 def test_select_publishable_branches_skips_dirty_and_active_worktrees() -> None:
     decisions = select_publishable_branches(
         [
