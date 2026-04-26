@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from collections import Counter, defaultdict
@@ -33,6 +34,8 @@ ACTIVE_SESSION_FILES = (
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied"}
+COMMIT_PREFIX_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
+BRANCH_IDEMPOTENCY_PREFIXES = ("open-pr-", "already-satisfied-")
 
 
 @dataclass(frozen=True)
@@ -250,6 +253,28 @@ def terminal_handoff_keys(receipt_root: Path) -> set[str]:
         if idempotency_key:
             terminal_keys.add(idempotency_key)
     return terminal_keys
+
+
+def terminal_key_matches_branch_head(idempotency_key: str, branch: str, head_sha: str) -> bool:
+    """Return whether a terminal idempotency key names this branch head."""
+
+    if not branch or not head_sha:
+        return False
+
+    normalized_key = idempotency_key.strip().lower()
+    normalized_branch = branch.replace("/", "-").lower()
+    normalized_head = head_sha.strip().lower()
+    for key_prefix in BRANCH_IDEMPOTENCY_PREFIXES:
+        branch_prefix = f"{key_prefix}{normalized_branch}-"
+        if not normalized_key.startswith(branch_prefix):
+            continue
+        commit_prefix = normalized_key.removeprefix(branch_prefix)
+        if not COMMIT_PREFIX_RE.fullmatch(commit_prefix):
+            return False
+        return normalized_head.startswith(commit_prefix) or commit_prefix.startswith(
+            normalized_head
+        )
+    return False
 
 
 def _outbox_payload_branch(payload: dict[str, Any]) -> str:
@@ -535,6 +560,15 @@ def audit(
         root,
         outbox_dir=resolved_outbox_dir,
         receipt_dir=resolved_receipt_dir,
+    )
+    terminal_keys = terminal_handoff_keys(resolved_receipt_dir)
+    handoff_receipted_branches.update(
+        row["name"]
+        for row in rows
+        if any(
+            terminal_key_matches_branch_head(key, row["name"], row["head_sha"])
+            for key in terminal_keys
+        )
     )
     handoff_outbox_branches = unresolved_outbox_handoff_branches(
         root,

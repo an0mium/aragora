@@ -17,11 +17,12 @@ def _branch_row(
     committed_at: datetime | None = None,
     ahead_count: str = "1",
     behind_count: str = "0",
+    head_sha: str = "abc1234",
 ) -> dict[str, str]:
     return {
         "name": name,
         "upstream": "",
-        "head_sha": "abc1234",
+        "head_sha": head_sha,
         "committed_at": (committed_at or datetime.now(timezone.utc)).isoformat(),
         "ahead_count": ahead_count,
         "behind_count": behind_count,
@@ -384,6 +385,69 @@ def test_audit_excludes_terminal_receipt_branch_without_outbox_payload(
     receipted = next(record for record in payload["records"] if record["name"] == "codex/receipted")
     assert receipted["handoff_receipt_exists"] is True
     assert receipted["category"] == "protected_handoff_receipt"
+
+
+def test_audit_matches_terminal_receipt_by_idempotency_key_when_outbox_missing(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row(
+            "codex/gpt-55-model-migration",
+            committed_at=now,
+            behind_count="143",
+            head_sha="ab3db55f3",
+        ),
+        _branch_row("codex/new-work", committed_at=now),
+    ]
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-gpt-55-model-migration-ab3db55f341e"
+    (receipts / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "published",
+                "task": "Open PR for repaired GPT-5.5 model default migration branch",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    receipted = next(
+        record for record in payload["records"] if record["name"] == "codex/gpt-55-model-migration"
+    )
+    assert receipted["handoff_receipt_exists"] is True
+    assert receipted["category"] == "protected_handoff_receipt"
+    assert payload["summary"]["handoff_receipted_branches"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 1
 
 
 def test_audit_excludes_unresolved_outbox_handoffs_from_publishable_backlog(
