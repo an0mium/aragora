@@ -869,6 +869,63 @@ def test_parser_can_skip_patch_equivalence() -> None:
     assert args.include_patch_equivalence is False
 
 
+def test_audit_skip_patch_equivalence_still_cleans_empty_branch_diff(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row("codex/cancels-out", committed_at=now),
+        _branch_row("codex/new-work", committed_at=now),
+    ]
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "has_empty_branch_diff",
+        lambda _root, _base, branch: branch == "codex/cancels-out",
+    )
+
+    def fail_patch_equivalence(*_args: Any, **_kwargs: Any) -> bool:
+        raise AssertionError("git cherry path should stay disabled")
+
+    monkeypatch.setattr(mod, "is_patch_equivalent", fail_patch_equivalence)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    by_category = payload["summary"]["by_category"]
+    assert by_category["cleanup_patch_equivalent"] == 1
+    assert by_category["salvage_recent_unique"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 1
+    empty_diff = next(
+        record for record in payload["records"] if record["name"] == "codex/cancels-out"
+    )
+    assert empty_diff["patch_equivalent_to_base"] is True
+    assert empty_diff["category"] == "cleanup_patch_equivalent"
+
+
 def test_patch_equivalence_treats_empty_branch_diff_as_cleanup(
     tmp_path: Path, monkeypatch: Any
 ) -> None:

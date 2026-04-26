@@ -419,6 +419,10 @@ def is_merged(root: Path, base: str, branch: str) -> bool:
     return run_git(["merge-base", "--is-ancestor", branch, base], root).returncode == 0
 
 
+def has_empty_branch_diff(root: Path, base: str, branch: str) -> bool:
+    return run_git(["diff", "--quiet", f"{base}...{branch}"], root).returncode == 0
+
+
 def is_patch_equivalent(root: Path, base: str, branch: str) -> bool:
     diff_proc = run_git(["diff", "--quiet", f"{base}...{branch}"], root)
     if diff_proc.returncode == 0:
@@ -570,9 +574,12 @@ def audit(
         merged_to_base = branch in merged_branches
         patch_equivalent = False
         patch_id = None
-        if include_patch_equivalence and ahead_count > 0 and not merged_to_base:
-            patch_equivalent = is_patch_equivalent(root, base, branch)
-            if not patch_equivalent:
+        if ahead_count > 0 and not merged_to_base:
+            if include_patch_equivalence:
+                patch_equivalent = is_patch_equivalent(root, base, branch)
+            else:
+                patch_equivalent = has_empty_branch_diff(root, base, branch)
+            if include_patch_equivalence and not patch_equivalent:
                 patch_id = branch_patch_id(root, base, branch)
         remote_exists = branch in remotes
         handoff_receipted = branch in handoff_receipted_branches or (
@@ -755,7 +762,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--skip-patch-equivalence",
         dest="include_patch_equivalence",
         action="store_false",
-        help="Skip git cherry patch-equivalence checks for a faster approximate audit.",
+        help=(
+            "Skip git cherry patch-equivalence checks for a faster approximate audit; "
+            "zero-diff branch cleanup is still detected."
+        ),
     )
     parser.add_argument(
         "--publisher-backlog-limit",
