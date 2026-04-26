@@ -29,7 +29,12 @@ class SyntheticGitHubError(RuntimeError):
 
 
 def synthetic_markets_enabled() -> bool:
-    return str(os.environ.get(SYNTHETIC_MARKETS_FLAG) or "").strip().lower() in {"1", "true", "yes", "on"}
+    return str(os.environ.get(SYNTHETIC_MARKETS_FLAG) or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 @dataclass
@@ -43,47 +48,99 @@ class SyntheticGitHubAdapter:
 
     def _get_resolver(self) -> GitHubMarketResolver:
         if self._resolver is None:
-            self._resolver = GitHubMarketResolver(gh_runner=self.gh_runner, require_expiry=self.require_expiry)
+            self._resolver = GitHubMarketResolver(
+                gh_runner=self.gh_runner, require_expiry=self.require_expiry
+            )
         return self._resolver
 
     def _require_enabled(self) -> None:
         if not synthetic_markets_enabled():
-            raise SyntheticGitHubError(f"synthetic GitHub markets are disabled; set {SYNTHETIC_MARKETS_FLAG}=1 to enable")
+            raise SyntheticGitHubError(
+                f"synthetic GitHub markets are disabled; set {SYNTHETIC_MARKETS_FLAG}=1 to enable"
+            )
 
-    def create_pr_merge_market(self, *, repo: str, pr_number: int, resolution_window_days: int = 7,
-                               description: str = "", created_at: datetime | None = None) -> Market:
+    def create_pr_merge_market(
+        self,
+        *,
+        repo: str,
+        pr_number: int,
+        resolution_window_days: int = 7,
+        description: str = "",
+        created_at: datetime | None = None,
+    ) -> Market:
         self._require_enabled()
-        return self.store.add_market(Market.create(
-            question_kind="pr_merge", target={"repo": repo, "number": pr_number},
-            description=description or f"Will PR #{pr_number} in {repo} merge within {resolution_window_days}d?",
-            resolution_window_days=resolution_window_days, created_at=created_at,
-        ))
+        return self.store.add_market(
+            Market.create(
+                question_kind="pr_merge",
+                target={"repo": repo, "number": pr_number},
+                description=description
+                or f"Will PR #{pr_number} in {repo} merge within {resolution_window_days}d?",
+                resolution_window_days=resolution_window_days,
+                created_at=created_at,
+            )
+        )
 
-    def create_issue_close_market(self, *, repo: str, issue_number: int, resolution_window_days: int = 30,
-                                  description: str = "", created_at: datetime | None = None) -> Market:
+    def create_issue_close_market(
+        self,
+        *,
+        repo: str,
+        issue_number: int,
+        resolution_window_days: int = 30,
+        description: str = "",
+        created_at: datetime | None = None,
+    ) -> Market:
         self._require_enabled()
-        return self.store.add_market(Market.create(
-            question_kind="issue_close", target={"repo": repo, "number": issue_number},
-            description=description or f"Will issue #{issue_number} in {repo} close within {resolution_window_days}d?",
-            resolution_window_days=resolution_window_days, created_at=created_at,
-        ))
+        return self.store.add_market(
+            Market.create(
+                question_kind="issue_close",
+                target={"repo": repo, "number": issue_number},
+                description=description
+                or f"Will issue #{issue_number} in {repo} close within {resolution_window_days}d?",
+                resolution_window_days=resolution_window_days,
+                created_at=created_at,
+            )
+        )
 
-    def create_ci_pass_market(self, *, repo: str, ref: str, resolution_window_days: int = 7,
-                              description: str = "", created_at: datetime | None = None) -> Market:
+    def create_ci_pass_market(
+        self,
+        *,
+        repo: str,
+        ref: str,
+        resolution_window_days: int = 7,
+        description: str = "",
+        created_at: datetime | None = None,
+    ) -> Market:
         self._require_enabled()
-        return self.store.add_market(Market.create(
-            question_kind="ci_pass", target={"repo": repo, "ref": ref},
-            description=description or f"Will CI pass for {repo}@{ref} within {resolution_window_days}d?",
-            resolution_window_days=resolution_window_days, created_at=created_at,
-        ))
+        return self.store.add_market(
+            Market.create(
+                question_kind="ci_pass",
+                target={"repo": repo, "ref": ref},
+                description=description
+                or f"Will CI pass for {repo}@{ref} within {resolution_window_days}d?",
+                resolution_window_days=resolution_window_days,
+                created_at=created_at,
+            )
+        )
 
-    def place_position(self, market_id: str, *, agent_id: str, probability: float, stake: int,
-                       rationale: str = "", submitted_at: datetime | None = None) -> MarketPosition:
+    def place_position(
+        self,
+        market_id: str,
+        *,
+        agent_id: str,
+        probability: float,
+        stake: int,
+        rationale: str = "",
+        submitted_at: datetime | None = None,
+    ) -> MarketPosition:
         self._require_enabled()
         try:
             position = MarketPosition.create(
-                market_id=market_id, agent_id=agent_id, probability=probability,
-                stake=stake, rationale=rationale, submitted_at=submitted_at,
+                market_id=market_id,
+                agent_id=agent_id,
+                probability=probability,
+                stake=stake,
+                rationale=rationale,
+                submitted_at=submitted_at,
             )
         except ValueError as exc:
             raise SyntheticGitHubError(str(exc)) from exc
@@ -118,13 +175,20 @@ class SyntheticGitHubAdapter:
         return out
 
 
-def open_adapter(store_dir: Path | str, *, gh_runner: GhRunner | None = None,
-                 require_expiry: bool = True) -> SyntheticGitHubAdapter:
+def open_adapter(
+    store_dir: Path | str, *, gh_runner: GhRunner | None = None, require_expiry: bool = True
+) -> SyntheticGitHubAdapter:
     """Convenience constructor backed by ``store_dir``."""
-    return SyntheticGitHubAdapter(store=MarketStore(store_dir), gh_runner=gh_runner, require_expiry=require_expiry)
+    return SyntheticGitHubAdapter(
+        store=MarketStore(store_dir), gh_runner=gh_runner, require_expiry=require_expiry
+    )
 
 
 __all__ = [
-    "DEFAULT_POSITION_CAP", "SYNTHETIC_MARKETS_FLAG", "SyntheticGitHubAdapter",
-    "SyntheticGitHubError", "open_adapter", "synthetic_markets_enabled",
+    "DEFAULT_POSITION_CAP",
+    "SYNTHETIC_MARKETS_FLAG",
+    "SyntheticGitHubAdapter",
+    "SyntheticGitHubError",
+    "open_adapter",
+    "synthetic_markets_enabled",
 ]
