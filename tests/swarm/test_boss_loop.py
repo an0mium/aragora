@@ -1538,7 +1538,7 @@ class TestRunnerFreshness:
 
 class TestBossLoop:
     def test_no_fresh_runner_stops_immediately(self):
-        config = _boss_config()
+        config = _boss_config(auto_refill_threshold=0)
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = [_make_issue(1, "Runner blocked issue")]
         loop = BossLoop(
@@ -1587,7 +1587,7 @@ class TestBossLoop:
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = []
 
-        config = _boss_config()
+        config = _boss_config(auto_refill_threshold=0)
         loop = BossLoop(
             config=config,
             issue_feed=feed,
@@ -1606,7 +1606,11 @@ class TestBossLoop:
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = []
 
-        config = _boss_config(no_suitable_issue_keepalive=True, max_iterations=4)
+        config = _boss_config(
+            no_suitable_issue_keepalive=True,
+            max_iterations=4,
+            auto_refill_threshold=0,
+        )
         loop = BossLoop(
             config=config,
             issue_feed=feed,
@@ -1628,7 +1632,11 @@ class TestBossLoop:
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = []
 
-        config = _boss_config(no_suitable_issue_keepalive=False, max_iterations=4)
+        config = _boss_config(
+            no_suitable_issue_keepalive=False,
+            max_iterations=4,
+            auto_refill_threshold=0,
+        )
         loop = BossLoop(
             config=config,
             issue_feed=feed,
@@ -1645,7 +1653,11 @@ class TestBossLoop:
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = []
 
-        config = _boss_config(no_suitable_issue_keepalive=True, max_iterations=4)
+        config = _boss_config(
+            no_suitable_issue_keepalive=True,
+            max_iterations=4,
+            auto_refill_threshold=0,
+        )
         loop = BossLoop(
             config=config,
             issue_feed=feed,
