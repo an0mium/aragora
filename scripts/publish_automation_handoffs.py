@@ -146,6 +146,7 @@ class Handoff:
     expires_at: str | None
     idempotency_key: str | None = None
     source_kind: str = "memory"
+    branch: str | None = None
 
 
 @dataclass(frozen=True)
@@ -732,6 +733,7 @@ def load_outbox_handoffs(
             expires_at=expires_at,
             idempotency_key=idempotency_key,
             source_kind="outbox",
+            branch=_outbox_evidence_value(payload, "branch") or None,
         )
         identity = (
             ("branch", branch_fingerprint)
@@ -889,7 +891,42 @@ def _pr_by_number(repo_root: Path, repo: str, number: int) -> dict[str, Any] | N
     return payload if isinstance(payload, dict) else None
 
 
+def _open_pr_by_branch(repo_root: Path, repo: str, branch: str | None) -> dict[str, Any] | None:
+    if not branch:
+        return None
+    proc = _run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--head",
+            branch,
+            "--json",
+            "number,title,url,state,headRefName",
+            "--limit",
+            "1",
+        ],
+        cwd=repo_root,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            proc.stderr.strip() or proc.stdout.strip() or "failed to list PRs by branch"
+        )
+    payload = json.loads(proc.stdout or "[]")
+    if not isinstance(payload, list) or not payload:
+        return None
+    first = payload[0]
+    return first if isinstance(first, dict) else None
+
+
 def _target_open_pr(repo_root: Path, repo: str, handoff: Handoff) -> dict[str, Any] | None:
+    branch_pr = _open_pr_by_branch(repo_root, repo, handoff.branch)
+    if branch_pr:
+        return branch_pr
     for number in _referenced_pr_numbers(handoff):
         pr = _pr_by_number(repo_root, repo, number)
         if isinstance(pr, dict) and str(pr.get("state") or "").upper() == "OPEN":

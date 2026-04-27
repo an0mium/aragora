@@ -874,6 +874,67 @@ def test_decide_handoffs_routes_explicit_pr_followup_before_issue_cap(
     ]
 
 
+def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "outbox.json"),
+        task_title="Open PR for branch publisher receipt-dir CLI compatibility",
+        priority="HIGH",
+        body="body",
+        labels={},
+        expires_at=None,
+        source_kind="outbox",
+        branch="codex/branch-publisher-receipt-dir-compat",
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, json.dumps([{"number": 1}]), "")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "pr", "list"] and "--head" in args:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 6741,
+                            "title": "fix(automation): accept branch publisher receipt dir flag",
+                            "url": "https://github.com/synaptent/aragora/pull/6741",
+                            "state": "OPEN",
+                            "headRefName": "codex/branch-publisher-receipt-dir-compat",
+                        }
+                    ]
+                ),
+                "",
+            )
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=1,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="target_open_pr",
+            existing_pr_url="https://github.com/synaptent/aragora/pull/6741",
+        )
+    ]
+
+
 def test_decide_handoffs_respects_open_issue_cap(monkeypatch: Any, tmp_path: Path) -> None:
     handoff = Handoff(
         source_file=str(tmp_path / "memory.md"),
