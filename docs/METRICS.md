@@ -16,7 +16,7 @@
 | Python lines of code under aragora/ | `1920897` | `aragora/` | `python3 -c "from pathlib import Path; import subprocess; files = subprocess.check_output(['git', 'ls-files', 'aragora'], text=True).splitlines(); print(sum(sum(1 for _ in Path(p).open(encoding='utf-8', errors='replace')) for p in files if p.endswith('.py')))"` |
 | Top-level modules under aragora/ | `135` | `aragora/` | `git ls-files aragora \| awk -F/ 'NF>2 {print $2}' \| sort -u \| wc -l` |
 | Test files (test_*.py under tests/) | `5107` | `tests/` | `git ls-files tests \| grep -E '(^\|/)test_[^/]*\.py$' \| wc -l` |
-| Test functions (class + module level) | `216570` | `tests/` | `git grep -E '^[[:space:]]*(async )?def test_' -- tests \| wc -l` |
+| Test functions (class + module level) | `216572` | `tests/` | `git grep -E '^[[:space:]]*(async )?def test_' -- tests \| wc -l` |
 | @pytest.mark.parametrize decorators | `653` | `tests/` | `git grep -E '@pytest\.mark\.parametrize' -- tests \| wc -l` |
 | CLI top-level command modules | `60` | `aragora/cli/commands/` | `git ls-files aragora/cli/commands \| grep -E '/[^/]*\.py$' \| grep -v '/__' \| wc -l` |
 | OpenAPI paths | `2940` | `docs/api/openapi.json` | `python -c "import json; print(len(json.load(open('docs/api/openapi.json'))['paths']))"` |
@@ -29,7 +29,7 @@
 | Knowledge Mound adapter specs | `41` | `aragora/knowledge/mound/adapters/factory.py` | `git grep -E '"\.[a-z_]+_adapter"' -- aragora/knowledge/mound/adapters/factory.py \| wc -l` |
 | Knowledge Mound adapter files | `46` | `aragora/knowledge/mound/adapters/` | `git ls-files aragora/knowledge/mound/adapters \| grep -E '/[^/]+_adapter\.py$' \| wc -l` |
 | Markdown files under docs/ | `787` | `docs/` | `git ls-files docs \| grep -E '\.md$' \| wc -l` |
-| GitHub Actions workflows | `84` | `.github/workflows/` | `git ls-files .github/workflows \| grep -E '\.yml$' \| wc -l` |
+| GitHub Actions workflows | `85` | `.github/workflows/` | `git ls-files .github/workflows \| grep -E '\.yml$' \| wc -l` |
 | Mypy baseline errors (grandfathered) | `3317` | `.mypy-baseline` | `wc -l .mypy-baseline` |
 
 ## Notes on counting methodology
