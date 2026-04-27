@@ -57,7 +57,7 @@ experimental = [
 dev = [
     "mypy>=1.19.0,<2.0",
     "types-PyYAML>=6.0,<7.0",
-    "types-croniter>=2.0,<6.0",
+    "types-croniter>=6.2.2.20260408,<7.0",
     "bandit>=1.7,<2.0",
 ]
 all = [
