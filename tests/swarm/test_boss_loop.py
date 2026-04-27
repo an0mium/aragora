@@ -5109,6 +5109,12 @@ def test_boss_loop_batch_auto_decomposes_maxed_retry_issue() -> None:
 
 
 def test_auto_decompose_carries_lineage_and_removes_ready_label() -> None:
+    root_issue = _make_issue(
+        4409,
+        "[CS-01..03] Reconcile proof-first status docs",
+        body="Keep roadmap docs narrower than measured proof.",
+        labels=[],
+    )
     issue = _make_issue(
         4412,
         "[from #4409] Add evidence metrics",
@@ -5145,13 +5151,14 @@ def test_auto_decompose_carries_lineage_and_removes_ready_label() -> None:
         patch("subprocess.run", side_effect=_run),
         patch("aragora.nomic.task_decomposer.TaskDecomposer", return_value=decomposer),
     ):
-        loop._auto_decompose_stuck_issue(4412, [issue])
+        loop._auto_decompose_stuck_issue(4412, [root_issue, issue])
 
     assert len(created) == 1
     create_body = created[0][created[0].index("--body") + 1]
     assert "Root issue: #4409" in create_body
     assert "Parent issue: #4412" in create_body
     assert "Depth: 2" in create_body
+    assert "Inherited roadmap codes: CS-01, CS-02, CS-03" in create_body
     assert edited
     assert "--add-label" in edited[-1]
     assert "boss-stuck" in edited[-1]

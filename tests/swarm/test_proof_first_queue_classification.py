@@ -43,6 +43,18 @@ def test_classifies_roadmap_do_now_lane(
     assert decision.blocked_codes == ()
 
 
+def test_subdecomposed_issue_uses_inherited_parent_roadmap_code() -> None:
+    decision = classify_proof_first_queue_issue(
+        "[CS-01b] Reconcile docs status surface",
+        "## Decomposition Lineage\n- Inherited roadmap codes: CS-01\n",
+        roadmap_policy=_ROADMAP_POLICY,
+    )
+
+    assert decision.allowed is True
+    assert decision.lane == "roadmap_do_now"
+    assert decision.roadmap_codes == ("CS-01",)
+
+
 @pytest.mark.parametrize(
     ("title", "body", "expected_blocked"),
     [

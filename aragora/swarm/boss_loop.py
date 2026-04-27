@@ -37,7 +37,7 @@ from aragora.swarm.debate_gate import DebateGate, DebateGateConfig, DebateGateRe
 from aragora.swarm.dispatch_contract_gate import dispatch_contract_gate  # noqa: F401
 from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.proof_first_queue import filter_noncanonical_boss_ready_issues
-from aragora.swarm.roadmap_priority import load_roadmap_priority_policy
+from aragora.swarm.roadmap_priority import extract_roadmap_codes, load_roadmap_priority_policy
 from aragora.swarm.task_sanitizer import SanitizationOutcome, TaskSanitizer  # noqa: F401
 from aragora.swarm.mission import GateType, GateVerdict
 from aragora.swarm.session_state import (
@@ -1796,6 +1796,16 @@ class BossLoop:
             body=issue.body or "",
             url=issue.url,
         )
+        inherited_roadmap_codes = self._inherited_roadmap_codes_for_decomposition(
+            issue=issue,
+            issues=issues,
+            lineage_root=lineage_root,
+        )
+        inherited_roadmap_line = (
+            f"- Inherited roadmap codes: {', '.join(inherited_roadmap_codes)}\n"
+            if inherited_roadmap_codes
+            else ""
+        )
 
         # Try LLM-based decomposition
         sub_issues_created = 0
@@ -1892,7 +1902,9 @@ class BossLoop:
                         f"## Decomposition Lineage\n"
                         f"- Root issue: #{lineage_root}\n"
                         f"- Parent issue: #{issue.number}\n"
-                        f"- Depth: {child_depth}\n\n"
+                        f"- Depth: {child_depth}\n"
+                        f"{inherited_roadmap_line}"
+                        "\n"
                         f"## Task\n{sub_desc}\n\n"
                         f"## Files\n{scope_lines}\n\n"
                         f"## Acceptance\n"
@@ -2021,6 +2033,23 @@ class BossLoop:
         if root_issue is not None and int(root_issue.number) != int(issue.number):
             texts.extend([root_issue.title, root_issue.body or ""])
         return policy.priority_for_text(*texts)
+
+    def _inherited_roadmap_codes_for_decomposition(
+        self,
+        *,
+        issue: GitHubIssue,
+        issues: list[GitHubIssue],
+        lineage_root: int,
+    ) -> tuple[str, ...]:
+        root_issue = next((item for item in issues if item.number == lineage_root), None)
+        if root_issue is None and lineage_root != int(issue.number):
+            root_issue = self._fetch_issue_by_number(lineage_root)
+
+        texts = [issue.title, issue.body or ""]
+        if root_issue is not None and int(root_issue.number) != int(issue.number):
+            texts.extend([root_issue.title, root_issue.body or ""])
+
+        return extract_roadmap_codes("\n".join(texts))
 
     @staticmethod
     def _decomposition_scope_entries(
