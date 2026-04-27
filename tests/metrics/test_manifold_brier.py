@@ -20,6 +20,7 @@ from aragora.metrics.manifold_brier import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _pred(
     p: float,
     outcome: int,
@@ -46,9 +47,7 @@ class TestFeatureGate:
         assert manifold_brier_enabled() is False
 
     @pytest.mark.parametrize("val", ["1", "true", "yes", "on", "TRUE", "YES"])
-    def test_enabled_truthy_values(
-        self, monkeypatch: pytest.MonkeyPatch, val: str
-    ) -> None:
+    def test_enabled_truthy_values(self, monkeypatch: pytest.MonkeyPatch, val: str) -> None:
         monkeypatch.setenv("ARAGORA_MANIFOLD_BRIER_ENABLED", val)
         assert manifold_brier_enabled() is True
 
@@ -56,9 +55,7 @@ class TestFeatureGate:
         monkeypatch.setenv("ARAGORA_MANIFOLD_BRIER_ENABLED", "0")
         assert manifold_brier_enabled() is False
 
-    def test_scorer_raises_when_disabled(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_scorer_raises_when_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ARAGORA_MANIFOLD_BRIER_ENABLED", raising=False)
         scorer = ManifoldBrierScorer()
         with pytest.raises(RuntimeError, match="disabled"):

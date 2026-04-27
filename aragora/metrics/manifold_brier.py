@@ -46,8 +46,7 @@ def manifold_brier_enabled() -> bool:
 def _require_enabled() -> None:
     if not manifold_brier_enabled():
         raise RuntimeError(
-            "ManifoldBrierScorer is disabled. "
-            "Set ARAGORA_MANIFOLD_BRIER_ENABLED=1 to enable."
+            "ManifoldBrierScorer is disabled. Set ARAGORA_MANIFOLD_BRIER_ENABLED=1 to enable."
         )
 
 
@@ -71,9 +70,7 @@ def brier_score(predicted_probability: float, outcome: int) -> float:
             ``outcome`` is not 0 or 1.
     """
     if not (0.0 <= predicted_probability <= 1.0):
-        raise ValueError(
-            f"predicted_probability must be in [0, 1]; got {predicted_probability}"
-        )
+        raise ValueError(f"predicted_probability must be in [0, 1]; got {predicted_probability}")
     if outcome not in (0, 1):
         raise ValueError(f"outcome must be 0 or 1; got {outcome}")
     return (predicted_probability - outcome) ** 2
@@ -110,8 +107,7 @@ class ManifoldPrediction:
     def __post_init__(self) -> None:
         if not (0.0 <= self.predicted_probability <= 1.0):
             raise ValueError(
-                f"predicted_probability must be in [0, 1]; "
-                f"got {self.predicted_probability}"
+                f"predicted_probability must be in [0, 1]; got {self.predicted_probability}"
             )
         if self.outcome not in (0, 1):
             raise ValueError(f"outcome must be 0 or 1; got {self.outcome}")
@@ -235,9 +231,7 @@ class ManifoldBrierScorer:
         now = reference_time if reference_time is not None else datetime.now(UTC)
         cutoff = now - timedelta(days=window_days)
 
-        in_window = [
-            p for p in self._predictions if cutoff <= p.predicted_at <= now
-        ]
+        in_window = [p for p in self._predictions if cutoff <= p.predicted_at <= now]
         scores = [p.score for p in in_window]
 
         return BrierWindowSummary(
