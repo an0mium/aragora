@@ -327,8 +327,8 @@ requires-dist = [
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0,<7.0" },
     { name = "uvicorn", marker = "extra == 'all'", specifier = ">=0.44.0,<1.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.44.0,<1.0" },
-    { name = "web3", marker = "extra == 'all'", specifier = ">=6.0,<8.0" },
-    { name = "web3", marker = "extra == 'blockchain'", specifier = ">=6.0,<8.0" },
+    { name = "web3", marker = "extra == 'all'", specifier = ">=7.15.0,<8.0" },
+    { name = "web3", marker = "extra == 'blockchain'", specifier = ">=7.15.0,<8.0" },
 ]
 provides-extras = ["test", "gateway", "blockchain", "enterprise", "connectors", "experimental", "dev", "all"]
 
