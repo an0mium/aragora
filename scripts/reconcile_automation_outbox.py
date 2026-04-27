@@ -16,6 +16,7 @@ This script:
   4. Reports counts before/after
 
 Read-only by default (--dry-run); pass --apply to actually move files.
+Dry-run reports are printed to stdout; pass --write-report to persist a JSON report.
 """
 
 from __future__ import annotations
@@ -134,6 +135,14 @@ def main(argv: list[str] | None = None) -> int:
         "--apply",
         action="store_true",
         help="Move satisfied outbox files (default is dry-run)",
+    )
+    parser.add_argument(
+        "--write-report",
+        action="store_true",
+        help=(
+            "Persist a JSON reconciliation report during dry-run. Apply mode always writes "
+            "the report."
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -284,17 +293,23 @@ def main(argv: list[str] | None = None) -> int:
     kept = sum(1 for a in actions if a["decision"] == "keep")
     print(f"\n  total: {archived} archived, {kept} kept")
 
-    state_dir = root / ".aragora" / "cleanup-state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    out = state_dir / f"outbox-reconciliation-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.json"
-    out.write_text(
-        json.dumps(
-            {"counts": counts, "actions": actions, "applied": args.apply},
-            indent=2,
-            sort_keys=True,
+    should_write_report = args.apply or args.write_report
+    if should_write_report:
+        state_dir = root / ".aragora" / "cleanup-state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        out = (
+            state_dir / f"outbox-reconciliation-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.json"
         )
-    )
-    print(f"\n  report: {out}")
+        out.write_text(
+            json.dumps(
+                {"counts": counts, "actions": actions, "applied": args.apply},
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        print(f"\n  report: {out}")
+    else:
+        print("\n  report: not written in dry-run; pass --write-report to persist one.")
     if not args.apply:
         print("\n  DRY-RUN — re-run with --apply to actually archive files.")
     return 0

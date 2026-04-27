@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import scripts.reconcile_automation_outbox as mod
 
@@ -16,3 +17,32 @@ def test_terminal_receipt_keys_falls_back_to_receipt_filename(tmp_path: Path) ->
     )
 
     assert mod._terminal_receipt_keys(receipt_dir) == {key}
+
+
+def test_dry_run_does_not_write_report_by_default(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+
+    rc = mod.main(["--repo", str(tmp_path), "--base", "origin/main"])
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "report: not written in dry-run" in out
+    assert not (tmp_path / ".aragora" / "cleanup-state").exists()
+
+
+def test_dry_run_can_write_report_when_requested(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+
+    rc = mod.main(["--repo", str(tmp_path), "--base", "origin/main", "--write-report"])
+
+    out = capsys.readouterr().out
+    reports = list((tmp_path / ".aragora" / "cleanup-state").glob("*.json"))
+    assert rc == 0
+    assert "report:" in out
+    assert len(reports) == 1
+    payload = json.loads(reports[0].read_text(encoding="utf-8"))
+    assert payload["applied"] is False
