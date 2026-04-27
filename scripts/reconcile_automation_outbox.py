@@ -93,7 +93,6 @@ def _mapping_from_action(value: Any) -> Mapping[str, Any] | None:
     text = value.strip()
     if not (text.startswith("{") and text.endswith("}")):
         return None
-
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
