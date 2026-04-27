@@ -60,6 +60,20 @@ def reset_rate_limiter():
     _clear_introspection_limiter()
 
 
+@pytest.fixture(autouse=True)
+def allow_introspection_requests_by_default(request):
+    """Keep endpoint tests independent from the shared module-level limiter."""
+    if request.node.name == "test_rate_limit_exceeded_returns_429":
+        yield
+        return
+
+    with patch(
+        "aragora.server.handlers.introspection._introspection_limiter.is_allowed",
+        return_value=True,
+    ):
+        yield
+
+
 # ============================================================================
 # can_handle Tests
 # ============================================================================
