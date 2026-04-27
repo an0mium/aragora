@@ -78,6 +78,40 @@ def test_find_mutating_workflow_violations_requires_draft_benchmark_publication_
     )
 
 
+def test_find_mutating_workflow_violations_allows_guarded_dependabot_lock_refresh() -> None:
+    workflows = {
+        "dependabot-uv-lock.yml": (
+            "on:\n  pull_request_target:\n"
+            "jobs:\n  x:\n"
+            "    if: >-\n"
+            "      github.event.pull_request.user.login == 'app/dependabot' &&\n"
+            "      github.event.pull_request.head.repo.full_name == github.repository\n"
+            "    steps:\n"
+            "      - run: |\n"
+            "          uv lock\n"
+            "          unexpected=\"$(git diff --name-only | grep -vx 'uv.lock' || true)\"\n"
+            "          uv lock --check\n"
+            '          git push origin "HEAD:${{ steps.target.outputs.branch }}"\n'
+        ),
+    }
+    violations = find_mutating_workflow_violations(workflows)
+    assert violations == []
+
+
+def test_find_mutating_workflow_violations_requires_dependabot_lock_guards() -> None:
+    workflows = {
+        "dependabot-uv-lock.yml": (
+            "on:\n  pull_request_target:\n"
+            "jobs:\n  x:\n    steps:\n      - run: |\n          uv lock\n          git push origin main"
+        ),
+    }
+    violations = find_mutating_workflow_violations(workflows)
+    assert violations
+    assert any("same-repository head guard" in v.message for v in violations)
+    assert any("dependabot actor guard" in v.message for v in violations)
+    assert any("must not push directly to main" in v.message for v in violations)
+
+
 def test_repo_branch_mutation_policy_passes_for_current_tree() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     violations = check_repo(repo_root)

@@ -42,6 +42,7 @@ REQUIRED_MATCH_COUNTS: dict[str, int] = {
 
 WORKFLOW_MUTATION_ALLOWLIST = {
     "benchmark-truth-publication.yml",
+    "dependabot-uv-lock.yml",
     "openapi.yml",
     "release-notes.yml",
     "testfixer-auto.yml",
@@ -163,6 +164,32 @@ def find_mutating_workflow_violations(workflows: dict[str, str]) -> list[Violati
                     Violation(
                         path=f".github/workflows/{name}",
                         message="must create the benchmark publication pull request as a draft",
+                    )
+                )
+
+        if name == "dependabot-uv-lock.yml":
+            required_markers = {
+                "same-repository head guard": (
+                    "github.event.pull_request.head.repo.full_name == github.repository"
+                ),
+                "dependabot actor guard": "github.event.pull_request.user.login == 'app/dependabot'",
+                "uv.lock-only diff guard": "grep -vx 'uv.lock'",
+                "uv freshness verification": "uv lock --check",
+                "branch-targeted push": 'git push origin "HEAD:${{ steps.target.outputs.branch }}"',
+            }
+            for description, marker in required_markers.items():
+                if marker not in text:
+                    violations.append(
+                        Violation(
+                            path=f".github/workflows/{name}",
+                            message=f"missing required Dependabot lock-refresh guard: {description}",
+                        )
+                    )
+            if re.search(r"git push\s+origin\s+(?:HEAD:)?main\b", text):
+                violations.append(
+                    Violation(
+                        path=f".github/workflows/{name}",
+                        message="must not push directly to main",
                     )
                 )
     return violations
