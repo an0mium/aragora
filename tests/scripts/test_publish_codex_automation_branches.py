@@ -77,6 +77,7 @@ def test_parser_defaults_match_publisher_budget_constants() -> None:
     assert args.skip_preflight is False
     assert args.preflight_script == mod.DEFAULT_PREFLIGHT_SCRIPT
     assert args.outbox_dir is None
+    assert args.allow_unhealthy_queue_publish is False
 
 
 def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() -> None:
@@ -755,6 +756,87 @@ def test_main_pauses_apply_when_open_codex_queue_is_unhealthy(
     assert publish_called is False
     out = capsys.readouterr().out
     assert '"publish_paused_reason": "open_pr_queue_unhealthy"' in out
+
+
+def test_main_can_override_unhealthy_queue_pause_for_preflighted_branch(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    branch = BranchSnapshot(
+        branch="codex/queue-drain-fix",
+        upstream=None,
+        head_sha="abc1234",
+        committed_at=datetime.now(UTC),
+        subject="fix automation queue drain",
+        unique_commit_count=1,
+    )
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(mod, "_branches_with_pr_history", lambda repo_root, repo, branches: set())
+    monkeypatch.setattr(
+        mod,
+        "_branches_with_resolved_related_work",
+        lambda repo_root, repo, branches: set(),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: [
+            {"headRefName": "codex/a", "mergeStateStatus": "BLOCKED"},
+            {"headRefName": "codex/b", "mergeStateStatus": "DIRTY"},
+        ],
+    )
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    publish_called = False
+
+    def fake_publish(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        nonlocal publish_called
+        publish_called = True
+        return [
+            {
+                "branch": "codex/queue-drain-fix",
+                "status": "published",
+                "pr_number": 7001,
+                "subject": "fix automation queue drain",
+                "head_sha": "abc1234",
+            }
+        ]
+
+    monkeypatch.setattr(mod, "_publish_decisions", fake_publish)
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--apply",
+            "--json",
+            "--allow-unhealthy-queue-publish",
+        ]
+    )
+
+    assert exit_code == 0
+    assert publish_called is True
+    out = capsys.readouterr().out
+    assert '"publish_override_reason": "allow_unhealthy_queue_publish"' in out
+    assert '"publish_paused_reason"' not in out
 
 
 def test_main_does_not_pause_for_green_review_required_codex_pr(

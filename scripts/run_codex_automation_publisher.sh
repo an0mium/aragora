@@ -10,12 +10,14 @@ MAX_OPEN_ISSUES="${ARAGORA_AUTOMATION_MAX_OPEN_ISSUES:-16}"
 BRANCH_LIMIT="${ARAGORA_AUTOMATION_BRANCH_PUBLISH_LIMIT:-2}"
 MAX_OPEN_PRS="${ARAGORA_AUTOMATION_MAX_OPEN_PRS:-12}"
 BRANCH_SCAN_LIMIT="${ARAGORA_AUTOMATION_BRANCH_SCAN_LIMIT:-40}"
+ALLOW_UNHEALTHY_QUEUE_PUBLISH="${ARAGORA_AUTOMATION_ALLOW_UNHEALTHY_QUEUE_PUBLISH:-false}"
 AUTOMATION_STATE_ROOT="${ARAGORA_AUTOMATION_STATE_ROOT:-/Users/armand/Development/aragora}"
 if [[ ! -d "${AUTOMATION_STATE_ROOT}/.aragora" ]]; then
   AUTOMATION_STATE_ROOT="${REPO_ROOT}"
 fi
 HANDOFF_OUTBOX_DIR="${ARAGORA_AUTOMATION_OUTBOX_DIR:-${AUTOMATION_STATE_ROOT}/.aragora/automation-outbox}"
 HANDOFF_RECEIPT_DIR="${ARAGORA_AUTOMATION_RECEIPT_DIR:-${AUTOMATION_STATE_ROOT}/.aragora/automation-receipts}"
+GITHUB_STATUS_CACHE="${ARAGORA_AUTOMATION_GITHUB_STATUS_CACHE:-${AUTOMATION_STATE_ROOT}/.aragora/automation-github-status/latest.json}"
 STAMP() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
@@ -39,6 +41,18 @@ fi
 
 echo "$(STAMP) [codex-automation-publisher] checking GitHub CLI health"
 HEALTH_JSON="$(python3 scripts/github_cli_health.py --repo "${REPO_ROOT}" --json 2>/dev/null || true)"
+if python3 scripts/cache_codex_automation_github_status.py \
+  --repo "${REPO_ROOT}" \
+  --output "${GITHUB_STATUS_CACHE}" \
+  --outbox-dir "${HANDOFF_OUTBOX_DIR}" \
+  --receipt-dir "${HANDOFF_RECEIPT_DIR}" \
+  --max-open-prs "${MAX_OPEN_PRS}" \
+  --max-open-issues "${MAX_OPEN_ISSUES}" \
+  --json >/dev/null; then
+  echo "$(STAMP) [codex-automation-publisher] wrote GitHub queue status cache: ${GITHUB_STATUS_CACHE}"
+else
+  echo "$(STAMP) [codex-automation-publisher] GitHub queue status cache failed; continuing"
+fi
 HEALTH_READY="$(
   printf '%s' "${HEALTH_JSON}" \
     | python3 -c 'import json,sys; print("true" if json.load(sys.stdin).get("ready") else "false")' \
@@ -57,6 +71,24 @@ if ! git fetch --no-write-fetch-head --prune origin '+refs/heads/*:refs/remotes/
   echo "$(STAMP) [codex-automation-publisher] origin refresh failed; continuing with cached refs"
 fi
 
+echo "$(STAMP) [codex-automation-publisher] starting branch publish pass"
+BRANCH_PUBLISH_ARGS=(
+  --base origin/main \
+  --apply \
+  --limit "${BRANCH_LIMIT}" \
+  --max-open-prs "${MAX_OPEN_PRS}" \
+  --scan-limit "${BRANCH_SCAN_LIMIT}" \
+  --json
+)
+if [[ "${ALLOW_UNHEALTHY_QUEUE_PUBLISH}" == "1" || "${ALLOW_UNHEALTHY_QUEUE_PUBLISH}" == "true" || "${ALLOW_UNHEALTHY_QUEUE_PUBLISH}" == "yes" ]]; then
+  BRANCH_PUBLISH_ARGS+=(--allow-unhealthy-queue-publish)
+fi
+if python3 scripts/publish_codex_automation_branches.py "${BRANCH_PUBLISH_ARGS[@]}"; then
+  echo "$(STAMP) [codex-automation-publisher] branch publish pass complete"
+else
+  echo "$(STAMP) [codex-automation-publisher] branch publish pass failed"
+fi
+
 echo "$(STAMP) [codex-automation-publisher] starting handoff publish pass"
 mkdir -p "${HANDOFF_OUTBOX_DIR}" "${HANDOFF_RECEIPT_DIR}"
 if python3 scripts/publish_automation_handoffs.py \
@@ -69,19 +101,6 @@ if python3 scripts/publish_automation_handoffs.py \
   echo "$(STAMP) [codex-automation-publisher] handoff publish pass complete"
 else
   echo "$(STAMP) [codex-automation-publisher] handoff publish pass failed; continuing"
-fi
-
-echo "$(STAMP) [codex-automation-publisher] starting branch publish pass"
-if python3 scripts/publish_codex_automation_branches.py \
-  --base origin/main \
-  --apply \
-  --limit "${BRANCH_LIMIT}" \
-  --max-open-prs "${MAX_OPEN_PRS}" \
-  --scan-limit "${BRANCH_SCAN_LIMIT}" \
-  --json; then
-  echo "$(STAMP) [codex-automation-publisher] branch publish pass complete"
-else
-  echo "$(STAMP) [codex-automation-publisher] branch publish pass failed"
 fi
 
 echo "$(STAMP) [codex-automation-publisher] publish pass complete"

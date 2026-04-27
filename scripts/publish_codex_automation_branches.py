@@ -1010,6 +1010,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip the automation PR preflight before publishing.",
     )
     parser.add_argument(
+        "--allow-unhealthy-queue-publish",
+        action="store_true",
+        help=(
+            "Publish otherwise eligible, preflighted branches even when every existing "
+            "open codex PR is unhealthy. Still respects --limit and --max-open-prs."
+        ),
+    )
+    parser.add_argument(
         "--outbox-dir",
         type=Path,
         default=None,
@@ -1139,10 +1147,12 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     if args.apply:
-        if all_open_prs_unhealthy:
+        if all_open_prs_unhealthy and not args.allow_unhealthy_queue_publish:
             payload["published"] = []
             payload["publish_paused_reason"] = "open_pr_queue_unhealthy"
         else:
+            if all_open_prs_unhealthy and args.allow_unhealthy_queue_publish:
+                payload["publish_override_reason"] = "allow_unhealthy_queue_publish"
             published = _publish_decisions(
                 repo_root,
                 args.github_repo,
