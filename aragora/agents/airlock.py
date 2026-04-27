@@ -16,6 +16,7 @@ __all__ = [
     "AirlockMetrics",
     "AirlockConfig",
     "AirlockProxy",
+    "resolve_metrics_path",
     "wrap_agent",
     "wrap_agents",
 ]
@@ -24,8 +25,10 @@ import asyncio
 import json
 import logging
 import re
+import subprocess
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from collections.abc import Awaitable, Callable
 
@@ -33,6 +36,46 @@ if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message, Vote
 
 logger = logging.getLogger(__name__)
+
+
+OVERNIGHT_METRICS_PATH = Path(".aragora/overnight/boss_metrics.jsonl")
+
+
+def resolve_metrics_path(
+    metrics_path: str | Path = OVERNIGHT_METRICS_PATH,
+    *,
+    start: str | Path | None = None,
+) -> Path:
+    """Resolve overnight metrics across managed worktrees.
+
+    Managed Codex worktrees usually do not have their own `.aragora` state;
+    Git's common dir points back to the shared checkout where overnight
+    benchmark metrics are written.
+    """
+    path = Path(metrics_path)
+    base = Path(start) if start is not None else Path.cwd()
+    candidate = path if path.is_absolute() else base / path
+    if candidate.exists() or path.is_absolute():
+        return candidate
+
+    try:
+        common_dir_output = subprocess.check_output(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=base,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return candidate
+
+    common_dir = Path(common_dir_output)
+    if not common_dir.is_absolute():
+        common_dir = base / common_dir
+    shared_root = common_dir.parent if common_dir.name == ".git" else common_dir
+    shared_candidate = shared_root / path
+    if shared_candidate.exists():
+        return shared_candidate
+    return candidate
 
 
 @dataclass

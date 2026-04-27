@@ -9,14 +9,18 @@ Tests cover:
 """
 
 import asyncio
+import subprocess
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import aragora.agents.airlock as airlock
 from aragora.agents.airlock import (
     AirlockConfig,
     AirlockMetrics,
     AirlockProxy,
+    resolve_metrics_path,
     wrap_agent,
     wrap_agents,
 )
@@ -161,6 +165,53 @@ class TestAirlockMetrics:
         result = metrics.to_dict()
         assert result["success_rate"] == 33.33
         assert result["avg_latency_ms"] == 333.33
+
+
+# === Metrics Path Resolution Tests ===
+
+
+class TestResolveMetricsPath:
+    """Tests for resolving overnight metrics from managed worktrees."""
+
+    def test_returns_absolute_path(self, tmp_path):
+        metrics_path = tmp_path / "metrics.jsonl"
+        assert resolve_metrics_path(metrics_path) == metrics_path
+
+    def test_prefers_existing_local_candidate(self, tmp_path):
+        metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        metrics_path.parent.mkdir(parents=True)
+        metrics_path.write_text("{}\n", encoding="utf-8")
+
+        assert resolve_metrics_path(start=tmp_path) == metrics_path
+
+    def test_resolves_shared_repo_root_from_git_common_dir(self, tmp_path, monkeypatch):
+        worktree = tmp_path / "worktree"
+        worktree.mkdir()
+        shared_root = tmp_path / "shared"
+        shared_git = shared_root / ".git"
+        shared_metrics = shared_root / ".aragora" / "overnight" / "boss_metrics.jsonl"
+        shared_git.mkdir(parents=True)
+        shared_metrics.parent.mkdir(parents=True)
+        shared_metrics.write_text("{}\n", encoding="utf-8")
+
+        def fake_check_output(args, *, cwd, stderr, text):
+            assert args == ["git", "rev-parse", "--git-common-dir"]
+            assert Path(cwd) == worktree
+            assert stderr is subprocess.DEVNULL
+            assert text is True
+            return str(shared_git)
+
+        monkeypatch.setattr(airlock.subprocess, "check_output", fake_check_output)
+
+        assert resolve_metrics_path(start=worktree) == shared_metrics
+
+    def test_returns_local_candidate_when_git_lookup_fails(self, tmp_path, monkeypatch):
+        def fake_check_output(*args, **kwargs):
+            raise subprocess.CalledProcessError(128, args[0])
+
+        monkeypatch.setattr(airlock.subprocess, "check_output", fake_check_output)
+
+        assert resolve_metrics_path("missing.jsonl", start=tmp_path) == tmp_path / "missing.jsonl"
 
 
 # === AirlockConfig Tests ===
