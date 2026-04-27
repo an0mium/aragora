@@ -323,7 +323,7 @@ requires-dist = [
     { name = "supabase", marker = "extra == 'all'", specifier = ">=2.0,<3.0" },
     { name = "supabase", marker = "extra == 'enterprise'", specifier = ">=2.0,<3.0" },
     { name = "twine", marker = "extra == 'test'", specifier = ">=6.2.0,<7.0" },
-    { name = "types-croniter", marker = "extra == 'dev'", specifier = ">=2.0,<6.0" },
+    { name = "types-croniter", marker = "extra == 'dev'", specifier = ">=6.2.2.20260408,<7.0" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0,<7.0" },
     { name = "uvicorn", marker = "extra == 'all'", specifier = ">=0.44.0,<1.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.44.0,<1.0" },
@@ -3369,11 +3369,11 @@ wheels = [
 
 [[package]]
 name = "types-croniter"
-version = "5.0.1.20250322"
+version = "6.2.2.20260408"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d9/d7/f02123ebb740a66774050553acb8dda53fc40db7087281c581227a4286f6/types_croniter-5.0.1.20250322.tar.gz", hash = "sha256:0858064a5ec6ea93abcc1dbb7c7235b69df1a3395ce9bb0714123ec8d0c477fe", size = 11046, upload-time = "2025-03-22T02:48:31.255Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/e4/89a0101471d6fe4e912dad24c54ae7afd90a9eaa5c74adef2c81f383f8da/types_croniter-6.2.2.20260408.tar.gz", hash = "sha256:a28a18908db371654990d30a3fd99856adc5137e475a23dbda4b10dce85525da", size = 12040, upload-time = "2026-04-08T04:27:20.068Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6c/9c/c42a32715305fbc7d36f1999532b0708e535d6242e67d563fe290633508b/types_croniter-5.0.1.20250322-py3-none-any.whl", hash = "sha256:82280f00f1543758e1e4bac9805ca7a27c183e5bf316c7240be73ac459655306", size = 9464, upload-time = "2025-03-22T02:48:30.134Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/05/b32e67944ff33e83c181cadf5835858d63f4292a2f2ff5bf6a1edb7f6fed/types_croniter-6.2.2.20260408-py3-none-any.whl", hash = "sha256:242087a5b6e201b7004e55f71ed34f466951b74551c64ef1c6a8a08c47d3cc0d", size = 9732, upload-time = "2026-04-08T04:27:19.229Z" },
 ]
 
 [[package]]
