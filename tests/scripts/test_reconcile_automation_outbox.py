@@ -46,3 +46,23 @@ def test_dry_run_can_write_report_when_requested(
     assert len(reports) == 1
     payload = json.loads(reports[0].read_text(encoding="utf-8"))
     assert payload["applied"] is False
+
+
+def test_branch_from_payload_tolerates_list_local_evidence() -> None:
+    payload = {
+        "branch": "codex/openrouter-kimi-fallback-haiku",
+        "local_evidence": [
+            "older handoffs sometimes stored local evidence as bullet text",
+        ],
+    }
+
+    assert mod._branch_from_payload(payload) == "codex/openrouter-kimi-fallback-haiku"
+
+
+def test_branch_from_payload_prefers_structured_local_evidence() -> None:
+    payload = {
+        "branch": "codex/stale-top-level",
+        "local_evidence": {"branch": "codex/structured"},
+    }
+
+    assert mod._branch_from_payload(payload) == "codex/structured"

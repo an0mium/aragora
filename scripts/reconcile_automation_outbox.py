@@ -83,6 +83,16 @@ def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
     return keys
 
 
+def _branch_from_payload(payload: dict[str, Any]) -> str:
+    """Extract a branch from outbox payloads with historical shape drift."""
+    local_evidence = payload.get("local_evidence")
+    if isinstance(local_evidence, dict):
+        branch = str(local_evidence.get("branch") or "").strip()
+        if branch:
+            return branch
+    return str(payload.get("branch") or "").strip()
+
+
 def _write_synthetic_receipt(
     *,
     receipt_dir: Path,
@@ -192,8 +202,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         payload["__source_file"] = str(path)
         idem = str(payload.get("idempotency_key") or "").strip()
-        branch = payload.get("local_evidence", {}).get("branch") or payload.get("branch") or ""
-        branch = str(branch).strip()
+        branch = _branch_from_payload(payload)
 
         if not idem or not branch:
             counts["skipped_unparseable"] += 1
