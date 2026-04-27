@@ -22,9 +22,11 @@ Dry-run reports are printed to stdout; pass --write-report to persist a JSON rep
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import shutil
 import sys
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -83,14 +85,47 @@ def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
     return keys
 
 
+def _mapping_from_action(value: Any) -> Mapping[str, Any] | None:
+    if isinstance(value, Mapping):
+        return value
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not (text.startswith("{") and text.endswith("}")):
+        return None
+
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        parsed = None
+    if isinstance(parsed, Mapping):
+        return parsed
+
+    try:
+        parsed = ast.literal_eval(text)
+    except (SyntaxError, ValueError):
+        return None
+    if isinstance(parsed, Mapping):
+        return parsed
+    return None
+
+
 def _branch_from_payload(payload: dict[str, Any]) -> str:
     """Extract a branch from outbox payloads with historical shape drift."""
     local_evidence = payload.get("local_evidence")
-    if isinstance(local_evidence, dict):
+    if isinstance(local_evidence, Mapping):
         branch = str(local_evidence.get("branch") or "").strip()
         if branch:
             return branch
-    return str(payload.get("branch") or "").strip()
+
+    branch = str(payload.get("branch") or "").strip()
+    if branch:
+        return branch
+
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is not None:
+        return str(requested_action.get("branch") or "").strip()
+    return ""
 
 
 def _write_synthetic_receipt(
