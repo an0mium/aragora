@@ -966,11 +966,13 @@ def test_audit_skip_patch_equivalence_still_cleans_empty_branch_diff(
         "has_empty_branch_diff",
         lambda _root, _base, branch: branch == "codex/cancels-out",
     )
+    patch_checked_branches: list[str] = []
 
-    def fail_patch_equivalence(*_args: Any, **_kwargs: Any) -> bool:
-        raise AssertionError("git cherry path should stay disabled")
+    def is_patch_equivalent(_root: Path, _base: str, branch: str) -> bool:
+        patch_checked_branches.append(branch)
+        return False
 
-    monkeypatch.setattr(mod, "is_patch_equivalent", fail_patch_equivalence)
+    monkeypatch.setattr(mod, "is_patch_equivalent", is_patch_equivalent)
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
@@ -1004,6 +1006,85 @@ def test_audit_skip_patch_equivalence_still_cleans_empty_branch_diff(
     )
     assert empty_diff["patch_equivalent_to_base"] is True
     assert empty_diff["category"] == "cleanup_patch_equivalent"
+    assert patch_checked_branches == ["codex/new-work"]
+
+
+def test_audit_skip_patch_equivalence_verifies_salvage_candidates(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row("codex/replayed-diverged", committed_at=now, behind_count="4"),
+        _branch_row("codex/real-diverged", committed_at=now, behind_count="4"),
+        _branch_row("codex/protected-outbox", committed_at=now, behind_count="4"),
+    ]
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "protected.json").write_text(
+        json.dumps(
+            {
+                "task": "Publish protected branch",
+                "requires_github": True,
+                "requested_action": "open_pr",
+                "repo": "synaptent/aragora",
+                "local_evidence": {"branch": "codex/protected-outbox", "head": "abc1234"},
+                "validation": ["pytest tests/example.py -q"],
+                "idempotency_key": "open-pr-codex-protected-outbox-abc1234",
+                "created_at": "2026-04-27T16:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(mod, "has_empty_branch_diff", lambda *_args: False)
+    patch_checked_branches: list[str] = []
+
+    def is_patch_equivalent(_root: Path, _base: str, branch: str) -> bool:
+        patch_checked_branches.append(branch)
+        return branch == "codex/replayed-diverged"
+
+    monkeypatch.setattr(mod, "is_patch_equivalent", is_patch_equivalent)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+        outbox_dir=outbox,
+        receipt_dir=receipts,
+    )
+
+    by_name = {record["name"]: record for record in payload["records"]}
+    by_category = payload["summary"]["by_category"]
+    assert by_name["codex/replayed-diverged"]["category"] == "cleanup_patch_equivalent"
+    assert by_name["codex/replayed-diverged"]["patch_equivalent_to_base"] is True
+    assert by_name["codex/real-diverged"]["category"] == "salvage_diverged_recent"
+    assert by_name["codex/protected-outbox"]["category"] == "protected_handoff_outbox"
+    assert by_category["cleanup_patch_equivalent"] == 1
+    assert by_category["salvage_diverged_recent"] == 1
+    assert payload["summary"]["salvage_candidates"] == 1
+    assert patch_checked_branches == ["codex/replayed-diverged", "codex/real-diverged"]
 
 
 def test_patch_equivalence_treats_empty_branch_diff_as_cleanup(

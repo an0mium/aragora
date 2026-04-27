@@ -36,6 +36,14 @@ DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied"}
 COMMIT_PREFIX_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 BRANCH_IDEMPOTENCY_PREFIXES = ("open-pr-", "already-satisfied-")
+SALVAGE_CATEGORIES = {
+    "salvage_recent_unique",
+    "salvage_stale_remote_unique",
+    "salvage_stale_local_unique",
+    "salvage_diverged_recent",
+    "salvage_diverged_remote",
+    "salvage_diverged_local",
+}
 
 
 @dataclass(frozen=True)
@@ -636,6 +644,27 @@ def audit(
             recent_cutoff=recent_cutoff,
             remote_branch_exists=remote_exists,
         )
+        if (
+            not include_patch_equivalence
+            and not patch_equivalent
+            and category in SALVAGE_CATEGORIES
+        ):
+            patch_equivalent = is_patch_equivalent(root, base, branch)
+            if patch_equivalent:
+                category = classify(
+                    open_pr=prs.get(branch),
+                    active_paths=active_paths,
+                    dirty_paths=dirty_paths,
+                    ahead_count=ahead_count,
+                    behind_count=behind_count,
+                    merged_to_base=merged_to_base,
+                    patch_equivalent_to_base=patch_equivalent,
+                    handoff_receipt_exists=handoff_receipted,
+                    handoff_outbox_exists=handoff_outbox,
+                    committed_at=committed_at,
+                    recent_cutoff=recent_cutoff,
+                    remote_branch_exists=remote_exists,
+                )
         records.append(
             BranchRecord(
                 name=branch,
@@ -809,8 +838,9 @@ def build_parser() -> argparse.ArgumentParser:
         dest="include_patch_equivalence",
         action="store_false",
         help=(
-            "Skip git cherry patch-equivalence checks for a faster approximate audit; "
-            "zero-diff branch cleanup is still detected."
+            "Skip broad git cherry patch-equivalence checks for a faster approximate "
+            "audit; zero-diff cleanup and otherwise-unprotected salvage candidates "
+            "are still checked."
         ),
     )
     parser.add_argument(
