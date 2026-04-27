@@ -1026,6 +1026,16 @@ def _build_parser() -> argparse.ArgumentParser:
             "Defaults to the shared .aragora automation state root when available."
         ),
     )
+    parser.add_argument(
+        "--receipt-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Accepted for shared automation CLI compatibility. Branch publishing does "
+            "not consume receipts directly; receipt-aware filtering lives in the "
+            "backlog audit and handoff publisher helpers."
+        ),
+    )
     return parser
 
 
@@ -1081,6 +1091,7 @@ def main(argv: list[str] | None = None) -> int:
             "repo": str(repo_root),
             "base": args.base,
             "cutoff": cutoff.isoformat(),
+            "receipt_dir": str(args.receipt_dir) if args.receipt_dir else None,
             "open_pr_count": 0,
             "max_open_prs": args.max_open_prs,
             "github_health": github_health.to_dict(),
@@ -1134,6 +1145,7 @@ def main(argv: list[str] | None = None) -> int:
         "repo": str(repo_root),
         "base": args.base,
         "cutoff": cutoff.isoformat(),
+        "receipt_dir": str(args.receipt_dir) if args.receipt_dir else None,
         "open_pr_count": len(open_pr_heads),
         "max_open_prs": args.max_open_prs,
         "queue_health": {

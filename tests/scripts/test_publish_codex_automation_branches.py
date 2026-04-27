@@ -78,6 +78,15 @@ def test_parser_defaults_match_publisher_budget_constants() -> None:
     assert args.preflight_script == mod.DEFAULT_PREFLIGHT_SCRIPT
     assert args.outbox_dir is None
     assert args.allow_unhealthy_queue_publish is False
+    assert args.receipt_dir is None
+
+
+def test_parser_accepts_receipt_dir_for_shared_cli_compatibility(tmp_path: Path) -> None:
+    receipt_dir = tmp_path / "automation-receipts"
+
+    args = _build_parser().parse_args(["--receipt-dir", str(receipt_dir)])
+
+    assert args.receipt_dir == receipt_dir
 
 
 def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() -> None:
