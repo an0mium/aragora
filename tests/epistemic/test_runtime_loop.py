@@ -388,8 +388,12 @@ class TestBuildSyntheticCruxPayload:
     def test_required_payload_keys(self) -> None:
         p = _build_synthetic_crux_payload(_signal(), "Q")
         assert {
-            "cruxes", "total_claims", "total_disagreements",
-            "average_uncertainty", "convergence_barrier", "recommended_focus",
+            "cruxes",
+            "total_claims",
+            "total_disagreements",
+            "average_uncertainty",
+            "convergence_barrier",
+            "recommended_focus",
         }.issubset(set(p.keys()))
 
     def test_unresolved_crux_counts_in_total_disagreements(self) -> None:
