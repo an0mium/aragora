@@ -41,7 +41,9 @@ DEFAULT_LAUNCHD_START_TIMEOUT_SECONDS = 45.0
 DEFAULT_BOSS_TARGET_BRANCH = "main"
 DEFAULT_BOSS_WORKER_MODEL = "codex"
 DEFAULT_BOSS_REVIEW_MODEL = "codex"
-DEFAULT_BOSS_LABELS = ("autonomous", "boss-ready")
+# The proof-first queue reconciler keeps canonical work under boss-ready. Requiring
+# an extra "autonomous" label here silently makes the direct fallback see no work.
+DEFAULT_BOSS_LABELS = ("boss-ready",)
 DEFAULT_BOSS_MAX_TICKS = "200"
 DEFAULT_BOSS_INTERVAL_SECONDS = "90"
 DEFAULT_BOSS_MAX_CONSECUTIVE_FAILURES = "12"
@@ -761,6 +763,7 @@ def build_direct_boss_loop_command(*, repo: str) -> list[str]:
         "aragora.cli.main",
         "swarm",
         "boss-loop",
+        "--no-suitable-issue-keepalive",
         "--boss-repo",
         _env_or_default("BOSS_REPO", repo),
         "--target-branch",

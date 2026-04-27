@@ -684,7 +684,15 @@ def test_build_direct_boss_loop_command_uses_env_configuration() -> None:
     ):
         command = mod.build_direct_boss_loop_command(repo="ignored/repo")
 
-    assert command[:6] == [command[0], "-u", "-m", "aragora.cli.main", "swarm", "boss-loop"]
+    assert command[:7] == [
+        command[0],
+        "-u",
+        "-m",
+        "aragora.cli.main",
+        "swarm",
+        "boss-loop",
+        "--no-suitable-issue-keepalive",
+    ]
     assert (
         "--boss-repo" in command
         and command[command.index("--boss-repo") + 1] == "synaptent/aragora"
@@ -699,6 +707,15 @@ def test_build_direct_boss_loop_command_uses_env_configuration() -> None:
     assert command[command.index("--autonomy") + 1] == "guided"
     assert command[command.index("--max-hours") + 1] == "6"
     assert command[command.index("--boss-max-parallel-dispatches") + 1] == "2"
+
+
+def test_build_direct_boss_loop_command_defaults_to_canonical_boss_ready_label() -> None:
+    with patch.dict("os.environ", {"BOSS_LABELS": ""}, clear=False):
+        command = mod.build_direct_boss_loop_command(repo="synaptent/aragora")
+
+    labels = [command[index + 1] for index, token in enumerate(command) if token == "--label"]
+    assert labels == ["boss-ready"]
+    assert "--no-suitable-issue-keepalive" in command
 
 
 def test_launchd_start_timeout_uses_default_for_non_throttled_state() -> None:
