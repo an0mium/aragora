@@ -2,12 +2,18 @@
   "schema_version": 1,
   "entries": [
     {
-      "issue": 5839,
-      "track": "TW-02",
-      "corpus": "tw-01-bounded-execution-v1",
-      "revision": "rev-1",
-      "status": "restock_pending",
-      "action": "Retire or replace stale closed issues before the next recurring benchmark truth publication."
+      "corpus_id": "tw-01-bounded-execution-v1",
+      "revision": 4,
+      "stale_issue_numbers": [
+        5844,
+        5903,
+        5887
+      ],
+      "target_kind": "issue",
+      "target": "#5839",
+      "title": "[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-1",
+      "url": "https://github.com/synaptent/aragora/issues/5839",
+      "notes": "Follow-up retained for the recurring TW-02 status surface after rev-4 retired the stale rev-3 corpus members."
     }
   ]
 }
