@@ -1010,12 +1010,30 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip the automation PR preflight before publishing.",
     )
     parser.add_argument(
+        "--allow-unhealthy-queue-publish",
+        action="store_true",
+        help=(
+            "Publish otherwise eligible, preflighted branches even when every existing "
+            "open codex PR is unhealthy. Still respects --limit and --max-open-prs."
+        ),
+    )
+    parser.add_argument(
         "--outbox-dir",
         type=Path,
         default=None,
         help=(
             "Automation outbox directory used to skip locally superseded branches. "
             "Defaults to the shared .aragora automation state root when available."
+        ),
+    )
+    parser.add_argument(
+        "--receipt-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Accepted for shared automation CLI compatibility. Branch publishing does "
+            "not consume receipts directly; receipt-aware filtering lives in the "
+            "backlog audit and handoff publisher helpers."
         ),
     )
     return parser
@@ -1073,6 +1091,7 @@ def main(argv: list[str] | None = None) -> int:
             "repo": str(repo_root),
             "base": args.base,
             "cutoff": cutoff.isoformat(),
+            "receipt_dir": str(args.receipt_dir) if args.receipt_dir else None,
             "open_pr_count": 0,
             "max_open_prs": args.max_open_prs,
             "github_health": github_health.to_dict(),
@@ -1126,6 +1145,7 @@ def main(argv: list[str] | None = None) -> int:
         "repo": str(repo_root),
         "base": args.base,
         "cutoff": cutoff.isoformat(),
+        "receipt_dir": str(args.receipt_dir) if args.receipt_dir else None,
         "open_pr_count": len(open_pr_heads),
         "max_open_prs": args.max_open_prs,
         "queue_health": {
@@ -1139,10 +1159,12 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     if args.apply:
-        if all_open_prs_unhealthy:
+        if all_open_prs_unhealthy and not args.allow_unhealthy_queue_publish:
             payload["published"] = []
             payload["publish_paused_reason"] = "open_pr_queue_unhealthy"
         else:
+            if all_open_prs_unhealthy and args.allow_unhealthy_queue_publish:
+                payload["publish_override_reason"] = "allow_unhealthy_queue_publish"
             published = _publish_decisions(
                 repo_root,
                 args.github_repo,

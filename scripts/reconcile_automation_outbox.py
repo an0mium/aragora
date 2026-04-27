@@ -16,14 +16,17 @@ This script:
   4. Reports counts before/after
 
 Read-only by default (--dry-run); pass --apply to actually move files.
+Dry-run reports are printed to stdout; pass --write-report to persist a JSON report.
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import shutil
 import sys
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -82,6 +85,48 @@ def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
     return keys
 
 
+def _mapping_from_action(value: Any) -> Mapping[str, Any] | None:
+    if isinstance(value, Mapping):
+        return value
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not (text.startswith("{") and text.endswith("}")):
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        parsed = None
+    if isinstance(parsed, Mapping):
+        return parsed
+
+    try:
+        parsed = ast.literal_eval(text)
+    except (SyntaxError, ValueError):
+        return None
+    if isinstance(parsed, Mapping):
+        return parsed
+    return None
+
+
+def _branch_from_payload(payload: dict[str, Any]) -> str:
+    """Extract a branch from outbox payloads with historical shape drift."""
+    local_evidence = payload.get("local_evidence")
+    if isinstance(local_evidence, Mapping):
+        branch = str(local_evidence.get("branch") or "").strip()
+        if branch:
+            return branch
+
+    branch = str(payload.get("branch") or "").strip()
+    if branch:
+        return branch
+
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is not None:
+        return str(requested_action.get("branch") or "").strip()
+    return ""
+
+
 def _write_synthetic_receipt(
     *,
     receipt_dir: Path,
@@ -135,6 +180,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Move satisfied outbox files (default is dry-run)",
     )
+    parser.add_argument(
+        "--write-report",
+        action="store_true",
+        help=(
+            "Persist a JSON reconciliation report during dry-run. Apply mode always writes "
+            "the report."
+        ),
+    )
     args = parser.parse_args(argv)
 
     root = Path(args.repo).resolve()
@@ -183,8 +236,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         payload["__source_file"] = str(path)
         idem = str(payload.get("idempotency_key") or "").strip()
-        branch = payload.get("local_evidence", {}).get("branch") or payload.get("branch") or ""
-        branch = str(branch).strip()
+        branch = _branch_from_payload(payload)
 
         if not idem or not branch:
             counts["skipped_unparseable"] += 1
@@ -284,17 +336,23 @@ def main(argv: list[str] | None = None) -> int:
     kept = sum(1 for a in actions if a["decision"] == "keep")
     print(f"\n  total: {archived} archived, {kept} kept")
 
-    state_dir = root / ".aragora" / "cleanup-state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    out = state_dir / f"outbox-reconciliation-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.json"
-    out.write_text(
-        json.dumps(
-            {"counts": counts, "actions": actions, "applied": args.apply},
-            indent=2,
-            sort_keys=True,
+    should_write_report = args.apply or args.write_report
+    if should_write_report:
+        state_dir = root / ".aragora" / "cleanup-state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        out = (
+            state_dir / f"outbox-reconciliation-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.json"
         )
-    )
-    print(f"\n  report: {out}")
+        out.write_text(
+            json.dumps(
+                {"counts": counts, "actions": actions, "applied": args.apply},
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        print(f"\n  report: {out}")
+    else:
+        print("\n  report: not written in dry-run; pass --write-report to persist one.")
     if not args.apply:
         print("\n  DRY-RUN — re-run with --apply to actually archive files.")
     return 0

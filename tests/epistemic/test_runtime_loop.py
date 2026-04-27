@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from aragora.epistemic.decay_monitor import DecayReason, DecaySignal
@@ -9,6 +11,7 @@ from aragora.epistemic.quarantine_policy import QuarantinePolicy
 from aragora.epistemic.runtime_loop import (
     DialecticalEvent,
     DialecticalRuntimeError,
+    _build_synthetic_crux_payload,
     dialectical_runtime_enabled,
     run_dialectical_loop,
 )
@@ -262,3 +265,160 @@ class TestSerialization:
         assert d["repair_spec"] is not None
         assert isinstance(d["repair_spec"], dict)
         assert "spec_id" in d["repair_spec"]
+
+
+# ---------------------------------------------------------------------------
+# Crux probe (DIC-23 + DIC-15 integration)
+# Tests patch _attempt_crux_probe directly to avoid the pydantic-dependent
+# cruxset_emission import chain (pre-existing CI gap; unrelated to this slice).
+# ---------------------------------------------------------------------------
+
+_FAKE_PROBE = {
+    "cruxset_id": "fake-cs-001",
+    "crux_count": 2,
+    "top_crux_ids": ["crux.fake.001"],
+    "convergence_barrier": 0.65,
+}
+
+
+def _probe_event(
+    signal: DecaySignal | None = None,
+    *,
+    probe_result: dict | None = None,
+    extra_metadata: dict | None = None,
+    question: str = "Is the proof still valid?",
+) -> DialecticalEvent:
+    import aragora.epistemic.runtime_loop as _m
+
+    with patch.object(_m, "_attempt_crux_probe", return_value=probe_result or dict(_FAKE_PROBE)):
+        return run_dialectical_loop(
+            signal or _signal(),
+            enable_crux_probe=True,
+            crux_question=question,
+            metadata=extra_metadata or {},
+            require_enabled=False,
+        )
+
+
+class TestCruxProbe:
+    """Gate and result verification for the crux-probe (DIC-23 + DIC-15) integration."""
+
+    # --- disabled/skipped paths ---
+
+    def test_skipped_by_default(self) -> None:
+        e = run_dialectical_loop(_signal(), require_enabled=False)
+        assert e.crux_probe_skipped is True
+        assert "crux_probe" not in e.metadata
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"enable_crux_probe": False, "crux_question": "Q"},
+            {"enable_crux_probe": True, "crux_question": None},
+            {"enable_crux_probe": True, "crux_question": "   "},
+        ],
+    )
+    def test_skipped_for_missing_or_empty_question(self, kwargs: dict) -> None:
+        e = run_dialectical_loop(_signal(), **kwargs, require_enabled=False)
+        assert e.crux_probe_skipped is True
+
+    def test_skipped_when_attempt_returns_none(self) -> None:
+        e = _probe_event(probe_result=None)
+        assert e.crux_probe_skipped is True
+        assert "crux_probe" not in e.metadata
+
+    def test_skipped_when_attempt_raises(self) -> None:
+        import aragora.epistemic.runtime_loop as _m
+
+        with patch.object(_m, "_attempt_crux_probe", side_effect=RuntimeError("boom")):
+            e = run_dialectical_loop(
+                _signal(), enable_crux_probe=True, crux_question="Q", require_enabled=False
+            )
+        assert e.crux_probe_skipped is True
+
+    # --- enabled paths ---
+
+    def test_not_skipped_and_metadata_present(self) -> None:
+        e = _probe_event()
+        assert e.crux_probe_skipped is False
+        assert "crux_probe" in e.metadata
+
+    def test_metadata_summary_shape(self) -> None:
+        e = _probe_event()
+        cp = e.metadata["crux_probe"]
+        assert cp["cruxset_id"] == "fake-cs-001"
+        assert cp["crux_count"] == 2
+        assert isinstance(cp["top_crux_ids"], list)
+        assert cp["convergence_barrier"] == 0.65
+
+    def test_does_not_overwrite_existing_metadata(self) -> None:
+        e = _probe_event(extra_metadata={"source": "caller"})
+        assert e.metadata["source"] == "caller"
+        assert e.metadata["crux_probe"]["cruxset_id"] == "fake-cs-001"
+
+    def test_to_dict_reflects_not_skipped(self) -> None:
+        d = _probe_event().to_dict()
+        assert d["crux_probe_skipped"] is False
+        assert d["metadata"]["crux_probe"]["cruxset_id"] == "fake-cs-001"
+
+
+# ---------------------------------------------------------------------------
+# _build_synthetic_crux_payload unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestBuildSyntheticCruxPayload:
+    def test_one_crux_per_reason(self) -> None:
+        sig = _signal(
+            reasons=[
+                DecayReason(kind="failed_claim", detail="A", claim_id="c1"),
+                DecayReason(kind="stale_evidence", detail="B"),
+            ]
+        )
+        p = _build_synthetic_crux_payload(sig, "Q")
+        assert len(p["cruxes"]) == 2
+        assert p["cruxes"][0]["crux_score"] == 0.85
+        assert p["cruxes"][1]["crux_score"] == 0.60
+
+    def test_no_reasons_produces_one_root_cause_crux(self) -> None:
+        p = _build_synthetic_crux_payload(_signal(integrity_score=0.4, reasons=[]), "Q")
+        assert len(p["cruxes"]) == 1
+        assert "unit.test" in p["cruxes"][0]["claim_id"]
+
+    def test_required_payload_keys(self) -> None:
+        p = _build_synthetic_crux_payload(_signal(), "Q")
+        assert {
+            "cruxes",
+            "total_claims",
+            "total_disagreements",
+            "average_uncertainty",
+            "convergence_barrier",
+            "recommended_focus",
+        }.issubset(set(p.keys()))
+
+    def test_unresolved_crux_counts_in_total_disagreements(self) -> None:
+        sig = _signal(
+            reasons=[
+                DecayReason(kind="unresolved_crux", detail="x", crux_id="crux.x"),
+                DecayReason(kind="unresolved_crux", detail="y", crux_id="crux.y"),
+                DecayReason(kind="failed_claim", detail="z"),
+            ]
+        )
+        p = _build_synthetic_crux_payload(sig, "Q")
+        assert p["total_disagreements"] == 2
+        assert p["total_claims"] == 3
+
+    def test_claim_and_crux_id_preference(self) -> None:
+        sig = _signal(
+            reasons=[
+                DecayReason(kind="failed_claim", detail="a", claim_id="my.claim"),
+                DecayReason(kind="unresolved_crux", detail="b", crux_id="my.crux"),
+            ]
+        )
+        p = _build_synthetic_crux_payload(sig, "Q")
+        assert p["cruxes"][0]["claim_id"] == "my.claim"
+        assert p["cruxes"][1]["claim_id"] == "my.crux"
+
+    def test_recommended_focus_capped_at_three(self) -> None:
+        sig = _signal(reasons=[DecayReason(kind="failed_claim", detail=f"r{i}") for i in range(5)])
+        assert len(_build_synthetic_crux_payload(sig, "Q")["recommended_focus"]) <= 3

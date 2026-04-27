@@ -11,6 +11,7 @@ Provides REST APIs for the main dashboard:
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
@@ -18,6 +19,10 @@ if TYPE_CHECKING:
 PeriodType = Literal["day", "week", "month"]
 PriorityType = Literal["critical", "high", "medium", "low"]
 ChangeType = Literal["increase", "decrease", "neutral"]
+
+
+def _quote_path_segment(value: str) -> str:
+    return quote(str(value), safe="")
 
 
 class DashboardAPI:
@@ -339,6 +344,36 @@ class DashboardAPI:
     def get_ralph_blockers(self) -> dict[str, Any]:
         """Get aggregate Ralph blocker breakdown."""
         return self._client.request("GET", "/api/v1/ralph/blockers")
+
+    def get_ralph_campaign(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign detail."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}")
+
+    def get_ralph_campaign_timeline(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign timeline."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}/timeline")
+
+    def get_ralph_campaign_blockers(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign blocker breakdown."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}/blockers")
+
+    def get_ralph_campaign_repairs(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign repair stats."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}/repairs")
+
+    def get_ralph_campaign_budget(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign budget summary."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}/budget")
+
+    def get_ralph_campaign_pr_gate(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign PR gate status."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}/pr-gate")
 
     # --- Write Operations ---
 
@@ -890,6 +925,36 @@ class AsyncDashboardAPI:
     async def get_ralph_blockers(self) -> dict[str, Any]:
         """Get aggregate Ralph blocker breakdown."""
         return await self._client.request("GET", "/api/v1/ralph/blockers")
+
+    async def get_ralph_campaign(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign detail."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return await self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}")
+
+    async def get_ralph_campaign_timeline(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign timeline."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return await self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}/timeline")
+
+    async def get_ralph_campaign_blockers(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign blocker breakdown."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return await self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}/blockers")
+
+    async def get_ralph_campaign_repairs(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign repair stats."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return await self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}/repairs")
+
+    async def get_ralph_campaign_budget(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign budget summary."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return await self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}/budget")
+
+    async def get_ralph_campaign_pr_gate(self, campaign_id: str) -> dict[str, Any]:
+        """Get Ralph campaign PR gate status."""
+        encoded_id = _quote_path_segment(campaign_id)
+        return await self._client.request("GET", f"/api/v1/ralph/campaigns/{encoded_id}/pr-gate")
 
     # --- Write Operations ---
 

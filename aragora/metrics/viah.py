@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -251,7 +252,7 @@ def _sum_rescue_counts(entries: list[LedgerEntry]) -> int:
             continue
         raw = entry.payload.get("rescue_count")
         try:
-            total += int(raw)
+            total += int(raw)  # type: ignore[arg-type]
         except (TypeError, ValueError):
             continue
     return total
@@ -311,6 +312,150 @@ def _agent_hours_from_shifts(
     return total_hours
 
 
+VIAH_TREND_FLAG = "ARAGORA_VIAH_TREND_ENABLED"
+
+
+def viah_trend_enabled() -> bool:
+    """Return True when the rolling VIAH trend surface is explicitly enabled.
+
+    Reads ``ARAGORA_VIAH_TREND_ENABLED`` from the environment.  Defaults to
+    False so the surface is dormant until the AGT-06 activation gate opens.
+    """
+    return str(os.environ.get(VIAH_TREND_FLAG) or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+@dataclass(frozen=True)
+class ViahTrendPoint:
+    """Single-week VIAH measurement within a rolling trend."""
+
+    week_index: int
+    window_start: str
+    window_end: str
+    viah: float | None
+    merged_autonomous_prs: int
+    agent_hours: float
+
+
+@dataclass(frozen=True)
+class ViahTrend:
+    """Rolling VIAH trend over N consecutive weeks.
+
+    ``trend_direction`` is derived from the slope of scored (non-None)
+    week VIAHs.  Values: ``"positive"``, ``"flat"``, ``"negative"``,
+    ``"insufficient_data"`` (< 2 scored weeks).
+    """
+
+    weeks_requested: int
+    points: list[ViahTrendPoint]
+    trend_direction: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "weeks_requested": self.weeks_requested,
+            "trend_direction": self.trend_direction,
+            "points": [
+                {
+                    "week_index": p.week_index,
+                    "window_start": p.window_start,
+                    "window_end": p.window_end,
+                    "viah": p.viah,
+                    "merged_autonomous_prs": p.merged_autonomous_prs,
+                    "agent_hours": p.agent_hours,
+                }
+                for p in self.points
+            ],
+        }
+
+
+def _trend_direction(points: list[ViahTrendPoint]) -> str:
+    """Classify trend direction from a list of weekly VIAH points.
+
+    Uses ordinary-least-squares slope over the scored (non-None) points.
+    Returns ``"insufficient_data"`` when fewer than 2 points have a score.
+    A slope within ±0.02 VIAH/week is considered flat.
+    """
+    scored = [(p.week_index, p.viah) for p in points if p.viah is not None]
+    if len(scored) < 2:
+        return "insufficient_data"
+    n = len(scored)
+    xs = [float(i) for i, _ in scored]
+    ys = [v for _, v in scored]  # type: ignore[misc]
+    x_mean = sum(xs) / n
+    y_mean = sum(ys) / n
+    num = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(xs, ys))
+    den = sum((xi - x_mean) ** 2 for xi in xs)
+    slope = (num / den) if den != 0.0 else 0.0
+    if slope > 0.02:
+        return "positive"
+    if slope < -0.02:
+        return "negative"
+    return "flat"
+
+
+def rolling_viah_trend(
+    *,
+    ledger: ShiftLedger,
+    weeks: int = 4,
+    week_hours: float = 168.0,
+    now: datetime | None = None,
+    coefficients: ViahCoefficients | None = None,
+) -> ViahTrend:
+    """Compute rolling VIAH trend over ``weeks`` consecutive one-week windows.
+
+    Windows are numbered 0 (oldest) … ``weeks-1`` (most recent), where
+    week 0 ends at ``now - (weeks-1) * week_hours`` and week ``weeks-1``
+    ends at ``now``.
+
+    Gated behind ``ARAGORA_VIAH_TREND_ENABLED``.  Raises ``RuntimeError``
+    when the flag is not set so callers fail loudly instead of silently
+    returning empty data.
+
+    Sidecar signals (crux-correctness, prediction resolutions, failed
+    claims) default to zero — they are wired by AGT-05 once live.
+    """
+    if not viah_trend_enabled():
+        raise RuntimeError(
+            f"rolling VIAH trend surface is disabled; set {VIAH_TREND_FLAG}=1 to enable"
+        )
+    if weeks < 1:
+        raise ValueError("weeks must be >= 1")
+
+    reference = (now or datetime.now(tz=UTC)).astimezone(UTC)
+    points: list[ViahTrendPoint] = []
+
+    for idx in range(weeks):
+        # week 0 is the oldest; week weeks-1 is the most recent
+        offset_from_now = (weeks - 1 - idx) * week_hours
+        week_end = reference - timedelta(hours=offset_from_now)
+        report = compute_viah(
+            ledger=ledger,
+            window_hours=week_hours,
+            now=week_end,
+            coefficients=coefficients,
+        )
+        points.append(
+            ViahTrendPoint(
+                week_index=idx,
+                window_start=report.window_start,
+                window_end=report.window_end,
+                viah=report.viah,
+                merged_autonomous_prs=report.merged_autonomous_prs,
+                agent_hours=report.agent_hours,
+            )
+        )
+
+    return ViahTrend(
+        weeks_requested=weeks,
+        points=points,
+        trend_direction=_trend_direction(points),
+    )
+
+
 __all__ = [
     "DEFAULT_BRIER_THRESHOLD",
     "DEFAULT_CRUX_WEIGHT",
@@ -318,8 +463,13 @@ __all__ = [
     "DEFAULT_PREDICTION_WEIGHT",
     "DEFAULT_PR_WEIGHT",
     "DEFAULT_RESCUE_WEIGHT",
+    "VIAH_TREND_FLAG",
     "ViahCoefficients",
     "ViahReport",
+    "ViahTrend",
+    "ViahTrendPoint",
     "compute_viah",
+    "rolling_viah_trend",
     "viah_score",
+    "viah_trend_enabled",
 ]

@@ -134,6 +134,7 @@ Design brief: [2026-04-19 PR Intelligence Brief](2026-04-19-pr-intelligence-brie
 - define what a trustworthy 12-hour bounded run looks like
 - run repeat soak tests on the bounded backlog
 - use measured rescue rate, verification pass rate, and terminal truth composition as gates
+- cheap-signal-to-verification routing (bounded benchmark, planning-truth only): treat "route by cheap signal, verify under full debate only on high-value or high-disagreement inputs" as a **benchmarked decision policy** on the existing bounded corpus, not a philosophy — acceptance is a labelled comparison on the same fixed benchmark that shows (a) measured cost reduction, (b) no regression in rescue rate / verification pass rate, and (c) a routing-decision receipt trail that lets an operator audit every cheap-route call. No `boss-ready` and no admission gate changes until the proof-first Foreman gate opens per [NEXT_STEPS_CANONICAL.md](./next-steps-canonical).
 
 ### Track C — Unified DAG Workbench (Parallel Second Track)
 
@@ -172,6 +173,7 @@ This track turns knowledge into a reliable advantage instead of an opaque depend
 - store trust tier, provenance, and access boundaries for memory items
 - distinguish operator instruction from retrieved context
 - carry taint/provenance annotations into specs, debates, and receipts
+- design heuristic: treat session-scoped retrieval caches, KM writes, and long-horizon claim stores as distinct timescales that must declare cross-tier consolidation paths explicitly — silent merges are a finding. Non-canonical framing and analogies live in the [biological-timescale analogies research brief](../research/2026-04-18-biological-timescale-analogies-brief.md); the heuristic itself is a D-track design rule, not a new subsystem.
 
 #### D2. Large-Context Packing
 
@@ -200,6 +202,7 @@ This track preserves Aragora's core differentiation from generic agent platforms
 - improve truth weighting, dissent capture, and hollow-consensus detection
 - extend benchmark coverage across both decision and execution workflows
 - show debate quality signals inside receipts and operator views
+- measure whether *pre-consensus disagreement patterns* (not only final dissent) predict later settlement or correction — success criterion is a benchmark artifact showing disagreement-feature correlation with settled-outcome divergence on the existing bounded corpus; planning truth only, and acceptance must land a measurable correlation before any routing consumer is wired. This is a narrow E1 measurement, not a new subsystem; it enters the `boss-ready` queue only after the proof-first Foreman gate opens per [NEXT_STEPS_CANONICAL.md](./next-steps-canonical).
 
 #### E2. External Verification and Policy Gates
 
@@ -265,6 +268,7 @@ Detailed plan: [2026-04-17-prediction-market-validation](2026-04-17-prediction-m
 - per-domain reputation slices (prediction calibration, debate truthfulness, code-PR success, KM contribution, crux resolution)
 - soft dispatch downweighting by default; hard suspension only on explicit policy
 - settlement-window enforcement, dispute path, and reversal handling for re-opened resolutions
+- strategy-decay slice (planning-truth sub-bullet): when a reputation slice depends on an agent's participation in a specific exploit strategy that becomes publicly known or measurably crowded, the slice decays faster — acceptance is a benchmark artifact showing measured decay behaviour on a receipt-backed synthetic corpus; sub-item to G3 rather than a new surface; planning-truth only, no `boss-ready` until the Foreman gate opens.
 
 Detailed plan: [SKIN_IN_THE_GAME_REPUTATION](SKIN_IN_THE_GAME_REPUTATION.md).
 
@@ -281,6 +285,7 @@ Detailed plan: [SKIN_IN_THE_GAME_REPUTATION](SKIN_IN_THE_GAME_REPUTATION.md).
 - promote `aragora/reasoning/crux_detector.py` from latent capability to first-class debate goal
 - emit ranked CruxSet on production debate path under flag, then default-on
 - bridges to DIC-15 (CruxSet contract) and Issue [#6035](https://github.com/synaptent/aragora/issues/6035) (crux-finder mode epic)
+- diversity-as-selection-pressure sub-bullet: extend `team_selector.py` with a measured diversity floor (pairwise disagreement entropy + provider-family share) on top of ELO + calibration — acceptance is a benchmark artifact showing that greedy-quality selection produces measurably homogenized failure modes which the diversity floor reduces; narrow extension of existing selection code; planning-truth only, no `boss-ready` until the Foreman gate opens.
 
 ### Track F — Trust-Wedge Productization and GTM
 

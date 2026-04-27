@@ -34,6 +34,10 @@ from aragora.reputation.crux_bridge import (
     CruxResolutionEvent,
     bridge_from_crux_position,
 )
+from aragora.reputation.selection_bridge import (
+    ReputationBridgeConfig,
+    ReputationCalibrationBridge,
+)
 from aragora.reputation.settlement import settle_claim
 from aragora.reputation.store import (
     AgentScore,
@@ -75,6 +79,9 @@ __all__ = [
     "enable_reputation_flow",
     "reputation_flow_enabled",
     "settle_claim",
+    # selection bridge (AGT-05 dispatch eligibility)
+    "ReputationBridgeConfig",
+    "ReputationCalibrationBridge",
     # store
     "AgentScore",
     "ReputationStore",

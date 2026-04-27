@@ -302,6 +302,46 @@ def test_load_outbox_handoffs_deduplicates_unresolved_branch_handoffs(
     assert handoffs[0].source_file == str(newer)
 
 
+def test_load_outbox_handoffs_deduplicates_pr_action_aliases_for_same_branch(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    older = outbox / "older.json"
+    newer = outbox / "newer.json"
+    older.write_text(
+        json.dumps(
+            _outbox_payload(
+                task="Publish older branch snapshot",
+                requested_action="open_pr",
+                idempotency_key="open-pr-codex-example-old",
+                local_evidence={"branch": "codex/example", "head": "abc123"},
+            )
+        ),
+        encoding="utf-8",
+    )
+    newer.write_text(
+        json.dumps(
+            _outbox_payload(
+                task="Publish newer branch snapshot",
+                requested_action="push_branch_and_open_or_update_pr",
+                idempotency_key="open-pr-codex-example-new",
+                local_evidence={"branch": "codex/example", "head": "def456"},
+            )
+        ),
+        encoding="utf-8",
+    )
+    os.utime(older, (1_000, 1_000))
+    os.utime(newer, (2_000, 2_000))
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].task_title == "Publish newer branch snapshot"
+    assert handoffs[0].idempotency_key == "open-pr-codex-example-new"
+    assert handoffs[0].source_file == str(newer)
+
+
 def test_load_outbox_handoffs_deduplicates_top_level_branch_handoffs(
     tmp_path: Path,
 ) -> None:
@@ -326,6 +366,52 @@ def test_load_outbox_handoffs_deduplicates_top_level_branch_handoffs(
                 task="Publish newer branch snapshot",
                 idempotency_key="open-pr-codex-example-new",
                 local_evidence={"branch": "codex/example", "head": "def456"},
+            )
+        ),
+        encoding="utf-8",
+    )
+    os.utime(older, (1_000, 1_000))
+    os.utime(newer, (2_000, 2_000))
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].task_title == "Publish newer branch snapshot"
+    assert handoffs[0].idempotency_key == "open-pr-codex-example-new"
+    assert handoffs[0].source_file == str(newer)
+
+
+def test_load_outbox_handoffs_deduplicates_structured_action_branch_handoffs(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    older = outbox / "older.json"
+    newer = outbox / "newer.json"
+    older.write_text(
+        json.dumps(
+            _outbox_payload(
+                task="Publish older branch snapshot",
+                requested_action={
+                    "type": "open_pull_request",
+                    "branch": "codex/example",
+                    "base": "main",
+                },
+                idempotency_key="open-pr-codex-example-old",
+            )
+        ),
+        encoding="utf-8",
+    )
+    newer.write_text(
+        json.dumps(
+            _outbox_payload(
+                task="Publish newer branch snapshot",
+                requested_action={
+                    "type": "open_pull_request",
+                    "branch": "codex/example",
+                    "base": "main",
+                },
+                idempotency_key="open-pr-codex-example-new",
             )
         ),
         encoding="utf-8",
@@ -449,6 +535,62 @@ def test_load_outbox_handoffs_skips_merged_push_branch_request(tmp_path: Path) -
                 repo="synaptent/aragora",
                 requested_action="push_branch_and_open_pr",
                 idempotency_key="open-pr-codex-example-merged-push",
+                local_evidence={
+                    "branch": "codex/example",
+                    "head_sha": head,
+                    "base": "main",
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod.load_outbox_handoffs(repo) == []
+
+
+def test_load_outbox_handoffs_skips_merged_open_or_update_pull_request(
+    tmp_path: Path,
+) -> None:
+    repo, head = _repo_with_merged_codex_branch(tmp_path)
+    outbox = repo / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "merged-open-or-update.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                repo="synaptent/aragora",
+                requested_action="open_or_update_pull_request",
+                idempotency_key="open-pr-codex-example-open-or-update",
+                local_evidence={
+                    "branch": "codex/example",
+                    "head_sha": head,
+                    "base": "main",
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod.load_outbox_handoffs(repo) == []
+
+
+def test_load_outbox_handoffs_skips_merged_structured_pr_action_string(
+    tmp_path: Path,
+) -> None:
+    repo, head = _repo_with_merged_codex_branch(tmp_path)
+    outbox = repo / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "merged-structured-action.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                repo="synaptent/aragora",
+                requested_action=str(
+                    {
+                        "type": "open_pull_request",
+                        "branch": "codex/example",
+                        "base": "main",
+                    }
+                ),
+                idempotency_key="open-pr-codex-example-structured-action",
                 local_evidence={
                     "branch": "codex/example",
                     "head_sha": head,
@@ -778,6 +920,67 @@ def test_decide_handoffs_routes_explicit_pr_followup_before_issue_cap(
     ]
 
 
+def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "outbox.json"),
+        task_title="Open PR for branch publisher receipt-dir CLI compatibility",
+        priority="HIGH",
+        body="body",
+        labels={},
+        expires_at=None,
+        source_kind="outbox",
+        branch="codex/branch-publisher-receipt-dir-compat",
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, json.dumps([{"number": 1}]), "")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "pr", "list"] and "--head" in args:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 6741,
+                            "title": "fix(automation): accept branch publisher receipt dir flag",
+                            "url": "https://github.com/synaptent/aragora/pull/6741",
+                            "state": "OPEN",
+                            "headRefName": "codex/branch-publisher-receipt-dir-compat",
+                        }
+                    ]
+                ),
+                "",
+            )
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=1,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="target_open_pr",
+            existing_pr_url="https://github.com/synaptent/aragora/pull/6741",
+        )
+    ]
+
+
 def test_decide_handoffs_respects_open_issue_cap(monkeypatch: Any, tmp_path: Path) -> None:
     handoff = Handoff(
         source_file=str(tmp_path / "memory.md"),
@@ -986,6 +1189,56 @@ def test_main_preview_does_not_write_outbox_receipt(
     assert '"reason": "existing_issue"' in capsys.readouterr().out
 
 
+def test_main_derives_outbox_dirs_from_explicit_aragora_state_root(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    state_root = tmp_path / ".aragora"
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: tmp_path / "worktree")
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
+
+    def fake_load_outbox_handoffs(
+        repo_root: Path,
+        outbox_dir: Path | None = None,
+        receipt_dir: Path | None = None,
+    ) -> list[Handoff]:
+        captured["repo_root"] = repo_root
+        captured["outbox_dir"] = outbox_dir
+        captured["receipt_dir"] = receipt_dir
+        return []
+
+    monkeypatch.setattr(mod, "load_outbox_handoffs", fake_load_outbox_handoffs)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(repo_root),
+        ),
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path),
+            "--state-root",
+            str(state_root),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 1
+    assert captured["outbox_dir"] == (state_root / "automation-outbox").resolve()
+    assert captured["receipt_dir"] == (state_root / "automation-receipts").resolve()
+    assert str((state_root / "automation-outbox").resolve()) in capsys.readouterr().out
+
+
 def test_main_reports_github_health_when_unavailable(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:
@@ -1049,3 +1302,34 @@ def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path)
 
     assert len(bodies[0]) <= mod.MAX_ISSUE_BODY_CHARS
     assert "truncated this issue body" in bodies[0]
+
+
+def test_create_issue_preserves_boundary_sized_body(monkeypatch: Any, tmp_path: Path) -> None:
+    bodies: list[str] = []
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "create"]:
+            bodies.append(args[args.index("--body") + 1])
+            return subprocess.CompletedProcess(
+                args, 0, "https://github.com/synaptent/aragora/issues/6001\n", ""
+            )
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+    body = "x" * mod.MAX_ISSUE_BODY_CHARS
+
+    mod._create_issue(
+        tmp_path,
+        "synaptent/aragora",
+        Handoff(
+            source_file=str(tmp_path / "memory.md"),
+            task_title="Boundary sized issue body",
+            priority="HIGH",
+            body=body,
+            labels={},
+            expires_at=None,
+        ),
+        labels=["boss-ready"],
+    )
+
+    assert bodies == [body]

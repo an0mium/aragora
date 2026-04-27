@@ -40,6 +40,12 @@ class RalphDashboardHandler(BaseHandler):
 
     ROUTES = [
         "/api/ralph/campaigns",
+        "/api/ralph/campaigns/{campaign_id}",
+        "/api/ralph/campaigns/{campaign_id}/timeline",
+        "/api/ralph/campaigns/{campaign_id}/blockers",
+        "/api/ralph/campaigns/{campaign_id}/repairs",
+        "/api/ralph/campaigns/{campaign_id}/budget",
+        "/api/ralph/campaigns/{campaign_id}/pr-gate",
         "/api/ralph/overview",
         "/api/ralph/blockers",
     ]

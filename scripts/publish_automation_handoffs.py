@@ -11,6 +11,7 @@ issue records with ``gh``.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -38,7 +39,17 @@ MAX_ISSUE_BODY_CHARS = 60_000
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_BASE_REF = "origin/main"
-PR_OPEN_REQUEST_ACTIONS = {"open_pr", "push_branch_and_open_pr"}
+PR_OPEN_REQUEST_CANONICAL_ACTION = "open_pr"
+PR_OPEN_REQUEST_ACTIONS = {
+    "open_pr",
+    "open_pull_request",
+    "open_or_update_pr",
+    "open_or_update_pull_request",
+    "push_branch_and_open_pr",
+    "push_branch_and_open_pull_request",
+    "push_branch_and_open_or_update_pr",
+    "push_branch_and_open_or_update_pull_request",
+}
 REQUIRED_OUTBOX_KEYS = (
     "task",
     "requires_github",
@@ -135,6 +146,7 @@ class Handoff:
     expires_at: str | None
     idempotency_key: str | None = None
     source_kind: str = "memory"
+    branch: str | None = None
 
 
 @dataclass(frozen=True)
@@ -245,6 +257,13 @@ def _automation_state_path(root: Path, path: Path | None, default_relative: Path
     if path is not None:
         return _repo_relative(root, path)
     return _automation_state_root(root) / default_relative
+
+
+def _automation_state_default_path(state_root: Path, default_relative: Path) -> Path:
+    expanded = state_root.expanduser()
+    if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
+        return expanded.joinpath(*default_relative.parts[1:])
+    return expanded / default_relative
 
 
 def _memory_files(codex_home: Path, automation_ids: set[str] | None = None) -> list[Path]:
@@ -491,11 +510,59 @@ def _outbox_evidence_value(payload: dict[str, Any], key: str) -> str:
         value = str(local_evidence.get(key) or "").strip()
         if value:
             return value
+    requested_action = _structured_action(payload.get("requested_action"))
+    if requested_action is not None:
+        value = str(requested_action.get(key) or "").strip()
+        if value:
+            return value
     return str(payload.get(key) or "").strip()
 
 
+def _structured_action(value: Any) -> Mapping[str, Any] | None:
+    if isinstance(value, Mapping):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("{") and text.endswith("}"):
+            try:
+                parsed = ast.literal_eval(text)
+            except (SyntaxError, ValueError):
+                return None
+            if isinstance(parsed, Mapping):
+                return parsed
+    return None
+
+
+def _normalized_requested_action(value: Any) -> str:
+    structured = _structured_action(value)
+    if structured is not None:
+        action = str(
+            structured.get("type")
+            or structured.get("action")
+            or structured.get("requested_action")
+            or ""
+        )
+    elif isinstance(value, str):
+        text = value.strip()
+        action = text
+    else:
+        action = str(value or "")
+
+    normalized = action.strip().lower().replace("-", "_")
+    if normalized in PR_OPEN_REQUEST_ACTIONS:
+        return PR_OPEN_REQUEST_CANONICAL_ACTION
+    return normalized
+
+
+def _is_pr_open_request(payload: dict[str, Any]) -> bool:
+    return (
+        _normalized_requested_action(payload.get("requested_action"))
+        == PR_OPEN_REQUEST_CANONICAL_ACTION
+    )
+
+
 def _outbox_branch_fingerprint(payload: dict[str, Any]) -> str | None:
-    requested_action = str(payload.get("requested_action") or "").strip()
+    requested_action = _normalized_requested_action(payload.get("requested_action"))
     repo = str(payload.get("repo") or "").strip()
     branch = _outbox_evidence_value(payload, "branch")
     if not requested_action or not repo or not branch:
@@ -523,8 +590,7 @@ def _git_patch_equivalent(repo_root: Path, base: str, candidate: str) -> bool:
 
 
 def _outbox_branch_already_merged(repo_root: Path, payload: dict[str, Any]) -> bool:
-    requested_action = str(payload.get("requested_action") or "").strip()
-    if requested_action not in PR_OPEN_REQUEST_ACTIONS:
+    if not _is_pr_open_request(payload):
         return False
 
     base_ref = _outbox_evidence_value(payload, "base") or DEFAULT_BASE_REF
@@ -544,8 +610,7 @@ def _outbox_branch_already_merged(repo_root: Path, payload: dict[str, Any]) -> b
 
 
 def _outbox_branch_patch_equivalent(repo_root: Path, payload: dict[str, Any]) -> bool:
-    requested_action = str(payload.get("requested_action") or "").strip()
-    if requested_action not in PR_OPEN_REQUEST_ACTIONS:
+    if not _is_pr_open_request(payload):
         return False
 
     base_ref = _outbox_evidence_value(payload, "base") or DEFAULT_BASE_REF
@@ -662,7 +727,7 @@ def load_outbox_handoffs(
         if not _has_required_outbox_contract(payload):
             continue
         task_title = str(payload.get("task") or payload.get("title") or "").strip()
-        requested_action = str(payload.get("requested_action") or "").strip()
+        requested_action = _normalized_requested_action(payload.get("requested_action"))
         idempotency_key = str(payload.get("idempotency_key") or "").strip()
         requires_github = payload.get("requires_github", True)
         if isinstance(requires_github, str):
@@ -692,6 +757,7 @@ def load_outbox_handoffs(
             expires_at=expires_at,
             idempotency_key=idempotency_key,
             source_kind="outbox",
+            branch=_outbox_evidence_value(payload, "branch") or None,
         )
         identity = (
             ("branch", branch_fingerprint)
@@ -849,7 +915,42 @@ def _pr_by_number(repo_root: Path, repo: str, number: int) -> dict[str, Any] | N
     return payload if isinstance(payload, dict) else None
 
 
+def _open_pr_by_branch(repo_root: Path, repo: str, branch: str | None) -> dict[str, Any] | None:
+    if not branch:
+        return None
+    proc = _run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--head",
+            branch,
+            "--json",
+            "number,title,url,state,headRefName",
+            "--limit",
+            "1",
+        ],
+        cwd=repo_root,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            proc.stderr.strip() or proc.stdout.strip() or "failed to list PRs by branch"
+        )
+    payload = json.loads(proc.stdout or "[]")
+    if not isinstance(payload, list) or not payload:
+        return None
+    first = payload[0]
+    return first if isinstance(first, dict) else None
+
+
 def _target_open_pr(repo_root: Path, repo: str, handoff: Handoff) -> dict[str, Any] | None:
+    branch_pr = _open_pr_by_branch(repo_root, repo, handoff.branch)
+    if branch_pr:
+        return branch_pr
     for number in _referenced_pr_numbers(handoff):
         pr = _pr_by_number(repo_root, repo, number)
         if isinstance(pr, dict) and str(pr.get("state") or "").upper() == "OPEN":
@@ -1096,6 +1197,15 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--state-root",
+        default=None,
+        help=(
+            "Shared automation state root used to derive default outbox/receipt dirs. "
+            "Accepts either a repo root containing .aragora or the .aragora directory "
+            "itself. Explicit --outbox-dir/--receipt-dir override it."
+        ),
+    )
+    parser.add_argument(
         "--outbox-dir",
         default=None,
         help=(
@@ -1127,14 +1237,22 @@ def main(argv: list[str] | None = None) -> int:
 
     repo_root = _repo_root(Path(args.repo))
     codex_home = _codex_home(args.codex_home)
+    state_root = Path(args.state_root).expanduser() if args.state_root else None
+    outbox_arg = Path(args.outbox_dir).expanduser() if args.outbox_dir else None
+    receipt_arg = Path(args.receipt_dir).expanduser() if args.receipt_dir else None
+    if state_root is not None:
+        if outbox_arg is None:
+            outbox_arg = _automation_state_default_path(state_root, DEFAULT_OUTBOX_DIR)
+        if receipt_arg is None:
+            receipt_arg = _automation_state_default_path(state_root, DEFAULT_RECEIPT_DIR)
     outbox_dir = _automation_state_path(
         repo_root,
-        Path(args.outbox_dir).expanduser() if args.outbox_dir else None,
+        outbox_arg,
         DEFAULT_OUTBOX_DIR,
     ).resolve()
     receipt_dir = _automation_state_path(
         repo_root,
-        Path(args.receipt_dir).expanduser() if args.receipt_dir else None,
+        receipt_arg,
         DEFAULT_RECEIPT_DIR,
     ).resolve()
     labels = list(dict.fromkeys(args.labels))

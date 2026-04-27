@@ -67,6 +67,8 @@ All other pillars remain planning truth unless a change directly improves one of
 
 ## Eight Foundational Pillars
 
+> **Reconciliation note.** The eight pillars below are the **doctrinal** framing — the architectural invariants every feature must trace to. The `README.md`, `CLAUDE.md`, and `docs/EXTENDED_README.md` surface a different five-pillar **product-messaging** framing (SMB-ready with enterprise-grade security, leading-edge memory, extensibility/modularity, multi-agent robustness, self-healing via the Nomic Loop), and `docs/PACKAGING.md` groups the platform into three shippable pillars (verifiable decisionmaking, bounded autonomous execution, auditable memory). These three frames are complementary, not contradictory: the eight doctrinal pillars ground the architecture, the five product-messaging pillars summarize the user-visible thesis, and the three packaging pillars describe modular delivery. This document is authoritative for the doctrinal frame. The pillar count here evolved 6 → 7 → 8 across [2026-03-01 canonical-goals update](plans/2026-03-01-canonical-goals-update-design.md), the Epistemic CI / Dialectical Runtime layering (2026-04 #6029/#6034/#6224), and the agent-civilization tranche (#6061); the current count is **eight** and the list below is exhaustive.
+
 ### 1. Adversarial Heterogeneous Consensus
 
 Any single model can hallucinate, flatter, or share hidden blind spots. Aragora's default stance is structured challenge across heterogeneous models, not trust in one witness. This pillar serves the debate engine, gauntlet, truth weighting, calibration, dissent capture, and cross-verification.
