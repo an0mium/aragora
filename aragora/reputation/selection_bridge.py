@@ -189,9 +189,7 @@ class ReputationCalibrationBridge:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _relevant_deltas(
-        self, agent_id: str, domain: str | None
-    ) -> "list[ReputationDelta]":
+    def _relevant_deltas(self, agent_id: str, domain: str | None) -> "list[ReputationDelta]":
         if self._store is None:
             return []
         deltas = self._store.deltas_for(agent_id)
