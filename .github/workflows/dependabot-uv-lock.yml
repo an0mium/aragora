@@ -1,0 +1,134 @@
+name: Dependabot UV Lock Refresh
+
+# Dependabot updates pyproject.toml for the pip ecosystem, but it does not
+# reliably refresh uv.lock. Security Gate intentionally blocks stale locks, so
+# this same-repo Dependabot-only workflow repairs the lockfile before CI settles.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/dependabot-uv-lock.yml"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Dependabot PR number to relock"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: dependabot-uv-lock-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  refresh-lock:
+    name: Refresh uv.lock on Dependabot PRs
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        (
+          github.actor == 'dependabot[bot]' ||
+          github.event.pull_request.user.login == 'app/dependabot' ||
+          github.event.pull_request.user.login == 'dependabot[bot]' ||
+          github.event.pull_request.user.login == 'dependabot'
+        ) &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.head.ref != github.event.pull_request.base.ref &&
+        !github.event.pull_request.draft
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Resolve target branch
+        id: target
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            if [[ -z "${PR_NUMBER}" ]]; then
+              echo "::error::workflow_dispatch requires pr_number"
+              exit 1
+            fi
+            pr_json="$(gh pr view "${PR_NUMBER}" --json author,headRefName,headRepositoryOwner,isDraft)"
+            author="$(jq -r '.author.login' <<< "${pr_json}")"
+            owner="$(jq -r '.headRepositoryOwner.login' <<< "${pr_json}")"
+            draft="$(jq -r '.isDraft' <<< "${pr_json}")"
+            if [[ "${author}" != "app/dependabot" && "${author}" != "dependabot" && "${author}" != "dependabot[bot]" ]]; then
+              echo "::error::PR #${PR_NUMBER} is authored by ${author}, not dependabot"
+              exit 1
+            fi
+            if [[ "${owner}" != "${GITHUB_REPOSITORY_OWNER}" ]]; then
+              echo "::error::PR #${PR_NUMBER} is not from the base repository owner"
+              exit 1
+            fi
+            if [[ "${draft}" == "true" ]]; then
+              echo "::notice::PR #${PR_NUMBER} is draft; skipping"
+              echo "skip=true" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+            echo "branch=$(jq -r '.headRefName' <<< "${pr_json}")" >> "${GITHUB_OUTPUT}"
+          else
+            echo "branch=${HEAD_REF}" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Checkout Dependabot branch
+        if: steps.target.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.target.outputs.branch }}
+          repository: ${{ github.repository }}
+          token: ${{ github.token }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        if: steps.target.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Regenerate uv.lock
+        if: steps.target.outputs.skip != 'true'
+        id: relock
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install uv
+          uv lock
+          unexpected="$(git diff --name-only | grep -vx 'uv.lock' || true)"
+          if [[ -n "${unexpected}" ]]; then
+            echo "::error::uv lock changed unexpected files:"
+            echo "${unexpected}"
+            exit 1
+          fi
+          if git diff --quiet -- uv.lock; then
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+            echo "uv.lock is already fresh"
+            exit 0
+          fi
+          uv lock --check
+          echo "changed=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Commit refreshed lockfile
+        if: steps.target.outputs.skip != 'true' && steps.relock.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git commit -m "chore(deps): refresh uv lock"
+          git push origin "HEAD:${{ steps.target.outputs.branch }}"
