@@ -10,12 +10,14 @@ merged, patch-equivalent, or protected by open PR/worktree state.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
 import subprocess
 import sys
 from collections import Counter, defaultdict
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -297,11 +299,29 @@ def _add_branch_reference(branches: set[str], value: Any) -> None:
             branches.add(branch)
 
 
+def _structured_action(value: Any) -> Mapping[str, Any] | None:
+    if isinstance(value, Mapping):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("{") and text.endswith("}"):
+            try:
+                parsed = ast.literal_eval(text)
+            except (SyntaxError, ValueError):
+                return None
+            if isinstance(parsed, Mapping):
+                return parsed
+    return None
+
+
 def _outbox_payload_branches(payload: dict[str, Any]) -> set[str]:
     """Return primary and explicitly superseded branch references from a handoff."""
 
     branches: set[str] = set()
     _add_branch_reference(branches, _outbox_payload_branch(payload))
+    requested_action = _structured_action(payload.get("requested_action"))
+    if requested_action is not None:
+        _add_branch_reference(branches, requested_action.get("branch"))
 
     containers: list[dict[str, Any]] = [payload]
     local_evidence = payload.get("local_evidence")

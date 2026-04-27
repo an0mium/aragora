@@ -502,24 +502,41 @@ def _outbox_evidence_value(payload: dict[str, Any], key: str) -> str:
         value = str(local_evidence.get(key) or "").strip()
         if value:
             return value
+    requested_action = _structured_action(payload.get("requested_action"))
+    if requested_action is not None:
+        value = str(requested_action.get(key) or "").strip()
+        if value:
+            return value
     return str(payload.get(key) or "").strip()
 
 
-def _normalized_requested_action(value: Any) -> str:
+def _structured_action(value: Any) -> Mapping[str, Any] | None:
+    if isinstance(value, Mapping):
+        return value
     if isinstance(value, str):
         text = value.strip()
         if text.startswith("{") and text.endswith("}"):
             try:
                 parsed = ast.literal_eval(text)
             except (SyntaxError, ValueError):
-                parsed = None
+                return None
             if isinstance(parsed, Mapping):
-                return _normalized_requested_action(parsed)
-        action = text
-    elif isinstance(value, Mapping):
+                return parsed
+    return None
+
+
+def _normalized_requested_action(value: Any) -> str:
+    structured = _structured_action(value)
+    if structured is not None:
         action = str(
-            value.get("type") or value.get("action") or value.get("requested_action") or ""
+            structured.get("type")
+            or structured.get("action")
+            or structured.get("requested_action")
+            or ""
         )
+    elif isinstance(value, str):
+        text = value.strip()
+        action = text
     else:
         action = str(value or "")
 
