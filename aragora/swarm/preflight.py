@@ -1457,6 +1457,7 @@ def _preflight_launch_config(
     *,
     agent: str,
     contract: WorkerContract | None,
+    claude_profile: str | None = None,
 ) -> LaunchConfig:
     """Build the preflight-owned ``LaunchConfig``.
 
@@ -1472,10 +1473,15 @@ def _preflight_launch_config(
       launcher env did not.
 
     See ``docs/plans/2026-04-17-worker-drift-diagnosis.md``.
+    ``claude_profile`` lets preview call-sites model the same preflight-owned
+    launch config before a preview contract exists.  It uses the same
+    ``"default"`` sentinel handling as the contract-derived path.
     """
     launcher_profile: str | None = None
-    if contract is not None and str(agent or "").strip().lower() == "claude":
-        raw_profile = str(contract.profile or "").strip()
+    if str(agent or "").strip().lower() == "claude":
+        raw_profile = str(claude_profile or "").strip()
+        if not raw_profile and contract is not None:
+            raw_profile = str(contract.profile or "").strip()
         if raw_profile and raw_profile.lower() != "default":
             launcher_profile = raw_profile
     return LaunchConfig(

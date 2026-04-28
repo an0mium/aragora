@@ -21,6 +21,8 @@ Pre-v1.2 these tests fail on two independent axes:
    carries ``metadata.admin_approved=True``). Preview also sets
    ``ARAGORA_CLAUDE_PROFILE`` but the preflight launcher does not (no
    profile plumbing).
+3. ``permissions`` drift: preview copied the boss-loop worker permissions
+   while the preflight launcher uses a preflight-owned scratch-worker config.
 
 Diagnosis: see ``docs/plans/2026-04-17-worker-drift-diagnosis.md``.
 """
@@ -31,12 +33,10 @@ from pathlib import Path
 
 import pytest
 
-from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.swarm import dispatch_contract_gate as gate_mod
 from aragora.swarm import preflight as preflight_mod
 from aragora.swarm.worker_contract import WorkerContract, build_worker_contract
 from aragora.swarm.worker_launcher import build_worker_runtime_env
-from aragora.swarm.worker_process import LaunchConfig
 
 
 # --- Helpers mirroring the production paths ---------------------------------
@@ -66,12 +66,10 @@ def _build_preview_contract_via_production_helpers(
         claude_profile=selected_profile if target_agent == "claude" else None,
         admin_approved=True,
     )
-    launch_config = LaunchConfig(
-        base_branch="main",
-        execution_mode=ExecutionMode.AUTONOMOUS,
+    launch_config = preflight_mod._preflight_launch_config(
+        agent=target_agent,
+        contract=None,
         claude_profile=selected_profile if target_agent == "claude" else None,
-        allow_claude_dangerously_skip_permissions=True,
-        allow_codex_full_auto=True,
     )
     preview_work_order = {
         "file_scope": ["scripts/reconcile_b0_pr_truth.py"],
@@ -107,27 +105,14 @@ def _build_preflight_launcher_contract_via_production_helpers(
     """
     work_order = preflight_mod._work_order(target_agent, contract=expected_contract)
 
-    # Mirror preflight._run_worker's LaunchConfig construction, including
-    # the v1.2 fix that threads the expected contract's profile into
-    # ``claude_profile``.  This test will read the production helper
-    # directly once the fix lands; for now we mirror inline so the test
-    # fails deterministically on pre-v1.2 main and passes post-fix.
-    launcher_profile: str | None = None
-    if target_agent == "claude":
-        raw_profile = str(expected_contract.profile or "").strip()
-        if raw_profile and raw_profile.lower() != "default":
-            launcher_profile = raw_profile
-    preflight_config = LaunchConfig(
-        allow_claude_dangerously_skip_permissions=True,
-        allow_codex_full_auto=True,
-        use_managed_session_script=False,
-        require_explicit_approval=False,
-        claude_profile=launcher_profile,
+    preflight_config = preflight_mod._preflight_launch_config(
+        agent=target_agent,
+        contract=expected_contract,
     )
     launcher_env = build_worker_runtime_env(
         agent=target_agent,
         worker_env_overrides={},
-        claude_profile=launcher_profile,
+        claude_profile=preflight_config.claude_profile,
         admin_approved=True,
     )
     return build_worker_contract(
@@ -304,6 +289,42 @@ def test_preflight_run_worker_ignores_profile_for_non_claude_agents() -> None:
         contract=expected,
     )
     assert cfg.claude_profile is None
+
+
+def test_preflight_launch_config_preview_permissions_match_actual_launcher() -> None:
+    """Preview contracts must use the same scratch-worker permissions as the
+    actual preflight launcher, independent of boss-loop worker flags.
+
+    This locks the 2026-04-28 regression where boss-loop validation reported
+    ``Drifted fields: ['permissions']`` because the preview expected
+    ``allow_full_auto=False`` while the preflight launcher rebuilt
+    ``allow_full_auto=True``.
+    """
+    preview_cfg = preflight_mod._preflight_launch_config(
+        agent="codex",
+        contract=None,
+    )
+    expected = WorkerContract(
+        runner_type="codex-cli",
+        agent="codex",
+        model="default",
+        profile="default",
+        permissions={"allow_full_auto": True},
+        execution_mode="autonomous",
+        git_auth_mode="https",
+        gh_api_auth_mode="none",
+        budget={"max_wall_time_seconds": 2400.0, "no_progress_timeout_seconds": 3600.0},
+        env_checksum="abc",
+        mission_context_policy={"role": "worker", "required_sources": []},
+    )
+    actual_cfg = preflight_mod._preflight_launch_config(
+        agent="codex",
+        contract=expected,
+    )
+
+    assert preview_cfg.allow_codex_full_auto is True
+    assert actual_cfg.allow_codex_full_auto is True
+    assert preview_cfg.allow_codex_full_auto == actual_cfg.allow_codex_full_auto
 
 
 # --- Production dispatch-gate call must pass admin_approved=True ------------

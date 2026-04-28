@@ -12,11 +12,11 @@ from aragora.swarm.credential_envelope import CredentialEnvelope
 from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.preflight import (
     PreflightReceipt,
+    _preflight_launch_config,
     run_contract_preflight_receipt,
 )
 from aragora.swarm.terminal_truth import TerminalClass, classify_preflight_failure
 from aragora.swarm.worker_contract import WorkerContract, build_worker_contract
-from aragora.swarm.worker_process import LaunchConfig
 from aragora.swarm.worker_launcher import build_worker_runtime_env
 
 
@@ -407,18 +407,19 @@ def dispatch_contract_gate(
         ),
         admin_approved=True,
     )
-    launch_config = LaunchConfig(
-        base_branch=loop.config.target_branch,
-        execution_mode=loop.config.execution_mode,
+    # The expected contract is for the scratch preflight worker, not the final
+    # boss-loop worker.  Build it with the same preflight-owned LaunchConfig
+    # that ``preflight._run_worker`` will use, otherwise loop-level permission
+    # flags (for example allow_codex_full_auto=False) can drift from the
+    # launcher-rebuilt contract and block every real dispatch.
+    launch_config = _preflight_launch_config(
+        agent=target_agent,
+        contract=None,
         claude_profile=(
             str((selected_runner or {}).get("profile", "")).strip() or None
             if target_agent == "claude"
             else None
         ),
-        allow_claude_dangerously_skip_permissions=(
-            loop.config.allow_claude_dangerously_skip_permissions
-        ),
-        allow_codex_full_auto=loop.config.allow_codex_full_auto,
     )
     contract_valid = True
     preview_contract: WorkerContract | None = None

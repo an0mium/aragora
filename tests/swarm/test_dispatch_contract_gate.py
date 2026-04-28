@@ -342,6 +342,63 @@ class TestDispatchContractGate:
         assert result is None
         mock_runtime_env.assert_called_once()
 
+    def test_preview_contract_uses_preflight_permissions_not_loop_permissions(
+        self, tmp_path
+    ) -> None:
+        """The previewed contract models the scratch preflight worker.
+
+        The final boss-loop worker may run with ``allow_codex_full_auto=False``,
+        but the scratch preflight worker owns a disposable worktree and runs with
+        its preflight LaunchConfig.  Previewing the loop-level worker permission
+        caused the real 2026-04-28 drift:
+        expected ``{"allow_full_auto": false}``, actual ``{"allow_full_auto": true}``.
+        """
+        loop = _make_loop(allow_codex_full_auto=False)
+        issue = _make_issue(111)
+        spec = MagicMock()
+        spec.work_orders = None
+        spec.file_scope_hints = ["aragora/swarm/preflight.py"]
+        spec.mission_context_policies = {}
+        captured_configs = []
+
+        def fake_build_worker_contract(**kwargs):
+            captured_configs.append(kwargs["config"])
+            return _make_valid_contract_mock()
+
+        with (
+            patch(
+                "aragora.swarm.dispatch_contract_gate.build_worker_contract",
+                side_effect=fake_build_worker_contract,
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate._persist_preview_contract",
+                return_value=tmp_path / "contract.json",
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt",
+                return_value=_make_passing_receipt(),
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.CredentialEnvelope.from_environment"
+            ) as mock_env,
+        ):
+            mock_env.return_value.missing_slices.return_value = []
+            mock_env.return_value.preflight_cache_payload.return_value = {}
+
+            result = dispatch_contract_gate(
+                loop,
+                issue,
+                spec,
+                selected_runner={"runner_type": "codex"},
+                requested_target_agent="codex",
+                worker_env=None,
+                claimed_runner_id=None,
+            )
+
+        assert result is None
+        assert captured_configs
+        assert captured_configs[0].allow_codex_full_auto is True
+
     def test_preview_contract_fallback_preserves_spec_mission_lineage(self, tmp_path) -> None:
         """Specs without explicit work_orders must still carry mission lineage into the preview contract."""
         loop = _make_loop()
