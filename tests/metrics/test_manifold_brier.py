@@ -335,3 +335,39 @@ class TestCalibrationCurve:
             f"expected bin {expected_bin}"
         )
         assert sum(b.count for b in curve) == 1
+
+    @pytest.mark.parametrize(
+        "prob,expected_bin",
+        [(i / 10, min(i, 9)) for i in range(11)],
+    )
+    def test_all_decimal_boundaries_are_low_inclusive(self, prob: float, expected_bin: int) -> None:
+        scorer = ManifoldBrierScorer()
+        scorer.add(_pred(prob, 1, question_id=f"boundary_{prob}"))
+        curve = scorer.calibration_curve(n_bins=10)
+
+        assert curve[expected_bin].count == 1, (
+            f"p={prob} landed in bin {next(i for i, b in enumerate(curve) if b.count)}, "
+            f"expected bin {expected_bin}"
+        )
+        assert sum(b.count for b in curve) == 1
+
+    @pytest.mark.parametrize(
+        "prob,expected_bin",
+        [
+            (0.2999999999, 2),
+            (0.5999999999, 5),
+            (0.6999999999, 6),
+        ],
+    )
+    def test_values_below_boundary_remain_high_exclusive(
+        self, prob: float, expected_bin: int
+    ) -> None:
+        scorer = ManifoldBrierScorer()
+        scorer.add(_pred(prob, 1, question_id=f"below_boundary_{prob}"))
+        curve = scorer.calibration_curve(n_bins=10)
+
+        assert curve[expected_bin].count == 1, (
+            f"p={prob} landed in bin {next(i for i, b in enumerate(curve) if b.count)}, "
+            f"expected bin {expected_bin}"
+        )
+        assert sum(b.count for b in curve) == 1

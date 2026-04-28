@@ -21,6 +21,7 @@ import os
 import statistics
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal, ROUND_FLOOR
 from typing import Any, Optional
 
 __all__ = [
@@ -313,10 +314,12 @@ class ManifoldBrierScorer:
         sum_predicted: list[float] = [0.0] * n_bins
 
         for pred in self._predictions:
-            # Multiply instead of divide to avoid e.g. 0.3/0.1 == 2.999...
-            # Add a sub-ULP epsilon (1e-9) to snap values that are floating-
-            # point representations of exact boundaries into the correct bin.
-            idx = min(int(pred.predicted_probability * n_bins + 1e-9), n_bins - 1)
+            # Interpret the shortest decimal rendering of the probability so
+            # operator-entered boundaries like 0.3 are binned as exact decimals
+            # without widening the high-exclusive side of each bracket.
+            decimal_probability = Decimal(str(pred.predicted_probability))
+            idx = int((decimal_probability * n_bins).to_integral_value(rounding=ROUND_FLOOR))
+            idx = min(idx, n_bins - 1)
             counts_total[idx] += 1
             sum_predicted[idx] += pred.predicted_probability
             if pred.outcome == 1:
