@@ -3634,6 +3634,20 @@ class BossLoop:
             else:
                 receipt_outcome = "unknown"
 
+            # Bound receipt_metadata BEFORE constructing the receipt. The downstream
+            # signing pipeline canonicalises receipts via json.dumps(sort_keys=True),
+            # which forces a full tree walk; an unbounded receipt_metadata (containing
+            # dispatch_gate, prior worker results, raw stdout/stderr, etc.) makes the
+            # whole post-worker path stall for tens of seconds. The full payload is
+            # persisted to .aragora/worker-results/<receipt_id>.json by the bounder.
+            from aragora.swarm.bounded_receipt_metadata import bound_receipt_metadata
+
+            bounded_metadata = bound_receipt_metadata(
+                worker_result.get("receipt_metadata"),
+                run_id=str(
+                    worker_result.get("receipt_id") or worker_result.get("run_id") or self.run_id
+                ),
+            )
             receipt = LaneCompletionReceipt(
                 task_id=str(issue_dict.get("number", "")),
                 lease_id=str(worker_result.get("lease_id", self.run_id)),
@@ -3649,10 +3663,10 @@ class BossLoop:
                 branch=worker_result.get("branch"),
                 duration_seconds=elapsed,
                 metadata={
-                    **dict(worker_result.get("receipt_metadata") or {}),
+                    **bounded_metadata,
                     "terminal_outcome": terminal_outcome or None,
                     "worker_receipt_id": worker_result.get("receipt_id"),
-                    "blocked_reasons": list(worker_result.get("reasons", [])),
+                    "blocked_reasons": list(worker_result.get("reasons", []))[:32],
                 },
             )
             receipt_id = emit_lane_receipt(receipt)
