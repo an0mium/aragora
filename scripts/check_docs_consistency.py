@@ -40,6 +40,7 @@ HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
 HTML_ID_RE = re.compile(r"""<a\s+[^>]*id=["']([^"']+)["']""", re.IGNORECASE)
 METRIC_RE = re.compile(r"\b(\d+(?:,\d+)*)(\+)?\s+(tests|adapters|agent types|API operations|modules)\b", re.IGNORECASE)
 CODE_RE = re.compile(r"\b([A-Z]{2,4})-(\d{2})(?:\.\.(\d{2}))?\b")
+TRACKED_ISSUE_CODE_PREFIXES = ("DIC-", "TW-")
 DIC_TITLE_RE = re.compile(r"^\[(DIC-\d{2})\]")
 DESIGN_DOC_RE = re.compile(r"docs/(?:plans|strategy|status)/[A-Za-z0-9_.\-/]+\.md")
 @dataclass(frozen=True)
@@ -403,7 +404,7 @@ def check_gh_hygiene(root: Path) -> CheckResult:
         if title_code and title_code.group(1) not in plan_text:
             findings.append(Finding(f"#{number}", f"title code {title_code.group(1)} is not in EPISTEMIC_CI_AND_CRUX_ENGINE.md"))
         for code in expand_codes(f"{title}\n{body}"):
-            if code.startswith("DIC-"):
+            if code.startswith(TRACKED_ISSUE_CODE_PREFIXES):
                 by_code.setdefault(code, []).append(issue)
         for doc in DESIGN_DOC_RE.findall(body):
             by_doc.setdefault(doc, []).append(issue)
@@ -414,7 +415,7 @@ def check_gh_hygiene(root: Path) -> CheckResult:
     for code, matches in sorted(by_code.items()):
         numbers = sorted({str(issue.get("number")) for issue in matches})
         if len(numbers) > 1:
-            findings.append(Finding("gh", f"potential duplicate DIC code {code}: issues #{', #'.join(numbers)}"))
+            findings.append(Finding("gh", f"potential duplicate tracked code {code}: issues #{', #'.join(numbers)}"))
     for doc, matches in sorted(by_doc.items()):
         numbers = sorted({str(issue.get("number")) for issue in matches})
         if len(numbers) > 1:

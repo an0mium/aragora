@@ -3,9 +3,11 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
+from scripts import check_docs_consistency as docs_consistency
 from scripts.check_docs_consistency import (
     check_archive_references,
     check_broken_links,
+    check_gh_hygiene,
     check_metric_drift,
     check_tier_contradictions,
     delayed_codes,
@@ -165,3 +167,25 @@ def test_check_4_flags_p0_p1_rows_linking_delayed_codes_or_issues(tmp_path: Path
     assert len(findings) == 1
     assert findings[0].location == "docs/FEATURE_GAP_LIST.md:4"
     assert "DIC-13" in findings[0].message
+
+
+def test_check_5_tracks_duplicate_tw_issue_codes(monkeypatch, tmp_path: Path) -> None:
+    root = tmp_path
+    _write(root / "docs" / "plans" / "EPISTEMIC_CI_AND_CRUX_ENGINE.md", "# Plan")
+    _write(root / "docs" / "status" / "NEXT_STEPS_CANONICAL.md", "# Next Steps")
+    monkeypatch.setenv("AIRSCRIPT_CHECK_GH", "1")
+    monkeypatch.setattr(docs_consistency.shutil, "which", lambda _name: "gh")
+    monkeypatch.setattr(
+        docs_consistency,
+        "run_gh_issue_list",
+        lambda _root: [
+            {"number": 101, "title": "[TW-03] First lane", "body": "", "labels": []},
+            {"number": 102, "title": "Follow-up", "body": "Tracks TW-03", "labels": []},
+        ],
+    )
+
+    findings = check_gh_hygiene(root).findings
+
+    assert [finding.message for finding in findings] == [
+        "potential duplicate tracked code TW-03: issues #101, #102"
+    ]
