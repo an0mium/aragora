@@ -272,6 +272,7 @@ _WORKER_OUTCOME_TO_TERMINAL: dict[str, str] = {
     "timeout_with_salvage": "deliverable_created",  # salvaged commits are real deliverables
     "scope_violation": "blocked",
     "merge_gate_failed": "needs_human",
+    "acceptance_gate_failed": "needs_human",
 }
 
 _SUCCESS_OUTCOMES: frozenset[str] = frozenset({"deliverable_created", "pr_adopted"})

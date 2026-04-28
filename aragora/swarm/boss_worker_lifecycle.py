@@ -155,10 +155,15 @@ def finalize_worker_result(
         )
 
     if worker_result.get("status") == "needs_human":
-        _terminal_outcome, normalized_deliverable_type = qualify_worker_result_terminal_state(
+        terminal_outcome, normalized_deliverable_type = qualify_worker_result_terminal_state(
             worker_result
         )
         has_deliverable = bool(normalized_deliverable_type)
+        worker_outcome_text = str(worker_result.get("outcome", "")).strip().lower()
+        has_rejected_deliverable = has_deliverable and worker_outcome_text in {
+            "acceptance_gate_failed",
+            "merge_gate_failed",
+        }
         sanitizer_outcome = str(worker_result.get("sanitizer_outcome", "")).strip().lower()
         raw_deliverable = worker_result.get("deliverable")
         has_untyped_deliverable = isinstance(raw_deliverable, dict) and bool(raw_deliverable)
@@ -173,6 +178,39 @@ def finalize_worker_result(
                 loop.config.max_retries_per_issue + 1,
             )
             loop._pending_handoff_prompts.pop(issue_number, None)
+        if has_rejected_deliverable:
+            loop._failed_issues.append(issue_dict)
+            loop._log_value_outcome(issue_dict, "needs_human", elapsed_seconds)
+            reasons = [
+                str(reason).strip()
+                for reason in worker_result.get("reasons", [])
+                if str(reason).strip()
+            ] or [
+                f"Worker returned a {normalized_deliverable_type} deliverable, "
+                f"but terminal outcome is {terminal_outcome}."
+            ]
+            loop._append_iteration_metrics(
+                iteration=iteration,
+                issue_number=issue_number,
+                worker_result=worker_result,
+                elapsed_seconds=elapsed_seconds,
+            )
+            return BossIterationStatus(
+                iteration=iteration,
+                run_id=loop.run_id,
+                timestamp=timestamp,
+                runner_freshness=runner_freshness,
+                selected_issue=issue_dict,
+                worker_status="needs_human",
+                stop_reason=BossStopReason.NEEDS_HUMAN.value,
+                needs_human_reasons=reasons,
+                next_actions=[
+                    "Review the rejected deliverable before counting this issue complete."
+                ],
+                elapsed_seconds=elapsed_seconds,
+                worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+            )
+
         if has_deliverable:
             loop._completed_issues.append(issue_dict)
             loop._consecutive_failures = 0

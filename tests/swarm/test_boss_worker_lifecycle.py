@@ -384,6 +384,26 @@ class TestFinalizeWorkerResultNeedsHumanWithDeliverable:
 
         assert loop._consecutive_failures == 0
 
+    def test_acceptance_gate_failed_deliverable_is_not_completed(self):
+        loop = _make_loop()
+        issue = _make_issue(number=6187)
+        result = _call_finalize(
+            loop,
+            {
+                "status": "needs_human",
+                "outcome": "acceptance_gate_failed",
+                "deliverable": {"type": "branch", "branch": "codex/swarm-example"},
+                "reasons": ["acceptance gate failed"],
+            },
+            issue=issue,
+        )
+
+        assert result.worker_status == "needs_human"
+        assert result.stop_reason == BossStopReason.NEEDS_HUMAN.value
+        assert result.worker_outcome == "acceptance_gate_failed"
+        assert loop._completed_issues == []
+        assert any(item["number"] == 6187 for item in loop._failed_issues)
+
 
 # ---------------------------------------------------------------------------
 # finalize_worker_result — needs_human with sanitizer drop/quarantine
