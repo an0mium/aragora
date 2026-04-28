@@ -24,6 +24,8 @@ if TYPE_CHECKING:
     from aragora.memory.continuum.core import ContinuumMemory
     from aragora.memory.store import CritiqueStore
     from aragora.ranking.pattern_matcher import TaskPatternMatcher
+    from aragora.reputation.selection_bridge import ReputationBridgeConfig
+    from aragora.reputation.store import ReputationStore
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +170,12 @@ class TeamSelectionConfig:
     # Blockchain staking reputation scoring (stake health, slash frequency)
     enable_staking_reputation: bool = False
     staking_reputation_weight: float = 0.15
+    # AGT-05 skin-in-the-game reputation dispatch eligibility (default off)
+    # When True and a ReputationStore is passed to TeamSelector, the bridge
+    # replaces the default calibration scorer so reputation deltas from
+    # resolved predictions and crux outcomes influence agent selection.
+    enable_agt05_reputation_selection: bool = False
+    reputation_bridge_config: ReputationBridgeConfig | None = None
 
 
 class TeamSelector:
@@ -207,6 +215,7 @@ class TeamSelector:
         control_plane_registry: Any | None = None,
         marketplace_registry: Any | None = None,
         staking_registry: Any | None = None,
+        reputation_store: ReputationStore | None = None,
     ):
         self.elo_system = elo_system
         # Auto-detect default CalibrationTracker if none provided.
@@ -261,6 +270,16 @@ class TeamSelector:
         self.marketplace_registry = marketplace_registry
         # Blockchain staking registry for reputation scoring
         self.staking_registry = staking_registry
+        # AGT-05: override calibration_tracker with reputation bridge when enabled.
+        # Placed after self.config is set so the flag is resolved correctly.
+        if self.config.enable_agt05_reputation_selection and reputation_store is not None:
+            from aragora.reputation.selection_bridge import ReputationCalibrationBridge
+
+            self.calibration_tracker = ReputationCalibrationBridge(
+                store=reputation_store,
+                config=self.config.reputation_bridge_config,
+            )
+            logger.debug("AGT-05 reputation bridge installed as calibration scorer")
         self.pulse_manager: Any = None  # Set externally or via Arena
         self.specialist_registry: Any = None  # Set externally or via Arena
         self._culture_recommendations_cache: dict[str, list[str]] = {}
