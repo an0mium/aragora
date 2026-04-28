@@ -2,7 +2,7 @@
 
 **Author:** Droid (overnight)
 **Window:** ~01:00 → ~02:30 local
-**Status:** complete; all artifacts pushed; awaiting morning operator review
+**Status:** complete; refreshed after the 2026-04-28 model-quorum queue drain
 **Coordination posture:** strict carve-outs honored (see § 6 below)
 
 ---
@@ -11,20 +11,21 @@
 
 Four bounded PRs were filed overnight, three strategic audits were
 completed by parallel worker droids, and three dark-pillar specs were
-drafted on a docs branch. **No PR auto-merges. Every PR is reversible.
-None touch the red CI workflows that Codex and Claude are actively
-patching.**
+drafted on a docs branch. **No overnight PR used auto-merge. Every PR
+was reversible when filed. None touched workflow policy or red-CI
+repair surfaces.**
 
-| Artifact | Type | Status | Owner |
+| Artifact | Type | Current status | Owner |
 |---|---|---|---|
-| PR #6784 | Tests-only (KM resilience health async paths, 17 tests) | Open, BLOCKED by main CI | Operator |
-| PR #6785 | Pure module skeleton (`aragora/swarm/handoff_contract.py`, 29 tests) | Open, BLOCKED by main CI | Operator |
-| PR #6786 | Pure module (`KMMetricsHealthBridge`, 14 tests) | Open, BLOCKED by main CI | Operator |
-| PR _docs_ (this branch) | 7 specs + this briefing | Pending PR open | Operator |
+| PR #6784 | Tests-only (KM resilience health async paths, 17 tests) | Merged by operator-authorized admin squash | Operator |
+| PR #6785 | Pure module skeleton (`aragora/swarm/handoff_contract.py`, 29 tests) | Merged by operator-authorized admin squash | Operator |
+| PR #6786 | Pure module (`KMMetricsHealthBridge`, 14 tests) | Merged by operator-authorized admin squash | Operator |
+| PR #6787 (this branch) | 7 specs + this refreshed briefing | Open; checks green; review required | Operator |
 
-"BLOCKED by main CI" in every case is the **pre-existing main red**
-inherited from yesterday's queue, not a regression introduced by these
-PRs. See § 7.
+Earlier versions of this briefing described #6784-#6787 as blocked by a
+pre-existing main CI red. That is no longer current. As of this refresh,
+#6784/#6785/#6786 have landed, and #6787 is green but still
+review-required.
 
 ---
 
@@ -159,44 +160,41 @@ Per Claude's overnight guidance:
 | Carve-out | Honored |
 |---|---|
 | Codex Desktop stays paused | YES |
-| Codex owns parser PRs (e.g. #6783) | YES — did not touch parser |
+| Codex owns parser PRs (e.g. #6783) | YES — overnight work did not touch parser code |
 | Codex owns automation orchestration scripts | YES — handoff_contract is a pure library, no script edits |
 | Claude owns docs/red-CI watch | YES — no red-CI patches; docs landed on dedicated branch |
-| Outbox stays clean | YES — no handoffs published; verified empty before sleep |
+| Outbox stays clean | YES for overnight work — no new Factory handoffs were published |
 
 ---
 
-## 7. PR queue state at 02:30
+## 7. Current PR queue state after refresh
 
 ```
-#6772  BLOCKED (an0mium)  [AGT-03] Calibration curve reporting for ManifoldBrierScorer
-#6779  BLOCKED (an0mium)  docs: port Factory Droid Apr 25 specs into canonical chain
-#6783  BLOCKED (an0mium)  fix(cli): expose review-queue baseline in top-level parser  [Codex]
-#6784  BLOCKED (an0mium)  test(km): async-path coverage for ConnectionHealthMonitor   [overnight]
-#6785  BLOCKED (an0mium)  feat(swarm): handoff_contract module skeleton              [overnight]
-#6786  BLOCKED (an0mium)  feat(km): KMMetricsHealthBridge                             [overnight]
+#6772  REVIEW_REQUIRED, checks green  [AGT-03] Calibration curve reporting
+#6783  REVIEW_REQUIRED, checks green  review-queue baseline parser [Codex-owned]
+#6787  REVIEW_REQUIRED, checks green  this overnight planning/docs PR
+#6791  REVIEW_REQUIRED, checks green  AGT-05 ReputationDelta reversal
+#6793  REVIEW_REQUIRED, checks green  AGT-05 team-selector wiring
+#6795  REVIEW_REQUIRED, checks pending  model-review-quorum process PR [Codex-owned]
 ```
 
-**All BLOCKED status reflects the pre-existing main CI red** (the
-"calibration-eval-baseline" workflow has been red on main since
-yesterday's queue drain). None of the overnight PRs introduce new red
-checks. The blockage is identical for every author. Verified by
-inspecting the failing-checks list on each PR.
+The prior "blocked by main CI red" statement is stale. The remaining
+older PRs are review-required, not blocked by failing checks. #6795 is a
+new process PR opened after the queue drain and still has its initial CI
+tail pending.
 
 ---
 
 ## 8. Operator triage queue (suggested order)
 
-1. **PR #6784** (tests-only, lowest risk) — review and merge if happy
-2. **PR #6786** (pure module, no callers) — review and merge if happy
-3. **PR #6785** (pure module, no callers, more strategic) — review carefully; sets the contract
-4. **Docs PR for `docs/2026-04-28-overnight-planning`** — read briefing first, then specs as desired
-5. **Codex's PR #6783** (parser) — separate owner; no conflict with overnight work
-6. **PRs #6772, #6779** — pre-existing; not overnight scope
+1. **PR #6787** (this docs PR) — merge only after this refreshed briefing is accepted
+2. **PR #6783** (Codex parser PR) — needs one non-Codex model signal, then admin squash is low-risk
+3. **PR #6795** (model-review-quorum process PR) — wait for CI and cross-author dogfood
+4. **PRs #6772, #6791, #6793** — semantic AGT changes; hold for explicit human risk settlement packets
 
-If any of #6784/#6785/#6786 looks wrong, **discard the branch**;
-nothing depends on them and the existing patch trajectory continues
-without harm.
+The previously listed #6784/#6785/#6786 have landed. If any follow-up
+regression appears, handle it as a normal revert/fix-forward decision;
+they are no longer discardable open branches.
 
 ---
 
@@ -206,7 +204,7 @@ without harm.
 - I did not modify any of the 17 fix(automation) sites; the handoff_contract module is pure and unimported.
 - I did not migrate any legacy script. That is bounded follow-up work for whichever owner the contract module gets accepted by.
 - I did not implement the P3 Bridge Run Inspector. Spec only.
-- I did not push the docs branch as a PR yet — opening it is the morning operator's decision.
+- I did push the docs branch as PR #6787; this refresh corrects the stale pre-PR briefing language.
 - I did not auto-merge anything.
 - I did not run any handoff publication. Outbox stayed empty.
 
@@ -232,13 +230,14 @@ without harm.
 
 If the operator finds the overnight push useful:
 
-1. **Land #6784 first** (cheapest, highest signal — restores P4 to a real pillar)
-2. **Discuss #6785 in standup** before merging — it's the single biggest strategic lever overnight; review the 8 clauses against the 17-PR set; confirm the next bounded PR migrates exactly one legacy script
-3. **Discuss #6786 in standup** — the bridge is small, but wiring it to a real owner (postgres-store factory likely) is a separate decision worth a brief alignment
-4. **Read the worker reports** at leisure; their proposed first PRs are each ~200-300 LOC and could be the next overnight slot
+1. **Use #6784/#6785/#6786 as landed foundations**; next changes should be caller wiring or one-script migrations, not new breadth.
+2. **Read the worker reports** at leisure; their proposed first PRs are each ~200-300 LOC and should wait behind the current queue.
+3. **Dogfood #6795** once CI clears; it is the process bridge that turns future model quorum into a receipt-backed merge packet.
+4. **Prepare semantic-risk packets** for #6772/#6791/#6793 instead of asking the operator for line-by-line review.
 
-If the operator does not find any of this useful, **discarding all four
-PRs and the docs branch costs nothing.**
+If the operator does not find the docs useful, close #6787. The already
+merged implementation PRs should be evaluated through normal post-merge
+regression monitoring rather than discarded as open branches.
 
 ---
 
