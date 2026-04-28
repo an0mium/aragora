@@ -29,6 +29,7 @@ __all__ = [
     "ManifoldPrediction",
     "ManifoldBrierScorer",
     "BrierWindowSummary",
+    "CalibrationBin",
 ]
 
 # ---------------------------------------------------------------------------
@@ -161,6 +162,41 @@ class BrierWindowSummary:
         }
 
 
+@dataclass(frozen=True)
+class CalibrationBin:
+    """One probability bracket in a calibration curve.
+
+    A calibration curve divides ``[0, 1]`` into equal-width bins and, for
+    each bin, reports how often predictions in that bracket resolved YES.
+    A well-calibrated agent has ``fraction_yes ≈ mean_predicted`` in every
+    bin.
+
+    Attributes:
+        low: Inclusive lower bound of the bracket.
+        high: Exclusive upper bound (last bin is [low, 1.0] inclusive).
+        count: Number of resolved predictions in this bracket.
+        fraction_yes: Empirical frequency of ``outcome == 1``; None when
+            ``count == 0``.
+        mean_predicted: Mean ``predicted_probability`` in this bracket; None
+            when ``count == 0``.
+    """
+
+    low: float
+    high: float
+    count: int
+    fraction_yes: Optional[float]
+    mean_predicted: Optional[float]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "low": self.low,
+            "high": self.high,
+            "count": self.count,
+            "fraction_yes": self.fraction_yes,
+            "mean_predicted": self.mean_predicted,
+        }
+
+
 # ---------------------------------------------------------------------------
 # Scorer
 # ---------------------------------------------------------------------------
@@ -242,3 +278,58 @@ class ManifoldBrierScorer:
             window_start=cutoff,
             window_end=now,
         )
+
+    def calibration_curve(self, *, n_bins: int = 10) -> list[CalibrationBin]:
+        """Compute a reliability diagram calibration curve over all stored predictions.
+
+        Divides ``[0, 1]`` into ``n_bins`` equal-width brackets and, for each
+        bracket, reports the empirical YES frequency and the mean predicted
+        probability.  A well-calibrated agent has ``fraction_yes ≈
+        mean_predicted`` in every non-empty bin.
+
+        Predictions with ``predicted_probability == 1.0`` fall into the last
+        bin (``[1 - step, 1.0]`` inclusive upper bound).
+
+        Args:
+            n_bins: Number of equal-width bins (must be between 2 and 100).
+
+        Returns:
+            A list of :class:`CalibrationBin` of length ``n_bins``, ordered
+            from low to high probability.  Empty bins have ``count == 0`` and
+            ``fraction_yes == mean_predicted == None``.
+
+        Raises:
+            RuntimeError: If the feature flag is not enabled.
+            ValueError: If ``n_bins`` is outside ``[2, 100]``.
+        """
+        _require_enabled()
+        if not (2 <= n_bins <= 100):
+            raise ValueError(f"n_bins must be in [2, 100]; got {n_bins}")
+
+        step = 1.0 / n_bins
+        # Each bin: counts_yes, counts_total, sum_predicted
+        counts_yes: list[int] = [0] * n_bins
+        counts_total: list[int] = [0] * n_bins
+        sum_predicted: list[float] = [0.0] * n_bins
+
+        for pred in self._predictions:
+            # Map probability to bin index; clamp p==1.0 into last bin.
+            idx = min(int(pred.predicted_probability / step), n_bins - 1)
+            counts_total[idx] += 1
+            sum_predicted[idx] += pred.predicted_probability
+            if pred.outcome == 1:
+                counts_yes[idx] += 1
+
+        bins: list[CalibrationBin] = []
+        for i in range(n_bins):
+            n = counts_total[i]
+            bins.append(
+                CalibrationBin(
+                    low=round(i * step, 10),
+                    high=round((i + 1) * step, 10),
+                    count=n,
+                    fraction_yes=(counts_yes[i] / n) if n > 0 else None,
+                    mean_predicted=(sum_predicted[i] / n) if n > 0 else None,
+                )
+            )
+        return bins
