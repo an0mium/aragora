@@ -271,6 +271,51 @@ class ReputationDelta:
         )
 
 
+@dataclass(frozen=True)
+class ReputationDeltaReversed:
+    """Event recording the roll-back of a :class:`ReputationDelta`.
+
+    Emitted when a resolution is re-opened or a dispute window fires.
+    ``counter_delta`` is ``-original.delta``; applying it to the running
+    score restores the pre-settlement state.  The original delta is
+    excluded from future :meth:`~aragora.reputation.store.ReputationStore.get_score`
+    calls once this reversal is recorded.
+
+    Sub-deliverable #7 of AGT-05 (issue #6066).
+    """
+
+    reversal_id: str
+    original_delta_id: str
+    agent_id: str
+    domain: str
+    counter_delta: float
+    reversed_at: str
+    reason: dict[str, Any]
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "reversal_id": self.reversal_id,
+            "original_delta_id": self.original_delta_id,
+            "agent_id": self.agent_id,
+            "domain": self.domain,
+            "counter_delta": round(self.counter_delta, 6),
+            "reversed_at": self.reversed_at,
+            "reason": dict(self.reason),
+        }
+
+    @classmethod
+    def from_json(cls, data: dict[str, Any]) -> "ReputationDeltaReversed":
+        return cls(
+            reversal_id=str(data["reversal_id"]),
+            original_delta_id=str(data["original_delta_id"]),
+            agent_id=str(data["agent_id"]),
+            domain=str(data["domain"]),
+            counter_delta=float(data["counter_delta"]),
+            reversed_at=str(data["reversed_at"]),
+            reason=dict(data.get("reason") or {}),
+        )
+
+
 __all__ = [
     "DOMAIN_CODE_PR",
     "DOMAIN_CRUX_RESOLUTION",
@@ -280,6 +325,7 @@ __all__ = [
     "KNOWN_DOMAINS",
     "ClaimOutcome",
     "ReputationDelta",
+    "ReputationDeltaReversed",
     "ResolvedClaim",
     "ScoringRule",
     "StakePolicy",

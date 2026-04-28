@@ -22,6 +22,7 @@ from aragora.reputation.types import (
     DOMAIN_DEBATE_POSITION,
     DOMAIN_PREDICTION_MARKET,
     ReputationDelta,
+    ReputationDeltaReversed,
     ResolvedClaim,
     StakeableClaim,
 )
@@ -327,3 +328,113 @@ class TestPersistence:
                 store.record_delta(_delta(delta=10.0))
         assert len(store) == 0
         assert store.get_score("alice", apply_decay=False) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# AGT-05 sub-deliverable #7: ReputationDeltaReversed + reverse_delta()
+# ---------------------------------------------------------------------------
+
+
+class TestDeltaReversal:
+    def test_reverse_removes_delta_from_score(self) -> None:
+        store = ReputationStore()
+        d = _delta(delta=50.0)
+        store.record_delta(d)
+        assert store.get_score("alice", apply_decay=False) == pytest.approx(50.0)
+
+        store.reverse_delta(d.delta_id)
+
+        assert store.get_score("alice", apply_decay=False) == pytest.approx(0.0)
+
+    def test_reverse_unknown_delta_id_raises_key_error(self) -> None:
+        store = ReputationStore()
+        with pytest.raises(KeyError, match="not found"):
+            store.reverse_delta("does_not_exist")
+
+    def test_reverse_already_reversed_raises_value_error(self) -> None:
+        store = ReputationStore()
+        d = _delta(delta=10.0)
+        store.record_delta(d)
+        store.reverse_delta(d.delta_id)
+        with pytest.raises(ValueError, match="already been reversed"):
+            store.reverse_delta(d.delta_id)
+
+    def test_reverse_returns_correct_reversal_event(self) -> None:
+        store = ReputationStore()
+        d = _delta(delta=30.0)
+        store.record_delta(d)
+
+        reversal = store.reverse_delta(d.delta_id, reason={"cause": "reopened_resolution"})
+
+        assert isinstance(reversal, ReputationDeltaReversed)
+        assert reversal.original_delta_id == d.delta_id
+        assert reversal.agent_id == d.agent_id
+        assert reversal.domain == d.domain
+        assert reversal.counter_delta == pytest.approx(-30.0)
+        assert reversal.reason == {"cause": "reopened_resolution"}
+        assert reversal.reversal_id.startswith("rev_")
+
+    def test_reverse_partial_cancels_only_that_delta(self) -> None:
+        store = ReputationStore()
+        d1 = _delta(delta=40.0, agent_id="alice", resolution_id="r1")
+        d2 = _delta(delta=20.0, agent_id="alice", resolution_id="r2")
+        store.record_delta(d1)
+        store.record_delta(d2)
+        assert store.get_score("alice", apply_decay=False) == pytest.approx(60.0)
+
+        store.reverse_delta(d1.delta_id)
+
+        assert store.get_score("alice", apply_decay=False) == pytest.approx(20.0)
+
+    def test_reverse_does_not_affect_other_agents(self) -> None:
+        store = ReputationStore()
+        da = _delta(delta=50.0, agent_id="alice", resolution_id="r1")
+        db = _delta(delta=70.0, agent_id="bob", resolution_id="r2")
+        store.record_delta(da)
+        store.record_delta(db)
+
+        store.reverse_delta(da.delta_id)
+
+        assert store.get_score("alice", apply_decay=False) == pytest.approx(0.0)
+        assert store.get_score("bob", apply_decay=False) == pytest.approx(70.0)
+
+    def test_reversals_for_returns_all_reversals_for_agent(self) -> None:
+        store = ReputationStore()
+        d1 = _delta(delta=10.0, agent_id="alice", resolution_id="r1")
+        d2 = _delta(delta=20.0, agent_id="alice", resolution_id="r2")
+        d3 = _delta(delta=30.0, agent_id="bob", resolution_id="r3")
+        store.record_delta(d1)
+        store.record_delta(d2)
+        store.record_delta(d3)
+
+        store.reverse_delta(d1.delta_id)
+        store.reverse_delta(d3.delta_id)
+
+        alice_reversals = store.reversals_for("alice")
+        assert len(alice_reversals) == 1
+        assert alice_reversals[0].original_delta_id == d1.delta_id
+
+        bob_reversals = store.reversals_for("bob")
+        assert len(bob_reversals) == 1
+        assert bob_reversals[0].original_delta_id == d3.delta_id
+
+    def test_reversal_to_json_round_trip(self) -> None:
+        store = ReputationStore()
+        d = _delta(delta=-15.0)
+        store.record_delta(d)
+        reversal = store.reverse_delta(d.delta_id, reason={"source": "dispute"})
+
+        payload = reversal.to_json()
+        rebuilt = ReputationDeltaReversed.from_json(payload)
+
+        assert rebuilt.reversal_id == reversal.reversal_id
+        assert rebuilt.original_delta_id == reversal.original_delta_id
+        assert rebuilt.counter_delta == pytest.approx(reversal.counter_delta)
+        assert rebuilt.reason == {"source": "dispute"}
+
+    def test_len_unchanged_after_reversal(self) -> None:
+        store = ReputationStore()
+        d = _delta(delta=10.0)
+        store.record_delta(d)
+        store.reverse_delta(d.delta_id)
+        assert len(store) == 1
