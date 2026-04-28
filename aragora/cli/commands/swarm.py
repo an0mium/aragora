@@ -2327,7 +2327,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
 
         loop_result = asyncio.run(loop.run(on_status=_on_status))
         if as_json:
-            print(json.dumps(loop_result.to_dict(), indent=2))
+            to_bounded_dict = getattr(loop_result, "to_bounded_dict", None)
+            payload = to_bounded_dict() if callable(to_bounded_dict) else loop_result.to_dict()
+            print(json.dumps(payload, indent=2))
         else:
             print(f"\nBoss loop finished: {loop_result.stop_reason}")
             print(

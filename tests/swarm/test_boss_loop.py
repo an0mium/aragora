@@ -2837,6 +2837,58 @@ class TestStatusPayloadShape:
         assert parsed["configured_max_parallel_dispatches"] == 1
         assert parsed["effective_parallel_dispatches_observed"] is None
 
+    def test_loop_result_bounded_dict_caps_unbounded_operator_payload(self):
+        huge_reason = (
+            "contract_preflight: Drifted fields: ['permissions']\n"
+            + ("x" * (4 * 1024 * 1024))
+            + "\nTAIL_SENTINEL"
+        )
+        huge_body = "Acceptance criteria\n" + ("body context\n" * 200_000)
+        result = BossLoopResult(
+            run_id="boss-test-bounded",
+            iterations_completed=1,
+            total_elapsed_seconds=10.0,
+            stop_reason="needs_human",
+            issues_attempted=[{"number": 6187, "title": "Freshness fix", "body": huge_body}],
+            issues_completed=[],
+            issues_failed=[{"number": 6187, "title": "Freshness fix", "body": huge_body}],
+            iteration_statuses=[
+                {
+                    "iteration": 1,
+                    "run_id": "boss-test-bounded",
+                    "runner_freshness": {
+                        "fresh": True,
+                        "details": {"raw_probe": "runner" * 500_000},
+                    },
+                    "selected_issue": {
+                        "number": 6187,
+                        "title": "Freshness fix",
+                        "body": huge_body,
+                    },
+                    "worker_status": "needs_human",
+                    "stop_reason": "needs_human",
+                    "needs_human_reasons": [huge_reason],
+                    "next_actions": [huge_reason],
+                    "elapsed_seconds": 313.0,
+                }
+            ],
+            needs_human_reasons=[huge_reason],
+            next_actions=[huge_reason],
+        )
+
+        started_at = time.perf_counter()
+        payload = result.to_bounded_dict(max_bytes=32 * 1024)
+        elapsed = time.perf_counter() - started_at
+        serialized = json.dumps(payload, sort_keys=True).encode("utf-8")
+
+        assert elapsed < 2.0
+        assert len(serialized) < 34 * 1024
+        assert payload["_bounded"] is True
+        assert payload["_truncated"] is True
+        assert "contract_preflight" in payload["needs_human_reasons"][0]
+        assert "TAIL_SENTINEL" in payload["needs_human_reasons"][0]
+        assert len(payload["iteration_statuses"][0]["selected_issue"].get("body", "")) < 2048
+
     def test_freshness_result_serializable(self):
         result = _fresh_result(fresh=True)
         payload = result.to_dict()

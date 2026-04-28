@@ -565,6 +565,45 @@ class TestSwarmParser:
         assert config.auto_continue_on_needs_human is True
         assert '"mode": "boss-loop"' in capsys.readouterr().out
 
+    def test_cmd_swarm_boss_loop_json_uses_bounded_result(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="boss-loop",
+            autonomy="guided",
+            json=True,
+            boss_repo="synaptent/aragora",
+            boss_issue_list="101",
+            boss_issue_number=None,
+            worker_model="claude",
+            review_model="codex",
+            labels=["boss-ready"],
+            boss_label_filter=None,
+            allow_missing_validation_contract=False,
+            ping_pong=False,
+            no_dispatch=False,
+            claude_runner_profiles=None,
+            max_consecutive_failures=3,
+        )
+
+        class _FakeBossLoopResult:
+            def to_dict(self):
+                raise AssertionError("raw boss-loop result should not be used for --json")
+
+            def to_bounded_dict(self):
+                return {
+                    "mode": "boss-loop",
+                    "run_id": "boss-run-bounded",
+                    "_bounded": True,
+                }
+
+        fake_loop = SimpleNamespace(run=AsyncMock(return_value=_FakeBossLoopResult()))
+
+        with patch("aragora.swarm.boss_loop.BossLoop", return_value=fake_loop):
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"run_id": "boss-run-bounded"' in out
+        assert '"_bounded": true' in out
+
     def test_cmd_swarm_preflight_routes_to_module_without_contract(self, capsys):
         args = _swarm_args(
             swarm_action_or_goal="preflight",

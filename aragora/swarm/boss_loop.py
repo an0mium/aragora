@@ -194,6 +194,141 @@ class BossIterationStatus:
         return result
 
 
+_BOSS_LOOP_JSON_OUTPUT_BYTES = 64 * 1024
+_BOSS_LOOP_RECEIPT_TEXT_BYTES = 2 * 1024
+_BOSS_LOOP_RESULT_TEXT_BYTES = 2 * 1024
+_BOSS_LOOP_RESULT_MAX_LIST_ITEMS = 16
+_BOSS_LOOP_RESULT_MAX_DICT_ITEMS = 32
+
+
+def _truncate_middle_text(value: Any, *, max_bytes: int) -> str:
+    text = str(value)
+    encoded = text.encode("utf-8", errors="replace")
+    if len(encoded) <= max_bytes:
+        return text
+    marker = f"\n...[truncated {len(encoded) - max_bytes} bytes]...\n"
+    marker_bytes = marker.encode("utf-8")
+    if len(marker_bytes) >= max_bytes:
+        return encoded[:max_bytes].decode("utf-8", errors="ignore")
+    budget = max_bytes - len(marker_bytes)
+    head_bytes = max(0, budget // 2)
+    tail_bytes = max(0, budget - head_bytes)
+    head = encoded[:head_bytes].decode("utf-8", errors="ignore")
+    tail = encoded[-tail_bytes:].decode("utf-8", errors="ignore") if tail_bytes else ""
+    return f"{head}{marker}{tail}"
+
+
+def _bounded_text_list(
+    values: Any,
+    *,
+    max_items: int = _BOSS_LOOP_RESULT_MAX_LIST_ITEMS,
+    max_bytes: int = _BOSS_LOOP_RESULT_TEXT_BYTES,
+) -> list[str]:
+    if not isinstance(values, list):
+        values = [values] if values else []
+    bounded = [
+        _truncate_middle_text(item, max_bytes=max_bytes)
+        for item in values[:max_items]
+        if str(item).strip()
+    ]
+    if len(values) > max_items:
+        bounded.append(f"...[truncated {len(values) - max_items} additional item(s)]...")
+    return bounded
+
+
+def _bounded_json_value(
+    value: Any,
+    *,
+    max_depth: int = 4,
+    max_items: int = _BOSS_LOOP_RESULT_MAX_DICT_ITEMS,
+    max_string_bytes: int = _BOSS_LOOP_RESULT_TEXT_BYTES,
+) -> Any:
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        return _truncate_middle_text(value, max_bytes=max_string_bytes)
+    if max_depth <= 0:
+        return _truncate_middle_text(repr(value), max_bytes=max_string_bytes)
+    if isinstance(value, dict):
+        bounded: dict[str, Any] = {}
+        items = list(value.items())
+        for key, item in items[:max_items]:
+            bounded[str(key)] = _bounded_json_value(
+                item,
+                max_depth=max_depth - 1,
+                max_items=max_items,
+                max_string_bytes=max_string_bytes,
+            )
+        if len(items) > max_items:
+            bounded["_truncated_keys"] = len(items) - max_items
+        return bounded
+    if isinstance(value, (list, tuple, set)):
+        items = list(value)
+        bounded_list = [
+            _bounded_json_value(
+                item,
+                max_depth=max_depth - 1,
+                max_items=max_items,
+                max_string_bytes=max_string_bytes,
+            )
+            for item in items[:max_items]
+        ]
+        if len(items) > max_items:
+            bounded_list.append({"_truncated_items": len(items) - max_items})
+        return bounded_list
+    return _truncate_middle_text(value, max_bytes=max_string_bytes)
+
+
+def _bounded_issue_payload(
+    issue: dict[str, Any] | None, *, include_body: bool = True
+) -> dict[str, Any] | None:
+    if not isinstance(issue, dict):
+        return None
+    bounded: dict[str, Any] = {}
+    for key in (
+        "number",
+        "title",
+        "labels",
+        "url",
+        "state",
+        "created_at",
+        "lane_id",
+        "lane_hints",
+    ):
+        if key in issue:
+            bounded[key] = _bounded_json_value(issue[key], max_depth=2, max_string_bytes=512)
+    if include_body and "body" in issue:
+        bounded["body"] = _truncate_middle_text(issue["body"], max_bytes=1024)
+    return bounded
+
+
+def _minimal_status_payload(status: dict[str, Any]) -> dict[str, Any]:
+    selected_issue = status.get("selected_issue")
+    return {
+        "iteration": status.get("iteration"),
+        "run_id": status.get("run_id"),
+        "timestamp": status.get("timestamp"),
+        "selected_issue": _bounded_issue_payload(selected_issue, include_body=False),
+        "worker_status": status.get("worker_status"),
+        "stop_reason": status.get("stop_reason"),
+        "needs_human_reasons": _bounded_text_list(
+            status.get("needs_human_reasons", []),
+            max_items=4,
+            max_bytes=512,
+        ),
+        "next_actions": _bounded_text_list(
+            status.get("next_actions", []),
+            max_items=4,
+            max_bytes=512,
+        ),
+        "elapsed_seconds": status.get("elapsed_seconds"),
+        "error": _truncate_middle_text(status.get("error", "") or "", max_bytes=512) or None,
+        "worker_outcome": status.get("worker_outcome"),
+        "configured_max_parallel_dispatches": status.get("configured_max_parallel_dispatches"),
+        "effective_parallel_dispatches": status.get("effective_parallel_dispatches"),
+    }
+
+
 @dataclass
 class BossLoopResult:
     """Final result of a Boss loop run."""
@@ -229,6 +364,157 @@ class BossLoopResult:
             "configured_max_parallel_dispatches": self.configured_max_parallel_dispatches,
             "effective_parallel_dispatches_observed": self.effective_parallel_dispatches_observed,
         }
+
+    def to_bounded_dict(self, *, max_bytes: int = _BOSS_LOOP_JSON_OUTPUT_BYTES) -> dict[str, Any]:
+        """Return an operator-facing result summary safe for terminal JSON output.
+
+        The raw result can contain full issue bodies and worker-sourced
+        needs-human text. Real post-worker failures have put multi-MB payloads
+        here, making the final ``json.dumps`` path look hung. Keep ``to_dict``
+        unchanged for in-process callers, but make CLI/receipt output bounded.
+        """
+
+        def _bounded_status(status: Any) -> dict[str, Any]:
+            raw = dict(status) if isinstance(status, dict) else {}
+            return {
+                "iteration": raw.get("iteration"),
+                "run_id": raw.get("run_id"),
+                "timestamp": raw.get("timestamp"),
+                "runner_freshness": _bounded_json_value(
+                    raw.get("runner_freshness", {}),
+                    max_depth=3,
+                    max_items=16,
+                    max_string_bytes=512,
+                ),
+                "selected_issue": _bounded_issue_payload(raw.get("selected_issue")),
+                "worker_status": raw.get("worker_status"),
+                "stop_reason": raw.get("stop_reason"),
+                "needs_human_reasons": _bounded_text_list(
+                    raw.get("needs_human_reasons", []),
+                    max_items=8,
+                    max_bytes=_BOSS_LOOP_RESULT_TEXT_BYTES,
+                ),
+                "next_actions": _bounded_text_list(
+                    raw.get("next_actions", []),
+                    max_items=8,
+                    max_bytes=_BOSS_LOOP_RESULT_TEXT_BYTES,
+                ),
+                "elapsed_seconds": raw.get("elapsed_seconds"),
+                "error": (_truncate_middle_text(raw.get("error", "") or "", max_bytes=512) or None),
+                "worker_outcome": raw.get("worker_outcome"),
+                "configured_max_parallel_dispatches": raw.get("configured_max_parallel_dispatches"),
+                "effective_parallel_dispatches": raw.get("effective_parallel_dispatches"),
+            }
+
+        statuses = list(self.iteration_statuses)
+        payload: dict[str, Any] = {
+            "mode": "boss-loop",
+            "run_id": self.run_id,
+            "iterations_completed": self.iterations_completed,
+            "total_elapsed_seconds": self.total_elapsed_seconds,
+            "stop_reason": self.stop_reason,
+            "issues_attempted": [
+                item
+                for item in (_bounded_issue_payload(issue) for issue in self.issues_attempted[:16])
+                if item is not None
+            ],
+            "issues_completed": [
+                item
+                for item in (_bounded_issue_payload(issue) for issue in self.issues_completed[:16])
+                if item is not None
+            ],
+            "issues_failed": [
+                item
+                for item in (_bounded_issue_payload(issue) for issue in self.issues_failed[:16])
+                if item is not None
+            ],
+            "iteration_statuses": [_bounded_status(status) for status in statuses[-16:]],
+            "needs_human_reasons": _bounded_text_list(self.needs_human_reasons),
+            "next_actions": _bounded_text_list(self.next_actions),
+            "sanitation_summary": _bounded_text_list(self.sanitation_summary, max_items=16),
+            "configured_max_parallel_dispatches": self.configured_max_parallel_dispatches,
+            "effective_parallel_dispatches_observed": self.effective_parallel_dispatches_observed,
+            "_bounded": True,
+            "_truncation": {
+                "issues_attempted_omitted": max(0, len(self.issues_attempted) - 16),
+                "issues_completed_omitted": max(0, len(self.issues_completed) - 16),
+                "issues_failed_omitted": max(0, len(self.issues_failed) - 16),
+                "iteration_statuses_omitted": max(0, len(statuses) - 16),
+            },
+        }
+
+        def _serialised_size(candidate: dict[str, Any]) -> int:
+            return len(json.dumps(candidate, default=str).encode("utf-8"))
+
+        serialised_size = _serialised_size(payload)
+        if serialised_size > max_bytes:
+            payload["iteration_statuses"] = [
+                _minimal_status_payload(dict(status) if isinstance(status, dict) else {})
+                for status in statuses[-8:]
+            ]
+            for key in ("issues_attempted", "issues_completed", "issues_failed"):
+                bounded_issues = []
+                for issue in getattr(self, key)[:8]:
+                    bounded_issue = _bounded_issue_payload(issue, include_body=False)
+                    if bounded_issue is not None:
+                        bounded_issues.append(bounded_issue)
+                payload[key] = bounded_issues
+            payload["needs_human_reasons"] = _bounded_text_list(
+                self.needs_human_reasons,
+                max_items=8,
+                max_bytes=512,
+            )
+            payload["next_actions"] = _bounded_text_list(
+                self.next_actions,
+                max_items=8,
+                max_bytes=512,
+            )
+            payload["sanitation_summary"] = _bounded_text_list(
+                self.sanitation_summary,
+                max_items=8,
+                max_bytes=512,
+            )
+            payload["_truncated"] = True
+            serialised_size = _serialised_size(payload)
+
+        if serialised_size > max_bytes:
+            payload = {
+                "mode": "boss-loop",
+                "run_id": self.run_id,
+                "iterations_completed": self.iterations_completed,
+                "total_elapsed_seconds": self.total_elapsed_seconds,
+                "stop_reason": self.stop_reason,
+                "issues_attempted": len(self.issues_attempted),
+                "issues_completed": len(self.issues_completed),
+                "issues_failed": len(self.issues_failed),
+                "needs_human_reasons": _bounded_text_list(
+                    self.needs_human_reasons,
+                    max_items=4,
+                    max_bytes=512,
+                ),
+                "next_actions": _bounded_text_list(
+                    self.next_actions,
+                    max_items=4,
+                    max_bytes=512,
+                ),
+                "configured_max_parallel_dispatches": self.configured_max_parallel_dispatches,
+                "effective_parallel_dispatches_observed": (
+                    self.effective_parallel_dispatches_observed
+                ),
+                "_bounded": True,
+                "_truncated": True,
+                "_overflow": True,
+            }
+            serialised_size = _serialised_size(payload)
+
+        payload["_truncated"] = bool(
+            payload.get("_truncated")
+            or payload.get("_overflow")
+            or any(value for value in payload.get("_truncation", {}).values())
+            or "[truncated" in json.dumps(payload, default=str)
+        )
+        payload["_serialised_bytes"] = _serialised_size(payload)
+        return payload
 
 
 @dataclass(slots=True)
@@ -1255,9 +1541,21 @@ class BossLoop:
                     "effective_parallel_dispatches_observed": (
                         result.effective_parallel_dispatches_observed
                     ),
-                    "needs_human_reasons": list(result.needs_human_reasons),
-                    "next_actions": list(result.next_actions),
-                    "sanitation_summary": list(result.sanitation_summary),
+                    "needs_human_reasons": _bounded_text_list(
+                        result.needs_human_reasons,
+                        max_items=16,
+                        max_bytes=_BOSS_LOOP_RECEIPT_TEXT_BYTES,
+                    ),
+                    "next_actions": _bounded_text_list(
+                        result.next_actions,
+                        max_items=16,
+                        max_bytes=_BOSS_LOOP_RECEIPT_TEXT_BYTES,
+                    ),
+                    "sanitation_summary": _bounded_text_list(
+                        result.sanitation_summary,
+                        max_items=16,
+                        max_bytes=_BOSS_LOOP_RECEIPT_TEXT_BYTES,
+                    ),
                 },
                 verdict=verdict,
                 confidence=(completed / attempted) if attempted else 0.0,

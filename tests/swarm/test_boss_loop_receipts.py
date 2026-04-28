@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from aragora.receipts.lane import LaneCompletionReceipt, validate_receipt
-from aragora.swarm.boss_loop import BossLoop, BossLoopConfig, BossStopReason, RunnerFreshnessResult
+from aragora.swarm.boss_loop import (
+    BossLoop,
+    BossLoopConfig,
+    BossLoopResult,
+    BossStopReason,
+    RunnerFreshnessResult,
+)
 
 UTC = timezone.utc
 
@@ -44,6 +51,35 @@ class TestBossLoopOperationalReceipts:
         assert kwargs["action"] == "run_completed"
         assert kwargs["inputs"]["run_id"] == result.run_id
         assert kwargs["outputs"]["stop_reason"] == BossStopReason.NO_SUITABLE_ISSUE.value
+
+    def test_terminal_receipt_bounds_operator_text(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(max_iterations=1, iteration_interval_seconds=0.0))
+        huge_reason = (
+            "contract_preflight: Drifted fields: ['permissions']\n"
+            + ("x" * (2 * 1024 * 1024))
+            + "\nTAIL_SENTINEL"
+        )
+        result = BossLoopResult(
+            run_id=loop.run_id,
+            iterations_completed=1,
+            total_elapsed_seconds=5.0,
+            stop_reason=BossStopReason.NEEDS_HUMAN.value,
+            issues_attempted=[{"number": 6187}],
+            issues_completed=[],
+            issues_failed=[{"number": 6187}],
+            iteration_statuses=[],
+            needs_human_reasons=[huge_reason],
+            next_actions=[huge_reason],
+        )
+
+        with patch("aragora.receipts.provenance.emit_operational_receipt") as emit_receipt:
+            loop._emit_terminal_receipt(result)
+
+        outputs = emit_receipt.call_args.kwargs["outputs"]
+        encoded = json.dumps(outputs, sort_keys=True).encode("utf-8")
+        assert len(encoded) < 8 * 1024
+        assert "contract_preflight" in outputs["needs_human_reasons"][0]
+        assert "TAIL_SENTINEL" in outputs["needs_human_reasons"][0]
 
     def test_receipt_failures_do_not_block_run_completion(self) -> None:
         feed = MagicMock()
