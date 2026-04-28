@@ -1124,6 +1124,7 @@ def _build_merge_authorization_packet(
             "unresolved_dissent": quorum["unresolved_dissent"],
             "reviewer_signals": quorum["reviewer_signals"],
             "dogfood_evidence": quorum["dogfood_evidence"],
+            "counted_reviewer_ids": quorum["counted_reviewer_ids"],
             "reasons": quorum["reasons"],
         }
         entries.append(entry)
@@ -1177,8 +1178,11 @@ def _build_model_review_quorum(
     ]
     blocking_workflow_state = _has_blocking_workflow_state(pr)
     unresolved_dissent = bool(dissenting_views)
-    signal_count = len(reviewer_signals) + len(dogfood_evidence)
-    has_required_dogfood = not requirement["requires_adversarial_dogfood"] or bool(dogfood_evidence)
+    counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
+    signal_count = len(counted_reviewer_ids)
+    has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
+        _known_model_reviewer_id(item) for item in dogfood_evidence
+    )
     quorum_satisfied = (
         signal_count >= requirement["required_model_signals"] and has_required_dogfood
     )
@@ -1242,6 +1246,7 @@ def _build_model_review_quorum(
         "verdict": verdict,
         "reviewer_signals": reviewer_signals,
         "dogfood_evidence": dogfood_evidence,
+        "counted_reviewer_ids": counted_reviewer_ids,
         "dissenting_views": dissenting_views,
         "unresolved_dissent": unresolved_dissent,
         "reasons": reasons,
@@ -1347,6 +1352,48 @@ def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, 
             }
         )
     return signals
+
+
+def _counted_model_reviewer_ids(
+    reviewer_signals: list[dict[str, Any]],
+    dogfood_evidence: list[dict[str, str]],
+) -> list[str]:
+    reviewer_ids: set[str] = set()
+    for item in [*reviewer_signals, *dogfood_evidence]:
+        reviewer_id = _known_model_reviewer_id(item)
+        if reviewer_id:
+            reviewer_ids.add(reviewer_id)
+    return sorted(reviewer_ids)
+
+
+def _known_model_reviewer_id(item: dict[str, Any]) -> str:
+    provider = str(item.get("provider", "") or "")
+    reviewer_id = str(item.get("reviewer_id", "") or "")
+    return _normalize_model_reviewer_id(provider) or _normalize_model_reviewer_id(reviewer_id)
+
+
+def _normalize_model_reviewer_id(value: str) -> str:
+    lower = str(value).lower()
+    if not lower or "unknown_model_reviewer" in lower:
+        return ""
+    known_markers = (
+        ("claude", ("claude", "anthropic")),
+        ("codex", ("codex",)),
+        ("openai", ("openai", "gpt")),
+        ("grok", ("grok", "xai")),
+        ("gemini", ("gemini", "google")),
+        ("mistral", ("mistral", "codestral")),
+        ("deepseek", ("deepseek",)),
+        ("qwen", ("qwen",)),
+        ("kimi", ("kimi", "moonshot")),
+        ("tesla", ("tesla",)),
+        ("harvey", ("harvey",)),
+        ("factory", ("factory",)),
+    )
+    for normalized, markers in known_markers:
+        if any(marker in lower for marker in markers):
+            return normalized
+    return ""
 
 
 def _dogfood_evidence_from_comments(comments: list[Any]) -> list[dict[str, str]]:
@@ -1832,9 +1879,11 @@ def _render_packet(packet: ReviewPacket) -> None:
         )
         print(
             "  signals: "
-            f"{len(quorum.get('reviewer_signals') or []) + len(quorum.get('dogfood_evidence') or [])}/"
+            f"{len(quorum.get('counted_reviewer_ids') or [])}/"
             f"{quorum.get('required_model_signals', 0)}"
         )
+        if quorum.get("counted_reviewer_ids"):
+            print(f"  counted reviewers: {', '.join(quorum.get('counted_reviewer_ids') or [])}")
         if quorum.get("unresolved_dissent"):
             print("  unresolved dissent: true")
         for reason in quorum.get("reasons") or []:
@@ -1914,7 +1963,8 @@ def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
         print(
             "  evidence: "
             f"{len(entry.get('reviewer_signals') or [])} reviewer signal(s), "
-            f"{len(entry.get('dogfood_evidence') or [])} dogfood note(s)"
+            f"{len(entry.get('dogfood_evidence') or [])} dogfood note(s), "
+            f"{len(entry.get('counted_reviewer_ids') or [])} counted reviewer(s)"
         )
         for reason in entry.get("reasons") or []:
             print(f"  - {reason}")

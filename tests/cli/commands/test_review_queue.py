@@ -133,7 +133,9 @@ def _make_reviewer_output(
     )
 
 
-def _dogfood_comment(body: str = "## Cross-author adversarial dogfood\n6/6 pass") -> dict[str, Any]:
+def _dogfood_comment(
+    body: str = "## Cross-author adversarial dogfood (Claude)\n6/6 pass",
+) -> dict[str, Any]:
     return {"author": {"login": "an0mium"}, "body": body}
 
 
@@ -510,6 +512,78 @@ class TestModelReviewQuorum:
         assert quorum["status"] == "satisfied"
         assert quorum["verdict"] == "admin_squash_allowed"
         assert quorum["admin_squash_allowed"] is True
+        assert set(quorum["counted_reviewer_ids"]) == {"claude", "gemini", "openai"}
+
+    def test_duplicate_codex_comments_do_not_satisfy_tier_two_quorum(self) -> None:
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr["comments"] = [
+            _dogfood_comment("## Codex focused dogfood\nlocal checks pass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Codex review\nLGTM after local dogfood.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Codex review\nSecond same-model note.",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 2
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["counted_reviewer_ids"] == ["codex"]
+        assert "model quorum incomplete: 1/2 signal(s)" in quorum["reasons"]
+
+    def test_codex_dogfood_and_grok_review_satisfy_tier_two_quorum(self) -> None:
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr["comments"] = [
+            _dogfood_comment("## Codex focused dogfood\nlocal checks pass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 2
+        assert quorum["status"] == "satisfied"
+        assert quorum["admin_squash_allowed"] is True
+        assert quorum["counted_reviewer_ids"] == ["codex", "grok"]
+
+    def test_unknown_dogfood_does_not_count_or_satisfy_required_dogfood(self) -> None:
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr["comments"] = [
+            _dogfood_comment("## Focused dogfood\nlocal checks pass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 2
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["counted_reviewer_ids"] == ["grok"]
+        assert "focused adversarial dogfood evidence is required" in quorum["reasons"]
 
     def test_unresolved_dissent_forces_human_risk_settlement(self) -> None:
         pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
@@ -592,6 +666,7 @@ class TestModelReviewQuorum:
         assert len(quorum["reviewer_signals"]) == 1
         assert quorum["reviewer_signals"][0]["reviewer_id"] == "grok"
         assert len(quorum["dogfood_evidence"]) == 1
+        assert quorum["counted_reviewer_ids"] == ["codex", "grok"]
 
     def test_github_actions_advisory_review_does_not_count_as_model_signal(self) -> None:
         pr = _make_pr(files=["aragora/debate/team_selector.py"])
@@ -1280,6 +1355,7 @@ class TestSettlementHelpers:
                     "unresolved_dissent": False,
                     "reviewer_signals": [],
                     "dogfood_evidence": [{"reviewer_id": "claude"}],
+                    "counted_reviewer_ids": ["claude"],
                     "reasons": ["docs/tests/status-only change"],
                 },
             )
