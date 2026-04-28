@@ -83,11 +83,22 @@ TIER_3_PREFIXES: tuple[str, ...] = (
     "aragora/security/",
     "aragora/privacy/",
     "aragora/compliance/",
+    "aragora/metrics/",
     "aragora/reputation/",
+    "aragora/debate/team_selector.py",
     "aragora/server/fastapi/routes/",
     "aragora/server/handlers/",
     "aragora/migrations/",
     "sdk/",
+)
+TIER_3_TITLE_KEYWORDS: tuple[str, ...] = (
+    "agt-",
+    "calibration",
+    "reputation",
+    "semantic",
+    "scoring",
+    "persistence",
+    "public api",
 )
 TIER_4_PREFIXES: tuple[str, ...] = (
     ".github/workflows/",
@@ -1247,7 +1258,9 @@ def _classify_model_review_tier(
         return (1, "tier_1_additive_internal", "no changed files reported; defaulting to Tier 1")
     if any(_matches_prefix(path, TIER_4_PREFIXES) for path in normalized):
         return (4, "tier_4_preapproval_required", "workflow/deploy/destructive surface touched")
-    if any(_matches_prefix(path, TIER_3_PREFIXES) for path in normalized):
+    if any(_matches_prefix(path, TIER_3_PREFIXES) for path in normalized) or any(
+        keyword in title for keyword in TIER_3_TITLE_KEYWORDS
+    ):
         return (
             3,
             "tier_3_semantic_risk",

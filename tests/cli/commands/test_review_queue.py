@@ -435,6 +435,8 @@ class TestModelReviewQuorum:
             (["aragora/agents/router.py"], 1),
             (["aragora/cli/commands/review_queue.py"], 2),
             (["scripts/publish_automation_handoffs.py"], 2),
+            (["aragora/metrics/manifold_brier.py"], 3),
+            (["aragora/debate/team_selector.py"], 3),
             (["aragora/reputation/store.py"], 3),
             (["aragora/auth/session.py"], 3),
             (["sdk/typescript/src/index.ts"], 3),
@@ -445,6 +447,23 @@ class TestModelReviewQuorum:
     def test_classifies_merge_tiers(self, files: list[str], expected_tier: int) -> None:
         tier, _, _ = _classify_model_review_tier(files, pr=_make_pr(files=files))
         assert tier == expected_tier
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "[AGT-03] Calibration curve reporting for ManifoldBrierScorer",
+            "[AGT-05] Wire enable_agt05_reputation_selection into TeamSelectionConfig",
+            "fix: semantic scoring correction",
+        ],
+    )
+    def test_classifies_semantic_titles_as_tier_three(self, title: str) -> None:
+        files = ["aragora/agents/router.py"]
+        tier, _, reason = _classify_model_review_tier(
+            files,
+            pr=_make_pr(title=title, files=files),
+        )
+        assert tier == 3
+        assert "semantic" in reason
 
     def test_tier_zero_satisfied_by_one_dogfood_note(self) -> None:
         pr = _make_pr(files=["docs/status/report.md"])
