@@ -313,8 +313,10 @@ class ManifoldBrierScorer:
         sum_predicted: list[float] = [0.0] * n_bins
 
         for pred in self._predictions:
-            # Map probability to bin index; clamp p==1.0 into last bin.
-            idx = min(int(pred.predicted_probability / step), n_bins - 1)
+            # Multiply instead of divide to avoid e.g. 0.3/0.1 == 2.999...
+            # Add a sub-ULP epsilon (1e-9) to snap values that are floating-
+            # point representations of exact boundaries into the correct bin.
+            idx = min(int(pred.predicted_probability * n_bins + 1e-9), n_bins - 1)
             counts_total[idx] += 1
             sum_predicted[idx] += pred.predicted_probability
             if pred.outcome == 1:

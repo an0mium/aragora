@@ -309,3 +309,29 @@ class TestCalibrationCurve:
         curve = scorer.calibration_curve(n_bins=20)
         assert len(curve) == 20
         assert sum(b.count for b in curve) == 1
+
+    @pytest.mark.parametrize(
+        "prob,expected_bin",
+        [
+            # Exact decimal boundaries that are slightly below their target
+            # value in IEEE 754, triggering int(p / step) = n-1 instead of n.
+            (0.3, 3),   # 0.3/0.1 == 2.9999... → must land in bin 3 [0.3, 0.4)
+            (0.6, 6),   # 0.6/0.1 == 5.9999... → must land in bin 6 [0.6, 0.7)
+            (0.7, 7),   # 0.7/0.1 == 6.9999... → must land in bin 7 [0.7, 0.8)
+            # p=1.0 must clamp to the last bin, not overflow.
+            (1.0, 9),
+            # Values strictly inside a bin are unaffected.
+            (0.05, 0),
+            (0.35, 3),
+            (0.95, 9),
+        ],
+    )
+    def test_exact_boundary_bin_placement(self, prob: float, expected_bin: int) -> None:
+        scorer = ManifoldBrierScorer()
+        scorer.add(_pred(prob, 1, question_id=f"q_{prob}"))
+        curve = scorer.calibration_curve(n_bins=10)
+        assert curve[expected_bin].count == 1, (
+            f"p={prob} landed in bin {next(i for i, b in enumerate(curve) if b.count)}, "
+            f"expected bin {expected_bin}"
+        )
+        assert sum(b.count for b in curve) == 1
