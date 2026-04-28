@@ -54,6 +54,8 @@ UTC = timezone.utc
 
 # Lane classification thresholds and risk-path catalog.
 LARGE_DIFF_THRESHOLD = 500  # additions + deletions, beyond which "needs_human_attention"
+MODEL_REVIEW_QUEUE_CAP = 6
+MODEL_REVIEW_QUORUM_VERSION = "model_review_quorum.v1"
 HIGH_RISK_PATHS: tuple[str, ...] = (
     "CLAUDE.md",
     "aragora/__init__.py",
@@ -67,6 +69,31 @@ HIGH_RISK_PREFIXES: tuple[str, ...] = (
     "aragora/rbac/",
     "scripts/auto_revert",
     ".github/workflows/",
+)
+TIER_2_PREFIXES: tuple[str, ...] = (
+    "aragora/cli/",
+    "aragora/swarm/",
+    "aragora/observability/",
+    "aragora/knowledge/mound/metrics",
+    "scripts/",
+)
+TIER_3_PREFIXES: tuple[str, ...] = (
+    "aragora/auth/",
+    "aragora/rbac/",
+    "aragora/security/",
+    "aragora/privacy/",
+    "aragora/compliance/",
+    "aragora/reputation/",
+    "aragora/server/fastapi/routes/",
+    "aragora/server/handlers/",
+    "aragora/migrations/",
+    "sdk/",
+)
+TIER_4_PREFIXES: tuple[str, ...] = (
+    ".github/workflows/",
+    "deploy/",
+    "docker/",
+    "k8s/",
 )
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
 
@@ -138,6 +165,7 @@ class ReviewPacket:
     packet_sha: str
     generated_at: str
     protocol: dict[str, Any] = field(default_factory=dict)
+    model_review_quorum: dict[str, Any] = field(default_factory=dict)
     advisory_only: bool = True
     settlement_note: str = ADVISORY_NOTE
 
@@ -260,6 +288,39 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     act_p.add_argument("--json", action="store_true", help="Output settlement receipt as JSON")
 
+    merge_packet_p = sub.add_parser(
+        "merge-packet",
+        help="Print a model-quorum merge authorization packet for a PR batch",
+        description=(
+            "Build a receipt-shaped batch packet for the Model Review Quorum + "
+            "Human Risk Settlement process. This is read-only: it does not "
+            "approve, merge, comment, or write local receipts."
+        ),
+    )
+    merge_packet_p.add_argument(
+        "--limit",
+        type=int,
+        default=30,
+        help="Max open PRs to inspect when --pr is not supplied (default: 30)",
+    )
+    merge_packet_p.add_argument(
+        "--pr",
+        action="append",
+        default=[],
+        help="Specific PR number/ref to include. Repeatable. Defaults to open queue.",
+    )
+    merge_packet_p.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    merge_packet_p.add_argument(
+        "--execute-reviewers",
+        action="store_true",
+        help="Attempt live heterogeneous reviewer execution for each packet.",
+    )
+    merge_packet_p.add_argument("--json", action="store_true", help="Output as JSON")
+
     baseline_p = sub.add_parser(
         "baseline",
         help="Measure empirical invalidation baseline from on-disk stores (#6375)",
@@ -354,10 +415,12 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_run(args)
     if command == "act":
         return _cmd_act(args)
+    if command == "merge-packet":
+        return _cmd_merge_packet(args)
     if command == "baseline":
         return _cmd_baseline(args)
     print(
-        "Usage: aragora review-queue {build,packet,run,act,baseline} [...]\n"
+        "Usage: aragora review-queue {build,packet,run,act,merge-packet,baseline} [...]\n"
         "Run 'aragora review-queue run --help' for the human settlement loop.",
         file=sys.stderr,
     )
@@ -533,6 +596,25 @@ def _cmd_act(args: argparse.Namespace) -> int:
         print(json.dumps(receipt.to_dict(), indent=2))
     else:
         _render_settlement_receipt(receipt)
+    return 0
+
+
+def _cmd_merge_packet(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
+    try:
+        packet = _build_merge_authorization_packet(
+            pr_refs=list(getattr(args, "pr", []) or []),
+            limit=int(getattr(args, "limit", 30) or 30),
+            repo_override=getattr(args, "repo", None),
+            execute_reviewers=bool(getattr(args, "execute_reviewers", False)),
+        )
+    except _GhError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if json_output:
+        print(json.dumps(packet, indent=2))
+    else:
+        _render_merge_authorization_packet(packet)
     return 0
 
 
@@ -827,6 +909,7 @@ def _build_packet(
             "statusCheckRollup",
             "files",
             "body",
+            "comments",
         ]
     )
     args = ["pr", "view", str(number), "--json", fields]
@@ -942,6 +1025,7 @@ def _build_packet(
         reviewer_outputs=reviewer_outputs,
         execution_failures=execution_failures,
     )
+    protocol_dict = protocol.to_dict()
 
     packet = ReviewPacket(
         pr_number=number,
@@ -964,10 +1048,348 @@ def _build_packet(
         machine_recommendation_reason=recommendation_reason,
         packet_sha="",
         generated_at=datetime.now(UTC).isoformat(),
-        protocol=protocol.to_dict(),
+        protocol=protocol_dict,
+        model_review_quorum=_build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol=protocol_dict,
+            machine_recommendation=recommendation,
+            has_pending=has_pending,
+            has_failures=has_failures,
+        ),
     )
     packet.packet_sha = _packet_sha(packet)
     return packet
+
+
+def _build_merge_authorization_packet(
+    *,
+    pr_refs: list[str],
+    limit: int,
+    repo_override: str | None,
+    execute_reviewers: bool = False,
+) -> dict[str, Any]:
+    if pr_refs:
+        refs = list(dict.fromkeys(str(ref).strip() for ref in pr_refs if str(ref).strip()))
+        queue_size = len(_build_queue(limit=max(limit, len(refs), MODEL_REVIEW_QUEUE_CAP + 1)))
+    else:
+        queue = _build_queue(limit=limit)
+        refs = [str(item.number) for item in queue]
+        queue_size = len(queue)
+
+    packets = [
+        _build_packet(ref, repo_override=repo_override, execute_reviewers=execute_reviewers)
+        for ref in refs
+    ]
+    queue_pressure_active = queue_size > MODEL_REVIEW_QUEUE_CAP
+    entries = []
+    for packet in packets:
+        quorum = dict(packet.model_review_quorum)
+        quorum["queue_pressure"] = {
+            "current_open_prs": queue_size,
+            "cap": MODEL_REVIEW_QUEUE_CAP,
+            "active": queue_pressure_active,
+            "allowed_work_when_active": [
+                "review",
+                "dogfood",
+                "existing_blocker_fix",
+                "local_spec_only",
+                "merge_authorization_packet",
+            ],
+        }
+        entry = {
+            "pr_number": packet.pr_number,
+            "title": packet.title,
+            "url": packet.url,
+            "head_sha": packet.head_sha,
+            "checks_summary": packet.checks_summary,
+            "machine_recommendation": packet.machine_recommendation,
+            "tier": quorum["tier"],
+            "tier_name": quorum["tier_name"],
+            "status": quorum["status"],
+            "verdict": quorum["verdict"],
+            "admin_squash_allowed": quorum["admin_squash_allowed"],
+            "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
+            "unresolved_dissent": quorum["unresolved_dissent"],
+            "reviewer_signals": quorum["reviewer_signals"],
+            "dogfood_evidence": quorum["dogfood_evidence"],
+            "reasons": quorum["reasons"],
+        }
+        entries.append(entry)
+
+    return {
+        "version": "merge_authorization_packet.v1",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "queue_pressure": {
+            "current_open_prs": queue_size,
+            "cap": MODEL_REVIEW_QUEUE_CAP,
+            "active": queue_pressure_active,
+        },
+        "authorization_sentence": (
+            "I accept the model quorum evidence for Tier 0-2 PRs in this packet "
+            "and authorize admin squash in the listed order. For Tier 3+ PRs, "
+            "I separately accept the semantic-risk packet before merge."
+        ),
+        "entries": entries,
+        "admin_squash_order": [
+            entry["pr_number"]
+            for entry in entries
+            if bool(entry["admin_squash_allowed"]) and not bool(entry["unresolved_dissent"])
+        ],
+        "human_risk_settlement_required": [
+            entry["pr_number"] for entry in entries if bool(entry["requires_human_risk_settlement"])
+        ],
+        "not_ready": [
+            entry["pr_number"]
+            for entry in entries
+            if entry["status"] not in {"satisfied", "human_risk_settlement_required"}
+        ],
+    }
+
+
+def _build_model_review_quorum(
+    *,
+    pr: dict[str, Any],
+    files: list[str],
+    protocol: dict[str, Any],
+    machine_recommendation: str,
+    has_pending: bool,
+    has_failures: bool,
+) -> dict[str, Any]:
+    tier, tier_name, tier_reason = _classify_model_review_tier(files, pr=pr)
+    requirement = _tier_requirement(tier)
+    reviewer_signals = _reviewer_signals_from_protocol(protocol)
+    dogfood_evidence = _dogfood_evidence_from_comments(pr.get("comments") or [])
+    dissenting_views = [
+        view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
+    ]
+    blocking_workflow_state = _has_blocking_workflow_state(pr)
+    unresolved_dissent = bool(dissenting_views)
+    signal_count = len(reviewer_signals) + len(dogfood_evidence)
+    has_required_dogfood = not requirement["requires_adversarial_dogfood"] or bool(dogfood_evidence)
+    quorum_satisfied = (
+        signal_count >= requirement["required_model_signals"] and has_required_dogfood
+    )
+
+    reasons = [tier_reason]
+    if has_failures:
+        reasons.append("checks are failing; repair before settlement")
+    if has_pending:
+        reasons.append("checks are pending; wait before settlement")
+    if unresolved_dissent:
+        reasons.append("unresolved model dissent is present")
+    if not quorum_satisfied:
+        reasons.append(
+            "model quorum incomplete: "
+            f"{signal_count}/{requirement['required_model_signals']} signal(s)"
+        )
+        if not has_required_dogfood:
+            reasons.append("focused adversarial dogfood evidence is required")
+
+    admin_squash_allowed = False
+    requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
+    if (
+        has_failures
+        or has_pending
+        or machine_recommendation == "repair_first"
+        or blocking_workflow_state
+    ):
+        status = "repair_or_wait"
+        verdict = "not_ready_for_settlement"
+    elif not quorum_satisfied:
+        status = "needs_model_review_quorum"
+        verdict = "collect_model_quorum_before_merge"
+    elif unresolved_dissent:
+        status = "unresolved_dissent"
+        verdict = "human_risk_settlement_required"
+        requires_human_risk_settlement = True
+    elif requirement["requires_human_preapproval"]:
+        status = "human_preapproval_required"
+        verdict = "tier_4_human_preapproval_required"
+        requires_human_risk_settlement = True
+    elif requires_human_risk_settlement:
+        status = "human_risk_settlement_required"
+        verdict = "model_quorum_satisfied_human_risk_settlement_required"
+    else:
+        status = "satisfied"
+        verdict = "admin_squash_allowed"
+        admin_squash_allowed = True
+
+    return {
+        "version": MODEL_REVIEW_QUORUM_VERSION,
+        "head_sha": str(pr.get("headRefOid", "")).strip(),
+        "tier": tier,
+        "tier_name": tier_name,
+        "tier_reason": tier_reason,
+        "required_model_signals": requirement["required_model_signals"],
+        "requires_adversarial_dogfood": requirement["requires_adversarial_dogfood"],
+        "requires_human_risk_settlement": requires_human_risk_settlement,
+        "requires_human_preapproval": requirement["requires_human_preapproval"],
+        "admin_squash_allowed": admin_squash_allowed,
+        "status": status,
+        "verdict": verdict,
+        "reviewer_signals": reviewer_signals,
+        "dogfood_evidence": dogfood_evidence,
+        "dissenting_views": dissenting_views,
+        "unresolved_dissent": unresolved_dissent,
+        "reasons": reasons,
+    }
+
+
+def _classify_model_review_tier(
+    files: list[str],
+    *,
+    pr: dict[str, Any] | None = None,
+) -> tuple[int, str, str]:
+    normalized = [path.strip() for path in files if path.strip()]
+    title = str((pr or {}).get("title", "") or "").lower()
+    if not normalized:
+        return (1, "tier_1_additive_internal", "no changed files reported; defaulting to Tier 1")
+    if any(_matches_prefix(path, TIER_4_PREFIXES) for path in normalized):
+        return (4, "tier_4_preapproval_required", "workflow/deploy/destructive surface touched")
+    if any(_matches_prefix(path, TIER_3_PREFIXES) for path in normalized):
+        return (
+            3,
+            "tier_3_semantic_risk",
+            "semantic, persistence, security, API, or SDK surface touched",
+        )
+    if all(_is_docs_tests_or_status_path(path) for path in normalized):
+        return (0, "tier_0_docs_tests_status", "docs/tests/status-only change")
+    if any(_matches_prefix(path, TIER_2_PREFIXES) for path in normalized) or any(
+        word in title for word in ("retry", "cache", "cli", "automation", "observability")
+    ):
+        return (
+            2,
+            "tier_2_live_automation",
+            "live automation, CLI, observability, retry, or cache surface touched",
+        )
+    return (1, "tier_1_additive_internal", "bounded internal code surface")
+
+
+def _tier_requirement(tier: int) -> dict[str, Any]:
+    if tier <= 0:
+        return {
+            "required_model_signals": 1,
+            "requires_adversarial_dogfood": False,
+            "requires_human_risk_settlement": False,
+            "requires_human_preapproval": False,
+        }
+    if tier == 1:
+        return {
+            "required_model_signals": 2,
+            "requires_adversarial_dogfood": True,
+            "requires_human_risk_settlement": False,
+            "requires_human_preapproval": False,
+        }
+    if tier == 2:
+        return {
+            "required_model_signals": 2,
+            "requires_adversarial_dogfood": True,
+            "requires_human_risk_settlement": False,
+            "requires_human_preapproval": False,
+        }
+    if tier == 3:
+        return {
+            "required_model_signals": 2,
+            "requires_adversarial_dogfood": True,
+            "requires_human_risk_settlement": True,
+            "requires_human_preapproval": False,
+        }
+    return {
+        "required_model_signals": 2,
+        "requires_adversarial_dogfood": True,
+        "requires_human_risk_settlement": True,
+        "requires_human_preapproval": True,
+    }
+
+
+def _has_blocking_workflow_state(pr: dict[str, Any]) -> bool:
+    if bool(pr.get("isDraft", False)):
+        return True
+    mergeable = str(pr.get("mergeable", "")).strip().upper()
+    if mergeable == "CONFLICTING":
+        return True
+    labels = [
+        str(label.get("name", "")).strip()
+        for label in (pr.get("labels") or [])
+        if isinstance(label, dict) and label.get("name")
+    ]
+    return any(label in PARKED_LABELS for label in labels)
+
+
+def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, Any]]:
+    validation = protocol.get("validation_summary") or {}
+    reviewer_execution = validation.get("reviewer_execution") or {}
+    reviewer_ids = reviewer_execution.get("reviewer_ids") or []
+    providers = reviewer_execution.get("providers") or []
+    signals = []
+    for index, reviewer_id in enumerate(reviewer_ids):
+        provider = providers[index] if index < len(providers) else ""
+        signals.append(
+            {
+                "reviewer_id": str(reviewer_id),
+                "provider": str(provider),
+                "source": protocol.get("status", ""),
+            }
+        )
+    return signals
+
+
+def _dogfood_evidence_from_comments(comments: list[Any]) -> list[dict[str, str]]:
+    evidence: list[dict[str, str]] = []
+    for comment in comments:
+        if not isinstance(comment, dict):
+            continue
+        body = str(comment.get("body", "") or "")
+        lower = body.lower()
+        if not any(
+            token in lower for token in ("dogfood", "adversarial", "cross-author", "recheck")
+        ):
+            continue
+        reviewer = _infer_model_reviewer_from_text(body)
+        author_payload = comment.get("author")
+        author = ""
+        if isinstance(author_payload, dict):
+            author = str(author_payload.get("login", "") or "")
+        evidence.append(
+            {
+                "reviewer_id": reviewer,
+                "github_author": author,
+                "source": "pr_comment",
+                "summary": _first_nonempty_line(body)[:240],
+            }
+        )
+    return evidence[:5]
+
+
+def _infer_model_reviewer_from_text(text: str) -> str:
+    lower = text.lower()
+    for name in ("claude", "codex", "tesla", "harvey", "factory", "grok", "gemini"):
+        if name in lower:
+            return name
+    return "unknown_model_reviewer"
+
+
+def _first_nonempty_line(text: str) -> str:
+    for line in str(text).splitlines():
+        stripped = line.strip("# ").strip()
+        if stripped:
+            return stripped
+    return ""
+
+
+def _matches_prefix(path: str, prefixes: tuple[str, ...]) -> bool:
+    return any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in prefixes)
+
+
+def _is_docs_tests_or_status_path(path: str) -> bool:
+    return path.startswith(("docs/", "tests/")) or path in {
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README.md",
+        "CHANGELOG.md",
+        "GA_CHECKLIST.md",
+    }
 
 
 def _subsystem_for(path: str) -> str:
@@ -1342,6 +1764,27 @@ def _render_packet(packet: ReviewPacket) -> None:
                     f"    - {slot.get('slot_id')}: {selected} "
                     f"({slot.get('family')}/{slot.get('lens')})"
                 )
+    if packet.model_review_quorum:
+        quorum = packet.model_review_quorum
+        print()
+        print("model review quorum:")
+        print(f"  tier: Tier {quorum.get('tier')} ({quorum.get('tier_name', 'unknown')})")
+        print(f"  status: {quorum.get('status', 'unknown')}")
+        print(f"  verdict: {quorum.get('verdict', 'unknown')}")
+        print(f"  admin squash allowed: {quorum.get('admin_squash_allowed', False)}")
+        print(
+            "  human risk settlement required: "
+            f"{quorum.get('requires_human_risk_settlement', False)}"
+        )
+        print(
+            "  signals: "
+            f"{len(quorum.get('reviewer_signals') or []) + len(quorum.get('dogfood_evidence') or [])}/"
+            f"{quorum.get('required_model_signals', 0)}"
+        )
+        if quorum.get("unresolved_dissent"):
+            print("  unresolved dissent: true")
+        for reason in quorum.get("reasons") or []:
+            print(f"    - {reason}")
     print()
     print(f"generated at: {packet.generated_at}")
     _render_active_auto_handle_alerts()
@@ -1374,6 +1817,54 @@ def _render_settlement_receipt(receipt: SettlementReceipt) -> None:
     if receipt.elapsed_seconds is not None:
         print(f"  elapsed:      {receipt.elapsed_seconds:.3f}s")
     print(f"  receipt:      {receipt.receipt_path}")
+
+
+def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
+    queue = packet.get("queue_pressure") or {}
+    print("# Merge authorization packet")
+    print(f"generated at: {packet.get('generated_at', '')}")
+    print(
+        "queue pressure: "
+        f"{queue.get('current_open_prs', 0)} open / cap {queue.get('cap', MODEL_REVIEW_QUEUE_CAP)} "
+        f"(active={queue.get('active', False)})"
+    )
+    if queue.get("active"):
+        print(
+            "new implementation PRs: frozen; only review/dogfood/fix-existing/spec-only work allowed"
+        )
+    print()
+    print("authorization sentence:")
+    print(packet.get("authorization_sentence", ""))
+    print()
+
+    admin_order = packet.get("admin_squash_order") or []
+    human_required = packet.get("human_risk_settlement_required") or []
+    not_ready = packet.get("not_ready") or []
+    print(f"admin squash order: {', '.join(f'#{n}' for n in admin_order) or '(none)'}")
+    print(
+        f"human risk settlement required: {', '.join(f'#{n}' for n in human_required) or '(none)'}"
+    )
+    print(f"not ready: {', '.join(f'#{n}' for n in not_ready) or '(none)'}")
+    print()
+
+    for entry in packet.get("entries") or []:
+        if not isinstance(entry, dict):
+            continue
+        print(
+            f"#{entry.get('pr_number')} | Tier {entry.get('tier')} | "
+            f"{entry.get('status')} | {entry.get('verdict')}"
+        )
+        print(f"  {entry.get('title', '')}")
+        print(f"  head: {entry.get('head_sha', '')}")
+        print(f"  checks: {entry.get('checks_summary', '')}")
+        print(
+            "  evidence: "
+            f"{len(entry.get('reviewer_signals') or [])} reviewer signal(s), "
+            f"{len(entry.get('dogfood_evidence') or [])} dogfood note(s)"
+        )
+        for reason in entry.get("reasons") or []:
+            print(f"  - {reason}")
+        print()
 
 
 def _render_baseline_report(

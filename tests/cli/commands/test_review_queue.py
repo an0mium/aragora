@@ -15,12 +15,16 @@ from aragora.cli.commands.review_queue import (
     ADVISORY_NOTE,
     HIGH_RISK_PATHS,
     LARGE_DIFF_THRESHOLD,
+    MODEL_REVIEW_QUEUE_CAP,
     PARKED_LABELS,
     QueueItem,
     ReviewPacket,
+    _build_merge_authorization_packet,
+    _build_model_review_quorum,
     _build_packet,
     _build_queue,
     _classify_pr,
+    _classify_model_review_tier,
     _extract_validation_commands,
     _filter_lanes,
     _GhError,
@@ -127,6 +131,35 @@ def _make_reviewer_output(
         latency_ms=100,
         cost_usd=0.2,
     )
+
+
+def _dogfood_comment(body: str = "## Cross-author adversarial dogfood\n6/6 pass") -> dict[str, Any]:
+    return {"author": {"login": "an0mium"}, "body": body}
+
+
+def _executed_protocol(*, dissent: bool = False) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "status": EXECUTED_PROTOCOL_STATUS,
+        "validation_summary": {
+            "reviewer_execution": {
+                "status": EXECUTED_PROTOCOL_STATUS,
+                "reviewer_count": 3,
+                "reviewer_ids": ["claude:logic", "openai-api:security", "gemini:maintainability"],
+                "providers": ["claude", "openai-api", "gemini"],
+                "dissent_count": 1 if dissent else 0,
+            }
+        },
+        "dissenting_views": [],
+    }
+    if dissent:
+        payload["dissenting_views"] = [
+            {
+                "agent": "openai-api:security",
+                "position": "request_changes",
+                "reason": "security reviewer found a blocker",
+            }
+        ]
+    return payload
 
 
 # --- _summarize_checks -----------------------------------------------------
@@ -389,6 +422,136 @@ class TestSubsystemAndRisk:
         assert not _is_high_risk_path("tests/cli/commands/test_review_queue.py")
 
 
+# --- model-review tier + quorum -------------------------------------------
+
+
+class TestModelReviewQuorum:
+    @pytest.mark.parametrize(
+        ("files", "expected_tier"),
+        [
+            (["docs/status/queue.md"], 0),
+            (["tests/swarm/test_handoff_contract.py"], 0),
+            (["AGENTS.md", "CLAUDE.md", "docs/COORDINATION.md"], 0),
+            (["aragora/agents/router.py"], 1),
+            (["aragora/cli/commands/review_queue.py"], 2),
+            (["scripts/publish_automation_handoffs.py"], 2),
+            (["aragora/reputation/store.py"], 3),
+            (["aragora/auth/session.py"], 3),
+            (["sdk/typescript/src/index.ts"], 3),
+            ([".github/workflows/tests.yml"], 4),
+            (["deploy/k8s/app.yaml"], 4),
+        ],
+    )
+    def test_classifies_merge_tiers(self, files: list[str], expected_tier: int) -> None:
+        tier, _, _ = _classify_model_review_tier(files, pr=_make_pr(files=files))
+        assert tier == expected_tier
+
+    def test_tier_zero_satisfied_by_one_dogfood_note(self) -> None:
+        pr = _make_pr(files=["docs/status/report.md"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["docs/status/report.md"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 0
+        assert quorum["status"] == "satisfied"
+        assert quorum["admin_squash_allowed"] is True
+
+    def test_tier_two_requires_dogfood_even_with_executed_reviewers(self) -> None:
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr["comments"] = []
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 2
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["admin_squash_allowed"] is False
+        assert "focused adversarial dogfood evidence is required" in quorum["reasons"]
+
+    def test_tier_two_allows_admin_squash_when_quorum_and_dogfood_clean(self) -> None:
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["status"] == "satisfied"
+        assert quorum["verdict"] == "admin_squash_allowed"
+        assert quorum["admin_squash_allowed"] is True
+
+    def test_unresolved_dissent_forces_human_risk_settlement(self) -> None:
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol=_executed_protocol(dissent=True),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["requires_human_risk_settlement"] is True
+        assert quorum["admin_squash_allowed"] is False
+
+    def test_needs_attention_risk_signal_can_still_admin_squash_when_quorum_clean(self) -> None:
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol=_executed_protocol(),
+            machine_recommendation="needs_human_attention",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["status"] == "satisfied"
+        assert quorum["admin_squash_allowed"] is True
+
+    def test_draft_state_blocks_settlement_even_with_quorum(self) -> None:
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"], is_draft=True)
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol=_executed_protocol(),
+            machine_recommendation="needs_human_attention",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["status"] == "repair_or_wait"
+        assert quorum["admin_squash_allowed"] is False
+
+    def test_tier_three_never_admin_squashes_without_human_risk_settlement(self) -> None:
+        pr = _make_pr(files=["aragora/reputation/store.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/reputation/store.py"],
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 3
+        assert quorum["status"] == "human_risk_settlement_required"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["requires_human_risk_settlement"] is True
+
+
 # --- _parse_pr_number ------------------------------------------------------
 
 
@@ -488,6 +651,8 @@ class TestBuildQueueAndPacket:
         assert packet.protocol["binding"]["base_sha"] == "basesha0001"
         assert packet.protocol["availability_summary"]["total_slots"] == 5
         assert packet.protocol["recommendation_class"] == "approve_candidate"
+        assert packet.model_review_quorum["tier"] == 2
+        assert packet.model_review_quorum["status"] == "needs_model_review_quorum"
         assert packet.validation == [
             "`python3 -m pytest tests/cli/commands/test_review_pr.py -q`",
             "`bash scripts/automation_pr_preflight.sh origin/main HEAD`",
@@ -642,6 +807,7 @@ class TestBuildQueueAndPacket:
         assert packet.protocol["status"] == EXECUTED_PROTOCOL_STATUS
         assert packet.protocol["validation_summary"]["reviewer_execution"]["reviewer_count"] == 3
         assert len(packet.protocol["dissenting_views"]) == 1
+        assert packet.model_review_quorum["unresolved_dissent"] is True
 
 
 # --- JSON output schema ----------------------------------------------------
@@ -698,6 +864,7 @@ class TestJsonOutput:
             "packet_sha",
             "generated_at",
             "protocol",
+            "model_review_quorum",
             "advisory_only",
             "settlement_note",
         ):
@@ -705,6 +872,7 @@ class TestJsonOutput:
         # ReviewPacket.advisory_only must always be True (signature property).
         assert d["advisory_only"] is True
         assert d["protocol"]["binding"]["repo"] == "synaptent/aragora"
+        assert d["model_review_quorum"]["version"] == "model_review_quorum.v1"
 
     def test_packet_json_round_trip(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
@@ -716,6 +884,7 @@ class TestJsonOutput:
         assert roundtrip["pr_number"] == 1
         assert roundtrip["advisory_only"] is True
         assert roundtrip["protocol"]["protocol_version"] == "pr_review_protocol.v1"
+        assert "model_review_quorum" in roundtrip
 
 
 # --- cmd_review_queue dispatch + parser ------------------------------------
@@ -738,6 +907,10 @@ class TestCommandDispatch:
         assert ns_packet.review_queue_command == "packet"
         assert ns_packet.pr == "6280"
         assert ns_packet.execute_reviewers is True
+        # merge-packet invocation parses
+        ns_merge_packet = root.parse_args(["review-queue", "merge-packet", "--pr", "6280"])
+        assert ns_merge_packet.review_queue_command == "merge-packet"
+        assert ns_merge_packet.pr == ["6280"]
         # run invocation parses
         ns_run = root.parse_args(["review-queue", "run", "--limit", "3", "--ready-only"])
         assert ns_run.review_queue_command == "run"
@@ -1000,6 +1173,74 @@ class TestSettlementHelpers:
         assert payload["pr_number"] == 42
         assert payload["advisory_only"] is True
         assert payload["settlement_note"] == ADVISORY_NOTE
+
+    def test_merge_packet_json_output_with_queue_pressure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        queue = [_classify_pr(_make_pr(number=i)) for i in range(1, MODEL_REVIEW_QUEUE_CAP + 2)]
+
+        def _fake_build_packet(
+            pr_ref: str,
+            *,
+            repo_override: str | None,
+            execute_reviewers: bool = False,
+        ) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(pr_ref),
+                title="bounded docs",
+                url=f"https://github.com/synaptent/aragora/pull/{pr_ref}",
+                head_sha="headsha",
+                base_sha="basesha",
+                author="codex",
+                is_draft=False,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="ready_now",
+                touched_subsystems=["docs"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="5/5 green",
+                risk_flags=[],
+                machine_recommendation="approve_candidate",
+                machine_recommendation_reason="clean",
+                packet_sha="sha256:test",
+                generated_at="2026-04-28T00:00:00+00:00",
+                model_review_quorum={
+                    "tier": 0,
+                    "tier_name": "tier_0_docs_tests_status",
+                    "status": "satisfied",
+                    "verdict": "admin_squash_allowed",
+                    "admin_squash_allowed": True,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [],
+                    "dogfood_evidence": [{"reviewer_id": "claude"}],
+                    "reasons": ["docs/tests/status-only change"],
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_queue", lambda limit: queue)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_packet",
+            _fake_build_packet,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["1"],
+            repo=None,
+            limit=10,
+            execute_reviewers=False,
+            json=True,
+        )
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = cmd_review_queue(ns)
+        assert rc == 0
+        payload = json.loads(buf.getvalue())
+        assert payload["queue_pressure"]["active"] is True
+        assert payload["admin_squash_order"] == [1]
+        assert payload["entries"][0]["verdict"] == "admin_squash_allowed"
 
     def test_act_command_requires_reason_for_request_changes(self) -> None:
         ns = argparse.Namespace(

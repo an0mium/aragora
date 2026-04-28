@@ -152,3 +152,36 @@ def test_build_parser_registers_review_queue_baseline_lazily(monkeypatch):
     assert args.review_queue_root == "/tmp/review-queue"
     assert args.json is True
     assert args.func.__name__ == "cmd_review_queue"
+
+
+def test_build_parser_registers_review_queue_merge_packet_lazily(monkeypatch):
+    sys.modules.pop("aragora.cli.commands.review_queue", None)
+    imported: list[str] = []
+    real_import = builtins.__import__
+
+    def tracking_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "aragora.cli.commands.review_queue":
+            imported.append(name)
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", tracking_import)
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "review-queue",
+            "merge-packet",
+            "--pr",
+            "6779",
+            "--execute-reviewers",
+            "--json",
+        ]
+    )
+
+    assert imported == []
+    assert args.command == "review-queue"
+    assert args.review_queue_command == "merge-packet"
+    assert args.pr == ["6779"]
+    assert args.execute_reviewers is True
+    assert args.json_output is True
+    assert args.func.__name__ == "cmd_review_queue"

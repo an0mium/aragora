@@ -1422,6 +1422,11 @@ def _add_review_queue_parser(subparsers) -> None:
         help="GitHub repo slug override (owner/name). Defaults to current repo context.",
     )
     packet_parser.add_argument(
+        "--execute-reviewers",
+        action="store_true",
+        help="Attempt one bounded live heterogeneous reviewer pass.",
+    )
+    packet_parser.add_argument(
         "--json",
         dest="json_output",
         action="store_true",
@@ -1533,6 +1538,42 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Output the BaselineMeasurement + ThresholdProposal as JSON.",
     )
     baseline_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
+
+    merge_packet_parser = queue_subparsers.add_parser(
+        "merge-packet",
+        help="Print a model-quorum merge authorization packet for a PR batch",
+    )
+    merge_packet_parser.add_argument(
+        "--limit",
+        type=int,
+        default=30,
+        help="Max open PRs to inspect when --pr is not supplied",
+    )
+    merge_packet_parser.add_argument(
+        "--pr",
+        action="append",
+        default=[],
+        help="Specific PR number/ref to include. Repeatable. Defaults to open queue.",
+    )
+    merge_packet_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    merge_packet_parser.add_argument(
+        "--execute-reviewers",
+        action="store_true",
+        help="Attempt live heterogeneous reviewer execution for each packet.",
+    )
+    merge_packet_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output as JSON",
+    )
+    merge_packet_parser.set_defaults(
         func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
     )
 
