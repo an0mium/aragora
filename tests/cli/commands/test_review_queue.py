@@ -585,6 +585,174 @@ class TestModelReviewQuorum:
         assert quorum["counted_reviewer_ids"] == ["grok"]
         assert "focused adversarial dogfood evidence is required" in quorum["reasons"]
 
+    def test_branch_name_substring_in_body_does_not_phantom_tag_reviewer(self) -> None:
+        """A comment that mentions ``codex/...`` branch in a code block but
+        has no model-review heading must not be tagged as a Codex signal."""
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr["comments"] = [
+            _dogfood_comment("## Codex focused dogfood\nlocal checks pass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Rebased over current main after queue drain\n"
+                    "Rebased `codex/model-review-quorum-settlement` onto current "
+                    "`origin/main` after #6783 and #6787 merged.\n"
+                    "Conflict resolution kept both parser surfaces:\n"
+                    "- `review-queue baseline` from #6783\n"
+                    "- `review-queue merge-packet` from this PR\n"
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        # The rebase note's heading does not contain a model name.  The
+        # heuristic must NOT scan the entire body and pick up the branch
+        # name ``codex/...`` in line 2 of the body.
+        assert quorum["counted_reviewer_ids"] == ["codex"]
+        # The dogfood evidence list should still include both comments
+        # (the rebase note matches "rebased" → not a marker; "drain"
+        # → not a marker; but the body does not actually contain any
+        # of dogfood/adversarial/cross-author/recheck), so it is not
+        # added to dogfood_evidence at all.
+        dogfood_authors = [entry.get("reviewer_id") for entry in quorum["dogfood_evidence"]]
+        assert "codex" in dogfood_authors
+        # Ensure the rebase note didn't sneak into reviewer_signals.
+        for sig in quorum["reviewer_signals"]:
+            assert "rebase" not in (sig.get("summary", "") or "").lower()
+
+    def test_inferrer_uses_first_heading_only(self) -> None:
+        """If a comment's first heading does not name a model, the
+        inferrer must fall back to first 200 chars and NOT scan the
+        entire body."""
+        from aragora.cli.commands.review_queue import _infer_model_reviewer_from_text
+
+        body_with_phantom_codex_deep_in_body = (
+            "## Cross-author adversarial dogfood (no model named in heading)\n"
+            "Local checks pass.\n\n"
+            + ("Filler line that does not name any model.\n" * 30)
+            + "Reference: https://github.com/example/repo/blob/main/codex/x.py\n"
+        )
+        # No model name in heading or first 200 chars → unknown.
+        assert (
+            _infer_model_reviewer_from_text(body_with_phantom_codex_deep_in_body)
+            == "unknown_model_reviewer"
+        )
+
+        body_with_codex_heading = "## Codex review\nVerdict: approve.\n"
+        assert _infer_model_reviewer_from_text(body_with_codex_heading) == "codex"
+
+        body_with_grok_in_lead = (
+            "Grok independent semantic review of head SHA abc1234.\n"
+            "No heading present; relying on first-200-chars fallback.\n"
+        )
+        assert _infer_model_reviewer_from_text(body_with_grok_in_lead) == "grok"
+
+    def test_stale_comments_excluded_when_predate_head_commit(self) -> None:
+        """Comments posted before the current head was committed must
+        be excluded from quorum unless they explicitly cite the head SHA."""
+        head_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr["headRefOid"] = head_sha
+        pr["commits"] = [
+            {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
+        ]
+        pr["comments"] = [
+            # Posted BEFORE the head was committed → stale.
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Codex focused dogfood\nlocal checks pass",
+                "createdAt": "2026-04-28T18:00:00Z",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+                "createdAt": "2026-04-28T18:30:00Z",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        # Both stale → quorum empty.
+        assert quorum["counted_reviewer_ids"] == []
+        assert quorum["status"] == "needs_model_review_quorum"
+
+    def test_fresh_comments_after_head_commit_count(self) -> None:
+        head_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr["headRefOid"] = head_sha
+        pr["commits"] = [
+            {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
+        ]
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Codex focused dogfood\nlocal checks pass",
+                "createdAt": "2026-04-28T20:05:00Z",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+                "createdAt": "2026-04-28T20:10:00Z",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["counted_reviewer_ids"] == ["codex", "grok"]
+        assert quorum["status"] == "satisfied"
+
+    def test_stale_comment_with_head_sha_citation_still_counts(self) -> None:
+        """A reviewer who explicitly cites the current head SHA in
+        their body counts even if their createdAt predates the head."""
+        head_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr["headRefOid"] = head_sha
+        pr["commits"] = [
+            {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
+        ]
+        pr["comments"] = [
+            # Predates head BUT cites head SHA → grounded.
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    f"## Codex focused dogfood\n"
+                    f"Reviewed at head {head_sha[:7]} – local checks pass."
+                ),
+                "createdAt": "2026-04-28T18:00:00Z",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+                "createdAt": "2026-04-28T20:10:00Z",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/review_queue.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["counted_reviewer_ids"] == ["codex", "grok"]
+        assert quorum["status"] == "satisfied"
+
     def test_unresolved_dissent_forces_human_risk_settlement(self) -> None:
         pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
         pr["comments"] = [_dogfood_comment()]

@@ -921,6 +921,7 @@ def _build_packet(
             "files",
             "body",
             "comments",
+            "commits",
         ]
     )
     args = ["pr", "view", str(number), "--json", fields]
@@ -1170,9 +1171,21 @@ def _build_model_review_quorum(
 ) -> dict[str, Any]:
     tier, tier_name, tier_reason = _classify_model_review_tier(files, pr=pr)
     requirement = _tier_requirement(tier)
+    head_sha = str(pr.get("headRefOid", "") or "").strip()
+    head_committed_at = _head_committed_at_from_pr(pr)
     reviewer_signals = _reviewer_signals_from_protocol(protocol)
-    reviewer_signals.extend(_model_review_signals_from_comments(pr.get("comments") or []))
-    dogfood_evidence = _dogfood_evidence_from_comments(pr.get("comments") or [])
+    reviewer_signals.extend(
+        _model_review_signals_from_comments(
+            pr.get("comments") or [],
+            head_sha=head_sha,
+            head_committed_at=head_committed_at,
+        )
+    )
+    dogfood_evidence = _dogfood_evidence_from_comments(
+        pr.get("comments") or [],
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+    )
     dissenting_views = [
         view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
     ]
@@ -1366,6 +1379,35 @@ def _counted_model_reviewer_ids(
     return sorted(reviewer_ids)
 
 
+def _head_committed_at_from_pr(pr: dict[str, Any]) -> str:
+    """Return the ``committedDate`` of the PR head commit, or ``""``.
+
+    Used to anchor comment-based quorum signals to the current head
+    SHA per the "grounded in the current head SHA" requirement of
+    ``docs/REVIEW_AUTHORITY_PRINCIPLES.md``.  Falls back to the most
+    recent ``committedDate`` in the commits list when the head SHA
+    is not separately matched, and returns ``""`` when the PR fetch
+    did not include commit metadata (no-op for legacy callers).
+    """
+    head_sha = str(pr.get("headRefOid", "") or "").strip()
+    commits = pr.get("commits") or []
+    if not isinstance(commits, list):
+        return ""
+    latest_committed_at = ""
+    for entry in commits:
+        if not isinstance(entry, dict):
+            continue
+        committed_at = str(entry.get("committedDate", "") or "").strip()
+        if not committed_at:
+            continue
+        oid = str(entry.get("oid", "") or "").strip()
+        if head_sha and oid == head_sha:
+            return committed_at
+        if committed_at > latest_committed_at:
+            latest_committed_at = committed_at
+    return latest_committed_at
+
+
 def _known_model_reviewer_id(item: dict[str, Any]) -> str:
     provider = str(item.get("provider", "") or "")
     reviewer_id = str(item.get("reviewer_id", "") or "")
@@ -1396,10 +1438,17 @@ def _normalize_model_reviewer_id(value: str) -> str:
     return ""
 
 
-def _dogfood_evidence_from_comments(comments: list[Any]) -> list[dict[str, str]]:
+def _dogfood_evidence_from_comments(
+    comments: list[Any],
+    *,
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> list[dict[str, str]]:
     evidence: list[dict[str, str]] = []
     for comment in comments:
         if not isinstance(comment, dict):
+            continue
+        if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
             continue
         body = str(comment.get("body", "") or "")
         lower = body.lower()
@@ -1423,10 +1472,17 @@ def _dogfood_evidence_from_comments(comments: list[Any]) -> list[dict[str, str]]
     return evidence[:5]
 
 
-def _model_review_signals_from_comments(comments: list[Any]) -> list[dict[str, str]]:
+def _model_review_signals_from_comments(
+    comments: list[Any],
+    *,
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> list[dict[str, str]]:
     signals: list[dict[str, str]] = []
     for comment in comments:
         if not isinstance(comment, dict):
+            continue
+        if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
             continue
         body = str(comment.get("body", "") or "")
         lower = body.lower()
@@ -1464,11 +1520,65 @@ def _model_review_signals_from_comments(comments: list[Any]) -> list[dict[str, s
 
 
 def _infer_model_reviewer_from_text(text: str) -> str:
-    lower = text.lower()
+    """Infer the reviewing model from a comment body.
+
+    Restricts the substring match to a *structured* marker — the first
+    markdown heading line, falling back to the first 200 characters of
+    the body when no heading is present.  This avoids false positives
+    where a model name appears as a substring deep in the body, for
+    example ``codex/some-branch`` in a quoted git command or
+    ``claude-mem`` in a file path.  Reviewers conventionally announce
+    their identity in the comment's first heading.
+    """
+    candidate = ""
+    for line in str(text).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            candidate = stripped.lstrip("#").strip()
+            if candidate:
+                break
+    if not candidate:
+        candidate = str(text)[:200]
+    lower = candidate.lower()
     for name in ("claude", "codex", "tesla", "harvey", "factory", "grok", "gemini"):
         if name in lower:
             return name
     return "unknown_model_reviewer"
+
+
+def _is_comment_grounded_on_head(
+    comment: dict[str, Any],
+    head_sha: str,
+    head_committed_at: str,
+) -> bool:
+    """Return True when *comment* plausibly reviewed the current head.
+
+    Implements the "grounded in the current head SHA" requirement of
+    ``docs/REVIEW_AUTHORITY_PRINCIPLES.md``.  A comment is accepted when
+    any of:
+
+    * the caller did not supply head metadata (no-op for legacy paths);
+    * the comment was posted at or after the head commit's timestamp;
+    * the comment body explicitly cites the head SHA prefix (>= 7 chars).
+
+    A comment whose ``createdAt`` predates the head commit and which
+    does not cite the head SHA is treated as stale (it reviewed a
+    superseded version of the diff) and excluded from quorum counting.
+    """
+    if not head_sha or not head_committed_at:
+        return True
+    body = str(comment.get("body", "") or "")
+    head_short = head_sha[:7]
+    if head_short and head_short in body:
+        return True
+    created = str(comment.get("createdAt", "") or "")
+    if not created:
+        # No timestamp on the comment — fall back to SHA-prefix evidence.
+        # We have already established head_sha is set; absence of a
+        # citation in body means the reviewer cannot be proven to have
+        # seen this head, so the comment is treated as stale.
+        return False
+    return created >= head_committed_at
 
 
 def _first_nonempty_line(text: str) -> str:
