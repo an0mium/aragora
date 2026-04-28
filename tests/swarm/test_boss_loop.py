@@ -7343,6 +7343,47 @@ class TestPublishedPrTerminal:
             f"next_actions should mention existing PR, got {actions}"
         )
 
+    def test_already_maxed_issue_numbers_lists_open_prs_once(self):
+        """Retry exhaustion checks open PR state once per scan, not once per issue."""
+        loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
+        loop._issue_attempt_counts = {
+            42: loop.config.max_retries_per_issue,
+            43: loop.config.max_retries_per_issue,
+            44: loop.config.max_retries_per_issue,
+        }
+
+        open_prs = [
+            {
+                "number": 200,
+                "headRefName": "aragora/boss-harvest/issue-42-boss-aaa",
+                "url": "https://github.com/synaptent/aragora/pull/200",
+            },
+            {
+                "number": 201,
+                "headRefName": "aragora/boss-harvest/issue-43-boss-bbb",
+                "url": "https://github.com/synaptent/aragora/pull/201",
+            },
+        ]
+
+        with (
+            patch.object(loop, "_hydrate_issue_attempt_count", return_value=0),
+            patch.object(
+                loop, "_list_open_boss_harvest_prs", return_value=open_prs
+            ) as mock_list_open_prs,
+            patch.object(loop, "_auto_decompose_stuck_issue") as mock_decompose,
+        ):
+            result = loop._already_maxed_issue_numbers(
+                [
+                    _make_issue(42, "Existing PR one"),
+                    _make_issue(43, "Existing PR two"),
+                    _make_issue(44, "No PR"),
+                ]
+            )
+
+        assert result == {44}
+        mock_list_open_prs.assert_called_once()
+        mock_decompose.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # Decomposition guardrails (Task 1 + Task 4)
