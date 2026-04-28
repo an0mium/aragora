@@ -315,9 +315,9 @@ class TestCalibrationCurve:
         [
             # Exact decimal boundaries that are slightly below their target
             # value in IEEE 754, triggering int(p / step) = n-1 instead of n.
-            (0.3, 3),   # 0.3/0.1 == 2.9999... → must land in bin 3 [0.3, 0.4)
-            (0.6, 6),   # 0.6/0.1 == 5.9999... → must land in bin 6 [0.6, 0.7)
-            (0.7, 7),   # 0.7/0.1 == 6.9999... → must land in bin 7 [0.7, 0.8)
+            (0.3, 3),  # 0.3/0.1 == 2.9999... → must land in bin 3 [0.3, 0.4)
+            (0.6, 6),  # 0.6/0.1 == 5.9999... → must land in bin 6 [0.6, 0.7)
+            (0.7, 7),  # 0.7/0.1 == 6.9999... → must land in bin 7 [0.7, 0.8)
             # p=1.0 must clamp to the last bin, not overflow.
             (1.0, 9),
             # Values strictly inside a bin are unaffected.
