@@ -107,6 +107,12 @@ class ReputationStore:
     """
 
     def __init__(self, path: Path | None = None) -> None:
+        """Create an empty store.
+
+        *path* is the persistence target for new deltas and reversals.
+        It does **not** load existing records — call
+        :meth:`load_from_file` to reconstruct state from a prior run.
+        """
         self._deltas: dict[str, list[ReputationDelta]] = defaultdict(list)
         self._delta_by_id: dict[str, ReputationDelta] = {}
         self._reversals: dict[str, ReputationDeltaReversed] = {}
