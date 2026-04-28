@@ -214,13 +214,14 @@ class ReputationStore:
         calls.  Returns a :class:`ReputationDeltaReversed` event.
 
         Raises :class:`KeyError` if *delta_id* is unknown.
-        Raises :class:`ValueError` if *delta_id* has already been reversed.
+        Repeated calls for an already-reversed delta are idempotent and
+        return the existing reversal event without writing a duplicate.
         """
         original = self._delta_by_id.get(delta_id)
         if original is None:
             raise KeyError(f"delta_id {delta_id!r} not found in store")
         if delta_id in self._reversals:
-            raise ValueError(f"delta_id {delta_id!r} has already been reversed")
+            return self._reversals[delta_id]
         timestamp = (now or datetime.now(tz=UTC)).isoformat().replace("+00:00", "Z")
         reversal_material = json.dumps(
             {"original_delta_id": delta_id, "reversed_at": timestamp}, sort_keys=True

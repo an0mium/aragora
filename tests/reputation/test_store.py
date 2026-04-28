@@ -351,13 +351,17 @@ class TestDeltaReversal:
         with pytest.raises(KeyError, match="not found"):
             store.reverse_delta("does_not_exist")
 
-    def test_reverse_already_reversed_raises_value_error(self) -> None:
+    def test_reverse_already_reversed_is_idempotent(self) -> None:
         store = ReputationStore()
         d = _delta(delta=10.0)
         store.record_delta(d)
-        store.reverse_delta(d.delta_id)
-        with pytest.raises(ValueError, match="already been reversed"):
-            store.reverse_delta(d.delta_id)
+        first = store.reverse_delta(d.delta_id, reason={"cause": "first"})
+
+        second = store.reverse_delta(d.delta_id, reason={"cause": "second"})
+
+        assert second == first
+        assert len(store.reversals_for("alice")) == 1
+        assert store.get_score("alice", apply_decay=False) == pytest.approx(0.0)
 
     def test_reverse_returns_correct_reversal_event(self) -> None:
         store = ReputationStore()
@@ -455,3 +459,39 @@ class TestDeltaReversal:
         assert reloaded.get_score("alice", apply_decay=False) == pytest.approx(0.0)
         assert len(reloaded.reversals_for("alice")) == 1
         assert reloaded.reversals_for("alice")[0].original_delta_id == d.delta_id
+
+    def test_reversal_after_reload_survives_second_reload(self, tmp_path: Path) -> None:
+        """Persist reverse_delta() called after reconstructing from an existing ledger."""
+        ledger = tmp_path / "rep.jsonl"
+        store = ReputationStore(path=ledger)
+        d = _delta(delta=75.0)
+        store.record_delta(d)
+
+        reloaded = ReputationStore.load_from_file(ledger)
+        assert reloaded.get_score("alice", apply_decay=False) == pytest.approx(75.0)
+
+        reloaded.reverse_delta(d.delta_id, reason={"cause": "resolution_reopened"})
+
+        reloaded_again = ReputationStore.load_from_file(ledger)
+        assert reloaded_again.get_score("alice", apply_decay=False) == pytest.approx(0.0)
+        assert len(reloaded_again.reversals_for("alice")) == 1
+        assert reloaded_again.reversals_for("alice")[0].original_delta_id == d.delta_id
+
+    def test_persisted_reversal_is_idempotent_after_reload(self, tmp_path: Path) -> None:
+        ledger = tmp_path / "rep.jsonl"
+        store = ReputationStore(path=ledger)
+        d = _delta(delta=25.0)
+        store.record_delta(d)
+        first = store.reverse_delta(d.delta_id, reason={"cause": "first"})
+
+        reloaded = ReputationStore.load_from_file(ledger)
+        second = reloaded.reverse_delta(d.delta_id, reason={"cause": "second"})
+
+        assert second == first
+        assert reloaded.get_score("alice", apply_decay=False) == pytest.approx(0.0)
+        reversal_lines = [
+            line
+            for line in (tmp_path / "rep.reversals.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
+        assert len(reversal_lines) == 1
