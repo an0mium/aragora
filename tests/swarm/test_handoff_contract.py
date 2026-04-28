@@ -139,12 +139,39 @@ class TestC4_Fingerprinting:
 
     def test_branch_resolution_top_level_fallback(self) -> None:
         # Schema-drift case introduced by PRs #6595/#6596.
+        # Per spec C4, when local_evidence is empty/missing AND requested_action
+        # carries no branch, the fingerprint extractor falls back to the
+        # top-level `branch` field. The handoff MUST parse — falling back
+        # is the contract, not an InvalidHandoff path.
         payload = _valid_payload()
         payload["local_evidence"] = {}  # no branch here
+        payload["requested_action"] = "open_pr"  # plain string; no nested branch
         payload["branch"] = "feat/top-level"
         ident = parse_outbox_entry(payload)
-        # local_evidence is empty mapping — invalid per C8.
-        assert isinstance(ident, InvalidHandoff)
+        assert isinstance(ident, HandoffIdentity)
+        assert ident.branch_name == "feat/top-level"
+
+    def test_branch_resolution_falsy_evidence_does_not_invalidate(self) -> None:
+        # B1 regression: empty/falsy local_evidence must not pre-empt C4.
+        # The handoff parses; branch resolution falls through to the next
+        # available source (requested_action.branch in this fixture).
+        payload = _valid_payload()
+        payload["local_evidence"] = []  # empty list, was falsy-rejected pre-fix
+        ident = parse_outbox_entry(payload)
+        assert isinstance(ident, HandoffIdentity)
+        # _valid_payload's requested_action carries branch=feat/x.
+        assert ident.branch_name == "feat/x"
+
+    def test_branch_resolution_precedence_local_evidence_beats_requested_action(self) -> None:
+        # When both local_evidence.branch and requested_action.branch are set,
+        # local_evidence wins (it's the canonical worker-stamped record;
+        # requested_action is the higher-level intent).
+        payload = _valid_payload()
+        payload["local_evidence"] = {"branch": "feat/le-wins", "head_sha": "0" * 16}
+        payload["requested_action"] = {"type": "open_pr", "branch": "feat/loses"}
+        ident = parse_outbox_entry(payload)
+        assert isinstance(ident, HandoffIdentity)
+        assert ident.branch_name == "feat/le-wins"
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +291,46 @@ class TestC8_EvidenceSchema:
         ident = parse_outbox_entry(payload)
         assert isinstance(ident, HandoffIdentity)
         assert ident.action_kind == "open_pr"
+
+    def test_unknown_action_kind_invalidates(self) -> None:
+        # B2 regression: action_kind outside PR_OPEN_REQUEST_ACTIONS must
+        # produce InvalidHandoff. The whitelist is the contract's binding
+        # constraint on what publisher actions are valid.
+        payload = _valid_payload()
+        payload["requested_action"] = "frobnicate"
+        result = parse_outbox_entry(payload)
+        assert isinstance(result, InvalidHandoff)
+        assert "frobnicate" in result.reason
+
+    def test_unknown_action_kind_in_mapping_invalidates(self) -> None:
+        # B2 regression: same enforcement when action arrives via Mapping.
+        payload = _valid_payload()
+        payload["requested_action"] = {"type": "frobnicate"}
+        result = parse_outbox_entry(payload)
+        assert isinstance(result, InvalidHandoff)
+
+    def test_unknown_action_kind_in_json_string_invalidates(self) -> None:
+        # B2 regression: same enforcement when action arrives via JSON-string.
+        payload = _valid_payload()
+        payload["requested_action"] = json.dumps({"action": "frobnicate"})
+        result = parse_outbox_entry(payload)
+        assert isinstance(result, InvalidHandoff)
+
+    def test_requires_github_false_is_valid(self) -> None:
+        # B1 regression: requires_github=False is a valid value (boolean
+        # False, not "missing"). Falsy-empty check used to reject this.
+        payload = _valid_payload()
+        payload["requires_github"] = False
+        ident = parse_outbox_entry(payload)
+        assert isinstance(ident, HandoffIdentity)
+
+    def test_validation_empty_list_is_valid(self) -> None:
+        # B1 regression: validation=[] is a valid value (no validation ran).
+        # Falsy-empty check used to reject this.
+        payload = _valid_payload()
+        payload["validation"] = []
+        ident = parse_outbox_entry(payload)
+        assert isinstance(ident, HandoffIdentity)
 
     def test_non_mapping_input_produces_invalid_handoff(self) -> None:
         # Non-Mapping payload is programmer error; module must NOT raise.

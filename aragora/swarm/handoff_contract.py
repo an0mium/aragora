@@ -250,7 +250,13 @@ def parse_outbox_entry(
             raw=None,
         )
 
-    missing = tuple(k for k in REQUIRED_OUTBOX_KEYS if not payload.get(k))
+    # C8: required keys must be *present* in the payload. Falsy values are
+    # NOT treated as missing here — that would conflict with C4's top-level
+    # branch/sha fallback (which fires when local_evidence={}), and with the
+    # need to permit requires_github=False or validation=[]. Per-field
+    # semantic checks below catch the cases where a present-but-empty value
+    # is genuinely invalid (idempotency_key, requested_action).
+    missing = tuple(k for k in REQUIRED_OUTBOX_KEYS if k not in payload)
     if missing:
         return InvalidHandoff(
             reason=f"missing required keys: {', '.join(missing)}",
@@ -269,6 +275,21 @@ def parse_outbox_entry(
     branch_name = _resolve_branch_field(payload)
     head_sha = _resolve_head_sha(payload)
     action_kind = _normalize_action(payload.get("requested_action"))
+
+    # C8: enforce the action-verb whitelist. The whitelist is the contract's
+    # binding constraint on what publisher actions are valid; permitting
+    # arbitrary action_kinds defeats the purpose of having a whitelist at
+    # all. New canonical actions MUST be added to PR_OPEN_REQUEST_ACTIONS
+    # explicitly so each addition is reviewable.
+    if action_kind not in PR_OPEN_REQUEST_ACTIONS:
+        return InvalidHandoff(
+            reason=(
+                f"unknown action kind {action_kind!r}; "
+                f"must be one of: {', '.join(sorted(PR_OPEN_REQUEST_ACTIONS))}"
+            ),
+            raw=payload,
+        )
+
     fingerprint = compute_fingerprint(idempotency_key, branch_name, head_sha, action_kind)
 
     return HandoffIdentity(
