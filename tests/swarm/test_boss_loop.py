@@ -7305,6 +7305,7 @@ class TestPublishedPrTerminal:
             freshness_checker=lambda **kw: _fresh_result(fresh=True),
         )
         loop._dispatch_issue = _dispatch
+        loop._issue_attempt_counts[42] = loop.config.max_retries_per_issue
 
         # Simulate that an open PR already exists for issue #42
         existing_pr_url = "https://github.com/synaptent/aragora/pull/200"

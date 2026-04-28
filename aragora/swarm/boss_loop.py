@@ -1244,6 +1244,8 @@ class BossLoop:
                     issue_number = int(num)
                 except (TypeError, ValueError):
                     continue
+                if self._has_open_pr_for_issue(issue_number):
+                    continue
                 already_maxed.add(issue_number)
                 if count == self.config.max_retries_per_issue and self.config.repo:
                     self._auto_decompose_stuck_issue(issue_number, issues)
