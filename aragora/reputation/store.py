@@ -111,6 +111,9 @@ class ReputationStore:
         self._delta_by_id: dict[str, ReputationDelta] = {}
         self._reversals: dict[str, ReputationDeltaReversed] = {}
         self._path = path
+        self._reversal_path: Path | None = (
+            path.parent / (path.stem + ".reversals.jsonl") if path is not None else None
+        )
         if path is not None:
             path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -139,6 +142,15 @@ class ReputationStore:
         except OSError as exc:
             raise ReputationStoreError(
                 f"could not persist reputation delta to {self._path}: {exc}"
+            ) from exc
+
+    def _append_reversal_to_file(self, reversal: ReputationDeltaReversed) -> None:
+        try:
+            with self._reversal_path.open("a", encoding="utf-8") as fh:  # type: ignore[union-attr]
+                fh.write(json.dumps(reversal.to_json(), sort_keys=True) + "\n")
+        except OSError as exc:
+            raise ReputationStoreError(
+                f"could not persist reversal to {self._reversal_path}: {exc}"
             ) from exc
 
     # ------------------------------------------------------------------
@@ -223,6 +235,8 @@ class ReputationStore:
             reversed_at=timestamp,
             reason=dict(reason or {}),
         )
+        if self._reversal_path is not None:
+            self._append_reversal_to_file(reversal)
         self._reversals[delta_id] = reversal
         return reversal
 
@@ -265,6 +279,25 @@ class ReputationStore:
                         path,
                         exc,
                     )
+        # Reload reversals from the companion file so reversed deltas stay
+        # excluded from get_score() after a process restart.
+        reversal_path = store._reversal_path
+        if reversal_path is not None and reversal_path.exists():
+            with reversal_path.open(encoding="utf-8") as fh:
+                for lineno, raw in enumerate(fh, 1):
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        reversal = ReputationDeltaReversed.from_json(json.loads(raw))
+                        store._reversals[reversal.original_delta_id] = reversal
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "ReputationStore: skipping invalid reversal line %d in %s: %s",
+                            lineno,
+                            reversal_path,
+                            exc,
+                        )
         return store
 
 

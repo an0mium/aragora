@@ -438,3 +438,20 @@ class TestDeltaReversal:
         store.record_delta(d)
         store.reverse_delta(d.delta_id)
         assert len(store) == 1
+
+    def test_reversal_survives_reload(self, tmp_path: Path) -> None:
+        """Reversed delta must stay excluded after load_from_file (durability)."""
+        ledger = tmp_path / "rep.jsonl"
+        store = ReputationStore(path=ledger)
+        d = _delta(delta=75.0)
+        store.record_delta(d)
+        assert store.get_score("alice", apply_decay=False) == pytest.approx(75.0)
+
+        store.reverse_delta(d.delta_id, reason={"cause": "resolution_reopened"})
+        assert store.get_score("alice", apply_decay=False) == pytest.approx(0.0)
+
+        # Reload from disk — the reversal file must be present and loaded
+        reloaded = ReputationStore.load_from_file(ledger)
+        assert reloaded.get_score("alice", apply_decay=False) == pytest.approx(0.0)
+        assert len(reloaded.reversals_for("alice")) == 1
+        assert reloaded.reversals_for("alice")[0].original_delta_id == d.delta_id
