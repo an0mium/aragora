@@ -570,6 +570,51 @@ class TestModelReviewQuorum:
         assert quorum["admin_squash_allowed"] is False
         assert quorum["requires_human_risk_settlement"] is True
 
+    def test_independent_model_review_comment_counts_as_quorum_signal(self) -> None:
+        pr = _make_pr(files=["aragora/debate/team_selector.py"])
+        pr["comments"] = [
+            _dogfood_comment("## Codex focused dogfood\n10/10 pass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent semantic review\nVerdict: approve after human risk settlement.",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/debate/team_selector.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 3
+        assert quorum["status"] == "human_risk_settlement_required"
+        assert len(quorum["reviewer_signals"]) == 1
+        assert quorum["reviewer_signals"][0]["reviewer_id"] == "grok"
+        assert len(quorum["dogfood_evidence"]) == 1
+
+    def test_github_actions_advisory_review_does_not_count_as_model_signal(self) -> None:
+        pr = _make_pr(files=["aragora/debate/team_selector.py"])
+        pr["comments"] = [
+            _dogfood_comment("## Codex focused dogfood\n10/10 pass"),
+            {
+                "author": {"login": "github-actions"},
+                "body": "## Aragora Code Review\n\nAdvisory-only review. No issues found.",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/debate/team_selector.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 3
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert len(quorum["reviewer_signals"]) == 0
+        assert len(quorum["dogfood_evidence"]) == 1
+
 
 # --- _parse_pr_number ------------------------------------------------------
 

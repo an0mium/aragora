@@ -1170,6 +1170,7 @@ def _build_model_review_quorum(
     tier, tier_name, tier_reason = _classify_model_review_tier(files, pr=pr)
     requirement = _tier_requirement(tier)
     reviewer_signals = _reviewer_signals_from_protocol(protocol)
+    reviewer_signals.extend(_model_review_signals_from_comments(pr.get("comments") or []))
     dogfood_evidence = _dogfood_evidence_from_comments(pr.get("comments") or [])
     dissenting_views = [
         view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
@@ -1373,6 +1374,46 @@ def _dogfood_evidence_from_comments(comments: list[Any]) -> list[dict[str, str]]
             }
         )
     return evidence[:5]
+
+
+def _model_review_signals_from_comments(comments: list[Any]) -> list[dict[str, str]]:
+    signals: list[dict[str, str]] = []
+    for comment in comments:
+        if not isinstance(comment, dict):
+            continue
+        body = str(comment.get("body", "") or "")
+        lower = body.lower()
+        if not any(
+            token in lower
+            for token in (
+                "codex review",
+                "claude review",
+                "grok independent",
+                "gemini independent",
+                "independent semantic review",
+                "independent model review",
+                "model-family semantic signal",
+            )
+        ):
+            continue
+        reviewer = _infer_model_reviewer_from_text(body)
+        if reviewer == "unknown_model_reviewer":
+            continue
+        author_payload = comment.get("author")
+        github_author = ""
+        if isinstance(author_payload, dict):
+            github_author = str(author_payload.get("login", "") or "")
+        if github_author == "github-actions":
+            continue
+        signals.append(
+            {
+                "reviewer_id": reviewer,
+                "provider": reviewer,
+                "source": "pr_comment",
+                "summary": _first_nonempty_line(body)[:240],
+            }
+        )
+    return signals[:5]
 
 
 def _infer_model_reviewer_from_text(text: str) -> str:
