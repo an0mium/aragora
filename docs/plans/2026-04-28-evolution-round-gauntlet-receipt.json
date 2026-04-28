@@ -1,0 +1,75 @@
+{
+  "started_at": "2026-04-28T15:37:57.599886+00:00",
+  "finished_at": "2026-04-28T15:40:06.944702+00:00",
+  "duration_s": 129.344816,
+  "config_used": {
+    "name": "Evolution Round Gauntlet \u2014 Agent-Readable Receipts",
+    "description": "",
+    "template_id": null,
+    "input_type": "text",
+    "domain": "aragora-bounded-pr",
+    "tags": [],
+    "enable_scenario_analysis": false,
+    "enable_adversarial_probing": true,
+    "enable_formal_verification": false,
+    "enable_deep_audit": false,
+    "attack_categories": [
+      "logic",
+      "architecture",
+      "operational"
+    ],
+    "attack_rounds": 1,
+    "attacks_per_category": 2,
+    "probe_categories": [
+      "contradiction",
+      "hallucination"
+    ],
+    "probes_per_category": 1,
+    "max_total_probes": 4,
+    "run_scenario_matrix": false,
+    "scenario_preset": "comprehensive",
+    "max_parallel_scenarios": 3,
+    "scenario_presets": [
+      "comprehensive"
+    ],
+    "custom_scenarios": [],
+    "agents": [
+      "grok"
+    ],
+    "max_agents": 1,
+    "deep_audit_rounds": 4,
+    "critical_threshold": 0,
+    "high_threshold": 2,
+    "vulnerability_rate_threshold": 0.2,
+    "consensus_threshold": 0.7,
+    "robustness_threshold": 0.6,
+    "criteria": {
+      "max_critical_findings": 0,
+      "max_high_findings": 2,
+      "min_robustness_score": 0.7,
+      "min_verification_coverage": 0.0,
+      "require_formal_verification": false,
+      "require_consensus": false,
+      "min_confidence": 0.5
+    },
+    "output_dir": null,
+    "output_formats": [
+      "json",
+      "md"
+    ],
+    "save_artifacts": false,
+    "generate_receipt": true,
+    "sign_receipt": false,
+    "timeout_seconds": 180,
+    "attack_timeout": 30,
+    "probe_timeout": 20,
+    "scenario_timeout": 120
+  },
+  "verdict": "Verdict.FAIL",
+  "robustness_score": null,
+  "consensus_score": null,
+  "findings_count": 0,
+  "findings": [],
+  "halt_class": false,
+  "status": "ok"
+}
