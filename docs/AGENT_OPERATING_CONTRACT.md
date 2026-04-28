@@ -80,6 +80,133 @@ Concretely:
 
 ---
 
+## Adversarial Cross-Review (ACR) auto-merge tier
+
+> **Why this section exists.** The original operating contract treated every merge as operator-gated. This was correct when one agent was running and the queue was 1–2 PRs deep. With multiple heterogeneous CLI agents (Claude Code, Codex CLI, Factory Droid) producing PRs in parallel, the operator becomes the bottleneck — the failure mode the project's own thesis names as **rubber-stamp drift** (see `docs/THESIS.md` premise 6, "When does the human actually need to weigh in?"). ACR formalizes the thesis's triage layer in the contract: heterogeneous-agent adversarial cross-review counts as a first-class merge signal for low-risk classes, escalating only the cases the thesis itself flags as requiring human settlement.
+
+### Why ACR is the right shape
+
+`docs/THESIS.md` already commits to the answer. Premise 6 (Triage):
+
+> Outside [the six escalation] triggers, auto-handling is not only permitted, it is the **correct** allocation. Forcing human review on every mechanical chore-bump or low-risk dependency upgrade would violate premise 1 (bandwidth) on the one agent — the human — whose bandwidth the product is built to protect.
+
+The thesis names exactly **six** triggers that require human settlement:
+
+1. Value tradeoff (contested values, brand voice, pricing, public commitments)
+2. Personal impact (compensation, termination, external comms, legal exposure)
+3. Low ensemble convergence or high unresolved dissent
+4. Sparse or negative outcome history (decision class hasn't accumulated outcome-validated auto-handling data)
+5. Irreversibility threshold (production deploys affecting users, signed contracts, schema migrations, privacy-affecting data)
+6. Regulatory requirement (EU AI Act Article 14 and analogous regimes)
+
+ACR is the operating-contract realization of "outside these triggers, auto-handle is correct."
+
+### Heterogeneity definition — by model family, not agent name
+
+For an ACR signal to count as **heterogeneous**, ≥2 distinct model families must each have ≥1 agent that has signed off after independent adversarial dogfood.
+
+Current families:
+
+| Family | Agents in this repo |
+|---|---|
+| **Anthropic** | Claude Code (Opus 4.7, default), Factory Droid (Claude Opus 4.7) |
+| **OpenAI** | Codex CLI (GPT-4.1 Codex) |
+| (future) | Mistral, DeepSeek, Gemini, Grok, etc. |
+
+Two Anthropic-family agents agreeing does NOT count as heterogeneous (Claude + Factory both = Anthropic). The thesis's premise 3 ("convergence across agents only counts as evidence when the agents have *different priors, different evidence, and active incentive to dissent*") is the load-bearing rationale: same-family agents share priors and training data and thus produce correlated errors.
+
+### What "adversarial dogfood" means (sufficient signal threshold)
+
+A reviewer's `--approve` review counts as an ACR signoff only if the review evidences at least one of:
+
+- **Mutation testing**: deliberately broken implementation produces test failures at the right tests
+- **Adversarial fixture**: edge-case scenario (boundary values, schema drift, restart-survival, concurrent runs, etc.) exercising the change against pre-stated invariants
+- **Live invocation**: command/CLI/handler executed end-to-end against real or representative data with stated pass criteria
+- **Cross-reference verification**: for docs PRs, all link targets resolve and content matches the canonical chain
+
+A `--approve` posted as "looks good" without evidence is NOT an ACR signoff. It's `--comment` at best.
+
+### ACR-eligible tiers (auto-merge on heterogeneous signoff + green CI)
+
+Auto-merge fires when: required CI green AND ≥2 heterogeneous-family `--approve` reviews with adversarial-dogfood evidence AND PR matches one of these tiers:
+
+| Tier | Definition | Hard limits |
+|---|---|---|
+| **T1: docs-only** | Markdown changes in `docs/` and root `*.md` (excluding protected files) | ≤2,000 LOC, no code touched |
+| **T2: tests-only** | Changes touching only `tests/` paths | ≤800 LOC, no production code touched |
+| **T3: additive code** | New files only, no modifications to existing code paths | ≤800 LOC, ≥1 test per public function, no caller migration |
+| **T4: small bounded fix** | ≤50 LOC delta to non-protected files | regression test required, ACR signoff includes mutation-test or boundary-fixture evidence |
+
+### ACR-ineligible — operator review required (the six thesis triggers, operationalized)
+
+Even with full ACR signoff and green CI, these classes require explicit operator review and never auto-merge:
+
+| Class | Maps to thesis trigger |
+|---|---|
+| Tool changes (workflows, runners, secrets, release configs, pre-commit/pre-push hooks) | Irreversibility (CI/dev-loop affects all future work) |
+| Public API/SDK surface changes (removing endpoints, methods, CLI commands) | Irreversibility (consumer breakage) |
+| Schema migrations dropping columns or renaming tables | Irreversibility (data) |
+| Files in protected list (`CLAUDE.md`, `AGENTS.md`, `scripts/nomic_loop.py`, `.env`, `secrets/`) | Value tradeoff (project doctrine) |
+| Branch deletion with unmerged commits, `git push --force` | Irreversibility (history) |
+| Semantic-bug classes: calibration, durability, security, RBAC, financial, reputation | Sparse/negative outcome history (errors are very expensive when caught late) |
+| Regulatory surfaces: GDPR, HIPAA, SOC 2 controls, EU AI Act compliance | Regulatory requirement |
+| Any unresolved blocker comment from any reviewer | Low ensemble convergence / high unresolved dissent |
+| First PR of a new architectural pattern (no prior arch review) | Sparse outcome history |
+| PRs ≥800 LOC delta | Irreversibility threshold proxy |
+| PRs touching `aragora/auth/`, `aragora/rbac/`, `aragora/billing/`, `aragora/compliance/` | Regulatory + irreversibility |
+| Major-version dep bumps (`X.0` → `X+1.0`) | Sparse outcome history |
+| Anything taking >1 CI cycle to validate | Irreversibility proxy |
+
+Authors can also explicitly opt their PR out of ACR by marking it `operator-review-required`.
+
+### Auto-merge mechanics
+
+- PR author enables GitHub auto-merge as part of PR creation
+- Required CI checks must pass (workflow definitions unchanged from existing rules)
+- ≥2 heterogeneous-family `--approve` reviews must be posted with adversarial-dogfood evidence (per the threshold above)
+- If any reviewer changes their `--approve` to `--request-changes`, auto-merge cancels
+- Operator can always cancel auto-merge by adding the `operator-review-required` label
+
+### Governance via the empirical threshold framework (#6375)
+
+ACR is not a one-shot rule — it is a closed-loop policy governed by outcome data:
+
+- Every ACR auto-merged PR emits a settlement receipt (`auto_handle_calibration_store`)
+- Outcome history per ACR class is tracked: revert rate, downstream-regression PR count, time-to-revert, post-merge incident reports
+- Per-class auto-handle invalidation rate feeds `#6375`'s threshold framework
+- **If outcome data shows a class exceeds the (currently placeholder 5%) invalidation cap, that class auto-halts and reverts to operator-review-required until the data recovers**
+- The placeholder threshold is replaced by measured baselines as data accumulates (#6608's Step C `aragora review-queue baseline` CLI surfaces the per-class numbers)
+
+This is the same machinery the H1 thesis closure was building for. ACR is what gives it real-world data.
+
+### Operator overrides (always available)
+
+- **Per-PR override**: operator adds `operator-review-required` label → PR escalates to human review regardless of ACR
+- **Per-class override**: operator marks a class as human-review-required ("all RBAC PRs need human review", "all PRs touching `aragora/billing/` need human review") via `docs/AGENT_OPERATING_CONTRACT.local.md` (uncommitted local override), or by amending this contract
+- **Rollback**: operator can revert any auto-merged PR with an explicit revert PR; revert is itself a tier-1 docs-or-bounded fix and goes through ACR (or operator-review if revert is non-trivial)
+
+### Weekly digest (operator visibility)
+
+To prevent the operator from losing situational awareness, a weekly digest surfaces:
+
+- Count of ACR auto-merged PRs by class
+- Per-class revert rate (rolling 30-day window)
+- Per-class auto-handle invalidation rate (per #6375)
+- Heterogeneity coverage: which family pairs co-signed
+- Any class approaching its placeholder threshold (early-warning)
+
+The digest is itself a `docs/status/` artifact landing weekly. Operator can spot-check.
+
+### Failure-mode acknowledgment
+
+ACR shifts the failure mode from **over-escalation** (rubber-stamp drift, thesis premise 6) to **under-escalation** (a bad PR slips through because all heterogeneous reviewers missed something). The thesis names these failure modes as symmetric in cost. They are asymmetric in **time-to-detection** — over-escalation pain is continuous, under-escalation pain is episodic.
+
+The mitigation is the empirical-threshold loop: every ACR-merged PR feeds outcome data; classes that produce errors auto-revert to operator-review. Episodic detection becomes systematic feedback.
+
+This trade is explicit and reversible.
+
+---
+
 ## Wave 0 — Stabilize the v2.9.0 ship train *(this week, before any other wave)*
 
 **Live PR queue (as of 2026-04-25 — current ship train state lives in `git log` and `gh pr list`):**
