@@ -103,3 +103,52 @@ def test_build_parser_keeps_review_queue_runtime_lazy(monkeypatch):
     assert args.reason == "needs a test"
     assert args.json_output is True
     assert args.func.__name__ == "cmd_review_queue"
+
+
+def test_build_parser_registers_review_queue_baseline_lazily(monkeypatch):
+    sys.modules.pop("aragora.cli.commands.review_queue", None)
+    imported: list[str] = []
+    real_import = builtins.__import__
+
+    def tracking_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "aragora.cli.commands.review_queue":
+            imported.append(name)
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", tracking_import)
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "review-queue",
+            "baseline",
+            "--window-days",
+            "14",
+            "--min-samples",
+            "75",
+            "--safety-margin",
+            "0.4",
+            "--minimum-meaningful-rate",
+            "0.02",
+            "--placeholder-value",
+            "0.06",
+            "--calibration-db",
+            "/tmp/calibration.sqlite3",
+            "--review-queue-root",
+            "/tmp/review-queue",
+            "--json",
+        ]
+    )
+
+    assert imported == []
+    assert args.command == "review-queue"
+    assert args.review_queue_command == "baseline"
+    assert args.window_days == 14
+    assert args.min_samples == 75
+    assert args.safety_margin == 0.4
+    assert args.minimum_meaningful_rate == 0.02
+    assert args.placeholder_value == 0.06
+    assert args.calibration_db == "/tmp/calibration.sqlite3"
+    assert args.review_queue_root == "/tmp/review-queue"
+    assert args.json is True
+    assert args.func.__name__ == "cmd_review_queue"

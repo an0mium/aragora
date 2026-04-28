@@ -1478,6 +1478,64 @@ def _add_review_queue_parser(subparsers) -> None:
     )
     act_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
 
+    baseline_parser = queue_subparsers.add_parser(
+        "baseline",
+        help="Measure empirical invalidation baseline from on-disk stores (#6375)",
+        description=(
+            "Read the auto-handle calibration store and settlement receipts, "
+            "compute the empirical invalidation baseline, and propose an "
+            "auto-handle invalidation threshold. This command is read-only."
+        ),
+    )
+    baseline_parser.add_argument(
+        "--window-days",
+        type=int,
+        default=30,
+        help="Measurement-window width in days (default: 30).",
+    )
+    baseline_parser.add_argument(
+        "--min-samples",
+        type=int,
+        default=50,
+        help="Minimum human-settled sample size before using the measured baseline.",
+    )
+    baseline_parser.add_argument(
+        "--safety-margin",
+        type=float,
+        default=0.5,
+        help="Multiplier applied to the baseline when deriving the threshold.",
+    )
+    baseline_parser.add_argument(
+        "--minimum-meaningful-rate",
+        type=float,
+        default=0.01,
+        help="Floor below which threshold drift is indistinguishable from sample noise.",
+    )
+    baseline_parser.add_argument(
+        "--placeholder-value",
+        type=float,
+        default=0.05,
+        help="Threshold to use below the sample-size floor (default: 0.05).",
+    )
+    baseline_parser.add_argument(
+        "--calibration-db",
+        default=None,
+        help="Override the auto-handle calibration store path.",
+    )
+    baseline_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue root used for settlement receipts.",
+    )
+    baseline_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output the BaselineMeasurement + ThresholdProposal as JSON.",
+    )
+    baseline_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
+
 
 def _add_codebase_audit_parser(subparsers) -> None:
     """Add the staged repository codebase audit parser."""
