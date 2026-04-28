@@ -443,6 +443,7 @@ class GlobalWorkQueue:
         priority: int | None = None,
         allow_reopen: bool = False,
         preserve_claimed: bool = True,
+        persist: bool = True,
     ) -> WorkItem:
         """Create or refresh a work item without stomping active claims."""
         async with self._lock:
@@ -478,7 +479,8 @@ class GlobalWorkQueue:
 
             self._items[work.id] = work
             self._add_to_heap(work)
-            await self._save_queue()
+            if persist:
+                await self._save_queue()
 
             logger.debug("Upserted work %s with priority %s", work.id, work.computed_priority)
             return work
@@ -564,6 +566,8 @@ class GlobalWorkQueue:
         self,
         work_id: str,
         result: Any | None = None,
+        *,
+        persist: bool = True,
     ) -> WorkItem | None:
         """
         Mark work as completed.
@@ -589,7 +593,8 @@ class GlobalWorkQueue:
 
             # Check for unblocked work
             await self._check_unblocked()
-            await self._save_queue()
+            if persist:
+                await self._save_queue()
 
             logger.info("Completed work %s", work_id)
             return work

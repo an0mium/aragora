@@ -7245,7 +7245,7 @@ def test_scan_salvage_sources_finds_worktree_and_stash(
 
 @pytest.mark.asyncio
 async def test_sync_pending_work_queue_projects_items(
-    repo: Path, store: DevCoordinationStore
+    repo: Path, store: DevCoordinationStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     lease = store.claim_lease(
         task_id="clb-sync",
@@ -7273,10 +7273,20 @@ async def test_sync_pending_work_queue_projects_items(
         likely_value=0.75,
     )
     queue = GlobalWorkQueue(storage_dir=repo / ".work_queue")
+    save_calls = 0
+    original_save_queue = queue._save_queue
+
+    async def counted_save_queue() -> None:
+        nonlocal save_calls
+        save_calls += 1
+        await original_save_queue()
+
+    monkeypatch.setattr(queue, "_save_queue", counted_save_queue)
 
     counts = await store.sync_pending_work_queue(queue)
 
     assert counts["created"] == 2
+    assert save_calls == 1
     items = await queue.list_items(limit=10)
     item_ids = {item.id for item in items}
     assert f"salvage:{salvage.candidate_id}" in item_ids

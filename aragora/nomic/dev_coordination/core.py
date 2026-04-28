@@ -1600,7 +1600,12 @@ class DevCoordinationStore:
             if existing and existing.status in (WorkStatus.CLAIMED, WorkStatus.IN_PROGRESS):
                 counts["skipped_active"] += 1
                 continue
-            await work_queue.upsert(item, allow_reopen=True, preserve_claimed=True)
+            await work_queue.upsert(
+                item,
+                allow_reopen=True,
+                preserve_claimed=True,
+                persist=False,
+            )
             if existing is None:
                 counts["created"] += 1
             elif existing.status in (WorkStatus.COMPLETED, WorkStatus.FAILED):
@@ -1622,6 +1627,7 @@ class DevCoordinationStore:
                 completed = await work_queue.complete(
                     item_id,
                     result={"source": "dev_coordination", "reason": "task_no_longer_open"},
+                    persist=False,
                 )
                 if completed is not None:
                     counts["completed"] += 1
@@ -1658,7 +1664,12 @@ class DevCoordinationStore:
                 counts["skipped_active"] += 1
                 continue
 
-            await work_queue.upsert(item, allow_reopen=True, preserve_claimed=True)
+            await work_queue.upsert(
+                item,
+                allow_reopen=True,
+                preserve_claimed=True,
+                persist=False,
+            )
             if existing is None:
                 counts["created"] += 1
             elif existing.status in (WorkStatus.COMPLETED, WorkStatus.FAILED):
@@ -1680,6 +1691,7 @@ class DevCoordinationStore:
                 completed = await work_queue.complete(
                     item_id,
                     result={"source": "dev_coordination", "reason": "no_longer_pending"},
+                    persist=False,
                 )
                 if completed is not None:
                     counts["completed"] += 1
