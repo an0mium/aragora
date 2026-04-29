@@ -1023,6 +1023,79 @@ def test_referenced_pr_numbers_deduplicates_multiple_mentions(tmp_path: Path) ->
     assert mod._referenced_pr_numbers(handoff) == [6288]
 
 
+def test_referenced_pr_numbers_extracts_review_branch_slug(tmp_path: Path) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "outbox.json"),
+        task_title="Open or update PR for AGT-04 markets predict CLI",
+        priority="HIGH",
+        body=(
+            "Branch: codex/review-pr6808\n"
+            "Worktree: /private/tmp/aragora-pr6808\n"
+            "Compare: https://github.com/synaptent/aragora/compare/main...codex/review-pr6808\n"
+        ),
+        labels={},
+        expires_at=None,
+    )
+
+    assert mod._referenced_pr_numbers(handoff) == [6808]
+
+
+def test_decide_handoffs_skips_merged_referenced_pr_slug(monkeypatch: Any, tmp_path: Path) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "outbox.json"),
+        task_title="Open or update PR for AGT-04 markets predict CLI",
+        priority="HIGH",
+        body="Requested branch: codex/review-pr6808\n",
+        labels={},
+        expires_at=None,
+        source_kind="outbox",
+        branch="codex/review-pr6808",
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "pr", "view"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    {
+                        "number": 6808,
+                        "title": "[AGT-04] aragora markets predict",
+                        "url": "https://github.com/synaptent/aragora/pull/6808",
+                        "state": "MERGED",
+                    }
+                ),
+                "",
+            )
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="existing_pr",
+            existing_pr_url="https://github.com/synaptent/aragora/pull/6808",
+        )
+    ]
+
+
 def test_publish_handoffs_creates_issue_with_labels(monkeypatch: Any, tmp_path: Path) -> None:
     handoff = Handoff(
         source_file=str(tmp_path / "memory.md"),

@@ -84,6 +84,7 @@ BLOCK_TIMESTAMP_PATTERN = re.compile(
     r"(?m)(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)"
 )
 PR_REFERENCE_PATTERN = re.compile(r"(?i)\b(?:PR|pull request)\s*#(\d+)\b")
+PR_SLUG_REFERENCE_PATTERN = re.compile(r"(?i)(?:^|[\\/_-])pr[-_]?(\d{3,})(?:\b|[\\/_-])")
 STOPWORDS = {
     "a",
     "an",
@@ -880,7 +881,11 @@ def _existing_pr(repo_root: Path, repo: str, title: str) -> dict[str, Any] | Non
 def _referenced_pr_numbers(handoff: Handoff) -> list[int]:
     seen: set[int] = set()
     numbers: list[int] = []
-    for match in PR_REFERENCE_PATTERN.finditer(f"{handoff.task_title}\n{handoff.body}"):
+    text = f"{handoff.task_title}\n{handoff.body}"
+    matches = list(PR_REFERENCE_PATTERN.finditer(text)) + list(
+        PR_SLUG_REFERENCE_PATTERN.finditer(text)
+    )
+    for match in matches:
         try:
             number = int(match.group(1))
         except (TypeError, ValueError):
@@ -954,6 +959,14 @@ def _target_open_pr(repo_root: Path, repo: str, handoff: Handoff) -> dict[str, A
     for number in _referenced_pr_numbers(handoff):
         pr = _pr_by_number(repo_root, repo, number)
         if isinstance(pr, dict) and str(pr.get("state") or "").upper() == "OPEN":
+            return pr
+    return None
+
+
+def _referenced_pr(repo_root: Path, repo: str, handoff: Handoff) -> dict[str, Any] | None:
+    for number in _referenced_pr_numbers(handoff):
+        pr = _pr_by_number(repo_root, repo, number)
+        if isinstance(pr, dict):
             return pr
     return None
 
@@ -1073,6 +1086,18 @@ def decide_handoffs(
                     eligible=False,
                     reason="target_open_pr",
                     existing_pr_url=str(target_pr.get("url") or ""),
+                )
+            )
+            continue
+        referenced_pr = _referenced_pr(repo_root, repo, handoff)
+        if referenced_pr:
+            decisions.append(
+                PublishDecision(
+                    task_title=handoff.task_title,
+                    source_file=handoff.source_file,
+                    eligible=False,
+                    reason="existing_pr",
+                    existing_pr_url=str(referenced_pr.get("url") or ""),
                 )
             )
             continue
