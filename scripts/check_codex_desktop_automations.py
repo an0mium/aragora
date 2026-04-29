@@ -178,6 +178,26 @@ def build_payload(root: Path) -> dict[str, Any]:
     }
 
 
+def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return a compact payload suitable for recurring automation gates."""
+
+    compact = dict(payload)
+    compact["core_writers"] = {
+        writer_id: (
+            {
+                key: record[key]
+                for key in ("id", "name", "kind", "status", "path", "byminute", "role")
+                if key in record
+            }
+            if isinstance(record, dict)
+            else None
+        )
+        for writer_id, record in payload.get("core_writers", {}).items()
+    }
+    compact["prompt_details_omitted"] = True
+    return compact
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -187,9 +207,16 @@ def main(argv: list[str] | None = None) -> int:
         help="Codex Desktop automation directory",
     )
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Omit full automation prompts from JSON output for compact startup gates.",
+    )
     args = parser.parse_args(argv)
 
     payload = build_payload(args.root.expanduser())
+    if args.summary_only:
+        payload = summary_only_payload(payload)
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:

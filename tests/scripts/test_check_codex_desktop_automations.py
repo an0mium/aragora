@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -80,6 +81,50 @@ def test_audit_accepts_staggered_writer_contracts(tmp_path: Path) -> None:
     payload = mod.build_payload(tmp_path)
 
     assert payload["summary"] == {"active_count": 4, "error_count": 0, "warning_count": 0}
+
+
+def test_summary_only_payload_omits_core_writer_prompts(tmp_path: Path) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+        )
+
+    payload = mod.build_payload(tmp_path)
+    compact = mod.summary_only_payload(payload)
+
+    assert compact["summary"] == payload["summary"]
+    assert compact["prompt_details_omitted"] is True
+    assert "prompt" in payload["core_writers"]["engineering-autopilot"]
+    assert "prompt" not in compact["core_writers"]["engineering-autopilot"]
+    assert compact["core_writers"]["engineering-autopilot"]["byminute"] == 5
+
+
+def test_main_summary_only_json_omits_prompts(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+        )
+
+    assert mod.main(["--root", str(tmp_path), "--json", "--summary-only"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["prompt_details_omitted"] is True
+    assert all("prompt" not in record for record in payload["core_writers"].values())
 
 
 def test_audit_warns_duplicate_writer_minutes(tmp_path: Path) -> None:
