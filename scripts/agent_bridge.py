@@ -51,6 +51,12 @@ LANE_REGISTRY_FILE = AGENT_BRIDGE_DIR / "lanes.json"
 TMUX_SESSIONS_DIR = Path.home() / ".aragora" / "tmux-sessions"
 TMUX_SESSION = "aragora"
 REPO_ROOT = Path(__file__).resolve().parents[1]
+CANONICAL_REPO_ROOT = REPO_ROOT
+if agent_bridge_sessions is not None:
+    try:
+        CANONICAL_REPO_ROOT = agent_bridge_sessions.resolve_canonical_repo_root(REPO_ROOT)
+    except (OSError, RuntimeError, ValueError):
+        CANONICAL_REPO_ROOT = REPO_ROOT
 ACTIVE_LANE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
 
 
@@ -228,6 +234,72 @@ def _sync_lane_records(records: list[LaneRecord], sessions: list[Session]) -> li
             record.worktree = live.worktree
             record.pr_number = live.pr_number
     return records
+
+
+def _is_repo_root_path(path: str) -> bool:
+    try:
+        return Path(path).resolve() == CANONICAL_REPO_ROOT.resolve()
+    except OSError:
+        return False
+
+
+def _collect_health_issues(
+    sessions: list[Session], records: list[LaneRecord]
+) -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+
+    # Missing paths are actionable stale-session residue. Dead historical
+    # sessions that merely remember the root checkout are not cleanup blockers.
+    for s in sessions:
+        if s.worktree and not Path(s.worktree).is_dir():
+            issues.append(
+                {
+                    "type": "stale_worktree",
+                    "session": s.name,
+                    "detail": f"worktree path missing: {s.worktree}",
+                }
+            )
+        if (
+            s.status == "dead"
+            and s.worktree
+            and Path(s.worktree).is_dir()
+            and not _is_repo_root_path(s.worktree)
+        ):
+            issues.append(
+                {
+                    "type": "stale_worktree",
+                    "session": s.name,
+                    "detail": f"dead session with lingering worktree: {s.worktree}",
+                }
+            )
+
+    # Check for ambiguous lane ownership (multiple active owners)
+    lane_owners: dict[str, list[str]] = {}
+    for r in records:
+        if r.status in ACTIVE_LANE_STATUSES:
+            lane_owners.setdefault(r.lane_id, []).append(r.owner_session)
+    for lane_id, owners in lane_owners.items():
+        if len(owners) > 1:
+            issues.append(
+                {
+                    "type": "ambiguous_lane",
+                    "session": ", ".join(owners),
+                    "detail": f"lane '{lane_id}' claimed by multiple active sessions",
+                }
+            )
+
+    # Check for conflict-status lanes
+    for r in records:
+        if r.status == "conflict":
+            issues.append(
+                {
+                    "type": "lane_conflict",
+                    "session": r.owner_session,
+                    "detail": f"lane '{r.lane_id}' in conflict with {r.conflict_session}: {r.conflict_reason}",
+                }
+            )
+
+    return issues
 
 
 def _lane_conflict(
@@ -580,52 +652,7 @@ def cmd_health(args: argparse.Namespace) -> int:
     _enrich_prs(sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
 
-    issues: list[dict[str, str]] = []
-
-    # Check for stale worktrees (worktree path set but directory missing or session dead)
-    for s in sessions:
-        if s.worktree and not Path(s.worktree).is_dir():
-            issues.append(
-                {
-                    "type": "stale_worktree",
-                    "session": s.name,
-                    "detail": f"worktree path missing: {s.worktree}",
-                }
-            )
-        if s.status == "dead" and s.worktree and Path(s.worktree).is_dir():
-            issues.append(
-                {
-                    "type": "stale_worktree",
-                    "session": s.name,
-                    "detail": f"dead session with lingering worktree: {s.worktree}",
-                }
-            )
-
-    # Check for ambiguous lane ownership (multiple active owners)
-    lane_owners: dict[str, list[str]] = {}
-    for r in records:
-        if r.status in ACTIVE_LANE_STATUSES:
-            lane_owners.setdefault(r.lane_id, []).append(r.owner_session)
-    for lane_id, owners in lane_owners.items():
-        if len(owners) > 1:
-            issues.append(
-                {
-                    "type": "ambiguous_lane",
-                    "session": ", ".join(owners),
-                    "detail": f"lane '{lane_id}' claimed by multiple active sessions",
-                }
-            )
-
-    # Check for conflict-status lanes
-    for r in records:
-        if r.status == "conflict":
-            issues.append(
-                {
-                    "type": "lane_conflict",
-                    "session": r.owner_session,
-                    "detail": f"lane '{r.lane_id}' in conflict with {r.conflict_session}: {r.conflict_reason}",
-                }
-            )
+    issues = _collect_health_issues(sessions, records)
 
     # Check git worktree list for prunable entries
     try:
@@ -635,7 +662,7 @@ def cmd_health(args: argparse.Namespace) -> int:
             text=True,
             timeout=10,
             check=False,
-            cwd=str(REPO_ROOT),
+            cwd=str(CANONICAL_REPO_ROOT),
         )
         if result.returncode == 0:
             for line in result.stdout.splitlines():
@@ -675,47 +702,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     _write_session_snapshot(sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
 
-    # Build health issues (reuse logic from cmd_health)
-    issues: list[dict[str, str]] = []
-    for s in sessions:
-        if s.worktree and not Path(s.worktree).is_dir():
-            issues.append(
-                {
-                    "type": "stale_worktree",
-                    "session": s.name,
-                    "detail": f"worktree path missing: {s.worktree}",
-                }
-            )
-        if s.status == "dead" and s.worktree and Path(s.worktree).is_dir():
-            issues.append(
-                {
-                    "type": "stale_worktree",
-                    "session": s.name,
-                    "detail": f"dead session with lingering worktree: {s.worktree}",
-                }
-            )
-    lane_owners: dict[str, list[str]] = {}
-    for r in records:
-        if r.status in ACTIVE_LANE_STATUSES:
-            lane_owners.setdefault(r.lane_id, []).append(r.owner_session)
-    for lane_id, owners in lane_owners.items():
-        if len(owners) > 1:
-            issues.append(
-                {
-                    "type": "ambiguous_lane",
-                    "session": ", ".join(owners),
-                    "detail": f"lane '{lane_id}' claimed by multiple active sessions",
-                }
-            )
-    for r in records:
-        if r.status == "conflict":
-            issues.append(
-                {
-                    "type": "lane_conflict",
-                    "session": r.owner_session,
-                    "detail": f"lane '{r.lane_id}' in conflict with {r.conflict_session}: {r.conflict_reason}",
-                }
-            )
+    issues = _collect_health_issues(sessions, records)
 
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
@@ -801,16 +788,23 @@ def cmd_tmux_map(args: argparse.Namespace) -> int:
     return 0
 
 
+def _json_parent() -> argparse.ArgumentParser:
+    parent = argparse.ArgumentParser(add_help=False)
+    parent.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
+    return parent
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Agent bridge: send, approve, read, lanes",
     )
     parser.add_argument("--json", action="store_true")
     sub = parser.add_subparsers(dest="command")
+    json_parent = _json_parent()
 
-    sub.add_parser("sessions", help="List sessions")
+    sub.add_parser("sessions", parents=[json_parent], help="List sessions")
 
-    send_p = sub.add_parser("send", help="Send prompt to session")
+    send_p = sub.add_parser("send", parents=[json_parent], help="Send prompt to session")
     send_p.add_argument("name")
     send_p.add_argument("prompt", nargs="*")
     send_p.add_argument("--file", help="Prompt file")
@@ -825,21 +819,25 @@ def main() -> int:
         help="Mark an explicit conflict instead of rejecting a second active owner",
     )
 
-    approve_p = sub.add_parser("approve", help="Approve Codex permission")
+    approve_p = sub.add_parser("approve", parents=[json_parent], help="Approve Codex permission")
     approve_p.add_argument("name")
 
-    read_p = sub.add_parser("read", help="Read session output")
+    read_p = sub.add_parser("read", parents=[json_parent], help="Read session output")
     read_p.add_argument("name")
     read_p.add_argument("--lines", type=int, default=20)
 
-    ra_p = sub.add_parser("read-all", help="Read all sessions")
+    ra_p = sub.add_parser("read-all", parents=[json_parent], help="Read all sessions")
     ra_p.add_argument("--lines", type=int, default=5)
 
-    sub.add_parser("lanes", help="Sessions + PR state")
-    sub.add_parser("tmux-map", help="Show tmux panes")
-    sub.add_parser("health", help="Check for stale worktrees and lane conflicts")
+    sub.add_parser("lanes", parents=[json_parent], help="Sessions + PR state")
+    sub.add_parser("tmux-map", parents=[json_parent], help="Show tmux panes")
     sub.add_parser(
-        "operator-snapshot", help="Unified operator snapshot (sessions + lanes + health)"
+        "health", parents=[json_parent], help="Check for stale worktrees and lane conflicts"
+    )
+    sub.add_parser(
+        "operator-snapshot",
+        parents=[json_parent],
+        help="Unified operator snapshot (sessions + lanes + health)",
     )
 
     args = parser.parse_args()

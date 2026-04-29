@@ -247,3 +247,98 @@ def test_cmd_lanes_json_prefers_registry_and_syncs_live_session(
             "pr_number": 5402,
         }
     ]
+
+
+def test_main_accepts_json_after_subcommand(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "discover", lambda: [])
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+    monkeypatch.setattr(sys, "argv", ["agent_bridge.py", "sessions", "--json"])
+
+    assert mod.main() == 0
+    assert json.loads(capsys.readouterr().out) == []
+
+
+def test_health_ignores_dead_root_checkout_session(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        mod,
+        "discover",
+        lambda: [
+            mod.Session(
+                name="codex-old-root",
+                agent="codex",
+                status="dead",
+                worktree=str(tmp_path),
+            )
+        ],
+    )
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *args, **kwargs: argparse.Namespace(returncode=1, stdout="", stderr=""),
+    )
+
+    assert mod.cmd_health(argparse.Namespace(json=True)) == 0
+    assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": []}
+
+
+def test_health_reports_dead_non_root_worktree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    root = tmp_path / "repo"
+    worktree = tmp_path / "old-worktree"
+    root.mkdir()
+    worktree.mkdir()
+    monkeypatch.setattr(mod, "REPO_ROOT", root)
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", root)
+    monkeypatch.setattr(
+        mod,
+        "discover",
+        lambda: [
+            mod.Session(
+                name="codex-old-lane",
+                agent="codex",
+                status="dead",
+                worktree=str(worktree),
+            )
+        ],
+    )
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *args, **kwargs: argparse.Namespace(returncode=1, stdout="", stderr=""),
+    )
+
+    assert mod.cmd_health(argparse.Namespace(json=True)) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["issues"] == [
+        {
+            "type": "stale_worktree",
+            "session": "codex-old-lane",
+            "detail": f"dead session with lingering worktree: {worktree}",
+        }
+    ]
