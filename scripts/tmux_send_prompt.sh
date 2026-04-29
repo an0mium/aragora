@@ -182,6 +182,7 @@ fi
 if [[ "${LINE_COUNT}" -gt 1 ]]; then
     printf '%s' "${PROMPT}" | tmux load-buffer -
     tmux paste-buffer -d -t "${TARGET}"
+    sleep "${ARAGORA_TMUX_PASTE_SETTLE_SECONDS:-0.2}"
     tmux send-keys -t "${TARGET}" Enter
     DISPATCH_METHOD="paste-buffer"
 else
