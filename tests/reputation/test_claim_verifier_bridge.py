@@ -12,9 +12,13 @@ from __future__ import annotations
 import pytest
 
 from aragora.epistemic.claim_verifier import ClaimResult, ClaimStatus
-from aragora.reputation.claim_verifier_bridge import bridge_from_claim_result
+from aragora.reputation.claim_verifier_bridge import (
+    bridge_from_claim_result,
+    settle_from_claim_result,
+)
 from aragora.reputation.types import (
     DOMAIN_EPISTEMIC_CLAIM,
+    ReputationDelta,
     ResolvedClaim,
     StakeableClaim,
 )
@@ -167,3 +171,47 @@ class TestBridgeStakeUnits:
         result = _make_result("su.bad", ClaimStatus.PASS)
         with pytest.raises(ValueError, match="stake_units"):
             bridge_from_claim_result(result, agent_id="agent-u", stake_units=0)
+
+
+class TestSettleFromClaimResult:
+    """settle_from_claim_result: bridge + binary settlement in one call."""
+
+    def test_returns_reputation_delta(self) -> None:
+        result = _make_result("settle.pass", ClaimStatus.PASS)
+        delta = settle_from_claim_result(result, agent_id="agent-v")
+        assert isinstance(delta, ReputationDelta)
+
+    def test_pass_yields_positive_delta(self) -> None:
+        result = _make_result("settle.win", ClaimStatus.PASS, elapsed_ms=5.0)
+        delta = settle_from_claim_result(result, agent_id="agent-w", stake_units=3)
+        assert delta.delta == pytest.approx(3.0)
+
+    def test_fail_yields_negative_delta(self) -> None:
+        result = _make_result("settle.lose", ClaimStatus.FAIL)
+        delta = settle_from_claim_result(result, agent_id="agent-x", stake_units=2)
+        assert delta.delta == pytest.approx(-2.0)
+
+    def test_stale_yields_negative_delta(self) -> None:
+        result = _make_result("settle.stale", ClaimStatus.STALE)
+        delta = settle_from_claim_result(result, agent_id="agent-y", stake_units=1)
+        assert delta.delta == pytest.approx(-1.0)
+
+    def test_inconclusive_yields_zero_delta(self) -> None:
+        result = _make_result("settle.inconc", ClaimStatus.UNSUPPORTED)
+        delta = settle_from_claim_result(result, agent_id="agent-z")
+        assert delta.delta == pytest.approx(0.0)
+
+    def test_scoring_rule_is_binary(self) -> None:
+        result = _make_result("settle.rule", ClaimStatus.PASS)
+        delta = settle_from_claim_result(result, agent_id="agent-aa")
+        assert delta.scoring_rule == "binary"
+
+    def test_domain_is_epistemic_claim(self) -> None:
+        result = _make_result("settle.domain", ClaimStatus.PASS)
+        delta = settle_from_claim_result(result, agent_id="agent-ab")
+        assert delta.domain == DOMAIN_EPISTEMIC_CLAIM
+
+    def test_decay_half_life_forwarded(self) -> None:
+        result = _make_result("settle.decay", ClaimStatus.PASS)
+        delta = settle_from_claim_result(result, agent_id="agent-ac", decay_half_life_days=90.0)
+        assert delta.decay_half_life_days == pytest.approx(90.0)
