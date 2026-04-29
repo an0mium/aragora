@@ -23,6 +23,7 @@ from collections.abc import Callable
 from aragora.config import AGENT_TIMEOUT_SECONDS, MAX_CONCURRENT_CRITIQUES, MAX_CONCURRENT_REVISIONS
 from aragora.debate.complexity_governor import get_complexity_governor
 from aragora.debate.performance_monitor import get_debate_monitor
+from aragora.debate.phases._phase_invariant import require_phase_result
 from aragora.debate.phases.convergence_tracker import (
     DebateConvergenceTracker,
 )
@@ -440,7 +441,7 @@ class DebateRoundsPhase:
             ctx: The DebateContext with proposals and result
         """
 
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
 
         # Determine rounds: use strategy if available, otherwise protocol
@@ -531,7 +532,7 @@ class DebateRoundsPhase:
         Returns:
             True if debate should continue to next round, False if converged/should stop.
         """
-        result = ctx.result
+        result = require_phase_result(ctx)
 
         # Record partial-round progress at round start so that DebateState
         # finalization, timeout recovery, and post-failure inspection all see
@@ -962,7 +963,7 @@ class DebateRoundsPhase:
         """Execute critique phase with parallel generation."""
         from aragora.core import Message
 
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
         round_critiques: list[Critique] = []
 
@@ -1233,7 +1234,7 @@ class DebateRoundsPhase:
         """Execute revision phase with parallel generation."""
         from aragora.core import Message
 
-        result = ctx.result
+        result = require_phase_result(ctx)
         proposals = ctx.proposals
 
         if not self._generate_with_agent or not self._build_revision_prompt:
