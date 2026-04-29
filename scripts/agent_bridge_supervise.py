@@ -144,13 +144,27 @@ def _session_text(session: agent_bridge.Session | None) -> str:
 
 
 def _run_git(worktree: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", "-C", str(worktree), *args],
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=False,
-    )
+    cmd = ["git", "-C", str(worktree), *args]
+    try:
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout if isinstance(exc.stdout, str) else ""
+        stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+        message = stderr or f"command timed out after 10s: {' '.join(cmd)}"
+        return subprocess.CompletedProcess(cmd, 124, stdout, message)
+    except OSError as exc:
+        return subprocess.CompletedProcess(cmd, 127, "", str(exc))
+
+
+def _git_failure_detail(proc: subprocess.CompletedProcess[str]) -> str:
+    detail = (proc.stderr or proc.stdout or f"rc={proc.returncode}").strip()
+    return f" ({detail})" if detail else ""
 
 
 def _inspect_worktree(worktree_path: str) -> WorktreeStatus:
@@ -172,7 +186,8 @@ def _inspect_worktree(worktree_path: str) -> WorktreeStatus:
         if dirty:
             evidence.append("worktree has local changes")
     else:
-        evidence.append("git status unavailable")
+        dirty = True
+        evidence.append(f"git status unavailable{_git_failure_detail(status_proc)}")
 
     counts_proc = _run_git(worktree, "rev-list", "--left-right", "--count", "origin/main...HEAD")
     if counts_proc.returncode == 0:
@@ -411,6 +426,25 @@ def _decide_lane(
             source=record.source,
             branch=branch,
             worktree=worktree,
+            evidence=evidence,
+        )
+
+    if worktree_status.dirty:
+        return LaneDecision(
+            lane_id=record.lane_id,
+            owner_session=record.owner_session,
+            status=record.status,
+            next_action="send_followup",
+            reason=(
+                "lane worktree has local changes or unavailable git status; "
+                "owner needs a bounded reconciliation prompt"
+            ),
+            source=record.source,
+            branch=branch,
+            worktree=worktree,
+            pr_number=pr_truth.number if pr_truth else None,
+            pr_url=pr_truth.url if pr_truth else "",
+            pr_checks_bucket=pr_truth.checks_bucket if pr_truth else "",
             evidence=evidence,
         )
 

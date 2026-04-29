@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -175,6 +176,85 @@ def test_decide_lane_ready_for_review_when_checks_pass() -> None:
 
     assert decision.next_action == "ready_for_review"
     assert "checks passed" in decision.reason
+
+
+def test_decide_lane_followup_when_worktree_dirty_even_if_checks_pass() -> None:
+    import agent_bridge_supervise as mod
+
+    record = mod.agent_bridge.LaneRecord(
+        lane_id="bridge-hardening",
+        owner_session="codex-bridge",
+        status="active",
+        branch="codex/issue-5322",
+        worktree="/tmp/bridge",
+    )
+    session = mod.agent_bridge.Session(
+        name="codex-bridge",
+        agent="codex",
+        status="alive",
+        branch="codex/issue-5322",
+        worktree="/tmp/bridge",
+        summary="PR is green and ready for review",
+    )
+    pr_truth = mod.PRTruth(
+        branch="codex/issue-5322",
+        number=5402,
+        url="https://github.com/synaptent/aragora/pull/5402",
+        checks_bucket="pass",
+    )
+
+    decision = mod._decide_lane(
+        record,
+        session,
+        session.summary,
+        mod.WorktreeStatus(
+            state="dirty",
+            dirty=True,
+            evidence=["git status unavailable (command timed out)"],
+        ),
+        pr_truth,
+    )
+
+    assert decision.next_action == "send_followup"
+    assert "worktree has local changes" in decision.reason
+    assert decision.pr_number == 5402
+
+
+def test_inspect_worktree_treats_git_status_failure_as_dirty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge_supervise as mod
+
+    def fake_run_git(_worktree: Path, *args: str) -> subprocess.CompletedProcess[str]:
+        if args == ("status", "--short"):
+            return subprocess.CompletedProcess(["git", "status"], 128, "", "fatal: bad index")
+        if args == ("rev-list", "--left-right", "--count", "origin/main...HEAD"):
+            return subprocess.CompletedProcess(["git", "rev-list"], 0, "0 0\n", "")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(mod, "_run_git", fake_run_git)
+
+    status = mod._inspect_worktree(str(tmp_path))
+
+    assert status.dirty is True
+    assert status.state == "dirty"
+    assert status.evidence == ["git status unavailable (fatal: bad index)"]
+
+
+def test_run_git_returns_degraded_process_on_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge_supervise as mod
+
+    def raise_timeout(*_args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=["git", "status"], timeout=kwargs["timeout"])
+
+    monkeypatch.setattr(mod.subprocess, "run", raise_timeout)
+
+    proc = mod._run_git(tmp_path, "status")
+
+    assert proc.returncode == 124
+    assert "command timed out after 10s" in proc.stderr
 
 
 def test_main_once_json_renders_snapshot(
