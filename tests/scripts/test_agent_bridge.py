@@ -265,6 +265,67 @@ def test_main_accepts_json_after_subcommand(
     assert json.loads(capsys.readouterr().out) == []
 
 
+def test_cmd_launch_invokes_tmux_launcher_for_droid(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    repo_root = tmp_path / "repo"
+    scripts_dir = repo_root / "scripts"
+    scripts_dir.mkdir(parents=True)
+    launcher = scripts_dir / "tmux_session_launcher.sh"
+    launcher.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    prompt_file = tmp_path / "prompt.md"
+    prompt_file.write_text("review only\n", encoding="utf-8")
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", repo_root)
+
+    calls = []
+
+    def _fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        return argparse.Namespace(returncode=0, stdout="launched\n", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+
+    rc = mod.cmd_launch(
+        argparse.Namespace(
+            name="factory-review",
+            agent="droid",
+            prompt=[],
+            file=str(prompt_file),
+            autonomous=False,
+            timeout_seconds=10,
+            json=False,
+        )
+    )
+
+    assert rc == 0
+    assert capsys.readouterr().out == "launched\n"
+    assert calls == [
+        (
+            [
+                "bash",
+                str(launcher),
+                "--name",
+                "factory-review",
+                "--agent",
+                "droid",
+                "--prompt-file",
+                str(prompt_file),
+            ],
+            {
+                "cwd": str(repo_root),
+                "capture_output": False,
+                "text": True,
+                "timeout": 30,
+                "check": False,
+            },
+        )
+    ]
+
+
 def test_write_session_snapshot_falls_back_to_state_root(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

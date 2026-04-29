@@ -34,9 +34,15 @@ if cmd[:2] == ["list-panes", "-t"]:
 if cmd[:2] == ["new-window", "-P"]:
     print("@17")
     raise SystemExit(0)
-if cmd[:2] in (["new-session", "-d"], ["pipe-pane", "-t"]):
+if cmd[:2] in (["new-session", "-d"], ["pipe-pane", "-t"], ["load-buffer", "-"]):
     raise SystemExit(0)
-if cmd[:2] in (["send-keys", "-t"], ["set-buffer", "-b"], ["paste-buffer", "-b"], ["delete-buffer", "-b"]):
+if cmd[:2] in (
+    ["send-keys", "-t"],
+    ["set-buffer", "-b"],
+    ["paste-buffer", "-b"],
+    ["paste-buffer", "-d"],
+    ["delete-buffer", "-b"],
+):
     raise SystemExit(0)
 
 print(f"unexpected tmux command: {{cmd}}", file=sys.stderr)
@@ -65,7 +71,7 @@ def _load_tmux_calls(env: dict[str, str]) -> list[list[str]]:
     ]
 
 
-def test_tmux_send_prompt_uses_unique_buffer_for_multiline_prompt(tmp_path: Path) -> None:
+def test_tmux_send_prompt_uses_load_buffer_for_multiline_prompt(tmp_path: Path) -> None:
     _write_fake_tmux(tmp_path)
     env = _fake_tmux_env(tmp_path)
     prompt_file = tmp_path / "prompt.md"
@@ -89,14 +95,9 @@ def test_tmux_send_prompt_uses_unique_buffer_for_multiline_prompt(tmp_path: Path
 
     assert "Prompt sent to 'testpane'" in result.stdout
     calls = _load_tmux_calls(env)
-    set_buffer_call = next(call for call in calls if call[:2] == ["set-buffer", "-b"])
-    paste_buffer_call = next(call for call in calls if call[:2] == ["paste-buffer", "-b"])
-    delete_buffer_call = next(call for call in calls if call[:2] == ["delete-buffer", "-b"])
-
-    buffer_name = set_buffer_call[2]
-    assert buffer_name == paste_buffer_call[2] == delete_buffer_call[2]
-    assert buffer_name.startswith("aragora-prompt-testpane-")
-    assert buffer_name != "aragora-prompt"
+    assert any(call[:2] == ["load-buffer", "-"] for call in calls)
+    assert any(call[:2] == ["paste-buffer", "-d"] for call in calls)
+    assert not any(call[:2] == ["set-buffer", "-b"] for call in calls)
 
 
 def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
@@ -182,6 +183,46 @@ def test_tmux_session_launcher_accepts_new_codex_readiness_markers(tmp_path: Pat
     )
 
     assert "Readiness markers detected for testpane." in result.stdout
+
+
+def test_tmux_session_launcher_supports_droid_agent(tmp_path: Path) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
+    log_dir.mkdir(parents=True)
+    (log_dir / "factory-review.log").write_text("boot\nDroid\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "factory-review",
+            "--agent",
+            "droid",
+            "--prompt",
+            "review only",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "Readiness markers detected for factory-review." in result.stdout
+    calls = _load_tmux_calls(env)
+    assert any(
+        call[:2] == ["send-keys", "-t"] and call[2] == "@17" and "droid --cwd" in call[3]
+        for call in calls
+    )
+    assert any(
+        call[:2] == ["send-keys", "-t"] and call[2] == "@17" and "review only" in call
+        for call in calls
+    )
 
 
 def test_tmux_session_launcher_does_not_send_prompt_before_readiness_by_default(

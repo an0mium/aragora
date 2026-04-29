@@ -6,6 +6,7 @@ inventory from agent_bridge_sessions.py (PR #5306).
 
 Usage:
   python3 scripts/agent_bridge.py sessions [--json]
+  python3 scripts/agent_bridge.py launch --name codex-review --agent codex --file /tmp/prompt.md
   python3 scripts/agent_bridge.py send <name> "Fix the LOC ratchet"
   python3 scripts/agent_bridge.py send <name> --file /tmp/prompt.md
   python3 scripts/agent_bridge.py approve <name>
@@ -539,6 +540,61 @@ def cmd_sessions(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_launch(args: argparse.Namespace) -> int:
+    """Launch a tmux-managed harness lane, then let send/read manage it."""
+    if not args.name:
+        print("No session name. Use --name", file=sys.stderr)
+        return 1
+    agent = str(args.agent or "codex").strip()
+    if agent not in {"codex", "claude", "droid", "factory"}:
+        print("Unsupported agent. Use codex, claude, droid, or factory.", file=sys.stderr)
+        return 1
+
+    launcher = CANONICAL_REPO_ROOT / "scripts" / "tmux_session_launcher.sh"
+    cmd = ["bash", str(launcher), "--name", args.name, "--agent", agent]
+    if getattr(args, "autonomous", False):
+        cmd.append("--autonomous")
+    if args.file:
+        cmd.extend(["--prompt-file", args.file])
+    elif args.prompt:
+        cmd.extend(["--prompt", " ".join(args.prompt)])
+
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(CANONICAL_REPO_ROOT),
+            capture_output=bool(args.json),
+            text=True,
+            timeout=max(30, int(args.timeout_seconds)),
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+        print(f"Launch failed: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "ok": result.returncode == 0,
+                    "name": args.name,
+                    "agent": agent,
+                    "returncode": result.returncode,
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
+                },
+                indent=2,
+            )
+        )
+    else:
+        if result.stdout:
+            print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+
+    return result.returncode
+
+
 def cmd_send(args: argparse.Namespace) -> int:
     sessions = discover()
     _enrich_prs(sessions)
@@ -843,6 +899,22 @@ def main() -> int:
 
     sub.add_parser("sessions", parents=[json_parent], help="List sessions")
 
+    launch_p = sub.add_parser(
+        "launch",
+        parents=[json_parent],
+        help="Launch a tmux-managed agent session",
+    )
+    launch_p.add_argument("--name", required=True)
+    launch_p.add_argument(
+        "--agent", default="codex", choices=("codex", "claude", "droid", "factory")
+    )
+    launch_p.add_argument("prompt", nargs="*")
+    launch_p.add_argument("--file", help="Prompt file")
+    launch_p.add_argument(
+        "--autonomous", action="store_true", help="Grant launcher autonomy where supported"
+    )
+    launch_p.add_argument("--timeout-seconds", type=int, default=120)
+
     send_p = sub.add_parser("send", parents=[json_parent], help="Send prompt to session")
     send_p.add_argument("name")
     send_p.add_argument("prompt", nargs="*")
@@ -886,6 +958,7 @@ def main() -> int:
 
     cmds = {
         "sessions": cmd_sessions,
+        "launch": cmd_launch,
         "send": cmd_send,
         "approve": cmd_approve,
         "read": cmd_read,
