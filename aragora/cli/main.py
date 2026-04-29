@@ -118,7 +118,7 @@ def __getattr__(name: str) -> object:
     raise AttributeError(f"module 'aragora.cli.main' has no attribute {name!r}")
 
 
-def main() -> None:
+def main() -> int:
     try:
         from aragora.cli.api_keys import hydrate_env_from_secure_store
 
@@ -136,7 +136,7 @@ def main() -> None:
 
     if args.command is None:
         parser.print_help()
-        return
+        return 0
 
     # Configure logging level based on --verbose flag.
     # Without --verbose, only ERROR+ messages reach stderr so that
@@ -149,8 +149,11 @@ def main() -> None:
     for noisy_logger in ("botocore", "boto3", "urllib3", "s3transfer"):
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
-    args.func(args)
+    result = args.func(args)
+    if isinstance(result, int):
+        return result
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

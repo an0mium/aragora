@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -438,6 +440,30 @@ class TestCalibrationSinceFlag:
         out = capsys.readouterr().out
         assert "--since" in out
         assert "not-a-date" in out
+
+    def test_since_invalid_exits_2_from_module_cli(self, tmp_path: Path) -> None:
+        """The user-facing ``python -m`` path must propagate command return codes."""
+        store = MarketStore(tmp_path / "store")
+        store.list_markets()
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "aragora.cli.main",
+                "calibration",
+                "report",
+                "--store-dir",
+                str(store.layout.base_dir),
+                "--since",
+                "not-a-date",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 2
+        assert "--since" in proc.stdout
+        assert "not-a-date" in proc.stdout
 
     def test_since_appears_in_json_payload(self, tmp_path: Path, capsys) -> None:
         store = MarketStore(tmp_path / "store")
