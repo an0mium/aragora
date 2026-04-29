@@ -329,6 +329,12 @@ def _structured_action(value: Any) -> Mapping[str, Any] | None:
         text = value.strip()
         if text.startswith("{") and text.endswith("}"):
             try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, Mapping):
+                return parsed
+            try:
                 parsed = ast.literal_eval(text)
             except (SyntaxError, ValueError):
                 return None

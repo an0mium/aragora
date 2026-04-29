@@ -598,6 +598,75 @@ def test_audit_protects_structured_action_branch_handoffs(tmp_path: Path, monkey
     assert payload["summary"]["publishable_branch_backlog"] == 1
 
 
+def test_audit_protects_json_string_action_branch_handoffs(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row("codex/json-action", committed_at=now),
+        _branch_row("codex/new-work", committed_at=now),
+    ]
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "json-action.json").write_text(
+        json.dumps(
+            {
+                "task": "Publish JSON-string action branch",
+                "requires_github": True,
+                "requested_action": json.dumps(
+                    {
+                        "type": "push_branch_and_open_pr",
+                        "branch": "codex/json-action",
+                        "requires_github": True,
+                    }
+                ),
+                "repo": "synaptent/aragora",
+                "local_evidence": {},
+                "validation": ["pytest tests/example.py -q"],
+                "idempotency_key": "open-pr-codex-json-action-abc123",
+                "created_at": "2026-04-29T12:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    by_category = payload["summary"]["by_category"]
+    assert by_category["protected_handoff_outbox"] == 1
+    assert by_category["salvage_recent_unique"] == 1
+    protected = next(
+        record for record in payload["records"] if record["name"] == "codex/json-action"
+    )
+    assert protected["handoff_outbox_exists"] is True
+    assert protected["category"] == "protected_handoff_outbox"
+
+
 def test_audit_protects_patch_equivalent_unresolved_handoff_branches(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
