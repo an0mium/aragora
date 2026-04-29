@@ -1,8 +1,8 @@
 # 2026-04-29 — AGT-05 stale-claim policy proposal (docs)
 
 > **Status:** vision-layer planning track (`AGT-05`); proposal-only, no code change.
-> Builds on `docs/plans/SKIN_IN_THE_GAME_REPUTATION.md` and the round-2026-04-29
-> shadow-mode dogfood receipt at `.aragora/evolve-round/2026-04-29/dogfood/phase-e-receipt.json`.
+> Builds on `docs/plans/SKIN_IN_THE_GAME_REPUTATION.md` and the Phase E summary in
+> `docs/plans/2026-04-29-refined-round-briefing.md`.
 
 ## Context
 
@@ -50,9 +50,12 @@ anything observable downstream.
 For every resolution event whose verdict is `STALE`, AGT-05 shall record:
 
 1. **`evidence_age_at_resolution_days`** — float, the age (in days) of the underlying
-   evidence at resolution time, derived from the claim's earliest evidence record.
-2. **`half_life_used_days`** — float, the half-life that produced the staleness verdict
-   (taken from the gauntlet runner's per-claim `decay_half_life_days`).
+   evidence at resolution time. This is a new payload requirement for the future
+   implementation PR, derived from the claim's evidence record.
+2. **`half_life_used_days`** — float, the half-life that produced the staleness verdict.
+   AGT-05 already carries `decay_half_life_days` on the reputation delta path; the
+   future implementation must expose the value used for this specific stale decision
+   in the shadow/live receipt.
 3. **`policy_decision`** — enum, one of `decay_penalty | renewal_required | abstain`, set by
    the policy below.
 
@@ -96,8 +99,9 @@ Shadow mode (the current default) **must** emit all three policy decisions even 
 on-chain or position-ledger writes happen. This lets us pre-seed an empty calibration ledger
 before flipping the flag.
 
-The shadow-mode receipt schema is therefore extended to include `policy_decision` per
-resolution event.
+The future shadow-mode receipt schema should therefore be extended to include
+`policy_decision` per resolution event. This docs PR does not change the current receipt
+schema.
 
 ## Reversibility plan
 
@@ -115,8 +119,10 @@ No on-chain commitments are made by this proposal.
   AGT-05 implementation PR will adopt; the staleness scorer in
   `aragora/gauntlet/runner.py` is unchanged.
 - **No flag flip.** `reputation_flow_enabled` stays `False` by default and through this PR.
-- **No new dependencies.** All quantities (`evidence_age_at_resolution_days`,
-  `half_life_used_days`) are already present in the resolution-event payload.
+- **No new dependencies.** The decay half-life is already represented on the AGT-05
+  reputation delta path as `decay_half_life_days`. The future implementation PR still
+  needs to add `evidence_age_at_resolution_days`, `half_life_used_days`, and
+  `policy_decision` to the shadow/live receipt payload before this policy can be enforced.
 
 ## Open questions for follow-up rounds
 
@@ -132,8 +138,8 @@ These are intentionally left open. The next AGT-05 implementation round will pic
 ## References
 
 - `docs/plans/SKIN_IN_THE_GAME_REPUTATION.md` — AGT-05 master plan.
+- `docs/plans/2026-04-29-refined-round-briefing.md` — Phase E shadow-mode summary,
+  including the local-only receipt/report paths produced during the round.
 - `aragora/reputation/__init__.py` — current `reputation_flow_enabled()` gate.
-- `.aragora/evolve-round/2026-04-29/dogfood/phase-e-shadow-mode.py` — round-2026-04-29
-  shadow-mode harness (5/5 deltas verified).
-- `.aragora/evolve-round/2026-04-29/dogfood/phase-e-report.md` — round-2026-04-29
-  shadow-mode report.
+- `aragora/reputation/claim_verifier_bridge.py` — current `STALE -> no` mapping.
+- `aragora/reputation/types.py` — current `ReputationDelta.decay_half_life_days` field.
