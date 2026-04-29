@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -24,6 +25,63 @@ def _patch_bridge_paths(mod, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(mod, "AGENT_BRIDGE_DIR", bridge_dir)
     monkeypatch.setattr(mod, "SESSION_SNAPSHOT_FILE", bridge_dir / "sessions.json")
     monkeypatch.setattr(mod, "LANE_REGISTRY_FILE", bridge_dir / "lanes.json")
+
+
+def test_send_tmux_multiline_uses_delete_on_paste_buffer_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    calls: list[tuple[list[str], str | None]] = []
+
+    def _fake_run(
+        args: list[str],
+        *,
+        input: str | None = None,
+        text: bool | None = None,
+        check: bool | None = None,
+        timeout: int | None = None,
+        **_kwargs,
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append((args, input))
+        assert check is True
+        assert timeout == 5
+        if args == ["tmux", "load-buffer", "-"]:
+            assert text is True
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+
+    assert mod._send_tmux("aragora:codex-review", "line one\nline two") is True
+    assert calls == [
+        (["tmux", "load-buffer", "-"], "line one\nline two"),
+        (["tmux", "paste-buffer", "-d", "-t", "aragora:codex-review"], None),
+        (["tmux", "send-keys", "-t", "aragora:codex-review", "Enter"], None),
+    ]
+
+
+def test_cmd_approve_droid_uses_enter_menu_selection(monkeypatch: pytest.MonkeyPatch) -> None:
+    import agent_bridge as mod
+
+    session = mod.Session(
+        name="factory-review",
+        agent="droid",
+        status="alive",
+        tmux_target="aragora:factory-review",
+    )
+    calls: list[list[str]] = []
+
+    def _fake_run(args: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(mod, "discover", lambda: [session])
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+
+    rc = mod.cmd_approve(argparse.Namespace(name="factory-review", json=False))
+
+    assert rc == 0
+    assert calls == [["tmux", "send-keys", "-t", "aragora:factory-review", "Enter"]]
 
 
 def test_cmd_send_persists_lane_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

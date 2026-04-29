@@ -411,18 +411,23 @@ def _find_session(sessions: list[Session], target: str) -> Session | None:
 def _send_tmux(target: str, prompt: str) -> bool:
     try:
         if "\n" in prompt:
-            subprocess.run(["tmux", "set-buffer", "-b", "bridge", prompt], check=True, timeout=5)
             subprocess.run(
-                ["tmux", "paste-buffer", "-b", "bridge", "-t", target],
+                ["tmux", "load-buffer", "-"],
+                input=prompt,
+                text=True,
                 check=True,
                 timeout=5,
             )
             subprocess.run(
-                ["tmux", "send-keys", "-t", target, "", "Enter"],
+                ["tmux", "paste-buffer", "-d", "-t", target],
                 check=True,
                 timeout=5,
             )
-            subprocess.run(["tmux", "delete-buffer", "-b", "bridge"], check=False, timeout=5)
+            subprocess.run(
+                ["tmux", "send-keys", "-t", target, "Enter"],
+                check=True,
+                timeout=5,
+            )
         else:
             subprocess.run(
                 ["tmux", "send-keys", "-t", target, prompt, "Enter"],
@@ -647,9 +652,10 @@ def cmd_approve(args: argparse.Namespace) -> int:
     target = _resolve_tmux_target(session)
     if not target:
         target = f"{TMUX_SESSION}:{session.name}"
+    keys = ["Enter"] if session.agent in {"droid", "factory"} else ["y", "Enter"]
     try:
         subprocess.run(
-            ["tmux", "send-keys", "-t", target, "y", "Enter"],
+            ["tmux", "send-keys", "-t", target, *keys],
             check=True,
             timeout=5,
         )
