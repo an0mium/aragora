@@ -273,8 +273,38 @@ class DebateConvergenceTracker:
         if not current_proposals:
             return
 
-        # Compute novelty against prior proposals
-        novelty_result = self.novelty_tracker.compute_novelty(current_proposals, round_num)
+        # Compute novelty against prior proposals.
+        #
+        # ``compute_novelty`` typically delegates to an embedding service
+        # (Gemini/Claude/etc). If that service is unavailable (expired key,
+        # rate limit, transient network error) we must NOT abort the entire
+        # debate-rounds phase: novelty tracking is observational only and
+        # the round loop has its own convergence checks. Surface the failure
+        # in logs and metadata, then return early so the round can proceed.
+        try:
+            novelty_result = self.novelty_tracker.compute_novelty(current_proposals, round_num)
+        except Exception as exc:  # noqa: BLE001 - external embedding boundary
+            logger.warning(
+                "novelty_tracker_failed round=%s error=%s: skipping novelty tracking for this round",
+                round_num,
+                exc,
+            )
+            try:
+                if hasattr(ctx, "result") and ctx.result is not None:
+                    metadata = getattr(ctx.result, "metadata", None)
+                    if isinstance(metadata, dict):
+                        failures = metadata.setdefault("novelty_tracker_failures", [])
+                        if isinstance(failures, list):
+                            failures.append(
+                                {
+                                    "round": round_num,
+                                    "error_class": type(exc).__name__,
+                                    "error_message": str(exc)[:200],
+                                }
+                            )
+            except (AttributeError, TypeError):
+                pass
+            return
 
         # Update context with novelty scores
         for agent, novelty in novelty_result.per_agent_novelty.items():

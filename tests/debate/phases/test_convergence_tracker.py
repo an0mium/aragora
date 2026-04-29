@@ -802,6 +802,53 @@ class TestTrackNovelty:
 
         trickster.create_novelty_challenge.assert_called_once()
 
+    def test_track_novelty_swallows_compute_failure(self):
+        """compute_novelty raising should NOT abort the debate-rounds phase.
+
+        Regression test (B4 from 2026-04-28 evolution-round dogfood):
+        when ``self.novelty_tracker.compute_novelty`` raises (e.g. expired
+        Gemini embedding key), ``track_novelty`` must catch and log the
+        failure rather than re-raising, otherwise the entire debate-rounds
+        phase fails and ``rounds_used`` / ``rounds_completed`` stay at 0
+        even though one or more rounds may have made meaningful progress.
+        """
+        novelty_tracker = MagicMock()
+        novelty_tracker.compute_novelty.side_effect = RuntimeError(
+            "External service 'Gemini Embedding' failed: API key expired"
+        )
+
+        tracker = DebateConvergenceTracker(novelty_tracker=novelty_tracker)
+        ctx = MockDebateContext()
+        ctx.proposals = {"agent1": "p1", "agent2": "p2"}
+
+        # Must not raise.
+        tracker.track_novelty(ctx, round_num=1)
+
+        # No novelty data was recorded on context.
+        assert ctx.avg_novelty == 0.0
+        # add_to_history must not be called when compute failed.
+        novelty_tracker.add_to_history.assert_not_called()
+
+    def test_track_novelty_records_failure_in_metadata(self):
+        """A swallowed compute failure surfaces in result.metadata for audit."""
+        novelty_tracker = MagicMock()
+        novelty_tracker.compute_novelty.side_effect = ValueError("rate-limited")
+
+        tracker = DebateConvergenceTracker(novelty_tracker=novelty_tracker)
+        ctx = MockDebateContext()
+        ctx.proposals = {"a": "x"}
+
+        # MockResult has no metadata field, so attach one.
+        ctx.result.metadata = {}
+
+        tracker.track_novelty(ctx, round_num=3)
+
+        failures = ctx.result.metadata.get("novelty_tracker_failures")
+        assert isinstance(failures, list) and len(failures) == 1
+        assert failures[0]["round"] == 3
+        assert failures[0]["error_class"] == "ValueError"
+        assert "rate-limited" in failures[0]["error_message"]
+
 
 # =============================================================================
 # check_rlm_ready_quorum Method Tests

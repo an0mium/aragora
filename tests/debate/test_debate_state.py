@@ -289,6 +289,65 @@ class TestFinalizeResult:
         assert ctx.result.rounds_used == 4
         assert ctx.result.rounds_completed == 4
 
+    def test_finalize_falls_back_to_partial_rounds(self):
+        """When current_round and result.rounds_used are both 0 but
+        partial_rounds is set, finalize_result must use partial_rounds.
+
+        Regression test (B4 from 2026-04-28 evolution-round dogfood):
+        when a debate-rounds phase fails partway through (e.g. expired
+        Gemini embedding key during novelty tracking), the round loop
+        never reaches the line that sets ``result.rounds_used = round_num``.
+        Without consulting ``ctx.partial_rounds``, the finalized result
+        reports ``rounds_used == rounds_completed == 0`` even though the
+        phase made meaningful progress on round 1.
+        """
+        ctx = DebateContext()
+        ctx.start_time = 0
+        ctx.current_round = 0
+        ctx.partial_rounds = 1
+        ctx.result = MagicMock()
+        ctx.result.rounds_used = 0
+        ctx.result.status = ""
+        ctx.result.consensus_reached = False
+        ctx.agents = []
+
+        ctx.finalize_result()
+        assert ctx.result.rounds_used == 1
+        assert ctx.result.rounds_completed == 1
+
+    def test_finalize_prefers_explicit_rounds_over_partial(self):
+        """When result.rounds_used is set explicitly (success path), use
+        that and ignore partial_rounds (which may lag by one)."""
+        ctx = DebateContext()
+        ctx.start_time = 0
+        ctx.current_round = 0
+        ctx.partial_rounds = 2  # round 2 started but didn't complete
+        ctx.result = MagicMock()
+        ctx.result.rounds_used = 1  # round 1 completed
+        ctx.result.status = ""
+        ctx.result.consensus_reached = False
+        ctx.agents = []
+
+        ctx.finalize_result()
+        assert ctx.result.rounds_used == 1
+        assert ctx.result.rounds_completed == 1
+
+    def test_finalize_zero_rounds_when_no_progress(self):
+        """When nothing has happened, rounds stays 0 (existing behavior)."""
+        ctx = DebateContext()
+        ctx.start_time = 0
+        ctx.current_round = 0
+        ctx.partial_rounds = 0
+        ctx.result = MagicMock()
+        ctx.result.rounds_used = 0
+        ctx.result.status = ""
+        ctx.result.consensus_reached = False
+        ctx.agents = []
+
+        ctx.finalize_result()
+        assert ctx.result.rounds_used == 0
+        assert ctx.result.rounds_completed == 0
+
     def test_finalize_sets_winner(self):
         ctx = DebateContext()
         ctx.start_time = 0
