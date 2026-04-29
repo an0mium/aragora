@@ -1,6 +1,6 @@
 ---
 title: Aragora CLI Reference
-description: Aragora CLI Reference
+description: Generated Aragora CLI command catalog from live parser
 ---
 
 # Aragora CLI Reference
@@ -11,8 +11,8 @@ description: Aragora CLI Reference
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **94**
-- Total top-level invocations (including aliases): **95**
+- Canonical top-level commands: **95**
+- Total top-level invocations (including aliases): **96**
 
 ## Installation
 
@@ -54,6 +54,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `bench` | - | Benchmark agents | - |
 | `billing` | - | Manage billing, usage, and subscriptions | `invoices`, `portal`, `status`, `subscribe`, `usage` |
 | `build` | - | Turn a vague idea into executed, reviewed, merged code | - |
+| `calibration` | - | AGT-03.3: per-agent rolling-window Brier reports from market data | `leaderboard`, `report` |
 | `codebase-audit` | - | Run a staged repo audit with triage, threat-surface ranking, and deep audit | - |
 | `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `evidence`, `export`, `report`, `status` |
 | `computer-use` | - | Computer use task management | `list`, `run`, `status` |
