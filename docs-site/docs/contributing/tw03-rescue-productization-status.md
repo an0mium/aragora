@@ -7,7 +7,7 @@ description: TW-03 Rescue Productization Status
 
 Last updated: 2026-04-17T18:13:48Z
 
-This is the repo-tracked recurring `TW-03` publication surface for repeated rescue-class harvest, conversion, and ledger-consistency validation.
+This repo-tracked recurring `TW-03` status captures repeated rescue-class harvest, conversion, and ledger-consistency validation.
 
 ## Summary
 

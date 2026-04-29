@@ -10,6 +10,13 @@ Context for Claude Code when working with the Aragora codebase.
 > **Multi-Agent Coordination:** If multiple AI agents are working on this codebase,
 > check `docs/COORDINATION.md` before starting. See `docs/AGENT_ASSIGNMENTS.md`
 > for recommended focus areas by track.
+>
+> **Operating Contract:** Every autonomous agent (Claude Code, Codex CLI, Droid,
+> agent-bridge harnesses) operates under [`docs/AGENT_OPERATING_CONTRACT.md`](docs/AGENT_OPERATING_CONTRACT.md):
+> always-allowed actions, approval-required actions, the "break unreleased branch
+> behavior freely; never break main / public API / release flow / CI" rule, and
+> main-red incident mode. Read it before opening PRs that touch workflows, runner
+> labels, public surfaces, or protected files.
 
 ## Worktree Isolation (CRITICAL)
 
