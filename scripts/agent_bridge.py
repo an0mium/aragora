@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -58,6 +59,43 @@ if agent_bridge_sessions is not None:
     except (OSError, RuntimeError, ValueError):
         CANONICAL_REPO_ROOT = REPO_ROOT
 ACTIVE_LANE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+
+
+def _state_root_bridge_dir() -> Path:
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    if configured:
+        root = Path(configured).expanduser()
+        state_dir = root if root.name == ".aragora" else root / ".aragora"
+        return state_dir / "agent-bridge"
+    return CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge"
+
+
+def _assert_writable_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    probe = path / ".write-test"
+    probe.write_text("", encoding="utf-8")
+    probe.unlink(missing_ok=True)
+
+
+def _bridge_file_for_read(default_path: Path) -> Path:
+    if default_path.exists():
+        return default_path
+    fallback_path = _state_root_bridge_dir() / default_path.name
+    if fallback_path.exists():
+        return fallback_path
+    return default_path
+
+
+def _bridge_file_for_write(default_path: Path) -> Path:
+    try:
+        _assert_writable_dir(default_path.parent)
+        return default_path
+    except PermissionError:
+        if os.environ.get("ARAGORA_AGENT_BRIDGE_DIR"):
+            raise
+        fallback_dir = _state_root_bridge_dir()
+        _assert_writable_dir(fallback_dir)
+        return fallback_dir / default_path.name
 
 
 @dataclass
@@ -186,10 +224,10 @@ def _discover_tmux_fallback() -> list[Session]:
 def _write_session_snapshot(sessions: list[Session]) -> None:
     timestamp = datetime.now(UTC).isoformat()
     snapshot = [{"timestamp": timestamp, **s.to_dict()} for s in sessions]
-    AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
-    tmp_path = SESSION_SNAPSHOT_FILE.with_suffix(".json.tmp")
+    snapshot_file = _bridge_file_for_write(SESSION_SNAPSHOT_FILE)
+    tmp_path = snapshot_file.with_suffix(".json.tmp")
     tmp_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
-    tmp_path.replace(SESSION_SNAPSHOT_FILE)
+    tmp_path.replace(snapshot_file)
 
 
 def _now_iso() -> str:
@@ -197,10 +235,11 @@ def _now_iso() -> str:
 
 
 def _load_lane_registry() -> list[LaneRecord]:
-    if not LANE_REGISTRY_FILE.exists():
+    registry_file = _bridge_file_for_read(LANE_REGISTRY_FILE)
+    if not registry_file.exists():
         return []
     try:
-        payload = json.loads(LANE_REGISTRY_FILE.read_text(encoding="utf-8"))
+        payload = json.loads(registry_file.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return []
     if not isinstance(payload, list):
@@ -209,13 +248,13 @@ def _load_lane_registry() -> list[LaneRecord]:
 
 
 def _write_lane_registry(records: list[LaneRecord]) -> None:
-    AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
-    tmp_path = LANE_REGISTRY_FILE.with_suffix(".json.tmp")
+    registry_file = _bridge_file_for_write(LANE_REGISTRY_FILE)
+    tmp_path = registry_file.with_suffix(".json.tmp")
     tmp_path.write_text(
         json.dumps([record.to_dict() for record in records], indent=2) + "\n",
         encoding="utf-8",
     )
-    tmp_path.replace(LANE_REGISTRY_FILE)
+    tmp_path.replace(registry_file)
 
 
 def _find_lane_record(records: list[LaneRecord], lane_id: str) -> LaneRecord | None:
