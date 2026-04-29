@@ -43,6 +43,7 @@ send_prompt_to_target() {
     if [[ "${line_count}" -gt 1 ]]; then
         printf '%s' "${prompt}" | tmux load-buffer -
         tmux paste-buffer -d -t "${target}"
+        sleep "${ARAGORA_TMUX_PASTE_SETTLE_SECONDS:-0.2}"
         tmux send-keys -t "${target}" Enter
         method="paste-buffer"
     else

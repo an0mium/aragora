@@ -59,6 +59,7 @@ def _fake_tmux_env(tmp_path: Path) -> dict[str, str]:
     env["FAKE_TMUX_LOG"] = str(tmp_path / "tmux-calls.jsonl")
     env["PATH"] = f"{tmp_path}:{env['PATH']}"
     env["HOME"] = str(tmp_path / "home")
+    env["ARAGORA_TMUX_PASTE_SETTLE_SECONDS"] = "0"
     return env
 
 

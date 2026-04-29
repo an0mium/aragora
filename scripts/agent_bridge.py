@@ -26,6 +26,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass
 from datetime import UTC
 from datetime import datetime
@@ -423,6 +424,7 @@ def _send_tmux(target: str, prompt: str) -> bool:
                 check=True,
                 timeout=5,
             )
+            time.sleep(float(os.environ.get("ARAGORA_TMUX_PASTE_SETTLE_SECONDS", "0.2")))
             subprocess.run(
                 ["tmux", "send-keys", "-t", target, "Enter"],
                 check=True,

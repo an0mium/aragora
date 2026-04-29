@@ -33,6 +33,7 @@ def test_send_tmux_multiline_uses_delete_on_paste_buffer_transport(
     import agent_bridge as mod
 
     calls: list[tuple[list[str], str | None]] = []
+    sleeps: list[float] = []
 
     def _fake_run(
         args: list[str],
@@ -51,8 +52,11 @@ def test_send_tmux_multiline_uses_delete_on_paste_buffer_transport(
         return subprocess.CompletedProcess(args, 0)
 
     monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    monkeypatch.setenv("ARAGORA_TMUX_PASTE_SETTLE_SECONDS", "0.01")
+    monkeypatch.setattr(mod.time, "sleep", lambda seconds: sleeps.append(seconds))
 
     assert mod._send_tmux("aragora:codex-review", "line one\nline two") is True
+    assert sleeps == [0.01]
     assert calls == [
         (["tmux", "load-buffer", "-"], "line one\nline two"),
         (["tmux", "paste-buffer", "-d", "-t", "aragora:codex-review"], None),
