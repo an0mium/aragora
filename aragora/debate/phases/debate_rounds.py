@@ -1727,7 +1727,7 @@ class DebateRoundsPhase:
         event_type: str,
         ctx: DebateContext,
         round_num: int,
-        data: dict = None,
+        data: dict | None = None,
     ) -> None:
         """Fire propulsion event to push work to the next stage."""
         await fire_propulsion_event(
@@ -1736,5 +1736,5 @@ class DebateRoundsPhase:
             round_num,
             self._propulsion_engine,
             self._enable_propulsion,
-            data,
+            data or {},
         )
