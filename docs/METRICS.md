@@ -28,7 +28,7 @@
 | Allowlisted agent types | `34` | `aragora/config/settings.py` | `grep -A 50 'ALLOWED_AGENT_TYPES' aragora/config/settings.py \| grep -oE "'[a-z-]+'" \| sort -u \| wc -l` |
 | Knowledge Mound adapter specs | `41` | `aragora/knowledge/mound/adapters/factory.py` | `git grep -E '"\.[a-z_]+_adapter"' -- aragora/knowledge/mound/adapters/factory.py \| wc -l` |
 | Knowledge Mound adapter files | `46` | `aragora/knowledge/mound/adapters/` | `git ls-files aragora/knowledge/mound/adapters \| grep -E '/[^/]+_adapter\.py$' \| wc -l` |
-| Markdown files under docs/ | `805` | `docs/` | `git ls-files docs \| grep -E '\.md$' \| wc -l` |
+| Markdown files under docs/ | `806` | `docs/` | `git ls-files docs \| grep -E '\.md$' \| wc -l` |
 | GitHub Actions workflows | `85` | `.github/workflows/` | `git ls-files .github/workflows \| grep -E '\.yml$' \| wc -l` |
 | Mypy baseline errors (grandfathered) | `3317` | `.mypy-baseline` | `wc -l .mypy-baseline` |
 
