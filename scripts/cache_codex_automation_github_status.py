@@ -80,6 +80,18 @@ def _json_files(path: Path) -> list[Path]:
     return sorted(item for item in path.glob("*.json") if item.is_file())
 
 
+def _queue_file_key(path: Path) -> str:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return path.stem
+    if isinstance(payload, dict):
+        key = str(payload.get("idempotency_key") or "").strip()
+        if key:
+            return key
+    return path.stem
+
+
 def _local_queue_state(
     *,
     repo_root: Path,
@@ -90,14 +102,14 @@ def _local_queue_state(
     receipts = _resolve_state_path(repo_root, receipt_dir, DEFAULT_RECEIPT_DIR)
     outbox_files = _json_files(outbox)
     receipt_files = _json_files(receipts)
-    receipt_names = {item.name for item in receipt_files}
+    receipt_keys = {_queue_file_key(item) for item in receipt_files}
     return {
         "outbox_dir": str(outbox),
         "receipt_dir": str(receipts),
         "outbox_count": len(outbox_files),
         "receipt_count": len(receipt_files),
         "unreceipted_outbox_count": sum(
-            1 for item in outbox_files if item.name not in receipt_names
+            1 for item in outbox_files if _queue_file_key(item) not in receipt_keys
         ),
     }
 
