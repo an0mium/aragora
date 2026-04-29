@@ -265,6 +265,36 @@ def test_main_accepts_json_after_subcommand(
     assert json.loads(capsys.readouterr().out) == []
 
 
+def test_write_session_snapshot_falls_back_to_state_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    blocked_dir = tmp_path / "home" / ".aragora" / "agent-bridge"
+    canonical_root = tmp_path / "repo"
+    canonical_root.mkdir()
+    monkeypatch.setattr(mod, "AGENT_BRIDGE_DIR", blocked_dir)
+    monkeypatch.setattr(mod, "SESSION_SNAPSHOT_FILE", blocked_dir / "sessions.json")
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", canonical_root)
+    monkeypatch.delenv("ARAGORA_AGENT_BRIDGE_DIR", raising=False)
+    monkeypatch.delenv("ARAGORA_AUTOMATION_STATE_ROOT", raising=False)
+
+    def _fake_writable_dir(path: Path) -> None:
+        if path == blocked_dir:
+            raise PermissionError("sandbox denied home bridge state")
+        path.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(mod, "_assert_writable_dir", _fake_writable_dir)
+
+    mod._write_session_snapshot([mod.Session(name="codex-main", agent="codex")])
+
+    fallback_file = canonical_root / ".aragora" / "agent-bridge" / "sessions.json"
+    payload = json.loads(fallback_file.read_text(encoding="utf-8"))
+    assert payload[0]["name"] == "codex-main"
+    assert not (blocked_dir / "sessions.json").exists()
+
+
 def test_health_ignores_dead_root_checkout_session(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
