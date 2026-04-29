@@ -18,9 +18,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from aragora.reputation.settlement import settle_claim
 from aragora.reputation.types import (
     DOMAIN_EPISTEMIC_CLAIM,
     ClaimOutcome,
+    ReputationDelta,
     ResolvedClaim,
     StakeableClaim,
 )
@@ -96,6 +98,39 @@ def bridge_from_claim_result(
         evidence=_evidence(result),
     )
     return stakeable, resolved
+
+
+def settle_from_claim_result(
+    result: "ClaimResult",
+    agent_id: str,
+    *,
+    stake_units: int = 1,
+    resolution_source: str = _RESOLUTION_SOURCE,
+    decay_half_life_days: float | None = 30.0,
+) -> ReputationDelta:
+    """Bridge + settle a DIC-14 result in one call, always using ``binary`` scoring.
+
+    Equivalent to::
+
+        stakeable, resolved = bridge_from_claim_result(result, agent_id, ...)
+        delta = settle_claim(stakeable, resolved, scoring_rule="binary", ...)
+
+    Prevents callers from accidentally using the ``brier_proper`` default,
+    which would raise :class:`~aragora.reputation.settlement.SettlementError`
+    because ``bridge_from_claim_result`` always sets ``predicted_probability=None``.
+    """
+    stakeable, resolved = bridge_from_claim_result(
+        result,
+        agent_id,
+        stake_units=stake_units,
+        resolution_source=resolution_source,
+    )
+    return settle_claim(
+        stakeable,
+        resolved,
+        scoring_rule="binary",
+        decay_half_life_days=decay_half_life_days,
+    )
 
 
 def _provenance(
