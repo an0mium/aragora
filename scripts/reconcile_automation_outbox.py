@@ -38,6 +38,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
     open_pr_heads,
     run_git,
 )
+from github_cli_health import check_github_cli_health  # noqa: E402
 
 UTC = timezone.utc
 
@@ -163,6 +164,25 @@ def _write_synthetic_receipt(
     return path
 
 
+def _github_open_pr_state(root: Path, repo_name: str) -> tuple[dict[str, int], bool, str]:
+    """Return open codex PR heads when GitHub is healthy enough to trust."""
+
+    try:
+        health = check_github_cli_health(root)
+    except Exception as exc:
+        return {}, False, f"GitHub health check failed ({exc})"
+
+    if not health.ready:
+        detail = f"GitHub unavailable [{health.mode}] {health.error}".strip()
+        return {}, False, detail
+
+    try:
+        open_prs = open_pr_heads(root, repo_name, "codex/")
+    except Exception as exc:
+        return {}, False, f"open PR fetch failed ({exc})"
+    return open_prs, True, f"{len(open_prs)} open codex/* PRs"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -211,13 +231,21 @@ def main(argv: list[str] | None = None) -> int:
     outbox_files = _list_json(outbox_dir)
     print(f"  {len(outbox_files)} outbox files\n")
 
-    print("loading open PR state from GitHub (one bulk call)...")
-    try:
-        open_prs = open_pr_heads(root, args.repo_name, "codex/")
-        print(f"  {len(open_prs)} open codex/* PRs\n")
-    except Exception as exc:
-        print(f"  WARN: open PR fetch failed ({exc}); proceeding without open-PR check\n")
-        open_prs = {}
+    open_prs_cache: dict[str, int] | None = None
+    open_pr_state_available = False
+
+    def load_open_pr_state() -> tuple[dict[str, int], bool]:
+        nonlocal open_prs_cache, open_pr_state_available
+        if open_prs_cache is None:
+            print("loading open PR state from GitHub (one bulk call)...")
+            open_prs_cache, open_pr_state_available, message = _github_open_pr_state(
+                root, args.repo_name
+            )
+            if open_pr_state_available:
+                print(f"  {message}\n")
+            else:
+                print(f"  WARN: {message}; preserving ambiguous handoffs without open-PR truth\n")
+        return open_prs_cache, open_pr_state_available
 
     counts = {
         "satisfied_by_existing_receipt": 0,
@@ -225,6 +253,7 @@ def main(argv: list[str] | None = None) -> int:
         "satisfied_by_open_pr_merged": 0,  # placeholder; we only know open PRs
         "still_protecting_active_work": 0,
         "missing_branch": 0,
+        "blocked_missing_branch_open_pr_unknown": 0,
         "skipped_unparseable": 0,
     }
 
@@ -262,6 +291,34 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:
             ref_proc = None
         if ref_proc is None or ref_proc.returncode != 0:
+            open_prs, open_pr_state_available = load_open_pr_state()
+            if branch in open_prs:
+                counts["still_protecting_active_work"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "keep",
+                        "reason": f"branch missing locally but has open PR #{open_prs[branch]}",
+                        "synthetic_receipt": False,
+                    }
+                )
+                continue
+            if not open_pr_state_available:
+                counts["blocked_missing_branch_open_pr_unknown"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "keep",
+                        "reason": (
+                            "branch no longer exists locally, but open PR state is unavailable"
+                        ),
+                        "synthetic_receipt": False,
+                    }
+                )
+                continue
+
             counts["missing_branch"] += 1
             actions.append(
                 {
@@ -283,6 +340,7 @@ def main(argv: list[str] | None = None) -> int:
                 shutil.move(str(path), str(archive_dir / path.name))
             continue
 
+        open_prs, _open_pr_state_available = load_open_pr_state()
         if branch in open_prs:
             counts["still_protecting_active_work"] += 1
             actions.append(

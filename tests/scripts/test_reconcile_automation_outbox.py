@@ -1,10 +1,42 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import scripts.reconcile_automation_outbox as mod
+
+
+def _unhealthy_github() -> SimpleNamespace:
+    return SimpleNamespace(
+        ready=False,
+        mode="connectivity_failed",
+        error="error connecting to api.github.com",
+    )
+
+
+def _ready_github() -> SimpleNamespace:
+    return SimpleNamespace(ready=True, mode="ready", error="")
+
+
+def _write_outbox_handoff(outbox_dir: Path, *, branch: str, key: str) -> Path:
+    outbox_dir.mkdir(parents=True, exist_ok=True)
+    path = outbox_dir / f"{key}.json"
+    path.write_text(
+        json.dumps(
+            {
+                "task": f"Publish {branch}",
+                "requires_github": True,
+                "requested_action": {"type": "open_pr", "branch": branch},
+                "repo": "synaptent/aragora",
+                "idempotency_key": key,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
 
 
 def test_terminal_receipt_keys_falls_back_to_receipt_filename(tmp_path: Path) -> None:
@@ -108,3 +140,70 @@ def test_reconcile_existing_receipt_uses_structured_requested_action_branch(
     assert payload["counts"]["satisfied_by_existing_receipt"] == 1
     assert payload["counts"]["skipped_unparseable"] == 0
     assert payload["actions"][0]["branch"] == "codex/structured-action"
+
+
+def test_apply_preserves_missing_branch_when_open_pr_state_unavailable(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-missing-abc123"
+    handoff = _write_outbox_handoff(outbox_dir, branch="codex/missing", key=key)
+    receipt_dir.mkdir(parents=True)
+
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _unhealthy_github())
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("open PR fetch should be skipped when GitHub is unhealthy")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=128, stdout="", stderr="missing ref"
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--apply"]) == 0
+
+    reports = sorted((tmp_path / ".aragora" / "cleanup-state").glob("*.json"))
+    payload = json.loads(reports[-1].read_text(encoding="utf-8"))
+    assert payload["counts"]["blocked_missing_branch_open_pr_unknown"] == 1
+    assert payload["counts"]["missing_branch"] == 0
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "open PR state is unavailable" in payload["actions"][0]["reason"]
+    assert handoff.exists()
+    assert not (receipt_dir / f"{key}.json").exists()
+    assert not list((tmp_path / ".aragora" / "automation-outbox-archive").glob("*.json"))
+
+
+def test_missing_branch_archives_when_open_pr_state_is_available(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-missing-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/missing", key=key)
+
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=128, stdout="", stderr="missing ref"
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--write-report"]) == 0
+
+    reports = sorted((tmp_path / ".aragora" / "cleanup-state").glob("*.json"))
+    payload = json.loads(reports[-1].read_text(encoding="utf-8"))
+    assert payload["counts"]["missing_branch"] == 1
+    assert payload["counts"]["blocked_missing_branch_open_pr_unknown"] == 0
+    assert payload["actions"][0]["decision"] == "archive"
+    assert payload["actions"][0]["reason"] == "branch no longer exists"
