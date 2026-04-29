@@ -427,6 +427,53 @@ def test_load_outbox_handoffs_deduplicates_structured_action_branch_handoffs(
     assert handoffs[0].source_file == str(newer)
 
 
+def test_load_outbox_handoffs_deduplicates_json_string_action_branch_handoffs(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    older = outbox / "older.json"
+    newer = outbox / "newer.json"
+    requested_action = json.dumps(
+        {
+            "type": "open_pull_request",
+            "branch": "codex/example",
+            "base": "main",
+            "draft": True,
+        }
+    )
+    older.write_text(
+        json.dumps(
+            _outbox_payload(
+                task="Publish older branch snapshot",
+                requested_action=requested_action,
+                idempotency_key="open-pr-codex-example-old",
+            )
+        ),
+        encoding="utf-8",
+    )
+    newer.write_text(
+        json.dumps(
+            _outbox_payload(
+                task="Publish newer branch snapshot",
+                requested_action=requested_action,
+                idempotency_key="open-pr-codex-example-new",
+            )
+        ),
+        encoding="utf-8",
+    )
+    os.utime(older, (1_000, 1_000))
+    os.utime(newer, (2_000, 2_000))
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].task_title == "Publish newer branch snapshot"
+    assert handoffs[0].idempotency_key == "open-pr-codex-example-new"
+    assert handoffs[0].source_file == str(newer)
+    assert handoffs[0].branch == "codex/example"
+
+
 def test_load_outbox_handoffs_skips_terminal_receipt_for_same_branch(
     tmp_path: Path,
 ) -> None:
