@@ -516,6 +516,29 @@ def has_empty_branch_diff(
     return run_git(["diff", "--quiet", f"{base}...{branch}"], root, timeout=timeout).returncode == 0
 
 
+def has_empty_changed_file_diff(
+    root: Path,
+    base: str,
+    branch: str,
+    *,
+    timeout: int = 60,
+) -> bool:
+    """Return true when the branch-touched files already match base."""
+
+    paths_proc = run_git(["diff", "--name-only", "-z", f"{base}...{branch}"], root, timeout=timeout)
+    if paths_proc.returncode != 0:
+        return False
+    paths = [path for path in paths_proc.stdout.split("\0") if path]
+    if not paths:
+        return True
+    diff_proc = run_git(
+        ["diff", "--quiet", f"{base}..{branch}", "--", *paths],
+        root,
+        timeout=timeout,
+    )
+    return diff_proc.returncode == 0
+
+
 def is_patch_equivalent(
     root: Path,
     base: str,
@@ -528,6 +551,9 @@ def is_patch_equivalent(
         return True
     if diff_proc.returncode != 1:
         return False
+
+    if has_empty_changed_file_diff(root, base, branch, timeout=timeout):
+        return True
 
     proc = run_git(["cherry", base, branch], root, timeout=timeout)
     if proc.returncode != 0:
