@@ -364,7 +364,21 @@ def _add_calibration_parser(subparsers) -> None:
         default=30.0,
         help="Exponential time-decay half-life in days (default: 30)",
     )
+    report.add_argument(
+        "--since",
+        default=None,
+        help=(
+            "Absolute start date (YYYY-MM-DD) for the rolling window. "
+            "When provided, overrides --window-days for reproducible "
+            "round-after-round comparisons."
+        ),
+    )
     report.add_argument("--json", action="store_true", help="Emit the report as JSON")
+    report.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Emit the report as a docs-pasteable Markdown table",
+    )
     report.set_defaults(
         func=_lazy("aragora.cli.commands.agt_calibration", "cmd_calibration_report")
     )
@@ -406,7 +420,21 @@ def _add_calibration_parser(subparsers) -> None:
         default="decayed",
         help="Brier flavor used for ranking (default: decayed)",
     )
+    leaderboard.add_argument(
+        "--since",
+        default=None,
+        help=(
+            "Absolute start date (YYYY-MM-DD) for the rolling window. "
+            "When provided, overrides --window-days for reproducible "
+            "round-after-round comparisons."
+        ),
+    )
     leaderboard.add_argument("--json", action="store_true", help="Emit the leaderboard as JSON")
+    leaderboard.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Emit the leaderboard as a docs-pasteable Markdown table",
+    )
     leaderboard.set_defaults(
         func=_lazy("aragora.cli.commands.agt_calibration", "cmd_calibration_leaderboard")
     )

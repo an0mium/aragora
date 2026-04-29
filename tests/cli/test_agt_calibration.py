@@ -27,6 +27,8 @@ def _make_args(**kwargs) -> argparse.Namespace:
         "min_scored": 5,
         "sort_by": "decayed",
         "json": False,
+        "markdown": False,
+        "since": None,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -285,3 +287,214 @@ class TestCalibrationLeaderboard:
         assert payload["leaderboard"] == []
         assert len(payload["excluded_below_floor"]) == 1
         assert payload["excluded_below_floor"][0]["agent_id"] == "rookie"
+
+
+# ---------------------------------------------------------------------------
+# --markdown ergonomics (Phase D)
+# ---------------------------------------------------------------------------
+
+
+class TestCalibrationMarkdownOutput:
+    """``--markdown`` produces a docs-pasteable Markdown table for both verbs."""
+
+    def test_report_markdown_emits_table_header_and_separator(self, tmp_path: Path, capsys) -> None:
+        store = MarketStore(tmp_path / "store")
+        now = datetime.now(tz=UTC)
+        _seed_position_pair(
+            store,
+            agent_id="oracle",
+            probability=0.9,
+            yes_outcome=True,
+            resolved_at=now - timedelta(days=2),
+        )
+        args = _make_args(store_dir=str(store.layout.base_dir), markdown=True)
+        rc = cmd_calibration_report(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Header line
+        assert "### Calibration report" in out
+        assert "window=90d" in out
+        # Markdown table headers
+        assert "| agent |" in out
+        assert "scored" in out
+        assert "stake_weighted" in out
+        # Markdown alignment row
+        assert "|---|" in out or "|---:|" in out
+        # Data row
+        assert "| oracle |" in out
+
+    def test_report_markdown_empty_window_says_no_positions(self, tmp_path: Path, capsys) -> None:
+        store = MarketStore(tmp_path / "store")
+        store.list_markets()
+        args = _make_args(store_dir=str(store.layout.base_dir), markdown=True)
+        rc = cmd_calibration_report(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "### Calibration report" in out
+        assert "No positions found" in out
+
+    def test_leaderboard_markdown_emits_ranked_table(self, tmp_path: Path, capsys) -> None:
+        store = MarketStore(tmp_path / "store")
+        now = datetime.now(tz=UTC)
+        # Seed two agents with 5+ positions each so they make the floor.
+        for prob in (0.9, 0.85, 0.95, 0.92, 0.88):
+            _seed_position_pair(
+                store,
+                agent_id="oracle",
+                probability=prob,
+                yes_outcome=True,
+                resolved_at=now - timedelta(days=10),
+            )
+        for prob in (0.4, 0.3, 0.5, 0.45, 0.35):
+            _seed_position_pair(
+                store,
+                agent_id="badcaller",
+                probability=prob,
+                yes_outcome=True,  # predicted low, outcome was YES
+                resolved_at=now - timedelta(days=10),
+            )
+        args = _make_args(store_dir=str(store.layout.base_dir), markdown=True, min_scored=5)
+        rc = cmd_calibration_leaderboard(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "### Calibration leaderboard" in out
+        assert "| rank | agent |" in out
+        # Oracle has lower Brier (better) so should be rank 1.
+        oracle_idx = out.index("oracle")
+        badcaller_idx = out.index("badcaller")
+        assert oracle_idx < badcaller_idx
+
+    def test_leaderboard_markdown_below_floor_message_when_no_eligible(
+        self, tmp_path: Path, capsys
+    ) -> None:
+        store = MarketStore(tmp_path / "store")
+        now = datetime.now(tz=UTC)
+        _seed_position_pair(
+            store,
+            agent_id="rookie",
+            probability=0.5,
+            yes_outcome=True,
+            resolved_at=now - timedelta(days=1),
+        )
+        args = _make_args(store_dir=str(store.layout.base_dir), markdown=True, min_scored=5)
+        rc = cmd_calibration_leaderboard(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "### Calibration leaderboard" in out
+        assert "No agents meet the minimum-scored floor" in out
+
+
+# ---------------------------------------------------------------------------
+# --since absolute window (Phase D)
+# ---------------------------------------------------------------------------
+
+
+class TestCalibrationSinceFlag:
+    """``--since YYYY-MM-DD`` overrides ``--window-days`` with an absolute cutoff."""
+
+    def test_since_includes_position_after_cutoff(self, tmp_path: Path, capsys) -> None:
+        store = MarketStore(tmp_path / "store")
+        now = datetime.now(tz=UTC)
+        _seed_position_pair(
+            store,
+            agent_id="recent",
+            probability=0.9,
+            yes_outcome=True,
+            resolved_at=now - timedelta(days=2),
+        )
+        # Use --since 60 days ago: includes a 2-day-old resolution.
+        since = (now - timedelta(days=60)).date().isoformat()
+        args = _make_args(store_dir=str(store.layout.base_dir), since=since)
+        rc = cmd_calibration_report(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "recent" in out
+
+    def test_since_excludes_position_before_cutoff(self, tmp_path: Path, capsys) -> None:
+        store = MarketStore(tmp_path / "store")
+        now = datetime.now(tz=UTC)
+        _seed_position_pair(
+            store,
+            agent_id="ancient",
+            probability=0.5,
+            yes_outcome=True,
+            resolved_at=now - timedelta(days=120),
+        )
+        # --since 30 days ago: excludes a 120-day-old resolution.
+        since = (now - timedelta(days=30)).date().isoformat()
+        args = _make_args(store_dir=str(store.layout.base_dir), since=since)
+        rc = cmd_calibration_report(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "No positions found" in out
+        assert since in out
+
+    def test_since_invalid_returns_2_with_actionable_error(self, tmp_path: Path, capsys) -> None:
+        store = MarketStore(tmp_path / "store")
+        store.list_markets()
+        args = _make_args(store_dir=str(store.layout.base_dir), since="not-a-date")
+        rc = cmd_calibration_report(args)
+        assert rc == 2
+        out = capsys.readouterr().out
+        assert "--since" in out
+        assert "not-a-date" in out
+
+    def test_since_appears_in_json_payload(self, tmp_path: Path, capsys) -> None:
+        store = MarketStore(tmp_path / "store")
+        now = datetime.now(tz=UTC)
+        _seed_position_pair(
+            store,
+            agent_id="oracle",
+            probability=0.9,
+            yes_outcome=True,
+            resolved_at=now - timedelta(days=2),
+        )
+        since = (now - timedelta(days=10)).date().isoformat()
+        args = _make_args(store_dir=str(store.layout.base_dir), json=True, since=since)
+        rc = cmd_calibration_report(args)
+        assert rc == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["since"] is not None
+        assert since in payload["since"]
+
+    def test_since_in_leaderboard_overrides_window_days(self, tmp_path: Path, capsys) -> None:
+        store = MarketStore(tmp_path / "store")
+        now = datetime.now(tz=UTC)
+        # Seed 5 recent positions — within --since but pretend window-days is 1d.
+        for prob in (0.9, 0.85, 0.95, 0.92, 0.88):
+            _seed_position_pair(
+                store,
+                agent_id="oracle",
+                probability=prob,
+                yes_outcome=True,
+                resolved_at=now - timedelta(days=10),
+            )
+        # window_days=1 would normally exclude 10-day-old resolutions, but
+        # --since 30 days ago includes them.
+        since = (now - timedelta(days=30)).date().isoformat()
+        args = _make_args(
+            store_dir=str(store.layout.base_dir), window_days=1.0, since=since, min_scored=5
+        )
+        rc = cmd_calibration_leaderboard(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "oracle" in out
+
+    def test_markdown_and_since_combined(self, tmp_path: Path, capsys) -> None:
+        store = MarketStore(tmp_path / "store")
+        now = datetime.now(tz=UTC)
+        _seed_position_pair(
+            store,
+            agent_id="oracle",
+            probability=0.9,
+            yes_outcome=True,
+            resolved_at=now - timedelta(days=2),
+        )
+        since = (now - timedelta(days=10)).date().isoformat()
+        args = _make_args(store_dir=str(store.layout.base_dir), markdown=True, since=since)
+        rc = cmd_calibration_report(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        # Markdown header should reflect since-based window, not window-days.
+        assert f"since={since}" in out
+        assert "| agent |" in out

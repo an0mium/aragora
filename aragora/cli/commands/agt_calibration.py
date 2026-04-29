@@ -29,15 +29,49 @@ from aragora.markets.scoring import BrierBreakdown, aggregate_brier
 from aragora.markets.store import MarketStore
 
 
-def _filter_positions_within_window(positions, resolutions, *, now: datetime, window_days: float):
+def _parse_since(since: str | None) -> datetime | None:
+    """Parse a ``--since YYYY-MM-DD`` argument into a UTC datetime.
+
+    Returns ``None`` when the argument is missing or empty. Raises
+    ``ValueError`` when the value is non-empty but malformed; callers
+    should catch and surface the error.
+    """
+    if since is None or not str(since).strip():
+        return None
+    raw = str(since).strip()
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(
+            f"--since={raw!r} is not a valid YYYY-MM-DD date or ISO-8601 timestamp"
+        ) from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _filter_positions_within_window(
+    positions,
+    resolutions,
+    *,
+    now: datetime,
+    window_days: float,
+    cutoff: datetime | None = None,
+):
     """Return positions whose market resolution is within the rolling window.
 
     Unresolved positions are kept (aggregate_brier will skip them); any
-    position whose resolution is older than ``window_days`` is dropped
+    position whose resolution is older than ``cutoff`` is dropped
     so the rolling-window semantic is honored even when the underlying
     store has a long history.
+
+    When ``cutoff`` is provided (e.g. via ``--since``), it overrides the
+    ``window_days`` calculation. This lets callers anchor an absolute
+    start date for round-over-round comparisons rather than always
+    referencing ``now - window_days``.
     """
-    cutoff = now - timedelta(days=window_days)
+    if cutoff is None:
+        cutoff = now - timedelta(days=window_days)
     out = []
     for pos in positions:
         resolution = resolutions.get(pos.market_id)
@@ -78,11 +112,99 @@ def _format_brier(value: float | None) -> str:
     return f"{value:.4f}" if value is not None else "n/a"
 
 
+def _format_brier_md(value: float | None) -> str:
+    """Format a Brier score for Markdown table output (no padding)."""
+    return f"{value:.4f}" if value is not None else "n/a"
+
+
+def _render_report_markdown(
+    breakdowns: list[BrierBreakdown],
+    *,
+    window_days: float,
+    half_life_days: float | None,
+    since: datetime | None,
+    store_dir: Path,
+) -> str:
+    """Render a calibration report as a docs-pasteable Markdown table."""
+    lines: list[str] = []
+    if since is not None:
+        header_window = f"since={since.date().isoformat()}"
+    else:
+        header_window = f"window={window_days:.0f}d"
+    lines.append(f"### Calibration report ({header_window}, half_life={half_life_days}d)")
+    lines.append("")
+    lines.append(f"_Store: `{store_dir}`_")
+    lines.append("")
+    if not breakdowns:
+        lines.append("_No positions found in the requested window._")
+        return "\n".join(lines) + "\n"
+    lines.append(
+        "| agent | scored | inconclusive | mean | stake_weighted | decayed | total_stake |"
+    )
+    lines.append("|---|---:|---:|---:|---:|---:|---:|")
+    for b in breakdowns:
+        lines.append(
+            f"| {b.agent_id} | {b.scored_positions} | {b.inconclusive_positions} | "
+            f"{_format_brier_md(b.mean_brier)} | {_format_brier_md(b.stake_weighted_brier)} | "
+            f"{_format_brier_md(b.decayed_brier)} | {b.total_stake} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_leaderboard_markdown(
+    eligible_sorted: list[BrierBreakdown],
+    excluded: list[BrierBreakdown],
+    *,
+    sort_by: str,
+    window_days: float,
+    half_life_days: float | None,
+    min_scored: int,
+    since: datetime | None,
+    store_dir: Path,
+) -> str:
+    """Render a calibration leaderboard as a docs-pasteable Markdown table."""
+    lines: list[str] = []
+    if since is not None:
+        header_window = f"since={since.date().isoformat()}"
+    else:
+        header_window = f"window={window_days:.0f}d"
+    lines.append(
+        f"### Calibration leaderboard "
+        f"(sort={sort_by}, {header_window}, half_life={half_life_days}d, "
+        f"min_scored={min_scored})"
+    )
+    lines.append("")
+    lines.append(f"_Store: `{store_dir}`_")
+    lines.append("")
+    if not eligible_sorted:
+        lines.append("_No agents meet the minimum-scored floor._")
+        if excluded:
+            lines.append("")
+            lines.append(f"_{len(excluded)} agent(s) below the floor — see `--json` for detail._")
+        return "\n".join(lines) + "\n"
+    lines.append("| rank | agent | scored | mean | stake_weighted | decayed |")
+    lines.append("|---:|---|---:|---:|---:|---:|")
+    for rank, b in enumerate(eligible_sorted, start=1):
+        lines.append(
+            f"| {rank} | {b.agent_id} | {b.scored_positions} | "
+            f"{_format_brier_md(b.mean_brier)} | {_format_brier_md(b.stake_weighted_brier)} | "
+            f"{_format_brier_md(b.decayed_brier)} |"
+        )
+    if excluded:
+        lines.append("")
+        lines.append(
+            f"_{len(excluded)} agent(s) below `min_scored={min_scored}` "
+            f"floor — see `--json` for detail._"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def cmd_calibration_report(args: argparse.Namespace) -> int:
     """Print a per-agent Brier breakdown over a rolling window.
 
     When ``--agent`` is omitted, prints a breakdown for every agent
-    that has at least one position in the window.
+    that has at least one position in the window. ``--since`` overrides
+    ``--window-days`` for reproducible round-over-round comparisons.
     """
     base_dir = Path(getattr(args, "store_dir", ".aragora_markets")).expanduser()
     store = MarketStore(base_dir)
@@ -92,11 +214,21 @@ def cmd_calibration_report(args: argparse.Namespace) -> int:
     if half_life_days is not None:
         half_life_days = float(half_life_days)
 
+    try:
+        since_dt = _parse_since(getattr(args, "since", None))
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+
     now = datetime.now(tz=UTC)
     resolutions = store.resolutions_by_market()
     all_positions = store.list_positions()
     windowed = _filter_positions_within_window(
-        all_positions, resolutions, now=now, window_days=window_days
+        all_positions,
+        resolutions,
+        now=now,
+        window_days=window_days,
+        cutoff=since_dt,
     )
 
     agent_filter = getattr(args, "agent", None)
@@ -121,14 +253,31 @@ def cmd_calibration_report(args: argparse.Namespace) -> int:
             "store_dir": str(base_dir),
             "window_days": window_days,
             "half_life_days": half_life_days,
+            "since": since_dt.isoformat() if since_dt is not None else None,
             "now": now.isoformat(),
             "agents": [_breakdown_to_dict(b) for b in breakdowns],
         }
         print(json.dumps(out, sort_keys=True, indent=2))
         return 0
 
+    if getattr(args, "markdown", False):
+        print(
+            _render_report_markdown(
+                breakdowns,
+                window_days=window_days,
+                half_life_days=half_life_days,
+                since=since_dt,
+                store_dir=base_dir,
+            ),
+            end="",
+        )
+        return 0
+
     if not breakdowns:
-        print(f"No positions found in {base_dir} within the last {window_days:.0f} days.")
+        if since_dt is not None:
+            print(f"No positions found in {base_dir} since {since_dt.date().isoformat()}.")
+        else:
+            print(f"No positions found in {base_dir} within the last {window_days:.0f} days.")
         return 0
 
     print(
@@ -157,7 +306,8 @@ def cmd_calibration_leaderboard(args: argparse.Namespace) -> int:
     Honors a minimum scored-position floor so that agents with only a
     handful of positions cannot dominate the leaderboard. The default
     floor (5) matches the AGT-03 plan's "weekly rolling 90d Brier" cadence
-    of meaningful sample sizes.
+    of meaningful sample sizes. ``--since`` overrides ``--window-days``
+    for reproducible round-over-round comparisons.
     """
     base_dir = Path(getattr(args, "store_dir", ".aragora_markets")).expanduser()
     store = MarketStore(base_dir)
@@ -175,11 +325,21 @@ def cmd_calibration_leaderboard(args: argparse.Namespace) -> int:
         )
         return 2
 
+    try:
+        since_dt = _parse_since(getattr(args, "since", None))
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+
     now = datetime.now(tz=UTC)
     resolutions = store.resolutions_by_market()
     all_positions = store.list_positions()
     windowed = _filter_positions_within_window(
-        all_positions, resolutions, now=now, window_days=window_days
+        all_positions,
+        resolutions,
+        now=now,
+        window_days=window_days,
+        cutoff=since_dt,
     )
 
     agent_ids = sorted({pos.agent_id for pos in windowed})
@@ -216,11 +376,28 @@ def cmd_calibration_leaderboard(args: argparse.Namespace) -> int:
             "half_life_days": half_life_days,
             "min_scored": min_scored,
             "sort_by": sort_by,
+            "since": since_dt.isoformat() if since_dt is not None else None,
             "now": now.isoformat(),
             "leaderboard": [_breakdown_to_dict(b) for b in eligible_sorted],
             "excluded_below_floor": [_breakdown_to_dict(b) for b in excluded],
         }
         print(json.dumps(out, sort_keys=True, indent=2))
+        return 0
+
+    if getattr(args, "markdown", False):
+        print(
+            _render_leaderboard_markdown(
+                eligible_sorted,
+                excluded,
+                sort_by=sort_by,
+                window_days=window_days,
+                half_life_days=half_life_days,
+                min_scored=min_scored,
+                since=since_dt,
+                store_dir=base_dir,
+            ),
+            end="",
+        )
         return 0
 
     if not eligible_sorted:
