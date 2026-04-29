@@ -533,6 +533,15 @@ class DebateRoundsPhase:
         """
         result = ctx.result
 
+        # Record partial-round progress at round start so that DebateState
+        # finalization, timeout recovery, and post-failure inspection all see
+        # the rounds we *attempted* even if this round raises before its
+        # success path sets ``result.rounds_used`` at the end. Without this,
+        # a failure inside critique/revision/novelty leaves
+        # ``rounds_used == rounds_completed == 0`` even though one or more
+        # rounds were partially executed (dogfood-discovered 2026-04-28).
+        ctx.partial_rounds = round_num
+
         # Track round start time for slow debate detection
         _round_start_time = time.time()
 
@@ -1718,7 +1727,7 @@ class DebateRoundsPhase:
         event_type: str,
         ctx: DebateContext,
         round_num: int,
-        data: dict = None,
+        data: dict | None = None,
     ) -> None:
         """Fire propulsion event to push work to the next stage."""
         await fire_propulsion_event(
@@ -1727,5 +1736,5 @@ class DebateRoundsPhase:
             round_num,
             self._propulsion_engine,
             self._enable_propulsion,
-            data,
+            data or {},
         )

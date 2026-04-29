@@ -421,7 +421,15 @@ class DebateContext:
 
         if self.result:
             self.result.duration_seconds = time.time() - self.start_time
-            rounds_used = self.current_round or self.result.rounds_used
+            # Resolve rounds_used by precedence:
+            #   1. self.current_round (only set explicitly by graph-style flows)
+            #   2. self.result.rounds_used (set by debate_rounds._execute_round
+            #      after each round's revision phase completes)
+            #   3. self.partial_rounds (set at the *start* of each round, so a
+            #      round that fails after partial work still contributes; this
+            #      ensures a debate that crashed in critique/revision/novelty
+            #      does not silently report rounds_used == rounds_completed == 0)
+            rounds_used = self.current_round or self.result.rounds_used or self.partial_rounds
             self.result.rounds_used = rounds_used
             self.result.rounds_completed = rounds_used
             if self.winner_agent:
