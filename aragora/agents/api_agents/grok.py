@@ -11,7 +11,7 @@ from aragora.agents.registry import AgentRegistry
 
 @AgentRegistry.register(
     "grok",
-    default_model="grok-4.2",
+    default_model="grok-4-latest",
     agent_type="API",
     env_vars="XAI_API_KEY or GROK_API_KEY",
 )
@@ -44,7 +44,7 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
     def __init__(
         self,
         name: str = "grok",
-        model: str = "grok-4.2",
+        model: str = "grok-4-latest",
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

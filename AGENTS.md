@@ -2,6 +2,15 @@
 
 Aragora is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels. It implements structured vetted decisionmaking through a society of heterogeneous AI agents. This document describes the agent system architecture.
 
+> **Operating Contract:** Autonomous CLI agents (Claude Code, Codex CLI, Factory Droid,
+> Aider, the agent-bridge harnesses) working *in* this repository operate under
+> [`docs/AGENT_OPERATING_CONTRACT.md`](docs/AGENT_OPERATING_CONTRACT.md) — the
+> always-allowed / approval-required matrix, the "break unreleased branch behavior
+> freely; never break main / public API / release flow / CI" rule, and main-red
+> incident mode. That contract governs *how* agents execute against the repo. This
+> document describes *what* agents are registered as runtime debate participants
+> (the 43-agent registry).
+
 ## Worktree Autopilot (High-Churn Sessions)
 
 When many agents are committing concurrently, use disposable worktrees with frequent reconciliation.

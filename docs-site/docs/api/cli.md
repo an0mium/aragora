@@ -1,6 +1,6 @@
 ---
 title: Aragora CLI Reference
-description: Aragora CLI Reference
+description: Generated Aragora CLI command catalog from live parser
 ---
 
 # Aragora CLI Reference
@@ -11,8 +11,8 @@ description: Aragora CLI Reference
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **94**
-- Total top-level invocations (including aliases): **95**
+- Canonical top-level commands: **95**
+- Total top-level invocations (including aliases): **96**
 
 ## Installation
 
@@ -54,6 +54,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `bench` | - | Benchmark agents | - |
 | `billing` | - | Manage billing, usage, and subscriptions | `invoices`, `portal`, `status`, `subscribe`, `usage` |
 | `build` | - | Turn a vague idea into executed, reviewed, merged code | - |
+| `calibration` | - | AGT-03.3: per-agent rolling-window Brier reports from market data | `leaderboard`, `report` |
 | `codebase-audit` | - | Run a staged repo audit with triage, threat-surface ranking, and deep audit | - |
 | `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `evidence`, `export`, `report`, `status` |
 | `computer-use` | - | Computer use task management | `list`, `run`, `status` |
@@ -109,7 +110,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `replay` | - | Replay stored debates | - |
 | `review` | - | Run AI code review on a diff or PR | - |
 | `review-pr` | - | Review a live GitHub PR head and optionally run a fixer loop | - |
-| `review-queue` | - | PR review queue + advisory packets + human settlement | `act`, `build`, `packet`, `run` |
+| `review-queue` | - | PR review queue + advisory packets + human settlement | `act`, `baseline`, `build`, `merge-packet`, `packet`, `run` |
 | `rlm` | - | RLM (Recursive Language Models) operations | `clear-cache`, `compress`, `query`, `stats` |
 | `security` | - | Security operations (encryption, key rotation) | `health`, `list-tokens`, `migrate`, `rotate-key`, `rotate-token`, `status`, `verify-token` |
 | `self-improve` | - | Run self-improvement pipeline with worktree isolation and validation | - |

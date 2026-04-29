@@ -247,3 +247,128 @@ def test_cmd_lanes_json_prefers_registry_and_syncs_live_session(
             "pr_number": 5402,
         }
     ]
+
+
+def test_main_accepts_json_after_subcommand(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "discover", lambda: [])
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+    monkeypatch.setattr(sys, "argv", ["agent_bridge.py", "sessions", "--json"])
+
+    assert mod.main() == 0
+    assert json.loads(capsys.readouterr().out) == []
+
+
+def test_write_session_snapshot_falls_back_to_state_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    blocked_dir = tmp_path / "home" / ".aragora" / "agent-bridge"
+    canonical_root = tmp_path / "repo"
+    canonical_root.mkdir()
+    monkeypatch.setattr(mod, "AGENT_BRIDGE_DIR", blocked_dir)
+    monkeypatch.setattr(mod, "SESSION_SNAPSHOT_FILE", blocked_dir / "sessions.json")
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", canonical_root)
+    monkeypatch.delenv("ARAGORA_AGENT_BRIDGE_DIR", raising=False)
+    monkeypatch.delenv("ARAGORA_AUTOMATION_STATE_ROOT", raising=False)
+
+    def _fake_writable_dir(path: Path) -> None:
+        if path == blocked_dir:
+            raise PermissionError("sandbox denied home bridge state")
+        path.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(mod, "_assert_writable_dir", _fake_writable_dir)
+
+    mod._write_session_snapshot([mod.Session(name="codex-main", agent="codex")])
+
+    fallback_file = canonical_root / ".aragora" / "agent-bridge" / "sessions.json"
+    payload = json.loads(fallback_file.read_text(encoding="utf-8"))
+    assert payload[0]["name"] == "codex-main"
+    assert not (blocked_dir / "sessions.json").exists()
+
+
+def test_health_ignores_dead_root_checkout_session(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        mod,
+        "discover",
+        lambda: [
+            mod.Session(
+                name="codex-old-root",
+                agent="codex",
+                status="dead",
+                worktree=str(tmp_path),
+            )
+        ],
+    )
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *args, **kwargs: argparse.Namespace(returncode=1, stdout="", stderr=""),
+    )
+
+    assert mod.cmd_health(argparse.Namespace(json=True)) == 0
+    assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": []}
+
+
+def test_health_reports_dead_non_root_worktree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    root = tmp_path / "repo"
+    worktree = tmp_path / "old-worktree"
+    root.mkdir()
+    worktree.mkdir()
+    monkeypatch.setattr(mod, "REPO_ROOT", root)
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", root)
+    monkeypatch.setattr(
+        mod,
+        "discover",
+        lambda: [
+            mod.Session(
+                name="codex-old-lane",
+                agent="codex",
+                status="dead",
+                worktree=str(worktree),
+            )
+        ],
+    )
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *args, **kwargs: argparse.Namespace(returncode=1, stdout="", stderr=""),
+    )
+
+    assert mod.cmd_health(argparse.Namespace(json=True)) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["issues"] == [
+        {
+            "type": "stale_worktree",
+            "session": "codex-old-lane",
+            "detail": f"dead session with lingering worktree: {worktree}",
+        }
+    ]

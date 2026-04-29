@@ -52,8 +52,27 @@ Automation PRs are merge candidates only when:
 - there is no duplicate open PR for the same issue or branch
 - any cross-host retry consumed the prior repair journal or explicitly explains why it ignored it
 - generated artifacts and local coordination files are absent from the branch
+- the PR has a current-head review packet whose model-review-quorum block satisfies the required merge tier
 
 If any gate fails, the next useful action is a repair attempt with the failure output in the handoff envelope, not another fresh worker staring at the same repo state.
+
+### Model Review Quorum + Human Risk Settlement
+
+Human review in this repo is risk settlement, not a requirement that the operator personally out-review specialist models on every line of code. Heterogeneous model review is the technical review authority for routine, reversible work when the receipt shows enough evidence.
+
+Use these tiers:
+
+| Tier | Class | Required evidence | Merge posture |
+| --- | --- | --- | --- |
+| 0 | Docs-only, tests-only, status/report PRs | Green required checks plus 1 independent model review or dogfood note | Admin squash allowed |
+| 1 | Additive internal code with no live caller and no persistence/security/public API effect | Green checks plus 2 model signals, at least one adversarial or dogfood signal | Admin squash allowed |
+| 2 | Live automation, CLI, observability, retry/cache behavior | Green checks plus 2 heterogeneous model signals, focused dogfood, and no unresolved dissent | Admin squash allowed |
+| 3 | Semantic correctness, persistence, reputation, security/RBAC/auth, public API, SDK, migrations | Model quorum plus explicit human risk settlement | Human risk acceptance required |
+| 4 | Secrets, deployment, workflow policy, destructive operations, legal/compliance, irreversible data changes | Human approval before implementation and before merge | Human preapproval required |
+
+Admin squash is allowed for Tier 0-2 only when the packet is bound to the current head SHA, required checks are green, and the `model_review_quorum` verdict is `admin_squash_allowed`. This is a documented settlement path, not a hidden bot approval. GitHub machine reviews remain advisory comments; do not make model output count as a bot `APPROVE` review.
+
+For Tier 3+, the model quorum prepares the risk packet. The human/operator accepts or rejects the risk at the batch or PR level. They are not expected to perform duplicative object-level line review unless the packet flags unresolved dissent, missing evidence, or a risk they want to inspect directly.
 
 ## Required vs Advisory Checks
 
@@ -72,6 +91,16 @@ Use a fast lane for docs-only, tests-only, and narrow CI reliability PRs: if the
 ## Queue Hygiene
 
 High-churn automation loses throughput when multiple branches compete for the same issue or when stale PRs keep requesting review. Before opening or merging another PR, check for duplicate open PRs, dirty draft branches, and obsolete salvage branches for the same task. Close, draft, or supersede stale PRs with a short comment that names the replacement branch or next repair action.
+
+When the open PR queue exceeds 6 PRs, mutating agents must stop opening new implementation PRs. Allowed work while the cap is exceeded:
+
+- review existing PRs
+- dogfood existing PRs
+- fix blockers on already-open PRs
+- write local/spec-only notes
+- prepare one merge authorization packet
+
+This cap protects operator attention. Additional agent capacity is not useful if it turns into more unmerged work.
 
 ## Publish Bridge
 

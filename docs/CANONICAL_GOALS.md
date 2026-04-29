@@ -75,6 +75,8 @@ Any single model can hallucinate, flatter, or share hidden blind spots. Aragora'
 
 The next differentiator is crux-finding: debates should identify the load-bearing facts, framings, values, and assumptions where reasonable agents diverge, not merely produce an answer.
 
+The **agent-ops plane** (in-flight in `aragora/swarm/agent_bridge/`) operationalizes this pillar by enabling state-preserving heterogeneous CLI harness interop: independent harnesses (Claude Code, Codex CLI, Factory Droid, Aider, Gemini CLI) hold a structured ongoing dialog and cross-check each other while each retains its own native session state, tools, and context. This converts "claimed multi-agent" into actual multi-agent — convergence-as-evidence (per `docs/THESIS.md` premise 3) only counts when agents have *different priors, different evidence, and active incentive to dissent*. Designed for cheap extraction as a standalone OSS substrate; positioning, market-fit analysis, and the five extraction-readiness disciplines live in [`docs/plans/2026-04-25-agent-ops-plane-market-fit.md`](plans/2026-04-25-agent-ops-plane-market-fit.md).
+
 ### 2. Reliable Autonomous Execution
 
 Reasoning alone is not enough. The system must execute bounded work with explicit contracts, verification, and fail-closed escalation. This pillar serves swarm, supervisor, worker contracts, preflight, repair, publication, and self-heal.

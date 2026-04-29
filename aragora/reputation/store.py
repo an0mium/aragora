@@ -28,6 +28,7 @@ Out of scope for this PR:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -38,7 +39,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from aragora.reputation.types import ReputationDelta
+from aragora.reputation.types import ReputationDelta, ReputationDeltaReversed
 
 logger = logging.getLogger(__name__)
 
@@ -106,8 +107,19 @@ class ReputationStore:
     """
 
     def __init__(self, path: Path | None = None) -> None:
+        """Create an empty store.
+
+        *path* is the persistence target for new deltas and reversals.
+        It does **not** load existing records — call
+        :meth:`load_from_file` to reconstruct state from a prior run.
+        """
         self._deltas: dict[str, list[ReputationDelta]] = defaultdict(list)
+        self._delta_by_id: dict[str, ReputationDelta] = {}
+        self._reversals: dict[str, ReputationDeltaReversed] = {}
         self._path = path
+        self._reversal_path: Path | None = (
+            path.parent / (path.stem + ".reversals.jsonl") if path is not None else None
+        )
         if path is not None:
             path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -127,6 +139,7 @@ class ReputationStore:
         if self._path is not None:
             self._append_to_file(delta)
         self._deltas[delta.agent_id].append(delta)
+        self._delta_by_id[delta.delta_id] = delta
 
     def _append_to_file(self, delta: ReputationDelta) -> None:
         try:
@@ -135,6 +148,15 @@ class ReputationStore:
         except OSError as exc:
             raise ReputationStoreError(
                 f"could not persist reputation delta to {self._path}: {exc}"
+            ) from exc
+
+    def _append_reversal_to_file(self, reversal: ReputationDeltaReversed) -> None:
+        try:
+            with self._reversal_path.open("a", encoding="utf-8") as fh:  # type: ignore[union-attr]
+                fh.write(json.dumps(reversal.to_json(), sort_keys=True) + "\n")
+        except OSError as exc:
+            raise ReputationStoreError(
+                f"could not persist reversal to {self._reversal_path}: {exc}"
             ) from exc
 
     # ------------------------------------------------------------------
@@ -149,12 +171,13 @@ class ReputationStore:
         The score is unbounded; callers normalise it for dispatch-eligibility.
         """
         deltas = self._deltas.get(agent_id, [])
-        if not deltas:
+        live = [d for d in deltas if d.delta_id not in self._reversals]
+        if not live:
             return 0.0
         if not apply_decay:
-            return sum(d.delta for d in deltas)
+            return sum(d.delta for d in live)
         now = datetime.now(tz=UTC)
-        return sum(d.delta * _decay_weight(d, now) for d in deltas)
+        return sum(d.delta * _decay_weight(d, now) for d in live)
 
     def agent_ids(self) -> list[str]:
         """Return sorted list of agent IDs that have at least one delta."""
@@ -179,6 +202,54 @@ class ReputationStore:
         """Return per-agent score summaries, sorted descending by score."""
         scores = [self.agent_score(aid, apply_decay=apply_decay) for aid in self._deltas]
         return sorted(scores, key=lambda s: s.running_score, reverse=True)
+
+    # ------------------------------------------------------------------
+    # Reversal (AGT-05 sub-deliverable #7)
+    # ------------------------------------------------------------------
+
+    def reverse_delta(
+        self,
+        delta_id: str,
+        *,
+        reason: dict[str, Any] | None = None,
+        now: datetime | None = None,
+    ) -> ReputationDeltaReversed:
+        """Roll back a :class:`ReputationDelta` by its *delta_id*.
+
+        The original delta is excluded from all future :meth:`get_score`
+        calls.  Returns a :class:`ReputationDeltaReversed` event.
+
+        Raises :class:`KeyError` if *delta_id* is unknown.
+        Repeated calls for an already-reversed delta are idempotent and
+        return the existing reversal event without writing a duplicate.
+        """
+        original = self._delta_by_id.get(delta_id)
+        if original is None:
+            raise KeyError(f"delta_id {delta_id!r} not found in store")
+        if delta_id in self._reversals:
+            return self._reversals[delta_id]
+        timestamp = (now or datetime.now(tz=UTC)).isoformat().replace("+00:00", "Z")
+        reversal_material = json.dumps(
+            {"original_delta_id": delta_id, "reversed_at": timestamp}, sort_keys=True
+        )
+        reversal_id = "rev_" + hashlib.sha256(reversal_material.encode()).hexdigest()[:16]
+        reversal = ReputationDeltaReversed(
+            reversal_id=reversal_id,
+            original_delta_id=delta_id,
+            agent_id=original.agent_id,
+            domain=original.domain,
+            counter_delta=-original.delta,
+            reversed_at=timestamp,
+            reason=dict(reason or {}),
+        )
+        if self._reversal_path is not None:
+            self._append_reversal_to_file(reversal)
+        self._reversals[delta_id] = reversal
+        return reversal
+
+    def reversals_for(self, agent_id: str) -> list[ReputationDeltaReversed]:
+        """Return all reversal events for *agent_id*, in insertion order."""
+        return [r for r in self._reversals.values() if r.agent_id == agent_id]
 
     def __len__(self) -> int:
         """Return the total number of recorded deltas across all agents."""
@@ -207,6 +278,7 @@ class ReputationStore:
                     payload = json.loads(raw)
                     delta = ReputationDelta.from_json(payload)
                     store._deltas[delta.agent_id].append(delta)
+                    store._delta_by_id[delta.delta_id] = delta
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
                         "ReputationStore: skipping invalid line %d in %s: %s",
@@ -214,11 +286,31 @@ class ReputationStore:
                         path,
                         exc,
                     )
+        # Reload reversals from the companion file so reversed deltas stay
+        # excluded from get_score() after a process restart.
+        reversal_path = store._reversal_path
+        if reversal_path is not None and reversal_path.exists():
+            with reversal_path.open(encoding="utf-8") as fh:
+                for lineno, raw in enumerate(fh, 1):
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        reversal = ReputationDeltaReversed.from_json(json.loads(raw))
+                        store._reversals[reversal.original_delta_id] = reversal
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "ReputationStore: skipping invalid reversal line %d in %s: %s",
+                            lineno,
+                            reversal_path,
+                            exc,
+                        )
         return store
 
 
 __all__ = [
     "AgentScore",
+    "ReputationDeltaReversed",
     "ReputationStore",
     "ReputationStoreError",
     "enable_store",

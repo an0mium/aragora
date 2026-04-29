@@ -1238,12 +1238,18 @@ class BossLoop:
                 issue_number,
                 repo_slug=self._repo_slug_for_issue(issue),
             )
+        open_boss_prs: list[dict[str, Any]] | None = None
         for num, count in self._issue_attempt_counts.items():
             if count >= self.config.max_retries_per_issue:
                 try:
                     issue_number = int(num)
                 except (TypeError, ValueError):
                     continue
+                if self.config.repo:
+                    if open_boss_prs is None:
+                        open_boss_prs = self._list_open_boss_harvest_prs()
+                    if self._has_open_pr_for_issue(issue_number, open_boss_prs):
+                        continue
                 already_maxed.add(issue_number)
                 if count == self.config.max_retries_per_issue and self.config.repo:
                     self._auto_decompose_stuck_issue(issue_number, issues)
@@ -3173,7 +3179,23 @@ class BossLoop:
             )
         return open_boss_prs
 
-    def _has_open_pr_for_issue(self, issue_number: int) -> str | None:
+    @staticmethod
+    def _open_boss_pr_url_for_issue(
+        open_prs: list[dict[str, Any]],
+        issue_number: int,
+    ) -> str | None:
+        suffix = f"issue-{issue_number}"
+        for pr in open_prs:
+            head_ref = str(pr.get("headRefName", ""))
+            if head_ref.endswith(suffix) or f"issue-{issue_number}-" in head_ref:
+                return str(pr.get("url") or "")
+        return None
+
+    def _has_open_pr_for_issue(
+        self,
+        issue_number: int,
+        open_prs: list[dict[str, Any]] | None = None,
+    ) -> str | None:
         """Check if there is already an open boss-loop PR for the given issue.
 
         Returns the PR URL if found, otherwise ``None``.  Uses the cached
@@ -3181,13 +3203,9 @@ class BossLoop:
         naming convention ``aragora/boss-harvest/issue-{N}`` encodes the issue
         number so a substring match is sufficient.
         """
-        open_prs = self._list_open_boss_harvest_prs()
-        suffix = f"issue-{issue_number}"
-        for pr in open_prs:
-            head_ref = str(pr.get("headRefName", ""))
-            if head_ref.endswith(suffix) or f"issue-{issue_number}-" in head_ref:
-                return str(pr.get("url") or "")
-        return None
+        if open_prs is None:
+            open_prs = self._list_open_boss_harvest_prs()
+        return self._open_boss_pr_url_for_issue(open_prs, issue_number)
 
     def _git_repo_cmd(
         self,

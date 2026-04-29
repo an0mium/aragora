@@ -129,6 +129,29 @@ Embed in existing AI pipelines, CrewAI workflows, or LangGraph chains.
 
 ---
 
+## Future Extractions
+
+Modules currently developed inside Aragora that are explicitly designed for future extraction as standalone OSS substrates with permissive licensing.
+
+### `agent-bridge` *(in-flight, extraction target)*
+
+State-preserving heterogeneous CLI harness interop: a small operator-local broker that lets independent agent harnesses (Claude Code, Codex CLI, Factory Droid, Aider, Gemini CLI, Cursor Agent, Goose, Cline, …) hold a structured ongoing dialog and cross-check each other while each retains its own native session state, tools, and context. Lives at `aragora/swarm/agent_bridge/`.
+
+The intersection that existing frameworks don't cover — **heterogeneous + state-preserving + dialog/cross-check + permissive license** — is the unmet market need this targets. MCP shares tools but not turns; A2A assumes HTTP-service agents with cards, not CLI harnesses; AutoGen / LangGraph / CrewAI / OpenHands all absorb the agent into their own runtime. The agent-ops plane lets *real* harnesses converse while preserving each one's authentic behavior.
+
+**Designed-in extraction-readiness disciplines** (so the eventual `pip install agent-bridge` is zero-rewrite):
+
+1. Package boundary discipline: `aragora/swarm/agent_bridge/` is import-clean of Aragora-specific code (no `debate/`, no `review/`, no `thesis/`)
+2. Footer Protocol as a versioned wire spec (semver, LSP-style)
+3. Adopt-where-useful, depend-where-stable: speak A2A envelope shape on the wire; expose MCP-style tool sharing as an optional transport
+4. Pluggable transports: subprocess (current), HTTP, WebSocket, future gRPC
+5. Reference adapters for ≥4 harnesses
+6. License: Apache-2.0 (patent-grant clarity in a multi-vendor space)
+
+**Status.** Live-smoke transport layer passing; write API in PR (#6629); positioning + market-fit + sequencing in [`docs/plans/2026-04-25-agent-ops-plane-market-fit.md`](plans/2026-04-25-agent-ops-plane-market-fit.md). Extraction itself is post-Aragora-validation; until then it ships as part of the core install.
+
+---
+
 ## SDK Coverage
 
 | Namespace | Python SDK | TypeScript SDK | Status |

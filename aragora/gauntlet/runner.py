@@ -484,10 +484,14 @@ class GauntletRunner:
         if not matrix.scenarios:
             return summary
 
-        # Create debate function using real Arena
+        # Create debate function using real Arena.
+        # Use direct submodule imports rather than the lazy-loader on
+        # ``aragora.__init__`` so this works reliably inside async
+        # coroutines and across reloads (dogfood-discovered 2026-04-28).
         async def debate_func(task: str, ctx: str) -> DebateResult | _ScenarioDebateFallbackResult:
             try:
-                from aragora import Arena, DebateProtocol, Environment
+                from aragora.debate import Arena, DebateProtocol
+                from aragora.core_types import Environment
                 from aragora.debate.arena_config import ArenaConfig
 
                 # Create environment for this scenario

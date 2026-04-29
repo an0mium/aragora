@@ -1,7 +1,14 @@
 # AI Agent Coordination
 
-**Last updated:** 2026-03-05
+**Last updated:** 2026-04-28
 **Maintainer:** Update this file when starting/finishing work
+
+> **Operating Contract.** All coordinated work in this repo follows
+> [`AGENT_OPERATING_CONTRACT.md`](AGENT_OPERATING_CONTRACT.md): always-allowed vs
+> approval-required actions, the "break unreleased branch behavior freely; never
+> break main / public API / release flow / CI" rule, and main-red incident mode.
+> This document is the *active claims ledger*; the contract is the *rules of
+> engagement*. Read the contract before claiming a domain.
 
 ---
 
