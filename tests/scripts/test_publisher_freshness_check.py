@@ -71,6 +71,31 @@ def test_ready_when_loaded_fresh_no_drift(monkeypatch: pytest.MonkeyPatch, stub_
     assert report.blockers == []
 
 
+def test_default_paths_use_shared_state_root_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    state_root = tmp_path / "shared-root"
+    (state_root / ".aragora" / "automation-github-status").mkdir(parents=True)
+    (state_root / ".aragora" / "automation-outbox").mkdir(parents=True)
+    cache = _write_cache(state_root, outbox_count=2)
+    _write_outbox_files(state_root, 2)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded"))
+    now = cache.stat().st_mtime + 60
+
+    report = mod.evaluate(repo_root, now=now)
+
+    assert report.verdict == "ready"
+    assert report.cache_path == str(
+        state_root / ".aragora" / "automation-github-status" / "latest.json"
+    )
+    assert report.outbox_dir == str(state_root / ".aragora" / "automation-outbox")
+    assert report.outbox_real_count == 2
+    assert report.outbox_cache_count == 2
+
+
 def test_degraded_when_launchd_not_loaded(monkeypatch: pytest.MonkeyPatch, stub_repo: Path) -> None:
     cache = _write_cache(stub_repo, outbox_count=2)
     _write_outbox_files(stub_repo, 2)

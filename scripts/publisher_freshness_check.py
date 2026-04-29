@@ -34,6 +34,8 @@ from pathlib import Path
 from typing import Any
 
 LAUNCHD_LABEL = "com.aragora.codex-automation-publisher"
+DEFAULT_CACHE_PATH = Path(".aragora/automation-github-status/latest.json")
+DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 
 
 @dataclass
@@ -98,6 +100,55 @@ def _count_outbox_files(outbox_dir: Path) -> int:
     return sum(1 for p in outbox_dir.iterdir() if p.is_file() and p.suffix == ".json")
 
 
+def _run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _same_git_origin(left: Path, right: Path) -> bool:
+    left_proc = _run_git(["config", "--get", "remote.origin.url"], cwd=left)
+    right_proc = _run_git(["config", "--get", "remote.origin.url"], cwd=right)
+    if left_proc.returncode != 0 or right_proc.returncode != 0:
+        return False
+    return bool(left_proc.stdout.strip()) and left_proc.stdout.strip() == right_proc.stdout.strip()
+
+
+def _automation_state_root(repo_root: Path) -> Path:
+    """Return the checkout whose shared .aragora state should back publisher checks."""
+
+    if (repo_root / ".aragora").is_dir():
+        return repo_root
+
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    candidates: list[tuple[Path, bool]] = []
+    if configured:
+        candidates.append((Path(configured).expanduser(), True))
+    candidates.append((Path.home() / "Development" / "aragora", False))
+
+    for candidate, explicit in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        if not (resolved / ".aragora").is_dir():
+            continue
+        if explicit or _same_git_origin(repo_root, resolved):
+            return resolved
+    return repo_root
+
+
+def _automation_state_default_path(state_root: Path, default_relative: Path) -> Path:
+    expanded = state_root.expanduser()
+    if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
+        return expanded.joinpath(*default_relative.parts[1:])
+    return expanded / default_relative
+
+
 def _read_cache_outbox_count(cache_path: Path) -> int | None:
     try:
         with cache_path.open(encoding="utf-8") as fh:
@@ -116,13 +167,17 @@ def evaluate(
     *,
     cache_path: Path | None = None,
     outbox_dir: Path | None = None,
+    state_root: Path | None = None,
     stale_threshold_seconds: int = 1800,
     now: float | None = None,
 ) -> FreshnessReport:
+    default_state_root = (
+        state_root.expanduser() if state_root is not None else _automation_state_root(repo_root)
+    )
     if cache_path is None:
-        cache_path = repo_root / ".aragora" / "automation-github-status" / "latest.json"
+        cache_path = _automation_state_default_path(default_state_root, DEFAULT_CACHE_PATH)
     if outbox_dir is None:
-        outbox_dir = repo_root / ".aragora" / "automation-outbox"
+        outbox_dir = _automation_state_default_path(default_state_root, DEFAULT_OUTBOX_DIR)
     now = now if now is not None else time.time()
 
     loaded, detail = _launchd_loaded(LAUNCHD_LABEL)
@@ -196,6 +251,15 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cache-path", default=None)
     parser.add_argument("--outbox-dir", default=None)
     parser.add_argument(
+        "--state-root",
+        default=None,
+        help=(
+            "Checkout or .aragora directory that owns shared automation state. "
+            "Defaults to ARAGORA_AUTOMATION_STATE_ROOT, then ~/Development/aragora "
+            "when it has the same git origin as --repo."
+        ),
+    )
+    parser.add_argument(
         "--stale-threshold-seconds",
         type=int,
         default=1800,
@@ -217,10 +281,12 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = Path(args.repo).resolve()
     cache_path = Path(args.cache_path).resolve() if args.cache_path else None
     outbox_dir = Path(args.outbox_dir).resolve() if args.outbox_dir else None
+    state_root = Path(args.state_root).expanduser().resolve() if args.state_root else None
     report = evaluate(
         repo_root,
         cache_path=cache_path,
         outbox_dir=outbox_dir,
+        state_root=state_root,
         stale_threshold_seconds=args.stale_threshold_seconds,
     )
     if args.json:
