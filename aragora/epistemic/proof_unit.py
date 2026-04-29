@@ -2,12 +2,15 @@
 
 The pure schema/model lives in :mod:`aragora.epistemic.proof_unit_model`.
 Filesystem scanning and flag handling live in
-:mod:`aragora.epistemic.proof_unit_scanner`.  This facade preserves the
-original public import path while keeping dataclasses separate from I/O.
+:mod:`aragora.epistemic.proof_unit_scanner`.  The cross-reference index over
+multiple units lives in :mod:`aragora.epistemic.constraint_graph`.  This
+facade preserves the original public import path while keeping dataclasses
+separate from I/O and graph logic.
 """
 
 from __future__ import annotations
 
+from .constraint_graph import ProofUnitConstraintGraph
 from .proof_unit_model import (
     DecayPolicy,
     FallbackPolicy,
@@ -31,6 +34,7 @@ __all__ = [
     "InvalidProofUnitError",
     "MalformedProofUnitError",
     "ProofCarryingCodeUnit",
+    "ProofUnitConstraintGraph",
     "ProofUnitLoadError",
     "enable_proof_unit_scan",
     "load_proof_unit",

@@ -23,12 +23,14 @@ Exposes:
   :class:`FragilityReport`, :class:`StressTestResult`,
   :func:`run_stress_test`, :func:`stress_test_enabled`)
   Flag gate: ``ARAGORA_STRESS_TEST_ENABLED`` (default off).
-- DIC-19: proof-carrying code unit schema and scanner
+- DIC-19: proof-carrying code unit schema, scanner, and constraint graph
   (:class:`ProofCarryingCodeUnit`, :class:`DecayPolicy`,
   :class:`FallbackPolicy`, :func:`load_proof_unit`,
-  :func:`load_proof_unit_from_yaml`, :func:`load_proof_units_from_dir`)
+  :func:`load_proof_unit_from_yaml`, :func:`load_proof_units_from_dir`,
+  :class:`ProofUnitConstraintGraph`)
   Flag gate: ``ARAGORA_PROOF_UNIT_SCAN_ENABLED`` (default off; dataclasses
-  are always importable).
+  and graph construction are always importable; the scanner that populates
+  the unit list is gated).
 - DIC-23: dialectical runtime loop orchestrator (:class:`DialecticalEvent`,
   :class:`DialecticalRuntimeError`, :func:`run_dialectical_loop`,
   :func:`dialectical_runtime_enabled`)
@@ -138,6 +140,7 @@ from .proof_unit import (
     DecayPolicy,
     FallbackPolicy,
     ProofCarryingCodeUnit,
+    ProofUnitConstraintGraph,
     enable_proof_unit_scan,
     load_proof_unit,
     load_proof_unit_from_yaml,
@@ -201,6 +204,7 @@ __all__ = [
     "DecayPolicy",
     "FallbackPolicy",
     "ProofCarryingCodeUnit",
+    "ProofUnitConstraintGraph",
     "StressPerturbation",
     "StressTestResult",
     "IncoherenceKind",
