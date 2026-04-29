@@ -266,11 +266,11 @@ def _add_metrics_parser(subparsers) -> None:
 
 
 def _add_markets_parser(subparsers) -> None:
-    """Add the 'markets' subcommand group with a 'list' verb."""
+    """Add the 'markets' subcommand group with 'list' and 'predict' verbs."""
     markets_parser = subparsers.add_parser(
         "markets",
-        help="AGT-04: inspect synthetic GitHub prediction markets",
-        description="Read-only operator surface for the synthetic-market store.",
+        help="AGT-04: inspect and interact with synthetic GitHub prediction markets",
+        description="Operator surface for the synthetic-market store.",
     )
     markets_sub = markets_parser.add_subparsers(dest="markets_cmd")
     lst = markets_sub.add_parser(
@@ -284,6 +284,39 @@ def _add_markets_parser(subparsers) -> None:
     )
     lst.add_argument("--json", action="store_true", help="Emit the listing as JSON")
     lst.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_list"))
+
+    pred = markets_sub.add_parser(
+        "predict",
+        help="Record an agent prediction (position) on an open market",
+        description=(
+            "Write a MarketPosition to the store for the given market. "
+            "The market must exist and must not yet be resolved."
+        ),
+    )
+    pred.add_argument("--market-id", required=True, help="Market ID to predict on")
+    pred.add_argument("--agent", required=True, help="Agent ID making the prediction")
+    pred.add_argument(
+        "--probability",
+        required=True,
+        type=float,
+        metavar="FLOAT",
+        help="Predicted P(YES) in [0, 1]",
+    )
+    pred.add_argument(
+        "--stake",
+        required=True,
+        type=int,
+        metavar="INT",
+        help="Stake in internal credits [1..100]",
+    )
+    pred.add_argument("--rationale", default="", help="Optional free-text rationale")
+    pred.add_argument(
+        "--store-dir",
+        default=".aragora_markets",
+        help="Path to the synthetic-market JSONL store directory (default: .aragora_markets)",
+    )
+    pred.add_argument("--json", action="store_true", help="Emit the saved position as JSON")
+    pred.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_predict"))
 
 
 def _add_calibration_parser(subparsers) -> None:

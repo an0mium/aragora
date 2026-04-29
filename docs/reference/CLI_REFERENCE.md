@@ -84,7 +84,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `km` | - | Knowledge Mound management commands | `query`, `stats`, `store` |
 | `knowledge` | - | Knowledge base operations | `facts`, `jobs`, `process`, `query`, `search`, `stats` |
 | `marketplace` | - | Manage agent template marketplace | - |
-| `markets` | - | AGT-04: inspect synthetic GitHub prediction markets | `list` |
+| `markets` | - | AGT-04: inspect and interact with synthetic GitHub prediction markets | `list`, `predict` |
 | `mcp-server` | - | Run the MCP (Model Context Protocol) server | - |
 | `memory` | - | Memory management commands | `promote`, `query`, `stats`, `store` |
 | `metrics` | - | AGT-06: read VIAH and other operator metrics | `viah` |
