@@ -145,9 +145,7 @@ class ProofUnitConstraintGraph:
                 }
                 for uid, u in sorted(self._units.items())
             },
-            "claim_index": {
-                claim: sorted(uids) for claim, uids in sorted(self._by_claim.items())
-            },
+            "claim_index": {claim: sorted(uids) for claim, uids in sorted(self._by_claim.items())},
             "receipt_index": {
                 receipt: sorted(uids) for receipt, uids in sorted(self._by_receipt.items())
             },

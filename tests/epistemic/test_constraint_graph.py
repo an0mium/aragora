@@ -17,8 +17,26 @@ from aragora.epistemic.proof_unit_model import (
 )
 
 
-def _unit(uid: str, claims: list[str] | None = None, receipts: list[str] | None = None, crux_ids: list[str] | None = None) -> ProofCarryingCodeUnit:
-    return ProofCarryingCodeUnit(code_unit_id=uid, symbol=f"aragora.epistemic.{uid}", source_path=f"aragora/{uid}.py", owner="test", decision_receipts=receipts or [], claims=claims or [], assumptions=[], verifiers=[], freshness_sla_hours=24, decay_policy=DecayPolicy(), fallback_policy=FallbackPolicy(), linked_crux_ids=crux_ids or [])
+def _unit(
+    uid: str,
+    claims: list[str] | None = None,
+    receipts: list[str] | None = None,
+    crux_ids: list[str] | None = None,
+) -> ProofCarryingCodeUnit:
+    return ProofCarryingCodeUnit(
+        code_unit_id=uid,
+        symbol=f"aragora.epistemic.{uid}",
+        source_path=f"aragora/{uid}.py",
+        owner="test",
+        decision_receipts=receipts or [],
+        claims=claims or [],
+        assumptions=[],
+        verifiers=[],
+        freshness_sla_hours=24,
+        decay_policy=DecayPolicy(),
+        fallback_policy=FallbackPolicy(),
+        linked_crux_ids=crux_ids or [],
+    )
 
 
 class TestBuild:
@@ -70,12 +88,20 @@ class TestUnitsByReceiptAndCrux:
     def test_by_receipt(self) -> None:
         u = _unit("alpha", receipts=["rcpt.001"])
         g = ProofUnitConstraintGraph([u])
-        assert g.units_by_receipt("rcpt.001") == [u] and g.units_by_receipt("missing") == [] and g.receipt_count == 1
+        assert (
+            g.units_by_receipt("rcpt.001") == [u]
+            and g.units_by_receipt("missing") == []
+            and g.receipt_count == 1
+        )
 
     def test_by_crux(self) -> None:
         u = _unit("alpha", crux_ids=["crux.42"])
         g = ProofUnitConstraintGraph([u])
-        assert g.units_by_crux("crux.42") == [u] and g.units_by_crux("missing") == [] and g.crux_count == 1
+        assert (
+            g.units_by_crux("crux.42") == [u]
+            and g.units_by_crux("missing") == []
+            and g.crux_count == 1
+        )
 
     def test_no_crux_ids_gives_zero_crux_count(self) -> None:
         assert ProofUnitConstraintGraph([_unit("alpha", claims=["c"])]).crux_count == 0
@@ -89,11 +115,13 @@ class TestImpactSet:
         assert g.impact_set({"a"}) == {"alpha"}
 
     def test_multiple_claims_union(self) -> None:
-        g = ProofUnitConstraintGraph([
-            _unit("alpha", claims=["a"]),
-            _unit("beta", claims=["b"]),
-            _unit("gamma", claims=["a", "b"]),
-        ])
+        g = ProofUnitConstraintGraph(
+            [
+                _unit("alpha", claims=["a"]),
+                _unit("beta", claims=["b"]),
+                _unit("gamma", claims=["a", "b"]),
+            ]
+        )
         assert g.impact_set({"a", "b"}) == {"alpha", "beta", "gamma"}
 
     def test_empty_input_returns_empty(self) -> None:
