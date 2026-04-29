@@ -209,6 +209,7 @@ Examples:
     # AGT-* operator surfaces (read-only)
     _add_metrics_parser(subparsers)
     _add_markets_parser(subparsers)
+    _add_calibration_parser(subparsers)
     _add_cruxset_parser(subparsers)
 
     return parser
@@ -283,6 +284,99 @@ def _add_markets_parser(subparsers) -> None:
     )
     lst.add_argument("--json", action="store_true", help="Emit the listing as JSON")
     lst.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_list"))
+
+
+def _add_calibration_parser(subparsers) -> None:
+    """Add the 'calibration' subcommand group.
+
+    AGT-03.3 calibration consumer surface: reads positions and
+    resolutions from the synthetic-market store and reports per-agent
+    rolling-window Brier scores.
+    """
+    calib_parser = subparsers.add_parser(
+        "calibration",
+        help="AGT-03.3: per-agent rolling-window Brier reports from market data",
+        description=(
+            "Read-only operator surface for prediction-market calibration. "
+            "Computes per-agent Brier scores (mean, stake-weighted, "
+            "time-decayed) over a rolling window using positions and "
+            "resolutions recorded in the synthetic-market store."
+        ),
+    )
+    calib_sub = calib_parser.add_subparsers(dest="calibration_cmd")
+
+    report = calib_sub.add_parser(
+        "report",
+        help="Print per-agent Brier breakdown over a rolling window",
+    )
+    report.add_argument(
+        "--store-dir",
+        default=".aragora_markets",
+        help="Path to the synthetic-market JSONL store directory (default: .aragora_markets)",
+    )
+    report.add_argument(
+        "--agent",
+        default=None,
+        help="Restrict the report to a single agent_id (default: all agents)",
+    )
+    report.add_argument(
+        "--window-days",
+        type=float,
+        default=90.0,
+        help="Rolling window in days (default: 90 per the AGT-03 plan)",
+    )
+    report.add_argument(
+        "--half-life-days",
+        type=float,
+        default=30.0,
+        help="Exponential time-decay half-life in days (default: 30)",
+    )
+    report.add_argument("--json", action="store_true", help="Emit the report as JSON")
+    report.set_defaults(
+        func=_lazy("aragora.cli.commands.agt_calibration", "cmd_calibration_report")
+    )
+
+    leaderboard = calib_sub.add_parser(
+        "leaderboard",
+        help="Rank agents by Brier score (lower = better calibrated)",
+    )
+    leaderboard.add_argument(
+        "--store-dir",
+        default=".aragora_markets",
+        help="Path to the synthetic-market JSONL store directory (default: .aragora_markets)",
+    )
+    leaderboard.add_argument(
+        "--window-days",
+        type=float,
+        default=90.0,
+        help="Rolling window in days (default: 90 per the AGT-03 plan)",
+    )
+    leaderboard.add_argument(
+        "--half-life-days",
+        type=float,
+        default=30.0,
+        help="Exponential time-decay half-life in days (default: 30)",
+    )
+    leaderboard.add_argument(
+        "--min-scored",
+        type=int,
+        default=5,
+        help=(
+            "Minimum scored positions required to appear on the leaderboard "
+            "(default: 5; agents below the floor are excluded but visible "
+            "in --json output)"
+        ),
+    )
+    leaderboard.add_argument(
+        "--sort-by",
+        choices=("decayed", "mean", "stake_weighted"),
+        default="decayed",
+        help="Brier flavor used for ranking (default: decayed)",
+    )
+    leaderboard.add_argument("--json", action="store_true", help="Emit the leaderboard as JSON")
+    leaderboard.set_defaults(
+        func=_lazy("aragora.cli.commands.agt_calibration", "cmd_calibration_leaderboard")
+    )
 
 
 def _add_cruxset_parser(subparsers) -> None:
