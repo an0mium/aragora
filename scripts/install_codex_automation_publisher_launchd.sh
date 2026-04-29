@@ -3,7 +3,22 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+first_worktree_root() {
+    git -C "${SCRIPT_REPO_ROOT}" worktree list --porcelain 2>/dev/null \
+        | awk 'NR == 1 && $1 == "worktree" { sub(/^worktree /, ""); print; exit }'
+}
+
+REPO_ROOT="${ARAGORA_AUTOMATION_PUBLISHER_REPO_ROOT:-}"
+if [[ -z "${REPO_ROOT}" ]]; then
+    CANONICAL_REPO_ROOT="$(first_worktree_root || true)"
+    if [[ -n "${CANONICAL_REPO_ROOT}" && -f "${CANONICAL_REPO_ROOT}/scripts/run_codex_automation_publisher.sh" ]]; then
+        REPO_ROOT="${CANONICAL_REPO_ROOT}"
+    else
+        REPO_ROOT="${SCRIPT_REPO_ROOT}"
+    fi
+fi
 LABEL="com.aragora.codex-automation-publisher"
 LAUNCHD_DOMAIN="gui/$(id -u)"
 INTERVAL_SECONDS=300

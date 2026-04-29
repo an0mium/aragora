@@ -22,6 +22,10 @@ STAMP() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
 
+repo_root_available() {
+  [[ -d "${REPO_ROOT}" && ( -d "${REPO_ROOT}/.git" || -f "${REPO_ROOT}/.git" ) ]]
+}
+
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   echo "$(STAMP) [codex-automation-publisher] already running; exiting"
   exit 0
@@ -72,12 +76,19 @@ if ! git fetch --no-write-fetch-head --prune origin '+refs/heads/*:refs/remotes/
 fi
 
 echo "$(STAMP) [codex-automation-publisher] starting branch publish pass"
+if ! repo_root_available; then
+  echo "$(STAMP) [codex-automation-publisher] repo root unavailable; skipping branch publish pass"
+  echo "$(STAMP) [codex-automation-publisher] publish pass complete"
+  exit 0
+fi
 BRANCH_PUBLISH_ARGS=(
+  --repo "${REPO_ROOT}" \
   --base origin/main \
   --apply \
   --limit "${BRANCH_LIMIT}" \
   --max-open-prs "${MAX_OPEN_PRS}" \
   --scan-limit "${BRANCH_SCAN_LIMIT}" \
+  --outbox-dir "${HANDOFF_OUTBOX_DIR}" \
   --json
 )
 if [[ "${ALLOW_UNHEALTHY_QUEUE_PUBLISH}" == "1" || "${ALLOW_UNHEALTHY_QUEUE_PUBLISH}" == "true" || "${ALLOW_UNHEALTHY_QUEUE_PUBLISH}" == "yes" ]]; then
