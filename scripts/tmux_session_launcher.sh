@@ -92,7 +92,7 @@ wait_for_agent_ready() {
 
     case "${agent}" in
         codex)
-            pattern='OpenAI Codex|Use /skills to list available skills|Improve documentation in @filename|Find and fix a bug in @filename|Explain this codebase|Use /rename to rename your threads'
+            pattern='Use /skills to list available skills|Improve documentation in @filename|Find and fix a bug in @filename|Explain this codebase|Use /rename to rename your threads'
             ;;
         claude)
             pattern='Claude Code|ctrl\+g to edit in VS Code|don'"'"'t ask on'

@@ -110,7 +110,10 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
 
     log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
     log_dir.mkdir(parents=True)
-    (log_dir / "testpane.log").write_text("boot\nOpenAI Codex\n", encoding="utf-8")
+    (log_dir / "testpane.log").write_text(
+        "boot\nFind and fix a bug in @filename\n",
+        encoding="utf-8",
+    )
 
     result = subprocess.run(
         [
@@ -183,6 +186,42 @@ def test_tmux_session_launcher_accepts_new_codex_readiness_markers(tmp_path: Pat
     )
 
     assert "Readiness markers detected for testpane." in result.stdout
+
+
+def test_tmux_session_launcher_does_not_treat_codex_banner_as_ready(tmp_path: Path) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
+    log_dir.mkdir(parents=True)
+    (log_dir / "testpane.log").write_text(
+        "boot\nOpenAI Codex (v0.125.0)\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "testpane",
+            "--agent",
+            "codex",
+            "--prompt",
+            "hello from launcher",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "Timed out waiting for readiness markers for testpane; prompt not sent." in result.stdout
+    calls = _load_tmux_calls(env)
+    assert ["load-buffer", "-"] not in calls
 
 
 def test_tmux_session_launcher_supports_droid_agent(tmp_path: Path) -> None:
