@@ -348,6 +348,16 @@ def load_tmux_sessions(*, repo_root: Path, tmux_dir: Path) -> list[SessionRecord
         candidate_root = _safe_repo_root(str(meta.get("repo_root", "") or ""))
         if not _repo_match(candidate_root, repo_root):
             continue
+        raw_cwd = meta.get("cwd") or meta.get("worktree")
+        display_cwd = str(candidate_root) if candidate_root else None
+        if isinstance(raw_cwd, str) and raw_cwd.strip():
+            cwd_path = Path(raw_cwd).expanduser()
+            try:
+                resolved_cwd = cwd_path.resolve()
+            except OSError:
+                resolved_cwd = cwd_path
+            if _repo_match(_safe_repo_root(str(resolved_cwd)), repo_root):
+                display_cwd = str(resolved_cwd)
 
         name = meta_path.stem.removesuffix(".meta")
         log_file = Path(str(meta.get("log_file", "") or "")).expanduser()
@@ -373,7 +383,7 @@ def load_tmux_sessions(*, repo_root: Path, tmux_dir: Path) -> list[SessionRecord
                 status=status,
                 updated_at=updated_at,
                 branch=None,
-                cwd=str(candidate_root) if candidate_root else None,
+                cwd=display_cwd,
                 prompt_file=str(meta.get("prompt_file", "") or "") or None,
                 summary=summary,
                 log_file=str(log_file) if log_file else None,

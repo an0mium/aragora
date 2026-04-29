@@ -32,6 +32,8 @@ def test_collect_sessions_merges_tmux_and_claude_sources(
 
     repo_root = tmp_path / "aragora"
     repo_root.mkdir()
+    review_worktree = repo_root / ".worktrees" / "review-6818"
+    review_worktree.mkdir(parents=True)
     tmux_dir = tmp_path / "tmux"
     tmux_dir.mkdir()
     claude_projects_root = tmp_path / "claude-projects"
@@ -48,6 +50,7 @@ def test_collect_sessions_merges_tmux_and_claude_sources(
                 "started": "2026-04-13T18:00:00Z",
                 "log_file": str(log_file),
                 "repo_root": str(repo_root),
+                "cwd": str(review_worktree),
                 "prompt_file": "/tmp/5282.md",
                 "has_prompt": True,
             }
@@ -117,6 +120,7 @@ def test_collect_sessions_merges_tmux_and_claude_sources(
     assert tmux_session.status == "alive"
     assert tmux_session.summary == "PR #5297 opened"
     assert tmux_session.prompt_file == "/tmp/5282.md"
+    assert tmux_session.cwd == str(review_worktree)
 
     claude_session = next(item for item in sessions if item.source == "claude_jsonl")
     assert claude_session.name == "claude-1431bd39"

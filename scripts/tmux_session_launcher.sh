@@ -5,6 +5,7 @@
 #   ./scripts/tmux_session_launcher.sh --name codex-conductor --agent codex --prompt-file /tmp/prompt.md
 #   ./scripts/tmux_session_launcher.sh --name claude-worker --agent claude --autonomous --prompt "Fix tests"
 #   ./scripts/tmux_session_launcher.sh --name factory-review --agent droid --prompt "Review PR #6811"
+#   ./scripts/tmux_session_launcher.sh --name factory-review --agent factory --cwd /tmp/pr-review --prompt "Review PR #6811"
 #   ./scripts/tmux_session_launcher.sh --name codex-qa --agent codex --autonomous --prompt "Fix the tests"
 #   ./scripts/tmux_session_launcher.sh --list
 #   ./scripts/tmux_session_launcher.sh --kill codex-conductor
@@ -143,11 +144,13 @@ PROMPT=""
 PROMPT_FILE=""
 ACTION="launch"
 AUTONOMOUS="0"
+WORKDIR=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --name)     NAME="$2"; shift 2 ;;
         --agent)    AGENT="$2"; shift 2 ;;
+        --cwd)      WORKDIR="$2"; shift 2 ;;
         --prompt)   PROMPT="$2"; shift 2 ;;
         --prompt-file) PROMPT_FILE="$2"; shift 2 ;;
         --autonomous) AUTONOMOUS="1"; shift ;;
@@ -206,6 +209,16 @@ if [[ -z "${NAME}" ]]; then
     NAME="${AGENT}-$(date +%H%M%S)"
 fi
 
+if [[ -n "${WORKDIR}" ]]; then
+    if [[ ! -d "${WORKDIR}" ]]; then
+        echo "Launch cwd does not exist or is not a directory: ${WORKDIR}" >&2
+        exit 1
+    fi
+    WORKDIR="$(cd "${WORKDIR}" && pwd)"
+else
+    WORKDIR="${REPO_ROOT}"
+fi
+
 LOG_FILE="${LOG_DIR}/${NAME}.log"
 META_FILE="${LOG_DIR}/${NAME}.meta.json"
 REGISTRY_REPO_ROOT="${ARAGORA_TMUX_REGISTRY_REPO_ROOT:-${REPO_ROOT}}"
@@ -222,23 +235,23 @@ fi
 #   - Codex gets --full-auto approval mode
 if [[ "${AGENT}" == "codex" ]]; then
     if [[ "${AUTONOMOUS}" == "1" ]]; then
-        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent '${NAME}' --base main --full-auto"
+        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh --agent '${NAME}' --base main --full-auto"
     else
-        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent '${NAME}' --base main"
+        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh --agent '${NAME}' --base main"
     fi
 elif [[ "${AGENT}" == "claude" ]]; then
     if [[ "${AUTONOMOUS}" == "1" ]]; then
-        LAUNCH_CMD="cd '${REPO_ROOT}' && ARAGORA_ADMIN_APPROVED=1 ./scripts/claude-wt"
+        LAUNCH_CMD="cd '${WORKDIR}' && ARAGORA_ADMIN_APPROVED=1 ./scripts/claude-wt"
     else
-        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/claude-wt"
+        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/claude-wt"
     fi
 elif [[ "${AGENT}" == "droid" || "${AGENT}" == "factory" ]]; then
     # Droid interactive sessions do their own permission gating. Mission/exec
     # mode is intentionally not used here so the pane remains interactive for
     # later agent_bridge.py send/read cycles.
-    LAUNCH_CMD="cd '${REPO_ROOT}' && droid --cwd '${REPO_ROOT}'"
+    LAUNCH_CMD="cd '${WORKDIR}' && droid --cwd '${WORKDIR}'"
 else
-    echo "Unknown agent: ${AGENT}. Use 'codex', 'claude', or 'droid'." >&2
+    echo "Unknown agent: ${AGENT}. Use 'codex', 'claude', 'droid', or 'factory'." >&2
     exit 1
 fi
 
@@ -256,14 +269,14 @@ tmux pipe-pane -t "${WINDOW_TARGET}" -o "cat >> '${LOG_FILE}'"
 tmux send-keys -t "${WINDOW_TARGET}" "${LAUNCH_CMD}" Enter
 
 # Write metadata (avoid embedding prompt content in Python literal)
-python3 - "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${PROMPT_FILE}" "${META_FILE}" "${PROMPT:+yes}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}" <<'PYEOF'
+python3 - "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${WORKDIR}" "${PROMPT_FILE}" "${META_FILE}" "${PROMPT:+yes}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}" <<'PYEOF'
 import datetime
 import importlib.util
 import json
 from pathlib import Path
 import sys
 
-name, agent, log_file, repo_root, prompt_file, meta_file, has_prompt, window_target, tmux_session, pane_index, launch_cmd, registry_repo_root = sys.argv[1:13]
+name, agent, log_file, repo_root, workdir, prompt_file, meta_file, has_prompt, window_target, tmux_session, pane_index, launch_cmd, registry_repo_root = sys.argv[1:14]
 started_at = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 meta = {
     "name": name,
@@ -271,6 +284,8 @@ meta = {
     "started": started_at,
     "log_file": log_file,
     "repo_root": repo_root,
+    "cwd": workdir,
+    "worktree": workdir,
     "tmux_session": tmux_session,
     "tmux_window_target": window_target,
     "tmux_pane_index": pane_index,
@@ -304,6 +319,7 @@ except Exception as exc:  # pragma: no cover - launcher should still succeed if 
 PYEOF
 
 echo "Launched '${NAME}' (${AGENT}) in tmux session '${TMUX_SESSION}'"
+echo "  Cwd: ${WORKDIR}"
 echo "  Log: ${LOG_FILE}"
 echo "  Meta: ${META_FILE}"
 

@@ -339,6 +339,8 @@ def test_cmd_launch_invokes_tmux_launcher_for_droid(
     scripts_dir.mkdir(parents=True)
     launcher = scripts_dir / "tmux_session_launcher.sh"
     launcher.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    review_worktree = tmp_path / "review-worktree"
+    review_worktree.mkdir()
     prompt_file = tmp_path / "prompt.md"
     prompt_file.write_text("review only\n", encoding="utf-8")
     monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", repo_root)
@@ -357,6 +359,7 @@ def test_cmd_launch_invokes_tmux_launcher_for_droid(
             agent="droid",
             prompt=[],
             file=str(prompt_file),
+            cwd=str(review_worktree),
             autonomous=False,
             timeout_seconds=10,
             json=False,
@@ -374,6 +377,8 @@ def test_cmd_launch_invokes_tmux_launcher_for_droid(
                 "factory-review",
                 "--agent",
                 "droid",
+                "--cwd",
+                str(review_worktree),
                 "--prompt-file",
                 str(prompt_file),
             ],

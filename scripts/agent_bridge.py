@@ -6,7 +6,7 @@ inventory from agent_bridge_sessions.py (PR #5306).
 
 Usage:
   python3 scripts/agent_bridge.py sessions [--json]
-  python3 scripts/agent_bridge.py launch --name codex-review --agent codex --file /tmp/prompt.md
+  python3 scripts/agent_bridge.py launch --name codex-review --agent codex --cwd .worktrees/review --file /tmp/prompt.md
   python3 scripts/agent_bridge.py send <name> "Fix the LOC ratchet"
   python3 scripts/agent_bridge.py send <name> --file /tmp/prompt.md
   python3 scripts/agent_bridge.py approve <name>
@@ -556,9 +556,27 @@ def cmd_launch(args: argparse.Namespace) -> int:
     if agent not in {"codex", "claude", "droid", "factory"}:
         print("Unsupported agent. Use codex, claude, droid, or factory.", file=sys.stderr)
         return 1
+    launch_cwd = Path(args.cwd).expanduser() if args.cwd else Path.cwd()
+    try:
+        launch_cwd = launch_cwd.resolve()
+    except OSError as exc:
+        print(f"Invalid launch cwd: {exc}", file=sys.stderr)
+        return 1
+    if not launch_cwd.is_dir():
+        print(f"Launch cwd does not exist or is not a directory: {launch_cwd}", file=sys.stderr)
+        return 1
 
     launcher = CANONICAL_REPO_ROOT / "scripts" / "tmux_session_launcher.sh"
-    cmd = ["bash", str(launcher), "--name", args.name, "--agent", agent]
+    cmd = [
+        "bash",
+        str(launcher),
+        "--name",
+        args.name,
+        "--agent",
+        agent,
+        "--cwd",
+        str(launch_cwd),
+    ]
     if getattr(args, "autonomous", False):
         cmd.append("--autonomous")
     if args.file:
@@ -586,6 +604,7 @@ def cmd_launch(args: argparse.Namespace) -> int:
                     "ok": result.returncode == 0,
                     "name": args.name,
                     "agent": agent,
+                    "cwd": str(launch_cwd),
                     "returncode": result.returncode,
                     "stdout": result.stdout,
                     "stderr": result.stderr,
@@ -915,6 +934,13 @@ def main() -> int:
     launch_p.add_argument("--name", required=True)
     launch_p.add_argument(
         "--agent", default="codex", choices=("codex", "claude", "droid", "factory")
+    )
+    launch_p.add_argument(
+        "--cwd",
+        help=(
+            "Working directory/worktree for the launched harness "
+            "(defaults to the caller's current directory)"
+        ),
     )
     launch_p.add_argument("prompt", nargs="*")
     launch_p.add_argument("--file", help="Prompt file")
