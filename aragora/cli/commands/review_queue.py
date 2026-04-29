@@ -105,6 +105,13 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     "deploy/",
     "docker/",
     "k8s/",
+    # Merge-authority self-modification: when a PR changes the code that
+    # enforces model-quorum settlement gates, that PR's own quorum is
+    # evaluated by the version of the gate it is trying to land. A bug or
+    # weakening introduced in the diff would let the diff itself through.
+    # Elevate to Tier 4 (human preapproval) so the human chain-of-trust is
+    # not delegated to the artifact under review.
+    "aragora/cli/commands/review_queue.py",
 )
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
 
@@ -1444,6 +1451,17 @@ def _dogfood_evidence_from_comments(
     head_sha: str = "",
     head_committed_at: str = "",
 ) -> list[dict[str, str]]:
+    """Extract focused-adversarial dogfood signals from PR comments.
+
+    Mirrors the source-side filtering of
+    :func:`_model_review_signals_from_comments` for symmetry: an entry is
+    only emitted when (a) the comment is SHA-grounded on the current head,
+    (b) a known model reviewer can be inferred from the comment's
+    structured header, and (c) the comment was not posted by GitHub
+    Actions. Unknowns are still neutralised at counting time by
+    :func:`_known_model_reviewer_id`, but excluding them at the source
+    keeps the evidence list interpretable for downstream consumers.
+    """
     evidence: list[dict[str, str]] = []
     for comment in comments:
         if not isinstance(comment, dict):
@@ -1457,10 +1475,14 @@ def _dogfood_evidence_from_comments(
         ):
             continue
         reviewer = _infer_model_reviewer_from_text(body)
+        if reviewer == "unknown_model_reviewer":
+            continue
         author_payload = comment.get("author")
         author = ""
         if isinstance(author_payload, dict):
             author = str(author_payload.get("login", "") or "")
+        if author == "github-actions":
+            continue
         evidence.append(
             {
                 "reviewer_id": reviewer,

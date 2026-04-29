@@ -420,6 +420,7 @@ class TestSubsystemAndRisk:
 
     def test_non_high_risk(self) -> None:
         assert not _is_high_risk_path("aragora/cli/commands/review_queue.py")
+        assert not _is_high_risk_path("aragora/cli/commands/swarm.py")
         assert not _is_high_risk_path("docs/CI_LANES.md")
         assert not _is_high_risk_path("tests/cli/commands/test_review_queue.py")
 
@@ -435,7 +436,7 @@ class TestModelReviewQuorum:
             (["tests/swarm/test_handoff_contract.py"], 0),
             (["AGENTS.md", "CLAUDE.md", "docs/COORDINATION.md"], 0),
             (["aragora/agents/router.py"], 1),
-            (["aragora/cli/commands/review_queue.py"], 2),
+            (["aragora/cli/commands/swarm.py"], 2),
             (["scripts/publish_automation_handoffs.py"], 2),
             (["aragora/metrics/manifold_brier.py"], 3),
             (["aragora/debate/team_selector.py"], 3),
@@ -444,6 +445,8 @@ class TestModelReviewQuorum:
             (["sdk/typescript/src/index.ts"], 3),
             ([".github/workflows/tests.yml"], 4),
             (["deploy/k8s/app.yaml"], 4),
+            # Merge-authority self-modification: see TIER_4_PREFIXES rationale.
+            (["aragora/cli/commands/review_queue.py"], 4),
         ],
     )
     def test_classifies_merge_tiers(self, files: list[str], expected_tier: int) -> None:
@@ -483,11 +486,11 @@ class TestModelReviewQuorum:
         assert quorum["admin_squash_allowed"] is True
 
     def test_tier_two_requires_dogfood_even_with_executed_reviewers(self) -> None:
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = []
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol=_executed_protocol(),
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -499,11 +502,11 @@ class TestModelReviewQuorum:
         assert "focused adversarial dogfood evidence is required" in quorum["reasons"]
 
     def test_tier_two_allows_admin_squash_when_quorum_and_dogfood_clean(self) -> None:
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [_dogfood_comment()]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol=_executed_protocol(),
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -515,7 +518,7 @@ class TestModelReviewQuorum:
         assert set(quorum["counted_reviewer_ids"]) == {"claude", "gemini", "openai"}
 
     def test_duplicate_codex_comments_do_not_satisfy_tier_two_quorum(self) -> None:
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
             _dogfood_comment("## Codex focused dogfood\nlocal checks pass"),
             {
@@ -529,7 +532,7 @@ class TestModelReviewQuorum:
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol={"status": "metadata_heuristic"},
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -542,7 +545,7 @@ class TestModelReviewQuorum:
         assert "model quorum incomplete: 1/2 signal(s)" in quorum["reasons"]
 
     def test_codex_dogfood_and_grok_review_satisfy_tier_two_quorum(self) -> None:
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
             _dogfood_comment("## Codex focused dogfood\nlocal checks pass"),
             {
@@ -552,7 +555,7 @@ class TestModelReviewQuorum:
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol={"status": "metadata_heuristic"},
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -564,7 +567,7 @@ class TestModelReviewQuorum:
         assert quorum["counted_reviewer_ids"] == ["codex", "grok"]
 
     def test_unknown_dogfood_does_not_count_or_satisfy_required_dogfood(self) -> None:
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
             _dogfood_comment("## Focused dogfood\nlocal checks pass"),
             {
@@ -574,7 +577,7 @@ class TestModelReviewQuorum:
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol={"status": "metadata_heuristic"},
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -588,7 +591,7 @@ class TestModelReviewQuorum:
     def test_branch_name_substring_in_body_does_not_phantom_tag_reviewer(self) -> None:
         """A comment that mentions ``codex/...`` branch in a code block but
         has no model-review heading must not be tagged as a Codex signal."""
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
             _dogfood_comment("## Codex focused dogfood\nlocal checks pass"),
             {
@@ -605,7 +608,7 @@ class TestModelReviewQuorum:
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol={"status": "metadata_heuristic"},
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -657,7 +660,7 @@ class TestModelReviewQuorum:
         """Comments posted before the current head was committed must
         be excluded from quorum unless they explicitly cite the head SHA."""
         head_sha = "abcdef1234567890abcdef1234567890abcdef12"
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head_sha
         pr["commits"] = [
             {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
@@ -677,7 +680,7 @@ class TestModelReviewQuorum:
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol={"status": "metadata_heuristic"},
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -689,7 +692,7 @@ class TestModelReviewQuorum:
 
     def test_fresh_comments_after_head_commit_count(self) -> None:
         head_sha = "abcdef1234567890abcdef1234567890abcdef12"
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head_sha
         pr["commits"] = [
             {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
@@ -708,7 +711,7 @@ class TestModelReviewQuorum:
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol={"status": "metadata_heuristic"},
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -721,7 +724,7 @@ class TestModelReviewQuorum:
         """A reviewer who explicitly cites the current head SHA in
         their body counts even if their createdAt predates the head."""
         head_sha = "abcdef1234567890abcdef1234567890abcdef12"
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head_sha
         pr["commits"] = [
             {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
@@ -744,7 +747,7 @@ class TestModelReviewQuorum:
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol={"status": "metadata_heuristic"},
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -754,11 +757,11 @@ class TestModelReviewQuorum:
         assert quorum["status"] == "satisfied"
 
     def test_unresolved_dissent_forces_human_risk_settlement(self) -> None:
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [_dogfood_comment()]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol=_executed_protocol(dissent=True),
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -769,11 +772,11 @@ class TestModelReviewQuorum:
         assert quorum["admin_squash_allowed"] is False
 
     def test_needs_attention_risk_signal_can_still_admin_squash_when_quorum_clean(self) -> None:
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"])
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [_dogfood_comment()]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol=_executed_protocol(),
             machine_recommendation="needs_human_attention",
             has_pending=False,
@@ -783,11 +786,11 @@ class TestModelReviewQuorum:
         assert quorum["admin_squash_allowed"] is True
 
     def test_draft_state_blocks_settlement_even_with_quorum(self) -> None:
-        pr = _make_pr(files=["aragora/cli/commands/review_queue.py"], is_draft=True)
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"], is_draft=True)
         pr["comments"] = [_dogfood_comment()]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/review_queue.py"],
+            files=["aragora/cli/commands/swarm.py"],
             protocol=_executed_protocol(),
             machine_recommendation="needs_human_attention",
             has_pending=False,
@@ -857,6 +860,98 @@ class TestModelReviewQuorum:
         assert quorum["status"] == "needs_model_review_quorum"
         assert len(quorum["reviewer_signals"]) == 0
         assert len(quorum["dogfood_evidence"]) == 1
+
+    # --- Finding 6: merge-authority self-modification elevation ------------
+
+    def test_review_queue_self_modification_classified_tier_four(self) -> None:
+        """``aragora/cli/commands/review_queue.py`` is the merge-authority code.
+
+        Modifying it must elevate to Tier 4 so the quorum gating the change
+        is not the version of the gate the change is trying to land.
+        """
+        files = ["aragora/cli/commands/review_queue.py"]
+        tier, name, reason = _classify_model_review_tier(files, pr=_make_pr(files=files))
+        assert tier == 4
+        assert "destructive" in reason or "workflow" in reason or "preapproval" in name
+
+    def test_tier_four_review_queue_blocks_admin_squash_even_with_full_quorum(
+        self,
+    ) -> None:
+        """Even with executed protocol + full dogfood, Tier 4 self-modification
+        cannot admin-squash on its own — human preapproval is required."""
+        files = ["aragora/cli/commands/review_queue.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            _dogfood_comment("## Codex focused dogfood\nlocal checks pass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 4
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["verdict"] == "tier_4_human_preapproval_required"
+        assert quorum["requires_human_preapproval"] is True
+
+    # --- Finding 2: source-side filter on _dogfood_evidence_from_comments ---
+
+    def test_dogfood_with_unknown_model_is_excluded_at_source(self) -> None:
+        """A dogfood comment whose first heading does not name a known model
+        must not appear in ``dogfood_evidence`` at all (parallel to the signals
+        path's behaviour). This keeps the evidence list interpretable for
+        downstream consumers; the counting boundary already neutralised the
+        inflation, but the source-side filter prevents misleading artifacts."""
+        files = ["aragora/agents/router.py"]  # Tier 1
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Generic dogfood note (no model named)\n2 cases pass",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["dogfood_evidence"] == []
+        # And quorum still incomplete because dogfood is required but absent.
+        assert quorum["admin_squash_allowed"] is False
+
+    def test_dogfood_from_github_actions_is_excluded_at_source(self) -> None:
+        """Bot-authored dogfood comments must not count as model evidence,
+        mirroring the existing filter in ``_model_review_signals_from_comments``."""
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "github-actions"},
+                "body": "## Codex focused dogfood\nautomated regression sweep",
+            },
+            _dogfood_comment("## Codex focused dogfood (real reviewer)\nlocal checks pass"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        # The bot comment is filtered; the real reviewer comment passes.
+        assert len(quorum["dogfood_evidence"]) == 1
+        assert quorum["dogfood_evidence"][0]["github_author"] == "an0mium"
 
 
 # --- _parse_pr_number ------------------------------------------------------
