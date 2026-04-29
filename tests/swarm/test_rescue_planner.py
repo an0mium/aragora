@@ -191,3 +191,15 @@ class TestRescueAction:
         assert len(RescueAction) == 7
         assert RescueAction.WAIT_FOR_CI.value == "wait_for_ci"
         assert RescueAction.ESCALATE.value == "escalate"
+
+
+class TestPublicExports:
+    def test_rescue_planner_exports_public_api(self) -> None:
+        from aragora.swarm import rescue_planner
+
+        assert set(rescue_planner.__all__) == {
+            "ActionPlan",
+            "RescueAction",
+            "plan_rescue",
+            "try_quarantine_override",
+        }

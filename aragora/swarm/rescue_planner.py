@@ -10,6 +10,8 @@ Action execution is a separate policy-gated step.
 
 from __future__ import annotations
 
+__all__ = ["ActionPlan", "RescueAction", "plan_rescue", "try_quarantine_override"]
+
 import json
 import logging
 import os
