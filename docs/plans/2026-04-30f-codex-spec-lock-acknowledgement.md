@@ -1,156 +1,75 @@
-# Round 30f — Codex/GPT Spec-Lock Acknowledgement Contract
+# Round 30f — Codex/GPT Spec-Lock Acknowledgement
 
-*Audience:* Codex/GPT (the δ #6375 implementation agent).
-*Author:* Factory/Claude, Round 30f planning lane.
-*Status:* CONTRACT — to be acknowledged before δ implementation begins.
-
----
-
-## Purpose
-
-Round 30f's lane δ closes the only outstanding H1 thesis-gap issue (#6375) with empirical baseline measurement. The work involves seven judgment calls that, if made ad-hoc inside the implementation PR, would not be reviewable. This contract names the seven calls explicitly so they are settled *before* code starts, not embedded in commits.
-
-This is the same discipline the project applies to feature flags: pre-register the gate, do not invent it after seeing the data.
+*Audience:* Codex/GPT and follow-on δ implementers.
+*Author:* Factory/Claude, reconciled by Codex after #6898 landed.
+*Status:* ACKNOWLEDGED FOR CONSERVATIVE δ SUBSET — #6898 is the implementation acknowledgement.
 
 ---
 
-## What Codex/GPT must acknowledge
+## Current State
 
-Comment on PR `<planning-PR-URL>` (or on `.aragora/evolve-round/2026-04-30f/round-receipt.json` if planning PR is not yet open) with one of:
+The original planning contract required Codex/GPT acknowledgement before δ implementation began. That state is now superseded by #6898, which merged the first conservative #6375 implementation slice:
 
-### Option (a) — Acknowledge as written
+- `InsufficiencyReceipt.v1` was added beside the existing `ThresholdUpdateReceipt.v1`.
+- `ThresholdRecalibrationScheduler.run_receipt_from_sample()` and `run_receipt_from_source()` now emit insufficiency receipts for below-floor, placeholder, or human-numerator schema-gap data.
+- `ReviewQueueInvalidationEventSource` adapts the existing stores into the scheduler contract.
+- `scripts/measure_invalidation_baseline.py` is dry-run by default; `--write-receipt` is the only mutation path and writes local JSON under `.aragora/review-queue/thresholds/` or an explicit receipt directory.
+- The live local run emitted `insufficiency_receipt.v1` with `sample_count=0`, `additional_dispatches_needed=50`, and reasons including `schema_gap_human_numerator`.
 
-```
-spec-acknowledged: rules 2.1–2.7 of docs/plans/2026-04-30f-round-spec.md as written.
-no exceptions.
-will implement against the spec verbatim.
-```
-
-### Option (b) — Acknowledge with named exceptions
-
-```
-spec-acknowledged: rules 2.1–2.7 of docs/plans/2026-04-30f-round-spec.md, except:
-  - rule X.Y: I propose <revision>, because <reason>.
-  - rule W.Z: I propose <revision>, because <reason>.
-will pause implementation until operator resolves the named exceptions.
-```
-
-### Option (c) — Reject
-
-```
-spec-rejected: <reason>.
-will not implement δ on the current spec.
-```
-
-Operator + planning lane resolve any (b) or (c) before implementation begins. **No silent drift.**
+This means #6375 is **not closed**. The honest Round 30f δ result is an auditable insufficiency surface, not a measured thesis-threshold replacement.
 
 ---
 
-## What "implement against the spec verbatim" means
+## Acknowledged Rules
 
-The seven judgment calls in §2 of `docs/plans/2026-04-30f-round-spec.md` are *binding* on lane δ's implementation. Concretely:
+Codex/GPT acknowledged and implemented the conservative subset of the Round 30f rules as follows:
 
-### §2.1 — Five canonical signals
+- No new invalidation signals were added.
+- No `docs/THESIS.md` update was made.
+- No H2 pilot, DIC/AGT breadth, marketplace work, public Receipt-as-API work, or production dispatch mutation was introduced.
+- The historic `ThresholdUpdateReceipt.v1` path remains backward-compatible.
+- The stricter Round 30f path refuses to treat placeholder or schema-gap data as a threshold update.
 
-Lane δ does NOT add new signals. The candidate-signal collection point (`InvalidationCandidate.unclassified_signals`) is the only place new candidates may be recorded; they remain inert until a future round formally adds them to `INVALIDATION_SIGNALS`.
+---
 
-### §2.2 — Authoritative event sources
+## Source Boundary Actually Landed In #6898
 
-Lane δ scans only the four named sources, in the named order:
-1. `.aragora/overnight/boss_metrics.jsonl` (verified: 406 rows present, 2026-04-30).
-2. `.aragora/review-queue/briefs/*.json` (verified: directory present).
-3. `.aragora/evolve-round/*/dogfood/unstick-receipts/applied.jsonl` (verified: 1 file present).
-4. GitHub PR/issue timeline via `gh api` (read-only; rate-limited; do not fan out at >10 req/s).
+#6898 intentionally used a narrower event-source policy than the broader planning target:
 
-If lane δ encounters another candidate source not on this list, it records the source name in the receipt's `unscanned_candidate_sources` field but does NOT scan it.
+1. Auto-handle calibration rows provide auto-handled numerator and denominator data.
+2. Review-queue settlement receipts provide the human-settled denominator.
+3. Review-queue settlement receipts provide human invalidation numerator data only when explicit future-schema fields are present, such as `reverted_at`, `post_merge_incident`, or `redo_pr`.
+4. `.aragora/overnight/boss_metrics.jsonl` is **not** treated as a human-invalidation numerator in #6898.
 
-### §2.3 — Human-settled definition
+Future PRs may widen this source boundary, but they must explicitly state whether they are superseding this conservative #6898 policy and must provide tests for any new mapping.
 
-A decision is human-settled iff:
-- a human reviewer left a GitHub `APPROVED` review, OR
-- the merge author is not a bot login AND the merge was not via `--admin` bypass.
+---
 
-`admin_merge_allowed` is auto-handled. `merge --admin` is auto-handled. `merge --auto` is auto-handled. The bot-login deny-list is exactly: `factory-droid[bot]`, `github-actions[bot]`, `dependabot[bot]`, `claude-code[bot]`, `codex-cli[bot]`, plus any other login matching `*[bot]`.
+## Follow-On δ Work Requires A New Acknowledgement
 
-### §2.4 — Under-floor behavior
+Any future δ expansion must explicitly acknowledge or supersede the seven rules in `docs/plans/2026-04-30f-round-spec.md` before implementation if it does any of the following:
 
-Lane δ writes `InsufficiencyReceipt.v1` (schema in §3 of the round spec) when `n_human_settled_samples < 50`. Lane δ does NOT update `docs/THESIS.md`. Lane δ does NOT close #6375. The receipt's `recommended_data_collection_delta` field must be populated with concrete actionable text (e.g., "dispatch issues #5126/#5128/#5130 plus 18 more H1-01 staged issues; expected to add ~21 additional human-settled samples within 14 days at current cadence; ETA to floor: 21 days from today").
+- Scans `.aragora/overnight/boss_metrics.jsonl` as numerator evidence.
+- Adds GitHub timeline reads.
+- Adds new invalidation signals or candidate signal types.
+- Edits `docs/THESIS.md`.
+- Claims #6375 is closed.
+- Changes the receipt schema version.
+- Changes the threshold deviation policy.
 
-### §2.5 — Threshold-deviation cases
+The required acknowledgement format is:
 
-Pre-registered cases (no post-hoc threshold tweaking):
-
-| Measured rate | Lower-CI bound | Action | Round verdict |
-| --- | --- | --- | --- |
-| 4.5–5.5% | < 5% < upper | Footnote on Commitment 3 | `δ_pass_5pct_confirmed` |
-| 5.5–15% | both above 5% | Replace 5% in Commitment 3 | `δ_pass_threshold_revised` |
-| > 15% | lower > 10% | Receipt only; investigate | `δ_pass_high_invalidation_investigate` |
-| < 2% | upper < 4% | Receipt only; investigate | `δ_pass_low_invalidation_investigate` |
-| 2–4.5% or 5.5% with low CI | (border cases) | Footnote on Commitment 3 | `δ_pass_5pct_confirmed` |
-
-The 4.5%/5.5%/15%/2% thresholds are pre-registered. Lane δ does NOT pick "the closest case" — it picks the case whose bounds the measurement actually satisfies.
-
-### §2.6 — Confidence interval
-
-Wilson score 95% CI on `n_invalidated_human_settled / n_total_human_settled`. Use `statsmodels.stats.proportion.proportion_confint(..., method='wilson')` if available; else hand-roll the formula:
-
-```
-n = total_human_settled
-p_hat = invalidated_human_settled / n
-z = 1.96
-denom = 1 + z**2 / n
-center = (p_hat + z**2 / (2*n)) / denom
-spread = z * sqrt(p_hat * (1 - p_hat) / n + z**2 / (4 * n**2)) / denom
-ci = (center - spread, center + spread)
+```text
+spec-acknowledged: docs/plans/2026-04-30f-round-spec.md, post-#6898 reconciliation.
+exceptions:
+  - <none or named exceptions>
+will not close #6375 without a measured threshold_update_receipt.v1 or explicit operator approval of insufficiency handling.
 ```
 
-### §2.7 — Receipt determinism
-
-Same inputs → same `receipt_id`. The `receipt_id` is `sha256(canonical_json(body))` where `canonical_json` sorts keys, separates with `(",", ":")` (no whitespace), and excludes the `produced_at` field from the hash. Datetime fields elsewhere are ISO 8601 with UTC `Z` suffix and second precision (no microseconds, no offsets).
-
 ---
 
-## What lane δ does NOT do
+## Why This Reconciliation Exists
 
-These are out of scope per §7 of the round spec. Lane δ:
+The planning PR and #6898 raced. Without this reconciliation, the planning docs would tell future agents to wait for work that already landed and would point them at a future `aragora/triage/invalidation_event_source.py` path that is not the actual merged implementation. This file is now the handoff boundary: #6898 is the conservative δ implementation; broader #6375 closure still requires measured data and a fresh acknowledgement.
 
-- Does NOT add new invalidation signals.
-- Does NOT scan event sources beyond the four named.
-- Does NOT include heterogeneous-dialog transcripts as evidence.
-- Does NOT change the threshold to anything outside the §2.5 case table.
-- Does NOT close #6375 unless the threshold change is well-defined and the data supports it.
-- Does NOT update `docs/THESIS.md` unless cases 2.5.1 or 2.5.2 apply.
-- Does NOT fan out to GitHub API beyond rate-limited reads of issue/PR timeline for SHAs already discovered locally.
-- Does NOT perform any auto-merge.
-- Does NOT mutate `aragora/review/invalidation.py` or `aragora/review/threshold_recalibration.py` (these are the existing scaffolding; the new module is `aragora/triage/invalidation_event_source.py`).
-- Does NOT ship without unit tests for each of the five signal predicates.
-
----
-
-## What lane δ MUST do
-
-- Open exactly one PR with the new module + script + receipt + tests + (conditionally) `docs/THESIS.md` amendment.
-- Sign the PR body with the round receipt URI (`.aragora/evolve-round/2026-04-30f/round-receipt.json`).
-- Tag the PR Tier 2 (≤300 LOC, additive only).
-- Reference this spec-lock contract in the PR body via permalink.
-- Cross-reference issue #6375 with one of the `δ_*` verdict tags.
-
----
-
-## Acknowledgement window
-
-Lane δ does not start mutating code until either:
-- this contract is acknowledged by Codex/GPT (per the option (a)/(b)/(c) protocol above), OR
-- the operator explicitly approves the planning-lane PR (which IS the acknowledgement, with Codex implementing verbatim).
-
-If neither happens within 24h of the planning-lane PR opening, lane δ is descoped from Round 30f. Round 30g picks up #6375 with a fresh spec.
-
----
-
-## Why this contract exists
-
-Round 30e produced 4 PRs in 12h. Each PR had implementation latitude — there was no spec-lock. That worked because the work was internal-substrate building where ad-hoc decisions were reversible. #6375 is different: it touches `docs/THESIS.md`, the canonical statement of authority. A wrong threshold, or a wrong honest-failure decision, becomes the thesis. The cost of getting it right is trivial (this 4-page contract); the cost of getting it wrong is a thesis-rewrite round.
-
-The contract is also an explicit hand-off ritual between agents. Round 30e proved that heterogeneous agents can work in parallel; Round 30f proves they can also adhere to a written contract before execution. Both are necessary properties for the Aragora substrate to scale.
-
-— Round 30f planning lane (Factory/Claude), 2026-04-30.
+— Round 30f planning lane, reconciled after #6898 merge.

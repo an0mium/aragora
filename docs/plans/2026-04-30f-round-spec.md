@@ -1,9 +1,9 @@
 # Round 30f — Thesis-First Constrained Round Spec (LOCKED)
 
-*Lock state:* **DRAFT, awaiting Codex/GPT acknowledgement before δ implementation begins.**
+*Lock state:* **RECONCILED after δ implementation landed in #6898.**
 *Round window:* 2026-04-30 → ~2026-05-01 (12h target, can extend if β pilot needs it).
 *Author:* Factory/Claude, Round 30f planning lane.
-*Approvers needed before lane δ starts mutating code:* user + Codex/GPT.
+*Current status:* δ receipt-emission path landed via #6898; β probe and H2 candidate selection remain planning/pilot work.
 
 ---
 
@@ -11,7 +11,7 @@
 
 Round 30e identified that the autonomous-round loop has produced 657 commits in 14 days, all internal substrate, with zero H2/H3 movement. Round 30f is the first round in 6 cycles where the binding constraint is *not* "what useful internal harness can we build next" but rather "close the only outstanding H1 thesis gap, then run the load-bearing assumption probe the thesis demands before any heterogeneity claim."
 
-The risk this lock prevents: Lane δ encounters real judgment calls during implementation (what counts as invalidation; which event sources are authoritative; what to do under-floor), makes ad-hoc decisions, and produces a #6375 closure that is not actually thesis-aligned. By naming the rules explicitly *before* code starts, every judgment call is reviewable rather than embedded in code commits.
+The risk this lock prevents: follow-on lanes encounter real judgment calls (what counts as invalidation; which event sources are authoritative; what to do under-floor), make ad-hoc decisions, and produce a #6375 closure that is not actually thesis-aligned. #6898 intentionally chose the conservative subset: explicit local receipt emission, no `docs/THESIS.md` update, no new invalidation signals, and no production mutation. This document records the planning target and the post-#6898 reconciliation point so later work does not silently drift.
 
 ---
 
@@ -21,15 +21,15 @@ The risk this lock prevents: Lane δ encounters real judgment calls during imple
 | --- | --- | --- | --- |
 | **Planning** | Factory/Claude | This spec + H2 rubric + β design + 50-prompt seed set | docs-only PR |
 | **β probe** | Claude Code/Claude | Probe runner + 20-prompt pilot + receipt | code+pilot PR |
-| **δ #6375** | Codex/GPT | Event-source adapter + baseline measurement + receipt or insufficiency receipt | code PR |
+| **δ #6375** | Codex/GPT | Receipt-emission path + conservative event-source adapter + insufficiency receipt | landed in #6898 |
 
-Lane δ does **not** start until this spec is acknowledged by Codex/GPT (planning lane comments "spec acknowledged" on the spec PR or in the round comms thread). Lane β designs and 50-prompt authoring start immediately under planning lane (docs-only). Lane β *pilot run* happens after the spec PR merges or the operator gives an explicit go.
+Lane δ no longer waits on this planning PR: #6898 is the implementation acknowledgement and landed the first conservative #6375 receipt path. Lane β designs and 50-prompt authoring start immediately under planning lane (docs-only). Lane β *pilot run* happens after this PR merges or the operator gives an explicit go.
 
 ---
 
 ## 2. The seven judgment calls (frozen here, not in code)
 
-These are the calls Codex flagged. Lane δ implements against these; planning lane has no authority to revise them mid-round.
+These are the calls Codex flagged. #6898 implemented the conservative subset; any future δ expansion must explicitly say whether it follows this document verbatim or supersedes a line item.
 
 ### Judgment 2.1 — What counts as outcome invalidation
 
@@ -45,14 +45,14 @@ If lane δ encounters a candidate signal that doesn't match any of the five, it 
 
 ### Judgment 2.2 — Authoritative event sources
 
-Lane δ scans these and only these, in this order, deduplicating by `decision_id`:
+The broader planning target scans these sources, in this order, deduplicating by `decision_id`:
 
-1. `.aragora/overnight/boss_metrics.jsonl` (406 rows verified) — primary settlement evidence with iteration/elapsed/SHA.
+1. `.aragora/overnight/boss_metrics.jsonl` (406 rows verified) — candidate denominator/support evidence only unless a future PR proves a safe numerator mapping.
 2. `.aragora/review-queue/briefs/*.json` — operator-reviewed brief receipts.
 3. `.aragora/evolve-round/*/dogfood/unstick-receipts/applied.jsonl` — boss-loop unstick application records.
 4. GitHub PR/issue timeline for any commit SHA encountered above (read-only via `gh api`, rate-limit-aware).
 
-If a settlement is referenced in (2) or (3) but absent from (1), it is admitted with a `source_only` note. If (1) and (4) disagree on outcome, (4) wins (the authoritative GitHub state).
+#6898 landed a stricter v1 source boundary: auto-handle calibration rows provide auto-handled numerator/denominator data; review-queue settlement receipts provide the human-settled denominator and only provide a human numerator when explicit future-schema fields such as `reverted_at`, `post_merge_incident`, or `redo_pr` are present. Under that v1 policy, `.aragora/overnight/boss_metrics.jsonl` is not treated as a human-invalidation numerator. If a future PR widens the source set, GitHub state wins when local evidence disagrees.
 
 **Forbidden sources:** synthetic agents (e.g., `oracle-droid`, `bear-claude`), heterogeneous-dialog transcripts, the round-30e Brier markets, any output of `aragora.swarm.multi_agent_dialog`. None of these are settled human-decision evidence.
 
@@ -119,9 +119,9 @@ The receipt's `receipt_id` is `sha256(canonical_json(receipt_body))` where `cano
   "n_required": 50,
   "n_short": 27,
   "sources_scanned": [
-    ".aragora/overnight/boss_metrics.jsonl",
-    ".aragora/review-queue/briefs/",
-    ".aragora/evolve-round/*/dogfood/unstick-receipts/applied.jsonl"
+    "auto-handle calibration store",
+    ".aragora/review-queue/receipts/",
+    "optional future support sources: .aragora/overnight/boss_metrics.jsonl, .aragora/review-queue/briefs/, .aragora/evolve-round/*/dogfood/unstick-receipts/applied.jsonl"
   ],
   "signals_observed_in_under_floor_data": {
     "revert_within_window": 0,
@@ -140,7 +140,7 @@ The receipt's `receipt_id` is `sha256(canonical_json(receipt_body))` where `cano
 
 ## 4. Threshold-update receipt schema
 
-Already defined in `aragora/review/threshold_recalibration.py` as `ThresholdUpdateReceipt.v1`. Lane δ reuses it as-is. The `prior_threshold` field carries `0.05` and the `reason_for_update` field carries one of `5pct_confirmed`, `threshold_revised`, `high_invalidation_investigate`, `low_invalidation_investigate`, mapping to judgments 2.5.1–2.5.4.
+Already defined in `aragora/review/threshold_recalibration.py` as `ThresholdUpdateReceipt.v1`. #6898 kept the historic `run_from_sample()` behavior backward-compatible and added `run_receipt_from_sample()` / `run_receipt_from_source()` for the stricter Round 30f path that returns `InsufficiencyReceipt.v1` for below-floor or schema-gap data.
 
 ---
 
@@ -221,7 +221,7 @@ Already defined in `aragora/review/threshold_recalibration.py` as `ThresholdUpda
 | --- | --- | --- |
 | Planning | 0 LOC code, ~600 lines docs (this doc + H2 rubric + β design) + 50 prompt seeds | $0 |
 | β probe | ~250 LOC code + 20-prompt pilot | ~$5 |
-| δ #6375 | ~350 LOC (adapter + script + tests) | $0 |
+| δ #6375 | landed in #6898 (receipt path + script + tests) | $0 |
 | **Total** | **≤600 LOC code, ≤4 PRs** | **~$5** |
 
 ---
@@ -253,7 +253,7 @@ These four artifacts are the round's deliverable. Code, tests, and docs are scaf
 .worktrees/codex-auto/
   claude-20260430-...   # Planning lane (this doc) — docs/2026-04-30f-round-planning
   (next worktree)       # β probe — feat/heterogeneity-contamination-probe
-  (next worktree)       # δ #6375 — feat/review-invalidation-event-source
+  merged via #6898      # δ #6375 — codex/round-30f-threshold-receipts
 ```
 
 Worktrees retained for 24 h after PR merges, then cleaned via `python3 scripts/safe_worktree_cleanup.py`.
@@ -262,15 +262,15 @@ Worktrees retained for 24 h after PR merges, then cleaned via `python3 scripts/s
 
 ## 12. Spec-lock acknowledgement contract for Codex/GPT
 
-Before lane δ starts mutating code, Codex/GPT must explicitly acknowledge the seven judgment calls in §2 by either:
+#6898 is the Codex/GPT acknowledgement for the conservative δ subset. Future δ work that expands event sources, edits `docs/THESIS.md`, or closes #6375 must explicitly acknowledge or supersede the seven judgment calls in §2 by either:
 
 (a) Commenting on the planning-lane PR (this PR) with `spec-acknowledged` and naming any of the seven calls it disagrees with (none, ideally), or
 
 (b) Commenting on `.aragora/evolve-round/2026-04-30f/round-receipt.json` planning-phase entry with the same acknowledgement.
 
-If Codex/GPT proposes a revision to any of the seven calls, the round comms thread resolves it with the operator before δ starts. **No silent drift.**
+If Codex/GPT proposes a revision to any of the seven calls, the round comms thread resolves it with the operator before the follow-on δ expansion starts. **No silent drift.**
 
-If the operator approves the planning lane PR without Codex/GPT explicit acknowledgement, the operator's approval *is* the acknowledgement. Codex/GPT then implements against this spec verbatim.
+If the operator approves the planning lane PR without a new Codex/GPT explicit acknowledgement, approval only accepts the planning record; it does not authorize a broader δ expansion beyond what #6898 already landed.
 
 ---
 
@@ -278,6 +278,6 @@ If the operator approves the planning lane PR without Codex/GPT explicit acknowl
 
 - Planning lane: in_progress, this PR.
 - β probe lane: design + 50-prompt seed authoring **in this PR**; pilot run starts after this PR merges or operator gives explicit go.
-- δ #6375 lane: **does not start until this PR merges or operator gives explicit go.**
+- δ #6375 lane: first conservative implementation **merged in #6898**; #6375 remains open unless a future measured threshold receipt supports closure.
 
 — Round 30f planning lane (Factory/Claude), 2026-04-30.

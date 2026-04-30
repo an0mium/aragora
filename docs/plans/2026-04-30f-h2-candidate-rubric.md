@@ -1,7 +1,7 @@
 # Round 30f — H2 Candidate-Selection Rubric
 
 *Author:* Factory/Claude, Round 30f planning lane.
-*Status:* DRAFT — pending δ + β verdicts.
+*Status:* DRAFT — pending β verdict and a future measured #6375 threshold outcome. #6898 landed the conservative δ insufficiency surface but did not close #6375.
 *Purpose:* Score candidate external repositories for the **first H2 pilot** that will run *only after* Round 30f's δ and β both pass (or after explicit operator decision to accept their failure modes per §6 of `2026-04-30f-round-spec.md`).
 
 This document **scores; it does not recommend.** The operator picks from the shortlist. The rubric is here so the pick is reviewable rather than vibed.
