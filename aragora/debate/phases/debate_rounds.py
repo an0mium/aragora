@@ -463,7 +463,24 @@ class DebateRoundsPhase:
                         strategy_rec.reasoning[:50],
                     )
                     _record_adaptive_round(direction)
-                    rounds = strategy_rec.estimated_rounds
+                    # Floor adaptive recommendation at 1: a recommendation of 0
+                    # (interpreted as "the proposal already produced consensus, no
+                    # critique-revision rounds needed") would skip the round loop
+                    # entirely and report rounds_completed=0 to downstream consumers,
+                    # making a real debate look like one that never ran. We honour
+                    # the strategy's signal in metadata but always run at least one
+                    # round so the metric is honest. See
+                    # docs/plans/2026-04-30-rounds-floor-rca.md
+                    # (or .aragora/evolve-round/2026-04-30/dogfood/phase-e-rounds-zero-rca.md
+                    # in repos that carry the round receipts).
+                    if strategy_rec.estimated_rounds < 1:
+                        logger.info(
+                            "[strategy] estimate=%s < 1; flooring at 1 to preserve rounds_completed honesty",
+                            strategy_rec.estimated_rounds,
+                        )
+                        rounds = max(1, rounds)
+                    else:
+                        rounds = strategy_rec.estimated_rounds
                     # Store strategy recommendation in result metadata
                     if hasattr(result, "metadata") and result.metadata is not None:
                         result.metadata["strategy_recommendation"] = {
@@ -471,6 +488,7 @@ class DebateRoundsPhase:
                             "confidence": strategy_rec.confidence,
                             "reasoning": strategy_rec.reasoning,
                             "relevant_memories": strategy_rec.relevant_memories[:3],
+                            "floored_to_one": strategy_rec.estimated_rounds < 1,
                         }
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug("[strategy] Round estimation failed, using protocol default: %s", e)

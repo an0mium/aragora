@@ -1513,6 +1513,125 @@ class TestStrategyBasedRounds:
         # Default rounds should be used
         assert ctx.result.rounds_used == 1
 
+    @pytest.mark.asyncio
+    async def test_strategy_zero_rounds_falls_back_to_protocol_default(self):
+        """Strategy returning estimated_rounds=0 must not skip the round loop.
+
+        Regression for the rounds_completed=0 RCA in
+        .aragora/evolve-round/2026-04-30/dogfood/phase-e-rounds-zero-rca.md.
+        Previously, an `estimated_rounds=0` recommendation was passed through
+        verbatim; the for-loop never iterated, and downstream consumers saw
+        rounds_completed=0 even when a winner was extracted.
+        """
+        protocol = MockProtocol(rounds=2)
+        strategy = MagicMock()
+        strategy_rec = MagicMock()
+        strategy_rec.estimated_rounds = 0  # The pathological case.
+        strategy_rec.confidence = 0.9
+        strategy_rec.reasoning = "Proposal already consensus-shaped"
+        strategy_rec.relevant_memories = []
+        strategy.estimate_rounds_async = AsyncMock(return_value=strategy_rec)
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        ctx = MockDebateContext(
+            agents=[agent1],
+            proposers=[agent1],
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[], metadata={}),
+        )
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=True, blocked_by_trickster=False
+        )
+        convergence_tracker.track_novelty = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            debate_strategy=strategy,
+            critique_with_agent=AsyncMock(return_value=None),
+        )
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_debate_monitor") as mock_mon,
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_perf = MagicMock()
+            mock_perf.track_round = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.slow_round_threshold = 60.0
+            mock_mon.return_value = mock_perf
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            await phase.execute(ctx)
+
+        # Round loop must have iterated at least once — rounds_used >= 1.
+        assert ctx.result.rounds_used >= 1, (
+            "estimated_rounds=0 must be floored; round loop must iterate at least once"
+        )
+        # Recommendation surfaced in metadata, including the floored_to_one flag.
+        rec = ctx.result.metadata.get("strategy_recommendation")
+        assert rec is not None, "strategy_recommendation must be recorded"
+        assert rec["estimated_rounds"] == 0, "raw strategy estimate preserved in metadata"
+        assert rec["floored_to_one"] is True, "floored_to_one flag must be set"
+
+    @pytest.mark.asyncio
+    async def test_strategy_negative_rounds_falls_back_to_protocol_default(self):
+        """Defensive: a negative estimated_rounds (mistake or bug) must also floor.
+
+        Companion regression for the strategy floor.
+        """
+        protocol = MockProtocol(rounds=2)
+        strategy = MagicMock()
+        strategy_rec = MagicMock()
+        strategy_rec.estimated_rounds = -1
+        strategy_rec.confidence = 0.5
+        strategy_rec.reasoning = "negative recommendation (defensive case)"
+        strategy_rec.relevant_memories = []
+        strategy.estimate_rounds_async = AsyncMock(return_value=strategy_rec)
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        ctx = MockDebateContext(
+            agents=[agent1],
+            proposers=[agent1],
+            proposals={"agent-1": "proposal"},
+            result=MockResult(critiques=[], metadata={}),
+        )
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=True, blocked_by_trickster=False
+        )
+        convergence_tracker.track_novelty = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            debate_strategy=strategy,
+            critique_with_agent=AsyncMock(return_value=None),
+        )
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_debate_monitor") as mock_mon,
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_perf = MagicMock()
+            mock_perf.track_round = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.slow_round_threshold = 60.0
+            mock_mon.return_value = mock_perf
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            await phase.execute(ctx)
+
+        assert ctx.result.rounds_used >= 1
+        rec = ctx.result.metadata.get("strategy_recommendation")
+        assert rec is not None
+        assert rec["floored_to_one"] is True
+
 
 # =============================================================================
 # Additional Coverage: Propulsion Events Tests
