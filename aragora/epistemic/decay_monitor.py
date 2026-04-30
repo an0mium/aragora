@@ -21,12 +21,13 @@ DIC-22 add quarantine and repair on top).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Collection
 
 from .claim_verifier import ClaimStatus
 
 if TYPE_CHECKING:
     from .claim_verifier import ClaimResult
+    from .constraint_graph import ProofUnitConstraintGraph
     from .proof_unit import ProofCarryingCodeUnit
 
 # Integrity deduction per reason class (summed; clamped to [0, 1]).
@@ -185,3 +186,58 @@ def evaluate_unit(
         reasons=reasons,
         recommended_action=_RANK_TO_ACTION.get(action_rank, "report_only"),
     )
+
+
+def compute_decay_impact_set(
+    graph: "ProofUnitConstraintGraph",
+    failing_claim_ids: Collection[str],
+    *,
+    transitive: bool = False,
+    max_depth: int | None = None,
+) -> set[str]:
+    """Return the set of ``code_unit_id``s impacted by *failing_claim_ids*.
+
+    First live caller of
+    :meth:`aragora.epistemic.constraint_graph.ProofUnitConstraintGraph.multi_hop_impact_set`
+    (DIC-19, #6838).  Lifts DIC-19 from "scaffolded" to "wired" per the
+    audit's classification by giving the constraint graph a real
+    decay-pipeline consumer.
+
+    Parameters
+    ----------
+    graph:
+        A :class:`ProofUnitConstraintGraph` over the units in scope.  When
+        constructed without ``dependency_edges``, the transitive path is
+        identical to the single-hop path — backward-compatible.
+    failing_claim_ids:
+        The set of claim IDs whose verification has decayed (failed,
+        stale, or otherwise unsafe to rely on).
+    transitive:
+        When ``False`` (default), return only direct claim-owners — the
+        same set :func:`evaluate_unit` would generate decay reasons for.
+        When ``True``, walk the explicit unit-to-unit dependency edges
+        from the graph: if unit A depends on unit B and B's claims fail,
+        A is also impacted.
+    max_depth:
+        Bound on the BFS depth when ``transitive=True``.  ``None``
+        (default) is unbounded.  ``max_depth=0`` is equivalent to
+        ``transitive=False``.  Ignored when ``transitive=False``.
+
+    Returns
+    -------
+    A ``set[str]`` of impacted ``code_unit_id``s.  This module does NOT
+    mutate the graph, the units, or any quarantine/repair state — that
+    decision is deferred to DIC-21/22.
+
+    Notes
+    -----
+    The graph here is a snapshot — callers reconstruct or persist it
+    themselves via :meth:`ProofUnitConstraintGraph.to_dict`.  This
+    function is a thin pass-through that establishes the decay-pipeline
+    seam; the operator dashboard / repair planner can later call this
+    directly with cached graph state without reaching into the constraint
+    graph internals.
+    """
+    if transitive:
+        return graph.multi_hop_impact_set(failing_claim_ids, max_depth=max_depth)
+    return graph.impact_set(failing_claim_ids)

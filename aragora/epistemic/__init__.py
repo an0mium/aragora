@@ -90,7 +90,12 @@ from .gauntlet_crux_bridge import (
     from_gauntlet_receipt,
     km_crux_ingestion_enabled,
 )
-from .decay_monitor import DecayReason, DecaySignal, evaluate_unit
+from .decay_monitor import (
+    DecayReason,
+    DecaySignal,
+    compute_decay_impact_set,
+    evaluate_unit,
+)
 from .executable_claim import (
     ClaimConfidence,
     ClaimEvidence,
@@ -234,6 +239,7 @@ __all__ = [
     "enable_epistemic_followup",
     "enable_repair_pipeline",
     "epistemic_followup_enabled",
+    "compute_decay_impact_set",
     "evaluate_unit",
     "from_belief_node",
     "propose_followup_for_crux",

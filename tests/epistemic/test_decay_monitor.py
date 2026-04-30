@@ -244,3 +244,98 @@ class TestToDict:
         assert isinstance(score, float)
         assert str(score).count(".") == 1
         assert len(str(score).split(".")[1]) <= 4
+
+
+# =============================================================================
+# Round 2026-04-30c Phase E — DIC-19 multi-hop wiring into decay impact
+# First live caller of ProofUnitConstraintGraph.multi_hop_impact_set (#6838).
+# =============================================================================
+
+from aragora.epistemic.constraint_graph import ProofUnitConstraintGraph
+from aragora.epistemic.decay_monitor import compute_decay_impact_set
+
+
+def _bare_unit(uid: str, claims: list[str] | None = None) -> ProofCarryingCodeUnit:
+    """Minimal unit fixture for impact-set tests (avoids decay-policy noise)."""
+    return ProofCarryingCodeUnit(
+        code_unit_id=uid,
+        symbol=f"tests.fake.{uid}",
+        source_path=f"tests/{uid}.py",
+        owner="test",
+        decision_receipts=[f"r-{uid}"],
+        claims=claims or [],
+        assumptions=[],
+        verifiers=[],
+        freshness_sla_hours=24,
+        decay_policy=DecayPolicy(),
+        fallback_policy=FallbackPolicy(),
+        linked_crux_ids=[],
+    )
+
+
+class TestComputeDecayImpactSet:
+    def test_no_failing_claims_returns_empty(self):
+        g = ProofUnitConstraintGraph([_bare_unit("a", claims=["x"])])
+        assert compute_decay_impact_set(g, set()) == set()
+
+    def test_single_hop_returns_direct_owners(self):
+        g = ProofUnitConstraintGraph([_bare_unit("a", claims=["x"]), _bare_unit("b", claims=["y"])])
+        assert compute_decay_impact_set(g, {"x"}) == {"a"}
+        assert compute_decay_impact_set(g, {"x", "y"}) == {"a", "b"}
+
+    def test_transitive_with_no_edges_equals_single_hop(self):
+        """Backward-compat: graph constructed without edges -> same impact."""
+        g = ProofUnitConstraintGraph([_bare_unit("a", claims=["x"]), _bare_unit("b", claims=["y"])])
+        assert compute_decay_impact_set(g, {"x"}, transitive=True) == compute_decay_impact_set(
+            g, {"x"}
+        )
+
+    def test_transitive_walks_dependency_edges(self):
+        # B depends on A. If A's claim x fails, B is also impacted.
+        g = ProofUnitConstraintGraph(
+            [_bare_unit("a", claims=["x"]), _bare_unit("b")],
+            dependency_edges=[("b", "a")],
+        )
+        assert compute_decay_impact_set(g, {"x"}) == {"a"}
+        assert compute_decay_impact_set(g, {"x"}, transitive=True) == {"a", "b"}
+
+    def test_transitive_chain_propagates(self):
+        # C -> B -> A; failing claim x cascades to all three when transitive.
+        g = ProofUnitConstraintGraph(
+            [_bare_unit("a", claims=["x"]), _bare_unit("b"), _bare_unit("c")],
+            dependency_edges=[("b", "a"), ("c", "b")],
+        )
+        assert compute_decay_impact_set(g, {"x"}, transitive=True) == {"a", "b", "c"}
+
+    def test_max_depth_zero_equals_seed(self):
+        g = ProofUnitConstraintGraph(
+            [_bare_unit("a", claims=["x"]), _bare_unit("b"), _bare_unit("c")],
+            dependency_edges=[("b", "a"), ("c", "b")],
+        )
+        assert compute_decay_impact_set(g, {"x"}, transitive=True, max_depth=0) == {"a"}
+
+    def test_max_depth_one_limits_propagation(self):
+        g = ProofUnitConstraintGraph(
+            [_bare_unit("a", claims=["x"]), _bare_unit("b"), _bare_unit("c")],
+            dependency_edges=[("b", "a"), ("c", "b")],
+        )
+        assert compute_decay_impact_set(g, {"x"}, transitive=True, max_depth=1) == {"a", "b"}
+
+    def test_max_depth_irrelevant_when_not_transitive(self):
+        g = ProofUnitConstraintGraph(
+            [_bare_unit("a", claims=["x"]), _bare_unit("b")],
+            dependency_edges=[("b", "a")],
+        )
+        assert compute_decay_impact_set(g, {"x"}, transitive=False, max_depth=999) == {"a"}
+
+    def test_unknown_claim_returns_empty(self):
+        g = ProofUnitConstraintGraph([_bare_unit("a", claims=["x"])])
+        assert compute_decay_impact_set(g, {"unknown"}) == set()
+        assert compute_decay_impact_set(g, {"unknown"}, transitive=True) == set()
+
+    def test_exported_from_aragora_epistemic(self):
+        """Public surface is reachable via the package."""
+        import aragora.epistemic as ep
+
+        assert hasattr(ep, "compute_decay_impact_set")
+        assert "compute_decay_impact_set" in ep.__all__
