@@ -168,12 +168,31 @@ def append_iteration_metrics(
             if not failure_reason:
                 failure_reason = str(needs_human_reasons[0]).strip()[:200]
 
+        # B0 honesty axis: when a dispatch never produced a real prompt
+        # (no work_orders, or the prompt accumulator stayed at 0), mark the
+        # row with a ``dispatch_skip_reason`` so downstream consumers can
+        # distinguish a *real* attempt with a 0-char prompt (rare; pathology)
+        # from a *no-op* row recording a sanitizer / dispatch rejection.
+        # This is non-invasive: ``prompt_chars`` itself stays 0 so existing
+        # filters in ``aragora.swarm.issue_scanner._load_metrics_rows``
+        # continue to drop these rows.
+        worker_status_text = str(worker_result.get("status", "")).strip() or "unknown"
+        worker_outcome_text = str(worker_result.get("outcome", "")).strip() or None
+        dispatch_skip_reason: str | None = None
+        if prompt_chars <= 0 and enriched_context_chars <= 0:
+            if worker_status_text == "needs_human":
+                dispatch_skip_reason = "needs_human_no_prompt"
+            elif worker_status_text in ("dropped", "skipped"):
+                dispatch_skip_reason = "dispatch_dropped_no_prompt"
+            else:
+                dispatch_skip_reason = "no_work_orders"
+
         payload: dict[str, Any] = {
             "iteration": int(iteration),
             "issue_number": issue_number,
             "issue_title": issue_title[:120] if issue_title else None,
-            "worker_status": str(worker_result.get("status", "")).strip() or "unknown",
-            "worker_outcome": str(worker_result.get("outcome", "")).strip() or None,
+            "worker_status": worker_status_text,
+            "worker_outcome": worker_outcome_text,
             "elapsed_seconds": float(elapsed_seconds or 0.0),
             "files_changed": files_changed,
             "tests_run": tests_run,
@@ -192,6 +211,7 @@ def append_iteration_metrics(
             "blocker_kind": blocker_kind,
             "blocker_evidence": blocker_evidence,
             "category_success_rates": category_success_rates,
+            "dispatch_skip_reason": dispatch_skip_reason,
         }
 
         try:

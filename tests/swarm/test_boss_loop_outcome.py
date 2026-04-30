@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from aragora.swarm.boss_loop_outcome import (
+    append_iteration_metrics,
     extract_iteration_metrics,
     freshness_is_fresh,
     freshness_to_dict,
@@ -113,3 +117,95 @@ class TestFreshnessHelpers:
 
     def test_freshness_is_fresh_missing(self) -> None:
         assert freshness_is_fresh(None, {}) is False
+
+
+class TestDispatchSkipReason:
+    """Regression tests for the dispatch_skip_reason field.
+
+    The empty-prompt no-op pathology in
+    .aragora/overnight/boss_metrics.jsonl had 289/406 rows with
+    prompt_chars=0, hiding 35 retry-loop rows on a single closed/merged
+    issue. dispatch_skip_reason makes those rows immediately
+    distinguishable from real attempts that genuinely had a 0-char
+    prompt.
+    """
+
+    def _common_args(self, tmp_path: Path) -> dict:
+        return {
+            "metrics_jsonl_path": str(tmp_path / "boss_metrics.jsonl"),
+            "outcome_learner_window": 50,
+            "deferred_queue_depth": 0,
+            "iteration": 1,
+            "issue_number": 1,
+            "elapsed_seconds": 0.5,
+            "files_changed": 0,
+            "tests_run": 0,
+            "tests_passed": 0,
+        }
+
+    def _read_row(self, tmp_path: Path) -> dict:
+        path = tmp_path / "boss_metrics.jsonl"
+        assert path.exists(), "metrics file should be created"
+        lines = [line for line in path.read_text().splitlines() if line.strip()]
+        assert len(lines) == 1
+        return json.loads(lines[0])
+
+    def test_needs_human_no_prompt_marks_skip_reason(self, tmp_path: Path) -> None:
+        worker_result = {
+            "status": "needs_human",
+            "outcome": "blocked",
+            "failure_reason": "Approval required for merge.",
+            "run": {"work_orders": []},
+        }
+        append_iteration_metrics(
+            **self._common_args(tmp_path),
+            worker_result=worker_result,
+        )
+        row = self._read_row(tmp_path)
+        assert row["prompt_chars"] == 0
+        assert row["worker_status"] == "needs_human"
+        assert row["dispatch_skip_reason"] == "needs_human_no_prompt"
+
+    def test_dropped_no_prompt_marks_skip_reason(self, tmp_path: Path) -> None:
+        worker_result = {
+            "status": "dropped",
+            "outcome": "no_dispatch",
+            "run": {},
+        }
+        append_iteration_metrics(
+            **self._common_args(tmp_path),
+            worker_result=worker_result,
+        )
+        row = self._read_row(tmp_path)
+        assert row["dispatch_skip_reason"] == "dispatch_dropped_no_prompt"
+
+    def test_no_work_orders_marks_skip_reason(self, tmp_path: Path) -> None:
+        worker_result = {
+            "status": "completed",
+            "run": {"work_orders": []},
+        }
+        append_iteration_metrics(
+            **self._common_args(tmp_path),
+            worker_result=worker_result,
+        )
+        row = self._read_row(tmp_path)
+        assert row["dispatch_skip_reason"] == "no_work_orders"
+
+    def test_real_run_has_no_skip_reason(self, tmp_path: Path) -> None:
+        worker_result = {
+            "status": "completed",
+            "outcome": "merged",
+            "run": {
+                "work_orders": [
+                    {"prompt_chars": 1234, "enriched_context_chars": 4321},
+                ]
+            },
+        }
+        append_iteration_metrics(
+            **self._common_args(tmp_path),
+            worker_result=worker_result,
+        )
+        row = self._read_row(tmp_path)
+        assert row["prompt_chars"] == 1234
+        assert row["enriched_context_chars"] == 4321
+        assert row["dispatch_skip_reason"] is None
