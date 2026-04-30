@@ -21,6 +21,18 @@ def test_load_prompt_file_reads_seeded_error() -> None:
     assert prompt.prompt_id == "sse_01_revert_window_off_by_one"
     assert prompt.seeded_error is not None
     assert "14" in prompt.seeded_error.description
+    assert len(prompt.seeded_errors) == 1
+
+
+def test_load_prompt_file_reads_plural_seeded_errors() -> None:
+    prompt = load_prompt_file(
+        "tests/heterogeneity/probe_prompts/multi_seeded_error/01_thresholds_and_window.md"
+    )
+    assert prompt.prompt_id == "mse_01_thresholds_and_window"
+    assert prompt.seeded_error is not None
+    assert len(prompt.seeded_errors) == 2
+    assert "30 days" in prompt.seeded_errors[0].description
+    assert "MORE permissive" in prompt.seeded_errors[1].description
 
 
 def test_select_pilot_prompts_satisfies_minimum_gate() -> None:
@@ -32,3 +44,4 @@ def test_select_pilot_prompts_satisfies_minimum_gate() -> None:
     assert len(selected) == sum(DEFAULT_PILOT_CLASS_QUOTAS.values())
     assert counts == DEFAULT_PILOT_CLASS_QUOTAS
     assert all(count >= 2 for count in counts.values())
+    assert counts["correlated_priming"] >= 6

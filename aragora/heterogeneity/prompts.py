@@ -11,12 +11,14 @@ import yaml
 DEFAULT_PILOT_CLASS_QUOTAS: dict[str, int] = {
     # The planning doc's 20-prompt table uses one null_negative prompt,
     # but the locked acceptance gate requires at least two prompts in
-    # every class. A 21-prompt default satisfies the gate while staying
-    # within the 20-30 pilot budget.
+    # every class. The correlated-priming gate also needs at least six
+    # perfect prompts for the 95% Wilson upper bound to fall below 0.40.
+    # A 23-prompt default satisfies both gates while staying within the
+    # 20-30 pilot budget.
     "clean_neutral": 4,
     "single_seeded_error": 6,
     "multi_seeded_error": 3,
-    "correlated_priming": 4,
+    "correlated_priming": 6,
     "red_team_paraphrase": 2,
     "null_negative": 2,
 }
@@ -39,6 +41,7 @@ class ProbePrompt:
     body: str
     path: Path
     seeded_error: SeededError | None = None
+    seeded_errors: tuple[SeededError, ...] = ()
     expected_flags: int | None = None
     expected_independent_flag_rate: float | None = None
     priming_framing: str | None = None
@@ -72,6 +75,19 @@ def _coerce_seeded_error(raw: object, path: Path) -> SeededError | None:
     return SeededError(description=description.strip(), verification_ref=verification_ref)
 
 
+def _coerce_seeded_errors(raw: object, path: Path) -> tuple[SeededError, ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, list | tuple):
+        raise ValueError(f"{path}: seeded_errors must be a list")
+    errors: list[SeededError] = []
+    for item in raw:
+        error = _coerce_seeded_error(item, path)
+        if error is not None:
+            errors.append(error)
+    return tuple(errors)
+
+
 def _coerce_float(raw: object) -> float | None:
     if raw is None:
         return None
@@ -98,12 +114,18 @@ def load_prompt_file(path: str | Path) -> ProbePrompt:
     expected_flags = meta.get("expected_flags")
     if expected_flags is not None and not isinstance(expected_flags, int):
         raise ValueError(f"{prompt_path}: expected_flags must be an int or null")
+    seeded_error = _coerce_seeded_error(meta.get("seeded_error"), prompt_path)
+    seeded_errors = _coerce_seeded_errors(meta.get("seeded_errors"), prompt_path)
+    if seeded_error is not None and seeded_errors:
+        raise ValueError(f"{prompt_path}: use either seeded_error or seeded_errors, not both")
+    all_seeded_errors = seeded_errors or ((seeded_error,) if seeded_error is not None else ())
     return ProbePrompt(
         prompt_id=prompt_id.strip(),
         prompt_class=prompt_class.strip(),
         body=body.rstrip() + "\n",
         path=prompt_path,
-        seeded_error=_coerce_seeded_error(meta.get("seeded_error"), prompt_path),
+        seeded_error=all_seeded_errors[0] if all_seeded_errors else None,
+        seeded_errors=all_seeded_errors,
         expected_flags=expected_flags,
         expected_independent_flag_rate=_coerce_float(meta.get("expected_independent_flag_rate")),
         priming_framing=meta.get("priming_framing"),

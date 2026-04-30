@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from aragora.heterogeneity.probe import (
+    ACCEPTANCE_GATES,
     PanelistClassification,
     PromptProbeResult,
     compute_metrics,
@@ -27,6 +28,11 @@ def _result(prompt_id: str, prompt_class: str, verdicts: list[str]) -> PromptPro
 def test_wilson_interval_bounds_proportion() -> None:
     low, high = wilson_interval(8, 10)
     assert 0 <= low < 0.8 < high <= 1
+
+
+def test_correlated_priming_perfect_pilot_can_clear_ci_gate() -> None:
+    _, high = wilson_interval(0, 6)
+    assert high < ACCEPTANCE_GATES["catastrophic_correlation_rate_ci_high_max"]
 
 
 def test_compute_metrics_counts_seeded_and_correlation_classes() -> None:

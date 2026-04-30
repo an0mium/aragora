@@ -67,6 +67,7 @@ class PromptProbeResult:
     prompt_class: str
     classifications: tuple[PanelistClassification, ...]
     seeded_error: str | None = None
+    seeded_errors: tuple[str, ...] = ()
 
     @classmethod
     def from_prompt(
@@ -78,6 +79,7 @@ class PromptProbeResult:
             prompt_id=prompt.prompt_id,
             prompt_class=prompt.prompt_class,
             seeded_error=prompt.seeded_error.description if prompt.seeded_error else None,
+            seeded_errors=tuple(error.description for error in prompt.seeded_errors),
             classifications=tuple(classifications),
         )
 
@@ -270,6 +272,7 @@ def build_probe_receipt(
                 "prompt_id": result.prompt_id,
                 "class": result.prompt_class,
                 "seeded_error": result.seeded_error,
+                "seeded_errors": list(result.seeded_errors),
                 "panelist_classifications": [
                     asdict(classification) for classification in result.classifications
                 ],
