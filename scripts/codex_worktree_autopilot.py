@@ -539,7 +539,8 @@ def _ensure_fetched(repo_root: Path, base: str) -> None:
 
 def _worktree_status(repo_root: Path, worktree: Path, base: str) -> dict[str, Any]:
     status_proc = _run_git(repo_root, "status", "--porcelain", cwd=worktree)
-    dirty = bool(status_proc.stdout.strip())
+    status_lookup_failed = status_proc.returncode != 0
+    dirty = status_lookup_failed or bool(status_proc.stdout.strip())
 
     counts_proc = _run_git(
         repo_root, "rev-list", "--left-right", "--count", f"origin/{base}...HEAD", cwd=worktree
@@ -556,6 +557,7 @@ def _worktree_status(repo_root: Path, worktree: Path, base: str) -> dict[str, An
         "dirty": dirty,
         "ahead": ahead,
         "behind": behind,
+        "status_lookup_failed": status_lookup_failed,
     }
 
 
@@ -1229,6 +1231,7 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
     removed = 0
     archived = 0
     skipped_unmerged = 0
+    skipped_dirty_worktree = 0
     failed_worktree_removals = 0
     failed_branch_deletions = 0
     failed_archives = 0
@@ -1270,6 +1273,19 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
                     "branch": branch,
                     "path": str(path),
                     "status": "skipped_grace",
+                    "lifecycle_state": metadata["lifecycle_state"],
+                }
+            )
+            continue
+        if metadata["dirty"]:
+            kept.append(session)
+            skipped_dirty_worktree += 1
+            results.append(
+                {
+                    "session_id": session["session_id"],
+                    "branch": branch,
+                    "path": str(path),
+                    "status": "skipped_dirty_worktree",
                     "lifecycle_state": metadata["lifecycle_state"],
                 }
             )
@@ -1350,6 +1366,7 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
         "archived": archived,
         "kept": len(kept),
         "skipped_unmerged": skipped_unmerged,
+        "skipped_dirty_worktree": skipped_dirty_worktree,
         "skipped_active_session": skipped_active_session,
         "skipped_grace": skipped_grace,
         "failed_archives": failed_archives,
@@ -1364,6 +1381,7 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
             f"cleanup complete: removed={removed} kept={len(kept)} "
             f"archived={archived} "
             f"skipped_unmerged={skipped_unmerged} "
+            f"skipped_dirty_worktree={skipped_dirty_worktree} "
             f"skipped_active_session={skipped_active_session} "
             f"skipped_grace={skipped_grace} "
             f"failed_archives={failed_archives} "

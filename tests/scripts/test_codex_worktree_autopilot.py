@@ -192,6 +192,45 @@ def test_maintain_parser_defaults_to_ff_only_strategy():
     assert args.strategy == "ff-only"
 
 
+def test_worktree_status_treats_status_failure_as_dirty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+
+    def _run_git(
+        _repo_root: Path, *args: str, **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:2] == ("status", "--porcelain"):
+            return subprocess.CompletedProcess(
+                args=("git", *args),
+                returncode=128,
+                stdout="",
+                stderr="fatal: status unavailable",
+            )
+        if args[:3] == ("rev-list", "--left-right", "--count"):
+            return subprocess.CompletedProcess(
+                args=("git", *args),
+                returncode=0,
+                stdout="0 0\n",
+                stderr="",
+            )
+        raise AssertionError(f"unexpected git args: {args}")
+
+    monkeypatch.setattr(mod, "_run_git", _run_git)
+
+    status = mod._worktree_status(repo_root, worktree, "main")
+
+    assert status["dirty"] is True
+    assert status["status_lookup_failed"] is True
+    assert status["ahead"] == 0
+    assert status["behind"] == 0
+
+
 def test_parse_ts_normalizes_naive_timestamp_to_utc():
     import codex_worktree_autopilot as mod
 
@@ -569,6 +608,97 @@ def test_cmd_cleanup_keeps_session_when_worktree_remove_fails(
     assert payload["failed_worktree_removals"] == 1
     assert payload["failed_branch_deletions"] == 0
     assert len(saved_state["sessions"]) == 1
+
+
+def test_cmd_cleanup_keeps_dirty_worktree_without_removal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    dirty_path = tmp_path / "dirty-wt"
+    dirty_path.mkdir()
+    state = {
+        "sessions": [
+            {
+                "session_id": "s-dirty",
+                "agent": "codex",
+                "branch": "codex/s-dirty",
+                "path": str(dirty_path),
+                "created_at": "2026-02-01T00:00:00+00:00",
+            }
+        ]
+    }
+    saved_state: dict[str, object] = {}
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.WorktreeEntry(path=dirty_path, branch="codex/s-dirty")],
+    )
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(mod, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(
+        mod,
+        "_lease_snapshot",
+        lambda *_args, **_kwargs: {
+            "lease_id": None,
+            "lease_status": None,
+            "last_heartbeat_at": None,
+            "lease_expires_at": None,
+            "owner_agent": None,
+            "owner_session_id": None,
+            "branch": None,
+            "title": None,
+            "has_live_lease": False,
+        },
+    )
+    monkeypatch.setattr(mod, "_worktree_status", lambda *_args, **_kwargs: {"dirty": True})
+    monkeypatch.setattr(mod, "_branch_ahead_count", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(
+        mod,
+        "_archive_session",
+        lambda *_args, **_kwargs: pytest.fail("dirty sessions must not be archived"),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_remove_worktree",
+        lambda *_args, **_kwargs: pytest.fail("dirty worktrees must not be removed"),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_run_git",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git", "worktree", "prune"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        base="main",
+        ttl_hours=0,
+        force_unmerged=False,
+        delete_branches=True,
+        json=True,
+    )
+    rc = mod.cmd_cleanup(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["removed"] == 0
+    assert payload["kept"] == 1
+    assert payload["skipped_dirty_worktree"] == 1
+    assert payload["results"][0]["status"] == "skipped_dirty_worktree"
+    assert saved_state["sessions"] == state["sessions"]
 
 
 def test_cmd_cleanup_reports_failed_branch_deletions(
