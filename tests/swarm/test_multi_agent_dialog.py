@@ -656,3 +656,33 @@ class TestSentinelExports:
         # they can't be confused with real exit codes 0..255.
         assert RC_BINARY_NOT_FOUND < 0
         assert RC_DISPATCH_ERROR < 0
+
+
+# --------------------------------------------------------------------- #
+# Phase D follow-up: heterogeneous-review regression tests              #
+# --------------------------------------------------------------------- #
+#
+# These cover the two real findings from the 6-model panel review of
+# Phase C: codex (truncation overshoot) and claude-opus (DoS amplifier
+# from running ANSI strip *before* truncation).
+
+
+class TestTruncateOutputPhaseD:
+    def test_truncated_output_total_bytes_under_cap(self) -> None:
+        big = "x" * (MAX_OUTPUT_BYTES + 1000)
+        out = _truncate_output(big)
+        # The total persisted bytes (including sentinel) must not
+        # exceed the cap — codex's Phase D finding.
+        assert len(out.encode("utf-8")) <= MAX_OUTPUT_BYTES
+
+    def test_truncated_output_sentinel_still_present(self) -> None:
+        big = "x" * (MAX_OUTPUT_BYTES + 1000)
+        out = _truncate_output(big)
+        assert "[TRUNCATED:" in out
+        assert "original" in out
+
+    def test_truncated_output_with_small_cap(self) -> None:
+        # Sanity: a tiny cap doesn't crash on the sentinel-budget edge
+        # case (sentinel bytes >= max_bytes).
+        out = _truncate_output("hello world", max_bytes=5)
+        assert "[TRUNCATED:" in out

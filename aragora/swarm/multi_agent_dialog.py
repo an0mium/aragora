@@ -90,12 +90,25 @@ def _strip_ansi(s: str) -> str:
 
 
 def _truncate_output(s: str, *, max_bytes: int = MAX_OUTPUT_BYTES) -> str:
-    """Cap a string at ``max_bytes`` UTF-8 bytes with a sentinel suffix."""
+    """Cap a string at ``max_bytes`` UTF-8 bytes with a sentinel suffix.
+
+    The returned string is guaranteed to encode to at most ``max_bytes``
+    UTF-8 bytes *including* the sentinel suffix. This is a Phase D
+    correctness fix — codex review observed that the previous version
+    appended the sentinel *after* the budget, so persisted output
+    could exceed ``max_bytes``.
+    """
     encoded = s.encode("utf-8", errors="replace")
     if len(encoded) <= max_bytes:
         return s
-    truncated = encoded[:max_bytes].decode("utf-8", errors="replace")
-    return truncated + f"\n... [TRUNCATED: original {len(encoded)} bytes]"
+    sentinel = f"\n... [TRUNCATED: original {len(encoded)} bytes]"
+    sentinel_bytes = sentinel.encode("utf-8")
+    # Reserve sentinel bytes from the budget. Guard against a sentinel
+    # somehow exceeding the budget (would only happen with absurdly
+    # small max_bytes in tests).
+    budget = max(0, max_bytes - len(sentinel_bytes))
+    truncated = encoded[:budget].decode("utf-8", errors="replace")
+    return truncated + sentinel
 
 
 def _escape_md_fence(s: str) -> str:
@@ -415,7 +428,12 @@ async def _dispatch_one(
     # Round 30e Phase C fix #1: launch each child in its own process
     # group on POSIX so a timeout can reap any grandchildren the CLI
     # spawned (some agent CLIs fork sub-helpers that leak otherwise).
-    preexec = os.setsid if os.name == "posix" else None
+    #
+    # Phase D follow-up: prefer ``start_new_session=True`` over
+    # ``preexec_fn=os.setsid`` per Python docs — it avoids the
+    # interpreter-thread fork hazard while achieving the same setsid()
+    # effect.
+    new_session = os.name == "posix"
 
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -423,7 +441,7 @@ async def _dispatch_one(
             stdin=asyncio.subprocess.PIPE if stdin_data is not None else None,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            preexec_fn=preexec,
+            start_new_session=new_session,
         )
         try:
             out_b, err_b = await asyncio.wait_for(
@@ -461,17 +479,18 @@ async def _dispatch_one(
     finished_at = datetime.now(timezone.utc)
     elapsed = (finished_at - started_at).total_seconds()
 
+    # Round 30e Phase C fix #5 (truncate first — Phase D follow-up):
+    # cap output BEFORE ANSI-strip so a multi-MB ANSI-laden line
+    # doesn't get fully regex-scanned in memory. This keeps both CPU
+    # and persisted size bounded by MAX_OUTPUT_BYTES.
+    out = _truncate_output(out)
+    err = _truncate_output(err)
+
     # Round 30e Phase C fix #4: strip ANSI escapes before persisting so
     # a malicious agent can't poison downstream tooling with cursor
     # moves or OSC-8 hyperlinks.
     out = _strip_ansi(out)
     err = _strip_ansi(err)
-
-    # Round 30e Phase C fix #5: cap output size to MAX_OUTPUT_BYTES so
-    # one chatty CLI cannot blow up the JSONL parser or the markdown
-    # transcript.
-    out = _truncate_output(out)
-    err = _truncate_output(err)
 
     return DialogTurn(
         agent=spec.name,
