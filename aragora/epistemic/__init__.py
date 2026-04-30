@@ -86,6 +86,10 @@ from .crux_receipt import (
     crux_receipt_enabled,
     enable_crux_receipt,
 )
+from .gauntlet_crux_bridge import (
+    from_gauntlet_receipt,
+    km_crux_ingestion_enabled,
+)
 from .decay_monitor import DecayReason, DecaySignal, evaluate_unit
 from .executable_claim import (
     ClaimConfidence,
@@ -225,6 +229,8 @@ __all__ = [
     "coherence_monitor_enabled",
     "crux_receipt_enabled",
     "enable_crux_receipt",
+    "from_gauntlet_receipt",
+    "km_crux_ingestion_enabled",
     "enable_epistemic_followup",
     "enable_repair_pipeline",
     "epistemic_followup_enabled",
