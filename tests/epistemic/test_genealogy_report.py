@@ -20,7 +20,9 @@ from aragora.epistemic.genealogy_report import (
 )
 
 
-def _e(kind: str = "decay_signal", eid: str = "e1", ts: str = "2026-04-01T10:00:00Z") -> GenealogyEntry:
+def _e(
+    kind: str = "decay_signal", eid: str = "e1", ts: str = "2026-04-01T10:00:00Z"
+) -> GenealogyEntry:
     return GenealogyEntry(entry_kind=kind, entry_id=eid, checksum="x", timestamp=ts)  # type: ignore[arg-type]
 
 
@@ -74,7 +76,10 @@ def test_flag_off_raises() -> None:
 
 
 def test_require_disabled_passes() -> None:
-    assert build_genealogy_report(["u"], _store({"u": [_e()]}), require_enabled=False).unit_count == 1
+    assert (
+        build_genealogy_report(["u"], _store({"u": [_e()]}), require_enabled=False).unit_count == 1
+    )
+
 
 # -- build_genealogy_report: content --
 
@@ -82,11 +87,13 @@ def test_require_disabled_passes() -> None:
 def test_multiple_units_sorted_by_id() -> None:
     r = build_genealogy_report(
         ["u.beta", "u.alpha", "u.gamma"],
-        _store({
-            "u.beta": [_e(eid="b")],
-            "u.alpha": [_e(eid="a1"), _e(eid="a2", ts="2026-04-02T00:00:00Z")],
-            "u.gamma": [],
-        }),
+        _store(
+            {
+                "u.beta": [_e(eid="b")],
+                "u.alpha": [_e(eid="a1"), _e(eid="a2", ts="2026-04-02T00:00:00Z")],
+                "u.gamma": [],
+            }
+        ),
         require_enabled=False,
     )
     assert [s.code_unit_id for s in r.summaries] == ["u.alpha", "u.beta", "u.gamma"]
@@ -104,12 +111,17 @@ def test_unknown_unit_empty_summary() -> None:
 def _multi() -> GenealogyReport:
     return build_genealogy_report(
         ["u.a", "u.b", "u.c"],
-        _store({
-            "u.a": [_e("decay_signal", "d1"), _e("decay_signal", "d2", "2026-04-02T00:00:00Z"),
-                    _e("crux_receipt", "c1", "2026-04-03T00:00:00Z")],
-            "u.b": [_e("repair_proposal", "r1")],
-            "u.c": [],
-        }),
+        _store(
+            {
+                "u.a": [
+                    _e("decay_signal", "d1"),
+                    _e("decay_signal", "d2", "2026-04-02T00:00:00Z"),
+                    _e("crux_receipt", "c1", "2026-04-03T00:00:00Z"),
+                ],
+                "u.b": [_e("repair_proposal", "r1")],
+                "u.c": [],
+            }
+        ),
         require_enabled=False,
     )
 
@@ -137,7 +149,14 @@ def test_to_dict_structure() -> None:
 def test_init_all_contains_genealogy_symbols() -> None:
     init_path = __file__.split("tests/epistemic/")[0] + "aragora/epistemic/__init__.py"
     source = open(init_path).read()
-    for sym in ("GenealogyReport", "GenealogyUnitSummary", "build_genealogy_report",
-                "CodeUnitGenealogy", "GenealogyEntry", "GenealogyStore",
-                "InMemoryGenealogyStore", "get_genealogy"):
+    for sym in (
+        "GenealogyReport",
+        "GenealogyUnitSummary",
+        "build_genealogy_report",
+        "CodeUnitGenealogy",
+        "GenealogyEntry",
+        "GenealogyStore",
+        "InMemoryGenealogyStore",
+        "get_genealogy",
+    ):
         assert f'"{sym}"' in source, f"{sym!r} missing from aragora.epistemic.__all__"
