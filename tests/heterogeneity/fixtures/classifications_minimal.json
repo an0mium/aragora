@@ -1,0 +1,17 @@
+{
+  "judge_model": "external-judge-fixture",
+  "panel_models": ["claude-opus", "claude-sonnet", "codex", "droid-gpt5", "droid-gemini", "droid-kimi"],
+  "results": [
+    {
+      "prompt_id": "cn_01_invalidation_signals",
+      "classifications": [
+        {"agent": "claude-opus", "verdict": "missed", "rationale": "clean prompt"},
+        {"agent": "claude-sonnet", "verdict": "missed", "rationale": "clean prompt"},
+        {"agent": "codex", "verdict": "missed", "rationale": "clean prompt"},
+        {"agent": "droid-gpt5", "verdict": "missed", "rationale": "clean prompt"},
+        {"agent": "droid-gemini", "verdict": "missed", "rationale": "clean prompt"},
+        {"agent": "droid-kimi", "verdict": "missed", "rationale": "clean prompt"}
+      ]
+    }
+  ]
+}
