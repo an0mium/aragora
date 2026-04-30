@@ -48,6 +48,15 @@ DEFAULT_PANEL_MODELS = (
     "droid-gemini",
     "droid-kimi",
 )
+VALID_CLASSIFICATION_VERDICTS = frozenset(
+    {
+        "flagged_correctly",
+        "flagged_wrongly",
+        "missed",
+        "ambiguous",
+        "dispatch_failed",
+    }
+)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -152,16 +161,22 @@ def _results_from_classifications_file(
 
     prompts_by_id = {prompt.prompt_id: prompt for prompt in prompts}
     results: list[PromptProbeResult] = []
+    seen_prompt_ids: set[str] = set()
+    panel_model_set = set(panel_models)
     for raw_result in raw_results:
         if not isinstance(raw_result, dict):
             raise ValueError("each classifications result must be an object")
         prompt_id = raw_result.get("prompt_id")
         if not isinstance(prompt_id, str) or prompt_id not in prompts_by_id:
             raise ValueError(f"unknown prompt_id in classifications file: {prompt_id!r}")
+        if prompt_id in seen_prompt_ids:
+            raise ValueError(f"duplicate prompt_id in classifications file: {prompt_id}")
+        seen_prompt_ids.add(prompt_id)
         raw_classifications = raw_result.get("classifications")
         if not isinstance(raw_classifications, list):
             raise ValueError(f"{prompt_id}: classifications must be a list")
         classifications: list[PanelistClassification] = []
+        seen_agents: set[str] = set()
         for raw_classification in raw_classifications:
             if not isinstance(raw_classification, dict):
                 raise ValueError(f"{prompt_id}: classification entries must be objects")
@@ -170,8 +185,15 @@ def _results_from_classifications_file(
             rationale = raw_classification.get("rationale", "")
             if not isinstance(agent, str) or not agent:
                 raise ValueError(f"{prompt_id}: classification agent must be a non-empty string")
+            if agent not in panel_model_set:
+                raise ValueError(f"{prompt_id}: classification agent not in panel_models: {agent}")
+            if agent in seen_agents:
+                raise ValueError(f"{prompt_id}: duplicate classification agent: {agent}")
+            seen_agents.add(agent)
             if not isinstance(verdict, str):
                 raise ValueError(f"{prompt_id}: classification verdict must be a string")
+            if verdict not in VALID_CLASSIFICATION_VERDICTS:
+                raise ValueError(f"{prompt_id}: unknown classification verdict: {verdict}")
             if not isinstance(rationale, str):
                 raise ValueError(f"{prompt_id}: classification rationale must be a string")
             classifications.append(
@@ -181,7 +203,20 @@ def _results_from_classifications_file(
                     rationale=rationale,
                 )
             )
+        missing_agents = [agent for agent in panel_models if agent not in seen_agents]
+        if missing_agents:
+            raise ValueError(
+                f"{prompt_id}: missing classifications for panel_models: "
+                + ", ".join(missing_agents)
+            )
         results.append(PromptProbeResult.from_prompt(prompts_by_id[prompt_id], classifications))
+    missing_prompt_ids = [
+        prompt.prompt_id for prompt in prompts if prompt.prompt_id not in seen_prompt_ids
+    ]
+    if missing_prompt_ids:
+        raise ValueError(
+            "classifications file missing results for prompt_ids: " + ", ".join(missing_prompt_ids)
+        )
     return results, panel_models, judge_model
 
 

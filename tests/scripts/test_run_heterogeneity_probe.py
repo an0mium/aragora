@@ -74,3 +74,54 @@ def test_probe_script_writes_receipt_from_classifications_file(tmp_path) -> None
     assert receipt["judge_model"] == "external-judge-fixture"
     assert receipt["verdict"] == "insufficient_pilot"
     assert "external judged classifications" in receipt["scope_caveats"][0]
+
+
+def test_probe_script_rejects_duplicate_classification_agents(tmp_path) -> None:
+    classifications_file = tmp_path / "classifications.json"
+    classifications_file.write_text(
+        json.dumps(
+            {
+                "judge_model": "duplicate-repro",
+                "panel_models": ["solo"],
+                "results": [
+                    {
+                        "prompt_id": "sse_01_revert_window_off_by_one",
+                        "classifications": [
+                            {
+                                "agent": "solo",
+                                "verdict": "flagged_correctly",
+                                "rationale": "first",
+                            },
+                            {
+                                "agent": "solo",
+                                "verdict": "flagged_correctly",
+                                "rationale": "duplicate",
+                            },
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--classifications-file",
+            str(classifications_file),
+            "--output-root",
+            str(tmp_path / "out"),
+            "--run-id",
+            "duplicate-repro",
+            "--json",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 1
+    assert "duplicate classification agent: solo" in proc.stderr
