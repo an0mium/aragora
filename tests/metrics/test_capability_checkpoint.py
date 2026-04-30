@@ -77,8 +77,9 @@ def test_checkpoints_sorted_by_code() -> None:
 
 
 def test_unknown_code_raises() -> None:
+    small = CheckpointRegistry([build_default_registry().checkpoint(CheckpointCode.CP1)])
     with pytest.raises(CheckpointRegistryError):
-        build_default_registry().checkpoint(CheckpointCode("CP-9"))  # type: ignore[arg-type]
+        small.checkpoint(CheckpointCode.CP2)
 
 
 # ---------------------------------------------------------------------------
