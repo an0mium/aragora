@@ -20,7 +20,7 @@ Every automation should start from live repo evidence, not prior narration:
 3. Run the relevant local status command before choosing a lane:
    - `python3 scripts/check_codex_desktop_automations.py --json --summary-only`
    - `python3 scripts/audit_codex_branch_backlog.py --max-branches 200 --json --summary-only --outbox-dir /Users/armand/Development/aragora/.aragora/automation-outbox --receipt-dir /Users/armand/Development/aragora/.aragora/automation-receipts`
-   - `python3 scripts/agent_bridge.py operator-snapshot --json`
+   - `python3 scripts/agent_bridge.py operator-snapshot --json --summary-only` for gating, or omit `--summary-only` when detailed session context is needed.
 4. Treat sandboxed GitHub failure as expected. Use local git, shared outbox files, and receipts as the primary automation substrate.
 
 ## Writer Lanes

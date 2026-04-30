@@ -15,7 +15,7 @@ Usage:
   python3 scripts/agent_bridge.py lanes [--json]
   python3 scripts/agent_bridge.py tmux-map
   python3 scripts/agent_bridge.py health [--json]
-  python3 scripts/agent_bridge.py operator-snapshot [--json]
+  python3 scripts/agent_bridge.py operator-snapshot [--json] [--summary-only]
 """
 
 from __future__ import annotations
@@ -819,8 +819,10 @@ def cmd_health(args: argparse.Namespace) -> int:
 
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
+    summary_only = bool(getattr(args, "summary_only", False))
     sessions = discover()
-    _enrich_prs(sessions)
+    if not summary_only:
+        _enrich_prs(sessions)
     _write_session_snapshot(sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
 
@@ -840,6 +842,10 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
             "health_issues": len(issues),
         },
     }
+    if summary_only:
+        snapshot.pop("sessions")
+        snapshot.pop("lanes")
+        snapshot["records_omitted"] = True
 
     if args.json:
         print(json.dumps(snapshot, indent=2))
@@ -855,7 +861,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
     print(f"Health:   {health_status}")
 
-    if sessions:
+    if sessions and not summary_only:
         print(f"\n{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY")
         print("-" * 110)
         for s in sessions:
@@ -863,7 +869,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
             summary_text = (s.summary[:40] + "..." if len(s.summary) > 40 else s.summary) or "-"
             print(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary_text}")
 
-    if records:
+    if records and not summary_only:
         print(f"\n{'LANE':<22} {'OWNER':<24} {'STATUS':<10} NEXT ACTION")
         print("-" * 90)
         for r in records:
@@ -979,10 +985,15 @@ def main() -> int:
     sub.add_parser(
         "health", parents=[json_parent], help="Check for stale worktrees and lane conflicts"
     )
-    sub.add_parser(
+    operator_snapshot_p = sub.add_parser(
         "operator-snapshot",
         parents=[json_parent],
         help="Unified operator snapshot (sessions + lanes + health)",
+    )
+    operator_snapshot_p.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Omit session and lane records from output for compact automation checks.",
     )
 
     args = parser.parse_args()
