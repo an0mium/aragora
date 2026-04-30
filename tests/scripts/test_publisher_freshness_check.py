@@ -191,3 +191,92 @@ def test_main_exit_zero_on_degraded_without_flag(
     monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (False, "not loaded"))
     rc = mod.main(["--repo", str(stub_repo)])
     assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# Drift-suppression on stale cache (Round 2026-04-30b Phase E)
+# ---------------------------------------------------------------------------
+
+
+def test_stale_cache_with_count_disagreement_does_not_double_flag_drift(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path
+) -> None:
+    """A stale cache will *necessarily* disagree with the live outbox.
+
+    Previously this surfaced both "cache: stale" and "drift: outbox=N cache=M"
+    as separate blockers, double-flagging the same root cause. After the
+    Phase E fix the drift signal is suppressed when the cache is already
+    flagged stale; only "cache: stale" remains as the blocker.
+
+    The raw ``outbox_drift`` field on the report is still True so consumers
+    that want the unfiltered observability signal can still see it.
+    """
+    cache = _write_cache(stub_repo, outbox_count=20)
+    _write_outbox_files(stub_repo, 17)  # real count != cache count
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded"))
+    # Cache is 4 hours stale at default 1800s threshold.
+    now = cache.stat().st_mtime + 4 * 3600
+    report = mod.evaluate(stub_repo, now=now, stale_threshold_seconds=1800)
+
+    # Cache is stale.
+    assert report.cache_stale is True
+    cache_blockers = [b for b in report.blockers if b.startswith("cache:")]
+    assert cache_blockers and "stale" in cache_blockers[0]
+
+    # Drift is NOT a blocker (suppressed because cache is stale).
+    drift_blockers = [b for b in report.blockers if b.startswith("drift:")]
+    assert drift_blockers == [], (
+        f"drift should be suppressed when cache is stale; got {drift_blockers}"
+    )
+
+    # But raw observability fields are preserved.
+    assert report.outbox_drift is True
+    assert report.outbox_real_count == 17
+    assert report.outbox_cache_count == 20
+    assert report.drift_detail == "outbox=17 cache=20"
+
+    # Verdict is "warming" not "degraded" — operator action is just
+    # waiting for the next publisher cycle, which is exactly what
+    # `warming` semantics communicate.
+    assert report.verdict == "warming"
+
+
+def test_fresh_cache_with_count_disagreement_still_flags_drift(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path
+) -> None:
+    """Drift signal is meaningful only when the cache is fresh.
+
+    Confirms the inverse of the suppression rule: when the cache is fresh
+    AND counts disagree, drift IS a real blocker (the publisher wrote
+    inconsistent data).
+    """
+    cache = _write_cache(stub_repo, outbox_count=2)
+    _write_outbox_files(stub_repo, 5)
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded"))
+    # Cache is 60s old → fresh at default 1800s threshold.
+    now = cache.stat().st_mtime + 60
+    report = mod.evaluate(stub_repo, now=now, stale_threshold_seconds=1800)
+
+    assert report.cache_stale is False
+    assert report.outbox_drift is True
+    drift_blockers = [b for b in report.blockers if b.startswith("drift:")]
+    assert drift_blockers == ["drift: outbox=5 cache=2"]
+    assert report.verdict == "degraded"
+
+
+def test_stale_cache_with_matching_counts_warming_only(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path
+) -> None:
+    """Sanity: stale cache without drift is still 'warming', not 'degraded'.
+
+    Companion to the existing ``test_warming_label_when_loaded_no_drift_but_cache_just_stale``;
+    this version also exercises the new suppression code path at the same time.
+    """
+    cache = _write_cache(stub_repo, outbox_count=3)
+    _write_outbox_files(stub_repo, 3)
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded"))
+    now = cache.stat().st_mtime + 4 * 3600
+    report = mod.evaluate(stub_repo, now=now, stale_threshold_seconds=1800)
+    assert report.cache_stale is True
+    assert report.outbox_drift is False
+    assert report.verdict == "warming"

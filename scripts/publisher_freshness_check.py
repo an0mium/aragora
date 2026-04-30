@@ -137,6 +137,13 @@ def evaluate(
 
     outbox_real = _count_outbox_files(outbox_dir)
     outbox_cache = _read_cache_outbox_count(cache_path) if cache_present else None
+    # A stale cache will *necessarily* disagree with the live outbox (the
+    # outbox has changed since the snapshot was taken). Reporting drift in
+    # that case is double-flagging: ``cache: Nh stale`` already explains the
+    # disagreement. Only treat drift as a real signal when the cache is
+    # fresh and the counts still don't match — that is the actual operator-
+    # actionable case (e.g. publisher writing the wrong count).
+    drift_meaningful = outbox_cache is not None and outbox_cache != outbox_real and not cache_stale
     drift = outbox_cache is not None and outbox_cache != outbox_real
     if outbox_cache is None:
         drift_detail = f"outbox={outbox_real} cache=missing"
@@ -152,12 +159,15 @@ def evaluate(
         blockers.append("cache: missing")
     elif cache_stale:
         blockers.append(f"cache: {_human_age(cache_age)} stale")
-    if drift:
+    if drift_meaningful:
         blockers.append(f"drift: {drift_detail}")
 
     if not blockers:
         verdict = "ready"
-    elif loaded and not drift:
+    elif loaded and not drift_meaningful:
+        # cache-stale alone (without meaningful drift) is "warming": the
+        # next publisher run will refresh the cache and the operator
+        # signal will resolve without intervention.
         verdict = "warming"
     else:
         verdict = "degraded"
