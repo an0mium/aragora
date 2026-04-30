@@ -281,16 +281,30 @@ _FAKE_PROBE = {
 }
 
 
+# Sentinel for distinguishing "use the default fake probe" from "explicitly
+# pass this value (including None)". Without this, ``probe_result or dict(_FAKE_PROBE)``
+# short-circuited the ``probe_result=None`` case to the fake dict, making
+# ``test_skipped_when_attempt_returns_none`` impossible to express truthfully.
+_NO_PROBE_OVERRIDE: object = object()
+
+
 def _probe_event(
     signal: DecaySignal | None = None,
     *,
-    probe_result: dict | None = None,
+    probe_result: dict | None | object = _NO_PROBE_OVERRIDE,
     extra_metadata: dict | None = None,
     question: str = "Is the proof still valid?",
 ) -> DialecticalEvent:
     import aragora.epistemic.runtime_loop as _m
 
-    with patch.object(_m, "_attempt_crux_probe", return_value=probe_result or dict(_FAKE_PROBE)):
+    if probe_result is _NO_PROBE_OVERRIDE:
+        patched_return: dict | None = dict(_FAKE_PROBE)
+    else:
+        # Explicit override (including ``probe_result=None``) is passed through
+        # verbatim so callers can assert behaviour when the patched probe
+        # returns ``None``.
+        patched_return = probe_result  # type: ignore[assignment]
+    with patch.object(_m, "_attempt_crux_probe", return_value=patched_return):
         return run_dialectical_loop(
             signal or _signal(),
             enable_crux_probe=True,
