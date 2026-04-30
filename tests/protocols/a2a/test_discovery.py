@@ -94,7 +94,14 @@ def test_capability_to_dict_and_frozen(monkeypatch):
     monkeypatch.setenv("ARAGORA_A2A_DISCOVERY_ENABLED", "1")
     cap = platform_catalog()[0]
     d = cap.to_dict()
-    assert set(d) >= {"capability_id", "name", "description", "schema_version", "category", "flag_required"}
+    assert set(d) >= {
+        "capability_id",
+        "name",
+        "description",
+        "schema_version",
+        "category",
+        "flag_required",
+    }
     with pytest.raises((AttributeError, TypeError)):
         cap.name = "bad"  # type: ignore[misc]
 

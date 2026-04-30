@@ -139,7 +139,9 @@ _PLATFORM_CAPABILITIES: list[PlatformCapability] = [
 ]
 
 
-def platform_catalog(*, category: str | None = None, require_enabled: bool = True) -> list[PlatformCapability]:
+def platform_catalog(
+    *, category: str | None = None, require_enabled: bool = True
+) -> list[PlatformCapability]:
     """Return platform capabilities sorted by ``capability_id``.
 
     ``category`` filters to one group; ``None`` returns all.
@@ -147,11 +149,17 @@ def platform_catalog(*, category: str | None = None, require_enabled: bool = Tru
     """
     if require_enabled:
         _require_enabled()
-    caps = _PLATFORM_CAPABILITIES if category is None else [c for c in _PLATFORM_CAPABILITIES if c.category == category]
+    caps = (
+        _PLATFORM_CAPABILITIES
+        if category is None
+        else [c for c in _PLATFORM_CAPABILITIES if c.category == category]
+    )
     return sorted(caps, key=lambda c: c.capability_id)
 
 
-def agent_catalog(agent_id: str, *, server: Any = None, require_enabled: bool = True) -> AgentCapabilitySummary:
+def agent_catalog(
+    agent_id: str, *, server: Any = None, require_enabled: bool = True
+) -> AgentCapabilitySummary:
     """Return the capability summary for a registered agent.
 
     Returns an empty summary when the agent is unknown or ``server`` is ``None``.
