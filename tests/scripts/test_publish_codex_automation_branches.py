@@ -765,6 +765,8 @@ def test_main_pauses_apply_when_open_codex_queue_is_unhealthy(
     assert publish_called is False
     out = capsys.readouterr().out
     assert '"publish_paused_reason": "open_pr_queue_unhealthy"' in out
+    assert '"unhealthy_open_prs": [' in out
+    assert '"headRefName": "codex/b"' in out
 
 
 def test_main_can_override_unhealthy_queue_pause_for_preflighted_branch(
@@ -922,8 +924,39 @@ def test_review_required_inflight_pr_does_not_pause_for_pending_or_advisory_canc
                 "statusCheckRollup": [
                     {"conclusion": "CANCELLED", "workflowName": "Metrics Drift"},
                     {"conclusion": "CANCELLED", "workflowName": "Module Tier Drift"},
+                    {
+                        "conclusion": "CANCELLED",
+                        "workflowName": "PR Admission Controller",
+                        "name": "PR Admission Signal (Advisory)",
+                    },
                     {"status": "IN_PROGRESS", "workflowName": "Tests"},
                     {"status": "QUEUED", "workflowName": "Aragora Code Review"},
+                ],
+            }
+        )
+        is False
+    )
+
+
+def test_review_required_pr_ignores_superseded_cancelled_check() -> None:
+    assert (
+        mod._open_codex_pr_is_unhealthy(
+            {
+                "headRefName": "codex/superseded-cancel",
+                "isDraft": False,
+                "mergeStateStatus": "BLOCKED",
+                "reviewDecision": "REVIEW_REQUIRED",
+                "statusCheckRollup": [
+                    {
+                        "conclusion": "CANCELLED",
+                        "workflowName": "Tests",
+                        "name": "Baseline Determinism",
+                    },
+                    {
+                        "conclusion": "SUCCESS",
+                        "workflowName": "Tests",
+                        "name": "Baseline Determinism",
+                    },
                 ],
             }
         )

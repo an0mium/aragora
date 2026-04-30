@@ -38,6 +38,45 @@ def _stub_git_inventory(monkeypatch: Any, row: dict[str, str]) -> None:
     monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
 
 
+def test_local_branches_defers_expensive_divergence_lookup(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_git(
+        args: list[str], cwd: Path, *, timeout: int = 60
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="codex/example||abc1234|2026-04-30 00:00:00 +0000|test branch\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    rows = mod.local_branches(tmp_path, "codex/", "origin/main")
+
+    assert "%(ahead-behind:" not in calls[0][1]
+    assert rows[0]["ahead_count"] == ""
+    assert rows[0]["behind_count"] == ""
+
+
+def test_branch_divergence_parses_rev_list_left_right_counts(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    def fake_run_git(
+        args: list[str], cwd: Path, *, timeout: int = 60
+    ) -> subprocess.CompletedProcess[str]:
+        assert args == ["rev-list", "--left-right", "--count", "origin/main...codex/example"]
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="3\t7\n", stderr="")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.branch_divergence(tmp_path, "origin/main", "codex/example") == (7, 3)
+
+
 def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     payload = {
         "branch_count": 2,
