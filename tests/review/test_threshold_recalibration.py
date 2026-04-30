@@ -10,13 +10,17 @@ import pytest
 
 from aragora.review import (
     DEFAULT_THRESHOLD_RECEIPT_DIR,
+    INSUFFICIENCY_RECEIPT_SCHEMA_VERSION,
     THRESHOLD_UPDATE_RECEIPT_SCHEMA_VERSION,
+    InsufficiencyReceipt,
     INVALIDATION_REVERT_WITHIN_WINDOW,
     InvalidationRecalibrationSample,
     InvalidatedDecision,
     ThresholdRecalibrationScheduler,
     ThresholdUpdateReceipt,
+    compute_insufficiency_receipt_id,
     compute_threshold_update_receipt_id,
+    write_recalibration_receipt,
     write_threshold_update_receipt,
 )
 
@@ -65,6 +69,50 @@ def test_scheduler_emits_placeholder_receipt_below_sample_floor() -> None:
     assert payload["baseline"]["human_rate_ci"]["low"] is not None
     assert payload["threshold"]["derived"] == pytest.approx(0.05)
     assert payload["prior"] == {"threshold": None, "baseline_human_rate": None}
+
+
+def test_scheduler_emits_insufficiency_receipt_below_sample_floor() -> None:
+    now = datetime(2026, 4, 25, 12, 0, tzinfo=UTC)
+    scheduler = ThresholdRecalibrationScheduler(min_samples=50)
+    sample = InvalidationRecalibrationSample(
+        total_human_settled=10,
+        total_auto_handled=0,
+        source_name="fake-event-source",
+        source_version="test",
+    )
+
+    receipt = scheduler.run_receipt_from_sample(sample, now=now)
+
+    assert isinstance(receipt, InsufficiencyReceipt)
+    assert receipt.schema_version == INSUFFICIENCY_RECEIPT_SCHEMA_VERSION
+    assert receipt.sample_count == 10
+    assert receipt.additional_dispatches_needed == 40
+    assert "below_min_human_settled" in receipt.insufficiency_reasons
+    assert "placeholder_threshold" in receipt.insufficiency_reasons
+    payload = receipt.to_dict()
+    assert payload["insufficiency"]["additional_dispatches_needed"] == 40
+    assert payload["proposal"]["is_placeholder"] is True
+
+
+def test_scheduler_emits_insufficiency_receipt_for_schema_gap_even_above_floor() -> None:
+    now = datetime(2026, 4, 25, 12, 0, tzinfo=UTC)
+    scheduler = ThresholdRecalibrationScheduler(min_samples=50)
+    sample = InvalidationRecalibrationSample(
+        total_human_settled=60,
+        total_auto_handled=0,
+        source_name="fake-event-source",
+        source_version="test",
+        notes={"human_invalidations_source": "future receipt fields absent"},
+    )
+
+    receipt = scheduler.run_receipt_from_sample(sample, now=now)
+
+    assert isinstance(receipt, InsufficiencyReceipt)
+    assert receipt.proposal.is_placeholder is False
+    assert receipt.proposal.threshold == pytest.approx(0.01)
+    assert receipt.additional_dispatches_needed == 0
+    assert receipt.insufficiency_reasons == ("schema_gap_human_numerator",)
+    assert receipt.notes["human_invalidations_source"] == "future receipt fields absent"
 
 
 def test_scheduler_derives_threshold_and_deltas_from_previous_receipt() -> None:
@@ -128,6 +176,22 @@ def test_receipt_id_is_stable_and_excludes_receipt_id() -> None:
     assert compute_threshold_update_receipt_id(tampered) == receipt_a.receipt_id
 
 
+def test_insufficiency_receipt_id_is_stable_and_excludes_receipt_id() -> None:
+    now = datetime(2026, 4, 25, 12, 0, tzinfo=UTC)
+    scheduler = ThresholdRecalibrationScheduler(min_samples=50)
+    sample = InvalidationRecalibrationSample(total_human_settled=0, total_auto_handled=0)
+
+    receipt_a = scheduler.run_receipt_from_sample(sample, now=now)
+    receipt_b = scheduler.run_receipt_from_sample(sample, now=now)
+
+    assert isinstance(receipt_a, InsufficiencyReceipt)
+    assert isinstance(receipt_b, InsufficiencyReceipt)
+    assert receipt_a.receipt_id == receipt_b.receipt_id
+    tampered = receipt_a.to_dict()
+    tampered["receipt_id"] = "not-the-real-id"
+    assert compute_insufficiency_receipt_id(tampered) == receipt_a.receipt_id
+
+
 class _FakeEventSource:
     def __init__(self, sample: InvalidationRecalibrationSample) -> None:
         self.sample = sample
@@ -173,6 +237,22 @@ def test_write_threshold_update_receipt_uses_threshold_receipt_dir(tmp_path: Pat
 
     assert path.parent == tmp_path / DEFAULT_THRESHOLD_RECEIPT_DIR
     assert path.name == f"{receipt.receipt_id}.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload == receipt.to_dict()
+
+
+def test_write_recalibration_receipt_handles_insufficiency_receipt(tmp_path: Path) -> None:
+    now = datetime(2026, 4, 25, 12, 0, tzinfo=UTC)
+    scheduler = ThresholdRecalibrationScheduler(min_samples=50)
+    receipt = scheduler.run_receipt_from_sample(
+        InvalidationRecalibrationSample(total_human_settled=0, total_auto_handled=0),
+        now=now,
+    )
+
+    path = write_recalibration_receipt(receipt, repo_root=tmp_path)
+
+    assert isinstance(receipt, InsufficiencyReceipt)
+    assert path.parent == tmp_path / DEFAULT_THRESHOLD_RECEIPT_DIR
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload == receipt.to_dict()
 

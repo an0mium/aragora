@@ -39,16 +39,25 @@ from aragora.review.invalidation import (
 UTC = timezone.utc
 
 THRESHOLD_UPDATE_RECEIPT_SCHEMA_VERSION = "threshold_update_receipt.v1"
+INSUFFICIENCY_RECEIPT_SCHEMA_VERSION = "insufficiency_receipt.v1"
 DEFAULT_THRESHOLD_RECEIPT_DIR = Path(".aragora") / "review-queue" / "thresholds"
+DEFAULT_SUPPORT_TARGETS: tuple[int, ...] = (5126, 5128, 5130)
 
 __all__ = [
     "DEFAULT_THRESHOLD_RECEIPT_DIR",
+    "DEFAULT_SUPPORT_TARGETS",
+    "INSUFFICIENCY_RECEIPT_SCHEMA_VERSION",
     "THRESHOLD_UPDATE_RECEIPT_SCHEMA_VERSION",
+    "InsufficiencyReceipt",
     "InvalidationEventSource",
     "InvalidationRecalibrationSample",
+    "RecalibrationReceipt",
     "ThresholdRecalibrationScheduler",
     "ThresholdUpdateReceipt",
+    "compute_insufficiency_receipt_id",
     "compute_threshold_update_receipt_id",
+    "write_recalibration_receipt",
+    "write_insufficiency_receipt",
     "write_threshold_update_receipt",
 ]
 
@@ -213,6 +222,89 @@ class ThresholdUpdateReceipt:
         return payload
 
 
+@dataclass(frozen=True, slots=True)
+class InsufficiencyReceipt:
+    """Receipt emitted when current data must not update the threshold."""
+
+    receipt_id: str
+    generated_at: datetime
+    source_name: str
+    source_version: str
+    measurement: BaselineMeasurement
+    proposal: ThresholdProposal
+    previous_threshold: float | None = None
+    previous_baseline_human_rate: float | None = None
+    insufficiency_reasons: tuple[str, ...] = ()
+    support_targets: tuple[int, ...] = DEFAULT_SUPPORT_TARGETS
+    additional_dispatches_needed: int = 0
+    notes: Mapping[str, str] = field(default_factory=dict)
+    schema_version: str = INSUFFICIENCY_RECEIPT_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "generated_at", _ensure_utc(self.generated_at))
+        object.__setattr__(self, "insufficiency_reasons", tuple(self.insufficiency_reasons))
+        object.__setattr__(self, "support_targets", tuple(int(x) for x in self.support_targets))
+        object.__setattr__(
+            self, "additional_dispatches_needed", int(self.additional_dispatches_needed)
+        )
+        object.__setattr__(self, "notes", MappingProxyType(dict(self.notes)))
+        if self.schema_version != INSUFFICIENCY_RECEIPT_SCHEMA_VERSION:
+            raise ValueError(
+                "schema_version must be "
+                f"{INSUFFICIENCY_RECEIPT_SCHEMA_VERSION!r}; got {self.schema_version!r}"
+            )
+        if self.additional_dispatches_needed < 0:
+            raise ValueError("additional_dispatches_needed must be non-negative")
+        if not self.insufficiency_reasons:
+            raise ValueError("insufficiency_reasons must not be empty")
+        if (
+            not self.proposal.is_placeholder
+            and "schema_gap_human_numerator" not in self.insufficiency_reasons
+        ):
+            raise ValueError(
+                "InsufficiencyReceipt requires a placeholder proposal unless the "
+                "human invalidation numerator schema gap is the blocking reason"
+            )
+
+    @property
+    def sample_count(self) -> int:
+        return int(self.measurement.total_human_settled)
+
+    def to_dict(self, *, include_receipt_id: bool = True) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "schema_version": self.schema_version,
+            "generated_at": self.generated_at.astimezone(UTC).isoformat(),
+            "source": {
+                "name": self.source_name,
+                "version": self.source_version,
+            },
+            "sample_count": int(self.sample_count),
+            "window": {
+                "start": self.measurement.window_start.astimezone(UTC).isoformat(),
+                "end": self.measurement.window_end.astimezone(UTC).isoformat(),
+                "days": self.measurement.window_days,
+            },
+            "measurement": self.measurement.to_dict(),
+            "proposal": self.proposal.to_dict(),
+            "previous": {
+                "threshold": _float_or_none(self.previous_threshold),
+                "baseline_human_rate": _float_or_none(self.previous_baseline_human_rate),
+            },
+            "insufficiency": {
+                "reasons": list(self.insufficiency_reasons),
+                "support_targets": list(self.support_targets),
+                "additional_dispatches_needed": int(self.additional_dispatches_needed),
+            },
+            "notes": dict(self.notes),
+        }
+        if include_receipt_id:
+            payload["receipt_id"] = self.receipt_id
+        return payload
+
+
+RecalibrationReceipt = ThresholdUpdateReceipt | InsufficiencyReceipt
+
+
 class ThresholdRecalibrationScheduler:
     """Runs one threshold recalibration cycle over a sampled window."""
 
@@ -263,6 +355,32 @@ class ThresholdRecalibrationScheduler:
             now=now,
         )
 
+    def run_receipt_from_source(
+        self,
+        source: InvalidationEventSource,
+        *,
+        previous_receipt: ThresholdUpdateReceipt | None = None,
+        previous_threshold: float | None = None,
+        previous_baseline_human_rate: float | None = None,
+        now: datetime | None = None,
+        support_targets: tuple[int, ...] = DEFAULT_SUPPORT_TARGETS,
+    ) -> RecalibrationReceipt:
+        """Collect a sample and emit either threshold or insufficiency receipt."""
+        now = _ensure_utc(now) if now is not None else datetime.now(UTC)
+        window_start = now - timedelta(days=self.window_days)
+        sample = source.collect_recalibration_sample(
+            window_start=window_start,
+            window_end=now,
+        )
+        return self.run_receipt_from_sample(
+            sample,
+            previous_receipt=previous_receipt,
+            previous_threshold=previous_threshold,
+            previous_baseline_human_rate=previous_baseline_human_rate,
+            now=now,
+            support_targets=support_targets,
+        )
+
     def run_from_sample(
         self,
         sample: InvalidationRecalibrationSample,
@@ -307,6 +425,50 @@ class ThresholdRecalibrationScheduler:
             notes=sample.notes,
         )
 
+    def run_receipt_from_sample(
+        self,
+        sample: InvalidationRecalibrationSample,
+        *,
+        previous_receipt: ThresholdUpdateReceipt | None = None,
+        previous_threshold: float | None = None,
+        previous_baseline_human_rate: float | None = None,
+        now: datetime | None = None,
+        support_targets: tuple[int, ...] = DEFAULT_SUPPORT_TARGETS,
+    ) -> RecalibrationReceipt:
+        """Emit a threshold receipt only when data is sufficient and usable.
+
+        ``run_from_sample()`` remains backward-compatible and always returns the
+        historic ``ThresholdUpdateReceipt`` shape. This method is the Round 30f
+        settlement surface: placeholder proposals, below-floor samples, and
+        known human-numerator schema gaps produce an ``InsufficiencyReceipt``.
+        """
+        threshold_receipt = self.run_from_sample(
+            sample,
+            previous_receipt=previous_receipt,
+            previous_threshold=previous_threshold,
+            previous_baseline_human_rate=previous_baseline_human_rate,
+            now=now,
+        )
+        reasons = _insufficiency_reasons(
+            threshold_receipt.measurement,
+            threshold_receipt.proposal,
+            notes=threshold_receipt.notes,
+        )
+        if not reasons:
+            return threshold_receipt
+        return _build_insufficiency_receipt(
+            generated_at=threshold_receipt.generated_at,
+            source_name=threshold_receipt.source_name,
+            source_version=threshold_receipt.source_version,
+            measurement=threshold_receipt.measurement,
+            proposal=threshold_receipt.proposal,
+            previous_threshold=threshold_receipt.previous_threshold,
+            previous_baseline_human_rate=threshold_receipt.previous_baseline_human_rate,
+            insufficiency_reasons=tuple(reasons),
+            support_targets=support_targets,
+            notes=threshold_receipt.notes,
+        )
+
 
 def compute_threshold_update_receipt_id(payload: Mapping[str, Any]) -> str:
     """Return the stable SHA-256 receipt ID for a receipt payload."""
@@ -319,6 +481,11 @@ def compute_threshold_update_receipt_id(payload: Mapping[str, Any]) -> str:
         ensure_ascii=False,
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def compute_insufficiency_receipt_id(payload: Mapping[str, Any]) -> str:
+    """Return the stable SHA-256 receipt ID for an insufficiency receipt."""
+    return compute_threshold_update_receipt_id(payload)
 
 
 def write_threshold_update_receipt(
@@ -336,6 +503,35 @@ def write_threshold_update_receipt(
         encoding="utf-8",
     )
     return path
+
+
+def write_insufficiency_receipt(
+    receipt: InsufficiencyReceipt,
+    *,
+    repo_root: Path,
+    receipt_dir: Path = DEFAULT_THRESHOLD_RECEIPT_DIR,
+) -> Path:
+    """Write ``receipt`` to ``repo_root / receipt_dir`` and return the path."""
+    directory = repo_root / receipt_dir
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{receipt.receipt_id}.json"
+    path.write_text(
+        json.dumps(receipt.to_dict(), indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    return path
+
+
+def write_recalibration_receipt(
+    receipt: RecalibrationReceipt,
+    *,
+    repo_root: Path,
+    receipt_dir: Path = DEFAULT_THRESHOLD_RECEIPT_DIR,
+) -> Path:
+    """Write either threshold-update or insufficiency receipt."""
+    if isinstance(receipt, InsufficiencyReceipt):
+        return write_insufficiency_receipt(receipt, repo_root=repo_root, receipt_dir=receipt_dir)
+    return write_threshold_update_receipt(receipt, repo_root=repo_root, receipt_dir=receipt_dir)
 
 
 def _build_receipt(
@@ -372,6 +568,81 @@ def _build_receipt(
         previous_baseline_human_rate=previous_baseline_human_rate,
         notes=notes,
     )
+
+
+def _build_insufficiency_receipt(
+    *,
+    generated_at: datetime,
+    source_name: str,
+    source_version: str,
+    measurement: BaselineMeasurement,
+    proposal: ThresholdProposal,
+    previous_threshold: float | None,
+    previous_baseline_human_rate: float | None,
+    insufficiency_reasons: tuple[str, ...],
+    support_targets: tuple[int, ...],
+    notes: Mapping[str, str],
+) -> InsufficiencyReceipt:
+    additional_dispatches_needed = max(
+        0,
+        int(measurement.min_samples_required) - int(measurement.total_human_settled),
+    )
+    enriched_notes = dict(notes)
+    enriched_notes.setdefault(
+        "threshold_action",
+        "docs/THESIS.md threshold replacement remains blocked until a non-insufficient "
+        "threshold_update_receipt.v1 exists and a human author accepts it.",
+    )
+    placeholder = InsufficiencyReceipt(
+        receipt_id="",
+        generated_at=generated_at,
+        source_name=source_name,
+        source_version=source_version,
+        measurement=measurement,
+        proposal=proposal,
+        previous_threshold=previous_threshold,
+        previous_baseline_human_rate=previous_baseline_human_rate,
+        insufficiency_reasons=insufficiency_reasons,
+        support_targets=support_targets,
+        additional_dispatches_needed=additional_dispatches_needed,
+        notes=enriched_notes,
+    )
+    receipt_id = compute_insufficiency_receipt_id(placeholder.to_dict(include_receipt_id=False))
+    return InsufficiencyReceipt(
+        receipt_id=receipt_id,
+        generated_at=generated_at,
+        source_name=source_name,
+        source_version=source_version,
+        measurement=measurement,
+        proposal=proposal,
+        previous_threshold=previous_threshold,
+        previous_baseline_human_rate=previous_baseline_human_rate,
+        insufficiency_reasons=insufficiency_reasons,
+        support_targets=support_targets,
+        additional_dispatches_needed=additional_dispatches_needed,
+        notes=enriched_notes,
+    )
+
+
+def _insufficiency_reasons(
+    measurement: BaselineMeasurement,
+    proposal: ThresholdProposal,
+    *,
+    notes: Mapping[str, str] | None = None,
+) -> list[str]:
+    reasons: list[str] = []
+    notes = notes or {}
+    if measurement.total_human_settled == 0:
+        reasons.append("no_human_settled_in_window")
+    if measurement.total_human_settled + measurement.total_auto_handled == 0:
+        reasons.append("no_decisions_in_window")
+    if measurement.total_human_settled < measurement.min_samples_required:
+        reasons.append("below_min_human_settled")
+    if "human_invalidations_source" in measurement.notes or "human_invalidations_source" in notes:
+        reasons.append("schema_gap_human_numerator")
+    if proposal.is_placeholder and "placeholder_threshold" not in reasons:
+        reasons.append("placeholder_threshold")
+    return reasons
 
 
 def _resolve_previous(

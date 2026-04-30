@@ -70,6 +70,7 @@ from aragora.review.invalidation import (
     InvalidatedDecision,
     compute_baseline,
 )
+from aragora.review.threshold_recalibration import InvalidationRecalibrationSample
 from aragora.triage.auto_handle_calibration import (
     AutoHandleCalibrationStore,
     OUTCOME_HUMAN_OVERRIDE,
@@ -81,6 +82,7 @@ from aragora.triage.auto_handle_calibration import (
 __all__ = [
     "DEFAULT_REVIEW_QUEUE_SUBDIR",
     "RECEIPTS_SUBDIR",
+    "ReviewQueueInvalidationEventSource",
     "iter_invalidations_from_calibration_store",
     "iter_invalidations_from_settlement_receipts",
     "count_decisions_from_settlement_receipts",
@@ -104,6 +106,91 @@ _OUTCOME_TO_SIGNAL: dict[str, str] = {
 }
 
 _FAILURE_OUTCOMES = frozenset(_OUTCOME_TO_SIGNAL.keys())
+
+
+class ReviewQueueInvalidationEventSource:
+    """Protocol adapter for the threshold recalibration scheduler.
+
+    This class keeps the event-source policy in one place: auto-handle
+    calibration rows provide auto-handled numerator + denominator data, while
+    settlement receipts provide the human-settled denominator and only provide
+    human numerator events when explicit future-schema invalidation fields are
+    present.
+    """
+
+    source_name = "aragora.review.invalidation_event_source"
+    source_version = "round30f.v1"
+
+    def __init__(
+        self,
+        *,
+        calibration_store: AutoHandleCalibrationStore,
+        review_queue_root: str | Path | None = None,
+        revert_window_days: int = DEFAULT_REVERT_WINDOW_DAYS,
+    ) -> None:
+        self.calibration_store = calibration_store
+        self.review_queue_root = review_queue_root
+        self.revert_window_days = int(revert_window_days)
+
+    def collect_recalibration_sample(
+        self,
+        *,
+        window_start: datetime,
+        window_end: datetime,
+    ) -> InvalidationRecalibrationSample:
+        """Return denominator + invalidation data for one measurement window."""
+        window_start = _ensure_utc(window_start)
+        window_end = _ensure_utc(window_end)
+        if window_end <= window_start:
+            raise ValueError("window_end must be after window_start")
+        window_days = max(1, int((window_end - window_start).total_seconds() // 86400))
+
+        auto_invalidations = list(
+            iter_invalidations_from_calibration_store(
+                self.calibration_store,
+                window_end=window_end,
+                window_days=window_days,
+            )
+        )
+        auto_total = _count_calibration_decisions_in_window(
+            self.calibration_store,
+            window_end=window_end,
+            window_days=window_days,
+        )
+        human_invalidations = [
+            d
+            for d in iter_invalidations_from_settlement_receipts(
+                store_root=self.review_queue_root,
+                revert_window_days=self.revert_window_days,
+            )
+            if window_start <= d.settled_at <= window_end
+        ]
+        human_total = count_decisions_from_settlement_receipts(
+            store_root=self.review_queue_root,
+            window_end=window_end,
+            window_days=window_days,
+        )
+
+        notes: dict[str, str] = {
+            "human_denominator_source": "review-queue settlement receipts",
+            "auto_handle_source": "auto-handle calibration store",
+        }
+        if not human_invalidations:
+            notes["human_invalidations_source"] = (
+                "settlement-receipt schema does not yet record post-settlement "
+                "invalidation signals by default; human-side numerator is 0 by "
+                "data availability unless future-schema fields are present."
+            )
+
+        return InvalidationRecalibrationSample(
+            invalidations=tuple(auto_invalidations + human_invalidations),
+            total_human_settled=human_total,
+            total_auto_handled=auto_total,
+            source_name=self.source_name,
+            source_version=self.source_version,
+            collected_at=window_end,
+            notes=notes,
+        )
 
 
 # ---------------------------------------------------------------------------

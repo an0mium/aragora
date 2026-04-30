@@ -22,6 +22,7 @@ from aragora.review import (
     InvalidatedDecision,
 )
 from aragora.review.invalidation_event_source import (
+    ReviewQueueInvalidationEventSource,
     count_decisions_from_settlement_receipts,
     iter_invalidations_from_calibration_store,
     iter_invalidations_from_settlement_receipts,
@@ -517,6 +518,33 @@ def test_measure_baseline_rejects_zero_window_days(tmp_path: Path) -> None:
             window_end=datetime.now(UTC),
             window_days=0,
         )
+
+
+def test_review_queue_event_source_collects_scheduler_sample(tmp_path: Path) -> None:
+    store = AutoHandleCalibrationStore(db_path=":memory:")
+    _seed_calibration_store(store, success=5, revert=2)
+
+    receipts = tmp_path / ".aragora" / "review-queue" / "receipts"
+    receipts.mkdir(parents=True)
+    now = datetime.now(UTC)
+    for i in range(3):
+        _write_receipt(receipts, pr_number=i, reviewed_at=now - timedelta(days=1))
+
+    source = ReviewQueueInvalidationEventSource(
+        calibration_store=store,
+        review_queue_root=tmp_path / ".aragora" / "review-queue",
+    )
+
+    sample = source.collect_recalibration_sample(
+        window_start=now - timedelta(days=30),
+        window_end=now,
+    )
+
+    assert sample.source_name == "aragora.review.invalidation_event_source"
+    assert sample.total_human_settled == 3
+    assert sample.total_auto_handled == 7
+    assert len(sample.invalidations) == 2
+    assert "human_invalidations_source" in sample.notes
 
 
 # ---------------------------------------------------------------------------
