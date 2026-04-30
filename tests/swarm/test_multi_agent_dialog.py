@@ -12,6 +12,9 @@ from aragora.swarm.multi_agent_dialog import (
     CLAUDE_FLAGS,
     CODEX_FLAGS,
     DROID_FLAGS,
+    MAX_OUTPUT_BYTES,
+    RC_BINARY_NOT_FOUND,
+    RC_DISPATCH_ERROR,
     AgentSpec,
     DialogRound,
     DialogTurn,
@@ -20,7 +23,12 @@ from aragora.swarm.multi_agent_dialog import (
     run_round_and_persist,
     write_round_jsonl,
     write_transcript_markdown,
+    _atomic_write_text,
     _dispatch_one,
+    _escape_md_fence,
+    _strip_ansi,
+    _truncate_output,
+    _validate_round_id,
 )
 
 
@@ -416,3 +424,235 @@ class TestHeterogeneousPanel:
         for spec in panel:
             if spec.binary != "codex":
                 assert spec.timeout_seconds == 90
+
+
+# --------------------------------------------------------------------- #
+# Round 30e Phase C — gauntlet hardening regression tests              #
+# --------------------------------------------------------------------- #
+
+
+class TestStripAnsi:
+    def test_strip_csi_color(self) -> None:
+        assert _strip_ansi("\x1b[31mred\x1b[0m") == "red"
+
+    def test_strip_osc_hyperlink(self) -> None:
+        # OSC-8 hyperlink: ESC ] 8 ; ; URL ESC \ TEXT ESC ] 8 ; ; ESC \
+        s = "\x1b]8;;https://x\x1b\\link\x1b]8;;\x1b\\"
+        assert _strip_ansi(s) == "link"
+
+    def test_strip_idempotent_on_clean_text(self) -> None:
+        assert _strip_ansi("plain text\nline 2") == "plain text\nline 2"
+
+
+class TestTruncateOutput:
+    def test_truncate_under_limit_passthrough(self) -> None:
+        assert _truncate_output("short") == "short"
+
+    def test_truncate_over_limit_inserts_sentinel(self) -> None:
+        big = "x" * (MAX_OUTPUT_BYTES + 10)
+        out = _truncate_output(big)
+        assert "[TRUNCATED:" in out
+        assert len(out) < len(big) + 100
+
+    def test_truncate_handles_multibyte(self) -> None:
+        # Each emoji is 4 bytes UTF-8; should still truncate cleanly.
+        s = "🦀" * (MAX_OUTPUT_BYTES // 4 + 5)
+        out = _truncate_output(s)
+        assert "[TRUNCATED:" in out
+
+
+class TestEscapeMdFence:
+    def test_escape_at_line_start(self) -> None:
+        # The fence is the very first 3 chars; escape inserts ZWSP.
+        out = _escape_md_fence("```evil")
+        assert out.startswith("\u200b```evil")
+
+    def test_escape_with_indent(self) -> None:
+        out = _escape_md_fence("    ```evil")
+        assert "\u200b```" in out
+        # Original leading whitespace preserved.
+        assert out.startswith("    \u200b```")
+
+    def test_escape_does_not_touch_inline_backticks(self) -> None:
+        # Single backticks aren't a fence; should pass through.
+        assert _escape_md_fence("inline `code` here") == "inline `code` here"
+
+
+class TestValidateRoundId:
+    def test_valid_simple(self) -> None:
+        _validate_round_id("round-30e")
+
+    def test_valid_alnum_underscore(self) -> None:
+        _validate_round_id("e2e_smoke_001")
+
+    def test_reject_path_traversal(self) -> None:
+        with pytest.raises(ValueError):
+            _validate_round_id("../etc/passwd")
+
+    def test_reject_slash(self) -> None:
+        with pytest.raises(ValueError):
+            _validate_round_id("a/b")
+
+    def test_reject_empty(self) -> None:
+        with pytest.raises(ValueError):
+            _validate_round_id("")
+
+    def test_reject_too_long(self) -> None:
+        with pytest.raises(ValueError):
+            _validate_round_id("x" * 200)
+
+
+class TestAtomicWriteText:
+    def test_atomic_write_creates_file(self, tmp_path: Path) -> None:
+        target = tmp_path / "out.txt"
+        _atomic_write_text(target, "hello")
+        assert target.read_text() == "hello"
+
+    def test_atomic_write_overwrites_existing(self, tmp_path: Path) -> None:
+        target = tmp_path / "out.txt"
+        target.write_text("old")
+        _atomic_write_text(target, "new")
+        assert target.read_text() == "new"
+
+    def test_atomic_write_no_tmp_left_behind(self, tmp_path: Path) -> None:
+        target = tmp_path / "out.txt"
+        _atomic_write_text(target, "x")
+        # No .tmp.* files should remain in the directory.
+        leftover = [p for p in tmp_path.iterdir() if ".tmp." in p.name]
+        assert leftover == []
+
+
+class TestDispatchHardening:
+    def test_dispatch_one_filenotfound_returns_distinct_rc(self) -> None:
+        # Round 30e Phase C fix #3: rc=-127 for missing binary.
+        spec = AgentSpec(
+            name="ghost",
+            binary="/nonexistent/path/to/xyz",
+            base_flags=(),
+            timeout_seconds=5,
+            stdin_mode="stdin",
+        )
+        turn = asyncio.run(_dispatch_one(spec, "hi"))
+        assert turn.returncode == RC_BINARY_NOT_FOUND
+        assert turn.error is not None
+        assert "binary not found" in turn.error
+        assert not turn.succeeded()
+
+    def test_dispatch_round_handles_per_agent_exception(self) -> None:
+        # Round 30e Phase C fix #6: one agent's failure does not
+        # cascade. We simulate by mixing a real (missing-binary) spec
+        # with a dispatchable real binary so we verify *peer* survival.
+        ghost = AgentSpec(
+            name="ghost-dispatch-test",
+            binary="/nonexistent/x",
+            base_flags=(),
+            timeout_seconds=5,
+            stdin_mode="stdin",
+        )
+        # ``true`` is a real binary on every POSIX machine.
+        good = AgentSpec(
+            name="good",
+            binary="true",
+            base_flags=(),
+            timeout_seconds=5,
+            stdin_mode="stdin",
+        )
+        round_ = DialogRound(round_id="cascade", prompt="ping")
+        turns = asyncio.run(dispatch_round(round_, [ghost, good]))
+        assert len(turns) == 2
+        # ghost failed cleanly with sentinel rc
+        assert turns[0].returncode == RC_BINARY_NOT_FOUND
+        # good succeeded — ghost's failure did not cascade
+        assert turns[1].succeeded(), turns[1]
+
+
+class TestPersistenceHardening:
+    def test_write_round_jsonl_rejects_path_traversal(self, tmp_path: Path) -> None:
+        bad = DialogRound(round_id="../escape", prompt="x")
+        with pytest.raises(ValueError):
+            write_round_jsonl(bad, [], tmp_path)
+
+    def test_write_transcript_markdown_rejects_path_traversal(self, tmp_path: Path) -> None:
+        bad = DialogRound(round_id="../escape", prompt="x")
+        with pytest.raises(ValueError):
+            write_transcript_markdown(bad, [], tmp_path)
+
+    def test_write_round_jsonl_atomic_no_tmp_left(self, tmp_path: Path) -> None:
+        round_ = DialogRound(round_id="atomic-test", prompt="x")
+        write_round_jsonl(round_, [], tmp_path)
+        leftover = [p for p in tmp_path.iterdir() if ".tmp." in p.name]
+        assert leftover == []
+
+
+class TestRenderHardening:
+    def test_render_escapes_nested_fence_in_stdout(self) -> None:
+        round_ = DialogRound(round_id="esc", prompt="p")
+        turn = DialogTurn(
+            agent="evil",
+            started_at="2026-04-30T00:00:00+00:00",
+            finished_at="2026-04-30T00:00:01+00:00",
+            elapsed_seconds=1.0,
+            returncode=0,
+            stdout="```\nbreak out\n```\nuninvited content",
+            stderr="",
+            timed_out=False,
+        )
+        md = render_transcript_markdown(round_, [turn])
+        # The nested ``` should have a zero-width space inserted before
+        # it so the surrounding fence isn't broken.
+        assert "\u200b```" in md
+        # The "uninvited content" line must not appear *outside* a fence:
+        # i.e. the document still has matched fences.
+        assert md.count("```") % 2 == 0, md
+
+    def test_render_marks_timed_out_turn(self) -> None:
+        round_ = DialogRound(round_id="to", prompt="p")
+        turn = DialogTurn(
+            agent="slow",
+            started_at="2026-04-30T00:00:00+00:00",
+            finished_at="2026-04-30T00:00:30+00:00",
+            elapsed_seconds=30.0,
+            returncode=-1,
+            stdout="",
+            stderr="",
+            timed_out=True,
+        )
+        md = render_transcript_markdown(round_, [turn])
+        assert "[TIMED OUT]" in md
+
+    def test_render_distinguishes_failed_from_timed_out(self) -> None:
+        round_ = DialogRound(round_id="fail", prompt="p")
+        timed_out_turn = DialogTurn(
+            agent="slow",
+            started_at="2026-04-30T00:00:00+00:00",
+            finished_at="2026-04-30T00:00:30+00:00",
+            elapsed_seconds=30.0,
+            returncode=-1,
+            stdout="",
+            stderr="",
+            timed_out=True,
+        )
+        plain_failed_turn = DialogTurn(
+            agent="bad",
+            started_at="2026-04-30T00:00:00+00:00",
+            finished_at="2026-04-30T00:00:01+00:00",
+            elapsed_seconds=1.0,
+            returncode=2,
+            stdout="",
+            stderr="oops",
+            timed_out=False,
+        )
+        md = render_transcript_markdown(round_, [timed_out_turn, plain_failed_turn])
+        assert "FAILED [TIMED OUT]" in md
+        # Plain FAILED should NOT have the timed-out badge.
+        bad_section = md.split("### `bad`")[1]
+        assert "[TIMED OUT]" not in bad_section
+
+
+class TestSentinelExports:
+    def test_sentinels_distinct(self) -> None:
+        assert RC_BINARY_NOT_FOUND != RC_DISPATCH_ERROR
+        # Both should be negative (out of normal POSIX rc range) so
+        # they can't be confused with real exit codes 0..255.
+        assert RC_BINARY_NOT_FOUND < 0
+        assert RC_DISPATCH_ERROR < 0

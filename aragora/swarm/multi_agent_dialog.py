@@ -39,12 +39,100 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import re
+import signal
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
 logger = logging.getLogger(__name__)
+
+
+# --------------------------------------------------------------------- #
+# Round 30e Phase C — gauntlet hardening helpers                        #
+# --------------------------------------------------------------------- #
+#
+# All eight fixes from round 30d-Phase-H's gauntlet review of this
+# module live here as small, named helpers so the test suite can
+# exercise each one independently.
+
+# Match a code-fence opener (```) at the start of a line so we can
+# escape adversarial agent output that tries to break out of the
+# transcript's fenced ``stdout`` block.
+_FENCE_RE: re.Pattern[str] = re.compile(r"^(\s*)(```)", re.MULTILINE)
+
+# Strip CSI / OSC ANSI escapes (color, cursor moves, OSC-8 hyperlinks)
+# from agent output before persisting. Two patterns cover the bulk:
+#   - ESC [ ... letter (CSI)
+#   - ESC ] ... BEL/ST  (OSC)
+_ANSI_CSI_RE: re.Pattern[str] = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+_ANSI_OSC_RE: re.Pattern[str] = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+
+# Round IDs are interpolated into output filenames; this regex keeps
+# them confined to the intended output directory.
+_ROUND_ID_RE: re.Pattern[str] = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_\-]{0,127}$")
+
+# Distinct sentinel returncodes so operators can tell ``binary not
+# found`` apart from a genuine CLI rc=-1 failure.
+RC_BINARY_NOT_FOUND: int = -127
+RC_DISPATCH_ERROR: int = -126
+
+# Cap on persisted stdout/stderr per turn — chatty CLIs can produce
+# multi-MB lines that overflow downstream JSONL parsers.
+MAX_OUTPUT_BYTES: int = 1_000_000
+
+
+def _strip_ansi(s: str) -> str:
+    """Return ``s`` with CSI and OSC ANSI escape sequences removed."""
+    return _ANSI_OSC_RE.sub("", _ANSI_CSI_RE.sub("", s))
+
+
+def _truncate_output(s: str, *, max_bytes: int = MAX_OUTPUT_BYTES) -> str:
+    """Cap a string at ``max_bytes`` UTF-8 bytes with a sentinel suffix."""
+    encoded = s.encode("utf-8", errors="replace")
+    if len(encoded) <= max_bytes:
+        return s
+    truncated = encoded[:max_bytes].decode("utf-8", errors="replace")
+    return truncated + f"\n... [TRUNCATED: original {len(encoded)} bytes]"
+
+
+def _escape_md_fence(s: str) -> str:
+    """Escape ``` fence opens so an agent cannot break the rendered code block.
+
+    Inserts a zero-width space (``\\u200b``) between the leading
+    whitespace and the backticks, which preserves the visual content
+    but prevents Markdown's parser from closing the surrounding fence.
+    """
+    return _FENCE_RE.sub("\\1\u200b\\2", s)
+
+
+def _validate_round_id(round_id: str) -> None:
+    """Reject ``round_id`` values that would traverse outside ``output_dir``."""
+    if not _ROUND_ID_RE.match(round_id or ""):
+        raise ValueError(f"invalid round_id {round_id!r}: must match {_ROUND_ID_RE.pattern}")
+
+
+def _atomic_write_text(path: Path, content: str, *, encoding: str = "utf-8") -> None:
+    """Write ``content`` atomically via tmp file + ``os.replace``.
+
+    Crashes mid-write leave the original file (if any) intact instead
+    of producing a half-written transcript. The temp file lives in the
+    same directory so ``os.replace`` is a same-filesystem rename.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + f".tmp.{os.getpid()}")
+    with tmp_path.open("w", encoding=encoding) as f:
+        f.write(content)
+        f.flush()
+        try:
+            os.fsync(f.fileno())
+        except OSError:
+            # Some filesystems (notably tmpfs in CI) don't support fsync;
+            # the os.replace still gives atomic visibility.
+            pass
+    os.replace(tmp_path, path)
 
 
 # --------------------------------------------------------------------- #
@@ -324,12 +412,18 @@ async def _dispatch_one(
     out = ""
     err = ""
 
+    # Round 30e Phase C fix #1: launch each child in its own process
+    # group on POSIX so a timeout can reap any grandchildren the CLI
+    # spawned (some agent CLIs fork sub-helpers that leak otherwise).
+    preexec = os.setsid if os.name == "posix" else None
+
     try:
         proc = await asyncio.create_subprocess_exec(
             *argv,
             stdin=asyncio.subprocess.PIPE if stdin_data is not None else None,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            preexec_fn=preexec,
         )
         try:
             out_b, err_b = await asyncio.wait_for(
@@ -341,20 +435,43 @@ async def _dispatch_one(
             err = err_b.decode("utf-8", errors="replace")
         except asyncio.TimeoutError:
             timed_out = True
+            # Round 30e Phase C fix #2: SIGKILL the whole process group,
+            # not just the leader, so child helpers don't leak.
             try:
-                proc.kill()
+                if os.name == "posix":
+                    pgid = os.getpgid(proc.pid)
+                    os.killpg(pgid, signal.SIGKILL)
+                else:
+                    proc.kill()
                 await proc.wait()
-            except ProcessLookupError:
+            except (ProcessLookupError, PermissionError):
                 pass
     except FileNotFoundError:
+        # Round 30e Phase C fix #3: distinct sentinel rc so the operator
+        # can tell "CLI missing on $PATH" apart from "CLI ran and
+        # returned -1".
         err_msg = f"binary not found: {spec.binary}"
+        rc = RC_BINARY_NOT_FOUND
         logger.warning("multi_agent_dialog: %s", err_msg)
     except Exception as exc:  # noqa: BLE001 — capture any subprocess setup error
         err_msg = f"dispatch failed: {type(exc).__name__}: {exc}"
+        rc = RC_DISPATCH_ERROR
         logger.warning("multi_agent_dialog: %s", err_msg)
 
     finished_at = datetime.now(timezone.utc)
     elapsed = (finished_at - started_at).total_seconds()
+
+    # Round 30e Phase C fix #4: strip ANSI escapes before persisting so
+    # a malicious agent can't poison downstream tooling with cursor
+    # moves or OSC-8 hyperlinks.
+    out = _strip_ansi(out)
+    err = _strip_ansi(err)
+
+    # Round 30e Phase C fix #5: cap output size to MAX_OUTPUT_BYTES so
+    # one chatty CLI cannot blow up the JSONL parser or the markdown
+    # transcript.
+    out = _truncate_output(out)
+    err = _truncate_output(err)
 
     return DialogTurn(
         agent=spec.name,
@@ -381,7 +498,31 @@ async def dispatch_round(
         return []
     rendered = round_.render_prompt()
     tasks = [_dispatch_one(spec, rendered) for spec in agents]
-    return list(await asyncio.gather(*tasks))
+
+    # Round 30e Phase C fix #6: ``return_exceptions=True`` ensures one
+    # agent's unexpected raise (e.g. asyncio.CancelledError, OSError
+    # from preexec_fn) cannot cascade and abort all peer dispatches.
+    raw = await asyncio.gather(*tasks, return_exceptions=True)
+    out: list[DialogTurn] = []
+    for spec, result in zip(agents, raw):
+        if isinstance(result, BaseException):
+            now = datetime.now(timezone.utc).isoformat()
+            out.append(
+                DialogTurn(
+                    agent=spec.name,
+                    started_at=now,
+                    finished_at=now,
+                    elapsed_seconds=0.0,
+                    returncode=RC_DISPATCH_ERROR,
+                    stdout="",
+                    stderr="",
+                    timed_out=False,
+                    error=f"unexpected dispatch exception: {type(result).__name__}: {result}",
+                )
+            )
+        else:
+            out.append(result)
+    return out
 
 
 # --------------------------------------------------------------------- #
@@ -398,26 +539,30 @@ def write_round_jsonl(
 
     The first line is the round metadata. Subsequent lines are turns.
     """
+    # Round 30e Phase C fix #7: validate round_id (path traversal) and
+    # write atomically so a crash mid-write doesn't leave a half-baked
+    # JSONL behind.
+    _validate_round_id(round_.round_id)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / f"dialog-{round_.round_id}.jsonl"
-    with out_path.open("w", encoding="utf-8") as f:
-        f.write(
-            json.dumps(
-                {
-                    "type": "round",
-                    "round_id": round_.round_id,
-                    "prompt": round_.prompt,
-                    "extra_context_chars": len(round_.extra_context),
-                    "metadata": round_.metadata,
-                },
-                sort_keys=True,
-            )
-            + "\n"
+
+    lines: list[str] = [
+        json.dumps(
+            {
+                "type": "round",
+                "round_id": round_.round_id,
+                "prompt": round_.prompt,
+                "extra_context_chars": len(round_.extra_context),
+                "metadata": round_.metadata,
+            },
+            sort_keys=True,
         )
-        for turn in turns:
-            payload = {"type": "turn", **turn.to_json()}
-            f.write(json.dumps(payload, sort_keys=True) + "\n")
+    ]
+    for turn in turns:
+        payload = {"type": "turn", **turn.to_json()}
+        lines.append(json.dumps(payload, sort_keys=True))
+    _atomic_write_text(out_path, "\n".join(lines) + "\n")
     return out_path
 
 
@@ -466,7 +611,14 @@ def render_transcript_markdown(
 
     lines.extend(["## Per-agent responses", ""])
     for turn in turns:
-        status = "succeeded" if turn.succeeded() else "FAILED"
+        # Round 30e Phase C fix #8a: explicit [TIMED OUT] badge so a
+        # zero-stdout timeout doesn't read as a quiet success in scan.
+        if turn.timed_out:
+            status = "FAILED [TIMED OUT]"
+        elif turn.succeeded():
+            status = "succeeded"
+        else:
+            status = "FAILED"
         lines.extend(
             [
                 f"### `{turn.agent}` — {status} (rc={turn.returncode}, "
@@ -478,12 +630,15 @@ def render_transcript_markdown(
         if turn.error:
             lines.extend([f"_Error: {turn.error}_", ""])
         if turn.stdout.strip():
+            # Round 30e Phase C fix #8b: escape any nested ``` so an
+            # adversarial agent can't break out of our fenced block and
+            # poison the rest of the transcript.
             lines.extend(
                 [
                     "**stdout:**",
                     "",
                     "```",
-                    turn.stdout.rstrip(),
+                    _escape_md_fence(turn.stdout.rstrip()),
                     "```",
                     "",
                 ]
@@ -495,7 +650,7 @@ def render_transcript_markdown(
                     "**stderr (last 10 lines):**",
                     "",
                     "```",
-                    tail,
+                    _escape_md_fence(tail),
                     "```",
                     "",
                 ]
@@ -509,10 +664,11 @@ def write_transcript_markdown(
     output_dir: Path,
 ) -> Path:
     """Persist a markdown transcript and return its path."""
+    _validate_round_id(round_.round_id)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / f"dialog-{round_.round_id}.md"
-    out_path.write_text(render_transcript_markdown(round_, turns), encoding="utf-8")
+    _atomic_write_text(out_path, render_transcript_markdown(round_, turns))
     return out_path
 
 
