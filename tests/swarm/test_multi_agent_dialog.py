@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import json
 from pathlib import Path
 
@@ -12,6 +13,11 @@ from aragora.swarm.multi_agent_dialog import (
     CLAUDE_FLAGS,
     CODEX_FLAGS,
     DROID_FLAGS,
+    DROID_REVIEW_SYSTEM_PROMPT,
+    DEFAULT_CLAUDE_TIMEOUT,
+    DEFAULT_CODEX_TIMEOUT,
+    DEFAULT_DROID_TIMEOUT,
+    DEFAULT_MODEL_TIMEOUT,
     MAX_OUTPUT_BYTES,
     RC_BINARY_NOT_FOUND,
     RC_DISPATCH_ERROR,
@@ -38,21 +44,24 @@ def test_agent_spec_claude_flags() -> None:
     assert spec.binary == "claude"
     assert spec.base_flags == CLAUDE_FLAGS
     assert spec.stdin_mode == "stdin"
-    assert spec.timeout_seconds == 60
+    assert spec.timeout_seconds == DEFAULT_CLAUDE_TIMEOUT
 
 
 def test_agent_spec_codex_flags_include_minimal_reasoning() -> None:
     spec = AgentSpec.codex()
     assert "reasoning_effort=minimal" in spec.base_flags
     assert "sandbox_mode=read-only" in spec.base_flags
-    assert spec.timeout_seconds == 90
+    assert spec.timeout_seconds == DEFAULT_CODEX_TIMEOUT
 
 
-def test_agent_spec_droid_flags_include_auto_low() -> None:
+def test_agent_spec_droid_flags_are_read_search_only() -> None:
     spec = AgentSpec.droid()
     assert "exec" in spec.base_flags
-    assert "low" in spec.base_flags
-    assert "--auto" in spec.base_flags
+    assert "--auto" not in spec.base_flags
+    assert "--disabled-tools" in spec.base_flags
+    assert "Execute" in spec.base_flags
+    assert DROID_REVIEW_SYSTEM_PROMPT in spec.base_flags
+    assert spec.timeout_seconds == DEFAULT_DROID_TIMEOUT
 
 
 def test_agent_spec_custom_timeout() -> None:
@@ -306,7 +315,13 @@ def test_constants_match_round_30d_verification() -> None:
     assert "reasoning_effort=minimal" in CODEX_FLAGS
     assert "sandbox_mode=read-only" in CODEX_FLAGS
     assert "--skip-git-repo-check" in CODEX_FLAGS
-    assert DROID_FLAGS == ("exec", "--auto", "low")
+    assert DROID_FLAGS == (
+        "exec",
+        "--disabled-tools",
+        "Execute",
+        "--append-system-prompt",
+        DROID_REVIEW_SYSTEM_PROMPT,
+    )
 
 
 # --------------------------------------------------------------------- #
@@ -424,6 +439,38 @@ class TestHeterogeneousPanel:
         for spec in panel:
             if spec.binary != "codex":
                 assert spec.timeout_seconds == 90
+
+    def test_panel_defaults_use_quality_budgets(self) -> None:
+        panel = AgentSpec.heterogeneous_panel()
+        codex_spec = next(s for s in panel if s.binary == "codex")
+        assert codex_spec.timeout_seconds == DEFAULT_CODEX_TIMEOUT
+        for spec in panel:
+            if spec.binary != "codex":
+                assert spec.timeout_seconds == DEFAULT_MODEL_TIMEOUT
+
+
+def test_cli_parse_args_uses_quality_timeout_defaults() -> None:
+    script_path = Path(__file__).resolve().parents[2] / "scripts" / "multi_agent_dialog.py"
+    spec = importlib.util.spec_from_file_location("multi_agent_dialog_script", script_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    args = module.parse_args(
+        [
+            "--round-id",
+            "r",
+            "--prompt",
+            "p",
+            "--output-dir",
+            "/tmp/dialog",
+        ]
+    )
+    assert args.claude_timeout == DEFAULT_CLAUDE_TIMEOUT
+    assert args.codex_timeout == DEFAULT_CODEX_TIMEOUT
+    assert args.droid_timeout == DEFAULT_DROID_TIMEOUT
+    assert args.model_timeout == DEFAULT_MODEL_TIMEOUT
 
 
 # --------------------------------------------------------------------- #

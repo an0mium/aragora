@@ -45,6 +45,10 @@ sys.path.insert(0, str(ROOT))
 
 from aragora.swarm.multi_agent_dialog import (  # noqa: E402
     AgentSpec,
+    DEFAULT_CLAUDE_TIMEOUT,
+    DEFAULT_CODEX_TIMEOUT,
+    DEFAULT_DROID_TIMEOUT,
+    DEFAULT_MODEL_TIMEOUT,
     DialogRound,
     run_round_and_persist,
 )
@@ -123,13 +127,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             + ", ".join(f"{k}=({','.join(v)})" for k, v in AGENT_GROUPS.items())
         ),
     )
-    parser.add_argument("--claude-timeout", type=int, default=60, help="Per-agent timeout (s)")
-    parser.add_argument("--codex-timeout", type=int, default=90, help="Per-agent timeout (s)")
-    parser.add_argument("--droid-timeout", type=int, default=60, help="Per-agent timeout (s)")
+    parser.add_argument(
+        "--claude-timeout",
+        type=int,
+        default=DEFAULT_CLAUDE_TIMEOUT,
+        help="Per-agent timeout (s)",
+    )
+    parser.add_argument(
+        "--codex-timeout",
+        type=int,
+        default=DEFAULT_CODEX_TIMEOUT,
+        help="Per-agent timeout (s)",
+    )
+    parser.add_argument(
+        "--droid-timeout",
+        type=int,
+        default=DEFAULT_DROID_TIMEOUT,
+        help="Per-agent timeout (s)",
+    )
     parser.add_argument(
         "--model-timeout",
         type=int,
-        default=90,
+        default=DEFAULT_MODEL_TIMEOUT,
         help="Per-agent timeout (s) for heterogeneous-model factories.",
     )
     return parser.parse_args(argv)

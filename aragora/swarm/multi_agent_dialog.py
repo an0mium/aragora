@@ -156,6 +156,28 @@ def _atomic_write_text(path: Path, content: str, *, encoding: str = "utf-8") -> 
 # dispatch. Encoded as data so any future round can reuse the harness
 # without re-deriving the flags.
 
+DEFAULT_CLAUDE_TIMEOUT: int = 180
+"""Default Claude CLI budget.
+
+Live 30f dogfood showed Claude Sonnet needs roughly two minutes for
+repo-grounded review prompts, so the old 60s budget was too short for
+quality work.
+"""
+
+DEFAULT_CODEX_TIMEOUT: int = 420
+"""Default Codex CLI budget.
+
+Live 30f dogfood completed a high-quality Codex review in ~273s; this
+keeps enough margin for normal GitHub/repo inspection variance without
+making hung subprocesses unbounded.
+"""
+
+DEFAULT_DROID_TIMEOUT: int = 300
+"""Default Droid CLI budget for read/search-only review prompts."""
+
+DEFAULT_MODEL_TIMEOUT: int = 360
+"""Default heterogeneous-model budget for non-Codex model lanes."""
+
 CLAUDE_FLAGS: tuple[str, ...] = ("--print",)
 """``claude --print`` works without ``--bare``. ``--bare`` requires
 explicit ``ANTHROPIC_API_KEY`` env var; the keychain OAuth flow used
@@ -174,9 +196,27 @@ extensive memory/file investigation chains that exceed 90s timeouts.
 ``minimal`` reasoning + ``read-only`` sandbox keeps the model focused
 on the prompt and skips the investigation phase."""
 
-DROID_FLAGS: tuple[str, ...] = ("exec", "--auto", "low")
-"""``droid exec --auto low`` is the read-only autonomy level: the
-agent answers the prompt without taking any system-mutating actions."""
+DROID_REVIEW_SYSTEM_PROMPT: str = (
+    "Do not run shell commands or modify files. Use read/search tools only "
+    "and return a concise text answer."
+)
+"""Additional Droid guardrail for local-only dialog review turns."""
+
+DROID_FLAGS: tuple[str, ...] = (
+    "exec",
+    "--disabled-tools",
+    "Execute",
+    "--append-system-prompt",
+    DROID_REVIEW_SYSTEM_PROMPT,
+)
+"""``droid exec`` defaults to read-only mode; disabling ``Execute``
+keeps dialog turns on file/read/search tools only.
+
+Round 30f dogfood showed that repo-review prompts under the previous
+``--auto low`` setting could fail with a permission/autonomy error
+instead of timing out. The read/search-only guardrail produced usable
+output in ~183s while preserving the local-only contract.
+"""
 
 
 # --------------------------------------------------------------------- #
@@ -204,7 +244,7 @@ class AgentSpec:
     """Either ``argv`` (prompt as final arg) or ``stdin`` (piped to stdin)."""
 
     @classmethod
-    def claude(cls, timeout_seconds: int = 60) -> "AgentSpec":
+    def claude(cls, timeout_seconds: int = DEFAULT_CLAUDE_TIMEOUT) -> "AgentSpec":
         return cls(
             name="claude",
             binary="claude",
@@ -214,7 +254,7 @@ class AgentSpec:
         )
 
     @classmethod
-    def codex(cls, timeout_seconds: int = 90) -> "AgentSpec":
+    def codex(cls, timeout_seconds: int = DEFAULT_CODEX_TIMEOUT) -> "AgentSpec":
         return cls(
             name="codex",
             binary="codex",
@@ -224,7 +264,7 @@ class AgentSpec:
         )
 
     @classmethod
-    def droid(cls, timeout_seconds: int = 60) -> "AgentSpec":
+    def droid(cls, timeout_seconds: int = DEFAULT_DROID_TIMEOUT) -> "AgentSpec":
         return cls(
             name="droid",
             binary="droid",
@@ -254,7 +294,7 @@ class AgentSpec:
         model: str,
         *,
         name: str | None = None,
-        timeout_seconds: int = 90,
+        timeout_seconds: int = DEFAULT_MODEL_TIMEOUT,
     ) -> "AgentSpec":
         """Build an AgentSpec pinned to a specific model on a specific CLI.
 
@@ -297,26 +337,26 @@ class AgentSpec:
     # Concrete heterogeneous factories — known-good model IDs verified
     # in round 30e Phase A.
     @classmethod
-    def claude_opus(cls, timeout_seconds: int = 90) -> "AgentSpec":
+    def claude_opus(cls, timeout_seconds: int = DEFAULT_MODEL_TIMEOUT) -> "AgentSpec":
         """Claude Opus via the ``claude`` CLI."""
         return cls.with_model("claude", "opus", name="claude-opus", timeout_seconds=timeout_seconds)
 
     @classmethod
-    def claude_sonnet(cls, timeout_seconds: int = 60) -> "AgentSpec":
+    def claude_sonnet(cls, timeout_seconds: int = DEFAULT_MODEL_TIMEOUT) -> "AgentSpec":
         """Claude Sonnet via the ``claude`` CLI."""
         return cls.with_model(
             "claude", "sonnet", name="claude-sonnet", timeout_seconds=timeout_seconds
         )
 
     @classmethod
-    def droid_gpt5(cls, timeout_seconds: int = 90) -> "AgentSpec":
+    def droid_gpt5(cls, timeout_seconds: int = DEFAULT_MODEL_TIMEOUT) -> "AgentSpec":
         """GPT-5.4 via the ``droid`` CLI."""
         return cls.with_model(
             "droid", "gpt-5.4", name="droid-gpt5", timeout_seconds=timeout_seconds
         )
 
     @classmethod
-    def droid_gemini(cls, timeout_seconds: int = 90) -> "AgentSpec":
+    def droid_gemini(cls, timeout_seconds: int = DEFAULT_MODEL_TIMEOUT) -> "AgentSpec":
         """Gemini 3.1 Pro via the ``droid`` CLI."""
         return cls.with_model(
             "droid",
@@ -326,20 +366,23 @@ class AgentSpec:
         )
 
     @classmethod
-    def droid_kimi(cls, timeout_seconds: int = 90) -> "AgentSpec":
+    def droid_kimi(cls, timeout_seconds: int = DEFAULT_MODEL_TIMEOUT) -> "AgentSpec":
         """Kimi K2.5 (Chinese frontier) via the ``droid`` CLI."""
         return cls.with_model(
             "droid", "kimi-k2.5", name="droid-kimi", timeout_seconds=timeout_seconds
         )
 
     @classmethod
-    def droid_glm(cls, timeout_seconds: int = 90) -> "AgentSpec":
+    def droid_glm(cls, timeout_seconds: int = DEFAULT_MODEL_TIMEOUT) -> "AgentSpec":
         """GLM 5.1 (Chinese frontier) via the ``droid`` CLI."""
         return cls.with_model("droid", "glm-5.1", name="droid-glm", timeout_seconds=timeout_seconds)
 
     @classmethod
     def heterogeneous_panel(
-        cls, *, codex_timeout: int = 120, model_timeout: int = 90
+        cls,
+        *,
+        codex_timeout: int = DEFAULT_CODEX_TIMEOUT,
+        model_timeout: int = DEFAULT_MODEL_TIMEOUT,
     ) -> "tuple[AgentSpec, ...]":
         """Return the canonical heterogeneous review panel.
 
