@@ -1,6 +1,6 @@
 ---
 title: Aragora CLI Reference
-description: Aragora CLI Reference
+description: Generated Aragora CLI command catalog from live parser
 ---
 
 # Aragora CLI Reference
