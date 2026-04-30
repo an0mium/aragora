@@ -130,6 +130,19 @@ def _unique_commits_ahead_of_main(
         return 0, True
 
 
+def _pr_lookup_failure_blocks(
+    branch: str | None,
+    *,
+    unique_commits_ahead: int,
+    ahead_lookup_failed: bool,
+) -> bool:
+    if not branch:
+        return False
+    if ahead_lookup_failed:
+        return True
+    return unique_commits_ahead > 0
+
+
 def inspect_worktree(
     repo_root: Path, path: Path, *, branch_override: str | None = None
 ) -> WorktreeInspection:
@@ -159,7 +172,11 @@ def inspect_worktree(
         blockers.append("open_pr")
     if branch and ahead_lookup_failed:
         blockers.append("ahead_lookup_failed")
-    if branch and pr_lookup_failed:
+    if pr_lookup_failed and _pr_lookup_failure_blocks(
+        branch,
+        unique_commits_ahead=unique_commits_ahead,
+        ahead_lookup_failed=ahead_lookup_failed,
+    ):
         blockers.append("pr_lookup_failed")
 
     return WorktreeInspection(

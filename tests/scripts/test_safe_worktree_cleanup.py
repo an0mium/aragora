@@ -274,6 +274,34 @@ def test_inspect_blocks_dirty_and_ahead_worktrees(
     assert inspection.blockers == ["dirty_worktree", "branch_ahead_of_origin_main"]
 
 
+def test_inspect_allows_pr_lookup_failure_for_branch_with_no_unique_commits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+
+    monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod.autopilot,
+        "_get_worktree_entries",
+        lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/merged")],
+    )
+    monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(mod, "_worktree_is_dirty", lambda _path: False)
+    monkeypatch.setattr(mod, "_unique_commits_ahead_of_main", lambda _repo, _branch: (0, False))
+    monkeypatch.setattr(mod, "_lookup_open_prs", lambda _repo, _branch: ([], True))
+
+    inspection = mod.inspect_worktree(repo_root, worktree)
+
+    assert inspection.pr_lookup_failed is True
+    assert inspection.unique_commits_ahead == 0
+    assert inspection.blockers == []
+
+
 def test_inspect_blocks_lock_files_and_history_lookup_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
