@@ -37,7 +37,7 @@ async def _run_crux_debate(
 ) -> Any:
     """Run a crux-finder debate and return the Arena ``DebateResult``."""
     from aragora import Arena, Environment
-    from aragora.agents import get_default_agents
+    from aragora.agents import get_agents_by_names
     from aragora.debate.protocol import DebateProtocol
 
     protocol = DebateProtocol(
@@ -49,7 +49,15 @@ async def _run_crux_debate(
         use_structured_phases=False,
     )
 
-    resolved_agents = get_default_agents(agent_names=agents) if agents else get_default_agents()
+    # Resolve agent names to instances.  ``get_default_agents`` (the symbol
+    # this CLI originally referenced) does not exist on
+    # ``aragora.agents``; the exported helper is ``get_agents_by_names``.
+    # Found via Phase F end-to-end dogfood in Round 2026-04-30c — the
+    # ``aragora crux`` CLI raised ``ImportError`` for any invocation that
+    # was not ``--dry-run``.
+    resolved_agents = (
+        get_agents_by_names(agents) if agents else get_agents_by_names(["claude", "codex"])
+    )
 
     env = Environment(task=question)
     arena = Arena(env, resolved_agents, protocol)

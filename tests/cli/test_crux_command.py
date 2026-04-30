@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -290,3 +290,43 @@ def test_cmd_crux_rejects_non_crux_proof(capsys) -> None:
             crux_cmd.cmd_crux(args)
     assert exc_info.value.code == 1
     assert "crux-finder" in capsys.readouterr().err
+
+
+def test_run_crux_debate_imports_resolve_without_error() -> None:
+    """Regression: the inner imports must resolve without raising.
+
+    The CLI used to import a non-existent ``get_default_agents`` from
+    ``aragora.agents`` (Phase F dogfood finding, Round 2026-04-30c). The
+    existing test bank patches ``_run_crux_debate`` directly so it never
+    executed the inner import path, allowing the break to live undetected.
+
+    This test exercises the import path by invoking the function with all
+    its collaborators stubbed; if the import fails the test fails with
+    ImportError before any stub is reached.
+    """
+    import asyncio
+
+    mock_arena = MagicMock()
+
+    async def _fake_arena_run() -> SimpleNamespace:
+        return SimpleNamespace(consensus_proof=None, proposals={})
+
+    mock_arena.run = _fake_arena_run
+
+    with (
+        patch("aragora.Arena", return_value=mock_arena),
+        patch("aragora.Environment", return_value=MagicMock()),
+        patch("aragora.agents.get_agents_by_names", return_value=[]),
+    ):
+        # Smoke-test only: passes as long as no ImportError is raised.
+        result = asyncio.run(
+            crux_cmd._run_crux_debate(
+                "Sample question?",
+                agents=["demo"],
+                rounds=1,
+                top_k=3,
+                min_score=0.3,
+                counterfactual_validation=False,
+            )
+        )
+    assert result is not None  # the mock returns a SimpleNamespace
