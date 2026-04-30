@@ -1,6 +1,6 @@
 # H1-01 Rev-4 Promotion Readiness
 
-Last updated: 2026-04-25T02:18:52Z
+Last updated: 2026-04-30T16:01:46Z
 
 This is the operator-facing readiness surface for promoting the staged rev-4 benchmark corpus into the canonical B0 truth loop.
 
@@ -25,9 +25,11 @@ This is the operator-facing readiness surface for promoting the staged rev-4 ben
 | Metric | Value |
 | --- | --- |
 | Dispatch floor for first canonical slice | 15 |
-| Staged issues with metrics evidence | 12 |
-| Staged issues still missing metrics evidence | 21 |
+| Staged issues with dispatch evidence (any source) | 12 |
+| Staged issues still missing dispatch evidence | 21 |
 | Additional dispatches needed | 3 |
+| ...via metrics ledger only | 12 |
+| ...via merged/open boss-harvest PR only | 0 |
 
 ## Next Dispatch Targets
 
@@ -54,4 +56,4 @@ This is the operator-facing readiness surface for promoting the staged rev-4 ben
 
 ## Promotion Rule
 
-Promote only a first canonical rev-4 slice after at least 15 staged entries have dispatch evidence in `boss_metrics.jsonl`. Keep undispatched entries staged until they also accumulate evidence.
+Promote only a first canonical rev-4 slice after at least 15 staged entries have dispatch evidence. Dispatch evidence is satisfied by either (a) at least one row in `boss_metrics.jsonl` for the issue or (b) a merged or open pull request on the boss-loop's deterministic branch pattern `aragora/boss-harvest/issue-N-*`. Keep undispatched entries staged until they also accumulate evidence.
