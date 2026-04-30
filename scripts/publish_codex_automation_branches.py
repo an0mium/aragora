@@ -46,9 +46,15 @@ UNHEALTHY_CHECK_STATES = {
     "FAILED",
     "TIMED_OUT",
 }
+HEALTHY_CHECK_STATES = {
+    "SUCCESS",
+    "NEUTRAL",
+    "SKIPPED",
+}
 CANCELLED_ADVISORY_WORKFLOWS = {
     "Metrics Drift",
     "Module Tier Drift",
+    "PR Admission Controller",
 }
 STOPWORDS = {
     "and",
@@ -447,7 +453,7 @@ def _open_codex_prs(repo_root: Path, repo: str) -> list[dict[str, Any]]:
             "--limit",
             "200",
             "--json",
-            "headRefName,isDraft,mergeStateStatus,reviewDecision,statusCheckRollup",
+            "number,title,headRefName,isDraft,mergeStateStatus,reviewDecision,statusCheckRollup",
         ],
         cwd=repo_root,
     )
@@ -490,6 +496,62 @@ def _check_rollup_is_unhealthy(item: dict[str, Any]) -> bool:
     return workflow_name not in CANCELLED_ADVISORY_WORKFLOWS
 
 
+def _check_rollup_identity(item: dict[str, Any]) -> tuple[str, str]:
+    return (str(item.get("workflowName") or ""), str(item.get("name") or ""))
+
+
+def _check_rollup_label(item: dict[str, Any]) -> str:
+    workflow_name, check_name = _check_rollup_identity(item)
+    return "/".join(part for part in (workflow_name, check_name) if part) or "unknown-check"
+
+
+def _unhealthy_check_rollup_items(check_rollup: Any) -> list[dict[str, Any]]:
+    if not isinstance(check_rollup, list):
+        return []
+
+    checks = [check for check in check_rollup if isinstance(check, dict)]
+    healthy_identities = {
+        _check_rollup_identity(check)
+        for check in checks
+        if _rollup_state(check) in HEALTHY_CHECK_STATES
+    }
+    unhealthy: list[dict[str, Any]] = []
+    for check in checks:
+        if not _check_rollup_is_unhealthy(check):
+            continue
+        if (
+            _rollup_state(check) == "CANCELLED"
+            and _check_rollup_identity(check) in healthy_identities
+        ):
+            continue
+        unhealthy.append(check)
+    return unhealthy
+
+
+def _open_codex_pr_unhealthy_reasons(item: dict[str, Any]) -> list[str]:
+    merge_state = str(item.get("mergeStateStatus") or "UNKNOWN").upper()
+    if merge_state == "DIRTY":
+        return ["merge_state=DIRTY"]
+    if merge_state != "BLOCKED":
+        return []
+    if item.get("isDraft") is True:
+        return ["draft=true"]
+
+    unhealthy_checks = _unhealthy_check_rollup_items(item.get("statusCheckRollup") or [])
+    if unhealthy_checks:
+        return [
+            f"check={_check_rollup_label(check)}:{_rollup_state(check)}"
+            for check in unhealthy_checks
+        ]
+
+    review_decision = str(item.get("reviewDecision") or "").upper()
+    if review_decision == "REVIEW_REQUIRED":
+        return []
+    if review_decision == "CHANGES_REQUESTED":
+        return ["review_decision=CHANGES_REQUESTED"]
+    return [f"review_decision={review_decision or 'UNKNOWN'}"]
+
+
 def _open_codex_pr_is_unhealthy(item: dict[str, Any]) -> bool:
     """Return true only for PR states that should pause more automation publishing.
 
@@ -499,27 +561,7 @@ def _open_codex_pr_is_unhealthy(item: dict[str, Any]) -> bool:
     below budget.
     """
 
-    merge_state = str(item.get("mergeStateStatus") or "UNKNOWN").upper()
-    if merge_state == "DIRTY":
-        return True
-    if merge_state != "BLOCKED":
-        return False
-    if item.get("isDraft") is True:
-        return True
-
-    check_rollup = item.get("statusCheckRollup") or []
-    if isinstance(check_rollup, list):
-        if any(
-            _check_rollup_is_unhealthy(check) for check in check_rollup if isinstance(check, dict)
-        ):
-            return True
-
-    review_decision = str(item.get("reviewDecision") or "").upper()
-    if review_decision == "REVIEW_REQUIRED":
-        return False
-    if review_decision == "CHANGES_REQUESTED":
-        return True
-    return True
+    return bool(_open_codex_pr_unhealthy_reasons(item))
 
 
 def _branch_remote_head(repo_root: Path, branch: str) -> str | None:
@@ -1135,10 +1177,23 @@ def main(argv: list[str] | None = None) -> int:
         superseded_outbox_branches=superseded_outbox_lookup,
     )
     merge_state_counts: dict[str, int] = {}
+    unhealthy_open_prs: list[dict[str, Any]] = []
     for item in open_codex_prs:
         state = str(item.get("mergeStateStatus") or "UNKNOWN").upper()
         merge_state_counts[state] = merge_state_counts.get(state, 0) + 1
-    unhealthy_open_pr_count = sum(1 for item in open_codex_prs if _open_codex_pr_is_unhealthy(item))
+        unhealthy_reasons = _open_codex_pr_unhealthy_reasons(item)
+        if unhealthy_reasons:
+            unhealthy_open_prs.append(
+                {
+                    "number": item.get("number"),
+                    "title": item.get("title"),
+                    "headRefName": item.get("headRefName"),
+                    "mergeStateStatus": item.get("mergeStateStatus"),
+                    "reviewDecision": item.get("reviewDecision"),
+                    "reasons": unhealthy_reasons,
+                }
+            )
+    unhealthy_open_pr_count = len(unhealthy_open_prs)
     all_open_prs_unhealthy = bool(open_codex_prs) and unhealthy_open_pr_count == len(open_codex_prs)
 
     payload: dict[str, Any] = {
@@ -1153,6 +1208,7 @@ def main(argv: list[str] | None = None) -> int:
             "unhealthy_open_pr_count": unhealthy_open_pr_count,
             "merge_state_counts": merge_state_counts,
             "all_open_prs_unhealthy": all_open_prs_unhealthy,
+            "unhealthy_open_prs": unhealthy_open_prs,
         },
         "github_health": github_health.to_dict(),
         "decisions": [asdict(decision) for decision in decisions],
