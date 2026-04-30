@@ -390,15 +390,34 @@ class TestIngestGauntletReceipt:
 
         assert len(adapter.calls) == 1
         passed_receipt, passed_require = adapter.calls[0]
-        # Adapter is called with require_enabled=False (we already checked
-        # at the wrapper level; adapter doesn't need to double-check).
-        assert passed_require is False
+        # The wrapper checked its own KM flag, but still lets the adapter
+        # enforce ARAGORA_CRUX_RECEIPT_ENABLED.
+        assert passed_require is True
         from aragora.epistemic.crux_receipt import CruxReceipt as Target
 
         assert isinstance(passed_receipt, Target)
         assert passed_receipt.debate_id == "debate.42"
         assert result.cruxes_ingested == 1
         assert len(result.knowledge_item_ids) == 1
+
+    @pytest.mark.asyncio
+    async def test_adapter_flag_still_gates_ingestion(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from aragora.epistemic.gauntlet_crux_bridge import ingest_gauntlet_receipt
+        from aragora.knowledge.mound.adapters.crux_receipt_adapter import (
+            CruxReceiptAdapter,
+        )
+
+        monkeypatch.setenv("ARAGORA_KM_CRUX_INGESTION_ENABLED", "1")
+        monkeypatch.delenv("ARAGORA_CRUX_RECEIPT_ENABLED", raising=False)
+
+        result = await ingest_gauntlet_receipt(_gauntlet_receipt(), CruxReceiptAdapter())
+
+        assert result.receipt_id.startswith("crux_rcpt_")
+        assert result.cruxes_ingested == 0
+        assert result.skipped == 1
+        assert result.knowledge_item_ids == []
 
     @pytest.mark.asyncio
     async def test_require_enabled_false_bypasses_flag_check(
@@ -413,6 +432,8 @@ class TestIngestGauntletReceipt:
         result = await ingest_gauntlet_receipt(g, adapter, require_enabled=False)
 
         assert len(adapter.calls) == 1
+        _, passed_require = adapter.calls[0]
+        assert passed_require is False
         assert result.cruxes_ingested == 1
 
     @pytest.mark.asyncio

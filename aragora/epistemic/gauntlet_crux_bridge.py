@@ -209,6 +209,11 @@ async def ingest_gauntlet_receipt(
     the conversion at all (so a malformed gauntlet receipt is also a no-op
     when the flag is off — defense-in-depth).
 
+    The KM flag does not replace the adapter's own
+    ``ARAGORA_CRUX_RECEIPT_ENABLED`` gate. When ``require_enabled=True`` and
+    the KM flag is on, this wrapper still asks the adapter to enforce its
+    native crux-receipt flag before any Knowledge Mound write.
+
     Round 2026-04-30d follow-up to #6849: gives downstream callers a single-
     function path ``gauntlet receipt -> KM ingestion`` so the caller does not
     have to compose the converter + adapter explicitly.  The bridge converter
@@ -226,9 +231,11 @@ async def ingest_gauntlet_receipt(
         ``async ingest_crux_receipt(receipt, *, require_enabled)``).
     require_enabled:
         When ``True`` (default), check ``ARAGORA_KM_CRUX_INGESTION_ENABLED``
-        before performing the conversion or invoking the adapter.  When
-        ``False``, always run the conversion and pass ``require_enabled=False``
-        to the adapter (test-only escape hatch).
+        before performing the conversion or invoking the adapter, then forward
+        ``require_enabled=True`` so the adapter checks its own
+        ``ARAGORA_CRUX_RECEIPT_ENABLED`` gate. When ``False``, always run the
+        conversion and pass ``require_enabled=False`` to the adapter
+        (test-only escape hatch).
     preserve_receipt_id:
         Forwarded to :func:`from_gauntlet_receipt`.
 
@@ -257,11 +264,7 @@ async def ingest_gauntlet_receipt(
     epistemic_receipt = from_gauntlet_receipt(gauntlet, preserve_receipt_id=preserve_receipt_id)
     return await adapter.ingest_crux_receipt(
         epistemic_receipt,
-        # If require_enabled was True at our level and the flag is on, we
-        # already verified enablement; pass require_enabled=False so the
-        # adapter doesn't double-check.  If our caller passed
-        # require_enabled=False, we forward that intent.
-        require_enabled=False,
+        require_enabled=require_enabled,
     )
 
 
