@@ -36,6 +36,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from audit_codex_branch_backlog import (  # noqa: E402
+    ACTIVE_SESSION_FILES,
     branch_patch_id,
     count_ahead,
     is_patch_equivalent,
@@ -62,6 +63,14 @@ CATEGORY_CLEANUP_PATCH_EQUIVALENT = "cleanup_patch_equivalent"
 CATEGORY_SALVAGE_RECENT_UNIQUE = "salvage_recent_unique"
 CATEGORY_SALVAGE_STALE_REMOTE_UNIQUE = "salvage_stale_remote_unique"
 CATEGORY_SALVAGE_STALE_LOCAL_UNIQUE = "salvage_stale_local_unique"
+EXTRA_ACTIVE_SESSION_MARKERS = (
+    ".codex-session-active",
+    ".droid-session-active",
+    ".aragora-session.lock",
+)
+ACTIVE_SESSION_MARKERS = tuple(
+    dict.fromkeys((*ACTIVE_SESSION_FILES, *EXTRA_ACTIVE_SESSION_MARKERS))
+)
 
 
 def _parse_iso(raw: str) -> datetime:
@@ -69,20 +78,24 @@ def _parse_iso(raw: str) -> datetime:
 
 
 def _is_dirty(path: Path) -> bool:
-    proc = run_git(["status", "--porcelain"], path, timeout=15)
-    return proc.returncode == 0 and bool(proc.stdout.strip())
+    if not path.is_dir():
+        return False
+    try:
+        proc = run_git(["status", "--porcelain"], path, timeout=15)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+    if proc.returncode != 0:
+        return True
+    return bool(proc.stdout.strip())
 
 
 def _has_active_session(path: Path) -> bool:
     """Lightweight active-session check (lock files + session marker files)."""
     if not path.exists():
         return False
-    for marker in (
-        ".claude-session-active",
-        ".codex-session-active",
-        ".droid-session-active",
-        ".aragora-session.lock",
-    ):
+    for marker in ACTIVE_SESSION_MARKERS:
         if (path / marker).exists():
             return True
     return False
@@ -131,10 +144,10 @@ def _classify_one(
 
     if pr_number is not None:
         category = CATEGORY_PROTECTED_OPEN_PR
-    elif is_dirty:
-        category = CATEGORY_PROTECTED_DIRTY_WT
     elif is_active:
         category = CATEGORY_PROTECTED_ACTIVE_WT
+    elif is_dirty:
+        category = CATEGORY_PROTECTED_DIRTY_WT
     elif in_receipts or has_handoff_patch_match:
         category = CATEGORY_PROTECTED_HANDOFF_RECEIPT
     elif in_outbox:
