@@ -33,6 +33,13 @@ Exposes:
   :class:`DialecticalRuntimeError`, :func:`run_dialectical_loop`,
   :func:`dialectical_runtime_enabled`)
   Flag gate: ``ARAGORA_DIALECTICAL_RUNTIME_ENABLED`` (default off).
+- DIC-24: epistemic genealogy ledger — lineage view across decision, decay,
+  crux, and repair (:class:`CodeUnitGenealogy`, :class:`GenealogyEntry`,
+  :class:`GenealogyUnitSummary`, :class:`GenealogyReport`,
+  :func:`get_genealogy`, :func:`build_genealogy_report`,
+  :class:`InMemoryGenealogyStore`)
+  Flag gate: ``ARAGORA_GENEALOGY_ENABLED`` (default off; data classes and
+  store are always importable).
 - DIC-26: belief coherence monitor (:class:`BeliefEntry`,
   :class:`CoherenceReport`, :func:`scan_coherence`)
 - DIC-28: proactive crux gardening (:class:`GardeningConfig`,
@@ -145,6 +152,18 @@ from .proof_unit import (
     proof_unit_scan_enabled,
     reset_proof_unit_scan,
 )
+from .genealogy import (
+    CodeUnitGenealogy,
+    GenealogyEntry,
+    GenealogyStore,
+    InMemoryGenealogyStore,
+    get_genealogy,
+)
+from .genealogy_report import (
+    GenealogyReport,
+    GenealogyUnitSummary,
+    build_genealogy_report,
+)
 from .truth_map import (
     OrgTruthMapReport,
     build_truth_map,
@@ -218,6 +237,14 @@ __all__ = [
     "run_gardening_pass",
     "build_truth_map",
     "build_truth_map_from_manifests",
+    "CodeUnitGenealogy",
+    "GenealogyEntry",
+    "GenealogyReport",
+    "GenealogyStore",
+    "GenealogyUnitSummary",
+    "InMemoryGenealogyStore",
+    "build_genealogy_report",
+    "get_genealogy",
     "coherence_monitor_enabled",
     "crux_receipt_enabled",
     "enable_crux_receipt",
