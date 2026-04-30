@@ -66,8 +66,12 @@ class ShiftLedger:
         publication_failure — benchmark PR publication failure
     """
 
-    def __init__(self, path: Path | None = None):
-        self._path = path or Path(DEFAULT_LEDGER_PATH)
+    def __init__(self, path: Path | str | None = None):
+        # Coerce strings (and ``None``) to ``Path`` so callers using the
+        # default ``DEFAULT_LEDGER_PATH`` string or ad-hoc string paths
+        # don't crash on ``self._path.parent.mkdir(...)``. Round 30c-Phase-I
+        # discovered this when invoking ``ShiftLedger(path=DEFAULT_LEDGER_PATH)``.
+        self._path = Path(path) if path is not None else Path(DEFAULT_LEDGER_PATH)
         self._path.parent.mkdir(parents=True, exist_ok=True)
 
     @property

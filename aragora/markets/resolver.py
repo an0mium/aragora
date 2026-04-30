@@ -113,8 +113,15 @@ class GitHubMarketResolver:
     ) -> ResolutionEvent:
         repo = str(market.target.get("repo") or "")
         number = int(market.target.get("number") or 0)
+        # NOTE: ``merged`` is NOT a valid ``gh pr view --json`` field. The
+        # only related field gh exposes is ``mergedAt``. Previous versions
+        # of this resolver included ``merged`` in the field list, which
+        # silently produced stdout *without* a ``merged`` key, so the
+        # downstream ``bool(payload.get("merged"))`` always evaluated to
+        # False — meaning a successfully-merged PR could never resolve YES.
+        # We derive ``merged`` from ``state == "MERGED"`` instead.
         result = self._runner(
-            ["pr", "view", str(number), "--repo", repo, "--json", "state,merged,mergedAt,closedAt"],
+            ["pr", "view", str(number), "--repo", repo, "--json", "state,mergedAt,closedAt"],
             timeout=30,
         )
         if result.returncode != 0:
@@ -124,7 +131,7 @@ class GitHubMarketResolver:
         except json.JSONDecodeError as exc:
             raise ResolutionError(f"gh pr view returned non-JSON: {exc}") from exc
         state = str(payload.get("state") or "").upper()
-        merged = bool(payload.get("merged"))
+        merged = state == "MERGED"
         evidence = {
             "repo": repo,
             "number": number,

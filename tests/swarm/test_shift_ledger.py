@@ -34,6 +34,31 @@ class TestLedgerEntry:
         assert entry.payload == {}
 
 
+class TestShiftLedgerInit:
+    """Regression tests for round 30c-Phase-I bug: __init__ did not
+    coerce string paths to Path."""
+
+    def test_init_accepts_str_path(self, tmp_path: Path) -> None:
+        """Passing a str path must not raise AttributeError on .parent.mkdir."""
+        path_str = str(tmp_path / "ledger.jsonl")
+        sl = ShiftLedger(path=path_str)
+        assert sl.path == Path(path_str)
+        # And the parent directory must exist after init.
+        assert sl.path.parent.exists()
+
+    def test_init_accepts_path_object(self, tmp_path: Path) -> None:
+        path_obj = tmp_path / "ledger.jsonl"
+        sl = ShiftLedger(path=path_obj)
+        assert sl.path == path_obj
+
+    def test_init_with_none_uses_default(self, tmp_path: Path, monkeypatch) -> None:
+        """When path is None, the default must still be coerced cleanly."""
+        # Avoid touching the real default path — chdir into tmp.
+        monkeypatch.chdir(tmp_path)
+        sl = ShiftLedger(path=None)
+        assert isinstance(sl.path, Path)
+
+
 class TestShiftLedger:
     def test_append_and_read_all(self, ledger: ShiftLedger) -> None:
         ledger.append("shift_start", shift_id="s1")

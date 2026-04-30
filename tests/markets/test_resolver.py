@@ -131,6 +131,54 @@ class TestPrMergeResolution:
         with pytest.raises(ResolutionError):
             resolve_market(market, gh_runner=_runner)
 
+    def test_real_world_gh_payload_no_merged_field_resolves_yes(self) -> None:
+        """Regression: round 30c-Phase-E discovered that ``gh pr view --json``
+        does NOT expose a ``merged`` field — only ``mergedAt`` and ``state``.
+
+        Previous resolver versions queried ``state,merged,...`` and read
+        ``bool(payload.get("merged"))``, which always evaluated to False for
+        real ``gh`` output. Live MERGED PRs would never resolve YES.
+
+        This test pins the fix: even when ``merged`` is absent from the
+        payload, ``state == "MERGED"`` still produces the YES outcome."""
+        market = _expired_pr_market(number=6828)
+        captured: list[list[str]] = []
+
+        def _runner(args, **kwargs):
+            captured.append(list(args))
+            # Real gh output — note ``merged`` is NOT present.
+            return _completed(
+                json.dumps(
+                    {
+                        "state": "MERGED",
+                        "mergedAt": "2026-04-30T03:16:56Z",
+                        "closedAt": "2026-04-30T03:16:56Z",
+                    }
+                )
+            )
+
+        event = resolve_market(market, gh_runner=_runner)
+        assert event.outcome == "yes"
+        assert event.evidence["merged"] is True
+        # And the field-list arg must NOT include the invalid ``merged`` field.
+        json_arg_idx = captured[0].index("--json")
+        fields = captured[0][json_arg_idx + 1].split(",")
+        assert "merged" not in fields, (
+            f"`merged` is not a valid gh JSON field — found in {fields!r}"
+        )
+
+    def test_real_world_gh_payload_no_merged_field_open_pr(self) -> None:
+        """Companion regression: an OPEN PR with no ``merged`` key still
+        resolves to inconclusive (not YES) under the fixed logic."""
+        market = _expired_pr_market(number=99)
+
+        def _runner(args, **kwargs):
+            return _completed(json.dumps({"state": "OPEN"}))
+
+        event = resolve_market(market, gh_runner=_runner)
+        assert event.outcome == "inconclusive"
+        assert event.evidence["merged"] is False
+
 
 class TestIssueResolution:
     def test_closed_issue_resolves_yes(self) -> None:
