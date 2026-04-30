@@ -153,6 +153,7 @@ def test_render_scorecard_shape() -> None:
     assert out["deliverable_rows"] == 2
     assert "skip_reason_counts" in out
     assert "top_issues_by_skip_count" in out
+    assert out["stale_threshold"] == 2
     assert "stale_loops" in out
 
 
@@ -174,8 +175,16 @@ def test_render_markdown_with_stale_loops() -> None:
     rows = [{"issue_number": 100, "terminal_class": "blocked_auth_failure"}] * 12
     scorecard = mod.render_scorecard(rows, top_n=5, stale_threshold=10)
     md = mod.render_markdown(scorecard)
-    assert "Stale loops" in md
+    assert "Stale loops (>= 10 skip rows)" in md
     assert "#100" in md
+
+
+def test_render_markdown_uses_non_default_stale_threshold() -> None:
+    rows = [{"issue_number": 100, "terminal_class": "blocked_auth_failure"}] * 12
+    scorecard = mod.render_scorecard(rows, top_n=5, stale_threshold=7)
+    md = mod.render_markdown(scorecard)
+    assert "Stale loops (>= 7 skip rows)" in md
+    assert "Stale loops (>= 1 issues)" not in md
 
 
 def test_main_json_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

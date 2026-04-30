@@ -158,6 +158,7 @@ def render_scorecard(
         ),
         "skip_reason_counts": aggregate_skip_reasons(rows),
         "top_issues_by_skip_count": top_issues_by_skip_count(rows, top_n=top_n),
+        "stale_threshold": stale_threshold,
         "stale_loops": detect_stale_loops(rows, min_skip_rows=stale_threshold),
     }
 
@@ -194,7 +195,8 @@ def render_markdown(scorecard: dict[str, Any]) -> str:
     lines.append("")
 
     stale = scorecard.get("stale_loops") or []
-    lines.append(f"## Stale loops (>= {len(stale)} issues)")
+    stale_threshold = scorecard.get("stale_threshold", 10)
+    lines.append(f"## Stale loops (>= {stale_threshold} skip rows)")
     lines.append("")
     if stale:
         lines.append("| Issue | Skip count |")
