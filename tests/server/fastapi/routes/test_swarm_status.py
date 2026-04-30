@@ -247,3 +247,122 @@ def test_register_routes_adds_swarm_status_endpoints() -> None:
     assert "/api/v1/swarm/status" in route_paths
     assert "/api/v1/swarm/preflight" in route_paths
     assert "/api/v1/swarm/preflight/receipts" in route_paths
+
+
+# ---------------------------------------------------------------------------
+# Round 2026-04-30c Phase C: B0 publication freshness fields surfaced to the
+# FastAPI swarm-status route.  Closes the Optional Fix C from the #6798
+# design note: dashboard consumers can now distinguish "ledger says fresh"
+# (the existing ``benchmark_fresh`` field, which reads from the ledger
+# last-tick payload) from "the on-disk artifact actually IS fresh"
+# (``current_benchmark_fresh`` populated by ``_detect_benchmark_freshness``).
+# ---------------------------------------------------------------------------
+
+
+def _write_b0_artifact(repo_root: Path, generated_at: str | None) -> Path:
+    """Write a stub B0 truth artifact at the canonical relative path."""
+    target = (
+        repo_root
+        / "docs"
+        / "status"
+        / "generated"
+        / "benchmark_scorecards"
+        / "tw-01-bounded-execution-v1"
+        / "latest.json"
+    )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, object] = {"corpus_id": "tw-01-bounded-execution-v1", "revision": 3}
+    if generated_at is not None:
+        payload["generated_at"] = generated_at
+    target.write_text(json.dumps(payload), encoding="utf-8")
+    return target
+
+
+def test_swarm_status_no_data_includes_benchmark_freshness_keys(tmp_path: Path) -> None:
+    """Even on the no-data path the three new keys must be present (None)."""
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    summary = swarm_status.swarm_status_summary(metrics_path=metrics_path, repo_root=tmp_path)
+    assert summary["status"] == "no_data"
+    assert summary["current_benchmark_fresh"] is None
+    assert summary["current_benchmark_age_hours"] is None
+    assert summary["current_benchmark_generated_at"] is None
+
+
+def test_swarm_status_active_with_fresh_b0_artifact(tmp_path: Path) -> None:
+    """Active path with a recent B0 artifact reports current_benchmark_fresh=True."""
+    from datetime import datetime, timedelta, timezone
+
+    recent = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+    _write_b0_artifact(tmp_path, recent)
+
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    _write_jsonl(
+        metrics_path,
+        [{"timestamp": "2026-04-30T01:00:00Z", "terminal_class": "deliverable_pr_created"}],
+    )
+
+    summary = swarm_status.swarm_status_summary(metrics_path=metrics_path, repo_root=tmp_path)
+    assert summary["status"] == "active"
+    assert summary["current_benchmark_fresh"] is True
+    assert summary["current_benchmark_age_hours"] is not None
+    assert 0 <= summary["current_benchmark_age_hours"] <= 2.0
+    assert summary["current_benchmark_generated_at"] == recent
+
+
+def test_swarm_status_active_with_stale_b0_artifact(tmp_path: Path) -> None:
+    """Active path with a stale B0 artifact reports current_benchmark_fresh=False."""
+    from datetime import datetime, timedelta, timezone
+
+    stale = (datetime.now(timezone.utc) - timedelta(hours=30)).isoformat().replace("+00:00", "Z")
+    _write_b0_artifact(tmp_path, stale)
+
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    _write_jsonl(
+        metrics_path,
+        [{"timestamp": "2026-04-30T01:00:00Z", "terminal_class": "deliverable_pr_created"}],
+    )
+
+    summary = swarm_status.swarm_status_summary(metrics_path=metrics_path, repo_root=tmp_path)
+    assert summary["status"] == "active"
+    assert summary["current_benchmark_fresh"] is False
+    assert summary["current_benchmark_age_hours"] is not None
+    assert summary["current_benchmark_age_hours"] >= 24.0
+
+
+def test_swarm_status_active_with_missing_b0_artifact(tmp_path: Path) -> None:
+    """Active path with no B0 artifact at all reports None for all freshness keys.
+
+    A missing artifact is its own degraded state; we don't synthesise a
+    boolean from absent data.
+    """
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    _write_jsonl(
+        metrics_path,
+        [{"timestamp": "2026-04-30T01:00:00Z", "terminal_class": "deliverable_pr_created"}],
+    )
+
+    summary = swarm_status.swarm_status_summary(metrics_path=metrics_path, repo_root=tmp_path)
+    assert summary["status"] == "active"
+    assert summary["current_benchmark_fresh"] is None
+    assert summary["current_benchmark_age_hours"] is None
+    assert summary["current_benchmark_generated_at"] is None
+
+
+def test_swarm_status_legacy_benchmark_fresh_field_preserved(tmp_path: Path) -> None:
+    """The legacy ``benchmark_fresh`` field (ledger-driven) is kept side-by-side
+    with the new artifact-driven fields. Callers that were reading
+    ``benchmark_fresh`` continue to work; callers that want artifact-grounded
+    truth read ``current_benchmark_fresh``.
+    """
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    _write_jsonl(
+        metrics_path,
+        [{"timestamp": "2026-04-30T01:00:00Z", "terminal_class": "deliverable_pr_created"}],
+    )
+
+    summary = swarm_status.swarm_status_summary(metrics_path=metrics_path, repo_root=tmp_path)
+    # Legacy field still in the payload, alongside the new ones.
+    assert "benchmark_fresh" in summary
+    assert "current_benchmark_fresh" in summary
+    assert "current_benchmark_age_hours" in summary
+    assert "current_benchmark_generated_at" in summary

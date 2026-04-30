@@ -13,6 +13,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.live_shift_status import _detect_benchmark_freshness
 from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH as DEFAULT_SHIFT_LEDGER_PATH
 from aragora.swarm.shift_ledger import ShiftLedger
 
@@ -85,12 +86,21 @@ def swarm_status_summary(
     rows = _tail_jsonl(path, window)
     ledger_status = _load_ledger_status(repo_root=root, ledger_path=ledger_path)
 
+    # B0 publication freshness — Round 2026-04-30c Phase C, additive surface
+    # for the Foreman-gate operability signal.  Reads `generated_at` from the
+    # canonical B0 truth artifact at
+    # docs/status/generated/benchmark_scorecards/.../latest.json and reports
+    # three keys: current_benchmark_fresh / _age_hours / _generated_at.
+    # All-None when the artifact is missing or unparseable; never errors.
+    benchmark_freshness = _detect_benchmark_freshness(root)
+
     if not rows and not ledger_status:
         return {
             "status": "no_data",
             "metrics_path": str(path),
             "window": window,
             "total_ticks": 0,
+            **benchmark_freshness,
         }
 
     terminal_classes: Counter[str] = Counter()
@@ -161,11 +171,17 @@ def swarm_status_summary(
         "merge_running": (
             ledger_status.get("current_merge_running") if isinstance(ledger_status, dict) else None
         ),
+        # ``benchmark_fresh`` (legacy) is the ledger's last-tick view.
+        # Round 2026-04-30c Phase C adds the on-disk artifact-driven view
+        # via ``current_benchmark_fresh`` / ``_age_hours`` /
+        # ``_generated_at`` — these reflect what's actually published on
+        # main, complementing the ledger's record.
         "benchmark_fresh": (
             ledger_status.get("current_benchmark_fresh")
             if isinstance(ledger_status, dict)
             else None
         ),
+        **benchmark_freshness,
         "last_stop_reason": (
             ledger_status.get("last_stop_reason") if isinstance(ledger_status, dict) else ""
         ),
