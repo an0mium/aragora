@@ -3,10 +3,21 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH, ShiftLedger
+
+# Path (relative to repo root) to the canonical B0 truth artifact whose
+# generated_at timestamp drives the publication-freshness signal. See
+# docs/status/B0_BENCHMARK_TRUTH_STATUS.md and #6798 for the upstream
+# rationale (Foreman-gate criterion: "recurring benchmark publication
+# stays complete and fresh without babysitting").
+BENCHMARK_TRUTH_LATEST = (
+    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/latest.json"
+)
+BENCHMARK_FRESHNESS_DEFAULT_MAX_AGE_HOURS = 24.0
 
 
 def _resolve_ledger_path(repo_root: Path, value: object | None) -> Path:
@@ -204,6 +215,85 @@ def _detect_observer_state(repo_root: Path) -> dict[str, Any]:
     return payload
 
 
+def _detect_benchmark_freshness(
+    repo_root: Path,
+    *,
+    max_age_hours: float = BENCHMARK_FRESHNESS_DEFAULT_MAX_AGE_HOURS,
+) -> dict[str, Any]:
+    """Read the B0 truth artifact and report freshness against the threshold.
+
+    Returns three keys to be merged into the shift-status payload:
+
+    - ``current_benchmark_fresh``: bool when the artifact has a parseable
+      ``generated_at`` timestamp, else ``None``.  ``True`` when the artifact
+      was written within ``max_age_hours``.
+    - ``current_benchmark_age_hours``: float age in hours from the artifact's
+      ``generated_at`` to ``datetime.now(timezone.utc)``, rounded to 1
+      decimal; ``None`` when the timestamp is unreadable.
+    - ``current_benchmark_generated_at``: the raw ``generated_at`` string from
+      the artifact, or ``None``.
+
+    Closes the Foreman-gate-blocking gap recorded in #6798: the
+    ``current_benchmark_fresh`` payload key already existed in the schema
+    but was never populated from disk, so a stale B0 publication looked
+    healthy in operator surfaces.
+
+    All None-returns indicate "no usable signal" rather than "artifact is
+    stale" — a missing artifact is its own kind of degraded state and is
+    surfaced via the warning composition in ``_compose_freshness_warning``.
+    """
+    payload: dict[str, Any] = {
+        "current_benchmark_fresh": None,
+        "current_benchmark_age_hours": None,
+        "current_benchmark_generated_at": None,
+    }
+    artifact = repo_root / BENCHMARK_TRUTH_LATEST
+    if not artifact.exists():
+        return payload
+    try:
+        data = json.loads(artifact.read_text())
+    except (OSError, json.JSONDecodeError):
+        return payload
+    generated_at = str(data.get("generated_at") or data.get("recorded_on") or "").strip()
+    if not generated_at:
+        return payload
+    try:
+        when = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+    except ValueError:
+        return payload
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    age_seconds = (datetime.now(timezone.utc) - when).total_seconds()
+    age_hours = age_seconds / 3600.0
+    payload["current_benchmark_fresh"] = age_hours <= max_age_hours
+    payload["current_benchmark_age_hours"] = round(age_hours, 1)
+    payload["current_benchmark_generated_at"] = generated_at
+    return payload
+
+
+def _compose_freshness_warning(payload: dict[str, Any]) -> dict[str, Any]:
+    """Extend ``observer_warning`` with benchmark-staleness when present.
+
+    Called after both ``_detect_observer_state`` and
+    ``_detect_benchmark_freshness`` have populated ``payload``.  Idempotent:
+    if there is no observer warning yet, this writes one keyed only on the
+    benchmark-staleness signal; if there is, it appends.
+    """
+    fresh = payload.get("current_benchmark_fresh")
+    if fresh is not False:  # True or None: nothing to warn
+        return payload
+    age = payload.get("current_benchmark_age_hours")
+    fragment = "benchmark truth stale"
+    if isinstance(age, (int, float)):
+        fragment = f"{fragment} ({age}h old)"
+    existing = str(payload.get("observer_warning") or "").strip()
+    if existing:
+        payload["observer_warning"] = existing + "; " + fragment
+    else:
+        payload["observer_warning"] = "shift surfaces are " + fragment
+    return payload
+
+
 def _load_live_shift_truth(repo_root: Path) -> dict[str, Any]:
     if not _has_repo_metadata(repo_root):
         return {}
@@ -222,6 +312,8 @@ def _load_live_shift_truth(repo_root: Path) -> dict[str, Any]:
     if open_prs is not None:
         live_truth["current_open_prs"] = open_prs
     live_truth.update(_detect_observer_state(repo_root))
+    live_truth.update(_detect_benchmark_freshness(repo_root))
+    _compose_freshness_warning(live_truth)
     return live_truth
 
 
