@@ -15,13 +15,16 @@ from aragora.metrics.capability_checkpoint import (
 )
 
 
-def _rec(code: CheckpointCode, status: CheckpointStatus = CheckpointStatus.PASS) -> CheckpointRecord:
+def _rec(
+    code: CheckpointCode, status: CheckpointStatus = CheckpointStatus.PASS
+) -> CheckpointRecord:
     return CheckpointRecord.create(checkpoint_code=code, status=status, evaluator="t")
 
 
 # ---------------------------------------------------------------------------
 # Feature flag
 # ---------------------------------------------------------------------------
+
 
 def test_flag_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ARAGORA_CAPABILITY_CHECKPOINTS_ENABLED", raising=False)
@@ -38,6 +41,7 @@ def test_flag_enabled_truthy(monkeypatch: pytest.MonkeyPatch, val: str) -> None:
 # Default registry structure (mirrors AGENT_CIVILIZATION_SUBSTRATE.md §5)
 # ---------------------------------------------------------------------------
 
+
 def test_default_registry_has_five_checkpoints() -> None:
     assert len(build_default_registry().all_checkpoints()) == 5
 
@@ -50,8 +54,12 @@ def test_all_checkpoints_start_pending() -> None:
 def test_dependency_chain() -> None:
     reg = build_default_registry()
     assert reg.checkpoint(CheckpointCode.CP1).depends_on is None
-    for code, dep in [(CheckpointCode.CP2, CheckpointCode.CP1), (CheckpointCode.CP3, CheckpointCode.CP2),
-                      (CheckpointCode.CP4, CheckpointCode.CP3), (CheckpointCode.CP5, CheckpointCode.CP4)]:
+    for code, dep in [
+        (CheckpointCode.CP2, CheckpointCode.CP1),
+        (CheckpointCode.CP3, CheckpointCode.CP2),
+        (CheckpointCode.CP4, CheckpointCode.CP3),
+        (CheckpointCode.CP5, CheckpointCode.CP4),
+    ]:
         assert reg.checkpoint(code).depends_on == dep
 
 
@@ -77,14 +85,17 @@ def test_unknown_code_raises() -> None:
 # CheckpointRecord
 # ---------------------------------------------------------------------------
 
+
 def test_record_create_auto_timestamp() -> None:
     assert _rec(CheckpointCode.CP1).evaluated_at.endswith("Z")
 
 
 def test_record_to_dict_shape() -> None:
     d = CheckpointRecord.create(
-        checkpoint_code=CheckpointCode.CP3, status=CheckpointStatus.SKIPPED,
-        evaluator="ci", notes="skip",
+        checkpoint_code=CheckpointCode.CP3,
+        status=CheckpointStatus.SKIPPED,
+        evaluator="ci",
+        notes="skip",
     ).to_dict()
     assert d["checkpoint_code"] == "CP-3" and d["status"] == "skipped" and d["notes"] == "skip"
 
@@ -92,8 +103,10 @@ def test_record_to_dict_shape() -> None:
 def test_record_evidence_preserved() -> None:
     ev = {"shift_entry": "abc"}
     rec = CheckpointRecord.create(
-        checkpoint_code=CheckpointCode.CP1, status=CheckpointStatus.PASS,
-        evaluator="op", evidence=ev,
+        checkpoint_code=CheckpointCode.CP1,
+        status=CheckpointStatus.PASS,
+        evaluator="op",
+        evidence=ev,
     )
     assert rec.evidence == ev
 
@@ -101,6 +114,7 @@ def test_record_evidence_preserved() -> None:
 # ---------------------------------------------------------------------------
 # Registry write path (flag-gated)
 # ---------------------------------------------------------------------------
+
 
 def test_record_blocked_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ARAGORA_CAPABILITY_CHECKPOINTS_ENABLED", raising=False)

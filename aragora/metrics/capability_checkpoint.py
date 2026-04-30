@@ -68,16 +68,22 @@ class CheckpointRecord:
         evaluated_at: str | None = None,
     ) -> "CheckpointRecord":
         return cls(
-            checkpoint_code=checkpoint_code, status=status, evaluator=evaluator,
-            evidence=dict(evidence or {}), notes=notes,
+            checkpoint_code=checkpoint_code,
+            status=status,
+            evaluator=evaluator,
+            evidence=dict(evidence or {}),
+            notes=notes,
             evaluated_at=evaluated_at or datetime.now(tz=UTC).isoformat().replace("+00:00", "Z"),
         )
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "checkpoint_code": self.checkpoint_code.value, "status": self.status.value,
-            "evaluated_at": self.evaluated_at, "evaluator": self.evaluator,
-            "evidence": self.evidence, "notes": self.notes,
+            "checkpoint_code": self.checkpoint_code.value,
+            "status": self.status.value,
+            "evaluated_at": self.evaluated_at,
+            "evaluator": self.evaluator,
+            "evidence": self.evidence,
+            "notes": self.notes,
         }
 
 
@@ -125,42 +131,77 @@ class CheckpointRegistry:
 
 
 _DEFAULTS = [
-    ("CP-1", "Sustained substrate", 4, None,
-     "3 consecutive green BC-12 soaks (1 idle + 2 productive); "
-     "no LaunchAgent respawn-failure incidents requiring human kickstart",
-     "Pause AGT-* planning work; debug substrate self-healing"),
-    ("CP-2", "Live crux activation", 4, "CP-1",
-     "CruxDetector emits ranked CruxSet on >=20 real debates per week; "
-     "at least one CruxSet linked to a follow-up issue or claim",
-     "Reduce AGT scope to crux-only and re-evaluate"),
-    ("CP-3", "External truth signal", 4, "CP-2",
-     "Manifold + Metaculus integration produces >=100 resolved predictions "
-     "per agent per week; calibration curve is stable",
-     "Defer reputation wiring; debug prediction pipeline"),
-    ("CP-4", "Reputation flow live", 4, "CP-3",
-     "At least one agent has reputation delta drive a real "
-     "dispatch-eligibility change in production",
-     "Reduce to read-only reputation surface; revisit policy"),
-    ("CP-5", "Productivity-positive", 4, "CP-4",
-     "VIAH trends positive over rolling 4-week window without operator rescue spike",
-     "Pause new boosters; consolidate existing layers"),
+    (
+        "CP-1",
+        "Sustained substrate",
+        4,
+        None,
+        "3 consecutive green BC-12 soaks (1 idle + 2 productive); "
+        "no LaunchAgent respawn-failure incidents requiring human kickstart",
+        "Pause AGT-* planning work; debug substrate self-healing",
+    ),
+    (
+        "CP-2",
+        "Live crux activation",
+        4,
+        "CP-1",
+        "CruxDetector emits ranked CruxSet on >=20 real debates per week; "
+        "at least one CruxSet linked to a follow-up issue or claim",
+        "Reduce AGT scope to crux-only and re-evaluate",
+    ),
+    (
+        "CP-3",
+        "External truth signal",
+        4,
+        "CP-2",
+        "Manifold + Metaculus integration produces >=100 resolved predictions "
+        "per agent per week; calibration curve is stable",
+        "Defer reputation wiring; debug prediction pipeline",
+    ),
+    (
+        "CP-4",
+        "Reputation flow live",
+        4,
+        "CP-3",
+        "At least one agent has reputation delta drive a real "
+        "dispatch-eligibility change in production",
+        "Reduce to read-only reputation surface; revisit policy",
+    ),
+    (
+        "CP-5",
+        "Productivity-positive",
+        4,
+        "CP-4",
+        "VIAH trends positive over rolling 4-week window without operator rescue spike",
+        "Pause new boosters; consolidate existing layers",
+    ),
 ]
 
 
 def build_default_registry() -> CheckpointRegistry:
     """Return a registry with all 5 checkpoints (all start PENDING, no records)."""
-    return CheckpointRegistry([
-        CapabilityCheckpoint(
-            code=CheckpointCode(code), title=title, window_weeks=weeks,
-            depends_on=CheckpointCode(dep) if dep else None,
-            pass_condition=pass_cond, action_if_not_met=action,
-        )
-        for code, title, weeks, dep, pass_cond, action in _DEFAULTS
-    ])
+    return CheckpointRegistry(
+        [
+            CapabilityCheckpoint(
+                code=CheckpointCode(code),
+                title=title,
+                window_weeks=weeks,
+                depends_on=CheckpointCode(dep) if dep else None,
+                pass_condition=pass_cond,
+                action_if_not_met=action,
+            )
+            for code, title, weeks, dep, pass_cond, action in _DEFAULTS
+        ]
+    )
 
 
 __all__ = [
-    "CapabilityCheckpoint", "CheckpointCode", "CheckpointRecord",
-    "CheckpointRegistry", "CheckpointRegistryError", "CheckpointStatus",
-    "build_default_registry", "capability_checkpoints_enabled",
+    "CapabilityCheckpoint",
+    "CheckpointCode",
+    "CheckpointRecord",
+    "CheckpointRegistry",
+    "CheckpointRegistryError",
+    "CheckpointStatus",
+    "build_default_registry",
+    "capability_checkpoints_enabled",
 ]
