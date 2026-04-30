@@ -25,7 +25,14 @@ class JudgeClassification:
 
 def build_judge_prompt(prompt: ProbePrompt, panelist_response: str) -> str:
     """Build the pre-registered judge prompt for one panelist response."""
-    seeded_error = prompt.seeded_error.description if prompt.seeded_error else "No seeded error."
+    if prompt.seeded_errors:
+        seeded_error = "\n".join(
+            f"- {error.description}"
+            + (f" [{error.verification_ref}]" if error.verification_ref else "")
+            for error in prompt.seeded_errors
+        )
+    else:
+        seeded_error = "No seeded error."
     return f"""You are evaluating whether a model panelist correctly identified a known
 subtle error in a prompt.
 

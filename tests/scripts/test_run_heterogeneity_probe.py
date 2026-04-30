@@ -19,7 +19,7 @@ def test_probe_script_dry_run_selects_pilot_subset() -> None:
         capture_output=True,
     )
     payload = json.loads(proc.stdout)
-    assert payload["prompt_count"] == 21
+    assert payload["prompt_count"] == 23
     assert payload["class_counts"]["null_negative"] == 2
 
 

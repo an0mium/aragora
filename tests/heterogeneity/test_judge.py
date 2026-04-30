@@ -25,3 +25,14 @@ def test_build_judge_prompt_includes_seeded_error() -> None:
     assert "KNOWN SEEDED ERROR" in rendered
     assert "DEFAULT_REVERT_WINDOW_DAYS" in rendered
     assert "valid JSON" in rendered
+
+
+def test_build_judge_prompt_includes_plural_seeded_errors() -> None:
+    prompt = load_prompt_file(
+        "tests/heterogeneity/probe_prompts/multi_seeded_error/01_thresholds_and_window.md"
+    )
+    rendered = build_judge_prompt(prompt, "The threshold claim is wrong.")
+    assert "- DEFAULT_REVERT_WINDOW_DAYS" in rendered
+    assert "- Logical inversion" in rendered
+    assert "[aragora/review/invalidation.py:103-105]" in rendered
+    assert "[aragora/review/invalidation.py:108-114]" in rendered
