@@ -42,6 +42,7 @@ class FreshnessReport:
     summary: str
     launchd_loaded: bool
     launchd_detail: str
+    launchd_last_exit_code: int | None
     cache_path: str
     cache_present: bool
     cache_age_seconds: float | None
@@ -56,11 +57,66 @@ class FreshnessReport:
     blockers: list[str] = field(default_factory=list)
 
 
-def _launchd_loaded(label: str) -> tuple[bool, str]:
+# Map of common launchd exit codes to human-readable labels (sysexits.h subset).
+# Reported alongside the raw integer so the operator surface explains *why*
+# `last exit code = 78` is bad without requiring them to know sysexits.h.
+_LAUNCHD_EXIT_CODE_NAMES: dict[int, str] = {
+    64: "EX_USAGE",
+    65: "EX_DATAERR",
+    66: "EX_NOINPUT",
+    67: "EX_NOUSER",
+    68: "EX_NOHOST",
+    69: "EX_UNAVAILABLE",
+    70: "EX_SOFTWARE",
+    71: "EX_OSERR",
+    72: "EX_OSFILE",
+    73: "EX_CANTCREAT",
+    74: "EX_IOERR",
+    75: "EX_TEMPFAIL",
+    76: "EX_PROTOCOL",
+    77: "EX_NOPERM",
+    78: "EX_CONFIG",
+    127: "command-not-found",
+    137: "SIGKILL",
+}
+
+
+def _parse_last_exit_code(launchctl_print_stdout: str) -> int | None:
+    """Extract ``last exit code = N`` from ``launchctl print`` output.
+
+    Returns ``None`` when the field is absent (e.g., the job has never run, or
+    the launchctl output format changes).  Robust to whitespace and surrounding
+    fields.
+    """
+    for line in launchctl_print_stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("last exit code"):
+            # Form: "last exit code = N: NAME" or "last exit code = N".
+            _, _, rest = stripped.partition("=")
+            rest = rest.strip()
+            if not rest:
+                return None
+            num_str = rest.split(":", 1)[0].strip()
+            try:
+                return int(num_str)
+            except ValueError:
+                return None
+    return None
+
+
+def _launchd_loaded(label: str) -> tuple[bool, str, int | None]:
+    """Return (loaded, detail, last_exit_code).
+
+    A launchd job that is *loaded* may still be persistently failing — the
+    plist on disk can hard-code a missing WorkingDirectory or a bad command.
+    Surfacing the last-known exit code lets the caller distinguish "loaded
+    and healthy" from "loaded but persistently exit-code-failing" — the
+    latter is strictly more degraded.
+    """
     try:
         domain = f"gui/{os.getuid()}"
     except AttributeError:
-        return False, "non-posix-platform"
+        return False, "non-posix-platform", None
     try:
         proc = subprocess.run(
             ["launchctl", "print", f"{domain}/{label}"],
@@ -70,14 +126,15 @@ def _launchd_loaded(label: str) -> tuple[bool, str]:
             timeout=5,
         )
     except FileNotFoundError:
-        return False, "launchctl-not-found"
+        return False, "launchctl-not-found", None
     except subprocess.TimeoutExpired:
-        return False, "launchctl-timeout"
+        return False, "launchctl-timeout", None
+    last_exit = _parse_last_exit_code(proc.stdout or "")
     if proc.returncode == 0:
-        return True, "loaded"
+        return True, "loaded", last_exit
     stderr = (proc.stderr or "").strip().splitlines()
     detail = stderr[-1] if stderr else f"rc={proc.returncode}"
-    return False, detail
+    return False, detail, last_exit
 
 
 def _human_age(seconds: float | None) -> str:
@@ -125,7 +182,13 @@ def evaluate(
         outbox_dir = repo_root / ".aragora" / "automation-outbox"
     now = now if now is not None else time.time()
 
-    loaded, detail = _launchd_loaded(LAUNCHD_LABEL)
+    loaded, detail, last_exit_code = _launchd_loaded(LAUNCHD_LABEL)
+    # A non-zero last exit code on a *loaded* job is a strictly worse state
+    # than "loaded healthy": the plist is installed but the program is
+    # consistently failing.  Caught in Round 2026-04-30c Phase B (launchd
+    # plist pointing at a missing WorkingDirectory after a worktree rename
+    # caused 375 consecutive EX_CONFIG=78 fires before being noticed).
+    launchd_failing = loaded and last_exit_code is not None and last_exit_code != 0
 
     cache_present = cache_path.is_file()
     cache_age: float | None
@@ -155,6 +218,10 @@ def evaluate(
     blockers: list[str] = []
     if not loaded:
         blockers.append(f"launchd: {detail}")
+    elif launchd_failing:
+        # Loaded but persistently failing: surface the exit code with name.
+        name = _LAUNCHD_EXIT_CODE_NAMES.get(last_exit_code or -1, "unknown")
+        blockers.append(f"launchd: exit_code={last_exit_code} ({name})")
     if not cache_present:
         blockers.append("cache: missing")
     elif cache_stale:
@@ -164,16 +231,22 @@ def evaluate(
 
     if not blockers:
         verdict = "ready"
-    elif loaded and not drift_meaningful:
-        # cache-stale alone (without meaningful drift) is "warming": the
-        # next publisher run will refresh the cache and the operator
-        # signal will resolve without intervention.
+    elif loaded and not launchd_failing and not drift_meaningful:
+        # cache-stale alone (without meaningful drift, with healthy launchd)
+        # is "warming": the next publisher run will refresh the cache and
+        # the operator signal will resolve without intervention.
         verdict = "warming"
     else:
         verdict = "degraded"
 
     summary_parts = []
-    summary_parts.append(f"launchd: {'loaded' if loaded else detail}")
+    if loaded and not launchd_failing:
+        summary_parts.append("launchd: loaded")
+    elif loaded and launchd_failing:
+        name = _LAUNCHD_EXIT_CODE_NAMES.get(last_exit_code or -1, "unknown")
+        summary_parts.append(f"launchd: loaded but failing exit_code={last_exit_code} ({name})")
+    else:
+        summary_parts.append(f"launchd: {detail}")
     summary_parts.append(f"cache: {_human_age(cache_age) if cache_present else 'missing'}")
     summary_parts.append(f"drift: {drift_detail}")
     summary = f"publisher: {verdict} ({'; '.join(summary_parts)})"
@@ -183,6 +256,7 @@ def evaluate(
         summary=summary,
         launchd_loaded=loaded,
         launchd_detail=detail,
+        launchd_last_exit_code=last_exit_code,
         cache_path=str(cache_path),
         cache_present=cache_present,
         cache_age_seconds=cache_age,
