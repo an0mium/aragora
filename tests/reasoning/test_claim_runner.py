@@ -197,6 +197,29 @@ class TestRunOne:
         result = await _run_one(claim, {}, default_timeout=10.0)
         assert result.verdict == ClaimVerdict.TIMEOUT
 
+    @pytest.mark.asyncio
+    async def test_sync_timeout_is_cooperative_not_force(self) -> None:
+        """Round-30e Phase H finding from codex review: sync predicate
+        timeouts are caller-side only. The caller sees TIMEOUT
+        promptly, but the worker thread keeps running in the
+        background because Python threads aren't externally
+        cancellable. This test pins that contract."""
+
+        def slow(_ctx):
+            # Sleep longer than the timeout. Python threads can't be
+            # force-killed so this thread runs to completion off-loop.
+            time.sleep(0.3)
+            return True
+
+        claim = ExecutableClaim("slow-sync", slow, timeout_seconds=0.05)
+        t0 = time.monotonic()
+        result = await _run_one(claim, {}, default_timeout=2.0)
+        caller_elapsed = time.monotonic() - t0
+        # Caller sees TIMEOUT promptly...
+        assert result.verdict == ClaimVerdict.TIMEOUT
+        # ...without waiting for the underlying thread.
+        assert caller_elapsed < 0.2, f"caller waited {caller_elapsed:.3f}s; expected <0.2s"
+
 
 # --------------------------------------------------------------------- #
 # ClaimRunner.run                                                       #

@@ -28,6 +28,16 @@ Design constraints:
       via ``asyncio.wait_for``.
     - Reports are JSON-serializable so they can flow into receipts.
 
+**Sync-predicate timeout caveat (round 30e Phase H, codex review):**
+Sync predicates run on a thread via :func:`asyncio.to_thread`. Python
+threads cannot be force-cancelled, so a sync predicate that ignores
+external cancellation will keep running in the background after we
+return a ``ClaimVerdict.TIMEOUT`` verdict. For long-running sync
+checks, prefer an ``async def`` predicate that periodically yields
+to the event loop, or use a checker that internally honours a
+deadline. The runner's timeout protects the *caller's* wall-clock
+budget but does not guarantee the worker thread terminates.
+
 Example::
 
     from aragora.reasoning.claim_runner import (
