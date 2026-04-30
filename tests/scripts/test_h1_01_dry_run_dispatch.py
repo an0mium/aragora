@@ -19,6 +19,8 @@ These tests run in pure offline mode (``--offline``) so they never call
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -196,6 +198,60 @@ class TestRowForIssueOffline:
         assert row.fetch_status == "offline:requested"
         assert row.terminal_class == "dry_run_skipped"
         assert sentinel["called"] is False
+
+
+class TestDirectScriptInvocation:
+    def test_online_mode_imports_repo_package_without_pythonpath(self, tmp_path: Path) -> None:
+        fake_bin = tmp_path / "bin"
+        fake_bin.mkdir()
+        fake_gh = fake_bin / "gh"
+        fake_gh.write_text(
+            "\n".join(
+                [
+                    "#!/usr/bin/env python3",
+                    "import json",
+                    "print(json.dumps({",
+                    "    'title': 'fixture: direct invocation sanitizer import',",
+                    "    'body': 'Please add a focused regression test for this bounded bug.',",
+                    "    'state': 'OPEN',",
+                    "}))",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        fake_gh.chmod(0o755)
+
+        env = os.environ.copy()
+        env.pop("PYTHONPATH", None)
+        env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+        env["ARAGORA_H1_01_SUMMARY_JSON"] = str(tmp_path / "summary.json")
+        env["ARAGORA_H1_01_SUMMARY_MD"] = str(tmp_path / "summary.md")
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(REPO_ROOT / "scripts" / "h1_01_dry_run_dispatch.py"),
+                "--limit",
+                "1",
+                "--ledger-path",
+                str(tmp_path / "ledger.jsonl"),
+                "--json",
+            ],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        assert proc.returncode == 0, proc.stderr
+        payload = json.loads(proc.stdout)
+        assert payload["summary"]["total"] == 1
+        assert payload["summary"]["fetch_ok"] == 1
+        assert (tmp_path / "summary.json").is_file()
+        assert (tmp_path / "summary.md").is_file()
 
 
 class TestPersistMetricsRowAppends:

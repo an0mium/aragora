@@ -48,12 +48,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 CORPUS_REV4_PATH = REPO_ROOT / "tests/benchmarks/corpus_rev4.json"
 OVERNIGHT_DIR = REPO_ROOT / ".aragora/overnight"
 DRY_RUN_LEDGER = OVERNIGHT_DIR / "boss_metrics_h1_01_dry_run.jsonl"
 ROUND_DIR = REPO_ROOT / ".aragora/evolve-round/2026-04-30b/dogfood"
-SUMMARY_JSON = ROUND_DIR / "h1-01-dry-run-summary.json"
-SUMMARY_MD = ROUND_DIR / "h1-01-dry-run-summary.md"
+SUMMARY_JSON = Path(
+    os.environ.get("ARAGORA_H1_01_SUMMARY_JSON", str(ROUND_DIR / "h1-01-dry-run-summary.json"))
+)
+SUMMARY_MD = Path(
+    os.environ.get("ARAGORA_H1_01_SUMMARY_MD", str(ROUND_DIR / "h1-01-dry-run-summary.md"))
+)
 
 
 @dataclass(slots=True)
