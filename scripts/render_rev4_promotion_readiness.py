@@ -6,8 +6,10 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import subprocess
 import sys
 from collections import Counter, defaultdict
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -297,6 +299,70 @@ def _load_pr_records(path: Path | None) -> list[dict[str, Any]]:
     return [item for item in payload if isinstance(item, dict)]
 
 
+def fetch_boss_harvest_pr_records(
+    issue_ids: Iterable[int],
+    *,
+    repo: str | None = None,
+    per_issue_limit: int = 10,
+    timeout_seconds: int = 15,
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    seen_prs: set[int] = set()
+    for issue_id in sorted({int(issue_id) for issue_id in issue_ids if int(issue_id) > 0}):
+        cmd = [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "all",
+            "--limit",
+            str(max(int(per_issue_limit), 1)),
+            "--search",
+            f"head:aragora/boss-harvest/issue-{issue_id}",
+            "--json",
+            "number,state,headRefName",
+        ]
+        if repo:
+            cmd.extend(["--repo", repo])
+        try:
+            proc = subprocess.run(
+                cmd,
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if proc.returncode != 0:
+            continue
+        try:
+            payload = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, list):
+            continue
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            number = item.get("number")
+            if isinstance(number, int):
+                if number in seen_prs:
+                    continue
+                seen_prs.add(number)
+            records.append(item)
+    return records
+
+
+def _corpus_issue_ids(corpus: dict[str, Any]) -> list[int]:
+    return [
+        _issue_id(issue)
+        for issue in corpus.get("issues", [])
+        if isinstance(issue, dict) and _issue_id(issue) > 0
+    ]
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS_PATH)
@@ -316,6 +382,25 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--no-gh-pr-records",
+        action="store_true",
+        help=(
+            "Disable the default non-fatal gh lookup for boss-harvest PR evidence "
+            "when --pr-records is omitted."
+        ),
+    )
+    parser.add_argument(
+        "--gh-repo",
+        default=None,
+        help="Optional owner/repo passed to gh when auto-loading boss-harvest PR evidence.",
+    )
+    parser.add_argument(
+        "--gh-per-issue-limit",
+        type=int,
+        default=10,
+        help="Maximum PR records to fetch per staged issue during the default gh lookup.",
+    )
+    parser.add_argument(
         "--json", action="store_true", help="Emit readiness JSON instead of Markdown"
     )
     parser.add_argument(
@@ -332,6 +417,12 @@ def main(argv: list[str] | None = None) -> int:
     metrics_path = resolve_metrics_path(args.metrics)
     corpus = load_corpus(corpus_path)
     pr_records = _load_pr_records(args.pr_records)
+    if args.pr_records is None and not args.no_gh_pr_records:
+        pr_records = fetch_boss_harvest_pr_records(
+            _corpus_issue_ids(corpus),
+            repo=args.gh_repo,
+            per_issue_limit=args.gh_per_issue_limit,
+        )
     readiness = build_readiness(
         corpus=corpus,
         metrics_rows=load_metrics(metrics_path),

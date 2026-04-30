@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -105,6 +106,7 @@ def test_main_writes_markdown_readiness(tmp_path: Path) -> None:
             str(output_path),
             "--min-dispatched",
             "2",
+            "--no-gh-pr-records",
             "--generated-at",
             "2026-04-25T00:00:00Z",
         ]
@@ -114,7 +116,7 @@ def test_main_writes_markdown_readiness(tmp_path: Path) -> None:
     assert exit_code == 0
     assert "Last updated: 2026-04-25T00:00:00Z" in markdown
     assert "Status: `manifest_below_h1_floor`" in markdown
-    assert "| Staged issues with metrics evidence | 1 |" in markdown
+    assert "| Staged issues with dispatch evidence (any source) | 1 |" in markdown
     assert "`#1002`" in markdown
 
 
@@ -133,6 +135,7 @@ def test_main_json_mode_emits_readiness(tmp_path: Path, capsys) -> None:
             str(metrics_path),
             "--min-dispatched",
             "1",
+            "--no-gh-pr-records",
             "--json",
         ]
     )
@@ -141,3 +144,78 @@ def test_main_json_mode_emits_readiness(tmp_path: Path, capsys) -> None:
     assert exit_code == 0
     assert payload["status"] == "promotion_ready"
     assert payload["dispatch"]["dispatched_issue_count"] == 1
+
+
+def test_fetch_boss_harvest_pr_records_uses_targeted_branch_search(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(list(cmd))
+        search = cmd[cmd.index("--search") + 1]
+        stdout = "[]"
+        if search.endswith("issue-1002"):
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 4242,
+                        "state": "MERGED",
+                        "headRefName": "aragora/boss-harvest/issue-1002-boss-abcd",
+                    }
+                ]
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    records = mod.fetch_boss_harvest_pr_records([1002, 1001, 1002], repo="owner/repo")
+
+    assert records == [
+        {
+            "number": 4242,
+            "state": "MERGED",
+            "headRefName": "aragora/boss-harvest/issue-1002-boss-abcd",
+        }
+    ]
+    assert [cmd[cmd.index("--search") + 1] for cmd in calls] == [
+        "head:aragora/boss-harvest/issue-1001",
+        "head:aragora/boss-harvest/issue-1002",
+    ]
+    assert all(cmd[-2:] == ["--repo", "owner/repo"] for cmd in calls)
+
+
+def test_main_json_mode_auto_loads_gh_pr_evidence(tmp_path: Path, capsys, monkeypatch) -> None:
+    corpus_path = _write_json(tmp_path / "corpus.json", _corpus(list(range(1001, 1031))))
+    metrics_path = _write_metrics(
+        tmp_path / "boss_metrics.jsonl",
+        [{"issue_number": 1001, "terminal_class": "deliverable_pr_created"}],
+    )
+
+    def fake_fetch(issue_ids, **kwargs):
+        assert 1002 in issue_ids
+        return [
+            {
+                "number": 4242,
+                "state": "MERGED",
+                "headRefName": "aragora/boss-harvest/issue-1002-boss-abcd",
+            }
+        ]
+
+    monkeypatch.setattr(mod, "fetch_boss_harvest_pr_records", fake_fetch)
+
+    exit_code = mod.main(
+        [
+            "--corpus",
+            str(corpus_path),
+            "--metrics",
+            str(metrics_path),
+            "--min-dispatched",
+            "2",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["status"] == "promotion_ready"
+    assert payload["dispatch"]["dispatched_issue_count"] == 2
+    assert payload["dispatch"]["dispatch_source_by_issue"]["1002"] == "pr"

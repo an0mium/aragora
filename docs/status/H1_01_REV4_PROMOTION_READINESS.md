@@ -1,6 +1,6 @@
 # H1-01 Rev-4 Promotion Readiness
 
-Last updated: 2026-04-30T18:57:38Z
+Last updated: 2026-04-30T19:54:46Z
 
 This is the operator-facing readiness surface for promoting the staged rev-4 benchmark corpus into the canonical B0 truth loop.
 
@@ -25,15 +25,15 @@ This is the operator-facing readiness surface for promoting the staged rev-4 ben
 | Metric | Value |
 | --- | --- |
 | Dispatch floor for first canonical slice | 15 |
-| Staged issues with dispatch evidence (any source) | 15 |
-| Staged issues still missing dispatch evidence | 18 |
+| Staged issues with dispatch evidence (any source) | 16 |
+| Staged issues still missing dispatch evidence | 17 |
 | Additional dispatches needed | 0 |
-| ...via metrics ledger only | 12 |
-| ...via merged/open boss-harvest PR only | 3 |
+| ...via metrics ledger only | 1 |
+| ...via merged/open boss-harvest PR only | 4 |
 
 ## Next Dispatch Targets
 
-`#5188`, `#5788`, `#5789`, `#5790`, `#5791`, `#5792`, `#5793`, `#5794`, `#5801`, `#5808`
+`#5788`, `#5789`, `#5790`, `#5791`, `#5792`, `#5793`, `#5794`, `#5801`, `#5808`, `#5809`
 
 ## Execution-Class Coverage
 
@@ -41,18 +41,18 @@ This is the operator-facing readiness surface for promoting the staged rev-4 ben
 | --- | ---: | ---: | ---: |
 | `docs_reconciliation` | 1 | 2 | 1 |
 | `exception_narrowing` | 0 | 8 | 8 |
-| `missing_test_coverage` | 9 | 10 | 1 |
+| `missing_test_coverage` | 10 | 10 | 0 |
 | `silent_exception_replacement` | 0 | 8 | 8 |
 | `small_refactor` | 3 | 3 | 0 |
 | `validation_tightening` | 2 | 2 | 0 |
 
 ## Dispatched Issues
 
-`#5126`, `#5128`, `#5130`, `#5176`, `#5180`, `#5185`, `#5187`, `#5197`, `#5198`, `#5426`, `#5427`, `#5428`, `#5764`, `#5765`, `#5844`
+`#5126`, `#5128`, `#5130`, `#5176`, `#5180`, `#5185`, `#5187`, `#5188`, `#5197`, `#5198`, `#5426`, `#5427`, `#5428`, `#5764`, `#5765`, `#5844`
 
 ## Missing Evidence
 
-`#5188`, `#5788`, `#5789`, `#5790`, `#5791`, `#5792`, `#5793`, `#5794`, `#5801`, `#5808`, `#5809`, `#5810`, `#5811`, `#5812`, `#5821`, `#5823`, `#5825`, `#5883`
+`#5788`, `#5789`, `#5790`, `#5791`, `#5792`, `#5793`, `#5794`, `#5801`, `#5808`, `#5809`, `#5810`, `#5811`, `#5812`, `#5821`, `#5823`, `#5825`, `#5883`
 
 ## Promotion Rule
 
