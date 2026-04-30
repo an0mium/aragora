@@ -14,6 +14,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from aragora.swarm.dispatch_evidence import issues_dispatched_via_pr  # noqa: E402
 from aragora.utils.git_paths import git_common_repo_root, resolve_repo_fallback_path  # noqa: E402
 
 DEFAULT_CORPUS_PATH = REPO_ROOT / "tests" / "benchmarks" / "corpus_rev4.json"
@@ -83,6 +84,7 @@ def build_readiness(
     corpus: dict[str, Any],
     metrics_rows: list[dict[str, Any]],
     min_dispatched: int = DEFAULT_MIN_DISPATCHED,
+    pr_records: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     issues = [
         dict(issue)
@@ -97,10 +99,33 @@ def build_readiness(
         if isinstance(issue_number, int) and issue_number in issue_ids:
             rows_by_issue[issue_number].append(row)
 
-    dispatched_ids = sorted(rows_by_issue)
+    # Cross-reference GitHub PR state. A merged or open PR on the
+    # boss-loop's deterministic branch pattern is dispatch evidence
+    # even when the metrics ledger has no row for the issue (e.g. the
+    # row pre-dates the ledger or was lost in rotation).
+    pr_evidence: dict[int, dict[str, Any]] = (
+        issues_dispatched_via_pr(list(issue_ids), pr_records=pr_records or []) if pr_records else {}
+    )
+
+    metrics_dispatched_set = set(rows_by_issue)
+    pr_dispatched_set = {n for n, verdict in pr_evidence.items() if bool(verdict.get("dispatched"))}
+    dispatched_ids = sorted(metrics_dispatched_set | pr_dispatched_set)
     missing_ids = sorted(issue_ids - set(dispatched_ids))
     needed_for_minimum = max(int(min_dispatched) - len(dispatched_ids), 0)
     recommended_ids = missing_ids[: needed_for_minimum or min(10, len(missing_ids))]
+
+    dispatch_source_by_issue: dict[int, str] = {}
+    for issue_id in dispatched_ids:
+        in_metrics = issue_id in metrics_dispatched_set
+        in_pr = issue_id in pr_dispatched_set
+        if in_metrics and in_pr:
+            dispatch_source_by_issue[issue_id] = "metrics+pr"
+        elif in_metrics:
+            dispatch_source_by_issue[issue_id] = "metrics"
+        else:
+            dispatch_source_by_issue[issue_id] = "pr"
+
+    pr_dispatched_only_ids = sorted(pr_dispatched_set - metrics_dispatched_set)
 
     class_totals = Counter(str(issue.get("execution_class") or "unknown") for issue in issues)
     class_dispatched: Counter[str] = Counter()
@@ -108,14 +133,21 @@ def build_readiness(
     for issue in issues:
         issue_number = _issue_id(issue)
         execution_class = str(issue.get("execution_class") or "unknown")
-        rows = rows_by_issue.get(issue_number, [])
-        if rows:
+        if issue_number in metrics_dispatched_set or issue_number in pr_dispatched_set:
             class_dispatched[execution_class] += 1
+        rows = rows_by_issue.get(issue_number, [])
         latest_terminal = ""
         for row in rows:
             terminal_class = str(row.get("terminal_class") or "").strip()
             if terminal_class:
                 latest_terminal = terminal_class
+        if not latest_terminal and issue_number in pr_dispatched_set:
+            verdict = pr_evidence.get(issue_number) or {}
+            best_state = verdict.get("best_state")
+            if best_state == "MERGED":
+                latest_terminal = "deliverable_pr_merged"
+            elif best_state == "OPEN":
+                latest_terminal = "deliverable_pr_open"
         if latest_terminal:
             latest_terminal_by_issue[issue_number] = latest_terminal
 
@@ -142,6 +174,9 @@ def build_readiness(
             "missing_issue_ids": missing_ids,
             "recommended_next_issue_ids": recommended_ids,
             "latest_terminal_by_issue": latest_terminal_by_issue,
+            "dispatch_source_by_issue": dispatch_source_by_issue,
+            "pr_dispatched_only_ids": pr_dispatched_only_ids,
+            "metrics_dispatched_only_ids": sorted(metrics_dispatched_set - pr_dispatched_set),
         },
         "execution_classes": {
             execution_class: {
@@ -208,9 +243,11 @@ def render_markdown(
         "| Metric | Value |",
         "| --- | --- |",
         f"| Dispatch floor for first canonical slice | {min_dispatched} |",
-        f"| Staged issues with metrics evidence | {dispatch.get('dispatched_issue_count') or 0} |",
-        f"| Staged issues still missing metrics evidence | {dispatch.get('missing_issue_count') or 0} |",
+        f"| Staged issues with dispatch evidence (any source) | {dispatch.get('dispatched_issue_count') or 0} |",
+        f"| Staged issues still missing dispatch evidence | {dispatch.get('missing_issue_count') or 0} |",
         f"| Additional dispatches needed | {needed} |",
+        f"| ...via metrics ledger only | {len(list(dispatch.get('metrics_dispatched_only_ids') or []))} |",
+        f"| ...via merged/open boss-harvest PR only | {len(list(dispatch.get('pr_dispatched_only_ids') or []))} |",
         "",
         "## Next Dispatch Targets",
         "",
@@ -241,11 +278,23 @@ def render_markdown(
             "",
             "## Promotion Rule",
             "",
-            "Promote only a first canonical rev-4 slice after at least 15 staged entries have dispatch evidence in `boss_metrics.jsonl`. Keep undispatched entries staged until they also accumulate evidence.",
+            "Promote only a first canonical rev-4 slice after at least 15 staged entries have dispatch evidence. Dispatch evidence is satisfied by either (a) at least one row in `boss_metrics.jsonl` for the issue or (b) a merged or open pull request on the boss-loop's deterministic branch pattern `aragora/boss-harvest/issue-N-*`. Keep undispatched entries staged until they also accumulate evidence.",
             "",
         ]
     )
     return "\n".join(lines)
+
+
+def _load_pr_records(path: Path | None) -> list[dict[str, Any]]:
+    if path is None or not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, list):
+        return []
+    return [item for item in payload if isinstance(item, dict)]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -255,6 +304,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--min-dispatched", type=int, default=DEFAULT_MIN_DISPATCHED)
     parser.add_argument("--generated-at", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--pr-records",
+        type=Path,
+        default=None,
+        help=(
+            "Optional path to a JSON file with `gh pr list "
+            "--json number,state,headRefName` output. When provided, "
+            "merged/open PRs on the boss-harvest branch pattern count "
+            "as dispatch evidence in addition to boss_metrics rows."
+        ),
+    )
     parser.add_argument(
         "--json", action="store_true", help="Emit readiness JSON instead of Markdown"
     )
@@ -271,10 +331,12 @@ def main(argv: list[str] | None = None) -> int:
     corpus_path = args.corpus.resolve()
     metrics_path = resolve_metrics_path(args.metrics)
     corpus = load_corpus(corpus_path)
+    pr_records = _load_pr_records(args.pr_records)
     readiness = build_readiness(
         corpus=corpus,
         metrics_rows=load_metrics(metrics_path),
         min_dispatched=args.min_dispatched,
+        pr_records=pr_records,
     )
     generated_at = _normalize_generated_at(args.generated_at)
 
