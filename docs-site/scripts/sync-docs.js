@@ -598,8 +598,13 @@ function processFile(srcRelPath, destPath) {
   const isAdr = relSrcPath.startsWith('ADR' + path.sep);
   const slug = isAdr && baseName !== 'README' ? baseName : null;
 
+  const description =
+    relSrcPath.replace(/\\/g, '/') === 'reference/CLI_REFERENCE.md'
+      ? 'Generated Aragora CLI command catalog from live parser'
+      : undefined;
+
   // Add frontmatter
-  content = addFrontmatter(content, title, undefined, slug);
+  content = addFrontmatter(content, title, description, slug);
 
   // Fix content for compatibility (pass relative dest path)
   const relDestPath = destPath.replace(DEST_DIR + '/', '');

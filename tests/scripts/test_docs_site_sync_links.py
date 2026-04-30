@@ -117,3 +117,10 @@ def test_docs_site_sync_creates_linked_status_and_planning_pages() -> None:
 
     for page in expected_pages:
         assert page.exists(), f"Expected synced docs-site page missing: {page}"
+
+
+def test_cli_reference_preserves_generated_catalog_description() -> None:
+    content = _read_docs_site("api/cli.md")
+
+    assert "title: Aragora CLI Reference" in content
+    assert "description: Generated Aragora CLI command catalog from live parser" in content
