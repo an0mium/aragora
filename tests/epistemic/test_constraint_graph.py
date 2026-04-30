@@ -160,3 +160,161 @@ class TestToDict:
         d = g.to_dict()
         assert list(d["units"].keys()) == sorted(d["units"].keys())
         assert d["claim_index"]["shared"] == sorted(d["claim_index"]["shared"])
+
+
+# =============================================================================
+# Phase F additions: explicit unit-to-unit dependency edges + multi-hop
+# impact propagation (Round 2026-04-30b).
+# =============================================================================
+
+
+class TestDependencyEdgeConstruction:
+    """Constructor validates and indexes ``dependency_edges``."""
+
+    def test_default_no_edges(self) -> None:
+        g = ProofUnitConstraintGraph([_unit("a"), _unit("b")])
+        assert g.edge_count == 0
+        assert g.direct_dependencies("a") == []
+        assert g.direct_dependents("b") == []
+
+    def test_single_edge_indexes_both_directions(self) -> None:
+        g = ProofUnitConstraintGraph(
+            [_unit("a"), _unit("b")],
+            dependency_edges=[("a", "b")],
+        )
+        assert g.edge_count == 1
+        assert g.direct_dependencies("a") == ["b"]
+        assert g.direct_dependents("b") == ["a"]
+        # Reverse direction empty.
+        assert g.direct_dependencies("b") == []
+        assert g.direct_dependents("a") == []
+
+    def test_unknown_from_endpoint_raises(self) -> None:
+        with pytest.raises(ValueError, match="dependency edge from unknown unit"):
+            ProofUnitConstraintGraph(
+                [_unit("a")],
+                dependency_edges=[("ghost", "a")],
+            )
+
+    def test_unknown_to_endpoint_raises(self) -> None:
+        with pytest.raises(ValueError, match="dependency edge to unknown unit"):
+            ProofUnitConstraintGraph(
+                [_unit("a")],
+                dependency_edges=[("a", "ghost")],
+            )
+
+    def test_self_loop_raises(self) -> None:
+        with pytest.raises(ValueError, match="self-loop"):
+            ProofUnitConstraintGraph(
+                [_unit("a")],
+                dependency_edges=[("a", "a")],
+            )
+
+    def test_duplicate_edges_idempotent(self) -> None:
+        g = ProofUnitConstraintGraph(
+            [_unit("a"), _unit("b")],
+            dependency_edges=[("a", "b"), ("a", "b")],  # duplicate
+        )
+        # Set semantics: duplicates collapse to one edge.
+        assert g.edge_count == 1
+        assert g.direct_dependencies("a") == ["b"]
+
+
+class TestMultiHopImpact:
+    """``multi_hop_impact_set`` walks reverse-dependency BFS."""
+
+    def test_no_edges_equals_single_hop(self) -> None:
+        g = ProofUnitConstraintGraph(
+            [_unit("a", claims=["x"]), _unit("b", claims=["y"])],
+        )
+        assert g.multi_hop_impact_set({"x"}) == g.impact_set({"x"}) == {"a"}
+
+    def test_one_hop_propagation(self) -> None:
+        # B depends on A. If A's claim is invalidated, B is also impacted.
+        g = ProofUnitConstraintGraph(
+            [_unit("a", claims=["x"]), _unit("b")],
+            dependency_edges=[("b", "a")],
+        )
+        assert g.impact_set({"x"}) == {"a"}
+        assert g.multi_hop_impact_set({"x"}) == {"a", "b"}
+
+    def test_chain_propagates_transitively(self) -> None:
+        # C → B → A. Invalidating A's claim cascades to B and C.
+        g = ProofUnitConstraintGraph(
+            [_unit("a", claims=["root"]), _unit("b"), _unit("c")],
+            dependency_edges=[("b", "a"), ("c", "b")],
+        )
+        assert g.multi_hop_impact_set({"root"}) == {"a", "b", "c"}
+
+    def test_max_depth_zero_equals_seed(self) -> None:
+        g = ProofUnitConstraintGraph(
+            [_unit("a", claims=["x"]), _unit("b"), _unit("c")],
+            dependency_edges=[("b", "a"), ("c", "b")],
+        )
+        assert g.multi_hop_impact_set({"x"}, max_depth=0) == {"a"}
+
+    def test_max_depth_one_limits_propagation(self) -> None:
+        g = ProofUnitConstraintGraph(
+            [_unit("a", claims=["x"]), _unit("b"), _unit("c")],
+            dependency_edges=[("b", "a"), ("c", "b")],
+        )
+        # Depth 1: only first-degree dependent (b), not c.
+        assert g.multi_hop_impact_set({"x"}, max_depth=1) == {"a", "b"}
+
+    def test_diamond_dependencies_visited_once(self) -> None:
+        # B and C both depend on A; D depends on both B and C.
+        g = ProofUnitConstraintGraph(
+            [_unit("a", claims=["x"]), _unit("b"), _unit("c"), _unit("d")],
+            dependency_edges=[("b", "a"), ("c", "a"), ("d", "b"), ("d", "c")],
+        )
+        result = g.multi_hop_impact_set({"x"})
+        assert result == {"a", "b", "c", "d"}
+
+    def test_cycle_in_dependency_graph_is_safe(self) -> None:
+        # A is impacted by claim, B and C depend on A, and there's a cycle B↔C.
+        # BFS must not loop forever.
+        g = ProofUnitConstraintGraph(
+            [_unit("a", claims=["x"]), _unit("b"), _unit("c")],
+            dependency_edges=[("b", "a"), ("c", "b"), ("b", "c")],
+        )
+        result = g.multi_hop_impact_set({"x"})
+        assert result == {"a", "b", "c"}
+
+    def test_unrelated_units_not_impacted(self) -> None:
+        # D is in the graph but neither claims X nor depends on anything that does.
+        g = ProofUnitConstraintGraph(
+            [_unit("a", claims=["x"]), _unit("b"), _unit("c"), _unit("d")],
+            dependency_edges=[("b", "a")],
+        )
+        result = g.multi_hop_impact_set({"x"})
+        assert result == {"a", "b"}
+        assert "c" not in result
+        assert "d" not in result
+
+    def test_empty_seed_returns_empty(self) -> None:
+        g = ProofUnitConstraintGraph(
+            [_unit("a"), _unit("b")],
+            dependency_edges=[("b", "a")],
+        )
+        assert g.multi_hop_impact_set(set()) == set()
+        assert g.multi_hop_impact_set({"unknown"}) == set()
+
+
+class TestToDictWithEdges:
+    """``to_dict`` serialises dependency edges deterministically."""
+
+    def test_edges_sorted(self) -> None:
+        g = ProofUnitConstraintGraph(
+            [_unit("a"), _unit("b"), _unit("c")],
+            dependency_edges=[("c", "a"), ("b", "a"), ("c", "b")],
+        )
+        d = g.to_dict()
+        assert d["edge_count"] == 3
+        # Sorted by from_uid then to_uid.
+        assert d["dependency_edges"] == [["b", "a"], ["c", "a"], ["c", "b"]]
+
+    def test_edges_empty_by_default(self) -> None:
+        g = ProofUnitConstraintGraph([_unit("a")])
+        d = g.to_dict()
+        assert d["edge_count"] == 0
+        assert d["dependency_edges"] == []
