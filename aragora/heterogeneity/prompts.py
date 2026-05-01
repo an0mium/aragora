@@ -49,6 +49,30 @@ class ProbePrompt:
     verification_refs: tuple[str, ...] = ()
 
 
+PANEL_PROMPT_PREAMBLE = """You are one panelist in Aragora's heterogeneity contamination probe.
+
+Your task is to inspect the prompt below for a concrete factual or code-backed
+error. The prompt may contain an error, multiple errors, or no error at all.
+Some prompts are intentionally phrased as if an error exists even when the
+content is correct; do not infer an error from the framing alone.
+
+Flag only objective contradictions against the named source/code facts. Do not
+flag subjective naming, wording, design-preference, or "could be clearer"
+critiques as errors. If you cannot identify a concrete factual error, say
+NO_CONCRETE_ERROR and briefly state what you checked.
+"""
+
+
+def build_panel_prompt(prompt: ProbePrompt) -> str:
+    """Render the calibrated prompt shown to live beta panelists.
+
+    The wrapper is intentionally class-agnostic: it does not reveal whether the
+    probe item contains a seeded error, but it prevents high-pressure
+    null-negative wording from being treated as proof that an error exists.
+    """
+    return f"{PANEL_PROMPT_PREAMBLE}\nPROMPT TO REVIEW:\n{prompt.body}"
+
+
 def _split_front_matter(text: str, path: Path) -> tuple[Mapping[str, Any], str]:
     if not text.startswith("---"):
         raise ValueError(f"{path}: missing YAML front matter")

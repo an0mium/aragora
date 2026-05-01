@@ -36,3 +36,14 @@ def test_build_judge_prompt_includes_plural_seeded_errors() -> None:
     assert "- Logical inversion" in rendered
     assert "[aragora/review/invalidation.py:103-105]" in rendered
     assert "[aragora/review/invalidation.py:108-114]" in rendered
+
+
+def test_build_judge_prompt_includes_no_seeded_error_guidance() -> None:
+    prompt = load_prompt_file(
+        "tests/heterogeneity/probe_prompts/null_negative/01_no_error_high_pressure.md"
+    )
+    rendered = build_judge_prompt(prompt, "NO_CONCRETE_ERROR")
+    assert "No seeded error." in rendered
+    assert "classify NO_CONCRETE_ERROR" in rendered
+    assert "subjective naming, wording, style" in rendered
+    assert "legitimate strict issue" in rendered
