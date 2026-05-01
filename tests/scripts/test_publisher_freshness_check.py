@@ -82,7 +82,7 @@ def test_default_paths_use_shared_state_root_env(
     cache = _write_cache(state_root, outbox_count=2)
     _write_outbox_files(state_root, 2)
     monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
-    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded"))
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
     now = cache.stat().st_mtime + 60
 
     report = mod.evaluate(repo_root, now=now)
@@ -94,6 +94,7 @@ def test_default_paths_use_shared_state_root_env(
     assert report.outbox_dir == str(state_root / ".aragora" / "automation-outbox")
     assert report.outbox_real_count == 2
     assert report.outbox_cache_count == 2
+    assert report.launchd_last_exit_code is None
 
 
 def test_degraded_when_launchd_not_loaded(monkeypatch: pytest.MonkeyPatch, stub_repo: Path) -> None:
