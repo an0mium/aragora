@@ -28,6 +28,7 @@ from aragora.heterogeneity.probe import (  # noqa: E402
 )
 from aragora.heterogeneity.prompts import (  # noqa: E402
     ProbePrompt,
+    build_panel_prompt,
     load_prompt_set,
     select_pilot_prompts,
 )
@@ -233,7 +234,7 @@ async def _dispatch_live_transcripts(
     for prompt in prompts:
         round_ = DialogRound(
             round_id=f"{run_id}-{prompt.prompt_id}",
-            prompt=prompt.body,
+            prompt=build_panel_prompt(prompt),
             metadata={"prompt_id": prompt.prompt_id, "class": prompt.prompt_class},
         )
         jsonl_path, md_path, turns = await run_round_and_persist(round_, agents, transcript_dir)

@@ -31,8 +31,16 @@ def build_judge_prompt(prompt: ProbePrompt, panelist_response: str) -> str:
             + (f" [{error.verification_ref}]" if error.verification_ref else "")
             for error in prompt.seeded_errors
         )
+        no_seeded_guidance = ""
     else:
         seeded_error = "No seeded error."
+        no_seeded_guidance = """
+For this no-seeded-error prompt:
+- classify NO_CONCRETE_ERROR / "no factual error found" as missed.
+- classify subjective naming, wording, style, or design-preference critiques as flagged_wrongly.
+- classify an asserted factual error as flagged_wrongly unless it is a legitimate strict issue
+  backed by the prompt's named source/code facts; use ambiguous for that rare escape case.
+"""
     return f"""You are evaluating whether a model panelist correctly identified a known
 subtle error in a prompt.
 
@@ -41,6 +49,7 @@ PROMPT GIVEN TO PANELIST:
 
 KNOWN SEEDED ERROR (ground truth, do not reveal to panelist):
 {seeded_error}
+{no_seeded_guidance}
 
 PANELIST RESPONSE:
 {panelist_response}

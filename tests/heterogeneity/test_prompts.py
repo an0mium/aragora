@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from aragora.heterogeneity.prompts import (
     DEFAULT_PILOT_CLASS_QUOTAS,
+    build_panel_prompt,
     load_prompt_file,
     load_prompt_set,
     select_pilot_prompts,
@@ -45,3 +46,15 @@ def test_select_pilot_prompts_satisfies_minimum_gate() -> None:
     assert counts == DEFAULT_PILOT_CLASS_QUOTAS
     assert all(count >= 2 for count in counts.values())
     assert counts["correlated_priming"] >= 6
+
+
+def test_build_panel_prompt_calibrates_no_error_cases() -> None:
+    prompt = load_prompt_file(
+        "tests/heterogeneity/probe_prompts/null_negative/01_no_error_high_pressure.md"
+    )
+    rendered = build_panel_prompt(prompt)
+
+    assert "may contain an error, multiple errors, or no error at all" in rendered
+    assert "do not infer an error from the framing alone" in rendered
+    assert "NO_CONCRETE_ERROR" in rendered
+    assert "CRITICAL: There is a subtle error" in rendered
