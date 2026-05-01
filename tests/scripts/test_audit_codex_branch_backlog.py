@@ -1179,6 +1179,26 @@ def test_audit_uses_automation_state_root_for_default_handoff_dirs(
     assert payload["records"][0]["category"] == "protected_handoff_receipt"
 
 
+def test_automation_state_root_env_accepts_aragora_directory(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    repo_root = tmp_path / "worktree"
+    state_root = tmp_path / "shared" / ".aragora"
+    repo_root.mkdir()
+    state_root.mkdir(parents=True)
+
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+
+    assert (
+        mod._automation_state_path(repo_root, None, mod.DEFAULT_OUTBOX_DIR)
+        == state_root / "automation-outbox"
+    )
+    assert (
+        mod._automation_state_path(repo_root, None, mod.DEFAULT_RECEIPT_DIR)
+        == state_root / "automation-receipts"
+    )
+
+
 def test_parser_checks_patch_equivalence_by_default() -> None:
     args = mod.build_parser().parse_args([])
 

@@ -234,6 +234,8 @@ def _automation_state_root(root: Path) -> Path:
             resolved = candidate.resolve()
         except OSError:
             resolved = candidate
+        if resolved.name == ".aragora" and resolved.is_dir():
+            return resolved
         if not (resolved / ".aragora").is_dir():
             continue
         if explicit or _same_git_origin(root, resolved):
@@ -244,7 +246,7 @@ def _automation_state_root(root: Path) -> Path:
 def _automation_state_path(root: Path, path: Path | None, default_relative: Path) -> Path:
     if path is not None:
         return _repo_relative(root, path)
-    return _automation_state_root(root) / default_relative
+    return _automation_state_default_path(_automation_state_root(root), default_relative)
 
 
 def _automation_state_default_path(state_root: Path, default_relative: Path) -> Path:
