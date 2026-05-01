@@ -2760,9 +2760,9 @@ def _add_swarm_parser(subparsers) -> None:
         "swarm_action_or_goal",
         nargs="?",
         help=(
-            "Action (run/preflight/status/shift-status/reconcile/campaign/initiative/integrator/"
-            "tranche/coord/assign/claim-pr/report/findings/merge-arbiter/dispatch) or your goal "
-            "in plain language"
+            "Action (run/preflight/status/shift-status/harness-status/reconcile/campaign/initiative/"
+            "integrator/tranche/coord/assign/claim-pr/report/findings/merge-arbiter/dispatch) or "
+            "your goal in plain language"
         ),
     )
     swarm_parser.add_argument(
