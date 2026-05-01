@@ -26,6 +26,10 @@ from aragora.harnesses.base import (
     SessionContext,
     SessionResult,
 )
+from aragora.swarm.harness_health import (
+    get_harness_health_registry,
+    record_harness_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +201,8 @@ class CodexHarness(CodeAnalysisHarness):
         options = options or {}
         started_at = datetime.now(timezone.utc)
 
+        get_harness_health_registry().record_attempt(self.name)
+
         try:
             # Gather code files
             file_patterns = options.get("file_patterns", ["**/*.py", "**/*.js", "**/*.ts"])
@@ -210,6 +216,10 @@ class CodexHarness(CodeAnalysisHarness):
             )
 
             if not files_content:
+                # No-op success — caller produced an empty work surface,
+                # not a harness failure. Record success to keep the
+                # health registry honest.
+                record_harness_result(harness=self.name, success=True)
                 return HarnessResult(
                     harness="codex",
                     analysis_type=analysis_type,
@@ -230,6 +240,8 @@ class CodexHarness(CodeAnalysisHarness):
 
             duration = (datetime.now(timezone.utc) - started_at).total_seconds()
 
+            record_harness_result(harness=self.name, success=True)
+
             return HarnessResult(
                 harness="codex",
                 analysis_type=analysis_type,
@@ -246,6 +258,11 @@ class CodexHarness(CodeAnalysisHarness):
 
         except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.exception("Codex analysis failed: %s", e)
+            record_harness_result(
+                harness=self.name,
+                success=False,
+                error_message=str(e),
+            )
             return HarnessResult(
                 harness="codex",
                 analysis_type=analysis_type,
@@ -267,6 +284,8 @@ class CodexHarness(CodeAnalysisHarness):
         options = options or {}
         started_at = datetime.now(timezone.utc)
 
+        get_harness_health_registry().record_attempt(self.name)
+
         try:
             # Read file contents
             files_content: dict[str, str] = {}
@@ -279,6 +298,8 @@ class CodexHarness(CodeAnalysisHarness):
                         logger.warning("Failed to read %s: %s", file_path, e)
 
             if not files_content:
+                # Empty work surface — not a harness failure.
+                record_harness_result(harness=self.name, success=True)
                 return HarnessResult(
                     harness="codex",
                     analysis_type=analysis_type,
@@ -295,6 +316,8 @@ class CodexHarness(CodeAnalysisHarness):
 
             duration = (datetime.now(timezone.utc) - started_at).total_seconds()
 
+            record_harness_result(harness=self.name, success=True)
+
             return HarnessResult(
                 harness="codex",
                 analysis_type=analysis_type,
@@ -310,6 +333,11 @@ class CodexHarness(CodeAnalysisHarness):
 
         except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.exception("Codex file analysis failed: %s", e)
+            record_harness_result(
+                harness=self.name,
+                success=False,
+                error_message=str(e),
+            )
             return HarnessResult(
                 harness="codex",
                 analysis_type=analysis_type,

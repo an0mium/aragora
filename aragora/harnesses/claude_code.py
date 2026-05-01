@@ -39,6 +39,10 @@ from aragora.harnesses.base import (
     SessionResult,
 )
 from aragora.pipeline.execution_mode import ExecutionMode
+from aragora.swarm.harness_health import (
+    get_harness_health_registry,
+    record_harness_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -225,6 +229,8 @@ class ClaudeCodeHarness(CodeAnalysisHarness):
         error_message = None
         success = False
 
+        get_harness_health_registry().record_attempt(self.name)
+
         try:
             # Build the prompt
             analysis_prompt = prompt or self.config.analysis_prompts.get(
@@ -282,6 +288,13 @@ Respond with a JSON array of findings. Each finding should have:
 
         completed_at = datetime.now(timezone.utc)
 
+        record_harness_result(
+            harness=self.name,
+            success=success,
+            error_message=error_message,
+            error_output=error_output,
+        )
+
         return HarnessResult(
             harness=self.name,
             analysis_type=analysis_type,
@@ -309,6 +322,13 @@ Respond with a JSON array of findings. Each finding should have:
     ) -> HarnessResult:
         """Analyze specific files using Claude Code."""
         if not files:
+            # Caller bug rather than harness failure; do not pin the
+            # harness, but record the no-op so observability shows it.
+            record_harness_result(
+                harness=self.name,
+                success=False,
+                error_message="caller passed no files",
+            )
             return HarnessResult(
                 harness=self.name,
                 analysis_type=analysis_type,
@@ -317,7 +337,8 @@ Respond with a JSON array of findings. Each finding should have:
                 error_message="No files provided",
             )
 
-        # Use parent of first file as working directory
+        # Use parent of first file as working directory.
+        # analyze_repository records its own outcome, so we don't double-record here.
         cwd = files[0].parent
         return await self.analyze_repository(
             repo_path=cwd,

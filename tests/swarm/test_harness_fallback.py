@@ -81,7 +81,10 @@ class TestDefaultLadders:
     def test_default_implementation_order(self) -> None:
         ladder = default_implementation_ladder()
         assert ladder.name == "implementation"
-        assert ladder.steps == ("claude-code", "codex", "aider")
+        # Round 30g: aider removed — no real AiderHarness ships in
+        # aragora.harnesses, so the ladder must only list harnesses
+        # that can actually run.
+        assert ladder.steps == ("claude-code", "codex")
 
     def test_default_review_order(self) -> None:
         ladder = default_review_ladder()

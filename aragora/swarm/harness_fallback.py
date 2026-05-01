@@ -29,9 +29,16 @@ Default ladders
 Two ladders are provided:
 
   - ``default_implementation_ladder`` — for "implement this change"
-    style work. Order: ``claude-code -> codex -> aider``.
+    style work. Order: ``claude-code -> codex``.
   - ``default_review_ladder`` — for "review/critique this change"
     style work. Order: ``claude-code -> codex``.
+
+Note: Earlier drafts included ``aider`` as a third implementation
+step, but no real ``AiderHarness`` is wired into this codebase
+(``aragora.harnesses`` only ships ``ClaudeCodeHarness`` and
+``CodexHarness``). Round 30g removes the dangling reference rather
+than ship a stub: a ladder must only name harnesses that can actually
+run. Add ``aider`` back when an honest harness implementation lands.
 
 These mirror today's call sites; new ladders can be constructed by
 callers or registered as named ladders later.
@@ -134,12 +141,15 @@ def default_implementation_ladder() -> FallbackLadder:
       - claude-code is preferred for repo-wide reasoning + edit volume.
       - codex is the second-best fallback (matches existing
         cli_agents.py preference order).
-      - aider is a known-working but lower-throughput option used today
-        when the others are degraded.
+
+    ``aider`` was removed in Round 30g: there is no real
+    ``AiderHarness`` shipped in :mod:`aragora.harnesses`, and the
+    contract is that a ladder must name only harnesses that can
+    actually run. Re-add when a real harness lands.
     """
     return FallbackLadder(
         name="implementation",
-        steps=("claude-code", "codex", "aider"),
+        steps=("claude-code", "codex"),
     )
 
 

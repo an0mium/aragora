@@ -63,6 +63,7 @@ __all__ = [
     "TRANSIENT_WINDOW_SECONDS",
     "classify_failure",
     "get_harness_health_registry",
+    "record_harness_result",
     "reset_harness_health_registry",
 ]
 
@@ -363,3 +364,38 @@ def reset_harness_health_registry() -> None:
     global _SINGLETON
     with _SINGLETON_LOCK:
         _SINGLETON = None
+
+
+def record_harness_result(
+    *,
+    harness: str,
+    success: bool,
+    error_message: str | None = None,
+    error_output: str | None = None,
+    status_code: int | None = None,
+) -> None:
+    """Convenience: record a harness call outcome on the singleton.
+
+    This is the single helper that real harness call sites
+    (:class:`aragora.harnesses.claude_code.ClaudeCodeHarness`,
+    :class:`aragora.harnesses.codex.CodexHarness`) should use after
+    each call. It does the right thing regardless of whether the
+    harness has been touched before in this process.
+
+    Failure reason is composed from ``error_message`` (preferred) and
+    falls back to a tail of ``error_output`` so stderr-only signals
+    (e.g., a CLI's ``Unauthorized: invalid API key`` printed without
+    an HTTP code) feed cleanly into :func:`classify_failure`.
+    """
+    registry = get_harness_health_registry()
+    if success:
+        registry.record_success(harness)
+        return
+    reason = (error_message or "").strip()
+    if not reason and error_output:
+        # Take the tail (last 240 chars) so we keep the most diagnostic
+        # bit of stderr without flooding the registry.
+        reason = error_output.strip()[-240:]
+    if not reason:
+        reason = "harness call failed (no error message captured)"
+    registry.record_failure(harness, reason=reason, status_code=status_code)

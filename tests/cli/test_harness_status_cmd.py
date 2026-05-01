@@ -31,7 +31,8 @@ class TestTableRendering:
         out = capsys.readouterr().out
         assert "claude-code" in out
         assert "codex" in out
-        assert "aider" in out
+        # Round 30g: aider intentionally absent; no real harness yet.
+        assert "aider" not in out
         assert "Fallback ladders:" in out
         assert "implementation" in out
         assert "review" in out

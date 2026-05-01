@@ -21,7 +21,10 @@ from aragora.swarm.harness_health import (
 )
 
 
-_KNOWN_HARNESSES = ("claude-code", "codex", "aider")
+# Round 30g: only harnesses with a real shipping implementation in
+# aragora.harnesses are listed. Re-add 'aider' here when an actual
+# AiderHarness lands; do not list a name we can't dispatch to.
+_KNOWN_HARNESSES = ("claude-code", "codex")
 
 
 def _format_outcome(outcome: str | None) -> str:
