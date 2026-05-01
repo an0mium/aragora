@@ -280,6 +280,88 @@ class ManifoldBrierScorer:
             window_end=now,
         )
 
+    def agents(self) -> list[str]:
+        """Sorted list of distinct non-empty agent_ids with stored predictions."""
+        _require_enabled()
+        return sorted({p.agent_id for p in self._predictions if p.agent_id})
+
+    def rolling_score_for_agent(
+        self,
+        agent_id: str,
+        *,
+        window_days: int = 90,
+        reference_time: Optional[datetime] = None,
+    ) -> BrierWindowSummary:
+        """Per-agent rolling Brier score (AGT-03 sub-deliverable 3).
+
+        Like :meth:`rolling_score` but filtered to ``agent_id``.  Default
+        *window_days* is 90 per the AGT-03 plan.
+        """
+        _require_enabled()
+        if window_days < 1:
+            raise ValueError(f"window_days must be >= 1; got {window_days}")
+        if not agent_id:
+            raise ValueError("agent_id must be a non-empty string")
+        now = reference_time if reference_time is not None else datetime.now(UTC)
+        cutoff = now - timedelta(days=window_days)
+        in_window = [
+            p
+            for p in self._predictions
+            if p.agent_id == agent_id and cutoff <= p.predicted_at <= now
+        ]
+        scores = [p.score for p in in_window]
+        return BrierWindowSummary(
+            window_days=window_days,
+            n_predictions=len(scores),
+            mean_brier=statistics.mean(scores) if scores else None,
+            median_brier=statistics.median(scores) if scores else None,
+            window_start=cutoff,
+            window_end=now,
+        )
+
+    def calibration_curve_for_agent(
+        self,
+        agent_id: str,
+        *,
+        n_bins: int = 10,
+    ) -> list[CalibrationBin]:
+        """Calibration curve filtered to one agent (AGT-03 sub-deliverable 4).
+
+        Like :meth:`calibration_curve` but restricted to ``agent_id``.
+        """
+        _require_enabled()
+        if not (2 <= n_bins <= 100):
+            raise ValueError(f"n_bins must be in [2, 100]; got {n_bins}")
+        if not agent_id:
+            raise ValueError("agent_id must be a non-empty string")
+        step = 1.0 / n_bins
+        counts_yes: list[int] = [0] * n_bins
+        counts_total: list[int] = [0] * n_bins
+        sum_predicted: list[float] = [0.0] * n_bins
+        for pred in self._predictions:
+            if pred.agent_id != agent_id:
+                continue
+            decimal_probability = Decimal(str(pred.predicted_probability))
+            idx = int((decimal_probability * n_bins).to_integral_value(rounding=ROUND_FLOOR))
+            idx = min(idx, n_bins - 1)
+            counts_total[idx] += 1
+            sum_predicted[idx] += pred.predicted_probability
+            if pred.outcome == 1:
+                counts_yes[idx] += 1
+        bins: list[CalibrationBin] = []
+        for i in range(n_bins):
+            n = counts_total[i]
+            bins.append(
+                CalibrationBin(
+                    low=round(i * step, 10),
+                    high=round((i + 1) * step, 10),
+                    count=n,
+                    fraction_yes=(counts_yes[i] / n) if n > 0 else None,
+                    mean_predicted=(sum_predicted[i] / n) if n > 0 else None,
+                )
+            )
+        return bins
+
     def calibration_curve(self, *, n_bins: int = 10) -> list[CalibrationBin]:
         """Compute a reliability diagram calibration curve over all stored predictions.
 
