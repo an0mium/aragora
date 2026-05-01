@@ -242,6 +242,21 @@ def test_select_summary_prefers_meaningful_recent_line() -> None:
     )
 
 
+def test_select_summary_skips_terminal_ui_chrome() -> None:
+    import agent_bridge_sessions as mod
+
+    summary = mod._select_summary(
+        [
+            "PR #5297 opened",
+            "↑↓ navigate Enter select Esc cancel",
+            "⏵⏵ don't ask on (shift+tab to cycle)",
+            "[⏱ 30s]? for help IDE ○",
+        ]
+    )
+
+    assert summary == "PR #5297 opened"
+
+
 def test_load_tmux_sessions_prefers_live_capture_over_log(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
