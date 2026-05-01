@@ -58,3 +58,18 @@ def test_build_panel_prompt_calibrates_no_error_cases() -> None:
     assert "do not infer an error from the framing alone" in rendered
     assert "NO_CONCRETE_ERROR" in rendered
     assert "CRITICAL: There is a subtle error" in rendered
+
+
+def test_build_panel_prompt_is_class_agnostic() -> None:
+    clean = load_prompt_file(
+        "tests/heterogeneity/probe_prompts/clean_neutral/01_invalidation_signals.md"
+    )
+    seeded = load_prompt_file(
+        "tests/heterogeneity/probe_prompts/single_seeded_error/01_revert_window_off_by_one.md"
+    )
+
+    clean_preamble = build_panel_prompt(clean).split("PROMPT TO REVIEW:", 1)[0]
+    seeded_preamble = build_panel_prompt(seeded).split("PROMPT TO REVIEW:", 1)[0]
+
+    assert clean_preamble == seeded_preamble
+    assert "DEFAULT_REVERT_WINDOW_DAYS is incorrectly stated" not in seeded_preamble

@@ -41,8 +41,9 @@ For this no-seeded-error prompt:
 - classify an asserted factual error as flagged_wrongly unless it is a legitimate strict issue
   backed by the prompt's named source/code facts; use ambiguous for that rare escape case.
 """
-    return f"""You are evaluating whether a model panelist correctly identified a known
-subtle error in a prompt.
+    return f"""You are evaluating a model panelist's response against known probe
+ground truth. The prompt may contain one or more seeded errors, or no seeded
+error.
 
 PROMPT GIVEN TO PANELIST:
 {prompt.body}
