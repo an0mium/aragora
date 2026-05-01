@@ -64,6 +64,51 @@ def test_dry_run_does_not_write_report_by_default(
     assert not (tmp_path / ".aragora" / "cleanup-state").exists()
 
 
+def test_explicit_dry_run_flag_keeps_read_only_default(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+
+    rc = mod.main(["--repo", str(tmp_path), "--dry-run"])
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "mode: DRY-RUN" in out
+    assert "DRY-RUN" in out
+    assert not (tmp_path / ".aragora" / "cleanup-state").exists()
+
+
+def test_json_output_reports_reconciliation_without_human_preamble(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-json-output-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/json-output", key=key)
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "published"}),
+        encoding="utf-8",
+    )
+
+    rc = mod.main(["--repo", str(tmp_path), "--json"])
+
+    out = capsys.readouterr().out
+    payload = json.loads(out)
+    assert rc == 0
+    assert not out.startswith("outbox_dir:")
+    assert payload["dry_run"] is True
+    assert payload["applied"] is False
+    assert payload["report"] is None
+    assert payload["outbox_count"] == 1
+    assert payload["terminal_receipt_count"] == 1
+    assert payload["counts"]["satisfied_by_existing_receipt"] == 1
+    assert payload["archived"] == 1
+    assert payload["kept"] == 0
+    assert payload["actions"][0]["branch"] == "codex/json-output"
+
+
 def test_dry_run_can_write_report_when_requested(
     tmp_path: Path, monkeypatch: Any, capsys: Any
 ) -> None:

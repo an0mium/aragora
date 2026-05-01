@@ -202,10 +202,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--base", default="origin/main")
     parser.add_argument("--repo-name", default="synaptent/aragora")
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--apply",
         action="store_true",
         help="Move satisfied outbox files (default is dry-run)",
+    )
+    mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Explicitly use the default read-only dry-run mode",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print a machine-readable reconciliation result instead of human text",
     )
     parser.add_argument(
         "--write-report",
@@ -222,21 +233,25 @@ def main(argv: list[str] | None = None) -> int:
     receipt_dir = root / ".aragora" / "automation-receipts"
     archive_dir = root / ".aragora" / "automation-outbox-archive"
 
-    print(f"outbox_dir: {outbox_dir}")
-    print(f"receipt_dir: {receipt_dir}")
-    print(f"archive_dir: {archive_dir} {'(will create)' if not archive_dir.exists() else ''}")
-    print(f"mode: {'APPLY' if args.apply else 'DRY-RUN'}\n")
+    def emit(message: str = "") -> None:
+        if not args.json:
+            print(message)
+
+    emit(f"outbox_dir: {outbox_dir}")
+    emit(f"receipt_dir: {receipt_dir}")
+    emit(f"archive_dir: {archive_dir} {'(will create)' if not archive_dir.exists() else ''}")
+    emit(f"mode: {'APPLY' if args.apply else 'DRY-RUN'}\n")
 
     if args.apply:
         archive_dir.mkdir(parents=True, exist_ok=True)
 
-    print("loading existing terminal receipt keys...")
+    emit("loading existing terminal receipt keys...")
     receipt_keys = _terminal_receipt_keys(receipt_dir)
-    print(f"  {len(receipt_keys)} terminal receipt keys")
+    emit(f"  {len(receipt_keys)} terminal receipt keys")
 
-    print("loading outbox files...")
+    emit("loading outbox files...")
     outbox_files = _list_json(outbox_dir)
-    print(f"  {len(outbox_files)} outbox files\n")
+    emit(f"  {len(outbox_files)} outbox files\n")
 
     open_prs_cache: dict[str, int] | None = None
     open_pr_state_available = False
@@ -244,14 +259,14 @@ def main(argv: list[str] | None = None) -> int:
     def load_open_pr_state() -> tuple[dict[str, int], bool]:
         nonlocal open_prs_cache, open_pr_state_available
         if open_prs_cache is None:
-            print("loading open PR state from GitHub (one bulk call)...")
+            emit("loading open PR state from GitHub (one bulk call)...")
             open_prs_cache, open_pr_state_available, message = _github_open_pr_state(
                 root, args.repo_name
             )
             if open_pr_state_available:
-                print(f"  {message}\n")
+                emit(f"  {message}\n")
             else:
-                print(f"  WARN: {message}; preserving ambiguous handoffs without open-PR truth\n")
+                emit(f"  WARN: {message}; preserving ambiguous handoffs without open-PR truth\n")
         return open_prs_cache, open_pr_state_available
 
     counts = {
@@ -394,20 +409,22 @@ def main(argv: list[str] | None = None) -> int:
             }
         )
 
-    print("\n--- summary ---")
+    emit("\n--- summary ---")
     for k, v in counts.items():
-        print(f"  {k:>40}: {v}")
+        emit(f"  {k:>40}: {v}")
     archived = sum(1 for a in actions if a["decision"] == "archive")
     kept = sum(1 for a in actions if a["decision"] == "keep")
-    print(f"\n  total: {archived} archived, {kept} kept")
+    emit(f"\n  total: {archived} archived, {kept} kept")
 
     should_write_report = args.apply or args.write_report
+    report_path: Path | None = None
     if should_write_report:
         state_dir = root / ".aragora" / "cleanup-state"
         state_dir.mkdir(parents=True, exist_ok=True)
         out = (
             state_dir / f"outbox-reconciliation-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.json"
         )
+        report_path = out
         out.write_text(
             json.dumps(
                 {"counts": counts, "actions": actions, "applied": args.apply},
@@ -415,11 +432,35 @@ def main(argv: list[str] | None = None) -> int:
                 sort_keys=True,
             )
         )
-        print(f"\n  report: {out}")
+        emit(f"\n  report: {out}")
     else:
-        print("\n  report: not written in dry-run; pass --write-report to persist one.")
+        emit("\n  report: not written in dry-run; pass --write-report to persist one.")
     if not args.apply:
-        print("\n  DRY-RUN — re-run with --apply to actually archive files.")
+        emit("\n  DRY-RUN — re-run with --apply to actually archive files.")
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "actions": actions,
+                    "applied": args.apply,
+                    "archive_dir": str(archive_dir),
+                    "archived": archived,
+                    "base": args.base,
+                    "counts": counts,
+                    "dry_run": not args.apply,
+                    "kept": kept,
+                    "outbox_count": len(outbox_files),
+                    "outbox_dir": str(outbox_dir),
+                    "receipt_dir": str(receipt_dir),
+                    "repo": str(root),
+                    "repo_name": args.repo_name,
+                    "report": str(report_path) if report_path is not None else None,
+                    "terminal_receipt_count": len(receipt_keys),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
     return 0
 
 
