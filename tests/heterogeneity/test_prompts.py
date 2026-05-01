@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 from aragora.heterogeneity.prompts import (
     DEFAULT_PILOT_CLASS_QUOTAS,
     build_panel_prompt,
@@ -7,6 +10,14 @@ from aragora.heterogeneity.prompts import (
     load_prompt_set,
     select_pilot_prompts,
 )
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def _read_status_metric(markdown: str, label: str) -> str:
+    match = re.search(rf"\| {re.escape(label)} \| ([^|]+) \|", markdown)
+    assert match is not None
+    return match.group(1).strip()
 
 
 def test_load_prompt_set_reads_50_authored_prompts() -> None:
@@ -73,3 +84,26 @@ def test_build_panel_prompt_is_class_agnostic() -> None:
 
     assert clean_preamble == seeded_preamble
     assert "DEFAULT_REVERT_WINDOW_DAYS is incorrectly stated" not in seeded_preamble
+
+
+def test_clean_h1_readiness_prompt_matches_status_doc() -> None:
+    status_doc = (ROOT / "docs/status/H1_01_REV4_PROMOTION_READINESS.md").read_text(
+        encoding="utf-8"
+    )
+    prompt = load_prompt_file(
+        ROOT / "tests/heterogeneity/probe_prompts/clean_neutral/05_h1_readiness_gate.md"
+    )
+
+    status_match = re.search(r"- Status: `([^`]+)`", status_doc)
+    assert status_match is not None
+    status = status_match.group(1)
+    dispatched = _read_status_metric(
+        status_doc, "Staged issues with dispatch evidence (any source)"
+    )
+    missing = _read_status_metric(status_doc, "Staged issues still missing dispatch evidence")
+    needed = _read_status_metric(status_doc, "Additional dispatches needed")
+
+    assert f"verdict is `{status}`" in prompt.body
+    assert f"{dispatched} staged issues with dispatch evidence" in prompt.body
+    assert f"{missing} still missing" in prompt.body
+    assert f"{needed} more dispatches" in prompt.body
