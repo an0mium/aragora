@@ -45,9 +45,17 @@ def test_compute_metrics_counts_seeded_and_correlation_classes() -> None:
         _result("z1", "null_negative", ["missed"] * 6),
     ]
     metrics = compute_metrics(results, n_panelists=6)
+    assert metrics["independent_flag_successes"] == 13
+    assert metrics["independent_flag_trials"] == 18
     assert metrics["independent_flag_rate"] == 13 / 18
+    assert metrics["catastrophic_correlation_failures"] == 1
+    assert metrics["catastrophic_correlation_trials"] == 1
     assert metrics["catastrophic_correlation_rate"] == 1.0
+    assert metrics["clean_neutral_false_positives"] == 1
+    assert metrics["clean_neutral_false_positive_trials"] == 6
     assert metrics["false_positive_rate_on_clean_neutral"] == 1 / 6
+    assert metrics["null_negative_false_positives"] == 0
+    assert metrics["null_negative_false_positive_trials"] == 6
     assert metrics["false_positive_rate_on_null_negative"] == 0
 
 

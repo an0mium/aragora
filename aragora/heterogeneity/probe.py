@@ -150,15 +150,23 @@ def compute_metrics(
         "n_panelists": panel_size,
         "n_prompts": len(results),
         "n_per_class": _class_counts(results),
+        "independent_flag_successes": seeded_successes,
+        "independent_flag_trials": seeded_trials,
         "independent_flag_rate": independent_rate,
         "independent_flag_rate_ci_95_wilson": list(
             wilson_interval(seeded_successes, seeded_trials)
         ),
+        "catastrophic_correlation_failures": catastrophic_count,
+        "catastrophic_correlation_trials": catastrophic_trials,
         "catastrophic_correlation_rate": catastrophic_rate,
         "catastrophic_correlation_rate_ci_95_wilson": list(
             wilson_interval(catastrophic_count, catastrophic_trials)
         ),
+        "clean_neutral_false_positives": clean_wrong,
+        "clean_neutral_false_positive_trials": clean_trials,
         "false_positive_rate_on_clean_neutral": clean_fpr,
+        "null_negative_false_positives": null_wrong,
+        "null_negative_false_positive_trials": null_trials,
         "false_positive_rate_on_null_negative": null_fpr,
     }
 

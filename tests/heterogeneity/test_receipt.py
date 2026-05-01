@@ -32,6 +32,8 @@ def test_receipt_id_excludes_produced_at(tmp_path) -> None:
     path = write_receipt(first, tmp_path)
     assert path.exists()
     assert path.name == f"{first['receipt_id']}.json"
+    assert first["metrics"]["independent_flag_successes"] == 1
+    assert first["metrics"]["independent_flag_trials"] == 2
 
 
 def test_receipt_preserves_plural_seeded_errors() -> None:
