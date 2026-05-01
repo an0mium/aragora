@@ -44,6 +44,7 @@ def test_build_status_uses_local_queue_when_github_unavailable(
     }
     assert payload["local_queue"]["outbox_count"] == 1
     assert payload["local_queue"]["receipt_count"] == 0
+    assert payload["local_queue"]["terminal_receipt_count"] == 0
     assert payload["local_queue"]["unreceipted_outbox_count"] == 1
 
 
@@ -70,7 +71,35 @@ def test_local_queue_state_matches_receipts_by_idempotency_key(tmp_path: Path) -
 
     assert payload["outbox_count"] == 1
     assert payload["receipt_count"] == 1
+    assert payload["terminal_receipt_count"] == 1
     assert payload["unreceipted_outbox_count"] == 0
+
+
+def test_local_queue_state_ignores_nonterminal_receipts(tmp_path: Path) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-example-abc123"
+    (outbox / "handoff.json").write_text(
+        f'{{"idempotency_key": "{key}"}}',
+        encoding="utf-8",
+    )
+    (receipts / "failed-receipt.json").write_text(
+        f'{{"idempotency_key": "{key}", "status": "failed"}}',
+        encoding="utf-8",
+    )
+
+    payload = mod._local_queue_state(
+        repo_root=tmp_path,
+        outbox_dir=None,
+        receipt_dir=None,
+    )
+
+    assert payload["outbox_count"] == 1
+    assert payload["receipt_count"] == 1
+    assert payload["terminal_receipt_count"] == 0
+    assert payload["unreceipted_outbox_count"] == 1
 
 
 def test_build_status_records_remote_pressure_when_github_available(

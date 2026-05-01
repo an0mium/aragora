@@ -39,6 +39,7 @@ DEFAULT_MAX_OPEN_PRS = 12
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_OUTPUT = Path(".aragora/automation-github-status/latest.json")
+TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 
 
 def _repo_root(path: Path) -> Path:
@@ -92,6 +93,20 @@ def _queue_file_key(path: Path) -> str:
     return path.stem
 
 
+def _terminal_receipt_key(path: Path) -> str | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    status = str(payload.get("status") or "").strip().lower()
+    if status not in TERMINAL_RECEIPT_STATUSES:
+        return None
+    key = str(payload.get("idempotency_key") or "").strip()
+    return key or path.stem
+
+
 def _local_queue_state(
     *,
     repo_root: Path,
@@ -102,14 +117,17 @@ def _local_queue_state(
     receipts = _resolve_state_path(repo_root, receipt_dir, DEFAULT_RECEIPT_DIR)
     outbox_files = _json_files(outbox)
     receipt_files = _json_files(receipts)
-    receipt_keys = {_queue_file_key(item) for item in receipt_files}
+    terminal_receipt_keys = {
+        key for item in receipt_files if (key := _terminal_receipt_key(item)) is not None
+    }
     return {
         "outbox_dir": str(outbox),
         "receipt_dir": str(receipts),
         "outbox_count": len(outbox_files),
         "receipt_count": len(receipt_files),
+        "terminal_receipt_count": len(terminal_receipt_keys),
         "unreceipted_outbox_count": sum(
-            1 for item in outbox_files if _queue_file_key(item) not in receipt_keys
+            1 for item in outbox_files if _queue_file_key(item) not in terminal_receipt_keys
         ),
     }
 
