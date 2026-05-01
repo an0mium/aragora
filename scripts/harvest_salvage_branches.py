@@ -171,7 +171,9 @@ def _process_branch(
     root: Path,
     base: str,
 ) -> dict[str, Any]:
-    branch = record["branch"]
+    branch = record.get("branch") or record.get("name")
+    if not branch:
+        raise KeyError("classification record is missing branch/name")
     diff_stat = _diff_stat(root, base, branch)
     commits = _commit_log(root, base, branch)
 
