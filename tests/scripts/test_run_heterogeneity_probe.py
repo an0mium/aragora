@@ -10,6 +10,36 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "run_heterogeneity_probe.py"
 
 
+def _run_with_classifications(
+    tmp_path: Path,
+    payload: dict[str, object],
+    *,
+    limit: int | None = None,
+) -> subprocess.CompletedProcess[str]:
+    classifications_file = tmp_path / "classifications.json"
+    classifications_file.write_text(json.dumps(payload), encoding="utf-8")
+    cmd = [
+        sys.executable,
+        str(SCRIPT),
+        "--classifications-file",
+        str(classifications_file),
+        "--output-root",
+        str(tmp_path / "out"),
+        "--run-id",
+        "validation-repro",
+        "--json",
+    ]
+    if limit is not None:
+        cmd[2:2] = ["--limit", str(limit)]
+    return subprocess.run(
+        cmd,
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
 def test_probe_script_dry_run_selects_pilot_subset() -> None:
     proc = subprocess.run(
         [sys.executable, str(SCRIPT), "--json"],
@@ -77,51 +107,148 @@ def test_probe_script_writes_receipt_from_classifications_file(tmp_path) -> None
 
 
 def test_probe_script_rejects_duplicate_classification_agents(tmp_path) -> None:
-    classifications_file = tmp_path / "classifications.json"
-    classifications_file.write_text(
-        json.dumps(
-            {
-                "judge_model": "duplicate-repro",
-                "panel_models": ["solo"],
-                "results": [
-                    {
-                        "prompt_id": "sse_01_revert_window_off_by_one",
-                        "classifications": [
-                            {
-                                "agent": "solo",
-                                "verdict": "flagged_correctly",
-                                "rationale": "first",
-                            },
-                            {
-                                "agent": "solo",
-                                "verdict": "flagged_correctly",
-                                "rationale": "duplicate",
-                            },
-                        ],
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(SCRIPT),
-            "--classifications-file",
-            str(classifications_file),
-            "--output-root",
-            str(tmp_path / "out"),
-            "--run-id",
-            "duplicate-repro",
-            "--json",
-        ],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
+    proc = _run_with_classifications(
+        tmp_path,
+        {
+            "judge_model": "duplicate-repro",
+            "panel_models": ["solo"],
+            "results": [
+                {
+                    "prompt_id": "sse_01_revert_window_off_by_one",
+                    "classifications": [
+                        {
+                            "agent": "solo",
+                            "verdict": "flagged_correctly",
+                            "rationale": "first",
+                        },
+                        {
+                            "agent": "solo",
+                            "verdict": "flagged_correctly",
+                            "rationale": "duplicate",
+                        },
+                    ],
+                }
+            ],
+        },
     )
 
     assert proc.returncode == 1
     assert "duplicate classification agent: solo" in proc.stderr
+
+
+def test_probe_script_rejects_unknown_classification_verdict(tmp_path) -> None:
+    proc = _run_with_classifications(
+        tmp_path,
+        {
+            "judge_model": "unknown-verdict-repro",
+            "panel_models": ["solo"],
+            "results": [
+                {
+                    "prompt_id": "cn_01_invalidation_signals",
+                    "classifications": [
+                        {"agent": "solo", "verdict": "probably", "rationale": "bad verdict"}
+                    ],
+                }
+            ],
+        },
+        limit=1,
+    )
+
+    assert proc.returncode == 1
+    assert "unknown classification verdict: probably" in proc.stderr
+
+
+def test_probe_script_rejects_unknown_classification_agent(tmp_path) -> None:
+    proc = _run_with_classifications(
+        tmp_path,
+        {
+            "judge_model": "unknown-agent-repro",
+            "panel_models": ["solo"],
+            "results": [
+                {
+                    "prompt_id": "cn_01_invalidation_signals",
+                    "classifications": [
+                        {"agent": "intruder", "verdict": "missed", "rationale": "not in panel"}
+                    ],
+                }
+            ],
+        },
+        limit=1,
+    )
+
+    assert proc.returncode == 1
+    assert "classification agent not in panel_models: intruder" in proc.stderr
+
+
+def test_probe_script_rejects_missing_classification_agents(tmp_path) -> None:
+    proc = _run_with_classifications(
+        tmp_path,
+        {
+            "judge_model": "missing-agent-repro",
+            "panel_models": ["solo", "missing"],
+            "results": [
+                {
+                    "prompt_id": "cn_01_invalidation_signals",
+                    "classifications": [
+                        {"agent": "solo", "verdict": "missed", "rationale": "one panelist only"}
+                    ],
+                }
+            ],
+        },
+        limit=1,
+    )
+
+    assert proc.returncode == 1
+    assert "missing classifications for panel_models: missing" in proc.stderr
+
+
+def test_probe_script_rejects_duplicate_prompt_ids(tmp_path) -> None:
+    proc = _run_with_classifications(
+        tmp_path,
+        {
+            "judge_model": "duplicate-prompt-repro",
+            "panel_models": ["solo"],
+            "results": [
+                {
+                    "prompt_id": "cn_01_invalidation_signals",
+                    "classifications": [
+                        {"agent": "solo", "verdict": "missed", "rationale": "first"}
+                    ],
+                },
+                {
+                    "prompt_id": "cn_01_invalidation_signals",
+                    "classifications": [
+                        {"agent": "solo", "verdict": "missed", "rationale": "duplicate"}
+                    ],
+                },
+            ],
+        },
+        limit=1,
+    )
+
+    assert proc.returncode == 1
+    assert "duplicate prompt_id in classifications file: cn_01_invalidation_signals" in proc.stderr
+
+
+def test_probe_script_rejects_missing_prompt_results(tmp_path) -> None:
+    proc = _run_with_classifications(
+        tmp_path,
+        {
+            "judge_model": "missing-prompt-repro",
+            "panel_models": ["solo"],
+            "results": [
+                {
+                    "prompt_id": "cn_01_invalidation_signals",
+                    "classifications": [
+                        {"agent": "solo", "verdict": "missed", "rationale": "first only"}
+                    ],
+                }
+            ],
+        },
+        limit=2,
+    )
+
+    assert proc.returncode == 1
+    assert (
+        "classifications file missing results for prompt_ids: cn_02_baseline_floor" in proc.stderr
+    )
