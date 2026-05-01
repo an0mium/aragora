@@ -39,6 +39,7 @@ MAX_ISSUE_BODY_CHARS = 60_000
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_BASE_REF = "origin/main"
+TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 PR_OPEN_REQUEST_CANONICAL_ACTION = "open_pr"
 PR_OPEN_REQUEST_ACTIONS = {
     "open_pr",
@@ -308,7 +309,7 @@ def _terminal_receipt_exists(receipt_dir: Path, idempotency_key: str) -> bool:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
-    return str(payload.get("status") or "") in {"published", "already_satisfied"}
+    return str(payload.get("status") or "") in TERMINAL_RECEIPT_STATUSES
 
 
 def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
@@ -322,7 +323,7 @@ def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
             continue
         if not isinstance(payload, dict):
             continue
-        if str(payload.get("status") or "") not in {"published", "already_satisfied"}:
+        if str(payload.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
             continue
         idempotency_key = str(payload.get("idempotency_key") or receipt_file.stem).strip()
         if idempotency_key:

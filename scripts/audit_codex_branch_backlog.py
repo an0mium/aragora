@@ -36,7 +36,7 @@ ACTIVE_SESSION_FILES = (
 )
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
-TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied"}
+TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 COMMIT_PREFIX_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 BRANCH_IDEMPOTENCY_PREFIXES = ("open-pr-", "already-satisfied-")
 SALVAGE_CATEGORIES = {
