@@ -162,6 +162,19 @@ class TestC4_Fingerprinting:
         # _valid_payload's requested_action carries branch=feat/x.
         assert ident.branch_name == "feat/x"
 
+    def test_branch_resolution_requested_action_json_string(self) -> None:
+        # Schema drift from automation handoffs: requested_action may be a
+        # JSON object string with JSON booleans, not a Python dict literal.
+        payload = _valid_payload()
+        payload["local_evidence"] = {}
+        payload["requested_action"] = json.dumps(
+            {"type": "open_pull_request", "branch": "feat/from-json", "draft": True}
+        )
+        ident = parse_outbox_entry(payload)
+        assert isinstance(ident, HandoffIdentity)
+        assert ident.action_kind == "open_pull_request"
+        assert ident.branch_name == "feat/from-json"
+
     def test_branch_resolution_precedence_local_evidence_beats_requested_action(self) -> None:
         # When both local_evidence.branch and requested_action.branch are set,
         # local_evidence wins (it's the canonical worker-stamped record;

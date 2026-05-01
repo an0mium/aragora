@@ -162,15 +162,24 @@ def _normalize_action(value: Any) -> str:
         return action or "unknown"
     if isinstance(value, str):
         text = value.strip()
-        if text.startswith("{") and text.endswith("}"):
-            try:
-                parsed = json.loads(text)
-            except json.JSONDecodeError:
-                return text or "unknown"
-            if isinstance(parsed, Mapping):
-                return _normalize_action(parsed)
+        parsed = _mapping_from_json_string(text)
+        if parsed is not None:
+            return _normalize_action(parsed)
         return text or "unknown"
     return "unknown"
+
+
+def _mapping_from_json_string(value: Any) -> Mapping[str, Any] | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not (text.startswith("{") and text.endswith("}")):
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, Mapping) else None
 
 
 def _resolve_branch_field(payload: Mapping[str, Any]) -> str | None:
@@ -189,6 +198,11 @@ def _resolve_branch_field(payload: Mapping[str, Any]) -> str | None:
     requested_action = payload.get("requested_action")
     if isinstance(requested_action, Mapping):
         branch = str(requested_action.get("branch") or "").strip()
+        if branch:
+            return branch
+    action_mapping = _mapping_from_json_string(requested_action)
+    if action_mapping is not None:
+        branch = str(action_mapping.get("branch") or "").strip()
         if branch:
             return branch
     branch = str(payload.get("branch") or "").strip()
