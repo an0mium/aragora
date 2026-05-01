@@ -42,10 +42,15 @@ def _q(
     active_state: str = "resolved",
 ) -> _FQ:
     return _FQ(
-        question_id=question_id, title=title, question_type="binary",
-        created_time="2026-04-01T00:00:00Z", close_time="2026-04-30T00:00:00Z",
-        resolve_time=resolve_time, active_state=active_state,
-        resolution=resolution, community_q2=0.7,
+        question_id=question_id,
+        title=title,
+        question_type="binary",
+        created_time="2026-04-01T00:00:00Z",
+        close_time="2026-04-30T00:00:00Z",
+        resolve_time=resolve_time,
+        active_state=active_state,
+        resolution=resolution,
+        community_q2=0.7,
     )
 
 
@@ -99,7 +104,10 @@ class TestOutcomeMapping:
 
     @pytest.mark.parametrize("res", [None, 0.5, 0.73])
     def test_other_resolution_inconclusive(self, res: float | None) -> None:
-        assert bridge_from_metaculus_question(_q(resolution=res), "a", 0.6)[1].outcome == "inconclusive"
+        assert (
+            bridge_from_metaculus_question(_q(resolution=res), "a", 0.6)[1].outcome
+            == "inconclusive"
+        )
 
 
 # ---------------------------------------------------------------------------
