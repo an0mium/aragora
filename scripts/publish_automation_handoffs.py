@@ -505,9 +505,16 @@ def _has_required_outbox_contract(payload: dict[str, Any]) -> bool:
     return True
 
 
+def _local_evidence_mappings(value: Any) -> list[Mapping[str, Any]]:
+    if isinstance(value, Mapping):
+        return [value]
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [item for item in value if isinstance(item, Mapping)]
+    return []
+
+
 def _outbox_evidence_value(payload: dict[str, Any], key: str) -> str:
-    local_evidence = payload.get("local_evidence")
-    if isinstance(local_evidence, dict):
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
         value = str(local_evidence.get(key) or "").strip()
         if value:
             return value

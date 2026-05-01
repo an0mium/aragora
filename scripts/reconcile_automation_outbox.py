@@ -26,7 +26,7 @@ import ast
 import json
 import shutil
 import sys
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -110,10 +110,17 @@ def _mapping_from_action(value: Any) -> Mapping[str, Any] | None:
     return None
 
 
+def _local_evidence_mappings(value: Any) -> list[Mapping[str, Any]]:
+    if isinstance(value, Mapping):
+        return [value]
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [item for item in value if isinstance(item, Mapping)]
+    return []
+
+
 def _branch_from_payload(payload: dict[str, Any]) -> str:
     """Extract a branch from outbox payloads with historical shape drift."""
-    local_evidence = payload.get("local_evidence")
-    if isinstance(local_evidence, Mapping):
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
         branch = str(local_evidence.get("branch") or "").strip()
         if branch:
             return branch

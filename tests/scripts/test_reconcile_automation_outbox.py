@@ -91,6 +91,18 @@ def test_branch_from_payload_tolerates_list_local_evidence() -> None:
     assert mod._branch_from_payload(payload) == "codex/openrouter-kimi-fallback-haiku"
 
 
+def test_branch_from_payload_uses_list_local_evidence_mapping() -> None:
+    payload = {
+        "requested_action": "open_pr",
+        "local_evidence": [
+            "older handoffs sometimes stored local evidence as bullet text",
+            {"branch": "codex/list-evidence"},
+        ],
+    }
+
+    assert mod._branch_from_payload(payload) == "codex/list-evidence"
+
+
 def test_branch_from_payload_prefers_structured_local_evidence() -> None:
     payload = {
         "branch": "codex/stale-top-level",

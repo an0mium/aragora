@@ -17,7 +17,7 @@ import re
 import subprocess
 import sys
 from collections import Counter, defaultdict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -301,9 +301,16 @@ def terminal_key_matches_branch_head(idempotency_key: str, branch: str, head_sha
     return False
 
 
+def _local_evidence_mappings(value: Any) -> list[Mapping[str, Any]]:
+    if isinstance(value, Mapping):
+        return [value]
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [item for item in value if isinstance(item, Mapping)]
+    return []
+
+
 def _outbox_payload_branch(payload: dict[str, Any]) -> str:
-    local_evidence = payload.get("local_evidence")
-    if isinstance(local_evidence, dict):
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
         branch = str(local_evidence.get("branch") or "").strip()
         if branch:
             return branch
@@ -315,7 +322,7 @@ def _add_branch_reference(branches: set[str], value: Any) -> None:
         branch = value.strip()
         if branch:
             branches.add(branch)
-    elif isinstance(value, dict):
+    elif isinstance(value, Mapping):
         branch = str(value.get("branch") or "").strip()
         if branch:
             branches.add(branch)
@@ -351,10 +358,10 @@ def _outbox_payload_branches(payload: dict[str, Any]) -> set[str]:
     if requested_action is not None:
         _add_branch_reference(branches, requested_action.get("branch"))
 
-    containers: list[dict[str, Any]] = [payload]
-    local_evidence = payload.get("local_evidence")
-    if isinstance(local_evidence, dict):
-        containers.insert(0, local_evidence)
+    containers: list[Mapping[str, Any]] = [
+        *_local_evidence_mappings(payload.get("local_evidence")),
+        payload,
+    ]
 
     for container in containers:
         _add_branch_reference(branches, container.get("supersedes_branch"))

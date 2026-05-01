@@ -156,6 +156,36 @@ def test_load_outbox_handoffs_parses_structured_json(tmp_path: Path) -> None:
     assert "Published from automation outbox" in handoffs[0].body
 
 
+def test_load_outbox_handoffs_extracts_branch_from_list_local_evidence(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    source = outbox / "repair-branch.json"
+    source.write_text(
+        json.dumps(
+            _outbox_payload(
+                repo=str(tmp_path),
+                local_evidence=[
+                    "legacy note",
+                    {"branch": "codex/example", "head": "abc123"},
+                ],
+                validation=["pytest tests/example.py -q"],
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].branch == "codex/example"
+    assert (
+        mod._outbox_branch_fingerprint(json.loads(source.read_text(encoding="utf-8")))
+        == f"open_pr\0{tmp_path}\0codex/example"
+    )
+
+
 def test_load_outbox_handoffs_uses_automation_state_root_for_default_dirs(
     tmp_path: Path,
     monkeypatch: Any,
