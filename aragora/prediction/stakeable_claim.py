@@ -41,9 +41,7 @@ def _flag_enabled() -> bool:
 
 def _require_enabled() -> None:
     if not _flag_enabled():
-        raise RuntimeError(
-            f"Prediction markets are disabled. Set {_ENV_FLAG}=1 to enable."
-        )
+        raise RuntimeError(f"Prediction markets are disabled. Set {_ENV_FLAG}=1 to enable.")
 
 
 # ---------------------------------------------------------------------------
@@ -154,9 +152,7 @@ class InMemoryStakeableClaimStore:
             raise ValueError(f"Claim {claim.claim_id!r} already exists.")
         self._claims[claim.claim_id] = claim
 
-    def record_position(
-        self, claim_id: str, agent_id: str, probability: float
-    ) -> None:
+    def record_position(self, claim_id: str, agent_id: str, probability: float) -> None:
         """Record agent probability estimate for an open claim."""
         _require_enabled()
         if not 0.0 <= probability <= 1.0:
@@ -234,9 +230,7 @@ class InMemoryStakeableClaimStore:
         if claim is None:
             raise KeyError(f"Unknown claim {claim_id!r}")
         if not claim.is_open():
-            raise ValueError(
-                f"Claim {claim_id!r} is already {claim.resolution_status.value}."
-            )
+            raise ValueError(f"Claim {claim_id!r} is already {claim.resolution_status.value}.")
         return claim
 
 

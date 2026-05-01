@@ -324,9 +324,7 @@ class TestGithubResolutionAdapterStub:
 
     def test_cannot_resolve_dependency_release(self):
         stub = GithubResolutionAdapterStub()
-        assert not stub.can_resolve(
-            _make_claim(question_type=QuestionType.DEPENDENCY_RELEASE)
-        )
+        assert not stub.can_resolve(_make_claim(question_type=QuestionType.DEPENDENCY_RELEASE))
 
     def test_resolve_raises_not_implemented(self):
         stub = GithubResolutionAdapterStub()
