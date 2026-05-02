@@ -26,6 +26,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import asdict, dataclass
 from datetime import UTC
@@ -98,6 +99,23 @@ def _bridge_file_for_write(default_path: Path) -> Path:
         fallback_dir = _state_root_bridge_dir()
         _assert_writable_dir(fallback_dir)
         return fallback_dir / default_path.name
+
+
+def _atomic_write_json(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+            handle.write("\n")
+        tmp_path.replace(path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 @dataclass
@@ -227,9 +245,7 @@ def _write_session_snapshot(sessions: list[Session]) -> None:
     timestamp = datetime.now(UTC).isoformat()
     snapshot = [{"timestamp": timestamp, **s.to_dict()} for s in sessions]
     snapshot_file = _bridge_file_for_write(SESSION_SNAPSHOT_FILE)
-    tmp_path = snapshot_file.with_suffix(".json.tmp")
-    tmp_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
-    tmp_path.replace(snapshot_file)
+    _atomic_write_json(snapshot_file, snapshot)
 
 
 def _now_iso() -> str:
@@ -251,12 +267,7 @@ def _load_lane_registry() -> list[LaneRecord]:
 
 def _write_lane_registry(records: list[LaneRecord]) -> None:
     registry_file = _bridge_file_for_write(LANE_REGISTRY_FILE)
-    tmp_path = registry_file.with_suffix(".json.tmp")
-    tmp_path.write_text(
-        json.dumps([record.to_dict() for record in records], indent=2) + "\n",
-        encoding="utf-8",
-    )
-    tmp_path.replace(registry_file)
+    _atomic_write_json(registry_file, [record.to_dict() for record in records])
 
 
 def _find_lane_record(records: list[LaneRecord], lane_id: str) -> LaneRecord | None:

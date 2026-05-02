@@ -464,6 +464,35 @@ def test_write_session_snapshot_falls_back_to_state_root(
     assert not (blocked_dir / "sessions.json").exists()
 
 
+def test_write_session_snapshot_uses_per_write_tempfile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    temp_paths: list[Path] = []
+    original_mkstemp = mod.tempfile.mkstemp
+
+    def _recording_mkstemp(*args, **kwargs):
+        fd, name = original_mkstemp(*args, **kwargs)
+        temp_paths.append(Path(name))
+        return fd, name
+
+    monkeypatch.setattr(mod.tempfile, "mkstemp", _recording_mkstemp)
+
+    mod._write_session_snapshot([mod.Session(name="codex-main", agent="codex")])
+
+    assert len(temp_paths) == 1
+    assert temp_paths[0].parent == tmp_path / "bridge"
+    assert temp_paths[0].name.startswith(".sessions.json.")
+    assert temp_paths[0].name.endswith(".tmp")
+    assert temp_paths[0].name != "sessions.json.tmp"
+    assert not temp_paths[0].exists()
+    payload = json.loads((tmp_path / "bridge" / "sessions.json").read_text())
+    assert payload[0]["name"] == "codex-main"
+
+
 def test_health_ignores_dead_root_checkout_session(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
