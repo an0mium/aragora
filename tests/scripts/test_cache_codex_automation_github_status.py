@@ -47,6 +47,7 @@ def test_build_status_uses_local_queue_when_github_unavailable(
     assert payload["local_queue"]["terminal_receipt_count"] == 0
     assert payload["local_queue"]["nonterminal_receipt_count"] == 0
     assert payload["local_queue"]["nonterminal_receipts"] == []
+    assert payload["local_queue"]["terminal_receipted_outbox_count"] == 0
     assert payload["local_queue"]["unreceipted_outbox_count"] == 1
 
 
@@ -76,6 +77,7 @@ def test_local_queue_state_matches_receipts_by_idempotency_key(tmp_path: Path) -
     assert payload["terminal_receipt_count"] == 1
     assert payload["nonterminal_receipt_count"] == 0
     assert payload["nonterminal_receipts"] == []
+    assert payload["terminal_receipted_outbox_count"] == 1
     assert payload["unreceipted_outbox_count"] == 0
 
 
@@ -111,6 +113,7 @@ def test_local_queue_state_ignores_nonterminal_receipts(tmp_path: Path) -> None:
             "status": "failed",
         }
     ]
+    assert payload["terminal_receipted_outbox_count"] == 0
     assert payload["unreceipted_outbox_count"] == 1
 
 

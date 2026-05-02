@@ -150,6 +150,8 @@ def _local_queue_state(
     nonterminal_receipts = [
         item for item in receipt_states if item["status"] not in TERMINAL_RECEIPT_STATUSES
     ]
+    outbox_keys = [_queue_file_key(item) for item in outbox_files]
+    terminal_receipted_outbox_count = sum(1 for key in outbox_keys if key in terminal_receipt_keys)
     return {
         "outbox_dir": str(outbox),
         "receipt_dir": str(receipts),
@@ -158,9 +160,8 @@ def _local_queue_state(
         "terminal_receipt_count": len(terminal_receipt_keys),
         "nonterminal_receipt_count": len(nonterminal_receipts),
         "nonterminal_receipts": nonterminal_receipts,
-        "unreceipted_outbox_count": sum(
-            1 for item in outbox_files if _queue_file_key(item) not in terminal_receipt_keys
-        ),
+        "terminal_receipted_outbox_count": terminal_receipted_outbox_count,
+        "unreceipted_outbox_count": len(outbox_keys) - terminal_receipted_outbox_count,
     }
 
 
