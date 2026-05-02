@@ -496,7 +496,7 @@ branch refs/heads/codex/b
     assert dirty_checked == [str(Path("/tmp/codex-b").resolve())]
 
 
-def test_main_reports_github_health_when_unavailable(
+def test_main_treats_unavailable_github_with_empty_local_queue_as_noop(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:
     monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
@@ -517,9 +517,45 @@ def test_main_reports_github_health_when_unavailable(
 
     exit_code = mod.main(["--repo", str(tmp_path), "--json"])
 
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert '"mode": "connectivity_failed"' in out
+    assert '"scanned_branch_count": 0' in out
+    assert '"decisions": []' in out
+
+
+def test_main_reports_github_health_failure_when_unavailable_with_local_candidates(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [_branch("codex/ready")])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=True,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--json"])
+
     assert exit_code == 1
     out = capsys.readouterr().out
     assert '"mode": "connectivity_failed"' in out
+    assert '"scanned_branch_count": 1' in out
     assert '"decisions": []' in out
 
 
