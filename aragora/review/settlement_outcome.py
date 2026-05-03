@@ -231,6 +231,8 @@ def observe_outcome(
         observed_at = datetime.now(UTC)
     elif observed_at.tzinfo is None:
         observed_at = observed_at.replace(tzinfo=UTC)
+    else:
+        observed_at = observed_at.astimezone(UTC)
 
     return replace(
         receipt,

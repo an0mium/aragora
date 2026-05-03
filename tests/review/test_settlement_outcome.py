@@ -80,6 +80,12 @@ class TestObserveOutcomeNoSignals:
         assert out.outcome_reopened_pr is False
         assert out.outcome_observed_at == "2026-04-30T12:00:00Z"
 
+    def test_observed_at_normalizes_aware_timestamp_to_utc(self) -> None:
+        receipt = _base_receipt()
+        observed = datetime(2026, 4, 30, 7, tzinfo=timezone(timedelta(hours=-5)))
+        out = observe_outcome(receipt, github_timeline=[], observed_at=observed)
+        assert out.outcome_observed_at == "2026-04-30T12:00:00Z"
+
     def test_does_not_mutate_input(self) -> None:
         receipt = _base_receipt()
         observe_outcome(receipt, github_timeline=[])
