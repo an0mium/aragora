@@ -578,3 +578,57 @@ def test_health_ignores_dead_session_with_removed_worktree(
 
     assert mod.cmd_health(argparse.Namespace(json=True)) == 0
     assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": []}
+
+
+def test_health_ignores_orphan_claude_transcript_missing_worktree(tmp_path: Path) -> None:
+    import agent_bridge as mod
+
+    removed_worktree = tmp_path / "removed-review-worktree"
+
+    issues = mod._collect_health_issues(
+        [
+            mod.Session(
+                name="claude-review",
+                agent="claude",
+                status="unknown",
+                source="claude_jsonl",
+                worktree=str(removed_worktree),
+            )
+        ],
+        [],
+    )
+
+    assert issues == []
+
+
+def test_health_reports_claimed_claude_transcript_missing_worktree(tmp_path: Path) -> None:
+    import agent_bridge as mod
+
+    removed_worktree = tmp_path / "removed-review-worktree"
+
+    issues = mod._collect_health_issues(
+        [
+            mod.Session(
+                name="claude-review",
+                agent="claude",
+                status="unknown",
+                source="claude_jsonl",
+                worktree=str(removed_worktree),
+            )
+        ],
+        [
+            mod.LaneRecord(
+                lane_id="review",
+                owner_session="claude-review",
+                status="active",
+            )
+        ],
+    )
+
+    assert issues == [
+        {
+            "type": "stale_worktree",
+            "session": "claude-review",
+            "detail": f"worktree path missing: {removed_worktree}",
+        }
+    ]
