@@ -1732,6 +1732,60 @@ def _add_review_queue_parser(subparsers) -> None:
         func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
     )
 
+    # Round 30g phase A: observe-outcomes (dry-run-by-default; --write opt-in).
+    observe_parser = queue_subparsers.add_parser(
+        "observe-outcomes",
+        help=(
+            "Observe post-settlement invalidation signals from GitHub timeline "
+            "events and (optionally) write them back into receipt v2 outcome "
+            "fields. Dry-run by default."
+        ),
+        description=(
+            "Round 30g phase A. Iterates settled receipts in a bounded window, "
+            "fetches GitHub timeline events with bounded fanout, and computes "
+            "the canonical v2 outcome signals via "
+            "aragora.review.settlement_outcome.observe_outcome. Default mode is "
+            "read-only; --write opts in to in-place mutation of receipt JSON."
+        ),
+    )
+    observe_parser.add_argument(
+        "--window-days",
+        type=int,
+        default=14,
+        help="Observation window in days (default: 14).",
+    )
+    observe_parser.add_argument(
+        "--max-receipts",
+        type=int,
+        default=20,
+        help="Max receipts to inspect (default: 20). Bounds the GitHub fanout.",
+    )
+    observe_parser.add_argument(
+        "--per-receipt-event-cap",
+        type=int,
+        default=100,
+        help="Max timeline events per receipt (default: 100).",
+    )
+    observe_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root for settlement receipts.",
+    )
+    observe_parser.add_argument(
+        "--write",
+        action="store_true",
+        help=(
+            "OPT-IN: actually write v2 outcome fields back into receipt JSON. "
+            "Default is dry-run preview only."
+        ),
+    )
+    observe_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output the run summary as JSON.",
+    )
+    observe_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
+
 
 def _add_codebase_audit_parser(subparsers) -> None:
     """Add the staged repository codebase audit parser."""

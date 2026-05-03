@@ -450,6 +450,10 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Output the BaselineMeasurement + ThresholdProposal as JSON.",
     )
 
+    from aragora.review.observe_outcomes_cli import add_observe_outcomes_subparser
+
+    add_observe_outcomes_subparser(sub)
+
     parser.set_defaults(func=cmd_review_queue)
 
 
@@ -468,8 +472,13 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_merge_packet(args)
     if command == "baseline":
         return _cmd_baseline(args)
+    if command == "observe-outcomes":
+        from aragora.cli.commands.observe_outcomes_cmd import cmd_observe_outcomes
+
+        return cmd_observe_outcomes(args)
     print(
-        "Usage: aragora review-queue {build,packet,run,act,merge-packet,baseline} [...]\n"
+        "Usage: aragora review-queue "
+        "{build,packet,run,act,merge-packet,baseline,observe-outcomes} [...]\n"
         "Run 'aragora review-queue run --help' for the human settlement loop.",
         file=sys.stderr,
     )
