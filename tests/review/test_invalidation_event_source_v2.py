@@ -129,6 +129,20 @@ class TestPayloadToInvalidatedDecisionV2Fields:
         revert_signals = [s for s in decision.signals if s == INVALIDATION_REVERT_WITHIN_WINDOW]
         assert len(revert_signals) == 1
 
+    def test_v2_false_takes_precedence_over_matching_v1_fields(self) -> None:
+        # Explicit v2 False means "observed and did not fire"; legacy v1 fields
+        # must not resurrect the matching invalidation signals.
+        payload = _base_payload()
+        payload["outcome_revert_within_window"] = False
+        payload["outcome_post_merge_incident"] = False
+        payload["outcome_human_override_redo"] = False
+        payload["outcome_observed_at"] = "2026-04-22T00:00:00Z"
+        payload["reverted_at"] = "2026-04-20T10:00:00Z"
+        payload["post_merge_incident"] = True
+        payload["redo_pr"] = 123
+        decision = _settlement_payload_to_invalidated_decision(payload)
+        assert decision is None
+
 
 class TestAnyReceiptHasV2OutcomeFields:
     def test_returns_false_when_no_receipts(self, tmp_path: Path) -> None:
@@ -190,25 +204,20 @@ class TestAnyReceiptHasV2OutcomeFields:
 
     def test_probe_cap_bounds_scan(self, tmp_path: Path) -> None:
         receipts_dir = tmp_path / RECEIPTS_SUBDIR
-        # 5 v1-only receipts, then 1 v2 receipt; with probe_cap=3 we should
-        # only see the first 3 receipts (alphabetic order under iterdir is not
-        # guaranteed, so we accept either result here — the cap ensures bounded
-        # work, not deterministic ordering).
+        # 5 v1-only receipts, then 1 v2 receipt; deterministic name sorting means
+        # a small cap scans only the first v1 receipts.
         for i in range(5):
             _write_receipt(receipts_dir, f"v1_{i}", _base_payload(pr_number=i))
         v2_payload = _base_payload(pr_number=99)
         v2_payload["outcome_revert_within_window"] = True
         _write_receipt(receipts_dir, "v2", v2_payload)
-        # The function returns True or False depending on iteration order;
-        # what we pin is that it terminates and respects the cap. Run with a
-        # small cap and ensure it returns a bool quickly.
         result = _any_receipt_has_v2_outcome_fields(
             store_root=tmp_path,
             window_end=datetime(2026, 4, 30, tzinfo=UTC),
             window_days=30,
             probe_cap=3,
         )
-        assert isinstance(result, bool)
+        assert result is False
 
     def test_rejects_nonpositive_window_days(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="must be positive"):

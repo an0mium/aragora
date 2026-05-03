@@ -66,7 +66,9 @@ from aragora.review.invalidation import (
     DEFAULT_REVERT_WINDOW_DAYS,
     INVALIDATION_HUMAN_OVERRIDE_REDO,
     INVALIDATION_POST_MERGE_INCIDENT,
+    INVALIDATION_REOPENED_PR,
     INVALIDATION_REVERT_WITHIN_WINDOW,
+    INVALIDATION_ROLLBACK,
     InvalidatedDecision,
     compute_baseline,
 )
@@ -255,7 +257,10 @@ def count_decisions_from_settlement_receipts(
         return 0
 
     try:
-        candidates = [p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"]
+        candidates = sorted(
+            (p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"),
+            key=lambda p: p.name,
+        )
     except OSError as exc:
         logger.warning("review.invalidation_event_source: cannot list %s: %s", receipts_dir, exc)
         return 0
@@ -322,7 +327,10 @@ def _any_receipt_has_v2_outcome_fields(
         return False
 
     try:
-        candidates = [p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"]
+        candidates = sorted(
+            (p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"),
+            key=lambda p: p.name,
+        )
     except OSError as exc:
         logger.warning("review.invalidation_event_source: cannot list %s: %s", receipts_dir, exc)
         return False
@@ -747,13 +755,9 @@ def _invalidation_from_settlement_receipt(
         signals.append(INVALIDATION_HUMAN_OVERRIDE_REDO)
         rationales.append("settlement-receipt outcome_human_override_redo=True")
     if v2_rollback is True:
-        from aragora.review.invalidation import INVALIDATION_ROLLBACK
-
         signals.append(INVALIDATION_ROLLBACK)
         rationales.append("settlement-receipt outcome_rollback=True")
     if v2_reopened is True:
-        from aragora.review.invalidation import INVALIDATION_REOPENED_PR
-
         signals.append(INVALIDATION_REOPENED_PR)
         rationales.append("settlement-receipt outcome_reopened_pr=True")
 
@@ -764,7 +768,7 @@ def _invalidation_from_settlement_receipt(
     incident_attributed = bool(payload.get("post_merge_incident"))
     redo_pr = payload.get("redo_pr") or payload.get("human_override_redo_pr")
 
-    if reverted_at_raw and INVALIDATION_REVERT_WITHIN_WINDOW not in signals:
+    if reverted_at_raw and v2_revert is None and INVALIDATION_REVERT_WITHIN_WINDOW not in signals:
         try:
             reverted_at = _parse_iso(str(reverted_at_raw))
         except ValueError:
@@ -778,11 +782,15 @@ def _invalidation_from_settlement_receipt(
                     f"(window={revert_window_days}d)"
                 )
 
-    if incident_attributed and INVALIDATION_POST_MERGE_INCIDENT not in signals:
+    if (
+        incident_attributed
+        and v2_incident is None
+        and INVALIDATION_POST_MERGE_INCIDENT not in signals
+    ):
         signals.append(INVALIDATION_POST_MERGE_INCIDENT)
         rationales.append("settlement-receipt records post_merge_incident attributed to this PR")
 
-    if redo_pr and INVALIDATION_HUMAN_OVERRIDE_REDO not in signals:
+    if redo_pr and v2_redo is None and INVALIDATION_HUMAN_OVERRIDE_REDO not in signals:
         signals.append(INVALIDATION_HUMAN_OVERRIDE_REDO)
         rationales.append(f"settlement-receipt references follow-up redo PR {redo_pr!r}")
 
