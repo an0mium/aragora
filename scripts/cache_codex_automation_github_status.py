@@ -61,8 +61,16 @@ def _shared_state_root(repo_root: Path) -> Path:
     if (repo_root / ".aragora").is_dir():
         return repo_root
     configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
-    if configured and (Path(configured).expanduser() / ".aragora").is_dir():
-        return Path(configured).expanduser().resolve()
+    if configured:
+        configured_path = Path(configured).expanduser()
+        try:
+            resolved = configured_path.resolve()
+        except OSError:
+            resolved = configured_path
+        if resolved.name == ".aragora" and resolved.is_dir():
+            return resolved.parent
+        if (resolved / ".aragora").is_dir():
+            return resolved
     fallback = Path.home() / "Development" / "aragora"
     if (fallback / ".aragora").is_dir():
         return fallback
