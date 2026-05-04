@@ -12,6 +12,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
 from aragora.heterogeneity.probe import ACCEPTANCE_GATES, SEEDED_CLASSES
 from aragora.heterogeneity.receipt import (
     HETEROGENEITY_RECEIPT_SCHEMA_VERSION,
@@ -25,6 +28,12 @@ ADDITIVE_MARGIN_VALUE = 0.10
 BASELINE_SATURATION_CI_UPPER = 0.999
 MIN_INDEPENDENT_FLAG_TRIALS = 18
 DIRECT_PROVIDER_OPERATORS = frozenset({"anthropic", "openai", "gemini", "xai", "mistral"})
+PROVIDER_ALIASES = {
+    "google": "gemini",
+    "google-ai": "gemini",
+    "google-vertex": "gemini",
+    "x-ai": "xai",
+}
 
 
 class ComparisonError(ValueError):
@@ -101,7 +110,9 @@ def _ci(receipt: Mapping[str, Any], key: str) -> tuple[float, float]:
 
 
 def _n_per_class(receipt: Mapping[str, Any]) -> dict[str, int]:
-    n_per_class = _metric(receipt, "n_per_class", default={})
+    n_per_class = _metric(receipt, "n_per_class", default=None)
+    if n_per_class is None:
+        n_per_class = receipt.get("n_per_class", {})
     if not isinstance(n_per_class, Mapping):
         return {}
     return {
@@ -162,6 +173,49 @@ def _provider_operator(agent: str) -> str:
     return value or "unknown"
 
 
+def _prompt_class(prompt: Mapping[str, Any]) -> str:
+    value = prompt.get("class", prompt.get("prompt_class", ""))
+    return value if isinstance(value, str) else ""
+
+
+def _string_field(value: Any) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+def _normalize_provider(value: str) -> str:
+    normalized = value.lower()
+    base = normalized.split("/", 1)[0]
+    return PROVIDER_ALIASES.get(base, base)
+
+
+def _classification_transport_provider(classification: Mapping[str, Any]) -> str:
+    transport_provider = _string_field(classification.get("transport_provider"))
+    if transport_provider:
+        return _normalize_provider(transport_provider)
+    if classification.get("fallback_used") is True:
+        return "openrouter"
+    agent = _string_field(classification.get("agent")) or "unknown"
+    return _provider_operator(agent)
+
+
+def _classification_requested_provider(classification: Mapping[str, Any]) -> str:
+    requested_provider = _string_field(classification.get("requested_provider"))
+    if requested_provider:
+        return _normalize_provider(requested_provider)
+    requested_model = _string_field(classification.get("requested_model"))
+    if requested_model and "/" in requested_model:
+        return _normalize_provider(requested_model)
+    agent = _string_field(classification.get("agent")) or "unknown"
+    if agent.startswith("openrouter:") and "/" in agent:
+        model = agent.split(":", 1)[1]
+        return _normalize_provider(model)
+    return _provider_operator(agent)
+
+
+def _is_fallback_success(classification: Mapping[str, Any]) -> bool:
+    return classification.get("fallback_used") is True
+
+
 def _successful_panel_classifications(receipt: Mapping[str, Any]) -> list[dict[str, Any]]:
     breakdown = receipt.get("per_prompt_breakdown", [])
     if not isinstance(breakdown, list):
@@ -182,15 +236,63 @@ def _successful_panel_classifications(receipt: Mapping[str, Any]) -> list[dict[s
     return successful
 
 
+def _successful_seeded_trials(receipt: Mapping[str, Any]) -> int:
+    breakdown = receipt.get("per_prompt_breakdown", [])
+    if not isinstance(breakdown, list):
+        return 0
+    total = 0
+    for prompt in breakdown:
+        if not isinstance(prompt, Mapping) or _prompt_class(prompt) not in SEEDED_CLASSES:
+            continue
+        classifications = prompt.get("panelist_classifications", [])
+        if not isinstance(classifications, list):
+            continue
+        total += sum(
+            1
+            for classification in classifications
+            if isinstance(classification, Mapping)
+            and classification.get("verdict") != "dispatch_failed"
+        )
+    return total
+
+
+def provider_summary(panel_receipt: Mapping[str, Any]) -> dict[str, Any]:
+    """Summarize direct, OpenRouter-mediated, and model-family successes."""
+    classifications = _successful_panel_classifications(panel_receipt)
+    transport_distribution: dict[str, int] = {}
+    model_family_distribution: dict[str, int] = {}
+    fallback_successes = 0
+    direct_successes = 0
+    for classification in classifications:
+        transport = _classification_transport_provider(classification)
+        model_family = _classification_requested_provider(classification)
+        transport_distribution[transport] = transport_distribution.get(transport, 0) + 1
+        model_family_distribution[model_family] = model_family_distribution.get(model_family, 0) + 1
+        if transport in DIRECT_PROVIDER_OPERATORS:
+            direct_successes += 1
+        if _is_fallback_success(classification):
+            fallback_successes += 1
+
+    total = len(classifications)
+    openrouter_mediated = transport_distribution.get("openrouter", 0)
+    return {
+        "successful_trials": total,
+        "direct_successes": direct_successes,
+        "openrouter_mediated_successes": openrouter_mediated,
+        "fallback_successes": fallback_successes,
+        "fallback_share": fallback_successes / total if total else 0.0,
+        "fallback_augmented": fallback_successes > 0,
+        "transport_provider_distribution": dict(sorted(transport_distribution.items())),
+        "model_family_distribution": dict(sorted(model_family_distribution.items())),
+    }
+
+
 def evaluate_provider_rule(panel_receipt: Mapping[str, Any]) -> dict[str, Any]:
     """Evaluate the Round 31 provider heterogeneity rule from successful trials."""
     classifications = _successful_panel_classifications(panel_receipt)
     distribution: dict[str, int] = {}
     for classification in classifications:
-        agent = classification.get("agent")
-        if not isinstance(agent, str) or not agent:
-            agent = "unknown"
-        provider = _provider_operator(agent)
+        provider = _classification_transport_provider(classification)
         distribution[provider] = distribution.get(provider, 0) + 1
 
     total = sum(distribution.values())
@@ -246,6 +348,7 @@ def _metrics_summary(receipt: Mapping[str, Any]) -> dict[str, Any]:
         "independent_flag_rate": _float_metric(receipt, "independent_flag_rate"),
         "independent_flag_rate_ci_95_wilson": [ci_low, ci_high],
         "false_positive_rates": _fp_summary(receipt),
+        "successful_seeded_trials": _successful_seeded_trials(receipt),
     }
 
 
@@ -291,13 +394,28 @@ def _verdict(
 
     baseline_trials = _int_metric(baseline_receipt, "independent_flag_trials")
     panel_trials = _int_metric(panel_receipt, "independent_flag_trials")
-    if baseline_trials < MIN_INDEPENDENT_FLAG_TRIALS or panel_trials < MIN_INDEPENDENT_FLAG_TRIALS:
+    baseline_successful_seeded = _successful_seeded_trials(baseline_receipt)
+    panel_successful_seeded = _successful_seeded_trials(panel_receipt)
+    if (
+        baseline_trials < MIN_INDEPENDENT_FLAG_TRIALS
+        or panel_trials < MIN_INDEPENDENT_FLAG_TRIALS
+        or baseline_successful_seeded < MIN_INDEPENDENT_FLAG_TRIALS
+        or panel_successful_seeded < MIN_INDEPENDENT_FLAG_TRIALS
+    ):
         return (
             "INSUFFICIENT",
             "insufficient_n:"
-            f"baseline={baseline_trials},panel={panel_trials},"
+            f"baseline_attempted={baseline_trials},panel_attempted={panel_trials},"
+            f"baseline_successful={baseline_successful_seeded},"
+            f"panel_successful={panel_successful_seeded},"
             f"minimum={MIN_INDEPENDENT_FLAG_TRIALS}",
         )
+
+    if not provider_rule.get("satisfied", False):
+        reasons = provider_rule.get("reasons", [])
+        if isinstance(reasons, list):
+            return ("INSUFFICIENT", "provider_rule_failed:" + ",".join(map(str, reasons)))
+        return ("INSUFFICIENT", "provider_rule_failed")
 
     baseline_ci_low, baseline_ci_high = _ci(baseline_receipt, "independent_flag_rate_ci_95_wilson")
     panel_ci_low, panel_ci_high = _ci(panel_receipt, "independent_flag_rate_ci_95_wilson")
@@ -307,11 +425,6 @@ def _verdict(
 
     required_gap = ADDITIVE_MARGIN_VALUE if verdict_rule == ADDITIVE_MARGIN else 0.0
     if panel_ci_low > baseline_ci_high + required_gap:
-        if not provider_rule.get("satisfied", False):
-            reasons = provider_rule.get("reasons", [])
-            if isinstance(reasons, list):
-                return ("INSUFFICIENT", "provider_rule_failed:" + ",".join(map(str, reasons)))
-            return ("INSUFFICIENT", "provider_rule_failed")
         return ("GO", verdict_rule)
 
     if panel_ci_high <= baseline_ci_high:
@@ -346,6 +459,7 @@ def build_comparison_receipt(
 
     composition_match, composition = _composition_match(baseline_receipt, panel_receipt)
     provider_rule = evaluate_provider_rule(panel_receipt)
+    fallback_summary = provider_summary(panel_receipt)
     verdict, verdict_reason = _verdict(
         baseline_receipt,
         panel_receipt,
@@ -364,6 +478,7 @@ def build_comparison_receipt(
         "panel_receipt_path": panel_receipt_path,
         "panel_receipt_id": _receipt_id(panel_receipt),
         "composition_match": composition_match,
+        "fallback_augmented": fallback_summary["fallback_augmented"],
         "verdict": verdict,
         "verdict_reason": verdict_reason,
         "verdict_rule_applied": verdict_rule,
@@ -372,6 +487,7 @@ def build_comparison_receipt(
         "comparison": {
             "composition": composition,
             "provider_rule": provider_rule,
+            "provider_summary": fallback_summary,
             "independent_flag_rate_ci_gap": {
                 "panel_ci_lower_minus_baseline_ci_upper": panel_ci_low - baseline_ci_high,
                 "panel_ci_upper_minus_baseline_ci_upper": panel_ci_high - baseline_ci_high,
