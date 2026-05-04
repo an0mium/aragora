@@ -165,14 +165,14 @@
   ],
   "pilot_token_spend_usd_estimate": 0.25063,
   "produced_at": "2026-05-02T04:10:09.463168+00:00",
-  "receipt_id": "ccc5d0167bf49d7456a91e8a1d1f4b2298825b13b2c9f2b5a25938b447984892",
+  "receipt_id": "70d24efa78cb59fab57a6dc717ce3e3c479dd358ea84702192f74cfedc140201",
   "run_id": "baseline-single-family-anthropic-20260502T041009Z",
   "schema_version": "heterogeneity_probe_receipt.v1",
   "scope_caveats": [
     "Single-family baseline (Round 31a' / 31b Phase 1).",
     "All 6 panelists are claude-haiku-4-5 with varied temperatures (0.0, 0.2, 0.4, 0.6, 0.8, 1.0) - homogeneous family, heterogeneous decoding.",
     "Judge: claude-sonnet-4-5 (different model than panel) at temperature 0.0.",
-    "3 seeded prompts only (1 single_seeded_error, 1 multi_seeded_error, 1 correlated_priming). N_seeded_trials = 18.",
+    "3 seeded prompts only (1 single_seeded_error, 1 multi_seeded_error, 1 correlated_priming). This produces 18 total panel judgments; independent_flag_trials is 12 because correlated_priming is tracked separately from SEEDED_CLASSES.",
     "This receipt is the missing self-review baseline that Round 31a Phase 0 found absent. Subsequent heterogeneous-panel runs (31b Phase 4, 31c, ...) compute CI-separated GO/NO-GO against this baseline.",
     "Hard cap: $3.0. Estimator trip: $2.5.",
     "Actual spend: ~$0.0921."

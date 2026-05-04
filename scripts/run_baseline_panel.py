@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """Round 31b Phase 1 — Single-family baseline panel runner.
 
-Runs 6 OpenAI panelists (gpt-4o-mini × 6 with varied temperatures so the
-panel is heterogeneous-by-temperature but homogeneous-by-family) over 3
-seeded prompts (one each from single_seeded_error/, multi_seeded_error/,
-correlated_priming/). Uses a separate model (gpt-4.1-mini) as the judge.
+Runs 6 single-family panelists with varied temperatures so the panel is
+heterogeneous-by-temperature but homogeneous-by-family. The default provider is
+Anthropic (claude-haiku-4-5 panelists, claude-sonnet-4-5 judge); OpenAI remains
+available via BASELINE_PROVIDER=openai.
+
+The baseline covers 3 seeded prompts (one each from single_seeded_error/,
+multi_seeded_error/, correlated_priming/), producing 18 total panel judgments.
+Only single_seeded_error and multi_seeded_error enter the current
+independent_flag_rate denominator, so the expected independent_flag_trials value
+for the default run is 12.
 Emits a HeterogeneityProbeReceipt.v1 under
-docs/receipts/heterogeneity/baseline-single-family-openai-<utcz>.receipt.json.
+docs/receipts/heterogeneity/baseline-single-family-<provider>-<utcz>.receipt.json.
 
 Budget rails:
   - Pre-call estimator gates each call against a $1.50 cap (<<$24 trip).
@@ -451,7 +457,9 @@ def main() -> int:
             "heterogeneous decoding.",
             f"Judge: {JUDGE_MODEL} (different model than panel) at temperature 0.0.",
             "3 seeded prompts only (1 single_seeded_error, 1 multi_seeded_error, "
-            "1 correlated_priming). N_seeded_trials = 18.",
+            "1 correlated_priming). This produces 18 total panel judgments; "
+            "independent_flag_trials is 12 because correlated_priming is tracked "
+            "separately from SEEDED_CLASSES.",
             "This receipt is the missing self-review baseline that Round 31a "
             "Phase 0 found absent. Subsequent heterogeneous-panel runs (31b "
             "Phase 4, 31c, ...) compute CI-separated GO/NO-GO against this "
