@@ -34,6 +34,8 @@ def test_receipt_id_excludes_produced_at(tmp_path) -> None:
     assert path.name == f"{first['receipt_id']}.json"
     assert first["metrics"]["independent_flag_successes"] == 1
     assert first["metrics"]["independent_flag_trials"] == 2
+    assert first["metrics"]["partial_multi_seeded_successes"] == 0
+    assert first["metrics"]["partial_multi_seeded_trials"] == 0
 
 
 def test_receipt_preserves_plural_seeded_errors() -> None:
@@ -44,7 +46,7 @@ def test_receipt_preserves_plural_seeded_errors() -> None:
         prompt,
         (
             PanelistClassification(agent="a", verdict="flagged_correctly"),
-            PanelistClassification(agent="b", verdict="flagged_correctly"),
+            PanelistClassification(agent="b", verdict="partial_multi_seeded"),
         ),
     )
     receipt = build_probe_receipt(
@@ -57,3 +59,6 @@ def test_receipt_preserves_plural_seeded_errors() -> None:
     breakdown = receipt["per_prompt_breakdown"][0]
     assert len(breakdown["seeded_errors"]) == 2
     assert breakdown["seeded_error"] == breakdown["seeded_errors"][0]
+    assert receipt["metrics"]["independent_flag_successes"] == 1
+    assert receipt["metrics"]["partial_multi_seeded_successes"] == 1
+    assert receipt["metrics"]["partial_multi_seeded_trials"] == 2

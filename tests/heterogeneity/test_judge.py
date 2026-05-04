@@ -12,6 +12,14 @@ def test_parse_judge_output_accepts_strict_json() -> None:
     assert parsed.rationale == "did not name it"
 
 
+def test_parse_judge_output_accepts_partial_multi_seeded_verdict() -> None:
+    parsed = parse_judge_output(
+        '{"verdict":"partial_multi_seeded","rationale":"caught one seeded error"}'
+    )
+    assert parsed.verdict == "partial_multi_seeded"
+    assert parsed.rationale == "caught one seeded error"
+
+
 def test_parse_judge_output_rejects_unknown_verdict() -> None:
     with pytest.raises(ValueError, match="unknown judge verdict"):
         parse_judge_output('{"verdict":"maybe","rationale":"x"}')
@@ -27,6 +35,16 @@ def test_build_judge_prompt_includes_seeded_error() -> None:
     assert "valid JSON" in rendered
 
 
+def test_build_judge_prompt_keeps_single_seeded_guidance_simple() -> None:
+    prompt = load_prompt_file(
+        "tests/heterogeneity/probe_prompts/single_seeded_error/01_revert_window_off_by_one.md"
+    )
+    rendered = build_judge_prompt(prompt, "The window is actually 14 days.")
+    assert "For this multi-seeded prompt" not in rendered
+    assert "strict non-empty" not in rendered
+    assert "partial_multi_seeded: multi-seeded prompts only" in rendered
+
+
 def test_build_judge_prompt_includes_plural_seeded_errors() -> None:
     prompt = load_prompt_file(
         "tests/heterogeneity/probe_prompts/multi_seeded_error/01_thresholds_and_window.md"
@@ -36,6 +54,11 @@ def test_build_judge_prompt_includes_plural_seeded_errors() -> None:
     assert "- Logical inversion" in rendered
     assert "[aragora/review/invalidation.py:103-105]" in rendered
     assert "[aragora/review/invalidation.py:108-114]" in rendered
+    assert "For this multi-seeded prompt" in rendered
+    assert "partial_multi_seeded applies" in rendered
+    assert "strict non-empty" in rendered
+    assert "subset of the seeded errors" in rendered
+    assert "missed applies only when the response names none" in rendered
 
 
 def test_build_judge_prompt_includes_no_seeded_error_guidance() -> None:

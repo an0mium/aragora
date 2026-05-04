@@ -52,6 +52,7 @@ DEFAULT_PANEL_MODELS = (
 VALID_CLASSIFICATION_VERDICTS = frozenset(
     {
         "flagged_correctly",
+        "partial_multi_seeded",
         "flagged_wrongly",
         "missed",
         "ambiguous",

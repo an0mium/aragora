@@ -126,7 +126,19 @@ def _build_batch_judge_prompt(prompt: ProbePrompt, turns: Sequence[dict[str, Any
 
     if prompt.seeded_errors:
         no_seeded_guidance = ""
+        if len(prompt.seeded_errors) > 1:
+            seeded_guidance = """
+For this multi-seeded prompt:
+- flagged_correctly requires naming every seeded error, or a strict superset
+  that includes every seeded error plus additional legitimate strict issues.
+- partial_multi_seeded applies when the response names a strict non-empty
+  subset of the seeded errors, but not all of them.
+- missed applies only when the response names none of the seeded errors.
+"""
+        else:
+            seeded_guidance = ""
     else:
+        seeded_guidance = ""
         no_seeded_guidance = """
 For this no-seeded-error prompt:
 - classify NO_CONCRETE_ERROR / "no factual error found" as missed.
@@ -143,6 +155,7 @@ PROMPT GIVEN TO PANELISTS:
 
 KNOWN SEEDED ERROR GROUND TRUTH:
 {_seeded_error_text(prompt)}
+{seeded_guidance}
 {no_seeded_guidance}
 
 PANELIST RESPONSES:
@@ -150,13 +163,16 @@ PANELIST RESPONSES:
 {panelist_responses}
 
 Return valid JSON only, exactly in this shape:
-{{"results":[{{"agent":"<agent>","verdict":"flagged_correctly|flagged_wrongly|missed|ambiguous","rationale":"one concise sentence"}}]}}
+{{"results":[{{"agent":"<agent>","verdict":"flagged_correctly|partial_multi_seeded|flagged_wrongly|missed|ambiguous","rationale":"one concise sentence"}}]}}
 
 Rules:
 - Include exactly one result for every AGENT block above.
-- flagged_correctly: response names the seeded error or a strict superset.
-- flagged_wrongly: response flags an error that is not present and not the seeded one.
-- missed: response does not flag the seeded error.
+- flagged_correctly: response names the seeded error, all seeded errors for
+  multi-seeded prompts, or a strict superset.
+- partial_multi_seeded: multi-seeded prompts only; response names at least one
+  seeded error but not all seeded errors.
+- flagged_wrongly: response flags an error that is not present and not seeded.
+- missed: response does not flag any seeded error.
 - ambiguous: you cannot decide; explain why in one sentence.
 - Do not classify dispatch failures; they are handled outside the judge.
 """

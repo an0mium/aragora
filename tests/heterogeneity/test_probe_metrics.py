@@ -48,6 +48,8 @@ def test_compute_metrics_counts_seeded_and_correlation_classes() -> None:
     assert metrics["independent_flag_successes"] == 13
     assert metrics["independent_flag_trials"] == 18
     assert metrics["independent_flag_rate"] == 13 / 18
+    assert metrics["partial_multi_seeded_successes"] == 0
+    assert metrics["partial_multi_seeded_trials"] == 6
     assert metrics["catastrophic_correlation_failures"] == 1
     assert metrics["catastrophic_correlation_trials"] == 1
     assert metrics["catastrophic_correlation_rate"] == 1.0
@@ -57,6 +59,23 @@ def test_compute_metrics_counts_seeded_and_correlation_classes() -> None:
     assert metrics["null_negative_false_positives"] == 0
     assert metrics["null_negative_false_positive_trials"] == 6
     assert metrics["false_positive_rate_on_null_negative"] == 0
+
+
+def test_compute_metrics_tracks_partial_multi_seeded_separately() -> None:
+    results = [
+        _result(
+            "m1",
+            "multi_seeded_error",
+            ["partial_multi_seeded"] * 4 + ["flagged_correctly", "missed"],
+        ),
+        _result("s1", "single_seeded_error", ["partial_multi_seeded"] + ["missed"] * 5),
+    ]
+    metrics = compute_metrics(results, n_panelists=6)
+    assert metrics["independent_flag_successes"] == 1
+    assert metrics["independent_flag_trials"] == 12
+    assert metrics["independent_flag_rate"] == 1 / 12
+    assert metrics["partial_multi_seeded_successes"] == 4
+    assert metrics["partial_multi_seeded_trials"] == 6
 
 
 def test_decide_verdict_reports_insufficient_prompt_classes() -> None:

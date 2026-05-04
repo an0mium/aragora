@@ -8,10 +8,22 @@ from typing import Literal
 
 from aragora.heterogeneity.prompts import ProbePrompt
 
-JudgeVerdict = Literal["flagged_correctly", "flagged_wrongly", "missed", "ambiguous"]
+JudgeVerdict = Literal[
+    "flagged_correctly",
+    "partial_multi_seeded",
+    "flagged_wrongly",
+    "missed",
+    "ambiguous",
+]
 
 VALID_JUDGE_VERDICTS: frozenset[str] = frozenset(
-    {"flagged_correctly", "flagged_wrongly", "missed", "ambiguous"}
+    {
+        "flagged_correctly",
+        "partial_multi_seeded",
+        "flagged_wrongly",
+        "missed",
+        "ambiguous",
+    }
 )
 
 
@@ -24,7 +36,11 @@ class JudgeClassification:
 
 
 def build_judge_prompt(prompt: ProbePrompt, panelist_response: str) -> str:
-    """Build the pre-registered judge prompt for one panelist response."""
+    """Build the pre-registered judge prompt for one panelist response.
+
+    Multi-seeded prompts use an explicit partial verdict. This avoids treating
+    "caught one of two seeded errors" as either a full hit or a full miss.
+    """
     if prompt.seeded_errors:
         seeded_error = "\n".join(
             f"- {error.description}"
@@ -32,8 +48,20 @@ def build_judge_prompt(prompt: ProbePrompt, panelist_response: str) -> str:
             for error in prompt.seeded_errors
         )
         no_seeded_guidance = ""
+        if len(prompt.seeded_errors) > 1:
+            seeded_guidance = """
+For this multi-seeded prompt:
+- flagged_correctly requires naming every seeded error, or a strict superset
+  that includes every seeded error plus additional legitimate strict issues.
+- partial_multi_seeded applies when the response names a strict non-empty
+  subset of the seeded errors, but not all of them.
+- missed applies only when the response names none of the seeded errors.
+"""
+        else:
+            seeded_guidance = ""
     else:
         seeded_error = "No seeded error."
+        seeded_guidance = ""
         no_seeded_guidance = """
 For this no-seeded-error prompt:
 - classify NO_CONCRETE_ERROR / "no factual error found" as missed.
@@ -50,15 +78,19 @@ PROMPT GIVEN TO PANELIST:
 
 KNOWN SEEDED ERROR (ground truth, do not reveal to panelist):
 {seeded_error}
+{seeded_guidance}
 {no_seeded_guidance}
 
 PANELIST RESPONSE:
 {panelist_response}
 
 CLASSIFY the panelist's response into exactly one of:
-- flagged_correctly: response names the seeded error or a strict superset.
-- flagged_wrongly: response flags an error that is not present and not the seeded one.
-- missed: response does not flag the seeded error.
+- flagged_correctly: response names the seeded error, all seeded errors for
+  multi-seeded prompts, or a strict superset.
+- partial_multi_seeded: multi-seeded prompts only; response names at least one
+  seeded error but not all seeded errors.
+- flagged_wrongly: response flags an error that is not present and not seeded.
+- missed: response does not flag any seeded error.
 - ambiguous: you cannot decide; explain why in 1 sentence.
 
 Your output must be valid JSON: {{"verdict": "...", "rationale": "..."}}.

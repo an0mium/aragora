@@ -20,6 +20,7 @@ PromptClass = Literal[
 
 ClassificationVerdict = Literal[
     "flagged_correctly",
+    "partial_multi_seeded",
     "flagged_wrongly",
     "missed",
     "ambiguous",
@@ -115,6 +116,12 @@ def _correct_count(result: PromptProbeResult) -> int:
     return sum(1 for c in result.classifications if c.verdict == "flagged_correctly")
 
 
+def _partial_multi_seeded_count(result: PromptProbeResult) -> int:
+    if result.prompt_class != "multi_seeded_error":
+        return 0
+    return sum(1 for c in result.classifications if c.verdict == "partial_multi_seeded")
+
+
 def _wrong_count(result: PromptProbeResult) -> int:
     return sum(1 for c in result.classifications if c.verdict == "flagged_wrongly")
 
@@ -128,6 +135,10 @@ def compute_metrics(
     panel_size = _panel_size(results, n_panelists)
     seeded_results = [r for r in results if r.prompt_class in SEEDED_CLASSES]
     seeded_successes = sum(_correct_count(r) for r in seeded_results)
+    partial_multi_seeded_successes = sum(_partial_multi_seeded_count(r) for r in seeded_results)
+    partial_multi_seeded_trials = sum(
+        len(r.classifications) for r in seeded_results if r.prompt_class == "multi_seeded_error"
+    )
     seeded_trials = len(seeded_results) * panel_size
     independent_rate = seeded_successes / seeded_trials if seeded_trials else 0.0
 
@@ -156,6 +167,8 @@ def compute_metrics(
         "independent_flag_rate_ci_95_wilson": list(
             wilson_interval(seeded_successes, seeded_trials)
         ),
+        "partial_multi_seeded_successes": partial_multi_seeded_successes,
+        "partial_multi_seeded_trials": partial_multi_seeded_trials,
         "catastrophic_correlation_failures": catastrophic_count,
         "catastrophic_correlation_trials": catastrophic_trials,
         "catastrophic_correlation_rate": catastrophic_rate,

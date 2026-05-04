@@ -106,6 +106,75 @@ def test_probe_script_writes_receipt_from_classifications_file(tmp_path) -> None
     assert "external judged classifications" in receipt["scope_caveats"][0]
 
 
+def test_probe_script_accepts_partial_multi_seeded_classification(tmp_path) -> None:
+    prompt_root = tmp_path / "prompts"
+    prompt_dir = prompt_root / "multi_seeded_error"
+    prompt_dir.mkdir(parents=True)
+    (prompt_dir / "01_fixture.md").write_text(
+        """---
+prompt_id: mse_fixture
+class: multi_seeded_error
+seeded_errors:
+  - description: "first seeded error"
+  - description: "second seeded error"
+expected_flags: 1
+---
+
+Fixture prompt with two seeded errors.
+""",
+        encoding="utf-8",
+    )
+    classifications_file = tmp_path / "classifications.json"
+    classifications_file.write_text(
+        json.dumps(
+            {
+                "judge_model": "fixture",
+                "panel_models": ["solo"],
+                "results": [
+                    {
+                        "prompt_id": "mse_fixture",
+                        "classifications": [
+                            {
+                                "agent": "solo",
+                                "verdict": "partial_multi_seeded",
+                                "rationale": "caught one seeded error",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--prompt-root",
+            str(prompt_root),
+            "--all-prompts",
+            "--classifications-file",
+            str(classifications_file),
+            "--output-root",
+            str(tmp_path / "out"),
+            "--run-id",
+            "partial",
+            "--json",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    payload = json.loads(proc.stdout)
+    receipt = json.loads(Path(payload["receipt_path"]).read_text(encoding="utf-8"))
+    assert receipt["metrics"]["independent_flag_successes"] == 0
+    assert receipt["metrics"]["partial_multi_seeded_successes"] == 1
+    assert receipt["metrics"]["partial_multi_seeded_trials"] == 1
+
+
 def test_probe_script_rejects_duplicate_classification_agents(tmp_path) -> None:
     proc = _run_with_classifications(
         tmp_path,

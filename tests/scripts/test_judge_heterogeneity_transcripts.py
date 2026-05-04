@@ -75,6 +75,64 @@ print(json.dumps({"results": [{"agent": "solo", "verdict": "flagged_correctly", 
     )
 
 
+def _write_multi_seeded_prompt(root: Path) -> None:
+    prompt_dir = root / "multi_seeded_error"
+    prompt_dir.mkdir(parents=True)
+    (prompt_dir / "01_fixture.md").write_text(
+        """---
+prompt_id: mse_fixture
+class: multi_seeded_error
+seeded_errors:
+  - description: "first seeded error"
+  - description: "second seeded error"
+expected_flags: 1
+---
+
+Fixture prompt with two seeded errors.
+""",
+        encoding="utf-8",
+    )
+
+
+def _write_multi_seeded_transcript(path: Path) -> None:
+    rows = [
+        {
+            "type": "round",
+            "round_id": "fixture-mse_fixture",
+            "metadata": {"prompt_id": "mse_fixture", "class": "multi_seeded_error"},
+            "prompt": "fixture prompt",
+        },
+        {
+            "type": "turn",
+            "agent": "solo",
+            "returncode": 0,
+            "timed_out": False,
+            "error": None,
+            "stdout": "The first seeded error is present.",
+            "stderr": "",
+        },
+    ]
+    path.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+
+
+def _write_fake_partial_multi_seeded_judge(path: Path) -> None:
+    path.write_text(
+        """
+from __future__ import annotations
+
+import json
+import sys
+
+prompt = sys.argv[-1]
+assert "partial_multi_seeded" in prompt
+assert "strict non-empty" in prompt
+assert "subset of the seeded errors" in prompt
+print(json.dumps({"results": [{"agent": "solo", "verdict": "partial_multi_seeded", "rationale": "caught one seeded error"}]}))
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+
 def test_judge_bridge_writes_classifications_and_receipt_input(tmp_path: Path) -> None:
     transcript_dir = tmp_path / "transcripts"
     transcript_dir.mkdir()
@@ -171,6 +229,47 @@ def test_judge_bridge_normalizes_no_seeded_flagged_correctly(tmp_path: Path) -> 
     assert classifications[0]["rationale"].startswith(
         "normalized no-seeded-error flagged_correctly to missed:"
     )
+
+
+def test_judge_bridge_accepts_partial_multi_seeded_verdict(tmp_path: Path) -> None:
+    prompt_root = tmp_path / "prompts"
+    _write_multi_seeded_prompt(prompt_root)
+    transcript_dir = tmp_path / "transcripts"
+    transcript_dir.mkdir()
+    _write_multi_seeded_transcript(transcript_dir / "dialog-fixture-mse_fixture.jsonl")
+    fake_judge = tmp_path / "fake_partial_judge.py"
+    _write_fake_partial_multi_seeded_judge(fake_judge)
+    output = tmp_path / "classifications.json"
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--transcript-dir",
+            str(transcript_dir),
+            "--prompt-root",
+            str(prompt_root),
+            "--all-prompts",
+            "--output",
+            str(output),
+            "--judge-command",
+            f"{sys.executable} {fake_judge}",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    classifications = payload["results"][0]["classifications"]
+    assert classifications == [
+        {
+            "agent": "solo",
+            "rationale": "caught one seeded error",
+            "verdict": "partial_multi_seeded",
+        }
+    ]
 
 
 def test_judge_bridge_rejects_missing_transcript(tmp_path: Path) -> None:
