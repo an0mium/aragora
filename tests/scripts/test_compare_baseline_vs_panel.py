@@ -28,12 +28,30 @@ PANEL_AGENTS = (
 
 
 def _breakdown(agents: tuple[str, ...] = PANEL_AGENTS) -> list[dict[str, object]]:
+    return _breakdown_with_metadata(agents)
+
+
+def _breakdown_with_metadata(
+    agents: tuple[str, ...] = PANEL_AGENTS,
+    *,
+    metadata_by_agent: dict[str, dict[str, object]] | None = None,
+    dispatch_failed_agents: set[str] | None = None,
+) -> list[dict[str, object]]:
+    metadata_by_agent = metadata_by_agent or {}
+    dispatch_failed_agents = dispatch_failed_agents or set()
     return [
         {
             "prompt_class": prompt_class,
             "prompt_id": prompt_id,
             "panelist_classifications": [
-                {"agent": agent, "verdict": "flagged_correctly", "rationale": ""}
+                {
+                    "agent": agent,
+                    "verdict": "dispatch_failed"
+                    if agent in dispatch_failed_agents
+                    else "flagged_correctly",
+                    "rationale": "",
+                    **metadata_by_agent.get(agent, {}),
+                }
                 for agent in agents
             ],
         }
@@ -54,6 +72,9 @@ def _receipt(
     n_per_class: dict[str, int] | None = None,
     agents: tuple[str, ...] = PANEL_AGENTS,
     null_negative_fpr: float = 1 / 6,
+    metadata_by_agent: dict[str, dict[str, object]] | None = None,
+    dispatch_failed_agents: set[str] | None = None,
+    metrics_n_per_class: bool = True,
 ) -> dict[str, object]:
     counts = {
         "clean_neutral": 1,
@@ -72,8 +93,13 @@ def _receipt(
         "judge_model": "synthetic-judge",
         "n_panelists": len(agents),
         "n_prompts": sum(counts.values()),
+        "n_per_class": counts,
         "panel_models": list(agents),
-        "per_prompt_breakdown": _breakdown(agents),
+        "per_prompt_breakdown": _breakdown_with_metadata(
+            agents,
+            metadata_by_agent=metadata_by_agent,
+            dispatch_failed_agents=dispatch_failed_agents,
+        ),
         "pilot_token_spend_usd_estimate": {"actual_usd": 0.0, "estimate_usd": 0.0},
         "scope_caveats": ["synthetic test fixture"],
         "verdict": "synthetic",
@@ -81,7 +107,6 @@ def _receipt(
         "metrics": {
             "n_panelists": len(agents),
             "n_prompts": sum(counts.values()),
-            "n_per_class": counts,
             "independent_flag_successes": successes,
             "independent_flag_trials": trials,
             "independent_flag_rate": rate,
@@ -98,6 +123,10 @@ def _receipt(
             "false_positive_rate_on_null_negative": null_negative_fpr,
         },
     }
+    if metrics_n_per_class:
+        metrics = receipt["metrics"]
+        assert isinstance(metrics, dict)
+        metrics["n_per_class"] = counts
     receipt["receipt_id"] = compute_receipt_id(receipt)
     return receipt
 
@@ -194,6 +223,145 @@ def test_insufficient_n_is_insufficient() -> None:
 
     assert comparison["verdict"] == "INSUFFICIENT"
     assert str(comparison["verdict_reason"]).startswith("insufficient_n:")
+
+
+def test_successful_seeded_n_uses_dispatch_failures_not_attempted_only() -> None:
+    baseline = _receipt(ci=(0.0, 0.2), rate=0.0, successes=0, trials=18)
+    panel = _receipt(
+        ci=(0.31, 0.7),
+        rate=0.5,
+        successes=9,
+        trials=18,
+        dispatch_failed_agents={"gpt-4.1"},
+    )
+
+    comparison = build_comparison_receipt(
+        baseline,
+        panel,
+        baseline_receipt_path="baseline.json",
+        panel_receipt_path="panel.json",
+        produced_at="2026-05-04T00:00:00Z",
+    )
+
+    assert comparison["verdict"] == "INSUFFICIENT"
+    assert "panel_successful=15" in str(comparison["verdict_reason"])
+
+
+def test_top_level_n_per_class_is_used_when_metrics_omits_it() -> None:
+    baseline = _receipt(
+        ci=(0.0, 0.2),
+        rate=0.0,
+        successes=0,
+        metrics_n_per_class=False,
+    )
+    panel = _receipt(
+        ci=(0.31, 0.7),
+        rate=0.5,
+        successes=9,
+        metrics_n_per_class=False,
+    )
+
+    comparison = build_comparison_receipt(
+        baseline,
+        panel,
+        baseline_receipt_path="baseline.json",
+        panel_receipt_path="panel.json",
+        produced_at="2026-05-04T00:00:00Z",
+    )
+
+    assert comparison["composition_match"] is True
+    assert comparison["comparison"]["composition"]["baseline_seeded_class_counts"] == {
+        "multi_seeded_error": 1,
+        "red_team_paraphrase": 1,
+        "single_seeded_error": 1,
+    }
+    assert comparison["baseline_metrics"]["n_per_class"]["single_seeded_error"] == 1
+
+
+def test_openrouter_fallback_counts_as_openrouter_transport_not_direct_provider() -> None:
+    agents = (
+        "claude-haiku-4-5",
+        "openrouter:openai/gpt-5.5",
+        "gemini-3.1-pro",
+        "mistral-large",
+        "grok-4",
+        "openrouter/qwen",
+    )
+    baseline = _receipt(ci=(0.0, 0.2), rate=0.0, successes=0, agents=agents)
+    panel = _receipt(
+        ci=(0.31, 0.7),
+        rate=0.5,
+        successes=9,
+        agents=agents,
+        metadata_by_agent={
+            "openrouter:openai/gpt-5.5": {
+                "requested_provider": "openai",
+                "requested_model": "gpt-5.5",
+                "transport_provider": "openrouter",
+                "actual_model_id": "openai/gpt-5.5",
+                "fallback_used": True,
+                "fallback_reason": "direct_openai_insufficient_quota",
+            }
+        },
+    )
+
+    comparison = build_comparison_receipt(
+        baseline,
+        panel,
+        baseline_receipt_path="baseline.json",
+        panel_receipt_path="panel.json",
+        produced_at="2026-05-04T00:00:00Z",
+    )
+
+    provider_rule = comparison["comparison"]["provider_rule"]
+    summary = comparison["comparison"]["provider_summary"]
+    assert provider_rule["provider_distribution"]["openrouter"] == 6
+    assert "openai" not in provider_rule["provider_distribution"]
+    assert summary["fallback_augmented"] is True
+    assert comparison["fallback_augmented"] is True
+    assert summary["fallback_successes"] == 3
+    assert summary["model_family_distribution"]["openai"] == 3
+
+
+def test_openrouter_only_panel_is_insufficient() -> None:
+    agents = tuple(f"openrouter:model-{index}" for index in range(6))
+    baseline = _receipt(ci=(0.0, 0.2), rate=0.0, successes=0, agents=agents)
+    panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9, agents=agents)
+
+    comparison = build_comparison_receipt(
+        baseline,
+        panel,
+        baseline_receipt_path="baseline.json",
+        panel_receipt_path="panel.json",
+        produced_at="2026-05-04T00:00:00Z",
+    )
+
+    assert comparison["verdict"] == "INSUFFICIENT"
+    assert "openrouter_only_panel" in str(comparison["verdict_reason"])
+
+
+def test_openrouter_dominance_above_half_is_insufficient() -> None:
+    agents = (
+        "openrouter:model-a",
+        "openrouter:model-b",
+        "openrouter:model-c",
+        "openrouter:model-d",
+        "claude-haiku-4-5",
+        "grok-4",
+    )
+    baseline = _receipt(ci=(0.0, 0.2), rate=0.0, successes=0, agents=agents)
+    panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9, agents=agents)
+
+    comparison = build_comparison_receipt(
+        baseline,
+        panel,
+        baseline_receipt_path="baseline.json",
+        panel_receipt_path="panel.json",
+        produced_at="2026-05-04T00:00:00Z",
+    )
+
+    assert comparison["verdict"] == "INSUFFICIENT"
+    assert "provider_dominance:openrouter:0.667" in str(comparison["verdict_reason"])
 
 
 def test_baseline_saturation_is_insufficient_with_data() -> None:
