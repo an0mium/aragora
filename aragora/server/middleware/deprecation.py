@@ -135,7 +135,8 @@ def get_v1_deprecation_headers(path: str | None = None) -> dict[str, str]:
     # Add urgency indicator when close to sunset
     if level == "critical":
         headers["X-API-Version-Warning"] = (
-            f"URGENT: API v1 will be removed in {days_left} days ({V1_SUNSET_ISO}). "
+            f"URGENT: API v1 is deprecated and will be removed in {days_left} days "
+            f"({V1_SUNSET_ISO}). "
             f"Migrate to API {CURRENT_API_VERSION} immediately. "
             f"See {MIGRATION_DOCS_URL}"
         )
