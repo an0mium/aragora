@@ -50,6 +50,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
     unresolved_outbox_handoff_branches,
     worktree_map,
 )
+from github_cli_health import check_github_cli_health  # noqa: E402
 
 UTC = timezone.utc
 
@@ -201,6 +202,35 @@ def _load_resume_cache(path: Path) -> dict[str, dict[str, Any]]:
     return {r["branch"]: r for r in records if isinstance(r, dict) and "branch" in r}
 
 
+def _load_open_prs(
+    root: Path,
+    repo_name: str,
+    prefix: str,
+) -> tuple[dict[str, int], dict[str, Any], bool]:
+    """Fetch open PR heads only when the GitHub health probe is ready."""
+
+    try:
+        health = check_github_cli_health(root)
+    except Exception as exc:
+        return (
+            {},
+            {
+                "ready": False,
+                "auth_ok": False,
+                "api_ok": False,
+                "mode": "health_check_failed",
+                "error": str(exc),
+                "repo": str(root),
+            },
+            True,
+        )
+
+    health_payload = health.to_dict()
+    if not health.ready:
+        return {}, health_payload, True
+    return open_pr_heads(root, repo_name, prefix), health_payload, False
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -255,9 +285,16 @@ def main(argv: list[str] | None = None) -> int:
         f"  remotes={len(remotes)} merged={len(merged)} worktree-mapped-branches={len(worktrees)}"
     )
 
-    print("  fetching open PRs from GitHub (single bulk call)")
-    open_prs = open_pr_heads(root, args.repo_name, args.prefix)
-    print(f"  open_prs={len(open_prs)}")
+    print("  checking GitHub health for open PR lookup")
+    open_prs, github_health, open_pr_lookup_skipped = _load_open_prs(
+        root, args.repo_name, args.prefix
+    )
+    if open_pr_lookup_skipped:
+        mode = github_health.get("mode", "unknown")
+        error = " ".join(str(github_health.get("error", "")).split())
+        print(f"  open PR lookup skipped: GitHub unavailable [{mode}] {error}".rstrip())
+    else:
+        print(f"  open_prs={len(open_prs)}")
 
     print("  loading automation outbox + receipt protection")
     receipted = terminal_receipted_handoff_branches(root)
@@ -355,6 +392,8 @@ def main(argv: list[str] | None = None) -> int:
         "repo": str(root),
         "base": args.base,
         "prefix": args.prefix,
+        "github_health": github_health,
+        "open_pr_lookup_skipped": open_pr_lookup_skipped,
         "totals": {
             "branches_scanned": len(rows),
             "branches_with_open_pr": len(open_prs),

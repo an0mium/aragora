@@ -25,8 +25,8 @@ thresholds:
 
 summary:
   core: 21
-  integrated: 87
-  experimental: 26
+  integrated: 88
+  experimental: 25
   deprecated: 2
   total: 136
 
@@ -45,9 +45,9 @@ modules:
     test_file_count: 118
   - name: cli
     tier: core
-    py_files: 98
-    importer_count: 5
-    test_file_count: 108
+    py_files: 100
+    importer_count: 6
+    test_file_count: 111
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
@@ -148,7 +148,7 @@ modules:
     test_file_count: 164
     override_reason: "persistence layer"
 
-  # --- integrated (87) ---
+  # --- integrated (88) ---
   - name: analysis
     tier: integrated
     py_files: 29
@@ -313,7 +313,12 @@ modules:
     tier: integrated
     py_files: 5
     importer_count: 7
-    test_file_count: 7
+    test_file_count: 8
+  - name: heterogeneity
+    tier: integrated
+    py_files: 5
+    importer_count: 0
+    test_file_count: 5
   - name: hooks
     tier: integrated
     py_files: 5
@@ -462,9 +467,9 @@ modules:
     test_file_count: 12
   - name: review
     tier: integrated
-    py_files: 10
-    importer_count: 12
-    test_file_count: 22
+    py_files: 12
+    importer_count: 13
+    test_file_count: 26
   - name: rlm
     tier: integrated
     py_files: 31
@@ -522,9 +527,9 @@ modules:
     test_file_count: 5
   - name: swarm
     tier: integrated
-    py_files: 100
-    importer_count: 28
-    test_file_count: 153
+    py_files: 102
+    importer_count: 31
+    test_file_count: 157
   - name: templates
     tier: integrated
     py_files: 1
@@ -583,10 +588,10 @@ modules:
   - name: worktree
     tier: integrated
     py_files: 7
-    importer_count: 15
+    importer_count: 16
     test_file_count: 11
 
-  # --- experimental (26) ---
+  # --- experimental (25) ---
   - name: approvals
     tier: experimental
     py_files: 5
@@ -612,11 +617,6 @@ modules:
     py_files: 1
     importer_count: 2
     test_file_count: 0
-  - name: heterogeneity
-    tier: experimental
-    py_files: 5
-    importer_count: 0
-    test_file_count: 4
   - name: maintenance
     tier: experimental
     py_files: 2

@@ -27,6 +27,8 @@ Web3: Any | None = None
 def _check_web3() -> bool:
     """Check if web3 is available."""
     global _web3_available
+    if _web3_available is False:
+        return False
     if Web3 is not None:
         _web3_available = True
         return True

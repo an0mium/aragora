@@ -66,7 +66,9 @@ from aragora.review.invalidation import (
     DEFAULT_REVERT_WINDOW_DAYS,
     INVALIDATION_HUMAN_OVERRIDE_REDO,
     INVALIDATION_POST_MERGE_INCIDENT,
+    INVALIDATION_REOPENED_PR,
     INVALIDATION_REVERT_WITHIN_WINDOW,
+    INVALIDATION_ROLLBACK,
     InvalidatedDecision,
     compute_baseline,
 )
@@ -255,7 +257,10 @@ def count_decisions_from_settlement_receipts(
         return 0
 
     try:
-        candidates = [p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"]
+        candidates = sorted(
+            (p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"),
+            key=lambda p: p.name,
+        )
     except OSError as exc:
         logger.warning("review.invalidation_event_source: cannot list %s: %s", receipts_dir, exc)
         return 0
@@ -280,6 +285,77 @@ def count_decisions_from_settlement_receipts(
         if window_start <= reviewed_at <= window_end:
             total += 1
     return total
+
+
+_V2_OUTCOME_FIELD_NAMES: frozenset[str] = frozenset(
+    {
+        "outcome_revert_within_window",
+        "outcome_post_merge_incident",
+        "outcome_human_override_redo",
+        "outcome_rollback",
+        "outcome_reopened_pr",
+        "outcome_observed_at",
+    }
+)
+
+
+def _any_receipt_has_v2_outcome_fields(
+    *,
+    store_root: str | Path | None = None,
+    window_end: datetime,
+    window_days: int = DEFAULT_BASELINE_WINDOW_DAYS,
+    probe_cap: int = 50,
+) -> bool:
+    """Return True iff any receipt in the window carries a v2 outcome field
+    that is not ``None``.
+
+    A receipt is considered to "have v2 outcome fields" iff at least one of
+    the six v2 field names is present in the JSON payload AND its value is
+    not ``None``. Reading-only; bounded to ``probe_cap`` receipts to avoid
+    scanning very large stores.
+
+    This is the discriminator behind the two ``human_invalidations_source``
+    notes in :func:`measure_baseline_from_disk`.
+    """
+    if window_days <= 0:
+        raise ValueError("window_days must be positive")
+    window_end = _ensure_utc(window_end)
+    window_start = window_end - timedelta(days=window_days)
+
+    receipts_dir = resolve_review_queue_root(store_root) / RECEIPTS_SUBDIR
+    if not receipts_dir.exists():
+        return False
+
+    try:
+        candidates = sorted(
+            (p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"),
+            key=lambda p: p.name,
+        )
+    except OSError as exc:
+        logger.warning("review.invalidation_event_source: cannot list %s: %s", receipts_dir, exc)
+        return False
+
+    probed = 0
+    for path in candidates:
+        if probed >= probe_cap:
+            break
+        payload = _safe_read_json(path)
+        if payload is None:
+            continue
+        reviewed_raw = payload.get("reviewed_at")
+        if not reviewed_raw:
+            continue
+        try:
+            reviewed_at = _parse_iso(str(reviewed_raw))
+        except ValueError:
+            continue
+        if not (window_start <= reviewed_at <= window_end):
+            continue
+        probed += 1
+        for field_name in _V2_OUTCOME_FIELD_NAMES:
+            if field_name in payload and payload[field_name] is not None:
+                return True
+    return False
 
 
 def iter_invalidations_from_settlement_receipts(
@@ -474,16 +550,46 @@ def measure_baseline_from_stores(
     )
 
     # Tag the gap explicitly so downstream consumers don't mistake a
-    # zero numerator for a measured zero rate.
+    # zero numerator for a measured zero rate. The note distinguishes the
+    # two failure modes:
+    #   - schema_gap_human_numerator: receipts in the window do not carry the
+    #     v2 outcome_* fields at all (i.e. observe_outcome has not yet run on
+    #     any of them); the schema can hold the signals but the data has not
+    #     been collected.
+    #   - schema_v1_only: receipts in the window have only legacy v1 fields
+    #     (reverted_at / post_merge_incident / redo_pr); kept for backwards
+    #     compatibility but no v2-shaped data is available.
     extra_notes = dict(measurement.notes)
     if not human_invalidations_in_window:
-        extra_notes.setdefault(
-            "human_invalidations_source",
-            "settlement-receipt schema does not yet record post-settlement "
-            "invalidation signals (revert/incident/redo); human-side numerator "
-            "is 0 by data availability, not by measurement. Tracked as a "
-            "follow-up to #6375 step A.",
+        # Probe a bounded set of receipts in the window to decide which
+        # data-collection note applies. Read-only and rate-limited by the
+        # ``count_decisions_from_settlement_receipts`` cap upstream.
+        v2_observed = _any_receipt_has_v2_outcome_fields(
+            store_root=review_queue_root,
+            window_end=window_end,
+            window_days=window_days,
         )
+        if v2_observed:
+            extra_notes.setdefault(
+                "human_invalidations_source",
+                "settlement-receipt schema-v2 outcome fields are present on at "
+                "least one receipt in the window, but no receipt in the window "
+                "fired any of the five canonical signals. Treat as measured "
+                "zero only if the observation timestamp is recent enough to "
+                "have caught any in-window signals.",
+            )
+        else:
+            extra_notes.setdefault(
+                "human_invalidations_source",
+                "schema_gap_human_numerator: settlement-receipt v2 outcome "
+                "fields (outcome_revert_within_window, "
+                "outcome_post_merge_incident, outcome_human_override_redo, "
+                "outcome_rollback, outcome_reopened_pr) are not yet populated "
+                "on any receipt in the window. Run "
+                "aragora.review.settlement_outcome.observe_outcome over the "
+                "window to close this gap. Until then, human-side numerator "
+                "is 0 by data availability, not by measurement.",
+            )
 
     # Re-pack to attach the additional note while keeping the
     # measurement immutable in spirit. BaselineMeasurement is frozen,
@@ -629,13 +735,40 @@ def _invalidation_from_settlement_receipt(
     signals: list[str] = []
     rationales: list[str] = []
 
-    # Future schema fields — defensive lookups so this function keeps
-    # working when receipt schemas grow without breaking.
+    # Schema v2 fields (#6375 phase 4) — explicit boolean signals populated by
+    # ``aragora.review.settlement_outcome.observe_outcome``. ``None`` means
+    # "not yet observed"; ``True`` means signal fired; ``False`` means signal
+    # was checked and did not fire.
+    v2_revert = payload.get("outcome_revert_within_window")
+    v2_incident = payload.get("outcome_post_merge_incident")
+    v2_redo = payload.get("outcome_human_override_redo")
+    v2_rollback = payload.get("outcome_rollback")
+    v2_reopened = payload.get("outcome_reopened_pr")
+
+    if v2_revert is True:
+        signals.append(INVALIDATION_REVERT_WITHIN_WINDOW)
+        rationales.append("settlement-receipt outcome_revert_within_window=True")
+    if v2_incident is True:
+        signals.append(INVALIDATION_POST_MERGE_INCIDENT)
+        rationales.append("settlement-receipt outcome_post_merge_incident=True")
+    if v2_redo is True:
+        signals.append(INVALIDATION_HUMAN_OVERRIDE_REDO)
+        rationales.append("settlement-receipt outcome_human_override_redo=True")
+    if v2_rollback is True:
+        signals.append(INVALIDATION_ROLLBACK)
+        rationales.append("settlement-receipt outcome_rollback=True")
+    if v2_reopened is True:
+        signals.append(INVALIDATION_REOPENED_PR)
+        rationales.append("settlement-receipt outcome_reopened_pr=True")
+
+    # Schema v1 fields — kept for backwards compatibility with receipts that
+    # carry the older field names. Defensive lookups: continue working when
+    # receipt schemas grow without breaking.
     reverted_at_raw = payload.get("reverted_at")
     incident_attributed = bool(payload.get("post_merge_incident"))
     redo_pr = payload.get("redo_pr") or payload.get("human_override_redo_pr")
 
-    if reverted_at_raw:
+    if reverted_at_raw and v2_revert is None and INVALIDATION_REVERT_WITHIN_WINDOW not in signals:
         try:
             reverted_at = _parse_iso(str(reverted_at_raw))
         except ValueError:
@@ -649,11 +782,15 @@ def _invalidation_from_settlement_receipt(
                     f"(window={revert_window_days}d)"
                 )
 
-    if incident_attributed:
+    if (
+        incident_attributed
+        and v2_incident is None
+        and INVALIDATION_POST_MERGE_INCIDENT not in signals
+    ):
         signals.append(INVALIDATION_POST_MERGE_INCIDENT)
         rationales.append("settlement-receipt records post_merge_incident attributed to this PR")
 
-    if redo_pr:
+    if redo_pr and v2_redo is None and INVALIDATION_HUMAN_OVERRIDE_REDO not in signals:
         signals.append(INVALIDATION_HUMAN_OVERRIDE_REDO)
         rationales.append(f"settlement-receipt references follow-up redo PR {redo_pr!r}")
 

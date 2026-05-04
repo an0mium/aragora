@@ -1138,6 +1138,7 @@ def main(argv: list[str] | None = None) -> int:
             "base": args.base,
             "cutoff": cutoff.isoformat(),
             "receipt_dir": str(args.receipt_dir) if args.receipt_dir else None,
+            "scanned_branch_count": len(hydrated_branches),
             "open_pr_count": 0,
             "max_open_prs": args.max_open_prs,
             "github_health": github_health.to_dict(),
@@ -1147,7 +1148,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(unavailable_payload, indent=2))
         else:
             print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
-        return 1
+        return 0 if not hydrated_branches else 1
 
     open_codex_prs = _open_codex_prs(repo_root, args.github_repo)
     open_pr_heads = {

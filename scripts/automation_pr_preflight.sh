@@ -60,7 +60,7 @@ fi
 echo "preflight: checking whitespace"
 git diff --check "${BASE_REF}...${HEAD_REF}"
 
-forbidden_regex='(^|/)(\.codex_session_active|\.claude-session-active|\.nomic-session-active|\.codex_session_meta\.json|\.swarm_worker_stdout\.log|\.swarm_worker_stderr\.log|\.swarm_worker_status\.json|\.swarm_repair_journal\.json|\.operator_state\.json|\.operator_snapshot\.json)$|(^|/)(\.aragora_events|\.pytest_cache|__pycache__)/'
+forbidden_regex='^\.aragora/|(^|/)(\.codex_session_active|\.claude-session-active|\.nomic-session-active|\.codex_session_meta\.json|\.swarm_worker_stdout\.log|\.swarm_worker_stderr\.log|\.swarm_worker_status\.json|\.swarm_repair_journal\.json|\.operator_state\.json|\.operator_snapshot\.json)$|(^|/)(\.aragora_events|\.pytest_cache|__pycache__)/'
 forbidden_files="$(printf '%s\n' "${changed_files}" | grep -E "${forbidden_regex}" || true)"
 if [[ -n "${forbidden_files}" ]]; then
     echo "preflight: automation/session artifacts must not be committed:" >&2

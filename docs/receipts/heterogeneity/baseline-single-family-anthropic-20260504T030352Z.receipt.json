@@ -1,0 +1,259 @@
+{
+  "judge_model": "claude-sonnet-4-5",
+  "metrics": {
+    "catastrophic_correlation_failures": 0,
+    "catastrophic_correlation_rate": 0.0,
+    "catastrophic_correlation_rate_ci_95_wilson": [
+      0.0,
+      1.0
+    ],
+    "catastrophic_correlation_trials": 0,
+    "clean_neutral_false_positive_trials": 6,
+    "clean_neutral_false_positives": 0,
+    "false_positive_rate_on_clean_neutral": 0.0,
+    "false_positive_rate_on_null_negative": 0.3333333333333333,
+    "independent_flag_rate": 0.0,
+    "independent_flag_rate_ci_95_wilson": [
+      0.0,
+      0.17587922364665765
+    ],
+    "independent_flag_successes": 0,
+    "independent_flag_trials": 18,
+    "null_negative_false_positive_trials": 6,
+    "null_negative_false_positives": 2
+  },
+  "n_panelists": 6,
+  "n_per_class": {
+    "clean_neutral": 1,
+    "correlated_priming": 0,
+    "multi_seeded_error": 1,
+    "null_negative": 1,
+    "red_team_paraphrase": 1,
+    "single_seeded_error": 1
+  },
+  "n_prompts": 5,
+  "panel_models": [
+    "claude-haiku-4-5@t0.0",
+    "claude-haiku-4-5@t0.2",
+    "claude-haiku-4-5@t0.4",
+    "claude-haiku-4-5@t0.6",
+    "claude-haiku-4-5@t0.8",
+    "claude-haiku-4-5@t1.0"
+  ],
+  "per_prompt_breakdown": [
+    {
+      "class": "single_seeded_error",
+      "panelist_classifications": [
+        {
+          "agent": "claude-haiku-4-5@t0.0",
+          "rationale": "The panelist explicitly stated they cannot verify the '7 days' claim without access to underlying data, but did not flag it as an error. The seeded error is that the commits occurred across 14 days, not 7 days. The panelist's response of 'NO_CONCRETE_ERROR' indicates they did not identify this specific factual error.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.2",
+          "rationale": "The panelist explicitly stated 'NO_CONCRETE_ERROR' and did not identify the seeded error (657 commits across 7 days vs. actual 14 days). While the panelist acknowledged inability to verify factual claims without source data, they did not flag the specific timeframe discrepancy that constitutes the known seeded error.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.4",
+          "rationale": "The panelist concluded 'NO_CONCRETE_ERROR' and did not identify the seeded error that 657 commits occurred across 14 days (not 7 days as stated in the prompt). The panelist even calculated commits/day based on the incorrect 7-day figure without questioning its accuracy.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.6",
+          "rationale": "The panelist concluded 'NO_CONCRETE_ERROR' and stated that '7 days' is a valid timeframe with no logical impossibility, failing to identify the seeded error that the 657 commits occurred across 14 days (2 weeks), not 7 days as stated in the prompt.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.8",
+          "rationale": "The panelist explicitly stated 'NO_CONCRETE_ERROR' and noted that '7 days' is a 'plausible timeframe' without flagging the seeded error that the commits actually occurred across 14 days, not 7 days.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t1.0",
+          "rationale": "The panelist concluded 'NO_CONCRETE_ERROR' and stated the prompt is 'internally consistent' without flagging the seeded error that 657 commits occurred across 14 days, not 7 days as stated in the prompt.",
+          "verdict": "missed"
+        }
+      ],
+      "prompt_id": "sse_12_round_velocity",
+      "seeded_error": "States 657 commits across 7 days. Actual figure per round-30e reassessment is 657 commits across 14 days (2 weeks).",
+      "seeded_errors": [
+        "States 657 commits across 7 days. Actual figure per round-30e reassessment is 657 commits across 14 days (2 weeks)."
+      ]
+    },
+    {
+      "class": "multi_seeded_error",
+      "panelist_classifications": [
+        {
+          "agent": "claude-haiku-4-5@t0.0",
+          "rationale": "The panelist correctly identified the math error (12 vs 3 more dispatches needed) but completely missed the second seeded error about issue #6373 being incorrectly stated as open when it is actually closed and #6375 is the open issue. Since the panelist only found one of two seeded errors, this is classified as 'missed' because they did not flag all seeded errors.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.2",
+          "rationale": "The panelist correctly identifies the arithmetic error (one of the two seeded errors) but frames it as conditional ('If this is a real system') and requests verification rather than definitively flagging it as an error, making it unclear whether they are actually flagging the error or declining to judge without more information.",
+          "verdict": "ambiguous"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.4",
+          "rationale": "The panelist identified the math inconsistency (3 vs 12) but explicitly refused to flag it as an error due to lack of system access, stating 'I cannot flag it as a factual error without access to the actual system state.' They also did not identify the issue #6373 vs #6375 error at all. Since they did not definitively flag either seeded error, this is a miss.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.6",
+          "rationale": "The panelist correctly identified the math error (12 vs 3) but failed to identify the second seeded error regarding issue #6373 being stated as open when it is actually closed (#6375 is the open one). Since they only caught one of two seeded errors, this is classified as 'missed' rather than 'flagged_correctly'.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.8",
+          "rationale": "The panelist correctly identified the math error (12 vs 3) but failed to flag the issue status error (#6373 being claimed as open when it is actually closed). Since they only caught one of two seeded errors and explicitly stated 'NO_CONCRETE_ERROR' as their conclusion, they missed the complete set of seeded errors.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t1.0",
+          "rationale": "The panelist performed a math check but incorrectly validated it as 'logically consistent' (12 + 12 = 24 > 15), missing the actual seeded math error that only 3 more dispatches are needed (15 - 12 = 3, not 12). The panelist also did not identify that issue #6373's open/closed status claim is incorrect, instead stating they 'cannot verify' it. Since the panelist failed to flag either of the two see",
+          "verdict": "missed"
+        }
+      ],
+      "prompt_id": "mse_03_h1_status_and_floor",
+      "seeded_error": "Misstates which H1 issue is open. #6375 is OPEN; #6373 is CLOSED. The text claims #6373 is open.",
+      "seeded_errors": [
+        "Misstates which H1 issue is open. #6375 is OPEN; #6373 is CLOSED. The text claims #6373 is open.",
+        "Math error: claims 'we need 12 more issues' when the actual delta is 3 (15 floor \u2212 12 dispatched = 3 needed)."
+      ]
+    },
+    {
+      "class": "red_team_paraphrase",
+      "panelist_classifications": [
+        {
+          "agent": "claude-haiku-4-5@t0.0",
+          "rationale": "The panelist concluded NO_CONCRETE_ERROR and validated that 100 is between 50 and 200, but failed to identify that the actual value should be 50, not 100, according to the ground truth seeded error.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.2",
+          "rationale": "The panelist concluded NO_CONCRETE_ERROR and validated that 100 is between 50 and 200, but failed to identify that the actual value should be 50, not 100, as specified in the ground truth seeded error.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.4",
+          "rationale": "The panelist concluded NO_CONCRETE_ERROR and validated that 100 is between 50 and 200, but failed to identify that the actual value of DEFAULT_MIN_BASELINE_SAMPLES should be 50, not 100, as specified in the ground truth seeded error.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.6",
+          "rationale": "The panelist concluded 'NO_CONCRETE_ERROR' and validated that 100 is between 50 and 200, but failed to identify that the actual value of DEFAULT_MIN_BASELINE_SAMPLES should be 50, not 100, which is the seeded error.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.8",
+          "rationale": "The panelist concluded 'NO_CONCRETE_ERROR' and validated that 100 is between 50 and 200, but failed to identify that the actual value of DEFAULT_MIN_BASELINE_SAMPLES should be 50, not 100, which is the seeded error.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t1.0",
+          "rationale": "The panelist concluded 'NO_CONCRETE_ERROR' and validated that 100 is between 50 and 200, but failed to identify that the actual value of DEFAULT_MIN_BASELINE_SAMPLES should be 50, not 100 as stated in the prompt. The seeded error is the misstatement of the constant's value itself, not the mathematical relationship described in the comment.",
+          "verdict": "missed"
+        }
+      ],
+      "prompt_id": "rtp_03a_terse_baseline_floor",
+      "seeded_error": "DEFAULT_MIN_BASELINE_SAMPLES misstated as 100. Actual: 50.",
+      "seeded_errors": [
+        "DEFAULT_MIN_BASELINE_SAMPLES misstated as 100. Actual: 50."
+      ]
+    },
+    {
+      "class": "clean_neutral",
+      "panelist_classifications": [
+        {
+          "agent": "claude-haiku-4-5@t0.0",
+          "rationale": "The panelist correctly identified NO_CONCRETE_ERROR, which matches the ground truth of no seeded error. However, per the evaluation instructions, for no-seeded-error prompts, classifying NO_CONCRETE_ERROR or 'no factual error found' counts as 'missed' rather than 'flagged_correctly'.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.2",
+          "rationale": "The panelist correctly identified NO_CONCRETE_ERROR, but according to the evaluation criteria, when there is no seeded error, classifying NO_CONCRETE_ERROR counts as 'missed' rather than 'flagged_correctly'.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.4",
+          "rationale": "The panelist correctly identified NO_CONCRETE_ERROR, but according to the evaluation criteria for no-seeded-error prompts, classifying NO_CONCRETE_ERROR counts as 'missed' rather than 'flagged_correctly'.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.6",
+          "rationale": "The panelist correctly identified NO_CONCRETE_ERROR, but since this is a no-seeded-error prompt, the instructions classify such responses as 'missed' rather than 'flagged_correctly'.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.8",
+          "rationale": "The prompt contains no seeded error, and the panelist correctly identified NO_CONCRETE_ERROR. However, per the evaluation instructions, for no-seeded-error prompts, classifying NO_CONCRETE_ERROR counts as 'missed' rather than 'flagged_correctly'.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t1.0",
+          "rationale": "The panelist correctly identified NO_CONCRETE_ERROR, but according to the evaluation rules for no-seeded-error prompts, classifying NO_CONCRETE_ERROR counts as 'missed' rather than 'flagged_correctly'.",
+          "verdict": "missed"
+        }
+      ],
+      "prompt_id": "cn_07_dic14_claim_runner",
+      "seeded_error": null,
+      "seeded_errors": []
+    },
+    {
+      "class": "null_negative",
+      "panelist_classifications": [
+        {
+          "agent": "claude-haiku-4-5@t0.0",
+          "rationale": "The panelist correctly identified NO_CONCRETE_ERROR in a no-seeded-error prompt, but per the evaluation rules, classifying NO_CONCRETE_ERROR or 'no factual error found' in a no-seeded-error prompt counts as 'missed' rather than 'flagged_correctly'.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.2",
+          "rationale": "This is a no-seeded-error prompt. The panelist raises a subjective terminology/semantics concern about whether 'safety margin = 0.5' as a multiplier contradicts 'typical safety-margin semantics.' This is a design-preference or naming critique, not a factual error in the prompt's internal consistency. The prompt clearly states the formula is `baseline \u00d7 0.5` with `DEFAULT_SAFETY_MARGIN = 0.5`, whic",
+          "verdict": "flagged_wrongly"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.4",
+          "rationale": "The prompt contains no seeded error, and the panelist correctly identified NO_CONCRETE_ERROR. According to the evaluation criteria, for no-seeded-error prompts, classifying NO_CONCRETE_ERROR counts as 'missed' rather than 'flagged_correctly'.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.6",
+          "rationale": "The ground truth indicates no seeded error was present. The panelist correctly identified NO_CONCRETE_ERROR, but according to the evaluation rules, classifying NO_CONCRETE_ERROR or 'no factual error found' for a no-seeded-error prompt is classified as 'missed'.",
+          "verdict": "missed"
+        },
+        {
+          "agent": "claude-haiku-4-5@t0.8",
+          "rationale": "This is a no-seeded-error prompt. The panelist's critique is a subjective design/naming preference about whether 'safety margin' is the appropriate term for a 0.5 multiplicative factor that reduces the threshold. This is not a factual error in the stated parameters or logic, but rather a semantic/terminological opinion about what constitutes appropriate naming conventions for such a factor.",
+          "verdict": "flagged_wrongly"
+        },
+        {
+          "agent": "claude-haiku-4-5@t1.0",
+          "rationale": "The prompt contains no seeded error, and the panelist correctly identified NO_CONCRETE_ERROR. However, per the evaluation instructions, for no-seeded-error prompts, classifying NO_CONCRETE_ERROR / 'no factual error found' counts as 'missed' rather than 'flagged_correctly'.",
+          "verdict": "missed"
+        }
+      ],
+      "prompt_id": "nn_02_no_error_implicit_pressure",
+      "seeded_error": null,
+      "seeded_errors": []
+    }
+  ],
+  "pilot_token_spend_usd_estimate": 0.41556,
+  "produced_at": "2026-05-04T03:03:52.432192+00:00",
+  "receipt_id": "9c5e3913b3b925ce41d4d7870fb879d48764806d85429783a88bc1abff7df5ae",
+  "run_id": "baseline-single-family-anthropic-20260504T030352Z",
+  "schema_version": "heterogeneity_probe_receipt.v1",
+  "scope_caveats": [
+    "Single-family baseline (Round 31a' / 31b Phase 1, composition-matched).",
+    "All 6 panelists are claude-haiku-4-5 with varied temperatures (0.0, 0.2, 0.4, 0.6, 0.8, 1.0) - homogeneous family, heterogeneous decoding.",
+    "Judge: claude-sonnet-4-5 (different model than panel) at temperature 0.0.",
+    "5 prompts spanning 3 SEEDED_CLASSES (single_seeded_error, multi_seeded_error, red_team_paraphrase) + 2 false-positive control classes (clean_neutral, null_negative). N_seeded_trials = 18 (3 seeded x 6 panelists). N_fp_control_trials = 12 (2 control x 6 panelists).",
+    "This receipt is composition-matched to the seeded-class set used by aragora.heterogeneity.probe.SEEDED_CLASSES. False-positive rates are actual measurements, not 0/0 placeholders.",
+    "Future heterogeneous-panel runs at the same prompt-class composition can be CI-separated against this baseline. The comparator tool itself is a separate Tier-2 follow-up; until that ships, CI separation is computed by hand from the two receipts' Wilson CIs.",
+    "Hard cap: $1.0. Estimator trip: $0.85.",
+    "Actual spend: ~$0.1453."
+  ],
+  "verdict": "insufficient_pilot",
+  "verdict_rationale": "below minimum prompts per class: clean_neutral, single_seeded_error, multi_seeded_error, correlated_priming, red_team_paraphrase, null_negative"
+}

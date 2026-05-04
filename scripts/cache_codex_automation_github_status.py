@@ -61,8 +61,16 @@ def _shared_state_root(repo_root: Path) -> Path:
     if (repo_root / ".aragora").is_dir():
         return repo_root
     configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
-    if configured and (Path(configured).expanduser() / ".aragora").is_dir():
-        return Path(configured).expanduser().resolve()
+    if configured:
+        configured_path = Path(configured).expanduser()
+        try:
+            resolved = configured_path.resolve()
+        except OSError:
+            resolved = configured_path
+        if resolved.name == ".aragora" and resolved.is_dir():
+            return resolved.parent
+        if (resolved / ".aragora").is_dir():
+            return resolved
     fallback = Path.home() / "Development" / "aragora"
     if (fallback / ".aragora").is_dir():
         return fallback
@@ -107,6 +115,30 @@ def _terminal_receipt_key(path: Path) -> str | None:
     return key or path.stem
 
 
+def _receipt_state(path: Path) -> dict[str, str]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {
+            "file": path.name,
+            "idempotency_key": path.stem,
+            "status": "unparseable",
+        }
+    if not isinstance(payload, dict):
+        return {
+            "file": path.name,
+            "idempotency_key": path.stem,
+            "status": "invalid",
+        }
+    key = str(payload.get("idempotency_key") or path.stem).strip() or path.stem
+    status = str(payload.get("status") or "").strip().lower() or "missing"
+    return {
+        "file": path.name,
+        "idempotency_key": key,
+        "status": status,
+    }
+
+
 def _local_queue_state(
     *,
     repo_root: Path,
@@ -117,18 +149,27 @@ def _local_queue_state(
     receipts = _resolve_state_path(repo_root, receipt_dir, DEFAULT_RECEIPT_DIR)
     outbox_files = _json_files(outbox)
     receipt_files = _json_files(receipts)
+    receipt_states = [_receipt_state(item) for item in receipt_files]
     terminal_receipt_keys = {
-        key for item in receipt_files if (key := _terminal_receipt_key(item)) is not None
+        item["idempotency_key"]
+        for item in receipt_states
+        if item["status"] in TERMINAL_RECEIPT_STATUSES
     }
+    nonterminal_receipts = [
+        item for item in receipt_states if item["status"] not in TERMINAL_RECEIPT_STATUSES
+    ]
+    outbox_keys = [_queue_file_key(item) for item in outbox_files]
+    terminal_receipted_outbox_count = sum(1 for key in outbox_keys if key in terminal_receipt_keys)
     return {
         "outbox_dir": str(outbox),
         "receipt_dir": str(receipts),
         "outbox_count": len(outbox_files),
         "receipt_count": len(receipt_files),
         "terminal_receipt_count": len(terminal_receipt_keys),
-        "unreceipted_outbox_count": sum(
-            1 for item in outbox_files if _queue_file_key(item) not in terminal_receipt_keys
-        ),
+        "nonterminal_receipt_count": len(nonterminal_receipts),
+        "nonterminal_receipts": nonterminal_receipts,
+        "terminal_receipted_outbox_count": terminal_receipted_outbox_count,
+        "unreceipted_outbox_count": len(outbox_keys) - terminal_receipted_outbox_count,
     }
 
 

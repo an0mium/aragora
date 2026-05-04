@@ -33,9 +33,15 @@ TAG_RE = re.compile(
     r"<(?:system-reminder|task-notification|command-[^>]+|local-command-[^>]+)>.*?</(?:system-reminder|task-notification|command-[^>]+|local-command-[^>]+)>",
     re.DOTALL,
 )
-SEPARATOR_RE = re.compile(r"^[\s\-\u2500-\u257f=]+$")
+SEPARATOR_RE = re.compile(r"^[\s\-\u2500-\u257f=\ufffd]+$")
 MODEL_STATUS_RE = re.compile(
     r"^(?:gpt|claude|codex|openai|gemini)-[^\s]+(?:\s+\S+)?\s+·\s+.+$",
+    re.I,
+)
+UI_CHROME_RE = re.compile(
+    r"\bnavigate\s+enter\s+select\s+esc\s+cancel\b"
+    r"|\bshift\+tab\s+to\s+cycle\b"
+    r"|\?\s+for\s+help\b.*\bide\b",
     re.I,
 )
 
@@ -145,6 +151,10 @@ def _clean_display_line(text: str, *, max_chars: int = 220) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     text = re.sub(r"^[•›■]+\s*", "", text)
     text = re.sub(r"\s*·\s*(?:gpt|claude|openai|gemini|codex)-.*$", "", text, flags=re.I)
+    if not text or SEPARATOR_RE.fullmatch(text):
+        return ""
+    if UI_CHROME_RE.search(text):
+        return ""
     if MODEL_STATUS_RE.match(text):
         return ""
     if len(text) <= max_chars:

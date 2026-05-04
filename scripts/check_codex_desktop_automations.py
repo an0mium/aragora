@@ -19,7 +19,7 @@ CORE_WRITERS = {
     "engineering-autopilot-3-2": 50,
 }
 PROMPT_WORDS_BY_ROLE = {
-    "writer": ("memory", "outbox", "branch", "validate"),
+    "writer": ("memory", "outbox", "branch", "validate", "preflight"),
     "hygiene": ("local", "dirty", "worktree"),
     "steward": ("memory", "outbox", "receipts"),
 }
