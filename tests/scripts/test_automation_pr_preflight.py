@@ -52,7 +52,9 @@ def test_automation_pr_preflight_rejects_worker_artifacts(tmp_path: Path) -> Non
     assert "automation/session artifacts" in proc.stderr
 
 
-def test_automation_pr_preflight_rejects_synthetic_preflight_commit_subject(tmp_path: Path) -> None:
+def test_automation_pr_preflight_rejects_synthetic_preflight_commit_subject(
+    tmp_path: Path,
+) -> None:
     repo = _init_repo(tmp_path)
     _run(["git", "switch", "-c", "codex/preflight-preflight-repro"], cwd=repo)
     workflow_dir = repo / ".github" / "workflows"
@@ -85,3 +87,21 @@ def test_automation_pr_preflight_rejects_scratch_preflight_diff(tmp_path: Path) 
 
     assert proc.returncode == 1
     assert "synthetic preflight validation scratch diffs" in proc.stderr
+
+
+def test_automation_pr_preflight_rejects_aragora_coordination_artifacts(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/bad-aragora-artifact"], cwd=repo)
+    artifact = repo / ".aragora" / "automation-outbox" / "open-pr-demo.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text('{"idempotency_key": "demo"}\n', encoding="utf-8")
+    _run(["git", "add", ".aragora/automation-outbox/open-pr-demo.json"], cwd=repo)
+    _run(["git", "commit", "-m", "bad: commit outbox artifact"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 1
+    assert "automation/session artifacts" in proc.stderr
+    assert ".aragora/automation-outbox/open-pr-demo.json" in proc.stderr

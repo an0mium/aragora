@@ -68,7 +68,7 @@ def test_audit_detects_paused_core_writer(tmp_path: Path) -> None:
 def test_audit_accepts_staggered_writer_contracts(tmp_path: Path) -> None:
     import check_codex_desktop_automations as mod
 
-    prompt = "Read memory, repair one branch, validate locally, then refresh outbox."
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
     for automation_id, minute in mod.CORE_WRITERS.items():
         _write_automation(
             tmp_path,
@@ -83,10 +83,32 @@ def test_audit_accepts_staggered_writer_contracts(tmp_path: Path) -> None:
     assert payload["summary"] == {"active_count": 4, "error_count": 0, "warning_count": 0}
 
 
-def test_summary_only_payload_omits_core_writer_prompts(tmp_path: Path) -> None:
+def test_audit_warns_writer_missing_preflight(tmp_path: Path) -> None:
     import check_codex_desktop_automations as mod
 
     prompt = "Read memory, repair one branch, validate locally, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+        )
+
+    payload = mod.build_payload(tmp_path)
+
+    assert {
+        issue["automation_id"]
+        for issue in payload["issues"]
+        if issue["code"] == "missing_prompt_word_preflight"
+    } == set(mod.CORE_WRITERS)
+
+
+def test_summary_only_payload_omits_core_writer_prompts(tmp_path: Path) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
     for automation_id, minute in mod.CORE_WRITERS.items():
         _write_automation(
             tmp_path,
@@ -111,7 +133,7 @@ def test_main_summary_only_json_omits_prompts(
 ) -> None:
     import check_codex_desktop_automations as mod
 
-    prompt = "Read memory, repair one branch, validate locally, then refresh outbox."
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
     for automation_id, minute in mod.CORE_WRITERS.items():
         _write_automation(
             tmp_path,
@@ -130,7 +152,7 @@ def test_main_summary_only_json_omits_prompts(
 def test_audit_warns_duplicate_writer_minutes(tmp_path: Path) -> None:
     import check_codex_desktop_automations as mod
 
-    prompt = "Read memory, repair one branch, validate locally, then refresh outbox."
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
     for automation_id in mod.CORE_WRITERS:
         _write_automation(
             tmp_path,

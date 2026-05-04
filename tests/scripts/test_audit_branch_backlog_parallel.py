@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import scripts.audit_branch_backlog_parallel as mod
@@ -65,6 +66,71 @@ def test_has_active_session_preserves_parallel_legacy_marker(tmp_path: Path) -> 
     (tmp_path / ".codex-session-active").write_text("active\n", encoding="utf-8")
 
     assert mod._has_active_session(tmp_path) is True
+
+
+def test_load_open_prs_skips_lookup_when_github_health_is_unavailable(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: SimpleNamespace(
+            ready=False,
+            to_dict=lambda: {
+                "ready": False,
+                "auth_ok": False,
+                "api_ok": False,
+                "mode": "connectivity_failed",
+                "error": "offline",
+                "repo": str(tmp_path),
+            },
+        ),
+    )
+
+    def fail_open_pr_lookup(*_args: Any, **_kwargs: Any) -> dict[str, int]:
+        raise AssertionError("open PR lookup should be skipped when GitHub is unavailable")
+
+    monkeypatch.setattr(mod, "open_pr_heads", fail_open_pr_lookup)
+
+    open_prs, health, skipped = mod._load_open_prs(tmp_path, "synaptent/aragora", "codex/")
+
+    assert open_prs == {}
+    assert skipped is True
+    assert health["mode"] == "connectivity_failed"
+
+
+def test_load_open_prs_uses_bulk_lookup_when_github_health_is_ready(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: SimpleNamespace(
+            ready=True,
+            to_dict=lambda: {
+                "ready": True,
+                "auth_ok": True,
+                "api_ok": True,
+                "mode": "ready",
+                "error": "",
+                "repo": str(tmp_path),
+            },
+        ),
+    )
+
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda root, repo, prefix: {"codex/has-pr": 6500}
+        if (root, repo, prefix) == (tmp_path, "synaptent/aragora", "codex/")
+        else {},
+    )
+
+    open_prs, health, skipped = mod._load_open_prs(tmp_path, "synaptent/aragora", "codex/")
+
+    assert open_prs == {"codex/has-pr": 6500}
+    assert skipped is False
+    assert health["mode"] == "ready"
 
 
 def test_classify_one_protects_status_failed_worktree(tmp_path: Path, monkeypatch: Any) -> None:

@@ -61,8 +61,16 @@ def _shared_state_root(repo_root: Path) -> Path:
     if (repo_root / ".aragora").is_dir():
         return repo_root
     configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
-    if configured and (Path(configured).expanduser() / ".aragora").is_dir():
-        return Path(configured).expanduser().resolve()
+    if configured:
+        configured_path = Path(configured).expanduser()
+        try:
+            resolved = configured_path.resolve()
+        except OSError:
+            resolved = configured_path
+        if resolved.name == ".aragora" and resolved.is_dir():
+            return resolved.parent
+        if (resolved / ".aragora").is_dir():
+            return resolved
     fallback = Path.home() / "Development" / "aragora"
     if (fallback / ".aragora").is_dir():
         return fallback
@@ -150,6 +158,8 @@ def _local_queue_state(
     nonterminal_receipts = [
         item for item in receipt_states if item["status"] not in TERMINAL_RECEIPT_STATUSES
     ]
+    outbox_keys = [_queue_file_key(item) for item in outbox_files]
+    terminal_receipted_outbox_count = sum(1 for key in outbox_keys if key in terminal_receipt_keys)
     return {
         "outbox_dir": str(outbox),
         "receipt_dir": str(receipts),
@@ -158,9 +168,8 @@ def _local_queue_state(
         "terminal_receipt_count": len(terminal_receipt_keys),
         "nonterminal_receipt_count": len(nonterminal_receipts),
         "nonterminal_receipts": nonterminal_receipts,
-        "unreceipted_outbox_count": sum(
-            1 for item in outbox_files if _queue_file_key(item) not in terminal_receipt_keys
-        ),
+        "terminal_receipted_outbox_count": terminal_receipted_outbox_count,
+        "unreceipted_outbox_count": len(outbox_keys) - terminal_receipted_outbox_count,
     }
 
 

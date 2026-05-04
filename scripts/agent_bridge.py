@@ -123,6 +123,7 @@ class Session:
     name: str
     agent: str
     status: str = "unknown"
+    source: str = ""
     tmux_target: str = ""
     branch: str = ""
     worktree: str = ""
@@ -192,6 +193,7 @@ def discover() -> list[Session]:
                     name=r.name,
                     agent=r.agent,
                     status=r.status,
+                    source=r.source,
                     tmux_target=tmux_target,
                     branch=r.branch or "",
                     worktree=r.cwd or "",
@@ -235,6 +237,7 @@ def _discover_tmux_fallback() -> list[Session]:
                 name=name,
                 agent=meta.get("agent", "unknown"),
                 status="alive" if is_alive else "dead",
+                source="tmux",
                 tmux_target=f"{TMUX_SESSION}:{name}" if is_alive else "",
             )
         )
@@ -299,29 +302,42 @@ def _collect_health_issues(
     sessions: list[Session], records: list[LaneRecord]
 ) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
+    active_lane_owners = {
+        record.owner_session for record in records if record.status in ACTIVE_LANE_STATUSES
+    }
 
-    # Missing paths are actionable stale-session residue. Dead historical
-    # sessions that merely remember the root checkout are not cleanup blockers.
+    # Missing paths are actionable for active/unknown sessions. A dead session
+    # whose worktree is already gone has no remaining worktree cleanup action.
+    # Dead historical sessions that merely remember the root checkout are also
+    # not cleanup blockers. Claude transcript records are historical context;
+    # if no active lane still names the transcript as owner, a removed scratch
+    # worktree should not keep the operator health gate red.
     for s in sessions:
-        if s.worktree and not Path(s.worktree).is_dir():
+        if not s.worktree:
+            continue
+        worktree_exists = Path(s.worktree).is_dir()
+        if s.status == "dead":
+            if worktree_exists and not _is_repo_root_path(s.worktree):
+                issues.append(
+                    {
+                        "type": "stale_worktree",
+                        "session": s.name,
+                        "detail": f"dead session with lingering worktree: {s.worktree}",
+                    }
+                )
+            continue
+        if not worktree_exists:
+            if (
+                s.status == "unknown"
+                and s.source == "claude_jsonl"
+                and s.name not in active_lane_owners
+            ):
+                continue
             issues.append(
                 {
                     "type": "stale_worktree",
                     "session": s.name,
                     "detail": f"worktree path missing: {s.worktree}",
-                }
-            )
-        if (
-            s.status == "dead"
-            and s.worktree
-            and Path(s.worktree).is_dir()
-            and not _is_repo_root_path(s.worktree)
-        ):
-            issues.append(
-                {
-                    "type": "stale_worktree",
-                    "session": s.name,
-                    "detail": f"dead session with lingering worktree: {s.worktree}",
                 }
             )
 

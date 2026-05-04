@@ -570,3 +570,94 @@ def test_health_reports_dead_non_root_worktree(
             "detail": f"dead session with lingering worktree: {worktree}",
         }
     ]
+
+
+def test_health_ignores_dead_session_with_removed_worktree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    root = tmp_path / "repo"
+    removed_worktree = tmp_path / "already-removed"
+    root.mkdir()
+    monkeypatch.setattr(mod, "REPO_ROOT", root)
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", root)
+    monkeypatch.setattr(
+        mod,
+        "discover",
+        lambda: [
+            mod.Session(
+                name="codex-finished-lane",
+                agent="codex",
+                status="dead",
+                worktree=str(removed_worktree),
+            )
+        ],
+    )
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *args, **kwargs: argparse.Namespace(returncode=1, stdout="", stderr=""),
+    )
+
+    assert mod.cmd_health(argparse.Namespace(json=True)) == 0
+    assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": []}
+
+
+def test_health_ignores_orphan_claude_transcript_missing_worktree(tmp_path: Path) -> None:
+    import agent_bridge as mod
+
+    removed_worktree = tmp_path / "removed-review-worktree"
+
+    issues = mod._collect_health_issues(
+        [
+            mod.Session(
+                name="claude-review",
+                agent="claude",
+                status="unknown",
+                source="claude_jsonl",
+                worktree=str(removed_worktree),
+            )
+        ],
+        [],
+    )
+
+    assert issues == []
+
+
+def test_health_reports_claimed_claude_transcript_missing_worktree(tmp_path: Path) -> None:
+    import agent_bridge as mod
+
+    removed_worktree = tmp_path / "removed-review-worktree"
+
+    issues = mod._collect_health_issues(
+        [
+            mod.Session(
+                name="claude-review",
+                agent="claude",
+                status="unknown",
+                source="claude_jsonl",
+                worktree=str(removed_worktree),
+            )
+        ],
+        [
+            mod.LaneRecord(
+                lane_id="review",
+                owner_session="claude-review",
+                status="active",
+            )
+        ],
+    )
+
+    assert issues == [
+        {
+            "type": "stale_worktree",
+            "session": "claude-review",
+            "detail": f"worktree path missing: {removed_worktree}",
+        }
+    ]
