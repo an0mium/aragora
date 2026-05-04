@@ -1745,7 +1745,11 @@ def _add_review_queue_parser(subparsers) -> None:
             "fetches GitHub timeline events with bounded fanout, and computes "
             "the canonical v2 outcome signals via "
             "aragora.review.settlement_outcome.observe_outcome. Default mode is "
-            "read-only; --write opts in to in-place mutation of receipt JSON."
+            "read-only; --write opts in to in-place mutation of receipt JSON. "
+            "Scope: this command observes outcomes; it does NOT close #6375, "
+            "does NOT replace the placeholder 5% threshold, and does NOT "
+            "unblock H2. Operator caution: --write mutates audit-record receipt "
+            "JSON in place; do not run this in unattended CI loops."
         ),
     )
     observe_parser.add_argument(
@@ -1775,8 +1779,10 @@ def _add_review_queue_parser(subparsers) -> None:
         "--write",
         action="store_true",
         help=(
-            "OPT-IN: actually write v2 outcome fields back into receipt JSON. "
-            "Default is dry-run preview only."
+            "OPT-IN: actually write v2 outcome fields back into audit-record "
+            "receipt JSON in place. Default is dry-run preview only. Do not "
+            "run this in unattended CI loops; treat each --write invocation as "
+            "a discrete operator decision."
         ),
     )
     observe_parser.add_argument(

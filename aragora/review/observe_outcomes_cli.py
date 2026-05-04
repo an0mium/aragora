@@ -1,6 +1,6 @@
 """``aragora review-queue observe-outcomes`` — bounded receipt observation.
 
-Round 30g phase A (continues #6921 / δ #6375).
+Round 30g phase A (operator tool that follows on from #6921; this CLI does NOT close #6375).
 
 Iterates settled receipts in a bounded window, fetches GitHub timeline
 events for each PR with bounded fanout, calls
@@ -42,6 +42,17 @@ Out of scope
     placeholder 5% in Commitment 3 is gated on a measured baseline
     *and* CI safety margin, neither of which this CLI produces on its
     own.
+  - This CLI does **not** close #6375. It is an operator tool that
+    observes outcome signals into receipts; the empirical question
+    behind #6375 (human-side invalidation rate) is a separate
+    downstream interpretation step.
+  - This CLI does **not** replace the placeholder 5% threshold.
+    Threshold replacement requires a measured baseline plus an
+    explicit thesis-level decision, neither of which this tool
+    produces.
+  - This CLI does **not** unblock H2. H2's no-go status is determined
+    by separate evidence questions and is not advanced by running
+    this tool.
   - This CLI does **not** invent synthetic outcome data. If
     ``observe_outcome`` returns "no signals fired" for every receipt
     in the window, that is recorded honestly as
