@@ -32,7 +32,7 @@ test = [
     "pydantic-settings>=2.0,<3.0",
     "PyYAML>=6.0.3,<7.0",
     "pytest>=9.0.3,<10.0",
-    "pytest-asyncio>=0.21,<2.0",
+    "pytest-asyncio>=1.3.0,<2.0",
     "twine>=6.2.0,<7.0",
 ]
 gateway = [
