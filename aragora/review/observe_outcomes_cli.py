@@ -169,15 +169,43 @@ TimelineProvider = Callable[[int, str, int], tuple[list[Mapping[str, Any]], str 
 """Signature: (pr_number, head_sha, event_cap) -> (events, fetch_error_or_None)."""
 
 
+def _run_gh_json(args: list[str], *, timeout: int = 20) -> tuple[Any, str | None]:
+    """Run a bounded ``gh`` command and parse JSON, returning (payload, error)."""
+    try:
+        proc = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (subprocess.SubprocessError, OSError) as exc:
+        return None, f"{args[:3]} raised {type(exc).__name__}: {exc}"
+    if proc.returncode != 0:
+        return None, f"{args[:3]} returned {proc.returncode}: {proc.stderr.strip()[:200]}"
+    try:
+        return json.loads(proc.stdout or "null"), None
+    except json.JSONDecodeError as exc:
+        return None, f"{args[:3]} JSON parse error: {exc}"
+
+
+def _gh_repo_slug() -> tuple[str | None, str | None]:
+    payload, error = _run_gh_json(["gh", "repo", "view", "--json", "nameWithOwner"])
+    if error is not None:
+        return None, error
+    if not isinstance(payload, dict) or not isinstance(payload.get("nameWithOwner"), str):
+        return None, "gh repo view did not return nameWithOwner"
+    return payload["nameWithOwner"], None
+
+
 def _gh_timeline_provider(
     pr_number: int, head_sha: str, event_cap: int
 ) -> tuple[list[Mapping[str, Any]], str | None]:
     """Default timeline provider using ``gh api``.
 
-    This is intentionally *minimal* — we fetch only the small set of
-    events that ``observe_outcome`` actually inspects, and we cap the
-    fetch with ``per_page`` plus a single page request to avoid
-    runaway pagination.
+    This intentionally fails closed. If any bounded GitHub fetch fails,
+    we return an error and the caller must not write explicit ``False``
+    outcome fields from an incomplete evidence source.
 
     Returns (events, error). On any error returns ([], error_message).
     """
@@ -186,35 +214,156 @@ def _gh_timeline_provider(
     events: list[Mapping[str, Any]] = []
     # Issue/PR timeline (covers reopen events and labeled issues that
     # mention the merge sha). Bounded to one page of `event_cap` items.
-    try:
-        proc = subprocess.run(
-            [
-                "gh",
-                "api",
-                "-H",
-                "Accept: application/vnd.github+json",
-                f"/repos/:owner/:repo/issues/{pr_number}/timeline?per_page={min(event_cap, 100)}",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=20,
-            check=False,
-        )
-    except (subprocess.SubprocessError, OSError) as exc:
-        return [], f"gh timeline fetch raised {type(exc).__name__}: {exc}"
-    if proc.returncode != 0:
-        return [], f"gh timeline returned {proc.returncode}: {proc.stderr.strip()[:200]}"
-    try:
-        data = json.loads(proc.stdout or "[]")
-    except json.JSONDecodeError as exc:
-        return [], f"timeline JSON parse error: {exc}"
+    data, error = _run_gh_json(
+        [
+            "gh",
+            "api",
+            "-H",
+            "Accept: application/vnd.github+json",
+            f"/repos/:owner/:repo/issues/{pr_number}/timeline?per_page={min(event_cap, 100)}",
+        ]
+    )
+    if error is not None:
+        return [], error
+    if not isinstance(data, list):
+        return [], "timeline JSON was not a list"
     for entry in data[:event_cap]:
         if not isinstance(entry, dict):
             continue
         normalized = _normalize_timeline_entry(entry, pr_number=pr_number)
         if normalized is not None:
             events.append(normalized)
-    return events, None
+
+    repo_slug, error = _gh_repo_slug()
+    if error is not None:
+        return [], error
+    if repo_slug is None:
+        return [], "gh repo view did not return a repository slug"
+
+    # Search issues/PRs that reference the original PR or head sha so the
+    # operator CLI can observe the non-timeline signals that observe_outcome
+    # understands: post-merge incidents, human redo PRs, and rollback PRs.
+    # Each query is bounded to a single page and the combined result is capped
+    # again before returning.
+    queries = [
+        f"repo:{repo_slug} {head_sha}",
+        f"repo:{repo_slug} {head_sha[:7]}",
+        f"repo:{repo_slug} #{pr_number}",
+    ]
+    seen: set[str] = set()
+    per_page = min(event_cap, 100)
+    for query in queries:
+        payload, error = _run_gh_json(
+            [
+                "gh",
+                "api",
+                "-X",
+                "GET",
+                "-H",
+                "Accept: application/vnd.github+json",
+                "search/issues",
+                "-f",
+                f"q={query}",
+                "-f",
+                f"per_page={per_page}",
+            ]
+        )
+        if error is not None:
+            return [], error
+        items = payload.get("items", []) if isinstance(payload, dict) else []
+        if not isinstance(items, list):
+            return [], "search/issues JSON did not contain an items list"
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            key = str(item.get("node_id") or item.get("html_url") or item.get("url") or id(item))
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized = _normalize_issue_search_item(item)
+            if normalized is not None:
+                events.append(normalized)
+
+    for query in (f"repo:{repo_slug} {head_sha}", f"repo:{repo_slug} {head_sha[:7]}"):
+        payload, error = _run_gh_json(
+            [
+                "gh",
+                "api",
+                "-X",
+                "GET",
+                "-H",
+                "Accept: application/vnd.github+json",
+                "search/commits",
+                "-f",
+                f"q={query}",
+                "-f",
+                f"per_page={per_page}",
+            ]
+        )
+        if error is not None:
+            return [], error
+        items = payload.get("items", []) if isinstance(payload, dict) else []
+        if not isinstance(items, list):
+            return [], "search/commits JSON did not contain an items list"
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            key = str(item.get("node_id") or item.get("sha") or item.get("url") or id(item))
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized = _normalize_commit_search_item(item)
+            if normalized is not None:
+                events.append(normalized)
+
+    return events[:event_cap], None
+
+
+def _str_or_empty(value: Any) -> str:
+    return value if isinstance(value, str) else ""
+
+
+def _labels_from_issue(item: Mapping[str, Any]) -> list[str]:
+    labels = item.get("labels")
+    if not isinstance(labels, list):
+        return []
+    out: list[str] = []
+    for label in labels:
+        if isinstance(label, Mapping) and isinstance(label.get("name"), str):
+            out.append(label["name"])
+    return out
+
+
+def _normalize_issue_search_item(item: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    created_at = item.get("created_at")
+    if not isinstance(created_at, str):
+        return None
+    common = {
+        "at": created_at,
+        "labels": _labels_from_issue(item),
+        "title": _str_or_empty(item.get("title")),
+        "body": _str_or_empty(item.get("body")),
+        "number": item.get("number"),
+    }
+    if isinstance(item.get("pull_request"), Mapping):
+        return {"type": "pr_opened", **common}
+    return {"type": "issue_opened", **common}
+
+
+def _normalize_commit_search_item(item: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    commit_raw = item.get("commit")
+    commit: Mapping[str, Any] = commit_raw if isinstance(commit_raw, Mapping) else {}
+    author_raw = commit.get("author")
+    author: Mapping[str, Any] = author_raw if isinstance(author_raw, Mapping) else {}
+    created_at = author.get("date") or item.get("committer_date") or item.get("author_date")
+    if not isinstance(created_at, str):
+        return None
+    return {
+        "type": "commit",
+        "at": created_at,
+        "message": _str_or_empty(commit.get("message")),
+        "sha": _str_or_empty(item.get("sha")),
+    }
 
 
 def _normalize_timeline_entry(
@@ -238,14 +387,16 @@ def _normalize_timeline_entry(
     if event_kind == "labeled":
         label_obj = entry.get("label") if isinstance(entry.get("label"), dict) else {}
         labels = [str(label_obj.get("name", ""))] if label_obj else []
+        source_raw = entry.get("source")
+        source: Mapping[str, Any] = source_raw if isinstance(source_raw, Mapping) else {}
+        issue_raw = source.get("issue")
+        issue: Mapping[str, Any] = issue_raw if isinstance(issue_raw, Mapping) else {}
         return {
             "type": "issue_opened",
             "at": created_at,
             "labels": labels,
-            "title": str(entry.get("source", {}).get("issue", {}).get("title", ""))
-            if isinstance(entry.get("source"), dict)
-            else "",
-            "body": "",
+            "title": _str_or_empty(issue.get("title")),
+            "body": _str_or_empty(issue.get("body")),
         }
     return None
 
@@ -259,11 +410,17 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
     """Write JSON atomically via tempfile + rename, preserving permissions."""
     target_dir = path.parent
     target_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        existing_mode = path.stat().st_mode & 0o777
+    except FileNotFoundError:
+        existing_mode = None
     fd, tmp_name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(target_dir))
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, indent=2, sort_keys=True)
             fh.write("\n")
+        if existing_mode is not None:
+            os.chmod(tmp_name, existing_mode)
         os.replace(tmp_name, path)
     except Exception:
         try:
@@ -417,6 +574,20 @@ def _observe_one(
             written=False,
             skipped_reason="malformed receipt",
         )
+    try:
+        receipt_obj = _materialize_receipt(payload)
+    except (TypeError, ValueError) as exc:
+        return _ObserveResult(
+            receipt_path=receipt.path,
+            pr_number=pr_number,
+            head_sha=head_sha,
+            fetched_event_count=0,
+            fetch_error=f"malformed receipt: {exc}",
+            signals_before=_signal_extract(payload),
+            signals_after=_signal_extract(payload),
+            written=False,
+            skipped_reason="malformed receipt",
+        )
     events, fetch_error = timeline_provider(pr_number, head_sha, per_receipt_event_cap)
     if fetch_error is not None:
         return _ObserveResult(
@@ -430,7 +601,6 @@ def _observe_one(
             written=False,
             skipped_reason="github fetch error",
         )
-    receipt_obj = _materialize_receipt(payload)
     observed = observe_outcome(
         receipt_obj,
         github_timeline=events,

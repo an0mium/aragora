@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from aragora.review.observe_outcomes_cli import run_observe_outcomes
+from aragora.worktree.fleet import resolve_repo_root
 
 UTC = timezone.utc
 
@@ -36,7 +37,7 @@ def cmd_observe_outcomes(args: argparse.Namespace) -> int:
     try:
         summary = run_observe_outcomes(
             store_root=args.review_queue_root,
-            repo_root=Path.cwd(),
+            repo_root=resolve_repo_root(Path.cwd()),
             window_end=datetime.now(UTC),
             window_days=args.window_days,
             max_receipts=args.max_receipts,

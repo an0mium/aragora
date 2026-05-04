@@ -15,6 +15,7 @@ import pytest
 
 from aragora.cli.parser import build_parser
 from aragora.cli.commands.review_queue import cmd_review_queue
+from aragora.review import observe_outcomes_cli as observe_module
 from aragora.review.observe_outcomes_cli import (
     DEFAULT_PER_RECEIPT_EVENT_CAP,
     DEFAULT_WINDOW_DAYS,
@@ -43,6 +44,30 @@ class TestCliParser:
         assert args.write is False
         assert cmd_review_queue(args) == 0
         assert called["args"] is args
+
+    def test_command_resolves_repo_root_instead_of_nested_cwd(
+        self, monkeypatch, tmp_path: Path
+    ) -> None:
+        import aragora.cli.commands.observe_outcomes_cmd as command_module
+
+        repo = tmp_path / "repo"
+        nested = repo / "tools" / "subdir"
+        (repo / ".git").mkdir(parents=True)
+        nested.mkdir(parents=True)
+        monkeypatch.chdir(nested)
+
+        called: dict[str, Any] = {}
+
+        def fake_run_observe_outcomes(**kwargs):
+            called.update(kwargs)
+            return {"mode": "dry-run"}
+
+        monkeypatch.setattr(command_module, "resolve_repo_root", lambda path: repo)
+        monkeypatch.setattr(command_module, "run_observe_outcomes", fake_run_observe_outcomes)
+        args = build_parser().parse_args(["review-queue", "observe-outcomes", "--json"])
+
+        assert command_module.cmd_observe_outcomes(args) == 0
+        assert called["repo_root"] == repo
 
 
 def _write_receipt(receipts_dir: Path, name: str, payload: dict) -> Path:
@@ -229,6 +254,24 @@ class TestWriteModeMutates:
         assert body["outcome_rollback"] is False
         assert body["outcome_reopened_pr"] is False
 
+    def test_atomic_write_preserves_existing_receipt_permissions(self, tmp_path: Path) -> None:
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        path = _write_receipt(receipts_dir, "r1", _base_payload())
+        path.chmod(0o644)
+
+        run_observe_outcomes(
+            store_root=tmp_path,
+            repo_root=tmp_path,
+            window_end=datetime(2026, 4, 30, 12, tzinfo=UTC),
+            window_days=DEFAULT_WINDOW_DAYS,
+            max_receipts=20,
+            per_receipt_event_cap=DEFAULT_PER_RECEIPT_EVENT_CAP,
+            write=True,
+            timeline_provider=_revert_provider_for(_base_payload()["head_sha"]),
+        )
+
+        assert path.stat().st_mode & 0o777 == 0o644
+
     def test_write_mode_no_signals_emits_insufficiency(self, tmp_path: Path) -> None:
         receipts_dir = tmp_path / RECEIPTS_SUBDIR
         _write_receipt(receipts_dir, "r1", _base_payload())
@@ -400,6 +443,174 @@ class TestMalformedReceipts:
         result = summary["results"][0]
         assert result["skipped_reason"] == "malformed receipt"
         assert result["written"] is False
+
+    def test_partial_receipt_skipped_before_network_fetch(self, tmp_path: Path) -> None:
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        _write_receipt(
+            receipts_dir,
+            "partial",
+            {
+                "reviewed_at": "2026-04-25T12:00:00+00:00",
+                "pr_number": 1234,
+                "head_sha": "abc1234567890",
+            },
+        )
+
+        def _provider_should_not_run(pr_number: int, head_sha: str, cap: int):
+            raise AssertionError("network provider should not run for malformed receipts")
+
+        summary = run_observe_outcomes(
+            store_root=tmp_path,
+            repo_root=tmp_path,
+            window_end=datetime(2026, 4, 30, 12, tzinfo=UTC),
+            window_days=DEFAULT_WINDOW_DAYS,
+            max_receipts=20,
+            per_receipt_event_cap=DEFAULT_PER_RECEIPT_EVENT_CAP,
+            write=True,
+            timeline_provider=_provider_should_not_run,
+        )
+
+        assert summary["receipts_examined"] == 1
+        assert summary["results"][0]["skipped_reason"] == "malformed receipt"
+        assert "missing" in str(summary["results"][0]["fetch_error"])
+
+
+class TestLiveProviderNormalization:
+    def test_issue_search_items_emit_pr_opened_for_follow_up_prs(self) -> None:
+        event = observe_module._normalize_issue_search_item(
+            {
+                "created_at": "2026-04-30T08:00:00Z",
+                "number": 9999,
+                "title": "Revert feature",
+                "body": "Supersedes #1234",
+                "pull_request": {"url": "https://api.github.com/repos/o/r/pulls/9999"},
+                "labels": [{"name": "rollback"}],
+            }
+        )
+
+        assert event == {
+            "type": "pr_opened",
+            "at": "2026-04-30T08:00:00Z",
+            "labels": ["rollback"],
+            "title": "Revert feature",
+            "body": "Supersedes #1234",
+            "number": 9999,
+        }
+
+    def test_issue_search_items_preserve_incident_body(self) -> None:
+        event = observe_module._normalize_issue_search_item(
+            {
+                "created_at": "2026-04-30T08:00:00Z",
+                "number": 42,
+                "title": "Incident after #1234",
+                "body": "The regression references abc1234.",
+                "labels": [{"name": "incident"}],
+            }
+        )
+
+        assert event == {
+            "type": "issue_opened",
+            "at": "2026-04-30T08:00:00Z",
+            "labels": ["incident"],
+            "title": "Incident after #1234",
+            "body": "The regression references abc1234.",
+            "number": 42,
+        }
+
+    def test_timeline_labeled_entry_preserves_source_issue_body(self) -> None:
+        event = observe_module._normalize_timeline_entry(
+            {
+                "event": "labeled",
+                "created_at": "2026-04-30T08:00:00Z",
+                "label": {"name": "incident"},
+                "source": {"issue": {"title": "Incident #1234", "body": "mentions abc1234"}},
+            },
+            pr_number=1234,
+        )
+
+        assert event == {
+            "type": "issue_opened",
+            "at": "2026-04-30T08:00:00Z",
+            "labels": ["incident"],
+            "title": "Incident #1234",
+            "body": "mentions abc1234",
+        }
+
+    def test_gh_provider_combines_timeline_issue_pr_and_commit_search(self, monkeypatch) -> None:
+        monkeypatch.setattr(observe_module.shutil, "which", lambda name: "/usr/bin/gh")
+
+        def fake_run_gh_json(args, *, timeout=20):
+            if args[:4] == ["gh", "repo", "view", "--json"]:
+                return {"nameWithOwner": "owner/repo"}, None
+            if any("timeline" in str(part) for part in args):
+                return [{"event": "reopened", "created_at": "2026-04-30T08:00:00Z"}], None
+            if "search/issues" in args:
+                return {
+                    "items": [
+                        {
+                            "node_id": "PR_1",
+                            "created_at": "2026-04-30T09:00:00Z",
+                            "number": 9999,
+                            "title": "Revert feature",
+                            "body": "Supersedes #1234",
+                            "pull_request": {"url": "https://api.github.com/repos/o/r/pulls/9999"},
+                            "labels": [{"name": "rollback"}],
+                        },
+                        {
+                            "node_id": "I_1",
+                            "created_at": "2026-04-30T10:00:00Z",
+                            "number": 77,
+                            "title": "Incident #1234",
+                            "body": "mentions abc1234",
+                            "labels": [{"name": "incident"}],
+                        },
+                    ]
+                }, None
+            if "search/commits" in args:
+                return {
+                    "items": [
+                        {
+                            "node_id": "C_1",
+                            "sha": "def456",
+                            "commit": {
+                                "message": 'Revert "feature" refs abc1234',
+                                "author": {"date": "2026-04-30T11:00:00Z"},
+                            },
+                        }
+                    ]
+                }, None
+            raise AssertionError(f"unexpected gh args: {args}")
+
+        monkeypatch.setattr(observe_module, "_run_gh_json", fake_run_gh_json)
+
+        events, error = observe_module._gh_timeline_provider(1234, "abc1234567890", 100)
+
+        assert error is None
+        assert {event["type"] for event in events} == {
+            "pr_reopened",
+            "pr_opened",
+            "issue_opened",
+            "commit",
+        }
+
+    def test_gh_provider_fails_closed_when_search_fetch_fails(self, monkeypatch) -> None:
+        monkeypatch.setattr(observe_module.shutil, "which", lambda name: "/usr/bin/gh")
+
+        def fake_run_gh_json(args, *, timeout=20):
+            if args[:4] == ["gh", "repo", "view", "--json"]:
+                return {"nameWithOwner": "owner/repo"}, None
+            if any("timeline" in str(part) for part in args):
+                return [], None
+            if "search/issues" in args:
+                return None, "search/issues returned 502"
+            raise AssertionError(f"unexpected gh args: {args}")
+
+        monkeypatch.setattr(observe_module, "_run_gh_json", fake_run_gh_json)
+
+        events, error = observe_module._gh_timeline_provider(1234, "abc1234567890", 100)
+
+        assert events == []
+        assert error == "search/issues returned 502"
 
 
 class TestInsufficiencyReceiptShape:
