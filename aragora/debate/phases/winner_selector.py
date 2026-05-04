@@ -392,7 +392,7 @@ class WinnerSelector:
                 # is set; the emitter swallows its own errors so a CruxSet
                 # build failure cannot crash the debate.
                 try:
-                    from aragora.reasoning.cruxset_emission import maybe_emit_cruxset
+                    from aragora.reasoning import cruxset_emission
 
                     question_text = ""
                     debate_id = ""
@@ -402,7 +402,7 @@ class WinnerSelector:
                     debate_id = str(getattr(ctx, "debate_id", "") or "")
 
                     if question_text:
-                        cruxset = maybe_emit_cruxset(
+                        cruxset = cruxset_emission.maybe_emit_cruxset(
                             question=question_text,
                             analysis_payload=analysis.to_dict(),
                             decision=str(getattr(result, "winner", "") or "") or None,
