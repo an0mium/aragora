@@ -53,6 +53,7 @@ def _receipt(
     trials: int = 18,
     n_per_class: dict[str, int] | None = None,
     agents: tuple[str, ...] = PANEL_AGENTS,
+    null_negative_fpr: float = 1 / 6,
 ) -> dict[str, object]:
     counts = {
         "clean_neutral": 1,
@@ -92,9 +93,9 @@ def _receipt(
             "clean_neutral_false_positives": 0,
             "clean_neutral_false_positive_trials": 6,
             "false_positive_rate_on_clean_neutral": 0.0,
-            "null_negative_false_positives": 1,
+            "null_negative_false_positives": round(null_negative_fpr * 6),
             "null_negative_false_positive_trials": 6,
-            "false_positive_rate_on_null_negative": 1 / 6,
+            "false_positive_rate_on_null_negative": null_negative_fpr,
         },
     }
     receipt["receipt_id"] = compute_receipt_id(receipt)
@@ -179,6 +180,22 @@ def test_ci_overlap_is_insufficient() -> None:
     assert str(comparison["verdict_reason"]).startswith("ci_overlap")
 
 
+def test_insufficient_n_is_insufficient() -> None:
+    baseline = _receipt(ci=(0.0, 0.2), rate=0.0, successes=0, trials=12)
+    panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9, trials=18)
+
+    comparison = build_comparison_receipt(
+        baseline,
+        panel,
+        baseline_receipt_path="baseline.json",
+        panel_receipt_path="panel.json",
+        produced_at="2026-05-04T00:00:00Z",
+    )
+
+    assert comparison["verdict"] == "INSUFFICIENT"
+    assert str(comparison["verdict_reason"]).startswith("insufficient_n:")
+
+
 def test_baseline_saturation_is_insufficient_with_data() -> None:
     baseline = _receipt(ci=(0.9, 1.0), rate=1.0, successes=18)
     panel = _receipt(ci=(0.95, 1.0), rate=1.0, successes=18)
@@ -193,6 +210,50 @@ def test_baseline_saturation_is_insufficient_with_data() -> None:
 
     assert comparison["verdict"] == "INSUFFICIENT-WITH-DATA"
     assert comparison["verdict_reason"] == "baseline_saturation"
+
+
+def test_false_positive_flags_are_false_when_rates_are_below_gates() -> None:
+    baseline = _receipt(ci=(0.0, 0.2), rate=0.0, successes=0, null_negative_fpr=0.0)
+    panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9, null_negative_fpr=0.0)
+
+    comparison = build_comparison_receipt(
+        baseline,
+        panel,
+        baseline_receipt_path="baseline.json",
+        panel_receipt_path="panel.json",
+        produced_at="2026-05-04T00:00:00Z",
+    )
+
+    flags = comparison["comparison"]["false_positive_flags"]
+    assert flags["baseline_clean_neutral_exceeds_gate"] is False
+    assert flags["baseline_null_negative_exceeds_gate"] is False
+    assert flags["panel_clean_neutral_exceeds_baseline"] is False
+    assert flags["panel_clean_neutral_exceeds_gate"] is False
+    assert flags["panel_null_negative_exceeds_baseline"] is False
+    assert flags["panel_null_negative_exceeds_gate"] is False
+
+
+def test_baseline_null_negative_fpr_gate_warning_is_explicit() -> None:
+    baseline = _receipt(
+        ci=(0.0, 0.2),
+        rate=0.0,
+        successes=0,
+        null_negative_fpr=0.3333333333333333,
+    )
+    panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9, null_negative_fpr=0.0)
+
+    comparison = build_comparison_receipt(
+        baseline,
+        panel,
+        baseline_receipt_path="baseline.json",
+        panel_receipt_path="panel.json",
+        produced_at="2026-05-04T00:00:00Z",
+    )
+
+    flags = comparison["comparison"]["false_positive_flags"]
+    assert flags["baseline_null_negative_exceeds_gate"] is True
+    assert flags["baseline_clean_neutral_exceeds_gate"] is False
+    assert flags["panel_null_negative_exceeds_gate"] is False
 
 
 def test_schema_validation_rejects_non_v1_receipt(tmp_path: Path) -> None:

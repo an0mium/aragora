@@ -257,6 +257,10 @@ def _fp_flags(
     baseline_null = _float_metric(baseline_receipt, "false_positive_rate_on_null_negative")
     panel_null = _float_metric(panel_receipt, "false_positive_rate_on_null_negative")
     return {
+        "baseline_clean_neutral_exceeds_gate": baseline_clean
+        > ACCEPTANCE_GATES["false_positive_rate_on_clean_neutral_max"],
+        "baseline_null_negative_exceeds_gate": baseline_null
+        > ACCEPTANCE_GATES["false_positive_rate_on_null_negative_max"],
         "panel_clean_neutral_exceeds_baseline": panel_clean > baseline_clean,
         "panel_clean_neutral_exceeds_gate": panel_clean
         > ACCEPTANCE_GATES["false_positive_rate_on_clean_neutral_max"],
