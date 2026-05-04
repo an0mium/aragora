@@ -14,6 +14,26 @@ The immediate gate is keeping recurring benchmark truth publication complete, fr
 
 Operator commands only count as proof when they are run from a clean, current `origin/main` observer. A dirty or diverged founder checkout is planning context, not runtime truth.
 
+### `B2` guard expansion criteria
+
+`B2` stays closed by default. Do not widen it based on a single green anecdote or a one-off publish.
+
+Treat "repeated bounded runs" as **at least 3 consecutive weekly green corpus runs on current `main`**. For this gate, a weekly run is green only when all of the following remain true:
+
+- `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` is fresh for the current corpus revision and reports complete coverage for that revision
+- `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md` is fresh and reports `0` repeated rescue classes in the current ledger window
+- the recurring publication completed on current `main` without gaps that would make the proof surface incomplete, stale, or misleading
+
+If any weekly run is missing, incomplete, stale, or introduces a repeated rescue-class regression, reset the count and keep `B2` closed.
+
+The only execution classes currently safe enough for `B2` guard consideration are:
+
+- dependency bumps with bounded surface area and existing validation already in the repo
+- config changes that are additive, reversible, and stay inside already-proven live paths
+- fail-closed fixes that narrow unsafe behavior without widening execution scope
+
+Meeting the 3-run gate only permits guarded expansion inside those three classes. It does not permit broader scope widening, new product surfaces, or speculative autonomy work.
+
 What is already true:
 
 - boss, supervisor, tranche, and swarm infrastructure exist
@@ -183,7 +203,7 @@ Have the system draft work orders, scope, and validation plans for the safest cl
 
 ### Booster 2 — Guard
 
-Add worker contracts and production-equivalent preflight for the safe classes that already benchmark well. Auto-run only when those guards pass.
+Add worker contracts and production-equivalent preflight for the safe classes that already benchmark well: dependency bumps, additive/reversible config changes, and fail-closed fixes. Auto-run only when those guards pass and the explicit `B2` gate above has been met.
 
 ### Booster 3 — Repair
 
