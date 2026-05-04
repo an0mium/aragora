@@ -6,16 +6,16 @@ heterogeneous-by-temperature but homogeneous-by-family. The default provider is
 Anthropic (claude-haiku-4-5 panelists, claude-sonnet-4-5 judge); OpenAI remains
 available via BASELINE_PROVIDER=openai.
 
-The baseline covers 3 seeded prompts (one each from single_seeded_error/,
-multi_seeded_error/, correlated_priming/), producing 18 total panel judgments.
-Only single_seeded_error and multi_seeded_error enter the current
-independent_flag_rate denominator, so the expected independent_flag_trials value
-for the default run is 12.
+The baseline covers 5 composition-matched prompts: 3 seeded classes
+(single_seeded_error, multi_seeded_error, red_team_paraphrase) plus 2
+false-positive control classes (clean_neutral, null_negative). That produces 18
+independent-flag trials and 12 false-positive control trials for the default
+six-panelist run.
 Emits a HeterogeneityProbeReceipt.v1 under
 docs/receipts/heterogeneity/baseline-single-family-<provider>-<utcz>.receipt.json.
 
 Budget rails:
-  - Pre-call estimator gates each call against a $1.50 cap (<<$24 trip).
+  - Pre-call estimator gates each call against a $0.85 trip and $1.00 hard cap.
   - Provider usage metadata captured per response.
   - Per-call wall: 90s.
 
@@ -29,6 +29,8 @@ import json
 import os
 import sys
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -68,8 +70,10 @@ PANELIST_TEMPERATURES = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
 
 PROMPT_FILES = [
     PROMPTS_ROOT / "single_seeded_error" / "12_round_velocity.md",
-    PROMPTS_ROOT / "multi_seeded_error" / "08_human_settled_definition.md",
-    PROMPTS_ROOT / "correlated_priming" / "04_reciprocity_h1_floor.md",
+    PROMPTS_ROOT / "multi_seeded_error" / "03_h1_status_and_floor.md",
+    PROMPTS_ROOT / "red_team_paraphrase" / "03a_terse_baseline_floor.md",
+    PROMPTS_ROOT / "clean_neutral" / "07_dic14_claim_runner.md",
+    PROMPTS_ROOT / "null_negative" / "02_no_error_implicit_pressure.md",
 ]
 
 PRICE_PER_MTOK = {
@@ -79,8 +83,8 @@ PRICE_PER_MTOK = {
     "claude-sonnet-4-5": {"input": 3.000, "output": 15.000},
 }
 
-BUDGET_HARD_CAP_USD = 3.00
-BUDGET_ESTIMATOR_TRIP_USD = 2.50
+BUDGET_HARD_CAP_USD = 1.00
+BUDGET_ESTIMATOR_TRIP_USD = 0.85
 
 PER_CALL_WALL_SECONDS = 90
 MAX_PANELIST_TOKENS = 800
@@ -122,9 +126,12 @@ def _load_client():
         api_key = sm.get("ANTHROPIC_API_KEY")
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY missing from SecretManager")
-        import anthropic  # type: ignore
+        try:
+            import anthropic  # type: ignore
 
-        return ("anthropic", anthropic.Anthropic(api_key=api_key))
+            return ("anthropic", anthropic.Anthropic(api_key=api_key))
+        except ModuleNotFoundError:
+            return ("anthropic_http", api_key)
     raise RuntimeError(f"unknown PROVIDER: {PROVIDER}")
 
 
@@ -216,6 +223,73 @@ def _call_anthropic_impl(
         }
 
 
+def _call_anthropic_http_impl(
+    api_key: str,
+    *,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float,
+    max_tokens: int,
+    wall_seconds: int,
+) -> dict[str, Any]:
+    start = time.time()
+    payload = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "system": system_prompt,
+        "messages": [{"role": "user", "content": user_prompt}],
+    }
+    request = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+            "x-api-key": api_key,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=wall_seconds) as response:
+            body = json.loads(response.read().decode("utf-8"))
+        latency_ms = int((time.time() - start) * 1000)
+        text = "".join(
+            block.get("text", "")
+            for block in body.get("content", [])
+            if isinstance(block, dict) and block.get("type") == "text"
+        )
+        usage = body.get("usage") or {}
+        return {
+            "ok": True,
+            "text": text,
+            "input_tokens": usage.get("input_tokens"),
+            "output_tokens": usage.get("output_tokens"),
+            "latency_ms": latency_ms,
+            "error": None,
+        }
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="replace")[:500]
+        return {
+            "ok": False,
+            "text": "",
+            "input_tokens": None,
+            "output_tokens": None,
+            "latency_ms": int((time.time() - start) * 1000),
+            "error": f"HTTPError {exc.code}: {error_body}",
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "text": "",
+            "input_tokens": None,
+            "output_tokens": None,
+            "latency_ms": int((time.time() - start) * 1000),
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
 def _call_provider(
     client_tuple,
     *,
@@ -239,6 +313,16 @@ def _call_provider(
         )
     if kind == "anthropic":
         return _call_anthropic_impl(
+            client,
+            model=model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            wall_seconds=wall_seconds,
+        )
+    if kind == "anthropic_http":
+        return _call_anthropic_http_impl(
             client,
             model=model,
             system_prompt=system_prompt,
@@ -451,19 +535,23 @@ def main() -> int:
         judge_model=JUDGE_MODEL,
         pilot_token_spend_usd_estimate=round(cumulative_estimate_usd, 5),
         scope_caveats=[
-            "Single-family baseline (Round 31a' / 31b Phase 1).",
+            "Single-family baseline (Round 31a' / 31b Phase 1, composition-matched).",
             f"All 6 panelists are {PANEL_MODEL} with varied temperatures "
             "(0.0, 0.2, 0.4, 0.6, 0.8, 1.0) - homogeneous family, "
             "heterogeneous decoding.",
             f"Judge: {JUDGE_MODEL} (different model than panel) at temperature 0.0.",
-            "3 seeded prompts only (1 single_seeded_error, 1 multi_seeded_error, "
-            "1 correlated_priming). This produces 18 total panel judgments; "
-            "independent_flag_trials is 12 because correlated_priming is tracked "
-            "separately from SEEDED_CLASSES.",
-            "This receipt is the missing self-review baseline that Round 31a "
-            "Phase 0 found absent. Subsequent heterogeneous-panel runs (31b "
-            "Phase 4, 31c, ...) compute CI-separated GO/NO-GO against this "
-            "baseline.",
+            "5 prompts spanning 3 SEEDED_CLASSES (single_seeded_error, "
+            "multi_seeded_error, red_team_paraphrase) + 2 false-positive control "
+            "classes (clean_neutral, null_negative). N_seeded_trials = 18 "
+            "(3 seeded x 6 panelists). N_fp_control_trials = 12 "
+            "(2 control x 6 panelists).",
+            "This receipt is composition-matched to the seeded-class set used by "
+            "aragora.heterogeneity.probe.SEEDED_CLASSES. False-positive rates are "
+            "actual measurements, not 0/0 placeholders.",
+            "Future heterogeneous-panel runs at the same prompt-class composition "
+            "can be CI-separated against this baseline. The comparator tool itself "
+            "is a separate Tier-2 follow-up; until that ships, CI separation is "
+            "computed by hand from the two receipts' Wilson CIs.",
             f"Hard cap: ${BUDGET_HARD_CAP_USD}. Estimator trip: ${BUDGET_ESTIMATOR_TRIP_USD}.",
             f"Actual spend: ~${cumulative_actual_usd:.4f}.",
         ],
