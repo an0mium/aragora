@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -15,6 +16,7 @@ def _run_with_classifications(
     payload: dict[str, object],
     *,
     limit: int | None = None,
+    extra_args: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     classifications_file = tmp_path / "classifications.json"
     classifications_file.write_text(json.dumps(payload), encoding="utf-8")
@@ -31,6 +33,8 @@ def _run_with_classifications(
     ]
     if limit is not None:
         cmd[2:2] = ["--limit", str(limit)]
+    if extra_args:
+        cmd.extend(extra_args)
     return subprocess.run(
         cmd,
         cwd=ROOT,
@@ -104,6 +108,69 @@ def test_probe_script_writes_receipt_from_classifications_file(tmp_path) -> None
     assert receipt["judge_model"] == "external-judge-fixture"
     assert receipt["verdict"] == "insufficient_pilot"
     assert "external judged classifications" in receipt["scope_caveats"][0]
+    assert payload["source_artifact_count"] == 0
+
+
+def test_probe_script_propagates_classification_source_artifacts(tmp_path) -> None:
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text('{"type":"round"}\n', encoding="utf-8")
+    source_artifact = {
+        "role": "transcript_sidecar",
+        "path": str(transcript),
+        "sha256": hashlib.sha256(transcript.read_bytes()).hexdigest(),
+        "bytes": transcript.stat().st_size,
+        "format": "dialog_jsonl_transcript.v1",
+        "hash_spec": "sha256(raw file bytes)",
+        "required_for_rejudge": True,
+        "text_capture": "full",
+        "created_before_receipt_id": True,
+    }
+    proc = _run_with_classifications(
+        tmp_path,
+        {
+            "judge_model": "artifact-repro",
+            "panel_models": ["solo"],
+            "source_artifacts": [source_artifact],
+            "results": [
+                {
+                    "prompt_id": "cn_01_invalidation_signals",
+                    "classifications": [
+                        {"agent": "solo", "verdict": "missed", "rationale": "no issue"}
+                    ],
+                }
+            ],
+        },
+        limit=1,
+    )
+
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    receipt = json.loads(Path(payload["receipt_path"]).read_text(encoding="utf-8"))
+    assert payload["source_artifact_count"] == 1
+    assert receipt["source_artifacts"] == [source_artifact]
+
+
+def test_probe_script_can_fail_closed_when_source_artifacts_are_required(tmp_path) -> None:
+    proc = _run_with_classifications(
+        tmp_path,
+        {
+            "judge_model": "missing-artifact-repro",
+            "panel_models": ["solo"],
+            "results": [
+                {
+                    "prompt_id": "cn_01_invalidation_signals",
+                    "classifications": [
+                        {"agent": "solo", "verdict": "missed", "rationale": "no issue"}
+                    ],
+                }
+            ],
+        },
+        limit=1,
+        extra_args=["--require-source-artifacts"],
+    )
+
+    assert proc.returncode == 1
+    assert "receipt source artifacts are not bound: legacy_unbound" in proc.stderr
 
 
 def test_probe_script_accepts_partial_multi_seeded_classification(tmp_path) -> None:

@@ -19,6 +19,7 @@ from aragora.heterogeneity.probe import ACCEPTANCE_GATES, SEEDED_CLASSES
 from aragora.heterogeneity.receipt import (
     HETEROGENEITY_RECEIPT_SCHEMA_VERSION,
     canonical_json,
+    source_artifact_status,
 )
 
 COMPARISON_RECEIPT_SCHEMA_VERSION = "heterogeneity_comparison_receipt.v1"
@@ -352,6 +353,18 @@ def _metrics_summary(receipt: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _receipt_provenance(receipt: Mapping[str, Any]) -> dict[str, Any]:
+    status = source_artifact_status(receipt, base_dir=ROOT)
+    artifacts = receipt.get("source_artifacts", [])
+    return {
+        "canonical": status["canonical"],
+        "status": status["status"],
+        "problems": list(status.get("problems", [])),
+        "source_artifact_count": status.get("source_artifact_count", 0),
+        "source_artifacts": artifacts if isinstance(artifacts, list) else [],
+    }
+
+
 def _fp_flags(
     baseline_receipt: Mapping[str, Any], panel_receipt: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -460,6 +473,17 @@ def build_comparison_receipt(
     composition_match, composition = _composition_match(baseline_receipt, panel_receipt)
     provider_rule = evaluate_provider_rule(panel_receipt)
     fallback_summary = provider_summary(panel_receipt)
+    baseline_provenance = _receipt_provenance(baseline_receipt)
+    panel_provenance = _receipt_provenance(panel_receipt)
+    comparison_canonical = bool(baseline_provenance["canonical"] and panel_provenance["canonical"])
+    non_canonical_inputs = [
+        name
+        for name, provenance in (
+            ("baseline_receipt", baseline_provenance),
+            ("panel_receipt", panel_provenance),
+        )
+        if provenance["canonical"] is not True
+    ]
     verdict, verdict_reason = _verdict(
         baseline_receipt,
         panel_receipt,
@@ -477,6 +501,8 @@ def build_comparison_receipt(
         "baseline_receipt_id": _receipt_id(baseline_receipt),
         "panel_receipt_path": panel_receipt_path,
         "panel_receipt_id": _receipt_id(panel_receipt),
+        "comparison_canonical": comparison_canonical,
+        "non_canonical_inputs": non_canonical_inputs,
         "composition_match": composition_match,
         "fallback_augmented": fallback_summary["fallback_augmented"],
         "verdict": verdict,
@@ -486,6 +512,10 @@ def build_comparison_receipt(
         "panel_metrics": _metrics_summary(panel_receipt),
         "comparison": {
             "composition": composition,
+            "input_provenance": {
+                "baseline_receipt": baseline_provenance,
+                "panel_receipt": panel_provenance,
+            },
             "provider_rule": provider_rule,
             "provider_summary": fallback_summary,
             "independent_flag_rate_ci_gap": {
@@ -518,6 +548,7 @@ def _summary(receipt: Mapping[str, Any]) -> dict[str, Any]:
         "verdict": receipt.get("verdict"),
         "verdict_reason": receipt.get("verdict_reason"),
         "composition_match": receipt.get("composition_match"),
+        "comparison_canonical": receipt.get("comparison_canonical"),
         "provider_rule_satisfied": provider_rule.get("satisfied"),
         "provider_distribution": provider_rule.get("provider_distribution", {}),
     }
@@ -535,6 +566,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         choices=(STRICT_CI_SEPARATION, ADDITIVE_MARGIN),
         default=STRICT_CI_SEPARATION,
     )
+    parser.add_argument(
+        "--require-canonical-inputs",
+        action="store_true",
+        help="Fail closed unless both input receipts are bound to source artifacts.",
+    )
     parser.add_argument("--json", action="store_true", help="Print a JSON summary to stdout.")
     return parser.parse_args(argv)
 
@@ -551,6 +587,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             panel_receipt_path=str(args.panel_receipt),
             verdict_rule=args.verdict_rule,
         )
+        if (
+            args.require_canonical_inputs
+            and comparison_receipt.get("comparison_canonical") is not True
+        ):
+            raise ComparisonError(
+                "comparison inputs are not canonical: "
+                + ", ".join(map(str, comparison_receipt.get("non_canonical_inputs", [])))
+            )
         _write_output_receipt(comparison_receipt, args.output_receipt)
     except ComparisonError as exc:
         print(f"error: {exc}", file=sys.stderr)

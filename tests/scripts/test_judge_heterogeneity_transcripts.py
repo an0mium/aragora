@@ -163,9 +163,13 @@ def test_judge_bridge_writes_classifications_and_receipt_input(tmp_path: Path) -
     summary = json.loads(proc.stdout)
     assert summary["prompt_count"] == 1
     assert summary["classification_count"] == 2
+    assert summary["source_artifact_count"] == 1
 
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["panel_models"] == ["solo", "failed"]
+    assert payload["source_artifacts"][0]["role"] == "transcript_sidecar"
+    assert payload["source_artifacts"][0]["format"] == "dialog_jsonl_transcript.v1"
+    assert payload["source_artifacts"][0]["text_capture"] == "full"
     classifications = payload["results"][0]["classifications"]
     assert classifications == [
         {"agent": "solo", "rationale": "fixture judged", "verdict": "missed"},
@@ -193,6 +197,8 @@ def test_judge_bridge_writes_classifications_and_receipt_input(tmp_path: Path) -
     )
     receipt_summary = json.loads(receipt_proc.stdout)
     assert receipt_summary["receipt_verdict"] == "insufficient_pilot"
+    receipt = json.loads(Path(receipt_summary["receipt_path"]).read_text(encoding="utf-8"))
+    assert receipt["source_artifacts"] == payload["source_artifacts"]
 
 
 def test_judge_bridge_normalizes_no_seeded_flagged_correctly(tmp_path: Path) -> None:

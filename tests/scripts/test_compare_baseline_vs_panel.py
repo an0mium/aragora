@@ -7,6 +7,7 @@ import pytest
 
 from aragora.heterogeneity.receipt import (
     HETEROGENEITY_RECEIPT_SCHEMA_VERSION,
+    build_source_artifact,
     compute_receipt_id,
 )
 from scripts.compare_baseline_vs_panel import (
@@ -75,6 +76,7 @@ def _receipt(
     metadata_by_agent: dict[str, dict[str, object]] | None = None,
     dispatch_failed_agents: set[str] | None = None,
     metrics_n_per_class: bool = True,
+    source_artifacts: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     counts = {
         "clean_neutral": 1,
@@ -123,6 +125,8 @@ def _receipt(
             "false_positive_rate_on_null_negative": null_negative_fpr,
         },
     }
+    if source_artifacts is not None:
+        receipt["source_artifacts"] = source_artifacts
     if metrics_n_per_class:
         metrics = receipt["metrics"]
         assert isinstance(metrics, dict)
@@ -437,6 +441,69 @@ def test_schema_validation_rejects_non_v1_receipt(tmp_path: Path) -> None:
         load_probe_receipt(path)
 
 
+def test_comparison_marks_legacy_unbound_inputs_non_canonical() -> None:
+    baseline = _receipt(ci=(0.0, 0.2), rate=0.0, successes=0)
+    panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9)
+
+    comparison = build_comparison_receipt(
+        baseline,
+        panel,
+        baseline_receipt_path="baseline.json",
+        panel_receipt_path="panel.json",
+        produced_at="2026-05-04T00:00:00Z",
+    )
+
+    assert comparison["comparison_canonical"] is False
+    assert comparison["non_canonical_inputs"] == ["baseline_receipt", "panel_receipt"]
+    provenance = comparison["comparison"]["input_provenance"]
+    assert provenance["baseline_receipt"]["status"] == "legacy_unbound"
+    assert provenance["panel_receipt"]["status"] == "legacy_unbound"
+    assert comparison["verdict"] == "GO"
+
+
+def test_comparison_marks_bound_source_artifacts_canonical(tmp_path: Path) -> None:
+    baseline_transcript = tmp_path / "baseline.transcripts.json"
+    panel_transcript = tmp_path / "panel.transcripts.json"
+    baseline_transcript.write_text('{"run_id":"baseline"}\n', encoding="utf-8")
+    panel_transcript.write_text('{"run_id":"panel"}\n', encoding="utf-8")
+    baseline = _receipt(
+        ci=(0.0, 0.2),
+        rate=0.0,
+        successes=0,
+        source_artifacts=[
+            build_source_artifact(
+                baseline_transcript,
+                format="baseline_panel_transcripts.v1",
+            )
+        ],
+    )
+    panel = _receipt(
+        ci=(0.31, 0.7),
+        rate=0.5,
+        successes=9,
+        source_artifacts=[
+            build_source_artifact(
+                panel_transcript,
+                format="h2_panel_transcripts.v1",
+            )
+        ],
+    )
+
+    comparison = build_comparison_receipt(
+        baseline,
+        panel,
+        baseline_receipt_path="baseline.json",
+        panel_receipt_path="panel.json",
+        produced_at="2026-05-04T00:00:00Z",
+    )
+
+    assert comparison["comparison_canonical"] is True
+    assert comparison["non_canonical_inputs"] == []
+    provenance = comparison["comparison"]["input_provenance"]
+    assert provenance["baseline_receipt"]["status"] == "bound"
+    assert provenance["panel_receipt"]["status"] == "bound"
+
+
 def test_output_receipt_id_is_deterministic() -> None:
     baseline = _receipt(ci=(0.0, 0.2), rate=0.0, successes=0)
     panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9)
@@ -487,3 +554,29 @@ def test_cli_writes_receipt_and_prints_json_summary(
     assert output_path.exists()
     written = json.loads(output_path.read_text(encoding="utf-8"))
     assert written["schema_version"] == "heterogeneity_comparison_receipt.v1"
+
+
+def test_cli_can_fail_closed_on_non_canonical_inputs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    baseline_path = _write(
+        tmp_path / "baseline.json", _receipt(ci=(0.0, 0.2), rate=0.0, successes=0)
+    )
+    panel_path = _write(tmp_path / "panel.json", _receipt(ci=(0.31, 0.7), rate=0.5, successes=9))
+    output_path = tmp_path / "comparison.json"
+
+    rc = main(
+        [
+            "--baseline-receipt",
+            str(baseline_path),
+            "--panel-receipt",
+            str(panel_path),
+            "--output-receipt",
+            str(output_path),
+            "--require-canonical-inputs",
+        ]
+    )
+
+    assert rc == 2
+    assert not output_path.exists()
+    assert "comparison inputs are not canonical" in capsys.readouterr().err

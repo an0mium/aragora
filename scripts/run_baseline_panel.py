@@ -52,6 +52,7 @@ from aragora.heterogeneity.prompts import (
     build_panel_prompt,
     load_prompt_file,
 )
+from aragora.heterogeneity.receipt import build_source_artifact
 
 
 PROMPTS_ROOT = REPO_ROOT / "tests" / "heterogeneity" / "probe_prompts"
@@ -463,7 +464,7 @@ def main() -> int:
                         "phase": "judge",
                         "ok": False,
                         "error": judge_resp["error"],
-                        "panel_text_preview": panel_resp["text"][:200],
+                        "panel_text": panel_resp["text"],
                     }
                 )
                 continue
@@ -507,8 +508,8 @@ def main() -> int:
                     "judge_input_tokens": judge_resp["input_tokens"],
                     "judge_output_tokens": judge_resp["output_tokens"],
                     "judge_latency_ms": judge_resp["latency_ms"],
-                    "panel_text": panel_resp["text"][:1500],
-                    "judge_text": judge_resp["text"][:600],
+                    "panel_text": panel_resp["text"],
+                    "judge_text": judge_resp["text"],
                     "cumulative_estimate_usd_after": round(cumulative_estimate_usd, 5),
                     "cumulative_actual_usd_after": round(cumulative_actual_usd, 5),
                 }
@@ -527,6 +528,33 @@ def main() -> int:
 
         if cumulative_actual_usd > BUDGET_HARD_CAP_USD:
             break
+
+    transcripts_path = (
+        REPO_ROOT
+        / ".aragora"
+        / "evolve-round"
+        / "2026-05-01b"
+        / "transcripts"
+        / f"{run_id}.transcripts.json"
+    )
+    transcripts_payload = {
+        "run_id": run_id,
+        "started_at": started_at,
+        "ended_at": datetime.now(timezone.utc).isoformat(),
+        "panel_models": panel_models,
+        "judge_model": JUDGE_MODEL,
+        "transcripts": transcripts,
+        "cumulative_estimate_usd": round(cumulative_estimate_usd, 5),
+        "cumulative_actual_usd": round(cumulative_actual_usd, 5),
+    }
+    _atomic_write_json(transcripts_path, transcripts_payload)
+    transcript_artifact = build_source_artifact(
+        transcripts_path,
+        format="baseline_panel_transcripts.v1",
+        root=REPO_ROOT,
+        required_for_rejudge=True,
+        text_capture="full",
+    )
 
     receipt = build_probe_receipt(
         run_id=run_id,
@@ -555,33 +583,12 @@ def main() -> int:
             f"Hard cap: ${BUDGET_HARD_CAP_USD}. Estimator trip: ${BUDGET_ESTIMATOR_TRIP_USD}.",
             f"Actual spend: ~${cumulative_actual_usd:.4f}.",
         ],
+        source_artifacts=[transcript_artifact],
         produced_at=started_at,
     )
 
     receipt_path = RECEIPTS_DIR / f"{run_id}.receipt.json"
     _atomic_write_json(receipt_path, receipt)
-
-    transcripts_path = (
-        REPO_ROOT
-        / ".aragora"
-        / "evolve-round"
-        / "2026-05-01b"
-        / "transcripts"
-        / f"{run_id}.transcripts.json"
-    )
-    _atomic_write_json(
-        transcripts_path,
-        {
-            "run_id": run_id,
-            "started_at": started_at,
-            "ended_at": datetime.now(timezone.utc).isoformat(),
-            "panel_models": panel_models,
-            "judge_model": JUDGE_MODEL,
-            "transcripts": transcripts,
-            "cumulative_estimate_usd": round(cumulative_estimate_usd, 5),
-            "cumulative_actual_usd": round(cumulative_actual_usd, 5),
-        },
-    )
 
     print()
     print("=== Round 31b Phase 1 baseline complete ===")
