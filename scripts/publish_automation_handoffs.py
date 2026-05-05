@@ -1078,18 +1078,6 @@ def decide_handoffs(
     open_issue_count = _open_boss_ready_count(repo_root, repo, labels)
     decisions: list[PublishDecision] = []
     for handoff in handoffs:
-        existing = _existing_issue(repo_root, repo, handoff.task_title)
-        if existing:
-            decisions.append(
-                PublishDecision(
-                    task_title=handoff.task_title,
-                    source_file=handoff.source_file,
-                    eligible=False,
-                    reason="existing_issue",
-                    existing_issue_url=str(existing.get("url") or ""),
-                )
-            )
-            continue
         target_pr = _target_open_pr(repo_root, repo, handoff)
         if target_pr:
             decisions.append(
@@ -1099,6 +1087,18 @@ def decide_handoffs(
                     eligible=False,
                     reason="target_open_pr",
                     existing_pr_url=str(target_pr.get("url") or ""),
+                )
+            )
+            continue
+        existing = _existing_issue(repo_root, repo, handoff.task_title)
+        if existing:
+            decisions.append(
+                PublishDecision(
+                    task_title=handoff.task_title,
+                    source_file=handoff.source_file,
+                    eligible=False,
+                    reason="existing_issue",
+                    existing_issue_url=str(existing.get("url") or ""),
                 )
             )
             continue
