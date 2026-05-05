@@ -13,11 +13,11 @@ from aragora.server.openapi import generate_openapi_schema
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "head", "options"}
 
 
-def _operation_methods(path_spec: dict[str, object]) -> set[str]:
+def _operation_methods(path_spec: dict[str, Any]) -> set[str]:
     return {method for method in path_spec if method in HTTP_METHODS}
 
 
-def _operation(path: str, method: str) -> dict[str, object]:
+def _operation(path: str, method: str) -> dict[str, Any]:
     return generate_openapi_schema()["paths"][path][method]
 
 
