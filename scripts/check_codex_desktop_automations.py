@@ -86,8 +86,31 @@ def _load_record(path: Path) -> AutomationRecord:
     )
 
 
+def _load_records_with_issues(root: Path) -> tuple[list[AutomationRecord], list[AuditIssue]]:
+    records: list[AutomationRecord] = []
+    issues: list[AuditIssue] = []
+    for path in sorted(root.glob("*/automation.toml")):
+        try:
+            records.append(_load_record(path))
+        except (OSError, tomllib.TOMLDecodeError, UnicodeError) as exc:
+            issues.append(
+                AuditIssue(
+                    path.parent.name,
+                    "error",
+                    "invalid_automation_toml",
+                    f"failed to read {path}: {exc}",
+                )
+            )
+    return records, issues
+
+
 def load_automations(root: Path) -> list[AutomationRecord]:
-    return [_load_record(path) for path in sorted(root.glob("*/automation.toml"))]
+    records, _issues = _load_records_with_issues(root)
+    return records
+
+
+def _automation_file_count(root: Path) -> int:
+    return sum(1 for _path in root.glob("*/automation.toml"))
 
 
 def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
@@ -160,11 +183,11 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
 
 
 def build_payload(root: Path) -> dict[str, Any]:
-    records = load_automations(root)
-    issues = audit(records)
+    records, load_issues = _load_records_with_issues(root)
+    issues = [*load_issues, *audit(records)]
     return {
         "root": str(root),
-        "automation_count": len(records),
+        "automation_count": _automation_file_count(root),
         "core_writers": {
             writer_id: next((asdict(r) for r in records if r.id == writer_id), None)
             for writer_id in CORE_WRITERS
