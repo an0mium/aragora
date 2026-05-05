@@ -131,6 +131,7 @@ runs:
           frontend:
             - 'aragora/live/**'
           frontend_e2e:
+            - '.github/workflows/test.yml'
             - 'aragora/live/package*.json'
             - 'aragora/live/next.config.*'
             - 'aragora/live/tsconfig*.json'
