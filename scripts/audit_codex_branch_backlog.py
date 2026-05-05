@@ -507,6 +507,8 @@ def branch_divergence_map(
     root: Path,
     base: str,
     branches: Sequence[str],
+    *,
+    prefix: str = "codex/",
 ) -> dict[str, tuple[int, int]]:
     """Resolve ahead/behind counts for many branches in one Git call."""
 
@@ -518,7 +520,7 @@ def branch_divergence_map(
         [
             "for-each-ref",
             f"--format=%(refname:short)|%(ahead-behind:{base})",
-            "refs/heads/codex/",
+            f"refs/heads/{prefix}",
         ],
         root,
     )
@@ -731,7 +733,12 @@ def audit(
     rows.sort(key=lambda row: parse_dt(row["committed_at"]), reverse=True)
     if max_branches is not None:
         rows = rows[:max_branches]
-    divergence_by_branch = branch_divergence_map(root, base, [row["name"] for row in rows])
+    divergence_by_branch = branch_divergence_map(
+        root,
+        base,
+        [row["name"] for row in rows],
+        prefix=prefix,
+    )
 
     recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=recent_hours)
     remotes = remote_branch_names(root, prefix)

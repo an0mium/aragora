@@ -102,6 +102,29 @@ def test_branch_divergence_map_parses_batch_ahead_behind_output(
     ) == {"codex/example": (7, 3)}
 
 
+def test_branch_divergence_map_honors_custom_prefix(tmp_path: Path, monkeypatch: Any) -> None:
+    def fake_run_git(
+        args: list[str], cwd: Path, *, timeout: int = 60
+    ) -> subprocess.CompletedProcess[str]:
+        assert args == [
+            "for-each-ref",
+            "--format=%(refname:short)|%(ahead-behind:origin/main)",
+            "refs/heads/automation/",
+        ]
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="automation/example|4 1\ncodex/other|2 9\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.branch_divergence_map(
+        tmp_path, "origin/main", ["automation/example"], prefix="automation/"
+    ) == {"automation/example": (4, 1)}
+
+
 def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     payload = {
         "branch_count": 2,
@@ -163,7 +186,7 @@ def test_audit_uses_batched_divergence_before_fallback(tmp_path: Path, monkeypat
     monkeypatch.setattr(
         mod,
         "branch_divergence_map",
-        lambda _root, _base, _branches: {"codex/example": (5, 2)},
+        lambda _root, _base, _branches, **_kwargs: {"codex/example": (5, 2)},
     )
     monkeypatch.setattr(
         mod,
