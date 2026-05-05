@@ -248,6 +248,7 @@ def test_select_summary_skips_terminal_ui_chrome() -> None:
     summary = mod._select_summary(
         [
             "PR #5297 opened",
+            "│ Yes, and always allow low impact commands (file edits and read-only commands) │",
             "↑↓ navigate Enter select Esc cancel",
             "⏵⏵ don't ask on (shift+tab to cycle)",
             "[⏱ 30s]? for help IDE ○",
