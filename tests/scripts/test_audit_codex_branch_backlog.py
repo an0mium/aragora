@@ -1173,6 +1173,117 @@ def test_audit_protects_patch_equivalent_unresolved_handoff_branches(
     assert stale_copy["category"] == "protected_handoff_outbox"
 
 
+def test_audit_checks_branch_equivalence_before_handoff_patch_ids(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [_branch_row("codex/replayed", committed_at=now, behind_count="4")]
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "terminal_receipted_handoff_branches",
+        lambda *_args, **_kwargs: {f"codex/receipted-{index}" for index in range(50)},
+    )
+    monkeypatch.setattr(mod, "unresolved_outbox_handoff_branches", lambda *_args, **_kwargs: set())
+    monkeypatch.setattr(
+        mod,
+        "is_patch_equivalent",
+        lambda _root, _base, branch, **_kwargs: branch == "codex/replayed",
+    )
+
+    def fail_branch_patch_ids(*_args: Any, **_kwargs: Any) -> set[str]:
+        raise AssertionError("handoff patch ids should be lazy for direct cleanup branches")
+
+    monkeypatch.setattr(mod, "branch_patch_ids", fail_branch_patch_ids)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=True,
+        publisher_backlog_limit=2,
+    )
+
+    record = payload["records"][0]
+    assert record["name"] == "codex/replayed"
+    assert record["patch_equivalent_to_base"] is True
+    assert record["category"] == "cleanup_patch_equivalent"
+
+
+def test_audit_does_not_spend_patch_ids_for_exact_outbox_branch(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [_branch_row("codex/refreshed", committed_at=now, behind_count="4")]
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "terminal_receipted_handoff_branches",
+        lambda *_args, **_kwargs: {f"codex/receipted-{index}" for index in range(50)},
+    )
+    monkeypatch.setattr(
+        mod,
+        "unresolved_outbox_handoff_branches",
+        lambda *_args, **_kwargs: {"codex/refreshed"},
+    )
+    monkeypatch.setattr(mod, "is_patch_equivalent", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(mod, "branch_patch_id", lambda *_args, **_kwargs: "same-patch")
+
+    def fail_branch_patch_ids(*_args: Any, **_kwargs: Any) -> set[str]:
+        raise AssertionError("exact outbox branch should not collect handoff patch ids")
+
+    monkeypatch.setattr(mod, "branch_patch_ids", fail_branch_patch_ids)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=True,
+        publisher_backlog_limit=2,
+    )
+
+    record = payload["records"][0]
+    assert record["name"] == "codex/refreshed"
+    assert record["handoff_outbox_exists"] is True
+    assert record["category"] == "protected_handoff_outbox"
+
+
 def test_audit_treats_superseded_branch_as_unresolved_handoff(
     tmp_path: Path, monkeypatch: Any
 ) -> None:

@@ -831,19 +831,8 @@ def audit(
         receipt_dir=resolved_receipt_dir,
     )
     patch_deadline = _patch_budget_deadline(patch_equivalence_time_budget_seconds)
-    handoff_outbox_patch_ids = set()
-    handoff_receipted_patch_ids = (
-        branch_patch_ids(root, base, handoff_receipted_branches, deadline=patch_deadline)
-        if include_patch_equivalence
-        else set()
-    )
-    if include_patch_equivalence and not _patch_budget_exhausted(patch_deadline):
-        handoff_outbox_patch_ids = branch_patch_ids(
-            root,
-            base,
-            handoff_outbox_branches,
-            deadline=patch_deadline,
-        )
+    handoff_receipted_patch_ids: set[str] | None = None
+    handoff_outbox_patch_ids: set[str] | None = None
 
     records: list[BranchRecord] = []
     patch_equivalence_skipped_branches = 0
@@ -901,12 +890,39 @@ def audit(
                         timeout=_patch_timeout(patch_deadline, 120),
                     )
         remote_exists = branch in remotes
-        handoff_receipted = branch in handoff_receipted_branches or (
-            patch_id is not None and patch_id in handoff_receipted_patch_ids
-        )
-        handoff_outbox = branch in handoff_outbox_branches or (
-            patch_id is not None and patch_id in handoff_outbox_patch_ids
-        )
+        handoff_receipted = branch in handoff_receipted_branches
+        handoff_outbox = branch in handoff_outbox_branches
+        if (
+            not handoff_receipted
+            and not handoff_outbox
+            and patch_id is not None
+            and include_patch_equivalence
+            and not _patch_budget_exhausted(patch_deadline)
+        ):
+            if handoff_receipted_patch_ids is None:
+                handoff_receipted_patch_ids = branch_patch_ids(
+                    root,
+                    base,
+                    handoff_receipted_branches,
+                    deadline=patch_deadline,
+                )
+            handoff_receipted = patch_id in handoff_receipted_patch_ids
+
+        if (
+            not handoff_outbox
+            and not handoff_receipted
+            and patch_id is not None
+            and include_patch_equivalence
+            and not _patch_budget_exhausted(patch_deadline)
+        ):
+            if handoff_outbox_patch_ids is None:
+                handoff_outbox_patch_ids = branch_patch_ids(
+                    root,
+                    base,
+                    handoff_outbox_branches,
+                    deadline=patch_deadline,
+                )
+            handoff_outbox = patch_id in handoff_outbox_patch_ids
         category = classify(
             open_pr=prs.get(branch),
             active_paths=active_paths,
