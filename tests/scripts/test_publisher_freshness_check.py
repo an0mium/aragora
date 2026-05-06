@@ -205,6 +205,25 @@ def test_main_json_output_includes_full_report(
     assert parsed["launchd_loaded"] is True
 
 
+def test_main_accepts_status_cache_alias(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cache_path = stub_repo / "custom-status-cache.json"
+    cache_path.write_text(
+        json.dumps({"generated_at": "2026-05-05T12:00:00Z", "local_queue": {"outbox_count": 0}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+
+    rc = mod.main(["--repo", str(stub_repo), "--status-cache", str(cache_path), "--json"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["verdict"] == "ready"
+    assert parsed["cache_path"] == str(cache_path.resolve())
+
+
 def test_main_exit_nonzero_on_degraded(
     monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

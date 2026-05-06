@@ -332,7 +332,13 @@ def _build_parser() -> argparse.ArgumentParser:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--repo", default=os.getcwd(), help="Path inside the target repository")
-    parser.add_argument("--cache-path", default=None)
+    parser.add_argument(
+        "--cache-path",
+        "--status-cache",
+        dest="cache_path",
+        default=None,
+        help="Path to the publisher status cache JSON",
+    )
     parser.add_argument("--outbox-dir", default=None)
     parser.add_argument(
         "--state-root",

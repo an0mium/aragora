@@ -114,7 +114,15 @@ def test_inbox_and_coordination_routes_export_request_bodies() -> None:
 def test_inbox_and_coordination_auth_manifest_matches_live_contracts() -> None:
     required_permissions = {
         ("POST", "/api/v1/inbox/connect"): "inbox:update",
+        ("GET", "/api/v1/inbox/accounts"): "inbox:read",
+        ("DELETE", "/api/v1/inbox/accounts/{account_id}"): "inbox:update",
+        ("POST", "/api/v1/inbox/messages/{message_id}/debate"): "inbox:update",
+        ("POST", "/api/v1/inbox/triage"): "inbox:update",
+        ("POST", "/api/v1/inbox/bulk-action"): "inbox:update",
+        ("GET", "/api/v1/inbox/command"): "inbox:read",
         ("POST", "/api/v1/inbox/actions"): "inbox:write",
+        ("POST", "/api/v1/inbox/bulk-actions"): "inbox:write",
+        ("POST", "/api/v1/inbox/reprioritize"): "inbox:write",
         ("GET", "/api/v1/coordination/workspaces"): "coordination:read",
         ("POST", "/api/v1/coordination/workspaces"): "coordination:write",
         ("POST", "/api/v1/coordination/approve/{request_id}"): "coordination:admin",

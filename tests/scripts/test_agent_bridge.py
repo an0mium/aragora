@@ -464,6 +464,34 @@ def test_write_session_snapshot_falls_back_to_state_root(
     assert not (blocked_dir / "sessions.json").exists()
 
 
+def test_write_session_snapshot_accepts_direct_dot_aragora_state_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    blocked_dir = tmp_path / "home" / ".aragora" / "agent-bridge"
+    state_root = tmp_path / "shared" / ".aragora"
+    monkeypatch.setattr(mod, "AGENT_BRIDGE_DIR", blocked_dir)
+    monkeypatch.setattr(mod, "SESSION_SNAPSHOT_FILE", blocked_dir / "sessions.json")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+    monkeypatch.delenv("ARAGORA_AGENT_BRIDGE_DIR", raising=False)
+
+    def _fake_writable_dir(path: Path) -> None:
+        if path == blocked_dir:
+            raise PermissionError("sandbox denied home bridge state")
+        path.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(mod, "_assert_writable_dir", _fake_writable_dir)
+
+    mod._write_session_snapshot([mod.Session(name="codex-shared", agent="codex")])
+
+    fallback_file = state_root / "agent-bridge" / "sessions.json"
+    payload = json.loads(fallback_file.read_text(encoding="utf-8"))
+    assert payload[0]["name"] == "codex-shared"
+    assert not (blocked_dir / "sessions.json").exists()
+
+
 def test_write_session_snapshot_uses_per_write_tempfile(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

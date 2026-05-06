@@ -77,6 +77,54 @@ def test_branch_divergence_parses_rev_list_left_right_counts(
     assert mod.branch_divergence(tmp_path, "origin/main", "codex/example") == (7, 3)
 
 
+def test_branch_divergence_map_parses_batch_ahead_behind_output(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    def fake_run_git(
+        args: list[str], cwd: Path, *, timeout: int = 60
+    ) -> subprocess.CompletedProcess[str]:
+        assert args == [
+            "for-each-ref",
+            "--format=%(refname:short)|%(ahead-behind:origin/main)",
+            "refs/heads/codex/",
+        ]
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="codex/example|7 3\ncodex/other|2 9\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.branch_divergence_map(
+        tmp_path, "origin/main", ["codex/example", "codex/missing"]
+    ) == {"codex/example": (7, 3)}
+
+
+def test_branch_divergence_map_honors_custom_prefix(tmp_path: Path, monkeypatch: Any) -> None:
+    def fake_run_git(
+        args: list[str], cwd: Path, *, timeout: int = 60
+    ) -> subprocess.CompletedProcess[str]:
+        assert args == [
+            "for-each-ref",
+            "--format=%(refname:short)|%(ahead-behind:origin/main)",
+            "refs/heads/automation/",
+        ]
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="automation/example|4 1\ncodex/other|2 9\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.branch_divergence_map(
+        tmp_path, "origin/main", ["automation/example"], prefix="automation/"
+    ) == {"automation/example": (4, 1)}
+
+
 def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     payload = {
         "branch_count": 2,
@@ -90,7 +138,98 @@ def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     assert compact["summary"] == {"publishable_branch_backlog": 0}
     assert compact["records"] == []
     assert compact["records_omitted"] is True
+    assert compact["record_examples"] == {}
+    assert compact["record_examples_limit"] == 3
     assert payload["records"] == [{"name": "codex/one"}, {"name": "codex/two"}]
+
+
+def test_summary_only_payload_keeps_compact_category_examples() -> None:
+    payload = {
+        "branch_count": 4,
+        "summary": {
+            "by_category": {
+                "cleanup_patch_equivalent": 3,
+                "salvage_diverged_local": 1,
+            }
+        },
+        "records": [
+            {
+                "name": "codex/cleanup-one",
+                "category": "cleanup_patch_equivalent",
+                "head_sha": "1111111",
+                "committed_at": "2026-05-06T00:00:00+00:00",
+                "subject": "first cleanup",
+                "ahead_count": 1,
+                "behind_count": 0,
+                "huge_field": "not copied",
+            },
+            {
+                "name": "codex/cleanup-two",
+                "category": "cleanup_patch_equivalent",
+                "head_sha": "2222222",
+                "committed_at": "2026-05-06T00:01:00+00:00",
+                "subject": "second cleanup",
+                "ahead_count": 1,
+                "behind_count": 0,
+            },
+            {
+                "name": "codex/cleanup-three",
+                "category": "cleanup_patch_equivalent",
+                "head_sha": "3333333",
+                "committed_at": "2026-05-06T00:02:00+00:00",
+                "subject": "third cleanup",
+                "ahead_count": 1,
+                "behind_count": 0,
+            },
+            {
+                "name": "codex/cleanup-four",
+                "category": "cleanup_patch_equivalent",
+                "head_sha": "4444444",
+                "committed_at": "2026-05-06T00:03:00+00:00",
+                "subject": "fourth cleanup",
+                "ahead_count": 1,
+                "behind_count": 0,
+            },
+            {
+                "name": "codex/salvage-one",
+                "category": "salvage_diverged_local",
+                "head_sha": "5555555",
+                "committed_at": "2026-05-06T00:04:00+00:00",
+                "subject": "needs salvage",
+                "ahead_count": 2,
+                "behind_count": 4,
+                "worktree_paths": ["/tmp/worktree"],
+                "active_worktree_paths": [],
+                "dirty_worktree_paths": [],
+            },
+        ],
+    }
+
+    compact = mod.summary_only_payload(payload)
+
+    cleanup_examples = compact["record_examples"]["cleanup_patch_equivalent"]
+    assert [item["name"] for item in cleanup_examples] == [
+        "codex/cleanup-one",
+        "codex/cleanup-two",
+        "codex/cleanup-three",
+    ]
+    assert "huge_field" not in cleanup_examples[0]
+    assert compact["record_examples"]["salvage_diverged_local"] == [
+        {
+            "name": "codex/salvage-one",
+            "category": "salvage_diverged_local",
+            "head_sha": "5555555",
+            "committed_at": "2026-05-06T00:04:00+00:00",
+            "subject": "needs salvage",
+            "ahead_count": 2,
+            "behind_count": 4,
+            "worktree_paths": ["/tmp/worktree"],
+            "active_worktree_paths": [],
+            "dirty_worktree_paths": [],
+        }
+    ]
+    assert compact["records"] == []
+    assert len(payload["records"]) == 5
 
 
 def test_audit_skips_open_pr_lookup_when_github_health_degraded(
@@ -130,6 +269,49 @@ def test_audit_skips_open_pr_lookup_when_github_health_degraded(
     assert payload["open_pr_lookup_skipped"] is True
     assert payload["records"][0]["open_pr"] is None
     assert payload["records"][0]["category"] == "salvage_recent_unique"
+
+
+def test_audit_uses_batched_divergence_before_fallback(tmp_path: Path, monkeypatch: Any) -> None:
+    row = _branch_row(ahead_count="", behind_count="")
+    _stub_git_inventory(monkeypatch, row)
+    monkeypatch.setattr(
+        mod,
+        "branch_divergence_map",
+        lambda _root, _base, _branches, **_kwargs: {"codex/example": (5, 2)},
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_divergence",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("per-branch fallback should not run when batch counts exist")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    assert payload["records"][0]["ahead_count"] == 5
+    assert payload["records"][0]["behind_count"] == 2
 
 
 def test_audit_uses_open_pr_lookup_when_github_health_is_ready(
@@ -561,6 +743,85 @@ def test_audit_matches_terminal_receipt_by_idempotency_key_when_outbox_missing(
     receipted = next(
         record for record in payload["records"] if record["name"] == "codex/gpt-55-model-migration"
     )
+    assert receipted["handoff_receipt_exists"] is True
+    assert receipted["category"] == "protected_handoff_receipt"
+    assert payload["summary"]["handoff_receipted_branches"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 1
+
+
+def test_audit_reads_archived_outbox_payload_for_terminal_receipt(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row(
+            "codex/receipted",
+            committed_at=now,
+            head_sha="abc1234de",
+        ),
+        _branch_row("codex/new-work", committed_at=now),
+    ]
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    archive = tmp_path / ".aragora" / "automation-outbox-archive"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    archive.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-receipted-restack-20260506-abc1234"
+    source_file = outbox / f"{key}.json"
+    (archive / source_file.name).write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "local_evidence": {"branch": "codex/receipted", "head_sha": "abc1234de"},
+                "requested_action": {
+                    "branch": "codex/receipted",
+                    "type": "push_branch_and_open_or_update_pr",
+                },
+                "task": "Update existing receipted PR",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "source_file": str(source_file),
+                "status": "already_satisfied",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    receipted = next(record for record in payload["records"] if record["name"] == "codex/receipted")
     assert receipted["handoff_receipt_exists"] is True
     assert receipted["category"] == "protected_handoff_receipt"
     assert payload["summary"]["handoff_receipted_branches"] == 1
@@ -1264,7 +1525,7 @@ def test_parser_checks_patch_equivalence_by_default() -> None:
     args = mod.build_parser().parse_args([])
 
     assert args.include_patch_equivalence is True
-    assert args.patch_equivalence_time_budget_seconds == 90.0
+    assert args.patch_equivalence_time_budget_seconds == 15.0
 
 
 def test_parser_can_skip_patch_equivalence() -> None:
