@@ -43,8 +43,9 @@ UI_CHROME_RE = re.compile(
     r"|\bshift\+tab\s+to\s+cycle\b"
     r"|\?\s+for\s+help\b.*\bide\b"
     r"|\balways\s+allow\s+(?:low|medium|high)\s+impact\s+commands\b"
-    r"|\bauto\s+\((?:low|medium|high)\)\s+-\s+(?:edits|all commands that are reversible)\b"
-    r"|\bpermissions\s*dialog\s*dismissed\b",
+    r"|\bpermissions?\s*dialog\s*dismissed\b"
+    r"|\bauto\s*\((?:low|medium|high)\)\s*-\s*"
+    r"(?:edits(?: and read-only commands)?|all commands that are reversible)\b",
     re.I,
 )
 
