@@ -55,6 +55,7 @@ COMPACT_RECORD_EXAMPLE_FIELDS = (
     "subject",
     "ahead_count",
     "behind_count",
+    "patch_equivalence_skipped",
     "open_pr",
     "worktree_paths",
     "active_worktree_paths",
@@ -76,6 +77,7 @@ class BranchRecord:
     behind_count: int
     merged_to_base: bool
     patch_equivalent_to_base: bool
+    patch_equivalence_skipped: bool
     remote_branch_exists: bool
     open_pr: int | None
     worktree_paths: list[str]
@@ -772,10 +774,12 @@ def audit(
                 _ahead_count, behind_count = branch_divergence(root, base, branch)
         merged_to_base = branch in merged_branches
         patch_equivalent = False
+        patch_equivalence_skipped = False
         patch_id = None
         if ahead_count > 0 and not merged_to_base:
             if _patch_budget_exhausted(patch_deadline):
                 patch_equivalence_skipped_branches += 1
+                patch_equivalence_skipped = True
             else:
                 if include_patch_equivalence:
                     patch_equivalent = is_patch_equivalent(
@@ -830,6 +834,7 @@ def audit(
         ):
             if _patch_budget_exhausted(patch_deadline):
                 patch_equivalence_skipped_branches += 1
+                patch_equivalence_skipped = True
             else:
                 patch_equivalent = is_patch_equivalent(
                     root,
@@ -863,6 +868,7 @@ def audit(
                 behind_count=behind_count,
                 merged_to_base=merged_to_base,
                 patch_equivalent_to_base=patch_equivalent,
+                patch_equivalence_skipped=patch_equivalence_skipped,
                 remote_branch_exists=remote_exists,
                 open_pr=prs.get(branch),
                 worktree_paths=[str(path) for path in paths],
