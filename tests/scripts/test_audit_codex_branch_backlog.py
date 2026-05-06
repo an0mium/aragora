@@ -259,6 +259,15 @@ def test_audit_uses_open_pr_lookup_when_github_health_is_ready(
     assert payload["records"][0]["category"] == "protected_open_pr"
 
 
+def test_open_pr_heads_treats_gh_timeout_as_empty(tmp_path: Path, monkeypatch: Any) -> None:
+    def timeout_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs.get("timeout", 45))
+
+    monkeypatch.setattr(subprocess, "run", timeout_run)
+
+    assert mod.open_pr_heads(tmp_path, "synaptent/aragora", "codex/") == {}
+
+
 def test_audit_ignores_missing_worktree_paths(tmp_path: Path, monkeypatch: Any) -> None:
     row = _branch_row("codex/stale-worktree")
     missing_worktree = tmp_path / "missing-worktree"

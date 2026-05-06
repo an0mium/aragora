@@ -105,14 +105,21 @@ def run_git(args: list[str], cwd: Path, *, timeout: int = 60) -> subprocess.Comp
 
 
 def run_gh(args: list[str], cwd: Path, *, timeout: int = 45) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["gh", *args],
-        cwd=cwd,
-        text=True,
-        capture_output=True,
-        check=False,
-        timeout=timeout,
-    )
+    cmd = ["gh", *args]
+    try:
+        return subprocess.run(
+            cmd,
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout if isinstance(exc.stdout, str) else ""
+        stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+        message = stderr or f"command timed out after {timeout}s: {' '.join(cmd)}"
+        return subprocess.CompletedProcess(args=cmd, returncode=124, stdout=stdout, stderr=message)
 
 
 def repo_root(path: Path) -> Path:
