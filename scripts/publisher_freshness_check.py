@@ -192,6 +192,8 @@ def _automation_state_root(repo_root: Path) -> Path:
             resolved = candidate.resolve()
         except OSError:
             resolved = candidate
+        if resolved.name == ".aragora" and resolved.is_dir():
+            return resolved
         if not (resolved / ".aragora").is_dir():
             continue
         if explicit or _same_git_origin(repo_root, resolved):
