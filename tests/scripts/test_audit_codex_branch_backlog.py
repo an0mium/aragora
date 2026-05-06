@@ -350,13 +350,49 @@ def test_audit_uses_open_pr_lookup_when_github_health_is_ready(
     assert payload["records"][0]["category"] == "protected_open_pr"
 
 
-def test_open_pr_heads_treats_gh_timeout_as_empty(tmp_path: Path, monkeypatch: Any) -> None:
+def test_open_pr_heads_treats_gh_timeout_as_unknown(tmp_path: Path, monkeypatch: Any) -> None:
     def timeout_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         raise subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs.get("timeout", 45))
 
     monkeypatch.setattr(subprocess, "run", timeout_run)
 
-    assert mod.open_pr_heads(tmp_path, "synaptent/aragora", "codex/") == {}
+    assert mod.open_pr_heads(tmp_path, "synaptent/aragora", "codex/") is None
+
+
+def test_audit_fails_closed_when_open_pr_lookup_times_out(tmp_path: Path, monkeypatch: Any) -> None:
+    row = _branch_row("codex/has-unknown-pr")
+    _stub_git_inventory(monkeypatch, row)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(mod, "open_pr_heads", lambda _root, _repo, _prefix: None)
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    assert payload["github_health"]["ready"] is True
+    assert payload["open_pr_lookup_skipped"] is True
+    assert payload["records"][0]["open_pr"] is None
+    assert payload["records"][0]["category"] == "protected_open_pr_lookup_unknown"
+    assert payload["summary"]["protected"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 0
 
 
 def test_audit_ignores_missing_worktree_paths(tmp_path: Path, monkeypatch: Any) -> None:

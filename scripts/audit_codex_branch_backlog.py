@@ -526,7 +526,7 @@ def unresolved_outbox_handoff_branches(
     return branches
 
 
-def open_pr_heads(root: Path, repo: str, prefix: str) -> dict[str, int]:
+def open_pr_heads(root: Path, repo: str, prefix: str) -> dict[str, int] | None:
     proc = run_gh(
         [
             "pr",
@@ -543,11 +543,13 @@ def open_pr_heads(root: Path, repo: str, prefix: str) -> dict[str, int]:
         root,
     )
     if proc.returncode != 0:
-        return {}
+        return None
     try:
         payload = json.loads(proc.stdout or "[]")
     except json.JSONDecodeError:
-        return {}
+        return None
+    if not isinstance(payload, list):
+        return None
     heads: dict[str, int] = {}
     for item in payload:
         if not isinstance(item, dict):
@@ -817,7 +819,19 @@ def audit(
     merged_branches = merged_branch_names(root, base, prefix)
     worktrees = worktree_map(root)
     github_health = check_github_cli_health(root)
-    prs = open_pr_heads(root, repo, prefix) if github_health.ready else {}
+    open_pr_lookup_failed = False
+    if github_health.ready:
+        open_pr_result = open_pr_heads(root, repo, prefix)
+        if open_pr_result is None:
+            prs: dict[str, int] = {}
+            open_pr_lookup_skipped = True
+            open_pr_lookup_failed = True
+        else:
+            prs = open_pr_result
+            open_pr_lookup_skipped = False
+    else:
+        prs = {}
+        open_pr_lookup_skipped = True
     resolved_outbox_dir = _automation_state_path(root, outbox_dir, DEFAULT_OUTBOX_DIR)
     resolved_receipt_dir = _automation_state_path(root, receipt_dir, DEFAULT_RECEIPT_DIR)
     handoff_receipted_branches = terminal_receipted_handoff_branches(
@@ -934,8 +948,9 @@ def audit(
                     deadline=patch_deadline,
                 )
             handoff_outbox = patch_id in handoff_outbox_patch_ids
+        open_pr = prs.get(branch) if prs is not None else None
         category = classify(
-            open_pr=prs.get(branch),
+            open_pr=open_pr,
             active_paths=active_paths,
             dirty_paths=dirty_paths,
             ahead_count=ahead_count,
@@ -948,6 +963,10 @@ def audit(
             recent_cutoff=recent_cutoff,
             remote_branch_exists=remote_exists,
         )
+        if open_pr_lookup_failed and (
+            category.startswith("cleanup_") or category in SALVAGE_CATEGORIES
+        ):
+            category = "protected_open_pr_lookup_unknown"
         if (
             not include_patch_equivalence
             and not patch_equivalent
@@ -965,7 +984,7 @@ def audit(
                 )
             if patch_equivalent:
                 category = classify(
-                    open_pr=prs.get(branch),
+                    open_pr=open_pr,
                     active_paths=active_paths,
                     dirty_paths=dirty_paths,
                     ahead_count=ahead_count,
@@ -978,6 +997,10 @@ def audit(
                     recent_cutoff=recent_cutoff,
                     remote_branch_exists=remote_exists,
                 )
+                if open_pr_lookup_failed and (
+                    category.startswith("cleanup_") or category in SALVAGE_CATEGORIES
+                ):
+                    category = "protected_open_pr_lookup_unknown"
         records.append(
             BranchRecord(
                 name=branch,
@@ -991,7 +1014,7 @@ def audit(
                 patch_equivalent_to_base=patch_equivalent,
                 patch_equivalence_skipped=patch_equivalence_skipped,
                 remote_branch_exists=remote_exists,
-                open_pr=prs.get(branch),
+                open_pr=open_pr,
                 worktree_paths=[str(path) for path in paths],
                 dirty_worktree_paths=dirty_paths,
                 active_worktree_paths=active_paths,
@@ -1009,6 +1032,7 @@ def audit(
         + counts["protected_dirty_worktree"]
         + counts["protected_handoff_receipt"]
         + counts["protected_handoff_outbox"]
+        + counts["protected_open_pr_lookup_unknown"]
     )
     salvage = (
         counts["salvage_recent_unique"]
@@ -1039,7 +1063,7 @@ def audit(
         "outbox_dir": str(resolved_outbox_dir),
         "receipt_dir": str(resolved_receipt_dir),
         "github_health": github_health.to_dict(),
-        "open_pr_lookup_skipped": not github_health.ready,
+        "open_pr_lookup_skipped": open_pr_lookup_skipped,
         "branch_count": len(records),
         "summary": {
             "safe_cleanup_candidates": safe_cleanup,
