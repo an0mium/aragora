@@ -55,6 +55,7 @@ COMPACT_RECORD_EXAMPLE_FIELDS = (
     "subject",
     "ahead_count",
     "behind_count",
+    "patch_equivalence_skipped",
     "open_pr",
     "worktree_paths",
     "active_worktree_paths",
@@ -76,6 +77,7 @@ class BranchRecord:
     behind_count: int
     merged_to_base: bool
     patch_equivalent_to_base: bool
+    patch_equivalence_skipped: bool
     remote_branch_exists: bool
     open_pr: int | None
     worktree_paths: list[str]
@@ -285,16 +287,21 @@ def _json_files(path: Path) -> list[Path]:
     return sorted(item for item in path.glob("*.json") if item.is_file())
 
 
+def _json_mapping(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def terminal_handoff_keys(receipt_root: Path) -> set[str]:
     """Return terminal automation handoff idempotency keys."""
 
     terminal_keys: set[str] = set()
     for receipt_file in _json_files(receipt_root):
-        try:
-            payload = json.loads(receipt_file.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if not isinstance(payload, dict):
+        payload = _json_mapping(receipt_file)
+        if payload is None:
             continue
         if str(payload.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
             continue
@@ -410,15 +417,56 @@ def terminal_receipt_branches(receipt_root: Path) -> set[str]:
 
     branches: set[str] = set()
     for receipt_file in _json_files(receipt_root):
-        try:
-            payload = json.loads(receipt_file.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if not isinstance(payload, dict):
+        payload = _json_mapping(receipt_file)
+        if payload is None:
             continue
         if str(payload.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
             continue
         branches.update(_outbox_payload_branches(payload))
+    return branches
+
+
+def _archived_outbox_receipt_branches(
+    outbox_root: Path,
+    receipt_root: Path,
+    terminal_keys: set[str],
+) -> set[str]:
+    """Return branch references from archived outbox payloads named by receipts."""
+
+    archive_root = outbox_root.parent / "automation-outbox-archive"
+    if not archive_root.exists():
+        return set()
+
+    branches: set[str] = set()
+    for receipt_file in _json_files(receipt_root):
+        receipt = _json_mapping(receipt_file)
+        if receipt is None:
+            continue
+        if str(receipt.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
+            continue
+        idempotency_key = str(receipt.get("idempotency_key") or receipt_file.stem).strip()
+        if idempotency_key not in terminal_keys:
+            continue
+
+        candidates: list[Path] = []
+        source_file = str(receipt.get("source_file") or "").strip()
+        if source_file:
+            candidates.append(archive_root / Path(source_file).name)
+        if idempotency_key:
+            candidates.append(archive_root / f"{idempotency_key}.json")
+
+        seen: set[Path] = set()
+        for candidate in candidates:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            payload = _json_mapping(candidate)
+            if payload is None:
+                continue
+            payload_key = str(payload.get("idempotency_key") or "").strip()
+            if payload_key and payload_key != idempotency_key:
+                continue
+            branches.update(_outbox_payload_branches(payload))
     return branches
 
 
@@ -448,6 +496,7 @@ def terminal_receipted_handoff_branches(
         if idempotency_key not in terminal_keys:
             continue
         branches.update(_outbox_payload_branches(payload))
+    branches.update(_archived_outbox_receipt_branches(outbox_root, receipt_root, terminal_keys))
     return branches
 
 
@@ -524,6 +573,45 @@ def branch_divergence(root: Path, base: str, branch: str) -> tuple[int, int]:
         return (ahead_count, behind_count)
     except ValueError:
         return (0, 0)
+
+
+def branch_divergence_map(
+    root: Path,
+    base: str,
+    branches: Sequence[str],
+    *,
+    prefix: str = "codex/",
+) -> dict[str, tuple[int, int]]:
+    """Resolve ahead/behind counts for many branches in one Git call."""
+
+    wanted = {branch for branch in branches if branch}
+    if not wanted:
+        return {}
+
+    proc = run_git(
+        [
+            "for-each-ref",
+            f"--format=%(refname:short)|%(ahead-behind:{base})",
+            f"refs/heads/{prefix}",
+        ],
+        root,
+    )
+    if proc.returncode != 0:
+        return {}
+
+    counts: dict[str, tuple[int, int]] = {}
+    for line in proc.stdout.splitlines():
+        if not line.strip():
+            continue
+        name, _, divergence = line.partition("|")
+        if name not in wanted:
+            continue
+        try:
+            ahead_text, behind_text = divergence.split()
+            counts[name] = (int(ahead_text), int(behind_text))
+        except ValueError:
+            continue
+    return counts
 
 
 def is_merged(root: Path, base: str, branch: str) -> bool:
@@ -717,6 +805,12 @@ def audit(
     rows.sort(key=lambda row: parse_dt(row["committed_at"]), reverse=True)
     if max_branches is not None:
         rows = rows[:max_branches]
+    divergence_by_branch = branch_divergence_map(
+        root,
+        base,
+        [row["name"] for row in rows],
+        prefix=prefix,
+    )
 
     recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=recent_hours)
     remotes = remote_branch_names(root, prefix)
@@ -746,19 +840,8 @@ def audit(
         receipt_dir=resolved_receipt_dir,
     )
     patch_deadline = _patch_budget_deadline(patch_equivalence_time_budget_seconds)
-    handoff_outbox_patch_ids = set()
-    handoff_receipted_patch_ids = (
-        branch_patch_ids(root, base, handoff_receipted_branches, deadline=patch_deadline)
-        if include_patch_equivalence
-        else set()
-    )
-    if include_patch_equivalence and not _patch_budget_exhausted(patch_deadline):
-        handoff_outbox_patch_ids = branch_patch_ids(
-            root,
-            base,
-            handoff_outbox_branches,
-            deadline=patch_deadline,
-        )
+    handoff_receipted_patch_ids: set[str] | None = None
+    handoff_outbox_patch_ids: set[str] | None = None
 
     records: list[BranchRecord] = []
     patch_equivalence_skipped_branches = 0
@@ -771,18 +854,26 @@ def audit(
         try:
             ahead_count = int(row["ahead_count"])
         except ValueError:
-            ahead_count, behind_count = branch_divergence(root, base, branch)
+            divergence = divergence_by_branch.get(branch)
+            if divergence is None:
+                divergence = branch_divergence(root, base, branch)
+            ahead_count, behind_count = divergence
         else:
             try:
                 behind_count = int(row.get("behind_count", "0"))
             except ValueError:
-                _ahead_count, behind_count = branch_divergence(root, base, branch)
+                divergence = divergence_by_branch.get(branch)
+                if divergence is None:
+                    divergence = branch_divergence(root, base, branch)
+                _ahead_count, behind_count = divergence
         merged_to_base = branch in merged_branches
         patch_equivalent = False
+        patch_equivalence_skipped = False
         patch_id = None
         if ahead_count > 0 and not merged_to_base:
             if _patch_budget_exhausted(patch_deadline):
                 patch_equivalence_skipped_branches += 1
+                patch_equivalence_skipped = True
             else:
                 if include_patch_equivalence:
                     patch_equivalent = is_patch_equivalent(
@@ -810,12 +901,39 @@ def audit(
                         timeout=_patch_timeout(patch_deadline, 120),
                     )
         remote_exists = branch in remotes
-        handoff_receipted = branch in handoff_receipted_branches or (
-            patch_id is not None and patch_id in handoff_receipted_patch_ids
-        )
-        handoff_outbox = branch in handoff_outbox_branches or (
-            patch_id is not None and patch_id in handoff_outbox_patch_ids
-        )
+        handoff_receipted = branch in handoff_receipted_branches
+        handoff_outbox = branch in handoff_outbox_branches
+        if (
+            not handoff_receipted
+            and not handoff_outbox
+            and patch_id is not None
+            and include_patch_equivalence
+            and not _patch_budget_exhausted(patch_deadline)
+        ):
+            if handoff_receipted_patch_ids is None:
+                handoff_receipted_patch_ids = branch_patch_ids(
+                    root,
+                    base,
+                    handoff_receipted_branches,
+                    deadline=patch_deadline,
+                )
+            handoff_receipted = patch_id in handoff_receipted_patch_ids
+
+        if (
+            not handoff_outbox
+            and not handoff_receipted
+            and patch_id is not None
+            and include_patch_equivalence
+            and not _patch_budget_exhausted(patch_deadline)
+        ):
+            if handoff_outbox_patch_ids is None:
+                handoff_outbox_patch_ids = branch_patch_ids(
+                    root,
+                    base,
+                    handoff_outbox_branches,
+                    deadline=patch_deadline,
+                )
+            handoff_outbox = patch_id in handoff_outbox_patch_ids
         category = classify(
             open_pr=prs.get(branch),
             active_paths=active_paths,
@@ -837,6 +955,7 @@ def audit(
         ):
             if _patch_budget_exhausted(patch_deadline):
                 patch_equivalence_skipped_branches += 1
+                patch_equivalence_skipped = True
             else:
                 patch_equivalent = is_patch_equivalent(
                     root,
@@ -870,6 +989,7 @@ def audit(
                 behind_count=behind_count,
                 merged_to_base=merged_to_base,
                 patch_equivalent_to_base=patch_equivalent,
+                patch_equivalence_skipped=patch_equivalence_skipped,
                 remote_branch_exists=remote_exists,
                 open_pr=prs.get(branch),
                 worktree_paths=[str(path) for path in paths],
@@ -1069,7 +1189,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--patch-equivalence-time-budget-seconds",
         type=float,
-        default=90.0,
+        default=15.0,
         help=(
             "Wall-clock budget for patch-equivalence and patch-id checks. "
             "Use 0 to skip them immediately or a negative value for no budget."

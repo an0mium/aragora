@@ -51,6 +51,14 @@ from aragora.integrations.receipt_webhooks import (
     ReceiptWebhookPayload,
     get_receipt_notifier,
 )
+from aragora.integrations.flywheel import (
+    FlywheelToolError,
+    FlywheelToolSpec,
+    FlywheelToolStatus,
+    probe_flywheel_tools,
+    run_json_tool,
+    summarize_probe,
+)
 from aragora.integrations.whatsapp import (
     WhatsAppConfig,
     WhatsAppIntegration,
@@ -144,6 +152,13 @@ __all__ = [
     "ReceiptWebhookNotifier",
     "ReceiptWebhookPayload",
     "get_receipt_notifier",
+    # Agent Flywheel optional local tooling
+    "FlywheelToolError",
+    "FlywheelToolSpec",
+    "FlywheelToolStatus",
+    "probe_flywheel_tools",
+    "run_json_tool",
+    "summarize_probe",
     # Slack
     "SlackIntegration",
     "SlackConfig",

@@ -77,6 +77,54 @@ def test_branch_divergence_parses_rev_list_left_right_counts(
     assert mod.branch_divergence(tmp_path, "origin/main", "codex/example") == (7, 3)
 
 
+def test_branch_divergence_map_parses_batch_ahead_behind_output(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    def fake_run_git(
+        args: list[str], cwd: Path, *, timeout: int = 60
+    ) -> subprocess.CompletedProcess[str]:
+        assert args == [
+            "for-each-ref",
+            "--format=%(refname:short)|%(ahead-behind:origin/main)",
+            "refs/heads/codex/",
+        ]
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="codex/example|7 3\ncodex/other|2 9\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.branch_divergence_map(
+        tmp_path, "origin/main", ["codex/example", "codex/missing"]
+    ) == {"codex/example": (7, 3)}
+
+
+def test_branch_divergence_map_honors_custom_prefix(tmp_path: Path, monkeypatch: Any) -> None:
+    def fake_run_git(
+        args: list[str], cwd: Path, *, timeout: int = 60
+    ) -> subprocess.CompletedProcess[str]:
+        assert args == [
+            "for-each-ref",
+            "--format=%(refname:short)|%(ahead-behind:origin/main)",
+            "refs/heads/automation/",
+        ]
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="automation/example|4 1\ncodex/other|2 9\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.branch_divergence_map(
+        tmp_path, "origin/main", ["automation/example"], prefix="automation/"
+    ) == {"automation/example": (4, 1)}
+
+
 def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     payload = {
         "branch_count": 2,
@@ -221,6 +269,49 @@ def test_audit_skips_open_pr_lookup_when_github_health_degraded(
     assert payload["open_pr_lookup_skipped"] is True
     assert payload["records"][0]["open_pr"] is None
     assert payload["records"][0]["category"] == "salvage_recent_unique"
+
+
+def test_audit_uses_batched_divergence_before_fallback(tmp_path: Path, monkeypatch: Any) -> None:
+    row = _branch_row(ahead_count="", behind_count="")
+    _stub_git_inventory(monkeypatch, row)
+    monkeypatch.setattr(
+        mod,
+        "branch_divergence_map",
+        lambda _root, _base, _branches, **_kwargs: {"codex/example": (5, 2)},
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_divergence",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("per-branch fallback should not run when batch counts exist")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    assert payload["records"][0]["ahead_count"] == 5
+    assert payload["records"][0]["behind_count"] == 2
 
 
 def test_audit_uses_open_pr_lookup_when_github_health_is_ready(
@@ -667,6 +758,85 @@ def test_audit_matches_terminal_receipt_by_idempotency_key_when_outbox_missing(
     assert payload["summary"]["publishable_branch_backlog"] == 1
 
 
+def test_audit_reads_archived_outbox_payload_for_terminal_receipt(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row(
+            "codex/receipted",
+            committed_at=now,
+            head_sha="abc1234de",
+        ),
+        _branch_row("codex/new-work", committed_at=now),
+    ]
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    archive = tmp_path / ".aragora" / "automation-outbox-archive"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    archive.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-receipted-restack-20260506-abc1234"
+    source_file = outbox / f"{key}.json"
+    (archive / source_file.name).write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "local_evidence": {"branch": "codex/receipted", "head_sha": "abc1234de"},
+                "requested_action": {
+                    "branch": "codex/receipted",
+                    "type": "push_branch_and_open_or_update_pr",
+                },
+                "task": "Update existing receipted PR",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "source_file": str(source_file),
+                "status": "already_satisfied",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    receipted = next(record for record in payload["records"] if record["name"] == "codex/receipted")
+    assert receipted["handoff_receipt_exists"] is True
+    assert receipted["category"] == "protected_handoff_receipt"
+    assert payload["summary"]["handoff_receipted_branches"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 1
+
+
 def test_audit_excludes_unresolved_outbox_handoffs_from_publishable_backlog(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
@@ -1010,6 +1180,117 @@ def test_audit_protects_patch_equivalent_unresolved_handoff_branches(
     )
     assert stale_copy["handoff_outbox_exists"] is True
     assert stale_copy["category"] == "protected_handoff_outbox"
+
+
+def test_audit_checks_branch_equivalence_before_handoff_patch_ids(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [_branch_row("codex/replayed", committed_at=now, behind_count="4")]
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "terminal_receipted_handoff_branches",
+        lambda *_args, **_kwargs: {f"codex/receipted-{index}" for index in range(50)},
+    )
+    monkeypatch.setattr(mod, "unresolved_outbox_handoff_branches", lambda *_args, **_kwargs: set())
+    monkeypatch.setattr(
+        mod,
+        "is_patch_equivalent",
+        lambda _root, _base, branch, **_kwargs: branch == "codex/replayed",
+    )
+
+    def fail_branch_patch_ids(*_args: Any, **_kwargs: Any) -> set[str]:
+        raise AssertionError("handoff patch ids should be lazy for direct cleanup branches")
+
+    monkeypatch.setattr(mod, "branch_patch_ids", fail_branch_patch_ids)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=True,
+        publisher_backlog_limit=2,
+    )
+
+    record = payload["records"][0]
+    assert record["name"] == "codex/replayed"
+    assert record["patch_equivalent_to_base"] is True
+    assert record["category"] == "cleanup_patch_equivalent"
+
+
+def test_audit_does_not_spend_patch_ids_for_exact_outbox_branch(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [_branch_row("codex/refreshed", committed_at=now, behind_count="4")]
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "terminal_receipted_handoff_branches",
+        lambda *_args, **_kwargs: {f"codex/receipted-{index}" for index in range(50)},
+    )
+    monkeypatch.setattr(
+        mod,
+        "unresolved_outbox_handoff_branches",
+        lambda *_args, **_kwargs: {"codex/refreshed"},
+    )
+    monkeypatch.setattr(mod, "is_patch_equivalent", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(mod, "branch_patch_id", lambda *_args, **_kwargs: "same-patch")
+
+    def fail_branch_patch_ids(*_args: Any, **_kwargs: Any) -> set[str]:
+        raise AssertionError("exact outbox branch should not collect handoff patch ids")
+
+    monkeypatch.setattr(mod, "branch_patch_ids", fail_branch_patch_ids)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=True,
+        publisher_backlog_limit=2,
+    )
+
+    record = payload["records"][0]
+    assert record["name"] == "codex/refreshed"
+    assert record["handoff_outbox_exists"] is True
+    assert record["category"] == "protected_handoff_outbox"
 
 
 def test_audit_treats_superseded_branch_as_unresolved_handoff(
@@ -1364,7 +1645,7 @@ def test_parser_checks_patch_equivalence_by_default() -> None:
     args = mod.build_parser().parse_args([])
 
     assert args.include_patch_equivalence is True
-    assert args.patch_equivalence_time_budget_seconds == 90.0
+    assert args.patch_equivalence_time_budget_seconds == 15.0
 
 
 def test_parser_can_skip_patch_equivalence() -> None:
@@ -1431,6 +1712,10 @@ def test_audit_skips_patch_equivalence_after_time_budget(tmp_path: Path, monkeyp
 
     assert payload["patch_equivalence_budget_exhausted"] is True
     assert payload["patch_equivalence_skipped_branches"] == 2
+    assert [record["patch_equivalence_skipped"] for record in payload["records"]] == [
+        True,
+        True,
+    ]
     assert [record["category"] for record in payload["records"]] == [
         "salvage_recent_unique",
         "salvage_recent_unique",

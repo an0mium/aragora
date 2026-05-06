@@ -97,6 +97,31 @@ def test_default_paths_use_shared_state_root_env(
     assert report.launchd_last_exit_code is None
 
 
+def test_default_paths_accept_direct_dot_aragora_state_root_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    shared_checkout = tmp_path / "shared-root"
+    state_root = shared_checkout / ".aragora"
+    (state_root / "automation-github-status").mkdir(parents=True)
+    (state_root / "automation-outbox").mkdir(parents=True)
+    cache = _write_cache(shared_checkout, outbox_count=1)
+    _write_outbox_files(shared_checkout, 1)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+    now = cache.stat().st_mtime + 60
+
+    report = mod.evaluate(repo_root, now=now)
+
+    assert report.verdict == "ready"
+    assert report.cache_path == str(state_root / "automation-github-status" / "latest.json")
+    assert report.outbox_dir == str(state_root / "automation-outbox")
+    assert report.cache_present is True
+    assert report.outbox_real_count == 1
+    assert report.outbox_cache_count == 1
+
+
 def test_degraded_when_launchd_not_loaded(monkeypatch: pytest.MonkeyPatch, stub_repo: Path) -> None:
     cache = _write_cache(stub_repo, outbox_count=2)
     _write_outbox_files(stub_repo, 2)
@@ -203,6 +228,25 @@ def test_main_json_output_includes_full_report(
     assert parsed["verdict"] == "ready"
     assert "generated_at" in parsed
     assert parsed["launchd_loaded"] is True
+
+
+def test_main_accepts_status_cache_alias(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cache_path = stub_repo / "custom-status-cache.json"
+    cache_path.write_text(
+        json.dumps({"generated_at": "2026-05-05T12:00:00Z", "local_queue": {"outbox_count": 0}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+
+    rc = mod.main(["--repo", str(stub_repo), "--status-cache", str(cache_path), "--json"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["verdict"] == "ready"
+    assert parsed["cache_path"] == str(cache_path.resolve())
 
 
 def test_main_exit_nonzero_on_degraded(

@@ -257,6 +257,21 @@ def test_select_summary_skips_terminal_ui_chrome() -> None:
     assert summary == "PR #5297 opened"
 
 
+def test_select_summary_skips_permission_mode_chrome() -> None:
+    import agent_bridge_sessions as mod
+
+    summary = mod._select_summary(
+        [
+            "PR #5297 opened",
+            "│ Yes, and always allow low impact commands (file edits and read-only commands) │",
+            "Auto (Low) - edits and read-only commands Opus 4.7 (High)",
+            "⏿Permissionsdialogdismissed",
+        ]
+    )
+
+    assert summary == "PR #5297 opened"
+
+
 def test_select_summary_skips_terminal_border_residue() -> None:
     import agent_bridge_sessions as mod
 

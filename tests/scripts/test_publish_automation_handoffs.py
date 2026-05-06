@@ -1077,6 +1077,83 @@ def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
     ]
 
 
+def test_decide_handoffs_prefers_branch_pr_over_duplicate_issue(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "outbox.json"),
+        task_title="Open PR for frontend E2E scope coverage of test workflow changes",
+        priority="HIGH",
+        body="body",
+        labels={},
+        expires_at=None,
+        source_kind="outbox",
+        branch="codex/frontend-e2e-test-workflow-scope",
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "pr", "list"] and "--head" in args:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 7024,
+                            "title": "fix(ci): scope test workflow changes to frontend e2e",
+                            "url": "https://github.com/synaptent/aragora/pull/7024",
+                            "state": "OPEN",
+                            "headRefName": "codex/frontend-e2e-test-workflow-scope",
+                        }
+                    ]
+                ),
+                "",
+            )
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 6495,
+                            "title": (
+                                "Open PR for frontend E2E scope coverage of test workflow changes"
+                            ),
+                            "url": "https://github.com/synaptent/aragora/issues/6495",
+                            "state": "OPEN",
+                        }
+                    ]
+                ),
+                "",
+            )
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="target_open_pr",
+            existing_pr_url="https://github.com/synaptent/aragora/pull/7024",
+        )
+    ]
+
+
 def test_decide_handoffs_respects_open_issue_cap(monkeypatch: Any, tmp_path: Path) -> None:
     handoff = Handoff(
         source_file=str(tmp_path / "memory.md"),

@@ -192,6 +192,8 @@ def _automation_state_root(repo_root: Path) -> Path:
             resolved = candidate.resolve()
         except OSError:
             resolved = candidate
+        if resolved.name == ".aragora" and resolved.is_dir():
+            return resolved
         if not (resolved / ".aragora").is_dir():
             continue
         if explicit or _same_git_origin(repo_root, resolved):
@@ -332,7 +334,13 @@ def _build_parser() -> argparse.ArgumentParser:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--repo", default=os.getcwd(), help="Path inside the target repository")
-    parser.add_argument("--cache-path", default=None)
+    parser.add_argument(
+        "--cache-path",
+        "--status-cache",
+        dest="cache_path",
+        default=None,
+        help="Path to the publisher status cache JSON",
+    )
     parser.add_argument("--outbox-dir", default=None)
     parser.add_argument(
         "--state-root",
