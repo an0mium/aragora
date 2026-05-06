@@ -181,6 +181,41 @@ def test_check_github_cli_health_prefers_connectivity_error_when_auth_status_is_
     assert health.error == "error connecting to api.github.com"
 
 
+def test_check_github_cli_health_classifies_auth_timeout_as_connectivity(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
+
+    def fake_run(
+        args: list[str], *, cwd: Path, timeout_seconds: int
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "api", "rate_limit"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="HTTP 401: Requires authentication",
+            )
+        if args[:3] == ["gh", "auth", "status"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=124,
+                stdout="",
+                stderr="command timed out after 20s: gh auth status",
+            )
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    health = mod.check_github_cli_health(Path("."))
+
+    assert health.ready is False
+    assert health.mode == "connectivity_failed"
+    assert health.auth_ok is False
+    assert health.api_ok is False
+    assert health.error == "command timed out after 20s: gh auth status"
+
+
 def test_check_github_cli_health_detects_auth_failure(monkeypatch) -> None:
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 

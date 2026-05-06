@@ -122,8 +122,10 @@ def check_github_cli_health(
     auth_proc = _run(["gh", "auth", "status"], cwd=repo_root, timeout_seconds=timeout_seconds)
     if auth_proc.returncode != 0:
         auth_error = _command_error(auth_proc, "gh auth status failed")
-        mode = "connectivity_failed" if is_github_connectivity_error(api_error) else "auth_failed"
-        error = api_error if mode == "connectivity_failed" else auth_error
+        api_connectivity = is_github_connectivity_error(api_error)
+        auth_connectivity = is_github_connectivity_error(auth_error)
+        mode = "connectivity_failed" if api_connectivity or auth_connectivity else "auth_failed"
+        error = api_error if api_connectivity else auth_error
         return GitHubCLIHealth(
             ready=False,
             auth_ok=False,
