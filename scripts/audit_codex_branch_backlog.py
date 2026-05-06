@@ -1050,6 +1050,9 @@ def audit(
     publishable_branch_backlog = (
         counts["salvage_recent_unique"] + counts["salvage_stale_remote_unique"]
     )
+    skipped_counts = Counter(
+        record.category for record in records if record.patch_equivalence_skipped
+    )
     return {
         "repo": str(root),
         "base": base,
@@ -1078,6 +1081,7 @@ def audit(
                 publishable_branch_backlog >= publisher_backlog_limit
             ),
             "by_category": dict(sorted(counts.items())),
+            "patch_equivalence_skipped_by_category": dict(sorted(skipped_counts.items())),
         },
         "records": [asdict(record) for record in records],
     }
@@ -1129,6 +1133,12 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     print(f"- Handoff-receipted branches: `{summary['handoff_receipted_branches']}`")
     print(f"- Handoff-outbox branches: `{summary['handoff_outbox_branches']}`")
     print(
+        f"- Patch-equivalence budget exhausted: `{payload['patch_equivalence_budget_exhausted']}`"
+    )
+    print(
+        f"- Patch-equivalence skipped branches: `{payload['patch_equivalence_skipped_branches']}`"
+    )
+    print(
         "- Writer should pause for branch backlog: "
         f"`{summary['writer_should_pause_for_branch_backlog']}`"
     )
@@ -1136,6 +1146,11 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     print("## Counts\n")
     for category, count in summary["by_category"].items():
         print(f"- `{category}`: `{count}`")
+    skipped_counts = summary.get("patch_equivalence_skipped_by_category", {})
+    if skipped_counts:
+        print("\n## Patch-Equivalence Skips\n")
+        for category, count in skipped_counts.items():
+            print(f"- `{category}`: `{count}`")
 
     records = payload["records"]
     for category in (
