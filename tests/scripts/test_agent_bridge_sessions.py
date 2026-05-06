@@ -248,6 +248,10 @@ def test_select_summary_skips_terminal_ui_chrome() -> None:
     summary = mod._select_summary(
         [
             "PR #5297 opened",
+            "│ Yes, and always allow low impact commands (file edits and read-only commands) │",
+            "│ Yes, and always allow medium impact commands (all commands that are reversible) │",
+            "⎿Permissionsdialogdismissed",
+            "Auto (Low) - edits and read-only commands Opus 4.7 (High)",
             "↑↓ navigate Enter select Esc cancel",
             "⏵⏵ don't ask on (shift+tab to cycle)",
             "[⏱ 30s]? for help IDE ○",
@@ -264,7 +268,9 @@ def test_select_summary_skips_permission_mode_chrome() -> None:
         [
             "PR #5297 opened",
             "│ Yes, and always allow low impact commands (file edits and read-only commands) │",
+            "│ No, cancel 38;2;135;1",
             "Auto (Low) - edits and read-only commands Opus 4.7 (High)",
+            "Auto (Medium) - all commands that are reversible Opus 4.7 (High)",
             "⏿Permissionsdialogdismissed",
         ]
     )
