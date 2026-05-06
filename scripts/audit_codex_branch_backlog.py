@@ -278,16 +278,21 @@ def _json_files(path: Path) -> list[Path]:
     return sorted(item for item in path.glob("*.json") if item.is_file())
 
 
+def _json_mapping(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def terminal_handoff_keys(receipt_root: Path) -> set[str]:
     """Return terminal automation handoff idempotency keys."""
 
     terminal_keys: set[str] = set()
     for receipt_file in _json_files(receipt_root):
-        try:
-            payload = json.loads(receipt_file.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if not isinstance(payload, dict):
+        payload = _json_mapping(receipt_file)
+        if payload is None:
             continue
         if str(payload.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
             continue
@@ -403,15 +408,56 @@ def terminal_receipt_branches(receipt_root: Path) -> set[str]:
 
     branches: set[str] = set()
     for receipt_file in _json_files(receipt_root):
-        try:
-            payload = json.loads(receipt_file.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if not isinstance(payload, dict):
+        payload = _json_mapping(receipt_file)
+        if payload is None:
             continue
         if str(payload.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
             continue
         branches.update(_outbox_payload_branches(payload))
+    return branches
+
+
+def _archived_outbox_receipt_branches(
+    outbox_root: Path,
+    receipt_root: Path,
+    terminal_keys: set[str],
+) -> set[str]:
+    """Return branch references from archived outbox payloads named by receipts."""
+
+    archive_root = outbox_root.parent / "automation-outbox-archive"
+    if not archive_root.exists():
+        return set()
+
+    branches: set[str] = set()
+    for receipt_file in _json_files(receipt_root):
+        receipt = _json_mapping(receipt_file)
+        if receipt is None:
+            continue
+        if str(receipt.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
+            continue
+        idempotency_key = str(receipt.get("idempotency_key") or receipt_file.stem).strip()
+        if idempotency_key not in terminal_keys:
+            continue
+
+        candidates: list[Path] = []
+        source_file = str(receipt.get("source_file") or "").strip()
+        if source_file:
+            candidates.append(archive_root / Path(source_file).name)
+        if idempotency_key:
+            candidates.append(archive_root / f"{idempotency_key}.json")
+
+        seen: set[Path] = set()
+        for candidate in candidates:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            payload = _json_mapping(candidate)
+            if payload is None:
+                continue
+            payload_key = str(payload.get("idempotency_key") or "").strip()
+            if payload_key and payload_key != idempotency_key:
+                continue
+            branches.update(_outbox_payload_branches(payload))
     return branches
 
 
@@ -441,6 +487,7 @@ def terminal_receipted_handoff_branches(
         if idempotency_key not in terminal_keys:
             continue
         branches.update(_outbox_payload_branches(payload))
+    branches.update(_archived_outbox_receipt_branches(outbox_root, receipt_root, terminal_keys))
     return branches
 
 

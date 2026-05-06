@@ -658,6 +658,85 @@ def test_audit_matches_terminal_receipt_by_idempotency_key_when_outbox_missing(
     assert payload["summary"]["publishable_branch_backlog"] == 1
 
 
+def test_audit_reads_archived_outbox_payload_for_terminal_receipt(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row(
+            "codex/receipted",
+            committed_at=now,
+            head_sha="abc1234de",
+        ),
+        _branch_row("codex/new-work", committed_at=now),
+    ]
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    archive = tmp_path / ".aragora" / "automation-outbox-archive"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    archive.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-receipted-restack-20260506-abc1234"
+    source_file = outbox / f"{key}.json"
+    (archive / source_file.name).write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "local_evidence": {"branch": "codex/receipted", "head_sha": "abc1234de"},
+                "requested_action": {
+                    "branch": "codex/receipted",
+                    "type": "push_branch_and_open_or_update_pr",
+                },
+                "task": "Update existing receipted PR",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "source_file": str(source_file),
+                "status": "already_satisfied",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    receipted = next(record for record in payload["records"] if record["name"] == "codex/receipted")
+    assert receipted["handoff_receipt_exists"] is True
+    assert receipted["category"] == "protected_handoff_receipt"
+    assert payload["summary"]["handoff_receipted_branches"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 1
+
+
 def test_audit_excludes_unresolved_outbox_handoffs_from_publishable_backlog(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
