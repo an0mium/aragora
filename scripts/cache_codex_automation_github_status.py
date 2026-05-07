@@ -42,6 +42,13 @@ DEFAULT_OUTPUT = Path(".aragora/automation-github-status/latest.json")
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 
 
+def _has_queue_state_dirs(state_root: Path) -> bool:
+    state_dir = state_root if state_root.name == ".aragora" else state_root / ".aragora"
+    return (state_dir / "automation-outbox").is_dir() or (
+        state_dir / "automation-receipts"
+    ).is_dir()
+
+
 def _repo_root(path: Path) -> Path:
     import subprocess
 
@@ -58,29 +65,32 @@ def _repo_root(path: Path) -> Path:
 
 
 def _shared_state_root(repo_root: Path) -> Path:
-    if (repo_root / ".aragora").is_dir():
+    if _has_queue_state_dirs(repo_root):
         return repo_root
     configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
     if configured:
-        configured_path = Path(configured).expanduser()
-        try:
-            resolved = configured_path.resolve()
-        except OSError:
-            resolved = configured_path
-        if resolved.name == ".aragora" and resolved.is_dir():
-            return resolved.parent
-        if (resolved / ".aragora").is_dir():
-            return resolved
+        configured_root = Path(configured).expanduser()
+        if configured_root.name == ".aragora" and configured_root.is_dir():
+            return configured_root.resolve()
+        if (configured_root / ".aragora").is_dir():
+            return configured_root.resolve()
     fallback = Path.home() / "Development" / "aragora"
-    if (fallback / ".aragora").is_dir():
+    if _has_queue_state_dirs(fallback):
         return fallback
     return repo_root
+
+
+def _automation_state_default_path(state_root: Path, default: Path) -> Path:
+    expanded = state_root.expanduser()
+    if default.parts[:1] == (".aragora",) and expanded.name == ".aragora":
+        return expanded.joinpath(*default.parts[1:])
+    return expanded / default
 
 
 def _resolve_state_path(repo_root: Path, value: Path | None, default: Path) -> Path:
     if value is not None:
         return value if value.is_absolute() else repo_root / value
-    return _shared_state_root(repo_root) / default
+    return _automation_state_default_path(_shared_state_root(repo_root), default)
 
 
 def _json_files(path: Path) -> list[Path]:
@@ -263,6 +273,15 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--outbox-dir", type=Path, default=None)
     parser.add_argument("--receipt-dir", type=Path, default=None)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--state-root",
+        type=Path,
+        default=None,
+        help=(
+            "Shared automation state root for default output and queue dirs. "
+            "Accepts either a repo root containing .aragora or the .aragora directory itself."
+        ),
+    )
     parser.add_argument("--json", action="store_true", help="Print the cached payload")
     return parser
 
@@ -271,15 +290,31 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     repo_root = _repo_root(Path(args.repo))
-    output = args.output if args.output.is_absolute() else repo_root / args.output
+    state_root = args.state_root.expanduser() if args.state_root is not None else None
+    output_base = state_root if state_root is not None else _shared_state_root(repo_root)
+    output = (
+        args.output
+        if args.output.is_absolute()
+        else _automation_state_default_path(output_base, args.output)
+    )
     payload = build_status(
         repo_root=repo_root,
         github_repo=args.github_repo,
         labels=args.labels,
         max_open_prs=args.max_open_prs,
         max_open_issues=args.max_open_issues,
-        outbox_dir=args.outbox_dir,
-        receipt_dir=args.receipt_dir,
+        outbox_dir=args.outbox_dir
+        or (
+            _automation_state_default_path(state_root, DEFAULT_OUTBOX_DIR)
+            if state_root is not None
+            else None
+        ),
+        receipt_dir=args.receipt_dir
+        or (
+            _automation_state_default_path(state_root, DEFAULT_RECEIPT_DIR)
+            if state_root is not None
+            else None
+        ),
     )
     write_status(output, payload)
     if args.json:

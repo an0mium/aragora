@@ -144,25 +144,23 @@ def test_local_queue_state_reports_missing_receipt_status(tmp_path: Path) -> Non
     ]
 
 
-def test_local_queue_state_accepts_direct_dot_aragora_state_root(
+def test_local_queue_state_accepts_aragora_state_root_env(
     monkeypatch: Any,
     tmp_path: Path,
 ) -> None:
-    repo = tmp_path / "disposable-worktree"
-    state_root = tmp_path / "shared" / ".aragora"
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    state_root = tmp_path / ".aragora"
     outbox = state_root / "automation-outbox"
     receipts = state_root / "automation-receipts"
-    repo.mkdir()
     outbox.mkdir(parents=True)
     receipts.mkdir(parents=True)
-    (outbox / "handoff.json").write_text(
-        '{"idempotency_key": "open-pr-codex-example-abc123"}',
-        encoding="utf-8",
-    )
+    (outbox / "handoff.json").write_text("{}", encoding="utf-8")
     monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+    monkeypatch.setattr(mod.Path, "home", lambda: tmp_path / "empty-home")
 
     payload = mod._local_queue_state(
-        repo_root=repo,
+        repo_root=repo_root,
         outbox_dir=None,
         receipt_dir=None,
     )
@@ -172,6 +170,62 @@ def test_local_queue_state_accepts_direct_dot_aragora_state_root(
     assert payload["outbox_count"] == 1
     assert payload["receipt_count"] == 0
     assert payload["unreceipted_outbox_count"] == 1
+
+
+def test_incomplete_local_aragora_does_not_shadow_shared_state_root(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    (repo_root / ".aragora" / "automation-github-status").mkdir(parents=True)
+    shared_root = tmp_path / "Development" / "aragora"
+    outbox = shared_root / ".aragora" / "automation-outbox"
+    receipts = shared_root / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "handoff.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(mod.Path, "home", lambda: tmp_path)
+
+    payload = mod._local_queue_state(
+        repo_root=repo_root,
+        outbox_dir=None,
+        receipt_dir=None,
+    )
+
+    assert payload["outbox_dir"] == str(outbox)
+    assert payload["receipt_dir"] == str(receipts)
+    assert payload["outbox_count"] == 1
+
+
+def test_main_default_output_uses_explicit_aragora_state_root(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    state_root = tmp_path / ".aragora"
+    (state_root / "automation-outbox").mkdir(parents=True)
+    (state_root / "automation-receipts").mkdir(parents=True)
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="sandboxed",
+            repo=str(repo_root),
+        ),
+    )
+
+    rc = mod.main(["--repo", str(repo_root), "--state-root", str(state_root)])
+
+    assert rc == 0
+    assert (state_root / "automation-github-status" / "latest.json").is_file()
+    assert not (repo_root / ".aragora" / "automation-github-status" / "latest.json").exists()
 
 
 def test_build_status_records_remote_pressure_when_github_available(
