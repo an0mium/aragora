@@ -171,7 +171,7 @@ class LaneRecord:
         )
 
 
-def discover() -> list[Session]:
+def discover(*, include_summaries: bool = True) -> list[Session]:
     """Discover all sessions via agent_bridge_sessions.
 
     Falls back to minimal tmux-only discovery if agent_bridge_sessions
@@ -182,6 +182,7 @@ def discover() -> list[Session]:
             repo_root=REPO_ROOT,
             tmux_dir=TMUX_SESSIONS_DIR,
             claude_projects_root=Path.home() / ".claude" / "projects",
+            include_summaries=include_summaries,
         )
         sessions: list[Session] = []
         for r in records:
@@ -847,10 +848,10 @@ def cmd_health(args: argparse.Namespace) -> int:
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
-    sessions = discover()
+    sessions = discover(include_summaries=not summary_only)
     if not summary_only:
         _enrich_prs(sessions)
-    _write_session_snapshot(sessions)
+        _write_session_snapshot(sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
 
     issues = _collect_health_issues(sessions, records)

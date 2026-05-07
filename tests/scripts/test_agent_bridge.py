@@ -335,10 +335,11 @@ def test_operator_snapshot_summary_only_json_omits_records(
     import agent_bridge as mod
 
     _patch_bridge_paths(mod, tmp_path, monkeypatch)
-    monkeypatch.setattr(
-        mod,
-        "discover",
-        lambda: [
+    discover_include_summaries: list[bool] = []
+
+    def fake_discover(*, include_summaries: bool = True):
+        discover_include_summaries.append(include_summaries)
+        return [
             mod.Session(
                 name="codex-main",
                 agent="codex",
@@ -346,13 +347,21 @@ def test_operator_snapshot_summary_only_json_omits_records(
                 branch="codex/example",
                 worktree=str(tmp_path),
             )
-        ],
-    )
+        ]
+
+    monkeypatch.setattr(mod, "discover", fake_discover)
     monkeypatch.setattr(
         mod,
         "_enrich_prs",
         lambda _sessions: (_ for _ in ()).throw(
             AssertionError("summary-only should not call GitHub PR enrichment")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_write_session_snapshot",
+        lambda _sessions: (_ for _ in ()).throw(
+            AssertionError("summary-only should not overwrite detailed session snapshots")
         ),
     )
 
@@ -366,6 +375,7 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert payload["summary"]["total_sessions"] == 1
     assert payload["summary"]["alive_sessions"] == 1
     assert payload["health"] == {"ok": True, "issues": []}
+    assert discover_include_summaries == [False]
 
 
 def test_cmd_launch_invokes_tmux_launcher_for_droid(

@@ -134,6 +134,91 @@ def test_collect_sessions_merges_tmux_and_claude_sources(
     assert claude_session.summary == "I’m watching #5294 and #5295; #5295 is closest to merge."
 
 
+def test_collect_sessions_can_skip_expensive_summaries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    tmux_dir = tmp_path / "tmux"
+    tmux_dir.mkdir()
+    claude_projects_root = tmp_path / "claude-projects"
+    project_dir = claude_projects_root / "-tmp-aragora"
+    project_dir.mkdir(parents=True)
+
+    log_file = tmux_dir / "codex-strategic.log"
+    log_file.write_text("PR #5297 opened\n", encoding="utf-8")
+    (tmux_dir / "codex-strategic.meta.json").write_text(
+        json.dumps(
+            {
+                "name": "codex-strategic",
+                "agent": "codex",
+                "started": "2026-04-13T18:00:00Z",
+                "log_file": str(log_file),
+                "repo_root": str(repo_root),
+                "cwd": str(repo_root),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    claude_log = project_dir / "1431bd39-6ab6-41e0-9ead-05f91680e1df.jsonl"
+    claude_log.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "timestamp": "2026-04-13T18:02:00Z",
+                "cwd": str(repo_root),
+                "gitBranch": "codex/example",
+                "message": {
+                    "content": [{"type": "text", "text": "Detailed summary should not be parsed."}]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_tmux_alive", lambda _name: "alive")
+    monkeypatch.setattr(
+        mod,
+        "_capture_tmux_summary",
+        lambda _name: (_ for _ in ()).throw(AssertionError("summary capture should be skipped")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_latest_log_line",
+        lambda _path: (_ for _ in ()).throw(AssertionError("log summary should be skipped")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_extract_text",
+        lambda _content: (_ for _ in ()).throw(
+            AssertionError("transcript text extraction should be skipped")
+        ),
+    )
+    monkeypatch.setattr(mod, "_claude_project_slug", lambda _repo_root: "-tmp-aragora")
+
+    sessions = mod.collect_sessions(
+        repo_root=repo_root,
+        tmux_dir=tmux_dir,
+        claude_projects_root=claude_projects_root,
+        resolve_repo=False,
+        include_summaries=False,
+    )
+
+    assert len(sessions) == 2
+    assert {item.source for item in sessions} == {"tmux", "claude_jsonl"}
+    assert {item.summary for item in sessions} == {""}
+
+    claude_session = next(item for item in sessions if item.source == "claude_jsonl")
+    assert claude_session.cwd == str(repo_root)
+    assert claude_session.branch == "codex/example"
+    assert claude_session.last_role == ""
+    assert claude_session.last_user_text is None
+    assert claude_session.last_assistant_text is None
+
+
 def test_collect_sessions_filters_tmux_sessions_to_matching_repo(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

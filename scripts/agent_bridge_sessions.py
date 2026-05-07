@@ -241,6 +241,69 @@ def _extract_text(content: Any) -> str:
     return _collapse("\n".join(parts))
 
 
+def _content_has_text(content: Any) -> bool:
+    if isinstance(content, str):
+        return bool(content.strip())
+    if not isinstance(content, list):
+        return False
+    for item in content:
+        if isinstance(item, str) and item.strip():
+            return True
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "text" and str(item.get("text", "")).strip():
+            return True
+    return False
+
+
+def _extract_recent_claude_metadata(path: Path) -> dict[str, Any] | None:
+    updated_at: str | None = None
+    cwd: str | None = None
+    branch: str | None = None
+    has_text_turn = False
+    session_id = path.stem
+
+    for raw in reversed(_tail_lines(path)):
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        if cwd is None:
+            raw_cwd = payload.get("cwd")
+            if isinstance(raw_cwd, str) and raw_cwd.strip():
+                cwd = raw_cwd
+        if branch is None:
+            raw_branch = payload.get("gitBranch")
+            if isinstance(raw_branch, str) and raw_branch.strip():
+                branch = raw_branch
+        if updated_at is None:
+            raw_ts = payload.get("timestamp")
+            if isinstance(raw_ts, str) and raw_ts.strip():
+                updated_at = raw_ts
+
+        if not has_text_turn and payload.get("type") in {"user", "assistant"}:
+            message = payload.get("message")
+            if isinstance(message, dict) and _content_has_text(message.get("content")):
+                has_text_turn = True
+
+        if has_text_turn and updated_at and (cwd or branch):
+            break
+
+    if not has_text_turn:
+        return None
+
+    return {
+        "session_id": session_id,
+        "updated_at": updated_at or datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(),
+        "cwd": cwd,
+        "branch": branch,
+    }
+
+
 def _extract_recent_claude_turns(path: Path) -> dict[str, Any] | None:
     last_user_text: str | None = None
     last_assistant_text: str | None = None
@@ -347,7 +410,9 @@ def _latest_log_line(log_file: Path) -> str:
     return _select_summary(_tail_lines(log_file, max_bytes=64 * 1024))
 
 
-def load_tmux_sessions(*, repo_root: Path, tmux_dir: Path) -> list[SessionRecord]:
+def load_tmux_sessions(
+    *, repo_root: Path, tmux_dir: Path, include_summaries: bool = True
+) -> list[SessionRecord]:
     records: list[SessionRecord] = []
     if not tmux_dir.exists():
         return records
@@ -385,9 +450,11 @@ def load_tmux_sessions(*, repo_root: Path, tmux_dir: Path) -> list[SessionRecord
                 updated_at = started
 
         status = _tmux_alive(name)
-        summary = _capture_tmux_summary(name) if status == "alive" else ""
-        if not summary and log_file.exists():
-            summary = _latest_log_line(log_file)
+        summary = ""
+        if include_summaries:
+            summary = _capture_tmux_summary(name) if status == "alive" else ""
+            if not summary and log_file.exists():
+                summary = _latest_log_line(log_file)
 
         records.append(
             SessionRecord(
@@ -407,14 +474,20 @@ def load_tmux_sessions(*, repo_root: Path, tmux_dir: Path) -> list[SessionRecord
     return records
 
 
-def _candidate_claude_logs(*, repo_root: Path, projects_root: Path) -> list[Path]:
+def _candidate_claude_logs(
+    *, repo_root: Path, projects_root: Path, include_summaries: bool = True
+) -> list[Path]:
     preferred = projects_root / _claude_project_slug(repo_root)
     if preferred.exists():
         return sorted(preferred.glob("*.jsonl"))
 
     candidates: list[Path] = []
     for path in projects_root.glob("*/*.jsonl"):
-        transcript = _extract_recent_claude_turns(path)
+        transcript = (
+            _extract_recent_claude_turns(path)
+            if include_summaries
+            else _extract_recent_claude_metadata(path)
+        )
         if transcript is None:
             continue
         cwd = transcript.get("cwd")
@@ -423,10 +496,20 @@ def _candidate_claude_logs(*, repo_root: Path, projects_root: Path) -> list[Path
     return sorted(candidates)
 
 
-def load_claude_sessions(*, repo_root: Path, projects_root: Path) -> list[SessionRecord]:
+def load_claude_sessions(
+    *, repo_root: Path, projects_root: Path, include_summaries: bool = True
+) -> list[SessionRecord]:
     records: list[SessionRecord] = []
-    for jsonl_path in _candidate_claude_logs(repo_root=repo_root, projects_root=projects_root):
-        transcript = _extract_recent_claude_turns(jsonl_path)
+    for jsonl_path in _candidate_claude_logs(
+        repo_root=repo_root,
+        projects_root=projects_root,
+        include_summaries=include_summaries,
+    ):
+        transcript = (
+            _extract_recent_claude_turns(jsonl_path)
+            if include_summaries
+            else _extract_recent_claude_metadata(jsonl_path)
+        )
         if transcript is None:
             continue
         cwd = transcript.get("cwd")
@@ -446,7 +529,7 @@ def load_claude_sessions(*, repo_root: Path, projects_root: Path) -> list[Sessio
                 branch=str(branch) if branch else None,
                 cwd=str(cwd) if cwd else None,
                 prompt_file=None,
-                summary=str(transcript["last_text"]),
+                summary=str(transcript.get("last_text") or ""),
                 transcript_file=str(jsonl_path),
                 last_role=str(transcript.get("last_role") or ""),
                 last_user_text=(
@@ -470,16 +553,27 @@ def collect_sessions(
     source: str = "all",
     limit: int = 100,
     resolve_repo: bool = True,
+    include_summaries: bool = True,
 ) -> list[SessionRecord]:
     normalized_repo = (
         resolve_canonical_repo_root(repo_root) if resolve_repo else repo_root.resolve()
     )
     records: list[SessionRecord] = []
     if source in {"all", "tmux"}:
-        records.extend(load_tmux_sessions(repo_root=normalized_repo, tmux_dir=tmux_dir))
+        records.extend(
+            load_tmux_sessions(
+                repo_root=normalized_repo,
+                tmux_dir=tmux_dir,
+                include_summaries=include_summaries,
+            )
+        )
     if source in {"all", "claude"}:
         records.extend(
-            load_claude_sessions(repo_root=normalized_repo, projects_root=claude_projects_root)
+            load_claude_sessions(
+                repo_root=normalized_repo,
+                projects_root=claude_projects_root,
+                include_summaries=include_summaries,
+            )
         )
     records.sort(key=lambda item: item.updated_at or "", reverse=True)
     return records[:limit]
