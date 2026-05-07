@@ -219,6 +219,55 @@ def test_collect_sessions_can_skip_expensive_summaries(
     assert claude_session.last_assistant_text is None
 
 
+def test_collect_sessions_trusts_preferred_claude_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    claude_projects_root = tmp_path / "claude-projects"
+    project_dir = claude_projects_root / "-tmp-aragora"
+    project_dir.mkdir(parents=True)
+
+    claude_log = project_dir / "1431bd39-6ab6-41e0-9ead-05f91680e1df.jsonl"
+    claude_log.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "timestamp": "2026-04-13T18:02:00Z",
+                "cwd": str(repo_root),
+                "gitBranch": "codex/example",
+                "message": {"content": [{"type": "text", "text": "Summary text."}]},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_claude_project_slug", lambda _repo_root: "-tmp-aragora")
+    monkeypatch.setattr(
+        mod,
+        "_safe_repo_root",
+        lambda _path: (_ for _ in ()).throw(
+            AssertionError("preferred project cwd should not be resolved through git")
+        ),
+    )
+
+    sessions = mod.collect_sessions(
+        repo_root=repo_root,
+        tmux_dir=tmp_path / "tmux",
+        claude_projects_root=claude_projects_root,
+        source="claude",
+        resolve_repo=False,
+        include_summaries=False,
+    )
+
+    assert len(sessions) == 1
+    assert sessions[0].name == "claude-1431bd39"
+    assert sessions[0].cwd == str(repo_root)
+    assert sessions[0].branch == "codex/example"
+
+
 def test_collect_sessions_filters_tmux_sessions_to_matching_repo(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -500,6 +500,7 @@ def load_claude_sessions(
     *, repo_root: Path, projects_root: Path, include_summaries: bool = True
 ) -> list[SessionRecord]:
     records: list[SessionRecord] = []
+    preferred_project_exists = (projects_root / _claude_project_slug(repo_root)).exists()
     for jsonl_path in _candidate_claude_logs(
         repo_root=repo_root,
         projects_root=projects_root,
@@ -513,7 +514,11 @@ def load_claude_sessions(
         if transcript is None:
             continue
         cwd = transcript.get("cwd")
-        if isinstance(cwd, str) and not _repo_match(_safe_repo_root(cwd), repo_root):
+        if (
+            isinstance(cwd, str)
+            and not preferred_project_exists
+            and not _repo_match(_safe_repo_root(cwd), repo_root)
+        ):
             continue
 
         session_id = str(transcript["session_id"])
