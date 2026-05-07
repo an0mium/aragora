@@ -1,13 +1,13 @@
 # H1-01 Rev-4 Promotion Readiness
 
-Last updated: 2026-05-06T20:30:00Z
+Last updated: 2026-05-07T02:36:29Z
 
 This is the operator-facing readiness surface for promoting the staged rev-4 benchmark corpus into the canonical B0 truth loop.
 
 ## Verdict
 
 - Status: `needs_more_dispatch_evidence`
-- Decision: Not ready: needs 3 more metrics-backed dispatched issue(s) to reach the 15-issue promotion floor.
+- Decision: Not ready: needs 2 more metrics-backed dispatched issue(s) to reach the 15-issue promotion floor.
 - Staging corpus: `tests/benchmarks/corpus_rev4.json`
 - Metrics source: `.aragora/overnight/boss_metrics.jsonl`
 - Promotion target: `docs/benchmarks/corpus.json`
@@ -25,16 +25,18 @@ This is the operator-facing readiness surface for promoting the staged rev-4 ben
 | Metric | Value |
 | --- | --- |
 | Dispatch floor for first canonical slice | 15 |
-| Metrics-backed staged issues eligible for canonical promotion | 12 |
-| Staged issues still missing metrics-backed evidence | 21 |
-| Additional metrics-backed dispatches needed | 3 |
+| Metrics-backed staged issues eligible for canonical promotion | 13 |
+| Staged issues still missing metrics-backed evidence | 20 |
+| Additional metrics-backed dispatches needed | 2 |
 | Advisory dispatch evidence from any source | 16 |
-| ...via metrics ledger only | 2 |
-| ...via merged/open boss-harvest PR only (advisory) | 4 |
+| ...via metrics ledger only | 1 |
+| ...via merged/open boss-harvest PR only (advisory) | 3 |
 
-## Next Dispatch Targets
+## Next Metrics Evidence Gaps
 
-`#5126`, `#5128`, `#5130`
+`#5128`, `#5130`
+
+These are the earliest staged issues missing metrics-backed `worker_outcome` rows; verify live issue state before dispatching new work.
 
 ## Execution-Class Coverage
 
@@ -42,18 +44,18 @@ This is the operator-facing readiness surface for promoting the staged rev-4 ben
 | --- | ---: | ---: | ---: |
 | `docs_reconciliation` | 1 | 2 | 1 |
 | `exception_narrowing` | 0 | 8 | 8 |
-| `missing_test_coverage` | 6 | 10 | 4 |
+| `missing_test_coverage` | 7 | 10 | 3 |
 | `silent_exception_replacement` | 0 | 8 | 8 |
 | `small_refactor` | 3 | 3 | 0 |
 | `validation_tightening` | 2 | 2 | 0 |
 
 ## Dispatched Issues
 
-`#5176`, `#5180`, `#5185`, `#5187`, `#5197`, `#5198`, `#5426`, `#5427`, `#5428`, `#5764`, `#5765`, `#5844`
+`#5176`, `#5180`, `#5185`, `#5187`, `#5197`, `#5198`, `#5200`, `#5426`, `#5427`, `#5428`, `#5764`, `#5765`, `#5844`
 
 ## Missing Evidence
 
-`#5126`, `#5128`, `#5130`, `#5188`, `#5788`, `#5789`, `#5790`, `#5791`, `#5792`, `#5793`, `#5794`, `#5801`, `#5808`, `#5809`, `#5810`, `#5811`, `#5812`, `#5821`, `#5823`, `#5825`, `#5883`
+`#5128`, `#5130`, `#5188`, `#5788`, `#5789`, `#5790`, `#5791`, `#5792`, `#5793`, `#5794`, `#5801`, `#5808`, `#5809`, `#5810`, `#5811`, `#5812`, `#5821`, `#5823`, `#5825`, `#5883`
 
 ## Promotion Rule
 

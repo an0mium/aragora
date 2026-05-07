@@ -167,6 +167,8 @@ def test_main_writes_markdown_readiness(tmp_path: Path) -> None:
     assert "Last updated: 2026-04-25T00:00:00Z" in markdown
     assert "Status: `manifest_below_h1_floor`" in markdown
     assert "| Metrics-backed staged issues eligible for canonical promotion | 1 |" in markdown
+    assert "## Next Metrics Evidence Gaps" in markdown
+    assert "verify live issue state before dispatching new work" in markdown
     assert "`#1002`" in markdown
 
 
