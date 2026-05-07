@@ -86,7 +86,8 @@ def test_branch_divergence_map_parses_batch_ahead_behind_output(
         assert args == [
             "for-each-ref",
             "--format=%(refname:short)|%(ahead-behind:origin/main)",
-            "refs/heads/codex/",
+            "refs/heads/codex/example",
+            "refs/heads/codex/missing",
         ]
         return subprocess.CompletedProcess(
             args=args,
@@ -109,7 +110,7 @@ def test_branch_divergence_map_honors_custom_prefix(tmp_path: Path, monkeypatch:
         assert args == [
             "for-each-ref",
             "--format=%(refname:short)|%(ahead-behind:origin/main)",
-            "refs/heads/automation/",
+            "refs/heads/automation/example",
         ]
         return subprocess.CompletedProcess(
             args=args,

@@ -64,6 +64,7 @@ COMPACT_RECORD_EXAMPLE_FIELDS = (
     "handoff_outbox_exists",
 )
 DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY = 3
+DIVERGENCE_REF_BATCH_SIZE = 200
 
 
 @dataclass(frozen=True)
@@ -586,33 +587,35 @@ def branch_divergence_map(
 ) -> dict[str, tuple[int, int]]:
     """Resolve ahead/behind counts for many branches in one Git call."""
 
-    wanted = {branch for branch in branches if branch}
+    wanted = {branch for branch in branches if branch and branch.startswith(prefix)}
     if not wanted:
         return {}
 
-    proc = run_git(
-        [
-            "for-each-ref",
-            f"--format=%(refname:short)|%(ahead-behind:{base})",
-            f"refs/heads/{prefix}",
-        ],
-        root,
-    )
-    if proc.returncode != 0:
-        return {}
-
     counts: dict[str, tuple[int, int]] = {}
-    for line in proc.stdout.splitlines():
-        if not line.strip():
-            continue
-        name, _, divergence = line.partition("|")
-        if name not in wanted:
-            continue
-        try:
-            ahead_text, behind_text = divergence.split()
-            counts[name] = (int(ahead_text), int(behind_text))
-        except ValueError:
-            continue
+    refs = [f"refs/heads/{branch}" for branch in sorted(wanted)]
+    for index in range(0, len(refs), DIVERGENCE_REF_BATCH_SIZE):
+        proc = run_git(
+            [
+                "for-each-ref",
+                f"--format=%(refname:short)|%(ahead-behind:{base})",
+                *refs[index : index + DIVERGENCE_REF_BATCH_SIZE],
+            ],
+            root,
+        )
+        if proc.returncode != 0:
+            return {}
+
+        for line in proc.stdout.splitlines():
+            if not line.strip():
+                continue
+            name, _, divergence = line.partition("|")
+            if name not in wanted:
+                continue
+            try:
+                ahead_text, behind_text = divergence.split()
+                counts[name] = (int(ahead_text), int(behind_text))
+            except ValueError:
+                continue
     return counts
 
 
