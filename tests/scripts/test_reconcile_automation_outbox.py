@@ -21,19 +21,26 @@ def _ready_github() -> SimpleNamespace:
     return SimpleNamespace(ready=True, mode="ready", error="")
 
 
-def _write_outbox_handoff(outbox_dir: Path, *, branch: str, key: str) -> Path:
+def _write_outbox_handoff(
+    outbox_dir: Path,
+    *,
+    branch: str,
+    key: str,
+    local_evidence: dict[str, Any] | None = None,
+) -> Path:
     outbox_dir.mkdir(parents=True, exist_ok=True)
     path = outbox_dir / f"{key}.json"
+    payload = {
+        "task": f"Publish {branch}",
+        "requires_github": True,
+        "requested_action": {"type": "open_pr", "branch": branch},
+        "repo": "synaptent/aragora",
+        "idempotency_key": key,
+    }
+    if local_evidence is not None:
+        payload["local_evidence"] = local_evidence
     path.write_text(
-        json.dumps(
-            {
-                "task": f"Publish {branch}",
-                "requires_github": True,
-                "requested_action": {"type": "open_pr", "branch": branch},
-                "repo": "synaptent/aragora",
-                "idempotency_key": key,
-            }
-        ),
+        json.dumps(payload),
         encoding="utf-8",
     )
     return path
@@ -107,6 +114,64 @@ def test_json_output_reports_reconciliation_without_human_preamble(
     assert payload["archived"] == 1
     assert payload["kept"] == 0
     assert payload["actions"][0]["branch"] == "codex/json-output"
+
+
+def test_apply_archives_outbox_handoff_superseded_by_active_handoff(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    old_key = "open-pr-codex-example-oldaaaa"
+    new_key = "open-pr-codex-example-restack-newbbbb"
+    old_path = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/example",
+        key=old_key,
+        local_evidence={
+            "branch": "codex/example",
+            "head_sha": "oldaaaa1111",
+        },
+    )
+    new_path = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/example-restack",
+        key=new_key,
+        local_evidence={
+            "branch": "codex/example-restack",
+            "head_sha": "newbbbb2222",
+            "supersedes_branch": "codex/example",
+            "supersedes_head_sha": "oldaaaa1111",
+        },
+    )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+
+    def fake_run_git(args: list[str], *_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess:
+        if args[:2] == ["rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(args=["git"], returncode=0, stdout="head\n")
+        if args and args[0] == "merge-base":
+            return subprocess.CompletedProcess(args=["git"], returncode=1, stdout="")
+        if args and args[0] == "cherry":
+            return subprocess.CompletedProcess(args=["git"], returncode=0, stdout="+ newbbbb\n")
+        return subprocess.CompletedProcess(args=["git"], returncode=0, stdout="")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_superseded_handoff"] == 1
+    assert payload["archived"] == 1
+    assert old_path.exists() is False
+    assert new_path.exists() is True
+    archived = tmp_path / ".aragora" / "automation-outbox-archive" / old_path.name
+    receipt = tmp_path / ".aragora" / "automation-receipts" / f"{old_key}.json"
+    assert archived.exists()
+    receipt_payload = json.loads(receipt.read_text(encoding="utf-8"))
+    assert receipt_payload["status"] == "already_satisfied"
+    assert receipt_payload["synthetic_reason"] == f"superseded by active handoff {new_key}"
 
 
 def test_dry_run_can_write_report_when_requested(

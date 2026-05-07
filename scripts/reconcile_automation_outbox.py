@@ -10,7 +10,7 @@ returns it as protected).
 
 This script:
   1. Reads every outbox file
-  2. For each, checks: matching receipt exists? matching PR merged?
+  2. For each, checks: matching receipt exists? superseded handoff? matching PR merged?
   3. Archives satisfied outbox files to .aragora/automation-outbox-archive/
      and writes a synthetic receipt if needed (so future audits stay correct)
   4. Reports counts before/after
@@ -135,6 +135,52 @@ def _branch_from_payload(payload: dict[str, Any]) -> str:
     return ""
 
 
+def _head_from_payload(payload: dict[str, Any]) -> str:
+    """Extract the branch head SHA from outbox payloads when present."""
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        head = str(
+            local_evidence.get("head_sha")
+            or local_evidence.get("head")
+            or local_evidence.get("commit")
+            or ""
+        ).strip()
+        if head:
+            return head
+
+    for key in ("head_sha", "head", "commit"):
+        head = str(payload.get(key) or "").strip()
+        if head:
+            return head
+    return ""
+
+
+def _superseded_targets(
+    outbox_payloads: Sequence[tuple[Path, dict[str, Any]]],
+) -> dict[tuple[str, str], dict[str, str]]:
+    """Map explicitly superseded branch heads to the active handoff replacing them."""
+    targets: dict[tuple[str, str], dict[str, str]] = {}
+    for path, payload in outbox_payloads:
+        superseder_key = str(payload.get("idempotency_key") or path.stem).strip()
+        superseder_branch = _branch_from_payload(payload)
+        for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+            branch = str(
+                local_evidence.get("supersedes_branch") or local_evidence.get("source_branch") or ""
+            ).strip()
+            head = str(
+                local_evidence.get("supersedes_head_sha")
+                or local_evidence.get("source_head_sha")
+                or ""
+            ).strip()
+            if not branch or not head:
+                continue
+            targets[(branch, head)] = {
+                "branch": superseder_branch,
+                "idempotency_key": superseder_key,
+                "path": str(path),
+            }
+    return targets
+
+
 def _write_synthetic_receipt(
     *,
     receipt_dir: Path,
@@ -253,6 +299,13 @@ def main(argv: list[str] | None = None) -> int:
     outbox_files = _list_json(outbox_dir)
     emit(f"  {len(outbox_files)} outbox files\n")
 
+    parsed_outbox_payloads: dict[Path, dict[str, Any]] = {}
+    for path in outbox_files:
+        payload = _load_json(path)
+        if isinstance(payload, dict):
+            parsed_outbox_payloads[path] = payload
+    superseded_targets = _superseded_targets(list(parsed_outbox_payloads.items()))
+
     open_prs_cache: dict[str, int] | None = None
     open_pr_state_available = False
 
@@ -271,6 +324,7 @@ def main(argv: list[str] | None = None) -> int:
 
     counts = {
         "satisfied_by_existing_receipt": 0,
+        "satisfied_by_superseded_handoff": 0,
         "satisfied_by_landed_on_main": 0,
         "satisfied_by_open_pr_merged": 0,  # placeholder; we only know open PRs
         "still_protecting_active_work": 0,
@@ -281,8 +335,8 @@ def main(argv: list[str] | None = None) -> int:
 
     actions: list[dict[str, Any]] = []
     for path in outbox_files:
-        payload = _load_json(path)
-        if not isinstance(payload, dict):
+        payload = parsed_outbox_payloads.get(path)
+        if payload is None:
             counts["skipped_unparseable"] += 1
             continue
         payload["__source_file"] = str(path)
@@ -305,6 +359,32 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
             if args.apply:
+                shutil.move(str(path), str(archive_dir / path.name))
+            continue
+
+        head = _head_from_payload(payload)
+        superseder = superseded_targets.get((branch, head)) if head else None
+        if superseder is not None and superseder["idempotency_key"] != idem:
+            reason = f"superseded by active handoff {superseder['idempotency_key']}"
+            counts["satisfied_by_superseded_handoff"] += 1
+            actions.append(
+                {
+                    "path": str(path),
+                    "branch": branch,
+                    "decision": "archive",
+                    "reason": reason,
+                    "superseded_by": superseder,
+                    "synthetic_receipt": True,
+                }
+            )
+            if args.apply:
+                _write_synthetic_receipt(
+                    receipt_dir=receipt_dir,
+                    outbox_payload=payload,
+                    reason=reason,
+                    pr_number=None,
+                    apply=True,
+                )
                 shutil.move(str(path), str(archive_dir / path.name))
             continue
 
