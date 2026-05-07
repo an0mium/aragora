@@ -5,12 +5,26 @@ description: Aragora Project Status
 
 # Aragora Project Status
 
-*Last updated: April 23, 2026*
+*Last updated: May 6, 2026*
 
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](./status).
 > The thesis settlement ledger lives at [status/2026-04-21-thesis-settlement-session.md](status/2026-04-21-thesis-settlement-session.md).
 > Historical sections below are retained for continuity, but the active source of truth for current project status is `docs/status/STATUS.md`.
 > See [README](../analysis/adr) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
+
+## May 6, 2026 — Proof Loop Operation Snapshot
+
+The older April note below is no longer the active operating picture.
+
+Current `main` has moved into operate-mode for the proof loop:
+
+- `docs/THESIS.md` is v4 canonical, not a draft awaiting another review.
+- Issue [#6375](https://github.com/synaptent/aragora/issues/6375) is closed.
+- `aragora/swarm/pr_review_protocol.py` now explicitly distinguishes `PROTOCOL_STATUS = "metadata_heuristic"` from `EXECUTED_PROTOCOL_STATUS = "heterogeneous_ensemble_v1"` and `FALLBACK_PROTOCOL_STATUS = "metadata_heuristic_fallback"`.
+- H1-01 rev-4 promotion is blocked by the canonical corpus freshness invariant: 16 staged issues have advisory dispatch evidence, but only 12 have metrics-backed `worker_outcome` evidence; 15 are required before promotion.
+- `docs/benchmarks/corpus.json` remains at the existing one-issue rev-4 corpus until the first rev-4 slice is metrics-backed promotion-ready.
+- Fresh B0 truth publication remains in `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`: 1 in-progress expected issue, 0 verified expected issues, and 0.0% current truth success.
+- `review-queue observe-outcomes` dry-run is currently blocked by missing settlement receipts under `.aragora/review-queue/receipts`; do not run `--write` until a real receipt slice exists and has been manually verified.
 
 ## April 21, 2026 — Canonical Reality Moved to Thesis + PDB Execution
 
