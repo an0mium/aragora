@@ -249,6 +249,22 @@ def test_main_accepts_status_cache_alias(
     assert parsed["cache_path"] == str(cache_path.resolve())
 
 
+def test_main_accepts_receipt_dir_for_queue_helper_compatibility(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _write_cache(stub_repo, outbox_count=0)
+    receipt_dir = stub_repo / ".aragora" / "automation-receipts"
+    receipt_dir.mkdir()
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+
+    rc = mod.main(["--repo", str(stub_repo), "--receipt-dir", str(receipt_dir), "--json"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["verdict"] == "ready"
+
+
 def test_main_exit_nonzero_on_degraded(
     monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
