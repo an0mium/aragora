@@ -11,10 +11,12 @@ truth.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import tempfile
-from collections.abc import Sequence
+from collections import Counter, defaultdict
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -40,6 +42,7 @@ DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_OUTPUT = Path(".aragora/automation-github-status/latest.json")
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
+DUPLICATE_OUTBOX_EXAMPLE_LIMIT = 20
 
 
 def _repo_root(path: Path) -> Path:
@@ -101,6 +104,88 @@ def _queue_file_key(path: Path) -> str:
     return path.stem
 
 
+def _mapping_from_action(value: Any) -> Mapping[str, Any] | None:
+    if isinstance(value, Mapping):
+        return value
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not (text.startswith("{") and text.endswith("}")):
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        parsed = None
+    if isinstance(parsed, Mapping):
+        return parsed
+    try:
+        parsed = ast.literal_eval(text)
+    except (SyntaxError, ValueError):
+        return None
+    if isinstance(parsed, Mapping):
+        return parsed
+    return None
+
+
+def _local_evidence_mappings(value: Any) -> list[Mapping[str, Any]]:
+    if isinstance(value, Mapping):
+        return [value]
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [item for item in value if isinstance(item, Mapping)]
+    return []
+
+
+def _queue_file_branch(path: Path) -> str:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        branch = str(local_evidence.get("branch") or "").strip()
+        if branch:
+            return branch
+    branch = str(payload.get("branch") or "").strip()
+    if branch:
+        return branch
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is None:
+        return ""
+    return str(requested_action.get("branch") or "").strip()
+
+
+def _duplicate_key_summaries(keys: Sequence[str]) -> list[dict[str, Any]]:
+    counts = Counter(keys)
+    return [
+        {"idempotency_key": key, "count": count}
+        for key, count in sorted(counts.items())
+        if count > 1
+    ][:DUPLICATE_OUTBOX_EXAMPLE_LIMIT]
+
+
+def _duplicate_branch_summaries(
+    files: Sequence[tuple[Path, str, str]],
+) -> list[dict[str, Any]]:
+    by_branch: dict[str, list[tuple[Path, str]]] = defaultdict(list)
+    for path, key, branch in files:
+        if branch:
+            by_branch[branch].append((path, key))
+    summaries: list[dict[str, Any]] = []
+    for branch, entries in sorted(by_branch.items()):
+        if len(entries) <= 1:
+            continue
+        summaries.append(
+            {
+                "branch": branch,
+                "count": len(entries),
+                "files": [path.name for path, _key in entries],
+                "idempotency_keys": [key for _path, key in entries],
+            }
+        )
+    return summaries[:DUPLICATE_OUTBOX_EXAMPLE_LIMIT]
+
+
 def _terminal_receipt_key(path: Path) -> str | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -158,12 +243,32 @@ def _local_queue_state(
     nonterminal_receipts = [
         item for item in receipt_states if item["status"] not in TERMINAL_RECEIPT_STATUSES
     ]
-    outbox_keys = [_queue_file_key(item) for item in outbox_files]
+    outbox_items = [
+        (item, _queue_file_key(item), _queue_file_branch(item)) for item in outbox_files
+    ]
+    outbox_keys = [key for _item, key, _branch in outbox_items]
+    outbox_branch_count = sum(1 for _item, _key, branch in outbox_items if branch)
+    unique_outbox_branches = {branch for _item, _key, branch in outbox_items if branch}
+    outbox_key_counts = Counter(outbox_keys)
+    outbox_branch_counts = Counter(branch for _item, _key, branch in outbox_items if branch)
+    duplicate_idempotency_keys = _duplicate_key_summaries(outbox_keys)
+    duplicate_outbox_branches = _duplicate_branch_summaries(outbox_items)
     terminal_receipted_outbox_count = sum(1 for key in outbox_keys if key in terminal_receipt_keys)
     return {
         "outbox_dir": str(outbox),
         "receipt_dir": str(receipts),
         "outbox_count": len(outbox_files),
+        "outbox_unique_idempotency_count": len(set(outbox_keys)),
+        "outbox_duplicate_idempotency_count": sum(
+            count - 1 for count in outbox_key_counts.values() if count > 1
+        ),
+        "outbox_duplicate_idempotency_keys": duplicate_idempotency_keys,
+        "outbox_branch_count": outbox_branch_count,
+        "outbox_unique_branch_count": len(unique_outbox_branches),
+        "outbox_duplicate_branch_count": sum(
+            count - 1 for count in outbox_branch_counts.values() if count > 1
+        ),
+        "outbox_duplicate_branches": duplicate_outbox_branches,
         "receipt_count": len(receipt_files),
         "terminal_receipt_count": len(terminal_receipt_keys),
         "nonterminal_receipt_count": len(nonterminal_receipts),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +80,57 @@ def test_local_queue_state_matches_receipts_by_idempotency_key(tmp_path: Path) -
     assert payload["nonterminal_receipts"] == []
     assert payload["terminal_receipted_outbox_count"] == 1
     assert payload["unreceipted_outbox_count"] == 0
+
+
+def test_local_queue_state_reports_duplicate_outbox_handoffs_by_branch(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    first_key = "open-pr-codex-example-abc123"
+    second_key = "open-pr-codex-example-def456"
+    payloads = {
+        "first.json": {
+            "idempotency_key": first_key,
+            "requested_action": {"type": "open_pr", "branch": "codex/example"},
+        },
+        "second.json": {
+            "idempotency_key": second_key,
+            "requested_action": json.dumps({"type": "open_pr", "branch": "codex/example"}),
+        },
+        "third.json": {
+            "idempotency_key": second_key,
+            "local_evidence": {"branch": "codex/example"},
+        },
+    }
+    for name, payload in payloads.items():
+        (outbox / name).write_text(json.dumps(payload), encoding="utf-8")
+
+    payload = mod._local_queue_state(
+        repo_root=tmp_path,
+        outbox_dir=None,
+        receipt_dir=None,
+    )
+
+    assert payload["outbox_count"] == 3
+    assert payload["outbox_unique_idempotency_count"] == 2
+    assert payload["outbox_duplicate_idempotency_count"] == 1
+    assert payload["outbox_duplicate_idempotency_keys"] == [
+        {"idempotency_key": second_key, "count": 2}
+    ]
+    assert payload["outbox_branch_count"] == 3
+    assert payload["outbox_unique_branch_count"] == 1
+    assert payload["outbox_duplicate_branch_count"] == 2
+    assert payload["outbox_duplicate_branches"] == [
+        {
+            "branch": "codex/example",
+            "count": 3,
+            "files": ["first.json", "second.json", "third.json"],
+            "idempotency_keys": [first_key, second_key, second_key],
+        }
+    ]
 
 
 def test_local_queue_state_ignores_nonterminal_receipts(tmp_path: Path) -> None:
