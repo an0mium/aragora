@@ -362,20 +362,6 @@ def main(argv: list[str] | None = None) -> int:
                 shutil.move(str(path), str(archive_dir / path.name))
             continue
 
-        open_prs, _open_pr_state_available = load_open_pr_state()
-        if branch in open_prs:
-            counts["still_protecting_active_work"] += 1
-            actions.append(
-                {
-                    "path": str(path),
-                    "branch": branch,
-                    "decision": "keep",
-                    "reason": f"branch has open PR #{open_prs[branch]}",
-                    "synthetic_receipt": False,
-                }
-            )
-            continue
-
         if _branch_has_landed_on_main(root, args.base, branch):
             counts["satisfied_by_landed_on_main"] += 1
             actions.append(
@@ -396,6 +382,20 @@ def main(argv: list[str] | None = None) -> int:
                     apply=True,
                 )
                 shutil.move(str(path), str(archive_dir / path.name))
+            continue
+
+        open_prs, _open_pr_state_available = load_open_pr_state()
+        if branch in open_prs:
+            counts["still_protecting_active_work"] += 1
+            actions.append(
+                {
+                    "path": str(path),
+                    "branch": branch,
+                    "decision": "keep",
+                    "reason": f"branch has open PR #{open_prs[branch]}",
+                    "synthetic_receipt": False,
+                }
+            )
             continue
 
         counts["still_protecting_active_work"] += 1
