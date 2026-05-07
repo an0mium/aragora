@@ -1519,6 +1519,54 @@ def test_main_reports_github_health_when_unavailable(
     assert '"reason": "github_unavailable"' in out
 
 
+def test_main_limits_github_unavailable_decision_preview(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    handoffs = [
+        Handoff(
+            source_file=str(tmp_path / "first.md"),
+            task_title="First offline handoff",
+            priority="MEDIUM",
+            body="body",
+            labels={},
+            expires_at=None,
+        ),
+        Handoff(
+            source_file=str(tmp_path / "second.md"),
+            task_title="Second offline handoff",
+            priority="MEDIUM",
+            body="body",
+            labels={},
+            expires_at=None,
+        ),
+    ]
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: handoffs)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=True,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(
+        ["--repo", str(tmp_path), "--codex-home", str(tmp_path), "--json", "--limit", "1"]
+    )
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["handoff_count"] == 2
+    assert len(payload["decisions"]) == 1
+    assert payload["decisions"][0]["task_title"] == "First offline handoff"
+    assert payload["decisions"][0]["reason"] == "github_unavailable"
+
+
 def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path) -> None:
     bodies: list[str] = []
 

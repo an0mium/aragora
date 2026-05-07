@@ -1308,6 +1308,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     github_health = check_github_cli_health(repo_root)
     if not github_health.ready:
+        decision_handoffs = handoffs[: max(args.limit, 0)]
         payload = {
             "repo": str(repo_root),
             "codex_home": str(codex_home),
@@ -1329,7 +1330,7 @@ def main(argv: list[str] | None = None) -> int:
                         reason="github_unavailable",
                     )
                 )
-                for handoff in handoffs
+                for handoff in decision_handoffs
             ],
         }
         if args.json:
