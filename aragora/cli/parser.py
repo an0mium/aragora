@@ -1638,6 +1638,45 @@ def _add_review_queue_parser(subparsers) -> None:
     )
     act_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
 
+    record_parser = queue_subparsers.add_parser(
+        "record-settlement",
+        help="Record an already-authorized PR settlement without mutating GitHub",
+    )
+    record_parser.add_argument("pr", help="PR number or URL")
+    record_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    record_parser.add_argument(
+        "--head-sha",
+        required=True,
+        help="Exact PR head SHA that was externally settled.",
+    )
+    record_parser.add_argument(
+        "--action",
+        required=True,
+        choices=("approve", "request_changes", "comment", "admin_squash_merge"),
+        help="Externally observed settlement action to record.",
+    )
+    record_parser.add_argument(
+        "--reason",
+        required=True,
+        help="One-line operator reason or authorization reference.",
+    )
+    record_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue root used for settlement receipts.",
+    )
+    record_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output local receipt as JSON.",
+    )
+    record_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
+
     baseline_parser = queue_subparsers.add_parser(
         "baseline",
         help="Measure empirical invalidation baseline from on-disk stores (#6375)",

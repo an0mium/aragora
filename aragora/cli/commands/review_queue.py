@@ -246,6 +246,27 @@ class SettlementReceipt:
         return asdict(self)
 
 
+@dataclass(slots=True)
+class RecordedSettlementResult:
+    """Command-facing wrapper for local-only settlement receipt records."""
+
+    receipt: SettlementReceipt
+    receipt_sha256: str
+    idempotent: bool
+    written: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = self.receipt.to_dict()
+        payload.update(
+            {
+                "receipt_sha256": self.receipt_sha256,
+                "idempotent": self.idempotent,
+                "written": self.written,
+            }
+        )
+        return payload
+
+
 # --- Parser registration ---------------------------------------------------
 
 
@@ -336,6 +357,50 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         help="One-line human reason (required for --request-changes and --defer)",
     )
     act_p.add_argument("--json", action="store_true", help="Output settlement receipt as JSON")
+
+    record_p = sub.add_parser(
+        "record-settlement",
+        help="Record an already-authorized PR settlement without mutating GitHub",
+        description=(
+            "Write a local review-queue settlement receipt after an external\n"
+            "operator decision, such as an exact-head admin squash merge. This\n"
+            "is local-only: it verifies the live PR head/state, writes under\n"
+            ".aragora/review-queue/receipts (or --review-queue-root), and does\n"
+            "not approve, comment, merge, or otherwise mutate GitHub."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    record_p.add_argument("pr", help="PR number or URL")
+    record_p.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    record_p.add_argument(
+        "--head-sha",
+        required=True,
+        help="Exact PR head SHA that was externally settled.",
+    )
+    record_p.add_argument(
+        "--action",
+        required=True,
+        choices=("approve", "request_changes", "comment", "admin_squash_merge"),
+        help="Externally observed settlement action to record.",
+    )
+    record_p.add_argument(
+        "--reason",
+        required=True,
+        help="One-line operator reason or authorization reference.",
+    )
+    record_p.add_argument(
+        "--review-queue-root",
+        default=None,
+        help=(
+            "Override the review-queue store root used for settlement "
+            "receipts. Defaults to <repo>/.aragora/review-queue."
+        ),
+    )
+    record_p.add_argument("--json", action="store_true", help="Output local receipt as JSON")
 
     merge_packet_p = sub.add_parser(
         "merge-packet",
@@ -468,6 +533,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_run(args)
     if command == "act":
         return _cmd_act(args)
+    if command == "record-settlement":
+        return _cmd_record_settlement(args)
     if command == "merge-packet":
         return _cmd_merge_packet(args)
     if command == "baseline":
@@ -478,7 +545,7 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return cmd_observe_outcomes(args)
     print(
         "Usage: aragora review-queue "
-        "{build,packet,run,act,merge-packet,baseline,observe-outcomes} [...]\n"
+        "{build,packet,run,act,record-settlement,merge-packet,baseline,observe-outcomes} [...]\n"
         "Run 'aragora review-queue run --help' for the human settlement loop.",
         file=sys.stderr,
     )
@@ -654,6 +721,40 @@ def _cmd_act(args: argparse.Namespace) -> int:
         print(json.dumps(receipt.to_dict(), indent=2))
     else:
         _render_settlement_receipt(receipt)
+    return 0
+
+
+def _cmd_record_settlement(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
+    action = str(getattr(args, "action", "") or "").strip()
+    reason = str(getattr(args, "reason", "") or "").strip()
+    head_sha = str(getattr(args, "head_sha", "") or "").strip()
+    if not reason:
+        print("error: --reason is required", file=sys.stderr)
+        return 2
+    if not head_sha:
+        print("error: --head-sha is required", file=sys.stderr)
+        return 2
+
+    repo_root = resolve_repo_root(Path.cwd())
+    try:
+        _require_clean_worktree(repo_root)
+        result = _record_external_settlement(
+            pr_ref=str(getattr(args, "pr")),
+            head_sha=head_sha,
+            action=action,
+            reason=reason,
+            repo_root=repo_root,
+            repo_override=getattr(args, "repo", None),
+            review_queue_root=getattr(args, "review_queue_root", None),
+        )
+    except _GhError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if json_output:
+        print(json.dumps(result.to_dict(), indent=2))
+    else:
+        _render_recorded_settlement_result(result)
     return 0
 
 
@@ -1813,6 +1914,18 @@ def _github_settlement_event(action: str) -> str:
     return "COMMENT"
 
 
+def _recorded_settlement_event(action: str) -> str:
+    if action == "admin_squash_merge":
+        return "ADMIN_SQUASH_MERGE"
+    if action == "approve":
+        return "RECORDED_EXTERNAL_APPROVE"
+    if action == "request_changes":
+        return "RECORDED_EXTERNAL_REQUEST_CHANGES"
+    if action == "comment":
+        return "RECORDED_EXTERNAL_COMMENT"
+    raise _GhError(f"unsupported recorded settlement action: {action!r}")
+
+
 def _settlement_body(packet: ReviewPacket, *, action: str, reason: str) -> str:
     lines = [
         "Human settlement via `aragora review-queue`.",
@@ -1889,6 +2002,212 @@ def _settle_packet(
     receipt.receipt_path = str(receipt_path)
     _write_json(receipt_path, receipt.to_dict())
     return receipt
+
+
+def _recorded_settlement_session_id(*, pr_number: int, head_sha: str, action: str) -> str:
+    action_part = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in action)
+    return f"recorded-{pr_number}-{head_sha[:12]}-{action_part}"
+
+
+def _settlement_receipt_path_for_root(
+    review_queue_root: Path,
+    *,
+    session_id: str,
+    pr_number: int,
+    action: str,
+) -> Path:
+    filename = f"pr-{pr_number}-{session_id}-{action}.json"
+    return review_queue_root / "receipts" / filename
+
+
+def _receipt_file_sha256(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _recorded_packet_sha(
+    *,
+    pr_number: int,
+    pr_url: str,
+    head_sha: str,
+    base_sha: str,
+    action: str,
+    reason: str,
+    github_state: str,
+    merged_at: str,
+) -> str:
+    payload = {
+        "kind": "review_queue_recorded_external_settlement.v1",
+        "pr_number": pr_number,
+        "pr_url": pr_url,
+        "head_sha": head_sha,
+        "base_sha": base_sha,
+        "action": action,
+        "reason": reason,
+        "github_state": github_state,
+        "merged_at": merged_at,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _read_receipt_payload(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise _GhError(f"existing settlement receipt is unreadable: {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise _GhError(f"existing settlement receipt is not a JSON object: {path}")
+    return payload
+
+
+def _settlement_receipt_from_payload(payload: dict[str, Any]) -> SettlementReceipt:
+    field_names = {f.name for f in SettlementReceipt.__dataclass_fields__.values()}
+    return SettlementReceipt(**{k: v for k, v in payload.items() if k in field_names})
+
+
+def _recorded_settlement_core(payload: dict[str, Any]) -> dict[str, Any]:
+    keys = {
+        "session_id",
+        "action",
+        "reason",
+        "pr_number",
+        "pr_url",
+        "head_sha",
+        "base_sha",
+        "packet_sha",
+        "queue_bucket",
+        "machine_recommendation",
+        "github_event",
+    }
+    return {key: payload.get(key) for key in sorted(keys)}
+
+
+def _resolve_review_queue_root_override(repo_root: Path, raw_root: str | Path | None) -> Path:
+    if raw_root is None or str(raw_root).strip() == "":
+        return _review_queue_root(repo_root)
+    path = Path(raw_root).expanduser()
+    if not path.is_absolute():
+        path = repo_root / path
+    return path
+
+
+def _pr_view_for_recorded_settlement(
+    pr_number: int,
+    *,
+    repo_override: str | None,
+) -> dict[str, Any]:
+    fields = "number,url,headRefOid,baseRefOid,state,mergedAt"
+    args = ["pr", "view", str(pr_number), "--json", fields]
+    if repo_override:
+        args.extend(["--repo", repo_override])
+    payload = _gh_json(args)
+    if not isinstance(payload, dict):
+        raise _GhError(f"PR #{pr_number} not found while recording settlement")
+    return payload
+
+
+def _record_external_settlement(
+    *,
+    pr_ref: str,
+    head_sha: str,
+    action: str,
+    reason: str,
+    repo_root: Path,
+    repo_override: str | None,
+    review_queue_root: str | Path | None,
+) -> RecordedSettlementResult:
+    pr_number = _parse_pr_number(pr_ref)
+    expected_head_sha = str(head_sha or "").strip()
+    if not expected_head_sha:
+        raise _GhError("--head-sha is required")
+    reason = str(reason or "").strip()
+    if not reason:
+        raise _GhError("--reason is required")
+    github_event = _recorded_settlement_event(action)
+
+    pr_payload = _pr_view_for_recorded_settlement(pr_number, repo_override=repo_override)
+    current_head_sha = str(pr_payload.get("headRefOid", "") or "").strip()
+    if current_head_sha != expected_head_sha:
+        raise _GhError(
+            f"PR #{pr_number} head changed from {expected_head_sha} to {current_head_sha}; "
+            "record only the exact externally settled head"
+        )
+    github_state = str(pr_payload.get("state", "") or "").strip().upper()
+    merged_at = str(pr_payload.get("mergedAt", "") or "").strip()
+    if action == "admin_squash_merge" and github_state != "MERGED":
+        raise _GhError(
+            "admin_squash_merge records require the PR to be MERGED on GitHub; "
+            f"current state is {github_state or 'unknown'}"
+        )
+
+    pr_url = str(pr_payload.get("url", "") or "").strip()
+    base_sha = str(pr_payload.get("baseRefOid", "") or "").strip()
+    packet_sha = _recorded_packet_sha(
+        pr_number=pr_number,
+        pr_url=pr_url,
+        head_sha=expected_head_sha,
+        base_sha=base_sha,
+        action=action,
+        reason=reason,
+        github_state=github_state,
+        merged_at=merged_at,
+    )
+    session_id = _recorded_settlement_session_id(
+        pr_number=pr_number,
+        head_sha=expected_head_sha,
+        action=action,
+    )
+    reviewed_at = (
+        merged_at.replace("Z", "+00:00")
+        if action == "admin_squash_merge" and merged_at
+        else datetime.now(UTC).isoformat()
+    )
+    receipt = SettlementReceipt(
+        session_id=session_id,
+        reviewed_at=reviewed_at,
+        actor=_github_actor(),
+        action=action,
+        reason=reason,
+        pr_number=pr_number,
+        pr_url=pr_url,
+        head_sha=expected_head_sha,
+        base_sha=base_sha,
+        packet_sha=packet_sha,
+        queue_bucket="external_settlement",
+        machine_recommendation="operator_recorded_external_settlement",
+        github_event=github_event,
+    )
+    root = _resolve_review_queue_root_override(repo_root, review_queue_root)
+    receipt_path = _settlement_receipt_path_for_root(
+        root,
+        session_id=session_id,
+        pr_number=pr_number,
+        action=action,
+    )
+    receipt.receipt_path = str(receipt_path)
+    new_payload = receipt.to_dict()
+    if receipt_path.exists():
+        existing_payload = _read_receipt_payload(receipt_path)
+        if _recorded_settlement_core(existing_payload) != _recorded_settlement_core(new_payload):
+            raise _GhError(
+                "conflicting settlement receipt already exists for "
+                f"PR #{pr_number} head {expected_head_sha} action {action}: {receipt_path}"
+            )
+        existing_receipt = _settlement_receipt_from_payload(existing_payload)
+        return RecordedSettlementResult(
+            receipt=existing_receipt,
+            receipt_sha256=_receipt_file_sha256(receipt_path),
+            idempotent=True,
+            written=False,
+        )
+
+    _write_json(receipt_path, new_payload)
+    return RecordedSettlementResult(
+        receipt=receipt,
+        receipt_sha256=_receipt_file_sha256(receipt_path),
+        idempotent=False,
+        written=True,
+    )
 
 
 def _render_changed_files(pr_number: int, *, repo_override: str | None) -> None:
@@ -2092,6 +2411,13 @@ def _render_settlement_receipt(receipt: SettlementReceipt) -> None:
     if receipt.elapsed_seconds is not None:
         print(f"  elapsed:      {receipt.elapsed_seconds:.3f}s")
     print(f"  receipt:      {receipt.receipt_path}")
+
+
+def _render_recorded_settlement_result(result: RecordedSettlementResult) -> None:
+    _render_settlement_receipt(result.receipt)
+    print(f"  receipt sha:  {result.receipt_sha256}")
+    print(f"  idempotent:   {str(result.idempotent).lower()}")
+    print(f"  written:      {str(result.written).lower()}")
 
 
 def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:

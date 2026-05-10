@@ -30,6 +30,7 @@ from aragora.cli.commands.review_queue import (
     _GhError,
     _is_high_risk_path,
     _parse_pr_number,
+    _record_external_settlement,
     _requested_action,
     _settle_packet,
     _subsystem_for,
@@ -1326,11 +1327,58 @@ class TestCommandDispatch:
         assert ns_act.pr == "6280"
         assert ns_act.request_changes is True
         assert ns_act.reason == "needs a test"
+        # local-only external settlement recording parses
+        ns_record = root.parse_args(
+            [
+                "review-queue",
+                "record-settlement",
+                "6280",
+                "--head-sha",
+                "headsha123",
+                "--action",
+                "admin_squash_merge",
+                "--reason",
+                "operator authorized exact-head merge",
+                "--json",
+            ]
+        )
+        assert ns_record.review_queue_command == "record-settlement"
+        assert ns_record.pr == "6280"
+        assert ns_record.head_sha == "headsha123"
+        assert ns_record.action == "admin_squash_merge"
+        assert ns_record.reason == "operator authorized exact-head merge"
 
     def test_cmd_review_queue_with_no_subcommand_returns_2(self) -> None:
         ns = argparse.Namespace(review_queue_command=None)
         rc = cmd_review_queue(ns)
         assert rc == 2
+
+    def test_top_level_parser_registers_record_settlement(self) -> None:
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        ns = parser.parse_args(
+            [
+                "review-queue",
+                "record-settlement",
+                "6280",
+                "--head-sha",
+                "headsha123",
+                "--action",
+                "admin_squash_merge",
+                "--reason",
+                "operator authorized exact-head merge",
+                "--json",
+            ]
+        )
+
+        assert ns.command == "review-queue"
+        assert ns.review_queue_command == "record-settlement"
+        assert ns.pr == "6280"
+        assert ns.head_sha == "headsha123"
+        assert ns.action == "admin_squash_merge"
+        assert ns.reason == "operator authorized exact-head merge"
+        assert ns.json_output is True
 
 
 class TestSettlementHelpers:
@@ -1446,6 +1494,217 @@ class TestSettlementHelpers:
                 repo_override=None,
                 session_id="session-2",
             )
+
+    def test_record_external_settlement_writes_local_receipt(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "MERGED",
+                    "mergedAt": "2026-05-10T08:00:00Z",
+                }
+            if args == ["api", "user"]:
+                return {"login": "an0mium"}
+            raise AssertionError(args)
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        result = _record_external_settlement(
+            pr_ref="6294",
+            head_sha="headsha123",
+            action="admin_squash_merge",
+            reason="operator authorized exact-head merge",
+            repo_root=tmp_path,
+            repo_override=None,
+            review_queue_root=None,
+        )
+
+        assert result.written is True
+        assert result.idempotent is False
+        assert result.receipt_sha256.startswith("sha256:")
+        assert result.receipt.action == "admin_squash_merge"
+        assert result.receipt.actor == "an0mium"
+        assert result.receipt.reviewed_at == "2026-05-10T08:00:00+00:00"
+        assert result.receipt.github_event == "ADMIN_SQUASH_MERGE"
+        assert result.receipt.queue_bucket == "external_settlement"
+        assert result.receipt.machine_recommendation == "operator_recorded_external_settlement"
+        saved = json.loads(Path(result.receipt.receipt_path).read_text())
+        assert saved["pr_number"] == 6294
+        assert saved["head_sha"] == "headsha123"
+        assert saved["packet_sha"].startswith("sha256:")
+
+    def test_record_external_settlement_is_idempotent(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "MERGED",
+                    "mergedAt": "2026-05-10T08:00:00Z",
+                }
+            if args == ["api", "user"]:
+                return {"login": "an0mium"}
+            raise AssertionError(args)
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        first = _record_external_settlement(
+            pr_ref="6294",
+            head_sha="headsha123",
+            action="admin_squash_merge",
+            reason="operator authorized exact-head merge",
+            repo_root=tmp_path,
+            repo_override=None,
+            review_queue_root=None,
+        )
+        second = _record_external_settlement(
+            pr_ref="6294",
+            head_sha="headsha123",
+            action="admin_squash_merge",
+            reason="operator authorized exact-head merge",
+            repo_root=tmp_path,
+            repo_override=None,
+            review_queue_root=None,
+        )
+
+        assert first.receipt.receipt_path == second.receipt.receipt_path
+        assert second.written is False
+        assert second.idempotent is True
+        assert second.receipt_sha256 == first.receipt_sha256
+
+    def test_record_external_settlement_rejects_conflicting_existing_receipt(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "MERGED",
+                    "mergedAt": "2026-05-10T08:00:00Z",
+                }
+            if args == ["api", "user"]:
+                return {"login": "an0mium"}
+            raise AssertionError(args)
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        _record_external_settlement(
+            pr_ref="6294",
+            head_sha="headsha123",
+            action="admin_squash_merge",
+            reason="operator authorized exact-head merge",
+            repo_root=tmp_path,
+            repo_override=None,
+            review_queue_root=None,
+        )
+        with pytest.raises(_GhError, match="conflicting settlement receipt"):
+            _record_external_settlement(
+                pr_ref="6294",
+                head_sha="headsha123",
+                action="admin_squash_merge",
+                reason="different operator reason",
+                repo_root=tmp_path,
+                repo_override=None,
+                review_queue_root=None,
+            )
+
+    def test_record_external_settlement_rejects_head_mismatch(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: {
+                "number": 6294,
+                "url": "https://github.com/synaptent/aragora/pull/6294",
+                "headRefOid": "new-head",
+                "baseRefOid": "basesha123",
+                "state": "MERGED",
+                "mergedAt": "2026-05-10T08:00:00Z",
+            },
+        )
+
+        with pytest.raises(_GhError, match="exact externally settled head"):
+            _record_external_settlement(
+                pr_ref="6294",
+                head_sha="headsha123",
+                action="admin_squash_merge",
+                reason="operator authorized exact-head merge",
+                repo_root=tmp_path,
+                repo_override=None,
+                review_queue_root=None,
+            )
+
+    def test_record_external_settlement_rejects_unmerged_admin_merge(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: {
+                "number": 6294,
+                "url": "https://github.com/synaptent/aragora/pull/6294",
+                "headRefOid": "headsha123",
+                "baseRefOid": "basesha123",
+                "state": "OPEN",
+                "mergedAt": "",
+            },
+        )
+
+        with pytest.raises(_GhError, match="require the PR to be MERGED"):
+            _record_external_settlement(
+                pr_ref="6294",
+                head_sha="headsha123",
+                action="admin_squash_merge",
+                reason="operator authorized exact-head merge",
+                repo_root=tmp_path,
+                repo_override=None,
+                review_queue_root=None,
+            )
+
+    def test_record_settlement_command_surfaces_github_unavailable(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue.resolve_repo_root",
+            lambda cwd: tmp_path,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._require_clean_worktree",
+            lambda repo_root: None,
+        )
+
+        def _raise_gh(args: list[str]) -> None:
+            raise _GhError("gh unavailable")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _raise_gh)
+        ns = argparse.Namespace(
+            review_queue_command="record-settlement",
+            pr="6294",
+            repo=None,
+            head_sha="headsha123",
+            action="admin_squash_merge",
+            reason="operator authorized exact-head merge",
+            review_queue_root=None,
+            json=False,
+        )
+
+        err_buf = io.StringIO()
+        with redirect_stderr(err_buf):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert "gh unavailable" in err_buf.getvalue()
 
     def test_build_command_renders_table(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
