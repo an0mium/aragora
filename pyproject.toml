@@ -45,7 +45,7 @@ blockchain = [
 enterprise = [
     "asyncpg>=0.31.0,<1.0",
     "python3-saml>=1.16.0,<2.0",
-    "supabase>=2.0,<3.0",
+    "supabase>=2.30.0,<3.0",
 ]
 connectors = [
     "aiokafka>=0.10,<1.0",
@@ -66,7 +66,7 @@ all = [
     "web3>=7.16.0,<8.0",
     "asyncpg>=0.31.0,<1.0",
     "python3-saml>=1.16.0,<2.0",
-    "supabase>=2.0,<3.0",
+    "supabase>=2.30.0,<3.0",
     "aiokafka>=0.10,<1.0",
     "aio-pika>=9.6.2,<10.0",
     "playwright>=1.59.0,<2.0",
