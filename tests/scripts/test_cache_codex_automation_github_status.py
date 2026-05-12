@@ -82,6 +82,121 @@ def test_local_queue_state_matches_receipts_by_idempotency_key(tmp_path: Path) -
     assert payload["unreceipted_outbox_count"] == 0
 
 
+def test_local_queue_state_treats_stale_target_pr_receipt_as_unreceipted(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-example-refresh"
+    branch = "codex/example"
+    desired_head = "a" * 40
+    remote_head = "b" * 40
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "local_evidence": {
+                    "branch": branch,
+                    "desired_head_sha": desired_head,
+                },
+                "requested_action": {
+                    "branch": branch,
+                    "desired_head_sha": desired_head,
+                    "target_pr": "https://github.com/synaptent/aragora/pull/123",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / "receipt.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "reason": "target_open_pr",
+                "status": "already_satisfied",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_remote_tracking_head", lambda _repo, _branch: remote_head)
+
+    payload = mod._local_queue_state(
+        repo_root=tmp_path,
+        outbox_dir=None,
+        receipt_dir=None,
+    )
+
+    assert payload["outbox_count"] == 1
+    assert payload["terminal_receipt_count"] == 1
+    assert payload["terminal_receipted_outbox_count"] == 0
+    assert payload["unreceipted_outbox_count"] == 1
+    assert payload["stale_target_pr_receipted_outbox_count"] == 1
+    assert payload["stale_target_pr_receipted_outbox"] == [
+        {
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "file": "handoff.json",
+            "idempotency_key": key,
+            "reason": "remote_tracking_head_mismatch",
+            "receipt_file": "receipt.json",
+            "remote_head_sha": remote_head,
+        }
+    ]
+
+
+def test_local_queue_state_counts_target_pr_receipt_when_remote_head_matches(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-example-refresh"
+    branch = "codex/example"
+    desired_head = "a" * 40
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "local_evidence": {
+                    "branch": branch,
+                    "desired_head_sha": desired_head,
+                },
+                "requested_action": {
+                    "branch": branch,
+                    "target_pr": "https://github.com/synaptent/aragora/pull/123",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / "receipt.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "reason": "target_open_pr",
+                "status": "already_satisfied",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_remote_tracking_head", lambda _repo, _branch: desired_head)
+
+    payload = mod._local_queue_state(
+        repo_root=tmp_path,
+        outbox_dir=None,
+        receipt_dir=None,
+    )
+
+    assert payload["terminal_receipted_outbox_count"] == 1
+    assert payload["unreceipted_outbox_count"] == 0
+    assert payload["stale_target_pr_receipted_outbox_count"] == 0
+
+
 def test_local_queue_state_reports_duplicate_outbox_handoffs_by_branch(
     tmp_path: Path,
 ) -> None:

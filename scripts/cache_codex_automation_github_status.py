@@ -14,6 +14,7 @@ import argparse
 import ast
 import json
 import os
+import subprocess
 import tempfile
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
@@ -165,6 +166,117 @@ def _queue_file_branch(path: Path) -> str:
     return str(requested_action.get("branch") or "").strip()
 
 
+def _payload_head(payload: Mapping[str, Any], keys: Sequence[str]) -> str:
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        for key in keys:
+            head = str(local_evidence.get(key) or "").strip()
+            if head:
+                return head
+
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is not None:
+        for key in keys:
+            head = str(requested_action.get(key) or "").strip()
+            if head:
+                return head
+
+    for key in keys:
+        head = str(payload.get(key) or "").strip()
+        if head:
+            return head
+    return ""
+
+
+def _desired_head_from_outbox(payload: Mapping[str, Any]) -> str:
+    return _payload_head(
+        payload,
+        ("desired_head_sha", "target_head_sha", "head_sha", "head", "commit"),
+    )
+
+
+def _head_from_receipt(payload: Mapping[str, Any]) -> str:
+    for key in (
+        "published_head_sha",
+        "target_pr_head_sha",
+        "headRefOid",
+        "head_ref_oid",
+        "head_sha",
+        "head",
+        "commit",
+    ):
+        head = str(payload.get(key) or "").strip()
+        if head:
+            return head
+    return ""
+
+
+def _requests_target_pr(payload: Mapping[str, Any]) -> bool:
+    if str(payload.get("target_pr") or "").strip():
+        return True
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is None:
+        return False
+    return bool(str(requested_action.get("target_pr") or "").strip())
+
+
+def _remote_tracking_head(repo_root: Path, branch: str) -> str:
+    branch = branch.strip()
+    if not branch:
+        return ""
+    remote_ref = branch if branch.startswith("origin/") else f"origin/{branch}"
+    proc = subprocess.run(
+        [
+            "git",
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            "--end-of-options",
+            f"{remote_ref}^{{commit}}",
+        ],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout.strip()
+
+
+def _stale_target_pr_receipt_evidence(
+    *,
+    repo_root: Path,
+    outbox_payload: Mapping[str, Any],
+    branch: str,
+    receipt_payload: Mapping[str, Any],
+) -> dict[str, str] | None:
+    reason = str(receipt_payload.get("reason") or "").strip().lower()
+    if reason != "target_open_pr" or not _requests_target_pr(outbox_payload):
+        return None
+
+    desired_head = _desired_head_from_outbox(outbox_payload)
+    if not desired_head:
+        return None
+
+    receipt_head = _head_from_receipt(receipt_payload)
+    if receipt_head and receipt_head != desired_head:
+        return {
+            "desired_head_sha": desired_head,
+            "receipt_head_sha": receipt_head,
+            "reason": "receipt_head_mismatch",
+        }
+
+    remote_head = _remote_tracking_head(repo_root, branch)
+    if remote_head and remote_head != desired_head:
+        return {
+            "desired_head_sha": desired_head,
+            "remote_head_sha": remote_head,
+            "reason": "remote_tracking_head_mismatch",
+        }
+    return None
+
+
 def _duplicate_key_summaries(keys: Sequence[str]) -> list[dict[str, Any]]:
     counts = Counter(keys)
     return [
@@ -196,18 +308,29 @@ def _duplicate_branch_summaries(
     return summaries[:DUPLICATE_OUTBOX_EXAMPLE_LIMIT]
 
 
-def _terminal_receipt_key(path: Path) -> str | None:
+def _terminal_receipts_by_key(
+    receipt_files: Sequence[Path],
+) -> dict[str, list[tuple[Path, dict[str, Any]]]]:
+    by_key: dict[str, list[tuple[Path, dict[str, Any]]]] = defaultdict(list)
+    for path in receipt_files:
+        payload = _load_json_mapping(path)
+        if payload is None:
+            continue
+        status = str(payload.get("status") or "").strip().lower()
+        if status not in TERMINAL_RECEIPT_STATUSES:
+            continue
+        key = str(payload.get("idempotency_key") or path.stem).strip()
+        if key:
+            by_key[key].append((path, payload))
+    return by_key
+
+
+def _load_json_mapping(path: Path) -> dict[str, Any] | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    if not isinstance(payload, dict):
-        return None
-    status = str(payload.get("status") or "").strip().lower()
-    if status not in TERMINAL_RECEIPT_STATUSES:
-        return None
-    key = str(payload.get("idempotency_key") or "").strip()
-    return key or path.stem
+    return payload if isinstance(payload, dict) else None
 
 
 def _receipt_state(path: Path) -> dict[str, str]:
@@ -245,11 +368,8 @@ def _local_queue_state(
     outbox_files = _json_files(outbox)
     receipt_files = _json_files(receipts)
     receipt_states = [_receipt_state(item) for item in receipt_files]
-    terminal_receipt_keys = {
-        item["idempotency_key"]
-        for item in receipt_states
-        if item["status"] in TERMINAL_RECEIPT_STATUSES
-    }
+    terminal_receipts_by_key = _terminal_receipts_by_key(receipt_files)
+    terminal_receipt_keys = set(terminal_receipts_by_key)
     nonterminal_receipts = [
         item for item in receipt_states if item["status"] not in TERMINAL_RECEIPT_STATUSES
     ]
@@ -263,7 +383,39 @@ def _local_queue_state(
     outbox_branch_counts = Counter(branch for _item, _key, branch in outbox_items if branch)
     duplicate_idempotency_keys = _duplicate_key_summaries(outbox_keys)
     duplicate_outbox_branches = _duplicate_branch_summaries(outbox_items)
-    terminal_receipted_outbox_count = sum(1 for key in outbox_keys if key in terminal_receipt_keys)
+    terminal_receipted_outbox_count = 0
+    stale_target_pr_receipted_outbox: list[dict[str, str]] = []
+    for path, key, branch in outbox_items:
+        receipt_payloads = terminal_receipts_by_key.get(key, [])
+        if not receipt_payloads:
+            continue
+        outbox_payload = _load_json_mapping(path)
+        if outbox_payload is None:
+            terminal_receipted_outbox_count += 1
+            continue
+
+        stale_evidence: dict[str, str] | None = None
+        for receipt_path, receipt_payload in receipt_payloads:
+            stale_evidence = _stale_target_pr_receipt_evidence(
+                repo_root=repo_root,
+                outbox_payload=outbox_payload,
+                branch=branch,
+                receipt_payload=receipt_payload,
+            )
+            if stale_evidence is None:
+                terminal_receipted_outbox_count += 1
+                break
+            stale_evidence = {
+                **stale_evidence,
+                "branch": branch,
+                "file": path.name,
+                "idempotency_key": key,
+                "receipt_file": receipt_path.name,
+            }
+        else:
+            if stale_evidence is not None:
+                stale_target_pr_receipted_outbox.append(stale_evidence)
+
     return {
         "outbox_dir": str(outbox),
         "receipt_dir": str(receipts),
@@ -284,6 +436,10 @@ def _local_queue_state(
         "nonterminal_receipt_count": len(nonterminal_receipts),
         "nonterminal_receipts": nonterminal_receipts,
         "terminal_receipted_outbox_count": terminal_receipted_outbox_count,
+        "stale_target_pr_receipted_outbox_count": len(stale_target_pr_receipted_outbox),
+        "stale_target_pr_receipted_outbox": stale_target_pr_receipted_outbox[
+            :DUPLICATE_OUTBOX_EXAMPLE_LIMIT
+        ],
         "unreceipted_outbox_count": len(outbox_keys) - terminal_receipted_outbox_count,
     }
 
