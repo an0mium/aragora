@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import scripts.cache_codex_automation_github_status as mod
+import scripts.refresh_automation_status_cache as refresh_mod
 from scripts.github_cli_health import GitHubCLIHealth
 
 
@@ -420,6 +421,19 @@ def test_main_accepts_cache_path_alias(
 
     assert rc == 0
     assert cache_path.is_file()
+
+
+def test_refresh_entrypoint_delegates_to_cache_main(monkeypatch: Any) -> None:
+    calls: list[list[str] | None] = []
+
+    def fake_main(argv: list[str] | None = None) -> int:
+        calls.append(argv)
+        return 17
+
+    monkeypatch.setattr(refresh_mod.cache_status, "main", fake_main)
+
+    assert refresh_mod.main(["--json"]) == 17
+    assert calls == [["--json"]]
 
 
 def test_build_status_records_remote_pressure_when_github_available(
