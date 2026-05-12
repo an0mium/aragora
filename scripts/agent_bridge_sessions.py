@@ -46,7 +46,9 @@ UI_CHROME_RE = re.compile(
     r"|\balways\s+allow\s+(?:low|medium|high)\s+impact\s+commands\b"
     r"|\bpermissions?\s*dialog\s*dismissed\b"
     r"|\bauto\s*\((?:low|medium|high)\)\s*-\s*"
-    r"(?:edits(?: and read-only commands)?|all commands that are reversible)\b",
+    r"(?:edits(?: and read-only commands)?|all commands that are reversible)\b"
+    r"|\bmcp\s*server\s*failed\b(?:\s*[·:-]?\s*/mcp)?"
+    r"|mcpserverfailed\s*[·:-]?\s*/?mcp",
     re.I,
 )
 

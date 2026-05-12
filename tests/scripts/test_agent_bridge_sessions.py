@@ -425,6 +425,22 @@ def test_select_summary_skips_terminal_border_residue() -> None:
     assert summary == ""
 
 
+def test_select_summary_skips_mcp_status_chrome() -> None:
+    import agent_bridge_sessions as mod
+
+    assert (
+        mod._select_summary(
+            [
+                "PR #5297 opened",
+                "MCP server failed · /mcp",
+                "1MCPserverfailed·/mcp",
+            ]
+        )
+        == "PR #5297 opened"
+    )
+    assert mod._select_summary(["1MCPserverfailed·/mcp"]) == ""
+
+
 def test_load_tmux_sessions_prefers_live_capture_over_log(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
