@@ -41,11 +41,6 @@ trap cleanup EXIT
 
 cd "$REPO_ROOT"
 
-if ! command -v gh >/dev/null 2>&1; then
-  echo "$(STAMP) [codex-automation-publisher] gh CLI not found"
-  exit 1
-fi
-
 echo "$(STAMP) [codex-automation-publisher] checking GitHub CLI health"
 HEALTH_JSON="$(python3 scripts/github_cli_health.py --repo "${REPO_ROOT}" --json 2>/dev/null || true)"
 if python3 scripts/cache_codex_automation_github_status.py \
