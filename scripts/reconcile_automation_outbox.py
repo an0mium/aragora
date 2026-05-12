@@ -73,7 +73,12 @@ def _branch_has_landed_on_main(root: Path, base: str, branch: str) -> bool:
 
 def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
     """Return idempotency keys whose receipts are in a terminal state."""
-    keys: set[str] = set()
+    return set(_terminal_receipts_by_key(receipt_dir))
+
+
+def _terminal_receipts_by_key(receipt_dir: Path) -> dict[str, dict[str, Any]]:
+    """Return terminal receipts keyed by idempotency key."""
+    receipts: dict[str, dict[str, Any]] = {}
     for path in _list_json(receipt_dir):
         payload = _load_json(path)
         if not isinstance(payload, dict):
@@ -82,8 +87,8 @@ def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
         if status in ("published", "already_satisfied", "completed", "skipped"):
             key = str(payload.get("idempotency_key") or path.stem).strip()
             if key:
-                keys.add(key)
-    return keys
+                receipts[key] = payload
+    return receipts
 
 
 def _mapping_from_action(value: Any) -> Mapping[str, Any] | None:
@@ -152,6 +157,86 @@ def _head_from_payload(payload: dict[str, Any]) -> str:
         if head:
             return head
     return ""
+
+
+def _desired_head_from_payload(payload: dict[str, Any]) -> str:
+    """Extract the requested branch head SHA from outbox payloads when present."""
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        head = str(
+            local_evidence.get("desired_head_sha")
+            or local_evidence.get("head_sha")
+            or local_evidence.get("head")
+            or local_evidence.get("commit")
+            or ""
+        ).strip()
+        if head:
+            return head
+
+    for key in ("desired_head_sha", "head_sha", "head", "commit"):
+        head = str(payload.get(key) or "").strip()
+        if head:
+            return head
+
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is not None:
+        for key in ("desired_head_sha", "head_sha", "head", "commit"):
+            head = str(requested_action.get(key) or "").strip()
+            if head:
+                return head
+    return ""
+
+
+def _heads_match(expected: str, actual: str) -> bool:
+    expected_value = expected.strip().lower()
+    actual_value = actual.strip().lower()
+    if len(expected_value) < 7 or len(actual_value) < 7:
+        return False
+    return actual_value.startswith(expected_value) or expected_value.startswith(actual_value)
+
+
+def _git_ref_head(root: Path, ref: str) -> str:
+    proc = run_git(["rev-parse", "--verify", ref], root, timeout=10)
+    if proc.returncode != 0:
+        return ""
+    lines = proc.stdout.strip().splitlines()
+    return lines[0].strip() if lines else ""
+
+
+def _receipt_handoff_keep_reason(
+    root: Path,
+    payload: dict[str, Any],
+    receipt: Mapping[str, Any],
+    branch: str,
+) -> str | None:
+    """Return why a terminal receipt is not enough to archive this handoff."""
+
+    status = str(receipt.get("status") or "").strip().lower()
+    reason = str(receipt.get("reason") or "").strip().lower()
+    if status != "already_satisfied" or reason != "target_open_pr":
+        return None
+
+    desired_head = _desired_head_from_payload(payload)
+    if not desired_head:
+        return None
+
+    remote_ref = f"refs/remotes/origin/{branch}"
+    remote_head = _git_ref_head(root, remote_ref)
+    if remote_head and _heads_match(desired_head, remote_head):
+        return None
+
+    local_head = _git_ref_head(root, branch)
+    if local_head and _heads_match(desired_head, local_head):
+        short_desired = desired_head[:12]
+        if remote_head:
+            return (
+                f"target_open_pr receipt exists, but origin/{branch} is "
+                f"{remote_head[:12]}, not desired head {short_desired}"
+            )
+        return (
+            f"target_open_pr receipt exists, but origin/{branch} is unavailable "
+            f"and local desired head {short_desired} still needs publication"
+        )
+    return None
 
 
 def _superseded_targets(
@@ -292,7 +377,8 @@ def main(argv: list[str] | None = None) -> int:
         archive_dir.mkdir(parents=True, exist_ok=True)
 
     emit("loading existing terminal receipt keys...")
-    receipt_keys = _terminal_receipt_keys(receipt_dir)
+    receipt_payloads_by_key = _terminal_receipts_by_key(receipt_dir)
+    receipt_keys = set(receipt_payloads_by_key)
     emit(f"  {len(receipt_keys)} terminal receipt keys")
 
     emit("loading outbox files...")
@@ -324,6 +410,7 @@ def main(argv: list[str] | None = None) -> int:
 
     counts = {
         "satisfied_by_existing_receipt": 0,
+        "blocked_receipt_pr_head_mismatch": 0,
         "satisfied_by_superseded_handoff": 0,
         "satisfied_by_landed_on_main": 0,
         "satisfied_by_open_pr_merged": 0,  # placeholder; we only know open PRs
@@ -347,7 +434,22 @@ def main(argv: list[str] | None = None) -> int:
             counts["skipped_unparseable"] += 1
             continue
 
-        if idem in receipt_keys:
+        receipt = receipt_payloads_by_key.get(idem)
+        if receipt is not None:
+            keep_reason = _receipt_handoff_keep_reason(root, payload, receipt, branch)
+            if keep_reason is not None:
+                counts["blocked_receipt_pr_head_mismatch"] += 1
+                counts["still_protecting_active_work"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "keep",
+                        "reason": keep_reason,
+                        "synthetic_receipt": False,
+                    }
+                )
+                continue
             counts["satisfied_by_existing_receipt"] += 1
             actions.append(
                 {

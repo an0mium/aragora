@@ -264,6 +264,71 @@ def test_reconcile_existing_receipt_uses_structured_requested_action_branch(
     assert payload["actions"][0]["branch"] == "codex/structured-action"
 
 
+def test_reconcile_keeps_target_pr_receipt_when_desired_head_not_published(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-target-pr-refresh-newhead"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    stale_remote_head = "1111111234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/target-pr-refresh",
+        key=key,
+        local_evidence={
+            "branch": "codex/target-pr-refresh",
+            "desired_head_sha": desired_head,
+        },
+    )
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "already_satisfied",
+                "reason": "target_open_pr",
+                "existing_pr_url": "https://github.com/synaptent/aragora/pull/7105",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", "refs/remotes/origin/codex/target-pr-refresh"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=stale_remote_head)
+        if args == ["rev-parse", "--verify", "codex/target-pr-refresh"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=desired_head)
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("open PR fetch should not run for mismatched target PR receipts")
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["blocked_receipt_pr_head_mismatch"] == 1
+    assert payload["counts"]["satisfied_by_existing_receipt"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "not desired head" in payload["actions"][0]["reason"]
+    assert handoff.exists()
+    assert not (tmp_path / ".aragora" / "automation-outbox-archive").exists()
+
+
 def test_apply_preserves_missing_branch_when_open_pr_state_unavailable(
     tmp_path: Path,
     monkeypatch: Any,
