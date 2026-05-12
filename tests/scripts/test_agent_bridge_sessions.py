@@ -395,6 +395,16 @@ def test_select_summary_skips_terminal_ui_chrome() -> None:
     assert summary == "PR #5297 opened"
 
 
+def test_select_summary_skips_streaming_status_chrome() -> None:
+    import agent_bridge_sessions as mod
+
+    assert (
+        mod._select_summary(["PR #5297 opened", "▟ Streaming... (Press ESC to stop)"])
+        == "PR #5297 opened"
+    )
+    assert mod._select_summary(["▟ Streaming... (Press ESC to stop)"]) == ""
+
+
 def test_select_summary_skips_permission_mode_chrome() -> None:
     import agent_bridge_sessions as mod
 

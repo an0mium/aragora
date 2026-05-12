@@ -48,7 +48,8 @@ UI_CHROME_RE = re.compile(
     r"|\bauto\s*\((?:low|medium|high)\)\s*-\s*"
     r"(?:edits(?: and read-only commands)?|all commands that are reversible)\b"
     r"|\bmcp\s*server\s*failed\b(?:\s*[·:-]?\s*/mcp)?"
-    r"|mcpserverfailed\s*[·:-]?\s*/?mcp",
+    r"|mcpserverfailed\s*[·:-]?\s*/?mcp"
+    r"|^\W*streaming\.\.\.\s*\(press\s+esc\s+to\s+stop\)\s*$",
     re.I,
 )
 
