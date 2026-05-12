@@ -1336,8 +1336,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps(payload, indent=2))
         else:
-            print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
-        return 1
+            if handoffs:
+                print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
+            else:
+                print(f"noop: no handoffs to publish; github_unavailable={github_health.mode}")
+        return 1 if handoffs else 0
 
     decisions = decide_handoffs(
         handoffs,

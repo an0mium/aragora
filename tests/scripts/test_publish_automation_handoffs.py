@@ -1479,10 +1479,38 @@ def test_main_derives_outbox_dirs_from_explicit_aragora_state_root(
         ]
     )
 
-    assert exit_code == 1
+    assert exit_code == 0
     assert captured["outbox_dir"] == (state_root / "automation-outbox").resolve()
     assert captured["receipt_dir"] == (state_root / "automation-receipts").resolve()
     assert str((state_root / "automation-outbox").resolve()) in capsys.readouterr().out
+
+
+def test_main_treats_empty_handoff_queue_as_noop_when_github_unavailable(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
+    monkeypatch.setattr(mod, "load_outbox_handoffs", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--codex-home", str(tmp_path), "--json"])
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["handoff_count"] == 0
+    assert payload["decisions"] == []
+    assert payload["github_health"]["mode"] == "connectivity_failed"
 
 
 def test_main_reports_github_health_when_unavailable(
