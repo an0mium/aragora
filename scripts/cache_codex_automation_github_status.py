@@ -377,7 +377,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-open-issues", type=int, default=DEFAULT_MAX_OPEN_ISSUES)
     parser.add_argument("--outbox-dir", type=Path, default=None)
     parser.add_argument("--receipt-dir", type=Path, default=None)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--output",
+        "--cache-path",
+        dest="output",
+        type=Path,
+        default=DEFAULT_OUTPUT,
+        help="Path to write the cached status payload.",
+    )
     parser.add_argument(
         "--state-root",
         type=Path,

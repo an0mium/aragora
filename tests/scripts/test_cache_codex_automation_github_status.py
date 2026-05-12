@@ -280,6 +280,33 @@ def test_main_default_output_uses_explicit_aragora_state_root(
     assert not (repo_root / ".aragora" / "automation-github-status" / "latest.json").exists()
 
 
+def test_main_accepts_cache_path_alias(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    cache_path = tmp_path / "status-cache.json"
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="sandboxed",
+            repo=str(repo_root),
+        ),
+    )
+
+    rc = mod.main(["--repo", str(repo_root), "--cache-path", str(cache_path)])
+
+    assert rc == 0
+    assert cache_path.is_file()
+
+
 def test_build_status_records_remote_pressure_when_github_available(
     monkeypatch: Any,
     tmp_path: Path,
