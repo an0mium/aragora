@@ -1028,6 +1028,7 @@ def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
         expires_at=None,
         source_kind="outbox",
         branch="codex/branch-publisher-receipt-dir-compat",
+        desired_head="abc1234",
     )
 
     def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -1047,6 +1048,7 @@ def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
                             "url": "https://github.com/synaptent/aragora/pull/6741",
                             "state": "OPEN",
                             "headRefName": "codex/branch-publisher-receipt-dir-compat",
+                            "headRefOid": "abc1234deadbeef",
                         }
                     ]
                 ),
@@ -1073,6 +1075,70 @@ def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
             eligible=False,
             reason="target_open_pr",
             existing_pr_url="https://github.com/synaptent/aragora/pull/6741",
+        )
+    ]
+
+
+def test_decide_handoffs_keeps_branch_update_actionable_when_pr_head_is_stale(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "outbox.json"),
+        task_title="Refresh PR for backlog audit handoff-protected patch-skip repair",
+        priority="MEDIUM",
+        body="body",
+        labels={},
+        expires_at=None,
+        source_kind="outbox",
+        branch="codex/audit-skip-handoff-protected-patch-checks-20260512",
+        desired_head="5091193dfe68d40ead6ac775cd43c507360fa0fe",
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "pr", "list"] and "--head" in args:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 7105,
+                            "title": "fix(audit): skip handoff-protected patch checks",
+                            "url": "https://github.com/synaptent/aragora/pull/7105",
+                            "state": "OPEN",
+                            "headRefName": (
+                                "codex/audit-skip-handoff-protected-patch-checks-20260512"
+                            ),
+                            "headRefOid": "e4d00097d6c44bcdd699973499a0935c0a92f808",
+                        }
+                    ]
+                ),
+                "",
+            )
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=True,
+            reason="eligible",
         )
     ]
 

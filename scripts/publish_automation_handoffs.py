@@ -149,6 +149,7 @@ class Handoff:
     idempotency_key: str | None = None
     source_kind: str = "memory"
     branch: str | None = None
+    desired_head: str | None = None
 
 
 @dataclass(frozen=True)
@@ -584,6 +585,14 @@ def _outbox_branch_fingerprint(payload: dict[str, Any]) -> str | None:
     return "\0".join((requested_action, repo, branch))
 
 
+def _outbox_desired_head(payload: dict[str, Any]) -> str | None:
+    for key in ("head_sha", "head", "commit"):
+        value = _outbox_evidence_value(payload, key)
+        if value and re.fullmatch(r"[0-9a-fA-F]{7,40}", value):
+            return value
+    return None
+
+
 def _git_is_ancestor(repo_root: Path, ancestor: str, descendant: str) -> bool:
     proc = _run(["git", "merge-base", "--is-ancestor", ancestor, descendant], cwd=repo_root)
     return proc.returncode == 0
@@ -772,6 +781,7 @@ def load_outbox_handoffs(
             idempotency_key=idempotency_key,
             source_kind="outbox",
             branch=_outbox_evidence_value(payload, "branch") or None,
+            desired_head=_outbox_desired_head(payload),
         )
         identity = (
             ("branch", branch_fingerprint)
@@ -871,7 +881,7 @@ def _existing_pr(repo_root: Path, repo: str, title: str) -> dict[str, Any] | Non
             "--search",
             title,
             "--json",
-            "number,title,url,state",
+            "number,title,url,state,headRefName,headRefOid",
             "--limit",
             "50",
         ],
@@ -920,7 +930,7 @@ def _pr_by_number(repo_root: Path, repo: str, number: int) -> dict[str, Any] | N
             "--repo",
             repo,
             "--json",
-            "number,title,url,state",
+            "number,title,url,state,headRefName,headRefOid",
         ],
         cwd=repo_root,
     )
@@ -948,7 +958,7 @@ def _open_pr_by_branch(repo_root: Path, repo: str, branch: str | None) -> dict[s
             "--head",
             branch,
             "--json",
-            "number,title,url,state,headRefName",
+            "number,title,url,state,headRefName,headRefOid",
             "--limit",
             "1",
         ],
@@ -965,13 +975,32 @@ def _open_pr_by_branch(repo_root: Path, repo: str, branch: str | None) -> dict[s
     return first if isinstance(first, dict) else None
 
 
+def _head_matches(desired: str, actual: str) -> bool:
+    desired_value = desired.strip().lower()
+    actual_value = actual.strip().lower()
+    if len(desired_value) < 7 or len(actual_value) < 7:
+        return False
+    return actual_value.startswith(desired_value) or desired_value.startswith(actual_value)
+
+
+def _pr_head_satisfies_handoff(handoff: Handoff, pr: Mapping[str, Any]) -> bool:
+    if handoff.source_kind != "outbox" or not handoff.desired_head:
+        return True
+    actual_head = str(pr.get("headRefOid") or "").strip()
+    return bool(actual_head) and _head_matches(handoff.desired_head, actual_head)
+
+
 def _target_open_pr(repo_root: Path, repo: str, handoff: Handoff) -> dict[str, Any] | None:
     branch_pr = _open_pr_by_branch(repo_root, repo, handoff.branch)
-    if branch_pr:
+    if branch_pr and _pr_head_satisfies_handoff(handoff, branch_pr):
         return branch_pr
     for number in _referenced_pr_numbers(handoff):
         pr = _pr_by_number(repo_root, repo, number)
-        if isinstance(pr, dict) and str(pr.get("state") or "").upper() == "OPEN":
+        if (
+            isinstance(pr, dict)
+            and str(pr.get("state") or "").upper() == "OPEN"
+            and _pr_head_satisfies_handoff(handoff, pr)
+        ):
             return pr
     return None
 
@@ -1103,7 +1132,7 @@ def decide_handoffs(
             )
             continue
         referenced_pr = _referenced_pr(repo_root, repo, handoff)
-        if referenced_pr:
+        if referenced_pr and _pr_head_satisfies_handoff(handoff, referenced_pr):
             decisions.append(
                 PublishDecision(
                     task_title=handoff.task_title,
@@ -1115,7 +1144,7 @@ def decide_handoffs(
             )
             continue
         existing_pr = _existing_pr(repo_root, repo, handoff.task_title)
-        if existing_pr:
+        if existing_pr and _pr_head_satisfies_handoff(handoff, existing_pr):
             decisions.append(
                 PublishDecision(
                     task_title=handoff.task_title,
