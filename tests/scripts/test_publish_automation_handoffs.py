@@ -256,6 +256,78 @@ def test_load_outbox_handoffs_skips_terminal_receipt_named_by_file(tmp_path: Pat
     assert mod.load_outbox_handoffs(tmp_path) == []
 
 
+def test_load_outbox_handoffs_keeps_stale_target_pr_receipt(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return proc.stdout.strip()
+
+    git("init")
+    git("checkout", "-b", "main")
+    git("config", "user.email", "codex@example.com")
+    git("config", "user.name", "Codex")
+    (repo / "README.md").write_text("base\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-m", "base")
+    git("checkout", "-b", "codex/example")
+    (repo / "README.md").write_text("base\nold\n", encoding="utf-8")
+    git("commit", "-am", "old")
+    old_head = git("rev-parse", "HEAD")
+    git("update-ref", "refs/remotes/origin/codex/example", old_head)
+    (repo / "README.md").write_text("base\nold\nnew\n", encoding="utf-8")
+    git("commit", "-am", "new")
+    desired_head = git("rev-parse", "HEAD")
+
+    outbox = repo / ".aragora" / "automation-outbox"
+    receipts = repo / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-example-abc123"
+    (outbox / "repair-branch.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                repo="synaptent/aragora",
+                idempotency_key=key,
+                requested_action={
+                    "type": "push_branch_and_open_or_update_pr",
+                    "branch": "codex/example",
+                    "base": "main",
+                    "desired_head_sha": desired_head,
+                },
+                local_evidence={"branch": "codex/example", "head_sha": desired_head},
+            )
+        ),
+        encoding="utf-8",
+    )
+    (receipts / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "already_satisfied",
+                "reason": "target_open_pr",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    handoffs = mod.load_outbox_handoffs(repo)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].desired_head == desired_head
+
+    git("update-ref", "refs/remotes/origin/codex/example", desired_head)
+
+    assert mod.load_outbox_handoffs(repo) == []
+
+
 def test_load_outbox_handoffs_skips_completed_and_skipped_receipts(tmp_path: Path) -> None:
     outbox = tmp_path / ".aragora" / "automation-outbox"
     receipts = tmp_path / ".aragora" / "automation-receipts"

@@ -314,9 +314,13 @@ def _terminal_receipt_exists(receipt_dir: Path, idempotency_key: str) -> bool:
 
 
 def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
+    return set(_terminal_receipts_by_key(receipt_dir))
+
+
+def _terminal_receipts_by_key(receipt_dir: Path) -> dict[str, list[dict[str, Any]]]:
+    receipts: dict[str, list[dict[str, Any]]] = {}
     if not receipt_dir.exists():
-        return set()
-    terminal: set[str] = set()
+        return receipts
     for receipt_file in sorted(receipt_dir.glob("*.json")):
         try:
             payload = json.loads(receipt_file.read_text(encoding="utf-8"))
@@ -328,8 +332,8 @@ def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
             continue
         idempotency_key = str(payload.get("idempotency_key") or receipt_file.stem).strip()
         if idempotency_key:
-            terminal.add(idempotency_key)
-    return terminal
+            receipts.setdefault(idempotency_key, []).append(payload)
+    return receipts
 
 
 def _write_receipt(
@@ -652,9 +656,37 @@ def _outbox_branch_patch_equivalent(repo_root: Path, payload: dict[str, Any]) ->
     return False
 
 
-def _terminal_outbox_fingerprints(outbox_dir: Path, receipt_dir: Path) -> set[str]:
-    terminal_keys = _terminal_receipt_keys(receipt_dir)
-    if not terminal_keys:
+def _remote_tracking_head(repo_root: Path, branch: str | None) -> str | None:
+    if not branch:
+        return None
+    proc = _run(["git", "rev-parse", "--verify", f"origin/{branch}"], cwd=repo_root)
+    if proc.returncode != 0:
+        return None
+    value = proc.stdout.strip()
+    return value if re.fullmatch(r"[0-9a-fA-F]{7,40}", value) else None
+
+
+def _receipt_satisfies_outbox(
+    repo_root: Path,
+    payload: dict[str, Any],
+    receipt_payload: dict[str, Any],
+) -> bool:
+    reason = str(receipt_payload.get("reason") or "").strip().lower()
+    desired_head = _outbox_desired_head(payload)
+    if reason != "target_open_pr" or not desired_head:
+        return True
+    remote_head = _remote_tracking_head(repo_root, _outbox_evidence_value(payload, "branch"))
+    if not remote_head:
+        return True
+    return _head_matches(desired_head, remote_head)
+
+
+def _terminal_outbox_fingerprints(
+    repo_root: Path,
+    outbox_dir: Path,
+    terminal_receipts: dict[str, list[dict[str, Any]]],
+) -> set[str]:
+    if not terminal_receipts:
         return set()
     fingerprints: set[str] = set()
     for source_file in _outbox_files(outbox_dir):
@@ -665,7 +697,11 @@ def _terminal_outbox_fingerprints(outbox_dir: Path, receipt_dir: Path) -> set[st
         if not isinstance(payload, dict) or not _has_required_outbox_contract(payload):
             continue
         idempotency_key = str(payload.get("idempotency_key") or "").strip()
-        if idempotency_key not in terminal_keys:
+        receipt_payloads = terminal_receipts.get(idempotency_key, [])
+        if not any(
+            _receipt_satisfies_outbox(repo_root, payload, receipt_payload)
+            for receipt_payload in receipt_payloads
+        ):
             continue
         fingerprint = _outbox_branch_fingerprint(payload)
         if fingerprint:
@@ -737,8 +773,12 @@ def load_outbox_handoffs(
     outbox_root = _automation_state_path(repo_root, outbox_dir, DEFAULT_OUTBOX_DIR).resolve()
     receipt_root = _automation_state_path(repo_root, receipt_dir, DEFAULT_RECEIPT_DIR).resolve()
     current_time = now or datetime.now(UTC)
-    terminal_keys = _terminal_receipt_keys(receipt_root)
-    terminal_fingerprints = _terminal_outbox_fingerprints(outbox_root, receipt_root)
+    terminal_receipts = _terminal_receipts_by_key(receipt_root)
+    terminal_fingerprints = _terminal_outbox_fingerprints(
+        repo_root,
+        outbox_root,
+        terminal_receipts,
+    )
     handoffs_by_identity: dict[tuple[str, str], Handoff] = {}
     for source_file in _outbox_files(outbox_root):
         try:
@@ -763,7 +803,11 @@ def load_outbox_handoffs(
         if _is_expired(expires_at, now=current_time):
             continue
         branch_fingerprint = _outbox_branch_fingerprint(payload)
-        if idempotency_key in terminal_keys:
+        receipt_payloads = terminal_receipts.get(idempotency_key, [])
+        if any(
+            _receipt_satisfies_outbox(repo_root, payload, receipt_payload)
+            for receipt_payload in receipt_payloads
+        ):
             continue
         if branch_fingerprint and branch_fingerprint in terminal_fingerprints:
             continue
