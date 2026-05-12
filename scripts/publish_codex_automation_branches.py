@@ -285,6 +285,8 @@ def _automation_state_root(repo_root: Path) -> Path:
             resolved = candidate.resolve()
         except OSError:
             resolved = candidate
+        if resolved.name == ".aragora" and resolved.is_dir():
+            return resolved
         if not (resolved / ".aragora").is_dir():
             continue
         if explicit or _same_git_origin(repo_root, resolved):
@@ -295,7 +297,14 @@ def _automation_state_root(repo_root: Path) -> Path:
 def _automation_state_path(repo_root: Path, path: Path | None, default_relative: Path) -> Path:
     if path is not None:
         return path if path.is_absolute() else repo_root / path
-    return _automation_state_root(repo_root) / default_relative
+    return _automation_state_default_path(_automation_state_root(repo_root), default_relative)
+
+
+def _automation_state_default_path(state_root: Path, default_relative: Path) -> Path:
+    expanded = state_root.expanduser()
+    if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
+        return expanded.joinpath(*default_relative.parts[1:])
+    return expanded / default_relative
 
 
 def _json_files(path: Path) -> list[Path]:
