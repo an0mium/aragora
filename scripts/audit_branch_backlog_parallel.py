@@ -37,6 +37,10 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 
 from audit_codex_branch_backlog import (  # noqa: E402
     ACTIVE_SESSION_FILES,
+    DEFAULT_OUTBOX_DIR,
+    DEFAULT_RECEIPT_DIR,
+    _automation_state_default_path,
+    _automation_state_path,
     branch_patch_id,
     count_ahead,
     is_patch_equivalent,
@@ -263,9 +267,45 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--max-branches", type=int, default=None, help="Cap branches scanned (testing)"
     )
+    parser.add_argument(
+        "--state-root",
+        type=Path,
+        default=None,
+        help=(
+            "Shared automation state root used to derive default handoff dirs. "
+            "Accepts either a repo root containing .aragora or the .aragora "
+            "directory itself. Explicit --outbox-dir/--receipt-dir override it."
+        ),
+    )
+    parser.add_argument(
+        "--outbox-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Automation outbox directory to use for terminal handoff receipt matching. "
+            "Relative paths are resolved from the repo root."
+        ),
+    )
+    parser.add_argument(
+        "--receipt-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Automation receipt directory to use for terminal handoff receipt matching. "
+            "Relative paths are resolved from the repo root."
+        ),
+    )
     args = parser.parse_args(argv)
 
     root = Path(args.repo).resolve()
+    state_root = args.state_root.expanduser() if args.state_root else None
+    outbox_dir = args.outbox_dir
+    receipt_dir = args.receipt_dir
+    if state_root is not None:
+        if outbox_dir is None:
+            outbox_dir = _automation_state_default_path(state_root, DEFAULT_OUTBOX_DIR)
+        if receipt_dir is None:
+            receipt_dir = _automation_state_default_path(state_root, DEFAULT_RECEIPT_DIR)
     out_path = root / args.out
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -297,9 +337,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  open_prs={len(open_prs)}")
 
     print("  loading automation outbox + receipt protection")
-    receipted = terminal_receipted_handoff_branches(root)
-    outbox = unresolved_outbox_handoff_branches(root)
-    handoff_keys = terminal_handoff_keys(root / ".aragora" / "automation-receipts")
+    resolved_outbox_dir = _automation_state_path(root, outbox_dir, DEFAULT_OUTBOX_DIR)
+    resolved_receipt_dir = _automation_state_path(root, receipt_dir, DEFAULT_RECEIPT_DIR)
+    receipted = terminal_receipted_handoff_branches(
+        root,
+        outbox_dir=resolved_outbox_dir,
+        receipt_dir=resolved_receipt_dir,
+    )
+    outbox = unresolved_outbox_handoff_branches(
+        root,
+        outbox_dir=resolved_outbox_dir,
+        receipt_dir=resolved_receipt_dir,
+    )
+    handoff_keys = terminal_handoff_keys(resolved_receipt_dir)
     print(
         f"  receipted_branches={len(receipted)} unresolved_outbox_branches={len(outbox)} "
         f"terminal_handoff_keys={len(handoff_keys)}"
@@ -394,6 +444,8 @@ def main(argv: list[str] | None = None) -> int:
         "prefix": args.prefix,
         "github_health": github_health,
         "open_pr_lookup_skipped": open_pr_lookup_skipped,
+        "outbox_dir": str(resolved_outbox_dir),
+        "receipt_dir": str(resolved_receipt_dir),
         "totals": {
             "branches_scanned": len(rows),
             "branches_with_open_pr": len(open_prs),

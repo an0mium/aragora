@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -182,3 +183,128 @@ def test_classify_one_protects_canonical_active_session_marker(tmp_path: Path) -
     assert record["category"] == mod.CATEGORY_PROTECTED_ACTIVE_WT
     assert record["active_session"] is True
     assert record["worktree_paths"] == [str(worktree)]
+
+
+def _stub_inventory(monkeypatch: Any, branch: str = "codex/example") -> None:
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: [_branch_row(branch)])
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "_load_open_prs",
+        lambda _root, _repo_name, _prefix: (
+            {},
+            {"ready": False, "mode": "connectivity_failed"},
+            True,
+        ),
+    )
+    monkeypatch.setattr(mod, "is_patch_equivalent", lambda _root, _base, _branch: False)
+    monkeypatch.setattr(mod, "branch_patch_id", lambda _root, _base, _branch: "pid-example")
+
+
+def test_main_accepts_explicit_shared_handoff_dirs(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "disposable-worktree"
+    repo.mkdir()
+    outbox = tmp_path / "shared" / ".aragora" / "automation-outbox"
+    receipts = tmp_path / "shared" / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    output = tmp_path / "parallel-audit.json"
+    captured: dict[str, tuple[Path | None, Path | None] | Path] = {}
+    _stub_inventory(monkeypatch)
+
+    def fake_receipted(
+        _root: Path, *, outbox_dir: Path | None = None, receipt_dir: Path | None = None
+    ) -> set[str]:
+        captured["receipted_dirs"] = (outbox_dir, receipt_dir)
+        return {"codex/example"}
+
+    def fake_outbox(
+        _root: Path, *, outbox_dir: Path | None = None, receipt_dir: Path | None = None
+    ) -> set[str]:
+        captured["outbox_dirs"] = (outbox_dir, receipt_dir)
+        return set()
+
+    def fake_terminal_keys(receipt_dir: Path) -> set[str]:
+        captured["terminal_keys_dir"] = receipt_dir
+        return set()
+
+    monkeypatch.setattr(mod, "terminal_receipted_handoff_branches", fake_receipted)
+    monkeypatch.setattr(mod, "unresolved_outbox_handoff_branches", fake_outbox)
+    monkeypatch.setattr(mod, "terminal_handoff_keys", fake_terminal_keys)
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(repo),
+            "--out",
+            str(output),
+            "--max-branches",
+            "1",
+            "--outbox-dir",
+            str(outbox),
+            "--receipt-dir",
+            str(receipts),
+        ]
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert rc == 0
+    assert captured["receipted_dirs"] == (outbox, receipts)
+    assert captured["outbox_dirs"] == (outbox, receipts)
+    assert captured["terminal_keys_dir"] == receipts
+    assert payload["outbox_dir"] == str(outbox)
+    assert payload["receipt_dir"] == str(receipts)
+    assert payload["records"][0]["category"] == mod.CATEGORY_PROTECTED_HANDOFF_RECEIPT
+
+
+def test_main_state_root_accepts_direct_dot_aragora(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "disposable-worktree"
+    repo.mkdir()
+    state_root = tmp_path / "shared" / ".aragora"
+    outbox = state_root / "automation-outbox"
+    receipts = state_root / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    output = tmp_path / "parallel-audit.json"
+    _stub_inventory(monkeypatch)
+
+    monkeypatch.setattr(
+        mod,
+        "terminal_receipted_handoff_branches",
+        lambda _root, *, outbox_dir=None, receipt_dir=None: {"codex/example"}
+        if (outbox_dir, receipt_dir) == (outbox, receipts)
+        else set(),
+    )
+    monkeypatch.setattr(
+        mod,
+        "unresolved_outbox_handoff_branches",
+        lambda _root, *, outbox_dir=None, receipt_dir=None: set(),
+    )
+    monkeypatch.setattr(mod, "terminal_handoff_keys", lambda _receipt_dir: set())
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(repo),
+            "--out",
+            str(output),
+            "--max-branches",
+            "1",
+            "--state-root",
+            str(state_root),
+        ]
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert rc == 0
+    assert payload["outbox_dir"] == str(outbox)
+    assert payload["receipt_dir"] == str(receipts)
+    assert payload["totals"]["receipted_handoff_branches"] == 1
