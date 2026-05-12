@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from aragora.swarm.proof_first_queue import classify_proof_first_queue_issue
@@ -108,6 +110,58 @@ def test_classifies_benchmark_regression_lane(
     assert decision.allowed is True
     assert decision.lane == "benchmark_regression"
     assert set(expected_terms).issubset(decision.matched_terms)
+
+
+def test_classifies_explicit_staged_rev4_corpus_issue(tmp_path) -> None:
+    corpus_path = tmp_path / "tests" / "benchmarks" / "corpus_rev4.json"
+    corpus_path.parent.mkdir(parents=True)
+    corpus_path.write_text(json.dumps({"issues": [{"issue_id": 5788}]}))
+
+    decision = classify_proof_first_queue_issue(
+        "Narrow broad except Exception in performance_monitor.py",
+        "Single-file exception hygiene task.",
+        labels=("autonomous", "boss-ready"),
+        issue_number=5788,
+        repo_root=tmp_path,
+    )
+
+    assert decision.allowed is True
+    assert decision.lane == "staged_rev4_corpus"
+    assert "corpus_rev4" in decision.matched_terms
+
+
+def test_staged_rev4_corpus_issue_requires_explicit_boss_ready(tmp_path) -> None:
+    corpus_path = tmp_path / "tests" / "benchmarks" / "corpus_rev4.json"
+    corpus_path.parent.mkdir(parents=True)
+    corpus_path.write_text(json.dumps({"issues": [{"issue_id": 5788}]}))
+
+    decision = classify_proof_first_queue_issue(
+        "Narrow broad except Exception in performance_monitor.py",
+        "Single-file exception hygiene task.",
+        labels=("autonomous",),
+        issue_number=5788,
+        repo_root=tmp_path,
+    )
+
+    assert decision.allowed is False
+    assert decision.lane == "non_canonical"
+
+
+def test_staged_rev4_corpus_issue_requires_membership(tmp_path) -> None:
+    corpus_path = tmp_path / "tests" / "benchmarks" / "corpus_rev4.json"
+    corpus_path.parent.mkdir(parents=True)
+    corpus_path.write_text(json.dumps({"issues": [{"issue_id": 5788}]}))
+
+    decision = classify_proof_first_queue_issue(
+        "Narrow broad except Exception in unrelated.py",
+        "Single-file exception hygiene task.",
+        labels=("autonomous", "boss-ready"),
+        issue_number=9999,
+        repo_root=tmp_path,
+    )
+
+    assert decision.allowed is False
+    assert decision.lane == "non_canonical"
 
 
 @pytest.mark.parametrize(

@@ -3281,6 +3281,12 @@ def test_filter_noncanonical_boss_ready_issues_strips_label_and_excludes_issue()
         body="Refresh benchmark corpus freshness after stale closed issues were detected.",
         labels=["boss-ready"],
     )
+    staged_rev4 = _make_issue(
+        5788,
+        "Narrow broad except Exception in performance_monitor.py",
+        body="Single-file exception hygiene task.",
+        labels=["boss-ready", "autonomous"],
+    )
     loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
     commands: list[list[str]] = []
     comments: list[str] = []
@@ -3295,11 +3301,18 @@ def test_filter_noncanonical_boss_ready_issues_strips_label_and_excludes_issue()
             comments.append(cmd[cmd.index("--body") + 1])
         return result
 
-    with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=_run):
-        kept = loop._filter_noncanonical_boss_ready_issues([generic, canonical])
+    with (
+        patch("aragora.swarm.boss_loop.subprocess.run", side_effect=_run),
+        patch(
+            "aragora.swarm.proof_first_queue._staged_rev4_issue_numbers",
+            return_value=frozenset({5788}),
+        ),
+    ):
+        kept = loop._filter_noncanonical_boss_ready_issues([generic, canonical, staged_rev4])
 
-    assert kept == [canonical]
+    assert kept == [canonical, staged_rev4]
     assert "boss-ready" not in generic.labels
+    assert "boss-ready" in staged_rev4.labels
     assert comments
     assert "outside the canonical proof-first queue" in comments[-1]
     assert any(cmd[:3] == ["gh", "issue", "edit"] for cmd in commands)
