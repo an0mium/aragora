@@ -413,6 +413,50 @@ def _outbox_payload_branches(payload: dict[str, Any]) -> set[str]:
     return branches
 
 
+def _commit_prefix_matches(expected: str, actual: str) -> bool:
+    expected = expected.strip().lower()
+    actual = actual.strip().lower()
+    return bool(expected and actual) and (
+        actual.startswith(expected) or expected.startswith(actual)
+    )
+
+
+def _outbox_evidence_head(container: Mapping[str, Any]) -> str | None:
+    for key in ("head_sha", "head", "commit", "sha"):
+        value = container.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _outbox_payload_branch_heads(payload: dict[str, Any]) -> dict[str, set[str | None]]:
+    """Return branch references with optional explicit head evidence."""
+
+    refs: dict[str, set[str | None]] = defaultdict(set)
+
+    def add(branch: str, head: str | None) -> None:
+        branch = branch.strip()
+        if branch:
+            refs[branch].add(head)
+
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        branch = str(local_evidence.get("branch") or "").strip()
+        add(branch, _outbox_evidence_head(local_evidence))
+
+    top_level_branch = str(payload.get("branch") or "").strip()
+    add(top_level_branch, _outbox_evidence_head(payload))
+
+    requested_action = _structured_action(payload.get("requested_action"))
+    if requested_action is not None:
+        branch = str(requested_action.get("branch") or "").strip()
+        add(branch, _outbox_evidence_head(requested_action))
+
+    for branch in _outbox_payload_branches(payload):
+        refs.setdefault(branch, {None})
+
+    return refs
+
+
 def terminal_receipt_branches(receipt_root: Path) -> set[str]:
     """Return branch references stored directly in terminal receipt payloads."""
 
@@ -425,6 +469,21 @@ def terminal_receipt_branches(receipt_root: Path) -> set[str]:
             continue
         branches.update(_outbox_payload_branches(payload))
     return branches
+
+
+def terminal_receipt_branch_heads(receipt_root: Path) -> dict[str, set[str | None]]:
+    """Return branch references from terminal receipts with optional head evidence."""
+
+    refs: dict[str, set[str | None]] = defaultdict(set)
+    for receipt_file in _json_files(receipt_root):
+        payload = _json_mapping(receipt_file)
+        if payload is None:
+            continue
+        if str(payload.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
+            continue
+        for branch, heads in _outbox_payload_branch_heads(payload).items():
+            refs[branch].update(heads)
+    return refs
 
 
 def _archived_outbox_receipt_branches(
@@ -471,6 +530,51 @@ def _archived_outbox_receipt_branches(
     return branches
 
 
+def _archived_outbox_receipt_branch_heads(
+    outbox_root: Path,
+    receipt_root: Path,
+    terminal_keys: set[str],
+) -> dict[str, set[str | None]]:
+    """Return branch/head references from archived outbox payloads named by receipts."""
+
+    archive_root = outbox_root.parent / "automation-outbox-archive"
+    if not archive_root.exists():
+        return {}
+
+    refs: dict[str, set[str | None]] = defaultdict(set)
+    for receipt_file in _json_files(receipt_root):
+        receipt = _json_mapping(receipt_file)
+        if receipt is None:
+            continue
+        if str(receipt.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
+            continue
+        idempotency_key = str(receipt.get("idempotency_key") or receipt_file.stem).strip()
+        if idempotency_key not in terminal_keys:
+            continue
+
+        candidates: list[Path] = []
+        source_file = str(receipt.get("source_file") or "").strip()
+        if source_file:
+            candidates.append(archive_root / Path(source_file).name)
+        if idempotency_key:
+            candidates.append(archive_root / f"{idempotency_key}.json")
+
+        seen: set[Path] = set()
+        for candidate in candidates:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            payload = _json_mapping(candidate)
+            if payload is None:
+                continue
+            payload_key = str(payload.get("idempotency_key") or "").strip()
+            if payload_key and payload_key != idempotency_key:
+                continue
+            for branch, heads in _outbox_payload_branch_heads(payload).items():
+                refs[branch].update(heads)
+    return refs
+
+
 def terminal_receipted_handoff_branches(
     root: Path,
     *,
@@ -499,6 +603,37 @@ def terminal_receipted_handoff_branches(
         branches.update(_outbox_payload_branches(payload))
     branches.update(_archived_outbox_receipt_branches(outbox_root, receipt_root, terminal_keys))
     return branches
+
+
+def terminal_receipted_handoff_branch_heads(
+    root: Path,
+    *,
+    outbox_dir: Path | None = None,
+    receipt_dir: Path | None = None,
+) -> dict[str, set[str | None]]:
+    """Return terminal handoff receipt branch refs with optional head evidence."""
+
+    outbox_root = _automation_state_path(root, outbox_dir, DEFAULT_OUTBOX_DIR)
+    receipt_root = _automation_state_path(root, receipt_dir, DEFAULT_RECEIPT_DIR)
+    terminal_keys = terminal_handoff_keys(receipt_root)
+    if not terminal_keys:
+        return {}
+
+    refs = terminal_receipt_branch_heads(receipt_root)
+    for outbox_file in _json_files(outbox_root):
+        payload = _json_mapping(outbox_file)
+        if payload is None:
+            continue
+        idempotency_key = str(payload.get("idempotency_key") or "").strip()
+        if idempotency_key not in terminal_keys:
+            continue
+        for branch, heads in _outbox_payload_branch_heads(payload).items():
+            refs[branch].update(heads)
+    for branch, heads in _archived_outbox_receipt_branch_heads(
+        outbox_root, receipt_root, terminal_keys
+    ).items():
+        refs[branch].update(heads)
+    return refs
 
 
 def unresolved_outbox_handoff_branches(
@@ -837,20 +972,24 @@ def audit(
         open_pr_lookup_skipped = True
     resolved_outbox_dir = _automation_state_path(root, outbox_dir, DEFAULT_OUTBOX_DIR)
     resolved_receipt_dir = _automation_state_path(root, receipt_dir, DEFAULT_RECEIPT_DIR)
-    handoff_receipted_branches = terminal_receipted_handoff_branches(
+    handoff_receipted_branch_heads = terminal_receipted_handoff_branch_heads(
         root,
         outbox_dir=resolved_outbox_dir,
         receipt_dir=resolved_receipt_dir,
     )
     terminal_keys = terminal_handoff_keys(resolved_receipt_dir)
-    handoff_receipted_branches.update(
-        row["name"]
-        for row in rows
-        if any(
-            terminal_key_matches_branch_head(key, row["name"], row["head_sha"])
-            for key in terminal_keys
+
+    def has_matching_terminal_receipt(row: dict[str, str]) -> bool:
+        branch = row["name"]
+        head_sha = row["head_sha"]
+        if any(terminal_key_matches_branch_head(key, branch, head_sha) for key in terminal_keys):
+            return True
+        return any(
+            receipt_head is None or _commit_prefix_matches(receipt_head, head_sha)
+            for receipt_head in handoff_receipted_branch_heads.get(branch, set())
         )
-    )
+
+    handoff_receipted_branches = {row["name"] for row in rows if has_matching_terminal_receipt(row)}
     handoff_outbox_branches = unresolved_outbox_handoff_branches(
         root,
         outbox_dir=resolved_outbox_dir,

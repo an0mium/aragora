@@ -849,6 +849,70 @@ def test_audit_matches_terminal_receipt_by_idempotency_key_when_outbox_missing(
     assert payload["summary"]["publishable_branch_backlog"] == 1
 
 
+def test_audit_ignores_terminal_receipt_with_mismatched_explicit_head(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row(
+            "codex/receipted",
+            committed_at=now,
+            head_sha="newbbbb2222",
+        )
+    ]
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-receipted-oldaaaa1111"
+    (receipts / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "published",
+                "local_evidence": {
+                    "branch": "codex/receipted",
+                    "head_sha": "oldaaaa1111",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(mod, "has_empty_branch_diff", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(mod, "is_patch_equivalent", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    receipted = payload["records"][0]
+    assert receipted["handoff_receipt_exists"] is False
+    assert receipted["category"] == "salvage_recent_unique"
+    assert payload["summary"]["handoff_receipted_branches"] == 0
+    assert payload["summary"]["publishable_branch_backlog"] == 1
+
+
 def test_audit_reads_archived_outbox_payload_for_terminal_receipt(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
