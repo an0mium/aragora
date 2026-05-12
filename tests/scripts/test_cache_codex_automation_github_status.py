@@ -436,6 +436,89 @@ def test_refresh_entrypoint_delegates_to_cache_main(monkeypatch: Any) -> None:
     assert calls == [["--json"]]
 
 
+def test_summary_only_payload_omits_detail_lists() -> None:
+    payload = {
+        "local_queue": {
+            "outbox_count": 2,
+            "receipt_count": 1,
+            "nonterminal_receipts": [{"file": "failed.json"}],
+            "outbox_duplicate_idempotency_keys": [{"idempotency_key": "key", "count": 2}],
+            "outbox_duplicate_branches": [{"branch": "codex/example", "count": 2}],
+            "stale_target_pr_receipted_outbox": [{"branch": "codex/stale"}],
+        },
+        "github_queue": {
+            "available": True,
+            "open_codex_pr_count": 2,
+            "open_pr_heads": ["codex/a", "codex/b"],
+        },
+    }
+
+    compact = mod.summary_only_payload(payload)
+
+    assert compact["local_queue"]["outbox_count"] == 2
+    assert compact["local_queue"]["receipt_count"] == 1
+    assert "nonterminal_receipts" not in compact["local_queue"]
+    assert "outbox_duplicate_idempotency_keys" not in compact["local_queue"]
+    assert "outbox_duplicate_branches" not in compact["local_queue"]
+    assert "stale_target_pr_receipted_outbox" not in compact["local_queue"]
+    assert compact["local_queue"]["detail_lists_omitted"] is True
+    assert compact["github_queue"]["open_codex_pr_count"] == 2
+    assert compact["github_queue"]["open_pr_head_count"] == 2
+    assert compact["github_queue"]["open_pr_heads_omitted"] is True
+    assert "open_pr_heads" not in compact["github_queue"]
+    assert compact["details_omitted"] is True
+
+
+def test_main_summary_only_prints_compact_json_but_writes_full_cache(
+    monkeypatch: Any,
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    state_root = tmp_path / ".aragora"
+    (state_root / "automation-outbox").mkdir(parents=True)
+    receipts = state_root / "automation-receipts"
+    receipts.mkdir(parents=True)
+    (receipts / "failed-receipt.json").write_text(
+        '{"idempotency_key": "open-pr-example", "status": "failed"}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="sandboxed",
+            repo=str(repo_root),
+        ),
+    )
+
+    rc = mod.main(
+        ["--repo", str(repo_root), "--state-root", str(state_root), "--json", "--summary-only"]
+    )
+
+    assert rc == 0
+    stdout_payload = json.loads(capsys.readouterr().out)
+    assert stdout_payload["local_queue"]["nonterminal_receipt_count"] == 1
+    assert "nonterminal_receipts" not in stdout_payload["local_queue"]
+    assert stdout_payload["local_queue"]["detail_lists_omitted"] is True
+    written_payload = json.loads(
+        (state_root / "automation-github-status" / "latest.json").read_text(encoding="utf-8")
+    )
+    assert written_payload["local_queue"]["nonterminal_receipts"] == [
+        {
+            "file": "failed-receipt.json",
+            "idempotency_key": "open-pr-example",
+            "status": "failed",
+        }
+    ]
+
+
 def test_build_status_records_remote_pressure_when_github_available(
     monkeypatch: Any,
     tmp_path: Path,

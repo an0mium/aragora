@@ -44,6 +44,12 @@ DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_OUTPUT = Path(".aragora/automation-github-status/latest.json")
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 DUPLICATE_OUTBOX_EXAMPLE_LIMIT = 20
+LOCAL_QUEUE_DETAIL_KEYS = (
+    "nonterminal_receipts",
+    "outbox_duplicate_idempotency_keys",
+    "outbox_duplicate_branches",
+    "stale_target_pr_receipted_outbox",
+)
 
 
 def _has_queue_state_dirs(state_root: Path) -> bool:
@@ -522,6 +528,38 @@ def write_status(path: Path, payload: dict[str, Any]) -> None:
     Path(temp_name).replace(path)
 
 
+def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return compact queue status for recurring automation startup logs."""
+
+    compact = dict(payload)
+
+    local_queue = payload.get("local_queue")
+    if isinstance(local_queue, Mapping):
+        compact_local_queue = dict(local_queue)
+        omitted_details = False
+        for key in LOCAL_QUEUE_DETAIL_KEYS:
+            if key in compact_local_queue:
+                omitted_details = True
+                compact_local_queue.pop(key, None)
+        if omitted_details:
+            compact_local_queue["detail_lists_omitted"] = True
+        compact["local_queue"] = compact_local_queue
+
+    github_queue = payload.get("github_queue")
+    if isinstance(github_queue, Mapping):
+        compact_github_queue = dict(github_queue)
+        open_pr_heads = compact_github_queue.pop("open_pr_heads", None)
+        if isinstance(open_pr_heads, Sequence) and not isinstance(
+            open_pr_heads, (str, bytes, bytearray)
+        ):
+            compact_github_queue["open_pr_head_count"] = len(open_pr_heads)
+            compact_github_queue["open_pr_heads_omitted"] = True
+        compact["github_queue"] = compact_github_queue
+
+    compact["details_omitted"] = True
+    return compact
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Cache GitHub queue status for local-only Codex automations."
@@ -551,6 +589,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--json", action="store_true", help="Print the cached payload")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help=(
+            "Print compact JSON for automation startup logs. The cache file still "
+            "receives the full payload."
+        ),
+    )
     return parser
 
 
@@ -586,7 +632,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     write_status(output, payload)
     if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        output_payload = summary_only_payload(payload) if args.summary_only else payload
+        print(json.dumps(output_payload, indent=2, sort_keys=True))
     return 0
 
 
