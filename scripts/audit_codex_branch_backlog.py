@@ -1111,13 +1111,18 @@ def compact_record_examples(
     return dict(sorted(examples.items()))
 
 
-def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def summary_only_payload(
+    payload: dict[str, Any],
+    *,
+    example_limit: int = DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY,
+) -> dict[str, Any]:
     compact = dict(payload)
     records = payload.get("records")
     compact["record_examples"] = compact_record_examples(
-        records if isinstance(records, Sequence) and not isinstance(records, (str, bytes)) else []
+        records if isinstance(records, Sequence) and not isinstance(records, (str, bytes)) else [],
+        limit_per_category=example_limit,
     )
-    compact["record_examples_limit"] = DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY
+    compact["record_examples_limit"] = example_limit
     compact["records"] = []
     compact["records_omitted"] = True
     return compact
@@ -1279,7 +1284,12 @@ def build_parser() -> argparse.ArgumentParser:
             "worktree has no .aragora directory."
         ),
     )
-    parser.add_argument("--examples", type=int, default=10, help="Examples per Markdown category")
+    parser.add_argument(
+        "--examples",
+        type=int,
+        default=None,
+        help="Examples per Markdown category or summary-only JSON category",
+    )
     return parser
 
 
@@ -1313,9 +1323,14 @@ def main(argv: list[str] | None = None) -> int:
         receipt_dir=receipt_dir,
     )
     if args.summary_only:
-        payload = summary_only_payload(payload)
+        payload = summary_only_payload(
+            payload,
+            example_limit=(
+                DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY if args.examples is None else args.examples
+            ),
+        )
     if args.markdown:
-        print_markdown(payload, examples=args.examples)
+        print_markdown(payload, examples=10 if args.examples is None else args.examples)
     else:
         # JSON is the default to make automation consumption explicit.
         print(json.dumps(payload, indent=2 if args.json else None))

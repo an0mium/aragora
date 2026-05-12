@@ -233,6 +233,60 @@ def test_summary_only_payload_keeps_compact_category_examples() -> None:
     assert len(payload["records"]) == 5
 
 
+def test_summary_only_payload_honors_example_limit() -> None:
+    payload = {
+        "branch_count": 1,
+        "summary": {"by_category": {"cleanup_patch_equivalent": 1}},
+        "records": [
+            {
+                "name": "codex/cleanup-one",
+                "category": "cleanup_patch_equivalent",
+                "head_sha": "1111111",
+                "committed_at": "2026-05-06T00:00:00+00:00",
+                "subject": "first cleanup",
+                "ahead_count": 1,
+                "behind_count": 0,
+            }
+        ],
+    }
+
+    compact = mod.summary_only_payload(payload, example_limit=0)
+
+    assert compact["records"] == []
+    assert compact["record_examples"] == {}
+    assert compact["record_examples_limit"] == 0
+    assert compact["records_omitted"] is True
+
+
+def test_main_summary_only_json_honors_examples_flag(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    payload = {
+        "branch_count": 1,
+        "summary": {"by_category": {"cleanup_patch_equivalent": 1}},
+        "records": [
+            {
+                "name": "codex/cleanup-one",
+                "category": "cleanup_patch_equivalent",
+                "head_sha": "1111111",
+                "committed_at": "2026-05-06T00:00:00+00:00",
+                "subject": "first cleanup",
+                "ahead_count": 1,
+                "behind_count": 0,
+            }
+        ],
+    }
+    monkeypatch.setattr(mod, "repo_root", lambda _path: tmp_path)
+    monkeypatch.setattr(mod, "audit", lambda **_kwargs: payload)
+
+    assert mod.main(["--repo", str(tmp_path), "--json", "--summary-only", "--examples", "0"]) == 0
+    compact = json.loads(capsys.readouterr().out)
+
+    assert compact["records"] == []
+    assert compact["record_examples"] == {}
+    assert compact["record_examples_limit"] == 0
+
+
 def test_audit_skips_open_pr_lookup_when_github_health_degraded(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
