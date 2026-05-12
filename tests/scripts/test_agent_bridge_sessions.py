@@ -388,6 +388,7 @@ def test_select_summary_skips_terminal_ui_chrome() -> None:
             "Auto (Low) - edits and read-only commands Opus 4.7 (High)",
             "↑↓ navigate Enter select Esc cancel",
             "⏵⏵ don't ask on (shift+tab to cycle)",
+            "⏵⏵ don't ask n (shift+tabtocycle)",
             "[⏱ 30s]? for help IDE ○",
         ]
     )
@@ -423,6 +424,13 @@ def test_select_summary_skips_terminal_border_residue() -> None:
     )
 
     assert summary == ""
+
+
+def test_select_summary_skips_compacted_terminal_control_residue() -> None:
+    import agent_bridge_sessions as mod
+
+    assert mod._select_summary(["PR #5297 opened", "<u>1u>4;2m<u>1u>4;2m"]) == "PR #5297 opened"
+    assert mod._select_summary(["<u>1u>4;2m<u>1u>4;2m"]) == ""
 
 
 def test_select_summary_skips_mcp_status_chrome() -> None:
