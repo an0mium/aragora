@@ -456,6 +456,64 @@ def rolling_viah_trend(
     )
 
 
+VIAH_SNAPSHOT_ENTRY_TYPE = "viah_snapshot"
+
+
+def persist_viah_snapshot(
+    *,
+    ledger: ShiftLedger,
+    report: ViahReport,
+) -> LedgerEntry:
+    """Persist a ViahReport to the ShiftLedger as a ``viah_snapshot`` entry.
+
+    Gated behind ``ARAGORA_VIAH_TREND_ENABLED`` — the same flag that guards
+    :func:`rolling_viah_trend`.  Raises ``RuntimeError`` when the flag is
+    off so callers fail loudly rather than silently dropping snapshots.
+
+    The entry payload mirrors :meth:`ViahReport.to_dict` (minus the nested
+    ``coefficients`` and ``inputs`` sub-dicts) so ledger consumers can
+    reconstruct the key signals without deserializing nested objects.
+    """
+    if not viah_trend_enabled():
+        raise RuntimeError(
+            f"VIAH snapshot persistence is disabled; set {VIAH_TREND_FLAG}=1 to enable"
+        )
+    return ledger.append(
+        VIAH_SNAPSHOT_ENTRY_TYPE,
+        window_start=report.window_start,
+        window_end=report.window_end,
+        window_hours=report.window_hours,
+        agent_hours=report.agent_hours,
+        viah=report.viah,
+        merged_autonomous_prs=report.merged_autonomous_prs,
+        cruxes_correctly_detected=report.cruxes_correctly_detected,
+        predictions_above_brier_threshold=report.predictions_above_brier_threshold,
+        rescues_required=report.rescues_required,
+        failed_claims_promoted_without_repair=report.failed_claims_promoted_without_repair,
+    )
+
+
+def read_viah_snapshots(
+    *,
+    ledger: ShiftLedger,
+    max_count: int | None = None,
+) -> list[dict[str, Any]]:
+    """Return persisted VIAH snapshot payloads from the ledger, newest-last.
+
+    Read-only and always safe to call regardless of the flag state —
+    an empty ledger simply returns an empty list.
+
+    Args:
+        ledger: The :class:`~aragora.swarm.shift_ledger.ShiftLedger` to read.
+        max_count: If given, return at most this many most-recent snapshots.
+    """
+    entries = ledger.read_by_type(VIAH_SNAPSHOT_ENTRY_TYPE)
+    payloads = [e.payload for e in entries]
+    if max_count is not None and max_count > 0:
+        payloads = payloads[-max_count:]
+    return payloads
+
+
 __all__ = [
     "DEFAULT_BRIER_THRESHOLD",
     "DEFAULT_CRUX_WEIGHT",
@@ -463,12 +521,15 @@ __all__ = [
     "DEFAULT_PREDICTION_WEIGHT",
     "DEFAULT_PR_WEIGHT",
     "DEFAULT_RESCUE_WEIGHT",
+    "VIAH_SNAPSHOT_ENTRY_TYPE",
     "VIAH_TREND_FLAG",
     "ViahCoefficients",
     "ViahReport",
     "ViahTrend",
     "ViahTrendPoint",
     "compute_viah",
+    "persist_viah_snapshot",
+    "read_viah_snapshots",
     "rolling_viah_trend",
     "viah_score",
     "viah_trend_enabled",
