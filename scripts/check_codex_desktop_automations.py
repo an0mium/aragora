@@ -36,6 +36,8 @@ class AutomationRecord:
     path: str
     byminute: int | None
     role: str
+    memory_path: str
+    memory_present: bool
 
 
 @dataclass(frozen=True)
@@ -73,6 +75,7 @@ def _load_record(path: Path) -> AutomationRecord:
     name = str(payload.get("name") or record_id)
     rrule = str(payload.get("rrule") or "")
     role = _role_for(record_id, name)
+    memory_path = path.parent / "memory.md"
     return AutomationRecord(
         id=record_id,
         name=name,
@@ -83,6 +86,8 @@ def _load_record(path: Path) -> AutomationRecord:
         path=str(path),
         byminute=_parse_byminute(rrule),
         role=role,
+        memory_path=str(memory_path),
+        memory_present=memory_path.is_file(),
     )
 
 
@@ -156,6 +161,15 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
             )
         if record.role == "writer" and record.status == "ACTIVE" and record.byminute is not None:
             active_writer_minutes.setdefault(record.byminute, []).append(record.id)
+        if record.role == "writer" and record.status == "ACTIVE" and not record.memory_present:
+            issues.append(
+                AuditIssue(
+                    record.id,
+                    "warning",
+                    "missing_memory_file",
+                    f"active writer memory file is absent: {record.memory_path}",
+                )
+            )
         required_words = PROMPT_WORDS_BY_ROLE.get(record.role, ())
         for word in required_words:
             if record.status == "ACTIVE" and word not in prompt_lower:
@@ -209,7 +223,17 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
         writer_id: (
             {
                 key: record[key]
-                for key in ("id", "name", "kind", "status", "path", "byminute", "role")
+                for key in (
+                    "id",
+                    "name",
+                    "kind",
+                    "status",
+                    "path",
+                    "byminute",
+                    "role",
+                    "memory_path",
+                    "memory_present",
+                )
                 if key in record
             }
             if isinstance(record, dict)

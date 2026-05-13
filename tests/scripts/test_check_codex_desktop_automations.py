@@ -26,6 +26,7 @@ def _write_automation(
     prompt: str,
     byminute: int,
     status: str = "ACTIVE",
+    write_memory: bool = True,
 ) -> None:
     path = root / automation_id
     path.mkdir(parents=True)
@@ -44,6 +45,8 @@ def _write_automation(
         + "\n",
         encoding="utf-8",
     )
+    if write_memory:
+        (path / "memory.md").write_text("# Memory\n", encoding="utf-8")
 
 
 def test_audit_detects_paused_core_writer(tmp_path: Path) -> None:
@@ -81,6 +84,29 @@ def test_audit_accepts_staggered_writer_contracts(tmp_path: Path) -> None:
     payload = mod.build_payload(tmp_path)
 
     assert payload["summary"] == {"active_count": 4, "error_count": 0, "warning_count": 0}
+
+
+def test_audit_warns_active_writer_missing_memory_file(tmp_path: Path) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+            write_memory=automation_id != "engineering-autopilot",
+        )
+
+    payload = mod.build_payload(tmp_path)
+
+    missing = [issue for issue in payload["issues"] if issue["code"] == "missing_memory_file"]
+    assert len(missing) == 1
+    assert missing[0]["automation_id"] == "engineering-autopilot"
+    assert "engineering-autopilot/memory.md" in missing[0]["message"]
+    assert payload["core_writers"]["engineering-autopilot"]["memory_present"] is False
 
 
 def test_audit_warns_writer_missing_preflight(tmp_path: Path) -> None:
@@ -177,6 +203,10 @@ def test_summary_only_payload_omits_core_writer_prompts(tmp_path: Path) -> None:
     assert "prompt" in payload["core_writers"]["engineering-autopilot"]
     assert "prompt" not in compact["core_writers"]["engineering-autopilot"]
     assert compact["core_writers"]["engineering-autopilot"]["byminute"] == 5
+    assert compact["core_writers"]["engineering-autopilot"]["memory_present"] is True
+    assert compact["core_writers"]["engineering-autopilot"]["memory_path"].endswith(
+        "engineering-autopilot/memory.md"
+    )
 
 
 def test_main_summary_only_json_omits_prompts(
