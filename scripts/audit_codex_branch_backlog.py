@@ -1008,8 +1008,14 @@ def audit(
         dirty_paths = [str(path) for path in paths if dirty_worktree(path)]
         active_paths = [str(path) for path in paths if active_worktree(path)]
         open_pr = prs.get(branch) if prs is not None else None
+        handoff_receipted = branch in handoff_receipted_branches
+        handoff_outbox = branch in handoff_outbox_branches
         protected_before_patch_check = (
-            open_pr is not None or bool(active_paths) or bool(dirty_paths)
+            open_pr is not None
+            or bool(active_paths)
+            or bool(dirty_paths)
+            or handoff_receipted
+            or handoff_outbox
         )
         try:
             ahead_count = int(row["ahead_count"])
@@ -1061,8 +1067,6 @@ def audit(
                         timeout=_patch_timeout(patch_deadline, 120),
                     )
         remote_exists = branch in remotes
-        handoff_receipted = branch in handoff_receipted_branches
-        handoff_outbox = branch in handoff_outbox_branches
         if (
             not handoff_receipted
             and not handoff_outbox

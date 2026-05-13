@@ -1926,6 +1926,66 @@ def test_audit_skips_patch_equivalence_after_time_budget(tmp_path: Path, monkeyp
     ]
 
 
+def test_audit_skips_patch_checks_for_exact_handoff_protected_branches(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    rows = [_branch_row("codex/receipted"), _branch_row("codex/handed-off")]
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "terminal_receipted_handoff_branch_heads",
+        lambda *_args, **_kwargs: {"codex/receipted": {"abc1234"}},
+    )
+    monkeypatch.setattr(mod, "terminal_handoff_keys", lambda *_args, **_kwargs: set())
+    monkeypatch.setattr(
+        mod,
+        "unresolved_outbox_handoff_branches",
+        lambda *_args, **_kwargs: {"codex/handed-off"},
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    def fail_patch_check(*_args: Any, **_kwargs: Any) -> bool:
+        raise AssertionError("exact handoff-protected branches should skip patch checks")
+
+    monkeypatch.setattr(mod, "is_patch_equivalent", fail_patch_check)
+    monkeypatch.setattr(mod, "has_empty_branch_diff", fail_patch_check)
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=True,
+        publisher_backlog_limit=2,
+    )
+
+    by_name = {record["name"]: record for record in payload["records"]}
+    assert by_name["codex/receipted"]["category"] == "protected_handoff_receipt"
+    assert by_name["codex/handed-off"]["category"] == "protected_handoff_outbox"
+    assert [record["patch_equivalence_skipped"] for record in payload["records"]] == [
+        False,
+        False,
+    ]
+    assert payload["patch_equivalence_skipped_branches"] == 0
+    assert payload["summary"]["patch_equivalence_skipped_by_category"] == {}
+
+
 def test_audit_skip_patch_equivalence_still_cleans_empty_branch_diff(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
