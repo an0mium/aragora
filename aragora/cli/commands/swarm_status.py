@@ -106,7 +106,7 @@ def _resolve_terminal_class(row: dict[str, Any]) -> str:
         return existing
     try:
         return classify_from_metrics(row).value
-    except Exception:
+    except (AttributeError, KeyError, TypeError, ValueError):
         return TerminalClass.RESCUE_NO_DELIVERABLE.value
 
 
