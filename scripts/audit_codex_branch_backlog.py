@@ -132,6 +132,13 @@ def repo_root(path: Path) -> Path:
     return Path(proc.stdout.strip()).resolve()
 
 
+def git_revision(root: Path, ref: str) -> str | None:
+    proc = run_git(["rev-parse", "--verify", ref], root)
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
+
+
 def parse_dt(value: str) -> datetime:
     return datetime.fromisoformat(value.strip())
 
@@ -1207,7 +1214,9 @@ def audit(
     )
     return {
         "repo": str(root),
+        "worktree_head_sha": git_revision(root, "HEAD"),
         "base": base,
+        "base_sha": git_revision(root, base),
         "prefix": prefix,
         "recent_hours": recent_hours,
         "publisher_backlog_limit": publisher_backlog_limit,
@@ -1281,7 +1290,9 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     summary = payload["summary"]
     print("# Codex Branch Backlog Audit\n")
     print(f"- Repo: `{payload['repo']}`")
+    print(f"- Worktree HEAD: `{payload.get('worktree_head_sha')}`")
     print(f"- Base: `{payload['base']}`")
+    print(f"- Base SHA: `{payload.get('base_sha')}`")
     print(f"- Branches audited: `{payload['branch_count']}`")
     print(f"- Safe cleanup candidates: `{summary['safe_cleanup_candidates']}`")
     print(f"- Salvage candidates: `{summary['salvage_candidates']}`")

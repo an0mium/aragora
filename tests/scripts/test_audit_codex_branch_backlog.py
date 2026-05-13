@@ -287,6 +287,36 @@ def test_main_summary_only_json_honors_examples_flag(
     assert compact["record_examples_limit"] == 0
 
 
+def test_print_markdown_includes_revision_metadata(tmp_path: Path, capsys: Any) -> None:
+    payload = {
+        "repo": str(tmp_path),
+        "worktree_head_sha": "1111111111111111111111111111111111111111",
+        "base": "origin/main",
+        "base_sha": "2222222222222222222222222222222222222222",
+        "branch_count": 0,
+        "patch_equivalence_budget_exhausted": False,
+        "patch_equivalence_skipped_branches": 0,
+        "summary": {
+            "safe_cleanup_candidates": 0,
+            "salvage_candidates": 0,
+            "publishable_branch_backlog": 0,
+            "diverged_salvage_candidates": 0,
+            "handoff_receipted_branches": 0,
+            "handoff_outbox_branches": 0,
+            "writer_should_pause_for_branch_backlog": False,
+            "protected": 0,
+            "by_category": {},
+        },
+        "records": [],
+    }
+
+    mod.print_markdown(payload, examples=0)
+    out = capsys.readouterr().out
+
+    assert "- Worktree HEAD: `1111111111111111111111111111111111111111`" in out
+    assert "- Base SHA: `2222222222222222222222222222222222222222`" in out
+
+
 def test_audit_skips_open_pr_lookup_when_github_health_degraded(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
@@ -324,6 +354,44 @@ def test_audit_skips_open_pr_lookup_when_github_health_degraded(
     assert payload["open_pr_lookup_skipped"] is True
     assert payload["records"][0]["open_pr"] is None
     assert payload["records"][0]["category"] == "salvage_recent_unique"
+
+
+def test_audit_reports_worktree_and_base_revisions(tmp_path: Path, monkeypatch: Any) -> None:
+    _stub_git_inventory(monkeypatch, _branch_row())
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "git_revision",
+        lambda _root, ref: {
+            "HEAD": "1111111111111111111111111111111111111111",
+            "origin/main": "2222222222222222222222222222222222222222",
+        }[ref],
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    assert payload["worktree_head_sha"] == "1111111111111111111111111111111111111111"
+    assert payload["base_sha"] == "2222222222222222222222222222222222222222"
 
 
 def test_audit_uses_batched_divergence_before_fallback(tmp_path: Path, monkeypatch: Any) -> None:
