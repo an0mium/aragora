@@ -190,6 +190,23 @@ def test_dry_run_can_write_report_when_requested(
     assert payload["applied"] is False
 
 
+def test_dry_run_out_writes_explicit_report_path(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+    report_path = tmp_path / "artifacts" / "reconcile-report.json"
+
+    rc = mod.main(["--repo", str(tmp_path), "--json", "--out", str(report_path)])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["report"] == str(report_path)
+    assert report_path.exists()
+    report_payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report_payload["applied"] is False
+    assert not (tmp_path / ".aragora" / "cleanup-state").exists()
+
+
 def test_branch_from_payload_tolerates_list_local_evidence() -> None:
     payload = {
         "branch": "codex/openrouter-kimi-fallback-haiku",

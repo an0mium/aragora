@@ -16,7 +16,8 @@ This script:
   4. Reports counts before/after
 
 Read-only by default (--dry-run); pass --apply to actually move files.
-Dry-run reports are printed to stdout; pass --write-report to persist a JSON report.
+Dry-run reports are printed to stdout; pass --write-report or --out to persist
+a JSON report.
 """
 
 from __future__ import annotations
@@ -357,6 +358,17 @@ def main(argv: list[str] | None = None) -> int:
             "the report."
         ),
     )
+    parser.add_argument(
+        "--out",
+        "--report-path",
+        dest="report_path",
+        type=Path,
+        default=None,
+        help=(
+            "Explicit JSON report path. Relative paths are resolved from --repo. "
+            "Implies --write-report for dry-runs and overrides the default apply report path."
+        ),
+    )
     args = parser.parse_args(argv)
 
     root = Path(args.repo).resolve()
@@ -598,14 +610,18 @@ def main(argv: list[str] | None = None) -> int:
     kept = sum(1 for a in actions if a["decision"] == "keep")
     emit(f"\n  total: {archived} archived, {kept} kept")
 
-    should_write_report = args.apply or args.write_report
+    should_write_report = args.apply or args.write_report or args.report_path is not None
     report_path: Path | None = None
     if should_write_report:
-        state_dir = root / ".aragora" / "cleanup-state"
-        state_dir.mkdir(parents=True, exist_ok=True)
-        out = (
-            state_dir / f"outbox-reconciliation-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.json"
-        )
+        if args.report_path is not None:
+            out = root / args.report_path
+        else:
+            state_dir = root / ".aragora" / "cleanup-state"
+            out = (
+                state_dir
+                / f"outbox-reconciliation-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.json"
+            )
+        out.parent.mkdir(parents=True, exist_ok=True)
         report_path = out
         out.write_text(
             json.dumps(
