@@ -2,6 +2,7 @@
 
 Operates on a temp-file ShiftLedger so no shared state leaks between tests.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -97,24 +98,18 @@ class TestPersistCorrectness:
     def _enable(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(VIAH_TREND_FLAG, "1")
 
-    def test_writes_viah_snapshot_entry_type(
-        self, ledger: ShiftLedger, tmp_path: Path
-    ) -> None:
+    def test_writes_viah_snapshot_entry_type(self, ledger: ShiftLedger, tmp_path: Path) -> None:
         report = _minimal_report(tmp_path)
         entry = persist_viah_snapshot(ledger=ledger, report=report)
         assert entry.entry_type == VIAH_SNAPSHOT_ENTRY_TYPE
 
-    def test_entry_type_readable_from_ledger(
-        self, ledger: ShiftLedger, tmp_path: Path
-    ) -> None:
+    def test_entry_type_readable_from_ledger(self, ledger: ShiftLedger, tmp_path: Path) -> None:
         report = _minimal_report(tmp_path)
         persist_viah_snapshot(ledger=ledger, report=report)
         entries = ledger.read_by_type(VIAH_SNAPSHOT_ENTRY_TYPE)
         assert len(entries) == 1
 
-    def test_window_fields_round_trip(
-        self, ledger: ShiftLedger, tmp_path: Path
-    ) -> None:
+    def test_window_fields_round_trip(self, ledger: ShiftLedger, tmp_path: Path) -> None:
         report = _minimal_report(tmp_path)
         persist_viah_snapshot(ledger=ledger, report=report)
         snapshots = ledger.read_by_type(VIAH_SNAPSHOT_ENTRY_TYPE)
@@ -123,9 +118,7 @@ class TestPersistCorrectness:
         assert payload["window_end"] == report.window_end
         assert payload["window_hours"] == report.window_hours
 
-    def test_signal_counts_round_trip(
-        self, ledger: ShiftLedger, tmp_path: Path
-    ) -> None:
+    def test_signal_counts_round_trip(self, ledger: ShiftLedger, tmp_path: Path) -> None:
         report = _report_with_merged_prs(tmp_path, n_prs=3)
         persist_viah_snapshot(ledger=ledger, report=report)
         payload = ledger.read_by_type(VIAH_SNAPSHOT_ENTRY_TYPE)[0].payload
@@ -135,9 +128,7 @@ class TestPersistCorrectness:
         assert payload["predictions_above_brier_threshold"] == 0
         assert payload["failed_claims_promoted_without_repair"] == 0
 
-    def test_viah_none_when_no_agent_hours(
-        self, ledger: ShiftLedger, tmp_path: Path
-    ) -> None:
+    def test_viah_none_when_no_agent_hours(self, ledger: ShiftLedger, tmp_path: Path) -> None:
         report = _minimal_report(tmp_path)
         assert report.viah is None
         persist_viah_snapshot(ledger=ledger, report=report)
@@ -158,17 +149,13 @@ class TestPersistCorrectness:
         # agent_hours may be ~0 here because shift_start ≈ shift_stop; just assert key present
         assert "viah" in payload
 
-    def test_multiple_snapshots_accumulate(
-        self, ledger: ShiftLedger, tmp_path: Path
-    ) -> None:
+    def test_multiple_snapshots_accumulate(self, ledger: ShiftLedger, tmp_path: Path) -> None:
         for _ in range(3):
             report = _minimal_report(tmp_path)
             persist_viah_snapshot(ledger=ledger, report=report)
         assert len(ledger.read_by_type(VIAH_SNAPSHOT_ENTRY_TYPE)) == 3
 
-    def test_returns_ledger_entry_with_timestamp(
-        self, ledger: ShiftLedger, tmp_path: Path
-    ) -> None:
+    def test_returns_ledger_entry_with_timestamp(self, ledger: ShiftLedger, tmp_path: Path) -> None:
         report = _minimal_report(tmp_path)
         entry = persist_viah_snapshot(ledger=ledger, report=report)
         assert entry.timestamp  # non-empty ISO timestamp
@@ -187,24 +174,18 @@ class TestReadViahSnapshots:
     def test_empty_ledger_returns_empty_list(self, ledger: ShiftLedger) -> None:
         assert read_viah_snapshots(ledger=ledger) == []
 
-    def test_returns_all_snapshots_by_default(
-        self, ledger: ShiftLedger, tmp_path: Path
-    ) -> None:
+    def test_returns_all_snapshots_by_default(self, ledger: ShiftLedger, tmp_path: Path) -> None:
         for _ in range(4):
             persist_viah_snapshot(ledger=ledger, report=_minimal_report(tmp_path))
         assert len(read_viah_snapshots(ledger=ledger)) == 4
 
-    def test_max_count_limits_results(
-        self, ledger: ShiftLedger, tmp_path: Path
-    ) -> None:
+    def test_max_count_limits_results(self, ledger: ShiftLedger, tmp_path: Path) -> None:
         for _ in range(5):
             persist_viah_snapshot(ledger=ledger, report=_minimal_report(tmp_path))
         result = read_viah_snapshots(ledger=ledger, max_count=2)
         assert len(result) == 2
 
-    def test_max_count_returns_most_recent(
-        self, ledger: ShiftLedger, tmp_path: Path
-    ) -> None:
+    def test_max_count_returns_most_recent(self, ledger: ShiftLedger, tmp_path: Path) -> None:
         # Write snapshots that differ by merged_autonomous_prs count to identify order
         for n in range(1, 6):
             src = ShiftLedger(path=tmp_path / f"src_{n}.jsonl")
@@ -227,9 +208,7 @@ class TestReadViahSnapshots:
         result = read_viah_snapshots(ledger=ledger)
         assert len(result) == 1
 
-    def test_other_entry_types_excluded(
-        self, ledger: ShiftLedger, tmp_path: Path
-    ) -> None:
+    def test_other_entry_types_excluded(self, ledger: ShiftLedger, tmp_path: Path) -> None:
         ledger.append("pr_merged", pr_number=99, title="unrelated")
         persist_viah_snapshot(ledger=ledger, report=_minimal_report(tmp_path))
         result = read_viah_snapshots(ledger=ledger)
