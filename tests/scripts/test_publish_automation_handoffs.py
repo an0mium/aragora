@@ -302,7 +302,7 @@ def test_load_outbox_handoffs_keeps_stale_target_pr_receipt(tmp_path: Path) -> N
                     "base": "main",
                     "desired_head_sha": desired_head,
                 },
-                local_evidence={"branch": "codex/example", "head_sha": desired_head},
+                local_evidence={"branch": "codex/example"},
             )
         ),
         encoding="utf-8",
@@ -317,6 +317,13 @@ def test_load_outbox_handoffs_keeps_stale_target_pr_receipt(tmp_path: Path) -> N
         ),
         encoding="utf-8",
     )
+
+    handoffs = mod.load_outbox_handoffs(repo)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].desired_head == desired_head
+
+    git("update-ref", "-d", "refs/remotes/origin/codex/example")
 
     handoffs = mod.load_outbox_handoffs(repo)
 

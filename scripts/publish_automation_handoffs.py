@@ -590,7 +590,7 @@ def _outbox_branch_fingerprint(payload: dict[str, Any]) -> str | None:
 
 
 def _outbox_desired_head(payload: dict[str, Any]) -> str | None:
-    for key in ("head_sha", "head", "commit"):
+    for key in ("desired_head_sha", "head_sha", "head", "commit"):
         value = _outbox_evidence_value(payload, key)
         if value and re.fullmatch(r"[0-9a-fA-F]{7,40}", value):
             return value
@@ -677,7 +677,7 @@ def _receipt_satisfies_outbox(
         return True
     remote_head = _remote_tracking_head(repo_root, _outbox_evidence_value(payload, "branch"))
     if not remote_head:
-        return True
+        return False
     return _head_matches(desired_head, remote_head)
 
 
