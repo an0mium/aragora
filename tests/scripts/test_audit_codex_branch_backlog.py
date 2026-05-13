@@ -1972,6 +1972,7 @@ def test_audit_skips_patch_checks_for_exact_handoff_protected_branches(
         recent_hours=72,
         max_branches=None,
         include_patch_equivalence=True,
+        patch_equivalence_time_budget_seconds=0,
         publisher_backlog_limit=2,
     )
 
@@ -1982,6 +1983,7 @@ def test_audit_skips_patch_checks_for_exact_handoff_protected_branches(
         False,
         False,
     ]
+    assert payload["patch_equivalence_budget_exhausted"] is False
     assert payload["patch_equivalence_skipped_branches"] == 0
     assert payload["summary"]["patch_equivalence_skipped_by_category"] == {}
 

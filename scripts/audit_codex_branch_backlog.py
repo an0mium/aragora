@@ -1001,6 +1001,7 @@ def audit(
 
     records: list[BranchRecord] = []
     patch_equivalence_skipped_branches = 0
+    patch_equivalence_budget_exhausted = False
     for row in rows:
         branch = row["name"]
         committed_at = parse_dt(row["committed_at"])
@@ -1038,6 +1039,7 @@ def audit(
         patch_id = None
         if ahead_count > 0 and not merged_to_base and not protected_before_patch_check:
             if _patch_budget_exhausted(patch_deadline):
+                patch_equivalence_budget_exhausted = True
                 patch_equivalence_skipped_branches += 1
                 patch_equivalence_skipped = True
             else:
@@ -1122,6 +1124,7 @@ def audit(
             and category in SALVAGE_CATEGORIES
         ):
             if _patch_budget_exhausted(patch_deadline):
+                patch_equivalence_budget_exhausted = True
                 patch_equivalence_skipped_branches += 1
                 patch_equivalence_skipped = True
             else:
@@ -1210,7 +1213,7 @@ def audit(
         "publisher_backlog_limit": publisher_backlog_limit,
         "include_patch_equivalence": include_patch_equivalence,
         "patch_equivalence_time_budget_seconds": patch_equivalence_time_budget_seconds,
-        "patch_equivalence_budget_exhausted": _patch_budget_exhausted(patch_deadline),
+        "patch_equivalence_budget_exhausted": patch_equivalence_budget_exhausted,
         "patch_equivalence_skipped_branches": patch_equivalence_skipped_branches,
         "outbox_dir": str(resolved_outbox_dir),
         "receipt_dir": str(resolved_receipt_dir),
