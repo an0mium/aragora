@@ -14,6 +14,7 @@ from aragora.protocols.a2a.discovery import (
     discovery_enabled,
     platform_catalog,
 )
+from aragora.protocols.a2a.types import AgentCapability
 
 
 def _server(agent_id: str | None = None, caps: list[str] | None = None):
@@ -125,6 +126,15 @@ def test_agent_catalog_unknown_and_known(monkeypatch):
     assert agent_catalog("none", server=_server()).declared_capabilities == []
     s = agent_catalog("codex", server=_server("codex", ["debate", "audit"]))
     assert {"debate", "audit"} <= set(s.declared_capabilities)
+
+
+def test_agent_catalog_serializes_agent_capability_values(monkeypatch):
+    monkeypatch.setenv("ARAGORA_A2A_DISCOVERY_ENABLED", "1")
+    s = agent_catalog(
+        "codex",
+        server=_server("codex", [AgentCapability.DEBATE, AgentCapability.CRITIQUE]),
+    )
+    assert s.declared_capabilities == ["debate", "critique"]
 
 
 def test_agent_summary_defaults_and_to_dict(monkeypatch):

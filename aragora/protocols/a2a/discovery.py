@@ -174,5 +174,7 @@ def agent_catalog(
     raw = getattr(card, "capabilities", None) or []
     return AgentCapabilitySummary(
         agent_id=agent_id,
-        declared_capabilities=[str(c) for c in raw] if isinstance(raw, list) else [],
+        declared_capabilities=[str(getattr(c, "value", c)) for c in raw]
+        if isinstance(raw, list)
+        else [],
     )
