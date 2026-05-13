@@ -25,6 +25,8 @@ class WorktreeInspection:
     dirty: bool
     unique_commits_ahead: int
     ahead_lookup_failed: bool
+    patch_equivalent_to_origin_main: bool
+    patch_equivalence_lookup_failed: bool
     open_prs: list[dict[str, Any]]
     pr_lookup_failed: bool
     blockers: list[str]
@@ -130,16 +132,29 @@ def _unique_commits_ahead_of_main(
         return 0, True
 
 
+def _patch_equivalent_to_main(repo_root: Path, branch: str | None) -> tuple[bool, bool]:
+    if not branch:
+        return False, False
+    try:
+        from audit_codex_branch_backlog import is_patch_equivalent
+    except Exception:
+        return False, True
+    return is_patch_equivalent(repo_root, "origin/main", branch, timeout=60), False
+
+
 def _pr_lookup_failure_blocks(
     branch: str | None,
     *,
     unique_commits_ahead: int,
     ahead_lookup_failed: bool,
+    patch_equivalent_to_main: bool,
 ) -> bool:
     if not branch:
         return False
     if ahead_lookup_failed:
         return True
+    if patch_equivalent_to_main:
+        return False
     return unique_commits_ahead > 0
 
 
@@ -155,6 +170,12 @@ def inspect_worktree(
     lock_files = _active_lock_files(path) if exists else []
     dirty = _worktree_is_dirty(path) if exists else False
     unique_commits_ahead, ahead_lookup_failed = _unique_commits_ahead_of_main(repo_root, branch)
+    patch_equivalent_to_main = False
+    patch_equivalence_lookup_failed = False
+    if branch and unique_commits_ahead > 0 and not ahead_lookup_failed and not dirty:
+        patch_equivalent_to_main, patch_equivalence_lookup_failed = _patch_equivalent_to_main(
+            repo_root, branch
+        )
     open_prs, pr_lookup_failed = _lookup_open_prs(repo_root, branch)
 
     blockers: list[str] = []
@@ -166,8 +187,10 @@ def inspect_worktree(
         blockers.append("session_lock_present")
     if dirty:
         blockers.append("dirty_worktree")
-    if unique_commits_ahead > 0:
+    if unique_commits_ahead > 0 and not patch_equivalent_to_main:
         blockers.append("branch_ahead_of_origin_main")
+    if patch_equivalence_lookup_failed:
+        blockers.append("patch_equivalence_lookup_failed")
     if open_prs:
         blockers.append("open_pr")
     if branch and ahead_lookup_failed:
@@ -176,6 +199,7 @@ def inspect_worktree(
         branch,
         unique_commits_ahead=unique_commits_ahead,
         ahead_lookup_failed=ahead_lookup_failed,
+        patch_equivalent_to_main=patch_equivalent_to_main,
     ):
         blockers.append("pr_lookup_failed")
 
@@ -189,6 +213,8 @@ def inspect_worktree(
         dirty=dirty,
         unique_commits_ahead=unique_commits_ahead,
         ahead_lookup_failed=ahead_lookup_failed,
+        patch_equivalent_to_origin_main=patch_equivalent_to_main,
+        patch_equivalence_lookup_failed=patch_equivalence_lookup_failed,
         open_prs=open_prs,
         pr_lookup_failed=pr_lookup_failed,
         blockers=blockers,
@@ -213,6 +239,8 @@ def _print_inspection(inspection: WorktreeInspection, *, as_json: bool) -> None:
     if inspection.branch:
         print(f"unique_commits_ahead: {inspection.unique_commits_ahead}")
         print(f"ahead_lookup_failed: {inspection.ahead_lookup_failed}")
+        print(f"patch_equivalent_to_origin_main: {inspection.patch_equivalent_to_origin_main}")
+        print(f"patch_equivalence_lookup_failed: {inspection.patch_equivalence_lookup_failed}")
     print(f"open_prs: {len(inspection.open_prs)}")
     if inspection.open_prs:
         for pr in inspection.open_prs:

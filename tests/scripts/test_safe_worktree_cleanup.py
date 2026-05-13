@@ -75,6 +75,8 @@ def test_remove_refuses_blocked_worktree_without_force(
         dirty=False,
         unique_commits_ahead=0,
         ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
         open_prs=[{"number": 1361, "title": "Open PR", "url": "https://example.com/pr/1361"}],
         pr_lookup_failed=False,
         blockers=["open_pr"],
@@ -167,6 +169,8 @@ def test_remove_purges_residual_path_after_failed_git_remove(
         dirty=False,
         unique_commits_ahead=0,
         ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
         open_prs=[],
         pr_lookup_failed=False,
         blockers=[],
@@ -218,6 +222,8 @@ def test_remove_deletes_branch_when_requested(
         dirty=False,
         unique_commits_ahead=0,
         ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
         open_prs=[],
         pr_lookup_failed=False,
         blockers=[],
@@ -299,6 +305,36 @@ def test_inspect_allows_pr_lookup_failure_for_branch_with_no_unique_commits(
 
     assert inspection.pr_lookup_failed is True
     assert inspection.unique_commits_ahead == 0
+    assert inspection.blockers == []
+
+
+def test_inspect_allows_patch_equivalent_branch_when_pr_lookup_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+
+    monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod.autopilot,
+        "_get_worktree_entries",
+        lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/replayed")],
+    )
+    monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(mod, "_worktree_is_dirty", lambda _path: False)
+    monkeypatch.setattr(mod, "_unique_commits_ahead_of_main", lambda _repo, _branch: (4, False))
+    monkeypatch.setattr(mod, "_patch_equivalent_to_main", lambda _repo, _branch: (True, False))
+    monkeypatch.setattr(mod, "_lookup_open_prs", lambda _repo, _branch: ([], True))
+
+    inspection = mod.inspect_worktree(repo_root, worktree)
+
+    assert inspection.pr_lookup_failed is True
+    assert inspection.unique_commits_ahead == 4
+    assert inspection.patch_equivalent_to_origin_main is True
     assert inspection.blockers == []
 
 
