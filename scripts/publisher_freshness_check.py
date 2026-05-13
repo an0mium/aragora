@@ -377,11 +377,20 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolve_explicit_path(repo_root: Path, value: str | None) -> Path | None:
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path.resolve()
+    return (repo_root / path).resolve()
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     repo_root = Path(args.repo).resolve()
-    cache_path = Path(args.cache_path).resolve() if args.cache_path else None
-    outbox_dir = Path(args.outbox_dir).resolve() if args.outbox_dir else None
+    cache_path = _resolve_explicit_path(repo_root, args.cache_path)
+    outbox_dir = _resolve_explicit_path(repo_root, args.outbox_dir)
     state_root = Path(args.state_root).expanduser().resolve() if args.state_root else None
     report = evaluate(
         repo_root,

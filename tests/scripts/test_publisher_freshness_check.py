@@ -249,6 +249,41 @@ def test_main_accepts_status_cache_alias(
     assert parsed["cache_path"] == str(cache_path.resolve())
 
 
+def test_main_resolves_explicit_relative_paths_from_repo(
+    monkeypatch: pytest.MonkeyPatch,
+    stub_repo: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cache = _write_cache(stub_repo, outbox_count=1)
+    _write_outbox_files(stub_repo, 1)
+    caller_cwd = tmp_path / "caller-cwd"
+    caller_cwd.mkdir()
+    monkeypatch.chdir(caller_cwd)
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(stub_repo),
+            "--cache-path",
+            ".aragora/automation-github-status/latest.json",
+            "--outbox-dir",
+            ".aragora/automation-outbox",
+            "--json",
+        ]
+    )
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["verdict"] == "ready"
+    assert parsed["cache_path"] == str(cache.resolve())
+    assert parsed["outbox_dir"] == str((stub_repo / ".aragora" / "automation-outbox").resolve())
+    assert parsed["outbox_real_count"] == 1
+    assert parsed["outbox_cache_count"] == 1
+
+
 def test_main_accepts_receipt_dir_for_queue_helper_compatibility(
     monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
