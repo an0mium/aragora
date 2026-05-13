@@ -7,10 +7,10 @@ verification_refs:
   - "docs/status/H1_01_REV4_PROMOTION_READINESS.md"
 ---
 
-The H1-01 rev-4 promotion readiness surface specifies a 15-issue dispatch-evidence floor for promoting the staged corpus into the canonical B0 truth loop. As of 2026-04-30, the surface reports 16 staged issues with dispatch evidence and 17 still missing. The verdict is `promotion_ready`: 0 more dispatches are needed to reach the floor.
+The H1-01 rev-4 promotion readiness surface specifies a 15-issue metrics-backed dispatch-evidence floor for promoting the staged corpus into the canonical B0 truth loop. As of 2026-05-13, the surface reports 15 metrics-backed staged issues eligible for canonical promotion and 18 still missing. The verdict is `promotion_ready`: 0 more metrics-backed dispatches are needed to reach the floor.
 
-Dispatch evidence is satisfied by either (a) at least one row in `boss_metrics.jsonl` for the issue, or (b) a merged or open pull request on the boss-loop's deterministic branch pattern `aragora/boss-harvest/issue-N-*`. Undispatched entries stay staged until they accumulate evidence.
+Canonical promotion evidence is satisfied by at least one `boss_metrics.jsonl` row for the issue with a recorded `worker_outcome`. Merged or open boss-harvest PRs are useful advisory evidence, but they are not sufficient for canonical corpus promotion.
 
-The next dispatch targets are `#5788`, `#5789`, and `#5790`.
+The next metrics-evidence targets are `#5128`, `#5130`, and `#5188`.
 
 Review for accuracy. Flag errors if present.
