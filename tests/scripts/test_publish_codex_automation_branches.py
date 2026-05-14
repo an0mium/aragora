@@ -19,6 +19,16 @@ from scripts.publish_codex_automation_branches import (
 UTC = timezone.utc
 
 
+def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+
 def _branch(
     name: str,
     *,
@@ -51,6 +61,35 @@ def _worktree(
         dirty=dirty,
         active_session=active_session,
     )
+
+
+def test_duplicate_patch_branches_skips_older_candidate(tmp_path: Path) -> None:
+    _git(tmp_path, "init", "-b", "main")
+    _git(tmp_path, "config", "user.email", "codex@example.invalid")
+    _git(tmp_path, "config", "user.name", "Codex")
+    (tmp_path / "file.txt").write_text("base\n", encoding="utf-8")
+    _git(tmp_path, "add", "file.txt")
+    _git(tmp_path, "commit", "-m", "base")
+
+    _git(tmp_path, "checkout", "-b", "codex/newer")
+    (tmp_path / "file.txt").write_text("base\nchange\n", encoding="utf-8")
+    _git(tmp_path, "commit", "-am", "newer")
+    _git(tmp_path, "checkout", "main")
+    _git(tmp_path, "checkout", "-b", "codex/older")
+    (tmp_path / "file.txt").write_text("base\nchange\n", encoding="utf-8")
+    _git(tmp_path, "commit", "-am", "older different message")
+
+    duplicates = mod._duplicate_open_pr_patch_branches(
+        tmp_path,
+        "main",
+        [
+            _branch("codex/newer", hours_ago=1),
+            _branch("codex/older", hours_ago=2),
+        ],
+        [],
+    )
+
+    assert duplicates == {"codex/older"}
 
 
 def test_select_publishable_branches_marks_recent_clean_branch_eligible() -> None:
@@ -97,6 +136,7 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
             _branch("codex/merged"),
             _branch("codex/cherry-picked"),
             _branch("codex/superseded"),
+            _branch("codex/duplicate"),
             _branch("codex/related-resolved"),
             _branch("codex/no-unique", unique_commit_count=0),
             _branch("codex/empty-diff", unique_commit_count=2),
@@ -118,6 +158,7 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
         is_patch_equivalent={"codex/cherry-picked": True},
         has_pr_diff={"codex/empty-diff": False},
         superseded_outbox_branches={"codex/superseded"},
+        duplicate_open_pr_patch_branches={"codex/duplicate"},
         historical_pr_branches=set(),
         resolved_related_branches={"codex/related-resolved"},
     )
@@ -128,9 +169,75 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
     assert by_branch["codex/merged"].reason == "already_merged"
     assert by_branch["codex/cherry-picked"].reason == "patch_equivalent_to_base"
     assert by_branch["codex/superseded"].reason == "superseded_by_outbox_handoff"
+    assert by_branch["codex/duplicate"].reason == "duplicate_patch"
     assert by_branch["codex/related-resolved"].reason == "related_resolved_work_exists"
     assert by_branch["codex/no-unique"].reason == "no_unique_commits"
     assert by_branch["codex/empty-diff"].reason == "empty_pr_diff"
+
+
+def test_automation_guardrails_block_below_disk_floor(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("ARAGORA_AUTOMATION_MIN_FREE_GIB", "999999")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_CODEX_RSS_MAX_GIB", "0")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_SPEND_DAILY_CAP_USD", "0")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_SPEND_WEEKLY_CAP_USD", "0")
+
+    report = mod.evaluate_automation_guardrails(
+        tmp_path,
+        open_pr_count=0,
+        max_open_prs=12,
+    )
+
+    assert report.ok is False
+    assert any("free_disk_gib=" in blocker for blocker in report.blockers)
+
+
+def test_automation_guardrails_block_at_open_pr_cap(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("ARAGORA_AUTOMATION_MIN_FREE_GIB", "0")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_CODEX_RSS_MAX_GIB", "0")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_SPEND_DAILY_CAP_USD", "0")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_SPEND_WEEKLY_CAP_USD", "0")
+
+    report = mod.evaluate_automation_guardrails(
+        tmp_path,
+        open_pr_count=6,
+        max_open_prs=6,
+    )
+
+    assert report.ok is False
+    assert report.blockers == ["open_pr_count=6 at or above cap 6"]
+
+
+def test_automation_guardrails_block_when_spend_caps_are_exhausted(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    ledger_dir = tmp_path / "spend-ledger"
+    ledger_dir.mkdir()
+    (ledger_dir / "2026-05-14.jsonl").write_text(
+        json.dumps(
+            {
+                "observed_at": "2026-05-14T12:00:00Z",
+                "actual_usd": 51.25,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ARAGORA_AUTOMATION_MIN_FREE_GIB", "0")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_CODEX_RSS_MAX_GIB", "0")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_SPEND_LEDGER_DIR", str(ledger_dir))
+    monkeypatch.setenv("ARAGORA_AUTOMATION_SPEND_DAILY_CAP_USD", "50")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_SPEND_WEEKLY_CAP_USD", "500")
+
+    report = mod.evaluate_automation_guardrails(
+        tmp_path,
+        open_pr_count=0,
+        max_open_prs=12,
+        now=datetime(2026, 5, 14, 13, 0, tzinfo=UTC),
+    )
+
+    assert report.ok is False
+    assert report.metrics["spend_daily_usd"] == 51.25
+    assert report.blockers == ["daily_spend_usd=51.25 at or above cap 50.00"]
 
 
 def test_outbox_superseded_branches_reads_local_supersession_metadata(

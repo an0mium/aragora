@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -33,11 +34,21 @@ DEFAULT_MAX_OPEN_PRS = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
 DEFAULT_GIT_TIMEOUT_SECONDS = 60
 DEFAULT_SCAN_LIMIT = 12
+DEFAULT_MIN_FREE_GIB = 50.0
+DEFAULT_CODEX_RSS_MAX_GIB = 25.0
+DEFAULT_SPEND_DAILY_CAP_USD = 200.0
+DEFAULT_SPEND_WEEKLY_CAP_USD = 500.0
 CODEX_BRANCH_PREFIX = "codex/"
 DEFAULT_PREFLIGHT_SCRIPT = "scripts/automation_pr_preflight.sh"
 DEFAULT_PRE_PUSH_SKIP_HOOKS = "mypy-baseline"
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
+DEFAULT_SPEND_LEDGER_DIR = Path(".aragora/spend-ledger")
 VERIFY_AUTOMATION_GIT_PUSH_ENV = "ARAGORA_AUTOMATION_GIT_PUSH_VERIFY"
+MIN_FREE_GIB_ENV = "ARAGORA_AUTOMATION_MIN_FREE_GIB"
+CODEX_RSS_MAX_GIB_ENV = "ARAGORA_AUTOMATION_CODEX_RSS_MAX_GIB"
+SPEND_DAILY_CAP_ENV = "ARAGORA_AUTOMATION_SPEND_DAILY_CAP_USD"
+SPEND_WEEKLY_CAP_ENV = "ARAGORA_AUTOMATION_SPEND_WEEKLY_CAP_USD"
+SPEND_LEDGER_DIR_ENV = "ARAGORA_AUTOMATION_SPEND_LEDGER_DIR"
 UNHEALTHY_OPEN_PR_MERGE_STATES = {"BLOCKED", "DIRTY"}
 UNHEALTHY_CHECK_STATES = {
     "ACTION_REQUIRED",
@@ -153,6 +164,13 @@ class PublishDecision:
     worktree_paths: list[str]
 
 
+@dataclass(frozen=True)
+class AutomationGuardrailReport:
+    ok: bool
+    blockers: list[str]
+    metrics: dict[str, Any]
+
+
 def _gh_write_op(args: list[str]) -> bool:
     return len(args) >= 2 and (args[0], args[1]) in {
         ("pr", "create"),
@@ -262,6 +280,74 @@ def _branch_has_pr_diff(repo_root: Path, base: str, branch: str) -> bool:
     return True
 
 
+def _branch_patch_id(repo_root: Path, base: str, branch: str) -> str | None:
+    diff_proc = _run(["git", "diff", f"{base}...{branch}", "--"], cwd=repo_root)
+    if diff_proc.returncode != 0 or not diff_proc.stdout.strip():
+        return None
+    try:
+        patch_proc = subprocess.run(
+            ["git", "patch-id", "--stable"],
+            cwd=repo_root,
+            input=diff_proc.stdout,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=int(
+                os.environ.get(
+                    "ARAGORA_AUTOMATION_GIT_TIMEOUT_SECONDS", str(DEFAULT_GIT_TIMEOUT_SECONDS)
+                )
+            ),
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    if patch_proc.returncode != 0:
+        return None
+    first = patch_proc.stdout.splitlines()[0].split() if patch_proc.stdout.splitlines() else []
+    return first[0] if first else None
+
+
+def _ref_exists(repo_root: Path, ref: str) -> bool:
+    proc = _run(["git", "rev-parse", "--verify", "--quiet", ref], cwd=repo_root)
+    return proc.returncode == 0
+
+
+def _duplicate_open_pr_patch_branches(
+    repo_root: Path,
+    base: str,
+    branches: list[BranchSnapshot],
+    open_codex_prs: list[dict[str, Any]],
+) -> set[str]:
+    open_heads = {
+        item.get("headRefName")
+        for item in open_codex_prs
+        if isinstance(item.get("headRefName"), str)
+    }
+    open_patch_ids: set[str] = set()
+    for head in open_heads:
+        if not isinstance(head, str) or not head.startswith(CODEX_BRANCH_PREFIX):
+            continue
+        ref = f"refs/remotes/origin/{head}"
+        if not _ref_exists(repo_root, ref):
+            continue
+        patch_id = _branch_patch_id(repo_root, base, ref)
+        if patch_id:
+            open_patch_ids.add(patch_id)
+
+    duplicates: set[str] = set()
+    seen_patch_ids = set(open_patch_ids)
+    for branch in sorted(branches, key=lambda item: item.committed_at, reverse=True):
+        if branch.branch in open_heads:
+            continue
+        patch_id = _branch_patch_id(repo_root, base, branch.branch)
+        if not patch_id:
+            continue
+        if patch_id in seen_patch_ids:
+            duplicates.add(branch.branch)
+            continue
+        seen_patch_ids.add(patch_id)
+    return duplicates
+
+
 def _same_git_origin(left: Path, right: Path) -> bool:
     left_proc = _run(["git", "config", "--get", "remote.origin.url"], cwd=left)
     right_proc = _run(["git", "config", "--get", "remote.origin.url"], cwd=right)
@@ -305,6 +391,160 @@ def _automation_state_default_path(state_root: Path, default_relative: Path) -> 
     if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
         return expanded.joinpath(*default_relative.parts[1:])
     return expanded / default_relative
+
+
+def _float_env(name: str, default: float) -> float:
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
+def _free_disk_gib(path: Path) -> float:
+    usage = shutil.disk_usage(path)
+    return usage.free / (1024**3)
+
+
+def _codex_rss_gib() -> float | None:
+    proc = _run(["ps", "-axo", "rss=,comm="], cwd=REPO_ROOT)
+    if proc.returncode != 0:
+        return None
+    rss_kib = 0
+    for line in proc.stdout.splitlines():
+        raw = line.strip()
+        if not raw:
+            continue
+        parts = raw.split(None, 1)
+        if len(parts) != 2:
+            continue
+        try:
+            rss = int(parts[0])
+        except ValueError:
+            continue
+        command = parts[1].lower()
+        if "codex" in Path(command).name or "codex" in command:
+            rss_kib += rss
+    return rss_kib / (1024**2)
+
+
+def _spend_value(payload: dict[str, Any]) -> float:
+    for key in ("actual_usd", "estimated_usd", "usd", "cost_usd"):
+        value = payload.get(key)
+        if isinstance(value, int | float):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                continue
+    return 0.0
+
+
+def _spend_observed_at(payload: dict[str, Any]) -> datetime | None:
+    for key in ("observed_at", "timestamp", "created_at", "generated_at"):
+        value = payload.get(key)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        normalized = value.strip().replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError:
+            continue
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
+    return None
+
+
+def _spend_total_since(ledger_dir: Path, cutoff: datetime, *, now: datetime) -> float:
+    if not ledger_dir.exists():
+        return 0.0
+    total = 0.0
+    for ledger_file in sorted(ledger_dir.glob("*.jsonl")):
+        if not ledger_file.is_file():
+            continue
+        try:
+            lines = ledger_file.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for raw_line in lines:
+            if not raw_line.strip():
+                continue
+            try:
+                payload = json.loads(raw_line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            observed_at = _spend_observed_at(payload) or now
+            if observed_at >= cutoff:
+                total += _spend_value(payload)
+    return total
+
+
+def evaluate_automation_guardrails(
+    repo_root: Path,
+    *,
+    open_pr_count: int,
+    max_open_prs: int,
+    now: datetime | None = None,
+) -> AutomationGuardrailReport:
+    """Fail closed before publisher work can increase queue or disk pressure."""
+
+    now = now or datetime.now(UTC)
+    blockers: list[str] = []
+    metrics: dict[str, Any] = {
+        "open_pr_count": open_pr_count,
+        "max_open_prs": max_open_prs,
+    }
+
+    min_free_gib = _float_env(MIN_FREE_GIB_ENV, DEFAULT_MIN_FREE_GIB)
+    free_gib = _free_disk_gib(repo_root)
+    metrics["free_disk_gib"] = round(free_gib, 3)
+    metrics["min_free_disk_gib"] = min_free_gib
+    if min_free_gib > 0 and free_gib < min_free_gib:
+        blockers.append(f"free_disk_gib={free_gib:.1f} below floor {min_free_gib:.1f}")
+
+    if open_pr_count >= max_open_prs:
+        blockers.append(f"open_pr_count={open_pr_count} at or above cap {max_open_prs}")
+
+    rss_cap_gib = _float_env(CODEX_RSS_MAX_GIB_ENV, DEFAULT_CODEX_RSS_MAX_GIB)
+    codex_rss_gib = _codex_rss_gib()
+    metrics["codex_rss_gib"] = None if codex_rss_gib is None else round(codex_rss_gib, 3)
+    metrics["codex_rss_max_gib"] = rss_cap_gib
+    if codex_rss_gib is not None and rss_cap_gib > 0 and codex_rss_gib > rss_cap_gib:
+        blockers.append(f"codex_rss_gib={codex_rss_gib:.1f} above cap {rss_cap_gib:.1f}")
+
+    ledger_env = os.environ.get(SPEND_LEDGER_DIR_ENV)
+    ledger_dir = (
+        Path(ledger_env).expanduser()
+        if ledger_env
+        else _automation_state_default_path(
+            _automation_state_root(repo_root), DEFAULT_SPEND_LEDGER_DIR
+        )
+    )
+    daily_cap = _float_env(SPEND_DAILY_CAP_ENV, DEFAULT_SPEND_DAILY_CAP_USD)
+    weekly_cap = _float_env(SPEND_WEEKLY_CAP_ENV, DEFAULT_SPEND_WEEKLY_CAP_USD)
+    daily_total = _spend_total_since(ledger_dir, now - timedelta(days=1), now=now)
+    weekly_total = _spend_total_since(ledger_dir, now - timedelta(days=7), now=now)
+    metrics.update(
+        {
+            "spend_ledger_dir": str(ledger_dir),
+            "spend_daily_usd": round(daily_total, 4),
+            "spend_daily_cap_usd": daily_cap,
+            "spend_weekly_usd": round(weekly_total, 4),
+            "spend_weekly_cap_usd": weekly_cap,
+        }
+    )
+    if daily_cap > 0 and daily_total >= daily_cap:
+        blockers.append(f"daily_spend_usd={daily_total:.2f} at or above cap {daily_cap:.2f}")
+    if weekly_cap > 0 and weekly_total >= weekly_cap:
+        blockers.append(f"weekly_spend_usd={weekly_total:.2f} at or above cap {weekly_cap:.2f}")
+
+    return AutomationGuardrailReport(ok=not blockers, blockers=blockers, metrics=metrics)
 
 
 def _json_files(path: Path) -> list[Path]:
@@ -730,6 +970,7 @@ def select_publishable_branches(
     remote_head_lookup: dict[str, str | None] | None = None,
     has_pr_diff: dict[str, bool] | None = None,
     superseded_outbox_branches: set[str] | None = None,
+    duplicate_open_pr_patch_branches: set[str] | None = None,
 ) -> list[PublishDecision]:
     worktrees_by_branch: dict[str, list[WorktreeSnapshot]] = {}
     for worktree in worktrees:
@@ -743,6 +984,7 @@ def select_publishable_branches(
     remote_lookup = remote_head_lookup or {}
     pr_diff_lookup = has_pr_diff or {}
     superseded_lookup = superseded_outbox_branches or set()
+    duplicate_patch_lookup = duplicate_open_pr_patch_branches or set()
     decisions: list[PublishDecision] = []
 
     for branch in sorted(branches, key=lambda item: item.committed_at, reverse=True):
@@ -755,6 +997,8 @@ def select_publishable_branches(
             reason = "patch_equivalent_to_base"
         elif branch.branch in superseded_lookup:
             reason = "superseded_by_outbox_handoff"
+        elif branch.branch in duplicate_patch_lookup:
+            reason = "duplicate_patch"
         elif branch.branch in resolved_related_lookup:
             reason = "related_resolved_work_exists"
         elif branch.unique_commit_count <= 0:
@@ -1163,6 +1407,12 @@ def main(argv: list[str] | None = None) -> int:
     open_pr_heads = {
         item["headRefName"] for item in open_codex_prs if isinstance(item.get("headRefName"), str)
     }
+    duplicate_open_pr_patch_lookup = _duplicate_open_pr_patch_branches(
+        repo_root,
+        args.base,
+        hydrated_branches,
+        open_codex_prs,
+    )
     historical_pr_branches = _branches_with_pr_history(
         repo_root,
         args.github_repo,
@@ -1189,6 +1439,7 @@ def main(argv: list[str] | None = None) -> int:
         },
         has_pr_diff=pr_diff_lookup,
         superseded_outbox_branches=superseded_outbox_lookup,
+        duplicate_open_pr_patch_branches=duplicate_open_pr_patch_lookup,
     )
     merge_state_counts: dict[str, int] = {}
     unhealthy_open_prs: list[dict[str, Any]] = []
@@ -1209,6 +1460,11 @@ def main(argv: list[str] | None = None) -> int:
             )
     unhealthy_open_pr_count = len(unhealthy_open_prs)
     all_open_prs_unhealthy = bool(open_codex_prs) and unhealthy_open_pr_count == len(open_codex_prs)
+    guardrail_report = evaluate_automation_guardrails(
+        repo_root,
+        open_pr_count=len(open_pr_heads),
+        max_open_prs=args.max_open_prs,
+    )
 
     payload: dict[str, Any] = {
         "repo": str(repo_root),
@@ -1224,12 +1480,16 @@ def main(argv: list[str] | None = None) -> int:
             "all_open_prs_unhealthy": all_open_prs_unhealthy,
             "unhealthy_open_prs": unhealthy_open_prs,
         },
+        "automation_guardrails": asdict(guardrail_report),
         "github_health": github_health.to_dict(),
         "decisions": [asdict(decision) for decision in decisions],
     }
 
     if args.apply:
-        if all_open_prs_unhealthy and not args.allow_unhealthy_queue_publish:
+        if not guardrail_report.ok:
+            payload["published"] = []
+            payload["publish_paused_reason"] = "automation_guardrail"
+        elif all_open_prs_unhealthy and not args.allow_unhealthy_queue_publish:
             payload["published"] = []
             payload["publish_paused_reason"] = "open_pr_queue_unhealthy"
         else:
