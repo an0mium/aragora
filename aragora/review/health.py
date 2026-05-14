@@ -19,6 +19,7 @@ Intentionally read-only and network-free; one call should answer
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -26,10 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from aragora.review.invalidation_event_source import (
-    RECEIPTS_SUBDIR,
-    resolve_review_queue_root,
-)
+from aragora.review.invalidation_event_source import RECEIPTS_SUBDIR
 
 UTC = timezone.utc
 
@@ -377,6 +375,37 @@ def _resolve_repo_root(override: Path | None) -> Path:
     return cwd
 
 
+def _resolve_aragora_state_dir(repo: Path) -> Path:
+    """Return the shared ``.aragora`` state directory for repo-local health.
+
+    Disposable worktrees usually do not carry the shared runtime state tree,
+    so falling back to ``repo/.aragora`` would make all write-side surfaces
+    look missing. This mirrors the local automation scripts' state-root
+    convention while staying network-free and avoiding any git subprocess.
+    """
+    local_state = repo / ".aragora"
+    if local_state.is_dir():
+        return local_state
+
+    candidates: list[Path] = []
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    if configured:
+        candidates.append(Path(configured).expanduser())
+    candidates.append(Path.home() / "Development" / "aragora")
+
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        if resolved.name == ".aragora" and resolved.is_dir():
+            return resolved
+        candidate_state = resolved / ".aragora"
+        if candidate_state.is_dir():
+            return candidate_state
+    return local_state
+
+
 def gather_health(
     *,
     repo_root: Path | None = None,
@@ -398,12 +427,20 @@ def gather_health(
     overridden by callers needing per-surface critical tuning.
     """
     repo = _resolve_repo_root(repo_root)
-    rq_root = review_queue_root if review_queue_root is not None else resolve_review_queue_root()
-    on_root = overnight_root if overnight_root is not None else repo / DEFAULT_OVERNIGHT_REL
+    state_dir = _resolve_aragora_state_dir(repo)
+    env_review_queue_root = os.environ.get("ARAGORA_REVIEW_QUEUE_ROOT")
+    rq_root = (
+        review_queue_root
+        if review_queue_root is not None
+        else Path(env_review_queue_root).expanduser()
+        if env_review_queue_root
+        else state_dir / "review-queue"
+    )
+    on_root = overnight_root if overnight_root is not None else state_dir / "overnight"
     auto_root = (
         automation_receipts_root
         if automation_receipts_root is not None
-        else repo / DEFAULT_AUTOMATION_RECEIPTS_REL
+        else state_dir / "automation-receipts"
     )
 
     surfaces: list[SurfaceCheck] = []

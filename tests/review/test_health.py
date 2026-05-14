@@ -170,6 +170,32 @@ class TestGatherHealthFresh:
         assert by_name["boss_metrics"].status == STATUS_FRESH
         assert by_name["b0_publication"].status == STATUS_FRESH
 
+    def test_worktree_uses_shared_aragora_state_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        shared = _setup_proof_loop(tmp_path)
+        worktree = tmp_path / "worktree"
+        docs_status = worktree / "docs" / "status"
+        docs_status.mkdir(parents=True)
+
+        _touch_with_age(shared["receipts"] / "pr-1-recorded-1-abc-admin_squash_merge.json", 1)
+        _touch_with_age(shared["overnight"] / "boss_metrics.jsonl", 1)
+        _touch_with_age(shared["overnight"] / "boss-loop-launchd.log", 1)
+        _touch_with_age(shared["overnight"] / "watchdog.log", 1)
+        _touch_with_age(shared["auto"] / "x.json", 1)
+        today = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _write_status_doc(docs_status / "B0_BENCHMARK_TRUTH_STATUS.md", today)
+        _write_status_doc(docs_status / "TW03_RESCUE_PRODUCTIZATION_STATUS.md", today)
+        monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared["repo"] / ".aragora"))
+
+        report = gather_health(repo_root=worktree)
+
+        by_name = {s.name: s for s in report.surfaces}
+        assert report.overall_status == STATUS_FRESH
+        assert by_name["settlement_receipts"].path == str(shared["receipts"])
+        assert by_name["boss_metrics"].path == str(shared["overnight"] / "boss_metrics.jsonl")
+        assert by_name["automation_receipts"].path == str(shared["auto"])
+
 
 class TestGatherHealthStaleness:
     def test_boss_metrics_stale_after_critical_window(self, tmp_path: Path) -> None:
