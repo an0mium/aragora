@@ -60,14 +60,26 @@ def settle_position_credit(
     if payout > 0:
         score = payout / position.stake
         manager.reward_accuracy(position.agent_id, epistemic_score=score)
-        logger.debug("credit_settlement reward agent=%s payout=%d score=%.4f", position.agent_id, payout, score)
+        logger.debug(
+            "credit_settlement reward agent=%s payout=%d score=%.4f",
+            position.agent_id,
+            payout,
+            score,
+        )
     elif payout < 0:
         # penalize_inaccuracy expects accuracy (high=calibrated), so invert wrongness.
         accuracy = 1.0 - abs(payout) / position.stake
         manager.penalize_inaccuracy(position.agent_id, epistemic_score=accuracy)
-        logger.debug("credit_settlement penalty agent=%s payout=%d accuracy=%.4f", position.agent_id, payout, accuracy)
+        logger.debug(
+            "credit_settlement penalty agent=%s payout=%d accuracy=%.4f",
+            position.agent_id,
+            payout,
+            accuracy,
+        )
     else:
-        logger.debug("credit_settlement no-op agent=%s outcome=%s", position.agent_id, resolution.outcome)
+        logger.debug(
+            "credit_settlement no-op agent=%s outcome=%s", position.agent_id, resolution.outcome
+        )
 
     return payout
 
