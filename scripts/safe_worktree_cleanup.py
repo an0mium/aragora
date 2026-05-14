@@ -241,8 +241,6 @@ def inspect_worktree(
         blockers.append("missing_path")
     if active_session:
         blockers.append("active_session")
-    if lock_files:
-        blockers.append("session_lock_present")
     if dirty:
         blockers.append("dirty_worktree")
     if unique_commits_ahead > 0 and not patch_equivalent_to_main:

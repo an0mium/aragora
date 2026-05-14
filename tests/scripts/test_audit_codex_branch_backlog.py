@@ -556,6 +556,32 @@ def test_audit_ignores_missing_worktree_paths(tmp_path: Path, monkeypatch: Any) 
     assert payload["records"][0]["category"] == "salvage_recent_unique"
 
 
+def test_active_worktree_uses_live_session_detector(tmp_path: Path, monkeypatch: Any) -> None:
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    (worktree / ".claude-session-active").write_text("pid=12345\n", encoding="utf-8")
+
+    calls: list[Path] = []
+
+    def fake_has_active_session(path: Path) -> bool:
+        calls.append(path)
+        return False
+
+    monkeypatch.setattr(mod.autopilot, "_has_active_session", fake_has_active_session)
+
+    assert mod.active_worktree(worktree) is False
+    assert calls == [worktree]
+
+
+def test_active_worktree_preserves_live_session_blocker(tmp_path: Path, monkeypatch: Any) -> None:
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+
+    monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: True)
+
+    assert mod.active_worktree(worktree) is True
+
+
 def test_audit_skips_patch_equivalence_for_dirty_worktrees(
     tmp_path: Path, monkeypatch: Any
 ) -> None:

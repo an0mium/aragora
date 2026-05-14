@@ -387,7 +387,36 @@ def test_inspect_allows_patch_equivalent_branch_when_pr_lookup_fails(
     assert inspection.blockers == []
 
 
-def test_inspect_blocks_lock_files_and_history_lookup_failure(
+def test_inspect_reports_stale_lock_files_without_blocking_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    (worktree / ".codex_session_active").write_text("pid=12345\n")
+
+    monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/test")],
+    )
+    monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(mod, "_worktree_is_dirty", lambda _path: False)
+    monkeypatch.setattr(mod, "_unique_commits_ahead_of_main", lambda _repo, _branch: (0, False))
+    monkeypatch.setattr(mod, "_lookup_open_prs", lambda _repo, _branch: ([], False))
+
+    inspection = mod.inspect_worktree(repo_root, worktree)
+
+    assert inspection.lock_files == [".codex_session_active"]
+    assert inspection.active_session is False
+    assert inspection.blockers == []
+
+
+def test_inspect_blocks_active_session_and_history_lookup_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import safe_worktree_cleanup as mod
@@ -404,7 +433,7 @@ def test_inspect_blocks_lock_files_and_history_lookup_failure(
         "_get_worktree_entries",
         lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/test")],
     )
-    monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: True)
     monkeypatch.setattr(mod, "_worktree_is_dirty", lambda _path: False)
     monkeypatch.setattr(mod, "_unique_commits_ahead_of_main", lambda _repo, _branch: (0, True))
     monkeypatch.setattr(mod, "_lookup_open_prs", lambda _repo, _branch: ([], False))
@@ -412,5 +441,6 @@ def test_inspect_blocks_lock_files_and_history_lookup_failure(
     inspection = mod.inspect_worktree(repo_root, worktree)
 
     assert inspection.lock_files == [".codex_session_active"]
+    assert inspection.active_session is True
     assert inspection.ahead_lookup_failed is True
-    assert inspection.blockers == ["session_lock_present", "ahead_lookup_failed"]
+    assert inspection.blockers == ["active_session", "ahead_lookup_failed"]
