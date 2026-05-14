@@ -69,6 +69,10 @@ def _role_for(record_id: str, name: str) -> str:
     return "other"
 
 
+def _normalized_status(record: AutomationRecord) -> str:
+    return record.status.upper()
+
+
 def _load_record(path: Path) -> AutomationRecord:
     payload = tomllib.loads(path.read_text(encoding="utf-8"))
     record_id = str(payload.get("id") or path.parent.name)
@@ -129,10 +133,20 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
                 AuditIssue(writer_id, "error", "missing_core_writer", "core writer is absent")
             )
             continue
-        if record.status != "ACTIVE":
-            issues.append(
-                AuditIssue(writer_id, "error", "core_writer_inactive", "core writer is not active")
-            )
+        if _normalized_status(record) != "ACTIVE":
+            if _normalized_status(record) == "PAUSED":
+                issues.append(
+                    AuditIssue(writer_id, "warning", "core_writer_paused", "core writer is paused")
+                )
+            else:
+                issues.append(
+                    AuditIssue(
+                        writer_id,
+                        "error",
+                        "core_writer_inactive",
+                        "core writer is not active",
+                    )
+                )
         if record.kind != "cron":
             issues.append(
                 AuditIssue(writer_id, "error", "core_writer_not_cron", "core writer is not cron")
@@ -150,7 +164,8 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
     active_writer_minutes: dict[int, list[str]] = {}
     for record in records:
         prompt_lower = record.prompt.lower()
-        if record.status == "ACTIVE" and "paused" in prompt_lower:
+        is_active = _normalized_status(record) == "ACTIVE"
+        if is_active and "paused" in prompt_lower:
             issues.append(
                 AuditIssue(
                     record.id,
@@ -159,9 +174,9 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
                     "automation is active but prompt says paused",
                 )
             )
-        if record.role == "writer" and record.status == "ACTIVE" and record.byminute is not None:
+        if record.role == "writer" and is_active and record.byminute is not None:
             active_writer_minutes.setdefault(record.byminute, []).append(record.id)
-        if record.role == "writer" and record.status == "ACTIVE" and not record.memory_present:
+        if record.role == "writer" and is_active and not record.memory_present:
             issues.append(
                 AuditIssue(
                     record.id,
@@ -172,7 +187,7 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
             )
         required_words = PROMPT_WORDS_BY_ROLE.get(record.role, ())
         for word in required_words:
-            if record.status == "ACTIVE" and word not in prompt_lower:
+            if is_active and word not in prompt_lower:
                 issues.append(
                     AuditIssue(
                         record.id,
