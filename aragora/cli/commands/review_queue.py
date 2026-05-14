@@ -557,6 +557,52 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Output the report as JSON.",
     )
 
+    alert_p = sub.add_parser(
+        "health-alert",
+        help="Edge-triggered alerter: writes an event when proof-loop health changes state",
+        description=(
+            "Runs the same checks as 'review-queue health', persists state under "
+            ".aragora/proof-loop-alerts/, and writes one JSON event per state "
+            "transition. Exits 1 if any surface is currently stale or missing."
+        ),
+    )
+    alert_p.add_argument(
+        "--repo-root",
+        default=None,
+        help="Override repo root used for status doc + overnight + state lookups.",
+    )
+    alert_p.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root.",
+    )
+    alert_p.add_argument(
+        "--overnight-root",
+        default=None,
+        help="Override the .aragora/overnight directory.",
+    )
+    alert_p.add_argument(
+        "--automation-receipts-root",
+        default=None,
+        help="Override the .aragora/automation-receipts directory.",
+    )
+    alert_p.add_argument(
+        "--state-dir",
+        default=None,
+        help="Override the alert state directory (default: <repo>/.aragora/proof-loop-alerts).",
+    )
+    alert_p.add_argument(
+        "--heartbeat",
+        action="store_true",
+        help="Emit a heartbeat event even when state is unchanged.",
+    )
+    alert_p.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output the result as JSON.",
+    )
+
     parser.set_defaults(func=cmd_review_queue)
 
 
