@@ -25,10 +25,10 @@ thresholds:
 
 summary:
   core: 21
-  integrated: 88
+  integrated: 89
   experimental: 25
   deprecated: 2
-  total: 136
+  total: 137
 
 modules:
   # --- core (21) ---
@@ -58,7 +58,7 @@ modules:
   - name: connectors
     tier: core
     py_files: 266
-    importer_count: 140
+    importer_count: 141
     test_file_count: 256
   - name: core
     tier: core
@@ -148,7 +148,7 @@ modules:
     test_file_count: 164
     override_reason: "persistence layer"
 
-  # --- integrated (88) ---
+  # --- integrated (89) ---
   - name: analysis
     tier: integrated
     py_files: 29
@@ -346,9 +346,9 @@ modules:
     test_file_count: 8
   - name: integrations
     tier: integrated
-    py_files: 40
+    py_files: 41
     importer_count: 26
-    test_file_count: 51
+    test_file_count: 52
   - name: interrogation
     tier: integrated
     py_files: 8
@@ -385,6 +385,11 @@ modules:
     py_files: 27
     importer_count: 6
     test_file_count: 35
+  - name: metrics
+    tier: integrated
+    py_files: 5
+    importer_count: 1
+    test_file_count: 6
   - name: migrations
     tier: integrated
     py_files: 21
@@ -437,9 +442,9 @@ modules:
     test_file_count: 12
   - name: protocols
     tier: integrated
-    py_files: 15
+    py_files: 16
     importer_count: 23
-    test_file_count: 6
+    test_file_count: 7
   - name: pulse
     tier: integrated
     py_files: 10
@@ -462,9 +467,9 @@ modules:
     test_file_count: 7
   - name: reputation
     tier: integrated
-    py_files: 10
+    py_files: 11
     importer_count: 2
-    test_file_count: 12
+    test_file_count: 13
   - name: review
     tier: integrated
     py_files: 12
@@ -528,8 +533,8 @@ modules:
   - name: swarm
     tier: integrated
     py_files: 102
-    importer_count: 31
-    test_file_count: 157
+    importer_count: 32
+    test_file_count: 159
   - name: templates
     tier: integrated
     py_files: 1
@@ -622,11 +627,6 @@ modules:
     py_files: 2
     importer_count: 2
     test_file_count: 3
-  - name: metrics
-    tier: experimental
-    py_files: 4
-    importer_count: 1
-    test_file_count: 3
   - name: moderation
     tier: experimental
     py_files: 2
@@ -657,6 +657,11 @@ modules:
     py_files: 4
     importer_count: 1
     test_file_count: 4
+  - name: prediction
+    tier: experimental
+    py_files: 2
+    importer_count: 0
+    test_file_count: 1
   - name: prompts
     tier: experimental
     py_files: 2
