@@ -34,9 +34,7 @@ def generate_viah_status_report(
     Raises RuntimeError when ARAGORA_VIAH_TREND_ENABLED is not set.
     """
     if not viah_trend_enabled():
-        raise RuntimeError(
-            f"VIAH status surface is disabled; set {VIAH_TREND_FLAG}=1 to enable"
-        )
+        raise RuntimeError(f"VIAH status surface is disabled; set {VIAH_TREND_FLAG}=1 to enable")
     ref = (now or datetime.now(UTC)).astimezone(UTC)
     trend = rolling_viah_trend(ledger=ledger, weeks=weeks, now=ref)
     report = compute_viah(ledger=ledger, window_hours=168.0, now=ref)

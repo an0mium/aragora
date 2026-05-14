@@ -41,21 +41,45 @@ def _ledger(tmp_path: Path, entries: list[dict]) -> ShiftLedger:
     return ShiftLedger(path=path)
 
 
-def _active_ledger(tmp_path: Path, *, now: datetime, shift_h: float = 4.0, prs: int = 2, rescues: int = 0) -> ShiftLedger:
+def _active_ledger(
+    tmp_path: Path, *, now: datetime, shift_h: float = 4.0, prs: int = 2, rescues: int = 0
+) -> ShiftLedger:
     sid = "s1"
     entries: list[dict] = [
-        {"entry_type": "shift_start", "timestamp": _ts(now - timedelta(hours=shift_h)), "payload": {"shift_id": sid}},
-        {"entry_type": "shift_stop", "timestamp": _ts(now - timedelta(minutes=5)), "payload": {"shift_id": sid}},
-        *[{"entry_type": "pr_merged", "timestamp": _ts(now - timedelta(hours=shift_h - 1 - i)), "payload": {"pr": i}} for i in range(prs)],
+        {
+            "entry_type": "shift_start",
+            "timestamp": _ts(now - timedelta(hours=shift_h)),
+            "payload": {"shift_id": sid},
+        },
+        {
+            "entry_type": "shift_stop",
+            "timestamp": _ts(now - timedelta(minutes=5)),
+            "payload": {"shift_id": sid},
+        },
+        *[
+            {
+                "entry_type": "pr_merged",
+                "timestamp": _ts(now - timedelta(hours=shift_h - 1 - i)),
+                "payload": {"pr": i},
+            }
+            for i in range(prs)
+        ],
     ]
     if rescues:
-        entries.append({"entry_type": "cycle_tick", "timestamp": _ts(now - timedelta(hours=1)), "payload": {"rescue_count": rescues}})
+        entries.append(
+            {
+                "entry_type": "cycle_tick",
+                "timestamp": _ts(now - timedelta(hours=1)),
+                "payload": {"rescue_count": rescues},
+            }
+        )
     return _ledger(tmp_path, entries)
 
 
 # ---------------------------------------------------------------------------
 # Feature gate
 # ---------------------------------------------------------------------------
+
 
 class TestFeatureGate:
     def test_raises_when_unset(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -64,13 +88,17 @@ class TestFeatureGate:
             generate_viah_status_report(_ledger(tmp_path, []))
 
     @pytest.mark.parametrize("val", ["0", "false", "no", "off", ""])
-    def test_raises_for_falsy(self, val: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_raises_for_falsy(
+        self, val: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv(VIAH_TREND_FLAG, val)
         with pytest.raises(RuntimeError):
             generate_viah_status_report(_ledger(tmp_path, []))
 
     @pytest.mark.parametrize("val", ["1", "true", "yes", "on", "TRUE"])
-    def test_passes_for_truthy(self, val: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_passes_for_truthy(
+        self, val: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv(VIAH_TREND_FLAG, val)
         assert generate_viah_status_report(_ledger(tmp_path, []))
 
@@ -78,6 +106,7 @@ class TestFeatureGate:
 # ---------------------------------------------------------------------------
 # Structure
 # ---------------------------------------------------------------------------
+
 
 class TestReportStructure:
     @pytest.fixture(autouse=True)
@@ -107,13 +136,16 @@ class TestReportStructure:
         now = datetime(2026, 5, 14, 12, 0, tzinfo=UTC)
         for weeks in (2, 4):
             report = generate_viah_status_report(_ledger(tmp_path, []), weeks=weeks, now=now)
-            data_rows = [ln for ln in report.splitlines() if ln.startswith("| W") and ln[3:4].isdigit()]
+            data_rows = [
+                ln for ln in report.splitlines() if ln.startswith("| W") and ln[3:4].isdigit()
+            ]
             assert len(data_rows) == weeks
 
 
 # ---------------------------------------------------------------------------
 # Empty ledger
 # ---------------------------------------------------------------------------
+
 
 class TestEmptyLedger:
     @pytest.fixture(autouse=True)
@@ -124,7 +156,9 @@ class TestEmptyLedger:
         assert "N/A" in generate_viah_status_report(_ledger(tmp_path, []))
 
     def test_zero_prs(self, tmp_path: Path) -> None:
-        assert "Merged autonomous PRs (7 d):** 0" in generate_viah_status_report(_ledger(tmp_path, []))
+        assert "Merged autonomous PRs (7 d):** 0" in generate_viah_status_report(
+            _ledger(tmp_path, [])
+        )
 
     def test_insufficient_data_trend(self, tmp_path: Path) -> None:
         now = datetime(2026, 5, 14, 12, 0, tzinfo=UTC)
@@ -134,6 +168,7 @@ class TestEmptyLedger:
 # ---------------------------------------------------------------------------
 # Ledger with activity
 # ---------------------------------------------------------------------------
+
 
 class TestLedgerWithActivity:
     @pytest.fixture(autouse=True)
@@ -154,9 +189,13 @@ class TestLedgerWithActivity:
 
     def test_nonzero_viah_when_prs_and_hours(self, tmp_path: Path) -> None:
         now = datetime(2026, 5, 14, 12, 0, tzinfo=UTC)
-        summary = generate_viah_status_report(
-            _active_ledger(tmp_path, now=now, prs=2, shift_h=4.0), now=now
-        ).split("## Summary")[1].split("## ")[0]
+        summary = (
+            generate_viah_status_report(
+                _active_ledger(tmp_path, now=now, prs=2, shift_h=4.0), now=now
+            )
+            .split("## Summary")[1]
+            .split("## ")[0]
+        )
         assert "N/A" not in summary
 
     def test_now_controls_timestamp(self, tmp_path: Path) -> None:
