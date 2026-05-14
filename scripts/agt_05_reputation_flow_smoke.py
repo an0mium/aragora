@@ -46,10 +46,6 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-# Enable the flag BEFORE importing the bridge module (its enabled() check
-# reads the env at call time, but being explicit is clearer).
-os.environ.setdefault("ARAGORA_REPUTATION_FLOW_ENABLED", "1")
-
 from aragora.connectors.prediction_markets.metaculus import MetaculusQuestion
 from aragora.reputation.metaculus_bridge import (
     bridge_from_metaculus_question,
