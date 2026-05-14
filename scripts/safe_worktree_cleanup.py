@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import asdict, dataclass
@@ -12,6 +13,13 @@ from pathlib import Path
 from typing import Any
 
 import codex_worktree_autopilot as autopilot
+
+BRANCH_LOOKUP_FAILED = "__branch_lookup_failed__"
+DEFAULT_GIT_TIMEOUT_SECONDS = float(os.environ.get("SAFE_WORKTREE_CLEANUP_GIT_TIMEOUT", "20"))
+DEFAULT_GH_TIMEOUT_SECONDS = float(os.environ.get("SAFE_WORKTREE_CLEANUP_GH_TIMEOUT", "20"))
+DEFAULT_PATCH_EQUIV_TIMEOUT_SECONDS = int(
+    float(os.environ.get("SAFE_WORKTREE_CLEANUP_PATCH_EQUIV_TIMEOUT", "45"))
+)
 
 
 @dataclass
@@ -55,13 +63,17 @@ def _branch_for_path(path: Path, entry: autopilot.WorktreeEntry | None) -> str |
         return None
     if not (path / ".git").exists():
         return None
-    proc = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=path,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=path,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return BRANCH_LOOKUP_FAILED
     if proc.returncode != 0:
         return None
     branch = proc.stdout.strip()
@@ -88,8 +100,9 @@ def _lookup_open_prs(repo_root: Path, branch: str | None) -> tuple[list[dict[str
             text=True,
             capture_output=True,
             check=False,
+            timeout=DEFAULT_GH_TIMEOUT_SECONDS,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return [], True
     if proc.returncode != 0:
         return [], True
@@ -105,13 +118,18 @@ def _lookup_open_prs(repo_root: Path, branch: str | None) -> tuple[list[dict[str
 def _worktree_is_dirty(path: Path) -> bool:
     if not path.exists():
         return False
-    proc = subprocess.run(
-        ["git", "status", "--short"],
-        cwd=path,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--short"],
+            cwd=path,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        # Conservatively treat status timeouts as dirty so cleanup is blocked.
+        return True
     if proc.returncode != 0:
         return False
     return bool(proc.stdout.strip())
@@ -123,7 +141,19 @@ def _unique_commits_ahead_of_main(
 ) -> tuple[int, bool]:
     if not branch:
         return 0, False
-    proc = autopilot._run_git(repo_root, "rev-list", "--count", f"origin/main..{branch}")
+    if branch == BRANCH_LOOKUP_FAILED:
+        return 0, True
+    try:
+        proc = subprocess.run(
+            ["git", "rev-list", "--count", f"origin/main..{branch}"],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return 0, True
     if proc.returncode != 0:
         return 0, True
     try:
@@ -139,7 +169,18 @@ def _patch_equivalent_to_main(repo_root: Path, branch: str | None) -> tuple[bool
         from audit_codex_branch_backlog import is_patch_equivalent
     except Exception:
         return False, True
-    return is_patch_equivalent(repo_root, "origin/main", branch, timeout=60), False
+    try:
+        return (
+            is_patch_equivalent(
+                repo_root,
+                "origin/main",
+                branch,
+                timeout=DEFAULT_PATCH_EQUIV_TIMEOUT_SECONDS,
+            ),
+            False,
+        )
+    except subprocess.TimeoutExpired:
+        return False, True
 
 
 def _pr_lookup_failure_blocks(
@@ -191,6 +232,8 @@ def inspect_worktree(
         blockers.append("branch_ahead_of_origin_main")
     if patch_equivalence_lookup_failed:
         blockers.append("patch_equivalence_lookup_failed")
+    if branch == BRANCH_LOOKUP_FAILED:
+        blockers.append("branch_lookup_failed")
     if open_prs:
         blockers.append("open_pr")
     if branch and ahead_lookup_failed:
@@ -255,7 +298,17 @@ def _print_inspection(inspection: WorktreeInspection, *, as_json: bool) -> None:
 def _delete_branch(repo_root: Path, branch: str) -> bool:
     if not autopilot._branch_exists(repo_root, branch):
         return True
-    proc = autopilot._run_git(repo_root, "branch", "-D", branch)
+    try:
+        proc = subprocess.run(
+            ["git", "branch", "-D", branch],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return proc.returncode == 0
 
 
@@ -281,7 +334,19 @@ def remove_worktree(
         return result
 
     if inspection.tracked_worktree:
-        proc = autopilot._run_git(repo_root, "worktree", "remove", "--force", inspection.path)
+        try:
+            proc = subprocess.run(
+                ["git", "worktree", "remove", "--force", inspection.path],
+                cwd=repo_root,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            result["status"] = "remove_failed"
+            result["stderr"] = f"git worktree remove timed out after {exc.timeout}s"
+            return result
         if proc.returncode != 0:
             result["status"] = "remove_failed"
             result["stderr"] = proc.stderr.strip()

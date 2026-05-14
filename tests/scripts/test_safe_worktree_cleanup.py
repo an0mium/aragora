@@ -148,6 +148,55 @@ def test_branch_detection_requires_local_git_metadata(tmp_path: Path) -> None:
     assert mod._branch_for_path(orphan_path, None) is None
 
 
+def test_branch_detection_timeout_returns_preservation_sentinel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    orphan_path = tmp_path / "orphan"
+    orphan_path.mkdir()
+    (orphan_path / ".git").mkdir()
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    assert mod._branch_for_path(orphan_path, None) == mod.BRANCH_LOOKUP_FAILED
+
+
+def test_open_pr_lookup_timeout_is_lookup_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    open_prs, failed = mod._lookup_open_prs(tmp_path, "codex/test")
+
+    assert open_prs == []
+    assert failed is True
+
+
+def test_status_timeout_blocks_cleanup_as_dirty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    assert mod._worktree_is_dirty(worktree) is True
+
+
 def test_remove_purges_residual_path_after_failed_git_remove(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -229,16 +278,16 @@ def test_remove_deletes_branch_when_requested(
         blockers=[],
     )
     monkeypatch.setattr(mod.autopilot, "_branch_exists", lambda *_args, **_kwargs: True)
-    monkeypatch.setattr(
-        mod.autopilot,
-        "_run_git",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            args=["git", "branch", "-D", "codex/test"],
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
             returncode=0,
             stdout="Deleted branch codex/test\n",
             stderr="",
-        ),
-    )
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
 
     result = mod.remove_worktree(
         repo_root,
