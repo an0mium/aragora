@@ -1338,6 +1338,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Disable loading JSON automation outbox handoffs.",
     )
     parser.add_argument("--apply", action="store_true", help="Create eligible GitHub issues")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview eligible handoffs without writing; this is the default mode",
+    )
     parser.add_argument("--json", action="store_true", help="Print machine-readable output")
     return parser
 
@@ -1345,6 +1350,8 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.apply and args.dry_run:
+        parser.error("--apply and --dry-run are mutually exclusive")
 
     repo_root = _repo_root(Path(args.repo))
     codex_home = _codex_home(args.codex_home)
