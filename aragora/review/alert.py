@@ -242,7 +242,6 @@ def evaluate(
     """Pure decision step — no I/O. Run by the CLI handler after gathering health."""
     now = now if now is not None else datetime.now(tz=UTC)
     state_path = state_dir / STATE_FILENAME
-    events_dir = state_dir / EVENTS_SUBDIR
     prev_state = load_state(state_path)
     current_alerting = alerting_surface_names(report)
     kind = determine_event_kind(
@@ -278,7 +277,7 @@ def evaluate(
         event=event,
         report=report,
         state_path=state_path,
-        event_path=(events_dir / "" if event is None else None),
+        event_path=None,
     )
 
 

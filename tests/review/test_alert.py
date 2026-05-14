@@ -161,6 +161,7 @@ class TestEvaluateTransitions:
         report = _report([_surf("briefs", STATUS_FRESH)])
         decision = evaluate(report, state_dir=tmp_path)
         assert decision.event is None
+        assert decision.event_path is None
         assert decision.state.alerting_surfaces == []
         assert decision.state.last_run_at is not None
 
@@ -176,6 +177,7 @@ class TestEvaluateTransitions:
         assert decision.event.kind == EVENT_KIND_OPENED
         assert decision.event.previous_alerting == []
         assert decision.event.current_alerting == ["settlement_receipts"]
+        assert decision.event_path is None
         assert decision.state.alerting_surfaces == ["settlement_receipts"]
         assert decision.state.last_event_kind == EVENT_KIND_OPENED
 
