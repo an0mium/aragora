@@ -874,7 +874,7 @@ def _cmd_health(args: argparse.Namespace) -> int:
     else:
         print(render_text(report))
 
-    if report.overall_status in {"stale", "missing"}:
+    if report.overall_status in {"empty", "stale", "missing"}:
         return 1
     return 0
 

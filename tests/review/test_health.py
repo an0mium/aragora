@@ -6,10 +6,12 @@ import json
 import os
 import time
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
 
+from aragora.cli.commands.review_queue import _cmd_health
 from aragora.review.health import (
     HealthReport,
     STATUS_AGING,
@@ -137,6 +139,50 @@ class TestGatherHealthEmpty:
         # Files still missing.
         assert by_name["boss_metrics"].status == STATUS_MISSING
         assert by_name["b0_publication"].status == STATUS_MISSING
+
+    def test_empty_expected_receipts_are_unhealthy(self, tmp_path: Path) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        _touch_with_age(layout["overnight"] / "boss_metrics.jsonl", 1)
+        _touch_with_age(layout["overnight"] / "boss-loop-launchd.log", 1)
+        _touch_with_age(layout["overnight"] / "watchdog.log", 1)
+        _touch_with_age(layout["auto"] / "x.json", 1)
+        today = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _write_status_doc(layout["docs_status"] / "B0_BENCHMARK_TRUTH_STATUS.md", today)
+        _write_status_doc(layout["docs_status"] / "TW03_RESCUE_PRODUCTIZATION_STATUS.md", today)
+
+        report = gather_health(
+            repo_root=layout["repo"],
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+        )
+
+        by_name = {s.name: s for s in report.surfaces}
+        assert by_name["settlement_receipts"].status == STATUS_EMPTY
+        assert report.overall_status == STATUS_EMPTY
+
+    def test_cli_exits_nonzero_on_empty_expected_receipts(self, tmp_path: Path) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        _touch_with_age(layout["overnight"] / "boss_metrics.jsonl", 1)
+        _touch_with_age(layout["overnight"] / "boss-loop-launchd.log", 1)
+        _touch_with_age(layout["overnight"] / "watchdog.log", 1)
+        _touch_with_age(layout["auto"] / "x.json", 1)
+        today = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _write_status_doc(layout["docs_status"] / "B0_BENCHMARK_TRUTH_STATUS.md", today)
+        _write_status_doc(layout["docs_status"] / "TW03_RESCUE_PRODUCTIZATION_STATUS.md", today)
+
+        rc = _cmd_health(
+            SimpleNamespace(
+                repo_root=str(layout["repo"]),
+                review_queue_root=str(layout["review_queue_root"]),
+                overnight_root=str(layout["overnight"]),
+                automation_receipts_root=str(layout["auto"]),
+                json=True,
+                json_output=True,
+            )
+        )
+
+        assert rc == 1
 
 
 class TestGatherHealthFresh:
