@@ -1351,6 +1351,7 @@ class TestCommandDispatch:
         assert ns_record.head_sha == "headsha123"
         assert ns_record.action == "admin_squash_merge"
         assert ns_record.reason == "operator authorized exact-head merge"
+
     def test_cmd_review_queue_with_no_subcommand_returns_2(self) -> None:
         ns = argparse.Namespace(review_queue_command=None)
         rc = cmd_review_queue(ns)
