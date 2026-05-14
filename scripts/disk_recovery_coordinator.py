@@ -52,11 +52,13 @@ def _run(
         except ProcessLookupError:
             pass
         stdout, stderr = proc.communicate()
+        timeout_stdout = _as_text(stdout) or _as_text(exc.stdout)
+        timeout_stderr = _as_text(stderr) or _as_text(exc.stderr)
         return {
             "argv": argv,
             "returncode": 124,
-            "stdout": stdout or exc.stdout or "",
-            "stderr": (stderr or exc.stderr or "") + f"\ntimed out after {exc.timeout}s",
+            "stdout": timeout_stdout,
+            "stderr": timeout_stderr + f"\ntimed out after {exc.timeout}s",
             "timed_out": True,
             "elapsed": round(time.monotonic() - started, 3),
         }
@@ -68,6 +70,14 @@ def _run(
         "timed_out": timed_out,
         "elapsed": round(time.monotonic() - started, 3),
     }
+
+
+def _as_text(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode(errors="replace")
+    return value
 
 
 def _run_json(
