@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
+import signal
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -33,30 +35,36 @@ def _run(
     timeout: float,
 ) -> dict[str, Any]:
     started = time.monotonic()
+    proc = subprocess.Popen(
+        argv,
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+    )
     try:
-        proc = subprocess.run(
-            argv,
-            cwd=cwd,
-            text=True,
-            capture_output=True,
-            check=False,
-            timeout=timeout,
-        )
+        stdout, stderr = proc.communicate(timeout=timeout)
         timed_out = False
     except subprocess.TimeoutExpired as exc:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        stdout, stderr = proc.communicate()
         return {
             "argv": argv,
             "returncode": 124,
-            "stdout": exc.stdout or "",
-            "stderr": (exc.stderr or "") + f"\ntimed out after {exc.timeout}s",
+            "stdout": stdout or exc.stdout or "",
+            "stderr": (stderr or exc.stderr or "") + f"\ntimed out after {exc.timeout}s",
             "timed_out": True,
             "elapsed": round(time.monotonic() - started, 3),
         }
     return {
         "argv": argv,
         "returncode": proc.returncode,
-        "stdout": proc.stdout,
-        "stderr": proc.stderr,
+        "stdout": stdout,
+        "stderr": stderr,
         "timed_out": timed_out,
         "elapsed": round(time.monotonic() - started, 3),
     }

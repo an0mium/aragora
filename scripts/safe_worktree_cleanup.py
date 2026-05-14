@@ -50,10 +50,27 @@ def _active_lock_files(path: Path) -> list[str]:
 
 def _get_worktree_entry(repo_root: Path, path: Path) -> autopilot.WorktreeEntry | None:
     target = path.resolve()
-    for entry in autopilot._get_worktree_entries(repo_root):
+    for entry in _get_worktree_entries(repo_root):
         if entry.path.resolve() == target:
             return entry
     return None
+
+
+def _get_worktree_entries(repo_root: Path) -> list[autopilot.WorktreeEntry]:
+    try:
+        proc = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return []
+    if proc.returncode != 0:
+        return []
+    return autopilot._parse_worktree_porcelain(proc.stdout)
 
 
 def _branch_for_path(path: Path, entry: autopilot.WorktreeEntry | None) -> str | None:

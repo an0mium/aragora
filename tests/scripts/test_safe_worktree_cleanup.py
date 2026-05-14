@@ -30,7 +30,7 @@ def test_inspect_reports_open_pr_blocker(tmp_path: Path, monkeypatch: pytest.Mon
 
     monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
     monkeypatch.setattr(
-        mod.autopilot,
+        mod,
         "_get_worktree_entries",
         lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/test")],
     )
@@ -115,7 +115,7 @@ def test_inspect_accepts_branch_override_for_orphaned_path(
     orphan_path = tmp_path / "manual-orphan"
     orphan_path.mkdir()
 
-    monkeypatch.setattr(mod.autopilot, "_get_worktree_entries", lambda _repo: [])
+    monkeypatch.setattr(mod, "_get_worktree_entries", lambda _repo: [])
     monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: False)
     monkeypatch.setattr(mod, "_worktree_is_dirty", lambda _path: False)
     monkeypatch.setattr(mod, "_unique_commits_ahead_of_main", lambda _repo, _branch: (0, False))
@@ -313,7 +313,7 @@ def test_inspect_blocks_dirty_and_ahead_worktrees(
 
     monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
     monkeypatch.setattr(
-        mod.autopilot,
+        mod,
         "_get_worktree_entries",
         lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/test")],
     )
@@ -341,7 +341,7 @@ def test_inspect_allows_pr_lookup_failure_for_branch_with_no_unique_commits(
 
     monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
     monkeypatch.setattr(
-        mod.autopilot,
+        mod,
         "_get_worktree_entries",
         lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/merged")],
     )
@@ -369,7 +369,7 @@ def test_inspect_allows_patch_equivalent_branch_when_pr_lookup_fails(
 
     monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
     monkeypatch.setattr(
-        mod.autopilot,
+        mod,
         "_get_worktree_entries",
         lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/replayed")],
     )
@@ -400,7 +400,7 @@ def test_inspect_blocks_lock_files_and_history_lookup_failure(
 
     monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
     monkeypatch.setattr(
-        mod.autopilot,
+        mod,
         "_get_worktree_entries",
         lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/test")],
     )
