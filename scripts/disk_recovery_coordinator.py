@@ -157,21 +157,30 @@ def _active_external_worktrees(prefix: str) -> set[str]:
     return active
 
 
-def _root_clean_current(repo: Path, timeout: float) -> tuple[bool, dict[str, Any]]:
+def _root_clean_current(
+    repo: Path, timeout: float, *, allow_branch_ahead: bool
+) -> tuple[bool, dict[str, Any]]:
     status = _run(["git", "status", "--short"], cwd=repo, timeout=timeout)
     head = _run(["git", "rev-parse", "HEAD"], cwd=repo, timeout=timeout)
     origin = _run(["git", "rev-parse", "origin/main"], cwd=repo, timeout=timeout)
+    ancestor = _run(
+        ["git", "merge-base", "--is-ancestor", "origin/main", "HEAD"], cwd=repo, timeout=timeout
+    )
+    same_head = str(head["stdout"]).strip() == str(origin["stdout"]).strip()
+    branch_ahead_allowed = allow_branch_ahead and ancestor["returncode"] == 0
     ok = (
         status["returncode"] == 0
         and not str(status["stdout"]).strip()
         and head["returncode"] == 0
         and origin["returncode"] == 0
-        and str(head["stdout"]).strip() == str(origin["stdout"]).strip()
+        and (same_head or branch_ahead_allowed)
     )
     return ok, {
         "status": status,
         "head": str(head["stdout"]).strip(),
         "origin_main": str(origin["stdout"]).strip(),
+        "same_head": same_head,
+        "branch_ahead_allowed": branch_ahead_allowed,
     }
 
 
@@ -373,7 +382,9 @@ def _salvage_snapshot(repo: Path, args: argparse.Namespace) -> dict[str, Any]:
 
 def _run_cycle(repo: Path, args: argparse.Namespace, cycle: int) -> dict[str, Any]:
     before = _free_gib(repo)
-    clean_current, root = _root_clean_current(repo, args.command_timeout)
+    clean_current, root = _root_clean_current(
+        repo, args.command_timeout, allow_branch_ahead=args.allow_branch_ahead
+    )
     if not clean_current:
         return {
             "cycle": cycle,
@@ -414,6 +425,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--quarantine-file", type=Path, default=DEFAULT_QUARANTINE)
     parser.add_argument("--jsonl-log", type=Path, default=DEFAULT_LOG)
     parser.add_argument("--apply", action="store_true", help="Apply safe cleanup actions.")
+    parser.add_argument(
+        "--allow-branch-ahead",
+        action="store_true",
+        help="Allow a clean branch whose HEAD is ahead of origin/main for PR dogfood runs.",
+    )
     parser.add_argument(
         "--once",
         action="store_true",

@@ -93,3 +93,35 @@ def test_external_cleanup_skips_quarantined_paths(
     assert result["quarantined_skipped"] == 1
     assert result["inspected"] == 0
     assert result["removed"] == []
+
+
+def test_root_clean_current_allows_branch_ahead_when_requested(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import disk_recovery_coordinator as mod
+
+    def fake_run(argv, **_kwargs):
+        stdout = ""
+        returncode = 0
+        if argv == ["git", "rev-parse", "HEAD"]:
+            stdout = "feature-head\n"
+        elif argv == ["git", "rev-parse", "origin/main"]:
+            stdout = "main-head\n"
+        elif argv == ["git", "merge-base", "--is-ancestor", "origin/main", "HEAD"]:
+            returncode = 0
+        return {
+            "argv": argv,
+            "returncode": returncode,
+            "stdout": stdout,
+            "stderr": "",
+            "timed_out": False,
+            "elapsed": 0,
+        }
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    ok, payload = mod._root_clean_current(tmp_path, 5.0, allow_branch_ahead=True)
+
+    assert ok is True
+    assert payload["same_head"] is False
+    assert payload["branch_ahead_allowed"] is True
