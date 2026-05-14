@@ -1831,6 +1831,46 @@ def _add_review_queue_parser(subparsers) -> None:
     )
     observe_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
 
+    # Operational health surface — read-only, network-free.
+    health_parser = queue_subparsers.add_parser(
+        "health",
+        help="Report freshness across review-queue + proof-loop write surfaces",
+        description=(
+            "Read-only, network-free check of the write-side daemons that close the "
+            "proof loop: settlement receipts, briefs, boss-metrics ledger, automation "
+            "receipts, boss-loop log, watchdog log, B0 publication, and TW-03 rescue "
+            "ledger. Exits 1 if any surface is stale or missing. Designed to surface "
+            "silent failures within seconds, not 13 days."
+        ),
+    )
+    health_parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Override repo root used for status doc + overnight lookups.",
+    )
+    health_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root.",
+    )
+    health_parser.add_argument(
+        "--overnight-root",
+        default=None,
+        help="Override the .aragora/overnight directory.",
+    )
+    health_parser.add_argument(
+        "--automation-receipts-root",
+        default=None,
+        help="Override the .aragora/automation-receipts directory.",
+    )
+    health_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output the report as JSON.",
+    )
+    health_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
+
 
 def _add_codebase_audit_parser(subparsers) -> None:
     """Add the staged repository codebase audit parser."""

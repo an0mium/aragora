@@ -543,9 +543,11 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         from aragora.cli.commands.observe_outcomes_cmd import cmd_observe_outcomes
 
         return cmd_observe_outcomes(args)
+    if command == "health":
+        return _cmd_health(args)
     print(
         "Usage: aragora review-queue "
-        "{build,packet,run,act,record-settlement,merge-packet,baseline,observe-outcomes} [...]\n"
+        "{build,packet,run,act,record-settlement,merge-packet,baseline,observe-outcomes,health} [...]\n"
         "Run 'aragora review-queue run --help' for the human settlement loop.",
         file=sys.stderr,
     )
@@ -842,6 +844,38 @@ def _cmd_baseline(args: argparse.Namespace) -> int:
         )
     else:
         _render_baseline_report(measurement=measurement, proposal=proposal)
+    return 0
+
+
+def _cmd_health(args: argparse.Namespace) -> int:
+    """Report freshness across review-queue + proof-loop write surfaces.
+
+    Read-only, network-free. Answers "is the proof loop quietly broken?"
+    in one command. Closes the observability gap that hid the May 6
+    boss-loop httpx regression for 13 days.
+    """
+    from aragora.review.health import gather_health, render_text
+
+    repo_root = getattr(args, "repo_root", None)
+    review_queue_root = getattr(args, "review_queue_root", None)
+    overnight_root = getattr(args, "overnight_root", None)
+    automation_root = getattr(args, "automation_receipts_root", None)
+
+    report = gather_health(
+        repo_root=Path(repo_root) if repo_root else None,
+        review_queue_root=Path(review_queue_root) if review_queue_root else None,
+        overnight_root=Path(overnight_root) if overnight_root else None,
+        automation_receipts_root=Path(automation_root) if automation_root else None,
+    )
+
+    json_output = bool(getattr(args, "json_output", False) or getattr(args, "json", False))
+    if json_output:
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        print(render_text(report))
+
+    if report.overall_status in {"stale", "missing"}:
+        return 1
     return 0
 
 
