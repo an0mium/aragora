@@ -519,6 +519,44 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
 
     add_observe_outcomes_subparser(sub)
 
+    health_p = sub.add_parser(
+        "health",
+        help="Report freshness across review-queue + proof-loop write surfaces",
+        description=(
+            "Read-only, network-free check of the write-side daemons that close the "
+            "proof loop: settlement receipts, briefs, boss-metrics ledger, automation "
+            "receipts, boss-loop log, watchdog log, B0 publication, and TW-03 rescue "
+            "ledger. Exits 1 if any surface is stale or missing. Designed to surface "
+            "silent failures within seconds, not 13 days."
+        ),
+    )
+    health_p.add_argument(
+        "--repo-root",
+        default=None,
+        help="Override repo root used for status doc + overnight lookups.",
+    )
+    health_p.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root.",
+    )
+    health_p.add_argument(
+        "--overnight-root",
+        default=None,
+        help="Override the .aragora/overnight directory.",
+    )
+    health_p.add_argument(
+        "--automation-receipts-root",
+        default=None,
+        help="Override the .aragora/automation-receipts directory.",
+    )
+    health_p.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output the report as JSON.",
+    )
+
     parser.set_defaults(func=cmd_review_queue)
 
 
