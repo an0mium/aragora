@@ -116,6 +116,111 @@ def test_json_output_reports_reconciliation_without_human_preamble(
     assert payload["actions"][0]["branch"] == "codex/json-output"
 
 
+def test_state_root_can_point_at_direct_dot_aragora(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    repo = tmp_path / "disposable-worktree"
+    repo.mkdir()
+    state_root = tmp_path / "shared-checkout" / ".aragora"
+    outbox_dir = state_root / "automation-outbox"
+    receipt_dir = state_root / "automation-receipts"
+    key = "open-pr-codex-shared-state-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/shared-state", key=key)
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "published"}),
+        encoding="utf-8",
+    )
+
+    rc = mod.main(["--repo", str(repo), "--state-root", str(state_root), "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["state_root"] == str(state_root.resolve())
+    assert payload["outbox_dir"] == str(outbox_dir.resolve())
+    assert payload["receipt_dir"] == str(receipt_dir.resolve())
+    assert payload["archive_dir"] == str((state_root / "automation-outbox-archive").resolve())
+    assert payload["counts"]["satisfied_by_existing_receipt"] == 1
+
+
+def test_apply_uses_explicit_shared_state_dirs(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    repo = tmp_path / "disposable-worktree"
+    repo.mkdir()
+    shared_state = tmp_path / "shared-state"
+    outbox_dir = shared_state / "outbox"
+    receipt_dir = shared_state / "receipts"
+    archive_dir = shared_state / "archive"
+    key = "open-pr-codex-explicit-state-abc123"
+    handoff = _write_outbox_handoff(outbox_dir, branch="codex/explicit-state", key=key)
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "published"}),
+        encoding="utf-8",
+    )
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(repo),
+            "--outbox-dir",
+            str(outbox_dir),
+            "--receipt-dir",
+            str(receipt_dir),
+            "--archive-dir",
+            str(archive_dir),
+            "--apply",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["outbox_dir"] == str(outbox_dir.resolve())
+    assert payload["receipt_dir"] == str(receipt_dir.resolve())
+    assert payload["archive_dir"] == str(archive_dir.resolve())
+    assert payload["archived"] == 1
+    assert handoff.exists() is False
+    assert (archive_dir / handoff.name).exists()
+
+
+def test_explicit_outbox_dir_defaults_archive_beside_outbox(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    repo = tmp_path / "disposable-worktree"
+    repo.mkdir()
+    shared_state = tmp_path / "shared-state"
+    outbox_dir = shared_state / "automation-outbox"
+    receipt_dir = shared_state / "automation-receipts"
+    key = "open-pr-codex-explicit-outbox-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/explicit-outbox", key=key)
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "published"}),
+        encoding="utf-8",
+    )
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(repo),
+            "--outbox-dir",
+            str(outbox_dir),
+            "--receipt-dir",
+            str(receipt_dir),
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["archive_dir"] == str((shared_state / "automation-outbox-archive").resolve())
+
+
 def test_apply_archives_outbox_handoff_superseded_by_active_handoff(
     tmp_path: Path,
     monkeypatch: Any,

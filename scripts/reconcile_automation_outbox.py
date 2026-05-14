@@ -42,6 +42,9 @@ from audit_codex_branch_backlog import (  # noqa: E402
 from github_cli_health import check_github_cli_health  # noqa: E402
 
 UTC = timezone.utc
+DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
+DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
+DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -55,6 +58,22 @@ def _list_json(path: Path) -> list[Path]:
     if not path.exists():
         return []
     return sorted(p for p in path.iterdir() if p.is_file() and p.suffix == ".json")
+
+
+def _state_default_path(state_root: Path, default_relative: Path) -> Path:
+    expanded = state_root.expanduser()
+    if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
+        return expanded.joinpath(*default_relative.parts[1:])
+    return expanded / default_relative
+
+
+def _resolve_path(repo_root: Path, value: Path | None, default: Path) -> Path:
+    if value is None:
+        return default.resolve()
+    expanded = value.expanduser()
+    if expanded.is_absolute():
+        return expanded.resolve()
+    return (repo_root / expanded).resolve()
 
 
 def _branch_has_landed_on_main(root: Path, base: str, branch: str) -> bool:
@@ -328,12 +347,42 @@ def main(argv: list[str] | None = None) -> int:
         "--repo",
         required=True,
         help=(
-            "Main repository root (NOT a worktree). Outbox/receipt state "
-            "is read from this path's .aragora/ subdirectory."
+            "Repository root or disposable worktree used for git checks. "
+            "Outbox/receipt state defaults to this path's .aragora/ subdirectory."
         ),
     )
     parser.add_argument("--base", default="origin/main")
     parser.add_argument("--repo-name", default="synaptent/aragora")
+    parser.add_argument(
+        "--state-root",
+        type=Path,
+        default=None,
+        help=(
+            "Checkout or .aragora directory that owns shared automation state. "
+            "Explicit --outbox-dir/--receipt-dir/--archive-dir override it."
+        ),
+    )
+    parser.add_argument(
+        "--outbox-dir",
+        type=Path,
+        default=None,
+        help="Directory containing JSON automation outbox handoffs.",
+    )
+    parser.add_argument(
+        "--receipt-dir",
+        type=Path,
+        default=None,
+        help="Directory containing JSON automation publisher receipts.",
+    )
+    parser.add_argument(
+        "--archive-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Directory for archived satisfied outbox handoffs. Defaults beside "
+            "the selected automation outbox."
+        ),
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--apply",
@@ -372,14 +421,23 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     root = Path(args.repo).resolve()
-    outbox_dir = root / ".aragora" / "automation-outbox"
-    receipt_dir = root / ".aragora" / "automation-receipts"
-    archive_dir = root / ".aragora" / "automation-outbox-archive"
+    state_root = Path(args.state_root).expanduser().resolve() if args.state_root else root
+    outbox_default = _state_default_path(state_root, DEFAULT_OUTBOX_DIR)
+    receipt_default = _state_default_path(state_root, DEFAULT_RECEIPT_DIR)
+    outbox_dir = _resolve_path(root, args.outbox_dir, outbox_default)
+    receipt_dir = _resolve_path(root, args.receipt_dir, receipt_default)
+    archive_default = (
+        outbox_dir.with_name("automation-outbox-archive")
+        if args.outbox_dir is not None
+        else _state_default_path(state_root, DEFAULT_ARCHIVE_DIR)
+    )
+    archive_dir = _resolve_path(root, args.archive_dir, archive_default)
 
     def emit(message: str = "") -> None:
         if not args.json:
             print(message)
 
+    emit(f"state_root: {state_root}")
     emit(f"outbox_dir: {outbox_dir}")
     emit(f"receipt_dir: {receipt_dir}")
     emit(f"archive_dir: {archive_dir} {'(will create)' if not archive_dir.exists() else ''}")
@@ -653,6 +711,7 @@ def main(argv: list[str] | None = None) -> int:
                     "repo": str(root),
                     "repo_name": args.repo_name,
                     "report": str(report_path) if report_path is not None else None,
+                    "state_root": str(state_root),
                     "terminal_receipt_count": len(receipt_keys),
                 },
                 indent=2,
