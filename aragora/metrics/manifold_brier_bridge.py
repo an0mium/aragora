@@ -81,6 +81,11 @@ def record_resolution(
     """Add a scored ManifoldPrediction to scorer; returns None for inconclusive outcomes."""
     if not manifold_brier_enabled():
         raise RuntimeError(_DISABLED_MSG)
+    if resolution.market_id != pending.market_id:
+        raise ValueError(
+            f"resolution market_id {resolution.market_id!r} does not match "
+            f"pending market_id {pending.market_id!r}"
+        )
     outcome = resolution_to_binary_outcome(resolution)
     if outcome is None:
         return None

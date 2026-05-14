@@ -102,7 +102,7 @@ class TestRecordResolution:
     def test_fields_propagated(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("ARAGORA_MANIFOLD_BRIER_ENABLED", "1")
         scorer = ManifoldBrierScorer()
-        result = record_resolution(scorer, _res("yes", "mkt_xyz"), _pend(agent="codex"))
+        result = record_resolution(scorer, _res("yes", "mkt_xyz"), _pend("mkt_xyz", agent="codex"))
         assert result is not None
         assert result.question_id == "mkt_xyz"
         assert result.agent_id == "codex"
@@ -112,8 +112,14 @@ class TestRecordResolution:
         monkeypatch.setenv("ARAGORA_MANIFOLD_BRIER_ENABLED", "1")
         scorer = ManifoldBrierScorer()
         r = _Res(market_id="m", outcome="yes", resolved_at_ms=None)
-        result = record_resolution(scorer, r, _pend())
+        result = record_resolution(scorer, r, _pend("m"))
         assert result is not None and result.resolved_at is None
+
+    def test_market_id_mismatch_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_MANIFOLD_BRIER_ENABLED", "1")
+        scorer = ManifoldBrierScorer()
+        with pytest.raises(ValueError, match="market_id"):
+            record_resolution(scorer, _res("yes", "m_other"), _pend("m_pending"))
 
     def test_disabled_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ARAGORA_MANIFOLD_BRIER_ENABLED", raising=False)
