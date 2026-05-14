@@ -1871,6 +1871,59 @@ def _add_review_queue_parser(subparsers) -> None:
     )
     health_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
 
+    # Edge-triggered alerter that runs the health check, records state, and
+    # writes one JSON event whenever the set of stale/missing surfaces changes.
+    # Designed for periodic launchd execution.
+    alert_parser = queue_subparsers.add_parser(
+        "health-alert",
+        help="Edge-triggered alerter: writes an event when proof-loop health changes state",
+        description=(
+            "Runs the same checks as 'review-queue health', persists state under "
+            ".aragora/proof-loop-alerts/, and writes one JSON event per state "
+            "transition (opens, set-change, recovers). Designed to be invoked on "
+            "a schedule (e.g. launchd every 15 minutes) without producing repeat "
+            "alerts while a surface stays stale. Exits 1 if any surface is "
+            "currently stale or missing so launchd can surface failure."
+        ),
+    )
+    alert_parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Override repo root used for status doc + overnight + state lookups.",
+    )
+    alert_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root.",
+    )
+    alert_parser.add_argument(
+        "--overnight-root",
+        default=None,
+        help="Override the .aragora/overnight directory.",
+    )
+    alert_parser.add_argument(
+        "--automation-receipts-root",
+        default=None,
+        help="Override the .aragora/automation-receipts directory.",
+    )
+    alert_parser.add_argument(
+        "--state-dir",
+        default=None,
+        help="Override the alert state directory (default: <repo>/.aragora/proof-loop-alerts).",
+    )
+    alert_parser.add_argument(
+        "--heartbeat",
+        action="store_true",
+        help="Emit a heartbeat event even when state is unchanged (useful for liveness checks).",
+    )
+    alert_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output the result as JSON (kind, paths, alerting surfaces).",
+    )
+    alert_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
+
 
 def _add_codebase_audit_parser(subparsers) -> None:
     """Add the staged repository codebase audit parser."""

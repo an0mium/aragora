@@ -583,9 +583,12 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return cmd_observe_outcomes(args)
     if command == "health":
         return _cmd_health(args)
+    if command == "health-alert":
+        return _cmd_health_alert(args)
     print(
         "Usage: aragora review-queue "
-        "{build,packet,run,act,record-settlement,merge-packet,baseline,observe-outcomes,health} [...]\n"
+        "{build,packet,run,act,record-settlement,merge-packet,baseline,observe-outcomes,"
+        "health,health-alert} [...]\n"
         "Run 'aragora review-queue run --help' for the human settlement loop.",
         file=sys.stderr,
     )
@@ -913,6 +916,77 @@ def _cmd_health(args: argparse.Namespace) -> int:
         print(render_text(report))
 
     if report.overall_status in {"empty", "stale", "missing"}:
+        return 1
+    return 0
+
+
+def _cmd_health_alert(args: argparse.Namespace) -> int:
+    """Edge-triggered alerter for proof-loop write surfaces.
+
+    Runs the same checks as ``review-queue health``, persists state under
+    ``.aragora/proof-loop-alerts/``, and writes one JSON event whenever the
+    set of stale/missing surfaces changes (opens, set-change, recovers).
+    Designed for periodic launchd execution: repeated calls while a surface
+    is steady-state stale do NOT produce duplicate events.
+
+    Exits 1 if any surface is currently stale or missing (so launchd can
+    surface failures via its own log retention).
+    """
+    from aragora.review.alert import resolve_state_dir, run_alert
+    from aragora.review.health import _resolve_repo_root
+
+    repo_root_arg = getattr(args, "repo_root", None)
+    review_queue_root = getattr(args, "review_queue_root", None)
+    overnight_root = getattr(args, "overnight_root", None)
+    automation_root = getattr(args, "automation_receipts_root", None)
+    state_dir_arg = getattr(args, "state_dir", None)
+    emit_heartbeat = bool(getattr(args, "heartbeat", False))
+
+    repo_root_path = Path(repo_root_arg) if repo_root_arg else None
+    effective_repo = _resolve_repo_root(repo_root_path)
+    state_dir = Path(state_dir_arg) if state_dir_arg else resolve_state_dir(effective_repo)
+
+    result = run_alert(
+        state_dir=state_dir,
+        emit_heartbeat=emit_heartbeat,
+        repo_root=repo_root_path,
+        review_queue_root=Path(review_queue_root) if review_queue_root else None,
+        overnight_root=Path(overnight_root) if overnight_root else None,
+        automation_receipts_root=Path(automation_root) if automation_root else None,
+    )
+
+    json_output = bool(getattr(args, "json_output", False) or getattr(args, "json", False))
+    if json_output:
+        payload = {
+            "overall_status": result.report.overall_status,
+            "alerting_surfaces": result.state.alerting_surfaces,
+            "event_kind": result.event.kind if result.event is not None else None,
+            "event_path": str(result.event_path) if result.event_path is not None else None,
+            "state_path": str(result.state_path),
+            "last_run_at": (
+                result.state.last_run_at.isoformat()
+                if result.state.last_run_at is not None
+                else None
+            ),
+            "last_event_at": (
+                result.state.last_event_at.isoformat()
+                if result.state.last_event_at is not None
+                else None
+            ),
+        }
+        print(json.dumps(payload, indent=2))
+    else:
+        kind = result.event.kind if result.event is not None else "no-change"
+        print(f"proof-loop alert: kind={kind} overall={result.report.overall_status}")
+        if result.state.alerting_surfaces:
+            print(f"  alerting:  {', '.join(result.state.alerting_surfaces)}")
+        else:
+            print("  alerting:  (none)")
+        print(f"  state:     {result.state_path}")
+        if result.event_path is not None:
+            print(f"  event:     {result.event_path}")
+
+    if result.report.overall_status in {"stale", "missing"}:
         return 1
     return 0
 
