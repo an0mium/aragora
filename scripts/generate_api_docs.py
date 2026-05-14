@@ -399,7 +399,7 @@ def generate_markdown(groups: list[EndpointGroup]) -> str:
         ]
     )
 
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n"
 
 
 def generate_json(groups: list[EndpointGroup]) -> str:
