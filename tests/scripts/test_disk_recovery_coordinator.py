@@ -26,6 +26,7 @@ def _args(tmp_path: Path, *, apply: bool) -> argparse.Namespace:
         inspect_timeout=5.0,
         remove_timeout=5.0,
         max_cleanup_per_cycle=5,
+        max_inspect_per_cycle=25,
         quarantine_file=tmp_path / "quarantine.jsonl",
     )
 
@@ -93,6 +94,34 @@ def test_external_cleanup_skips_quarantined_paths(
     assert result["quarantined_skipped"] == 1
     assert result["inspected"] == 0
     assert result["removed"] == []
+
+
+def test_external_cleanup_honors_inspect_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import disk_recovery_coordinator as mod
+
+    candidates = [
+        "/Users/armand/.codex/worktrees/aaaa/aragora",
+        "/Users/armand/.codex/worktrees/bbbb/aragora",
+    ]
+    args = _args(tmp_path, apply=False)
+    args.max_inspect_per_cycle = 1
+    monkeypatch.setattr(mod, "_git_worktree_paths", lambda _repo, _timeout: candidates)
+    monkeypatch.setattr(mod, "_active_external_worktrees", lambda _prefix: set())
+    monkeypatch.setattr(
+        mod,
+        "_run_json",
+        lambda *_args, **_kwargs: (
+            {"removable": False, "blockers": ["open_pr"]},
+            {"timed_out": False},
+        ),
+    )
+
+    result = mod._external_cleanup(tmp_path, args)
+
+    assert result["inspected"] == 1
+    assert result["max_inspect_per_cycle"] == 1
 
 
 def test_root_clean_current_allows_branch_ahead_when_requested(

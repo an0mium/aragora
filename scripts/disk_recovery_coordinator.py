@@ -285,6 +285,8 @@ def _external_cleanup(repo: Path, args: argparse.Namespace) -> dict[str, Any]:
     for candidate in paths:
         if len(removed) + len(would_remove) >= args.max_cleanup_per_cycle:
             break
+        if inspected >= args.max_inspect_per_cycle:
+            break
         inspected += 1
         inspect_payload, inspect_result = _run_json(
             [
@@ -355,6 +357,7 @@ def _external_cleanup(repo: Path, args: argparse.Namespace) -> dict[str, Any]:
         "quarantined_skipped": len(quarantined),
         "inactive_candidates_seen": len(paths),
         "inspected": inspected,
+        "max_inspect_per_cycle": args.max_inspect_per_cycle,
         "removed": removed,
         "would_remove": would_remove,
         "blocked": blocked[:10],
@@ -426,6 +429,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hours", type=float, default=6.0)
     parser.add_argument("--cycle-seconds", type=float, default=900.0)
     parser.add_argument("--max-cleanup-per-cycle", type=int, default=5)
+    parser.add_argument(
+        "--max-inspect-per-cycle",
+        type=int,
+        default=25,
+        help="Maximum external worktree candidates to inspect per cycle.",
+    )
     parser.add_argument("--max-salvage-per-cycle", type=int, default=2)
     parser.add_argument("--inspect-timeout", type=float, default=30.0)
     parser.add_argument("--remove-timeout", type=float, default=60.0)
