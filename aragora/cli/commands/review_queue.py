@@ -112,6 +112,7 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     # Elevate to Tier 4 (human preapproval) so the human chain-of-trust is
     # not delegated to the artifact under review.
     "aragora/cli/commands/review_queue.py",
+    "aragora/cli/parser.py",
 )
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
 

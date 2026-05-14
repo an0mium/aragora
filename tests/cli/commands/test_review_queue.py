@@ -448,6 +448,7 @@ class TestModelReviewQuorum:
             (["deploy/k8s/app.yaml"], 4),
             # Merge-authority self-modification: see TIER_4_PREFIXES rationale.
             (["aragora/cli/commands/review_queue.py"], 4),
+            (["aragora/cli/parser.py"], 4),
         ],
     )
     def test_classifies_merge_tiers(self, files: list[str], expected_tier: int) -> None:

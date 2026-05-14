@@ -174,6 +174,7 @@ class TestEvaluateTransitions:
         )
         decision = evaluate(report, state_dir=tmp_path)
         assert decision.event is not None
+        assert decision.event_path is None
         assert decision.event.kind == EVENT_KIND_OPENED
         assert decision.event.previous_alerting == []
         assert decision.event.current_alerting == ["settlement_receipts"]
