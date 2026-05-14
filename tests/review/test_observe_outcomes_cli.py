@@ -296,6 +296,15 @@ class TestWriteModeMutates:
         assert "no_signals_fired" in joined
 
 
+def _rate_limit_provider(
+    pr_number: int, head_sha: str, cap: int
+) -> tuple[list[Mapping[str, Any]], str | None]:
+    return (
+        [],
+        "['gh', 'api', '-X'] returned 1: gh: API rate limit exceeded for user ID 33477136",
+    )
+
+
 class TestFetchErrorsFlagged:
     def test_fetch_errors_recorded_and_skipped(self, tmp_path: Path) -> None:
         receipts_dir = tmp_path / RECEIPTS_SUBDIR
@@ -311,13 +320,83 @@ class TestFetchErrorsFlagged:
             timeline_provider=_failing_provider,
         )
         assert summary["github_fetch_errors"] == 1
+        assert summary["github_other_fetch_errors"] == 1
+        assert summary["github_rate_limit_fetch_errors"] == 0
         assert summary["receipts_written"] == 0
         # File on disk untouched even in write mode when fetch failed.
         body = json.loads(path.read_text())
         assert body.get("outcome_revert_within_window") is None
-        # Insufficiency receipt names the fetch errors.
+        # Insufficiency receipt names the fetch errors (non-rate-limit).
         body_ins = json.loads(Path(summary["insufficiency_receipt_path"]).read_text())
-        assert "github_fetch_errors" in " ".join(body_ins["remaining_blockers"])
+        joined = " ".join(body_ins["remaining_blockers"])
+        assert "github_fetch_errors" in joined
+        assert "github_rate_limit_fetch_errors" not in joined
+        # Per-result entry carries the classification.
+        assert summary["results"][0]["fetch_error_class"] == "other"
+
+    def test_rate_limit_fetch_errors_classified_separately(self, tmp_path: Path) -> None:
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        _write_receipt(receipts_dir, "r1", _base_payload())
+        summary = run_observe_outcomes(
+            store_root=tmp_path,
+            repo_root=tmp_path,
+            window_end=datetime(2026, 4, 30, 12, tzinfo=UTC),
+            window_days=DEFAULT_WINDOW_DAYS,
+            max_receipts=20,
+            per_receipt_event_cap=DEFAULT_PER_RECEIPT_EVENT_CAP,
+            write=True,
+            timeline_provider=_rate_limit_provider,
+        )
+        # Totals: 1 fetch error, classified as rate_limit.
+        assert summary["github_fetch_errors"] == 1
+        assert summary["github_rate_limit_fetch_errors"] == 1
+        assert summary["github_other_fetch_errors"] == 0
+        assert summary["results"][0]["fetch_error_class"] == "rate_limit"
+        # Insufficiency receipt advises waiting for rate limit, not debugging
+        # network connectivity.
+        body_ins = json.loads(Path(summary["insufficiency_receipt_path"]).read_text())
+        joined = " ".join(body_ins["remaining_blockers"])
+        assert "github_rate_limit_fetch_errors" in joined
+        assert "rate limit window to reset" in joined
+        assert "github_fetch_errors:" not in joined  # the generic blocker (not rate-limit)
+        # Insufficiency body also exposes the classified counts as fields.
+        assert body_ins["github_rate_limit_fetch_errors"] == 1
+        assert body_ins["github_other_fetch_errors"] == 0
+
+    def test_mixed_fetch_errors_classified_per_receipt(self, tmp_path: Path) -> None:
+        """A batch with both rate-limit and non-rate-limit failures should
+        produce both blocker reasons and split per-class counts."""
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        _write_receipt(receipts_dir, "r1", _base_payload(pr_number=4001))
+        _write_receipt(receipts_dir, "r2", _base_payload(pr_number=4002))
+
+        def _mixed_provider(
+            pr_number: int, head_sha: str, cap: int
+        ) -> tuple[list[Mapping[str, Any]], str | None]:
+            if pr_number == 4001:
+                return [], "gh: 503 Service Unavailable"
+            return (
+                [],
+                "['gh', 'api'] returned 1: gh: secondary rate limit exceeded",
+            )
+
+        summary = run_observe_outcomes(
+            store_root=tmp_path,
+            repo_root=tmp_path,
+            window_end=datetime(2026, 4, 30, 12, tzinfo=UTC),
+            window_days=DEFAULT_WINDOW_DAYS,
+            max_receipts=20,
+            per_receipt_event_cap=DEFAULT_PER_RECEIPT_EVENT_CAP,
+            write=True,
+            timeline_provider=_mixed_provider,
+        )
+        assert summary["github_fetch_errors"] == 2
+        assert summary["github_rate_limit_fetch_errors"] == 1
+        assert summary["github_other_fetch_errors"] == 1
+        body_ins = json.loads(Path(summary["insufficiency_receipt_path"]).read_text())
+        joined = " ".join(body_ins["remaining_blockers"])
+        assert "github_rate_limit_fetch_errors" in joined
+        assert "github_fetch_errors:" in joined
 
 
 class TestBoundedFanout:

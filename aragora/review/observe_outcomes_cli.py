@@ -122,6 +122,7 @@ class _ObserveResult:
     signals_after: dict[str, Any]
     written: bool
     skipped_reason: str | None = None
+    fetch_error_class: str | None = None  # "rate_limit" | "other" | None when fetch_error is None
 
 
 # ---------------------------------------------------------------------------
@@ -576,6 +577,8 @@ def _build_insufficiency_receipt(
     receipts_with_signals: int,
     receipts_written: int,
     fetch_errors: int,
+    rate_limit_fetch_errors: int = 0,
+    other_fetch_errors: int = 0,
     v2_now_present: bool,
 ) -> dict[str, Any]:
     reasons: list[str] = []
@@ -590,11 +593,18 @@ def _build_insufficiency_receipt(
             "signals; either the window is genuinely clean or the timeline "
             "fetch did not surface revert/incident/redo events"
         )
-    if fetch_errors > 0:
+    if rate_limit_fetch_errors > 0:
         reasons.append(
-            f"github_fetch_errors: {fetch_errors} of {receipts_examined} "
-            "receipts had timeline fetch errors; rerun with network "
-            "connectivity verified"
+            f"github_rate_limit_fetch_errors: {rate_limit_fetch_errors} of "
+            f"{receipts_examined} receipts hit GitHub API rate limits during "
+            "timeline fetch; wait for the rate limit window to reset "
+            "(check 'gh api rate_limit') and rerun"
+        )
+    if other_fetch_errors > 0:
+        reasons.append(
+            f"github_fetch_errors: {other_fetch_errors} of {receipts_examined} "
+            "receipts had non-rate-limit timeline fetch errors; rerun with "
+            "network connectivity verified"
         )
     if max_receipts <= receipts_examined:
         reasons.append(
@@ -611,6 +621,8 @@ def _build_insufficiency_receipt(
         "receipts_with_signals_fired": receipts_with_signals,
         "receipts_written": receipts_written,
         "github_fetch_errors": fetch_errors,
+        "github_rate_limit_fetch_errors": rate_limit_fetch_errors,
+        "github_other_fetch_errors": other_fetch_errors,
         "v2_outcome_fields_now_present_in_window": v2_now_present,
         "remaining_blockers": reasons,
         "next_action_advice": (
@@ -689,6 +701,9 @@ def _observe_one(
         )
     events, fetch_error = timeline_provider(pr_number, head_sha, per_receipt_event_cap)
     if fetch_error is not None:
+        fetch_error_class = (
+            "rate_limit" if _looks_like_github_rate_limit_error(fetch_error) else "other"
+        )
         return _ObserveResult(
             receipt_path=receipt.path,
             pr_number=pr_number,
@@ -699,6 +714,7 @@ def _observe_one(
             signals_after=_signal_extract(payload),
             written=False,
             skipped_reason="github fetch error",
+            fetch_error_class=fetch_error_class,
         )
     observed = observe_outcome(
         receipt_obj,
@@ -794,6 +810,10 @@ def run_observe_outcomes(
     )
     receipts_written = sum(1 for r in results if r.written)
     fetch_errors = sum(1 for r in results if r.fetch_error is not None)
+    rate_limit_fetch_errors = sum(1 for r in results if r.fetch_error_class == "rate_limit")
+    other_fetch_errors = sum(
+        1 for r in results if r.fetch_error is not None and r.fetch_error_class != "rate_limit"
+    )
 
     # If we wrote any v2 fields, the next baseline measurement should
     # see them. Probe defensively.
@@ -818,6 +838,8 @@ def run_observe_outcomes(
             receipts_with_signals=receipts_with_signals,
             receipts_written=receipts_written,
             fetch_errors=fetch_errors,
+            rate_limit_fetch_errors=rate_limit_fetch_errors,
+            other_fetch_errors=other_fetch_errors,
             v2_now_present=v2_now_present,
         )
         insufficiency_path = insufficiency_receipt_path or _resolve_insufficiency_receipt_path(
@@ -846,6 +868,8 @@ def run_observe_outcomes(
         "receipts_with_signals_fired": receipts_with_signals,
         "receipts_written": receipts_written,
         "github_fetch_errors": fetch_errors,
+        "github_rate_limit_fetch_errors": rate_limit_fetch_errors,
+        "github_other_fetch_errors": other_fetch_errors,
         "v2_outcome_fields_now_present_in_window": v2_now_present,
         "insufficiency_receipt_path": (str(insufficiency_path) if insufficiency_path else None),
         "insufficiency_receipt": insufficiency_payload,
@@ -856,6 +880,7 @@ def run_observe_outcomes(
                 "head_sha": r.head_sha,
                 "fetched_event_count": r.fetched_event_count,
                 "fetch_error": r.fetch_error,
+                "fetch_error_class": r.fetch_error_class,
                 "signals_before": r.signals_before,
                 "signals_after": r.signals_after,
                 "written": r.written,
