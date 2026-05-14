@@ -301,10 +301,10 @@ def run_alert(
         automation_receipts_root=automation_receipts_root,
     )
     decision = evaluate(report, state_dir=state_dir, emit_heartbeat=emit_heartbeat)
-    save_state(decision.state, decision.state_path)
     event_path: Path | None = None
     if decision.event is not None:
         event_path = write_event(decision.event, state_dir / EVENTS_SUBDIR)
+    save_state(decision.state, decision.state_path)
     return AlertResult(
         state=decision.state,
         event=decision.event,

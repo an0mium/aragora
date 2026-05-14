@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from aragora.review import alert as alert_module
 from aragora.review.alert import (
     ALERTING_STATUSES,
     EVENT_KIND_CHANGED,
@@ -323,6 +324,35 @@ class TestWriteEvent:
         p2 = write_event(event, tmp_path)
         assert p1 != p2
         assert p1.exists() and p2.exists()
+
+
+class TestRunAlertPersistenceOrder:
+    def test_writes_event_before_saving_advanced_state(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        report = _report([_surf("briefs", STATUS_STALE)], overall=STATUS_STALE)
+        calls: list[str] = []
+        written_path = tmp_path / EVENTS_SUBDIR / "event.json"
+
+        def fake_write_event(event: AlertEvent, events_dir: Path) -> Path:
+            calls.append("write_event")
+            assert event.kind == EVENT_KIND_OPENED
+            assert events_dir == tmp_path / EVENTS_SUBDIR
+            return written_path
+
+        def fake_save_state(state: AlertState, path: Path) -> None:
+            calls.append("save_state")
+            assert state.alerting_surfaces == ["briefs"]
+            assert path == tmp_path / STATE_FILENAME
+
+        monkeypatch.setattr(alert_module, "gather_health", lambda **_: report)
+        monkeypatch.setattr(alert_module, "write_event", fake_write_event)
+        monkeypatch.setattr(alert_module, "save_state", fake_save_state)
+
+        result = alert_module.run_alert(state_dir=tmp_path)
+
+        assert calls == ["write_event", "save_state"]
+        assert result.event_path == written_path
 
 
 class TestEdgeTriggeredSemantics:
