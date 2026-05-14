@@ -225,7 +225,7 @@ def build_payload(root: Path) -> dict[str, Any]:
         "summary": {
             "error_count": sum(1 for issue in issues if issue.severity == "error"),
             "warning_count": sum(1 for issue in issues if issue.severity == "warning"),
-            "active_count": sum(1 for record in records if record.status == "ACTIVE"),
+            "active_count": sum(1 for record in records if _normalized_status(record) == "ACTIVE"),
         },
     }
 

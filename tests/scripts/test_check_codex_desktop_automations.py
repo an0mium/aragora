@@ -101,6 +101,7 @@ def test_audit_accepts_staggered_writer_contracts(tmp_path: Path) -> None:
             name=f"{automation_id} Writer",
             prompt=prompt,
             byminute=minute,
+            status="active" if automation_id == "engineering-autopilot" else "ACTIVE",
         )
 
     payload = mod.build_payload(tmp_path)
