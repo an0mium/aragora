@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -337,13 +338,17 @@ def test_operator_snapshot_summary_only_json_omits_records(
     _patch_bridge_paths(mod, tmp_path, monkeypatch)
     discover_include_summaries: list[bool] = []
 
-    def fake_discover(*, include_summaries: bool = True):
+    def fake_discover(
+        *, include_summaries: bool = True, include_historical: bool = True, **_kwargs
+    ):
         discover_include_summaries.append(include_summaries)
+        assert include_historical is False
         return [
             mod.Session(
                 name="codex-main",
                 agent="codex",
                 status="alive",
+                lifecycle="live",
                 branch="codex/example",
                 worktree=str(tmp_path),
             )
@@ -374,8 +379,141 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert payload["records_omitted"] is True
     assert payload["summary"]["total_sessions"] == 1
     assert payload["summary"]["alive_sessions"] == 1
+    assert payload["summary"]["live_sessions"] == 1
+    assert payload["summary"]["historical_sessions"] == 0
     assert payload["health"] == {"ok": True, "issues": []}
     assert discover_include_summaries == [False]
+
+
+def test_session_lifecycle_classifies_claude_transcripts_as_historical() -> None:
+    import agent_bridge as mod
+
+    lifecycle = mod._session_lifecycle(
+        source="claude_jsonl",
+        status="unknown",
+        updated_at="2026-05-15T00:00:00Z",
+        session_id="claude-session",
+    )
+
+    assert lifecycle == "historical"
+    assert mod._session_status_for_lifecycle("unknown", lifecycle) == "historical"
+
+
+def test_discover_excludes_historical_transcripts_by_default_when_requested(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    record = SimpleNamespace(
+        name="claude-deadbeef",
+        agent="claude",
+        status="unknown",
+        source="claude_jsonl",
+        tmux_target="",
+        branch="main",
+        cwd="/tmp/old",
+        session_id="deadbeef",
+        updated_at="2026-05-15T00:00:00Z",
+        summary="old desktop chat",
+        log_file=None,
+        transcript_file="/tmp/claude.jsonl",
+    )
+    monkeypatch.setattr(
+        mod.agent_bridge_sessions,
+        "collect_sessions",
+        lambda **_kwargs: [record],
+    )
+
+    assert mod.discover(include_historical=False) == []
+    all_sessions = mod.discover(include_historical=True)
+    assert all_sessions[0].status == "historical"
+    assert all_sessions[0].lifecycle == "historical"
+
+
+def test_operator_snapshot_include_historical_restores_transcript_records(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+
+    def fake_discover(*, include_historical: bool, **_kwargs):
+        if not include_historical:
+            return []
+        return [
+            mod.Session(
+                name="claude-history",
+                agent="claude",
+                status="historical",
+                source="claude_jsonl",
+                lifecycle="historical",
+            )
+        ]
+
+    monkeypatch.setattr(mod, "discover", fake_discover)
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(mod, "_load_broker_run_summaries", lambda: [])
+
+    assert (
+        mod.cmd_operator_snapshot(
+            argparse.Namespace(
+                json=True,
+                summary_only=False,
+                include_historical=True,
+                scope="current",
+            )
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["historical_sessions"] == 1
+    assert payload["sessions"][0]["name"] == "claude-history"
+
+
+def test_operator_snapshot_includes_broker_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(
+        mod,
+        "_load_broker_run_summaries",
+        lambda: [
+            {
+                "run_id": "bridge-next-work",
+                "status": "running",
+                "updated_at": "2026-05-15T15:00:00Z",
+                "next_actor": "critic",
+                "last_turn_index": 1,
+                "participants": [],
+                "sessions": {},
+            }
+        ],
+    )
+
+    assert (
+        mod.cmd_operator_snapshot(
+            argparse.Namespace(
+                json=True,
+                summary_only=False,
+                include_historical=False,
+                scope="current",
+            )
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["active_broker_runs"] == 1
+    assert payload["broker_runs"][0]["run_id"] == "bridge-next-work"
 
 
 def test_cmd_launch_invokes_tmux_launcher_for_droid(
@@ -699,3 +837,89 @@ def test_health_reports_claimed_claude_transcript_missing_worktree(tmp_path: Pat
             "detail": f"worktree path missing: {removed_worktree}",
         }
     ]
+
+
+def test_gc_dry_run_archives_only_bridge_owned_tmux_candidates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    tmux_dir = tmp_path / "tmux"
+    tmux_dir.mkdir()
+    meta = tmux_dir / "factory-old.meta.json"
+    log = tmux_dir / "factory-old.log"
+    meta.write_text("{}", encoding="utf-8")
+    log.write_text("old log", encoding="utf-8")
+    transcript = tmp_path / "claude.jsonl"
+    transcript.write_text("external transcript", encoding="utf-8")
+    monkeypatch.setattr(mod, "TMUX_SESSIONS_DIR", tmux_dir)
+    monkeypatch.setattr(
+        mod.agent_bridge_sessions,
+        "load_tmux_sessions",
+        lambda **_kwargs: [
+            SimpleNamespace(
+                name="factory-old",
+                source="tmux",
+                status="dead",
+                updated_at="2026-05-13T00:00:00Z",
+                session_id="factory-old",
+                log_file=str(log),
+            )
+        ],
+    )
+
+    rc = mod.cmd_gc(argparse.Namespace(json=True, write=False, ttl_hours=24))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dry_run"] is True
+    assert payload["external_transcripts_touched"] is False
+    assert payload["actions"][0]["name"] == "factory-old"
+    assert meta.exists()
+    assert log.exists()
+    assert transcript.exists()
+
+
+def test_gc_write_moves_stale_tmux_files_and_rewrites_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    bridge_dir = tmp_path / "bridge"
+    tmux_dir = tmp_path / "tmux"
+    tmux_dir.mkdir()
+    meta = tmux_dir / "factory-old.meta.json"
+    log = tmux_dir / "factory-old.log"
+    meta.write_text("{}", encoding="utf-8")
+    log.write_text("old log", encoding="utf-8")
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "TMUX_SESSIONS_DIR", tmux_dir)
+    monkeypatch.setattr(
+        mod.agent_bridge_sessions,
+        "load_tmux_sessions",
+        lambda **_kwargs: [
+            SimpleNamespace(
+                name="factory-old",
+                source="tmux",
+                status="dead",
+                updated_at="2026-05-13T00:00:00Z",
+                session_id="factory-old",
+                log_file=str(log),
+            )
+        ],
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+
+    rc = mod.cmd_gc(argparse.Namespace(json=True, write=True, ttl_hours=24))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dry_run"] is False
+    assert not meta.exists()
+    assert not log.exists()
+    assert Path(payload["actions"][0]["archive_files"][0]).exists()
+    assert json.loads((bridge_dir / "sessions.json").read_text(encoding="utf-8")) == []

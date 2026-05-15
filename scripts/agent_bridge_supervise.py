@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -51,6 +52,7 @@ _WAIT_MARKERS = (
 )
 _BLOCKED_MARKERS = ("blocked", "stuck", "needs human", "conflict")
 _REVIEW_MARKERS = ("ready for review", "re-review", "green", "merge when green")
+_DEFAULT_MAX_RECORDS = 20
 
 
 @dataclass(slots=True)
@@ -601,17 +603,53 @@ def _decide_lane(
     )
 
 
-def collect_supervisor_snapshot() -> SupervisorSnapshot:
-    sessions = agent_bridge.discover()
-    agent_bridge._enrich_prs(sessions)  # noqa: SLF001
-    records = agent_bridge._sync_lane_records(  # noqa: SLF001
-        agent_bridge._load_lane_registry(),  # noqa: SLF001
-        sessions,
-    )
+def _discover_current_sessions() -> list[agent_bridge.Session]:
+    try:
+        return agent_bridge.discover(include_historical=False)
+    except TypeError:
+        return agent_bridge.discover()
+
+
+def collect_supervisor_snapshot(*, max_records: int | None = None) -> SupervisorSnapshot:
+    warnings: list[str] = []
+    if max_records is None:
+        try:
+            max_records = int(
+                os.environ.get("ARAGORA_AGENT_BRIDGE_SUPERVISE_MAX_RECORDS", _DEFAULT_MAX_RECORDS)
+            )
+        except ValueError:
+            max_records = _DEFAULT_MAX_RECORDS
+    try:
+        sessions = _discover_current_sessions()
+    except Exception as exc:
+        return SupervisorSnapshot(
+            generated_at=_now_iso(),
+            decisions=[],
+            warnings=[f"session discovery degraded: {exc}"],
+        )
+
+    try:
+        agent_bridge._enrich_prs(sessions)  # noqa: SLF001
+        records = agent_bridge._sync_lane_records(  # noqa: SLF001
+            agent_bridge._load_lane_registry(),  # noqa: SLF001
+            sessions,
+        )
+    except Exception as exc:
+        warnings.append(f"lane registry degraded: {exc}")
+        records = []
     if not records:
         records = _synthetic_lane_records(sessions)
 
-    pr_truth_by_branch, warnings = _load_pr_truth(records)
+    if len(records) > max_records:
+        warnings.append(f"supervisor record cap applied: {max_records}/{len(records)}")
+        records = records[:max_records]
+
+    try:
+        pr_truth_by_branch, pr_warnings = _load_pr_truth(records)
+        warnings.extend(pr_warnings)
+    except Exception as exc:
+        pr_truth_by_branch = {}
+        warnings.append(f"pr truth degraded: {exc}")
     session_map = {session.name: session for session in sessions}
     decisions: list[LaneDecision] = []
 

@@ -24,6 +24,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -31,6 +32,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import UTC
 from datetime import datetime
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +64,9 @@ if agent_bridge_sessions is not None:
     except (OSError, RuntimeError, ValueError):
         CANONICAL_REPO_ROOT = REPO_ROOT
 ACTIVE_LANE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+CURRENT_SESSION_LIFECYCLES = {"live", "active_broker"}
+HISTORICAL_SESSION_LIFECYCLES = {"historical", "dead", "stale", "orphaned"}
+DEFAULT_STALE_TTL_HOURS = 24
 
 
 def _state_root_bridge_dir() -> Path:
@@ -124,11 +129,15 @@ class Session:
     agent: str
     status: str = "unknown"
     source: str = ""
+    lifecycle: str = ""
     tmux_target: str = ""
     branch: str = ""
     worktree: str = ""
     session_id: str = ""
+    updated_at: str = ""
     summary: str = ""
+    log_file: str = ""
+    transcript_file: str = ""
     pr_number: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -171,7 +180,12 @@ class LaneRecord:
         )
 
 
-def discover(*, include_summaries: bool = True) -> list[Session]:
+def discover(
+    *,
+    include_summaries: bool = True,
+    include_historical: bool = True,
+    active_broker_session_ids: set[str] | None = None,
+) -> list[Session]:
     """Discover all sessions via agent_bridge_sessions.
 
     Falls back to minimal tmux-only discovery if agent_bridge_sessions
@@ -189,23 +203,39 @@ def discover(*, include_summaries: bool = True) -> list[Session]:
             tmux_target = ""
             if r.status == "alive" and r.source == "tmux":
                 tmux_target = f"{TMUX_SESSION}:{r.name}"
+            lifecycle = _session_lifecycle(
+                source=r.source,
+                status=r.status,
+                updated_at=r.updated_at,
+                active_broker_session_ids=active_broker_session_ids,
+                session_id=r.session_id,
+            )
+            if not include_historical and lifecycle not in CURRENT_SESSION_LIFECYCLES:
+                continue
             sessions.append(
                 Session(
                     name=r.name,
                     agent=r.agent,
-                    status=r.status,
+                    status=_session_status_for_lifecycle(r.status, lifecycle),
                     source=r.source,
+                    lifecycle=lifecycle,
                     tmux_target=tmux_target,
                     branch=r.branch or "",
                     worktree=r.cwd or "",
                     session_id=r.session_id,
+                    updated_at=r.updated_at or "",
                     summary=r.summary or "",
+                    log_file=r.log_file or "",
+                    transcript_file=r.transcript_file or "",
                 )
             )
         return sessions
 
     # Fallback: minimal tmux-only discovery
-    return _discover_tmux_fallback()
+    sessions = _discover_tmux_fallback()
+    if include_historical:
+        return sessions
+    return [session for session in sessions if _is_current_session(session)]
 
 
 def _discover_tmux_fallback() -> list[Session]:
@@ -233,12 +263,15 @@ def _discover_tmux_fallback() -> list[Session]:
             continue
         name = meta.get("name", meta_file.stem)
         is_alive = name in alive
+        status = "alive" if is_alive else "dead"
+        lifecycle = _session_lifecycle(source="tmux", status=status, updated_at=None)
         sessions.append(
             Session(
                 name=name,
                 agent=meta.get("agent", "unknown"),
-                status="alive" if is_alive else "dead",
+                status=_session_status_for_lifecycle(status, lifecycle),
                 source="tmux",
+                lifecycle=lifecycle,
                 tmux_target=f"{TMUX_SESSION}:{name}" if is_alive else "",
             )
         )
@@ -254,6 +287,71 @@ def _write_session_snapshot(sessions: list[Session]) -> None:
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _parse_timestamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        text = value.strip()
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(text)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
+    except ValueError:
+        return None
+
+
+def _is_older_than(value: str | None, *, hours: int) -> bool:
+    parsed = _parse_timestamp(value)
+    if parsed is None:
+        return False
+    return parsed < datetime.now(UTC) - timedelta(hours=hours)
+
+
+def _session_lifecycle(
+    *,
+    source: str,
+    status: str,
+    updated_at: str | None,
+    active_broker_session_ids: set[str] | None = None,
+    session_id: str = "",
+    ttl_hours: int = DEFAULT_STALE_TTL_HOURS,
+) -> str:
+    active_broker_session_ids = active_broker_session_ids or set()
+    if session_id and session_id in active_broker_session_ids:
+        return "active_broker"
+    if source == "tmux":
+        if status == "alive":
+            return "live"
+        if status == "dead":
+            return "stale" if _is_older_than(updated_at, hours=ttl_hours) else "dead"
+        return "unknown"
+    if source == "claude_jsonl":
+        return "historical"
+    if status == "alive":
+        return "live"
+    if status == "dead":
+        return "dead"
+    return "unknown"
+
+
+def _session_status_for_lifecycle(status: str, lifecycle: str) -> str:
+    if lifecycle in {"historical", "stale", "orphaned", "active_broker", "live"}:
+        return lifecycle
+    return status
+
+
+def _is_current_session(session: Session) -> bool:
+    lifecycle = session.lifecycle or _session_lifecycle(
+        source=session.source,
+        status=session.status,
+        updated_at=session.updated_at,
+        session_id=session.session_id,
+    )
+    return lifecycle in CURRENT_SESSION_LIFECYCLES or session.status == "alive"
 
 
 def _load_lane_registry() -> list[LaneRecord]:
@@ -292,6 +390,56 @@ def _sync_lane_records(records: list[LaneRecord], sessions: list[Session]) -> li
     return records
 
 
+def _load_broker_run_summaries() -> list[dict[str, Any]]:
+    try:
+        from aragora.swarm.agent_bridge.store import BridgeStore
+    except ImportError:
+        return []
+
+    try:
+        store = BridgeStore(CANONICAL_REPO_ROOT)
+        runs = []
+        for run_path in store.runs_root().glob("*/run.json"):
+            run = store.load_run(run_path.parent.name)
+            try:
+                registry = store.load_sessions(run.run_id)
+                sessions = {role: session.to_dict() for role, session in registry.sessions.items()}
+            except (OSError, TypeError, json.JSONDecodeError, KeyError):
+                sessions = {}
+            runs.append(
+                {
+                    "run_id": run.run_id,
+                    "status": run.status,
+                    "updated_at": run.updated_at,
+                    "next_actor": run.next_actor,
+                    "last_turn_index": run.last_turn_index,
+                    "participants": [participant.to_dict() for participant in run.participants],
+                    "sessions": sessions,
+                }
+            )
+        runs.sort(key=lambda item: str(item.get("updated_at", "")), reverse=True)
+        return runs
+    except (OSError, TypeError, json.JSONDecodeError, KeyError, ValueError):
+        return []
+
+
+def _active_broker_session_ids(broker_runs: list[dict[str, Any]]) -> set[str]:
+    ids: set[str] = set()
+    for run in broker_runs:
+        if run.get("status") not in ACTIVE_LANE_STATUSES and run.get("status") != "awaiting_human":
+            continue
+        sessions = run.get("sessions", {})
+        if not isinstance(sessions, dict):
+            continue
+        for raw_session in sessions.values():
+            if not isinstance(raw_session, dict):
+                continue
+            session_id = raw_session.get("session_id")
+            if isinstance(session_id, str) and session_id:
+                ids.add(session_id)
+    return ids
+
+
 def _is_repo_root_path(path: str) -> bool:
     try:
         return Path(path).resolve() == CANONICAL_REPO_ROOT.resolve()
@@ -316,8 +464,14 @@ def _collect_health_issues(
     for s in sessions:
         if not s.worktree:
             continue
+        lifecycle = s.lifecycle or _session_lifecycle(
+            source=s.source,
+            status=s.status,
+            updated_at=s.updated_at,
+            session_id=s.session_id,
+        )
         worktree_exists = Path(s.worktree).is_dir()
-        if s.status == "dead":
+        if lifecycle in {"dead", "stale", "orphaned"} or s.status == "dead":
             if worktree_exists and not _is_repo_root_path(s.worktree):
                 issues.append(
                     {
@@ -328,11 +482,7 @@ def _collect_health_issues(
                 )
             continue
         if not worktree_exists:
-            if (
-                s.status == "unknown"
-                and s.source == "claude_jsonl"
-                and s.name not in active_lane_owners
-            ):
+            if lifecycle == "historical" and s.name not in active_lane_owners:
                 continue
             issues.append(
                 {
@@ -848,7 +998,16 @@ def cmd_health(args: argparse.Namespace) -> int:
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
-    sessions = discover(include_summaries=not summary_only)
+    include_historical = bool(getattr(args, "include_historical", False)) or (
+        getattr(args, "scope", "current") == "all"
+    )
+    broker_runs = _load_broker_run_summaries()
+    active_broker_ids = _active_broker_session_ids(broker_runs)
+    sessions = discover(
+        include_summaries=not summary_only,
+        include_historical=include_historical,
+        active_broker_session_ids=active_broker_ids,
+    )
     if not summary_only:
         _enrich_prs(sessions)
         _write_session_snapshot(sessions)
@@ -859,12 +1018,20 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
         "sessions": [s.to_dict() for s in sessions],
+        "broker_runs": broker_runs,
         "lanes": [r.to_dict() for r in records],
         "health": {"ok": len(issues) == 0, "issues": issues},
         "summary": {
             "total_sessions": len(sessions),
             "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
+            "live_sessions": sum(1 for s in sessions if _is_current_session(s)),
             "dead_sessions": sum(1 for s in sessions if s.status == "dead"),
+            "historical_sessions": sum(
+                1 for s in sessions if (s.lifecycle or s.status) in HISTORICAL_SESSION_LIFECYCLES
+            ),
+            "active_broker_runs": sum(
+                1 for run in broker_runs if run.get("status") in {"running", "awaiting_human"}
+            ),
             "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
             "conflict_lanes": sum(1 for r in records if r.status == "conflict"),
             "health_issues": len(issues),
@@ -873,6 +1040,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     if summary_only:
         snapshot.pop("sessions")
         snapshot.pop("lanes")
+        snapshot.pop("broker_runs")
         snapshot["records_omitted"] = True
 
     if args.json:
@@ -883,8 +1051,9 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     print(f"Operator Snapshot @ {snapshot['timestamp']}")
     print("=" * 80)
     print(
-        f"Sessions: {summary['alive_sessions']} alive / {summary['dead_sessions']} dead / {summary['total_sessions']} total"
+        f"Sessions: {summary['live_sessions']} live / {summary['historical_sessions']} historical / {summary['total_sessions']} total"
     )
+    print(f"Broker:   {summary['active_broker_runs']} active run(s)")
     print(f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict")
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
     print(f"Health:   {health_status}")
@@ -941,6 +1110,97 @@ def cmd_tmux_map(args: argparse.Namespace) -> int:
                 print(f"{parts[0]:<40} {parts[1]:<8} {parts[2]}")
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         print("tmux not available.")
+    return 0
+
+
+def _gc_tmux_candidates(*, ttl_hours: int) -> list[dict[str, Any]]:
+    if agent_bridge_sessions is None or not TMUX_SESSIONS_DIR.exists():
+        return []
+    candidates: list[dict[str, Any]] = []
+    records = agent_bridge_sessions.load_tmux_sessions(
+        repo_root=CANONICAL_REPO_ROOT,
+        tmux_dir=TMUX_SESSIONS_DIR,
+        include_summaries=False,
+    )
+    for record in records:
+        lifecycle = _session_lifecycle(
+            source=record.source,
+            status=record.status,
+            updated_at=record.updated_at,
+            session_id=record.session_id,
+            ttl_hours=ttl_hours,
+        )
+        if lifecycle != "stale":
+            continue
+        meta_path = TMUX_SESSIONS_DIR / f"{record.name}.meta.json"
+        files = [meta_path]
+        if record.log_file:
+            files.append(Path(record.log_file))
+        existing_files = [path for path in files if path.exists()]
+        if not existing_files:
+            continue
+        candidates.append(
+            {
+                "name": record.name,
+                "lifecycle": lifecycle,
+                "updated_at": record.updated_at,
+                "reason": f"dead bridge-owned tmux session older than {ttl_hours}h",
+                "files": [str(path) for path in existing_files],
+            }
+        )
+    return candidates
+
+
+def cmd_gc(args: argparse.Namespace) -> int:
+    ttl_hours = max(1, int(args.ttl_hours))
+    write = bool(args.write)
+    candidates = _gc_tmux_candidates(ttl_hours=ttl_hours)
+    archive_dir = TMUX_SESSIONS_DIR / "archive" / datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    actions: list[dict[str, Any]] = []
+
+    for candidate in candidates:
+        archived_files: list[str] = []
+        for raw_path in candidate["files"]:
+            source = Path(raw_path)
+            destination = archive_dir / source.name
+            if write:
+                archive_dir.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(source), str(destination))
+                archived_files.append(str(destination))
+            else:
+                archived_files.append(str(destination))
+        actions.append(
+            {
+                "action": "archive_tmux_session",
+                "name": candidate["name"],
+                "reason": candidate["reason"],
+                "dry_run": not write,
+                "files": candidate["files"],
+                "archive_files": archived_files,
+            }
+        )
+
+    if write:
+        sessions = discover(include_summaries=False, include_historical=False)
+        _write_session_snapshot(sessions)
+
+    payload = {
+        "ok": True,
+        "dry_run": not write,
+        "ttl_hours": ttl_hours,
+        "archive_dir": str(archive_dir),
+        "actions": actions,
+        "external_transcripts_touched": False,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+        return 0
+    if not actions:
+        print("No stale bridge-owned tmux sessions to archive.")
+        return 0
+    for action in actions:
+        mode = "would archive" if action["dry_run"] else "archived"
+        print(f"{mode}: {action['name']} ({len(action['files'])} file(s))")
     return 0
 
 
@@ -1013,6 +1273,13 @@ def main() -> int:
     sub.add_parser(
         "health", parents=[json_parent], help="Check for stale worktrees and lane conflicts"
     )
+    gc_p = sub.add_parser(
+        "gc",
+        parents=[json_parent],
+        help="Archive stale bridge-owned tmux metadata/logs; dry-run by default.",
+    )
+    gc_p.add_argument("--write", action="store_true", help="Apply archive actions")
+    gc_p.add_argument("--ttl-hours", type=int, default=DEFAULT_STALE_TTL_HOURS)
     operator_snapshot_p = sub.add_parser(
         "operator-snapshot",
         parents=[json_parent],
@@ -1022,6 +1289,17 @@ def main() -> int:
         "--summary-only",
         action="store_true",
         help="Omit session and lane records from output for compact automation checks.",
+    )
+    operator_snapshot_p.add_argument(
+        "--include-historical",
+        action="store_true",
+        help="Include historical Claude/Factory transcript records in the snapshot.",
+    )
+    operator_snapshot_p.add_argument(
+        "--scope",
+        choices=("current", "all"),
+        default="current",
+        help="Snapshot scope. Default 'current' includes live bridge truth only.",
     )
 
     args = parser.parse_args()
@@ -1039,6 +1317,7 @@ def main() -> int:
         "lanes": cmd_lanes,
         "tmux-map": cmd_tmux_map,
         "health": cmd_health,
+        "gc": cmd_gc,
         "operator-snapshot": cmd_operator_snapshot,
     }
     return cmds[args.command](args)

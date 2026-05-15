@@ -66,7 +66,15 @@ aragora worktree fleet-status --json
 aragora worktree fleet-claims --json
 aragora worktree fleet-queue-list --json
 aragora worktree autopilot status --json
+python3 scripts/agent_bridge.py operator-snapshot --json --summary-only
+python3 scripts/agent_bridge.py gc --json
 ```
+
+`operator-snapshot` is current-first: brokered runs and live tmux sessions are
+operational truth. Standalone Claude/Factory desktop chats are historical
+context unless they were launched through the bridge/broker or explicitly
+imported into a run receipt. Use `--include-historical` or `--scope all` only
+when auditing old transcript context.
 
 Useful low-level recovery commands when sessions are churny:
 

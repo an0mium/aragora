@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from aragora.swarm.agent_bridge.harnesses.droid import DroidTransport
+from aragora.swarm.agent_bridge.harnesses import create_transport
 
 
 def _fixture_text(name: str) -> str:
@@ -102,3 +103,14 @@ def test_droid_resume_uses_session_flag(tmp_path: Path) -> None:
         "16329fce-3484-47a4-ad98-6676fdfb7477",
         "--cwd",
     ]
+
+
+def test_factory_harness_alias_uses_droid_transport(tmp_path: Path) -> None:
+    transport = create_transport(
+        "factory",
+        cwd=tmp_path,
+        binary_resolver=lambda _: "/usr/bin/droid",
+    )
+
+    assert isinstance(transport, DroidTransport)
+    assert transport.harness == "droid"

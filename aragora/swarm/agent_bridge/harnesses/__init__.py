@@ -47,6 +47,7 @@ register("claude", ClaudeTransport)
 register("claude_code", ClaudeTransport)
 register("codex", CodexTransport)
 register("droid", DroidTransport)
+register("factory", DroidTransport)
 
 __all__ = [
     "ClaudeTransport",
