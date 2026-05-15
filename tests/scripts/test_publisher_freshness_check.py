@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -13,6 +14,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "publisher_freshness_check.py"
+WRAPPER_SCRIPT_PATH = REPO_ROOT / "scripts" / "check_publisher_freshness.py"
 
 
 def _load_module() -> Any:
@@ -228,6 +230,20 @@ def test_main_json_output_includes_full_report(
     assert parsed["verdict"] == "ready"
     assert "generated_at" in parsed
     assert parsed["launchd_loaded"] is True
+
+
+def test_check_publisher_freshness_wrapper_executes_primary_script(stub_repo: Path) -> None:
+    result = subprocess.run(
+        [sys.executable, str(WRAPPER_SCRIPT_PATH), "--repo", str(stub_repo), "--json"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    parsed = json.loads(result.stdout)
+    assert parsed["cache_path"].endswith(".aragora/automation-github-status/latest.json")
+    assert "verdict" in parsed
 
 
 def test_main_accepts_status_cache_alias(
