@@ -1,9 +1,33 @@
 # Aragora Project Status
 
-*Last updated: April 25, 2026*
+*Last updated: May 14, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](../INDEX.md) for the curated technical reference map.
 > For roadmap extraction, doc drift, and partial-feature tracking, see [DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md](DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md).
+
+## May 12-14, 2026 — Proof Loop Closed End-to-End, Initial Operating SLOs Set
+
+The proof loop reached its first end-to-end closure across three durable receipts:
+
+- **May 12** — first closure observation. H1-01 rev-4 promotion readiness rendered `promotion_ready`; first settlement receipt landed; `observe-outcomes` dry-run clean. Receipt: [PROOF_LOOP_FIRST_CLOSURE_2026-05-12.md](PROOF_LOOP_FIRST_CLOSURE_2026-05-12.md). Captured in [#7124](https://github.com/synaptent/aragora/pull/7124).
+- **May 13** — first `observe-outcomes --write` verified on the **negative case**. 10 settlement receipts written; 10/10 PASS independently verified by Claude Sonnet 4.5, Codex GPT-5.5, and Droid-Gemini latest. Receipt: [OBSERVE_OUTCOMES_FIRST_WRITE_VERIFIED_2026-05-13.md](OBSERVE_OUTCOMES_FIRST_WRITE_VERIFIED_2026-05-13.md). Captured in [#7131](https://github.com/synaptent/aragora/pull/7131).
+- **May 14** — `observe-outcomes` batch #2 verified the **positive case**. 18 receipts written, with `outcome_human_override_redo=true` correctly fired on PR [#7146](https://github.com/synaptent/aragora/pull/7146) triggered by a literal `Supersedes #7146` reference in PR [#7153](https://github.com/synaptent/aragora/pull/7153). Receipt: [OBSERVE_OUTCOMES_BATCH_2_2026-05-14.md](OBSERVE_OUTCOMES_BATCH_2_2026-05-14.md). The loop now has verified detection on both the noise-free and the real-positive case.
+
+**What changed in the canonical operating picture:** Aragora can now make a settlement decision, observe outcomes from the resulting GitHub timeline, and write the observed signals back into its own receipt store. Detection has been calibrated on both clean and fired cases. The May 6 "do not run `--write`" guidance is superseded by per-batch operator authorization. Unattended `--write` remains explicitly NOT authorized.
+
+**What did NOT change:** The thesis 5% invalidation threshold ([#6375](https://github.com/synaptent/aragora/issues/6375)) remains ungrounded — two batches across 28 receipts (27 clean readings plus 1 fired positive case) does not constitute a calibrated rate. H2 panel state is unchanged.
+
+### Initial operating SLOs — trial targets for the next cycle
+
+These are forward-looking operational targets adopted for the upcoming cycle. They are *not* measurements of historical performance and *not* claims that the proof loop has already met any of these bars. Each tier is the evidence threshold that must be met before the next tier becomes meaningful to discuss.
+
+| Tier | Target | Evidence source |
+| --- | --- | --- |
+| Tier 1 (current): per-batch `observe-outcomes --write` verification — each operator-authorized batch is independently verified before being treated as proof | 100% per batch | settlement receipts + observe-outcomes audit log; three-model cross-family verification per the May 13 protocol |
+| Tier 2 (next): proof-first shift runs 24h continuous without operator-required halt | ≥1 occurrence required | `.aragora/proof_first_shift/shift_ledger.jsonl` |
+| Tier 3 (gating before any expansion of the unattended `--write` cap): 7 days continuous shift + at least 20 settlement receipt samples for threshold grounding | not yet met; no expansion considered until met | shift ledger + insufficiency receipt schema + accumulated settlement evidence |
+
+The Tier 2 target reflects the Apr 26-27 failure mode (`RepeatedBossRestartFailure`, cyclic automation interference pattern) which has been addressed by [#6676](https://github.com/synaptent/aragora/pull/6676) and the launchd-throttle fix tranche. PR [#7150](https://github.com/synaptent/aragora/pull/7150) (`aragora review-queue health`, merged 2026-05-14) and open PR [#7156](https://github.com/synaptent/aragora/pull/7156) (edge-triggered alerter) provide the observability surface needed to measure these targets. Tier 3 is the standing precondition for any further automation latitude — until the 7-day soak and the 20-receipt sample threshold are both met, the unattended `--write` policy does not change.
 
 ## April 25, 2026 — v2.9.0 stable readiness after rc.1
 

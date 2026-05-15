@@ -5,7 +5,7 @@ description: Next Steps (Canonical)
 
 # Next Steps (Canonical)
 
-Last updated: 2026-05-13
+Last updated: 2026-05-14
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](./canonical-goals) defines what Aragora is and why.
@@ -15,16 +15,28 @@ This is the single source of truth for short-horizon execution priorities.
 
 ## Current Gate
 
-The immediate gate is operating the proof loop that already exists: keep recurring benchmark truth publication complete, fresh, and trustworthy on current `main`; keep `CS-01..03` narrower than measured proof; and do not expand the `B2` guard until repeated runs support it. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop, not adding new roadmap scope.
+The immediate gate is operating the proof loop that has now been closed end-to-end on both the negative and positive case: keep recurring benchmark truth publication complete, fresh, and trustworthy on current `main`; keep `CS-01..03` narrower than measured proof; and do not expand the `B2` guard until repeated runs support it. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop, not adding new roadmap scope.
 
-Current May 13 proof-loop state:
+Current May 14 proof-loop state:
 
 - `docs/THESIS.md` is v4 canonical.
 - H1-01 rev-4 readiness is `promotion_ready`: 15 staged issues have metrics-backed `worker_outcome` evidence, meeting the 15-issue floor for canonical promotion.
 - The first canonical rev-4 B0 slice is not promoted yet; `docs/benchmarks/corpus.json` remains at the existing one-issue rev-4 corpus until the promotion step is executed explicitly.
 - Fresh B0 publication remains complete for the existing canonical corpus and reports 0.0% current truth success.
-- The first settlement receipt exists for `#7060`, and `review-queue observe-outcomes --window-days 14 --max-receipts 5 --json` dry-runs over it successfully with all five v2 outcome signals false and no receipt JSON writes.
-- The first `observe-outcomes --write` remains a separate Tier-4 operator decision over a bounded manually verifiable receipt slice.
+- The first settlement receipt exists for `#7060`, and the `observe-outcomes` dry-run path is validated against it.
+- **The first `observe-outcomes --write` ran successfully on 2026-05-13** over 10 receipts and was independently verified 10/10 PASS by three frontier models from three vendors (Claude Sonnet 4.5, Codex GPT-5.5, Droid-Gemini latest). All signals CLEAN — the negative case is calibrated.
+- **Batch #2 on 2026-05-14** wrote 18 receipts and produced the **first fired outcome signal** (`outcome_human_override_redo=true` on PR #7146, triggered by a literal `Supersedes #7146` reference in PR #7153) — the positive case is calibrated. See [PROOF_LOOP_FIRST_CLOSURE_2026-05-12](https://github.com/synaptent/aragora/blob/main/docs/status/PROOF_LOOP_FIRST_CLOSURE_2026-05-12.md), [OBSERVE_OUTCOMES_FIRST_WRITE_VERIFIED_2026-05-13](https://github.com/synaptent/aragora/blob/main/docs/status/OBSERVE_OUTCOMES_FIRST_WRITE_VERIFIED_2026-05-13.md), and [OBSERVE_OUTCOMES_BATCH_2_2026-05-14](https://github.com/synaptent/aragora/blob/main/docs/status/OBSERVE_OUTCOMES_BATCH_2_2026-05-14.md).
+- Unattended `observe-outcomes --write` remains explicitly NOT authorized; each `--write` is a per-batch operator decision.
+
+### Initial operating SLOs — trial targets for the next cycle
+
+These are forward-looking operational targets, not historical-performance claims:
+
+- **Tier 1 (current):** per-batch `observe-outcomes --write` verification — each operator-authorized batch is independently verified before being treated as proof.
+- **Tier 2 (next):** proof-first shift runs 24h continuous without operator-required halt; evidence in `.aragora/proof_first_shift/shift_ledger.jsonl`.
+- **Tier 3 (gating before any expansion of the unattended `--write` cap):** 7 days continuous shift soak + at least 20 settlement receipt samples for threshold grounding.
+
+Until both Tier 3 conditions are met, the unattended `--write` policy does not change. Tier 1 is the only currently active operating tier.
 
 Operator commands only count as proof when they are run from a clean, current `origin/main` observer. A dirty or diverged founder checkout is planning context, not runtime truth.
 
