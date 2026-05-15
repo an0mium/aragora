@@ -447,7 +447,7 @@ class TestOpenRouterModelMapping:
 
         mapping = CLIAgent.OPENROUTER_MODEL_MAP
         assert "gpt-4o" in mapping
-        assert "openai/gpt-4o" in mapping.get("gpt-4o", "")
+        assert "openai/gpt-5.5" in mapping.get("gpt-4o", "")
 
     def test_gemini_model_mapping(self):
         """Test Gemini models map to OpenRouter correctly."""
@@ -894,7 +894,7 @@ class TestKiloCodeAgentConfiguration:
         from aragora.agents.cli_agents import KiloCodeAgent
 
         agent = KiloCodeAgent(name="test")
-        assert agent.provider_id == "openrouter/google/gemini-3.1-pro-preview"
+        assert agent.provider_id == "google/gemini-3.1-pro"
 
     def test_custom_provider_id(self):
         """Test custom provider ID."""
