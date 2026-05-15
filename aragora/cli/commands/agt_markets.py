@@ -166,7 +166,9 @@ def cmd_markets_create(args: argparse.Namespace) -> int:
     if emit_json:
         print(json.dumps(saved.to_json(), sort_keys=True, indent=2))
     else:
-        print(f"market created: {saved.market_id}  type={saved.question_kind}  expires={saved.expires_at}")
+        print(
+            f"market created: {saved.market_id}  type={saved.question_kind}  expires={saved.expires_at}"
+        )
     return 0
 
 
@@ -187,8 +189,11 @@ def cmd_markets_resolve(args: argparse.Namespace) -> int:
         return 1
 
     evidence: dict[str, object] = {"note": evidence_text} if evidence_text else {}
-    factory = {"yes": ResolutionEvent.yes, "no": ResolutionEvent.no,
-               "inconclusive": ResolutionEvent.inconclusive}[outcome]
+    factory = {
+        "yes": ResolutionEvent.yes,
+        "no": ResolutionEvent.no,
+        "inconclusive": ResolutionEvent.inconclusive,
+    }[outcome]
     event = factory(market_id=market_id, resolution_source="operator_cli", evidence=evidence)
 
     try:
@@ -200,7 +205,9 @@ def cmd_markets_resolve(args: argparse.Namespace) -> int:
     if emit_json:
         print(json.dumps(saved.to_json(), sort_keys=True, indent=2))
     else:
-        print(f"market resolved: {saved.market_id}  outcome={saved.outcome}  at={saved.resolved_at}")
+        print(
+            f"market resolved: {saved.market_id}  outcome={saved.outcome}  at={saved.resolved_at}"
+        )
     return 0
 
 

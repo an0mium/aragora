@@ -27,27 +27,46 @@ from aragora.markets.types import Market
 # ---------------------------------------------------------------------------
 
 
-def _create_args(tmp_path, *, type="pr_merge", repo="synaptent/aragora",
-                 number=42, ref=None, window_days=None, description="",
-                 emit_json=False):
+def _create_args(
+    tmp_path,
+    *,
+    type="pr_merge",
+    repo="synaptent/aragora",
+    number=42,
+    ref=None,
+    window_days=None,
+    description="",
+    emit_json=False,
+):
     return argparse.Namespace(
-        store_dir=str(tmp_path), type=type, repo=repo, number=number,
-        ref=ref, window_days=window_days, description=description, json=emit_json,
+        store_dir=str(tmp_path),
+        type=type,
+        repo=repo,
+        number=number,
+        ref=ref,
+        window_days=window_days,
+        description=description,
+        json=emit_json,
     )
 
 
 def _resolve_args(tmp_path, market_id, *, outcome="yes", evidence="", emit_json=False):
     return argparse.Namespace(
-        store_dir=str(tmp_path), market_id=market_id,
-        outcome=outcome, evidence=evidence, json=emit_json,
+        store_dir=str(tmp_path),
+        market_id=market_id,
+        outcome=outcome,
+        evidence=evidence,
+        json=emit_json,
     )
 
 
 def _seed(tmp_path, *, kind="pr_merge", number=99):
     store = MarketStore(tmp_path)
     m = Market.create(
-        question_kind=kind, target={"repo": "synaptent/aragora", "number": number},
-        description="test", resolution_window_days=7,
+        question_kind=kind,
+        target={"repo": "synaptent/aragora", "number": number},
+        description="test",
+        resolution_window_days=7,
     )
     store.add_market(m)
     return m
