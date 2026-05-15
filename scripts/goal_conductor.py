@@ -371,12 +371,18 @@ class GoalConductor:
         if not isinstance(prs, list):
             prs = []
         merge_packets: Any = []
+        merge_packet_status: dict[str, Any] = {
+            "targets": [],
+            "returncode": None,
+            "parse_ok": True,
+        }
         if self.mission.collect_merge_packets:
             packet_targets = [
                 int(pr["number"])
                 for pr in prs
                 if isinstance(pr, dict) and pr.get("number") and not bool(pr.get("isDraft"))
             ][: self.mission.max_merge_packets]
+            merge_packet_status["targets"] = packet_targets
             if packet_targets:
                 packet_args = [
                     "python3",
@@ -388,7 +394,11 @@ class GoalConductor:
                 ]
                 for number in packet_targets:
                     packet_args.extend(["--pr", str(number)])
-                merge_packets, _ = self._run_json(packet_args, timeout=120)
+                merge_packets, packet_result = self._run_json(packet_args, timeout=120)
+                merge_packet_status["returncode"] = packet_result.returncode
+                merge_packet_status["parse_ok"] = isinstance(merge_packets, (dict, list))
+                if merge_packets is None:
+                    merge_packets = []
         publisher, _ = self._run_json(["python3", "scripts/publisher_freshness_check.py", "--json"])
         bridge, _ = self._run_json(
             [
@@ -425,6 +435,7 @@ class GoalConductor:
             "open_pr_count": len(prs),
             "open_non_draft_count": sum(1 for pr in prs if not bool(pr.get("isDraft"))),
             "merge_packets": merge_packets,
+            "merge_packet_status": merge_packet_status,
             "publisher": publisher,
             "agent_bridge": bridge,
             "loop_surfaces": discover_loop_surfaces(self.repo_root),
@@ -436,6 +447,17 @@ class GoalConductor:
 
     def hard_gates(self, snapshot: dict[str, Any]) -> list[str]:
         gates: list[str] = []
+        if int(snapshot.get("pr_query_returncode") or 0) != 0:
+            gates.append(f"open PR query failed: rc={snapshot.get('pr_query_returncode')}")
+        packet_status = snapshot.get("merge_packet_status")
+        if isinstance(packet_status, dict) and packet_status.get("targets"):
+            if int(packet_status.get("returncode") or 0) != 0 or not bool(
+                packet_status.get("parse_ok", True)
+            ):
+                gates.append(
+                    "merge-packet query failed for "
+                    f"{','.join(str(item) for item in packet_status.get('targets') or [])}"
+                )
         if snapshot["root"]["dirty_file_count"]:
             gates.append("root checkout is dirty")
         if snapshot["open_pr_count"] >= self.mission.limits.queue_cap:

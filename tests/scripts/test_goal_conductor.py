@@ -26,11 +26,15 @@ class FakeRunner:
         open_prs: list[dict] | None = None,
         dirty: bool = False,
         merge_packet: dict | None = None,
+        pr_query_returncode: int = 0,
+        merge_packet_returncode: int = 0,
     ):
         self.mod = mod
         self.open_prs = open_prs or []
         self.dirty = dirty
         self.merge_packet = merge_packet or {"packets": []}
+        self.pr_query_returncode = pr_query_returncode
+        self.merge_packet_returncode = merge_packet_returncode
         self.calls: list[list[str]] = []
         self.executed: list[list[str]] = []
 
@@ -47,13 +51,13 @@ class FakeRunner:
         if args[:3] == ["gh", "pr", "list"]:
             return self.mod.CommandResult(
                 args=args,
-                returncode=0,
+                returncode=self.pr_query_returncode,
                 stdout=json.dumps(self.open_prs),
             )
         if "review-queue merge-packet --json" in command:
             return self.mod.CommandResult(
                 args=args,
-                returncode=0,
+                returncode=self.merge_packet_returncode,
                 stdout=json.dumps(self.merge_packet),
             )
         if "publisher_freshness_check.py" in command:
@@ -307,6 +311,49 @@ def test_execute_blocks_all_lanes_when_human_settlement_gate_present(tmp_path: P
     ]
     assert [decision.action for decision in result.decisions] == ["blocked", "blocked"]
     assert all("fatal hard gate" in decision.reason for decision in result.decisions)
+    assert runner.executed == []
+
+
+def test_execute_blocks_all_lanes_when_pr_query_fails(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    mission = mod.Mission.from_dict(payload)
+    runner = FakeRunner(mod, pr_query_returncode=1)
+    conductor = mod.GoalConductor(
+        mission=mission,
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert "open PR query failed: rc=1" in result.hard_gates
+    assert [decision.action for decision in result.decisions] == ["blocked", "blocked"]
+    assert runner.executed == []
+
+
+def test_execute_blocks_all_lanes_when_merge_packet_fails(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    mission = mod.Mission.from_dict(payload)
+    open_prs = [{"number": 7156, "title": "needs packet", "isDraft": False}]
+    runner = FakeRunner(mod, open_prs=open_prs, merge_packet_returncode=1)
+    conductor = mod.GoalConductor(
+        mission=mission,
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert "merge-packet query failed for 7156" in result.hard_gates
+    assert [decision.action for decision in result.decisions] == ["blocked", "blocked"]
     assert runner.executed == []
 
 
