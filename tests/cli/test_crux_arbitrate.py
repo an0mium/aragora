@@ -49,7 +49,7 @@ _NOT_QUALIFYING_CRUX = PersistentCrux(
     statement="Performance budget is the key constraint.",
     question_family_id="qfam_perf",
     consecutive_debate_count=1,  # below threshold
-    load_bearing_score=0.2,       # below threshold
+    load_bearing_score=0.2,  # below threshold
     cruxset_receipt_ids=(),
 )
 

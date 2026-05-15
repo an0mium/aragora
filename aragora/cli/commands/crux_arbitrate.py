@@ -89,8 +89,7 @@ def _render_dry_run(cruxes: list[PersistentCrux], *, json_output: bool) -> str:
 
     lines: list[str] = []
     lines.append(
-        f"[dry-run] {len(cruxes)} crux(es) loaded — "
-        f"{len(qualifying)} qualify for arbitration"
+        f"[dry-run] {len(cruxes)} crux(es) loaded — {len(qualifying)} qualify for arbitration"
     )
     if qualifying:
         lines.append("\nQualifying cruxes:")
