@@ -17,6 +17,11 @@ import re
 import sys
 from pathlib import Path
 from typing import NamedTuple
+from urllib.parse import unquote
+
+
+HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
+HTML_ID_RE = re.compile(r"""\bid=["']([^"']+)["']""")
 
 
 class BrokenLink(NamedTuple):
@@ -57,14 +62,84 @@ def find_markdown_links(content: str) -> list[tuple[int, str]]:
             # Skip external links
             if link.startswith(("http://", "https://", "mailto:")):
                 continue
-            # Skip anchor-only links
-            if link.startswith("#"):
-                continue
             # Skip placeholder links
             if link in ("'...'", "..."):
                 continue
             links.append((i, link))
     return links
+
+
+def strip_link_title(raw: str) -> str:
+    """Return the link target without an optional markdown title."""
+    target = raw.strip()
+    if target.startswith("<") and ">" in target:
+        return target[1 : target.index(">")]
+    return target.split()[0] if target.split() else target
+
+
+def split_link_target(raw: str) -> tuple[str, str]:
+    """Split a markdown link target into path and decoded anchor parts."""
+    target = strip_link_title(raw)
+    path_part, sep, anchor = target.partition("#")
+    path_part = unquote(path_part.split("?", 1)[0])
+    return path_part, unquote(anchor) if sep else ""
+
+
+def normalize_anchor(value: str) -> str:
+    """Normalize a heading or anchor the way GitHub-style markdown links do."""
+    value = unquote(value).lower()
+    value = re.sub(r"`([^`]+)`", r"\1", value)
+    value = re.sub(r"\[[^\]]+\]\(([^)]+)\)", r"\1", value)
+    value = re.sub(r"<[^>]+>", "", value)
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return " ".join(value.split())
+
+
+def github_slug(value: str) -> str:
+    """Return the canonical GitHub-style slug for a heading."""
+    return normalize_anchor(value).replace(" ", "-")
+
+
+def heading_anchors(path: Path) -> set[str]:
+    """Collect markdown heading and explicit HTML id anchors from a file."""
+    anchors: set[str] = set()
+    seen_slugs: dict[str, int] = {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return anchors
+
+    for line in text.splitlines():
+        heading = HEADING_RE.match(line)
+        titles = [heading.group(1).strip()] if heading else []
+        titles.extend(HTML_ID_RE.findall(line))
+        for title in titles:
+            normalized = normalize_anchor(title)
+            slug = github_slug(title)
+            if slug:
+                duplicate_index = seen_slugs.get(slug, 0)
+                seen_slugs[slug] = duplicate_index + 1
+                anchors.add(slug if duplicate_index == 0 else f"{slug}-{duplicate_index}")
+            if normalized:
+                anchors.add(normalized)
+                anchors.add(normalized.replace(" ", ""))
+    return anchors
+
+
+def anchor_exists(path: Path, anchor: str) -> bool:
+    """Return whether a markdown file contains the requested heading anchor."""
+    wanted = normalize_anchor(anchor)
+    wanted_slug = github_slug(anchor)
+    wanted_compact = wanted.replace(" ", "")
+    for existing in heading_anchors(path):
+        normalized = normalize_anchor(existing)
+        if existing == wanted_slug or normalized == wanted:
+            return True
+        if wanted and normalized.startswith(f"{wanted} "):
+            return True
+        if wanted_compact and normalized.replace(" ", "").startswith(wanted_compact):
+            return True
+    return False
 
 
 def validate_link(source_file: Path, link: str, docs_dir: Path) -> str | None:
@@ -73,14 +148,12 @@ def validate_link(source_file: Path, link: str, docs_dir: Path) -> str | None:
     Returns error message if broken, None if valid.
     """
     # Parse link and anchor
-    if "#" in link:
-        file_part, anchor = link.split("#", 1)
-    else:
-        file_part = link
-        anchor = None
+    file_part, anchor = split_link_target(link)
 
     # Resolve relative path
-    if file_part.startswith("../"):
+    if file_part.startswith("/"):
+        target = docs_dir.parent / file_part.lstrip("/")
+    elif file_part.startswith("../"):
         target = source_file.parent / file_part
     elif file_part.startswith("./"):
         target = source_file.parent / file_part[2:]
@@ -100,8 +173,8 @@ def validate_link(source_file: Path, link: str, docs_dir: Path) -> str | None:
     if not target.exists():
         return f"File not found: {file_part}"
 
-    # TODO: Validate anchor links by parsing target file headers
-    # For now, we only validate file existence
+    if anchor and target.suffix.lower() == ".md" and not anchor_exists(target, anchor):
+        return f"Anchor not found: #{anchor}"
 
     return None
 
