@@ -44,6 +44,18 @@ DEFAULT_ALERTS_REL = Path(".aragora") / "proof-loop-alerts"
 STATE_FILENAME = "state.json"
 EVENTS_SUBDIR = "events"
 
+EVENT_FILENAME_PREFIX = "event-"
+EVENT_FILENAME_SUFFIX = ".json"
+
+# Conservative default cap on the number of event files retained under
+# ``events/``. The alerter is designed for periodic launchd execution, so
+# without a cap a long-running heartbeat schedule would accumulate event
+# files indefinitely. 200 covers ~2 days of 15-minute heartbeats or
+# hundreds of real state-transition events; either way the operator-
+# relevant tail of recent events is preserved while bounding disk use.
+# A value <= 0 disables pruning (caller can opt out explicitly).
+DEFAULT_MAX_EVENTS = 200
+
 EVENT_KIND_OPENED = "alert_opened"
 EVENT_KIND_CHANGED = "alert_changed"
 EVENT_KIND_RECOVERED = "alert_recovered"
@@ -232,6 +244,55 @@ def write_event(event: AlertEvent, events_dir: Path) -> Path:
     return path
 
 
+def prune_event_files(
+    events_dir: Path,
+    *,
+    max_count: int = DEFAULT_MAX_EVENTS,
+) -> list[Path]:
+    """Remove oldest ``event-*.json`` files until at most ``max_count`` remain.
+
+    Conservative and local-only:
+
+    * Only files whose name starts with ``event-`` and ends with ``.json``
+      are considered; any unrelated file in ``events_dir`` (e.g. an
+      operator-placed ``README.md`` or backup) is never touched.
+    * Order is by file mtime (oldest first), which is robust against the
+      collision-suffix scheme in :func:`write_event` (where two events at
+      the same second produce names that do not sort chronologically).
+    * A non-existent ``events_dir`` is treated as empty (returns ``[]``).
+    * ``max_count`` <= 0 disables pruning (returns ``[]``); useful for
+      callers that want to opt out and retain everything.
+    * Individual unlink failures are tolerated — pruning is best-effort
+      housekeeping and must not break the alerter run.
+
+    Returns the list of paths actually removed (for testability).
+    """
+    if max_count <= 0:
+        return []
+    if not events_dir.exists() or not events_dir.is_dir():
+        return []
+    event_files: list[Path] = []
+    for entry in events_dir.iterdir():
+        if not entry.is_file():
+            continue
+        name = entry.name
+        if not name.startswith(EVENT_FILENAME_PREFIX) or not name.endswith(EVENT_FILENAME_SUFFIX):
+            continue
+        event_files.append(entry)
+    if len(event_files) <= max_count:
+        return []
+    event_files.sort(key=lambda p: p.stat().st_mtime)
+    excess = len(event_files) - max_count
+    removed: list[Path] = []
+    for path in event_files[:excess]:
+        try:
+            path.unlink()
+        except OSError:
+            continue
+        removed.append(path)
+    return removed
+
+
 def evaluate(
     report: HealthReport,
     *,
@@ -289,10 +350,15 @@ def run_alert(
     review_queue_root: Path | None = None,
     overnight_root: Path | None = None,
     automation_receipts_root: Path | None = None,
+    max_events: int = DEFAULT_MAX_EVENTS,
 ) -> AlertResult:
     """End-to-end run: gather health, evaluate, persist state and any event.
 
     This is the function the CLI handler invokes. It performs I/O.
+
+    ``max_events`` bounds the size of the events subdirectory; old files
+    beyond the cap are pruned after each write. Pass ``max_events <= 0``
+    to disable pruning entirely.
     """
     report = gather_health(
         repo_root=repo_root,
@@ -304,6 +370,7 @@ def run_alert(
     event_path: Path | None = None
     if decision.event is not None:
         event_path = write_event(decision.event, state_dir / EVENTS_SUBDIR)
+        prune_event_files(state_dir / EVENTS_SUBDIR, max_count=max_events)
     save_state(decision.state, decision.state_path)
     return AlertResult(
         state=decision.state,

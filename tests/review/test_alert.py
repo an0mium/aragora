@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -12,6 +13,9 @@ from aragora.review import alert as alert_module
 from aragora.review.alert import (
     ALERTING_STATUSES,
     EVENT_KIND_CHANGED,
+    DEFAULT_MAX_EVENTS,
+    EVENT_FILENAME_PREFIX,
+    EVENT_FILENAME_SUFFIX,
     EVENT_KIND_HEARTBEAT,
     EVENT_KIND_OPENED,
     EVENT_KIND_RECOVERED,
@@ -23,6 +27,7 @@ from aragora.review.alert import (
     determine_event_kind,
     evaluate,
     load_state,
+    prune_event_files,
     save_state,
     write_event,
 )
@@ -457,3 +462,279 @@ class TestStaleAndMissingTogether:
 def test_status_alerting_membership(status: str, expect_alerting: bool) -> None:
     is_alerting = status in ALERTING_STATUSES
     assert is_alerting == expect_alerting
+
+
+class TestPruneEventFiles:
+    """Bounded retention for the events subdirectory.
+
+    Pruning is conservative — only ``event-*.json`` files are eligible, and
+    pruning happens by mtime (oldest first) up to the ``max_count`` cap.
+    """
+
+    def _make_event_file(self, events_dir: Path, name: str, mtime: float) -> Path:
+        path = events_dir / name
+        path.write_text("{}\n", encoding="utf-8")
+        os.utime(path, (mtime, mtime))
+        return path
+
+    def test_below_cap_does_nothing(self, tmp_path: Path) -> None:
+        events_dir = tmp_path / EVENTS_SUBDIR
+        events_dir.mkdir()
+        for i in range(5):
+            self._make_event_file(
+                events_dir, f"event-2026051{i}T120000Z-alert_opened.json", 1000.0 + i
+            )
+        removed = prune_event_files(events_dir, max_count=10)
+        assert removed == []
+        # All files survive.
+        assert len(list(events_dir.iterdir())) == 5
+
+    def test_above_cap_prunes_oldest_first(self, tmp_path: Path) -> None:
+        events_dir = tmp_path / EVENTS_SUBDIR
+        events_dir.mkdir()
+        # 12 files with strictly increasing mtimes; only the newest 5 should survive.
+        created = []
+        for i in range(12):
+            created.append(
+                self._make_event_file(events_dir, f"event-{i:02d}-alert_opened.json", 1000.0 + i)
+            )
+        removed = prune_event_files(events_dir, max_count=5)
+        # 7 oldest files removed.
+        assert len(removed) == 7
+        # Surviving files are the 5 newest by mtime.
+        remaining = sorted(events_dir.iterdir(), key=lambda p: p.stat().st_mtime)
+        assert [p.name for p in remaining] == [
+            f"event-{i:02d}-alert_opened.json" for i in range(7, 12)
+        ]
+        # And removed files are exactly the 7 oldest.
+        assert {p.name for p in removed} == {f"event-{i:02d}-alert_opened.json" for i in range(7)}
+
+    def test_unrelated_files_are_not_touched(self, tmp_path: Path) -> None:
+        events_dir = tmp_path / EVENTS_SUBDIR
+        events_dir.mkdir()
+        # 10 real event files...
+        for i in range(10):
+            self._make_event_file(events_dir, f"event-{i:02d}-alert_opened.json", 1000.0 + i)
+        # ...plus assorted unrelated files an operator might place there.
+        unrelated_paths = {
+            events_dir / "README.md": "operator notes\n",
+            events_dir / "snapshot.tar.gz": "binary blob",
+            events_dir / "event-broken.txt": "wrong suffix",  # doesn't end in .json
+            events_dir / "log-20260514.json": "wrong prefix",  # doesn't start with event-
+            events_dir / ".hidden_event.json": "dotfile",  # also no event- prefix
+        }
+        for path, body in unrelated_paths.items():
+            path.write_text(body, encoding="utf-8")
+            os.utime(path, (500.0, 500.0))  # OLDER than all event files
+        removed = prune_event_files(events_dir, max_count=3)
+        # 7 of the 10 event files should be pruned.
+        assert len(removed) == 7
+        # All unrelated files must survive untouched.
+        for path, body in unrelated_paths.items():
+            assert path.exists(), f"unrelated file removed: {path.name}"
+            assert path.read_text(encoding="utf-8") == body, f"unrelated file modified: {path.name}"
+        # Verify only event-*.json files are affected.
+        for path in removed:
+            assert path.name.startswith(EVENT_FILENAME_PREFIX)
+            assert path.name.endswith(EVENT_FILENAME_SUFFIX)
+
+    def test_missing_directory_is_no_op(self, tmp_path: Path) -> None:
+        events_dir = tmp_path / "nonexistent_events"
+        assert not events_dir.exists()
+        removed = prune_event_files(events_dir, max_count=10)
+        assert removed == []
+        # Function must not create the directory.
+        assert not events_dir.exists()
+
+    def test_nondirectory_path_is_no_op(self, tmp_path: Path) -> None:
+        # If someone passes a file path by mistake, prune should bail safely.
+        not_a_dir = tmp_path / "not_a_dir"
+        not_a_dir.write_text("oops", encoding="utf-8")
+        removed = prune_event_files(not_a_dir, max_count=10)
+        assert removed == []
+        # File should still be there, untouched.
+        assert not_a_dir.read_text(encoding="utf-8") == "oops"
+
+    def test_zero_or_negative_max_disables_pruning(self, tmp_path: Path) -> None:
+        events_dir = tmp_path / EVENTS_SUBDIR
+        events_dir.mkdir()
+        for i in range(20):
+            self._make_event_file(events_dir, f"event-{i:02d}-alert_opened.json", 1000.0 + i)
+        # max_count = 0 → no pruning (caller opt-out).
+        assert prune_event_files(events_dir, max_count=0) == []
+        # max_count < 0 → no pruning (defensive).
+        assert prune_event_files(events_dir, max_count=-1) == []
+        # All 20 files survive.
+        assert len(list(events_dir.iterdir())) == 20
+
+    def test_default_max_events_constant(self) -> None:
+        # The default is documented in the module; this test pins the value
+        # so a casual edit cannot silently relax the retention policy.
+        assert DEFAULT_MAX_EVENTS == 200
+
+    def test_run_alert_invokes_prune_after_write(self, tmp_path: Path, monkeypatch) -> None:
+        """End-to-end: a run that writes an event should also prune below the cap."""
+        import aragora.review.alert as alert_module
+
+        events_dir = tmp_path / EVENTS_SUBDIR
+        events_dir.mkdir()
+        # Pre-populate with 50 stale event files (older than what run_alert will write).
+        for i in range(50):
+            path = events_dir / f"event-{i:02d}-alert_opened.json"
+            path.write_text("{}\n", encoding="utf-8")
+            os.utime(path, (1000.0 + i, 1000.0 + i))
+
+        # Stub gather_health to return a stale-fired report so an event is written.
+        from aragora.review.health import HealthReport, SurfaceCheck
+
+        def fake_gather_health(**_kwargs):
+            return HealthReport(
+                generated_at=_now(),
+                overall_status=STATUS_STALE,
+                surfaces=[SurfaceCheck(name="briefs", status=STATUS_STALE)],
+            )
+
+        monkeypatch.setattr(alert_module, "gather_health", fake_gather_health)
+
+        # Trigger one alert run with cap=10.
+        result = alert_module.run_alert(state_dir=tmp_path, max_events=10)
+
+        # Event should have been written.
+        assert result.event is not None
+        assert result.event_path is not None
+
+        # After prune, at most 10 event files should remain — pre-existing
+        # older ones got pruned to make room for the new one.
+        surviving = [
+            p
+            for p in events_dir.iterdir()
+            if p.name.startswith(EVENT_FILENAME_PREFIX) and p.name.endswith(EVENT_FILENAME_SUFFIX)
+        ]
+        assert len(surviving) <= 10
+        # The newly-written event must be among the survivors (it is the
+        # newest by mtime).
+        assert result.event_path in surviving
+
+
+class TestCmdHealthAlertExitCode:
+    """Regression for the mixed-state CLI exit-code bug.
+
+    ``aragora/review/health.py`` ranks statuses ``fresh < aging < stale < empty < missing``.
+    A surface set like ``[empty, stale]`` produces ``overall_status == "empty"``
+    even though a stale surface is firing. ``_cmd_health_alert`` must drive
+    its exit code from ``state.alerting_surfaces`` (the actual set of firing
+    surfaces), NOT from ``report.overall_status``.
+    """
+
+    def test_exit_1_when_stale_present_even_if_overall_is_empty(
+        self, tmp_path: Path, monkeypatch, capsys
+    ) -> None:
+        import argparse
+        import aragora.cli.commands.review_queue as rq
+
+        # Build a stub AlertResult representing the regression scenario:
+        # one empty surface (NOT alerting) + one stale surface (alerting).
+        # alert.alerting_surface_names() correctly returns only ['briefs'],
+        # so state.alerting_surfaces is non-empty even though
+        # report.overall_status is "empty" (3 > stale=2 in severity rank).
+        from aragora.review.alert import AlertResult, AlertState
+        from aragora.review.health import HealthReport, SurfaceCheck
+
+        report = HealthReport(
+            generated_at=_now(),
+            overall_status=STATUS_EMPTY,  # the regression: overall is NOT stale/missing
+            surfaces=[
+                SurfaceCheck(name="settlement_receipts", status=STATUS_EMPTY),
+                SurfaceCheck(name="briefs", status=STATUS_STALE),
+            ],
+        )
+        state = AlertState(
+            alerting_surfaces=["briefs"],  # actual firing surface
+            last_event_at=_now(),
+            last_run_at=_now(),
+            last_event_kind=EVENT_KIND_OPENED,
+        )
+        stub_result = AlertResult(
+            state=state,
+            event=None,
+            report=report,
+            state_path=tmp_path / STATE_FILENAME,
+            event_path=None,
+        )
+
+        # Patch run_alert to return our stub.
+        monkeypatch.setattr(rq, "_resolve_repo_root", lambda _x: tmp_path, raising=False)
+
+        def fake_run_alert(**_kwargs):
+            return stub_result
+
+        # _cmd_health_alert imports run_alert + _resolve_repo_root lazily inside
+        # the function body, so we patch their source modules directly.
+        import aragora.review.alert as alert_module
+        import aragora.review.health as health_module
+
+        monkeypatch.setattr(alert_module, "run_alert", fake_run_alert)
+        monkeypatch.setattr(health_module, "_resolve_repo_root", lambda _x: tmp_path, raising=False)
+
+        # Minimal namespace matching the CLI parser surface.
+        args = argparse.Namespace(
+            repo_root=str(tmp_path),
+            review_queue_root=None,
+            overnight_root=None,
+            automation_receipts_root=None,
+            state_dir=str(tmp_path),
+            heartbeat=False,
+            json_output=False,
+            json=False,
+        )
+
+        exit_code = rq._cmd_health_alert(args)
+        assert exit_code == 1, (
+            "exit code must be 1 because state.alerting_surfaces is non-empty, "
+            "even though report.overall_status is 'empty' (not in {stale, missing})"
+        )
+
+    def test_exit_0_when_no_alerting_surfaces(self, tmp_path: Path, monkeypatch) -> None:
+        """Symmetric check: no alerting surfaces → exit 0 regardless of overall status."""
+        import argparse
+        import aragora.cli.commands.review_queue as rq
+        from aragora.review.alert import AlertResult, AlertState
+        from aragora.review.health import HealthReport, SurfaceCheck
+        import aragora.review.alert as alert_module
+        import aragora.review.health as health_module
+
+        report = HealthReport(
+            generated_at=_now(),
+            overall_status=STATUS_AGING,  # aging is also not stale/missing
+            surfaces=[SurfaceCheck(name="briefs", status=STATUS_AGING)],
+        )
+        state = AlertState(
+            alerting_surfaces=[],  # nothing firing
+            last_event_at=None,
+            last_run_at=_now(),
+            last_event_kind=None,
+        )
+        stub_result = AlertResult(
+            state=state,
+            event=None,
+            report=report,
+            state_path=tmp_path / STATE_FILENAME,
+            event_path=None,
+        )
+
+        monkeypatch.setattr(alert_module, "run_alert", lambda **_kw: stub_result)
+        monkeypatch.setattr(health_module, "_resolve_repo_root", lambda _x: tmp_path, raising=False)
+
+        args = argparse.Namespace(
+            repo_root=str(tmp_path),
+            review_queue_root=None,
+            overnight_root=None,
+            automation_receipts_root=None,
+            state_dir=str(tmp_path),
+            heartbeat=False,
+            json_output=False,
+            json=False,
+        )
+
+        exit_code = rq._cmd_health_alert(args)
+        assert exit_code == 0

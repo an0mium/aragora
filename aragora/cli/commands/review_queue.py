@@ -112,6 +112,14 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     # Elevate to Tier 4 (human preapproval) so the human chain-of-trust is
     # not delegated to the artifact under review.
     "aragora/cli/commands/review_queue.py",
+    # ``aragora/cli/parser.py`` is the registration surface for every
+    # ``aragora`` subcommand the operator can invoke. Adding or modifying a
+    # registration changes which entrypoints exist on the merge-authority
+    # CLI — a new subcommand could expose tier-relevant behavior (signal
+    # collection, settlement recording, packet generation) that the gate
+    # would otherwise not see. Listing the parser here makes the
+    # registration surface follow the same human-chain-of-trust rule as
+    # ``review_queue.py`` itself.
     "aragora/cli/parser.py",
 )
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
@@ -1033,7 +1041,15 @@ def _cmd_health_alert(args: argparse.Namespace) -> int:
         if result.event_path is not None:
             print(f"  event:     {result.event_path}")
 
-    if result.report.overall_status in {"stale", "missing"}:
+    # Exit gate must be driven by the actual set of alerting surfaces, not by
+    # ``report.overall_status``. Surface statuses are ranked
+    # ``fresh < aging < stale < empty < missing`` (see ``health.py``), and only
+    # ``stale``/``missing`` are alerting (see ``alert.ALERTING_STATUSES``).
+    # ``overall_status`` is the *max severity rank* across surfaces, so a mix
+    # like ``[empty, stale]`` produces ``overall_status == "empty"`` even
+    # though a stale surface is firing. Gating on ``state.alerting_surfaces``
+    # captures the actual alert condition directly.
+    if result.state.alerting_surfaces:
         return 1
     return 0
 
