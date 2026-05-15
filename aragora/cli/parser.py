@@ -212,6 +212,9 @@ Examples:
     _add_calibration_parser(subparsers)
     _add_cruxset_parser(subparsers)
 
+    # DIC-27: operator crux arbitration surface
+    _add_crux_arbitrate_parser(subparsers)
+
     return parser
 
 
@@ -464,6 +467,75 @@ def _add_cruxset_parser(subparsers) -> None:
         help="Re-emit the (verified) CruxSet as JSON instead of pretty-printing",
     )
     show.set_defaults(func=_lazy("aragora.cli.commands.agt_cruxset", "cmd_cruxset_show"))
+
+
+def _add_crux_arbitrate_parser(subparsers) -> None:
+    """Add the 'crux-arbitrate' subcommand for DIC-27 operator arbitration."""
+    p = subparsers.add_parser(
+        "crux-arbitrate",
+        help="DIC-27: resolve persistent cruxes as reversible signed arbitration receipts",
+        description=(
+            "Load a JSON file of PersistentCrux records and either inspect "
+            "which ones qualify for arbitration (--dry-run) or create a signed "
+            "CruxArbitration record (requires ARAGORA_CRUX_ARBITRATION_ENABLED=1)."
+        ),
+    )
+    p.add_argument(
+        "--input",
+        required=True,
+        metavar="JSON",
+        help="Path to a JSON file containing a PersistentCrux or list of PersistentCrux dicts",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List qualifying/non-qualifying cruxes without creating an arbitration record",
+    )
+    p.add_argument(
+        "--crux-id",
+        metavar="ID",
+        help="ID of the crux to arbitrate (required in live mode)",
+    )
+    p.add_argument(
+        "--side",
+        choices=["accept", "reject", "defer", "split"],
+        help="Operator's chosen side (required in live mode)",
+    )
+    p.add_argument(
+        "--rationale",
+        metavar="TEXT",
+        help="Short operator rationale for the decision (required in live mode)",
+    )
+    p.add_argument(
+        "--operator",
+        default="operator",
+        metavar="NAME",
+        help="Operator identifier recorded in the arbitration (default: 'operator')",
+    )
+    p.add_argument(
+        "--expires-days",
+        type=int,
+        default=90,
+        metavar="N",
+        help="Days until this arbitration expires (default: 90)",
+    )
+    p.add_argument(
+        "--evidence",
+        nargs="*",
+        metavar="CITATION",
+        help="Optional evidence citations (URLs, doc paths) to attach to the arbitration",
+    )
+    p.add_argument(
+        "--output",
+        metavar="PATH",
+        help="Write the arbitration JSON to this file in addition to stdout",
+    )
+    p.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit output as JSON instead of human-readable text",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.crux_arbitrate", "cmd_crux_arbitrate"))
 
 
 def _add_ask_parser(subparsers) -> None:
