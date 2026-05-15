@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import yaml
 
 from aragora.agents.errors import AgentCircuitOpenError
 from aragora.cli.commands.spec import _run_spec_pipeline, cmd_spec
@@ -126,6 +127,8 @@ class TestSpecParser:
                 "json",
                 "--output",
                 "spec.json",
+                "--to-mission",
+                "mission.yaml",
                 "--dry-run",
             ]
         )
@@ -138,6 +141,7 @@ class TestSpecParser:
         assert args.skip_interrogation is True
         assert args.format == "json"
         assert args.output == "spec.json"
+        assert args.to_mission == "mission.yaml"
         assert args.dry_run is True
         assert args.func.__name__ == "cmd_spec"
 
@@ -279,6 +283,52 @@ class TestCmdSpec:
             use_orchestrator=False,
         )
         assert json.loads(output_path.read_text()) == result
+
+    def test_cmd_spec_writes_conductor_mission_without_dispatch(self, tmp_path, capsys):
+        mission_path = tmp_path / "mission.yaml"
+        result = {
+            "intent": {"intent_type": "benchmark", "scope_estimate": "medium"},
+            "specification": {
+                "title": "Publish H1-01 rev-4 benchmark result",
+                "problem_statement": "The benchmark result needs to become a public artifact.",
+                "proposed_solution": (
+                    "Run the existing benchmark publication path and write the result."
+                ),
+                "success_criteria": [{"description": "Mission dry-run handoff exists."}],
+                "confidence": 0.8,
+            },
+            "research": None,
+            "timing": {},
+        }
+        args = argparse.Namespace(
+            prompt="publish H1-01 rev-4 benchmark result",
+            depth="quick",
+            profile="founder",
+            skip_research=False,
+            skip_interrogation=False,
+            format="text",
+            dry_run=False,
+            output=None,
+            orchestrator=False,
+            to_mission=str(mission_path),
+        )
+
+        with patch(
+            "aragora.cli.commands.spec._run_spec_pipeline",
+            new_callable=AsyncMock,
+            return_value=result,
+        ):
+            cmd_spec(args)
+
+        out = capsys.readouterr().out
+        mission = yaml.safe_load(mission_path.read_text())
+
+        assert "Conductor mission saved to:" in out
+        assert "goal_conductor.py run-once" in out
+        assert mission["objective"] == "publish H1-01 rev-4 benchmark result"
+        impl_lanes = [lane for lane in mission["lanes"] if lane["mode"] == "implementation"]
+        assert len(impl_lanes) <= 2
+        assert mission["lanes"][-1]["mode"] == "panel"
 
     def test_cmd_spec_writes_text_output_when_requested(self, tmp_path, capsys):
         output_path = tmp_path / "spec.txt"

@@ -78,6 +78,33 @@ python3 scripts/codex_worktree_autopilot.py reconcile --all --base main
 python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24
 ```
 
+## 3.1 Goal Conductor Wrapper
+
+For longer-running `/goal` style work, generate a conductor mission from the
+existing prompt-to-spec surface instead of manually copy-pasting across Codex,
+Claude, Factory, and panel sessions:
+
+```bash
+aragora spec "publish H1-01 rev-4 benchmark result" --to-mission /tmp/h1-mission.yaml
+python3 scripts/goal_conductor.py validate --mission /tmp/h1-mission.yaml --json
+python3 scripts/goal_conductor.py run-once --mission /tmp/h1-mission.yaml --json
+python3 scripts/goal_conductor.py loop --mission /tmp/h1-mission.yaml --max-cycles 3 --interval-seconds 300 --json
+```
+
+The wrapper is dry-run by default. Add `--execute` only after the dry-run
+handoff shows the expected lane commands. Each cycle snapshots live repo/PR
+truth, current non-draft merge packets, publisher health, proof-loop health,
+agent-bridge state, and local boss/Ralph/nomic loop surfaces; then it enforces
+queue cap and lane-count gates before launching or sending through
+`scripts/agent_bridge.py` or dispatching a bounded `scripts/multi_agent_dialog.py`
+panel.
+
+Mission files should include the goal objective, stop condition, checkpoints,
+lane ownership, and allowed mutation class. The conductor emits a JSONL
+transcript and markdown handoff under `.aragora/goal-conductor/`; it does not
+merge PRs, bypass Tier gates, install launchd jobs, run `observe-outcomes
+--write`, close issues, or clean worktrees.
+
 ## 4. Decision Rule
 
 Only do one of these per conductor cycle:

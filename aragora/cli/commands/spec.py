@@ -316,6 +316,54 @@ def _save_spec_result(result: dict[str, Any], output_path: str, output_format: s
     return path
 
 
+def _spec_result_task_text(prompt: str, result: dict[str, Any]) -> str:
+    """Build deterministic decomposition input from a spec command result."""
+    spec = result.get("specification") or {}
+    sections: list[str] = []
+    if isinstance(spec, dict):
+        for key in ("title", "problem_statement", "proposed_solution", "raw"):
+            value = str(spec.get(key) or "").strip()
+            if value:
+                sections.append(value)
+        criteria = spec.get("success_criteria") or []
+        if isinstance(criteria, list) and criteria:
+            rendered: list[str] = []
+            for item in criteria:
+                if isinstance(item, dict):
+                    text = str(item.get("description") or "").strip()
+                else:
+                    text = str(item or "").strip()
+                if text:
+                    rendered.append(f"- {text}")
+            if rendered:
+                sections.append("Success criteria:\n" + "\n".join(rendered))
+    if sections:
+        return "\n\n".join(sections)
+    return prompt
+
+
+def _write_mission_from_spec_result(
+    *,
+    prompt: str,
+    result: dict[str, Any],
+    output_path: str,
+) -> Path:
+    """Convert the spec output into a conductor mission YAML file."""
+    from aragora.nomic.mission_bridge import decomposition_to_mission, write_mission_yaml
+    from aragora.nomic.task_decomposer import TaskDecomposer
+
+    task_text = _spec_result_task_text(prompt, result)
+    decomp = TaskDecomposer().analyze(task_text)
+    mission = decomposition_to_mission(
+        decomp,
+        objective=prompt,
+        stop_condition=(
+            "Stop when every lane reaches a draft PR, a precise blocker report, or a handoff."
+        ),
+    )
+    return write_mission_yaml(mission, output_path)
+
+
 def cmd_spec(args: argparse.Namespace) -> None:
     """Handle the 'spec' command."""
     prompt = getattr(args, "prompt", None)
@@ -330,6 +378,7 @@ def cmd_spec(args: argparse.Namespace) -> None:
     output_format = getattr(args, "format", "text")
     dry_run = getattr(args, "dry_run", False)
     use_orchestrator = getattr(args, "orchestrator", False)
+    to_mission = getattr(args, "to_mission", None)
 
     print("\n" + "=" * 60)
     print("  ARAGORA SPEC")
@@ -378,6 +427,15 @@ def cmd_spec(args: argparse.Namespace) -> None:
     if output_path:
         path = _save_spec_result(result, output_path, output_format)
         print(f"\nSpec saved to: {path}")
+
+    if to_mission:
+        mission_path = _write_mission_from_spec_result(
+            prompt=prompt,
+            result=result,
+            output_path=to_mission,
+        )
+        print(f"\nConductor mission saved to: {mission_path}")
+        print(f"Run: python3 scripts/goal_conductor.py run-once --mission {mission_path} --json")
 
     print("\nNext steps:")
     print("  aragora decide 'task' --spec <file>  # Execute from spec")

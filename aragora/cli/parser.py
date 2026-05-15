@@ -3631,6 +3631,7 @@ Examples:
   aragora spec "Make our onboarding flow better"
   aragora spec "Add dark mode" --depth thorough --profile cto
   aragora spec "Improve test coverage" --format json --output spec.json
+  aragora spec "Publish H1-01 rev-4 benchmark result" --to-mission /tmp/mission.yaml
   aragora spec "Design a rate limiter" --dry-run
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -3668,6 +3669,10 @@ Examples:
         "--output",
         "-o",
         help="Save spec to file",
+    )
+    spec_parser.add_argument(
+        "--to-mission",
+        help="Write a goal-conductor mission YAML file from the generated spec, without dispatching agents.",
     )
     spec_parser.add_argument(
         "--dry-run",
