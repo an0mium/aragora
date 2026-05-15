@@ -266,7 +266,7 @@ def _add_metrics_parser(subparsers) -> None:
 
 
 def _add_markets_parser(subparsers) -> None:
-    """Add the 'markets' subcommand group with 'list' and 'predict' verbs."""
+    """Add the 'markets' subcommand group with list, predict, create, and resolve verbs."""
     markets_parser = subparsers.add_parser(
         "markets",
         help="AGT-04: inspect and interact with synthetic GitHub prediction markets",
@@ -317,6 +317,30 @@ def _add_markets_parser(subparsers) -> None:
     )
     pred.add_argument("--json", action="store_true", help="Emit the saved position as JSON")
     pred.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_predict"))
+
+    _store_arg = dict(default=".aragora_markets",
+                      help="JSONL store directory (default: .aragora_markets)")
+    create = markets_sub.add_parser("create", help="Create a new synthetic GitHub prediction market")
+    create.add_argument("--type", required=True, choices=["pr_merge", "issue_close", "ci_pass"],
+                        help="Question type")
+    create.add_argument("--repo", required=True, help="Repository in owner/name format")
+    create.add_argument("--number", type=int, metavar="INT",
+                        help="PR/issue number (required for pr_merge and issue_close)")
+    create.add_argument("--ref", metavar="REF", help="Git ref (required for ci_pass)")
+    create.add_argument("--window-days", type=int, metavar="INT",
+                        help="Resolution window in days (default: 7 for pr/ci, 30 for issues)")
+    create.add_argument("--store-dir", **_store_arg)
+    create.add_argument("--json", action="store_true", help="Emit created market as JSON")
+    create.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_create"))
+
+    resolve = markets_sub.add_parser("resolve", help="Manually resolve a market (operator action)")
+    resolve.add_argument("market_id", help="Market ID to resolve")
+    resolve.add_argument("--outcome", required=True, choices=["yes", "no", "inconclusive"],
+                         help="Resolution outcome")
+    resolve.add_argument("--evidence", default="", help="Optional free-text rationale")
+    resolve.add_argument("--store-dir", **_store_arg)
+    resolve.add_argument("--json", action="store_true", help="Emit resolution event as JSON")
+    resolve.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_resolve"))
 
 
 def _add_calibration_parser(subparsers) -> None:
