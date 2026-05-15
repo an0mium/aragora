@@ -228,7 +228,16 @@ def _safe_kind_slug(kind: str) -> str:
 
 
 def write_event(event: AlertEvent, events_dir: Path) -> Path:
-    """Write the event JSON. Returns the path that was written."""
+    """Atomically write the event JSON. Returns the path that was written.
+
+    Uses the same tempfile + ``os.replace`` pattern as :func:`save_state`:
+    the JSON is first written to a hidden temp file in the destination
+    directory, then renamed into place. If the process is interrupted
+    mid-write, the final file either does not exist or contains the
+    complete event — there is no observable partial state. A cleanup
+    on failure removes the temp file so the events directory does not
+    accumulate stray ``.event-*`` fragments.
+    """
     events_dir.mkdir(parents=True, exist_ok=True)
     ts = event.generated_at.strftime("%Y%m%dT%H%M%SZ")
     name = f"event-{ts}-{_safe_kind_slug(event.kind)}.json"
@@ -237,10 +246,19 @@ def write_event(event: AlertEvent, events_dir: Path) -> Path:
     while path.exists():
         path = events_dir / f"event-{ts}-{_safe_kind_slug(event.kind)}-{suffix}.json"
         suffix += 1
-    path.write_text(
-        json.dumps(event.to_dict(), indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    payload = json.dumps(event.to_dict(), indent=2, sort_keys=True) + "\n"
+    fd, tmp_path_str = tempfile.mkstemp(prefix=".event-", suffix=".json", dir=events_dir)
+    tmp_path = Path(tmp_path_str)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(payload)
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+        raise
     return path
 
 

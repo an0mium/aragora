@@ -330,6 +330,88 @@ class TestWriteEvent:
         assert p1 != p2
         assert p1.exists() and p2.exists()
 
+    def test_complete_payload_written(self, tmp_path: Path) -> None:
+        """A successful write produces the complete, parseable event JSON
+        at the final path — never a partial file."""
+        event = AlertEvent(
+            kind=EVENT_KIND_OPENED,
+            generated_at=_now(),
+            previous_alerting=[],
+            current_alerting=["briefs", "settlement_receipts"],
+            surfaces=[
+                {"name": "briefs", "status": STATUS_STALE, "age_hours": 25.0},
+                {"name": "settlement_receipts", "status": STATUS_MISSING, "age_hours": None},
+            ],
+            overall_status=STATUS_MISSING,
+        )
+        path = write_event(event, tmp_path)
+        # File exists and parses to the exact expected payload.
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+        assert loaded["kind"] == EVENT_KIND_OPENED
+        assert loaded["current_alerting"] == ["briefs", "settlement_receipts"]
+        assert loaded["overall_status"] == STATUS_MISSING
+        assert len(loaded["surfaces"]) == 2
+
+    def test_no_temp_remnants_on_success(self, tmp_path: Path) -> None:
+        """The atomic-write tempfile (``.event-*`` prefix) must be cleaned up
+        on success — leaving it behind would clutter the events directory."""
+        event = AlertEvent(
+            kind=EVENT_KIND_OPENED,
+            generated_at=_now(),
+            previous_alerting=[],
+            current_alerting=["briefs"],
+            surfaces=[],
+            overall_status=STATUS_STALE,
+        )
+        write_event(event, tmp_path)
+        leftover = [p for p in tmp_path.iterdir() if p.name.startswith(".event-")]
+        assert leftover == []
+
+    def test_failed_replace_cleans_temp_and_leaves_no_partial(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Simulate a failure between writing the tempfile and renaming
+        it into place. The final path must NOT exist (no partial file is
+        observable), AND the tempfile must be cleaned up so the events
+        directory does not accumulate .event-* fragments."""
+        event = AlertEvent(
+            kind=EVENT_KIND_OPENED,
+            generated_at=_now(),
+            previous_alerting=[],
+            current_alerting=["briefs"],
+            surfaces=[],
+            overall_status=STATUS_STALE,
+        )
+
+        # Inject a failure at the os.replace call site (atomic rename).
+        # write_event imports os at module scope, so patch
+        # alert_module.os.replace specifically.
+        def boom(*_args, **_kwargs):
+            raise OSError("simulated rename failure")
+
+        monkeypatch.setattr(alert_module.os, "replace", boom)
+
+        with pytest.raises(OSError, match="simulated rename failure"):
+            write_event(event, tmp_path)
+
+        # The final ``event-*.json`` path must not exist — no partial file.
+        final_files = [
+            p
+            for p in tmp_path.iterdir()
+            if p.name.startswith("event-") and p.name.endswith(".json")
+        ]
+        assert final_files == [], (
+            f"partial event file should not be observable after failed rename, "
+            f"but found: {[p.name for p in final_files]}"
+        )
+
+        # And the temp file must be cleaned up.
+        temp_files = [p for p in tmp_path.iterdir() if p.name.startswith(".event-")]
+        assert temp_files == [], (
+            f"temp file should be cleaned up after failed rename, "
+            f"but found: {[p.name for p in temp_files]}"
+        )
+
 
 class TestRunAlertPersistenceOrder:
     def test_writes_event_before_saving_advanced_state(
