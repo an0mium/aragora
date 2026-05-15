@@ -19,10 +19,18 @@ def _setup_path():
 
 
 class FakeRunner:
-    def __init__(self, mod, *, open_prs: list[dict] | None = None, dirty: bool = False):
+    def __init__(
+        self,
+        mod,
+        *,
+        open_prs: list[dict] | None = None,
+        dirty: bool = False,
+        merge_packet: dict | None = None,
+    ):
         self.mod = mod
         self.open_prs = open_prs or []
         self.dirty = dirty
+        self.merge_packet = merge_packet or {"packets": []}
         self.calls: list[list[str]] = []
         self.executed: list[list[str]] = []
 
@@ -46,7 +54,7 @@ class FakeRunner:
             return self.mod.CommandResult(
                 args=args,
                 returncode=0,
-                stdout=json.dumps({"packets": []}),
+                stdout=json.dumps(self.merge_packet),
             )
         if "publisher_freshness_check.py" in command:
             return self.mod.CommandResult(
@@ -262,6 +270,41 @@ def test_execute_blocks_all_lanes_when_root_is_dirty(tmp_path: Path) -> None:
     result = conductor.run_once()
 
     assert result.hard_gates == ["root checkout is dirty"]
+    assert [decision.action for decision in result.decisions] == ["blocked", "blocked"]
+    assert all("fatal hard gate" in decision.reason for decision in result.decisions)
+    assert runner.executed == []
+
+
+def test_execute_blocks_all_lanes_when_human_settlement_gate_present(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    mission = mod.Mission.from_dict(payload)
+    open_prs = [{"number": 7156, "title": "tier 4 gate", "isDraft": False}]
+    merge_packet = {
+        "entries": [
+            {
+                "pr_number": 7156,
+                "tier": 4,
+                "tier_name": "tier_4_preapproval_required",
+                "requires_human_risk_settlement": True,
+            }
+        ]
+    }
+    runner = FakeRunner(mod, open_prs=open_prs, merge_packet=merge_packet)
+    conductor = mod.GoalConductor(
+        mission=mission,
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.hard_gates == [
+        "human/non-author settlement gate present: #7156 tier_4_preapproval_required"
+    ]
     assert [decision.action for decision in result.decisions] == ["blocked", "blocked"]
     assert all("fatal hard gate" in decision.reason for decision in result.decisions)
     assert runner.executed == []

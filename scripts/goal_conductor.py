@@ -306,6 +306,19 @@ class ConductorResult:
     markdown_path: Path
 
 
+def _merge_packet_entries(packet: Any) -> list[dict[str, Any]]:
+    if isinstance(packet, dict):
+        entries = packet.get("entries")
+        if isinstance(entries, list):
+            return [entry for entry in entries if isinstance(entry, dict)]
+        packets = packet.get("packets")
+        if isinstance(packets, list):
+            return [entry for entry in packets if isinstance(entry, dict)]
+    if isinstance(packet, list):
+        return [entry for entry in packet if isinstance(entry, dict)]
+    return []
+
+
 class GoalConductor:
     def __init__(
         self,
@@ -434,6 +447,12 @@ class GoalConductor:
             "ready",
         }:
             gates.append(f"publisher not ready: {snapshot['publisher'].get('summary', 'unknown')}")
+        for entry in _merge_packet_entries(snapshot.get("merge_packets")):
+            tier = int(entry.get("tier") or 0)
+            if tier >= 4 or bool(entry.get("requires_human_risk_settlement")):
+                pr_number = entry.get("pr_number", "?")
+                tier_name = entry.get("tier_name") or f"tier_{tier}"
+                gates.append(f"human/non-author settlement gate present: #{pr_number} {tier_name}")
         return gates
 
     def _prompt_file_for(self, lane: LaneSpec, run_dir: Path) -> Path:
@@ -602,12 +621,12 @@ class GoalConductor:
         gates = self.hard_gates(snapshot)
         for gate in gates:
             self.emit("hard_gate", gate)
-        if self.execute and "root checkout is dirty" in gates:
+        if self.execute and gates:
             decisions = [
                 LaneDecision(
                     lane_id=lane.lane_id,
                     action="blocked",
-                    reason="fatal hard gate: root checkout is dirty",
+                    reason=f"fatal hard gate: {'; '.join(gates)}",
                 )
                 for lane in self.mission.lanes
             ]
