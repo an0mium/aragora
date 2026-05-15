@@ -18,9 +18,11 @@ class FakeRunner:
     def __init__(self, stdout: str) -> None:
         self.stdout = stdout
         self.commands: list[list[str]] = []
+        self.kwargs: list[dict[str, object]] = []
 
-    def __call__(self, command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+    def __call__(self, command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         self.commands.append(command)
+        self.kwargs.append(kwargs)
         return subprocess.CompletedProcess(command, 0, stdout=self.stdout, stderr="")
 
 
@@ -48,6 +50,7 @@ def test_codex_launch_parses_thread_started_agent_messages_and_usage(tmp_path: P
         "gpt-5.4",
         "Review the plan",
     ]
+    assert fake_runner.kwargs[0]["stdin"] == subprocess.DEVNULL
 
 
 def test_codex_plaintext_fallback_parses_session_id_and_footer(tmp_path: Path) -> None:

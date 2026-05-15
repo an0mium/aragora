@@ -145,6 +145,11 @@ def _session_text(session: agent_bridge.Session | None) -> str:
     return "\n".join(line for line in lines if line)
 
 
+def _session_is_current(session: agent_bridge.Session) -> bool:
+    lifecycle = session.lifecycle or session.status
+    return session.status == "alive" or lifecycle in agent_bridge.CURRENT_SESSION_LIFECYCLES
+
+
 def _run_git(worktree: Path, *args: str) -> subprocess.CompletedProcess[str]:
     cmd = ["git", "-C", str(worktree), *args]
     try:
@@ -405,7 +410,7 @@ def _decide_lane(
             evidence=evidence,
         )
 
-    if session.status != "alive":
+    if not _session_is_current(session):
         return LaneDecision(
             lane_id=record.lane_id,
             owner_session=record.owner_session,
@@ -604,6 +609,11 @@ def _decide_lane(
 
 
 def _discover_current_sessions() -> list[agent_bridge.Session]:
+    if hasattr(agent_bridge, "_discover_with_broker_state"):
+        sessions, _broker_runs, _active_broker_ids = agent_bridge._discover_with_broker_state(  # noqa: SLF001
+            include_historical=False
+        )
+        return sessions
     try:
         return agent_bridge.discover(include_historical=False)
     except TypeError:

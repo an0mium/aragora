@@ -430,6 +430,39 @@ def test_discover_excludes_historical_transcripts_by_default_when_requested(
     assert all_sessions[0].lifecycle == "historical"
 
 
+def test_discover_keeps_active_broker_session_current(monkeypatch: pytest.MonkeyPatch) -> None:
+    import agent_bridge as mod
+
+    record = SimpleNamespace(
+        name="droid-broker",
+        agent="droid",
+        status="dead",
+        source="tmux",
+        tmux_target="",
+        branch="codex/bridge",
+        cwd="/tmp/bridge",
+        session_id="broker-session",
+        updated_at="2026-05-13T00:00:00Z",
+        summary="broker-owned droid lane",
+        log_file=None,
+        transcript_file=None,
+    )
+    monkeypatch.setattr(
+        mod.agent_bridge_sessions,
+        "collect_sessions",
+        lambda **_kwargs: [record],
+    )
+
+    sessions = mod.discover(
+        include_historical=False,
+        active_broker_session_ids={"broker-session"},
+    )
+
+    assert len(sessions) == 1
+    assert sessions[0].status == "active_broker"
+    assert sessions[0].lifecycle == "active_broker"
+
+
 def test_operator_snapshot_include_historical_restores_transcript_records(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -471,6 +504,58 @@ def test_operator_snapshot_include_historical_restores_transcript_records(
     payload = json.loads(capsys.readouterr().out)
     assert payload["summary"]["historical_sessions"] == 1
     assert payload["sessions"][0]["name"] == "claude-history"
+
+
+def test_operator_snapshot_current_output_preserves_full_canonical_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    bridge_dir = tmp_path / "bridge"
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+
+    def fake_discover(*, include_historical: bool, **_kwargs):
+        assert include_historical is True
+        return [
+            mod.Session(
+                name="codex-live",
+                agent="codex",
+                status="alive",
+                lifecycle="live",
+            ),
+            mod.Session(
+                name="claude-history",
+                agent="claude",
+                status="historical",
+                source="claude_jsonl",
+                lifecycle="historical",
+            ),
+        ]
+
+    monkeypatch.setattr(mod, "discover", fake_discover)
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(mod, "_load_broker_run_summaries", lambda: [])
+
+    assert (
+        mod.cmd_operator_snapshot(
+            argparse.Namespace(
+                json=True,
+                summary_only=False,
+                include_historical=False,
+                scope="current",
+            )
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert [session["name"] for session in payload["sessions"]] == ["codex-live"]
+    assert payload["summary"]["historical_sessions"] == 0
+    snapshot = json.loads((bridge_dir / "sessions.json").read_text(encoding="utf-8"))
+    assert [session["name"] for session in snapshot] == ["codex-live", "claude-history"]
 
 
 def test_operator_snapshot_includes_broker_runs(
@@ -748,6 +833,62 @@ def test_health_reports_dead_non_root_worktree(
     ]
 
 
+def test_health_ignores_dead_tmux_session_kept_current_by_broker_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    root = tmp_path / "repo"
+    worktree = tmp_path / "broker-worktree"
+    root.mkdir()
+    worktree.mkdir()
+    monkeypatch.setattr(mod, "REPO_ROOT", root)
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", root)
+    monkeypatch.setattr(
+        mod,
+        "_load_broker_run_summaries",
+        lambda: [
+            {
+                "run_id": "broker-run",
+                "status": "running",
+                "sessions": {"critic": {"session_id": "broker-session"}},
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        mod.agent_bridge_sessions,
+        "collect_sessions",
+        lambda **_kwargs: [
+            SimpleNamespace(
+                name="droid-broker",
+                agent="droid",
+                status="dead",
+                source="tmux",
+                branch="codex/bridge",
+                cwd=str(worktree),
+                session_id="broker-session",
+                updated_at="2026-05-13T00:00:00Z",
+                summary="broker-owned droid lane",
+                log_file=None,
+                transcript_file=None,
+            )
+        ],
+    )
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *args, **kwargs: argparse.Namespace(returncode=1, stdout="", stderr=""),
+    )
+
+    assert mod.cmd_health(argparse.Namespace(json=True)) == 0
+    assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": []}
+
+
 def test_health_ignores_dead_session_with_removed_worktree(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -882,6 +1023,55 @@ def test_gc_dry_run_archives_only_bridge_owned_tmux_candidates(
     assert transcript.exists()
 
 
+def test_gc_dry_run_skips_stale_tmux_session_kept_current_by_broker_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    tmux_dir = tmp_path / "tmux"
+    tmux_dir.mkdir()
+    meta = tmux_dir / "factory-broker.meta.json"
+    log = tmux_dir / "factory-broker.log"
+    meta.write_text("{}", encoding="utf-8")
+    log.write_text("broker log", encoding="utf-8")
+    monkeypatch.setattr(mod, "TMUX_SESSIONS_DIR", tmux_dir)
+    monkeypatch.setattr(
+        mod,
+        "_load_broker_run_summaries",
+        lambda: [
+            {
+                "run_id": "broker-run",
+                "status": "running",
+                "sessions": {"critic": {"session_id": "factory-broker"}},
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        mod.agent_bridge_sessions,
+        "load_tmux_sessions",
+        lambda **_kwargs: [
+            SimpleNamespace(
+                name="factory-broker",
+                source="tmux",
+                status="dead",
+                updated_at="2026-05-13T00:00:00Z",
+                session_id="factory-broker",
+                log_file=str(log),
+            )
+        ],
+    )
+
+    rc = mod.cmd_gc(argparse.Namespace(json=True, write=False, ttl_hours=24))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["actions"] == []
+    assert meta.exists()
+    assert log.exists()
+
+
 def test_gc_write_moves_stale_tmux_files_and_rewrites_snapshot(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -923,3 +1113,37 @@ def test_gc_write_moves_stale_tmux_files_and_rewrites_snapshot(
     assert not log.exists()
     assert Path(payload["actions"][0]["archive_files"][0]).exists()
     assert json.loads((bridge_dir / "sessions.json").read_text(encoding="utf-8")) == []
+
+
+def test_gc_write_preserves_historical_sessions_in_canonical_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    bridge_dir = tmp_path / "bridge"
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "_gc_tmux_candidates", lambda *, ttl_hours: [])
+
+    def fake_discover(*, include_historical: bool, **_kwargs):
+        assert include_historical is True
+        return [
+            mod.Session(
+                name="claude-history",
+                agent="claude",
+                status="historical",
+                source="claude_jsonl",
+                lifecycle="historical",
+            )
+        ]
+
+    monkeypatch.setattr(mod, "discover", fake_discover)
+
+    rc = mod.cmd_gc(argparse.Namespace(json=True, write=True, ttl_hours=24))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dry_run"] is False
+    snapshot = json.loads((bridge_dir / "sessions.json").read_text(encoding="utf-8"))
+    assert [session["name"] for session in snapshot] == ["claude-history"]

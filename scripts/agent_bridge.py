@@ -238,6 +238,26 @@ def discover(
     return [session for session in sessions if _is_current_session(session)]
 
 
+def _discover_with_broker_state(
+    *,
+    include_summaries: bool = True,
+    include_historical: bool = True,
+    broker_runs: list[dict[str, Any]] | None = None,
+) -> tuple[list[Session], list[dict[str, Any]], set[str]]:
+    runs = _load_broker_run_summaries() if broker_runs is None else broker_runs
+    active_broker_ids = _active_broker_session_ids(runs)
+    try:
+        sessions = discover(
+            include_summaries=include_summaries,
+            include_historical=include_historical,
+            active_broker_session_ids=active_broker_ids,
+        )
+    except TypeError:
+        # Compatibility for tests or older in-process callers that monkeypatch discover().
+        sessions = discover()
+    return sessions, runs, active_broker_ids
+
+
 def _discover_tmux_fallback() -> list[Session]:
     """Minimal fallback when agent_bridge_sessions is not available."""
     sessions: list[Session] = []
@@ -283,6 +303,10 @@ def _write_session_snapshot(sessions: list[Session]) -> None:
     snapshot = [{"timestamp": timestamp, **s.to_dict()} for s in sessions]
     snapshot_file = _bridge_file_for_write(SESSION_SNAPSHOT_FILE)
     _atomic_write_json(snapshot_file, snapshot)
+
+
+def _filter_current_sessions(sessions: list[Session]) -> list[Session]:
+    return [session for session in sessions if _is_current_session(session)]
 
 
 def _now_iso() -> str:
@@ -708,7 +732,7 @@ def _read_tmux_log(name: str, lines: int) -> list[str]:
 
 
 def cmd_sessions(args: argparse.Namespace) -> int:
-    sessions = discover()
+    sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state()
     _write_session_snapshot(sessions)
     if args.json:
         print(json.dumps([s.to_dict() for s in sessions], indent=2))
@@ -909,7 +933,7 @@ def cmd_read_all(args: argparse.Namespace) -> int:
 
 
 def cmd_lanes(args: argparse.Namespace) -> int:
-    sessions = discover()
+    sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state()
     _enrich_prs(sessions)
     _write_session_snapshot(sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
@@ -948,7 +972,7 @@ def cmd_lanes(args: argparse.Namespace) -> int:
 
 def cmd_health(args: argparse.Namespace) -> int:
     """Report stale worktrees, ambiguous lane ownership, and dead sessions."""
-    sessions = discover()
+    sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state()
     _enrich_prs(sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
 
@@ -1001,16 +1025,16 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     include_historical = bool(getattr(args, "include_historical", False)) or (
         getattr(args, "scope", "current") == "all"
     )
-    broker_runs = _load_broker_run_summaries()
-    active_broker_ids = _active_broker_session_ids(broker_runs)
-    sessions = discover(
+    discovered_sessions, broker_runs, _active_broker_ids = _discover_with_broker_state(
         include_summaries=not summary_only,
-        include_historical=include_historical,
-        active_broker_session_ids=active_broker_ids,
+        include_historical=include_historical or not summary_only,
+    )
+    sessions = (
+        discovered_sessions if include_historical else _filter_current_sessions(discovered_sessions)
     )
     if not summary_only:
-        _enrich_prs(sessions)
-        _write_session_snapshot(sessions)
+        _enrich_prs(discovered_sessions)
+        _write_session_snapshot(discovered_sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
 
     issues = _collect_health_issues(sessions, records)
@@ -1117,6 +1141,8 @@ def _gc_tmux_candidates(*, ttl_hours: int) -> list[dict[str, Any]]:
     if agent_bridge_sessions is None or not TMUX_SESSIONS_DIR.exists():
         return []
     candidates: list[dict[str, Any]] = []
+    broker_runs = _load_broker_run_summaries()
+    active_broker_session_ids = _active_broker_session_ids(broker_runs)
     records = agent_bridge_sessions.load_tmux_sessions(
         repo_root=CANONICAL_REPO_ROOT,
         tmux_dir=TMUX_SESSIONS_DIR,
@@ -1127,6 +1153,7 @@ def _gc_tmux_candidates(*, ttl_hours: int) -> list[dict[str, Any]]:
             source=record.source,
             status=record.status,
             updated_at=record.updated_at,
+            active_broker_session_ids=active_broker_session_ids,
             session_id=record.session_id,
             ttl_hours=ttl_hours,
         )
@@ -1181,7 +1208,10 @@ def cmd_gc(args: argparse.Namespace) -> int:
         )
 
     if write:
-        sessions = discover(include_summaries=False, include_historical=False)
+        sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state(
+            include_summaries=False,
+            include_historical=True,
+        )
         _write_session_snapshot(sessions)
 
     payload = {

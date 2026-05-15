@@ -327,6 +327,59 @@ def test_collect_supervisor_snapshot_caps_records_and_warns(
     assert snapshot.warnings == ["supervisor record cap applied: 1/2"]
 
 
+def test_collect_supervisor_snapshot_treats_active_broker_session_as_current(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge_supervise as mod
+
+    session = mod.agent_bridge.Session(
+        name="droid-broker",
+        agent="droid",
+        status="active_broker",
+        lifecycle="active_broker",
+        branch="codex/bridge",
+        worktree=str(tmp_path),
+        session_id="broker-session",
+    )
+    records = [
+        mod.agent_bridge.LaneRecord(
+            lane_id="bridge-current",
+            owner_session="droid-broker",
+            status="active",
+            branch="codex/bridge",
+            worktree=str(tmp_path),
+        )
+    ]
+    pr_truth = mod.PRTruth(
+        branch="codex/bridge",
+        number=7190,
+        url="https://github.com/synaptent/aragora/pull/7190",
+        is_draft=False,
+        checks_bucket="pass",
+    )
+    monkeypatch.setattr(
+        mod.agent_bridge,
+        "_discover_with_broker_state",
+        lambda **_kwargs: ([session], [{"run_id": "broker-run"}], {"broker-session"}),
+    )
+    monkeypatch.setattr(mod.agent_bridge, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod.agent_bridge, "_load_lane_registry", lambda: records)
+    monkeypatch.setattr(mod.agent_bridge, "_sync_lane_records", lambda loaded, _sessions: loaded)
+    monkeypatch.setattr(mod, "_load_pr_truth", lambda _records: ({"codex/bridge": pr_truth}, []))
+    monkeypatch.setattr(
+        mod,
+        "_inspect_worktree",
+        lambda _path: mod.WorktreeStatus(state="clean"),
+    )
+
+    snapshot = mod.collect_supervisor_snapshot()
+
+    assert len(snapshot.decisions) == 1
+    assert snapshot.decisions[0].next_action == "ready_for_review"
+    assert "owner session is active_broker" not in snapshot.decisions[0].reason
+
+
 def test_collect_supervisor_snapshot_fails_open_on_discovery_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

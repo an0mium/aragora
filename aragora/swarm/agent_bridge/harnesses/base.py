@@ -75,9 +75,7 @@ class Transport(ABC):
         command, session_id = self._build_launch_command(prompt)
         process = self._run_command(command)
         if process.returncode != 0:
-            raise TransportLaunchError(
-                process.stderr.strip() or process.stdout.strip() or self.harness
-            )
+            raise TransportLaunchError(self._process_error_message(process))
         parsed = self.parse_output(
             process.stdout,
             allowed_roles=allowed_roles,
@@ -100,9 +98,7 @@ class Transport(ABC):
         command = self._build_resume_command(session_id, prompt)
         process = self._run_command(command)
         if process.returncode != 0:
-            raise TransportResumeError(
-                process.stderr.strip() or process.stdout.strip() or self.harness
-            )
+            raise TransportResumeError(self._process_error_message(process))
         parsed = self.parse_output(
             process.stdout,
             allowed_roles=allowed_roles,
@@ -147,10 +143,19 @@ class Transport(ABC):
         return self._runner(
             command,
             cwd=self.cwd,
+            stdin=subprocess.DEVNULL,
             text=True,
             capture_output=True,
             check=False,
         )
+
+    def _process_error_message(self, process: subprocess.CompletedProcess[str]) -> str:
+        parts: list[str] = []
+        if process.stdout.strip():
+            parts.append("stdout:\n" + process.stdout.strip()[:4000])
+        if process.stderr.strip():
+            parts.append("stderr:\n" + process.stderr.strip()[:4000])
+        return "\n".join(parts) if parts else self.harness
 
     def _cli_option_args(self, extra_reserved: Sequence[str] = ()) -> list[str]:
         args: list[str] = []
