@@ -57,7 +57,8 @@ def test_agent_spec_codex_flags_include_minimal_reasoning() -> None:
 def test_agent_spec_droid_flags_are_read_search_only() -> None:
     spec = AgentSpec.droid()
     assert "exec" in spec.base_flags
-    assert "--auto" not in spec.base_flags
+    assert "--auto" in spec.base_flags
+    assert spec.base_flags[spec.base_flags.index("--auto") + 1] == "high"
     assert "--disabled-tools" in spec.base_flags
     assert "Execute" in spec.base_flags
     assert DROID_REVIEW_SYSTEM_PROMPT in spec.base_flags
@@ -317,6 +318,8 @@ def test_constants_match_round_30d_verification() -> None:
     assert "--skip-git-repo-check" in CODEX_FLAGS
     assert DROID_FLAGS == (
         "exec",
+        "--auto",
+        "high",
         "--disabled-tools",
         "Execute",
         "--append-system-prompt",

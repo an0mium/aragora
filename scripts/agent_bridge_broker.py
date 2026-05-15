@@ -141,7 +141,7 @@ def _parse_actors(items: list[str]) -> SessionRegistry:
     sessions: dict[str, BridgeSession] = {}
     for item in items:
         role, harness, model = _parse_actor(item)
-        harness_options = {"auto": "low"} if harness == "droid" else {}
+        harness_options = {"auto": "high"} if harness == "droid" else {}
         sessions[role] = BridgeSession(
             role=role,
             harness=harness,

@@ -204,13 +204,15 @@ DROID_REVIEW_SYSTEM_PROMPT: str = (
 
 DROID_FLAGS: tuple[str, ...] = (
     "exec",
+    "--auto",
+    "high",
     "--disabled-tools",
     "Execute",
     "--append-system-prompt",
     DROID_REVIEW_SYSTEM_PROMPT,
 )
-"""``droid exec`` defaults to read-only mode; disabling ``Execute``
-keeps dialog turns on file/read/search tools only.
+"""``droid exec --auto high`` avoids non-interactive permission prompts
+while disabling ``Execute`` keeps dialog turns on file/read/search tools only.
 
 Round 30f dogfood showed that repo-review prompts under the previous
 ``--auto low`` setting could fail with a permission/autonomy error
