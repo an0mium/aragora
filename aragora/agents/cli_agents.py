@@ -5,10 +5,9 @@ These agents invoke CLI tools (codex, claude, openai) as subprocesses,
 enabling heterogeneous multi-model debates.
 
 Supports automatic fallback to OpenRouter API when CLI commands fail due to
-rate limits, timeouts, or other errors. Enable fallback by setting
-ARAGORA_OPENROUTER_FALLBACK_ENABLED=true and providing OPENROUTER_API_KEY.
-
-Note: Fallback is opt-in by default to prevent silent billing on OpenRouter.
+rate limits, timeouts, or other errors. Fallback is enabled by default when
+OPENROUTER_API_KEY is available from the configured secret provider; set
+ARAGORA_OPENROUTER_FALLBACK_ENABLED=false to opt out.
 """
 
 from __future__ import annotations
@@ -194,7 +193,8 @@ class CLIAgent(CritiqueMixin, Agent):
     """Base class for CLI-based agents.
 
     Supports automatic fallback to OpenRouter API when CLI commands fail.
-    Enable with ARAGORA_OPENROUTER_FALLBACK_ENABLED=true and OPENROUTER_API_KEY env var.
+    Enabled by default when OPENROUTER_API_KEY is available from the configured
+    secret provider; disable with ARAGORA_OPENROUTER_FALLBACK_ENABLED=false.
     """
 
     # Map CLI agent models to OpenRouter model identifiers

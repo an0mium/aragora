@@ -63,7 +63,7 @@ Primary AI provider API keys. At least one is required.
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `OPENROUTER_TIER` | Optional | OpenRouter tier for rate limits | - |
-| `ARAGORA_OPENROUTER_FALLBACK_ENABLED` | Optional | Enable OpenRouter fallback | `false` |
+| `ARAGORA_OPENROUTER_FALLBACK_ENABLED` | Optional | OpenRouter fallback toggle; set `false` to opt out | `true` |
 
 ---
 

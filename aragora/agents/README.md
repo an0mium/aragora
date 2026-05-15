@@ -188,7 +188,7 @@ agent = create_agent("replicate", name="my-replicate")
 
 **Fallback:**
 - `OPENROUTER_API_KEY` - Fallback when primary fails
-- `ARAGORA_OPENROUTER_FALLBACK_ENABLED` - Enable fallback (opt-in)
+- `ARAGORA_OPENROUTER_FALLBACK_ENABLED` - OpenRouter fallback toggle (default on; set `false` to opt out)
 
 **Optional:**
 - `GEMINI_API_KEY` - Google Gemini

@@ -491,7 +491,7 @@ class TestAnthropicAgentInitialization:
         assert agent.api_key == "explicit-key"
 
     def test_fallback_enabled_by_default(self):
-        """Test that fallback is disabled by default (opt-in via ARAGORA_OPENROUTER_FALLBACK_ENABLED)."""
+        """Test that fallback follows the shared fallback-enabled setting."""
         from aragora.agents.api_agents import AnthropicAPIAgent
 
         with (

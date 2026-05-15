@@ -401,14 +401,19 @@ Fallback to OpenRouter incurs additional costs:
 | OpenRouter | 1.0x - 1.3x (varies by model) |
 | Local LLM | 0x (self-hosted) |
 
-### Enabling Fallback
+### OpenRouter Fallback
 
-Fallback is opt-in by default to prevent unexpected billing:
+OpenRouter fallback is enabled by default when `OPENROUTER_API_KEY` is
+available from the configured secret provider. In production and founder-run
+calibration flows, store that key in AWS Secrets Manager rather than exporting
+raw model API keys into the local shell.
 
 ```bash
-export ARAGORA_OPENROUTER_FALLBACK_ENABLED=true
-export OPENROUTER_API_KEY=your_api_key
+export ARAGORA_USE_SECRETS_MANAGER=true
+export ARAGORA_OPENROUTER_FALLBACK_ENABLED=true  # optional; true is the default
 ```
+
+Set `ARAGORA_OPENROUTER_FALLBACK_ENABLED=false` only for an explicit opt-out.
 
 ---
 
@@ -514,12 +519,13 @@ providers = build_fallback_chain_with_local(
 
 ### Enabling Fallback
 
-Fallback is opt-in by default to prevent unexpected billing:
+OpenRouter fallback is enabled by default when an OpenRouter key is available
+from the configured secret provider:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ARAGORA_OPENROUTER_FALLBACK_ENABLED` | `false` | Enable OpenRouter fallback |
-| `OPENROUTER_API_KEY` | (none) | Required for OpenRouter fallback |
+| `ARAGORA_OPENROUTER_FALLBACK_ENABLED` | `true` | OpenRouter fallback toggle; set `false` to opt out |
+| `OPENROUTER_API_KEY` | (none) | Required for OpenRouter fallback; load from the configured secret provider |
 
 ---
 
@@ -965,8 +971,9 @@ EXCEPTION_STATUS_MAP["MyDomainError"] = 422  # Unprocessable Entity
 5. **Configure per-provider thresholds.** Use `get_circuit_breaker_config(provider="...")` to
    get tuned defaults rather than hardcoding values.
 
-6. **Enable fallback chains for production.** Set `ARAGORA_OPENROUTER_FALLBACK_ENABLED=true`
-   and provide `OPENROUTER_API_KEY` to prevent single-provider outages from blocking debates.
+6. **Keep fallback chains available for production.** OpenRouter fallback is enabled by
+   default; store `OPENROUTER_API_KEY` in the configured secret provider to prevent
+   single-provider outages from blocking debates.
 
 7. **Use the middleware decorators in handlers.** Wrap all HTTP handlers with
    `@handle_exceptions` or `@async_handle_exceptions` for consistent error responses.

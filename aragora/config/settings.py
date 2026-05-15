@@ -233,12 +233,19 @@ class AgentSettings(BaseSettings):
         description="Maximum characters per message",
     )
 
-    # OpenRouter fallback configuration
-    # IMPORTANT: This is opt-in to prevent silent billing and unexpected model behavior
+    # OpenRouter fallback configuration.
+    #
+    # Fallback is enabled by default so a missing/revoked direct provider key
+    # does not block heterogeneous debates. The fallback still requires an
+    # OPENROUTER_API_KEY from the configured secret provider. Set
+    # ARAGORA_OPENROUTER_FALLBACK_ENABLED=false for explicit opt-out.
     openrouter_fallback_enabled: bool = Field(
-        default=False,
+        default=True,
         alias="ARAGORA_OPENROUTER_FALLBACK_ENABLED",
-        description="Enable OpenRouter fallback on quota/rate limit errors (requires OPENROUTER_API_KEY)",
+        description=(
+            "Enable OpenRouter fallback on auth/quota/rate-limit errors "
+            "(requires OPENROUTER_API_KEY from the configured secret provider)"
+        ),
     )
 
     # Local LLM fallback configuration
