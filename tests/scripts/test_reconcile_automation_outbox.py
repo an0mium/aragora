@@ -71,6 +71,31 @@ def test_dry_run_does_not_write_report_by_default(
     assert not (tmp_path / ".aragora" / "cleanup-state").exists()
 
 
+def test_repo_defaults_to_current_working_directory(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    key = "open-pr-codex-default-repo-abc123"
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    _write_outbox_handoff(outbox_dir, branch="codex/default-repo", key=key)
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "published"}),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    rc = mod.main(["--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["repo"] == str(tmp_path.resolve())
+    assert payload["state_root"] == str(tmp_path.resolve())
+    assert payload["outbox_dir"] == str(outbox_dir.resolve())
+    assert payload["receipt_dir"] == str(receipt_dir.resolve())
+    assert payload["counts"]["satisfied_by_existing_receipt"] == 1
+
+
 def test_explicit_dry_run_flag_keeps_read_only_default(
     tmp_path: Path, monkeypatch: Any, capsys: Any
 ) -> None:
