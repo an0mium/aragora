@@ -39,7 +39,13 @@ def test_cli_list_json_output(fake_codex_home, capsys: pytest.CaptureFixture[str
     out = capsys.readouterr().out
     assert rc == 0
     payload = json.loads(out)
-    ids = [row["id"] for row in payload]
+    assert payload["schema"] == "aragora-codex-sessions-list/1.0"
+    assert payload["since"] == "4h"
+    assert payload["since_seconds"] == 14400
+    assert payload["include_archived"] is False
+    assert payload["limit"] == 50
+    assert payload["count"] == len(payload["threads"])
+    ids = [row["id"] for row in payload["threads"]]
     assert fake_codex_home.recent_thread_id in ids
 
 

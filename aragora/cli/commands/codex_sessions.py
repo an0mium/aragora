@@ -86,7 +86,19 @@ def cmd_codex_sessions_list(args: argparse.Namespace) -> int:
     )
 
     if args.json:
-        _print_json([t.to_dict() for t in threads])
+        _print_json(
+            {
+                "schema": "aragora-codex-sessions-list/1.0",
+                "generated_at": datetime.now(UTC).isoformat(),
+                "codex_home": str(paths.home),
+                "since": args.since,
+                "since_seconds": int(since.total_seconds()),
+                "include_archived": bool(args.include_archived),
+                "limit": int(args.limit),
+                "count": len(threads),
+                "threads": [t.to_dict() for t in threads],
+            }
+        )
         return 0
 
     now = datetime.now(UTC)
