@@ -159,7 +159,7 @@ if [[ -n "${forbidden_files}" ]]; then
     exit 1
 fi
 
-rescue_publish_regex='(^|/)(rescue_productization|rescue-productization)/(latest\.json|rescue-productization-[0-9]{8}T[0-9]{6}Z\.json)$'
+rescue_publish_regex='(^|/)rescue-productization-[0-9]{8}T[0-9]{6}Z\.json$|(^|/)(rescue_productization|rescue-productization)(/.*)?/(latest\.json|rescue-productization-[0-9]{8}T[0-9]{6}Z\.json)$'
 rescue_publish_files="$(printf '%s\n' "${changed_files}" | grep -E "${rescue_publish_regex}" || true)"
 if [[ -n "${rescue_publish_files}" ]]; then
     if [[ "${JSON_MODE}" == "true" ]]; then
