@@ -105,3 +105,49 @@ def test_automation_pr_preflight_rejects_aragora_coordination_artifacts(
     assert proc.returncode == 1
     assert "automation/session artifacts" in proc.stderr
     assert ".aragora/automation-outbox/open-pr-demo.json" in proc.stderr
+
+
+def test_automation_pr_preflight_rejects_rescue_publish_artifacts(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/bad-rescue-publish"], cwd=repo)
+    artifact = (
+        repo / "published" / "rescue_productization" / "rescue-productization-20260516T120000Z.json"
+    )
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("{}\n", encoding="utf-8")
+    _run(
+        [
+            "git",
+            "add",
+            "published/rescue_productization/rescue-productization-20260516T120000Z.json",
+        ],
+        cwd=repo,
+    )
+    _run(["git", "commit", "-m", "bad: commit rescue publish artifact"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 1
+    assert "rescue productization publish artifacts" in proc.stderr
+    assert (
+        "published/rescue_productization/rescue-productization-20260516T120000Z.json" in proc.stderr
+    )
+
+
+def test_automation_pr_preflight_accepts_unrelated_latest_json(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/unrelated-latest-json"], cwd=repo)
+    artifact = repo / "docs" / "fixtures" / "latest.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("{}\n", encoding="utf-8")
+    _run(["git", "add", "docs/fixtures/latest.json"], cwd=repo)
+    _run(["git", "commit", "-m", "docs: add fixture latest json"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    assert "preflight: ok" in proc.stdout
