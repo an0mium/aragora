@@ -12,6 +12,7 @@ from aragora.swarm.dispatch_followups import (
     enforce_acceptance_binding,
     inject_closes_into_published_pr,
     maybe_upgrade_dispatch_spec,
+    upgrade_unbounded_spec,
 )
 from aragora.swarm.issue_upgrader import UpgradedIssue
 from aragora.swarm.spec import SwarmSpec
@@ -129,6 +130,140 @@ def test_extract_acceptance_criteria_accepts_acceptance_heading_alias() -> None:
         "`ruff check aragora/swarm/helper.py` passes",
         "Keep the lane scoped to `aragora/swarm/helper.py`.",
     ]
+
+
+def _write_corpus_entry(
+    repo_root: Path,
+    *,
+    issue_id: int = 5185,
+    execution_class: str = "missing_test_coverage",
+) -> None:
+    corpus_path = repo_root / "docs" / "benchmarks" / "corpus.json"
+    corpus_path.parent.mkdir(parents=True)
+    corpus_path.write_text(
+        json.dumps(
+            {
+                "issues": [
+                    {
+                        "issue_id": issue_id,
+                        "title": "[B0-cohort] Add unit tests for utils/sql_helpers.py",
+                        "execution_class": execution_class,
+                        "scope_hint": [
+                            "aragora/utils/sql_helpers.py",
+                            "tests/utils/test_sql_helpers.py",
+                        ],
+                        "known_constraints": [
+                            "add unit tests covering happy and edge cases",
+                            "do not modify production code unless strictly required",
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_upgrade_unbounded_spec_corpus_aware_attaches_scope_hint(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_corpus_entry(tmp_path)
+    monkeypatch.setenv("ARAGORA_CORPUS_AWARE_DISPATCH", "1")
+    spec = SwarmSpec(raw_goal="Fix issue #5185", refined_goal="Fix issue #5185")
+
+    with patch(
+        "aragora.swarm.dispatch_followups.upgrade_spec",
+        side_effect=AssertionError("corpus-aware upgrade should avoid LLM upgrade"),
+    ):
+        result = upgrade_unbounded_spec(
+            spec,
+            issue_number=5185,
+            issue_title="[B0-cohort] Add unit tests for utils/sql_helpers.py",
+            issue_body="Sparse issue body.",
+            repo_root=tmp_path,
+            metrics_path=tmp_path / "metrics.jsonl",
+        )
+
+    assert result is spec
+    assert result.is_dispatch_bounded() is True
+    assert result.file_scope_hints == [
+        "aragora/utils/sql_helpers.py",
+        "tests/utils/test_sql_helpers.py",
+    ]
+    assert "add unit tests covering happy and edge cases" in result.constraints
+    assert "Add focused tests for the behavior in aragora/utils/sql_helpers.py." in (
+        result.acceptance_criteria
+    )
+    assert "Cover at least one happy path and one edge or failure path." in (
+        result.acceptance_criteria
+    )
+    assert result.work_orders == [
+        {
+            "work_order_id": "corpus-5185",
+            "title": "Corpus-aware dispatch bounds for issue #5185",
+            "execution_class": "missing_test_coverage",
+            "changed_paths": [
+                "aragora/utils/sql_helpers.py",
+                "tests/utils/test_sql_helpers.py",
+            ],
+            "acceptance_criteria": result.acceptance_criteria,
+            "constraints": result.constraints,
+        }
+    ]
+
+
+def test_upgrade_unbounded_spec_corpus_aware_off_by_default(tmp_path: Path, monkeypatch) -> None:
+    _write_corpus_entry(tmp_path)
+    monkeypatch.delenv("ARAGORA_CORPUS_AWARE_DISPATCH", raising=False)
+    spec = SwarmSpec(raw_goal="Fix issue #5185", refined_goal="Fix issue #5185")
+
+    with patch(
+        "aragora.swarm.dispatch_followups.upgrade_spec",
+        return_value=SimpleNamespace(status="needs_clarification", upgraded_spec=None),
+    ) as upgrade_mock:
+        result = upgrade_unbounded_spec(
+            spec,
+            issue_number=5185,
+            issue_title="[B0-cohort] Add unit tests for utils/sql_helpers.py",
+            issue_body="Sparse issue body.",
+            repo_root=tmp_path,
+            metrics_path=tmp_path / "metrics.jsonl",
+        )
+
+    assert result is None
+    assert spec.file_scope_hints == []
+    assert spec.acceptance_criteria == []
+    assert spec.constraints == []
+    upgrade_mock.assert_called_once()
+
+
+def test_upgrade_unbounded_spec_non_corpus_issue_passes_through(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_corpus_entry(tmp_path, issue_id=5185)
+    monkeypatch.setenv("ARAGORA_CORPUS_AWARE_DISPATCH", "1")
+    spec = SwarmSpec(raw_goal="Fix issue #9999", refined_goal="Fix issue #9999")
+
+    with patch(
+        "aragora.swarm.dispatch_followups.upgrade_spec",
+        return_value=SimpleNamespace(status="needs_clarification", upgraded_spec=None),
+    ) as upgrade_mock:
+        result = upgrade_unbounded_spec(
+            spec,
+            issue_number=9999,
+            issue_title="Unrelated issue",
+            issue_body="Sparse issue body.",
+            repo_root=tmp_path,
+            metrics_path=tmp_path / "metrics.jsonl",
+        )
+
+    assert result is None
+    assert spec.file_scope_hints == []
+    assert spec.acceptance_criteria == []
+    assert spec.constraints == []
+    upgrade_mock.assert_called_once()
 
 
 def test_maybe_upgrade_dispatch_spec_leaves_bounded_spec_unchanged() -> None:

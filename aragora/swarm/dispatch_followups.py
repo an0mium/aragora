@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import subprocess
 from datetime import datetime, timezone
@@ -30,6 +31,15 @@ logger = logging.getLogger(__name__)
 
 _MARKDOWN_BULLET_RE = re.compile(r"^[-*]\s+(?:\[[ xX]\]\s+)?(?P<text>.+)$")
 _ACCEPTANCE_SECTION_HEADINGS = {"acceptance", "acceptance criteria"}
+_CORPUS_AWARE_DISPATCH_ENV = "ARAGORA_CORPUS_AWARE_DISPATCH"
+_CORPUS_AWARE_EXECUTION_CLASSES = frozenset(
+    {
+        "exception_narrowing",
+        "missing_test_coverage",
+        "small_refactor",
+        "validation_tightening",
+    }
+)
 
 
 def _ordered_unique(values: list[str]) -> list[str]:
@@ -119,6 +129,114 @@ def _extract_track_tag(issue_title: str) -> str | None:
     return match.group(1) if match else None
 
 
+def _env_flag_enabled(name: str) -> bool:
+    value = os.environ.get(name, "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _corpus_issue_entry(repo_root: Path, issue_number: int) -> dict[str, Any] | None:
+    corpus_path = repo_root / "docs" / "benchmarks" / "corpus.json"
+    try:
+        payload = json.loads(corpus_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    for entry in payload.get("issues", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            candidate = int(entry.get("issue_id", 0))
+        except (TypeError, ValueError):
+            continue
+        if candidate == int(issue_number):
+            return entry
+    return None
+
+
+def _corpus_acceptance_criteria(entry: dict[str, Any], scope: list[str]) -> list[str]:
+    issue_id = int(entry.get("issue_id") or 0)
+    execution_class = str(entry.get("execution_class") or "").strip()
+    source_paths = [path for path in scope if path.startswith("aragora/")]
+    test_paths = [path for path in scope if path.startswith("tests/")]
+    primary_path = source_paths[0] if source_paths else (scope[0] if scope else "the scoped files")
+    focused_scope = " ".join(test_paths or source_paths or scope[:2])
+
+    by_class = {
+        "exception_narrowing": [
+            f"Narrow the exception handling for issue #{issue_id} within {primary_path}.",
+            "Preserve existing caller behavior outside the documented error path.",
+        ],
+        "missing_test_coverage": [
+            f"Add focused tests for the behavior in {primary_path}.",
+            "Cover at least one happy path and one edge or failure path.",
+        ],
+        "small_refactor": [
+            f"Complete the bounded single-PR refactor for issue #{issue_id} within {primary_path}.",
+            "Preserve public behavior for callers outside the scoped files.",
+        ],
+        "validation_tightening": [
+            f"Tighten validation for issue #{issue_id} within {primary_path}.",
+            "Preserve documented backwards compatibility for valid inputs.",
+        ],
+    }
+    criteria = list(by_class.get(execution_class, []))
+    if focused_scope:
+        criteria.append(f"Run focused validation for `{focused_scope}` before publishing.")
+    return _ordered_unique(criteria)
+
+
+def _augment_spec_from_corpus_entry(spec: SwarmSpec, entry: dict[str, Any]) -> SwarmSpec:
+    scope = _ordered_unique(
+        [
+            sanitized
+            for sanitized in (
+                SwarmSpec.sanitize_file_scope_entry(path)
+                for path in (entry.get("scope_hint", []) or [])
+            )
+            if sanitized
+        ]
+    )
+    constraints = _ordered_unique(
+        [str(item) for item in (entry.get("known_constraints", []) or [])]
+    )
+    criteria = _corpus_acceptance_criteria(entry, scope)
+    execution_class = str(entry.get("execution_class") or "").strip()
+    issue_id = int(entry.get("issue_id") or 0)
+
+    spec.file_scope_hints = _ordered_unique([*spec.file_scope_hints, *scope])
+    spec.constraints = _ordered_unique([*spec.constraints, *constraints])
+    spec.acceptance_criteria = _ordered_unique([*spec.acceptance_criteria, *criteria])
+    if scope and not spec.work_orders:
+        spec.work_orders = [
+            {
+                "work_order_id": f"corpus-{issue_id}",
+                "title": f"Corpus-aware dispatch bounds for issue #{issue_id}",
+                "execution_class": execution_class,
+                "changed_paths": scope,
+                "acceptance_criteria": criteria,
+                "constraints": constraints,
+            }
+        ]
+    return spec
+
+
+def _maybe_upgrade_spec_from_corpus(
+    spec: SwarmSpec,
+    *,
+    issue_number: int,
+    repo_root: Path,
+) -> SwarmSpec | None:
+    if not _env_flag_enabled(_CORPUS_AWARE_DISPATCH_ENV):
+        return None
+    entry = _corpus_issue_entry(repo_root, issue_number)
+    if entry is None:
+        return None
+    execution_class = str(entry.get("execution_class") or "").strip()
+    if execution_class not in _CORPUS_AWARE_EXECUTION_CLASSES:
+        return None
+    upgraded = _augment_spec_from_corpus_entry(spec, entry)
+    return upgraded if upgraded.is_dispatch_bounded() else None
+
+
 def upgrade_unbounded_spec(
     spec: SwarmSpec,
     *,
@@ -140,6 +258,13 @@ def upgrade_unbounded_spec(
     """
     if spec.is_dispatch_bounded():
         return spec
+    corpus_upgraded = _maybe_upgrade_spec_from_corpus(
+        spec,
+        issue_number=issue_number,
+        repo_root=repo_root,
+    )
+    if corpus_upgraded is not None:
+        return corpus_upgraded
     ctx = UpgradeFailureContext(
         missing_bounds=spec.missing_dispatch_bounds(),
         preflight_diff=None,
