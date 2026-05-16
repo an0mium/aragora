@@ -115,6 +115,8 @@ def render_unblock_map(inventory: dict[str, Any], *, limit: int = DEFAULT_LIMIT)
     candidates = [
         candidate for candidate in inventory.get("candidates", []) if isinstance(candidate, dict)
     ]
+    raw_summary = inventory.get("summary")
+    summary: dict[str, Any] = raw_summary if isinstance(raw_summary, dict) else {}
     family_counts: Counter[str] = Counter()
     family_bytes: defaultdict[str, int] = defaultdict(int)
     for candidate in candidates:
@@ -141,8 +143,6 @@ def render_unblock_map(inventory: dict[str, Any], *, limit: int = DEFAULT_LIMIT)
         if blocker_family(candidate)
         in {"dirty uncommitted changes", "unique commits not on origin/main"}
     ]
-    summary = inventory.get("summary") if isinstance(inventory.get("summary"), dict) else {}
-
     return {
         "schema_version": 1,
         "generated_at": _utc_now(),
