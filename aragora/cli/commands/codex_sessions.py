@@ -14,9 +14,12 @@ import argparse
 import json
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.codex.desktop_paths import CodexDesktopPaths
 
 DEFAULT_OUTPUT_ROOT = Path(".aragora/codex_sessions")
 DEFAULT_SINCE = "4h"
@@ -25,16 +28,23 @@ DEFAULT_MAX_EVENTS = 2000
 DEFAULT_TAIL_INTERVAL_SECONDS = 5.0
 
 
-def _parse_since(value: str) -> "Any":
+def _parse_since(value: str) -> timedelta:
     from aragora.codex.duration import parse_duration
 
     return parse_duration(value)
 
 
-def _resolve_paths(args: argparse.Namespace) -> "Any":
+def _resolve_paths(args: argparse.Namespace) -> "CodexDesktopPaths":
     from aragora.codex.desktop_paths import resolve
 
     return resolve(getattr(args, "codex_home", None))
+
+
+def _missing_db_message(sqlite_path: Path) -> str:
+    return (
+        f"error: Codex Desktop state DB not found at {sqlite_path}\n"
+        "       Pass --codex-home <path> or set ARAGORA_CODEX_HOME."
+    )
 
 
 def _print_json(payload: Any) -> None:
@@ -74,12 +84,7 @@ def cmd_codex_sessions_list(args: argparse.Namespace) -> int:
 
     paths = _resolve_paths(args)
     if not paths.sqlite_path.exists():
-        print(
-            f"error: Codex Desktop state DB not found at {paths.sqlite_path}\n"
-            f"       Override the location via {paths.__class__.__name__} or "
-            "set ARAGORA_CODEX_HOME.",
-            file=sys.stderr,
-        )
+        print(_missing_db_message(paths.sqlite_path), file=sys.stderr)
         return 1
 
     threads = list_active_threads(
@@ -234,7 +239,7 @@ def cmd_codex_sessions_show(args: argparse.Namespace) -> int:
             line = json.dumps(event, sort_keys=True, default=str)
             out_handle.write(line + "\n")
             written += 1
-            bytes_written += len(line) + 1
+            bytes_written += len((line + "\n").encode("utf-8"))
     finally:
         if out_path is not None:
             out_handle.close()
@@ -265,11 +270,12 @@ def cmd_codex_sessions_tail(args: argparse.Namespace) -> int:
 
     paths = _resolve_paths(args)
     if not paths.sqlite_path.exists():
-        print(f"error: Codex Desktop state DB not found at {paths.sqlite_path}", file=sys.stderr)
+        print(_missing_db_message(paths.sqlite_path), file=sys.stderr)
         return 1
 
     # Track byte offsets per rollout so each poll only emits new events.
     offsets: dict[Path, int] = {}
+    initialized = False
     try:
         while True:
             threads = list_active_threads(since=since, paths=paths)
@@ -278,7 +284,11 @@ def cmd_codex_sessions_tail(args: argparse.Namespace) -> int:
                 if not rollout.exists():
                     continue
                 current_size = rollout.stat().st_size
-                prev = offsets.get(rollout, current_size if args.from_start is False else 0)
+                if rollout in offsets:
+                    prev = offsets[rollout]
+                else:
+                    prev = 0 if args.from_start or initialized else current_size
+                    offsets[rollout] = prev
                 if current_size < prev:
                     prev = 0
                     offsets[rollout] = 0
@@ -295,6 +305,7 @@ def cmd_codex_sessions_tail(args: argparse.Namespace) -> int:
                     serialized = json.dumps(event, sort_keys=True, default=str)
                     print(f"{thread.id[:12]}  {serialized}")
                     offsets[rollout] = next_offset
+            initialized = True
             time.sleep(args.interval)
     except KeyboardInterrupt:
         return 0

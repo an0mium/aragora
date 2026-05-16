@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -335,6 +335,7 @@ def iter_session_events_from_offset(
                 handle.seek(start)
                 break
             if not isinstance(event, dict):
+                yield {}, handle.tell()
                 continue
             if barrier is not None:
                 event = barrier.redact_dict(event)
@@ -447,15 +448,3 @@ def truncate(value: str, *, width: int) -> str:
     if width <= 1:
         return value[:width]
     return value[: width - 1] + "…"
-
-
-@dataclass(frozen=True, slots=True)
-class _SafetyMarker:
-    """Sentinel for tests asserting that no inflight imports leak network usage."""
-
-    forbidden_imports: tuple[str, ...] = field(
-        default=("httpx", "requests", "openai", "anthropic", "urllib.request")
-    )
-
-
-SAFETY_MARKER = _SafetyMarker()

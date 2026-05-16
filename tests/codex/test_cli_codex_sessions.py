@@ -63,6 +63,19 @@ def test_cli_list_bad_since(fake_codex_home, capsys: pytest.CaptureFixture[str])
     assert "invalid duration" in capsys.readouterr().err
 
 
+def test_cli_list_missing_db_names_user_overrides(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc = cli.cmd_codex_sessions_list(
+        _args(codex_home=str(tmp_path / "missing"), since="4h", include_archived=False, limit=50)
+    )
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert "--codex-home <path>" in err
+    assert "ARAGORA_CODEX_HOME" in err
+    assert "CodexDesktopPaths" not in err
+
+
 def test_cli_list_rejects_negative_limit(
     fake_codex_home, capsys: pytest.CaptureFixture[str]
 ) -> None:  # type: ignore[no-untyped-def]
