@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
+import aragora.markets.types as market_types
 from aragora.cli.commands.agt_markets import (
     cmd_markets_create,
     cmd_markets_list,
@@ -120,6 +121,20 @@ def test_create_ci_pass_missing_ref_nonzero(tmp_path, capsys):
 def test_create_invalid_repo_nonzero(tmp_path):
     rc = cmd_markets_create(_create_args(tmp_path, repo="not-valid"))
     assert rc != 0
+
+
+def test_create_duplicate_market_nonzero(tmp_path, capsys, monkeypatch):
+    created_at = datetime(2026, 1, 1, tzinfo=UTC)
+    times = iter([created_at, created_at + timedelta(seconds=1)])
+    monkeypatch.setattr(market_types, "_utc_now", lambda: next(times))
+
+    assert cmd_markets_create(_create_args(tmp_path, number=77)) == 0
+    capsys.readouterr()
+
+    rc = cmd_markets_create(_create_args(tmp_path, number=77))
+    assert rc == 1
+    assert "already exists" in capsys.readouterr().err.lower()
+    assert len(MarketStore(tmp_path).list_markets()) == 1
 
 
 # ---------------------------------------------------------------------------
