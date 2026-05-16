@@ -404,14 +404,19 @@ def main(argv: list[str] | None = None) -> int:
         ensure_issues=bool(args.ensure_issues),
         dry_run=bool(args.dry_run),
     )
-    published = publish_report_bundle(
-        publish_dir=args.publish_dir.resolve(),
-        payload=payload,
-    )
+    published = None
+    if not args.dry_run:
+        published = publish_report_bundle(
+            publish_dir=args.publish_dir.resolve(),
+            payload=payload,
+        )
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
-        print(str(published["timestamped"]))
+        if published is None:
+            print("dry-run: report bundle not published")
+        else:
+            print(str(published["timestamped"]))
     return 0
 
 
