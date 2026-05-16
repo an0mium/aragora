@@ -188,6 +188,7 @@ Examples:
     _add_self_improve_parser(subparsers)
     _add_swarm_parser(subparsers)
     _add_tasks_parser(subparsers)
+    _add_work_parser(subparsers)
     _add_worktree_parser(subparsers)
     _add_outcome_parser(subparsers)
     _add_explain_parser(subparsers)
@@ -289,6 +290,51 @@ def _add_metrics_parser(subparsers) -> None:
         help="Write the Markdown report to this file path instead of stdout",
     )
     status.set_defaults(func=_lazy("aragora.cli.commands.agt_metrics", "cmd_metrics_status"))
+
+
+def _add_work_parser(subparsers) -> None:
+    """Add the read-only Aragora-native work board commands."""
+    work = subparsers.add_parser(
+        "work",
+        help="Inspect the read-only Aragora work board",
+        description=(
+            "Read-only Agent Flywheel kernel over PRs, automation, broker runs, "
+            "beads/convoys, and missions. This command never claims, launches, "
+            "closes, or mutates work."
+        ),
+    )
+    work_sub = work.add_subparsers(dest="work_cmd")
+
+    def add_common(p) -> None:
+        p.add_argument("--repo", default=".", help="Repository root to inspect (default: cwd)")
+        p.add_argument("--json", action="store_true", help="Emit stable JSON")
+
+    list_cmd = work_sub.add_parser("list", help="List normalized work items")
+    add_common(list_cmd)
+    list_cmd.add_argument(
+        "--scope",
+        choices=("current", "all"),
+        default="current",
+        help="current excludes terminal/historical noise; all includes context records",
+    )
+    list_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_list"))
+
+    show_cmd = work_sub.add_parser("show", help="Show one normalized work item")
+    add_common(show_cmd)
+    show_cmd.add_argument("work_id", help="Work item id, e.g. pr:7210")
+    show_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_show"))
+
+    graph_cmd = work_sub.add_parser("graph", help="Show the work dependency/context graph")
+    add_common(graph_cmd)
+    graph_cmd.add_argument("work_id", nargs="?", help="Optional root work item id")
+    graph_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_graph"))
+
+    robot_cmd = work_sub.add_parser(
+        "robot",
+        help="Rank current work into read-only actionable recommendations",
+    )
+    add_common(robot_cmd)
+    robot_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_robot"))
 
 
 def _add_markets_parser(subparsers) -> None:

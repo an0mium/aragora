@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **97**
-- Total top-level invocations (including aliases): **98**
+- Canonical top-level commands: **98**
+- Total top-level invocations (including aliases): **99**
 
 ## Installation
 
@@ -135,6 +135,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `validate-env` | - | Validate environment configuration and backend connectivity | - |
 | `verify` | - | Verify a decision receipt's integrity | - |
 | `verticals` | - | Manage vertical specialist configurations | - |
+| `work` | - | Inspect the read-only Aragora work board | `graph`, `list`, `robot`, `show` |
 | `workflow` | - | Workflow engine commands | `categories`, `list`, `patterns`, `run`, `status`, `templates` |
 | `worktree` | - | Manage git worktrees for parallel agent sessions | `autopilot`, `cleanup`, `conflicts`, `create`, `fleet-claim`, `fleet-claims`, `fleet-queue-add`, `fleet-queue-list`, `fleet-queue-process-next`, `fleet-reap-claims`, `fleet-release`, `fleet-status`, `list`, `merge`, `merge-all` |
 
