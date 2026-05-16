@@ -3263,6 +3263,104 @@ def _add_codex_parser(subparsers) -> None:
         func=_lazy("aragora.cli.commands.codex_sessions", "cmd_codex_sessions_tail")
     )
 
+    insights = codex_sub.add_parser(
+        "insights",
+        help="Analyze Codex Desktop activity (patterns, anomalies, digests)",
+        description=(
+            "Read-only analysis over the inspector: aggregate patterns, detect "
+            "anomalies (runaway / stuck / over-budget), cross-reference work, "
+            "and emit signed daily digest receipts."
+        ),
+    )
+    insights_sub = insights.add_subparsers(dest="codex_insights_cmd")
+
+    def add_insights_common(p: argparse.ArgumentParser) -> None:
+        p.add_argument(
+            "--codex-home",
+            default=None,
+            help="Override Codex Desktop home dir (default: $ARAGORA_CODEX_HOME or ~/.codex)",
+        )
+        p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+        p.add_argument(
+            "--since",
+            default="4h",
+            help="Time window (e.g. 30m, 4h, 1d). Default: 4h.",
+        )
+        p.add_argument(
+            "--include-archived",
+            action="store_true",
+            help="Include archived threads (default: exclude)",
+        )
+
+    summary_cmd = insights_sub.add_parser(
+        "summary",
+        help="Aggregate session patterns (models, tool calls, durations, abandoned count)",
+    )
+    add_insights_common(summary_cmd)
+    summary_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_insights", "cmd_codex_insights_summary")
+    )
+
+    anomalies_cmd = insights_sub.add_parser(
+        "anomalies",
+        help="Flag stuck / runaway / over-budget sessions",
+    )
+    add_insights_common(anomalies_cmd)
+    anomalies_cmd.add_argument(
+        "--token-cap",
+        type=int,
+        default=100_000,
+        help="Flag sessions with tokens_used >= this value (default: 100000)",
+    )
+    anomalies_cmd.add_argument(
+        "--runaway-tool-calls",
+        type=int,
+        default=200,
+        help="Flag sessions with >= this many tool calls in the scanned window (default: 200)",
+    )
+    anomalies_cmd.add_argument(
+        "--stuck-turn-minutes",
+        type=int,
+        default=5,
+        help="Flag sessions whose last event is a turn_start silent for > N minutes (default: 5)",
+    )
+    anomalies_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_insights", "cmd_codex_insights_anomalies")
+    )
+
+    crossref_cmd = insights_sub.add_parser(
+        "crossref",
+        help="Map sessions to PR/issue references found in their metadata",
+    )
+    add_insights_common(crossref_cmd)
+    crossref_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_insights", "cmd_codex_insights_crossref")
+    )
+
+    digest_cmd = insights_sub.add_parser(
+        "digest",
+        help="Build (and optionally persist + KM-ingest) a full daily digest",
+    )
+    add_insights_common(digest_cmd)
+    digest_cmd.add_argument(
+        "--emit-receipt",
+        action="store_true",
+        help="Write the digest JSON to .aragora/codex_insights/digest-<ts>.json",
+    )
+    digest_cmd.add_argument(
+        "--receipt-dir",
+        default=None,
+        help="Override receipt output directory (default: .aragora/codex_insights/)",
+    )
+    digest_cmd.add_argument(
+        "--ingest-km",
+        action="store_true",
+        help="After --emit-receipt, ingest into Aragora KM via 'aragora km store' (best-effort)",
+    )
+    digest_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_insights", "cmd_codex_insights_digest")
+    )
+
 
 def _add_swarm_parser(subparsers) -> None:
     """Add the 'swarm' subcommand for swarm commander."""
