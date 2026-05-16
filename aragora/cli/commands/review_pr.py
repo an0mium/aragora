@@ -30,6 +30,7 @@ _STATUS_REVIEW_EVENT_BY_STATUS = {
     "changes_requested": "REQUEST_CHANGES",
     "blocked_nonreviewable": "COMMENT",
 }
+_OPTIONAL_AGENT_PLACEHOLDERS = {"", "none", "null"}
 
 
 @dataclass(slots=True)
@@ -132,6 +133,13 @@ def add_review_pr_parser(subparsers) -> None:
     parser.set_defaults(func=cmd_review_pr)
 
 
+def _normalize_optional_agent(value: object) -> str | None:
+    normalized = str(value or "").strip()
+    if normalized.lower() in _OPTIONAL_AGENT_PLACEHOLDERS:
+        return None
+    return normalized
+
+
 def cmd_review_pr(args: argparse.Namespace) -> int:
     repo_root = resolve_repo_root(Path.cwd())
     result = asyncio.run(
@@ -140,7 +148,7 @@ def cmd_review_pr(args: argparse.Namespace) -> int:
             repo_root=repo_root,
             repo_override=getattr(args, "repo", None),
             reviewer=str(getattr(args, "reviewer", "claude") or "claude"),
-            fixer=str(getattr(args, "fixer", "")).strip() or None,
+            fixer=_normalize_optional_agent(getattr(args, "fixer", None)),
             auto_rerun=bool(getattr(args, "auto_rerun", False)),
             artifact_root=Path(getattr(args, "artifact_dir", "")).resolve()
             if getattr(args, "artifact_dir", None)
@@ -174,10 +182,15 @@ async def run_review_pr_loop(
     advisory_only: bool = True,
     publish_review: bool = True,
 ) -> dict[str, Any]:
+    fixer = _normalize_optional_agent(fixer)
     target = _fetch_pr_target(pr_ref, repo_override=repo_override, repo_root=repo_root)
     run_dir = _artifact_run_dir(repo_root, target.number, artifact_root=artifact_root)
     review_runs: list[dict[str, Any]] = []
     fix_run: dict[str, Any] | None = None
+    observed_head_sha_before = target.head_sha
+    observed_head_sha_after = target.head_sha
+    head_sha_stale = False
+    stale_reason: str | None = None
 
     diff_text = _fetch_pr_diff(target)
     _write_text(run_dir / "review-1.diff", diff_text)
@@ -192,7 +205,25 @@ async def run_review_pr_loop(
     _write_json(run_dir / "review-1.json", asdict(review))
 
     final_status = review.status
-    if fixer and review.status == "changes_requested":
+    refreshed_after_review = _fetch_pr_target(
+        str(target.number),
+        repo_override=target.repo,
+        repo_root=repo_root,
+    )
+    observed_head_sha_after = refreshed_after_review.head_sha
+    if (
+        observed_head_sha_before
+        and observed_head_sha_after
+        and observed_head_sha_before != observed_head_sha_after
+    ):
+        head_sha_stale = True
+        final_status = "blocked_nonreviewable"
+        stale_reason = (
+            f"PR head changed during review: {observed_head_sha_before} -> "
+            f"{observed_head_sha_after}"
+        )
+
+    if not head_sha_stale and fixer and review.status == "changes_requested":
         fix = await _run_fix_pass(
             target=target,
             review=review,
@@ -228,6 +259,7 @@ async def run_review_pr_loop(
         "pr": asdict(target),
         "reviewer": reviewer,
         "fixer": fixer,
+        "fixer_requested": fixer is not None,
         "auto_rerun": auto_rerun,
         "github_review_mode": "advisory" if advisory_only else "status",
         "artifact_dir": str(run_dir),
@@ -235,8 +267,20 @@ async def run_review_pr_loop(
         "fix_run": fix_run,
         "final_status": final_status,
         "publish_review": publish_review,
+        "observed_head_sha_before": observed_head_sha_before,
+        "observed_head_sha_after": observed_head_sha_after,
+        "head_sha_stale": head_sha_stale,
+        "stale_reason": stale_reason,
     }
-    if publish_review:
+    if head_sha_stale:
+        payload["github_review"] = {
+            "posted": False,
+            "event": None,
+            "mode": "advisory" if advisory_only else "status",
+            "url": None,
+            "error": stale_reason,
+        }
+    elif publish_review:
         payload["github_review"] = await _publish_review_outcome(
             target=target,
             review_runs=review_runs,

@@ -61,6 +61,14 @@ def test_review_pr_parser_accepts_no_publish_flag() -> None:
     assert args.publish_review is False
 
 
+def test_normalize_optional_agent_rejects_placeholder_none() -> None:
+    assert review_pr._normalize_optional_agent(None) is None
+    assert review_pr._normalize_optional_agent("") is None
+    assert review_pr._normalize_optional_agent("None") is None
+    assert review_pr._normalize_optional_agent("null") is None
+    assert review_pr._normalize_optional_agent(" codex ") == "codex"
+
+
 @pytest.mark.asyncio
 async def test_run_review_pr_loop_review_only_writes_artifact(
     tmp_path: Path,
@@ -172,12 +180,106 @@ async def test_run_review_pr_loop_skips_github_review_when_publish_disabled(
 
 
 @pytest.mark.asyncio
+async def test_review_pr_loop_changes_requested_without_fixer_does_not_run_fix_pass(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sample_target: review_pr.PullRequestTarget,
+) -> None:
+    monkeypatch.setattr(review_pr, "_fetch_pr_target", lambda *_, **__: sample_target)
+    monkeypatch.setattr(review_pr, "_fetch_pr_diff", lambda *_: "diff --git a/foo b/foo\n+bad\n")
+
+    async def _fake_review(**_: object) -> review_pr.ReviewPass:
+        return review_pr.ReviewPass(
+            reviewer="claude",
+            reviewed_at="2026-03-21T10:00:00+00:00",
+            status="changes_requested",
+            summary="Fix the crash",
+            findings=[{"title": "Crash", "body": "Fix it", "priority": "P1"}],
+            candidate={"label": "claude:max-01"},
+            attempts=[],
+            raw_response="{}",
+        )
+
+    async def _should_not_fix(**_: object) -> review_pr.FixPass:
+        raise AssertionError("_run_fix_pass should not be called without a real fixer")
+
+    monkeypatch.setattr(review_pr, "_run_review_pass", _fake_review)
+    monkeypatch.setattr(review_pr, "_run_fix_pass", _should_not_fix)
+
+    result = await review_pr.run_review_pr_loop(
+        pr_ref="1137",
+        repo_root=tmp_path,
+        reviewer="claude",
+        fixer="None",
+        artifact_root=tmp_path / "artifacts",
+        publish_review=False,
+    )
+
+    assert result["final_status"] == "changes_requested"
+    assert result["fixer"] is None
+    assert result["fixer_requested"] is False
+    assert result["fix_run"] is None
+    assert not (Path(result["artifact_dir"]) / "fix.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_review_pr_loop_detects_head_sha_drift_before_publish(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sample_target: review_pr.PullRequestTarget,
+) -> None:
+    refreshed_target = review_pr.PullRequestTarget(
+        **{
+            **asdict(sample_target),
+            "head_sha": "def456",
+        }
+    )
+    targets = [sample_target, refreshed_target]
+    monkeypatch.setattr(review_pr, "_fetch_pr_target", lambda *_, **__: targets.pop(0))
+    monkeypatch.setattr(review_pr, "_fetch_pr_diff", lambda *_: "diff --git a/foo b/foo\n+ok\n")
+
+    async def _fake_review(**_: object) -> review_pr.ReviewPass:
+        return review_pr.ReviewPass(
+            reviewer="claude",
+            reviewed_at="2026-03-21T10:00:00+00:00",
+            status="passed",
+            summary="Looks good",
+            findings=[],
+            candidate={"label": "claude:max-01"},
+            attempts=[],
+            raw_response="{}",
+        )
+
+    async def _should_not_publish(**_: object) -> dict[str, object]:
+        raise AssertionError("_publish_review_outcome should not be called for a stale review")
+
+    monkeypatch.setattr(review_pr, "_run_review_pass", _fake_review)
+    monkeypatch.setattr(review_pr, "_publish_review_outcome", _should_not_publish)
+
+    result = await review_pr.run_review_pr_loop(
+        pr_ref="1137",
+        repo_root=tmp_path,
+        reviewer="claude",
+        artifact_root=tmp_path / "artifacts",
+        publish_review=True,
+    )
+
+    assert result["final_status"] == "blocked_nonreviewable"
+    assert result["head_sha_stale"] is True
+    assert result["observed_head_sha_before"] == "abc123"
+    assert result["observed_head_sha_after"] == "def456"
+    assert result["github_review"]["posted"] is False
+    assert "changed during review" in result["github_review"]["error"]
+
+
+@pytest.mark.asyncio
 async def test_run_review_pr_loop_auto_reruns_after_fix(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     sample_target: review_pr.PullRequestTarget,
 ) -> None:
     fetched_targets = [
+        sample_target,
         sample_target,
         review_pr.PullRequestTarget(
             **{
