@@ -206,11 +206,12 @@ Examples:
     _add_build_parser(subparsers)
     _add_essay_parser(subparsers)
 
-    # AGT-* operator surfaces (read-only)
+    # AGT-* / DIC-* operator surfaces (read-only)
     _add_metrics_parser(subparsers)
     _add_markets_parser(subparsers)
     _add_calibration_parser(subparsers)
     _add_cruxset_parser(subparsers)
+    _add_genealogy_parser(subparsers)  # DIC-24 / #6218
 
     return parser
 
@@ -504,6 +505,33 @@ def _add_cruxset_parser(subparsers) -> None:
         help="Re-emit the (verified) CruxSet as JSON instead of pretty-printing",
     )
     show.set_defaults(func=_lazy("aragora.cli.commands.agt_cruxset", "cmd_cruxset_show"))
+
+
+def _add_genealogy_parser(subparsers) -> None:
+    """Add the 'genealogy' subcommand group (DIC-24 / #6218).
+
+    Flag-gated: ARAGORA_GENEALOGY_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    gp = subparsers.add_parser(
+        "genealogy",
+        help="DIC-24: inspect epistemic genealogy ledger for proof-carrying code units",
+        description=(
+            "Read-only operator surface for the epistemic genealogy ledger. "
+            "Requires ARAGORA_GENEALOGY_ENABLED=1."
+        ),
+    )
+    gp_sub = gp.add_subparsers(dest="genealogy_cmd")
+    show = gp_sub.add_parser("show", help="Show lineage for one proof-carrying code unit")
+    show.add_argument("code_unit_id", help="The code_unit_id to look up")
+    show.add_argument(
+        "--store-file",
+        dest="store_file",
+        default=".aragora_genealogy.jsonl",
+        help="Path to the genealogy JSONL store (default: .aragora_genealogy.jsonl)",
+    )
+    show.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    show.set_defaults(func=_lazy("aragora.cli.commands.dic24_genealogy", "cmd_genealogy_show"))
 
 
 def _add_ask_parser(subparsers) -> None:
