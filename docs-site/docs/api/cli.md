@@ -92,7 +92,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `markets` | - | AGT-04: inspect and interact with synthetic GitHub prediction markets | `list`, `predict` |
 | `mcp-server` | - | Run the MCP (Model Context Protocol) server | - |
 | `memory` | - | Memory management commands | `promote`, `query`, `stats`, `store` |
-| `metrics` | - | AGT-06: read VIAH and other operator metrics | `viah` |
+| `metrics` | - | AGT-06: read VIAH and other operator metrics | `status`, `viah` |
 | `modes` | - | List available operational modes | - |
 | `nomic` | - | Nomic loop self-improvement commands | `history`, `resume`, `run`, `status` |
 | `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `next-steps`, `policy`, `review`, `serve`, `status`, `watch` |
