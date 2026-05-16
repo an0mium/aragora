@@ -108,6 +108,9 @@ def test_github_connectivity_error_detects_dns_lookup_failures() -> None:
     assert mod.is_github_connectivity_error(
         'Post "https://api.github.com/graphql": dial tcp: lookup github.com: no such host'
     )
+    assert mod.is_github_connectivity_error(
+        'Get "https://api.github.com/rate_limit": dial tcp 140.82.112.6:443: connect: network is unreachable'
+    )
 
 
 def test_github_connectivity_error_detects_bounded_probe_timeouts() -> None:

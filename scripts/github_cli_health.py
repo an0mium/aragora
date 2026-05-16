@@ -32,6 +32,7 @@ CONNECTIVITY_ERROR_TOKENS = (
     "could not resolve host: github.com",
     "failed to connect to github.com",
     "failed to connect to api.github.com",
+    "dial tcp",
     "network is unreachable",
     "connection timed out",
     "connection refused",
