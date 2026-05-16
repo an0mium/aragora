@@ -62,6 +62,10 @@ def cmd_codex_sessions_list(args: argparse.Namespace) -> int:
     """List Codex Desktop threads updated within ``--since``."""
     from aragora.codex.desktop_inspector import humanize_ago, list_active_threads, truncate
 
+    if args.limit < 0:
+        print("error: --limit must be >= 0", file=sys.stderr)
+        return 2
+
     try:
         since = _parse_since(args.since)
     except ValueError as exc:
@@ -248,6 +252,10 @@ def cmd_codex_sessions_tail(args: argparse.Namespace) -> int:
     grep or pumping into the Monitor tool.
     """
     from aragora.codex.desktop_inspector import iter_session_events_from_offset, list_active_threads
+
+    if args.interval <= 0:
+        print("error: --interval must be > 0", file=sys.stderr)
+        return 2
 
     try:
         since = _parse_since(args.since)

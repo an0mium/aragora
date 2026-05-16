@@ -63,6 +63,14 @@ def test_cli_list_bad_since(fake_codex_home, capsys: pytest.CaptureFixture[str])
     assert "invalid duration" in capsys.readouterr().err
 
 
+def test_cli_list_rejects_negative_limit(
+    fake_codex_home, capsys: pytest.CaptureFixture[str]
+) -> None:  # type: ignore[no-untyped-def]
+    rc = cli.cmd_codex_sessions_list(_args(since="4h", include_archived=False, limit=-1))
+    assert rc == 2
+    assert "--limit must be >= 0" in capsys.readouterr().err
+
+
 # -- show ---------------------------------------------------------------------
 
 
@@ -172,3 +180,11 @@ def test_cli_show_unknown_target(fake_codex_home, capsys: pytest.CaptureFixture[
     )
     assert rc == 1
     assert "could not resolve" in capsys.readouterr().err
+
+
+def test_cli_tail_rejects_non_positive_interval(
+    fake_codex_home, capsys: pytest.CaptureFixture[str]
+) -> None:  # type: ignore[no-untyped-def]
+    rc = cli.cmd_codex_sessions_tail(_args(since="4h", interval=0, from_start=False))
+    assert rc == 2
+    assert "--interval must be > 0" in capsys.readouterr().err

@@ -33,6 +33,13 @@ _EXTRA_REDACTION_PATTERNS = (
 )
 
 
+def _rollout_path_from_db(value: str, *, paths: CodexDesktopPaths) -> Path:
+    rollout = Path(value).expanduser()
+    if rollout.is_absolute():
+        return rollout
+    return paths.home / rollout
+
+
 def _build_barrier() -> SecurityBarrier:
     barrier = SecurityBarrier()
     for pattern in _EXTRA_REDACTION_PATTERNS:
@@ -207,7 +214,7 @@ def list_active_threads(
                     title=barrier.redact(row["title"] or ""),
                     cwd=row["cwd"],
                     model=row["model"] or None,
-                    rollout_path=Path(row["rollout_path"]),
+                    rollout_path=_rollout_path_from_db(row["rollout_path"], paths=paths),
                     created_at=_to_datetime(row["created_at"]),
                     updated_at=_to_datetime(row["updated_at"]),
                     tokens_used=int(row["tokens_used"] or 0),
@@ -246,18 +253,19 @@ def find_thread(thread_id: str, *, paths: CodexDesktopPaths | None = None) -> Th
         FROM threads
         WHERE id = ? OR substr(id, 1, ?) = ?
         ORDER BY updated_at DESC
-        LIMIT 1
+        LIMIT 2
     """
     with sqlite_ro(paths.sqlite_path) as conn:
-        row = conn.execute(sql, (cleaned, len(cleaned), cleaned)).fetchone()
-    if row is None:
+        rows = conn.execute(sql, (cleaned, len(cleaned), cleaned)).fetchall()
+    if len(rows) != 1:
         return None
+    row = rows[0]
     return ThreadSummary(
         id=row["id"],
         title=barrier.redact(row["title"] or ""),
         cwd=row["cwd"],
         model=row["model"] or None,
-        rollout_path=Path(row["rollout_path"]),
+        rollout_path=_rollout_path_from_db(row["rollout_path"], paths=paths),
         created_at=_to_datetime(row["created_at"]),
         updated_at=_to_datetime(row["updated_at"]),
         tokens_used=int(row["tokens_used"] or 0),
@@ -320,6 +328,9 @@ def iter_session_events_from_offset(
             try:
                 event = json.loads(line)
             except ValueError:
+                if raw.endswith(b"\n"):
+                    yield {}, handle.tell()
+                    continue
                 # Treat malformed trailing content as an in-progress write.
                 handle.seek(start)
                 break
@@ -353,10 +364,10 @@ def summarize_session(
     truncated = False
 
     for event in iter_jsonl(rollout_path, strict=False):
-        scanned += 1
-        if scanned > max_events:
+        if scanned >= max_events:
             truncated = True
             break
+        scanned += 1
         event_type = str(event.get("type") or "")
         if event_type:
             event_type_counts[event_type] = event_type_counts.get(event_type, 0) + 1

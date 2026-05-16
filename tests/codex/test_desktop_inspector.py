@@ -200,6 +200,18 @@ def test_iter_session_events_from_offset_uses_raw_offsets(fake_codex_home) -> No
     assert events[-1][1] == rollout.stat().st_size
 
 
+def test_iter_session_events_from_offset_skips_complete_bad_line(tmp_path: Path) -> None:
+    rollout = tmp_path / "bad-midstream.jsonl"
+    first = '{"type": "turn_start"}\n'
+    rollout.write_text(first + "not json\n" + '{"type": "agent_message"}\n', encoding="utf-8")
+
+    events = list(inspector.iter_session_events_from_offset(rollout, offset=len(first)))
+
+    assert events[0][0] == {}
+    assert events[1][0]["type"] == "agent_message"
+    assert events[-1][1] == rollout.stat().st_size
+
+
 def test_iter_session_events_opt_out_returns_raw(fake_codex_home) -> None:  # type: ignore[no-untyped-def]
     events = list(inspector.iter_session_events(fake_codex_home.recent_rollout, redact=False))
     serialized = json.dumps(events, default=str)
@@ -212,10 +224,14 @@ def test_iter_session_events_opt_out_returns_raw(fake_codex_home) -> None:  # ty
 
 
 def test_find_thread_accepts_prefix(fake_codex_home) -> None:  # type: ignore[no-untyped-def]
-    prefix = fake_codex_home.recent_thread_id[:8]
+    prefix = fake_codex_home.recent_thread_id[:13]
     thread = inspector.find_thread(prefix)
     assert thread is not None
     assert thread.id == fake_codex_home.recent_thread_id
+
+
+def test_find_thread_rejects_ambiguous_prefix(fake_codex_home) -> None:  # type: ignore[no-untyped-def]
+    assert inspector.find_thread(fake_codex_home.recent_thread_id[:8]) is None
 
 
 def test_find_thread_treats_like_wildcards_as_literal(fake_codex_home) -> None:  # type: ignore[no-untyped-def]
