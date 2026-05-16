@@ -3,6 +3,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import scripts.github_cli_health as gh_health
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "automation_pr_preflight.sh"
@@ -136,6 +138,24 @@ def test_automation_pr_preflight_rejects_rescue_publish_artifacts(
     )
 
 
+def test_automation_pr_preflight_rejects_rescue_publish_latest_pointer(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/bad-rescue-latest"], cwd=repo)
+    artifact = repo / "published" / "rescue-productization" / "latest.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("{}\n", encoding="utf-8")
+    _run(["git", "add", "published/rescue-productization/latest.json"], cwd=repo)
+    _run(["git", "commit", "-m", "bad: commit rescue latest artifact"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 1
+    assert "rescue productization publish artifacts" in proc.stderr
+    assert "published/rescue-productization/latest.json" in proc.stderr
+
+
 def test_automation_pr_preflight_accepts_unrelated_latest_json(
     tmp_path: Path,
 ) -> None:
@@ -151,3 +171,9 @@ def test_automation_pr_preflight_accepts_unrelated_latest_json(
 
     assert proc.returncode == 0
     assert "preflight: ok" in proc.stdout
+
+
+def test_github_cli_health_classifies_raw_dial_tcp_errors_as_connectivity() -> None:
+    assert gh_health.is_github_connectivity_error(
+        'Get "https://api.github.com/rate_limit": dial tcp 140.82.112.5:443: i/o timeout'
+    )

@@ -110,7 +110,21 @@ def test_publish_report_bundle_writes_timestamped_and_latest(tmp_path: Path) -> 
 
 
 def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> None:
-    ledger = _ledger_with_events(tmp_path, [])
+    ledger = _ledger_with_events(
+        tmp_path,
+        [
+            RescueEvent(
+                event_type="followup_prompt",
+                reason="needs explicit next step from founder",
+                issue_number=5512,
+            ),
+            RescueEvent(
+                event_type="followup_prompt",
+                reason="needs explicit next step from founder",
+                issue_number=5515,
+            ),
+        ],
+    )
     publish_dir = tmp_path / "published"
 
     exit_code = mod.main(
@@ -121,6 +135,8 @@ def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> 
             str(tmp_path / "rescue_productization.json"),
             "--publish-dir",
             str(publish_dir),
+            "--repo",
+            "synaptent/aragora",
             "--dry-run",
             "--json",
         ]
@@ -128,5 +144,7 @@ def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> 
 
     assert exit_code == 0
     payload = json.loads(capsys.readouterr().out)
+    assert payload["repo"] == "synaptent/aragora"
     assert "generated_at" in payload
+    assert payload["summary"]["repeated_class_count"] == 1
     assert not publish_dir.exists()
