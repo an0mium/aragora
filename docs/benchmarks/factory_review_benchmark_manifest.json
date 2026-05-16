@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "benchmark": "factory_review_droid_external_smoke",
+  "source": {
+    "article_url": "https://factory.ai/news/code-review-benchmark",
+    "benchmark_repo": "droid-code-review-evals/review-droid-benchmark",
+    "benchmark_repo_url": "https://github.com/droid-code-review-evals/review-droid-benchmark",
+    "benchmark_head_sha": "2dfbbd6edcd5eea19495e725d611cb104c9e8f4d",
+    "manifest_blob_sha": "a810d4319a798c7980deccedef1f5df8cc86568f",
+    "reported_total_prs": 50,
+    "reported_validated_golden_comments_v3": 167
+  },
+  "smoke_cases": [
+    {
+      "case_id": "droid-sentry-pr-6",
+      "repo": "droid-code-review-evals/droid-sentry",
+      "repo_url": "https://github.com/droid-code-review-evals/droid-sentry",
+      "repo_head_sha": "f0c5f5d3aff1f01804f7ebf4cd5b5952242fb62e",
+      "pr_number": 6,
+      "pr_url": "https://github.com/droid-code-review-evals/droid-sentry/pull/6",
+      "title": "Enhanced Pagination Performance for High-Volume Audit Logs",
+      "base_ref": "master",
+      "head_ref": "performance-enhancement-complete",
+      "head_sha": "cb7212e11dbdbc1813237ad129c7bc108f944e3d",
+      "validation_path": "results/review_droid_run_gpt_5p2_2026-01-28/validations/droid-sentry_pr_6_validation.json",
+      "validation_blob_sha": "29067be0cc2bc91fa32c6669436d83cd851ebbb4",
+      "validation_url": "https://raw.githubusercontent.com/droid-code-review-evals/review-droid-benchmark/main/results/review_droid_run_gpt_5p2_2026-01-28/validations/droid-sentry_pr_6_validation.json",
+      "reason": "Python runtime bug plus a known false positive in validation output"
+    },
+    {
+      "case_id": "droid-grafana-pr-1",
+      "repo": "droid-code-review-evals/droid-grafana",
+      "repo_url": "https://github.com/droid-code-review-evals/droid-grafana",
+      "repo_head_sha": "85abfff0376487a1d3b1d084da48e1aebe0a44de",
+      "pr_number": 1,
+      "pr_url": "https://github.com/droid-code-review-evals/droid-grafana/pull/1",
+      "title": "Anonymous: Add configurable device limit",
+      "base_ref": "enhance-anonymous-access",
+      "head_ref": "implement-device-limits",
+      "head_sha": "3647ba7360b8d157e4a294a650a365b6aca070d8",
+      "validation_path": "results/review_droid_run_gpt_5p2_2026-01-28/validations/droid-grafana_pr_1_validation.json",
+      "validation_blob_sha": "f1a2057d21993c39dd761ad4083c9133f4f9bf45",
+      "validation_url": "https://raw.githubusercontent.com/droid-code-review-evals/review-droid-benchmark/main/results/review_droid_run_gpt_5p2_2026-01-28/validations/droid-grafana_pr_1_validation.json",
+      "reason": "Go race-condition finding"
+    },
+    {
+      "case_id": "droid-keycloak-pr-7",
+      "repo": "droid-code-review-evals/droid-keycloak",
+      "repo_url": "https://github.com/droid-code-review-evals/droid-keycloak",
+      "repo_head_sha": "dcdbe3ecc48d6f26ef52f6b78b7a5dd5ad897eb5",
+      "pr_number": 7,
+      "pr_url": "https://github.com/droid-code-review-evals/droid-keycloak/pull/7",
+      "title": "Add HTML sanitizer for translated message resources",
+      "base_ref": "feature-html-sanitizer-baseline",
+      "head_ref": "feature-html-sanitizer-implementation",
+      "head_sha": "5d77e7ea7d431aa0a6b65904457b7471bd050e81",
+      "validation_path": "results/review_droid_run_gpt_5p2_2026-01-28/validations/droid-keycloak_pr_7_validation.json",
+      "validation_blob_sha": "95f5e20c1d6b510c96a425b63ba3ded4bd2d9442",
+      "validation_url": "https://raw.githubusercontent.com/droid-code-review-evals/review-droid-benchmark/main/results/review_droid_run_gpt_5p2_2026-01-28/validations/droid-keycloak_pr_7_validation.json",
+      "reason": "Java/properties logic and runtime findings"
+    }
+  ],
+  "guardrails": {
+    "default_executes_model_calls": false,
+    "must_use_no_publish_review": true,
+    "routing_defaults_changed": false,
+    "full_50_pr_run_authorized": false
+  }
+}
