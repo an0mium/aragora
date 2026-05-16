@@ -262,6 +262,24 @@ def _branch_is_merged(repo_root: Path, base: str, branch: str) -> bool:
 
 
 def _branch_patch_equivalent_to_base(repo_root: Path, base: str, branch: str) -> bool:
+    diff_proc = _run(["git", "diff", "--quiet", f"{base}...{branch}", "--"], cwd=repo_root)
+    if diff_proc.returncode == 0:
+        return True
+    if diff_proc.returncode != 1:
+        return False
+
+    paths_proc = _run(["git", "diff", "--name-only", "-z", f"{base}...{branch}"], cwd=repo_root)
+    if paths_proc.returncode == 0:
+        paths = [path for path in paths_proc.stdout.split("\0") if path]
+        if not paths:
+            return True
+        changed_files_proc = _run(
+            ["git", "diff", "--quiet", f"{base}..{branch}", "--", *paths],
+            cwd=repo_root,
+        )
+        if changed_files_proc.returncode == 0:
+            return True
+
     proc = _run(["git", "cherry", base, branch], cwd=repo_root)
     if proc.returncode != 0:
         return False

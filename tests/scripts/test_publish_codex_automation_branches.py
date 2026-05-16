@@ -92,6 +92,31 @@ def test_duplicate_patch_branches_skips_older_candidate(tmp_path: Path) -> None:
     assert duplicates == {"codex/older"}
 
 
+def test_branch_patch_equivalent_to_base_detects_squash_merged_content(
+    tmp_path: Path,
+) -> None:
+    _git(tmp_path, "init", "-b", "main")
+    _git(tmp_path, "config", "user.email", "codex@example.invalid")
+    _git(tmp_path, "config", "user.name", "Codex")
+    (tmp_path / "file.txt").write_text("base\n", encoding="utf-8")
+    _git(tmp_path, "add", "file.txt")
+    _git(tmp_path, "commit", "-m", "base")
+
+    _git(tmp_path, "checkout", "-b", "codex/already-squashed")
+    (tmp_path / "file.txt").write_text("base\nbranch change\n", encoding="utf-8")
+    _git(tmp_path, "commit", "-am", "branch change")
+
+    _git(tmp_path, "checkout", "main")
+    (tmp_path / "file.txt").write_text("base\nbranch change\n", encoding="utf-8")
+    _git(tmp_path, "commit", "-am", "squash merge equivalent")
+
+    assert mod._branch_patch_equivalent_to_base(
+        tmp_path,
+        "main",
+        "codex/already-squashed",
+    )
+
+
 def test_select_publishable_branches_marks_recent_clean_branch_eligible() -> None:
     decisions = select_publishable_branches(
         [_branch("codex/recent-fix")],
