@@ -196,13 +196,24 @@ def cmd_codex_insights_digest(args: argparse.Namespace) -> int:
             if digest.hmac_sha256
             else "unsigned (ARAGORA_CONTEXT_SIGNING_KEY not set)"
         )
-        print(f"wrote {target} (sha256={digest.sha256[:12]}..., {signing_note})")
+        km_result: dict[str, Any] | None = None
         if args.ingest_km:
             ok, detail = ingest_digest_into_km(target)
-            if ok:
-                print(f"km: ingested ({detail})")
-            else:
-                print(f"km: skipped — {detail}", file=sys.stderr)
+            km_result = {"ok": ok, "detail": detail}
+        if args.json:
+            payload = digest.to_dict()
+            payload["receipt_path"] = str(target)
+            payload["signing_note"] = signing_note
+            if km_result is not None:
+                payload["km_ingest"] = km_result
+            _emit_json(payload)
+        else:
+            print(f"wrote {target} (sha256={digest.sha256[:12]}..., {signing_note})")
+            if km_result is not None:
+                if km_result["ok"]:
+                    print(f"km: ingested ({km_result['detail']})")
+                else:
+                    print(f"km: skipped — {km_result['detail']}", file=sys.stderr)
     else:
         if args.json:
             _emit_json(digest.to_dict())

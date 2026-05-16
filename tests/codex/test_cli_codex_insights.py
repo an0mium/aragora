@@ -126,3 +126,28 @@ def test_cli_digest_emit_receipt_writes_file(
     payload = json.loads(files[0].read_text(encoding="utf-8"))
     assert payload["schema_version"]
     assert payload["sha256"]
+
+
+def test_cli_digest_emit_receipt_json_is_machine_readable(
+    fake_codex_home,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:  # type: ignore[no-untyped-def]
+    receipt_dir = tmp_path / "receipts"
+    rc = cli.cmd_codex_insights_digest(
+        _args(
+            json=True,
+            emit_receipt=True,
+            receipt_dir=str(receipt_dir),
+            ingest_km=False,
+        )
+    )
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert captured.err == ""
+    payload = json.loads(captured.out)
+    assert payload["schema_version"]
+    assert payload["sha256"]
+    assert payload["receipt_path"].startswith(str(receipt_dir))
+    assert "signing_note" in payload
+    assert list(receipt_dir.glob("digest-*.json"))
