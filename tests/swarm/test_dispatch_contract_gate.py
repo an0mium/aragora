@@ -473,8 +473,10 @@ class TestDispatchContractGate:
             "mission_context_policies": spec.mission_context_policies,
         }
 
-    def test_missing_slices_returns_blocked_outcome(self, tmp_path) -> None:
-        """Missing credential slices block dispatch before preflight."""
+    def test_missing_slices_short_circuits_as_auth_failure_without_preflight(
+        self, tmp_path
+    ) -> None:
+        """Missing credential slices block dispatch before preflight receipts run."""
         loop = _make_loop()
         issue = _make_issue(20)
         spec = MagicMock()
@@ -488,11 +490,16 @@ class TestDispatchContractGate:
                 return_value=_make_valid_contract_mock(),
             ),
             patch(
+                "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt"
+            ) as mock_preflight_receipt,
+            patch(
                 "aragora.swarm.dispatch_contract_gate.CredentialEnvelope.from_environment"
             ) as mock_env,
         ):
             mock_env.return_value.missing_slices.return_value = ["runner"]
-            mock_env.return_value.preflight_cache_payload.return_value = {}
+            mock_env.return_value.preflight_cache_payload.return_value = {
+                "runner": {"available": False}
+            }
 
             result = dispatch_contract_gate(
                 loop,
@@ -506,8 +513,13 @@ class TestDispatchContractGate:
 
         assert result is not None
         assert result["status"] == "needs_human"
+        assert result["outcome"] == "blocked_auth_failure"
+        assert result["dispatch_contract"]["credential_envelope"] == {
+            "runner": {"available": False}
+        }
         assert "runner" in result["dispatch_contract"]["missing_slices"]
-        assert result["outcome"] in {"blocked_auth_failure", "blocked", "blocked_no_runner"}
+        assert result["dispatch_contract"]["preflight_receipts"] == []
+        mock_preflight_receipt.assert_not_called()
 
     def test_invalid_contract_returns_blocked_dict(self, tmp_path) -> None:
         """Contract admission_check=False → blocked gate dict."""

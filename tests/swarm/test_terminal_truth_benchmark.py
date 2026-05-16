@@ -25,6 +25,7 @@ from aragora.swarm.terminal_truth import (
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURES_DIR = REPO_ROOT / "benchmarks" / "fixtures" / "swarm" / "terminal_truth"
 SCORE_SCRIPT = REPO_ROOT / "scripts" / "score_benchmark.py"
+RESCUE_PRODUCTIZATION_PATH = REPO_ROOT / "docs" / "benchmarks" / "rescue_productization.json"
 
 # Collect fixture files for parametrization
 _fixture_files = sorted(FIXTURES_DIR.glob("*.json")) if FIXTURES_DIR.is_dir() else []
@@ -101,6 +102,22 @@ def test_fixtures_cover_all_families() -> None:
             tc = classify_from_metrics(row)
             families.add(tc.family)
     assert families == {"success", "rescue", "blocked"}
+
+
+def test_rescue_productization_records_admission_class_corpus_synthesis() -> None:
+    """The #7209 admission-class rescue has a durable productization ledger entry."""
+    with RESCUE_PRODUCTIZATION_PATH.open() as fh:
+        payload = json.load(fh)
+
+    entries = payload["entries"]
+    classes = [entry["class"] for entry in entries]
+    assert len(classes) == len(set(classes))
+
+    entry = next(item for item in entries if item["class"] == "admission_class_corpus_synthesis_v1")
+    assert entry["target"] == "#7209"
+    assert entry["target_kind"] == "issue"
+    assert "#7225" in entry["notes"]
+    assert "#7228" in entry["notes"]
 
 
 # ---------------------------------------------------------------------------

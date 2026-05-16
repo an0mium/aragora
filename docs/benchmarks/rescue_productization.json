@@ -7,6 +7,13 @@
       "target": "#5327",
       "target_kind": "issue",
       "title": "RS-07 Add a receipt-backed contract preflight path for safe admission"
+    },
+    {
+      "class": "admission_class_corpus_synthesis_v1",
+      "notes": "A2 admission-class productization for #7209: PR-1 landed via #7225 and was repaired by #7228. Corpus-aware dispatch upgrades known rev-4 corpus issues under ARAGORA_CORPUS_AWARE_DISPATCH while dispatch contract gating exposes missing credential-envelope slices as blocked_auth_failure before preflight receipt execution.",
+      "target": "#7209",
+      "target_kind": "issue",
+      "title": "A2 Productize rev-4 admission-class failures"
     }
   ]
 }
