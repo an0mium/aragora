@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **95**
-- Total top-level invocations (including aliases): **96**
+- Canonical top-level commands: **96**
+- Total top-level invocations (including aliases): **97**
 
 ## Installation
 
@@ -79,6 +79,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `explain` | - | Explain a debate decision (evidence chains, vote pivots, counterfactuals) | - |
 | `export` | - | Export debate artifacts | - |
 | `gauntlet` | - | Adversarial stress-test a specification, architecture, or policy | - |
+| `genealogy` | - | DIC-24: inspect epistemic genealogy ledger for proof-carrying code units | `show` |
 | `handlers` | - | List registered HTTP handlers and routes | `list`, `routes` |
 | `healthcare` | - | Healthcare vertical: adversarial clinical decision review | `review` |
 | `idea` | - | Clarify a vague idea into a structured initiative brief | `intake`, `review`, `triage` |
