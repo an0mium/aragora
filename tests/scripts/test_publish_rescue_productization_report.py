@@ -107,3 +107,26 @@ def test_publish_report_bundle_writes_timestamped_and_latest(tmp_path: Path) -> 
     assert json.loads(written["latest"].read_text(encoding="utf-8"))["generated_at"] == (
         "2026-04-14T18:36:07Z"
     )
+
+
+def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> None:
+    ledger = _ledger_with_events(tmp_path, [])
+    publish_dir = tmp_path / "published"
+
+    exit_code = mod.main(
+        [
+            "--path",
+            str(ledger.path),
+            "--productization-map",
+            str(tmp_path / "rescue_productization.json"),
+            "--publish-dir",
+            str(publish_dir),
+            "--dry-run",
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "generated_at" in payload
+    assert not publish_dir.exists()
