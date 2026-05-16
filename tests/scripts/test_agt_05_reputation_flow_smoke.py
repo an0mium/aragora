@@ -122,7 +122,7 @@ class TestPersistToStore:
             reloaded_score = reloaded.get_score(agent_id, apply_decay=False)
             assert abs(reloaded_score - original_score) < 1e-6
 
-    def test_persist_atomic_append_when_called_twice(self, tmp_path: Path) -> None:
+    def test_persist_append_only_when_called_twice(self, tmp_path: Path) -> None:
         deltas, _ = smoke.compute_deltas()
         ledger = tmp_path / "ledger.jsonl"
         smoke.persist_to_store(deltas, ledger)
@@ -152,6 +152,12 @@ class TestCli:
         monkeypatch.delenv("ARAGORA_REPUTATION_FLOW_ENABLED", raising=False)
         rc = smoke._smoke([])
         assert rc == 2
+
+    def test_help_works_when_flag_off(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ARAGORA_REPUTATION_FLOW_ENABLED", raising=False)
+        with pytest.raises(SystemExit) as excinfo:
+            smoke._smoke(["--help"])
+        assert excinfo.value.code == 0
 
     def test_smoke_returns_0_when_flag_on(self, capsys: pytest.CaptureFixture[str]) -> None:
         rc = smoke._smoke([])

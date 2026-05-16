@@ -24,9 +24,9 @@ Optional persistence (AGT-05 SD-1 substrate continuation)::
             --persist /tmp/agt_05_ledger.jsonl
 
 When ``--persist`` is given, computed deltas are recorded via the
-existing :class:`aragora.reputation.store.ReputationStore`, appended
-atomically to the JSONL path, and the post-persist per-agent score is
-read back from the store to demonstrate the round-trip.
+existing :class:`aragora.reputation.store.ReputationStore`, appended to
+the JSONL path, and the post-persist per-agent score is read back from
+the store to demonstrate the round-trip.
 
 The script prints a per-agent per-question table of reputation deltas
 and a per-agent total. No live API calls. No public-API mutation.
@@ -207,14 +207,14 @@ def _print_table(rows: list[dict[str, Any]]) -> None:
 
 
 def _smoke(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+
     if not reputation_flow_enabled():
         print(
             "ARAGORA_REPUTATION_FLOW_ENABLED is not set; nothing to demonstrate.",
             file=sys.stderr,
         )
         return 2
-
-    args = _parse_args(argv)
 
     deltas, rows = compute_deltas()
 
