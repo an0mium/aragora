@@ -759,6 +759,16 @@ async def dispatch_issue(
     elif validation_contract:
         spec.acceptance_criteria = list(validation_contract)
 
+    # PR-1 of #7209 must run before the validation-contract early exit:
+    # rev-4 corpus members can be sparse precisely because the corpus row
+    # carries the missing bounded scope, constraints, and acceptance shape.
+    spec = dispatch_followups_mod.maybe_upgrade_dispatch_spec(
+        issue=issue,
+        spec=spec,
+        sanitized_issue_body=sanitized_issue_body,
+        repo_root=Path.cwd(),
+    )
+
     if loop.config.require_validation_contract and not bool(
         getattr(spec, "acceptance_criteria", None)
     ):

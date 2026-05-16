@@ -37,11 +37,11 @@ _ACCEPTANCE_SECTION_HEADINGS = {"acceptance", "acceptance criteria"}
 #
 # When ``ARAGORA_CORPUS_AWARE_DISPATCH`` is truthy and the issue under
 # dispatch is a member of ``docs/benchmarks/corpus.json::issues`` whose
-# ``execution_class`` is in the PR-1 whitelist, augment under-specified
-# specs with the corpus row's ``scope_hint`` + ``known_constraints`` and
-# an ``execution_class``-specific acceptance-criteria template so the
-# dispatch contract gate no longer rejects the spec as
-# ``blocked_not_dispatch_bounded``.
+# ``execution_class`` and terminal history are in the PR-1 whitelists,
+# augment under-specified specs with the corpus row's ``scope_hint`` +
+# ``known_constraints`` and an ``execution_class``-specific
+# acceptance-criteria template so the dispatch contract gate no longer
+# rejects the spec as ``blocked_not_dispatch_bounded``.
 #
 # Default behaviour is unchanged.  See docs/plans/
 # 2026-05-16-a2-admission-class-productization.md for the full plan.
@@ -55,6 +55,12 @@ _CORPUS_AWARE_DISPATCH_WHITELIST = frozenset(
         "small_refactor",
         "validation_tightening",
         "exception_narrowing",
+    }
+)
+_CORPUS_AWARE_DISPATCH_TERMINAL_WHITELIST = frozenset(
+    {
+        "blocked_not_dispatch_bounded",
+        "blocked_auth_failure",
     }
 )
 _CORPUS_AWARE_DISPATCH_CORPUS_RELPATH = Path("docs/benchmarks/corpus.json")
@@ -171,6 +177,17 @@ def _augment_spec_from_corpus(spec: SwarmSpec, corpus_entry: dict[str, Any]) -> 
         spec.acceptance_criteria = _ordered_unique([*spec.acceptance_criteria, *rendered])
 
 
+def _corpus_terminal_classes(corpus_entry: dict[str, Any]) -> set[str]:
+    """Return normalized terminal classes recorded for a corpus row."""
+    provenance = corpus_entry.get("dispatch_provenance")
+    if not isinstance(provenance, dict):
+        return set()
+    classes = provenance.get("terminal_classes")
+    if not isinstance(classes, list):
+        return set()
+    return {str(item).strip() for item in classes if str(item or "").strip()}
+
+
 def maybe_upgrade_dispatch_spec_from_corpus(
     *,
     issue: Any,
@@ -187,6 +204,8 @@ def maybe_upgrade_dispatch_spec_from_corpus(
     * The corpus row's ``execution_class`` is not in the PR-1 whitelist
       (``missing_test_coverage``, ``small_refactor``, ``validation_tightening``,
       ``exception_narrowing``).
+    * The corpus row's terminal history does not include a PR-1 admission class
+      (``blocked_not_dispatch_bounded`` or ``blocked_auth_failure``).
 
     Otherwise mutates ``spec`` in place with the corpus row's
     ``scope_hint`` (→ ``file_scope_hints``), ``known_constraints``
@@ -214,12 +233,16 @@ def maybe_upgrade_dispatch_spec_from_corpus(
     execution_class = str(corpus_entry.get("execution_class", "") or "").strip()
     if execution_class not in _CORPUS_AWARE_DISPATCH_WHITELIST:
         return spec
+    terminal_classes = _corpus_terminal_classes(corpus_entry)
+    if not (terminal_classes & _CORPUS_AWARE_DISPATCH_TERMINAL_WHITELIST):
+        return spec
 
     _augment_spec_from_corpus(spec, corpus_entry)
     logger.info(
-        "corpus_aware_dispatch_augmented issue=#%s execution_class=%s scope_hint_count=%s",
+        "corpus_aware_dispatch_augmented issue=#%s execution_class=%s terminal_classes=%s scope_hint_count=%s",
         issue_number_int,
         execution_class,
+        ",".join(sorted(terminal_classes)),
         len(corpus_entry.get("scope_hint") or []),
     )
     return spec

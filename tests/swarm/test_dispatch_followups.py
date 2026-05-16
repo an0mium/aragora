@@ -474,6 +474,7 @@ def _corpus_issue(
     execution_class: str = "missing_test_coverage",
     scope_hint: list[str] | None = None,
     known_constraints: list[str] | None = None,
+    terminal_classes: list[str] | None = None,
 ) -> dict:
     return {
         "issue_id": issue_id,
@@ -494,6 +495,13 @@ def _corpus_issue(
                 "do not modify production code under aragora/ unless strictly required by the test scaffold",
             ]
         ),
+        "dispatch_provenance": {
+            "terminal_classes": list(
+                terminal_classes
+                if terminal_classes is not None
+                else ["blocked_not_dispatch_bounded"]
+            )
+        },
     }
 
 
@@ -569,6 +577,30 @@ def test_corpus_aware_dispatch_on_non_whitelisted_execution_class_returns_unchan
     )
     issue = SimpleNamespace(number=7777, title="Run a database migration")
     spec = SwarmSpec(raw_goal="Migrate")
+
+    result = maybe_upgrade_dispatch_spec_from_corpus(issue=issue, spec=spec, repo_root=tmp_path)
+
+    assert result is spec
+    assert not spec.is_dispatch_bounded()
+    assert spec.file_scope_hints == []
+    assert spec.acceptance_criteria == []
+    assert spec.constraints == []
+
+
+def test_corpus_aware_dispatch_on_non_admission_terminal_class_returns_unchanged(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("ARAGORA_CORPUS_AWARE_DISPATCH", "1")
+    _write_corpus(
+        tmp_path,
+        [
+            _corpus_issue(
+                5426, execution_class="small_refactor", terminal_classes=["deliverable_pr_created"]
+            )
+        ],
+    )
+    issue = SimpleNamespace(number=5426, title="Add operator-snapshot subcommand")
+    spec = SwarmSpec(raw_goal="Add a command")
 
     result = maybe_upgrade_dispatch_spec_from_corpus(issue=issue, spec=spec, repo_root=tmp_path)
 

@@ -1029,6 +1029,36 @@ class TestDispatchIssuePreDispatchGate:
         m.extract_issue_validation_contract = real_mod.extract_issue_validation_contract
         return m
 
+    def test_corpus_upgrade_runs_before_required_validation_contract_block(self):
+        loop = self._make_gate_dispatch_loop(require_validation_contract=True)
+        issue = _make_issue(
+            number=5185,
+            title="[B0-cohort] Add unit tests for utils/sql_helpers.py",
+            body="Task: add tests for aragora/utils/sql_helpers.py",
+        )
+        module_mock = self._build_module_mock()
+
+        def _upgrade_from_corpus(**kwargs):
+            spec = kwargs["spec"]
+            spec.acceptance_criteria = ["pytest -q tests/utils/test_sql_helpers.py"]
+            spec.file_scope_hints = [
+                "aragora/utils/sql_helpers.py",
+                "tests/utils/test_sql_helpers.py",
+            ]
+            return spec
+
+        with patch(
+            "aragora.swarm.boss_worker_lifecycle._boss_loop_module", return_value=module_mock
+        ):
+            with patch(
+                "aragora.swarm.dispatch_followups.maybe_upgrade_dispatch_spec",
+                side_effect=_upgrade_from_corpus,
+            ) as upgrade_mock:
+                result = asyncio.run(dispatch_issue(loop, issue, _fresh_result()))
+
+        assert result["status"] == "completed"
+        upgrade_mock.assert_called()
+
     def test_gate_sanitation_fail_returns_needs_human(self):
         loop = self._make_gate_dispatch_loop()
         issue = _make_issue()
