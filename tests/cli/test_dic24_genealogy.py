@@ -49,10 +49,13 @@ def _ns(**kw) -> argparse.Namespace:
 
 # -- Flag gating --
 
+
 class TestFlagGating:
     def test_exits_1_when_flag_off(self, monkeypatch, tmp_path) -> None:
         monkeypatch.delenv(_FLAG, raising=False)
-        assert cmd_genealogy_show(_ns(code_unit_id="x", store_file=str(_store(tmp_path, [_A])))) == 1
+        assert (
+            cmd_genealogy_show(_ns(code_unit_id="x", store_file=str(_store(tmp_path, [_A])))) == 1
+        )
 
     def test_error_message_names_flag(self, monkeypatch, tmp_path, capsys) -> None:
         monkeypatch.delenv(_FLAG, raising=False)
@@ -67,6 +70,7 @@ class TestFlagGating:
 
 
 # -- show: text output --
+
 
 class TestShowText:
     def test_shows_code_unit_id_and_count(self, monkeypatch, tmp_path, capsys) -> None:
@@ -98,10 +102,13 @@ class TestShowText:
 
 # -- show: JSON output --
 
+
 class TestShowJson:
     def test_json_output_has_correct_fields(self, monkeypatch, tmp_path, capsys) -> None:
         monkeypatch.setenv(_FLAG, "1")
-        args = _ns(code_unit_id="proof_first.shift", store_file=str(_store(tmp_path, [_A, _B])), json=True)
+        args = _ns(
+            code_unit_id="proof_first.shift", store_file=str(_store(tmp_path, [_A, _B])), json=True
+        )
         cmd_genealogy_show(args)
         payload = json.loads(capsys.readouterr().out)
         assert payload["code_unit_id"] == "proof_first.shift"
@@ -110,7 +117,9 @@ class TestShowJson:
 
     def test_entries_sorted_oldest_first(self, monkeypatch, tmp_path, capsys) -> None:
         monkeypatch.setenv(_FLAG, "1")
-        args = _ns(code_unit_id="proof_first.shift", store_file=str(_store(tmp_path, [_B, _A])), json=True)
+        args = _ns(
+            code_unit_id="proof_first.shift", store_file=str(_store(tmp_path, [_B, _A])), json=True
+        )
         cmd_genealogy_show(args)
         ts = [e["timestamp"] for e in json.loads(capsys.readouterr().out)["entries"]]
         assert ts == sorted(ts)
@@ -124,6 +133,7 @@ class TestShowJson:
 
 # -- JSONL parsing resilience --
 
+
 class TestJsonlParsing:
     def test_malformed_line_skipped(self, monkeypatch, tmp_path) -> None:
         monkeypatch.setenv(_FLAG, "1")
@@ -132,6 +142,7 @@ class TestJsonlParsing:
         args = _ns(code_unit_id="proof_first.shift", store_file=str(p), json=True)
         import io
         import sys
+
         old, sys.stdout = sys.stdout, io.StringIO()
         rc = cmd_genealogy_show(args)
         out, sys.stdout = sys.stdout.getvalue(), old
