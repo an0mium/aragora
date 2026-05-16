@@ -198,6 +198,7 @@ Examples:
     _add_ideacloud_parser(subparsers)
     _add_signing_parser(subparsers)
     _add_inbox_wedge_parser(subparsers)
+    _add_codex_parser(subparsers)
     _add_triage_parser(subparsers)
     _add_ralph_parser(subparsers)
     _add_assess_parser(subparsers)
@@ -3138,6 +3139,117 @@ def _add_triage_parser(subparsers) -> None:
     from aragora.cli.commands.triage import add_triage_parser
 
     add_triage_parser(subparsers)
+
+
+def _add_codex_parser(subparsers) -> None:
+    """Add the 'codex' read-only inspector commands for Codex Desktop state."""
+    codex = subparsers.add_parser(
+        "codex",
+        help="Read-only inspector for Codex Desktop local state",
+        description=(
+            "Surface Codex Desktop sessions/threads from ~/.codex/ as redacted, "
+            "read-only data. Never writes to ~/.codex/, makes no network calls, "
+            "and consumes no AI provider keys."
+        ),
+    )
+    codex_sub = codex.add_subparsers(dest="codex_cmd")
+
+    sessions = codex_sub.add_parser(
+        "sessions",
+        help="Inspect Codex Desktop sessions/threads",
+        description="List, summarize, or tail Codex Desktop sessions (read-only).",
+    )
+    sessions_sub = sessions.add_subparsers(dest="codex_sessions_cmd")
+
+    def add_common(p: argparse.ArgumentParser) -> None:
+        p.add_argument(
+            "--codex-home",
+            default=None,
+            help="Override Codex Desktop home dir (default: $ARAGORA_CODEX_HOME or ~/.codex)",
+        )
+        p.add_argument("--json", action="store_true", help="Emit JSON instead of a table")
+
+    list_cmd = sessions_sub.add_parser("list", help="List threads updated within --since window")
+    add_common(list_cmd)
+    list_cmd.add_argument(
+        "--since",
+        default="4h",
+        help="Time window (e.g. 30m, 4h, 1d, 90s). Default: 4h.",
+    )
+    list_cmd.add_argument(
+        "--include-archived",
+        action="store_true",
+        help="Include archived threads (default: exclude)",
+    )
+    list_cmd.add_argument(
+        "--limit",
+        type=int,
+        default=50,
+        help="Maximum number of threads to return (default: 50, 0 = no limit)",
+    )
+    list_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_sessions", "cmd_codex_sessions_list")
+    )
+
+    show_cmd = sessions_sub.add_parser(
+        "show",
+        help="Summarize one session by thread id (or 8+ char prefix) or rollout path",
+    )
+    add_common(show_cmd)
+    show_cmd.add_argument(
+        "target",
+        help="Thread id, id prefix (>=8 chars), or path to a rollout JSONL file",
+    )
+    show_cmd.add_argument(
+        "--full",
+        action="store_true",
+        help=(
+            "Write the full redacted transcript. Default writes to a file under "
+            ".aragora/codex_sessions/<id>.jsonl; use --out - to force stdout."
+        ),
+    )
+    show_cmd.add_argument(
+        "--out",
+        default="",
+        help=(
+            "Output destination for --full. '-' for stdout, '' (default) for "
+            ".aragora/codex_sessions/<id>.jsonl, or any explicit path."
+        ),
+    )
+    show_cmd.add_argument(
+        "--max-events",
+        type=int,
+        default=2000,
+        help="Max events to scan when summarizing (default: 2000; ignored when --full).",
+    )
+    show_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_sessions", "cmd_codex_sessions_show")
+    )
+
+    tail_cmd = sessions_sub.add_parser(
+        "tail",
+        help="Poll active sessions and print new redacted events as they arrive",
+    )
+    add_common(tail_cmd)
+    tail_cmd.add_argument(
+        "--since",
+        default="4h",
+        help="Time window selecting which sessions to watch (default: 4h)",
+    )
+    tail_cmd.add_argument(
+        "--interval",
+        type=float,
+        default=5.0,
+        help="Polling interval in seconds (default: 5.0)",
+    )
+    tail_cmd.add_argument(
+        "--from-start",
+        action="store_true",
+        help="On startup, replay all events from each active session (default: tail-only).",
+    )
+    tail_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_sessions", "cmd_codex_sessions_tail")
+    )
 
 
 def _add_swarm_parser(subparsers) -> None:
