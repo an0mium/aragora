@@ -266,9 +266,7 @@ def _add_metrics_parser(subparsers) -> None:
 
     status = metrics_sub.add_parser(
         "status",
-        help=(
-            "Print VIAH operator-truth Markdown report (gated: ARAGORA_VIAH_TREND_ENABLED=1)"
-        ),
+        help=("Print VIAH operator-truth Markdown report (gated: ARAGORA_VIAH_TREND_ENABLED=1)"),
     )
     status.add_argument(
         "--ledger-path",

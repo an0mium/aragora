@@ -159,17 +159,13 @@ class TestFileOutput:
     def _enable(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(VIAH_TREND_FLAG, "1")
 
-    def test_writes_markdown_to_path(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture
-    ) -> None:
+    def test_writes_markdown_to_path(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         out_path = tmp_path / "viah_status.md"
         assert cmd_metrics_status(_args(tmp_path, output=str(out_path))) == 0
         assert out_path.exists()
         assert "# VIAH Status" in out_path.read_text(encoding="utf-8")
 
-    def test_stdout_shows_written_path(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture
-    ) -> None:
+    def test_stdout_shows_written_path(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         out_path = tmp_path / "viah_status.md"
         cmd_metrics_status(_args(tmp_path, output=str(out_path)))
         assert str(out_path) in capsys.readouterr().out
@@ -200,9 +196,7 @@ class TestWeeksParam:
         assert "W0" in out
         assert "W1" in out
 
-    def test_four_week_trend_shows_w3(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture
-    ) -> None:
+    def test_four_week_trend_shows_w3(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         assert cmd_metrics_status(_args(tmp_path, weeks=4)) == 0
         out = capsys.readouterr().out
         assert "W3" in out
