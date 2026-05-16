@@ -56,7 +56,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `build` | - | Turn a vague idea into executed, reviewed, merged code | - |
 | `calibration` | - | AGT-03.3: per-agent rolling-window Brier reports from market data | `leaderboard`, `report` |
 | `codebase-audit` | - | Run a staged repo audit with triage, threat-surface ranking, and deep audit | - |
-| `codex` | - | Read-only inspector for Codex Desktop local state | `sessions` |
+| `codex` | - | Read-only inspector for Codex Desktop local state | `insights`, `sessions` |
 | `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `evidence`, `export`, `report`, `status` |
 | `computer-use` | - | Computer use task management | `list`, `run`, `status` |
 | `config` | - | Manage configuration | - |
