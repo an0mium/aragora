@@ -258,6 +258,56 @@ def test_load_outbox_handoffs_skips_terminal_receipt_named_by_file(tmp_path: Pat
     assert mod.load_outbox_handoffs(tmp_path) == []
 
 
+@pytest.mark.parametrize(
+    ("reason", "url_key", "url"),
+    [
+        ("published", "created_issue_url", "https://github.com/synaptent/aragora/issues/7151"),
+        (
+            "existing_issue",
+            "existing_issue_url",
+            "https://github.com/synaptent/aragora/issues/6992",
+        ),
+    ],
+)
+def test_load_outbox_handoffs_keeps_pr_handoff_after_issue_receipt(
+    tmp_path: Path,
+    reason: str,
+    url_key: str,
+    url: str,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-example-abc123"
+    (outbox / "repair-branch.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                repo=str(tmp_path),
+                idempotency_key=key,
+                local_evidence={"branch": "codex/example", "head": "abc123"},
+            )
+        ),
+        encoding="utf-8",
+    )
+    (receipts / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "published" if reason == "published" else "already_satisfied",
+                "reason": reason,
+                url_key: url,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].idempotency_key == key
+
+
 def test_load_outbox_handoffs_keeps_stale_target_pr_receipt(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()

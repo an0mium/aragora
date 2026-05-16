@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **96**
-- Total top-level invocations (including aliases): **97**
+- Canonical top-level commands: **97**
+- Total top-level invocations (including aliases): **98**
 
 ## Installation
 
@@ -80,6 +80,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `explain` | - | Explain a debate decision (evidence chains, vote pivots, counterfactuals) | - |
 | `export` | - | Export debate artifacts | - |
 | `gauntlet` | - | Adversarial stress-test a specification, architecture, or policy | - |
+| `genealogy` | - | DIC-24: inspect epistemic genealogy ledger for proof-carrying code units | `show` |
 | `handlers` | - | List registered HTTP handlers and routes | `list`, `routes` |
 | `healthcare` | - | Healthcare vertical: adversarial clinical decision review | `review` |
 | `idea` | - | Clarify a vague idea into a structured initiative brief | `intake`, `review`, `triage` |
@@ -90,10 +91,10 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `km` | - | Knowledge Mound management commands | `query`, `stats`, `store` |
 | `knowledge` | - | Knowledge base operations | `facts`, `jobs`, `process`, `query`, `search`, `stats` |
 | `marketplace` | - | Manage agent template marketplace | - |
-| `markets` | - | AGT-04: inspect and interact with synthetic GitHub prediction markets | `list`, `predict` |
+| `markets` | - | AGT-04: inspect and interact with synthetic GitHub prediction markets | `create`, `list`, `predict`, `resolve` |
 | `mcp-server` | - | Run the MCP (Model Context Protocol) server | - |
 | `memory` | - | Memory management commands | `promote`, `query`, `stats`, `store` |
-| `metrics` | - | AGT-06: read VIAH and other operator metrics | `viah` |
+| `metrics` | - | AGT-06: read VIAH and other operator metrics | `status`, `viah` |
 | `modes` | - | List available operational modes | - |
 | `nomic` | - | Nomic loop self-improvement commands | `history`, `resume`, `run`, `status` |
 | `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `next-steps`, `policy`, `review`, `serve`, `status`, `watch` |

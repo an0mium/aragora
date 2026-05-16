@@ -345,10 +345,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--repo",
-        required=True,
+        default=".",
         help=(
             "Repository root or disposable worktree used for git checks. "
-            "Outbox/receipt state defaults to this path's .aragora/ subdirectory."
+            "Outbox/receipt state defaults to this path's .aragora/ subdirectory "
+            "(default: current working directory)."
         ),
     )
     parser.add_argument("--base", default="origin/main")

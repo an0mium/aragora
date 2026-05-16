@@ -1126,8 +1126,9 @@ def test_gc_write_preserves_historical_sessions_in_canonical_snapshot(
     _patch_bridge_paths(mod, tmp_path, monkeypatch)
     monkeypatch.setattr(mod, "_gc_tmux_candidates", lambda *, ttl_hours: [])
 
-    def fake_discover(*, include_historical: bool, **_kwargs):
+    def fake_discover(*, include_historical: bool, include_summaries: bool = True, **_kwargs):
         assert include_historical is True
+        assert include_summaries is True
         return [
             mod.Session(
                 name="claude-history",
@@ -1135,6 +1136,7 @@ def test_gc_write_preserves_historical_sessions_in_canonical_snapshot(
                 status="historical",
                 source="claude_jsonl",
                 lifecycle="historical",
+                summary="old desktop context",
             )
         ]
 
@@ -1147,3 +1149,4 @@ def test_gc_write_preserves_historical_sessions_in_canonical_snapshot(
     assert payload["dry_run"] is False
     snapshot = json.loads((bridge_dir / "sessions.json").read_text(encoding="utf-8"))
     assert [session["name"] for session in snapshot] == ["claude-history"]
+    assert snapshot[0]["summary"] == "old desktop context"

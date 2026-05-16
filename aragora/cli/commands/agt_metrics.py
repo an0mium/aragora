@@ -1,17 +1,18 @@
-"""CLI command: ``aragora metrics viah``.
+"""CLI commands: ``aragora metrics viah`` and ``aragora metrics status``.
 
-Reads the ShiftLedger and prints the latest VIAH (verifiable improvements
-per agent-hour) report. See aragora.metrics.viah for the metric
-definition (issue #6067).
+Reads the ShiftLedger and prints VIAH (verifiable improvements per
+agent-hour) operator surfaces. See aragora.metrics.viah for the metric
+definition (issue #6067, AGT-06).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
-from aragora.metrics.viah import compute_viah
+from aragora.metrics.viah import VIAH_TREND_FLAG, compute_viah, viah_trend_enabled
 from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH, ShiftLedger
 
 
@@ -60,4 +61,41 @@ def cmd_metrics_viah(args: argparse.Namespace) -> int:
     return 0
 
 
-__all__ = ["cmd_metrics_viah"]
+def cmd_metrics_status(args: argparse.Namespace) -> int:
+    """Print the VIAH operator-truth Markdown status report.
+
+    Gated behind ARAGORA_VIAH_TREND_ENABLED (default off). When the flag
+    is set, generates a report mirroring docs/status/B0_BENCHMARK_TRUTH_STATUS.md.
+    Pass --output to write to disk instead of stdout.
+    """
+    from aragora.metrics.viah_status import generate_viah_status_report
+
+    if not viah_trend_enabled():
+        print(
+            f"error: VIAH status surface is disabled; set {VIAH_TREND_FLAG}=1 to enable",
+            file=sys.stderr,
+        )
+        return 1
+
+    raw_path = getattr(args, "ledger_path", None)
+    ledger_path = Path(raw_path).expanduser() if raw_path else Path(DEFAULT_LEDGER_PATH)
+    ledger = ShiftLedger(path=ledger_path)
+    weeks = int(getattr(args, "weeks", 4))
+
+    try:
+        report_md = generate_viah_status_report(ledger, weeks=weeks)
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    output_path_str = getattr(args, "output", None)
+    if output_path_str:
+        out_path = Path(output_path_str).expanduser()
+        out_path.write_text(report_md, encoding="utf-8")
+        print(f"Written to {out_path}")
+    else:
+        print(report_md)
+    return 0
+
+
+__all__ = ["cmd_metrics_status", "cmd_metrics_viah"]

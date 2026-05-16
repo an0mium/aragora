@@ -1,71 +1,102 @@
 {
   "corpus": {
     "corpus_id": "tw-01-bounded-execution-v1",
-    "issue_count": 1,
-    "manifest_sha256": "828d76428d0f2c2235db9327584734e6c80bb1625de33852ff753953c04752fe",
+    "issue_count": 13,
+    "manifest_sha256": "e9427f08ad0b8e6faf34aec767e4d17f0cf8517aa4288344e0ca91e9876e4b3f",
     "membership_issue_numbers": [
-      5839
+      5185,
+      5187,
+      5197,
+      5198,
+      5200,
+      5426,
+      5427,
+      5428,
+      5764,
+      5789,
+      5790,
+      5839,
+      5844
     ],
-    "membership_sha256": "24dc78c03c13991762f31f68c6447333d0cddca425bcc5e4056e77680379a4fc",
+    "membership_sha256": "cc2a96110da7fd1e863639801020ce42a4df7373fb652f9f802179ce2fe92b32",
     "path": "docs/benchmarks/corpus.json",
     "recorded_on": "2026-04-26",
     "revision": 4,
     "success_contract": "mergeable_pr_or_merged_pr"
   },
   "coverage": {
-    "attempted_issue_count": 1,
+    "attempted_issue_count": 13,
     "is_complete": true,
     "missing_issue_count": 0,
     "missing_issue_numbers": [],
     "status": "complete"
   },
-  "failure_class_distribution": {
-    "blocked_auth_failure": 3,
-    "blocked_sanitation_failed": 1
+  "deltas": {
+    "merged_only_rate": 0.0,
+    "no_rescue_truth_success_rate": 0.0,
+    "proxy_no_rescue_success_rate": -0.231,
+    "truth_success_rate": 0.0,
+    "unique_issues_attempted": 12.0
   },
-  "generated_at": "2026-04-30T16:01:56Z",
+  "failure_class_distribution": {
+    "blocked_auth_failure": 7,
+    "blocked_not_dispatch_bounded": 8,
+    "blocked_sanitation_failed": 2,
+    "rescue_no_deliverable": 1
+  },
+  "generated_at": "2026-05-15T16:31:15Z",
   "metrics_file": "/Users/armand/Development/aragora/.aragora/overnight/boss_metrics.jsonl",
+  "previous_artifact": {
+    "generated_at": "2026-04-30T16:01:56Z",
+    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-4/scorecard-20260430T160156Z.json"
+  },
   "proxy_metrics": {
     "corpus": {
       "corpus_id": "tw-01-bounded-execution-v1",
-      "issue_count": 1,
+      "issue_count": 13,
       "path": "docs/benchmarks/corpus.json",
       "recorded_on": "2026-04-26",
       "revision": 4,
       "success_contract": "mergeable_pr_or_merged_pr"
     },
     "coverage": {
-      "attempted_issue_count": 1,
+      "attempted_issue_count": 13,
       "is_complete": true,
       "missing_issue_count": 0,
       "missing_issue_numbers": [],
       "status": "complete"
     },
     "failure_classes": {
-      "blocked_auth_failure": 3
+      "blocked_auth_failure": 7,
+      "blocked_not_dispatch_bounded": 8,
+      "rescue_no_deliverable": 1
     },
-    "mean_elapsed_seconds": 253.2,
-    "median_elapsed_seconds": 40.7,
+    "mean_elapsed_seconds": 338.1,
+    "median_elapsed_seconds": 246.4,
     "neutral_classes": {},
-    "no_rescue_success_rate": 1.0,
+    "no_rescue_success_rate": 0.769,
     "status": "active",
     "success_classes": {
-      "deliverable_pr_created": 1
+      "deliverable_pr_created": 10
     },
     "terminal_class_distribution": {
-      "blocked_auth_failure": 3,
-      "deliverable_pr_created": 1
+      "blocked_auth_failure": 7,
+      "blocked_not_dispatch_bounded": 8,
+      "deliverable_pr_created": 10,
+      "rescue_no_deliverable": 1
     },
-    "tick_success_rate": 0.2,
-    "total_ticks": 5,
-    "unique_issues_attempted": 1,
-    "unique_issues_failed": 0,
+    "tick_success_rate": 0.357,
+    "total_ticks": 28,
+    "unique_issues_attempted": 13,
+    "unique_issues_failed": 3,
     "unique_issues_neutral": 0,
-    "unique_issues_succeeded": 1
+    "unique_issues_succeeded": 10
   },
-  "rescue_counts_by_type": {},
-  "truth_artifact_generated_at": "2026-04-30T16:01:55Z",
-  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260430T160155Z.json",
+  "rescue_counts_by_type": {
+    "rescue_no_deliverable": 1
+  },
+  "truth_artifact_generated_at": "2026-05-14T19:40:33Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/latest.json",
   "truth_metrics": {
     "merged_only_rate": 0.0,
     "no_rescue_truth_success_rate": 0.0,

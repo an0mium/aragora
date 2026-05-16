@@ -1209,7 +1209,7 @@ def cmd_gc(args: argparse.Namespace) -> int:
 
     if write:
         sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state(
-            include_summaries=False,
+            include_summaries=True,
             include_historical=True,
         )
         _write_session_snapshot(sessions)

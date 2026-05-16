@@ -206,11 +206,12 @@ Examples:
     _add_build_parser(subparsers)
     _add_essay_parser(subparsers)
 
-    # AGT-* operator surfaces (read-only)
+    # AGT-* / DIC-* operator surfaces (read-only)
     _add_metrics_parser(subparsers)
     _add_markets_parser(subparsers)
     _add_calibration_parser(subparsers)
     _add_cruxset_parser(subparsers)
+    _add_genealogy_parser(subparsers)  # DIC-24 / #6218
 
     # DIC-27: operator crux arbitration surface
     _add_crux_arbitrate_parser(subparsers)
@@ -224,7 +225,7 @@ Examples:
 
 
 def _add_metrics_parser(subparsers) -> None:
-    """Add the 'metrics' subcommand group with a 'viah' verb."""
+    """Add the 'metrics' subcommand group with 'viah' and 'status' verbs."""
     metrics_parser = subparsers.add_parser(
         "metrics",
         help="AGT-06: read VIAH and other operator metrics",
@@ -267,9 +268,31 @@ def _add_metrics_parser(subparsers) -> None:
     viah.add_argument("--json", action="store_true", help="Emit the report as JSON")
     viah.set_defaults(func=_lazy("aragora.cli.commands.agt_metrics", "cmd_metrics_viah"))
 
+    status = metrics_sub.add_parser(
+        "status",
+        help=("Print VIAH operator-truth Markdown report (gated: ARAGORA_VIAH_TREND_ENABLED=1)"),
+    )
+    status.add_argument(
+        "--ledger-path",
+        default=None,
+        help="Path to the ShiftLedger JSONL (default: DEFAULT_LEDGER_PATH)",
+    )
+    status.add_argument(
+        "--weeks",
+        type=int,
+        default=4,
+        help="Number of rolling weeks to include in the trend table (default: 4)",
+    )
+    status.add_argument(
+        "--output",
+        default=None,
+        help="Write the Markdown report to this file path instead of stdout",
+    )
+    status.set_defaults(func=_lazy("aragora.cli.commands.agt_metrics", "cmd_metrics_status"))
+
 
 def _add_markets_parser(subparsers) -> None:
-    """Add the 'markets' subcommand group with 'list' and 'predict' verbs."""
+    """Add the 'markets' subcommand group with list, predict, create, and resolve verbs."""
     markets_parser = subparsers.add_parser(
         "markets",
         help="AGT-04: inspect and interact with synthetic GitHub prediction markets",
@@ -320,6 +343,46 @@ def _add_markets_parser(subparsers) -> None:
     )
     pred.add_argument("--json", action="store_true", help="Emit the saved position as JSON")
     pred.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_predict"))
+
+    _store_arg = dict(
+        default=".aragora_markets", help="JSONL store directory (default: .aragora_markets)"
+    )
+    create = markets_sub.add_parser(
+        "create", help="Create a new synthetic GitHub prediction market"
+    )
+    create.add_argument(
+        "--type",
+        required=True,
+        choices=["pr_merge", "issue_close", "ci_pass"],
+        help="Question type",
+    )
+    create.add_argument("--repo", required=True, help="Repository in owner/name format")
+    create.add_argument(
+        "--number",
+        type=int,
+        metavar="INT",
+        help="PR/issue number (required for pr_merge and issue_close)",
+    )
+    create.add_argument("--ref", metavar="REF", help="Git ref (required for ci_pass)")
+    create.add_argument(
+        "--window-days",
+        type=int,
+        metavar="INT",
+        help="Resolution window in days (default: 7 for pr/ci, 30 for issues)",
+    )
+    create.add_argument("--store-dir", **_store_arg)
+    create.add_argument("--json", action="store_true", help="Emit created market as JSON")
+    create.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_create"))
+
+    resolve = markets_sub.add_parser("resolve", help="Manually resolve a market (operator action)")
+    resolve.add_argument("market_id", help="Market ID to resolve")
+    resolve.add_argument(
+        "--outcome", required=True, choices=["yes", "no", "inconclusive"], help="Resolution outcome"
+    )
+    resolve.add_argument("--evidence", default="", help="Optional free-text rationale")
+    resolve.add_argument("--store-dir", **_store_arg)
+    resolve.add_argument("--json", action="store_true", help="Emit resolution event as JSON")
+    resolve.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_resolve"))
 
 
 def _add_calibration_parser(subparsers) -> None:
@@ -467,6 +530,33 @@ def _add_cruxset_parser(subparsers) -> None:
         help="Re-emit the (verified) CruxSet as JSON instead of pretty-printing",
     )
     show.set_defaults(func=_lazy("aragora.cli.commands.agt_cruxset", "cmd_cruxset_show"))
+
+
+def _add_genealogy_parser(subparsers) -> None:
+    """Add the 'genealogy' subcommand group (DIC-24 / #6218).
+
+    Flag-gated: ARAGORA_GENEALOGY_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    gp = subparsers.add_parser(
+        "genealogy",
+        help="DIC-24: inspect epistemic genealogy ledger for proof-carrying code units",
+        description=(
+            "Read-only operator surface for the epistemic genealogy ledger. "
+            "Requires ARAGORA_GENEALOGY_ENABLED=1."
+        ),
+    )
+    gp_sub = gp.add_subparsers(dest="genealogy_cmd")
+    show = gp_sub.add_parser("show", help="Show lineage for one proof-carrying code unit")
+    show.add_argument("code_unit_id", help="The code_unit_id to look up")
+    show.add_argument(
+        "--store-file",
+        dest="store_file",
+        default=".aragora_genealogy.jsonl",
+        help="Path to the genealogy JSONL store (default: .aragora_genealogy.jsonl)",
+    )
+    show.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    show.set_defaults(func=_lazy("aragora.cli.commands.dic24_genealogy", "cmd_genealogy_show"))
 
 
 def _add_crux_arbitrate_parser(subparsers) -> None:

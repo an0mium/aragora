@@ -672,6 +672,12 @@ def _receipt_satisfies_outbox(
     receipt_payload: dict[str, Any],
 ) -> bool:
     reason = str(receipt_payload.get("reason") or "").strip().lower()
+    if _is_pr_open_request(payload):
+        created_issue_url = str(receipt_payload.get("created_issue_url") or "").strip()
+        existing_issue_url = str(receipt_payload.get("existing_issue_url") or "").strip()
+        if reason in {"published", "existing_issue"} or created_issue_url or existing_issue_url:
+            return False
+
     desired_head = _outbox_desired_head(payload)
     if reason != "target_open_pr" or not desired_head:
         return True
