@@ -213,6 +213,7 @@ Examples:
     _add_markets_parser(subparsers)
     _add_calibration_parser(subparsers)
     _add_cruxset_parser(subparsers)
+    _add_crux_followup_parser(subparsers)
     _add_genealogy_parser(subparsers)  # DIC-24 / #6218
 
     # DIC-27: operator crux arbitration surface
@@ -4142,6 +4143,54 @@ Examples:
         help="Preview parameters without running the debate",
     )
     crux_parser.set_defaults(func=_lazy("aragora.cli.commands.crux", "cmd_crux"))
+
+
+def _add_crux_followup_parser(subparsers) -> None:
+    """Add the 'crux-followup' subcommand for DIC-17 follow-up proposals."""
+    from aragora.epistemic.followup import DEFAULT_CRUX_LOAD_BEARING_THRESHOLD
+
+    p = subparsers.add_parser(
+        "crux-followup",
+        help="Generate DIC-17 follow-up proposals from a CruxSet (flag-gated filing)",
+        description="""
+Read a signed CruxSet JSON file and emit bounded DIC-17 FollowupProposals for
+load-bearing cruxes above --threshold.  Default: dry-run (print proposals only).
+Filing via --file-issues requires ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED=1.
+
+Examples:
+  aragora crux-followup cruxset.json
+  aragona crux-followup cruxset.json --threshold 0.7 --json
+  aragora crux-followup cruxset.json --file-issues --repo owner/repo
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument("cruxset_file", help="Path to CruxSet JSON file (- for stdin)")
+    p.add_argument(
+        "--threshold",
+        type=float,
+        default=DEFAULT_CRUX_LOAD_BEARING_THRESHOLD,
+        help=f"Minimum load_bearing_score for a crux to qualify (default: {DEFAULT_CRUX_LOAD_BEARING_THRESHOLD})",
+    )
+    p.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        dest="top_k",
+        help="Maximum proposals to emit (default: 5)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of human-readable text")
+    p.add_argument(
+        "--file-issues",
+        action="store_true",
+        dest="file_issues",
+        help="File proposals via gh cli (requires ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED=1)",
+    )
+    p.add_argument(
+        "--repo",
+        default="",
+        help="GitHub repo (owner/name) for --file-issues",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.crux_followup", "cmd_crux_followup"))
 
 
 def _add_build_parser(subparsers) -> None:
