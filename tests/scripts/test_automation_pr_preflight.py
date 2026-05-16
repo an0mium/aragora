@@ -202,6 +202,41 @@ def test_automation_pr_preflight_rejects_rescue_publish_artifacts(
     )
 
 
+def test_automation_pr_preflight_rejects_reports_rescue_publish_artifacts(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/bad-reports-rescue-publish"], cwd=repo)
+    publish_dir = repo / "reports" / "rescue_productization"
+    publish_dir.mkdir(parents=True)
+    latest = publish_dir / "latest.json"
+    timestamped = publish_dir / "rescue-productization-20260516T162243Z.json"
+    latest.write_text('{"generated_at": "2026-05-16T16:22:43Z"}\n', encoding="utf-8")
+    timestamped.write_text(
+        '{"generated_at": "2026-05-16T16:22:43Z"}\n',
+        encoding="utf-8",
+    )
+    _run(
+        [
+            "git",
+            "add",
+            "reports/rescue_productization/latest.json",
+            "reports/rescue_productization/rescue-productization-20260516T162243Z.json",
+        ],
+        cwd=repo,
+    )
+    _run(["git", "commit", "-m", "bad: commit rescue publish artifacts"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 1
+    assert "rescue productization publish artifacts" in proc.stderr
+    assert "reports/rescue_productization/latest.json" in proc.stderr
+    assert (
+        "reports/rescue_productization/rescue-productization-20260516T162243Z.json" in proc.stderr
+    )
+
+
 def test_automation_pr_preflight_rejects_rescue_publish_latest_pointer(
     tmp_path: Path,
 ) -> None:
