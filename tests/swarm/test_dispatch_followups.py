@@ -693,3 +693,317 @@ def test_maybe_upgrade_dispatch_spec_chains_into_corpus_path(monkeypatch, tmp_pa
     assert result is spec
     assert spec.is_dispatch_bounded()
     heuristic_mock.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# PR-2 of #7209 — credential-envelope corpus synthesis tests (flag-gated, default OFF)
+# ---------------------------------------------------------------------------
+
+
+def _envelope_with_all_missing_slices():
+    """Build a CredentialEnvelope whose ``missing_slices()`` returns all 5.
+
+    Constructed via ``from_environment({})`` rather than synthesizing
+    placeholder slices manually so the test exercises the same constructor
+    surface the production code uses.
+    """
+    from aragora.swarm.credential_envelope import CredentialEnvelope
+
+    return CredentialEnvelope.from_environment({})
+
+
+def _envelope_with_no_missing_slices():
+    """Build a CredentialEnvelope that already passes ``is_complete()``."""
+    from aragora.swarm.credential_envelope import CredentialEnvelope
+
+    env = {
+        "ARAGORA_RUNNER_PROFILE": "default",
+        "CLAUDE_COMMAND": "/usr/bin/claude",
+        "ARAGORA_RUNNER_AUTH_MODE": "profile",
+        "SSH_AUTH_SOCK": "/tmp/ssh-agent.sock",
+        "GH_TOKEN": "gh-token-stub",
+        "OPENAI_API_KEY": "sk-stub",
+        "ARAGORA_PROVIDER": "openai",
+        "ARAGORA_CAN_RUN_PYTEST": "1",
+        "ARAGORA_CAN_RUN_RUFF": "1",
+    }
+    return CredentialEnvelope.from_environment(env)
+
+
+def test_credential_envelope_probe_off_by_default_returns_none(monkeypatch, tmp_path: Path) -> None:
+    from aragora.swarm.dispatch_followups import (
+        maybe_synthesize_credential_envelope_from_corpus,
+    )
+
+    monkeypatch.delenv("ARAGORA_CREDENTIAL_ENVELOPE_PROBE", raising=False)
+    _write_corpus(
+        tmp_path,
+        [
+            _corpus_issue(
+                5789,
+                execution_class="exception_narrowing",
+                terminal_classes=["blocked_auth_failure"],
+            )
+        ],
+    )
+    issue = SimpleNamespace(number=5789, title="Narrow broad except in helper")
+    envelope = _envelope_with_all_missing_slices()
+    assert envelope.missing_slices(), "fixture pre-condition"
+
+    result = maybe_synthesize_credential_envelope_from_corpus(
+        issue=issue, envelope=envelope, repo_root=tmp_path
+    )
+
+    assert result is None
+
+
+def test_credential_envelope_probe_no_missing_slices_returns_none(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from aragora.swarm.dispatch_followups import (
+        maybe_synthesize_credential_envelope_from_corpus,
+    )
+
+    monkeypatch.setenv("ARAGORA_CREDENTIAL_ENVELOPE_PROBE", "1")
+    _write_corpus(
+        tmp_path,
+        [
+            _corpus_issue(
+                5789,
+                execution_class="exception_narrowing",
+                terminal_classes=["blocked_auth_failure"],
+            )
+        ],
+    )
+    issue = SimpleNamespace(number=5789, title="Narrow broad except in helper")
+    envelope = _envelope_with_no_missing_slices()
+    assert envelope.missing_slices() == [], "fixture pre-condition"
+
+    result = maybe_synthesize_credential_envelope_from_corpus(
+        issue=issue, envelope=envelope, repo_root=tmp_path
+    )
+
+    assert result is None
+
+
+def test_credential_envelope_probe_non_corpus_issue_returns_none(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from aragora.swarm.dispatch_followups import (
+        maybe_synthesize_credential_envelope_from_corpus,
+    )
+
+    monkeypatch.setenv("ARAGORA_CREDENTIAL_ENVELOPE_PROBE", "1")
+    _write_corpus(
+        tmp_path,
+        [
+            _corpus_issue(
+                5789,
+                execution_class="exception_narrowing",
+                terminal_classes=["blocked_auth_failure"],
+            )
+        ],
+    )
+    issue = SimpleNamespace(number=9999, title="Some unrelated issue")
+    envelope = _envelope_with_all_missing_slices()
+
+    result = maybe_synthesize_credential_envelope_from_corpus(
+        issue=issue, envelope=envelope, repo_root=tmp_path
+    )
+
+    assert result is None
+
+
+def test_credential_envelope_probe_non_whitelisted_execution_class_returns_none(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from aragora.swarm.dispatch_followups import (
+        maybe_synthesize_credential_envelope_from_corpus,
+    )
+
+    monkeypatch.setenv("ARAGORA_CREDENTIAL_ENVELOPE_PROBE", "1")
+    # ``docs_reconciliation`` is outside the PR-1 execution_class whitelist.
+    _write_corpus(
+        tmp_path,
+        [
+            _corpus_issue(
+                5844,
+                execution_class="docs_reconciliation",
+                terminal_classes=["blocked_auth_failure"],
+            )
+        ],
+    )
+    issue = SimpleNamespace(number=5844, title="Reconcile docs/STATUS.md")
+    envelope = _envelope_with_all_missing_slices()
+
+    result = maybe_synthesize_credential_envelope_from_corpus(
+        issue=issue, envelope=envelope, repo_root=tmp_path
+    )
+
+    assert result is None
+
+
+def test_credential_envelope_probe_no_auth_terminal_class_returns_none(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from aragora.swarm.dispatch_followups import (
+        maybe_synthesize_credential_envelope_from_corpus,
+    )
+
+    monkeypatch.setenv("ARAGORA_CREDENTIAL_ENVELOPE_PROBE", "1")
+    # Corpus member with only ``blocked_not_dispatch_bounded`` terminal history.
+    _write_corpus(
+        tmp_path,
+        [
+            _corpus_issue(
+                5185,
+                execution_class="missing_test_coverage",
+                terminal_classes=["blocked_not_dispatch_bounded"],
+            )
+        ],
+    )
+    issue = SimpleNamespace(number=5185, title="Add unit tests for utils/sql_helpers.py")
+    envelope = _envelope_with_all_missing_slices()
+
+    result = maybe_synthesize_credential_envelope_from_corpus(
+        issue=issue, envelope=envelope, repo_root=tmp_path
+    )
+
+    assert result is None
+
+
+def test_credential_envelope_probe_synthesizes_when_all_conditions_met(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from aragora.swarm.dispatch_followups import (
+        maybe_synthesize_credential_envelope_from_corpus,
+    )
+
+    monkeypatch.setenv("ARAGORA_CREDENTIAL_ENVELOPE_PROBE", "1")
+    _write_corpus(
+        tmp_path,
+        [
+            _corpus_issue(
+                5789,
+                execution_class="exception_narrowing",
+                terminal_classes=["blocked_auth_failure"],
+            )
+        ],
+    )
+    issue = SimpleNamespace(number=5789, title="Narrow broad except in helper")
+    envelope = _envelope_with_all_missing_slices()
+    assert envelope.missing_slices() == [
+        "runner",
+        "git",
+        "github_api",
+        "provider",
+        "verification",
+    ], "fixture pre-condition"
+
+    result = maybe_synthesize_credential_envelope_from_corpus(
+        issue=issue, envelope=envelope, repo_root=tmp_path
+    )
+
+    assert result is not None
+    assert result is not envelope, "synthesizer returns a new envelope, not the input"
+    assert result.missing_slices() == [], (
+        "synthesized envelope must have no missing slices",
+        result.missing_slices(),
+    )
+    # Corpus markers are present so downstream telemetry can identify probe envelopes.
+    assert result.runner.profile == "corpus_admitted"
+    assert result.provider.provider_name == "corpus_admitted"
+    assert result.runner.auth_mode == "profile"
+
+
+def test_credential_envelope_probe_preserves_already_complete_slices(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from aragora.swarm.credential_envelope import CredentialEnvelope
+    from aragora.swarm.dispatch_followups import (
+        maybe_synthesize_credential_envelope_from_corpus,
+    )
+
+    monkeypatch.setenv("ARAGORA_CREDENTIAL_ENVELOPE_PROBE", "1")
+    _write_corpus(
+        tmp_path,
+        [
+            _corpus_issue(
+                5789,
+                execution_class="exception_narrowing",
+                terminal_classes=["blocked_auth_failure"],
+            )
+        ],
+    )
+    issue = SimpleNamespace(number=5789, title="Narrow broad except in helper")
+    # An envelope where ``runner`` and ``provider`` are already complete but
+    # everything else is missing.
+    partial_env = {
+        "ARAGORA_RUNNER_PROFILE": "real_operator_profile",
+        "ARAGORA_RUNNER_AUTH_MODE": "profile",
+        "OPENAI_API_KEY": "sk-real-operator",
+        "ARAGORA_PROVIDER": "openai",
+    }
+    envelope = CredentialEnvelope.from_environment(partial_env)
+    pre_missing = set(envelope.missing_slices())
+    assert "runner" not in pre_missing
+    assert "provider" not in pre_missing
+    assert {"git", "github_api", "verification"} <= pre_missing
+
+    result = maybe_synthesize_credential_envelope_from_corpus(
+        issue=issue, envelope=envelope, repo_root=tmp_path
+    )
+
+    assert result is not None
+    # Real operator slices preserved verbatim:
+    assert result.runner.profile == "real_operator_profile"
+    assert result.provider.provider_name == "openai"
+    # Synthesized slices are now complete:
+    assert result.missing_slices() == []
+
+
+def test_credential_envelope_probe_handles_missing_corpus_file(monkeypatch, tmp_path: Path) -> None:
+    from aragora.swarm.dispatch_followups import (
+        maybe_synthesize_credential_envelope_from_corpus,
+    )
+
+    monkeypatch.setenv("ARAGORA_CREDENTIAL_ENVELOPE_PROBE", "1")
+    # ``tmp_path`` has no docs/benchmarks/corpus.json -- the lookup must
+    # fall through silently rather than raise.
+    issue = SimpleNamespace(number=5789, title="Narrow broad except in helper")
+    envelope = _envelope_with_all_missing_slices()
+
+    result = maybe_synthesize_credential_envelope_from_corpus(
+        issue=issue, envelope=envelope, repo_root=tmp_path
+    )
+
+    assert result is None
+
+
+def test_credential_envelope_probe_handles_envelope_without_missing_slices_method(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Defensive: a non-envelope object should yield None rather than raise."""
+    from aragora.swarm.dispatch_followups import (
+        maybe_synthesize_credential_envelope_from_corpus,
+    )
+
+    monkeypatch.setenv("ARAGORA_CREDENTIAL_ENVELOPE_PROBE", "1")
+    _write_corpus(
+        tmp_path,
+        [
+            _corpus_issue(
+                5789,
+                execution_class="exception_narrowing",
+                terminal_classes=["blocked_auth_failure"],
+            )
+        ],
+    )
+    issue = SimpleNamespace(number=5789, title="Narrow broad except in helper")
+    envelope = SimpleNamespace()  # no ``missing_slices`` attribute
+
+    result = maybe_synthesize_credential_envelope_from_corpus(
+        issue=issue, envelope=envelope, repo_root=tmp_path
+    )
+
+    assert result is None

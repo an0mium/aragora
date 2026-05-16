@@ -763,3 +763,116 @@ class TestDispatchContractGate:
 
         assert result is not None
         assert result["dispatch_contract"]["target_agent"] == "claude"
+
+
+# ---------------------------------------------------------------------------
+# PR-2 of #7209 — credential-envelope corpus synthesis wiring
+# ---------------------------------------------------------------------------
+
+
+class TestDispatchContractGateCredentialEnvelopeSynthesis:
+    def test_synthesizer_replaces_envelope_when_returning_a_new_one(self, tmp_path) -> None:
+        """When the synthesizer returns an envelope, the gate uses it for missing_slices."""
+        loop = _make_loop()
+        issue = _make_issue(5789)
+        spec = MagicMock()
+        spec.work_orders = None
+        spec.file_scope_hints = []
+        spec.mission_context_policies = {}
+
+        env_missing = MagicMock()
+        env_missing.missing_slices.return_value = ["runner"]
+        env_missing.preflight_cache_payload.return_value = {"runner": {"available": False}}
+
+        env_synth = MagicMock()
+        env_synth.missing_slices.return_value = []
+        env_synth.preflight_cache_payload.return_value = {"runner": {"available": True}}
+
+        with (
+            patch(
+                "aragora.swarm.dispatch_contract_gate.build_worker_contract",
+                return_value=_make_valid_contract_mock(),
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.CredentialEnvelope.from_environment",
+                return_value=env_missing,
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.maybe_synthesize_credential_envelope_from_corpus",
+                return_value=env_synth,
+            ) as synth_mock,
+            patch(
+                "aragora.swarm.dispatch_contract_gate._persist_preview_contract",
+                return_value=tmp_path / "contract.json",
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt",
+                return_value=_make_passing_receipt(),
+            ),
+        ):
+            result = dispatch_contract_gate(
+                loop,
+                issue,
+                spec,
+                selected_runner=None,
+                requested_target_agent="codex",
+                worker_env=None,
+                claimed_runner_id=None,
+            )
+
+        # Synthesizer was consulted with the env-derived envelope and the issue:
+        synth_mock.assert_called_once()
+        call_kwargs = synth_mock.call_args.kwargs
+        assert call_kwargs["issue"] is issue
+        assert call_kwargs["envelope"] is env_missing
+        # The gate used the synthesized envelope's missing_slices (empty),
+        # so admission proceeded all the way to the passing receipt and the
+        # gate returned ``None`` (i.e. dispatch is allowed).
+        assert result is None
+
+    def test_synthesizer_returning_none_leaves_original_envelope_in_place(self, tmp_path) -> None:
+        """When the synthesizer returns None, the gate keeps the env-derived envelope."""
+        loop = _make_loop()
+        issue = _make_issue(9999)
+        spec = MagicMock()
+        spec.work_orders = None
+        spec.file_scope_hints = []
+        spec.mission_context_policies = {}
+
+        env_missing = MagicMock()
+        env_missing.missing_slices.return_value = ["runner"]
+        env_missing.preflight_cache_payload.return_value = {"runner": {"available": False}}
+
+        with (
+            patch(
+                "aragora.swarm.dispatch_contract_gate.build_worker_contract",
+                return_value=_make_valid_contract_mock(),
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.CredentialEnvelope.from_environment",
+                return_value=env_missing,
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.maybe_synthesize_credential_envelope_from_corpus",
+                return_value=None,
+            ) as synth_mock,
+            patch(
+                "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt"
+            ) as preflight_mock,
+        ):
+            result = dispatch_contract_gate(
+                loop,
+                issue,
+                spec,
+                selected_runner=None,
+                requested_target_agent=None,
+                worker_env=None,
+                claimed_runner_id=None,
+            )
+
+        synth_mock.assert_called_once()
+        # Original envelope's ``missing_slices()`` won, so the gate short-circuited:
+        assert result is not None
+        assert result["outcome"] == "blocked_auth_failure"
+        assert "runner" in result["dispatch_contract"]["missing_slices"]
+        preflight_mock.assert_not_called()

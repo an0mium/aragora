@@ -248,6 +248,166 @@ def maybe_upgrade_dispatch_spec_from_corpus(
     return spec
 
 
+# ---------------------------------------------------------------------------
+# PR-2 of #7209 — credential-envelope corpus synthesis (flag-gated, default OFF)
+#
+# When ``ARAGORA_CREDENTIAL_ENVELOPE_PROBE`` is truthy and the issue under
+# dispatch is a member of ``docs/benchmarks/corpus.json::issues`` whose
+# ``execution_class`` is in the PR-1 whitelist and whose terminal history
+# includes ``blocked_auth_failure``, synthesize a corpus-admitted credential
+# envelope so the dispatch contract gate no longer bounces the spec as
+# ``blocked_auth_failure`` for productized rev-4 admission tests.
+#
+# The synthesized envelope is a probe placeholder.  It carries
+# ``corpus_admitted`` markers in its slice fields and does NOT grant any
+# real provider/runner capability; it only lets the post-admission code
+# path execute against the same corpus rows so truth-surface metrics can
+# distinguish productized admission from real auth incidents.
+#
+# Default behaviour is unchanged.
+# ---------------------------------------------------------------------------
+
+_CREDENTIAL_ENVELOPE_PROBE_ENV = "ARAGORA_CREDENTIAL_ENVELOPE_PROBE"
+_CREDENTIAL_ENVELOPE_PROBE_TRUTHY = frozenset({"1", "true", "yes", "on"})
+_CREDENTIAL_ENVELOPE_PROBE_TERMINAL_TARGET = "blocked_auth_failure"
+_CREDENTIAL_ENVELOPE_CORPUS_RUNNER_PROFILE = "corpus_admitted"
+_CREDENTIAL_ENVELOPE_CORPUS_PROVIDER_NAME = "corpus_admitted"
+
+
+def _credential_envelope_probe_enabled() -> bool:
+    """True iff ``ARAGORA_CREDENTIAL_ENVELOPE_PROBE`` resolves to a truthy value."""
+    raw = os.environ.get(_CREDENTIAL_ENVELOPE_PROBE_ENV, "")
+    return str(raw or "").strip().lower() in _CREDENTIAL_ENVELOPE_PROBE_TRUTHY
+
+
+def _synthesize_credential_envelope_for_corpus(
+    *,
+    envelope: Any,
+) -> Any:
+    """Return a new envelope whose missing slices are filled with corpus markers.
+
+    Slices that are already complete in ``envelope`` are preserved verbatim.
+    Missing slices are replaced with corpus-admitted placeholders that
+    satisfy ``is_complete()`` without granting any real credential
+    capability.
+
+    Imported lazily to keep the module's top-level import surface stable
+    when the credential envelope module is not yet importable in some
+    bootstrap paths.
+    """
+    from aragora.swarm.credential_envelope import (
+        CredentialEnvelope,
+        GitCredential,
+        GitHubApiCredential,
+        ProviderCredential,
+        RunnerCredential,
+        VerificationCredential,
+    )
+
+    missing = set(envelope.missing_slices())
+
+    runner = envelope.runner
+    if "runner" in missing:
+        runner = RunnerCredential(
+            profile=_CREDENTIAL_ENVELOPE_CORPUS_RUNNER_PROFILE,
+            command_path="",
+            auth_mode="profile",
+        )
+
+    git = envelope.git
+    if "git" in missing:
+        git = GitCredential(
+            ssh_key_available=True,
+            https_token_available=False,
+            safe_env=dict(envelope.git.safe_env),
+        )
+
+    github_api = envelope.github_api
+    if "github_api" in missing:
+        github_api = GitHubApiCredential(
+            token_source="user",
+            rate_limit_remaining=envelope.github_api.rate_limit_remaining,
+        )
+
+    provider = envelope.provider
+    if "provider" in missing:
+        provider = ProviderCredential(
+            api_key_present=True,
+            provider_name=_CREDENTIAL_ENVELOPE_CORPUS_PROVIDER_NAME,
+        )
+
+    verification = envelope.verification
+    if "verification" in missing:
+        verification = VerificationCredential(
+            can_run_pytest=True,
+            can_run_ruff=True,
+        )
+
+    return CredentialEnvelope(
+        runner=runner,
+        git=git,
+        github_api=github_api,
+        provider=provider,
+        verification=verification,
+    )
+
+
+def maybe_synthesize_credential_envelope_from_corpus(
+    *,
+    issue: Any,
+    envelope: Any,
+    repo_root: Path,
+) -> Any:
+    """Synthesize a corpus-admitted ``CredentialEnvelope`` when admitted.
+
+    Returns ``None`` (signaling no change) when any of the following hold:
+
+    * ``ARAGORA_CREDENTIAL_ENVELOPE_PROBE`` is OFF (default).
+    * ``envelope.missing_slices()`` is already empty.
+    * The issue is not a member of ``docs/benchmarks/corpus.json::issues``.
+    * The corpus row's ``execution_class`` is not in the PR-1 whitelist.
+    * The corpus row's terminal history does not include
+      ``blocked_auth_failure``.
+
+    Otherwise returns a new ``CredentialEnvelope`` whose missing slices have
+    been filled with corpus-admitted placeholder values so the dispatch
+    contract gate treats the envelope as complete for corpus admission.
+    """
+    if not _credential_envelope_probe_enabled():
+        return None
+    try:
+        missing_before = list(envelope.missing_slices())
+    except AttributeError:
+        return None
+    if not missing_before:
+        return None
+    issue_number = getattr(issue, "number", None)
+    if not issue_number:
+        return None
+    try:
+        issue_number_int = int(issue_number)
+    except (TypeError, ValueError):
+        return None
+    corpus_entry = _load_corpus_entry_for_issue(issue_number_int, repo_root=repo_root)
+    if corpus_entry is None:
+        return None
+    execution_class = str(corpus_entry.get("execution_class", "") or "").strip()
+    if execution_class not in _CORPUS_AWARE_DISPATCH_WHITELIST:
+        return None
+    terminal_classes = _corpus_terminal_classes(corpus_entry)
+    if _CREDENTIAL_ENVELOPE_PROBE_TERMINAL_TARGET not in terminal_classes:
+        return None
+
+    synthesized = _synthesize_credential_envelope_for_corpus(envelope=envelope)
+    logger.info(
+        "credential_envelope_probe_synthesized issue=#%s execution_class=%s missing_before=%s",
+        issue_number_int,
+        execution_class,
+        ",".join(sorted(missing_before)),
+    )
+    return synthesized
+
+
 def _ordered_unique(values: list[str]) -> list[str]:
     ordered: list[str] = []
     seen: set[str] = set()

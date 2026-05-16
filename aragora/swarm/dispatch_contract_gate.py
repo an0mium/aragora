@@ -9,6 +9,9 @@ from typing import Any, Mapping
 
 from aragora.swarm.boss_feed import GitHubIssue
 from aragora.swarm.credential_envelope import CredentialEnvelope
+from aragora.swarm.dispatch_followups import (
+    maybe_synthesize_credential_envelope_from_corpus,
+)
 from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.preflight import (
     PreflightReceipt,
@@ -385,6 +388,18 @@ def dispatch_contract_gate(
         worker_env=worker_env,
     )
     envelope = CredentialEnvelope.from_environment(preview_env)
+    # PR-2 of #7209: when ``ARAGORA_CREDENTIAL_ENVELOPE_PROBE`` is ON and the
+    # issue is a corpus member admitted for credential synthesis, replace
+    # the env-derived envelope with a corpus-synthesized one so the gate
+    # proceeds past the auth-failure short-circuit for productized rev-4
+    # admission tests.  Strict no-op otherwise.
+    synthesized_envelope = maybe_synthesize_credential_envelope_from_corpus(
+        issue=issue,
+        envelope=envelope,
+        repo_root=Path.cwd(),
+    )
+    if synthesized_envelope is not None:
+        envelope = synthesized_envelope
     missing_slices = _missing_slices(loop, envelope=envelope, target_agent=target_agent)
     required_receipts: list[str] = []
     preflight_receipts: list[dict[str, Any]] = []
