@@ -232,7 +232,6 @@ def find_thread(thread_id: str, *, paths: CodexDesktopPaths | None = None) -> Th
     cleaned = thread_id.strip()
     if len(cleaned) < 8:
         return None
-    pattern = cleaned + "%"
     sql = """
         SELECT
             id, COALESCE(title, '') AS title, cwd,
@@ -245,12 +244,12 @@ def find_thread(thread_id: str, *, paths: CodexDesktopPaths | None = None) -> Th
             source,
             COALESCE(first_user_message, '') AS first_user_message
         FROM threads
-        WHERE id = ? OR id LIKE ?
+        WHERE id = ? OR substr(id, 1, ?) = ?
         ORDER BY updated_at DESC
         LIMIT 1
     """
     with sqlite_ro(paths.sqlite_path) as conn:
-        row = conn.execute(sql, (cleaned, pattern)).fetchone()
+        row = conn.execute(sql, (cleaned, len(cleaned), cleaned)).fetchone()
     if row is None:
         return None
     return ThreadSummary(
@@ -390,13 +389,10 @@ def summarize_session(
                         first_user = text
                     last_user = text
 
-            tool_name = (
-                payload.get("tool_name")
-                or payload.get("name")
-                or (payload.get("tool_call") or {}).get("name")
-                if isinstance(payload.get("tool_call"), dict)
-                else payload.get("tool_name") or payload.get("name")
-            )
+            tool_name = payload.get("tool_name") or payload.get("name")
+            tool_call = payload.get("tool_call")
+            if not tool_name and isinstance(tool_call, dict):
+                tool_name = tool_call.get("name")
             if isinstance(tool_name, str) and tool_name and event_type.endswith("tool_call"):
                 tool_call_counts[tool_name] = tool_call_counts.get(tool_name, 0) + 1
 

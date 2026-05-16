@@ -90,6 +90,18 @@ def test_sqlite_ro_rejects_writes(fake_codex_home) -> None:  # type: ignore[no-u
         assert "readonly" in str(excinfo.value).lower()
 
 
+def test_sqlite_ro_handles_uri_reserved_path_chars(tmp_path: Path) -> None:
+    db_path = tmp_path / "codex ?# state.sqlite"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("CREATE TABLE sample (value TEXT NOT NULL)")
+        conn.execute("INSERT INTO sample (value) VALUES ('ok')")
+
+    with sqlite_ro(db_path) as conn:
+        row = conn.execute("SELECT value FROM sample").fetchone()
+
+    assert row["value"] == "ok"
+
+
 # -- inspector listing --------------------------------------------------------
 
 
@@ -204,6 +216,13 @@ def test_find_thread_accepts_prefix(fake_codex_home) -> None:  # type: ignore[no
     thread = inspector.find_thread(prefix)
     assert thread is not None
     assert thread.id == fake_codex_home.recent_thread_id
+
+
+def test_find_thread_treats_like_wildcards_as_literal(fake_codex_home) -> None:  # type: ignore[no-untyped-def]
+    wildcard_prefix = (
+        fake_codex_home.recent_thread_id[:3] + "_" + fake_codex_home.recent_thread_id[4:8]
+    )
+    assert inspector.find_thread(wildcard_prefix) is None
 
 
 def test_find_thread_rejects_short_prefix(fake_codex_home) -> None:  # type: ignore[no-untyped-def]

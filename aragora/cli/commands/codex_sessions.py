@@ -271,8 +271,10 @@ def cmd_codex_sessions_tail(args: argparse.Namespace) -> int:
                     continue
                 current_size = rollout.stat().st_size
                 prev = offsets.get(rollout, current_size if args.from_start is False else 0)
-                if current_size <= prev:
-                    offsets[rollout] = current_size
+                if current_size < prev:
+                    prev = 0
+                    offsets[rollout] = 0
+                if current_size == prev:
                     continue
                 for event, next_offset in iter_session_events_from_offset(
                     rollout,
