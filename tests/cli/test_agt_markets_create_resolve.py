@@ -123,6 +123,12 @@ def test_create_invalid_repo_nonzero(tmp_path):
     assert rc != 0
 
 
+def test_create_zero_window_nonzero(tmp_path, capsys):
+    rc = cmd_markets_create(_create_args(tmp_path, window_days=0))
+    assert rc == 1
+    assert "resolution_window_days" in capsys.readouterr().err
+
+
 def test_create_duplicate_market_nonzero(tmp_path, capsys, monkeypatch):
     created_at = datetime(2026, 1, 1, tzinfo=UTC)
     times = iter([created_at, created_at + timedelta(seconds=1)])

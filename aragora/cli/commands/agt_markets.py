@@ -130,7 +130,8 @@ def cmd_markets_create(args: argparse.Namespace) -> int:
     base_dir = Path(getattr(args, "store_dir", ".aragora_markets")).expanduser()
     kind: str = args.type
     repo: str = args.repo
-    window: int = getattr(args, "window_days", None) or _DEFAULT_WINDOW[kind]
+    window_arg = getattr(args, "window_days", None)
+    window: int = _DEFAULT_WINDOW[kind] if window_arg is None else window_arg
     emit_json: bool = getattr(args, "json", False)
 
     if kind in {"pr_merge", "issue_close"}:
