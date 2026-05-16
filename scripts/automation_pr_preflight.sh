@@ -18,6 +18,7 @@ Checks:
   - diff has no whitespace errors
   - session/log/coordination artifacts are not committed
   - rescue productization publish artifacts are not committed
+  - synthetic preflight validation commits/scratch diffs are not published
   - source changes without test changes are called out for operator review
 EOF
 }
