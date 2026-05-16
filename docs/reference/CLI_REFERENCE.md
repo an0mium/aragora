@@ -6,8 +6,8 @@
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **95**
-- Total top-level invocations (including aliases): **96**
+- Canonical top-level commands: **96**
+- Total top-level invocations (including aliases): **97**
 
 ## Installation
 
@@ -62,6 +62,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `costs` | - | Cost tracking and billing management commands | `agents`, `budget`, `dashboard`, `forecast`, `report`, `usage` |
 | `cross-pollination` | `xpoll` | Cross-pollination event system diagnostics | - |
 | `crux` | - | Find load-bearing disagreements on a question (crux-finder debate) | - |
+| `crux-arbitrate` | - | DIC-27: resolve persistent cruxes as reversible signed arbitration receipts | - |
 | `cruxset` | - | AGT-01: inspect CruxSet payloads emitted by the debate path | `show` |
 | `decide` | - | Run full decision pipeline: debate → plan → execute | - |
 | `demo` | - | Run a self-contained adversarial debate demo (no API keys needed) | - |
