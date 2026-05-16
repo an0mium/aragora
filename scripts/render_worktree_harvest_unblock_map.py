@@ -81,7 +81,7 @@ def _candidate_row(candidate: dict[str, Any]) -> dict[str, Any]:
     if candidate.get("cleanup_candidate") is True:
         next_command = (
             f"{MUTATION_WARNING_PREFIX}python3 scripts/safe_worktree_cleanup.py "
-            f"--repo /Users/armand/Development/aragora inspect {json.dumps(path)} --json"
+            f"inspect {json.dumps(path)} --json"
         )
     elif family == "dirty uncommitted changes":
         next_command = f"{MUTATION_WARNING_PREFIX}git -C {json.dumps(repo_path)} status --short"

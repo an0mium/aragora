@@ -130,6 +130,7 @@ def test_rendered_next_commands_are_read_only_guidance() -> None:
     for row in rows:
         command = row["next_command"]
         assert command.startswith("DO NOT RUN: ")
+        assert "/Users/armand/Development/aragora" not in command
         assert " rm " not in f" {command} "
         assert "git branch -D" not in command
         assert "git push --force" not in command
