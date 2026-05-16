@@ -8,7 +8,6 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 from dataclasses import asdict, dataclass
 from collections.abc import Mapping
 from pathlib import Path
