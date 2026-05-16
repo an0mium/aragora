@@ -17,6 +17,7 @@ Checks:
   - branch has a non-empty diff versus the base
   - diff has no whitespace errors
   - session/log/coordination artifacts are not committed
+  - rescue productization publish artifacts are not committed
   - source changes without test changes are called out for operator review
 EOF
 }
@@ -65,6 +66,14 @@ forbidden_files="$(printf '%s\n' "${changed_files}" | grep -E "${forbidden_regex
 if [[ -n "${forbidden_files}" ]]; then
     echo "preflight: automation/session artifacts must not be committed:" >&2
     printf '%s\n' "${forbidden_files}" >&2
+    exit 1
+fi
+
+rescue_publish_regex='(^|/)(latest\.json|rescue-productization-[0-9]{8}T[0-9]{6}Z\.json)$'
+rescue_publish_files="$(printf '%s\n' "${changed_files}" | grep -E "${rescue_publish_regex}" || true)"
+if [[ -n "${rescue_publish_files}" ]]; then
+    echo "preflight: rescue productization publish artifacts must not be committed:" >&2
+    printf '%s\n' "${rescue_publish_files}" >&2
     exit 1
 fi
 
