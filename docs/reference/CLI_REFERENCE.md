@@ -64,6 +64,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `cross-pollination` | `xpoll` | Cross-pollination event system diagnostics | - |
 | `crux` | - | Find load-bearing disagreements on a question (crux-finder debate) | - |
 | `crux-arbitrate` | - | DIC-27: resolve persistent cruxes as reversible signed arbitration receipts | - |
+| `crux-followup` | - | Generate DIC-17 follow-up proposals from a CruxSet (flag-gated filing) | - |
 | `cruxset` | - | AGT-01: inspect CruxSet payloads emitted by the debate path | `show` |
 | `decide` | - | Run full decision pipeline: debate → plan → execute | - |
 | `demo` | - | Run a self-contained adversarial debate demo (no API keys needed) | - |
