@@ -4,6 +4,7 @@ import json
 import subprocess
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -91,7 +92,7 @@ async def test_run_review_pr_loop_review_only_writes_artifact(
         )
 
     monkeypatch.setattr(review_pr, "_run_review_pass", _fake_review)
-    published: dict[str, object] = {}
+    published: dict[str, Any] = {}
 
     async def _fake_publish(**kwargs: object) -> dict[str, object]:
         published.update(kwargs)
@@ -333,7 +334,7 @@ async def test_run_review_pr_loop_auto_reruns_after_fix(
 
     monkeypatch.setattr(review_pr, "_run_review_pass", _fake_review)
     monkeypatch.setattr(review_pr, "_run_fix_pass", _fake_fix)
-    published: dict[str, object] = {}
+    published: dict[str, Any] = {}
 
     async def _fake_publish(**kwargs: object) -> dict[str, object]:
         published.update(kwargs)
