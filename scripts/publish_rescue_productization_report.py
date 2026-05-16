@@ -412,6 +412,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.json:
         print(json.dumps(payload, indent=2))
+    elif args.dry_run:
+        print("dry-run: not published")
     else:
         if published is None:
             print("dry-run: report bundle not published")
