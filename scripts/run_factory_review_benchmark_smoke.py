@@ -23,6 +23,7 @@ DEFAULT_OUTPUT = (
     / "planned-run.json"
 )
 DEFAULT_ARTIFACT_ROOT = REPO_ROOT / ".aragora" / "factory-review-benchmark" / "smoke"
+DEFAULT_RECEIPT_OUTPUT = DEFAULT_ARTIFACT_ROOT / "latest-execution-receipt.json"
 REQUIRED_CASE_FIELDS = {
     "case_id",
     "repo",
@@ -158,7 +159,7 @@ def _current_pr_head_sha(pr_url: str) -> str:
     return head_sha
 
 
-def _verify_case_head(case: dict[str, Any]) -> None:
+def _verify_case_head(case: dict[str, Any]) -> str:
     expected = str(case.get("expected_head_sha") or case.get("head_sha") or "")
     if not expected:
         raise ValueError(f"{case.get('case_id', '<unknown>')} has no expected head SHA")
@@ -167,12 +168,94 @@ def _verify_case_head(case: dict[str, Any]) -> None:
         raise ValueError(
             f"{case['case_id']} head SHA drifted: expected {expected}, current {actual}"
         )
+    return actual
 
 
-def execute_run_plan(plan: dict[str, Any]) -> dict[str, Any]:
+def _review_payload(stdout: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(stdout or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _case_receipt(
+    *,
+    case: dict[str, Any],
+    execution: dict[str, Any],
+    observed_head_sha: str,
+) -> dict[str, Any]:
+    review_payload = _review_payload(str(execution.get("stdout", "")))
+    command = [str(item) for item in case.get("command", [])]
+    return {
+        "case_id": case["case_id"],
+        "repo": case["repo"],
+        "pr_number": case["pr_number"],
+        "pr_url": case["pr_url"],
+        "expected_head_sha": case["expected_head_sha"],
+        "observed_head_sha": observed_head_sha,
+        "artifact_dir": str(review_payload.get("artifact_dir") or case["artifact_dir"]),
+        "command": command,
+        "returncode": execution["returncode"],
+        "review_final_status": review_payload.get("final_status"),
+        "no_publish_review": "--no-publish-review" in command
+        and review_payload.get("publish_review") is not True,
+        "cost": {
+            "currency": "USD",
+            "estimated": None,
+            "actual": None,
+        },
+        "scores": {
+            "precision": None,
+            "recall": None,
+            "f1": None,
+        },
+        "judge_swap_variance_pp": None,
+    }
+
+
+def _build_execution_receipt(plan: dict[str, Any]) -> dict[str, Any]:
+    executions_by_case = {
+        str(execution.get("case_id")): execution for execution in plan.get("executions", [])
+    }
+    case_receipts = []
+    for case in plan.get("cases", []):
+        if not isinstance(case, dict):
+            continue
+        execution = executions_by_case.get(str(case.get("case_id")))
+        if not isinstance(execution, dict):
+            continue
+        observed = str(execution.get("observed_head_sha") or "")
+        case_receipts.append(
+            _case_receipt(
+                case=case,
+                execution=execution,
+                observed_head_sha=observed,
+            )
+        )
+    return {
+        "schema_version": 1,
+        "receipt_type": "factory_review_benchmark_smoke_execution",
+        "generated_at": _utc_now(),
+        "benchmark": plan.get("benchmark", "factory_review_droid_external_smoke"),
+        "source": plan.get("source", {}),
+        "case_receipts": case_receipts,
+    }
+
+
+def _write_receipt(path: Path, receipt: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def execute_run_plan(
+    plan: dict[str, Any],
+    *,
+    receipt_output: Path | None = None,
+) -> dict[str, Any]:
     executed: list[dict[str, Any]] = []
     for case in plan["cases"]:
-        _verify_case_head(case)
+        observed_head_sha = _verify_case_head(case)
         command = list(case["command"])
         started = _utc_now()
         result = subprocess.run(command, check=False, capture_output=True, text=True)
@@ -181,6 +264,7 @@ def execute_run_plan(plan: dict[str, Any]) -> dict[str, Any]:
                 "case_id": case["case_id"],
                 "started_at": started,
                 "finished_at": _utc_now(),
+                "observed_head_sha": observed_head_sha,
                 "returncode": result.returncode,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
@@ -189,6 +273,10 @@ def execute_run_plan(plan: dict[str, Any]) -> dict[str, Any]:
     updated = dict(plan)
     updated["guardrails"] = {**dict(plan.get("guardrails", {})), "mode": "executed"}
     updated["executions"] = executed
+    if receipt_output is not None:
+        receipt = _build_execution_receipt(updated)
+        _write_receipt(receipt_output, receipt)
+        updated["receipt_output"] = str(receipt_output)
     return updated
 
 
@@ -202,6 +290,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--artifact-root", type=Path, default=DEFAULT_ARTIFACT_ROOT)
+    parser.add_argument("--receipt-output", type=Path, default=DEFAULT_RECEIPT_OUTPUT)
     parser.add_argument("--reviewer", default=None)
     parser.add_argument(
         "--execute",
@@ -218,7 +307,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest = _load_manifest(args.manifest)
         plan = build_run_plan(manifest, artifact_root=args.artifact_root, reviewer=args.reviewer)
         if args.execute:
-            plan = execute_run_plan(plan)
+            plan = execute_run_plan(plan, receipt_output=args.receipt_output)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(json.dumps({"output": str(args.output), "cases": len(plan["cases"])}, sort_keys=True))

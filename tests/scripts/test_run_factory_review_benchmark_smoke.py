@@ -113,6 +113,100 @@ def test_verify_case_head_rejects_head_drift(monkeypatch: object) -> None:
         raise AssertionError("head SHA drift should fail closed")
 
 
+def test_execute_run_plan_writes_normalized_receipt(tmp_path: Path, monkeypatch: object) -> None:
+    plan = smoke.build_run_plan(_manifest(), artifact_root=tmp_path / "artifacts")
+    receipt_path = tmp_path / "receipt.json"
+
+    def fake_current_head_sha(pr_url: str) -> str:
+        assert pr_url == "https://github.com/droid-code-review-evals/droid-sentry/pull/6"
+        return "cb7212e11dbdbc1813237ad129c7bc108f944e3d"
+
+    def fake_run(command: list[str], check: bool, capture_output: bool, text: bool):
+        assert "--no-publish-review" in command
+        return smoke.subprocess.CompletedProcess(
+            args=command,
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "final_status": "passed",
+                    "publish_review": False,
+                    "artifact_dir": str(tmp_path / "artifacts" / "droid-sentry" / "pr-6"),
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(smoke, "_current_pr_head_sha", fake_current_head_sha)
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    executed = smoke.execute_run_plan(plan, receipt_output=receipt_path)
+
+    assert executed["guardrails"]["mode"] == "executed"
+    assert executed["executions"][0]["observed_head_sha"] == (
+        "cb7212e11dbdbc1813237ad129c7bc108f944e3d"
+    )
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert receipt["schema_version"] == 1
+    assert receipt["receipt_type"] == "factory_review_benchmark_smoke_execution"
+    assert receipt["benchmark"] == "factory_review_droid_external_smoke"
+    assert receipt["source"]["benchmark_repo"] == "droid-code-review-evals/review-droid-benchmark"
+
+    case_receipt = receipt["case_receipts"][0]
+    assert case_receipt["case_id"] == "droid-sentry-pr-6"
+    assert case_receipt["repo"] == "droid-code-review-evals/droid-sentry"
+    assert (
+        case_receipt["pr_url"] == "https://github.com/droid-code-review-evals/droid-sentry/pull/6"
+    )
+    assert case_receipt["expected_head_sha"] == "cb7212e11dbdbc1813237ad129c7bc108f944e3d"
+    assert case_receipt["observed_head_sha"] == "cb7212e11dbdbc1813237ad129c7bc108f944e3d"
+    assert case_receipt["artifact_dir"] == str(tmp_path / "artifacts" / "droid-sentry" / "pr-6")
+    assert case_receipt["returncode"] == 0
+    assert case_receipt["review_final_status"] == "passed"
+    assert case_receipt["no_publish_review"] is True
+    assert case_receipt["cost"] == {
+        "currency": "USD",
+        "estimated": None,
+        "actual": None,
+    }
+    assert case_receipt["scores"] == {"precision": None, "recall": None, "f1": None}
+    assert case_receipt["judge_swap_variance_pp"] is None
+
+
+def test_main_accepts_receipt_output_for_execute(tmp_path: Path, monkeypatch: object) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    output_path = tmp_path / "plan.json"
+    receipt_path = tmp_path / "receipt.json"
+    manifest_path.write_text(json.dumps(_manifest()), encoding="utf-8")
+
+    def fake_execute_run_plan(
+        plan: dict[str, object],
+        *,
+        receipt_output: Path | None = None,
+    ) -> dict[str, object]:
+        assert receipt_output == receipt_path
+        return {**plan, "guardrails": {"mode": "executed"}, "executions": []}
+
+    monkeypatch.setattr(smoke, "execute_run_plan", fake_execute_run_plan)
+
+    assert (
+        smoke.main(
+            [
+                "--manifest",
+                str(manifest_path),
+                "--output",
+                str(output_path),
+                "--receipt-output",
+                str(receipt_path),
+                "--execute",
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["guardrails"]["mode"] == "executed"
+
+
 def test_main_writes_plan_without_execute(tmp_path: Path) -> None:
     manifest_path = tmp_path / "manifest.json"
     output_path = tmp_path / "plan.json"
