@@ -3,12 +3,25 @@
 
 set -euo pipefail
 
+JSON_MODE=false
+if [[ "${1:-}" == "--json" ]]; then
+    JSON_MODE=true
+    shift
+fi
+
 BASE_REF="${1:-origin/main}"
 HEAD_REF="${2:-HEAD}"
+changed_files=""
+source_changes=""
+test_changes=""
+docs_only_changes=""
+forbidden_files=""
+rescue_publish_files=""
+docs_only=false
 
 usage() {
     cat <<'EOF'
-Usage: scripts/automation_pr_preflight.sh [BASE_REF] [HEAD_REF]
+Usage: scripts/automation_pr_preflight.sh [--json] [BASE_REF] [HEAD_REF]
 
 Checks an automation branch before it is pushed or turned into a PR.
 
@@ -22,25 +35,88 @@ Checks:
 EOF
 }
 
+emit_json() {
+    local status="$1"
+    local error="${2:-}"
+    export PREFLIGHT_BASE_REF="${BASE_REF}"
+    export PREFLIGHT_HEAD_REF="${HEAD_REF}"
+    export PREFLIGHT_STATUS="${status}"
+    export PREFLIGHT_ERROR="${error}"
+    export PREFLIGHT_CHANGED_FILES="${changed_files}"
+    export PREFLIGHT_SOURCE_CHANGES="${source_changes}"
+    export PREFLIGHT_TEST_CHANGES="${test_changes}"
+    export PREFLIGHT_DOCS_ONLY="${docs_only}"
+    export PREFLIGHT_FORBIDDEN_FILES="${forbidden_files}"
+    export PREFLIGHT_RESCUE_PUBLISH_FILES="${rescue_publish_files}"
+    python3 - <<'PY'
+import json
+import os
+import shlex
+
+
+def lines(name: str) -> list[str]:
+    return [line for line in os.environ.get(name, "").splitlines() if line]
+
+
+source_changes = lines("PREFLIGHT_SOURCE_CHANGES")
+test_changes = lines("PREFLIGHT_TEST_CHANGES")
+python_sources = [path for path in source_changes if path.endswith(".py")]
+suggested_commands: list[str] = []
+if python_sources:
+    quoted = " ".join(shlex.quote(path) for path in python_sources)
+    suggested_commands.append(
+        f"python3 scripts/nomic_ci_test_selector.py --changed-files {quoted} --dry-run"
+    )
+    suggested_commands.append(f"python3 -m ruff check {quoted}")
+if test_changes:
+    quoted_tests = " ".join(shlex.quote(path) for path in test_changes)
+    suggested_commands.append(f"python3 -m pytest {quoted_tests} -q")
+
+payload = {
+    "base_ref": os.environ["PREFLIGHT_BASE_REF"],
+    "head_ref": os.environ["PREFLIGHT_HEAD_REF"],
+    "status": os.environ["PREFLIGHT_STATUS"],
+    "changed_files": lines("PREFLIGHT_CHANGED_FILES"),
+    "docs_only": os.environ.get("PREFLIGHT_DOCS_ONLY") == "true",
+    "source_without_tests": bool(source_changes) and not bool(test_changes),
+    "forbidden_files": lines("PREFLIGHT_FORBIDDEN_FILES"),
+    "rescue_publish_files": lines("PREFLIGHT_RESCUE_PUBLISH_FILES"),
+    "suggested_validation_commands": suggested_commands,
+}
+error = os.environ.get("PREFLIGHT_ERROR", "")
+if error:
+    payload["error"] = error
+print(json.dumps(payload, sort_keys=True))
+PY
+}
+
+fail_preflight() {
+    local exit_code="$1"
+    local error="$2"
+    if [[ "${JSON_MODE}" == "true" ]]; then
+        emit_json "failed" "${error}"
+    else
+        echo "preflight: ${error}" >&2
+    fi
+    exit "${exit_code}"
+}
+
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     usage
     exit 0
 fi
 
 if ! git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
-    echo "preflight: base ref not found: ${BASE_REF}" >&2
-    exit 2
+    fail_preflight 2 "base ref not found: ${BASE_REF}"
 fi
 
 if ! git rev-parse --verify "${HEAD_REF}^{commit}" >/dev/null 2>&1; then
-    echo "preflight: head ref not found: ${HEAD_REF}" >&2
-    exit 2
+    fail_preflight 2 "head ref not found: ${HEAD_REF}"
 fi
 
 changed_files="$(git diff --name-only "${BASE_REF}...${HEAD_REF}")"
 if [[ -z "${changed_files}" ]]; then
-    echo "preflight: no branch diff versus ${BASE_REF}" >&2
-    exit 1
+    fail_preflight 1 "no branch diff versus ${BASE_REF}"
 fi
 
 head_subject="$(git log -1 --pretty=%s "${HEAD_REF}")"
@@ -48,22 +124,35 @@ normalized_subject="$(printf '%s' "${head_subject}" | tr '[:upper:]' '[:lower:]'
 changed_file_count="$(printf '%s\n' "${changed_files}" | sed '/^$/d' | wc -l | tr -d ' ')"
 
 if [[ "${normalized_subject}" == "chore: preflight worker check" || "${normalized_subject}" == "[preflight] worker check" ]]; then
+    if [[ "${JSON_MODE}" == "true" ]]; then
+        fail_preflight 1 "synthetic preflight validation commits must not be published"
+    fi
     echo "preflight: synthetic preflight validation commits must not be published:" >&2
     echo "  subject: ${head_subject}" >&2
     exit 1
 fi
 
 if [[ "${changed_file_count}" == "1" && "${changed_files}" == "scratch/preflight_worker_check.txt" ]]; then
-    echo "preflight: synthetic preflight validation scratch diffs must not be published." >&2
-    exit 1
+    fail_preflight 1 "synthetic preflight validation scratch diffs must not be published."
 fi
 
-echo "preflight: checking whitespace"
-git diff --check "${BASE_REF}...${HEAD_REF}"
+if [[ "${JSON_MODE}" != "true" ]]; then
+    echo "preflight: checking whitespace"
+fi
+if ! whitespace_output="$(git diff --check "${BASE_REF}...${HEAD_REF}" 2>&1)"; then
+    if [[ "${JSON_MODE}" == "true" ]]; then
+        fail_preflight 1 "${whitespace_output}"
+    fi
+    printf '%s\n' "${whitespace_output}" >&2
+    exit 1
+fi
 
 forbidden_regex='^\.aragora/|(^|/)(\.codex_session_active|\.claude-session-active|\.nomic-session-active|\.codex_session_meta\.json|\.swarm_worker_stdout\.log|\.swarm_worker_stderr\.log|\.swarm_worker_status\.json|\.swarm_repair_journal\.json|\.operator_state\.json|\.operator_snapshot\.json)$|(^|/)(\.aragora_events|\.pytest_cache|__pycache__)/'
 forbidden_files="$(printf '%s\n' "${changed_files}" | grep -E "${forbidden_regex}" || true)"
 if [[ -n "${forbidden_files}" ]]; then
+    if [[ "${JSON_MODE}" == "true" ]]; then
+        fail_preflight 1 "automation/session artifacts must not be committed"
+    fi
     echo "preflight: automation/session artifacts must not be committed:" >&2
     printf '%s\n' "${forbidden_files}" >&2
     exit 1
@@ -72,6 +161,9 @@ fi
 rescue_publish_regex='(^|/)(rescue_productization|rescue-productization)/(latest\.json|rescue-productization-[0-9]{8}T[0-9]{6}Z\.json)$'
 rescue_publish_files="$(printf '%s\n' "${changed_files}" | grep -E "${rescue_publish_regex}" || true)"
 if [[ -n "${rescue_publish_files}" ]]; then
+    if [[ "${JSON_MODE}" == "true" ]]; then
+        fail_preflight 1 "rescue productization publish artifacts must not be committed"
+    fi
     echo "preflight: rescue productization publish artifacts must not be committed:" >&2
     printf '%s\n' "${rescue_publish_files}" >&2
     exit 1
@@ -80,6 +172,14 @@ fi
 source_changes="$(printf '%s\n' "${changed_files}" | grep -E '(^aragora/|^scripts/|^\.github/|^tests/).*\.(py|sh|ya?ml|toml|json|ts|tsx|js|jsx)$' || true)"
 test_changes="$(printf '%s\n' "${changed_files}" | grep -E '(^tests/|__tests__/|\.test\.|\.spec\.)' || true)"
 docs_only_changes="$(printf '%s\n' "${changed_files}" | grep -Ev '(^docs/|^docs-site/|\.md$)' || true)"
+if [[ -z "${docs_only_changes}" ]]; then
+    docs_only=true
+fi
+
+if [[ "${JSON_MODE}" == "true" ]]; then
+    emit_json "ok"
+    exit 0
+fi
 
 if [[ -n "${source_changes}" && -z "${test_changes}" ]]; then
     echo "preflight: source/config changes found without test changes." >&2
@@ -88,7 +188,7 @@ if [[ -n "${source_changes}" && -z "${test_changes}" ]]; then
     printf '%s\n' "${source_changes}" >&2
 fi
 
-if [[ -z "${docs_only_changes}" ]]; then
+if [[ "${docs_only}" == "true" ]]; then
     echo "preflight: docs-only diff detected"
 fi
 

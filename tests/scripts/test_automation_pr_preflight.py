@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -39,6 +40,29 @@ def test_automation_pr_preflight_accepts_docs_diff(tmp_path: Path) -> None:
     assert "preflight: ok" in proc.stdout
 
 
+def test_automation_pr_preflight_json_accepts_docs_diff(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/docs-json"], cwd=repo)
+    (repo / "docs").mkdir()
+    (repo / "docs" / "note.md").write_text("note\n", encoding="utf-8")
+    _run(["git", "add", "docs/note.md"], cwd=repo)
+    _run(["git", "commit", "-m", "docs: add json note"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "ok"
+    assert payload["base_ref"] == "origin/main"
+    assert payload["head_ref"] == "HEAD"
+    assert payload["changed_files"] == ["docs/note.md"]
+    assert payload["docs_only"] is True
+    assert payload["source_without_tests"] is False
+    assert payload["forbidden_files"] == []
+    assert payload["rescue_publish_files"] == []
+    assert payload["suggested_validation_commands"] == []
+
+
 def test_automation_pr_preflight_rejects_worker_artifacts(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     _run(["git", "switch", "-c", "codex/bad-artifact"], cwd=repo)
@@ -50,6 +74,46 @@ def test_automation_pr_preflight_rejects_worker_artifacts(tmp_path: Path) -> Non
 
     assert proc.returncode == 1
     assert "automation/session artifacts" in proc.stderr
+
+
+def test_automation_pr_preflight_json_rejects_worker_artifacts(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/bad-artifact-json"], cwd=repo)
+    (repo / ".swarm_worker_stdout.log").write_text("worker log\n", encoding="utf-8")
+    _run(["git", "add", ".swarm_worker_stdout.log"], cwd=repo)
+    _run(["git", "commit", "-m", "bad: commit worker log"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "failed"
+    assert payload["forbidden_files"] == [".swarm_worker_stdout.log"]
+    assert payload["error"] == "automation/session artifacts must not be committed"
+
+
+def test_automation_pr_preflight_json_suggests_validation_for_source_without_tests(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/source-json"], cwd=repo)
+    source = repo / "scripts" / "tool.py"
+    source.parent.mkdir()
+    source.write_text("print('hi')\n", encoding="utf-8")
+    _run(["git", "add", "scripts/tool.py"], cwd=repo)
+    _run(["git", "commit", "-m", "feat: add tool"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "ok"
+    assert payload["docs_only"] is False
+    assert payload["source_without_tests"] is True
+    assert payload["suggested_validation_commands"] == [
+        "python3 scripts/nomic_ci_test_selector.py --changed-files scripts/tool.py --dry-run",
+        "python3 -m ruff check scripts/tool.py",
+    ]
 
 
 def test_automation_pr_preflight_rejects_synthetic_preflight_commit_subject(
