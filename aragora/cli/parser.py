@@ -221,7 +221,7 @@ Examples:
 
 
 def _add_metrics_parser(subparsers) -> None:
-    """Add the 'metrics' subcommand group with a 'viah' verb."""
+    """Add the 'metrics' subcommand group with 'viah' and 'status' verbs."""
     metrics_parser = subparsers.add_parser(
         "metrics",
         help="AGT-06: read VIAH and other operator metrics",
@@ -263,6 +263,30 @@ def _add_metrics_parser(subparsers) -> None:
     )
     viah.add_argument("--json", action="store_true", help="Emit the report as JSON")
     viah.set_defaults(func=_lazy("aragora.cli.commands.agt_metrics", "cmd_metrics_viah"))
+
+    status = metrics_sub.add_parser(
+        "status",
+        help=(
+            "Print VIAH operator-truth Markdown report (gated: ARAGORA_VIAH_TREND_ENABLED=1)"
+        ),
+    )
+    status.add_argument(
+        "--ledger-path",
+        default=None,
+        help="Path to the ShiftLedger JSONL (default: DEFAULT_LEDGER_PATH)",
+    )
+    status.add_argument(
+        "--weeks",
+        type=int,
+        default=4,
+        help="Number of rolling weeks to include in the trend table (default: 4)",
+    )
+    status.add_argument(
+        "--output",
+        default=None,
+        help="Write the Markdown report to this file path instead of stdout",
+    )
+    status.set_defaults(func=_lazy("aragora.cli.commands.agt_metrics", "cmd_metrics_status"))
 
 
 def _add_markets_parser(subparsers) -> None:
