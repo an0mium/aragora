@@ -6,8 +6,8 @@
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **98**
-- Total top-level invocations (including aliases): **99**
+- Canonical top-level commands: **99**
+- Total top-level invocations (including aliases): **100**
 
 ## Installation
 
@@ -51,6 +51,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `build` | - | Turn a vague idea into executed, reviewed, merged code | - |
 | `calibration` | - | AGT-03.3: per-agent rolling-window Brier reports from market data | `leaderboard`, `report` |
 | `codebase-audit` | - | Run a staged repo audit with triage, threat-surface ranking, and deep audit | - |
+| `codex` | - | Read-only inspector for Codex Desktop local state | `sessions` |
 | `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `evidence`, `export`, `report`, `status` |
 | `computer-use` | - | Computer use task management | `list`, `run`, `status` |
 | `config` | - | Manage configuration | - |
