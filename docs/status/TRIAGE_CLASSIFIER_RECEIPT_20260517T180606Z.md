@@ -119,7 +119,13 @@ wins; first match returns):
 5. **C** if CI red (recent)
 6. **C** if any check is `IN_PROGRESS` / `QUEUED`
 7. **B** if draft + `created_at ≥ 60d` + `updated_at ≥ 30d`
-8. **B** if a newer open PR has ≥80% file overlap + zero CI failures
+8. **B** if a newer open PR has ≥80% file overlap AND the newer PR
+   would itself qualify for Bucket A (i.e. `_would_qualify_for_bucket_a`
+   returns True — same gates as Bucket A above except for the
+   supersede check itself). This closes Codex's Gap #3 from the
+   #7285 review: a draft / held / CI-pending / merge-packet-blocked /
+   non-trusted / protected-file / large / dirty candidate cannot
+   supersede an older PR.
 9. **C** if author ∉ `TRUSTED_AUTHORS`
 10. **C** if `is_draft` (reason: `draft`, action: `READY?`)
 11. **C** if `mergeable != MERGEABLE`
@@ -135,12 +141,12 @@ Bucket D is reserved for future enhancement — strategic mismatch
 with canonical direction is not auto-classifiable from `gh` metadata
 alone.
 
-## Tests (46 new, all green)
+## Tests (57 new, all green)
 
 ```
 $ python3 -m pytest tests/scripts/test_triage_open_prs.py -q
-..............................................                           [100%]
-46 passed
+.........................................................                [100%]
+57 passed in 1.45s
 ```
 
 | Group | Tests | Coverage |
@@ -148,6 +154,7 @@ $ python3 -m pytest tests/scripts/test_triage_open_prs.py -q
 | TestBucketA | 9 | Clean additive ready-to-merge → A; draft → C `READY?`; BLOCKED → C; missing merge-packet → C; not_ready → C; admin false → C; head mismatch → C; Tier 3 without settlement → C; Tier 3 with settlement → A |
 | TestBucketCTripwires | 14 | Held PR; protected file (CLAUDE.md, automation.toml, aragora/__init__.py); large diff; CI red recent; CI pending; CI cancelled/non-green; non-trusted author; not mergeable (CONFLICTING); merge state DIRTY; merge state BEHIND; code without tests; pure-docs-doesnt-trip-rule (negative); review CHANGES_REQUESTED |
 | TestBucketB | 7 | CI red 7+ days; stale draft over threshold; stale but recent (negative); ready PR not marked stale (negative); supersede by newer clean PR; no supersede when overlap too low (negative); no supersede when newer has CI failure (negative) |
+| **TestSupersedeRequiresBucketAEligibility** | **11** | **(NEW — closes Codex Gap #3)** Draft superseder rejected; held superseder rejected; CI-pending superseder rejected; missing-merge-packet superseder rejected; non-trusted superseder rejected; protected-file-edit superseder rejected; large-diff superseder rejected; DIRTY superseder rejected; BLOCKED superseder rejected; CHANGES_REQUESTED superseder rejected; fully-eligible superseder still fires (regression check) |
 | TestPrecedence | 3 | Held beats all other tripwires; protected beats large diff; CI-red-7d beats supersede |
 | TestCliOutput | 8 | Human output; JSON output; bucket filter; missing --from-json file; invalid --from-json JSON; non-array root; no gh on PATH; deterministic output across runs |
 | TestEdgeCases | 4 | Empty PR list; PR with zero files; PR with empty author dict; reason capped at 200 chars |
@@ -156,7 +163,7 @@ $ python3 -m pytest tests/scripts/test_triage_open_prs.py -q
 
 ```
 $ python3 -m pytest tests/scripts/test_triage_open_prs.py -q
-38 passed in 1.26s
+57 passed in 1.45s
 $ ruff check scripts/triage_open_prs.py tests/scripts/test_triage_open_prs.py
 All checks passed!
 $ ruff format --check scripts/triage_open_prs.py tests/scripts/test_triage_open_prs.py

@@ -29,6 +29,13 @@ are demoted to Bucket C unless ``aragora review-queue merge-packet
 PRs remain Bucket C unless that merge packet proves the required human
 risk settlement / preapproval has already been recorded.
 
+Bucket B supersede is similarly exact-head gated: a candidate
+superseder is only accepted if it would itself qualify for Bucket A
+(``_would_qualify_for_bucket_a``). This implements the policy's
+"newer PR is in Bucket A or already merged" requirement — a draft /
+held / CI-red / large / non-trusted / merge-packet-blocked candidate
+cannot supersede an older PR even if file overlap is high.
+
 Pure stdlib (argparse, dataclasses, datetime, json, shutil,
 subprocess, sys, pathlib, typing). No ``aragora.*`` imports. No
 third-party dependencies.
@@ -183,13 +190,98 @@ def _file_paths(pr: dict[str, Any]) -> list[str]:
     return [str(f.get("path", "")) for f in files if isinstance(f, dict) and f.get("path")]
 
 
-def _find_superseder(pr: dict[str, Any], all_open: list[dict[str, Any]]) -> int | None:
+def _would_qualify_for_bucket_a(
+    pr: dict[str, Any],
+    *,
+    now: datetime.datetime,
+    merge_packet_provider: MergePacketProvider | None,
+) -> bool:
+    """Return True iff ``pr`` would land in Bucket A on its own merits.
+
+    Mirrors the gates ``classify()`` applies, *minus* the supersede
+    check itself (to avoid mutual recursion between supersede candidates
+    that overlap heavily). The supersede precedence rule already
+    requires the superseder to be NEWER (higher PR number), so this
+    predicate is only consulted on the newer side — no infinite
+    descent is possible.
+
+    Used by ``_find_superseder`` to enforce the policy requirement
+    that "the newer PR is in Bucket A or already merged" (we can't
+    see merged PRs from the open list, so we treat Bucket-A-eligible
+    open PRs as the safe proxy).
+    """
+
+    n = int(pr.get("number") or 0)
+    if n <= 0:
+        return False
+    if n in HELD_PR_NUMBERS:
+        return False
+    file_paths = _file_paths(pr)
+    if any(_is_protected(p) for p in file_paths):
+        return False
+    additions = int(pr.get("additions") or 0)
+    deletions = int(pr.get("deletions") or 0)
+    if additions + deletions > LARGE_DIFF_LOC:
+        return False
+    checks = pr.get("statusCheckRollup") or []
+    if any(isinstance(c, dict) and c.get("conclusion") == "FAILURE" for c in checks):
+        return False
+    if any(isinstance(c, dict) and c.get("status") in ("IN_PROGRESS", "QUEUED") for c in checks):
+        return False
+    if any(
+        isinstance(c, dict)
+        and c.get("status") == "COMPLETED"
+        and c.get("conclusion") not in ("SUCCESS", "SKIPPED", "NEUTRAL")
+        for c in checks
+    ):
+        return False
+    author_raw = pr.get("author") or {}
+    author = author_raw.get("login", "") if isinstance(author_raw, dict) else str(author_raw)
+    if author not in TRUSTED_AUTHORS:
+        return False
+    if bool(pr.get("isDraft")):
+        return False
+    if str(pr.get("mergeable") or "") != "MERGEABLE":
+        return False
+    if str(pr.get("mergeStateStatus") or "") != "CLEAN":
+        return False
+    has_tests = any(_is_test_file(p) for p in file_paths)
+    has_code = any(_is_code_file(p) for p in file_paths)
+    if has_code and not has_tests:
+        return False
+    if str(pr.get("reviewDecision") or "") == "CHANGES_REQUESTED":
+        return False
+    if _merge_packet_bucket_a_blocker(pr, merge_packet_provider=merge_packet_provider) is not None:
+        return False
+    # The ``now`` parameter is accepted for API symmetry with classify(),
+    # but the Bucket-A gates above do not depend on age (those are only
+    # used by the Bucket B stale-draft path, which is not a Bucket A
+    # criterion).
+    del now
+    return True
+
+
+def _find_superseder(
+    pr: dict[str, Any],
+    all_open: list[dict[str, Any]],
+    *,
+    now: datetime.datetime,
+    merge_packet_provider: MergePacketProvider | None,
+) -> int | None:
     """Return the PR number of a newer open PR that supersedes ``pr``.
 
-    Supersede = file-overlap ≥ ``SUPERSEDE_OVERLAP_THRESHOLD`` AND newer
-    (higher PR number) AND zero CI failures on the newer PR. (We can't
-    see merged PRs from the open list, so we use "newer + clean" as a
-    proxy for "in Bucket A or about to merge.")
+    Supersede requires ALL of:
+      - newer (higher PR number)
+      - file-overlap ≥ ``SUPERSEDE_OVERLAP_THRESHOLD``
+      - the newer PR would itself qualify for Bucket A
+        (per ``_would_qualify_for_bucket_a``)
+
+    The Bucket-A-eligibility gate is the policy's "newer PR is in
+    Bucket A or already merged" requirement: a draft / held / CI-red /
+    CI-pending / large / non-trusted / merge-packet-blocked candidate
+    cannot supersede an older PR. (We cannot see merged PRs from the
+    open list, so we treat Bucket-A-eligible open PRs as the safe
+    proxy for "or already merged.")
     """
 
     pr_n = int(pr.get("number", 0))
@@ -209,12 +301,9 @@ def _find_superseder(pr: dict[str, Any], all_open: list[dict[str, Any]]) -> int 
         overlap_ratio = overlap_count / len(pr_files)
         if overlap_ratio < SUPERSEDE_OVERLAP_THRESHOLD:
             continue
-        other_failures = sum(
-            1
-            for c in (other.get("statusCheckRollup") or [])
-            if isinstance(c, dict) and c.get("conclusion") == "FAILURE"
-        )
-        if other_failures > 0:
+        if not _would_qualify_for_bucket_a(
+            other, now=now, merge_packet_provider=merge_packet_provider
+        ):
             continue
         return other_n
     return None
@@ -319,9 +408,10 @@ def classify(
 
     Bucket precedence (most-restrictive wins): C (held) → C (protected) →
     C (large) → B (CI red 7d+) → C (CI red recent) → C (CI pending) →
-    B (stale draft) → B (superseded) → C (non-trusted) → C (draft) →
-    C (not mergeable) → C (merge-state not CLEAN) → C (code without
-    tests) → C (CHANGES_REQUESTED) → A (default if all gates pass).
+    C (CI non-green) → B (stale draft) → B (superseded by a Bucket-A
+    -eligible newer PR) → C (non-trusted) → C (draft) → C (not
+    mergeable) → C (merge-state not CLEAN) → C (code without tests) →
+    C (CHANGES_REQUESTED) → C (merge-packet blocker) → A.
 
     Bucket D is never auto-emitted by this classifier — it's reserved
     for explicit operator/agent escalation in a future stage.
@@ -435,8 +525,13 @@ def classify(
             "CLOSE",
         )
 
-    # --- Bucket B: superseded by newer green PR ---
-    superseder = _find_superseder(pr, all_open)
+    # --- Bucket B: superseded by newer Bucket-A-eligible PR ---
+    superseder = _find_superseder(
+        pr,
+        all_open,
+        now=now,
+        merge_packet_provider=merge_packet_provider,
+    )
     if superseder is not None:
         return _result(
             n,
@@ -445,7 +540,7 @@ def classify(
             (
                 f"superseded by #{superseder} "
                 f"(≥{int(SUPERSEDE_OVERLAP_THRESHOLD * 100)}% file overlap, "
-                f"newer + zero CI failures)"
+                f"newer + Bucket-A-eligible)"
             ),
             "CLOSE",
         )

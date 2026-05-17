@@ -505,6 +505,122 @@ class TestBucketB:
 
 
 # ---------------------------------------------------------------------------
+# Bucket B supersede — tightened: superseder must be Bucket-A-eligible
+# (closes Codex Gap #3 from the PR #7285 review)
+# ---------------------------------------------------------------------------
+
+
+class TestSupersedeRequiresBucketAEligibility:
+    """The tightened policy requires the newer PR to itself be in Bucket A
+    (or already merged) before it can supersede an older PR. These tests
+    verify that draft / held / CI-pending / merge-packet-blocked / non-
+    trusted / protected-file / large / dirty candidate superseders are
+    REJECTED and the older PR stays in A.
+    """
+
+    @staticmethod
+    def _overlap_files(label: str) -> list[dict[str, Any]]:
+        # Two-file PR with code + tests so the candidate has the right
+        # shape for Bucket-A eligibility once each disqualifying gate
+        # is removed.
+        return [
+            {"path": f"{label}.py", "additions": 10, "deletions": 0},
+            {"path": f"tests/test_{label}.py", "additions": 10, "deletions": 0},
+        ]
+
+    def _older(self) -> dict[str, Any]:
+        return make_pr(number=9400, files=self._overlap_files("a"))
+
+    def _newer(self, **overrides: Any) -> dict[str, Any]:
+        kwargs: dict[str, Any] = dict(
+            number=9401,
+            files=self._overlap_files("a"),
+        )
+        kwargs.update(overrides)
+        return make_pr(**kwargs)
+
+    def test_draft_superseder_does_not_fire(self):
+        r = classify(self._older(), all_open=[self._older(), self._newer(is_draft=True)])
+        assert r.bucket == tri.BUCKET_A
+
+    def test_held_superseder_does_not_fire(self):
+        held = next(iter(tri.HELD_PR_NUMBERS))
+        r = classify(self._older(), all_open=[self._older(), self._newer(number=held)])
+        assert r.bucket == tri.BUCKET_A
+
+    def test_pending_ci_superseder_does_not_fire(self):
+        ci = [
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"name": "tests", "status": "IN_PROGRESS", "conclusion": None},
+        ]
+        r = classify(self._older(), all_open=[self._older(), self._newer(ci=ci)])
+        assert r.bucket == tri.BUCKET_A
+
+    def test_missing_merge_packet_superseder_does_not_fire(self):
+        r = classify(
+            self._older(),
+            all_open=[self._older(), self._newer(merge_packet=None)],
+        )
+        assert r.bucket == tri.BUCKET_A
+
+    def test_non_trusted_superseder_does_not_fire(self):
+        r = classify(
+            self._older(),
+            all_open=[self._older(), self._newer(author="drive-by-contributor")],
+        )
+        assert r.bucket == tri.BUCKET_A
+
+    def test_protected_file_superseder_does_not_fire(self):
+        protected_files = [
+            {"path": "a.py", "additions": 10, "deletions": 0},
+            {"path": "tests/test_a.py", "additions": 10, "deletions": 0},
+            {"path": "CLAUDE.md", "additions": 1, "deletions": 0},
+        ]
+        r = classify(
+            self._older(),
+            all_open=[self._older(), self._newer(files=protected_files)],
+        )
+        assert r.bucket == tri.BUCKET_A
+
+    def test_large_superseder_does_not_fire(self):
+        r = classify(
+            self._older(),
+            all_open=[self._older(), self._newer(additions=1600)],
+        )
+        assert r.bucket == tri.BUCKET_A
+
+    def test_dirty_superseder_does_not_fire(self):
+        r = classify(
+            self._older(),
+            all_open=[self._older(), self._newer(merge_state="DIRTY")],
+        )
+        assert r.bucket == tri.BUCKET_A
+
+    def test_blocked_superseder_does_not_fire(self):
+        # Even if blocking is just on review (BLOCKED), the candidate
+        # is not Bucket-A-eligible per the policy's "CLEAN only" gate.
+        r = classify(
+            self._older(),
+            all_open=[self._older(), self._newer(merge_state="BLOCKED")],
+        )
+        assert r.bucket == tri.BUCKET_A
+
+    def test_changes_requested_superseder_does_not_fire(self):
+        r = classify(
+            self._older(),
+            all_open=[self._older(), self._newer(review="CHANGES_REQUESTED")],
+        )
+        assert r.bucket == tri.BUCKET_A
+
+    def test_fully_eligible_superseder_still_fires(self):
+        # Regression: the happy path still triggers the supersede.
+        r = classify(self._older(), all_open=[self._older(), self._newer()])
+        assert r.bucket == tri.BUCKET_B
+        assert "superseded by #9401" in r.reason
+        assert "Bucket-A-eligible" in r.reason
+
+
+# ---------------------------------------------------------------------------
 # Bucket precedence — most-restrictive wins
 # ---------------------------------------------------------------------------
 
