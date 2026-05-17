@@ -32,20 +32,15 @@ options:
   --from-json FROM_JSON Read PR data from JSON file (for tests / offline).
 ```
 
-## Worked example — live run against current queue
+## Worked example — live run against current queue (tightened policy)
 
-Output of `python3 scripts/triage_open_prs.py` at 2026-05-17T18:06Z:
+Output of `python3 scripts/triage_open_prs.py` at 2026-05-17T18:11Z,
+after the operator tightened the policy doc to require `is_draft == False`
++ `mergeStateStatus == CLEAN` for Bucket A:
 
 ```
 BUCKET A — recommend AUTO-MERGE
-  #7251 — MERGE — green CI (17/67), 353 LOC, 3 files, tests present, author=an0mium
-  #7259 — MERGE — green CI (17/66), 234 LOC, 2 files, tests present, author=an0mium
-  #7262 — MERGE — green CI (16/68), 373 LOC, 2 files, tests present, author=an0mium
-  #7263 — MERGE — green CI (14/34), 778 LOC, 2 files, tests present, author=an0mium
-  #7276 — MERGE — green CI (16/68), 290 LOC, 2 files, tests present, author=an0mium
-  #7278 — MERGE — green CI (5/8), 792 LOC, 5 files, tests present, author=an0mium
-  #7279 — MERGE — green CI (17/67), 1185 LOC, 3 files, tests present, author=an0mium
-  #7283 — MERGE — green CI (14/34), 372 LOC, 2 files, tests present, author=an0mium
+  (none)
 
 BUCKET B — recommend AUTO-CLOSE
   (none)
@@ -54,34 +49,57 @@ BUCKET C — needs operator y/n
   #7173 — STAY HELD — held (#7173 is on the policy hold list)
   #7215 — STAY HELD — held (#7215 is on the policy hold list)
   #7245 — STAY HELD — held (#7245 is on the policy hold list)
+  #7251 — READY? — draft (policy requires non-draft for Bucket A; 17/67 CI green)
   #7252 — STAY HELD — held (#7252 is on the policy hold list)
+  #7259 — READY? — draft (policy requires non-draft for Bucket A; 17/66 CI green)
+  #7262 — READY? — draft (policy requires non-draft for Bucket A; 16/68 CI green)
+  #7263 — READY? — draft (policy requires non-draft for Bucket A; 14/34 CI green)
   #7268 — DECIDE — large diff (1542 LOC > 1500)
+  #7276 — READY? — draft (policy requires non-draft for Bucket A; 16/68 CI green)
+  #7278 — READY? — draft (policy requires non-draft for Bucket A; 5/8 CI green)
+  #7279 — READY? — draft (policy requires non-draft for Bucket A; 17/67 CI green)
+  #7283 — READY? — draft (policy requires non-draft for Bucket A; 14/34 CI green)
+  #7284 — READY? — draft (policy requires non-draft for Bucket A; 17/66 CI green)
 
 BUCKET D — strategic check-in
   (none)
 
-summary: A: 8  B: 0  C: 5  D: 0    total: 13
+summary: A: 0  B: 0  C: 14  D: 0    total: 14
 ```
 
-### Sanity-check vs. earlier manual triage
+### Why Bucket A is empty: the policy tightening
 
-The same triage was produced manually earlier this session. The
-mechanical classifier diverged from the manual triage in one place —
-and the classifier was right:
+Mid-session, the operator tightened Bucket A criteria in
+`docs/governance/OPERATOR_DELEGATION_POLICY.md` (PR #7283) to require:
 
-- I called **#7251 "held"** based on memory; the canonical hold list
-  in the policy doc is `{4990, 7173, 7215, 7240, 7243, 7245, 7249,
-  7252}` — `#7251 is NOT on it`. The classifier correctly put it in A.
-- The classifier also caught #7283 (the policy PR opened earlier this
-  session) and #7268 (Codex's settlement UI — flagged C for large
-  diff at 1542 LOC, just above the 1500 cap).
-- `#7261` was open during the earlier manual triage but landed
-  between then and now — the classifier reflects live state.
+- `mergeable: MERGEABLE` (existing)
+- **`PR is not draft`** (new — drafts always go to C with `READY?`)
+- **`mergeStateStatus == CLEAN`** (new — `BLOCKED` no longer qualifies)
+- `aragora review-queue merge-packet` reports `admin_squash_allowed=true`,
+  `not_ready=[]`, `unresolved_dissent=false` at the **exact** current
+  head SHA (deferred to Stage 2 — see classifier docstring)
+- Tier 3 / Tier 4 PRs need explicit risk-settlement at exact head SHA
+  (deferred to Stage 2)
+- Existing: green CI, additive, tests, ≤1500 LOC, trusted author,
+  no held PRs, no protected files
 
-This is exactly the operator-delegation premise: the mechanical
-classifier reproduces the manual judgment more accurately, faster,
-and without the operator (or a frontier-model agent) having to hold
-the hold list in working memory.
+The current open queue is 14 PRs deep with ZERO not-draft + CLEAN
+items — so the classifier honestly reports Bucket A is empty. The
+operator's path forward is one of:
+
+1. Mark some drafts ready (the `READY?` recommendation calls this out),
+   which moves them to A on the next pass
+2. Run Stage 2 (#7281, `auto_merge_bucket_a.py`) once it ships — it
+   will do the deep merge-packet + tier checks before merging
+
+### The classifier corrected my manual triage earlier this session
+
+Earlier I produced a triage manually and called **#7251 "held"** from
+memory. The classifier read the canonical hold list
+(`HELD_PR_NUMBERS = {4990, 7173, 7215, 7240, 7243, 7245, 7249, 7252}`)
+and correctly put #7251 in C with reason `draft` — not `held`. This is
+exactly the operator-delegation premise: mechanical classification
+beats manual memory.
 
 ## Bucket precedence
 
@@ -97,27 +115,29 @@ wins; first match returns):
 7. **B** if draft + `created_at ≥ 60d` + `updated_at ≥ 30d`
 8. **B** if a newer open PR has ≥80% file overlap + zero CI failures
 9. **C** if author ∉ `TRUSTED_AUTHORS`
-10. **C** if `mergeable != MERGEABLE`
-11. **C** if `mergeStateStatus ∉ {CLEAN, BLOCKED}`
-12. **C** if there are code files but no test files
-13. **C** if `reviewDecision == CHANGES_REQUESTED`
-14. **A** otherwise
+10. **C** if `is_draft` (reason: `draft`, action: `READY?`)
+11. **C** if `mergeable != MERGEABLE`
+12. **C** if `mergeStateStatus != CLEAN`
+13. **C** if there are code files but no test files
+14. **C** if `reviewDecision == CHANGES_REQUESTED`
+15. **A** otherwise (still subject to Stage 2's deep merge-packet +
+    tier checks before any actual merge)
 
 Bucket D is reserved for future enhancement — strategic mismatch
 with canonical direction is not auto-classifiable from `gh` metadata
 alone.
 
-## Tests (38 new, all green)
+## Tests (39 new, all green)
 
 ```
 $ python3 -m pytest tests/scripts/test_triage_open_prs.py -q
-......................................                                   [100%]
-38 passed in 1.26s
+.......................................                                  [100%]
+39 passed in 1.04s
 ```
 
 | Group | Tests | Coverage |
 |---|---|---|
-| TestBucketA | 2 | Clean additive (CLEAN); clean additive on draft (BLOCKED) |
+| TestBucketA | 3 | Clean additive ready-to-merge → A; draft → C `READY?`; BLOCKED → C |
 | TestBucketCTripwires | 13 | Held PR; protected file (CLAUDE.md, automation.toml, aragora/__init__.py); large diff; CI red recent; CI pending; non-trusted author; not mergeable (CONFLICTING); merge state DIRTY; merge state BEHIND; code without tests; pure-docs-doesnt-trip-rule (negative); review CHANGES_REQUESTED |
 | TestBucketB | 7 | CI red 7+ days; stale draft over threshold; stale but recent (negative); ready PR not marked stale (negative); supersede by newer clean PR; no supersede when overlap too low (negative); no supersede when newer has CI failure (negative) |
 | TestPrecedence | 3 | Held beats all other tripwires; protected beats large diff; CI-red-7d beats supersede |

@@ -60,7 +60,10 @@ def make_pr(
     deletions: int = 0,
     mergeable: str = "MERGEABLE",
     merge_state: str = "CLEAN",
-    is_draft: bool = True,
+    # Default to NOT draft so the happy-path Bucket A tests still
+    # qualify after the policy tightening that excludes drafts from A.
+    # Tests that want a draft pass is_draft=True explicitly.
+    is_draft: bool = False,
     ci: list[dict[str, Any]] | None = None,
     review: str = "",
     created_days_ago: int = 0,
@@ -106,19 +109,30 @@ def classify(pr: dict[str, Any], all_open: list[dict[str, Any]] | None = None):
 
 
 class TestBucketA:
-    def test_clean_additive_with_tests(self):
-        pr = make_pr(number=9001)
+    def test_clean_additive_with_tests_ready(self):
+        # NOT-DRAFT + CLEAN + green CI + tests + trusted author = A.
+        pr = make_pr(number=9001, is_draft=False, merge_state="CLEAN")
         r = classify(pr)
         assert r.bucket == tri.BUCKET_A
         assert r.recommended_action == "MERGE"
         assert "green CI" in r.reason
 
-    def test_clean_additive_blocked_state_because_of_draft(self):
-        # Drafts that are otherwise clean still go to A — BLOCKED is
-        # the natural state for draft PRs.
-        pr = make_pr(number=9002, merge_state="BLOCKED", is_draft=True)
+    def test_draft_goes_to_c_not_a(self):
+        # Policy: drafts must NEVER auto-merge. Same clean PR but
+        # is_draft=True → Bucket C with "READY?" recommendation.
+        pr = make_pr(number=9002, is_draft=True, merge_state="BLOCKED")
         r = classify(pr)
-        assert r.bucket == tri.BUCKET_A
+        assert r.bucket == tri.BUCKET_C
+        assert r.recommended_action == "READY?"
+        assert "draft" in r.reason
+
+    def test_blocked_merge_state_goes_to_c(self):
+        # Even non-draft, BLOCKED merge state → C (only CLEAN qualifies
+        # for A per the tightened policy).
+        pr = make_pr(number=9003, is_draft=False, merge_state="BLOCKED")
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "merge state status: BLOCKED" in r.reason
 
 
 # ---------------------------------------------------------------------------
@@ -280,8 +294,11 @@ class TestBucketB:
         assert r.bucket == tri.BUCKET_B
         assert "stale draft" in r.reason
 
-    def test_stale_but_recently_updated_stays_in_A(self):
-        # 70 days old but updated 5 days ago → not Bucket B.
+    def test_stale_but_recently_updated_not_in_B(self):
+        # 70 days old but updated 5 days ago → does NOT trigger Bucket B
+        # stale path. Under the tightened policy, drafts go to C with
+        # the "READY?" recommendation rather than to A — the test
+        # confirms the stale-B path specifically doesn't fire.
         pr = make_pr(
             number=9202,
             is_draft=True,
@@ -289,7 +306,9 @@ class TestBucketB:
             updated_days_ago=5,
         )
         r = classify(pr)
-        assert r.bucket == tri.BUCKET_A
+        assert r.bucket == tri.BUCKET_C
+        assert "draft" in r.reason
+        assert r.recommended_action == "READY?"
 
     def test_ready_pr_not_marked_stale(self):
         # Non-draft PRs of any age don't trigger the stale-draft path.

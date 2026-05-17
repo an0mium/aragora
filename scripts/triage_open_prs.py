@@ -7,13 +7,14 @@ of the rollout per ``docs/roadmap/OPERATOR_DELEGATION_ROLLOUT.md``).
 For every open PR on the current repo, classifies it into exactly one
 of four buckets:
 
-  A — recommend auto-merge (additive + green CI + mergeable + tests +
-      no held/protected touch + ≤1500 LOC + trusted author)
+  A — recommend auto-merge (NOT DRAFT + CLEAN merge state + green CI +
+      mergeable + tests + no held/protected touch + ≤1500 LOC +
+      trusted author)
   B — recommend auto-close (superseded by newer / >60d stale +
       inactive / CI red >7d)
   C — needs operator y/n (touches held / protected / large diff /
       CI red / CI pending / non-trusted author / unresolved review /
-      no tests with code changes / merge-state not clean)
+      no tests with code changes / merge-state not clean / draft)
   D — strategic check-in (PR works but plausibly conflicts with
       canonical direction; not auto-classifiable from gh metadata
       alone — reserved for future enhancement)
@@ -21,6 +22,23 @@ of four buckets:
 The classifier is read-only by design: it NEVER mutates GitHub state.
 The downstream Stage 2 (``scripts/auto_merge_bucket_a.py``) is what
 acts on Bucket A; this script only emits the recommendation table.
+
+Two policy-required checks that this Stage-1 classifier intentionally
+DOES NOT perform (deferred to Stage 2's pre-merge verification):
+
+  - ``aragora review-queue merge-packet --pr N --json`` must report
+    ``admin_squash_allowed=true``, ``not_ready=[]``,
+    ``unresolved_dissent=false`` at the EXACT current head SHA.
+  - Tier 3 and Tier 4 PRs (per
+    ``docs/REVIEW_AUTHORITY_PRINCIPLES.md``) require recorded human
+    risk settlement / preapproval at the exact head SHA before
+    becoming Bucket A.
+
+The classifier emits these PRs as Bucket A based on metadata alone;
+Stage 2 (``auto_merge_bucket_a.py``) is responsible for the deep
+checks before any actual merge. This split keeps Stage 1 cheap
+(metadata-only, no per-PR shell-out) while Stage 2 carries the
+defense-in-depth verification at the moment of mutation.
 
 Pure stdlib (argparse, dataclasses, datetime, json, shutil,
 subprocess, sys, pathlib, typing). No ``aragora.*`` imports. No
@@ -220,8 +238,8 @@ def classify(
 
     Bucket precedence (most-restrictive wins): C (held) → C (protected) →
     C (large) → B (CI red 7d+) → C (CI red recent) → C (CI pending) →
-    B (stale draft) → B (superseded) → C (non-trusted) → C (not
-    mergeable) → C (merge-state DIRTY/BEHIND/etc) → C (code without
+    B (stale draft) → B (superseded) → C (non-trusted) → C (draft) →
+    C (not mergeable) → C (merge-state not CLEAN) → C (code without
     tests) → C (CHANGES_REQUESTED) → A (default if all gates pass).
 
     Bucket D is never auto-emitted by this classifier — it's reserved
@@ -344,6 +362,20 @@ def classify(
             "DECIDE",
         )
 
+    # --- Bucket C: draft (policy explicitly excludes draft from A) ---
+    # The policy says "PR is not draft" for Bucket A. Draft PRs that
+    # are otherwise clean go to C with recommended action "READY?" —
+    # the operator decides whether to mark-ready (which then re-runs
+    # the classifier on the next pass).
+    if is_draft:
+        return _result(
+            n,
+            title,
+            BUCKET_C,
+            f"draft (policy requires non-draft for Bucket A; {ci_success}/{ci_total} CI green)",
+            "READY?",
+        )
+
     # --- Bucket C: not mergeable ---
     if mergeable != "MERGEABLE":
         return _result(
@@ -354,17 +386,15 @@ def classify(
             "DECIDE",
         )
 
-    # --- Bucket C: merge-state status not CLEAN/BLOCKED ---
-    # CLEAN = ready to merge; BLOCKED = often just "draft state" or
-    # branch-protection waiting (still safe to auto-merge once ready).
-    # DIRTY = conflicts; BEHIND = needs rebase; UNSTABLE = passing
-    # but flaky. All of those need a human look.
-    if mss and mss not in ("CLEAN", "BLOCKED"):
+    # --- Bucket C: merge-state status not CLEAN ---
+    # CLEAN = ready to merge. Anything else (BLOCKED, DIRTY, BEHIND,
+    # UNSTABLE, UNKNOWN) needs a human look per the tightened policy.
+    if mss != "CLEAN":
         return _result(
             n,
             title,
             BUCKET_C,
-            f"merge state status: {mss}",
+            f"merge state status: {mss or '(unknown)'} (policy requires CLEAN)",
             "DECIDE",
         )
 
@@ -391,12 +421,17 @@ def classify(
         )
 
     # --- Bucket A: default if all gates pass ---
+    # NB: Stage 2 (auto_merge_bucket_a.py) must still verify the
+    # `aragora review-queue merge-packet` admin_squash_allowed +
+    # not_ready + unresolved_dissent + tier risk-settlement at the
+    # exact current head SHA before actually merging. The classifier
+    # cannot do these deep checks cheaply for every PR.
     return _result(
         n,
         title,
         BUCKET_A,
         (
-            f"green CI ({ci_success}/{ci_total}), {net_loc} LOC, "
+            f"ready + CLEAN + green CI ({ci_success}/{ci_total}), {net_loc} LOC, "
             f"{len(file_paths)} files, tests present, author={author}"
         ),
         "MERGE",
