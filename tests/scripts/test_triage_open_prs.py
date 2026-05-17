@@ -4,7 +4,7 @@ Fixture-driven; never calls real ``gh``. Each test constructs a
 synthetic PR dict matching the ``gh pr list --json
 number,title,isDraft,author,mergeable,mergeStateStatus,additions,
 deletions,changedFiles,createdAt,updatedAt,headRefName,
-statusCheckRollup,reviewDecision,labels,files`` shape and asserts
+headRefOid,statusCheckRollup,reviewDecision,labels,files`` shape and asserts
 the classifier puts it in the expected bucket.
 
 Coverage targets every Bucket A/B/C path + every tripwire from
@@ -50,6 +50,31 @@ def _days_ago(d: int) -> str:
     return (NOW - datetime.timedelta(days=d)).isoformat().replace("+00:00", "Z")
 
 
+def make_merge_packet(
+    number: int,
+    head_sha: str,
+    *,
+    admin_squash_allowed: bool = True,
+    not_ready: list[int] | None = None,
+    unresolved_dissent: bool = False,
+    tier: int = 2,
+    requires_human_risk_settlement: bool = False,
+) -> dict[str, Any]:
+    return {
+        "not_ready": [] if not_ready is None else not_ready,
+        "entries": [
+            {
+                "pr_number": number,
+                "head_sha": head_sha,
+                "admin_squash_allowed": admin_squash_allowed,
+                "unresolved_dissent": unresolved_dissent,
+                "tier": tier,
+                "requires_human_risk_settlement": requires_human_risk_settlement,
+            }
+        ],
+    }
+
+
 def make_pr(
     number: int = 9000,
     *,
@@ -68,7 +93,11 @@ def make_pr(
     review: str = "",
     created_days_ago: int = 0,
     updated_days_ago: int = 0,
+    head_sha: str | None = None,
+    merge_packet: dict[str, Any] | None | bool = True,
 ) -> dict[str, Any]:
+    if head_sha is None:
+        head_sha = f"{number:040x}"[-40:]
     if files is None:
         files = [
             {"path": "scripts/some_helper.py", "additions": additions, "deletions": 0},
@@ -79,7 +108,7 @@ def make_pr(
             {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
             {"name": "tests", "status": "COMPLETED", "conclusion": "SUCCESS"},
         ]
-    return {
+    pr = {
         "number": number,
         "title": title,
         "isDraft": is_draft,
@@ -92,11 +121,17 @@ def make_pr(
         "createdAt": _days_ago(created_days_ago),
         "updatedAt": _days_ago(updated_days_ago),
         "headRefName": f"branch-{number}",
+        "headRefOid": head_sha,
         "statusCheckRollup": ci,
         "reviewDecision": review,
         "labels": [],
         "files": files,
     }
+    if merge_packet is True:
+        pr["mergePacket"] = make_merge_packet(number, head_sha)
+    elif isinstance(merge_packet, dict):
+        pr["mergePacket"] = merge_packet
+    return pr
 
 
 def classify(pr: dict[str, Any], all_open: list[dict[str, Any]] | None = None):
@@ -110,12 +145,14 @@ def classify(pr: dict[str, Any], all_open: list[dict[str, Any]] | None = None):
 
 class TestBucketA:
     def test_clean_additive_with_tests_ready(self):
-        # NOT-DRAFT + CLEAN + green CI + tests + trusted author = A.
+        # NOT-DRAFT + CLEAN + green CI + tests + trusted author +
+        # exact-head merge-packet authorization = A.
         pr = make_pr(number=9001, is_draft=False, merge_state="CLEAN")
         r = classify(pr)
         assert r.bucket == tri.BUCKET_A
         assert r.recommended_action == "MERGE"
         assert "green CI" in r.reason
+        assert "merge-packet authorized" in r.reason
 
     def test_draft_goes_to_c_not_a(self):
         # Policy: drafts must NEVER auto-merge. Same clean PR but
@@ -133,6 +170,75 @@ class TestBucketA:
         r = classify(pr)
         assert r.bucket == tri.BUCKET_C
         assert "merge state status: BLOCKED" in r.reason
+
+    def test_missing_merge_packet_goes_to_c(self):
+        pr = make_pr(number=9004, is_draft=False, merge_state="CLEAN", merge_packet=None)
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "merge-packet not checked" in r.reason
+
+    def test_merge_packet_not_ready_goes_to_c(self):
+        head_sha = "1" * 40
+        pr = make_pr(
+            number=9005,
+            head_sha=head_sha,
+            merge_packet=make_merge_packet(9005, head_sha, not_ready=[9005]),
+        )
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "not_ready" in r.reason
+
+    def test_merge_packet_admin_false_goes_to_c(self):
+        head_sha = "2" * 40
+        pr = make_pr(
+            number=9006,
+            head_sha=head_sha,
+            merge_packet=make_merge_packet(9006, head_sha, admin_squash_allowed=False),
+        )
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "admin_squash_allowed" in r.reason
+
+    def test_merge_packet_head_mismatch_goes_to_c(self):
+        pr = make_pr(
+            number=9007,
+            head_sha="3" * 40,
+            merge_packet=make_merge_packet(9007, "4" * 40),
+        )
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "head mismatch" in r.reason
+
+    def test_tier3_without_settlement_goes_to_c(self):
+        head_sha = "5" * 40
+        pr = make_pr(
+            number=9008,
+            head_sha=head_sha,
+            merge_packet=make_merge_packet(
+                9008,
+                head_sha,
+                tier=3,
+                requires_human_risk_settlement=True,
+            ),
+        )
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "Tier 3/4" in r.reason
+
+    def test_tier3_with_settlement_can_be_a(self):
+        head_sha = "6" * 40
+        pr = make_pr(
+            number=9009,
+            head_sha=head_sha,
+            merge_packet=make_merge_packet(
+                9009,
+                head_sha,
+                tier=3,
+                requires_human_risk_settlement=False,
+            ),
+        )
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_A
 
 
 # ---------------------------------------------------------------------------
@@ -209,6 +315,18 @@ class TestBucketCTripwires:
         assert r.bucket == tri.BUCKET_C
         assert "CI pending" in r.reason
         assert r.recommended_action == "DEFER"
+
+    def test_ci_cancelled_is_non_green(self):
+        pr = make_pr(
+            number=9113,
+            ci=[
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "docs", "status": "COMPLETED", "conclusion": "CANCELLED"},
+            ],
+        )
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "CI non-green" in r.reason
 
     def test_non_trusted_author(self):
         pr = make_pr(number=9106, author="random-contributor")

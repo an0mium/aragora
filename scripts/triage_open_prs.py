@@ -22,23 +22,12 @@ of four buckets:
 The classifier is read-only by design: it NEVER mutates GitHub state.
 The downstream Stage 2 (``scripts/auto_merge_bucket_a.py``) is what
 acts on Bucket A; this script only emits the recommendation table.
-
-Two policy-required checks that this Stage-1 classifier intentionally
-DOES NOT perform (deferred to Stage 2's pre-merge verification):
-
-  - ``aragora review-queue merge-packet --pr N --json`` must report
-    ``admin_squash_allowed=true``, ``not_ready=[]``,
-    ``unresolved_dissent=false`` at the EXACT current head SHA.
-  - Tier 3 and Tier 4 PRs (per
-    ``docs/REVIEW_AUTHORITY_PRINCIPLES.md``) require recorded human
-    risk settlement / preapproval at the exact head SHA before
-    becoming Bucket A.
-
-The classifier emits these PRs as Bucket A based on metadata alone;
-Stage 2 (``auto_merge_bucket_a.py``) is responsible for the deep
-checks before any actual merge. This split keeps Stage 1 cheap
-(metadata-only, no per-PR shell-out) while Stage 2 carries the
-defense-in-depth verification at the moment of mutation.
+Bucket A is still exact-head gated here: otherwise-eligible candidates
+are demoted to Bucket C unless ``aragora review-queue merge-packet
+--pr N --json`` reports ``admin_squash_allowed=true``, ``not_ready=[]``,
+``unresolved_dissent=false`` at the current head SHA. Tier 3 and Tier 4
+PRs remain Bucket C unless that merge packet proves the required human
+risk settlement / preapproval has already been recorded.
 
 Pure stdlib (argparse, dataclasses, datetime, json, shutil,
 subprocess, sys, pathlib, typing). No ``aragora.*`` imports. No
@@ -54,7 +43,7 @@ import json
 import shutil
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -130,6 +119,9 @@ class ClassificationResult:
     reason: str
     title: str
     recommended_action: str
+
+
+MergePacketProvider = Callable[[int], dict[str, Any] | None]
 
 
 def _result(
@@ -228,11 +220,100 @@ def _find_superseder(pr: dict[str, Any], all_open: list[dict[str, Any]]) -> int 
     return None
 
 
+def _first_merge_packet_entry(packet: dict[str, Any], pr_number: int) -> dict[str, Any] | None:
+    entries = packet.get("entries")
+    if not isinstance(entries, list):
+        return None
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        if int(entry.get("pr_number") or 0) == pr_number:
+            return entry
+    if len(entries) == 1 and isinstance(entries[0], dict):
+        return entries[0]
+    return None
+
+
+def _load_merge_packet(pr_number: int) -> dict[str, Any] | None:
+    cmd = [
+        sys.executable,
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "merge-packet",
+        "--pr",
+        str(pr_number),
+        "--json",
+    ]
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        stderr = getattr(exc, "stderr", "") or str(exc)
+        return {"_error": stderr.strip()[:300] or "merge-packet command failed"}
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return {"_error": f"merge-packet returned non-JSON: {exc}"}
+    if not isinstance(data, dict):
+        return {"_error": "merge-packet returned non-object JSON"}
+    return data
+
+
+def _embedded_merge_packet(pr: dict[str, Any]) -> dict[str, Any] | None:
+    packet = pr.get("mergePacket")
+    return packet if isinstance(packet, dict) else None
+
+
+def _merge_packet_bucket_a_blocker(
+    pr: dict[str, Any],
+    *,
+    merge_packet_provider: MergePacketProvider | None,
+) -> str | None:
+    """Return ``None`` only when the exact-head merge packet authorizes Bucket A."""
+
+    pr_number = int(pr.get("number") or 0)
+    head_sha = str(pr.get("headRefOid") or "")
+    packet = _embedded_merge_packet(pr)
+    if packet is None and merge_packet_provider is not None:
+        packet = merge_packet_provider(pr_number)
+    if packet is None:
+        return "merge-packet not checked (required for Bucket A)"
+    if packet.get("_error"):
+        return f"merge-packet failed: {packet['_error']}"
+
+    not_ready = packet.get("not_ready")
+    if not_ready != []:
+        return f"merge-packet not_ready={not_ready!r}"
+
+    entry = _first_merge_packet_entry(packet, pr_number)
+    if entry is None:
+        return "merge-packet missing PR entry"
+
+    packet_head = str(entry.get("head_sha") or "")
+    if not head_sha:
+        return "PR headRefOid missing; cannot verify exact head"
+    if packet_head != head_sha:
+        return "merge-packet head mismatch"
+
+    if entry.get("admin_squash_allowed") is not True:
+        return "merge-packet admin_squash_allowed is not true"
+    if entry.get("unresolved_dissent") is not False:
+        return "merge-packet unresolved_dissent is not false"
+    try:
+        tier = int(entry.get("tier") or 0)
+    except (TypeError, ValueError):
+        return "merge-packet tier is invalid"
+    if tier >= 3 and entry.get("requires_human_risk_settlement") is not False:
+        return "Tier 3/4 PR lacks recorded human settlement/preapproval"
+    return None
+
+
 def classify(
     pr: dict[str, Any],
     all_open: list[dict[str, Any]],
     *,
     now: datetime.datetime | None = None,
+    merge_packet_provider: MergePacketProvider | None = None,
 ) -> ClassificationResult:
     """Run the four-bucket classification on one PR.
 
@@ -266,6 +347,13 @@ def classify(
     ci_pending = sum(
         1 for c in checks if isinstance(c, dict) and c.get("status") in ("IN_PROGRESS", "QUEUED")
     )
+    ci_non_green = [
+        str(c.get("conclusion") or "(missing)")
+        for c in checks
+        if isinstance(c, dict)
+        and c.get("status") == "COMPLETED"
+        and c.get("conclusion") not in ("SUCCESS", "SKIPPED", "NEUTRAL")
+    ]
     ci_total = len(checks)
     age_days = _parse_age_days(str(pr.get("createdAt") or ""), now)
     updated_days = _parse_age_days(str(pr.get("updatedAt") or ""), now)
@@ -322,6 +410,16 @@ def classify(
             BUCKET_C,
             f"CI pending ({ci_pending} in-flight, {ci_success}/{ci_total} green)",
             "DEFER",
+        )
+
+    # --- Bucket C: completed but non-green CI (for example CANCELLED/TIMED_OUT) ---
+    if ci_non_green:
+        return _result(
+            n,
+            title,
+            BUCKET_C,
+            f"CI non-green ({ci_non_green[0]})",
+            "DECIDE",
         )
 
     # --- Bucket B: stale draft ---
@@ -420,19 +518,28 @@ def classify(
             "DECIDE",
         )
 
-    # --- Bucket A: default if all gates pass ---
-    # NB: Stage 2 (auto_merge_bucket_a.py) must still verify the
-    # `aragora review-queue merge-packet` admin_squash_allowed +
-    # not_ready + unresolved_dissent + tier risk-settlement at the
-    # exact current head SHA before actually merging. The classifier
-    # cannot do these deep checks cheaply for every PR.
+    # --- Bucket C: merge-packet does not authorize exact-head Bucket A ---
+    merge_packet_blocker = _merge_packet_bucket_a_blocker(
+        pr,
+        merge_packet_provider=merge_packet_provider,
+    )
+    if merge_packet_blocker is not None:
+        return _result(
+            n,
+            title,
+            BUCKET_C,
+            merge_packet_blocker,
+            "DECIDE",
+        )
+
+    # --- Bucket A: default if all gates pass, including the exact-head merge packet ---
     return _result(
         n,
         title,
         BUCKET_A,
         (
-            f"ready + CLEAN + green CI ({ci_success}/{ci_total}), {net_loc} LOC, "
-            f"{len(file_paths)} files, tests present, author={author}"
+            f"ready + CLEAN + green CI ({ci_success}/{ci_total}), merge-packet authorized, "
+            f"{net_loc} LOC, {len(file_paths)} files, tests present, author={author}"
         ),
         "MERGE",
     )
@@ -446,7 +553,7 @@ def classify(
 _GH_JSON_FIELDS = (
     "number,title,isDraft,author,mergeable,mergeStateStatus,additions,"
     "deletions,changedFiles,createdAt,updatedAt,headRefName,"
-    "statusCheckRollup,reviewDecision,labels,files"
+    "headRefOid,statusCheckRollup,reviewDecision,labels,files"
 )
 
 
@@ -598,7 +705,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.limit:
         prs = prs[: args.limit]
 
-    results = [classify(pr, prs) for pr in prs if isinstance(pr, dict)]
+    merge_packet_provider = None if args.from_json else _load_merge_packet
+    results = [
+        classify(pr, prs, merge_packet_provider=merge_packet_provider)
+        for pr in prs
+        if isinstance(pr, dict)
+    ]
 
     if args.bucket:
         results = [r for r in results if r.bucket == args.bucket]

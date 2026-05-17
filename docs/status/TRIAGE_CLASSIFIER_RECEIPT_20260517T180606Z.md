@@ -14,6 +14,13 @@ data. Pure-stdlib (argparse, dataclasses, datetime, json, shutil,
 subprocess, sys, pathlib, typing). No `aragora.*` imports. Zero AI-key
 consumption. Never mutates GitHub state.
 
+**2026-05-17T18:50:41Z audit patch:** Bucket A is now exact-head gated in
+this classifier, not deferred to Stage 2. Otherwise-eligible candidates
+must have a current `aragora review-queue merge-packet --pr <N> --json`
+result with `admin_squash_allowed=true`, `not_ready=[]`,
+`unresolved_dissent=false`, a matching head SHA, and Tier 3/4 settlement
+or preapproval if applicable. Without that proof, the PR remains Bucket C.
+
 ## CLI surface
 
 ```
@@ -77,9 +84,8 @@ Mid-session, the operator tightened Bucket A criteria in
 - **`mergeStateStatus == CLEAN`** (new — `BLOCKED` no longer qualifies)
 - `aragora review-queue merge-packet` reports `admin_squash_allowed=true`,
   `not_ready=[]`, `unresolved_dissent=false` at the **exact** current
-  head SHA (deferred to Stage 2 — see classifier docstring)
+  head SHA
 - Tier 3 / Tier 4 PRs need explicit risk-settlement at exact head SHA
-  (deferred to Stage 2)
 - Existing: green CI, additive, tests, ≤1500 LOC, trusted author,
   no held PRs, no protected files
 
@@ -120,25 +126,27 @@ wins; first match returns):
 12. **C** if `mergeStateStatus != CLEAN`
 13. **C** if there are code files but no test files
 14. **C** if `reviewDecision == CHANGES_REQUESTED`
-15. **A** otherwise (still subject to Stage 2's deep merge-packet +
-    tier checks before any actual merge)
+15. **C** if the exact-head merge packet does not authorize admin squash
+    or reports `not_ready`, unresolved dissent, head drift, or missing
+    Tier 3/4 settlement/preapproval
+16. **A** otherwise
 
 Bucket D is reserved for future enhancement — strategic mismatch
 with canonical direction is not auto-classifiable from `gh` metadata
 alone.
 
-## Tests (39 new, all green)
+## Tests (46 new, all green)
 
 ```
 $ python3 -m pytest tests/scripts/test_triage_open_prs.py -q
-.......................................                                  [100%]
-39 passed in 1.04s
+..............................................                           [100%]
+46 passed
 ```
 
 | Group | Tests | Coverage |
 |---|---|---|
-| TestBucketA | 3 | Clean additive ready-to-merge → A; draft → C `READY?`; BLOCKED → C |
-| TestBucketCTripwires | 13 | Held PR; protected file (CLAUDE.md, automation.toml, aragora/__init__.py); large diff; CI red recent; CI pending; non-trusted author; not mergeable (CONFLICTING); merge state DIRTY; merge state BEHIND; code without tests; pure-docs-doesnt-trip-rule (negative); review CHANGES_REQUESTED |
+| TestBucketA | 9 | Clean additive ready-to-merge → A; draft → C `READY?`; BLOCKED → C; missing merge-packet → C; not_ready → C; admin false → C; head mismatch → C; Tier 3 without settlement → C; Tier 3 with settlement → A |
+| TestBucketCTripwires | 14 | Held PR; protected file (CLAUDE.md, automation.toml, aragora/__init__.py); large diff; CI red recent; CI pending; CI cancelled/non-green; non-trusted author; not mergeable (CONFLICTING); merge state DIRTY; merge state BEHIND; code without tests; pure-docs-doesnt-trip-rule (negative); review CHANGES_REQUESTED |
 | TestBucketB | 7 | CI red 7+ days; stale draft over threshold; stale but recent (negative); ready PR not marked stale (negative); supersede by newer clean PR; no supersede when overlap too low (negative); no supersede when newer has CI failure (negative) |
 | TestPrecedence | 3 | Held beats all other tripwires; protected beats large diff; CI-red-7d beats supersede |
 | TestCliOutput | 8 | Human output; JSON output; bucket filter; missing --from-json file; invalid --from-json JSON; non-array root; no gh on PATH; deterministic output across runs |
