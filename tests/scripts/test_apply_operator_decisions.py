@@ -192,6 +192,38 @@ def test_no_gh_on_path_returns_2(
     assert "gh` CLI not found" in capsys.readouterr().err
 
 
+def test_unsupported_schema_returns_2_and_makes_no_gh_calls(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(
+        tmp_path,
+        [make_entry(100, "approve_tier")],
+        schema_version="aragora-operator-decisions/0.9",
+    )
+
+    rc = aod.main([str(p)])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "unsupported schema_version" in capsys.readouterr().err
+
+
+def test_unverified_receipt_returns_2_and_makes_no_gh_calls(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(
+        tmp_path,
+        [make_entry(100, "approve_tier")],
+        receipt_sha256_verified=False,
+    )
+
+    rc = aod.main([str(p)])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "receipt_sha256_verified must be true" in capsys.readouterr().err
+
+
 # ---------------------------------------------------------------------------
 # Default dry-run
 # ---------------------------------------------------------------------------

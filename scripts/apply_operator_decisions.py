@@ -58,6 +58,7 @@ from typing import Any
 # they do not appear here. Keep this list in sync with the holds
 # enumerated in the operator-decisions ingestion PR body.
 HELD_PR_NUMBERS: frozenset[int] = frozenset({4990, 7173, 7215, 7240, 7243, 7245, 7249, 7252})
+EXPECTED_SCHEMA_VERSION = "aragora-operator-decisions/1.0"
 
 # The five decision IDs ``PacketDecisionCard`` emits. Mirrors the
 # ``PacketDecisionId`` union in
@@ -203,6 +204,19 @@ def parse_payload(raw: dict[str, Any]) -> OperatorDecisionsPayload:
         decisions=tuple(decisions),
         payload_sha256=str(raw.get("payload_sha256", "")),
     )
+
+
+def validate_payload_envelope(payload: OperatorDecisionsPayload) -> str | None:
+    """Return a refusal reason when signed payload metadata is not trusted."""
+
+    if payload.schema_version != EXPECTED_SCHEMA_VERSION:
+        return (
+            "unsupported schema_version "
+            f"{payload.schema_version!r}; expected {EXPECTED_SCHEMA_VERSION!r}"
+        )
+    if not payload.receipt_sha256_verified:
+        return "receipt_sha256_verified must be true"
+    return None
 
 
 def _short_sha(sha: str) -> str:
@@ -483,6 +497,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     payload = parse_payload(raw)
+    if reason := validate_payload_envelope(payload):
+        print(f"ERROR: refusing operator-decisions payload: {reason}", file=sys.stderr)
+        return 2
+
     apply = bool(args.apply)
     only_prs: frozenset[int] = frozenset(args.only_pr)
 
