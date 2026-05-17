@@ -211,6 +211,30 @@ def test_iter_session_events_redacts_by_default(fake_codex_home) -> None:  # typ
     assert "Bearer ghp_FAKELEAK12345678901234" not in serialized
 
 
+def test_iter_session_events_redacts_nested_lists(tmp_path: Path) -> None:
+    rollout = tmp_path / "nested-secret-rollout.jsonl"
+    rollout.write_text(
+        json.dumps(
+            {
+                "type": "agent_message",
+                "payload": {
+                    "content": [[{"text": "nested sk-proj-FAKE-NESTED-SECRET"}]],
+                    "metadata": ["safe", ["Bearer ghp_FAKELEAK12345678901234"]],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    events = list(inspector.iter_session_events(rollout))
+    serialized = json.dumps(events, default=str)
+
+    assert "sk-proj-FAKE-NESTED-SECRET" not in serialized
+    assert "ghp_FAKELEAK12345678901234" not in serialized
+    assert serialized.count("[REDACTED]") >= 2
+
+
 def test_iter_session_events_tolerates_partial_trailing_line(fake_codex_home) -> None:  # type: ignore[no-untyped-def]
     with fake_codex_home.recent_rollout.open("a", encoding="utf-8") as handle:
         handle.write('{"type": "agent_message", "payload":')

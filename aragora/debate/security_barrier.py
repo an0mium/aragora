@@ -86,6 +86,18 @@ class SecurityBarrier:
 
         return result
 
+    def _redact_value(self, value: Any) -> Any:
+        """Recursively redact strings inside common JSON-like containers."""
+        if isinstance(value, str):
+            return self.redact(value)
+        if isinstance(value, dict):
+            return {key: self._redact_value(inner) for key, inner in value.items()}
+        if isinstance(value, list):
+            return [self._redact_value(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(self._redact_value(item) for item in value)
+        return value
+
     def redact_dict(self, data: dict[str, Any]) -> dict[str, Any]:
         """
         Recursively redact sensitive content from a dictionary.
@@ -99,27 +111,7 @@ class SecurityBarrier:
         if not data:
             return data
 
-        result: dict[str, Any] = {}
-        for key, value in data.items():
-            if isinstance(value, str):
-                result[key] = self.redact(value)
-            elif isinstance(value, dict):
-                result[key] = self.redact_dict(value)
-            elif isinstance(value, list):
-                result[key] = [
-                    (
-                        self.redact(v)
-                        if isinstance(v, str)
-                        else self.redact_dict(v)
-                        if isinstance(v, dict)
-                        else v
-                    )
-                    for v in value
-                ]
-            else:
-                result[key] = value
-
-        return result
+        return {key: self._redact_value(value) for key, value in data.items()}
 
     def contains_sensitive(self, content: str) -> bool:
         """Check if content contains potentially sensitive patterns."""
