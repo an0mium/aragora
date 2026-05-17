@@ -65,6 +65,28 @@ def test_send_tmux_multiline_uses_delete_on_paste_buffer_transport(
     ]
 
 
+def test_lane_record_preserves_desktop_identity_metadata() -> None:
+    import agent_bridge as mod
+
+    record = mod.LaneRecord.from_dict(
+        {
+            "lane_id": "codex-b-review",
+            "owner_session": "codex-B",
+            "status": "active",
+            "desktop_label": "Codex B",
+            "codex_thread_id": "019e-test-thread",
+            "codex_rollout_path": "/Users/armand/.codex/sessions/rollout.jsonl",
+            "session_title": "Review #7286",
+        }
+    )
+
+    payload = record.to_dict()
+    assert payload["desktop_label"] == "Codex B"
+    assert payload["codex_thread_id"] == "019e-test-thread"
+    assert payload["codex_rollout_path"].endswith("rollout.jsonl")
+    assert payload["session_title"] == "Review #7286"
+
+
 def test_cmd_approve_droid_uses_enter_menu_selection(monkeypatch: pytest.MonkeyPatch) -> None:
     import agent_bridge as mod
 

@@ -159,6 +159,10 @@ class LaneRecord:
     pr_number: int | None = None
     conflict_session: str = ""
     conflict_reason: str = ""
+    desktop_label: str = ""
+    codex_thread_id: str = ""
+    codex_rollout_path: str = ""
+    session_title: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v not in ("", None)}
@@ -178,6 +182,10 @@ class LaneRecord:
             pr_number=payload.get("pr_number"),
             conflict_session=str(payload.get("conflict_session", "")),
             conflict_reason=str(payload.get("conflict_reason", "")),
+            desktop_label=str(payload.get("desktop_label", "")),
+            codex_thread_id=str(payload.get("codex_thread_id", "")),
+            codex_rollout_path=str(payload.get("codex_rollout_path", "")),
+            session_title=str(payload.get("session_title", "")),
         )
 
 

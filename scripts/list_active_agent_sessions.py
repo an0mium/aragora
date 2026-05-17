@@ -21,13 +21,14 @@ Inputs (each optional, never errors on missing sources):
 - ``~/.codex/sessions/**/*.jsonl`` for Codex CLI session files
 - ``scripts/agent_bridge.py processes --json --summary-only`` for live
   agent process census
-- ``~/.aragora/agent-bridge/lanes.json`` (and the in-repo
-  ``.aragora/agent-bridge/lanes.json`` fallback) for the cross-agent
+- in-repo ``.aragora/agent-bridge/lanes.json`` for the cross-agent
   lane registry maintained by ``scripts/agent_bridge.py``; lane
   branches, worktrees, and PR numbers are folded into the overlap
   detector so that an active lane claim collides with the matching
   git worktree, dispatch contract, automation outbox row, open PR, or
   another active lane claiming the same PR/branch/worktree
+  (legacy ``~/.aragora/agent-bridge/lanes.json`` fallback is available
+  only via ``--include-user-lane-registry``)
 - ``gh pr list --state open --json ...`` for open PRs (skippable via
   ``--skip-gh``)
 
@@ -65,7 +66,7 @@ DEFAULT_MAX_PR_FETCH = 30
 DEFAULT_GIT_TIMEOUT = 10
 DEFAULT_SUBPROCESS_TIMEOUT = 20
 DEFAULT_CODEX_SESSION_SCAN_LIMIT = 500
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 LANE_REGISTRY_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
 LANE_REGISTRY_USER_PATH = Path.home() / ".aragora" / "agent-bridge" / "lanes.json"
@@ -386,18 +387,19 @@ def detect_agent_bridge_lanes(
     repo_root: Path,
     *,
     user_path: Path = LANE_REGISTRY_USER_PATH,
+    include_user_fallback: bool = False,
 ) -> list[dict[str, Any]]:
-    """Read the agent-bridge lane registry from repo-local state, then fallback.
+    """Read the agent-bridge lane registry from repo-local state.
 
     Repo-local state is authoritative when present. The user-home registry is
-    only a fallback for older checkouts and non-repo harnesses; mixing both can
-    make fixture tests and disposable worktrees inherit unrelated live lanes.
+    optional legacy fallback because mixing both can make fixture tests and
+    disposable worktrees inherit unrelated live lanes.
     """
     candidates: list[Path] = []
     repo_lane = repo_root / LANE_REGISTRY_RELATIVE_PATH
     if repo_lane.exists():
         candidates.append(repo_lane)
-    elif user_path.exists():
+    elif include_user_fallback and user_path.exists():
         candidates.append(user_path)
 
     out_by_id: dict[str, dict[str, Any]] = {}
@@ -435,6 +437,10 @@ def detect_agent_bridge_lanes(
                 "worktree",
                 "conflict_session",
                 "conflict_reason",
+                "desktop_label",
+                "codex_thread_id",
+                "codex_rollout_path",
+                "session_title",
             ):
                 value = entry.get(key)
                 if isinstance(value, str) and value:
@@ -761,6 +767,7 @@ def build_payload(
     skip_codex_desktop: bool = False,
     skip_process_census: bool = False,
     codex_session_scan_limit: int = DEFAULT_CODEX_SESSION_SCAN_LIMIT,
+    include_user_lane_registry: bool = False,
 ) -> dict[str, Any]:
     repo_root = repo_root.resolve()
     codex_home = codex_home.expanduser()
@@ -801,7 +808,10 @@ def build_payload(
     process_census: dict[str, Any] = {}
     if not skip_process_census:
         process_census = detect_agent_process_census(repo_root)
-    agent_bridge_lanes = detect_agent_bridge_lanes(repo_root)
+    agent_bridge_lanes = detect_agent_bridge_lanes(
+        repo_root,
+        include_user_fallback=include_user_lane_registry,
+    )
     open_prs: list[dict[str, Any]] = []
     if not skip_gh:
         open_prs = fetch_open_prs(limit=max_pr_fetch)
@@ -827,6 +837,7 @@ def build_payload(
         "skip_gh": skip_gh,
         "skip_codex_desktop": skip_codex_desktop,
         "skip_process_census": skip_process_census,
+        "include_user_lane_registry": include_user_lane_registry,
         "worktrees": worktrees,
         "dispatch_contracts": dispatch_contracts,
         "issue_claims": issue_claims,
@@ -946,7 +957,15 @@ def render_text(payload: dict[str, Any]) -> str:
                 flag = " [ACTIVE]"
             branch = row.get("branch") or "-"
             owner = row.get("owner_session") or "-"
-            lines.append(f"  - {row.get('lane_id')}{flag}  owner={owner}  branch={branch}")
+            label = row.get("desktop_label") or "-"
+            thread_id = str(row.get("codex_thread_id") or "")
+            thread = f"  thread={thread_id[:12]}" if thread_id else ""
+            title = row.get("session_title") or ""
+            title_text = f"  title={str(title)[:48]}" if title else ""
+            lines.append(
+                f"  - {row.get('lane_id')}{flag}  label={label}  "
+                f"owner={owner}{thread}  branch={branch}{title_text}"
+            )
         if len(lanes) > 20:
             lines.append(f"  ... ({len(lanes) - 20} more)")
         lines.append("")
@@ -1041,6 +1060,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json", action="store_true")
     parser.add_argument(
+        "--include-user-lane-registry",
+        action="store_true",
+        help="Include legacy ~/.aragora/agent-bridge/lanes.json fallback when no repo registry exists.",
+    )
+    parser.add_argument(
         "--conflicts-only",
         action="store_true",
         help="Emit only active lane conflicts and agent-bridge overlaps.",
@@ -1059,6 +1083,7 @@ def main(argv: list[str] | None = None) -> int:
         skip_codex_desktop=bool(args.skip_codex_desktop),
         skip_process_census=bool(args.skip_process_census),
         codex_session_scan_limit=int(args.codex_session_scan_limit),
+        include_user_lane_registry=bool(args.include_user_lane_registry),
     )
     if args.conflicts_only:
         payload = build_conflicts_only_payload(payload)

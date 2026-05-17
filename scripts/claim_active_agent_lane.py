@@ -29,16 +29,19 @@ bootstraps and from any agent):
   reader picks it up without modification: ``lane_id``, ``owner_session``,
   ``goal``, ``source``, ``status``, ``next_action``, ``updated_at``,
   ``branch``, ``worktree``, ``pr_number``, ``conflict_session``,
-  ``conflict_reason``.
+  ``conflict_reason``, and optional Desktop identity metadata
+  (``desktop_label``, ``codex_thread_id``, ``codex_rollout_path``,
+  ``session_title``).
 - A claim with the same ``lane_id`` from the same ``owner_session``
   overwrites the existing row (idempotent refresh). A claim with the
   same ``lane_id`` from a *different* ``owner_session`` is rejected
   unless ``--force`` is supplied; the helper exits 2 and prints a
   conflict hint so the caller can pick a different lane name or wait.
-- A mutating active claim is also rejected when a different active
-  owner already claims the same ``pr_number``, ``branch``, or
-  ``worktree``. Different lane IDs cannot silently duplicate work on
-  the same PR or branch.
+- A mutating active claim is also rejected when a different active owner
+  already claims the same ``pr_number``, ``branch``, or ``worktree``.
+  Different lane IDs cannot silently duplicate work on the same PR or branch.
+  Read-only observers can opt into report-only claim creation with
+  ``--allow-resource-conflicts``.
 - Never deletes rows. Never writes a lane row with a missing
   ``lane_id`` or empty ``owner_session``.
 - Never invokes git, gh, or any network call.
@@ -108,6 +111,10 @@ LANE_RECORD_KEYS = (
     "pr_number",
     "conflict_session",
     "conflict_reason",
+    "desktop_label",
+    "codex_thread_id",
+    "codex_rollout_path",
+    "session_title",
 )
 
 
@@ -298,7 +305,12 @@ def claim_lane(
     pr_number: int | None = None,
     conflict_session: str = "",
     conflict_reason: str = "",
+    desktop_label: str = "",
+    codex_thread_id: str = "",
+    codex_rollout_path: str = "",
+    session_title: str = "",
     force: bool = False,
+    allow_resource_conflicts: bool = False,
     updated_at: str | None = None,
 ) -> dict[str, Any]:
     """Write or refresh a single lane claim, returning the persisted row."""
@@ -326,6 +338,10 @@ def claim_lane(
             "pr_number": pr_number,
             "conflict_session": conflict_session,
             "conflict_reason": conflict_reason,
+            "desktop_label": desktop_label,
+            "codex_thread_id": codex_thread_id,
+            "codex_rollout_path": codex_rollout_path,
+            "session_title": session_title,
         }
         normalized = _normalize_row(new_row)
 
@@ -334,7 +350,7 @@ def claim_lane(
             normalized=normalized,
             owner_session=owner_session,
         )
-        if identity_conflict is not None and not force:
+        if identity_conflict is not None and not allow_resource_conflicts and not force:
             existing, kind, value = identity_conflict
             raise ClaimError(
                 f"{kind}={value!r} already claimed by "
@@ -385,9 +401,38 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--conflict-session", default="")
     parser.add_argument("--conflict-reason", default="")
     parser.add_argument(
+        "--desktop-label",
+        default="",
+        help='Operator-visible Desktop label, e.g. "Boss Codex", "Codex B", or "Review".',
+    )
+    parser.add_argument(
+        "--codex-thread-id",
+        default="",
+        help="Optional Codex Desktop thread id for the visible session.",
+    )
+    parser.add_argument(
+        "--codex-rollout-path",
+        default="",
+        help="Optional Codex rollout JSONL path for the visible session.",
+    )
+    parser.add_argument(
+        "--session-title",
+        default="",
+        help="Optional visible or inferred session title for operator display.",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Overwrite an existing claim or identity conflict owned by a different session.",
+    )
+    parser.add_argument(
+        "--allow-resource-conflicts",
+        action="store_true",
+        help=(
+            "Allow a claim even if another active owner claims the same "
+            "pr_number, branch, or worktree. Default is fail-closed for "
+            "mutating lane ownership."
+        ),
     )
     parser.add_argument(
         "--release-stale",
@@ -458,7 +503,12 @@ def main(argv: list[str] | None = None) -> int:
                 pr_number=args.pr_number,
                 conflict_session=args.conflict_session,
                 conflict_reason=args.conflict_reason,
+                desktop_label=args.desktop_label,
+                codex_thread_id=args.codex_thread_id,
+                codex_rollout_path=args.codex_rollout_path,
+                session_title=args.session_title,
                 force=args.force,
+                allow_resource_conflicts=args.allow_resource_conflicts,
                 updated_at=args.updated_at,
             )
     except ClaimError as exc:
