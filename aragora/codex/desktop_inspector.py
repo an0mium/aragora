@@ -28,9 +28,13 @@ from .sqlite_ro import sqlite_ro
 # being explicit about.
 _EXTRA_REDACTION_PATTERNS = (
     r"gh[pousr]_[A-Za-z0-9_]{20,}",
+    r"github_pat_[A-Za-z0-9_]{22,}",
     r"AKIA[0-9A-Z]{16}",
     r"sk-or-v1-[A-Za-z0-9]+",
 )
+
+LIST_TITLE_WIDTH = 160
+LIST_FIRST_USER_MESSAGE_WIDTH = 240
 
 
 def _rollout_path_from_db(value: str, *, paths: CodexDesktopPaths) -> Path:
@@ -93,6 +97,16 @@ class ThreadSummary:
             "source": self.source,
             "first_user_message": self.first_user_message,
         }
+
+    def to_list_dict(self) -> dict[str, Any]:
+        """Return bounded metadata safe for bulk thread-list output."""
+        payload = self.to_dict()
+        payload["title"] = truncate(str(payload["title"]), width=LIST_TITLE_WIDTH)
+        payload["first_user_message"] = truncate(
+            str(payload["first_user_message"]),
+            width=LIST_FIRST_USER_MESSAGE_WIDTH,
+        )
+        return payload
 
 
 @dataclass(frozen=True, slots=True)

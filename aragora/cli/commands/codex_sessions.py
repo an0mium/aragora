@@ -127,7 +127,7 @@ def cmd_codex_sessions_list(args: argparse.Namespace) -> int:
                 "include_archived": bool(args.include_archived),
                 "limit": int(args.limit),
                 "count": len(threads),
-                "threads": [t.to_dict() for t in threads],
+                "threads": [t.to_list_dict() for t in threads],
             }
         )
         return 0

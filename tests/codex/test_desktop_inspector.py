@@ -154,6 +154,16 @@ def test_list_active_threads_redacts_printable_metadata_fields(
     assert "[REDACTED]" in serialized
 
 
+def test_redact_display_covers_github_fine_grained_tokens() -> None:
+    token = "github_pat_11ABCDEFG_fakeFineGrainedToken_abcdefghijklmnopqrstuvwxyz"
+
+    redacted = inspector.redact_display(f"branch-{token}-suffix")
+
+    assert redacted is not None
+    assert token not in redacted
+    assert "[REDACTED]" in redacted
+
+
 # -- inspector summarize ------------------------------------------------------
 
 

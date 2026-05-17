@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -78,6 +79,33 @@ def test_cli_list_json_redacts_metadata_fields(
     assert "ghp_FAKELEAK1234567890ABCD" not in out
     assert "sk-or-v1-abcdefghijklmnopqrstuvwxyz" not in out
     assert "[REDACTED]" in out
+
+
+def test_cli_list_json_bounds_prompt_and_title_excerpts(
+    fake_codex_home, capsys: pytest.CaptureFixture[str]
+) -> None:  # type: ignore[no-untyped-def]
+    long_title = "title-" + ("A" * 300)
+    long_message = "message-" + ("B" * 600)
+    with sqlite3.connect(fake_codex_home.home / "state_5.sqlite") as conn:
+        conn.execute(
+            "UPDATE threads SET title = ?, first_user_message = ? WHERE id = ?",
+            (long_title, long_message, fake_codex_home.recent_thread_id),
+        )
+
+    rc = cli.cmd_codex_sessions_list(_args(since="4h", include_archived=False, limit=50, json=True))
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    payload = json.loads(out)
+    thread = next(
+        row for row in payload["threads"] if row["id"] == fake_codex_home.recent_thread_id
+    )
+    assert thread["title"].endswith("…")
+    assert thread["first_user_message"].endswith("…")
+    assert len(thread["title"]) <= 160
+    assert len(thread["first_user_message"]) <= 240
+    assert long_title not in out
+    assert long_message not in out
 
 
 def test_cli_list_redacts_titles(fake_codex_home, capsys: pytest.CaptureFixture[str]) -> None:  # type: ignore[no-untyped-def]
