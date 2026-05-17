@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **99**
-- Total top-level invocations (including aliases): **100**
+- Canonical top-level commands: **100**
+- Total top-level invocations (including aliases): **101**
 
 ## Installation
 
