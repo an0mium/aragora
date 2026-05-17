@@ -164,6 +164,7 @@ def test_detect_codex_cli_sessions_filters_by_age(tmp_path: Path) -> None:
     assert fresh_row["cwd"] == "/repo/worktree-a"
     assert fresh_row["branch"] == "feature/fresh"
     assert fresh_row["commit_hash"] == "abc123"
+    assert "repository_url" not in fresh_row
 
 
 def test_read_codex_session_metadata_ignores_message_content(tmp_path: Path) -> None:
@@ -203,6 +204,85 @@ def test_read_codex_session_metadata_ignores_message_content(tmp_path: Path) -> 
         "branch": "main",
         "commit_hash": "def456",
     }
+
+
+def test_read_codex_session_metadata_ignores_non_session_meta_metadata(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "session.jsonl"
+    path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "response_item",
+                        "payload": {
+                            "id": "wrong-thread",
+                            "source": "response",
+                            "cwd": "/wrong",
+                            "git": {"branch": "wrong"},
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "session_meta",
+                        "payload": {
+                            "id": "thread-3",
+                            "source": "exec",
+                            "cwd": "/repo/right",
+                            "git": {
+                                "branch": "refs/heads/feature/right",
+                                "commit_hash": "abc789",
+                            },
+                        },
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert detector.read_codex_session_metadata(path) == {
+        "thread_id": "thread-3",
+        "source": "exec",
+        "cwd": "/repo/right",
+        "branch": "feature/right",
+        "commit_hash": "abc789",
+    }
+
+
+def test_read_codex_session_metadata_drops_repository_url(tmp_path: Path) -> None:
+    path = tmp_path / "session.jsonl"
+    path.write_text(
+        json.dumps(
+            {
+                "type": "session_meta",
+                "payload": {
+                    "id": "thread-4",
+                    "cwd": "/repo",
+                    "git": {
+                        "branch": "main",
+                        "commit_hash": "def789",
+                        "repository_url": "https://token@example.invalid/private/repo.git",
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    metadata = detector.read_codex_session_metadata(path)
+
+    assert metadata == {
+        "thread_id": "thread-4",
+        "cwd": "/repo",
+        "branch": "main",
+        "commit_hash": "def789",
+    }
+    assert "repository_url" not in metadata
 
 
 def test_detect_codex_cli_sessions_respects_output_limit(tmp_path: Path) -> None:

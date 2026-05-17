@@ -308,6 +308,8 @@ def read_codex_session_metadata(path: Path, *, max_lines: int = 50) -> dict[str,
                 obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            if obj.get("type") != "session_meta":
+                continue
             payload = obj.get("payload")
             if not isinstance(payload, dict):
                 continue
@@ -326,8 +328,6 @@ def read_codex_session_metadata(path: Path, *, max_lines: int = 50) -> dict[str,
                 metadata["branch"] = branch
             if isinstance(git_payload.get("commit_hash"), str):
                 metadata["commit_hash"] = git_payload["commit_hash"]
-            if isinstance(git_payload.get("repository_url"), str):
-                metadata["repository_url"] = git_payload["repository_url"]
             if metadata:
                 return metadata
     return {}
