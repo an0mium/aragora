@@ -87,7 +87,7 @@ Every panel invocation persists:
   and a rationale that explicitly cites dissenting members in split
   cases.
 
-Schema version: `triage-receipt/1.0`. The receipt schema mirrors
+Schema version: `triage-receipt/1.1`. The receipt schema mirrors
 Aragora debate-receipt surface area so future upgrades to a full
 `Arena.run()` integration are a schema-compatible swap, not a rewrite.
 

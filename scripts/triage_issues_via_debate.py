@@ -730,7 +730,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.issues:
         numbers = [int(part) for part in args.issues.split(",") if part.strip()]
         target_issues = fetch_specific_issues(args.repo, numbers)
-        open_index = target_issues
+        open_index = fetch_open_issues(args.repo, limit=args.limit_pool)
     else:
         open_index = fetch_open_issues(args.repo, limit=args.limit_pool)
         target_issues = stratified_sample(open_index, sample_size=args.sample, seed=args.seed)

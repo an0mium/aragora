@@ -723,6 +723,8 @@ async def evaluate_issue(
             error = "timeout"
         except (RuntimeError, ValueError, ConnectionError, OSError) as exc:
             error = f"{type(exc).__name__}: {exc}"
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
         latency = time.monotonic() - member_start
         parsed: dict[str, Any] = {
             "verdict": "flag-for-human",

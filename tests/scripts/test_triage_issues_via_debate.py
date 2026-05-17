@@ -415,6 +415,32 @@ def test_evaluate_issue_handles_model_error(tmp_path: Path):
     assert receipt.aggregate_verdict == "keep"
 
 
+def test_evaluate_issue_records_untyped_provider_exception(tmp_path: Path):
+    class ProviderSDKError(Exception):
+        pass
+
+    issue = _make_issue()
+    evidence = gather_evidence(
+        issue,
+        repo="x/y",
+        repo_root=tmp_path,
+        open_issue_index=[],
+        gh_runner=lambda args: None,
+        now_iso="2026-05-14T12:00:00Z",
+    )
+
+    async def generator(member: PanelMember, prompt: str) -> str:
+        if member.model_id == "claude-opus-4-7":
+            raise ProviderSDKError("provider overloaded")
+        return '{"verdict":"keep","confidence":0.9,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}'
+
+    receipt = asyncio.run(evaluate_issue(evidence, generator=generator))
+    errored = [pm for pm in receipt.per_model if pm.get("error")]
+    assert len(errored) == 1
+    assert errored[0]["error"] == "ProviderSDKError: provider overloaded"
+    assert receipt.aggregate_verdict == "keep"
+
+
 def test_evaluate_issue_handles_parse_error(tmp_path: Path):
     issue = _make_issue()
     evidence = gather_evidence(
@@ -553,11 +579,39 @@ def test_cli_budget_cap_aborts_when_projected_exceeds(
     assert "exceeds budget" in captured.out + captured.err
 
 
+def test_cli_issues_mode_uses_full_open_index_for_duplicate_evidence(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    from scripts import triage_issues_via_debate as cli
+
+    target = _make_issue(number=10, title="Narrow broad except Exception in foo")
+    duplicate = _make_issue(number=11, title="Narrow broad except Exception in bar")
+    monkeypatch.setattr(cli, "fetch_specific_issues", lambda repo, numbers, **_: [target])
+    monkeypatch.setattr(cli, "fetch_open_issues", lambda repo, **_: [target, duplicate])
+
+    rc = cli.main(
+        [
+            "--repo",
+            "x/y",
+            "--issues",
+            "10",
+            "--dry-run-prompt",
+            "--budget-usd",
+            "10",
+        ]
+    )
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "DUPLICATE CANDIDATES" in out
+    assert "#11" in out
+
+
 def test_jsonl_resume_skips_completed_issues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     from scripts import triage_issues_via_debate as cli
 
     issues = [_make_issue(number=i) for i in range(3)]
     monkeypatch.setattr(cli, "fetch_specific_issues", lambda repo, numbers, **_: issues)
+    monkeypatch.setattr(cli, "fetch_open_issues", lambda repo, **_: issues)
 
     output_dir = tmp_path / "run"
     output_dir.mkdir()
@@ -869,3 +923,10 @@ def test_receipt_schema_version_is_one_dot_one():
     from aragora.triage import RECEIPT_SCHEMA_VERSION
 
     assert RECEIPT_SCHEMA_VERSION == "triage-receipt/1.1"
+
+
+def test_issue_triage_guide_documents_current_receipt_schema():
+    from aragora.triage import RECEIPT_SCHEMA_VERSION
+
+    guide = (REPO_ROOT / "docs/guides/ISSUE_TRIAGE.md").read_text(encoding="utf-8")
+    assert f"Schema version: `{RECEIPT_SCHEMA_VERSION}`" in guide
