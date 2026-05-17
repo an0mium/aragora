@@ -126,6 +126,85 @@ def test_other_lanes_are_preserved_during_claim(tmp_registry: Path) -> None:
     assert lane_ids == ["lane-a", "lane-b"]
 
 
+def _spawn_cli_claim(
+    registry: Path,
+    *,
+    lane_id: str,
+    owner_session: str,
+) -> subprocess.Popen[str]:
+    return subprocess.Popen(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--lane-id",
+            lane_id,
+            "--owner-session",
+            owner_session,
+            "--registry-path",
+            str(registry),
+            "--json",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+def _collect_claim_processes(
+    processes: list[subprocess.Popen[str]],
+) -> list[tuple[int, str, str]]:
+    results: list[tuple[int, str, str]] = []
+    for proc in processes:
+        stdout, stderr = proc.communicate(timeout=30)
+        results.append((proc.returncode, stdout, stderr))
+    return results
+
+
+def test_concurrent_different_lane_claims_are_preserved(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    expected_lane_ids = [f"lane-{idx:02d}" for idx in range(16)]
+
+    results = _collect_claim_processes(
+        [
+            _spawn_cli_claim(
+                registry,
+                lane_id=lane_id,
+                owner_session=f"owner-{idx:02d}",
+            )
+            for idx, lane_id in enumerate(expected_lane_ids)
+        ]
+    )
+
+    assert all(returncode == 0 for returncode, _stdout, _stderr in results), results
+    payload = json.loads(registry.read_text(encoding="utf-8"))
+    lane_ids = sorted(row["lane_id"] for row in payload)
+    assert lane_ids == expected_lane_ids
+
+
+def test_concurrent_same_lane_claims_do_not_both_succeed(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+
+    results = _collect_claim_processes(
+        [
+            _spawn_cli_claim(
+                registry,
+                lane_id="shared-lane",
+                owner_session=f"owner-{idx:02d}",
+            )
+            for idx in range(12)
+        ]
+    )
+
+    successes = [stdout for returncode, stdout, _stderr in results if returncode == 0]
+    conflicts = [stderr for returncode, _stdout, stderr in results if returncode == 2]
+    assert len(successes) == 1, results
+    assert len(conflicts) == 11, results
+    assert all("already claimed" in stderr for stderr in conflicts)
+    payload = json.loads(registry.read_text(encoding="utf-8"))
+    assert len(payload) == 1
+    assert payload[0]["owner_session"] == json.loads(successes[0])["owner_session"]
+
+
 def test_conflict_status_round_trips(tmp_registry: Path) -> None:
     claim_module.claim_lane(
         registry_path=tmp_registry,

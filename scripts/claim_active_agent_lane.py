@@ -22,8 +22,9 @@ Design constraints (kept tight so this script can be used during
 bootstraps and from any agent):
 
 - Pure Python stdlib, no aragora package import.
-- Read-modify-write the JSON array atomically (write to ``<file>.tmp``,
-  rename).
+- Serialize the read-modify-write under a sibling lock file when ``fcntl``
+  is available, while preserving atomic file integrity via write to
+  ``<file>.tmp`` + rename.
 - Schema matches ``LaneRecord`` exactly so the existing agent_bridge
   reader picks it up without modification: ``lane_id``, ``owner_session``,
   ``goal``, ``source``, ``status``, ``next_action``, ``updated_at``,
@@ -37,10 +38,9 @@ bootstraps and from any agent):
 - Never deletes rows. Never writes a lane row with a missing
   ``lane_id`` or empty ``owner_session``.
 - Never invokes git, gh, or any network call.
-- Per-file lock via ``fcntl.flock`` on POSIX is best-effort; on
-  platforms without ``fcntl`` we fall back to the read-modify-write
-  with rename and accept a tiny TOCTOU window. Concurrent claims to
-  *different* lane ids are safe under both paths.
+- Per-file lock via ``fcntl.flock`` on POSIX serializes concurrent claims.
+  On platforms without ``fcntl`` we fall back to atomic rename-only and
+  accept a small TOCTOU window.
 
 Usage:
 
@@ -61,6 +61,8 @@ claim.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterator
+from contextlib import contextmanager
 import datetime as dt
 import json
 import os
@@ -68,6 +70,11 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # pragma: no cover - exercised only on non-POSIX systems.
+    _fcntl = None  # type: ignore[assignment]
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 REPO_LANE_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
@@ -147,6 +154,20 @@ def _atomic_write(path: Path, rows: list[dict[str, Any]]) -> None:
         raise
 
 
+@contextmanager
+def _registry_write_lock(path: Path) -> Iterator[None]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(path.name + ".lock")
+    with lock_path.open("a", encoding="utf-8") as lock_fh:
+        if _fcntl is not None:
+            _fcntl.flock(lock_fh.fileno(), _fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if _fcntl is not None:
+                _fcntl.flock(lock_fh.fileno(), _fcntl.LOCK_UN)
+
+
 def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for key in LANE_RECORD_KEYS:
@@ -182,46 +203,47 @@ def claim_lane(
     if status not in ALLOWED_STATUSES:
         raise ValueError(f"status {status!r} is not in {sorted(ALLOWED_STATUSES)}")
 
-    rows = _read_existing(registry_path)
-    timestamp = updated_at or _utc_now_iso()
+    with _registry_write_lock(registry_path):
+        rows = _read_existing(registry_path)
+        timestamp = updated_at or _utc_now_iso()
 
-    new_row: dict[str, Any] = {
-        "lane_id": lane_id,
-        "owner_session": owner_session,
-        "goal": goal,
-        "source": source,
-        "status": status,
-        "next_action": next_action,
-        "updated_at": timestamp,
-        "branch": branch,
-        "worktree": worktree,
-        "pr_number": pr_number,
-        "conflict_session": conflict_session,
-        "conflict_reason": conflict_reason,
-    }
-    normalized = _normalize_row(new_row)
+        new_row: dict[str, Any] = {
+            "lane_id": lane_id,
+            "owner_session": owner_session,
+            "goal": goal,
+            "source": source,
+            "status": status,
+            "next_action": next_action,
+            "updated_at": timestamp,
+            "branch": branch,
+            "worktree": worktree,
+            "pr_number": pr_number,
+            "conflict_session": conflict_session,
+            "conflict_reason": conflict_reason,
+        }
+        normalized = _normalize_row(new_row)
 
-    out_rows: list[dict[str, Any]] = []
-    replaced = False
-    for existing in rows:
-        existing_id = str(existing.get("lane_id") or "")
-        if existing_id != lane_id:
-            out_rows.append(existing)
-            continue
-        existing_owner = str(existing.get("owner_session") or "")
-        if existing_owner and existing_owner != owner_session and not force:
-            raise ClaimError(
-                f"lane_id={lane_id!r} already claimed by "
-                f"owner_session={existing_owner!r}; refusing to overwrite "
-                f"(use --force to override or pick a different lane id)"
-            )
-        replaced = True
-        out_rows.append(normalized)
-    if not replaced:
-        out_rows.append(normalized)
+        out_rows: list[dict[str, Any]] = []
+        replaced = False
+        for existing in rows:
+            existing_id = str(existing.get("lane_id") or "")
+            if existing_id != lane_id:
+                out_rows.append(existing)
+                continue
+            existing_owner = str(existing.get("owner_session") or "")
+            if existing_owner and existing_owner != owner_session and not force:
+                raise ClaimError(
+                    f"lane_id={lane_id!r} already claimed by "
+                    f"owner_session={existing_owner!r}; refusing to overwrite "
+                    f"(use --force to override or pick a different lane id)"
+                )
+            replaced = True
+            out_rows.append(normalized)
+        if not replaced:
+            out_rows.append(normalized)
 
-    _atomic_write(registry_path, out_rows)
-    return normalized
+        _atomic_write(registry_path, out_rows)
+        return normalized
 
 
 def build_parser() -> argparse.ArgumentParser:
