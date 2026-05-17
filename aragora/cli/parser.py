@@ -3157,8 +3157,9 @@ def _add_codex_parser(subparsers) -> None:
         help="Read-only inspector for Codex Desktop local state",
         description=(
             "Surface Codex Desktop sessions/threads from ~/.codex/ as redacted, "
-            "read-only data. Never writes to ~/.codex/, makes no network calls, "
-            "and consumes no AI provider keys."
+            "read-only data. Never writes to ~/.codex/ and consumes no AI "
+            "provider keys. The sessions brief command may query GitHub/repo "
+            "state for queue context unless --repo-root '' disables it."
         ),
     )
     codex.set_defaults(func=parent_help(codex))
@@ -3167,7 +3168,7 @@ def _add_codex_parser(subparsers) -> None:
     sessions = codex_sub.add_parser(
         "sessions",
         help="Inspect Codex Desktop sessions/threads",
-        description="List, summarize, or tail Codex Desktop sessions (read-only).",
+        description="List, brief, summarize, or tail Codex Desktop sessions (read-only).",
     )
     sessions.set_defaults(func=parent_help(sessions))
     sessions_sub = sessions.add_subparsers(dest="codex_sessions_cmd")
@@ -3200,6 +3201,58 @@ def _add_codex_parser(subparsers) -> None:
     )
     list_cmd.set_defaults(
         func=_lazy("aragora.cli.commands.codex_sessions", "cmd_codex_sessions_list")
+    )
+
+    brief_cmd = sessions_sub.add_parser(
+        "brief",
+        help="Brief recent sessions and route conservative next prompts",
+        description=(
+            "Build redacted Codex Desktop session briefings from local JSONL/session "
+            "metadata, then classify each session into pause/watch/review/settle/"
+            "repair/paste-needed. Raw transcript text is not emitted."
+        ),
+    )
+    add_common(brief_cmd)
+    brief_cmd.add_argument(
+        "--since",
+        default="4h",
+        help="Time window (e.g. 30m, 4h, 1d, 90s). Default: 4h.",
+    )
+    brief_cmd.add_argument(
+        "--include-archived",
+        action="store_true",
+        help="Include archived threads (default: exclude)",
+    )
+    brief_cmd.add_argument(
+        "--limit",
+        type=int,
+        default=50,
+        help="Maximum number of threads to brief (default: 50, 0 = no limit)",
+    )
+    brief_cmd.add_argument(
+        "--include-last-turns",
+        type=int,
+        default=0,
+        help="Include this many recent safe turn summaries, never raw transcript text.",
+    )
+    brief_cmd.add_argument(
+        "--group-by",
+        choices=("cwd", "branch", "title"),
+        default=None,
+        help="Group returned session ids by cwd, branch, or title.",
+    )
+    brief_cmd.add_argument(
+        "--session",
+        default=None,
+        help="Restrict to one thread id or id prefix; returns paste-needed if invisible.",
+    )
+    brief_cmd.add_argument(
+        "--repo-root",
+        default=".",
+        help="Repo root used for queue/lane context (default: current directory; '' disables).",
+    )
+    brief_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.codex_sessions", "cmd_codex_sessions_brief")
     )
 
     show_cmd = sessions_sub.add_parser(

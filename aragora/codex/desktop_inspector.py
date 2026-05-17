@@ -10,6 +10,7 @@ This module is intentionally network-free and writes nothing to ``~/.codex/``.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -35,6 +36,33 @@ _EXTRA_REDACTION_PATTERNS = (
 
 LIST_TITLE_WIDTH = 160
 LIST_FIRST_USER_MESSAGE_WIDTH = 240
+
+_PR_RE = re.compile(r"(?:\bPR\s*)?#(\d{2,7})\b", re.IGNORECASE)
+_FILE_RE = re.compile(
+    r"(?<![\w./-])((?:[\w.-]+/)+[\w.-]+\."
+    r"(?:py|md|json|toml|yaml|yml|txt|html|css|js|jsx|ts|tsx|sh|sql))\b"
+)
+_BRANCH_RE = re.compile(
+    r"\b(?:origin/main|main|(?:codex|droid|claude|vision-incubator|worktree|feat|fix|"
+    r"chore|docs|review)/[A-Za-z0-9._/-]+)\b"
+)
+
+_QUEUE_PRESSURE_OPEN_PR_THRESHOLD = 10
+_BROAD_BUILD_KEYWORDS = (
+    "build",
+    "implement",
+    "new pr",
+    "open pr",
+    "broad",
+    "feature",
+    "yes to all",
+    "ground up assessment",
+)
+_WATCH_KEYWORDS = ("watch", "ci", "checks", "pending", "head changed", "merge-packet")
+_REVIEW_KEYWORDS = ("review", "audit", "read-only", "exact-head review")
+_SETTLE_KEYWORDS = ("settle", "merge", "admin squash", "receipt")
+_REPAIR_KEYWORDS = ("repair", "fix", "conflict", "rebase")
+_PROMPT_CATEGORIES = {"pause", "watch", "review", "settle", "repair", "paste-needed"}
 
 
 def _rollout_path_from_db(value: str, *, paths: CodexDesktopPaths) -> Path:
@@ -140,6 +168,71 @@ class SessionSummary:
             "model_provider": self.model_provider,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "last_event_at": self.last_event_at.isoformat() if self.last_event_at else None,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PromptRoute:
+    """Conservative prompt-router output for one Codex Desktop session."""
+
+    category: str
+    reason: str
+    recommended_next_prompt: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "category": self.category,
+            "reason": self.reason,
+            "recommended_next_prompt": self.recommended_next_prompt,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SessionBrief:
+    """Redacted, queue-aware briefing for one Codex Desktop session.
+
+    Raw transcript text is intentionally absent. The brief exposes only
+    redacted metadata, bounded summaries, and structured tokens such as PR
+    numbers and repo-relative file names.
+    """
+
+    id: str
+    title: str
+    cwd: str
+    branch: str | None
+    sha: str | None
+    rollout_path: Path | None
+    updated_at: datetime | None
+    age_seconds: int | None
+    age: str | None
+    pr_mentions: tuple[int, ...]
+    files_mentioned: tuple[str, ...]
+    branches_mentioned: tuple[str, ...]
+    last_user_intent_summary: str
+    last_assistant_action_summary: str
+    current_likely_state: str
+    router: PromptRoute
+    recent_turns: tuple[dict[str, Any], ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "cwd": self.cwd,
+            "branch": self.branch,
+            "sha": self.sha,
+            "rollout_path": redact_display(self.rollout_path) if self.rollout_path else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "age_seconds": self.age_seconds,
+            "age": self.age,
+            "pr_mentions": list(self.pr_mentions),
+            "files_mentioned": list(self.files_mentioned),
+            "branches_mentioned": list(self.branches_mentioned),
+            "last_user_intent_summary": self.last_user_intent_summary,
+            "last_assistant_action_summary": self.last_assistant_action_summary,
+            "current_likely_state": self.current_likely_state,
+            "router": self.router.to_dict(),
+            "recent_turns": list(self.recent_turns),
         }
 
 
@@ -361,6 +454,339 @@ def iter_session_events_from_offset(
             if barrier is not None:
                 event = barrier.redact_dict(event)
             yield event, handle.tell()
+
+
+def _unique_sorted_ints(values: list[int]) -> tuple[int, ...]:
+    return tuple(sorted(dict.fromkeys(values)))
+
+
+def _unique_sorted_strings(values: list[str]) -> tuple[str, ...]:
+    return tuple(sorted(dict.fromkeys(v for v in values if v)))
+
+
+def _extract_pr_mentions(text: str) -> list[int]:
+    mentions: list[int] = []
+    for match in _PR_RE.finditer(text):
+        try:
+            mentions.append(int(match.group(1)))
+        except (TypeError, ValueError):
+            continue
+    return mentions
+
+
+def _extract_file_mentions(text: str) -> list[str]:
+    return [match.group(1) for match in _FILE_RE.finditer(text)]
+
+
+def _extract_branch_mentions(text: str) -> list[str]:
+    return [match.group(0) for match in _BRANCH_RE.finditer(text)]
+
+
+def _message_role(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return "unknown"
+    role = payload.get("role")
+    return str(role) if role else "unknown"
+
+
+def _summarize_intent(
+    *,
+    role: str,
+    text: str,
+    pr_mentions: tuple[int, ...],
+    file_mentions: tuple[str, ...],
+    branch_mentions: tuple[str, ...],
+) -> str:
+    lower = text.lower()
+    parts: list[str] = []
+    if any(keyword in lower for keyword in _SETTLE_KEYWORDS):
+        parts.append("settlement or merge request")
+    if any(keyword in lower for keyword in _WATCH_KEYWORDS):
+        parts.append("watch/check-status request")
+    if any(keyword in lower for keyword in _REVIEW_KEYWORDS):
+        parts.append("review request")
+    if any(keyword in lower for keyword in _REPAIR_KEYWORDS):
+        parts.append("repair request")
+    if any(keyword in lower for keyword in _BROAD_BUILD_KEYWORDS):
+        parts.append("build/implementation request")
+    if pr_mentions:
+        parts.append("mentions " + ", ".join(f"PR #{n}" for n in pr_mentions[:5]))
+    if file_mentions:
+        parts.append(f"mentions {len(file_mentions)} file path(s)")
+    if branch_mentions:
+        parts.append(f"mentions {len(branch_mentions)} branch token(s)")
+    if parts:
+        return f"{role} " + "; ".join(parts)
+    if text:
+        return f"{role} message present; raw transcript text redacted"
+    return f"no {role} message found"
+
+
+def _recommended_prompt(
+    *,
+    category: str,
+    pr_mentions: tuple[int, ...],
+    files_mentioned: tuple[str, ...],
+    queue_pressure_high: bool,
+) -> str:
+    pr_part = ", ".join(f"#{n}" for n in pr_mentions[:4]) or "<target PR>"
+    file_part = ", ".join(files_mentioned[:3]) or "<changed files>"
+    if category == "pause":
+        return (
+            "Stop new implementation. Start from live repo truth, report current task state, "
+            "open PR pressure, and any active lane overlap; do not edit files or open PRs."
+        )
+    if category == "watch":
+        return (
+            f"Start from live repo truth. Watch {pr_part} only: pin current head, report CI/"
+            "merge-packet state, and stop without edits, labels, mark-ready, or merge."
+        )
+    if category == "review":
+        return (
+            f"Start from live repo truth. Review {pr_part} only at exact head; read changed "
+            "files, post or report a concise no-dissent/blocker verdict, and do not mutate "
+            "anything else."
+        )
+    if category == "settle":
+        return (
+            f"Start from live repo truth. Settle {pr_part} only at exact-head: rerun review-queue "
+            "merge-packet, merge only if admin_squash_allowed=true and not_ready=[], record "
+            "receipt, and stop on any drift."
+        )
+    if category == "repair":
+        return (
+            f"Start from live repo truth. Repair one bounded lane only for {pr_part}; touch "
+            f"only {file_part}, validate narrowly, push only the existing branch, and stop on "
+            "head drift."
+        )
+    suffix = " Queue pressure is high, so prefer read-only routing." if queue_pressure_high else ""
+    return (
+        "Paste the last 2-4 turns or provide the exact session name/PR, because the local "
+        f"redacted session record does not contain enough safe signal.{suffix}"
+    )
+
+
+def _route_session(
+    *,
+    all_text: str,
+    has_user_signal: bool,
+    has_assistant_signal: bool,
+    pr_mentions: tuple[int, ...],
+    files_mentioned: tuple[str, ...],
+    repo_context: dict[str, Any] | None,
+) -> PromptRoute:
+    context = repo_context or {}
+    try:
+        open_pr_count = int(context.get("open_pr_count") or 0)
+    except (TypeError, ValueError):
+        open_pr_count = 0
+    queue_pressure_high = open_pr_count >= _QUEUE_PRESSURE_OPEN_PR_THRESHOLD
+    lower = all_text.lower()
+
+    if not has_user_signal and not has_assistant_signal and not pr_mentions and not files_mentioned:
+        category = "paste-needed"
+        reason = "no safe recent user or assistant signal found"
+    elif queue_pressure_high and any(keyword in lower for keyword in _BROAD_BUILD_KEYWORDS):
+        category = "pause"
+        reason = f"open PR pressure is high ({open_pr_count}) and session looks build-oriented"
+    elif any(keyword in lower for keyword in _REPAIR_KEYWORDS):
+        category = "repair"
+        reason = "recent turns mention repair/conflict/rebase work"
+    elif any(keyword in lower for keyword in _SETTLE_KEYWORDS):
+        category = "settle"
+        reason = "recent turns mention settlement/merge/receipt work"
+    elif any(keyword in lower for keyword in _WATCH_KEYWORDS):
+        category = "watch"
+        reason = "recent turns mention CI/check/watch state"
+    elif any(keyword in lower for keyword in _REVIEW_KEYWORDS):
+        category = "review"
+        reason = "recent turns mention review/audit work"
+    elif queue_pressure_high:
+        category = "pause"
+        reason = f"open PR pressure is high ({open_pr_count}); defaulting to queue-drain posture"
+    else:
+        category = "paste-needed"
+        reason = "redacted local signal is ambiguous"
+
+    if category not in _PROMPT_CATEGORIES:
+        category = "paste-needed"
+        reason = "router produced an unknown category"
+    return PromptRoute(
+        category=category,
+        reason=reason,
+        recommended_next_prompt=_recommended_prompt(
+            category=category,
+            pr_mentions=pr_mentions,
+            files_mentioned=files_mentioned,
+            queue_pressure_high=queue_pressure_high,
+        ),
+    )
+
+
+def _state_from_route(route: PromptRoute) -> str:
+    if route.category == "pause":
+        return "likely too broad or duplicate-prone; pause and re-ground"
+    if route.category == "watch":
+        return "likely waiting on CI/head/merge-packet evidence"
+    if route.category == "review":
+        return "likely needs exact-head read-only review"
+    if route.category == "settle":
+        return "likely ready for exact-head settlement gate"
+    if route.category == "repair":
+        return "likely needs bounded one-PR repair"
+    return "insufficient redacted local signal; paste excerpt needed"
+
+
+def build_session_brief(
+    thread: ThreadSummary,
+    *,
+    include_last_turns: int = 0,
+    repo_context: dict[str, Any] | None = None,
+    max_events: int = 2000,
+) -> SessionBrief:
+    """Build a redacted operator briefing for one Codex Desktop thread.
+
+    The scan may read raw rollout JSONL locally to extract safe structured
+    tokens (PR numbers, path-like file mentions, branch names), but raw
+    transcript text is never returned.
+    """
+    include_last_turns = max(0, int(include_last_turns))
+    pr_values: list[int] = []
+    file_values: list[str] = []
+    branch_values: list[str] = []
+    turn_summaries: list[dict[str, Any]] = []
+    all_text_parts: list[str] = []
+    last_user_summary = "no user message found"
+    last_assistant_summary = "no assistant action found"
+    has_user_signal = False
+    has_assistant_signal = False
+    tool_names: list[str] = []
+    scanned = 0
+
+    for event in iter_jsonl(thread.rollout_path, strict=False):
+        if scanned >= max_events:
+            break
+        scanned += 1
+        payload = event.get("payload") or {}
+        event_type = str(event.get("type") or "")
+        text = _extract_text(payload)
+        if text:
+            all_text_parts.append(text)
+            pr_values.extend(_extract_pr_mentions(text))
+            file_values.extend(_extract_file_mentions(text))
+            branch_values.extend(_extract_branch_mentions(text))
+
+        if isinstance(payload, dict):
+            tool_name = payload.get("tool_name") or payload.get("name")
+            tool_call = payload.get("tool_call")
+            if not tool_name and isinstance(tool_call, dict):
+                tool_name = tool_call.get("name")
+            if isinstance(tool_name, str) and tool_name:
+                tool_names.append(tool_name)
+
+        if event_type == "agent_message":
+            role = _message_role(payload)
+            turn_prs = _unique_sorted_ints(_extract_pr_mentions(text))
+            turn_files = _unique_sorted_strings(_extract_file_mentions(text))
+            turn_branches = _unique_sorted_strings(_extract_branch_mentions(text))
+            summary = _summarize_intent(
+                role=role,
+                text=text,
+                pr_mentions=turn_prs,
+                file_mentions=turn_files,
+                branch_mentions=turn_branches,
+            )
+            if role == "user":
+                has_user_signal = bool(text)
+                last_user_summary = summary
+            elif role == "assistant":
+                has_assistant_signal = bool(text)
+                last_assistant_summary = summary
+            turn_summaries.append(
+                {
+                    "timestamp": event.get("timestamp"),
+                    "role": role,
+                    "summary": summary,
+                    "pr_mentions": list(turn_prs),
+                    "files_mentioned": list(turn_files),
+                    "branches_mentioned": list(turn_branches),
+                }
+            )
+
+    pr_mentions = _unique_sorted_ints(pr_values)
+    files_mentioned = _unique_sorted_strings(file_values)
+    branches_mentioned = _unique_sorted_strings(
+        branch_values + ([thread.git_branch] if thread.git_branch else [])
+    )
+    if tool_names and not has_assistant_signal:
+        names = ", ".join(sorted(dict.fromkeys(tool_names))[:5])
+        last_assistant_summary = f"assistant used tools: {names}"
+        has_assistant_signal = True
+
+    all_text = "\n".join(all_text_parts)
+    route = _route_session(
+        all_text=all_text,
+        has_user_signal=has_user_signal,
+        has_assistant_signal=has_assistant_signal,
+        pr_mentions=pr_mentions,
+        files_mentioned=files_mentioned,
+        repo_context=repo_context,
+    )
+    now = datetime.now(UTC)
+    age_seconds = max(0, int((now - thread.updated_at).total_seconds()))
+    recent_turns = tuple(turn_summaries[-include_last_turns:]) if include_last_turns else ()
+    return SessionBrief(
+        id=thread.id,
+        title=thread.title,
+        cwd=thread.cwd,
+        branch=thread.git_branch,
+        sha=thread.git_sha,
+        rollout_path=thread.rollout_path,
+        updated_at=thread.updated_at,
+        age_seconds=age_seconds,
+        age=humanize_ago(thread.updated_at, now=now),
+        pr_mentions=pr_mentions,
+        files_mentioned=files_mentioned,
+        branches_mentioned=branches_mentioned,
+        last_user_intent_summary=last_user_summary,
+        last_assistant_action_summary=last_assistant_summary,
+        current_likely_state=_state_from_route(route),
+        router=route,
+        recent_turns=recent_turns,
+    )
+
+
+def paste_needed_brief(session_id: str) -> SessionBrief:
+    """Return a synthetic brief for a requested session not visible locally."""
+    route = PromptRoute(
+        category="paste-needed",
+        reason="session id/prefix is not visible in Codex Desktop local state",
+        recommended_next_prompt=_recommended_prompt(
+            category="paste-needed",
+            pr_mentions=(),
+            files_mentioned=(),
+            queue_pressure_high=False,
+        ),
+    )
+    return SessionBrief(
+        id=session_id,
+        title="(session not found)",
+        cwd="",
+        branch=None,
+        sha=None,
+        rollout_path=None,
+        updated_at=None,
+        age_seconds=None,
+        age=None,
+        pr_mentions=(),
+        files_mentioned=(),
+        branches_mentioned=(),
+        last_user_intent_summary="session not visible",
+        last_assistant_action_summary="session not visible",
+        current_likely_state=_state_from_route(route),
+        router=route,
+        recent_turns=(),
+    )
 
 
 def summarize_session(

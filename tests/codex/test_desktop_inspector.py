@@ -282,6 +282,120 @@ def test_iter_session_events_opt_out_returns_raw(fake_codex_home) -> None:  # ty
     assert "sk-proj-FAKE-LEAK-12345" in serialized
 
 
+# -- redacted briefing / prompt router ---------------------------------------
+
+
+def _append_rollout_event(path: Path, event: dict) -> None:
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event) + "\n")
+
+
+def test_build_session_brief_redacts_raw_transcript_and_extracts_safe_tokens(
+    fake_codex_home,
+) -> None:  # type: ignore[no-untyped-def]
+    _append_rollout_event(
+        fake_codex_home.recent_rollout,
+        {
+            "timestamp": "2026-05-16T13:54:00.000Z",
+            "type": "agent_message",
+            "payload": {
+                "role": "user",
+                "content": (
+                    "Please settle PR #7283 and inspect scripts/apply_operator_decisions.py "
+                    "with sk-proj-FAKE-BRIEF-SECRET"
+                ),
+            },
+        },
+    )
+    thread = inspector.find_thread(fake_codex_home.recent_thread_id)
+    assert thread is not None
+
+    brief = inspector.build_session_brief(
+        thread,
+        include_last_turns=0,
+        repo_context={"open_pr_count": 14, "active_lanes": []},
+    )
+    payload = brief.to_dict()
+    serialized = json.dumps(payload)
+
+    assert payload["pr_mentions"] == [7283]
+    assert "scripts/apply_operator_decisions.py" in payload["files_mentioned"]
+    assert payload["router"]["category"] == "settle"
+    assert "exact-head" in payload["router"]["recommended_next_prompt"]
+    assert "Please settle PR" not in serialized
+    assert "sk-proj-FAKE-BRIEF-SECRET" not in serialized
+
+
+def test_build_session_brief_last_turns_are_safe_summaries(
+    fake_codex_home,
+) -> None:  # type: ignore[no-untyped-def]
+    _append_rollout_event(
+        fake_codex_home.recent_rollout,
+        {
+            "timestamp": "2026-05-16T13:54:30.000Z",
+            "type": "agent_message",
+            "payload": {
+                "role": "assistant",
+                "content": (
+                    "I posted a review comment on #7285 and read "
+                    "aragora/codex/desktop_inspector.py with ghp_FAKELEAK12345678901234"
+                ),
+            },
+        },
+    )
+    thread = inspector.find_thread(fake_codex_home.recent_thread_id)
+    assert thread is not None
+
+    brief = inspector.build_session_brief(thread, include_last_turns=2)
+    payload = brief.to_dict()
+    serialized = json.dumps(payload)
+
+    assert payload["recent_turns"]
+    assert "assistant" in {turn["role"] for turn in payload["recent_turns"]}
+    assert "review" in serialized
+    assert "I posted a review comment" not in serialized
+    assert "ghp_FAKELEAK12345678901234" not in serialized
+
+
+def test_build_session_brief_routes_ambiguous_session_to_paste_needed(
+    fake_codex_home,
+) -> None:  # type: ignore[no-untyped-def]
+    thread = inspector.find_thread(fake_codex_home.secret_titled_thread_id)
+    assert thread is not None
+
+    brief = inspector.build_session_brief(thread, include_last_turns=2)
+
+    assert brief.router.category == "paste-needed"
+    assert "Paste the last 2-4 turns" in brief.router.recommended_next_prompt
+
+
+def test_router_prefers_pause_for_broad_build_when_queue_pressure_is_high(
+    fake_codex_home,
+) -> None:  # type: ignore[no-untyped-def]
+    _append_rollout_event(
+        fake_codex_home.recent_rollout,
+        {
+            "timestamp": "2026-05-16T13:55:00.000Z",
+            "type": "agent_message",
+            "payload": {
+                "role": "user",
+                "content": "Please build a new broad feature and open another PR.",
+            },
+        },
+    )
+    thread = inspector.find_thread(fake_codex_home.recent_thread_id)
+    assert thread is not None
+
+    brief = inspector.build_session_brief(
+        thread,
+        include_last_turns=0,
+        repo_context={"open_pr_count": 20, "active_lanes": []},
+    )
+
+    assert brief.router.category == "pause"
+    assert "Stop new implementation" in brief.router.recommended_next_prompt
+
+
 # -- find_thread --------------------------------------------------------------
 
 
