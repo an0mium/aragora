@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "story": "A2 admission-class productization for #7209",
+  "tracking_issue": "#7209",
+  "tracking_issue_url": "https://github.com/synaptent/aragora/issues/7209",
+  "operating_law_reference": "docs/CANONICAL_GOALS.md#operating-law",
+  "rev4_target": "context-enriched workers complete >=50% of corpus without human rescue",
+  "scenarios": [
+    {
+      "id": "corpus_aware_dispatch_admission",
+      "summary": "Rev-4 corpus issues that meet membership criteria but bounce as blocked_not_dispatch_bounded are admitted via the corpus-aware dispatch heuristic.",
+      "admission_path": "corpus_aware_dispatch",
+      "failure_class_before": "blocked_not_dispatch_bounded",
+      "failure_class_after_admission": "none (proceeds to credential-envelope check)",
+      "feature_flag": "ARAGORA_CORPUS_AWARE_DISPATCH",
+      "feature_flag_default": "off",
+      "feature_pr": "#7225",
+      "repair_pr": "#7228",
+      "rescue_map_class": "admission_class_corpus_synthesis_v1",
+      "execution_classes_covered": [
+        "exception_narrowing",
+        "missing_test_coverage",
+        "small_refactor",
+        "validation_tightening"
+      ],
+      "reference_issues": [
+        {
+          "issue_id": 5789,
+          "url": "https://github.com/synaptent/aragora/issues/5789",
+          "execution_class": "exception_narrowing",
+          "scope_hint": "Narrow broad except Exception in mfa_enforcement.py",
+          "added_in_revision": 4,
+          "expected_status": "in_progress"
+        },
+        {
+          "issue_id": 5790,
+          "url": "https://github.com/synaptent/aragora/issues/5790",
+          "execution_class": "exception_narrowing",
+          "scope_hint": "Narrow broad except Exception in swarm_status.py",
+          "added_in_revision": 4,
+          "expected_status": "in_progress"
+        }
+      ],
+      "expected_post_admission_signal": "dispatch contract gate proceeds past corpus membership check; downstream observability records corpus_aware_dispatch_admitted"
+    },
+    {
+      "id": "credential_envelope_corpus_synthesis_admission",
+      "summary": "Rev-4 corpus issues flagged as blocked_auth_failure due to missing credential-envelope slices are admitted by synthesizing a corpus-marked envelope without modifying CredentialEnvelope.from_environment().",
+      "admission_path": "credential_envelope_corpus_synthesis",
+      "failure_class_before": "blocked_auth_failure",
+      "failure_class_after_admission": "none (proceeds to preflight receipt execution)",
+      "feature_flag": "ARAGORA_CREDENTIAL_ENVELOPE_PROBE",
+      "feature_flag_default": "off",
+      "feature_pr": "#7248",
+      "rescue_map_class": "admission_class_credential_envelope_synthesis_v1",
+      "execution_classes_covered": [
+        "exception_narrowing"
+      ],
+      "reference_issues": [
+        {
+          "issue_id": 5789,
+          "url": "https://github.com/synaptent/aragora/issues/5789",
+          "execution_class": "exception_narrowing",
+          "scope_hint": "Narrow broad except Exception in mfa_enforcement.py",
+          "added_in_revision": 4,
+          "expected_status": "in_progress"
+        },
+        {
+          "issue_id": 5790,
+          "url": "https://github.com/synaptent/aragora/issues/5790",
+          "execution_class": "exception_narrowing",
+          "scope_hint": "Narrow broad except Exception in swarm_status.py",
+          "added_in_revision": 4,
+          "expected_status": "in_progress"
+        }
+      ],
+      "preconditions": [
+        "PR-1 (#7225) corpus-aware dispatch is enabled or the dispatch contract gate has otherwise exposed the failure class",
+        "Dispatch contract gate exposes blocked_auth_failure on the flagged shape",
+        "CredentialEnvelope.from_environment() returns an envelope with at least one slice missing"
+      ],
+      "behavior_when_flag_off": "no-op; dispatch contract gate proceeds with the unmodified envelope from CredentialEnvelope.from_environment()",
+      "behavior_when_flag_on": "synthesizer returns a new CredentialEnvelope with corpus_admitted markers on missing slices; complete slices are preserved verbatim",
+      "expected_post_admission_signal": "dispatch_contract_gate logs credential_envelope_probe_synthesized issue=#<N> execution_class=<class> missing_before=<list>"
+    }
+  ],
+  "non_goals": [
+    "execute live benchmark or model calls",
+    "change CredentialEnvelope substrate or TerminalClass mapping",
+    "alter rev-4 corpus membership criteria",
+    "modify dispatch_followups.py or dispatch_contract_gate.py beyond what PR-1 and PR-2 already shipped"
+  ],
+  "verification_paths": [
+    {
+      "kind": "rescue_map_entry",
+      "path": "docs/benchmarks/rescue_productization.json",
+      "class": "admission_class_corpus_synthesis_v1",
+      "covers_scenario_ids": ["corpus_aware_dispatch_admission"]
+    },
+    {
+      "kind": "rescue_map_entry",
+      "path": "docs/benchmarks/rescue_productization.json",
+      "class": "admission_class_credential_envelope_synthesis_v1",
+      "covers_scenario_ids": ["credential_envelope_corpus_synthesis_admission"]
+    },
+    {
+      "kind": "feature_pr_landing_commit",
+      "feature_pr": "#7225",
+      "verification": "git log on main contains the squash-merge commit for #7225 (corpus-aware dispatch)"
+    },
+    {
+      "kind": "feature_pr_landing_commit",
+      "feature_pr": "#7248",
+      "verification": "git log on main contains commit 2c58510c40f1cf914c54bed259beb0eb19e98379 (credential-envelope corpus synthesis)"
+    }
+  ]
+}
