@@ -48,6 +48,15 @@ ACTIVE_SESSION_FILES = (
     ".codex_session_active",
     ".nomic-session-active",
 )
+PROJECT_MARKER_FILES = (
+    ".git",
+    "pyproject.toml",
+    "package.json",
+    "Cargo.toml",
+    "go.mod",
+    "deno.json",
+    "requirements.txt",
+)
 VALUE_CLASSES = (
     "active_or_dirty",
     "open_pr_or_outbox",
@@ -284,6 +293,13 @@ def find_repo_path(candidate_root: Path) -> Path | None:
     for path in (candidate_root, candidate_root / "aragora"):
         if (path / ".git").exists():
             return path
+    try:
+        children = sorted(item for item in candidate_root.iterdir() if item.is_dir())
+    except OSError:
+        return None
+    for path in children:
+        if (path / ".git").exists():
+            return path
     return None
 
 
@@ -301,6 +317,19 @@ def repo_identity_matches_target(
     return bool(
         candidate_urls and context.repo_remote_urls and candidate_urls & context.repo_remote_urls
     )
+
+
+def project_marker_paths(candidate_root: Path) -> list[str]:
+    try:
+        roots = [candidate_root, *(item for item in candidate_root.iterdir() if item.is_dir())]
+    except OSError:
+        return [str(candidate_root)]
+    markers: list[str] = []
+    for root in roots:
+        for marker in PROJECT_MARKER_FILES:
+            if (root / marker).exists():
+                markers.append(str(root / marker))
+    return sorted(markers)
 
 
 def active_lock_files(candidate_root: Path, repo_path: Path | None) -> list[str]:
@@ -465,6 +494,14 @@ def classify_candidate(
         if active_session or lock_files:
             classification = "active_or_dirty"
             proof.append("active session marker present without git metadata")
+        elif context.strict_repo_identity and (
+            project_markers := project_marker_paths(candidate_root)
+        ):
+            classification = "lookup_failed"
+            git.lookup_failed = True
+            git.lookup_errors.append("project markers exist without confirmed Aragora git metadata")
+            proof.append("project-like directory is not confirmed as Aragora")
+            links["project_markers"] = project_markers
         else:
             classification = "no_git_cache_residue"
             proof.append("no git metadata at candidate root or candidate/aragora path")

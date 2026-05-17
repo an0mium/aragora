@@ -183,6 +183,69 @@ def test_no_git_active_marker_is_preserved(tmp_path: Path) -> None:
     assert candidate.decision == "preserve"
 
 
+def test_nested_foreign_git_repo_is_lookup_failed_not_cleanup_candidate(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = tmp_path / "desktop-session"
+    foreign = root / "RingRift"
+    foreign.mkdir(parents=True)
+    (foreign / ".git").mkdir()
+    (foreign / "pyproject.toml").write_text('[project]\nname = "ringrift"\n')
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path, strict_repo_identity=True),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "lookup_failed"
+    assert candidate.cleanup_candidate is False
+    assert candidate.repo_path == str(foreign)
+    assert "repo identity does not match target repo" in candidate.proof
+
+
+def test_ambiguous_no_git_project_directory_is_lookup_failed(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = tmp_path / "desktop-session"
+    project = root / "project"
+    project.mkdir(parents=True)
+    (project / "package.json").write_text('{"name": "not-aragora"}\n')
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path, strict_repo_identity=True),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "lookup_failed"
+    assert candidate.cleanup_candidate is False
+    assert candidate.links["project_markers"] == [str(project / "package.json")]
+
+
+def test_explicit_root_ambiguous_project_marker_keeps_legacy_cleanup_behavior(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = tmp_path / "desktop-session"
+    project = root / "project"
+    project.mkdir(parents=True)
+    (project / "package.json").write_text('{"name": "not-aragora"}\n')
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "no_git_cache_residue"
+    assert candidate.cleanup_candidate is True
+
+
 def test_dirty_repo_takes_priority_over_unique_work(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
