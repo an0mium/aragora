@@ -3143,6 +3143,14 @@ def _add_triage_parser(subparsers) -> None:
 
 def _add_codex_parser(subparsers) -> None:
     """Add the 'codex' read-only inspector commands for Codex Desktop state."""
+
+    def parent_help(p: argparse.ArgumentParser):
+        def _cmd_parent_help(_args):
+            p.print_help()
+            return 2
+
+        return _cmd_parent_help
+
     codex = subparsers.add_parser(
         "codex",
         help="Read-only inspector for Codex Desktop local state",
@@ -3152,6 +3160,7 @@ def _add_codex_parser(subparsers) -> None:
             "and consumes no AI provider keys."
         ),
     )
+    codex.set_defaults(func=parent_help(codex))
     codex_sub = codex.add_subparsers(dest="codex_cmd")
 
     sessions = codex_sub.add_parser(
@@ -3159,6 +3168,7 @@ def _add_codex_parser(subparsers) -> None:
         help="Inspect Codex Desktop sessions/threads",
         description="List, summarize, or tail Codex Desktop sessions (read-only).",
     )
+    sessions.set_defaults(func=parent_help(sessions))
     sessions_sub = sessions.add_subparsers(dest="codex_sessions_cmd")
 
     def add_common(p: argparse.ArgumentParser) -> None:

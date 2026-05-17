@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from aragora.cli.commands import codex_sessions as cli
+from aragora.cli.parser import build_parser
 
 
 def _args(**kwargs) -> argparse.Namespace:  # type: ignore[no-untyped-def]
@@ -21,6 +22,25 @@ def _args(**kwargs) -> argparse.Namespace:  # type: ignore[no-untyped-def]
 
 
 # -- list ---------------------------------------------------------------------
+
+
+def test_cli_codex_parent_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
+    args = build_parser().parse_args(["codex"])
+
+    assert args.func(args) == 2
+    out = capsys.readouterr().out
+    assert "Surface Codex Desktop sessions/threads" in out
+    assert "sessions" in out
+
+
+def test_cli_codex_sessions_parent_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
+    args = build_parser().parse_args(["codex", "sessions"])
+
+    assert args.func(args) == 2
+    out = capsys.readouterr().out
+    assert "List, summarize, or tail Codex Desktop sessions" in out
+    assert "list" in out
+    assert "show" in out
 
 
 def test_cli_list_table_output(fake_codex_home, capsys: pytest.CaptureFixture[str]) -> None:  # type: ignore[no-untyped-def]
