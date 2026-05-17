@@ -21,6 +21,17 @@ result with `admin_squash_allowed=true`, `not_ready=[]`,
 `unresolved_dissent=false`, a matching head SHA, and Tier 3/4 settlement
 or preapproval if applicable. Without that proof, the PR remains Bucket C.
 
+**2026-05-17T20:34Z repair patch:** The classifier now implements the
+#7283 review-only branch-protection exception: `mergeStateStatus=BLOCKED`
+can still qualify for Bucket A when `reviewDecision=REVIEW_REQUIRED` and
+the exact-head merge packet authorizes admin squash. It also adds explicit
+Bucket C tripwires for flag flips / operator-only labels, dependency
+manifests and explicit network/secret-read markers, and unresolved review
+comment metadata. The Stage 1 `list_active_agent_sessions.py` dogfood
+acceptance item remains intentionally **deferred** in this PR; hold and
+trusted-author detection are still local policy constants rather than live
+observer-derived state.
+
 ## CLI surface
 
 ```
@@ -43,7 +54,8 @@ options:
 
 Output of `python3 scripts/triage_open_prs.py` at 2026-05-17T18:11Z,
 after the operator tightened the policy doc to require `is_draft == False`
-+ `mergeStateStatus == CLEAN` for Bucket A:
++ either `mergeStateStatus == CLEAN` or the review-only/admin-squash
+exception for Bucket A:
 
 ```
 BUCKET A — recommend AUTO-MERGE
@@ -81,7 +93,8 @@ Mid-session, the operator tightened Bucket A criteria in
 
 - `mergeable: MERGEABLE` (existing)
 - **`PR is not draft`** (new — drafts always go to C with `READY?`)
-- **`mergeStateStatus == CLEAN`** (new — `BLOCKED` no longer qualifies)
+- **`mergeStateStatus == CLEAN`** or review-only `BLOCKED` with exact-head
+  admin-squash authorization
 - `aragora review-queue merge-packet` reports `admin_squash_allowed=true`,
   `not_ready=[]`, `unresolved_dissent=false` at the **exact** current
   head SHA
@@ -114,47 +127,51 @@ wins; first match returns):
 
 1. **C** if `pr_number ∈ HELD_PR_NUMBERS`
 2. **C** if any changed file is in `PROTECTED_PATHS`
-3. **C** if `additions + deletions > 1500`
-4. **B** if CI red AND `updated_at` ≥ 7 days ago
-5. **C** if CI red (recent)
-6. **C** if any check is `IN_PROGRESS` / `QUEUED`
-7. **B** if draft + `created_at ≥ 60d` + `updated_at ≥ 30d`
-8. **B** if a newer open PR has ≥80% file overlap AND the newer PR
+3. **C** if flag flip / operator-only label metadata is present
+4. **C** if dependency manifest, network-call, or secret-read metadata is present
+5. **C** if `additions + deletions > 1500`
+6. **B** if CI red AND `updated_at` ≥ 7 days ago
+7. **C** if CI red (recent)
+8. **C** if any check is `IN_PROGRESS` / `QUEUED`
+9. **B** if draft + `created_at ≥ 60d` + `updated_at ≥ 30d`
+10. **B** if a newer open PR has ≥80% file overlap AND the newer PR
    would itself qualify for Bucket A (i.e. `_would_qualify_for_bucket_a`
    returns True — same gates as Bucket A above except for the
    supersede check itself). This closes Codex's Gap #3 from the
    #7285 review: a draft / held / CI-pending / merge-packet-blocked /
    non-trusted / protected-file / large / dirty candidate cannot
    supersede an older PR.
-9. **C** if author ∉ `TRUSTED_AUTHORS`
-10. **C** if `is_draft` (reason: `draft`, action: `READY?`)
-11. **C** if `mergeable != MERGEABLE`
-12. **C** if `mergeStateStatus != CLEAN`
-13. **C** if there are code files but no test files
-14. **C** if `reviewDecision == CHANGES_REQUESTED`
-15. **C** if the exact-head merge packet does not authorize admin squash
+11. **C** if author ∉ `TRUSTED_AUTHORS`
+12. **C** if `is_draft` (reason: `draft`, action: `READY?`)
+13. **C** if `mergeable != MERGEABLE`
+14. **C** if `mergeStateStatus` is neither `CLEAN` nor review-only
+    `BLOCKED` with exact-head admin-squash authorization
+15. **C** if there are code files but no test files
+16. **C** if `reviewDecision == CHANGES_REQUESTED`
+17. **C** if unresolved review-comment metadata is present
+18. **C** if the exact-head merge packet does not authorize admin squash
     or reports `not_ready`, unresolved dissent, head drift, or missing
     Tier 3/4 settlement/preapproval
-16. **A** otherwise
+19. **A** otherwise
 
 Bucket D is reserved for future enhancement — strategic mismatch
 with canonical direction is not auto-classifiable from `gh` metadata
 alone.
 
-## Tests (57 new, all green)
+## Tests (66 new, all green)
 
 ```
 $ python3 -m pytest tests/scripts/test_triage_open_prs.py -q
-.........................................................                [100%]
-57 passed in 1.45s
+..................................................................       [100%]
+66 passed in 2.63s
 ```
 
 | Group | Tests | Coverage |
 |---|---|---|
-| TestBucketA | 9 | Clean additive ready-to-merge → A; draft → C `READY?`; BLOCKED → C; missing merge-packet → C; not_ready → C; admin false → C; head mismatch → C; Tier 3 without settlement → C; Tier 3 with settlement → A |
-| TestBucketCTripwires | 14 | Held PR; protected file (CLAUDE.md, automation.toml, aragora/__init__.py); large diff; CI red recent; CI pending; CI cancelled/non-green; non-trusted author; not mergeable (CONFLICTING); merge state DIRTY; merge state BEHIND; code without tests; pure-docs-doesnt-trip-rule (negative); review CHANGES_REQUESTED |
+| TestBucketA | 10 | Clean additive ready-to-merge → A; draft → C `READY?`; BLOCKED without review-only context → C; review-only BLOCKED + admin packet → A; missing merge-packet → C; not_ready → C; admin false → C; head mismatch → C; Tier 3 without settlement → C; Tier 3 with settlement → A |
+| TestBucketCTripwires | 21 | Held PR; protected file (CLAUDE.md, automation.toml, aragora/__init__.py); flag flip; operator-only label; dependency manifest; explicit network call; explicit secret read; large diff; CI red recent; CI pending; CI cancelled/non-green; non-trusted author; not mergeable (CONFLICTING); merge state DIRTY; merge state BEHIND; code without tests; pure-docs-doesnt-trip-rule (negative); review CHANGES_REQUESTED; unresolved review count; unresolved review thread |
 | TestBucketB | 7 | CI red 7+ days; stale draft over threshold; stale but recent (negative); ready PR not marked stale (negative); supersede by newer clean PR; no supersede when overlap too low (negative); no supersede when newer has CI failure (negative) |
-| **TestSupersedeRequiresBucketAEligibility** | **11** | **(NEW — closes Codex Gap #3)** Draft superseder rejected; held superseder rejected; CI-pending superseder rejected; missing-merge-packet superseder rejected; non-trusted superseder rejected; protected-file-edit superseder rejected; large-diff superseder rejected; DIRTY superseder rejected; BLOCKED superseder rejected; CHANGES_REQUESTED superseder rejected; fully-eligible superseder still fires (regression check) |
+| **TestSupersedeRequiresBucketAEligibility** | **12** | **(NEW — closes Codex Gap #3)** Draft superseder rejected; held superseder rejected; CI-pending superseder rejected; missing-merge-packet superseder rejected; non-trusted superseder rejected; protected-file-edit superseder rejected; large-diff superseder rejected; DIRTY superseder rejected; BLOCKED superseder rejected unless review-only/admin-authorized; CHANGES_REQUESTED superseder rejected; fully-eligible superseder still fires (regression check) |
 | TestPrecedence | 3 | Held beats all other tripwires; protected beats large diff; CI-red-7d beats supersede |
 | TestCliOutput | 8 | Human output; JSON output; bucket filter; missing --from-json file; invalid --from-json JSON; non-array root; no gh on PATH; deterministic output across runs |
 | TestEdgeCases | 4 | Empty PR list; PR with zero files; PR with empty author dict; reason capped at 200 chars |
@@ -163,7 +180,7 @@ $ python3 -m pytest tests/scripts/test_triage_open_prs.py -q
 
 ```
 $ python3 -m pytest tests/scripts/test_triage_open_prs.py -q
-57 passed in 1.45s
+66 passed in 2.63s
 $ ruff check scripts/triage_open_prs.py tests/scripts/test_triage_open_prs.py
 All checks passed!
 $ ruff format --check scripts/triage_open_prs.py tests/scripts/test_triage_open_prs.py
@@ -179,7 +196,7 @@ preflight: ok
 | Stage | Status |
 |---|---|
 | Stage 0 — policy doc + rollout doc | shipped as PR #7283 |
-| **Stage 1 — this PR (triage_open_prs.py)** | **shipped (this receipt)** |
+| **Stage 1 — this PR (triage_open_prs.py)** | **implemented; active-session dogfood acceptance item deferred** |
 | Stage 2 — auto_merge_bucket_a.py | tracked as #7281, depends on this |
 | Stage 3 — triage_bucket_c.py | tracked as #7282, depends on this |
 | Stage 4 — scheduling (LaunchAgent template) | not yet filed |
@@ -196,6 +213,8 @@ single source of bucket truth going forward.
 - Held PRs (`#7173, #7215, #7240, #7243, #7245, #7249, #7252,
   #4990`) hard-coded in `HELD_PR_NUMBERS`; the classifier puts every
   one of them in Bucket C with reason "held" — never recommends A or B.
+  Dynamic hold/authorship derivation from `scripts/list_active_agent_sessions.py`
+  is deferred rather than claimed complete in this PR.
 - No `automation.toml` edit, no launchd install.
 - No protected-file edits (`CLAUDE.md`, `aragora/__init__.py`, `.env`,
   `.envrc`, `scripts/nomic_loop.py`, `docs/AGENT_OPERATING_CONTRACT.md`,

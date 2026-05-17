@@ -164,12 +164,26 @@ class TestBucketA:
         assert "draft" in r.reason
 
     def test_blocked_merge_state_goes_to_c(self):
-        # Even non-draft, BLOCKED merge state → C (only CLEAN qualifies
-        # for A per the tightened policy).
+        # BLOCKED without review-required context is not the policy's
+        # review-only/admin-squash exception.
         pr = make_pr(number=9003, is_draft=False, merge_state="BLOCKED")
         r = classify(pr)
         assert r.bucket == tri.BUCKET_C
         assert "merge state status: BLOCKED" in r.reason
+
+    def test_review_required_blocked_with_admin_packet_can_be_a(self):
+        # Policy: CLEAN is not the only A path. Review-only branch
+        # protection can qualify when the exact-head merge packet
+        # authorizes admin squash.
+        pr = make_pr(
+            number=9010,
+            is_draft=False,
+            merge_state="BLOCKED",
+            review="REVIEW_REQUIRED",
+        )
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_A
+        assert "merge-packet authorized" in r.reason
 
     def test_missing_merge_packet_goes_to_c(self):
         pr = make_pr(number=9004, is_draft=False, merge_state="CLEAN", merge_packet=None)
@@ -284,6 +298,46 @@ class TestBucketCTripwires:
         r = classify(pr)
         assert r.bucket == tri.BUCKET_C
 
+    def test_flag_flip_tripwire(self):
+        pr = make_pr(number=9114)
+        pr["flagFlip"] = True
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "flag" in r.reason
+
+    def test_operator_only_label_tripwire(self):
+        pr = make_pr(number=9115)
+        pr["labels"] = [{"name": "boss-ready"}]
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "boss-ready" in r.reason
+
+    def test_external_dependency_manifest_tripwire(self):
+        pr = make_pr(
+            number=9116,
+            files=[
+                {"path": "pyproject.toml", "additions": 5, "deletions": 0},
+                {"path": "tests/test_deps.py", "additions": 5, "deletions": 0},
+            ],
+        )
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "external dependency" in r.reason
+
+    def test_network_call_tripwire(self):
+        pr = make_pr(number=9117)
+        pr["networkCall"] = True
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "network" in r.reason
+
+    def test_secret_read_tripwire(self):
+        pr = make_pr(number=9118)
+        pr["secretRead"] = True
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "secret" in r.reason
+
     def test_large_diff_over_threshold(self):
         pr = make_pr(number=9103, additions=1600, deletions=0)
         r = classify(pr)
@@ -380,6 +434,23 @@ class TestBucketCTripwires:
         r = classify(pr)
         assert r.bucket == tri.BUCKET_C
         assert "CHANGES_REQUESTED" in r.reason
+
+    def test_unresolved_review_comments(self):
+        pr = make_pr(number=9119)
+        pr["unresolvedReviewComments"] = 2
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "unresolved review" in r.reason
+
+    def test_unresolved_review_threads(self):
+        pr = make_pr(number=9120)
+        pr["reviewThreads"] = [
+            {"isResolved": True},
+            {"isResolved": False},
+        ]
+        r = classify(pr)
+        assert r.bucket == tri.BUCKET_C
+        assert "unresolved review" in r.reason
 
 
 # ---------------------------------------------------------------------------
@@ -597,13 +668,23 @@ class TestSupersedeRequiresBucketAEligibility:
         assert r.bucket == tri.BUCKET_A
 
     def test_blocked_superseder_does_not_fire(self):
-        # Even if blocking is just on review (BLOCKED), the candidate
-        # is not Bucket-A-eligible per the policy's "CLEAN only" gate.
+        # BLOCKED without review-required context is not Bucket-A-eligible.
         r = classify(
             self._older(),
             all_open=[self._older(), self._newer(merge_state="BLOCKED")],
         )
         assert r.bucket == tri.BUCKET_A
+
+    def test_review_required_blocked_superseder_can_fire(self):
+        r = classify(
+            self._older(),
+            all_open=[
+                self._older(),
+                self._newer(merge_state="BLOCKED", review="REVIEW_REQUIRED"),
+            ],
+        )
+        assert r.bucket == tri.BUCKET_B
+        assert "superseded by #9401" in r.reason
 
     def test_changes_requested_superseder_does_not_fire(self):
         r = classify(

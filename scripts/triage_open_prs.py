@@ -7,14 +7,15 @@ of the rollout per ``docs/roadmap/OPERATOR_DELEGATION_ROLLOUT.md``).
 For every open PR on the current repo, classifies it into exactly one
 of four buckets:
 
-  A — recommend auto-merge (NOT DRAFT + CLEAN merge state + green CI +
-      mergeable + tests + no held/protected touch + ≤1500 LOC +
+  A — recommend auto-merge (NOT DRAFT + CLEAN/review-only merge state +
+      green CI + mergeable + tests + no held/protected touch + ≤1500 LOC +
       trusted author)
   B — recommend auto-close (superseded by newer / >60d stale +
       inactive / CI red >7d)
   C — needs operator y/n (touches held / protected / large diff /
       CI red / CI pending / non-trusted author / unresolved review /
-      no tests with code changes / merge-state not clean / draft)
+      no tests with code changes / merge-state not clean or authorized /
+      flag/label/external-dependency tripwire / draft)
   D — strategic check-in (PR works but plausibly conflicts with
       canonical direction; not auto-classifiable from gh metadata
       alone — reserved for future enhancement)
@@ -80,6 +81,34 @@ PROTECTED_PATHS: frozenset[str] = frozenset(
 # a new entry is itself an operator-only tripwire (the policy doc names
 # this explicitly).
 TRUSTED_AUTHORS: frozenset[str] = frozenset({"an0mium"})
+
+# Labels that cannot be added by a Bucket-A PR without an operator look.
+OPERATOR_ONLY_LABELS: frozenset[str] = frozenset({"boss-ready", "autonomous"})
+
+# Dependency / integration manifest edits are a conservative proxy for the
+# policy's "new external dependency / network call / secret read" tripwire.
+EXTERNAL_DEPENDENCY_PATHS: frozenset[str] = frozenset(
+    {
+        "package.json",
+        "package-lock.json",
+        "pnpm-lock.yaml",
+        "yarn.lock",
+        "bun.lockb",
+        "pyproject.toml",
+        "poetry.lock",
+        "uv.lock",
+        "requirements.txt",
+        "requirements-dev.txt",
+        "Pipfile",
+        "Pipfile.lock",
+        "Cargo.toml",
+        "Cargo.lock",
+        "go.mod",
+        "go.sum",
+        "Gemfile",
+        "Gemfile.lock",
+    }
+)
 
 # Bucket A diff-size cap. PRs above this go to Bucket C regardless of
 # other criteria — large diffs trip more invariants than the
@@ -190,6 +219,120 @@ def _file_paths(pr: dict[str, Any]) -> list[str]:
     return [str(f.get("path", "")) for f in files if isinstance(f, dict) and f.get("path")]
 
 
+def _labels(pr: dict[str, Any]) -> set[str]:
+    raw = pr.get("labels") or []
+    out: set[str] = set()
+    if not isinstance(raw, list):
+        return out
+    for item in raw:
+        if isinstance(item, dict):
+            name = str(item.get("name") or "")
+        else:
+            name = str(item)
+        if name:
+            out.add(name)
+    return out
+
+
+def _truthy_policy_field(pr: dict[str, Any], *names: str) -> bool:
+    for name in names:
+        if bool(pr.get(name)):
+            return True
+    tripwires = pr.get("policyTripwires") or pr.get("policy_tripwires") or []
+    if not isinstance(tripwires, list):
+        return False
+    normalized = {str(item).strip().lower().replace("-", "_") for item in tripwires}
+    return any(name.strip().lower().replace("-", "_") in normalized for name in names)
+
+
+def _flag_or_label_tripwire(pr: dict[str, Any]) -> str | None:
+    if _truthy_policy_field(
+        pr,
+        "flagFlip",
+        "flag_flip",
+        "hasFlagFlip",
+        "addsAutonomousLabel",
+        "label_add",
+        "boss_ready",
+        "autonomous_label",
+    ):
+        return "flag flip / operator-only label tripwire"
+
+    blocked = sorted(label for label in _labels(pr) if label in OPERATOR_ONLY_LABELS)
+    if blocked:
+        return f"operator-only label present ({blocked[0]})"
+    return None
+
+
+def _external_dependency_tripwire(pr: dict[str, Any], file_paths: list[str]) -> str | None:
+    if _truthy_policy_field(
+        pr,
+        "externalDependency",
+        "external_dependency",
+        "networkCall",
+        "network_call",
+        "secretRead",
+        "secret_read",
+        "new_external_dependency",
+    ):
+        return "external dependency / network / secret-read tripwire"
+
+    for path in file_paths:
+        name = Path(path).name
+        if path in EXTERNAL_DEPENDENCY_PATHS or name in EXTERNAL_DEPENDENCY_PATHS:
+            return f"external dependency manifest touched ({path})"
+        parts = set(Path(path).parts)
+        if "secrets" in parts or "credentials" in parts:
+            return f"secret/credential path touched ({path})"
+    return None
+
+
+def _unresolved_review_tripwire(pr: dict[str, Any]) -> str | None:
+    count = pr.get("unresolvedReviewComments") or pr.get("unresolved_review_comments")
+    if isinstance(count, int) and count > 0:
+        return f"unresolved review comments ({count})"
+    if bool(count):
+        return "unresolved review comments"
+    if _truthy_policy_field(pr, "unresolvedReview", "unresolved_review"):
+        return "unresolved review comments"
+
+    threads = pr.get("reviewThreads") or pr.get("review_threads") or []
+    if isinstance(threads, list):
+        unresolved = [t for t in threads if isinstance(t, dict) and t.get("isResolved") is False]
+        if unresolved:
+            return f"unresolved review comments ({len(unresolved)})"
+    return None
+
+
+def _merge_state_bucket_a_blocker(
+    pr: dict[str, Any],
+    *,
+    merge_packet_provider: MergePacketProvider | None,
+) -> str | None:
+    """Return None if the merge-state gate allows Bucket A.
+
+    #7283 permits either CLEAN or the common branch-protection state where
+    GitHub reports BLOCKED only because review is required while Aragora's
+    exact-head merge packet says admin squash is otherwise allowed.
+    """
+
+    mss = str(pr.get("mergeStateStatus") or "")
+    if mss == "CLEAN":
+        return None
+    review = str(pr.get("reviewDecision") or "")
+    if mss == "BLOCKED" and review == "REVIEW_REQUIRED":
+        packet_blocker = _merge_packet_bucket_a_blocker(
+            pr, merge_packet_provider=merge_packet_provider
+        )
+        if packet_blocker is None:
+            return None
+        return (
+            "merge state status: BLOCKED but review-only/admin-squash "
+            f"exception not authorized ({packet_blocker})"
+        )
+    return f"merge state status: {mss or '(unknown)'} (policy requires CLEAN or review-only admin-squash authorization)"
+
+
 def _would_qualify_for_bucket_a(
     pr: dict[str, Any],
     *,
@@ -219,6 +362,10 @@ def _would_qualify_for_bucket_a(
     file_paths = _file_paths(pr)
     if any(_is_protected(p) for p in file_paths):
         return False
+    if _flag_or_label_tripwire(pr) is not None:
+        return False
+    if _external_dependency_tripwire(pr, file_paths) is not None:
+        return False
     additions = int(pr.get("additions") or 0)
     deletions = int(pr.get("deletions") or 0)
     if additions + deletions > LARGE_DIFF_LOC:
@@ -243,13 +390,15 @@ def _would_qualify_for_bucket_a(
         return False
     if str(pr.get("mergeable") or "") != "MERGEABLE":
         return False
-    if str(pr.get("mergeStateStatus") or "") != "CLEAN":
+    if _merge_state_bucket_a_blocker(pr, merge_packet_provider=merge_packet_provider) is not None:
         return False
     has_tests = any(_is_test_file(p) for p in file_paths)
     has_code = any(_is_code_file(p) for p in file_paths)
     if has_code and not has_tests:
         return False
     if str(pr.get("reviewDecision") or "") == "CHANGES_REQUESTED":
+        return False
+    if _unresolved_review_tripwire(pr) is not None:
         return False
     if _merge_packet_bucket_a_blocker(pr, merge_packet_provider=merge_packet_provider) is not None:
         return False
@@ -410,8 +559,9 @@ def classify(
     C (large) → B (CI red 7d+) → C (CI red recent) → C (CI pending) →
     C (CI non-green) → B (stale draft) → B (superseded by a Bucket-A
     -eligible newer PR) → C (non-trusted) → C (draft) → C (not
-    mergeable) → C (merge-state not CLEAN) → C (code without tests) →
-    C (CHANGES_REQUESTED) → C (merge-packet blocker) → A.
+    mergeable) → C (merge-state not CLEAN/authorized) → C (code
+    without tests) → C (CHANGES_REQUESTED / unresolved review) →
+    C (merge-packet blocker) → A.
 
     Bucket D is never auto-emitted by this classifier — it's reserved
     for explicit operator/agent escalation in a future stage.
@@ -429,7 +579,6 @@ def classify(
     deletions = int(pr.get("deletions") or 0)
     net_loc = additions + deletions
     mergeable = str(pr.get("mergeable") or "")
-    mss = str(pr.get("mergeStateStatus") or "")
     is_draft = bool(pr.get("isDraft"))
     checks = pr.get("statusCheckRollup") or []
     ci_success = sum(1 for c in checks if isinstance(c, dict) and c.get("conclusion") == "SUCCESS")
@@ -463,6 +612,16 @@ def classify(
             f"edits protected file ({protected_hit[0]})",
             "DECIDE",
         )
+
+    # --- Bucket C: operator-only flag/label tripwire ---
+    flag_tripwire = _flag_or_label_tripwire(pr)
+    if flag_tripwire is not None:
+        return _result(n, title, BUCKET_C, flag_tripwire, "DECIDE")
+
+    # --- Bucket C: external dependency / network / secret-read tripwire ---
+    external_tripwire = _external_dependency_tripwire(pr, file_paths)
+    if external_tripwire is not None:
+        return _result(n, title, BUCKET_C, external_tripwire, "DECIDE")
 
     # --- Bucket C: large diff ---
     if net_loc > LARGE_DIFF_LOC:
@@ -579,15 +738,16 @@ def classify(
             "DECIDE",
         )
 
-    # --- Bucket C: merge-state status not CLEAN ---
-    # CLEAN = ready to merge. Anything else (BLOCKED, DIRTY, BEHIND,
-    # UNSTABLE, UNKNOWN) needs a human look per the tightened policy.
-    if mss != "CLEAN":
+    # --- Bucket C: merge-state status not CLEAN/authorized ---
+    merge_state_blocker = _merge_state_bucket_a_blocker(
+        pr, merge_packet_provider=merge_packet_provider
+    )
+    if merge_state_blocker is not None:
         return _result(
             n,
             title,
             BUCKET_C,
-            f"merge state status: {mss or '(unknown)'} (policy requires CLEAN)",
+            merge_state_blocker,
             "DECIDE",
         )
 
@@ -612,6 +772,11 @@ def classify(
             "review decision: CHANGES_REQUESTED",
             "DECIDE",
         )
+
+    # --- Bucket C: unresolved review comments from another agent ---
+    unresolved_review = _unresolved_review_tripwire(pr)
+    if unresolved_review is not None:
+        return _result(n, title, BUCKET_C, unresolved_review, "DECIDE")
 
     # --- Bucket C: merge-packet does not authorize exact-head Bucket A ---
     merge_packet_blocker = _merge_packet_bucket_a_blocker(
