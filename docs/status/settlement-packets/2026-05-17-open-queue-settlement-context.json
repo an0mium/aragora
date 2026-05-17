@@ -1,0 +1,296 @@
+{
+  "schema_version": "aragora-open-queue-settlement-ui-context/1.0",
+  "generated_at_utc": "2026-05-17T14:28:11.657846+00:00",
+  "repo": "synaptent/aragora",
+  "source_packet_pr": 7263,
+  "source_ui_pr": 7268,
+  "source_packet": "docs/status/settlement-packets/2026-05-17-open-queue-settlement.md",
+  "source_receipt": "docs/receipts/open-queue-settlement-20260517T142811Z.json",
+  "source_receipt_sha256": "b93358c76358bab8b1a41a2843bc4c7ee36446ce433ebab8ab301d0c359cf9a2",
+  "decision_artifact_notice": "This UI does not mutate GitHub. It only downloads an operator decision artifact bound to the pinned receipt and this context file.",
+  "recommended_use": [
+    "Attach the downloaded JSON to a follow-up operator prompt.",
+    "Optionally commit it later under docs/receipts/operator-decisions/ as explicit operator evidence.",
+    "Use it as input to a separate queue-drain lane; do not treat the download itself as a merge, approval, label, ready, close, or request-changes action."
+  ],
+  "public_exposure": {
+    "default": "local-only static worksheet",
+    "docs_site_possible": "A redacted static copy can be exposed through docs.aragora.ai or aragora.ai after the packet/context is reviewed for private PR-comment content.",
+    "live_app_caution": "The existing /review-queue backend is mutating; do not wire this worksheet into it unless a separate non-mutating settlement mode is built."
+  },
+  "clusters": [
+    {
+      "id": "parser_cli_docs_order",
+      "name": "parser.py and CLI/docs merge-order cluster",
+      "decision_type": "merge_order_required",
+      "members": [7215, 7240, 7243, 7245],
+      "summary": "These PRs touch overlapping CLI parser/docs surfaces. Later PRs will need rebase after the first lands.",
+      "operator_guidance": "Choose at most one first-settle candidate, then hold the rest until rebased. Draft members should normally stay held.",
+      "safe_default_action": "Hold the cluster until the operator chooses first-settle order.",
+      "red_flags": [
+        "Textual overlap in aragora/cli/parser.py and CLI/capability docs.",
+        "Tier-3 members require explicit human risk acceptance.",
+        "Some members are drafts or had in-flight checks at pin time."
+      ],
+      "choices": [
+        {
+          "value": "settle_7240_first",
+          "label": "Settle #7240 first",
+          "enables_approval_for": [7240],
+          "description": "#7240 was ready and green at pin time but still needs explicit Tier-3 human risk acceptance."
+        },
+        {
+          "value": "settle_7215_first",
+          "label": "Settle #7215 first",
+          "enables_approval_for": [7215],
+          "description": "#7215 had one in-flight check at pin time and remains held as read-only metadata in this packet."
+        },
+        {
+          "value": "hold_all",
+          "label": "Hold all parser/docs members",
+          "enables_approval_for": [],
+          "description": "Use when the operator wants a fresh head-pinned packet or a rebase plan before accepting any member."
+        }
+      ]
+    },
+    {
+      "id": "inventory_operator_choice",
+      "name": "worktree inventory duplicate-choice cluster",
+      "decision_type": "choose_one",
+      "members": [7256, 7259],
+      "summary": "#7256 and #7259 both change scripts/codex_worktree_value_inventory.py and should not both merge as-is.",
+      "operator_guidance": "Pick one approach, or hold both and ask the author to fold the useful pieces into one PR.",
+      "safe_default_action": "Hold both until the operator chooses one.",
+      "red_flags": [
+        "Semantic duplicate: both modify the same worktree inventory behavior.",
+        "Textual overlap in scripts/codex_worktree_value_inventory.py and its tests.",
+        "#7256 had in-flight checks at pin time."
+      ],
+      "choices": [
+        {
+          "value": "prefer_7256",
+          "label": "Prefer #7256",
+          "enables_approval_for": [7256],
+          "description": "Choose the foreign worktree preservation approach; #7259 should close or rebase."
+        },
+        {
+          "value": "prefer_7259",
+          "label": "Prefer #7259",
+          "enables_approval_for": [7259],
+          "description": "Choose the runtime-budget approach; #7256 should close or rebase."
+        },
+        {
+          "value": "hold_both",
+          "label": "Hold both",
+          "enables_approval_for": [],
+          "description": "Use when the operator wants one reconciled PR instead of choosing between duplicates."
+        }
+      ]
+    }
+  ],
+  "per_pr_context": {
+    "7173": {
+      "title": "feat(triage): calibration-only multi-model GitHub issue triage with guided founder review",
+      "intent": "Adds a calibration-only guided founder-review issue triage flow.",
+      "risk_statement": "Live CLI, automation, or observability surface. Accepting it means a new operator workflow may become part of routine triage once enabled.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft, so approval should normally wait until the author marks it ready."},
+        {"severity": "red", "label": "Held lane", "detail": "The settlement packet marks #7173 as metadata only / operator-only action."},
+        {"severity": "yellow", "label": "Tier 2", "detail": "Live CLI/automation/observability tier; approval accepts an operator-facing surface."}
+      ],
+      "blockers": ["Draft state", "Operator hold"],
+      "conflict_cluster": null,
+      "safe_default_action": "Hold unless the operator explicitly lifts the hold and the PR is ready."
+    },
+    "7215": {
+      "title": "[DIC-17] Add `aragora crux-followup` CLI verb (flag-gated, default OFF)",
+      "intent": "Adds a flag-gated crux-followup CLI command.",
+      "risk_statement": "Tier-3 public/semantic surface. Accepting it means the operator accepts behavior visible to CLI users and downstream workflows at the pinned head.",
+      "model_quorum_summary": "Multiple dogfood/review comments are recorded, including head-pinned comments and Tier-4 acceptance observations.",
+      "red_flags": [
+        {"severity": "red", "label": "In-flight check at pin", "detail": "The packet captured one pending check; approval should be refreshed after checks settle."},
+        {"severity": "red", "label": "Held metadata only", "detail": "The packet states #7215 must not be advanced by this settlement artifact."},
+        {"severity": "red", "label": "Tier 3", "detail": "Requires explicit human risk settlement at the current head."},
+        {"severity": "yellow", "label": "Parser/docs cluster", "detail": "Conflicts with #7240, #7243, and #7245 in CLI parser/docs surfaces."}
+      ],
+      "blockers": ["In-flight check at pin", "Operator hold", "Tier-3 risk settlement", "Merge-order cluster"],
+      "conflict_cluster": "parser_cli_docs_order",
+      "safe_default_action": "Hold or wait for fresh settled checks; do not approve blindly."
+    },
+    "7240": {
+      "title": "feat(codex): read-only inspector CLI for Codex Desktop sessions",
+      "intent": "Adds a read-only, redacted Codex Desktop session inspector CLI.",
+      "risk_statement": "Tier-3 public/semantic surface. Accepting it means approving a new CLI surface that reads local Codex Desktop state and emits redacted session information.",
+      "model_quorum_summary": "Large comment history with Codex security/dogfood/Kimi reviews; only the latest evidence is head-pinned to 7aa00774bf.",
+      "red_flags": [
+        {"severity": "red", "label": "Tier 3 acceptance required", "detail": "The packet requires explicit human Tier-3 risk acceptance at the pinned head."},
+        {"severity": "yellow", "label": "Parser/docs cluster", "detail": "Conflicts with #7215, #7243, and #7245 in CLI parser/docs surfaces."},
+        {"severity": "yellow", "label": "Large diff", "detail": "20 files and 2155 additions at pin time."}
+      ],
+      "blockers": ["Human Tier-3 risk acceptance", "Merge-order cluster"],
+      "conflict_cluster": "parser_cli_docs_order",
+      "safe_default_action": "Approve only with explicit Tier-3 risk note and a parser/docs order choice; otherwise hold."
+    },
+    "7243": {
+      "title": "docs: refresh metrics from current main",
+      "intent": "Refreshes docs metrics from current main.",
+      "risk_statement": "Tier-0 docs/status-only change. Main risk is stale or misleading metric documentation.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."},
+        {"severity": "yellow", "label": "Parser/docs cluster", "detail": "Shares docs surfaces with the parser/docs cluster; may need rebase after a CLI PR lands."}
+      ],
+      "blockers": ["Draft state", "Merge-order cluster"],
+      "conflict_cluster": "parser_cli_docs_order",
+      "safe_default_action": "Hold until ready or until parser/docs order is settled."
+    },
+    "7245": {
+      "title": "feat(codex): activity-intelligence layer with signed digest receipts",
+      "intent": "Adds Codex activity intelligence and signed digest receipt plumbing.",
+      "risk_statement": "Tier-3 public/semantic surface. Accepting it means approving a new activity-insight surface and receipt workflow.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."},
+        {"severity": "red", "label": "Tier 3", "detail": "Requires explicit human risk settlement."},
+        {"severity": "yellow", "label": "Parser/docs cluster", "detail": "Conflicts with #7215, #7240, and #7243 in CLI/docs surfaces."},
+        {"severity": "yellow", "label": "Large diff", "detail": "24 files and 3215 additions at pin time."}
+      ],
+      "blockers": ["Draft state", "Human Tier-3 risk acceptance", "Merge-order cluster"],
+      "conflict_cluster": "parser_cli_docs_order",
+      "safe_default_action": "Hold until ready and rebased behind the chosen parser/docs foundation."
+    },
+    "7249": {
+      "title": "[AGT-06] Add viah_signals bridge: ReputationStore -> VIAH sidecar counters (SD-2, SD-3)",
+      "intent": "Adds an internal VIAH sidecar counter bridge from ReputationStore.",
+      "risk_statement": "Tier-1 additive internal code. Main risk is carrying unused internal code if it never gets wired.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Failing checks", "detail": "The packet captured two failing checks."},
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."}
+      ],
+      "blockers": ["Failing checks", "Draft state"],
+      "conflict_cluster": null,
+      "safe_default_action": "Request changes or hold until failures are resolved."
+    },
+    "7251": {
+      "title": "feat(benchmarks): productize A2 admission-recovery scenarios for #7209 (PR-3, data+docs only)",
+      "intent": "Adds A2 admission-recovery benchmark fixtures/docs for the held #7209 lane.",
+      "risk_statement": "Tier-1 additive internal benchmark support. Main risk is accepting fixture/data shape that may bias later benchmark interpretation.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."},
+        {"severity": "red", "label": "Held lane", "detail": "The packet marks #7251 as metadata only / operator-only because it is tied to the held #7209 lane."}
+      ],
+      "blockers": ["Draft state", "Operator hold"],
+      "conflict_cluster": null,
+      "safe_default_action": "Hold unless the operator explicitly lifts the #7209-related hold."
+    },
+    "7252": {
+      "title": "docs(codex-insights): paused core-writer remediation audit (read-only)",
+      "intent": "Documents a read-only audit and remediation plan for paused core writers.",
+      "risk_statement": "Tier-0 docs/status-only change. Main risk is stale remediation guidance.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."}
+      ],
+      "blockers": ["Draft state"],
+      "conflict_cluster": null,
+      "safe_default_action": "Hold until the author marks ready."
+    },
+    "7256": {
+      "title": "fix(scripts): preserve foreign worktree inventory roots",
+      "intent": "Changes worktree inventory classification so foreign repo roots are preserved.",
+      "risk_statement": "Tier-2 live automation/observability script behavior. Accepting it changes what the inventory classifies as safe cleanup versus preserved work.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Duplicate-choice cluster", "detail": "#7256 and #7259 should not both merge as-is."},
+        {"severity": "red", "label": "In-flight checks at pin", "detail": "The packet captured six pending checks."},
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."},
+        {"severity": "yellow", "label": "Tier 2", "detail": "Live automation/observability behavior."}
+      ],
+      "blockers": ["Draft state", "In-flight checks", "Choose-one conflict with #7259"],
+      "conflict_cluster": "inventory_operator_choice",
+      "safe_default_action": "Hold unless the operator chooses #7256 over #7259 and checks settle."
+    },
+    "7257": {
+      "title": "feat(server): observer truth on FastAPI swarm-status sibling surface",
+      "intent": "Adds observer-truth handling to a FastAPI swarm-status sibling surface.",
+      "risk_statement": "Tier-3 public/semantic surface. Accepting it changes server-visible observer truth behavior.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."},
+        {"severity": "red", "label": "Tier 3", "detail": "Requires explicit human risk settlement."}
+      ],
+      "blockers": ["Draft state", "Human Tier-3 risk acceptance"],
+      "conflict_cluster": null,
+      "safe_default_action": "Hold until ready and explicitly accepted as Tier 3."
+    },
+    "7258": {
+      "title": "feat(automation): publish recurring worktree value inventory",
+      "intent": "Adds recurring publication of worktree value inventory.",
+      "risk_statement": "Tier-2 live automation/observability surface. Accepting it adds or documents recurring automation behavior around worktree inventory.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."},
+        {"severity": "yellow", "label": "Large diff", "detail": "5 files and 5903 additions at pin time."},
+        {"severity": "yellow", "label": "Tier 2", "detail": "Live automation/observability behavior."}
+      ],
+      "blockers": ["Draft state"],
+      "conflict_cluster": null,
+      "safe_default_action": "Hold until ready and reviewed for automation scheduling implications."
+    },
+    "7259": {
+      "title": "feat(scripts): bound worktree inventory runtime",
+      "intent": "Adds runtime budgeting to the worktree inventory script.",
+      "risk_statement": "Tier-2 live automation/observability script behavior. Accepting it changes runtime limits for inventory collection.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Duplicate-choice cluster", "detail": "#7256 and #7259 should not both merge as-is."},
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."},
+        {"severity": "yellow", "label": "Tier 2", "detail": "Live automation/observability behavior."}
+      ],
+      "blockers": ["Draft state", "Choose-one conflict with #7256"],
+      "conflict_cluster": "inventory_operator_choice",
+      "safe_default_action": "Hold unless the operator chooses #7259 over #7256."
+    },
+    "7260": {
+      "title": "feat(automation): read-only cross-agent overlap detector",
+      "intent": "Adds a read-only detector for active cross-agent overlap.",
+      "risk_statement": "Tier-2 automation/observability surface. Accepting it adds an operator-facing coordination script.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."},
+        {"severity": "yellow", "label": "Tier 2", "detail": "Live automation/observability behavior."}
+      ],
+      "blockers": ["Draft state"],
+      "conflict_cluster": null,
+      "safe_default_action": "Hold until ready."
+    },
+    "7261": {
+      "title": "feat(automation): publish recurring publication-freshness probe",
+      "intent": "Adds recurring publication-freshness probe outputs.",
+      "risk_statement": "Tier-2 live automation/observability surface. Accepting it adds recurring freshness publication behavior.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."},
+        {"severity": "yellow", "label": "Tier 2", "detail": "Live automation/observability behavior."}
+      ],
+      "blockers": ["Draft state"],
+      "conflict_cluster": null,
+      "safe_default_action": "Hold until ready and reviewed for publication cadence implications."
+    },
+    "7262": {
+      "title": "[AGT-02] A2A per-domain reputation read endpoint (sub-deliverable 5)",
+      "intent": "Adds an internal per-domain reputation read endpoint.",
+      "risk_statement": "Tier-1 additive internal code. Main risk is carrying an internal read surface before it has a live caller.",
+      "model_quorum_summary": "Draft at pin time; quorum not required yet.",
+      "red_flags": [
+        {"severity": "red", "label": "Draft at pin", "detail": "The packet captured this PR as draft."}
+      ],
+      "blockers": ["Draft state"],
+      "conflict_cluster": null,
+      "safe_default_action": "Hold until ready."
+    }
+  }
+}
