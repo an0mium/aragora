@@ -18,7 +18,9 @@ Inputs (each optional, never errors on missing sources):
 - ``.aragora/automation-outbox/*.json`` for unpublished handoffs
 - ``scripts/check_codex_desktop_automations.py --json`` for Codex
   Desktop cron status
-- ``~/.codex/sessions/*.jsonl`` for Codex CLI session files
+- ``~/.codex/sessions/**/*.jsonl`` for Codex CLI session files
+- ``scripts/agent_bridge.py processes --json --summary-only`` for live
+  agent process census
 - ``gh pr list --state open --json ...`` for open PRs (skippable via
   ``--skip-gh``)
 
@@ -55,6 +57,7 @@ DEFAULT_MAX_AGE_MINUTES = 120
 DEFAULT_MAX_PR_FETCH = 30
 DEFAULT_GIT_TIMEOUT = 10
 DEFAULT_SUBPROCESS_TIMEOUT = 20
+DEFAULT_CODEX_SESSION_SCAN_LIMIT = 500
 SCHEMA_VERSION = 1
 
 
@@ -250,6 +253,7 @@ def detect_codex_cli_sessions(
     now: dt.datetime,
     max_age_minutes: float,
     limit: int = 20,
+    scan_limit: int = DEFAULT_CODEX_SESSION_SCAN_LIMIT,
 ) -> list[dict[str, Any]]:
     sessions_dir = codex_home / "sessions"
     if not sessions_dir.exists():
@@ -257,24 +261,67 @@ def detect_codex_cli_sessions(
     out: list[dict[str, Any]] = []
     try:
         candidates = sorted(
-            (p for p in sessions_dir.iterdir() if p.is_file()),
+            (p for p in sessions_dir.rglob("*.jsonl") if p.is_file()),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
     except OSError:
         return []
-    for path in candidates[:limit]:
+    for path in candidates[: max(0, int(scan_limit))]:
         age = _file_age_minutes(path, now)
         if age is None or age > max_age_minutes:
             continue
+        try:
+            relative_path = str(path.relative_to(sessions_dir))
+        except ValueError:
+            relative_path = path.name
         out.append(
             {
                 "path": str(path),
                 "name": path.name,
+                "relative_path": relative_path,
                 "age_minutes": round(age, 2),
             }
         )
+        if len(out) >= limit:
+            break
     return out
+
+
+def detect_agent_process_census(
+    repo_root: Path,
+    *,
+    timeout: int = DEFAULT_SUBPROCESS_TIMEOUT,
+) -> dict[str, Any]:
+    """Invoke the merged agent-bridge process census if available."""
+    script = repo_root / "scripts" / "agent_bridge.py"
+    if not script.exists():
+        return {}
+    python = sys.executable or shutil.which("python3") or "python3"
+    try:
+        proc = subprocess.run(
+            [python, str(script), "processes", "--json", "--summary-only"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+        return {}
+    if proc.returncode != 0:
+        return {}
+    try:
+        payload = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    by_role = payload.get("by_role")
+    return {
+        "ok": bool(payload.get("ok")),
+        "total": payload.get("total"),
+        "by_role": by_role if isinstance(by_role, dict) else {},
+    }
 
 
 def fetch_open_prs(
@@ -463,6 +510,8 @@ def build_payload(
     skip_gh: bool = False,
     max_pr_fetch: int = DEFAULT_MAX_PR_FETCH,
     skip_codex_desktop: bool = False,
+    skip_process_census: bool = False,
+    codex_session_scan_limit: int = DEFAULT_CODEX_SESSION_SCAN_LIMIT,
 ) -> dict[str, Any]:
     repo_root = repo_root.resolve()
     codex_home = codex_home.expanduser()
@@ -498,7 +547,11 @@ def build_payload(
         codex_home,
         now=timestamp,
         max_age_minutes=max_age_minutes,
+        scan_limit=codex_session_scan_limit,
     )
+    process_census: dict[str, Any] = {}
+    if not skip_process_census:
+        process_census = detect_agent_process_census(repo_root)
     open_prs: list[dict[str, Any]] = []
     if not skip_gh:
         open_prs = fetch_open_prs(limit=max_pr_fetch)
@@ -517,8 +570,10 @@ def build_payload(
         "repo_root": str(repo_root),
         "codex_home": str(codex_home),
         "max_age_minutes": max_age_minutes,
+        "codex_session_scan_limit": codex_session_scan_limit,
         "skip_gh": skip_gh,
         "skip_codex_desktop": skip_codex_desktop,
+        "skip_process_census": skip_process_census,
         "worktrees": worktrees,
         "dispatch_contracts": dispatch_contracts,
         "issue_claims": issue_claims,
@@ -527,6 +582,7 @@ def build_payload(
         "fleet_coordination": fleet,
         "codex_desktop_automations": codex_desktop,
         "codex_cli_sessions": codex_cli_sessions,
+        "process_census": process_census,
         "open_prs": open_prs,
         "overlap_report": overlap,
     }
@@ -562,9 +618,8 @@ def render_text(payload: dict[str, Any]) -> str:
             issue = row.get("issue") or row.get("issue_number")
             branch = row.get("branch") or "-"
             age = row.get("age_minutes")
-            lines.append(
-                f"  - {row.get('name', '?')}  issue={issue}  branch={branch}  age_min={age}"
-            )
+            name = row.get("relative_path") or row.get("name") or "?"
+            lines.append(f"  - {name}  issue={issue}  branch={branch}  age_min={age}")
         if len(rows) > 10:
             lines.append(f"  ... ({len(rows) - 10} more)")
         lines.append("")
@@ -575,6 +630,17 @@ def render_text(payload: dict[str, Any]) -> str:
         lines.append("codex desktop core writers:")
         for name, info in core_writers.items():
             lines.append(f"  - {name}: status={info.get('status')}")
+        lines.append("")
+
+    process_census = payload.get("process_census") or {}
+    if process_census:
+        lines.append(
+            f"agent process census: ok={process_census.get('ok')} "
+            f"total={process_census.get('total')}"
+        )
+        by_role = process_census.get("by_role") or {}
+        for role, count in sorted(by_role.items()):
+            lines.append(f"  - {role}: {count}")
         lines.append("")
 
     prs = payload.get("open_prs") or []
@@ -637,6 +703,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip the Codex Desktop automation status subprocess.",
     )
+    parser.add_argument(
+        "--skip-process-census",
+        action="store_true",
+        help="Skip the agent_bridge.py process census subprocess.",
+    )
+    parser.add_argument(
+        "--codex-session-scan-limit",
+        type=int,
+        default=DEFAULT_CODEX_SESSION_SCAN_LIMIT,
+        help="Max nested Codex CLI session files to inspect after mtime sorting "
+        f"(default: {DEFAULT_CODEX_SESSION_SCAN_LIMIT})",
+    )
     parser.add_argument("--json", action="store_true")
     return parser
 
@@ -650,6 +728,8 @@ def main(argv: list[str] | None = None) -> int:
         skip_gh=bool(args.skip_gh),
         max_pr_fetch=int(args.max_pr_fetch),
         skip_codex_desktop=bool(args.skip_codex_desktop),
+        skip_process_census=bool(args.skip_process_census),
+        codex_session_scan_limit=int(args.codex_session_scan_limit),
     )
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True, default=str))

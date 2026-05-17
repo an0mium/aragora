@@ -41,7 +41,9 @@ def test_stable_branch_name_strips_refs_heads() -> None:
     assert detector._stable_branch_name(None) is None
 
 
-def test_detect_worktrees_parses_porcelain_output() -> None:
+def test_detect_worktrees_parses_porcelain_output(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
     sample = (
         "worktree /repo/main\nHEAD abcd\nbranch refs/heads/main\n\n"
         "worktree /tmp/wt-a\nHEAD efgh\nbranch refs/heads/feature/a\nlocked\n\n"
@@ -54,11 +56,13 @@ def test_detect_worktrees_parses_porcelain_output() -> None:
         stderr = ""
 
     with patch.object(detector.subprocess, "run", return_value=_Proc()):
-        out = detector.detect_worktrees(Path("/repo/main"))
+        out = detector.detect_worktrees(repo)
 
-    # function only runs git if .git exists, so monkeypatch the existence too
-    # by calling the parser explicitly via subprocess mock above
-    assert out == [] or any(w.get("locked") for w in out)
+    assert out == [
+        {"path": "/repo/main", "head": "abcd", "branch": "main"},
+        {"path": "/tmp/wt-a", "head": "efgh", "branch": "feature/a", "locked": True},
+        {"path": "/tmp/wt-b", "head": "ijkl", "detached": True},
+    ]
 
 
 def test_detect_worktrees_returns_empty_when_no_git_dir(tmp_path: Path) -> None:
@@ -120,8 +124,8 @@ def test_detect_codex_desktop_automations_returns_empty_when_script_missing(
 
 
 def test_detect_codex_cli_sessions_filters_by_age(tmp_path: Path) -> None:
-    sessions = tmp_path / "sessions"
-    sessions.mkdir()
+    sessions = tmp_path / "sessions" / "2026" / "05" / "17"
+    sessions.mkdir(parents=True)
     fresh = sessions / "fresh.jsonl"
     stale = sessions / "stale.jsonl"
     fresh.write_text("{}\n", encoding="utf-8")
@@ -135,6 +139,60 @@ def test_detect_codex_cli_sessions_filters_by_age(tmp_path: Path) -> None:
     names = [r["name"] for r in out]
     assert "fresh.jsonl" in names
     assert "stale.jsonl" not in names
+    fresh_row = next(r for r in out if r["name"] == "fresh.jsonl")
+    assert fresh_row["relative_path"] == "2026/05/17/fresh.jsonl"
+
+
+def test_detect_codex_cli_sessions_respects_output_limit(tmp_path: Path) -> None:
+    sessions = tmp_path / "sessions" / "2026" / "05" / "17"
+    sessions.mkdir(parents=True)
+    now = _ts("2026-05-17T12:00:00Z")
+    import os
+
+    for index in range(3):
+        path = sessions / f"session-{index}.jsonl"
+        path.write_text("{}\n", encoding="utf-8")
+        mtime = now.timestamp() - index
+        os.utime(path, times=(mtime, mtime))
+
+    out = detector.detect_codex_cli_sessions(
+        tmp_path,
+        now=now,
+        max_age_minutes=120.0,
+        limit=2,
+        scan_limit=3,
+    )
+    assert [row["name"] for row in out] == ["session-0.jsonl", "session-1.jsonl"]
+
+
+def test_detect_agent_process_census_parses_summary(tmp_path: Path) -> None:
+    script = tmp_path / "scripts" / "agent_bridge.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+
+    class _Proc:
+        returncode = 0
+        stdout = json.dumps(
+            {
+                "ok": True,
+                "total": 42,
+                "by_role": {"codex_cli": 2, "factory_droid": 3},
+            }
+        )
+        stderr = ""
+
+    with patch.object(detector.subprocess, "run", return_value=_Proc()):
+        out = detector.detect_agent_process_census(tmp_path)
+
+    assert out == {
+        "ok": True,
+        "total": 42,
+        "by_role": {"codex_cli": 2, "factory_droid": 3},
+    }
+
+
+def test_detect_agent_process_census_returns_empty_when_script_missing(tmp_path: Path) -> None:
+    assert detector.detect_agent_process_census(tmp_path) == {}
 
 
 def test_fetch_open_prs_returns_empty_when_gh_missing() -> None:
@@ -231,6 +289,7 @@ def test_build_payload_assembles_top_level_keys(tmp_path: Path) -> None:
         max_age_minutes=120.0,
         skip_gh=True,
         skip_codex_desktop=True,
+        skip_process_census=True,
     )
     expected_keys = {
         "schema_version",
@@ -238,8 +297,10 @@ def test_build_payload_assembles_top_level_keys(tmp_path: Path) -> None:
         "repo_root",
         "codex_home",
         "max_age_minutes",
+        "codex_session_scan_limit",
         "skip_gh",
         "skip_codex_desktop",
+        "skip_process_census",
         "worktrees",
         "dispatch_contracts",
         "issue_claims",
@@ -248,6 +309,7 @@ def test_build_payload_assembles_top_level_keys(tmp_path: Path) -> None:
         "fleet_coordination",
         "codex_desktop_automations",
         "codex_cli_sessions",
+        "process_census",
         "open_prs",
         "overlap_report",
     }
@@ -255,6 +317,7 @@ def test_build_payload_assembles_top_level_keys(tmp_path: Path) -> None:
     assert payload["schema_version"] == detector.SCHEMA_VERSION
     assert payload["generated_at"] == "2026-05-17T12:00:00Z"
     assert payload["skip_gh"] is True
+    assert payload["skip_process_census"] is True
     assert payload["overlap_report"]["overlap_count"] == 0
 
 
@@ -276,6 +339,11 @@ def test_render_text_contains_expected_sections() -> None:
         "codex_cli_sessions": [],
         "codex_desktop_automations": {
             "core_writers": {"engineering-autopilot": {"status": "PAUSED"}}
+        },
+        "process_census": {
+            "ok": True,
+            "total": 5,
+            "by_role": {"codex_cli": 1, "factory_droid": 4},
         },
         "open_prs": [
             {
@@ -299,6 +367,8 @@ def test_render_text_contains_expected_sections() -> None:
     assert "[LOCKED]" in out
     assert "dispatch contracts (recent within max_age, 1)" in out
     assert "engineering-autopilot: status=PAUSED" in out
+    assert "agent process census: ok=True total=5" in out
+    assert "factory_droid: 4" in out
     assert "open PRs (1)" in out
     assert "overlap report (count=1)" in out
     assert "branch=droid/x" in out
@@ -315,6 +385,7 @@ def test_main_json_mode_produces_parseable_output(
             str(tmp_path / "codex"),
             "--skip-gh",
             "--skip-codex-desktop",
+            "--skip-process-census",
             "--max-age-minutes",
             "5",
             "--json",
@@ -326,6 +397,7 @@ def test_main_json_mode_produces_parseable_output(
     assert payload["schema_version"] == detector.SCHEMA_VERSION
     assert payload["skip_gh"] is True
     assert payload["skip_codex_desktop"] is True
+    assert payload["skip_process_census"] is True
 
 
 def test_main_text_mode_prints_header(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -337,6 +409,7 @@ def test_main_text_mode_prints_header(tmp_path: Path, capsys: pytest.CaptureFixt
             str(tmp_path / "codex"),
             "--skip-gh",
             "--skip-codex-desktop",
+            "--skip-process-census",
         ]
     )
     assert rc == 0
