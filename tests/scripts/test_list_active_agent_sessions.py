@@ -128,7 +128,25 @@ def test_detect_codex_cli_sessions_filters_by_age(tmp_path: Path) -> None:
     sessions.mkdir(parents=True)
     fresh = sessions / "fresh.jsonl"
     stale = sessions / "stale.jsonl"
-    fresh.write_text("{}\n", encoding="utf-8")
+    fresh.write_text(
+        json.dumps(
+            {
+                "type": "session_meta",
+                "payload": {
+                    "id": "thread-1",
+                    "source": "exec",
+                    "cwd": "/repo/worktree-a",
+                    "git": {
+                        "branch": "refs/heads/feature/fresh",
+                        "commit_hash": "abc123",
+                        "repository_url": "https://github.com/example/repo.git",
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     stale.write_text("{}\n", encoding="utf-8")
     now = _ts("2026-05-17T12:00:00Z")
     import os
@@ -141,6 +159,50 @@ def test_detect_codex_cli_sessions_filters_by_age(tmp_path: Path) -> None:
     assert "stale.jsonl" not in names
     fresh_row = next(r for r in out if r["name"] == "fresh.jsonl")
     assert fresh_row["relative_path"] == "2026/05/17/fresh.jsonl"
+    assert fresh_row["thread_id"] == "thread-1"
+    assert fresh_row["source"] == "exec"
+    assert fresh_row["cwd"] == "/repo/worktree-a"
+    assert fresh_row["branch"] == "feature/fresh"
+    assert fresh_row["commit_hash"] == "abc123"
+
+
+def test_read_codex_session_metadata_ignores_message_content(tmp_path: Path) -> None:
+    path = tmp_path / "session.jsonl"
+    path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "response_item",
+                        "payload": {
+                            "type": "message",
+                            "role": "user",
+                            "content": "do not expose this",
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "session_meta",
+                        "payload": {
+                            "id": "thread-2",
+                            "cwd": "/repo",
+                            "git": {"branch": "main", "commit_hash": "def456"},
+                        },
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert detector.read_codex_session_metadata(path) == {
+        "thread_id": "thread-2",
+        "cwd": "/repo",
+        "branch": "main",
+        "commit_hash": "def456",
+    }
 
 
 def test_detect_codex_cli_sessions_respects_output_limit(tmp_path: Path) -> None:
@@ -240,6 +302,13 @@ def test_build_overlap_report_flags_cross_source_branches() -> None:
         dispatch_contracts=[{"branch": "feature/x", "name": "issue-1.json"}],
         issue_claims=[{"issue_number": 7257, "name": "claim-7257.json"}],
         automation_outbox=[{"branch": "feature/z", "idempotency_key": "k"}],
+        codex_cli_sessions=[
+            {
+                "relative_path": "2026/05/17/session.jsonl",
+                "branch": "feature/x",
+                "cwd": "/tmp/wt-b",
+            }
+        ],
         open_prs=[
             {"branch": "feature/x", "number": 9001},
             {"branch": "feature/y", "number": 9002},
@@ -251,6 +320,7 @@ def test_build_overlap_report_flags_cross_source_branches() -> None:
     # feature/x appears in git_worktree + dispatch_contract + open_pr
     assert "feature/x" in overlaps_by_value
     assert set(overlaps_by_value["feature/x"]["sources"]) == {
+        "codex_cli_session",
         "git_worktree",
         "dispatch_contract",
         "open_pr",
@@ -265,9 +335,13 @@ def test_build_overlap_report_flags_cross_source_branches() -> None:
         "automation_outbox",
         "open_pr",
     }
+    assert set(overlaps_by_value["/tmp/wt-b"]["sources"]) == {
+        "codex_cli_session",
+        "git_worktree",
+    }
     # issue 7257 alone (issue_claim only) is not an overlap
     assert "7257" not in overlaps_by_value
-    assert report["overlap_count"] == 3
+    assert report["overlap_count"] == 4
 
 
 def test_build_overlap_report_handles_empty_inputs() -> None:
@@ -276,6 +350,7 @@ def test_build_overlap_report_handles_empty_inputs() -> None:
         dispatch_contracts=[],
         issue_claims=[],
         automation_outbox=[],
+        codex_cli_sessions=[],
         open_prs=[],
     )
     assert report == {"counts": {}, "overlaps": [], "overlap_count": 0}

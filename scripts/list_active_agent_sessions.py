@@ -281,11 +281,56 @@ def detect_codex_cli_sessions(
                 "name": path.name,
                 "relative_path": relative_path,
                 "age_minutes": round(age, 2),
+                **read_codex_session_metadata(path),
             }
         )
         if len(out) >= limit:
             break
     return out
+
+
+def read_codex_session_metadata(path: Path, *, max_lines: int = 50) -> dict[str, Any]:
+    """Read safe session metadata from a Codex JSONL file.
+
+    Codex rollout files can contain full user/assistant content. This helper
+    only inspects the top-level payload metadata that identifies the working
+    directory and git branch, and deliberately ignores message content.
+    """
+    try:
+        handle = path.open("r", encoding="utf-8")
+    except OSError:
+        return {}
+    with handle:
+        for index, line in enumerate(handle):
+            if index >= max_lines:
+                break
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            payload = obj.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            git = payload.get("git")
+            git_payload = git if isinstance(git, dict) else {}
+            cwd = payload.get("cwd")
+            branch = _stable_branch_name(git_payload.get("branch"))
+            metadata: dict[str, Any] = {}
+            if isinstance(payload.get("id"), str):
+                metadata["thread_id"] = payload["id"]
+            if isinstance(payload.get("source"), str):
+                metadata["source"] = payload["source"]
+            if isinstance(cwd, str) and cwd.strip():
+                metadata["cwd"] = cwd.strip()
+            if branch:
+                metadata["branch"] = branch
+            if isinstance(git_payload.get("commit_hash"), str):
+                metadata["commit_hash"] = git_payload["commit_hash"]
+            if isinstance(git_payload.get("repository_url"), str):
+                metadata["repository_url"] = git_payload["repository_url"]
+            if metadata:
+                return metadata
+    return {}
 
 
 def detect_agent_process_census(
@@ -406,6 +451,7 @@ def build_overlap_report(
     dispatch_contracts: list[dict[str, Any]],
     issue_claims: list[dict[str, Any]],
     automation_outbox: list[dict[str, Any]],
+    codex_cli_sessions: list[dict[str, Any]],
     open_prs: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Cross-reference branches/paths/issues across signal sources."""
@@ -467,6 +513,26 @@ def build_overlap_report(
                 key_value=branch,
                 source="automation_outbox",
                 detail=entry.get("idempotency_key"),
+            )
+    for entry in codex_cli_sessions:
+        detail = str(entry.get("relative_path") or entry.get("name") or "codex-session")
+        branch = _stable_branch_name(entry.get("branch"))
+        if branch:
+            _record_signal(
+                sink=signals,
+                key_kind="branch",
+                key_value=branch,
+                source="codex_cli_session",
+                detail=detail,
+            )
+        cwd = entry.get("cwd")
+        if isinstance(cwd, str) and cwd.strip():
+            _record_signal(
+                sink=signals,
+                key_kind="worktree_path",
+                key_value=cwd.strip(),
+                source="codex_cli_session",
+                detail=detail,
             )
     for entry in open_prs:
         branch = _stable_branch_name(entry.get("branch"))
@@ -561,6 +627,7 @@ def build_payload(
         dispatch_contracts=dispatch_contracts,
         issue_claims=issue_claims,
         automation_outbox=automation_outbox,
+        codex_cli_sessions=codex_cli_sessions,
         open_prs=open_prs,
     )
 
