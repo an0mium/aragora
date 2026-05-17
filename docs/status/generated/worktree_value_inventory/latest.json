@@ -1,0 +1,2563 @@
+{
+  "base": "origin/main",
+  "base_sha": "cacb0b959d31e1ee7cfceaa11ea9d55436bddb3c",
+  "generated_at": "2026-05-17T04:08:00Z",
+  "inventory": {
+    "base": "origin/main",
+    "base_sha": "cacb0b959d31e1ee7cfceaa11ea9d55436bddb3c",
+    "candidates": [
+      {
+        "active_session": true,
+        "candidate_id": "b6b07ce8916f6a93",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-041011-3b22a0f5",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": true,
+        "candidate_id": "68f44cc9b9570506",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-042801-d58ae59e",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": true,
+        "candidate_id": "3a95275d4fb9123f",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-044410-204ba6b3",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": true,
+        "candidate_id": "2edd55a82fd13ceb",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-125421-513d6f8d",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": true,
+        "candidate_id": "9b7ab726ed615a43",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-132040-05232470",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": true,
+        "candidate_id": "8c9070af493be617",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-132610-4446bddf",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": true,
+        "candidate_id": "d985e063a60b8d97",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260501-174558-6eed6d67",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "701a9b7732df875a",
+        "classification": "no_git_cache_residue",
+        "cleanup_candidate": true,
+        "decision": "cleanup_candidate",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-17T01:54:37+00:00",
+        "next_action": "fresh safe_worktree_cleanup.py inspect is required before any removal",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260501-195315-89c3c0ad",
+        "proof": [
+          "no git metadata at candidate root or candidate/aragora path"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": true,
+        "candidate_id": "a4abc37f208c9133",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260501-230411-bc06dedc",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": true,
+        "candidate_id": "781ae5996039cfe7",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260503-144747-b1c1b5ad",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": true,
+        "candidate_id": "a50a9bf3381e42f1",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260503-150130-e21247fc",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": true,
+        "candidate_id": "a5574f97675d085d",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260507-171638-9eaae229",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "91521c56d871da4b",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 2,
+          "branch": "droid/a2-pr3-admission-recovery-rescue-map-and-fixtures-20260516",
+          "dirty": false,
+          "head": "19f29eeef1fc4e72be58cdbd36064303ac14a7c4",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-011811-b5b49881"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-17T01:21:47+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-011811-b5b49881",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-011811-b5b49881",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "93aa02fec6e693fc",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 1,
+          "branch": "droid/phase1-fastapi-observer-truth-20260516",
+          "dirty": false,
+          "head": "a9b044ce7490eab1a838fcc2ba8e54fcdb42ace6",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-014513-4b437897"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-17T01:49:05+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-014513-4b437897",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-014513-4b437897",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "750cc0175dd603cb",
+        "classification": "patch_equivalent_or_merged",
+        "cleanup_candidate": true,
+        "decision": "cleanup_candidate",
+        "git": {
+          "ahead": 0,
+          "behind": 1,
+          "branch": "droid/phase2-worktree-value-inventory-20260516",
+          "dirty": false,
+          "head": "d183d6df257b7da11749d0923609541bca0f977d",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-015647-9ea8f6b7"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-17T01:57:09+00:00",
+        "next_action": "fresh safe_worktree_cleanup.py inspect is required before any removal",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-015647-9ea8f6b7",
+        "proof": [
+          "registered git worktree has no unique commits ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-015647-9ea8f6b7",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "bdcc14c4aeaca260",
+        "classification": "no_git_cache_residue",
+        "cleanup_candidate": true,
+        "decision": "cleanup_candidate",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-17T01:58:23+00:00",
+        "next_action": "fresh safe_worktree_cleanup.py inspect is required before any removal",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260422-194119-a5c0dd59",
+        "proof": [
+          "no git metadata at candidate root or candidate/aragora path"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": true,
+        "candidate_id": "5c6c5859b8a76c03",
+        "classification": "active_or_dirty",
+        "cleanup_candidate": false,
+        "decision": "preserve",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T03:58:33+00:00",
+        "next_action": "preserve until blocker clears or value is harvested",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260515-152237-14d11f01",
+        "proof": [
+          "active session marker present without git metadata"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "181b5dae3883919d",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 16,
+          "branch": "codex/corpus-aware-dispatch-upgrade-7209",
+          "dirty": false,
+          "head": "5d98398a00cb1aa90f88a1beb2885bf2b01699c0",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260516-171432-ae417793"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T17:35:40+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260516-171432-ae417793",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260516-171432-ae417793",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "3f6ee72b38e51d4b",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 12,
+          "branch": "codex/review-pr-advisory-hardening",
+          "dirty": false,
+          "head": "e142a649a29e3f2ff2c7695a2a89dd20f452d216",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260516-184833-3348d471"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T18:53:05+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260516-184833-3348d471",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260516-184833-3348d471",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "e0873f53aad7c633",
+        "classification": "patch_equivalent_or_merged",
+        "cleanup_candidate": true,
+        "decision": "cleanup_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 1,
+          "branch": "codex/fix-worktree-inventory-managed-root",
+          "dirty": false,
+          "head": "4d8b23d750394d30c50494b822268eb7e195cc12",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": true,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-013517-967984c4"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-17T01:42:38+00:00",
+        "next_action": "fresh safe_worktree_cleanup.py inspect is required before any removal",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-013517-967984c4",
+        "proof": [
+          "branch is patch-equivalent to base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-013517-967984c4",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "67c93400d1572728",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 2,
+          "branch": null,
+          "dirty": false,
+          "head": "19f29eeef1fc4e72be58cdbd36064303ac14a7c4",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-013727-4aa9468a"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-17T01:38:35+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-013727-4aa9468a",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-013727-4aa9468a",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "c4ffe7a522ef64c0",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 1,
+          "branch": "codex/agent-bridge-process-census",
+          "dirty": false,
+          "head": "35a1224c13d51fee216d3ec2d3f0135039bf0269",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-014233-61822f8b"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-17T01:49:33+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-014233-61822f8b",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-014233-61822f8b",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "8a031d8b85edde80",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 7,
+          "behind": 12,
+          "branch": null,
+          "dirty": false,
+          "head": "68c03eadd0762e9825293a1f28298e949a73bf28",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-activity-repair"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:43:56+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-activity-repair",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-activity-repair",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "291ee78ff6099205",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 12,
+          "branch": "codex/harvest-github-cli-health-unused-sys-20260516",
+          "dirty": false,
+          "head": "723017ed917697a0d07a77388b2374913cca8ab0",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-github-cli-health-unused-sys-20260516"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T18:54:05+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-github-cli-health-unused-sys-20260516",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-github-cli-health-unused-sys-20260516",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "38042b5dc577eeba",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 6,
+          "branch": "codex/harvest-metrics-refresh-20260516",
+          "dirty": false,
+          "head": "7f9ecf28d5b9cf75df08281419104d74419c8917",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-metrics-refresh-20260516"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T23:21:35+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-metrics-refresh-20260516",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-metrics-refresh-20260516",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "43706e9e0be1098e",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 2,
+          "behind": 12,
+          "branch": "codex/harvest-preflight-rescue-guard-tests-20260516",
+          "dirty": false,
+          "head": "71b58286266604da1c33c6693564af80517459ef",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-preflight-rescue-guard-tests-20260516"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T19:08:56+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-preflight-rescue-guard-tests-20260516",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-preflight-rescue-guard-tests-20260516",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "280eee20c0a2dcb3",
+        "classification": "no_git_cache_residue",
+        "cleanup_candidate": true,
+        "decision": "cleanup_candidate",
+        "git": {
+          "ahead": null,
+          "behind": null,
+          "branch": null,
+          "dirty": false,
+          "head": null,
+          "is_repo": false,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": false,
+          "repo_path": null
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-17T01:58:23+00:00",
+        "next_action": "fresh safe_worktree_cleanup.py inspect is required before any removal",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/rbac-health-fix-20260413-1",
+        "proof": [
+          "no git metadata at candidate root or candidate/aragora path"
+        ],
+        "repo_path": null,
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "10c944cd2de1053f",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 12,
+          "branch": "codex/swarm-3844d54a-micro-1",
+          "dirty": false,
+          "head": "2f95c3df3c6ffe7c8c9ad0f981ee16aad43e6ae7",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-1"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T18:47:35+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-1",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-1",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "ae90c45c1e7211f6",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 12,
+          "branch": "codex/swarm-3844d54a-micro-2",
+          "dirty": false,
+          "head": "bf74992ff46434ab10d2400df6371c3fd5a0b7f9",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-2"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T18:50:06+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-2",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-2",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "5dd16c5f0808d1a8",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 2,
+          "behind": 12,
+          "branch": "codex/swarm-3844d54a-micro-3",
+          "dirty": false,
+          "head": "f79163971e50d2ac67b9775a0682f60ea43f4aec",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-3"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T19:07:45+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-3",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-3",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "0ad6e980a0fc228e",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 3,
+          "behind": 12,
+          "branch": "codex/swarm-3844d54a-micro-4",
+          "dirty": false,
+          "head": "cac02945d2078979f1117b8c627f4b991686ee91",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-4"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T19:19:42+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-4",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-4",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "5cb8de11c0ccbf7c",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 15,
+          "branch": "codex/swarm-5a555597-micro-1",
+          "dirty": false,
+          "head": "b1ff9bd8a6e49f109e618e61d4332a8e5857301e",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-1"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T17:41:44+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-1",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-1",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "7dc6e30a687e340c",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 15,
+          "branch": "codex/swarm-5a555597-micro-2",
+          "dirty": false,
+          "head": "bcc43c12da8e20d6183b27da4e09f6a04f8cc6b1",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-2"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T17:53:42+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-2",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-2",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "4e7d5f7244fba50b",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 14,
+          "branch": "codex/swarm-5a555597-micro-3",
+          "dirty": false,
+          "head": "3adfe1bf0fe7c9ab22c56faa17f86cda1a4c004e",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-3"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T17:53:38+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-3",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-3",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "6fd0d8d301f1dfb4",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 2,
+          "behind": 14,
+          "branch": "codex/swarm-5a555597-micro-4",
+          "dirty": false,
+          "head": "e922703d573dea2dd44e97edb82a3a79c83d0bf8",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-4"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T17:57:30+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-4",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-4",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "784539710f7171d9",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 3,
+          "behind": 14,
+          "branch": "codex/swarm-5a555597-micro-5",
+          "dirty": false,
+          "head": "c2cafc5297349bc147a27aa3a8b21582f6e1458b",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-5"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T18:01:21+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-5",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-5",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "b4d737b06992120b",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 20,
+          "branch": "codex/swarm-5f57bb72-micro-1",
+          "dirty": false,
+          "head": "8b674d669d52e12ee69f6d8ad06f210d31ad0eb3",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-1"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T16:36:09+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-1",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-1",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "7367ec2797d1c183",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 20,
+          "branch": "codex/swarm-5f57bb72-micro-2",
+          "dirty": false,
+          "head": "28dd329a5c3849f63feeee3b347e39f9b5cbd071",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-2"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T16:38:59+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-2",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-2",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "8d71d9be30a0b6c0",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 20,
+          "branch": "codex/swarm-5f57bb72-micro-3",
+          "dirty": false,
+          "head": "e3f33ffb00671af4e19fb3a43883a1b7b1208627",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-3"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T16:38:55+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-3",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-3",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "a5098a4548cb1131",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 2,
+          "behind": 20,
+          "branch": "codex/swarm-5f57bb72-micro-4",
+          "dirty": false,
+          "head": "b8b021ca06af4cf9fb5e6a75323ddff6ca412389",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-4"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T16:45:40+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-4",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-4",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "99472c710815a93f",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 4,
+          "behind": 20,
+          "branch": "codex/swarm-5f57bb72-micro-5",
+          "dirty": false,
+          "head": "f47a4647a375d0522de4a4b9706178675c877fec",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-5"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T16:47:27+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-5",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-5",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "22603bee379d4e48",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 22,
+          "branch": "codex/swarm-848a8081-micro-2",
+          "dirty": false,
+          "head": "c20a919bb8fa11a8a6b8467fd9b955b8130cfeaf",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-2"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T16:10:53+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-2",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-2",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "6ed337d15f09418a",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 1,
+          "behind": 22,
+          "branch": "codex/swarm-848a8081-micro-3",
+          "dirty": false,
+          "head": "ea13ddf962741a0a33ead3201233712a8bb3b48b",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-3"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T16:10:49+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-3",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-3",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "e496a4d3790537e4",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 2,
+          "behind": 22,
+          "branch": "codex/swarm-848a8081-micro-4",
+          "dirty": false,
+          "head": "2c2c8e8da18df4d5a867cadf780fdb7346524a68",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-4"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T16:14:40+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-4",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-4",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      },
+      {
+        "active_session": false,
+        "candidate_id": "5dbe197364417504",
+        "classification": "unique_unharvested",
+        "cleanup_candidate": false,
+        "decision": "harvest_candidate",
+        "git": {
+          "ahead": 3,
+          "behind": 22,
+          "branch": "codex/swarm-848a8081-micro-5",
+          "dirty": false,
+          "head": "e840168cd3b4aaf1513c4e87b8aa1bf57b0455e0",
+          "is_repo": true,
+          "lookup_errors": [],
+          "lookup_failed": false,
+          "patch_equivalent_to_base": false,
+          "registered_worktree": true,
+          "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-5"
+        },
+        "links": {
+          "open_prs": [],
+          "outbox_files": [],
+          "receipt_files": []
+        },
+        "lock_files": [],
+        "mtime": "2026-05-16T16:18:34+00:00",
+        "next_action": "inspect diff and harvest into a fresh branch or handoff",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-5",
+        "proof": [
+          "branch has unique commits or diff ahead of base"
+        ],
+        "repo_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-5",
+        "size_bytes": null,
+        "size_lookup_failed": false
+      }
+    ],
+    "generated_at": "2026-05-17T02:07:18+00:00",
+    "ledger_written": null,
+    "limit": 50,
+    "repo": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-015647-9ea8f6b7",
+    "root": "/Users/armand/Development/aragora/.worktrees/codex-auto",
+    "roots": [
+      "/Users/armand/Development/aragora/.worktrees/codex-auto"
+    ],
+    "schema": "aragora-worktree-harvest/1.0",
+    "size_mode": "none",
+    "summary": {
+      "bytes_by_class": {
+        "active_or_dirty": 0,
+        "lookup_failed": 0,
+        "no_git_cache_residue": 0,
+        "open_pr_or_outbox": 0,
+        "patch_equivalent_or_merged": 0,
+        "receipt_protected": 0,
+        "unique_unharvested": 0,
+        "unregistered_git_residue": 0
+      },
+      "classified_candidates": 45,
+      "cleanup_candidate_count": 5,
+      "count_by_class": {
+        "active_or_dirty": 12,
+        "lookup_failed": 0,
+        "no_git_cache_residue": 3,
+        "open_pr_or_outbox": 0,
+        "patch_equivalent_or_merged": 2,
+        "receipt_protected": 0,
+        "unique_unharvested": 28,
+        "unregistered_git_residue": 0
+      },
+      "harvest_candidate_count": 28,
+      "inventory_coverage": 0.0,
+      "known_size_bytes": 0,
+      "size_lookup_failures": 45,
+      "top_cleanup_candidates": [
+        {
+          "branch": null,
+          "classification": "no_git_cache_residue",
+          "decision": "cleanup_candidate",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260501-195315-89c3c0ad",
+          "proof": [
+            "no git metadata at candidate root or candidate/aragora path"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "droid/phase2-worktree-value-inventory-20260516",
+          "classification": "patch_equivalent_or_merged",
+          "decision": "cleanup_candidate",
+          "head": "d183d6df257b7da11749d0923609541bca0f977d",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-015647-9ea8f6b7",
+          "proof": [
+            "registered git worktree has no unique commits ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "no_git_cache_residue",
+          "decision": "cleanup_candidate",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260422-194119-a5c0dd59",
+          "proof": [
+            "no git metadata at candidate root or candidate/aragora path"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/fix-worktree-inventory-managed-root",
+          "classification": "patch_equivalent_or_merged",
+          "decision": "cleanup_candidate",
+          "head": "4d8b23d750394d30c50494b822268eb7e195cc12",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-013517-967984c4",
+          "proof": [
+            "branch is patch-equivalent to base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "no_git_cache_residue",
+          "decision": "cleanup_candidate",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/rbac-health-fix-20260413-1",
+          "proof": [
+            "no git metadata at candidate root or candidate/aragora path"
+          ],
+          "size_bytes": null
+        }
+      ],
+      "top_protected_size_users": [
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-041011-3b22a0f5",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-042801-d58ae59e",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-044410-204ba6b3",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-125421-513d6f8d",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-132040-05232470",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-132610-4446bddf",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260501-174558-6eed6d67",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260501-230411-bc06dedc",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260503-144747-b1c1b5ad",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260503-150130-e21247fc",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260507-171638-9eaae229",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "active_or_dirty",
+          "decision": "preserve",
+          "head": null,
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260515-152237-14d11f01",
+          "proof": [
+            "active session marker present without git metadata"
+          ],
+          "size_bytes": null
+        }
+      ],
+      "top_unique_unharvested": [
+        {
+          "branch": "droid/a2-pr3-admission-recovery-rescue-map-and-fixtures-20260516",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "19f29eeef1fc4e72be58cdbd36064303ac14a7c4",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-011811-b5b49881",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "droid/phase1-fastapi-observer-truth-20260516",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "a9b044ce7490eab1a838fcc2ba8e54fcdb42ace6",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-014513-4b437897",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/corpus-aware-dispatch-upgrade-7209",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "5d98398a00cb1aa90f88a1beb2885bf2b01699c0",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260516-171432-ae417793",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/review-pr-advisory-hardening",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "e142a649a29e3f2ff2c7695a2a89dd20f452d216",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260516-184833-3348d471",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "19f29eeef1fc4e72be58cdbd36064303ac14a7c4",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-013727-4aa9468a",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/agent-bridge-process-census",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "35a1224c13d51fee216d3ec2d3f0135039bf0269",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-014233-61822f8b",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": null,
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "68c03eadd0762e9825293a1f28298e949a73bf28",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-activity-repair",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/harvest-github-cli-health-unused-sys-20260516",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "723017ed917697a0d07a77388b2374913cca8ab0",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-github-cli-health-unused-sys-20260516",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/harvest-metrics-refresh-20260516",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "7f9ecf28d5b9cf75df08281419104d74419c8917",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-metrics-refresh-20260516",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/harvest-preflight-rescue-guard-tests-20260516",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "71b58286266604da1c33c6693564af80517459ef",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-preflight-rescue-guard-tests-20260516",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/swarm-3844d54a-micro-1",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "2f95c3df3c6ffe7c8c9ad0f981ee16aad43e6ae7",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-1",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/swarm-3844d54a-micro-2",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "bf74992ff46434ab10d2400df6371c3fd5a0b7f9",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-2",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/swarm-3844d54a-micro-3",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "f79163971e50d2ac67b9775a0682f60ea43f4aec",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-3",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/swarm-3844d54a-micro-4",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "cac02945d2078979f1117b8c627f4b991686ee91",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-4",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/swarm-5a555597-micro-1",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "b1ff9bd8a6e49f109e618e61d4332a8e5857301e",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-1",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/swarm-5a555597-micro-2",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "bcc43c12da8e20d6183b27da4e09f6a04f8cc6b1",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-2",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/swarm-5a555597-micro-3",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "3adfe1bf0fe7c9ab22c56faa17f86cda1a4c004e",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-3",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/swarm-5a555597-micro-4",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "e922703d573dea2dd44e97edb82a3a79c83d0bf8",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-4",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/swarm-5a555597-micro-5",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "c2cafc5297349bc147a27aa3a8b21582f6e1458b",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-5",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        },
+        {
+          "branch": "codex/swarm-5f57bb72-micro-1",
+          "classification": "unique_unharvested",
+          "decision": "harvest_candidate",
+          "head": "8b674d669d52e12ee69f6d8ad06f210d31ad0eb3",
+          "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-1",
+          "proof": [
+            "branch has unique commits or diff ahead of base"
+          ],
+          "size_bytes": null
+        }
+      ],
+      "total_candidates": 45,
+      "unknown_candidates": 0
+    }
+  },
+  "roots": [
+    "/Users/armand/Development/aragora/.worktrees/codex-auto"
+  ],
+  "schema_version": 1,
+  "source_inventory_path": "/private/tmp/wvi_canonical.json",
+  "summary": {
+    "active_sessions": 12,
+    "candidates_with_open_pr": 0,
+    "classifications": {
+      "active_or_dirty": 12,
+      "no_git_cache_residue": 3,
+      "patch_equivalent_or_merged": 2,
+      "unique_unharvested": 28
+    },
+    "cleanup_candidates": [
+      {
+        "active_session": false,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "no_git_cache_residue",
+        "decision": "cleanup_candidate",
+        "dirty": false,
+        "mtime": "2026-05-17T01:54:37+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260501-195315-89c3c0ad"
+      },
+      {
+        "active_session": false,
+        "ahead": 0,
+        "behind": 1,
+        "branch": "droid/phase2-worktree-value-inventory-20260516",
+        "classification": "patch_equivalent_or_merged",
+        "decision": "cleanup_candidate",
+        "dirty": false,
+        "mtime": "2026-05-17T01:57:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-015647-9ea8f6b7"
+      },
+      {
+        "active_session": false,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "no_git_cache_residue",
+        "decision": "cleanup_candidate",
+        "dirty": false,
+        "mtime": "2026-05-17T01:58:23+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260422-194119-a5c0dd59"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 1,
+        "branch": "codex/fix-worktree-inventory-managed-root",
+        "classification": "patch_equivalent_or_merged",
+        "decision": "cleanup_candidate",
+        "dirty": false,
+        "mtime": "2026-05-17T01:42:38+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-013517-967984c4"
+      },
+      {
+        "active_session": false,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "no_git_cache_residue",
+        "decision": "cleanup_candidate",
+        "dirty": false,
+        "mtime": "2026-05-17T01:58:23+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/rbac-health-fix-20260413-1"
+      }
+    ],
+    "decisions": {
+      "cleanup_candidate": 5,
+      "harvest_candidate": 28,
+      "preserve": 12
+    },
+    "dirty_count": 0,
+    "harvest_candidates": [
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 2,
+        "branch": "droid/a2-pr3-admission-recovery-rescue-map-and-fixtures-20260516",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-17T01:21:47+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-011811-b5b49881"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 1,
+        "branch": "droid/phase1-fastapi-observer-truth-20260516",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-17T01:49:05+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-014513-4b437897"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 16,
+        "branch": "codex/corpus-aware-dispatch-upgrade-7209",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T17:35:40+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260516-171432-ae417793"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 12,
+        "branch": "codex/review-pr-advisory-hardening",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T18:53:05+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260516-184833-3348d471"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 2,
+        "branch": null,
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-17T01:38:35+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-013727-4aa9468a"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 1,
+        "branch": "codex/agent-bridge-process-census",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-17T01:49:33+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260517-014233-61822f8b"
+      },
+      {
+        "active_session": false,
+        "ahead": 7,
+        "behind": 12,
+        "branch": null,
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T23:43:56+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-activity-repair"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 12,
+        "branch": "codex/harvest-github-cli-health-unused-sys-20260516",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T18:54:05+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-github-cli-health-unused-sys-20260516"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 6,
+        "branch": "codex/harvest-metrics-refresh-20260516",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T23:21:35+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-metrics-refresh-20260516"
+      },
+      {
+        "active_session": false,
+        "ahead": 2,
+        "behind": 12,
+        "branch": "codex/harvest-preflight-rescue-guard-tests-20260516",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T19:08:56+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/harvest-preflight-rescue-guard-tests-20260516"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 12,
+        "branch": "codex/swarm-3844d54a-micro-1",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T18:47:35+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-1"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 12,
+        "branch": "codex/swarm-3844d54a-micro-2",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T18:50:06+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-2"
+      },
+      {
+        "active_session": false,
+        "ahead": 2,
+        "behind": 12,
+        "branch": "codex/swarm-3844d54a-micro-3",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T19:07:45+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-3"
+      },
+      {
+        "active_session": false,
+        "ahead": 3,
+        "behind": 12,
+        "branch": "codex/swarm-3844d54a-micro-4",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T19:19:42+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-3844d54a-micro-4"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 15,
+        "branch": "codex/swarm-5a555597-micro-1",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T17:41:44+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-1"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 15,
+        "branch": "codex/swarm-5a555597-micro-2",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T17:53:42+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-2"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 14,
+        "branch": "codex/swarm-5a555597-micro-3",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T17:53:38+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-3"
+      },
+      {
+        "active_session": false,
+        "ahead": 2,
+        "behind": 14,
+        "branch": "codex/swarm-5a555597-micro-4",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T17:57:30+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-4"
+      },
+      {
+        "active_session": false,
+        "ahead": 3,
+        "behind": 14,
+        "branch": "codex/swarm-5a555597-micro-5",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T18:01:21+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5a555597-micro-5"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 20,
+        "branch": "codex/swarm-5f57bb72-micro-1",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T16:36:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-1"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 20,
+        "branch": "codex/swarm-5f57bb72-micro-2",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T16:38:59+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-2"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 20,
+        "branch": "codex/swarm-5f57bb72-micro-3",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T16:38:55+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-3"
+      },
+      {
+        "active_session": false,
+        "ahead": 2,
+        "behind": 20,
+        "branch": "codex/swarm-5f57bb72-micro-4",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T16:45:40+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-4"
+      },
+      {
+        "active_session": false,
+        "ahead": 4,
+        "behind": 20,
+        "branch": "codex/swarm-5f57bb72-micro-5",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T16:47:27+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-5f57bb72-micro-5"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 22,
+        "branch": "codex/swarm-848a8081-micro-2",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T16:10:53+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-2"
+      },
+      {
+        "active_session": false,
+        "ahead": 1,
+        "behind": 22,
+        "branch": "codex/swarm-848a8081-micro-3",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T16:10:49+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-3"
+      },
+      {
+        "active_session": false,
+        "ahead": 2,
+        "behind": 22,
+        "branch": "codex/swarm-848a8081-micro-4",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T16:14:40+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-4"
+      },
+      {
+        "active_session": false,
+        "ahead": 3,
+        "behind": 22,
+        "branch": "codex/swarm-848a8081-micro-5",
+        "classification": "unique_unharvested",
+        "decision": "harvest_candidate",
+        "dirty": false,
+        "mtime": "2026-05-16T16:18:34+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/swarm-848a8081-micro-5"
+      }
+    ],
+    "preserves": [
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-041011-3b22a0f5"
+      },
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-042801-d58ae59e"
+      },
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-044410-204ba6b3"
+      },
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-125421-513d6f8d"
+      },
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-132040-05232470"
+      },
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260430-132610-4446bddf"
+      },
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260501-174558-6eed6d67"
+      },
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260501-230411-bc06dedc"
+      },
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260503-144747-b1c1b5ad"
+      },
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260503-150130-e21247fc"
+      },
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T23:51:09+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260507-171638-9eaae229"
+      },
+      {
+        "active_session": true,
+        "ahead": null,
+        "behind": null,
+        "branch": null,
+        "classification": "active_or_dirty",
+        "decision": "preserve",
+        "dirty": false,
+        "mtime": "2026-05-16T03:58:33+00:00",
+        "path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260515-152237-14d11f01"
+      }
+    ],
+    "registered_worktrees": 30,
+    "total_candidates": 45
+  }
+}
