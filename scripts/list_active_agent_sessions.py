@@ -21,6 +21,12 @@ Inputs (each optional, never errors on missing sources):
 - ``~/.codex/sessions/**/*.jsonl`` for Codex CLI session files
 - ``scripts/agent_bridge.py processes --json --summary-only`` for live
   agent process census
+- ``~/.aragora/agent-bridge/lanes.json`` (and the in-repo
+  ``.aragora/agent-bridge/lanes.json`` fallback) for the cross-agent
+  lane registry maintained by ``scripts/agent_bridge.py``; lane
+  branches, worktrees, and PR numbers are folded into the overlap
+  detector so that an active lane claim collides with the matching
+  git worktree, dispatch contract, automation outbox row, or open PR
 - ``gh pr list --state open --json ...`` for open PRs (skippable via
   ``--skip-gh``)
 
@@ -58,7 +64,13 @@ DEFAULT_MAX_PR_FETCH = 30
 DEFAULT_GIT_TIMEOUT = 10
 DEFAULT_SUBPROCESS_TIMEOUT = 20
 DEFAULT_CODEX_SESSION_SCAN_LIMIT = 500
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+LANE_REGISTRY_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
+LANE_REGISTRY_USER_PATH = Path.home() / ".aragora" / "agent-bridge" / "lanes.json"
+ACTIVE_LANE_STATUSES: frozenset[str] = frozenset(
+    {"active", "running", "pending", "queued", "claimed"}
+)
 
 
 def _utc_now() -> dt.datetime:
@@ -324,6 +336,71 @@ def detect_agent_process_census(
     }
 
 
+def detect_agent_bridge_lanes(
+    repo_root: Path,
+    *,
+    user_path: Path = LANE_REGISTRY_USER_PATH,
+) -> list[dict[str, Any]]:
+    """Read the agent-bridge lane registry from the repo + user-home paths.
+
+    Lane rows are de-duplicated by ``lane_id``, repo-root wins ties so a
+    repo-local override masks the user-home record.
+    """
+    candidates: list[Path] = []
+    repo_lane = repo_root / LANE_REGISTRY_RELATIVE_PATH
+    if repo_lane.exists():
+        candidates.append(repo_lane)
+    if user_path.exists() and user_path not in candidates:
+        candidates.append(user_path)
+
+    out_by_id: dict[str, dict[str, Any]] = {}
+    for path in candidates:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, list):
+            continue
+        for entry in payload:
+            if not isinstance(entry, dict):
+                continue
+            lane_id = str(entry.get("lane_id") or "").strip()
+            if not lane_id:
+                continue
+            if lane_id in out_by_id:
+                continue
+            row: dict[str, Any] = {
+                "lane_id": lane_id,
+                "owner_session": str(entry.get("owner_session") or ""),
+                "status": str(entry.get("status") or "active"),
+                "source_path": str(path),
+            }
+            for key in (
+                "goal",
+                "source",
+                "next_action",
+                "updated_at",
+                "branch",
+                "worktree",
+                "conflict_session",
+                "conflict_reason",
+            ):
+                value = entry.get(key)
+                if isinstance(value, str) and value:
+                    row[key] = value
+            pr_number = entry.get("pr_number")
+            if isinstance(pr_number, int):
+                row["pr_number"] = pr_number
+            row["is_active"] = row["status"] in ACTIVE_LANE_STATUSES
+            row["is_conflict"] = row["status"] == "conflict"
+            out_by_id[lane_id] = row
+    return sorted(out_by_id.values(), key=lambda r: r["lane_id"])
+
+
 def fetch_open_prs(
     *,
     limit: int = DEFAULT_MAX_PR_FETCH,
@@ -407,6 +484,7 @@ def build_overlap_report(
     issue_claims: list[dict[str, Any]],
     automation_outbox: list[dict[str, Any]],
     open_prs: list[dict[str, Any]],
+    agent_bridge_lanes: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Cross-reference branches/paths/issues across signal sources."""
     signals: dict[str, SignalBucket] = {}
@@ -477,6 +555,37 @@ def build_overlap_report(
                 key_value=branch,
                 source="open_pr",
                 detail=f"#{entry.get('number')}" if entry.get("number") else None,
+            )
+    for entry in agent_bridge_lanes or []:
+        if not entry.get("is_active") and not entry.get("is_conflict"):
+            continue
+        branch = _stable_branch_name(entry.get("branch"))
+        lane_id = entry.get("lane_id") or ""
+        if branch:
+            _record_signal(
+                sink=signals,
+                key_kind="branch",
+                key_value=branch,
+                source="agent_bridge_lane",
+                detail=str(lane_id) or None,
+            )
+        worktree = entry.get("worktree")
+        if isinstance(worktree, str) and worktree:
+            _record_signal(
+                sink=signals,
+                key_kind="worktree_path",
+                key_value=worktree,
+                source="agent_bridge_lane",
+                detail=str(lane_id) or None,
+            )
+        pr_number = entry.get("pr_number")
+        if isinstance(pr_number, int):
+            _record_signal(
+                sink=signals,
+                key_kind="pr",
+                key_value=str(pr_number),
+                source="agent_bridge_lane",
+                detail=str(lane_id) or None,
             )
 
     overlaps: list[dict[str, Any]] = []
@@ -552,6 +661,7 @@ def build_payload(
     process_census: dict[str, Any] = {}
     if not skip_process_census:
         process_census = detect_agent_process_census(repo_root)
+    agent_bridge_lanes = detect_agent_bridge_lanes(repo_root)
     open_prs: list[dict[str, Any]] = []
     if not skip_gh:
         open_prs = fetch_open_prs(limit=max_pr_fetch)
@@ -562,6 +672,7 @@ def build_payload(
         issue_claims=issue_claims,
         automation_outbox=automation_outbox,
         open_prs=open_prs,
+        agent_bridge_lanes=agent_bridge_lanes,
     )
 
     payload: dict[str, Any] = {
@@ -583,6 +694,7 @@ def build_payload(
         "codex_desktop_automations": codex_desktop,
         "codex_cli_sessions": codex_cli_sessions,
         "process_census": process_census,
+        "agent_bridge_lanes": agent_bridge_lanes,
         "open_prs": open_prs,
         "overlap_report": overlap,
     }
@@ -641,6 +753,27 @@ def render_text(payload: dict[str, Any]) -> str:
         by_role = process_census.get("by_role") or {}
         for role, count in sorted(by_role.items()):
             lines.append(f"  - {role}: {count}")
+        lines.append("")
+
+    lanes = payload.get("agent_bridge_lanes") or []
+    if lanes:
+        active = [row for row in lanes if row.get("is_active")]
+        conflict = [row for row in lanes if row.get("is_conflict")]
+        lines.append(
+            f"agent_bridge lanes ({len(lanes)} total, "
+            f"{len(active)} active, {len(conflict)} conflict):"
+        )
+        for row in lanes[:20]:
+            flag = ""
+            if row.get("is_conflict"):
+                flag = " [CONFLICT]"
+            elif row.get("is_active"):
+                flag = " [ACTIVE]"
+            branch = row.get("branch") or "-"
+            owner = row.get("owner_session") or "-"
+            lines.append(f"  - {row.get('lane_id')}{flag}  owner={owner}  branch={branch}")
+        if len(lanes) > 20:
+            lines.append(f"  ... ({len(lanes) - 20} more)")
         lines.append("")
 
     prs = payload.get("open_prs") or []

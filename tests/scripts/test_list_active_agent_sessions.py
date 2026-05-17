@@ -416,3 +416,324 @@ def test_main_text_mode_prints_header(tmp_path: Path, capsys: pytest.CaptureFixt
     out = capsys.readouterr().out
     assert out.startswith("Active agent sessions")
     assert "overlap report" in out
+
+
+# ---------------------------------------------------------------------------
+# agent_bridge lane registry integration tests
+# ---------------------------------------------------------------------------
+
+
+def test_detect_agent_bridge_lanes_returns_empty_when_no_registry(tmp_path: Path) -> None:
+    """No repo-local or user-home registry -> empty list, no crash."""
+    out = detector.detect_agent_bridge_lanes(
+        tmp_path,
+        user_path=tmp_path / "missing-user-home.json",
+    )
+    assert out == []
+
+
+def test_detect_agent_bridge_lanes_reads_repo_local_registry(tmp_path: Path) -> None:
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "droid/phase3",
+                    "owner_session": "claude-A",
+                    "status": "active",
+                    "branch": "droid/phase3-20260517",
+                    "worktree": "/repo/.worktrees/A",
+                    "goal": "phase 3 implementation",
+                },
+                {
+                    "lane_id": "droid/phase4",
+                    "owner_session": "claude-B",
+                    "status": "conflict",
+                    "branch": "droid/phase4-20260517",
+                    "worktree": "/repo/.worktrees/B",
+                    "conflict_session": "claude-X",
+                    "conflict_reason": "duplicate branch",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out = detector.detect_agent_bridge_lanes(
+        tmp_path,
+        user_path=tmp_path / "nonexistent-user.json",
+    )
+    assert {row["lane_id"] for row in out} == {"droid/phase3", "droid/phase4"}
+    phase3 = next(r for r in out if r["lane_id"] == "droid/phase3")
+    assert phase3["is_active"] is True
+    assert phase3["is_conflict"] is False
+    assert phase3["branch"] == "droid/phase3-20260517"
+    phase4 = next(r for r in out if r["lane_id"] == "droid/phase4")
+    assert phase4["is_active"] is False
+    assert phase4["is_conflict"] is True
+    assert phase4["conflict_session"] == "claude-X"
+
+
+def test_detect_agent_bridge_lanes_falls_back_to_user_home(tmp_path: Path) -> None:
+    user_registry = tmp_path / "user-home" / "lanes.json"
+    user_registry.parent.mkdir(parents=True)
+    user_registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "user-only-lane",
+                    "owner_session": "claude-C",
+                    "status": "running",
+                    "branch": "claude/user-only",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    repo_root = tmp_path / "repo-without-aragora"
+    repo_root.mkdir()
+    out = detector.detect_agent_bridge_lanes(repo_root, user_path=user_registry)
+    assert len(out) == 1
+    assert out[0]["lane_id"] == "user-only-lane"
+    assert out[0]["branch"] == "claude/user-only"
+
+
+def test_detect_agent_bridge_lanes_repo_local_masks_user_home(tmp_path: Path) -> None:
+    """If the same lane_id appears in both registries the repo-local row wins."""
+    repo_registry = tmp_path / "repo" / ".aragora" / "agent-bridge" / "lanes.json"
+    repo_registry.parent.mkdir(parents=True)
+    repo_registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "shared-lane",
+                    "owner_session": "claude-A",
+                    "status": "active",
+                    "branch": "from-repo",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    user_registry = tmp_path / "user" / "lanes.json"
+    user_registry.parent.mkdir(parents=True)
+    user_registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "shared-lane",
+                    "owner_session": "claude-B",
+                    "status": "running",
+                    "branch": "from-user",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out = detector.detect_agent_bridge_lanes(tmp_path / "repo", user_path=user_registry)
+    assert len(out) == 1
+    assert out[0]["branch"] == "from-repo"
+    assert out[0]["owner_session"] == "claude-A"
+
+
+def test_detect_agent_bridge_lanes_ignores_malformed(tmp_path: Path) -> None:
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text("{this is not json}", encoding="utf-8")
+    out = detector.detect_agent_bridge_lanes(
+        tmp_path,
+        user_path=tmp_path / "missing.json",
+    )
+    assert out == []
+
+
+def test_detect_agent_bridge_lanes_skips_rows_without_lane_id(tmp_path: Path) -> None:
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {"owner_session": "claude-A", "status": "active"},
+                {"lane_id": "real-lane", "owner_session": "claude-B"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out = detector.detect_agent_bridge_lanes(
+        tmp_path,
+        user_path=tmp_path / "missing.json",
+    )
+    assert [r["lane_id"] for r in out] == ["real-lane"]
+
+
+def test_build_overlap_report_flags_lane_branch_against_worktree() -> None:
+    report = detector.build_overlap_report(
+        worktrees=[{"path": "/tmp/wt-a", "branch": "droid/phase3-20260517"}],
+        dispatch_contracts=[],
+        issue_claims=[],
+        automation_outbox=[],
+        open_prs=[],
+        agent_bridge_lanes=[
+            {
+                "lane_id": "droid/phase3",
+                "owner_session": "claude-A",
+                "status": "active",
+                "branch": "droid/phase3-20260517",
+                "worktree": "/tmp/wt-a",
+                "is_active": True,
+                "is_conflict": False,
+            }
+        ],
+    )
+    overlaps_by_value = {ov["value"]: ov for ov in report["overlaps"]}
+    # branch matched lane + worktree
+    assert "droid/phase3-20260517" in overlaps_by_value
+    assert set(overlaps_by_value["droid/phase3-20260517"]["sources"]) == {
+        "git_worktree",
+        "agent_bridge_lane",
+    }
+    # worktree path matched lane + worktree
+    assert "/tmp/wt-a" in overlaps_by_value
+    assert set(overlaps_by_value["/tmp/wt-a"]["sources"]) == {
+        "git_worktree",
+        "agent_bridge_lane",
+    }
+
+
+def test_build_overlap_report_includes_conflict_lanes() -> None:
+    """A lane with status=conflict must still feed the overlap report so the
+    operator can see it; the active/conflict short-circuit only suppresses
+    truly inactive (released/completed) lanes."""
+    report = detector.build_overlap_report(
+        worktrees=[{"path": "/tmp/wt-x", "branch": "shared"}],
+        dispatch_contracts=[],
+        issue_claims=[],
+        automation_outbox=[],
+        open_prs=[],
+        agent_bridge_lanes=[
+            {
+                "lane_id": "shared",
+                "owner_session": "claude-A",
+                "status": "conflict",
+                "branch": "shared",
+                "is_active": False,
+                "is_conflict": True,
+            }
+        ],
+    )
+    overlaps_by_value = {ov["value"]: ov for ov in report["overlaps"]}
+    assert "shared" in overlaps_by_value
+    assert "agent_bridge_lane" in overlaps_by_value["shared"]["sources"]
+
+
+def test_build_overlap_report_skips_released_lanes() -> None:
+    """A released lane (no longer active and not in conflict) must not be
+    folded into the overlap report so completed lanes don't keep blocking
+    future claims."""
+    report = detector.build_overlap_report(
+        worktrees=[{"path": "/tmp/wt-x", "branch": "shared"}],
+        dispatch_contracts=[],
+        issue_claims=[],
+        automation_outbox=[],
+        open_prs=[],
+        agent_bridge_lanes=[
+            {
+                "lane_id": "old-lane",
+                "owner_session": "claude-A",
+                "status": "released",
+                "branch": "shared",
+                "is_active": False,
+                "is_conflict": False,
+            }
+        ],
+    )
+    # Only git_worktree should appear as a source.
+    overlaps_by_value = {ov["value"]: ov for ov in report["overlaps"]}
+    assert "shared" not in overlaps_by_value
+
+
+def test_build_payload_includes_agent_bridge_lanes(tmp_path: Path) -> None:
+    """The payload-level entry must surface the lanes so downstream consumers
+    can render them or filter on them."""
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "droid/embedded",
+                    "owner_session": "claude-A",
+                    "status": "active",
+                    "branch": "droid/embedded",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    payload = detector.build_payload(
+        repo_root=tmp_path,
+        codex_home=tmp_path / "codex",
+        now=_ts("2026-05-17T12:00:00Z"),
+        max_age_minutes=120.0,
+        skip_gh=True,
+        skip_codex_desktop=True,
+        skip_process_census=True,
+    )
+    assert "agent_bridge_lanes" in payload
+    assert len(payload["agent_bridge_lanes"]) == 1
+    assert payload["agent_bridge_lanes"][0]["lane_id"] == "droid/embedded"
+
+
+def test_render_text_includes_lane_section() -> None:
+    payload: dict[str, Any] = {
+        "generated_at": "2026-05-17T12:00:00Z",
+        "repo_root": "/repo",
+        "codex_home": "/home/u/.codex",
+        "worktrees": [],
+        "dispatch_contracts": [],
+        "issue_claims": [],
+        "work_leases": [],
+        "automation_outbox": [],
+        "codex_cli_sessions": [],
+        "codex_desktop_automations": {},
+        "process_census": {},
+        "agent_bridge_lanes": [
+            {
+                "lane_id": "droid/phase3",
+                "owner_session": "claude-A",
+                "status": "active",
+                "branch": "droid/phase3-20260517",
+                "is_active": True,
+                "is_conflict": False,
+            },
+            {
+                "lane_id": "droid/phase4",
+                "owner_session": "claude-B",
+                "status": "conflict",
+                "branch": "droid/phase4-20260517",
+                "is_active": False,
+                "is_conflict": True,
+            },
+        ],
+        "open_prs": [],
+        "overlap_report": {"overlap_count": 0, "overlaps": []},
+    }
+    text = detector.render_text(payload)
+    assert "agent_bridge lanes (2 total, 1 active, 1 conflict)" in text
+    assert "[ACTIVE]" in text
+    assert "[CONFLICT]" in text
+    assert "droid/phase3" in text
+    assert "droid/phase4" in text
+
+
+def test_schema_version_bumped_for_lane_registry() -> None:
+    """The schema bump (1 -> 2) reflects the new ``agent_bridge_lanes`` top-
+    level key. Consumers that pinned to schema_version=1 should adapt."""
+    assert detector.SCHEMA_VERSION == 2
+
+
+def test_active_lane_statuses_match_agent_bridge() -> None:
+    """Phase 3 invariant: the lane statuses considered ``active`` here must
+    stay aligned with the canonical set in ``scripts/agent_bridge.py``."""
+    expected = {"active", "running", "pending", "queued", "claimed"}
+    assert set(detector.ACTIVE_LANE_STATUSES) == expected

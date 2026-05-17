@@ -1,0 +1,319 @@
+"""Tests for ``scripts/claim_active_agent_lane.py``.
+
+The helper is a thin write-side complement to the lane registry shipped
+in ``scripts/agent_bridge.py``. These tests cover:
+
+- A fresh claim creates the registry file + a single row.
+- A claim refresh from the same owner overwrites in place.
+- A claim from a different owner is rejected with exit code 2.
+- ``--force`` overrides the owner-mismatch rejection.
+- Released / conflict statuses round-trip.
+- The persisted row matches the ``LaneRecord`` schema so the existing
+  agent_bridge reader picks it up unmodified.
+- The script imports no aragora package (pure stdlib).
+"""
+
+from __future__ import annotations
+
+import importlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SCRIPT_PATH = REPO_ROOT / "scripts" / "claim_active_agent_lane.py"
+
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+claim_module = importlib.import_module("claim_active_agent_lane")
+
+
+@pytest.fixture()
+def tmp_registry(tmp_path: Path) -> Path:
+    return tmp_path / "lanes.json"
+
+
+def test_fresh_claim_writes_single_row(tmp_registry: Path) -> None:
+    result = claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="droid/phase-x",
+        owner_session="claude-20260517",
+        goal="phase X goal",
+        source="plan",
+        status="active",
+        branch="droid/phase-x-20260517",
+        worktree="/tmp/wt-x",
+    )
+    assert result["lane_id"] == "droid/phase-x"
+    assert result["owner_session"] == "claude-20260517"
+    assert tmp_registry.exists()
+    payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
+    assert isinstance(payload, list)
+    assert len(payload) == 1
+    assert payload[0]["lane_id"] == "droid/phase-x"
+    assert payload[0]["status"] == "active"
+    assert payload[0]["updated_at"].endswith("Z")
+
+
+def test_same_owner_refresh_overwrites_in_place(tmp_registry: Path) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="droid/phase-x",
+        owner_session="claude-20260517",
+        status="active",
+    )
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="droid/phase-x",
+        owner_session="claude-20260517",
+        status="completed",
+        next_action="PR opened",
+    )
+    payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
+    assert len(payload) == 1
+    assert payload[0]["status"] == "completed"
+    assert payload[0]["next_action"] == "PR opened"
+
+
+def test_different_owner_is_rejected(tmp_registry: Path) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="shared-lane",
+        owner_session="claude-A",
+    )
+    with pytest.raises(claim_module.ClaimError) as excinfo:
+        claim_module.claim_lane(
+            registry_path=tmp_registry,
+            lane_id="shared-lane",
+            owner_session="claude-B",
+        )
+    assert "already claimed" in str(excinfo.value)
+    payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
+    assert payload[0]["owner_session"] == "claude-A"
+
+
+def test_force_overrides_owner_mismatch(tmp_registry: Path) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="shared-lane",
+        owner_session="claude-A",
+    )
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="shared-lane",
+        owner_session="claude-B",
+        force=True,
+    )
+    payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
+    assert payload[0]["owner_session"] == "claude-B"
+
+
+def test_other_lanes_are_preserved_during_claim(tmp_registry: Path) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="lane-a",
+        owner_session="claude-A",
+    )
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="lane-b",
+        owner_session="claude-B",
+    )
+    payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
+    lane_ids = sorted(row["lane_id"] for row in payload)
+    assert lane_ids == ["lane-a", "lane-b"]
+
+
+def test_conflict_status_round_trips(tmp_registry: Path) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="contested-lane",
+        owner_session="claude-A",
+        status="conflict",
+        conflict_session="claude-B",
+        conflict_reason="same branch",
+    )
+    payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
+    assert payload[0]["status"] == "conflict"
+    assert payload[0]["conflict_session"] == "claude-B"
+    assert payload[0]["conflict_reason"] == "same branch"
+
+
+def test_released_status_round_trips(tmp_registry: Path) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="phase-x",
+        owner_session="claude-A",
+        status="active",
+    )
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="phase-x",
+        owner_session="claude-A",
+        status="released",
+    )
+    payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
+    assert payload[0]["status"] == "released"
+
+
+def test_invalid_status_is_rejected(tmp_registry: Path) -> None:
+    with pytest.raises(ValueError):
+        claim_module.claim_lane(
+            registry_path=tmp_registry,
+            lane_id="phase-x",
+            owner_session="claude-A",
+            status="bogus",
+        )
+
+
+def test_empty_lane_id_is_rejected(tmp_registry: Path) -> None:
+    with pytest.raises(ValueError):
+        claim_module.claim_lane(
+            registry_path=tmp_registry,
+            lane_id="",
+            owner_session="claude-A",
+        )
+
+
+def test_empty_owner_is_rejected(tmp_registry: Path) -> None:
+    with pytest.raises(ValueError):
+        claim_module.claim_lane(
+            registry_path=tmp_registry,
+            lane_id="phase-x",
+            owner_session="",
+        )
+
+
+def test_persisted_schema_matches_lane_record_keys(tmp_registry: Path) -> None:
+    """The persisted row must use only the LaneRecord-known keys so that
+    ``scripts/agent_bridge.py`` ``_load_lane_registry`` accepts it without
+    surfacing as malformed."""
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="phase-y",
+        owner_session="claude-X",
+        goal="g",
+        source="s",
+        status="active",
+        next_action="n",
+        branch="b",
+        worktree="w",
+        pr_number=1234,
+        conflict_session="",
+        conflict_reason="",
+    )
+    payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
+    keys = set(payload[0].keys())
+    allowed = set(claim_module.LANE_RECORD_KEYS)
+    assert keys.issubset(allowed)
+
+
+def test_cli_help_exits_zero() -> None:
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), "--help"],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0
+
+
+def test_cli_writes_registry_via_subprocess(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--lane-id",
+            "phase-cli",
+            "--owner-session",
+            "claude-cli",
+            "--branch",
+            "droid/phase-cli",
+            "--status",
+            "active",
+            "--registry-path",
+            str(registry),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    payload_out = json.loads(result.stdout)
+    assert payload_out["lane_id"] == "phase-cli"
+    assert registry.exists()
+    file_payload = json.loads(registry.read_text(encoding="utf-8"))
+    assert len(file_payload) == 1
+    assert file_payload[0]["lane_id"] == "phase-cli"
+
+
+def test_cli_conflict_returns_exit_code_2(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--lane-id",
+            "shared",
+            "--owner-session",
+            "claude-A",
+            "--registry-path",
+            str(registry),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=True,
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--lane-id",
+            "shared",
+            "--owner-session",
+            "claude-B",
+            "--registry-path",
+            str(registry),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 2
+    assert "already claimed" in result.stderr
+
+
+def test_module_imports_no_aragora_package() -> None:
+    """Pure stdlib invariant: the module must not import ``aragora``
+    so it works during partial bootstraps and on freshly cloned checkouts."""
+    source = SCRIPT_PATH.read_text(encoding="utf-8")
+    assert "import aragora" not in source
+    assert "from aragora" not in source
+
+
+def test_resolve_registry_path_prefers_repo_local(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    (repo_root / ".aragora" / "agent-bridge").mkdir(parents=True)
+    expected = repo_root / ".aragora" / "agent-bridge" / "lanes.json"
+    actual = claim_module.resolve_registry_path(repo_root=repo_root)
+    assert actual == expected
+
+
+def test_resolve_registry_path_falls_back_to_user_home(tmp_path: Path) -> None:
+    repo_root = tmp_path / "no_aragora_dir"
+    repo_root.mkdir()
+    actual = claim_module.resolve_registry_path(repo_root=repo_root)
+    assert actual == claim_module.USER_LANE_PATH
+
+
+def test_explicit_registry_path_wins(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    (repo_root / ".aragora" / "agent-bridge").mkdir(parents=True)
+    override = tmp_path / "override.json"
+    actual = claim_module.resolve_registry_path(repo_root=repo_root, explicit=override)
+    assert actual == override
