@@ -474,12 +474,16 @@ def _extract_pr_mentions(text: str) -> list[int]:
     return mentions
 
 
+def _redact_structured_token(value: str) -> str:
+    return _build_barrier().redact(value)
+
+
 def _extract_file_mentions(text: str) -> list[str]:
-    return [match.group(1) for match in _FILE_RE.finditer(text)]
+    return [_redact_structured_token(match.group(1)) for match in _FILE_RE.finditer(text)]
 
 
 def _extract_branch_mentions(text: str) -> list[str]:
-    return [match.group(0) for match in _BRANCH_RE.finditer(text)]
+    return [_redact_structured_token(match.group(0)) for match in _BRANCH_RE.finditer(text)]
 
 
 def _message_role(payload: Any) -> str:

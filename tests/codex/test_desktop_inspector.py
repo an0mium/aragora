@@ -357,6 +357,35 @@ def test_build_session_brief_last_turns_are_safe_summaries(
     assert "ghp_FAKELEAK12345678901234" not in serialized
 
 
+def test_build_session_brief_redacts_extracted_file_and_branch_tokens(
+    fake_codex_home,
+) -> None:  # type: ignore[no-untyped-def]
+    _append_rollout_event(
+        fake_codex_home.recent_rollout,
+        {
+            "timestamp": "2026-05-16T13:54:45.000Z",
+            "type": "agent_message",
+            "payload": {
+                "role": "user",
+                "content": (
+                    "Repair docs/sk-proj-FAKE-BRIEF-SECRET.md on "
+                    "codex/sk-or-v1-abcdefghijklmnopqrstuvwxyz"
+                ),
+            },
+        },
+    )
+    thread = inspector.find_thread(fake_codex_home.recent_thread_id)
+    assert thread is not None
+
+    brief = inspector.build_session_brief(thread, include_last_turns=2)
+    payload = brief.to_dict()
+    serialized = json.dumps(payload)
+
+    assert "sk-proj-FAKE-BRIEF-SECRET" not in serialized
+    assert "sk-or-v1-abcdefghijklmnopqrstuvwxyz" not in serialized
+    assert "[REDACTED]" in serialized
+
+
 def test_build_session_brief_routes_ambiguous_session_to_paste_needed(
     fake_codex_home,
 ) -> None:  # type: ignore[no-untyped-def]
