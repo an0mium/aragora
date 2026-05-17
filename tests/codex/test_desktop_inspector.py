@@ -425,6 +425,74 @@ def test_router_prefers_pause_for_broad_build_when_queue_pressure_is_high(
     assert "Stop new implementation" in brief.router.recommended_next_prompt
 
 
+def test_build_session_brief_marks_assistant_final_as_prompt_needed(
+    fake_codex_home,
+) -> None:  # type: ignore[no-untyped-def]
+    _append_rollout_event(
+        fake_codex_home.recent_rollout,
+        {
+            "timestamp": "2026-05-16T13:55:15.000Z",
+            "type": "agent_message",
+            "payload": {
+                "role": "assistant",
+                "content": "I finished reviewing #7286 and am waiting for next instruction.",
+            },
+        },
+    )
+    thread = inspector.find_thread(fake_codex_home.recent_thread_id)
+    assert thread is not None
+
+    brief = inspector.build_session_brief(
+        thread,
+        include_last_turns=0,
+        repo_context={"open_pr_count": 12, "active_lane_records": []},
+    )
+
+    assert brief.prompt_needed is True
+    assert brief.prompt_needed_reason == "assistant_final_recent"
+
+
+def test_build_session_brief_marks_matching_active_lane_not_prompt_needed(
+    fake_codex_home,
+) -> None:  # type: ignore[no-untyped-def]
+    _append_rollout_event(
+        fake_codex_home.recent_rollout,
+        {
+            "timestamp": "2026-05-16T13:55:30.000Z",
+            "type": "agent_message",
+            "payload": {
+                "role": "assistant",
+                "content": "Continuing the active lane for #7245.",
+            },
+        },
+    )
+    thread = inspector.find_thread(fake_codex_home.recent_thread_id)
+    assert thread is not None
+
+    brief = inspector.build_session_brief(
+        thread,
+        include_last_turns=0,
+        repo_context={
+            "open_pr_count": 12,
+            "active_lane_records": [
+                {
+                    "lane_id": "Q02-repair-7245-conflict",
+                    "owner_session": "codex-q02",
+                    "status": "active",
+                    "branch": "main",
+                    "pr_number": 7245,
+                }
+            ],
+        },
+    )
+    payload = brief.to_dict()
+
+    assert payload["prompt_needed"] is False
+    assert payload["prompt_needed_reason"] == "active_lane_owned"
+    assert payload["active_lane"]["lane_id"] == "Q02-repair-7245-conflict"
+    assert payload["conflict_risk"] == "active-lane-overlap"
+
+
 # -- find_thread --------------------------------------------------------------
 
 

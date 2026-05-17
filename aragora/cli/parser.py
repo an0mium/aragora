@@ -3236,6 +3236,16 @@ def _add_codex_parser(subparsers) -> None:
         help="Include this many recent safe turn summaries, never raw transcript text.",
     )
     brief_cmd.add_argument(
+        "--compact",
+        action="store_true",
+        help="Emit compact prompt-router rows instead of full briefing objects.",
+    )
+    brief_cmd.add_argument(
+        "--awaiting-prompts",
+        action="store_true",
+        help="Return only sessions whose redacted signal suggests an operator prompt is needed.",
+    )
+    brief_cmd.add_argument(
         "--group-by",
         choices=("cwd", "branch", "title"),
         default=None,

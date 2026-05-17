@@ -208,6 +208,10 @@ class SessionBrief:
     pr_mentions: tuple[int, ...]
     files_mentioned: tuple[str, ...]
     branches_mentioned: tuple[str, ...]
+    active_lane: dict[str, Any] | None
+    conflict_risk: str
+    prompt_needed: bool | str
+    prompt_needed_reason: str
     last_user_intent_summary: str
     last_assistant_action_summary: str
     current_likely_state: str
@@ -228,6 +232,10 @@ class SessionBrief:
             "pr_mentions": list(self.pr_mentions),
             "files_mentioned": list(self.files_mentioned),
             "branches_mentioned": list(self.branches_mentioned),
+            "active_lane": self.active_lane,
+            "conflict_risk": self.conflict_risk,
+            "prompt_needed": self.prompt_needed,
+            "prompt_needed_reason": self.prompt_needed_reason,
             "last_user_intent_summary": self.last_user_intent_summary,
             "last_assistant_action_summary": self.last_assistant_action_summary,
             "current_likely_state": self.current_likely_state,
@@ -641,6 +649,74 @@ def _state_from_route(route: PromptRoute) -> str:
     return "insufficient redacted local signal; paste excerpt needed"
 
 
+def _active_lane_records(repo_context: dict[str, Any] | None) -> list[dict[str, Any]]:
+    context = repo_context or {}
+    records = context.get("active_lane_records")
+    if not isinstance(records, list):
+        return []
+    return [record for record in records if isinstance(record, dict)]
+
+
+def _redacted_lane_record(record: dict[str, Any]) -> dict[str, Any]:
+    keys = ("lane_id", "owner_session", "status", "branch", "worktree", "pr_number", "goal")
+    out: dict[str, Any] = {}
+    for key in keys:
+        value = record.get(key)
+        if value in (None, ""):
+            continue
+        if key in {"branch", "worktree", "goal"}:
+            out[key] = redact_display(str(value))
+        else:
+            out[key] = value
+    return out
+
+
+def _matching_active_lane(
+    *,
+    branch: str | None,
+    cwd: str,
+    pr_mentions: tuple[int, ...],
+    repo_context: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    branch_value = str(branch or "").strip()
+    cwd_value = str(cwd or "").strip()
+    pr_values = {int(value) for value in pr_mentions}
+    for record in _active_lane_records(repo_context):
+        lane_branch = str(record.get("branch") or "").strip()
+        lane_worktree = str(record.get("worktree") or "").strip()
+        lane_pr = record.get("pr_number")
+        if branch_value and lane_branch and branch_value == lane_branch:
+            return _redacted_lane_record(record)
+        if cwd_value and lane_worktree and cwd_value == lane_worktree:
+            return _redacted_lane_record(record)
+        if isinstance(lane_pr, int) and lane_pr in pr_values:
+            return _redacted_lane_record(record)
+    return None
+
+
+def _infer_prompt_needed(
+    *,
+    route: PromptRoute,
+    active_lane: dict[str, Any] | None,
+    last_message_role: str,
+    has_user_signal: bool,
+    has_assistant_signal: bool,
+) -> tuple[bool | str, str]:
+    if active_lane is not None:
+        return False, "active_lane_owned"
+    if route.category == "paste-needed":
+        return "unknown", "raw_signal_insufficient"
+    if last_message_role == "assistant":
+        return True, "assistant_final_recent"
+    if has_assistant_signal and route.category in {"watch", "review", "settle", "repair"}:
+        return True, "pending_operator"
+    if last_message_role == "user" and has_user_signal:
+        return False, "user_turn_latest"
+    if not has_user_signal and not has_assistant_signal:
+        return "unknown", "raw_signal_insufficient"
+    return "unknown", "raw_signal_insufficient"
+
+
 def build_session_brief(
     thread: ThreadSummary,
     *,
@@ -664,6 +740,7 @@ def build_session_brief(
     last_assistant_summary = "no assistant action found"
     has_user_signal = False
     has_assistant_signal = False
+    last_message_role = ""
     tool_names: list[str] = []
     scanned = 0
 
@@ -703,9 +780,11 @@ def build_session_brief(
             if role == "user":
                 has_user_signal = bool(text)
                 last_user_summary = summary
+                last_message_role = role
             elif role == "assistant":
                 has_assistant_signal = bool(text)
                 last_assistant_summary = summary
+                last_message_role = role
             turn_summaries.append(
                 {
                     "timestamp": event.get("timestamp"),
@@ -739,6 +818,19 @@ def build_session_brief(
     now = datetime.now(UTC)
     age_seconds = max(0, int((now - thread.updated_at).total_seconds()))
     recent_turns = tuple(turn_summaries[-include_last_turns:]) if include_last_turns else ()
+    active_lane = _matching_active_lane(
+        branch=thread.git_branch,
+        cwd=thread.cwd,
+        pr_mentions=pr_mentions,
+        repo_context=repo_context,
+    )
+    prompt_needed, prompt_needed_reason = _infer_prompt_needed(
+        route=route,
+        active_lane=active_lane,
+        last_message_role=last_message_role,
+        has_user_signal=has_user_signal,
+        has_assistant_signal=has_assistant_signal,
+    )
     return SessionBrief(
         id=thread.id,
         title=thread.title,
@@ -752,6 +844,10 @@ def build_session_brief(
         pr_mentions=pr_mentions,
         files_mentioned=files_mentioned,
         branches_mentioned=branches_mentioned,
+        active_lane=active_lane,
+        conflict_risk="active-lane-overlap" if active_lane else "none",
+        prompt_needed=prompt_needed,
+        prompt_needed_reason=prompt_needed_reason,
         last_user_intent_summary=last_user_summary,
         last_assistant_action_summary=last_assistant_summary,
         current_likely_state=_state_from_route(route),
@@ -785,6 +881,10 @@ def paste_needed_brief(session_id: str) -> SessionBrief:
         pr_mentions=(),
         files_mentioned=(),
         branches_mentioned=(),
+        active_lane=None,
+        conflict_risk="unknown",
+        prompt_needed="unknown",
+        prompt_needed_reason="raw_signal_insufficient",
         last_user_intent_summary="session not visible",
         last_assistant_action_summary="session not visible",
         current_likely_state=_state_from_route(route),

@@ -117,40 +117,73 @@ def _run_json_command(
         return None, f"invalid JSON: {exc}"
 
 
-def _active_lanes_from_registry(repo_root: Path) -> list[str]:
-    registry = repo_root / ".aragora" / "agent-bridge" / "lanes.json"
-    try:
-        payload = json.loads(registry.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
+def _normalize_lane_records(payload: Any) -> list[dict[str, Any]]:
     if isinstance(payload, dict):
         records = payload.get("lanes") or payload.get("records") or []
     elif isinstance(payload, list):
         records = payload
     else:
         records = []
-    active: list[str] = []
+    out: list[dict[str, Any]] = []
     for record in records:
         if not isinstance(record, dict):
             continue
         status = str(record.get("status") or "").lower()
-        if status in {"released", "completed", "done", "closed"}:
+        if status in {"released", "completed", "complete", "done", "closed"}:
             continue
         lane_id = record.get("lane_id") or record.get("id") or record.get("lane")
-        if lane_id:
-            active.append(str(lane_id))
-    return sorted(dict.fromkeys(active))
+        if not lane_id:
+            continue
+        out.append(
+            {
+                key: value
+                for key, value in {
+                    "lane_id": str(lane_id),
+                    "owner_session": record.get("owner_session"),
+                    "status": record.get("status"),
+                    "branch": record.get("branch"),
+                    "worktree": record.get("worktree"),
+                    "pr_number": record.get("pr_number"),
+                    "goal": record.get("goal"),
+                }.items()
+                if value not in (None, "")
+            }
+        )
+    return out
+
+
+def _active_lane_records_from_registry(repo_root: Path) -> list[dict[str, Any]]:
+    registry = repo_root / ".aragora" / "agent-bridge" / "lanes.json"
+    try:
+        payload = json.loads(registry.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return _normalize_lane_records(payload)
+
+
+def _active_lane_records_from_bridge(repo_root: Path) -> list[dict[str, Any]]:
+    lanes, err = _run_json_command(
+        ["python3", "scripts/agent_bridge.py", "lanes", "--json"],
+        cwd=repo_root,
+    )
+    if err or not isinstance(lanes, list):
+        return []
+    return _normalize_lane_records(lanes)
 
 
 def _collect_repo_context(repo_root_arg: str | None) -> dict[str, Any]:
     if not repo_root_arg:
         return {"source": "disabled", "open_pr_count": None, "active_lanes": []}
     repo_root = Path(repo_root_arg).expanduser().resolve(strict=False)
+    lane_records = _active_lane_records_from_registry(repo_root)
+    if not lane_records:
+        lane_records = _active_lane_records_from_bridge(repo_root)
     context: dict[str, Any] = {
         "source": "repo",
         "repo_root": str(repo_root),
         "open_pr_count": None,
-        "active_lanes": _active_lanes_from_registry(repo_root),
+        "active_lanes": sorted({str(record["lane_id"]) for record in lane_records}),
+        "active_lane_records": lane_records,
         "active_sessions": None,
         "active_processes": None,
         "errors": [],
@@ -202,9 +235,46 @@ def _group_briefs(
     groups: dict[str, list[str]] = {}
     for brief in briefs:
         value = brief.get(group_by)
+        if value is None and group_by == "title":
+            value = brief.get("title_summary")
         key = str(value) if value else "(none)"
         groups.setdefault(key, []).append(str(brief.get("id") or ""))
     return groups
+
+
+def _compact_brief(row: dict[str, Any]) -> dict[str, Any]:
+    from aragora.codex.desktop_inspector import truncate
+
+    router_obj = row.get("router")
+    router: dict[str, Any] = router_obj if isinstance(router_obj, dict) else {}
+    pr_mentions = list(row.get("pr_mentions") or [])
+    files_mentioned = list(row.get("files_mentioned") or [])
+    branches_mentioned = list(row.get("branches_mentioned") or [])
+    return {
+        "id": str(row.get("id") or "")[:12],
+        "title_summary": truncate(str(row.get("title") or "(no title)"), width=72),
+        "cwd": truncate(str(row.get("cwd") or ""), width=96),
+        "branch": row.get("branch"),
+        "age": row.get("age"),
+        "prompt_needed": row.get("prompt_needed", "unknown"),
+        "prompt_needed_reason": row.get("prompt_needed_reason", "raw_signal_insufficient"),
+        "route": router.get("category"),
+        "route_reason": router.get("reason"),
+        "pr_mentions": pr_mentions[:8],
+        "pr_mention_count": len(pr_mentions),
+        "files_mentioned": files_mentioned[:8],
+        "file_mention_count": len(files_mentioned),
+        "branches_mentioned": branches_mentioned[:8],
+        "branch_mention_count": len(branches_mentioned),
+        "active_lane": row.get("active_lane"),
+        "conflict_risk": row.get("conflict_risk") or "unknown",
+        "current_likely_state": row.get("current_likely_state"),
+        "recommended_next_prompt": router.get("recommended_next_prompt"),
+    }
+
+
+def _filter_awaiting_prompts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [row for row in rows if row.get("prompt_needed") is True]
 
 
 def cmd_codex_sessions_list(args: argparse.Namespace) -> int:
@@ -300,6 +370,8 @@ def cmd_codex_sessions_brief(args: argparse.Namespace) -> int:
     if args.include_last_turns < 0:
         print("error: --include-last-turns must be >= 0", file=sys.stderr)
         return 2
+    compact = bool(getattr(args, "compact", False))
+    awaiting_prompts = bool(getattr(args, "awaiting_prompts", False))
 
     try:
         since = _parse_since(args.since)
@@ -320,6 +392,10 @@ def cmd_codex_sessions_brief(args: argparse.Namespace) -> int:
             threads = [thread]
         else:
             briefs = [paste_needed_brief(args.session).to_dict()]
+            if awaiting_prompts:
+                briefs = _filter_awaiting_prompts(briefs)
+            if compact:
+                briefs = [_compact_brief(row) for row in briefs]
             payload = {
                 "schema": "aragora-codex-sessions-brief/1.0",
                 "generated_at": datetime.now(UTC).isoformat(),
@@ -328,8 +404,10 @@ def cmd_codex_sessions_brief(args: argparse.Namespace) -> int:
                 "include_archived": bool(args.include_archived),
                 "include_last_turns": int(args.include_last_turns),
                 "group_by": args.group_by,
+                "compact": compact,
+                "awaiting_prompts": awaiting_prompts,
                 "repo_context": repo_context,
-                "count": 1,
+                "count": len(briefs),
                 "briefs": briefs,
                 "groups": _group_briefs(briefs, group_by=args.group_by),
             }
@@ -354,6 +432,10 @@ def cmd_codex_sessions_brief(args: argparse.Namespace) -> int:
         ).to_dict()
         for thread in threads
     ]
+    if awaiting_prompts:
+        briefs = _filter_awaiting_prompts(briefs)
+    if compact:
+        briefs = [_compact_brief(row) for row in briefs]
     payload = {
         "schema": "aragora-codex-sessions-brief/1.0",
         "generated_at": datetime.now(UTC).isoformat(),
@@ -363,6 +445,8 @@ def cmd_codex_sessions_brief(args: argparse.Namespace) -> int:
         "include_archived": bool(args.include_archived),
         "include_last_turns": int(args.include_last_turns),
         "group_by": args.group_by,
+        "compact": compact,
+        "awaiting_prompts": awaiting_prompts,
         "repo_context": repo_context,
         "count": len(briefs),
         "briefs": briefs,
@@ -390,11 +474,14 @@ def _format_brief_table(briefs: list[dict[str, Any]]) -> str:
         {
             "id": str(brief.get("id") or "")[:12],
             "age": brief.get("age") or "",
-            "route": (brief.get("router") or {}).get("category", ""),
+            "route": brief.get("route") or (brief.get("router") or {}).get("category", ""),
             "branch": str(brief.get("branch") or "")[:18],
             "prs": ",".join(f"#{n}" for n in brief.get("pr_mentions", [])[:4]),
             "state": truncate(str(brief.get("current_likely_state") or ""), width=52),
-            "title": truncate(str(brief.get("title") or "(no title)"), width=54),
+            "title": truncate(
+                str(brief.get("title_summary") or brief.get("title") or "(no title)"),
+                width=54,
+            ),
         }
         for brief in briefs
     ]

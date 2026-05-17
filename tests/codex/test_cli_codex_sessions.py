@@ -440,6 +440,95 @@ def test_cli_brief_unknown_session_is_paste_needed(
     assert "Paste the last 2-4 turns" in payload["briefs"][0]["router"]["recommended_next_prompt"]
 
 
+def test_cli_brief_compact_awaiting_prompts_filters_and_redacts(
+    fake_codex_home, capsys: pytest.CaptureFixture[str]
+) -> None:  # type: ignore[no-untyped-def]
+    _append_rollout_event(
+        fake_codex_home.recent_rollout,
+        {
+            "timestamp": "2026-05-16T13:55:00.000Z",
+            "type": "agent_message",
+            "payload": {
+                "role": "assistant",
+                "content": "Finished review of #7286 with sk-proj-FAKE-COMPACT-SECRET.",
+            },
+        },
+    )
+
+    rc = cli.cmd_codex_sessions_brief(
+        _args(
+            since="4h",
+            include_archived=False,
+            limit=50,
+            include_last_turns=0,
+            group_by=None,
+            session=fake_codex_home.recent_thread_id[:13],
+            repo_root=None,
+            compact=True,
+            awaiting_prompts=True,
+            json=True,
+        )
+    )
+    out = capsys.readouterr().out
+    payload = json.loads(out)
+
+    assert rc == 0
+    assert payload["compact"] is True
+    assert payload["awaiting_prompts"] is True
+    assert payload["count"] == 1
+    row = payload["briefs"][0]
+    assert set(row) >= {
+        "id",
+        "title_summary",
+        "prompt_needed",
+        "prompt_needed_reason",
+        "route",
+        "conflict_risk",
+        "recommended_next_prompt",
+    }
+    assert row["prompt_needed"] is True
+    assert row["prompt_needed_reason"] == "assistant_final_recent"
+    assert "Finished review" not in out
+    assert "sk-proj-FAKE-COMPACT-SECRET" not in out
+
+
+def test_collect_repo_context_reads_active_lane_records_from_registry(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    registry = repo / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "released",
+                    "owner_session": "codex-old",
+                    "status": "released",
+                    "branch": "old",
+                },
+                {
+                    "lane_id": "Q04-cross-agent-collision-control",
+                    "owner_session": "codex-q04",
+                    "status": "active",
+                    "branch": "codex/cross-agent-collision-control-20260517",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    context = cli._collect_repo_context(str(repo))
+
+    assert context["active_lanes"] == ["Q04-cross-agent-collision-control"]
+    assert context["active_lane_records"] == [
+        {
+            "lane_id": "Q04-cross-agent-collision-control",
+            "owner_session": "codex-q04",
+            "status": "active",
+            "branch": "codex/cross-agent-collision-control-20260517",
+        }
+    ]
+
+
 def test_cli_tail_rejects_non_positive_interval(
     fake_codex_home, capsys: pytest.CaptureFixture[str]
 ) -> None:  # type: ignore[no-untyped-def]
