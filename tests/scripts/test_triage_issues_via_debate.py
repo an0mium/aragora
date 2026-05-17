@@ -188,6 +188,26 @@ def test_gather_evidence_marks_broken_file_refs(tmp_path: Path):
     assert evidence.is_automation_generated is True
 
 
+def test_gather_evidence_marks_backslash_repo_file_refs_existing(tmp_path: Path):
+    (tmp_path / "aragora" / "triage").mkdir(parents=True)
+    (tmp_path / "aragora" / "triage" / "evidence.py").write_text("# real")
+    issue = _make_issue(
+        body=r"Windows logs mention aragora\triage\evidence.py during triage.",
+    )
+
+    evidence = gather_evidence(
+        issue,
+        repo="synaptent/aragora",
+        repo_root=tmp_path,
+        open_issue_index=[],
+        gh_runner=lambda args: None,
+        now_iso="2026-05-14T12:00:00Z",
+    )
+
+    paths = {ref["path"]: ref["exists_in_head"] for ref in evidence.referenced_files}
+    assert paths[r"aragora\triage\evidence.py"] is True
+
+
 def test_gather_evidence_suggests_duplicates(tmp_path: Path):
     target = _make_issue(number=1, title="Narrow broad except Exception in foo")
     others = [

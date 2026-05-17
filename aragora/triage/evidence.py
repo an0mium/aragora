@@ -177,9 +177,12 @@ def _run_gh_json(args: Sequence[str]) -> Any:
 def _check_file_exists(repo_root: Path, path: str) -> bool:
     """Return True iff a path resolves to an existing file inside ``repo_root``."""
     try:
-        candidate = (repo_root / path).resolve()
+        normalized_path = path.replace("\\", "/")
+        candidate = (repo_root / normalized_path).resolve()
         repo_resolved = repo_root.resolve()
-        if not str(candidate).startswith(str(repo_resolved)):
+        try:
+            candidate.relative_to(repo_resolved)
+        except ValueError:
             return False
         return candidate.is_file()
     except (OSError, ValueError):
