@@ -12,3 +12,5 @@ Columns: `timestamp_utc | session_id | agent_family | phase_id | pr_number | out
 
 2026-05-17T17:23:00Z | droid-A5312D6A | droid | P05-publication-freshness-probe-rebase | 7261 | finish-existing
 2026-05-17T17:23:00Z | droid-A5312D6A | prompt-bug: v3 heredoc shim '/tmp/fanout_claim.py <<PYEOF ... PYEOF' still hangs in test shell; v4 must ship shim as tracked scripts/ file (see P12 deferral)
+2026-05-17T20:53:00Z | droid-6916BE6B | droid | P02-freshness-probe-rerun | 7287 | shipped
+2026-05-17T20:53:00Z | droid-6916BE6B | prompt-bug: v4 lists scripts/triage_open_prs.py as required observer but doesn't say what to do when it isn't yet on main (it's still in PR #7285); fell back to manual bucket classification against OPERATOR_DELEGATION_POLICY.md
