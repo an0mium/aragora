@@ -37,10 +37,20 @@ the classification; the operator only sees Buckets C and D.
 **All of these MUST be true:**
 
 - `mergeable: MERGEABLE`
-- `mergeStateStatus` is `CLEAN` or `BLOCKED` only because of draft
-  state (not branch-protection failures)
+- PR is not draft
+- `mergeStateStatus` is `CLEAN`, or branch protection is blocking
+  only on review while Aragora's merge packet authorizes admin squash
 - CI: all checks `SUCCESS`; zero `FAILURE`; zero `IN_PROGRESS` /
   `QUEUED`
+- `python3 -m aragora.cli.main review-queue merge-packet --pr <N>
+  --json` reports, at the exact current head SHA:
+  - `admin_squash_allowed: true`
+  - `not_ready: []`
+  - `unresolved_dissent: false`
+  - green check summary
+- Tier 3 and Tier 4 PRs are never Bucket A unless the merge packet
+  shows the required human risk settlement or preapproval has already
+  been recorded for that exact head SHA
 - Diff is additive only:
   - No edits to protected files
     (`CLAUDE.md`, `aragora/__init__.py`, `.env`, `.envrc`,
@@ -56,7 +66,10 @@ the classification; the operator only sees Buckets C and D.
 - Net LOC ≤ 1500 (large-diff escape valve to Bucket C)
 
 If all hold, an automation may merge the PR after a brief settling
-window (default: 30 min after the last commit; configurable).
+window (default: 30 min after the last commit; configurable). The
+automation must re-run the merge packet immediately before merge and
+use `--match-head-commit`; head drift demotes the PR out of Bucket A
+until it is reclassified.
 
 ### Bucket B — Auto-close (agent decides; operator never sees it per-PR)
 
@@ -196,5 +209,5 @@ implementation. Tracking issues are filed under the
 | `docs/CANONICAL_GOALS.md` | Sets project intent; Bucket D escalations check PRs against it. |
 | `docs/FOCUS.md` / `docs/THESIS.md` | Strategic direction inputs to Bucket D classification. |
 | `docs/status/NEXT_STEPS_CANONICAL.md` | Active gate; the policy explicitly does not auto-merge PRs that widen scope while the canonical gate says otherwise. |
-| `docs/REVIEW_AUTHORITY_PRINCIPLES.md` | 5-tier merge classification; Bucket A defers to this for any PR with a tier in `{3, 4}`. |
+| `docs/REVIEW_AUTHORITY_PRINCIPLES.md` | 5-tier merge classification; Bucket A is only possible when the review-queue merge packet says admin squash is allowed at the exact current head. |
 | `scripts/apply_operator_decisions.py` | Implements the operator-decisions JSON consumption side of Bucket A/B/C; honors the hold list above. |
