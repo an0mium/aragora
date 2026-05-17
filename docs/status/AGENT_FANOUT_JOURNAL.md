@@ -9,3 +9,6 @@ Columns: `timestamp_utc | session_id | agent_family | phase_id | pr_number | out
 ---
 
 2026-05-17T16:56:00Z | droid-DC5A5821 | droid | P03-lane-registry-claim-helper-rebase | 7267 | finish-existing
+
+2026-05-17T17:23:00Z | droid-A5312D6A | droid | P05-publication-freshness-probe-rebase | 7261 | finish-existing
+2026-05-17T17:23:00Z | droid-A5312D6A | prompt-bug: v3 heredoc shim '/tmp/fanout_claim.py <<PYEOF ... PYEOF' still hangs in test shell; v4 must ship shim as tracked scripts/ file (see P12 deferral)
