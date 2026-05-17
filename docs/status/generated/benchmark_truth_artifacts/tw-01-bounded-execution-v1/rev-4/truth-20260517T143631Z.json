@@ -56,7 +56,7 @@
     "blocked_sanitation_failed": 2,
     "rescue_no_deliverable": 1
   },
-  "generated_at": "2026-05-17T14:36:42Z",
+  "generated_at": "2026-05-17T14:36:31Z",
   "in_flight_metrics": {
     "in_progress_attempted_count": 13,
     "in_progress_expected_count": 13,
