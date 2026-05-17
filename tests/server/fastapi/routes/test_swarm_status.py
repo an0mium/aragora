@@ -366,3 +366,160 @@ def test_swarm_status_legacy_benchmark_fresh_field_preserved(tmp_path: Path) -> 
     assert "current_benchmark_fresh" in summary
     assert "current_benchmark_age_hours" in summary
     assert "current_benchmark_generated_at" in summary
+
+
+# ---------------------------------------------------------------------------
+# Observer truth on FastAPI sibling surface — closes the Do-now item from
+# docs/status/NEXT_STEPS_CANONICAL.md ("swarm shift-status AND sibling
+# operator surfaces report whether the observer itself is dirty, ahead, or
+# behind origin/main").  The FastAPI route already exposed benchmark
+# freshness; this round adds the observer-state keys so that dashboards
+# consuming /api/v1/swarm/status can distinguish a real product regression
+# from a stale or dirty observer checkout without shell forensics.
+# ---------------------------------------------------------------------------
+
+
+def test_swarm_status_no_data_includes_observer_state_when_clean(tmp_path: Path) -> None:
+    """No-data path: observer keys flow through when the helper returns data."""
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    with patch(
+        "aragora.server.fastapi.routes.swarm_status._detect_observer_state",
+        return_value={
+            "observer_branch": "main",
+            "observer_head": "abc123",
+            "observer_origin_main_head": "abc123",
+            "observer_behind_origin_main": 0,
+            "observer_ahead_of_origin_main": 0,
+            "observer_has_uncommitted_changes": False,
+        },
+    ):
+        summary = swarm_status.swarm_status_summary(
+            metrics_path=metrics_path,
+            repo_root=tmp_path,
+        )
+
+    assert summary["status"] == "no_data"
+    assert summary["observer_branch"] == "main"
+    assert summary["observer_head"] == "abc123"
+    assert summary["observer_origin_main_head"] == "abc123"
+    assert summary["observer_behind_origin_main"] == 0
+    assert summary["observer_ahead_of_origin_main"] == 0
+    assert summary["observer_has_uncommitted_changes"] is False
+    assert "observer_warning" not in summary
+
+
+def test_swarm_status_active_with_dirty_observer_surfaces_warning(tmp_path: Path) -> None:
+    """Active path: a dirty observer flows through to observer_warning."""
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    _write_jsonl(
+        metrics_path,
+        [{"timestamp": "2026-05-15T16:31:15Z", "terminal_class": "deliverable_pr_created"}],
+    )
+
+    with patch(
+        "aragora.server.fastapi.routes.swarm_status._detect_observer_state",
+        return_value={
+            "observer_branch": "main",
+            "observer_head": "deadbeef",
+            "observer_origin_main_head": "deadbeef",
+            "observer_behind_origin_main": 0,
+            "observer_ahead_of_origin_main": 0,
+            "observer_has_uncommitted_changes": True,
+            "observer_warning": "observer checkout is dirty checkout",
+        },
+    ):
+        summary = swarm_status.swarm_status_summary(
+            metrics_path=metrics_path,
+            repo_root=tmp_path,
+        )
+
+    assert summary["status"] == "active"
+    assert summary["observer_has_uncommitted_changes"] is True
+    assert summary["observer_warning"] == "observer checkout is dirty checkout"
+
+
+def test_swarm_status_active_with_diverged_observer_reports_ahead_behind(
+    tmp_path: Path,
+) -> None:
+    """Active path: an observer that diverged from origin/main reports both counts."""
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    _write_jsonl(
+        metrics_path,
+        [{"timestamp": "2026-05-15T16:31:15Z", "terminal_class": "deliverable_pr_created"}],
+    )
+
+    with patch(
+        "aragora.server.fastapi.routes.swarm_status._detect_observer_state",
+        return_value={
+            "observer_branch": "founder-notes",
+            "observer_head": "0000",
+            "observer_origin_main_head": "1111",
+            "observer_behind_origin_main": 12,
+            "observer_ahead_of_origin_main": 3,
+            "observer_has_uncommitted_changes": False,
+            "observer_warning": (
+                "observer checkout is 12 behind origin/main, 3 ahead of origin/main"
+            ),
+        },
+    ):
+        summary = swarm_status.swarm_status_summary(
+            metrics_path=metrics_path,
+            repo_root=tmp_path,
+        )
+
+    assert summary["observer_branch"] == "founder-notes"
+    assert summary["observer_behind_origin_main"] == 12
+    assert summary["observer_ahead_of_origin_main"] == 3
+    assert "12 behind" in summary["observer_warning"]
+    assert "3 ahead" in summary["observer_warning"]
+
+
+def test_swarm_status_no_observer_state_when_helper_returns_empty(tmp_path: Path) -> None:
+    """A sandboxed root with no git metadata yields no observer keys; the
+    route still returns valid JSON for both no-data and active paths."""
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    with patch(
+        "aragora.server.fastapi.routes.swarm_status._detect_observer_state",
+        return_value={},
+    ):
+        no_data_summary = swarm_status.swarm_status_summary(
+            metrics_path=metrics_path,
+            repo_root=tmp_path,
+        )
+
+    assert no_data_summary["status"] == "no_data"
+    for key in (
+        "observer_branch",
+        "observer_head",
+        "observer_origin_main_head",
+        "observer_behind_origin_main",
+        "observer_ahead_of_origin_main",
+        "observer_has_uncommitted_changes",
+        "observer_warning",
+    ):
+        assert key not in no_data_summary
+
+    _write_jsonl(
+        metrics_path,
+        [{"timestamp": "2026-05-15T16:31:15Z", "terminal_class": "deliverable_pr_created"}],
+    )
+    with patch(
+        "aragora.server.fastapi.routes.swarm_status._detect_observer_state",
+        return_value={},
+    ):
+        active_summary = swarm_status.swarm_status_summary(
+            metrics_path=metrics_path,
+            repo_root=tmp_path,
+        )
+
+    assert active_summary["status"] == "active"
+    for key in (
+        "observer_branch",
+        "observer_head",
+        "observer_origin_main_head",
+        "observer_behind_origin_main",
+        "observer_ahead_of_origin_main",
+        "observer_has_uncommitted_changes",
+        "observer_warning",
+    ):
+        assert key not in active_summary
