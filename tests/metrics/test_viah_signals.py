@@ -27,10 +27,15 @@ _OLD = (_NOW - timedelta(hours=200)).isoformat().replace("+00:00", "Z")
 def _crux_delta(agent: str = "a", delta: float = 1.0, at: str = _RECENT) -> ReputationDelta:
     return ReputationDelta(
         delta_id=f"rep_crux_{agent}_{at[:10]}",
-        agent_id=agent, domain=DOMAIN_CRUX_RESOLUTION,
-        claim_id=f"c_{agent}", resolution_id=f"r_{agent}",
-        delta=delta, scoring_rule="binary", applied_at=at,
-        decay_half_life_days=30.0, reason={"correct": delta > 0},
+        agent_id=agent,
+        domain=DOMAIN_CRUX_RESOLUTION,
+        claim_id=f"c_{agent}",
+        resolution_id=f"r_{agent}",
+        delta=delta,
+        scoring_rule="binary",
+        applied_at=at,
+        decay_half_life_days=30.0,
+        reason={"correct": delta > 0},
     )
 
 
@@ -38,9 +43,13 @@ def _mkt_delta(agent: str = "a", brier: float = 0.1, at: str = _RECENT) -> Reput
     stake, pf = 10, 1.0 - 2.0 * brier
     return ReputationDelta(
         delta_id=f"rep_mkt_{agent}_{at[:10]}",
-        agent_id=agent, domain=DOMAIN_PREDICTION_MARKET,
-        claim_id=f"cm_{agent}", resolution_id=f"rm_{agent}",
-        delta=stake * pf, scoring_rule="brier_proper", applied_at=at,
+        agent_id=agent,
+        domain=DOMAIN_PREDICTION_MARKET,
+        claim_id=f"cm_{agent}",
+        resolution_id=f"rm_{agent}",
+        delta=stake * pf,
+        scoring_rule="brier_proper",
+        applied_at=at,
         decay_half_life_days=30.0,
         reason={"brier": brier, "payout_fraction": pf, "stake_units": stake},
     )
@@ -87,9 +96,7 @@ def test_crux_positive_delta_in_window(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.parametrize("delta", [-1.0, 0.0])
-def test_crux_non_positive_delta_not_counted(
-    monkeypatch: pytest.MonkeyPatch, delta: float
-) -> None:
+def test_crux_non_positive_delta_not_counted(monkeypatch: pytest.MonkeyPatch, delta: float) -> None:
     monkeypatch.setenv(_FLAG, "1")
     s = ReputationStore()
     s.record_delta(_crux_delta(delta=delta))
@@ -152,11 +159,20 @@ def test_pred_old_delta_not_counted(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_pred_no_brier_key_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(_FLAG, "1")
     s = ReputationStore()
-    s.record_delta(ReputationDelta(
-        delta_id="rep_nob", agent_id="x", domain=DOMAIN_PREDICTION_MARKET,
-        claim_id="c1", resolution_id="r1", delta=5.0, scoring_rule="binary",
-        applied_at=_RECENT, decay_half_life_days=None, reason={"correct": True},
-    ))
+    s.record_delta(
+        ReputationDelta(
+            delta_id="rep_nob",
+            agent_id="x",
+            domain=DOMAIN_PREDICTION_MARKET,
+            claim_id="c1",
+            resolution_id="r1",
+            delta=5.0,
+            scoring_rule="binary",
+            applied_at=_RECENT,
+            decay_half_life_days=None,
+            reason={"correct": True},
+        )
+    )
     assert count_predictions_above_brier_threshold(s, now=_NOW) == 0
 
 
