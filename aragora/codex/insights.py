@@ -21,6 +21,7 @@ from .desktop_inspector import (
     SessionSummary,
     ThreadSummary,
     list_active_threads,
+    redact_display,
     summarize_session,
 )
 from .desktop_paths import CodexDesktopPaths
@@ -148,6 +149,10 @@ def _is_abandoned(thread: ThreadSummary, summary: SessionSummary, *, now: dateti
     return silence_seconds > 600
 
 
+def _redacted_path(value: Path) -> str:
+    return redact_display(value) or ""
+
+
 def summarize_patterns(
     *,
     since: timedelta,
@@ -231,7 +236,7 @@ def detect_anomalies(
             anomalies.append(
                 Anomaly(
                     thread_id=thread.id,
-                    rollout_path=str(summary.rollout_path),
+                    rollout_path=_redacted_path(summary.rollout_path),
                     kind="runaway_tool_calls",
                     severity="high",
                     detail=(
@@ -251,7 +256,7 @@ def detect_anomalies(
             anomalies.append(
                 Anomaly(
                     thread_id=thread.id,
-                    rollout_path=str(summary.rollout_path),
+                    rollout_path=_redacted_path(summary.rollout_path),
                     kind="token_cap_exceeded",
                     severity="medium",
                     detail=(f"tokens_used={thread.tokens_used} >= cap={token_cap}"),
@@ -278,7 +283,7 @@ def detect_anomalies(
             anomalies.append(
                 Anomaly(
                     thread_id=thread.id,
-                    rollout_path=str(summary.rollout_path),
+                    rollout_path=_redacted_path(summary.rollout_path),
                     kind="stuck_turn",
                     severity="medium",
                     detail=(
@@ -347,7 +352,7 @@ def crossref_work_board(
         crossrefs.append(
             WorkCrossref(
                 thread_id=thread.id,
-                rollout_path=str(summary.rollout_path),
+                rollout_path=_redacted_path(summary.rollout_path),
                 cwd=thread.cwd,
                 git_branch=thread.git_branch,
                 pr_references=tuple(sorted(set(pr_refs))),
@@ -396,7 +401,7 @@ def build_digest(
     inspector_summaries = tuple(
         {
             "thread_id": t.id,
-            "rollout_path": str(s.rollout_path),
+            "rollout_path": _redacted_path(s.rollout_path),
             "events_scanned": s.events_scanned,
             "truncated": s.truncated,
             "event_type_counts": dict(s.event_type_counts),

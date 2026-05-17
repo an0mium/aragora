@@ -180,6 +180,18 @@ def test_crossref_extracts_pr_and_issue_refs(tmp_path: Path) -> None:
     assert "#7240" in refs
 
 
+def test_crossref_redacts_secret_rollout_path(tmp_path: Path) -> None:
+    rollout = tmp_path / "sk-or-v1-abcdefghijklmnopqrstuvwxyz" / "r.jsonl"
+    rollout.parent.mkdir()
+    rollout.write_text("{}\n", encoding="utf-8")
+    thread = _make_thread(id="secret-path", rollout=rollout, title="Working on #7240")
+    summary = _make_summary(rollout)
+
+    crossref = insights.crossref_work_board([(thread, summary)])
+
+    assert "sk-or-v1-abcdefghijklmnopqrstuvwxyz" not in crossref[0].rollout_path
+
+
 def test_crossref_handles_no_refs(tmp_path: Path) -> None:
     rollout = tmp_path / "r.jsonl"
     rollout.write_text("{}\n", encoding="utf-8")
@@ -209,6 +221,15 @@ def test_build_digest_has_required_fields(fake_codex_home) -> None:  # type: ign
     assert "anomalies" in payload
     assert "crossref" in payload
     assert "inspector_summaries" in payload
+
+
+def test_build_digest_redacts_secret_rollout_paths(fake_codex_home) -> None:  # type: ignore[no-untyped-def]
+    digest = insights.build_digest(since=timedelta(hours=4), include_archived=True)
+    payload = json.dumps(digest.to_dict(), sort_keys=True)
+
+    assert "sk-or-v1-abcdefghijklmnopqrstuvwxyz" not in payload
+    assert "ghp_FAKELEAK" not in payload
+    assert "sk-proj-FAKE-LEAK" not in payload
 
 
 def test_build_digest_is_deterministic_for_same_window(fake_codex_home) -> None:  # type: ignore[no-untyped-def]
