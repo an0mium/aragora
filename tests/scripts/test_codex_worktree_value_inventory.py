@@ -379,6 +379,28 @@ def test_resolve_default_roots_dedups_when_paths_resolve_equal(
     assert roots == [canonical.resolve()]
 
 
+def test_resolve_default_roots_uses_git_common_dir_for_managed_worktree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    main_canonical = repo / mod.DEFAULT_CANONICAL_REL_ROOT
+    managed_worktree = main_canonical / "codex-session"
+    git_common_dir = repo / ".git"
+    main_canonical.mkdir(parents=True)
+    managed_worktree.mkdir()
+    git_common_dir.mkdir()
+    legacy = tmp_path / "home" / ".codex" / "worktrees"
+    legacy.mkdir(parents=True)
+    monkeypatch.setattr(mod, "DEFAULT_LEGACY_ROOT", legacy)
+    monkeypatch.setattr(mod, "_git_common_dir", lambda _repo: git_common_dir)
+
+    roots = mod.resolve_default_roots(managed_worktree)
+
+    assert roots == [main_canonical.resolve(), legacy.resolve()]
+
+
 def test_candidate_roots_from_unions_entries_across_roots(tmp_path: Path) -> None:
     import codex_worktree_value_inventory as mod
 

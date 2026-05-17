@@ -614,6 +614,32 @@ def candidate_roots(root: Path, limit: int | None = None) -> list[Path]:
     return entries[:limit] if limit is not None else entries
 
 
+def _git_common_dir(repo: Path) -> Path | None:
+    """Return the git common dir for ``repo`` without raising on non-repos."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    raw = result.stdout.strip()
+    return Path(raw) if raw else None
+
+
+def _default_canonical_root_candidates(repo: Path) -> list[Path]:
+    candidates = [repo / DEFAULT_CANONICAL_REL_ROOT]
+    common_dir = _git_common_dir(repo)
+    if common_dir is not None and common_dir.name == ".git":
+        candidates.append(common_dir.parent / DEFAULT_CANONICAL_REL_ROOT)
+    return candidates
+
+
 def resolve_default_roots(repo: Path) -> list[Path]:
     """Return ordered default inventory roots for ``repo``.
 
@@ -630,13 +656,14 @@ def resolve_default_roots(repo: Path) -> list[Path]:
     """
     seen: set[str] = set()
     roots: list[Path] = []
-    try:
-        canonical = (repo / DEFAULT_CANONICAL_REL_ROOT).resolve()
-    except OSError:
-        canonical = None
-    if canonical is not None and canonical.exists() and str(canonical) not in seen:
-        roots.append(canonical)
-        seen.add(str(canonical))
+    for candidate in _default_canonical_root_candidates(repo):
+        try:
+            canonical = candidate.resolve()
+        except OSError:
+            continue
+        if canonical.exists() and str(canonical) not in seen:
+            roots.append(canonical)
+            seen.add(str(canonical))
     try:
         legacy = DEFAULT_LEGACY_ROOT.resolve()
     except OSError:
