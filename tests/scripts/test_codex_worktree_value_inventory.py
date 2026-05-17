@@ -312,3 +312,145 @@ def test_write_ledger_creates_snapshot_latest_and_jsonl(tmp_path: Path) -> None:
     ledger_lines = Path(written["ledger"]).read_text(encoding="utf-8").splitlines()
     assert len(ledger_lines) == 1
     assert json.loads(ledger_lines[0])["event_type"] == "inventory"
+
+
+def test_resolve_default_roots_picks_canonical_then_legacy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    canonical = repo / mod.DEFAULT_CANONICAL_REL_ROOT
+    legacy = tmp_path / "home" / ".codex" / "worktrees"
+    canonical.mkdir(parents=True)
+    legacy.mkdir(parents=True)
+    monkeypatch.setattr(mod, "DEFAULT_LEGACY_ROOT", legacy)
+
+    roots = mod.resolve_default_roots(repo)
+
+    assert roots == [canonical.resolve(), legacy.resolve()]
+
+
+def test_resolve_default_roots_skips_missing_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    legacy = tmp_path / "home" / ".codex" / "worktrees"
+    legacy.mkdir(parents=True)
+    monkeypatch.setattr(mod, "DEFAULT_LEGACY_ROOT", legacy)
+
+    roots = mod.resolve_default_roots(repo)
+
+    assert roots == [legacy.resolve()]
+
+
+def test_resolve_default_roots_empty_when_neither_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    legacy = tmp_path / "nonexistent" / ".codex" / "worktrees"
+    monkeypatch.setattr(mod, "DEFAULT_LEGACY_ROOT", legacy)
+
+    roots = mod.resolve_default_roots(repo)
+
+    assert roots == []
+
+
+def test_resolve_default_roots_dedups_when_paths_resolve_equal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    canonical = repo / mod.DEFAULT_CANONICAL_REL_ROOT
+    canonical.mkdir(parents=True)
+    legacy_alias = tmp_path / "legacy-link"
+    legacy_alias.symlink_to(canonical, target_is_directory=True)
+    monkeypatch.setattr(mod, "DEFAULT_LEGACY_ROOT", legacy_alias)
+
+    roots = mod.resolve_default_roots(repo)
+
+    assert roots == [canonical.resolve()]
+
+
+def test_candidate_roots_from_unions_entries_across_roots(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root_a = tmp_path / "a"
+    root_b = tmp_path / "b"
+    (root_a / "alpha").mkdir(parents=True)
+    (root_a / "beta").mkdir()
+    (root_b / "gamma").mkdir(parents=True)
+    (root_a / "ignored.txt").write_text("not a dir")
+
+    result = mod.candidate_roots_from([root_a, root_b])
+
+    assert result == [root_a / "alpha", root_a / "beta", root_b / "gamma"]
+
+
+def test_candidate_roots_from_dedups_same_resolved_path(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root_a = tmp_path / "a"
+    root_b_alias = tmp_path / "b-link"
+    (root_a / "alpha").mkdir(parents=True)
+    root_b_alias.symlink_to(root_a, target_is_directory=True)
+
+    result = mod.candidate_roots_from([root_a, root_b_alias])
+
+    assert result == [root_a / "alpha"]
+
+
+def test_candidate_roots_from_applies_overall_limit(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root_a = tmp_path / "a"
+    root_b = tmp_path / "b"
+    for name in ("alpha", "beta", "gamma"):
+        (root_a / name).mkdir(parents=True)
+    for name in ("delta",):
+        (root_b / name).mkdir(parents=True)
+
+    result = mod.candidate_roots_from([root_a, root_b], limit=2)
+
+    assert len(result) == 2
+    assert result[0].name == "alpha"
+    assert result[1].name == "beta"
+
+
+def test_candidate_roots_from_skips_missing_roots(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root_a = tmp_path / "a"
+    missing = tmp_path / "missing"
+    (root_a / "alpha").mkdir(parents=True)
+
+    result = mod.candidate_roots_from([missing, root_a])
+
+    assert result == [root_a / "alpha"]
+
+
+def test_build_parser_root_action_append(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    parser = mod.build_parser()
+
+    args = parser.parse_args(["--root", "/tmp/a", "--root", "/tmp/b"])
+
+    assert args.root == [Path("/tmp/a"), Path("/tmp/b")]
+
+
+def test_build_parser_root_omitted_yields_none(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    parser = mod.build_parser()
+
+    args = parser.parse_args([])
+
+    assert args.root is None

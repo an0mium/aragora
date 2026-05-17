@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Read-only value inventory for Codex-home Aragora worktrees.
+"""Read-only value inventory for Aragora worktrees.
 
-This script classifies local checkouts under ``/Users/armand/.codex/worktrees``
-so automation can harvest useful work before any cleanup attempt. It never
-removes paths or branches.
+This script classifies local checkouts under the canonical Aragora worktree
+directory ``<repo>/.worktrees/codex-auto`` and the legacy Codex Desktop
+location ``~/.codex/worktrees`` so automation can harvest useful work before
+any cleanup attempt. It never removes paths or branches.
+
+By default both roots are scanned when present.  Pass ``--root <path>`` to
+inventory a single explicit root instead.  ``--root`` may be repeated to
+union multiple custom roots in one run.
 """
 
 from __future__ import annotations
@@ -34,7 +39,9 @@ from audit_codex_branch_backlog import (  # noqa: E402
 )
 
 SCHEMA = "aragora-worktree-harvest/1.0"
-DEFAULT_ROOT = Path.home() / ".codex" / "worktrees"
+DEFAULT_LEGACY_ROOT = Path.home() / ".codex" / "worktrees"
+DEFAULT_CANONICAL_REL_ROOT = Path(".worktrees") / "codex-auto"
+DEFAULT_ROOT = DEFAULT_LEGACY_ROOT  # kept for backward compatibility
 DEFAULT_LEDGER_ROOT = Path(".aragora/worktree-harvest")
 ACTIVE_SESSION_FILES = (
     ".claude-session-active",
@@ -607,6 +614,63 @@ def candidate_roots(root: Path, limit: int | None = None) -> list[Path]:
     return entries[:limit] if limit is not None else entries
 
 
+def resolve_default_roots(repo: Path) -> list[Path]:
+    """Return ordered default inventory roots for ``repo``.
+
+    Preference order:
+    1. ``<repo>/.worktrees/codex-auto`` -- the canonical Aragora worktree
+       directory written by ``scripts/codex_worktree_autopilot.py ensure``.
+    2. ``~/.codex/worktrees`` -- the legacy Codex Desktop location, kept
+       for backwards compatibility with sessions that pre-date the
+       canonical move.
+
+    Each path is included only if it exists on disk.  After ``resolve()``
+    duplicates are dropped while preserving order (handles the case where
+    a user's repo is symlinked under their home directory).
+    """
+    seen: set[str] = set()
+    roots: list[Path] = []
+    try:
+        canonical = (repo / DEFAULT_CANONICAL_REL_ROOT).resolve()
+    except OSError:
+        canonical = None
+    if canonical is not None and canonical.exists() and str(canonical) not in seen:
+        roots.append(canonical)
+        seen.add(str(canonical))
+    try:
+        legacy = DEFAULT_LEGACY_ROOT.resolve()
+    except OSError:
+        legacy = None
+    if legacy is not None and legacy.exists() and str(legacy) not in seen:
+        roots.append(legacy)
+        seen.add(str(legacy))
+    return roots
+
+
+def candidate_roots_from(roots: list[Path], limit: int | None = None) -> list[Path]:
+    """Concatenate entries across ``roots`` in order, applying ``limit`` once.
+
+    Used when more than one inventory root is in play (canonical + legacy
+    on the same host, or multiple ``--root`` flags).  Single-root callers
+    can continue to use ``candidate_roots`` for backwards compatibility.
+    """
+    entries: list[Path] = []
+    seen: set[str] = set()
+    for root in roots:
+        if not root.exists():
+            continue
+        for entry in sorted(
+            (item for item in root.iterdir() if item.is_dir()),
+            key=lambda path: path.name,
+        ):
+            key = str(entry.resolve())
+            if key in seen:
+                continue
+            seen.add(key)
+            entries.append(entry)
+    return entries[:limit] if limit is not None else entries
+
+
 def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
     counts = Counter(candidate.classification for candidate in candidates)
     bytes_by_class: dict[str, int] = dict.fromkeys(VALUE_CLASSES, 0)
@@ -664,7 +728,8 @@ def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
 
 def inventory(
     *,
-    root: Path,
+    root: Path | None = None,
+    roots: list[Path] | None = None,
     repo: Path,
     base: str,
     outbox_dir: Path,
@@ -679,8 +744,12 @@ def inventory(
 ) -> dict[str, Any]:
     repo = resolve_repo(repo)
     base_sha = resolve_ref(repo, base, timeout=git_timeout)
-    roots = candidate_roots(root, limit)
-    sizes, size_failures = measure_sizes(roots, mode=size_mode, timeout=size_timeout)
+    if roots is None:
+        roots = [root] if root is not None else []
+    if not roots:
+        roots = resolve_default_roots(repo)
+    candidate_paths = candidate_roots_from(roots, limit)
+    sizes, size_failures = measure_sizes(candidate_paths, mode=size_mode, timeout=size_timeout)
     context = InventoryContext(
         repo=repo,
         base=base,
@@ -710,13 +779,14 @@ def inventory(
             size_bytes=sizes.get(str(path)),
             size_lookup_failed=str(path) in size_failures,
         )
-        for path in roots
+        for path in candidate_paths
     ]
     now = utc_now().isoformat()
     payload = {
         "schema": SCHEMA,
         "generated_at": now,
-        "root": str(root),
+        "root": str(roots[0]) if roots else "",
+        "roots": [str(item) for item in roots],
         "repo": str(repo),
         "base": base,
         "base_sha": base_sha,
@@ -772,9 +842,24 @@ def write_ledger(ledger_root: Path, payload: dict[str, Any]) -> dict[str, str]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Read-only inventory of Codex-home worktree value and cleanup candidates."
+        description=(
+            "Read-only inventory of Aragora worktree value and cleanup candidates. "
+            "When --root is omitted, scans the canonical "
+            "<repo>/.worktrees/codex-auto AND legacy ~/.codex/worktrees roots if "
+            "either exists. Pass --root one or more times to override the default."
+        )
     )
-    parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
+    parser.add_argument(
+        "--root",
+        type=Path,
+        action="append",
+        default=None,
+        help=(
+            "Inventory root directory. May be repeated to scan multiple roots. "
+            "When omitted, defaults to the canonical Aragora worktree directory "
+            "AND the legacy Codex Desktop directory if either exists."
+        ),
+    )
     parser.add_argument("--repo", type=Path, default=Path("."))
     parser.add_argument("--base", default="origin/main")
     parser.add_argument("--outbox-dir", type=Path, default=DEFAULT_OUTBOX_DIR)
@@ -795,8 +880,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.root:
+        resolved_roots: list[Path] | None = [item.expanduser().resolve() for item in args.root]
+    else:
+        resolved_roots = None  # let inventory() call resolve_default_roots
     payload = inventory(
-        root=args.root.expanduser().resolve(),
+        roots=resolved_roots,
         repo=args.repo,
         base=args.base,
         outbox_dir=args.outbox_dir,
@@ -818,7 +907,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         summary = payload["summary"]
-        print(f"root: {payload['root']}")
+        roots_str = ", ".join(payload.get("roots") or []) or payload.get("root", "")
+        print(f"roots: {roots_str}")
         print(f"candidates: {summary['total_candidates']}")
         print(f"coverage: {summary['inventory_coverage']:.2%}")
         print(f"cleanup_candidates: {summary['cleanup_candidate_count']}")
