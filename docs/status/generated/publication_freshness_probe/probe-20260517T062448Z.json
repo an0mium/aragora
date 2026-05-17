@@ -1,0 +1,201 @@
+{
+  "generated_at": "2026-05-17T06:24:48Z",
+  "repo_root": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-062140-26e58382",
+  "schema_version": 1,
+  "sources": {
+    "benchmark_truth_artifacts": {
+      "available": true,
+      "corpora": [
+        {
+          "age_hours": 58.74,
+          "corpus_id": "tw-01-bounded-execution-v1",
+          "coverage_status": "complete",
+          "generated_at": "2026-05-14T19:40:33Z",
+          "is_stale": true,
+          "latest_path": "status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/latest.json",
+          "stale_threshold_hours": 48.0
+        }
+      ],
+      "drift_count": 1,
+      "drift_records": [
+        {
+          "age_hours": 58.74,
+          "corpus_id": "tw-01-bounded-execution-v1",
+          "coverage_status": "complete",
+          "generated_at": "2026-05-14T19:40:33Z",
+          "is_stale": true,
+          "latest_path": "status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/latest.json",
+          "stale_threshold_hours": 48.0
+        }
+      ],
+      "stale_threshold_hours": 48.0
+    },
+    "canonical_metrics": {
+      "available": true,
+      "drift_count": 3,
+      "drift_records": [
+        {
+          "claim_id": "canonical.km_adapters.count",
+          "claimed": "41",
+          "message": "docs claim 41 adapters but live count is 46 \u2014 drift of 5. Update CANONICAL_GOALS.md or fix adapter registration.",
+          "observed": "46",
+          "status": "fail",
+          "tolerance": "+/-2"
+        },
+        {
+          "claim_id": "canonical.test_definitions.count",
+          "claimed": "216016+",
+          "message": "docs claim 216016+ tests; live count is 159156. Refresh CANONICAL_GOALS.md when drift exceeds 20%.",
+          "observed": "159156",
+          "status": "warn",
+          "tolerance": "+/-20%"
+        },
+        {
+          "claim_id": "security.model_pins.frontier_aligned",
+          "claimed": "OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO exported",
+          "message": "model_pins.py is missing exports: OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO. Restore them \u2014 consumers across 66+ files import from this single registry.",
+          "observed": "missing: OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO",
+          "status": "fail",
+          "tolerance": "exact"
+        }
+      ],
+      "manifest_id": "canonical_metrics",
+      "results": [
+        {
+          "claim_id": "canonical.km_adapters.count",
+          "claimed": "41",
+          "message": "docs claim 41 adapters but live count is 46 \u2014 drift of 5. Update CANONICAL_GOALS.md or fix adapter registration.",
+          "observed": "46",
+          "status": "fail",
+          "tolerance": "+/-2"
+        },
+        {
+          "claim_id": "canonical.python_modules.count",
+          "claimed": "135+",
+          "message": "docs claim 135+ modules; live count is 4126 \u2014 within tolerance",
+          "observed": "4126",
+          "status": "pass",
+          "tolerance": "+/-20%"
+        },
+        {
+          "claim_id": "canonical.test_definitions.count",
+          "claimed": "216016+",
+          "message": "docs claim 216016+ tests; live count is 159156. Refresh CANONICAL_GOALS.md when drift exceeds 20%.",
+          "observed": "159156",
+          "status": "warn",
+          "tolerance": "+/-20%"
+        },
+        {
+          "claim_id": "canonical.version.matches_pyproject",
+          "claimed": "2.9.0",
+          "message": "docs and pyproject.toml both report version 2.9.0",
+          "observed": "2.9.0",
+          "status": "pass",
+          "tolerance": "exact"
+        },
+        {
+          "claim_id": "security.gitleaks.dual_stage",
+          "claimed": "gitleaks at [pre-commit, pre-push]",
+          "message": "gitleaks runs at both pre-commit and pre-push \u2014 bypass via --no-verify is caught at push time.",
+          "observed": "gitleaks block declares both stages",
+          "status": "pass",
+          "tolerance": "exact"
+        },
+        {
+          "claim_id": "security.model_pins.frontier_aligned",
+          "claimed": "OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO exported",
+          "message": "model_pins.py is missing exports: OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO. Restore them \u2014 consumers across 66+ files import from this single registry.",
+          "observed": "missing: OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO",
+          "status": "fail",
+          "tolerance": "exact"
+        },
+        {
+          "claim_id": "security.incident_log.present",
+          "claimed": "incident log + rotation schedule present",
+          "message": "2026-04-07 incident write-up and 90-day rotation schedule are intact.",
+          "observed": "both files present",
+          "status": "pass",
+          "tolerance": "exact"
+        },
+        {
+          "claim_id": "security.openrouter_fallback.wired",
+          "claimed": "QuotaFallbackMixin on anthropic/openai/gemini agents",
+          "message": "OpenRouter universal fallback is wired on all three frontier providers.",
+          "observed": "all three frontier-provider agents inherit QuotaFallbackMixin",
+          "status": "pass",
+          "tolerance": "exact"
+        },
+        {
+          "claim_id": "proof_carrying.crux_detector.wired",
+          "claimed": "CruxDetector + CruxClaim importable with detect_cruxes()",
+          "message": "Crux Engine substrate is wired \u2014 CruxDetector.detect_cruxes and CruxClaim dataclass both exist.",
+          "observed": "all three symbols present",
+          "status": "pass",
+          "tolerance": "exact"
+        },
+        {
+          "claim_id": "proof_carrying.belief_network.wired",
+          "claimed": "BeliefNetwork, BeliefNode, BeliefStatus importable",
+          "message": "Provenance substrate is wired \u2014 belief.py exports the three claim-graph primitives.",
+          "observed": "all three symbols present",
+          "status": "pass",
+          "tolerance": "exact"
+        }
+      ],
+      "summary": {
+        "fail": 2,
+        "pass": 7,
+        "skip": 0,
+        "warn": 1
+      }
+    },
+    "reconcile_status_docs": {
+      "available": true,
+      "drift_count": 1,
+      "drift_records": [
+        {
+          "message": "Document is 40 days old (threshold: 30d)",
+          "severity": "warning",
+          "source": "connectors/STATUS.md"
+        }
+      ],
+      "findings": [
+        {
+          "message": "GA checklist references 3 blocker mentions",
+          "severity": "info",
+          "source": "GA_CHECKLIST.md"
+        },
+        {
+          "message": "Connectors: ~149 production, ~0 beta, ~2 stub mentions",
+          "severity": "info",
+          "source": "connectors/STATUS.md"
+        },
+        {
+          "message": "Generated OpenAPI counts: 3402 operations across 2943 paths",
+          "severity": "info",
+          "source": "docs/api/openapi_generated.json"
+        },
+        {
+          "message": "Document is 40 days old (threshold: 30d)",
+          "severity": "warning",
+          "source": "connectors/STATUS.md"
+        },
+        {
+          "message": "Execution issue map links 20 required issues",
+          "severity": "info",
+          "source": "status/ACTIVE_EXECUTION_ISSUES.md"
+        }
+      ],
+      "generated": "2026-05-17T01:24:51.494394",
+      "summary": {
+        "critical": 0,
+        "info": 4,
+        "total": 5,
+        "warning": 1
+      }
+    }
+  },
+  "stale_threshold_hours": 48.0,
+  "total_drift": 5,
+  "verdict": "drift"
+}
