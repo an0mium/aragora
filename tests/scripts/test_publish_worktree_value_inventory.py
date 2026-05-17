@@ -138,6 +138,28 @@ def test_build_published_report_writes_canonical_keys(tmp_path: Path) -> None:
     assert payload["inventory"]["candidates"][0]["git"]["branch"] == "feature/x"
 
 
+def test_build_published_report_accepts_previous_published_report(tmp_path: Path) -> None:
+    inv = tmp_path / "inv.json"
+    inv.write_text(
+        json.dumps(_inventory_payload([_candidate(branch="feature/x")])),
+        encoding="utf-8",
+    )
+    first_payload = publisher.build_published_report(
+        inventory_path=inv, generated_at="2026-05-17T05:00:00Z"
+    )
+    latest = tmp_path / "latest.json"
+    latest.write_text(json.dumps(first_payload), encoding="utf-8")
+
+    republished = publisher.build_published_report(
+        inventory_path=latest,
+        generated_at="2026-05-17T06:00:00Z",
+    )
+
+    assert republished["source_inventory_path"].endswith("latest.json")
+    assert republished["summary"]["total_candidates"] == 1
+    assert republished["inventory"]["candidates"][0]["git"]["branch"] == "feature/x"
+
+
 def test_resolve_paths_round_trip(tmp_path: Path) -> None:
     ts = "2026-05-17T05:00:00Z"
     pub_path = publisher.resolve_published_report_path(publish_dir=tmp_path, generated_at=ts)

@@ -2,7 +2,8 @@
 """Publish a recurring worktree value inventory snapshot.
 
 Reads the JSON payload produced by ``scripts/codex_worktree_value_inventory.py``
-and writes a small, repo-tracked summary plus the full snapshot under
+or a previously published report from this script, then writes a small,
+repo-tracked summary plus the full snapshot under
 ``docs/status/generated/worktree_value_inventory/`` together with a
 ``latest.json`` pointer. The companion status surface lives at
 ``docs/status/WORKTREE_VALUE_INVENTORY_STATUS.md``.
@@ -64,15 +65,22 @@ def load_inventory_payload(path: Path) -> dict[str, Any]:
 
     The expected schema matches ``scripts/codex_worktree_value_inventory.py
     --json`` output: a top-level object with at least ``candidates`` (list)
-    and ``roots`` (list of strings). Missing keys default to empty
-    collections so the publisher never raises on partial or future-schema
-    inventories.
+    and ``roots`` (list of strings). The function also accepts a previously
+    published report from this script and unwraps its preserved ``inventory``
+    payload, which prevents ``latest.json`` dry-runs from silently reporting an
+    empty inventory. Missing keys default to empty collections so the publisher
+    never raises on partial or future-schema inventories.
     """
     if not path.exists():
         raise FileNotFoundError(f"inventory JSON not found: {path}")
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"inventory JSON at {path} must be a JSON object")
+    nested_inventory = payload.get("inventory")
+    if isinstance(nested_inventory, dict) and (
+        "candidates" in nested_inventory or "roots" in nested_inventory
+    ):
+        return nested_inventory
     return payload
 
 
@@ -306,7 +314,8 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         required=True,
         help="Path to an inventory JSON snapshot (output of "
-        "scripts/codex_worktree_value_inventory.py --json).",
+        "scripts/codex_worktree_value_inventory.py --json) or a previously "
+        "published worktree-value-inventory report.",
     )
     parser.add_argument(
         "--publish-dir",
