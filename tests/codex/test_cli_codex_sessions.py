@@ -236,6 +236,25 @@ def test_cli_show_full_to_stdout(fake_codex_home, capsys: pytest.CaptureFixture[
     assert "[REDACTED]" in out
 
 
+def test_cli_show_full_rejects_out_path_inside_codex_home(
+    fake_codex_home, capsys: pytest.CaptureFixture[str]
+) -> None:  # type: ignore[no-untyped-def]
+    forbidden = fake_codex_home.home / "exports" / "transcript.jsonl"
+    rc = cli.cmd_codex_sessions_show(
+        _args(
+            target=fake_codex_home.recent_thread_id,
+            full=True,
+            out=str(forbidden),
+            max_events=2000,
+        )
+    )
+
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "refusing to write --full output inside Codex Desktop home" in err
+    assert not forbidden.exists()
+
+
 def test_cli_show_resolves_rollout_path(
     fake_codex_home, capsys: pytest.CaptureFixture[str]
 ) -> None:  # type: ignore[no-untyped-def]

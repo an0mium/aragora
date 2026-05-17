@@ -55,6 +55,20 @@ def _print_json(payload: Any) -> None:
     sys.stdout.write("\n")
 
 
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
+
+
+def _output_path_inside_codex_home(out_path: Path, paths: "CodexDesktopPaths") -> bool:
+    resolved_out = out_path.expanduser().resolve(strict=False)
+    resolved_home = paths.home.expanduser().resolve(strict=False)
+    return _is_relative_to(resolved_out, resolved_home)
+
+
 def _format_table(rows: list[dict[str, Any]], columns: list[tuple[str, str]]) -> str:
     if not rows:
         return "(no rows)"
@@ -238,6 +252,13 @@ def cmd_codex_sessions_show(args: argparse.Namespace) -> int:
             if out_arg
             else DEFAULT_OUTPUT_ROOT / f"{(thread_id or rollout.stem)}.jsonl"
         )
+        if _output_path_inside_codex_home(out_path, paths):
+            print(
+                "error: refusing to write --full output inside Codex Desktop home; "
+                "use --out - for stdout or choose a path outside --codex-home",
+                file=sys.stderr,
+            )
+            return 2
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_handle = out_path.open("w", encoding="utf-8")
 

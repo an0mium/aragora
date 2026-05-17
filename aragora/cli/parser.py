@@ -3223,7 +3223,8 @@ def _add_codex_parser(subparsers) -> None:
         default="",
         help=(
             "Output destination for --full. '-' for stdout, '' (default) for "
-            ".aragora/codex_sessions/<id>.jsonl, or any explicit path."
+            ".aragora/codex_sessions/<id>.jsonl, or an explicit path outside "
+            "the Codex Desktop home."
         ),
     )
     show_cmd.add_argument(
