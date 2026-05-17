@@ -472,6 +472,48 @@ def _is_repo_root_path(path: str) -> bool:
         return False
 
 
+def _lane_identity_values(record: "LaneRecord") -> list[tuple[str, str]]:
+    values: list[tuple[str, str]] = []
+    if record.pr_number is not None:
+        values.append(("pr_number", str(record.pr_number)))
+    if record.branch:
+        values.append(("branch", record.branch))
+    if record.worktree:
+        values.append(("worktree", record.worktree))
+    return values
+
+
+def _active_lane_identity_conflicts(records: list["LaneRecord"]) -> list[dict[str, Any]]:
+    buckets: dict[tuple[str, str], list[LaneRecord]] = {}
+    for record in records:
+        if record.status not in ACTIVE_LANE_STATUSES:
+            continue
+        for key in _lane_identity_values(record):
+            buckets.setdefault(key, []).append(record)
+
+    conflicts: list[dict[str, Any]] = []
+    for (kind, value), grouped in buckets.items():
+        owners = sorted({record.owner_session for record in grouped if record.owner_session})
+        if len(owners) <= 1:
+            continue
+        lane_ids = sorted({record.lane_id for record in grouped if record.lane_id})
+        conflicts.append(
+            {
+                "type": "lane_identity_conflict",
+                "key_kind": kind,
+                "key_value": value,
+                "lane_ids": lane_ids,
+                "owner_sessions": owners,
+                "detail": (
+                    f"active lanes share {kind}={value}: "
+                    f"lanes={', '.join(lane_ids)} owners={', '.join(owners)}"
+                ),
+            }
+        )
+    conflicts.sort(key=lambda row: (row["key_kind"], row["key_value"]))
+    return conflicts
+
+
 def _collect_health_issues(
     sessions: list[Session], records: list[LaneRecord]
 ) -> list[dict[str, str]]:
@@ -542,6 +584,15 @@ def _collect_health_issues(
                     "detail": f"lane '{r.lane_id}' in conflict with {r.conflict_session}: {r.conflict_reason}",
                 }
             )
+
+    for conflict in _active_lane_identity_conflicts(records):
+        issues.append(
+            {
+                "type": str(conflict["type"]),
+                "session": ", ".join(conflict["owner_sessions"]),
+                "detail": str(conflict["detail"]),
+            }
+        )
 
     return issues
 
@@ -1201,6 +1252,13 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     records = _sync_lane_records(_load_lane_registry(), sessions)
 
     issues = _collect_health_issues(sessions, records)
+    lane_conflicts = _active_lane_identity_conflicts(records)
+    computed_conflict_lane_ids = {
+        lane_id
+        for conflict in lane_conflicts
+        for lane_id in conflict.get("lane_ids", [])
+        if isinstance(lane_id, str)
+    }
     process_census = _collect_agent_process_census(
         include_records=not summary_only,
         record_limit=50,
@@ -1211,6 +1269,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "sessions": [s.to_dict() for s in sessions],
         "broker_runs": broker_runs,
         "lanes": [r.to_dict() for r in records],
+        "lane_conflicts": lane_conflicts,
         "process_census": process_census,
         "health": {"ok": len(issues) == 0, "issues": issues},
         "summary": {
@@ -1225,7 +1284,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
                 1 for run in broker_runs if run.get("status") in {"running", "awaiting_human"}
             ),
             "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
-            "conflict_lanes": sum(1 for r in records if r.status == "conflict"),
+            "conflict_lanes": sum(1 for r in records if r.status == "conflict")
+            + len(computed_conflict_lane_ids),
             "health_issues": len(issues),
             "active_processes": int(process_census.get("total", 0)),
             "active_process_roles": sorted(process_census.get("by_role", {}).keys()),
