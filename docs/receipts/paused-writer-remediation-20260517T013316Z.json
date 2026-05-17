@@ -1,0 +1,121 @@
+{
+  "automations_root": "/Users/armand/.codex/automations",
+  "cluster_analysis": {
+    "earliest_pause_utc": "2026-05-13T03:57:35.544000+00:00",
+    "latest_pause_utc": "2026-05-16T19:07:08.678000+00:00",
+    "same_day_pauses": 3,
+    "span_seconds_among_paused_today": 2481
+  },
+  "evidence_sources": [
+    "scripts/check_codex_desktop_automations.py --json (live)",
+    "~/.codex/automations/<id>/automation.toml (read-only)",
+    "aragora codex insights crossref --since 30d (read-only, shipped in #7245)"
+  ],
+  "generated_at_utc": "2026-05-17T01:33:16.705870+00:00",
+  "hmac_sha256": null,
+  "holds_respected": [
+    "#7209 lane",
+    "#7173",
+    "#7215",
+    "#4990",
+    "BC-12 soak",
+    "AI provider key consumption",
+    "merge/label/mark-ready/launchd install"
+  ],
+  "schema": "aragora-paused-writer-remediation/1.0",
+  "scope": "codex_desktop_core_writers",
+  "session_context_hint": "If operator returns and signs off on #7240/#7245/#7215 (the three pending PRs), and rotates any keys consumed during the session, the cluster-paused writers (Primary, Repair, Improver) can be resumed as a batch. Branch Salvage (3-day pause) needs a separate investigation.",
+  "sha256": "58c0d6d3ccee122a1d8c435b30868cb8ee8818c185cf7814fed7e3e3ac3745ee",
+  "signed_at_utc": null,
+  "total_writers_paused": 4,
+  "writers": [
+    {
+      "automation_toml_path": "/Users/armand/.codex/automations/engineering-autopilot/automation.toml",
+      "created_at_utc": "2026-03-25T19:22:58.282000+00:00",
+      "cron_minute_of_hour": "5",
+      "cwds": [
+        "/Users/armand/Development/aragora"
+      ],
+      "diagnosis_class": "operator_pause_during_session: paused within ~45min of two sibling writers on the same day, while the operator was actively merging/reviewing PRs; consistent with deliberate operator action to prevent autonomous writers from creating conflicts with in-flight manual work or consuming AI keys before rotation.",
+      "execution_environment": "worktree",
+      "id": "engineering-autopilot",
+      "memory_present": true,
+      "model": "gpt-5.5",
+      "name": "Primary Writer",
+      "paused_at_utc": "2026-05-16T18:25:49.192000+00:00",
+      "proposed_action": "resume_when_operator_session_ends",
+      "reasoning_effort": "xhigh",
+      "role": null,
+      "severity": "low",
+      "silent_for_human": "7h",
+      "silent_for_seconds": 25647,
+      "status": "PAUSED"
+    },
+    {
+      "automation_toml_path": "/Users/armand/.codex/automations/engineering-autopilot-2/automation.toml",
+      "created_at_utc": "2026-04-16T00:13:47.171000+00:00",
+      "cron_minute_of_hour": "20",
+      "cwds": [
+        "/Users/armand/Development/aragora"
+      ],
+      "diagnosis_class": "operator_pause_during_session: paused within ~45min of two sibling writers on the same day, while the operator was actively merging/reviewing PRs; consistent with deliberate operator action to prevent autonomous writers from creating conflicts with in-flight manual work or consuming AI keys before rotation.",
+      "execution_environment": "worktree",
+      "id": "engineering-autopilot-2",
+      "memory_present": true,
+      "model": "gpt-5.5",
+      "name": "Repair Writer",
+      "paused_at_utc": "2026-05-16T19:07:08.678000+00:00",
+      "proposed_action": "resume_when_operator_session_ends",
+      "reasoning_effort": "xhigh",
+      "role": null,
+      "severity": "low",
+      "silent_for_human": "6h",
+      "silent_for_seconds": 23168,
+      "status": "PAUSED"
+    },
+    {
+      "automation_toml_path": "/Users/armand/.codex/automations/engineering-autopilot-3/automation.toml",
+      "created_at_utc": "2026-04-15T22:58:25.780000+00:00",
+      "cron_minute_of_hour": "35",
+      "cwds": [
+        "/Users/armand/Development/aragora"
+      ],
+      "diagnosis_class": "long_pause: silent for 3d 21h; no sibling cluster pattern. Likely longer-term policy decision OR a real infrastructure issue (model gate, cwd accessibility, automation runner health). Investigate before resuming.",
+      "execution_environment": "worktree",
+      "id": "engineering-autopilot-3",
+      "memory_present": true,
+      "model": "gpt-5.5",
+      "name": "Branch Salvage Writer",
+      "paused_at_utc": "2026-05-13T03:57:35.544000+00:00",
+      "proposed_action": "investigate_then_resume_or_retire",
+      "reasoning_effort": "xhigh",
+      "role": null,
+      "severity": "medium",
+      "silent_for_human": "3d 21h",
+      "silent_for_seconds": 336941,
+      "status": "PAUSED"
+    },
+    {
+      "automation_toml_path": "/Users/armand/.codex/automations/engineering-autopilot-3-2/automation.toml",
+      "created_at_utc": "2026-04-16T01:08:11.639000+00:00",
+      "cron_minute_of_hour": "50",
+      "cwds": [
+        "/Users/armand/Development/aragora"
+      ],
+      "diagnosis_class": "operator_pause_during_session: paused within ~45min of two sibling writers on the same day, while the operator was actively merging/reviewing PRs; consistent with deliberate operator action to prevent autonomous writers from creating conflicts with in-flight manual work or consuming AI keys before rotation.",
+      "execution_environment": "worktree",
+      "id": "engineering-autopilot-3-2",
+      "memory_present": true,
+      "model": "gpt-5.5",
+      "name": "Improver Writer",
+      "paused_at_utc": "2026-05-16T18:25:46.909000+00:00",
+      "proposed_action": "resume_when_operator_session_ends",
+      "reasoning_effort": "xhigh",
+      "role": null,
+      "severity": "low",
+      "silent_for_human": "7h",
+      "silent_for_seconds": 25649,
+      "status": "PAUSED"
+    }
+  ]
+}
