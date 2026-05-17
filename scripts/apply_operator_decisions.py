@@ -1,0 +1,503 @@
+#!/usr/bin/env python3
+"""Apply a downloaded operator-decisions JSON to GitHub via ``gh``.
+
+Closes the loop on the ``/review-queue/packets/[receiptId]`` sign-off
+pipeline:
+
+    drop receipt → keyboard sign-off → download
+        → ``python3 scripts/apply_operator_decisions.py operator-decisions-*.json --apply``
+        → queue clears
+
+The downloaded JSON has the shape ``aragora-operator-decisions/1.0`` and
+is produced by ``PacketsClient`` in ``aragora/live/src/app/(app)/
+review-queue/packets/[receiptId]/PacketsClient.tsx``. Each entry carries
+a per-PR decision plus timing fields. This script verifies the
+payload's ``payload_sha256`` binding, then walks ``decisions[]`` and
+maps each entry to the corresponding ``gh`` action:
+
+    approve_tier       -> gh pr review N --approve         --body <body>
+    approve_downgrade  -> gh pr review N --approve         --body "DOWNGRADED: <body>"
+    request_changes    -> gh pr review N --request-changes --body <body>
+    reject             -> gh pr close  N                   --comment <body>
+    hold_operator      -> no-op (operator-only action)
+    null               -> no-op (no decision recorded)
+
+Every applied comment body ends with a binding footer so the audit
+trail is recoverable from any PR thread:
+
+    ---
+    Applied from operator-decisions <payload[:10]> bound to packet <receipt[:10]>
+
+Defaults to ``--dry-run`` so the first invocation never mutates state.
+``--apply`` is required to actually call ``gh``.
+
+Hard-coded hold list: PRs explicitly marked as operator-only / held
+elsewhere in this repo are hard-skipped regardless of the receipt's
+decision for them (the operator may have legitimately recorded a
+hypothetical decision, but the CLI refuses to advance held PRs by
+even one byte).
+
+Pure stdlib. No ``aragora.*`` imports. No third-party dependencies.
+"""
+
+from __future__ import annotations
+
+import argparse
+import dataclasses
+import hashlib
+import json
+import shutil
+import subprocess
+import sys
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
+
+# Hard-coded hold list (PR numbers only). The "#7209 lane" and "BC-12
+# soak" holds from the standard repo discipline are not PR numbers, so
+# they do not appear here. Keep this list in sync with the holds
+# enumerated in the operator-decisions ingestion PR body.
+HELD_PR_NUMBERS: frozenset[int] = frozenset({4990, 7173, 7215, 7240, 7243, 7245, 7249, 7252})
+
+# The five decision IDs ``PacketDecisionCard`` emits. Mirrors the
+# ``PacketDecisionId`` union in
+# ``aragora/live/src/components/review-queue/PacketDecisionCard.tsx``.
+_APPLY_DECISIONS: frozenset[str] = frozenset(
+    {"approve_tier", "approve_downgrade", "request_changes", "reject"}
+)
+
+# Status codes used in ``EntryResult.status`` — stable strings so
+# ``--json`` consumers can switch on them.
+STATUS_APPLIED = "applied"
+STATUS_WOULD_APPLY = "would-apply"
+STATUS_HELD = "held"
+STATUS_SKIPPED = "skipped"
+STATUS_DRIFTED = "drifted"
+STATUS_FAILED = "failed"
+STATUS_NO_DECISION = "no-decision"
+
+_HUMAN_PREFIX: dict[str, str] = {
+    STATUS_APPLIED: "APPLIED",
+    STATUS_WOULD_APPLY: "WOULD APPLY",
+    STATUS_HELD: "HELD",
+    STATUS_SKIPPED: "SKIP",
+    STATUS_DRIFTED: "DRIFT",
+    STATUS_FAILED: "FAIL",
+    STATUS_NO_DECISION: "SKIP",
+}
+
+
+@dataclasses.dataclass(frozen=True)
+class DecisionEntry:
+    """One row in ``decisions[]`` from the downloaded JSON."""
+
+    pr_number: int
+    head_sha: str
+    tier: str | None
+    decision: str | None
+    comment: str
+    first_focused_at_utc: str | None
+    decided_at_utc: str | None
+    decision_seconds: float | None
+
+
+@dataclasses.dataclass(frozen=True)
+class OperatorDecisionsPayload:
+    """The top-level downloaded JSON."""
+
+    schema_version: str
+    generated_at_utc: str
+    receipt_id_hint: str
+    receipt_repo: str
+    receipt_sha256: str
+    receipt_sha256_verified: bool
+    decisions: tuple[DecisionEntry, ...]
+    payload_sha256: str
+
+
+@dataclasses.dataclass
+class EntryResult:
+    """Outcome of processing one ``decisions[]`` entry."""
+
+    pr_number: int
+    decision: str | None
+    status: str
+    reason: str
+    gh_command: list[str] | None = None
+
+
+def canonical_json(value: Any) -> str:
+    """Canonical JSON serialization that matches the TS side.
+
+    The TS-side ``canonicalJson()`` in
+    ``aragora/live/src/hooks/useReviewQueueFromPacket.ts`` writes
+    sorted-keys, comma+colon separators, no extra whitespace, and
+    preserves non-ASCII characters as-is (because ``TextEncoder``
+    encodes UTF-8). We replicate that here with ``sort_keys=True``,
+    the most-compact separators, and ``ensure_ascii=False`` so
+    Unicode survives without ``\\u`` escaping.
+    """
+
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def verify_payload_sha256(raw: dict[str, Any]) -> tuple[str, str, bool]:
+    """Re-derive the payload SHA-256 and compare against the claimed value.
+
+    Returns ``(claimed, recomputed, matches)``. The recomputation hashes
+    the canonical JSON of every top-level field except ``payload_sha256``
+    itself — same shape the browser used to compute it on download.
+    """
+
+    claimed = str(raw.get("payload_sha256", ""))
+    verify_copy: dict[str, Any] = {k: v for k, v in raw.items() if k != "payload_sha256"}
+    canonical = canonical_json(verify_copy)
+    recomputed = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return claimed, recomputed, claimed == recomputed
+
+
+def parse_payload(raw: dict[str, Any]) -> OperatorDecisionsPayload:
+    """Lift the raw dict into the typed payload + entries."""
+
+    decisions_raw = raw.get("decisions") or []
+    decisions: list[DecisionEntry] = []
+    for d in decisions_raw:
+        if not isinstance(d, dict):
+            continue
+        try:
+            pr_number = int(d.get("pr_number", 0))
+        except (TypeError, ValueError):
+            continue
+        if pr_number <= 0:
+            continue
+        raw_decision_seconds = d.get("decision_seconds")
+        try:
+            decision_seconds = None if raw_decision_seconds is None else float(raw_decision_seconds)
+        except (TypeError, ValueError):
+            decision_seconds = None
+        decisions.append(
+            DecisionEntry(
+                pr_number=pr_number,
+                head_sha=str(d.get("head_sha") or ""),
+                tier=(None if d.get("tier") is None else str(d.get("tier"))),
+                decision=(d.get("decision") if d.get("decision") else None),
+                comment=str(d.get("comment") or ""),
+                first_focused_at_utc=(
+                    None
+                    if d.get("first_focused_at_utc") is None
+                    else str(d.get("first_focused_at_utc"))
+                ),
+                decided_at_utc=(
+                    None if d.get("decided_at_utc") is None else str(d.get("decided_at_utc"))
+                ),
+                decision_seconds=decision_seconds,
+            )
+        )
+    return OperatorDecisionsPayload(
+        schema_version=str(raw.get("schema_version", "")),
+        generated_at_utc=str(raw.get("generated_at_utc", "")),
+        receipt_id_hint=str(raw.get("receipt_id_hint", "")),
+        receipt_repo=str(raw.get("receipt_repo", "")),
+        receipt_sha256=str(raw.get("receipt_sha256", "")),
+        receipt_sha256_verified=bool(raw.get("receipt_sha256_verified", False)),
+        decisions=tuple(decisions),
+        payload_sha256=str(raw.get("payload_sha256", "")),
+    )
+
+
+def _short_sha(sha: str) -> str:
+    return sha[:10] if sha else "(none)"
+
+
+def build_comment_body(entry: DecisionEntry, payload: OperatorDecisionsPayload) -> str:
+    """Compose the final body for ``gh pr review/close``.
+
+    For ``approve_downgrade``, prepend ``"DOWNGRADED: "`` so the audit
+    trail makes the downgrade obvious without the reader having to
+    cross-reference the original packet.
+
+    Every body ends with the binding footer carrying both 10-char SHA
+    prefixes.
+    """
+
+    main = entry.comment.strip()
+    if entry.decision == "approve_downgrade":
+        main = ("DOWNGRADED: " + main).rstrip()
+    footer = (
+        "\n\n---\n"
+        f"Applied from operator-decisions {_short_sha(payload.payload_sha256)} "
+        f"bound to packet {_short_sha(payload.receipt_sha256)}"
+    )
+    return (main + footer) if main else footer.lstrip("\n")
+
+
+def _gh_view_head(pr_number: int) -> tuple[str | None, str]:
+    """Return the current ``headRefOid`` for ``pr_number`` (or ``(None, err)``)."""
+
+    cmd = ["gh", "pr", "view", str(pr_number), "--json", "headRefOid"]
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or "").strip()
+        return None, f"gh pr view #{pr_number} failed: {stderr[:200]}"
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return None, f"gh pr view #{pr_number} returned non-JSON: {exc}"
+    head = data.get("headRefOid")
+    if not head or not isinstance(head, str):
+        return None, f"gh pr view #{pr_number} returned no headRefOid"
+    return head, ""
+
+
+def _plan_action(entry: DecisionEntry, body: str) -> list[str] | None:
+    """Return the ``gh`` argv to apply ``entry``, or ``None`` for no-op."""
+
+    pr = str(entry.pr_number)
+    if entry.decision in ("approve_tier", "approve_downgrade"):
+        return ["gh", "pr", "review", pr, "--approve", "--body", body]
+    if entry.decision == "request_changes":
+        return ["gh", "pr", "review", pr, "--request-changes", "--body", body]
+    if entry.decision == "reject":
+        return ["gh", "pr", "close", pr, "--comment", body]
+    return None
+
+
+def process_entry(
+    entry: DecisionEntry,
+    payload: OperatorDecisionsPayload,
+    *,
+    apply: bool,
+    only_prs: frozenset[int],
+) -> EntryResult:
+    """Decide what to do with a single entry — pure logic over fakes-friendly IO."""
+
+    if only_prs and entry.pr_number not in only_prs:
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_SKIPPED,
+            reason="not in --only-pr filter",
+        )
+
+    if entry.pr_number in HELD_PR_NUMBERS:
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_HELD,
+            reason=f"#{entry.pr_number} is on the hard-coded hold list",
+        )
+
+    if entry.decision is None:
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=None,
+            status=STATUS_NO_DECISION,
+            reason="no decision recorded",
+        )
+
+    if entry.decision == "hold_operator":
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_SKIPPED,
+            reason="hold_operator (operator-only action)",
+        )
+
+    if entry.decision not in _APPLY_DECISIONS:
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_SKIPPED,
+            reason=f"unknown decision {entry.decision!r}",
+        )
+
+    body = build_comment_body(entry, payload)
+    cmd = _plan_action(entry, body)
+    if cmd is None:
+        # Defensive — _APPLY_DECISIONS membership already implies this
+        # branch is unreachable, but keep the safety net for future
+        # decision IDs that get added without a mapping.
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_SKIPPED,
+            reason=f"no gh action mapped for {entry.decision!r}",
+        )
+
+    if not apply:
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_WOULD_APPLY,
+            reason="dry-run",
+            gh_command=cmd,
+        )
+
+    live_head, err = _gh_view_head(entry.pr_number)
+    if live_head is None:
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_FAILED,
+            reason=err or "gh pr view failed",
+        )
+    if live_head != entry.head_sha:
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_DRIFTED,
+            reason=(f"HEAD DRIFT: expected {entry.head_sha[:10]}, got {live_head[:10]}"),
+        )
+
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or "").strip()
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_FAILED,
+            reason=f"gh failed: {stderr[:200]}",
+            gh_command=cmd,
+        )
+
+    return EntryResult(
+        pr_number=entry.pr_number,
+        decision=entry.decision,
+        status=STATUS_APPLIED,
+        reason="ok",
+        gh_command=cmd,
+    )
+
+
+def _print_human(results: Sequence[EntryResult], applied: bool) -> None:
+    for r in results:
+        prefix = _HUMAN_PREFIX.get(r.status, r.status.upper())
+        decision_label = r.decision if r.decision else "(none)"
+        print(f"{prefix:11s} #{r.pr_number:>5d}  {decision_label:20s}  — {r.reason}")
+    if not applied:
+        print("\nDRY RUN — no PRs were touched. Re-run with --apply to commit.")
+
+
+def _print_json(
+    payload: OperatorDecisionsPayload,
+    results: Sequence[EntryResult],
+    applied: bool,
+) -> None:
+    print(
+        json.dumps(
+            {
+                "payload_sha256": payload.payload_sha256,
+                "receipt_sha256": payload.receipt_sha256,
+                "applied": applied,
+                "results": [dataclasses.asdict(r) for r in results],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="apply_operator_decisions.py",
+        description=(
+            "Apply a downloaded aragora-operator-decisions/1.0 JSON to "
+            "GitHub via `gh`. Defaults to --dry-run."
+        ),
+    )
+    parser.add_argument(
+        "decisions_path",
+        type=Path,
+        help="Path to a downloaded operator-decisions-*.json file.",
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Mutate GitHub state. Without this flag, nothing is sent.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=("Explicit dry-run (this is the default behaviour when --apply is omitted)."),
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit per-entry results as JSON to stdout.",
+    )
+    parser.add_argument(
+        "--only-pr",
+        action="append",
+        type=int,
+        default=[],
+        metavar="N",
+        help="Apply only to the listed PR numbers (repeatable).",
+    )
+    parser.add_argument(
+        "--skip-hold-decisions",
+        action="store_true",
+        default=True,
+        help=(
+            "Always honoured; the hold list is hard-coded and held PRs "
+            "are skipped regardless of this flag."
+        ),
+    )
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _build_parser().parse_args(argv)
+
+    if shutil.which("gh") is None:
+        print(
+            "ERROR: `gh` CLI not found on PATH — install gh (https://cli.github.com) and retry.",
+            file=sys.stderr,
+        )
+        return 2
+
+    decisions_path: Path = args.decisions_path
+    if not decisions_path.exists():
+        print(f"ERROR: file not found: {decisions_path}", file=sys.stderr)
+        return 2
+
+    try:
+        raw = json.loads(decisions_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"ERROR: invalid JSON ({exc}): {decisions_path}", file=sys.stderr)
+        return 2
+
+    if not isinstance(raw, dict):
+        print("ERROR: receipt root must be a JSON object", file=sys.stderr)
+        return 2
+
+    claimed, recomputed, matches = verify_payload_sha256(raw)
+    if not matches:
+        print(
+            "ERROR: payload_sha256 mismatch — claimed "
+            f"{_short_sha(claimed)} vs recomputed {_short_sha(recomputed)}. "
+            "Refusing to apply.",
+            file=sys.stderr,
+        )
+        return 2
+
+    payload = parse_payload(raw)
+    apply = bool(args.apply)
+    only_prs: frozenset[int] = frozenset(args.only_pr)
+
+    results = [
+        process_entry(entry, payload, apply=apply, only_prs=only_prs) for entry in payload.decisions
+    ]
+
+    if args.json:
+        _print_json(payload, results, applied=apply)
+    else:
+        _print_human(results, applied=apply)
+
+    any_failed = any(r.status == STATUS_FAILED for r in results)
+    return 1 if any_failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
