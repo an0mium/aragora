@@ -369,6 +369,15 @@ def test_operator_snapshot_summary_only_json_omits_records(
             AssertionError("summary-only should not overwrite detailed session snapshots")
         ),
     )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
 
     rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
 
@@ -381,8 +390,56 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert payload["summary"]["alive_sessions"] == 1
     assert payload["summary"]["live_sessions"] == 1
     assert payload["summary"]["historical_sessions"] == 0
+    assert payload["summary"]["active_processes"] == 0
+    assert payload["summary"]["active_process_roles"] == []
+    assert payload["process_census"] == {"ok": True, "total": 0, "by_role": {}}
     assert payload["health"] == {"ok": True, "issues": []}
     assert discover_include_summaries == [False]
+
+
+def test_collect_agent_process_census_redacts_commands_and_counts_roles() -> None:
+    import agent_bridge as mod
+
+    payload = mod._collect_agent_process_census(
+        ps_lines=[
+            " 101 01:02:03 bash /repo/scripts/run_boss_cycle.sh --token sk-secret",
+            " 102 00:03:04 python3 scripts/codex_worktree_value_inventory.py --write-ledger",
+            " 103 00:00:05 node /opt/homebrew/bin/codex --yolo",
+            " 104 00:00:01 python3 scripts/agent_bridge.py processes --json",
+            "bad-line",
+        ]
+    )
+
+    assert payload["ok"] is True
+    assert payload["total"] == 3
+    assert payload["by_role"] == {
+        "boss_cycle": 1,
+        "codex_cli": 1,
+        "worktree_inventory": 1,
+    }
+    assert [record["role"] for record in payload["records"]] == [
+        "boss_cycle",
+        "codex_cli",
+        "worktree_inventory",
+    ]
+    assert all("command" not in record for record in payload["records"])
+    assert "sk-secret" not in json.dumps(payload)
+
+
+def test_collect_agent_process_census_keeps_total_when_records_limited() -> None:
+    import agent_bridge as mod
+
+    payload = mod._collect_agent_process_census(
+        record_limit=1,
+        ps_lines=[
+            " 101 01:02:03 bash /repo/scripts/run_boss_cycle.sh",
+            " 102 00:03:04 python3 scripts/codex_worktree_value_inventory.py",
+        ],
+    )
+
+    assert payload["total"] == 2
+    assert len(payload["records"]) == 1
+    assert payload["records_omitted"] == 1
 
 
 def test_session_lifecycle_classifies_claude_transcripts_as_historical() -> None:
@@ -489,6 +546,16 @@ def test_operator_snapshot_include_historical_restores_transcript_records(
     monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
     monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
     monkeypatch.setattr(mod, "_load_broker_run_summaries", lambda: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+            **({"records": []} if include_records else {}),
+        },
+    )
 
     assert (
         mod.cmd_operator_snapshot(
@@ -538,6 +605,29 @@ def test_operator_snapshot_current_output_preserves_full_canonical_snapshot(
     monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
     monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
     monkeypatch.setattr(mod, "_load_broker_run_summaries", lambda: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 1,
+            "by_role": {"boss_cycle": 1},
+            **(
+                {
+                    "records": [
+                        {
+                            "pid": 101,
+                            "elapsed": "00:01",
+                            "role": "boss_cycle",
+                            "summary": "boss-loop control process",
+                        }
+                    ]
+                }
+                if include_records
+                else {}
+            ),
+        },
+    )
 
     assert (
         mod.cmd_operator_snapshot(
@@ -553,6 +643,8 @@ def test_operator_snapshot_current_output_preserves_full_canonical_snapshot(
 
     payload = json.loads(capsys.readouterr().out)
     assert [session["name"] for session in payload["sessions"]] == ["codex-live"]
+    assert payload["summary"]["active_processes"] == 1
+    assert payload["summary"]["active_process_roles"] == ["boss_cycle"]
     assert payload["summary"]["historical_sessions"] == 0
     snapshot = json.loads((bridge_dir / "sessions.json").read_text(encoding="utf-8"))
     assert [session["name"] for session in snapshot] == ["codex-live", "claude-history"]

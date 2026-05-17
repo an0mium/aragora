@@ -13,6 +13,7 @@ Usage:
   python3 scripts/agent_bridge.py read <name> [--lines 20]
   python3 scripts/agent_bridge.py read-all [--lines 3] [--json]
   python3 scripts/agent_bridge.py lanes [--json]
+  python3 scripts/agent_bridge.py processes [--json]
   python3 scripts/agent_bridge.py tmux-map
   python3 scripts/agent_bridge.py health [--json]
   python3 scripts/agent_bridge.py operator-snapshot [--json] [--summary-only]
@@ -545,6 +546,129 @@ def _collect_health_issues(
     return issues
 
 
+def _classify_agent_process(command: str) -> str | None:
+    """Classify known local agent/control-plane processes from a ps command line."""
+    lowered = command.lower()
+    if "scripts/agent_bridge.py" in lowered:
+        return None
+    if "codex_worktree_value_inventory.py" in lowered:
+        return "worktree_inventory"
+    if "run_boss_cycle.sh" in lowered:
+        return "boss_cycle"
+    if (
+        "publish_codex_automation_branches.py" in lowered
+        or "run_codex_automation_publisher.py" in lowered
+    ):
+        return "publisher"
+    if "multi_agent_dialog.py" in lowered:
+        return "multi_agent_dialog"
+    if (
+        " aragora.cli.main review-queue" in lowered
+        or " -m aragora.cli.main review-queue" in lowered
+    ):
+        return "review_queue"
+    if "droid exec" in lowered or "droid daemon" in lowered or "factory.app" in lowered:
+        return "factory_droid"
+    if re.search(r"(^|\s)(/[^ ]*/)?claude(\s|$)", command) or "claude-code" in lowered:
+        return "claude_code"
+    if "codex app-server" in lowered:
+        return "codex_app_server"
+    if re.search(r"(^|\s)(/[^ ]*/)?codex(\s|$)", command) or re.search(
+        r"(^|\s)node\s+/[^ ]*/codex(\s|$)", command
+    ):
+        return "codex_cli"
+    return None
+
+
+def _process_summary_for_role(role: str) -> str:
+    summaries = {
+        "boss_cycle": "boss-loop control process",
+        "claude_code": "Claude Code local session process",
+        "codex_app_server": "Codex Desktop app server process",
+        "codex_cli": "Codex CLI process",
+        "factory_droid": "Factory/Droid local agent process",
+        "multi_agent_dialog": "multi-agent review dialog process",
+        "publisher": "Codex automation publisher process",
+        "review_queue": "review-queue CLI process",
+        "worktree_inventory": "worktree value inventory process",
+    }
+    return summaries.get(role, f"{role} process")
+
+
+def _parse_ps_agent_process_line(line: str) -> dict[str, Any] | None:
+    parts = line.strip().split(None, 2)
+    if len(parts) < 3:
+        return None
+    raw_pid, elapsed, command = parts
+    role = _classify_agent_process(command)
+    if role is None:
+        return None
+    try:
+        pid = int(raw_pid)
+    except ValueError:
+        return None
+    return {
+        "pid": pid,
+        "elapsed": elapsed,
+        "role": role,
+        "summary": _process_summary_for_role(role),
+    }
+
+
+def _collect_agent_process_census(
+    *,
+    include_records: bool = True,
+    record_limit: int | None = None,
+    ps_lines: list[str] | None = None,
+) -> dict[str, Any]:
+    """Return a read-only, redacted census of active local agent processes."""
+    error = ""
+    if ps_lines is None:
+        try:
+            result = subprocess.run(
+                ["ps", "-axo", "pid=,etime=,command="],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+            result = None
+            error = str(exc)
+        if result is None:
+            ps_lines = []
+        elif result.returncode == 0:
+            ps_lines = result.stdout.splitlines()
+        else:
+            error = (result.stderr or f"ps exited {result.returncode}").strip()
+            ps_lines = []
+
+    records = [
+        record
+        for record in (_parse_ps_agent_process_line(line) for line in ps_lines)
+        if record is not None
+    ]
+    records.sort(key=lambda item: (str(item["role"]), int(item["pid"])))
+    by_role: dict[str, int] = {}
+    for record in records:
+        role = str(record["role"])
+        by_role[role] = by_role.get(role, 0) + 1
+
+    payload: dict[str, Any] = {
+        "ok": not error,
+        "total": len(records),
+        "by_role": dict(sorted(by_role.items())),
+    }
+    if error:
+        payload["error"] = error
+    if include_records:
+        limited_records = records[:record_limit] if record_limit is not None else records
+        payload["records"] = limited_records
+        if len(limited_records) < len(records):
+            payload["records_omitted"] = len(records) - len(limited_records)
+    return payload
+
+
 def _lane_conflict(
     records: list[LaneRecord],
     lane_id: str,
@@ -970,6 +1094,45 @@ def cmd_lanes(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_processes(args: argparse.Namespace) -> int:
+    """Report local agent/control-plane processes without exposing raw commands."""
+    summary_only = bool(getattr(args, "summary_only", False))
+    census = _collect_agent_process_census(
+        include_records=not summary_only,
+        record_limit=max(0, int(getattr(args, "limit", 50))),
+    )
+    if args.json:
+        print(json.dumps(census, indent=2))
+        return 0 if census.get("ok", False) else 1
+
+    if not census.get("ok", False):
+        print(
+            f"Process census unavailable: {census.get('error', 'unknown error')}", file=sys.stderr
+        )
+        return 1
+
+    records = census.get("records", [])
+    if summary_only:
+        roles = ", ".join(f"{role}={count}" for role, count in census.get("by_role", {}).items())
+        print(f"Recognized processes: {census.get('total', 0)} ({roles or 'none'})")
+        return 0
+    if not records:
+        print("No recognized local agent processes.")
+        return 0
+
+    print(f"{'PID':>8} {'ELAPSED':>12} {'ROLE':<22} SUMMARY")
+    print("-" * 85)
+    for record in records:
+        print(
+            f"{int(record['pid']):>8} {str(record['elapsed']):>12} "
+            f"{str(record['role']):<22} {record['summary']}"
+        )
+    omitted = int(census.get("records_omitted", 0))
+    if omitted:
+        print(f"... {omitted} additional process record(s) omitted; use --limit to show more.")
+    return 0
+
+
 def cmd_health(args: argparse.Namespace) -> int:
     """Report stale worktrees, ambiguous lane ownership, and dead sessions."""
     sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state()
@@ -1038,12 +1201,17 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     records = _sync_lane_records(_load_lane_registry(), sessions)
 
     issues = _collect_health_issues(sessions, records)
+    process_census = _collect_agent_process_census(
+        include_records=not summary_only,
+        record_limit=50,
+    )
 
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
         "sessions": [s.to_dict() for s in sessions],
         "broker_runs": broker_runs,
         "lanes": [r.to_dict() for r in records],
+        "process_census": process_census,
         "health": {"ok": len(issues) == 0, "issues": issues},
         "summary": {
             "total_sessions": len(sessions),
@@ -1059,6 +1227,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
             "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
             "conflict_lanes": sum(1 for r in records if r.status == "conflict"),
             "health_issues": len(issues),
+            "active_processes": int(process_census.get("total", 0)),
+            "active_process_roles": sorted(process_census.get("by_role", {}).keys()),
         },
     }
     if summary_only:
@@ -1079,6 +1249,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     )
     print(f"Broker:   {summary['active_broker_runs']} active run(s)")
     print(f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict")
+    process_roles = ", ".join(summary["active_process_roles"]) or "-"
+    print(f"Processes:{summary['active_processes']} recognized ({process_roles})")
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
     print(f"Health:   {health_status}")
 
@@ -1098,6 +1270,16 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
                 r.next_action[:40] + "..." if len(r.next_action) > 40 else r.next_action
             ) or "-"
             print(f"{r.lane_id:<22} {r.owner_session:<24} {r.status:<10} {next_action}")
+
+    process_records = snapshot.get("process_census", {}).get("records", [])
+    if process_records and not summary_only:
+        print(f"\n{'PID':>8} {'ELAPSED':>12} {'ROLE':<22} SUMMARY")
+        print("-" * 85)
+        for process in process_records:
+            print(
+                f"{int(process['pid']):>8} {str(process['elapsed']):>12} "
+                f"{str(process['role']):<22} {process['summary']}"
+            )
 
     if issues:
         print(f"\n{'TYPE':<22} {'SESSION':<26} DETAIL")
@@ -1299,6 +1481,22 @@ def main() -> int:
     ra_p.add_argument("--lines", type=int, default=5)
 
     sub.add_parser("lanes", parents=[json_parent], help="Sessions + PR state")
+    processes_p = sub.add_parser(
+        "processes",
+        parents=[json_parent],
+        help="Read-only census of local agent/control-plane processes",
+    )
+    processes_p.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Show counts by process role without per-process records.",
+    )
+    processes_p.add_argument(
+        "--limit",
+        type=int,
+        default=50,
+        help="Maximum process records to include when not using --summary-only.",
+    )
     sub.add_parser("tmux-map", parents=[json_parent], help="Show tmux panes")
     sub.add_parser(
         "health", parents=[json_parent], help="Check for stale worktrees and lane conflicts"
@@ -1345,6 +1543,7 @@ def main() -> int:
         "read": cmd_read,
         "read-all": cmd_read_all,
         "lanes": cmd_lanes,
+        "processes": cmd_processes,
         "tmux-map": cmd_tmux_map,
         "health": cmd_health,
         "gc": cmd_gc,
