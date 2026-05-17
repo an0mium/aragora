@@ -117,9 +117,12 @@ def cmd_crux_followup(args: argparse.Namespace) -> int:
         if not repo:
             print("error: --file-issues requires --repo owner/name", file=sys.stderr)
             return 1
-        print(f"\nfiling {len(proposals)} issue(s) to {repo} (ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED)")
+        print(
+            f"\nwould file {len(proposals)} issue(s) to {repo} "
+            f"({_FLAG}=1; commands shown, not executed)"
+        )
         for p in proposals:
-            print(" ", " ".join(p.to_gh_create_args(repo=repo)))
+            print(" ", "gh", " ".join(p.to_gh_create_args(repo=repo)))
 
     return 0
 

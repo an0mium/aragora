@@ -4159,7 +4159,7 @@ Filing via --file-issues requires ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED=1.
 
 Examples:
   aragora crux-followup cruxset.json
-  aragona crux-followup cruxset.json --threshold 0.7 --json
+  aragora crux-followup cruxset.json --threshold 0.7 --json
   aragora crux-followup cruxset.json --file-issues --repo owner/repo
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -4183,7 +4183,7 @@ Examples:
         "--file-issues",
         action="store_true",
         dest="file_issues",
-        help="File proposals via gh cli (requires ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED=1)",
+        help="Print gh issue create commands for proposals (requires ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED=1)",
     )
     p.add_argument(
         "--repo",

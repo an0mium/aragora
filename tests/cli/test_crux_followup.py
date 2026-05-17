@@ -222,6 +222,20 @@ class TestFlagGating:
         captured = capsys.readouterr()
         assert "--repo" in captured.err
 
+    def test_flag_on_file_issues_prints_commands_without_executing(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        monkeypatch.setenv("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", "1")
+        cs = _make_cruxset(scores=[0.95])
+        f = tmp_path / "cs.json"
+        f.write_text(json.dumps(cs.to_json()), encoding="utf-8")
+        rc = cmd_crux_followup(_args(cruxset_file=str(f), file_issues=True, repo="owner/repo"))
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "would file 1 issue(s)" in captured.out
+        assert "commands shown, not executed" in captured.out
+        assert "gh issue create" in captured.out
+
 
 # ---------------------------------------------------------------------------
 # Queue-governance invariant
