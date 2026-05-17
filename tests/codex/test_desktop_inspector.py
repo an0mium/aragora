@@ -48,6 +48,11 @@ def test_resolve_honors_env_var(fake_codex_home) -> None:  # type: ignore[no-unt
     assert paths.global_state_path.name == ".codex-global-state.json"
 
 
+def test_resolve_expands_explicit_tilde_home() -> None:
+    paths = resolve("~/aragora-codex-test-home")
+    assert paths.home == Path.home() / "aragora-codex-test-home"
+
+
 # -- jsonl stream -------------------------------------------------------------
 
 
@@ -135,6 +140,18 @@ def test_list_active_threads_redacts_secrets_in_title_and_message(
     assert "sk-proj-FAKE-LEAK-XYZ" not in secret_thread.title
     assert "[REDACTED]" in secret_thread.title
     assert "ghp_FAKELEAK" not in secret_thread.first_user_message
+
+
+def test_list_active_threads_redacts_printable_metadata_fields(
+    fake_codex_home,
+) -> None:  # type: ignore[no-untyped-def]
+    threads = inspector.list_active_threads(since=timedelta(hours=4))
+    secret_thread = next(t for t in threads if t.id == fake_codex_home.secret_titled_thread_id)
+
+    serialized = json.dumps(secret_thread.to_dict(), default=str)
+    assert "ghp_FAKELEAK1234567890ABCD" not in serialized
+    assert "sk-or-v1-abcdefghijklmnopqrstuvwxyz" not in serialized
+    assert "[REDACTED]" in serialized
 
 
 # -- inspector summarize ------------------------------------------------------

@@ -49,12 +49,24 @@ def test_cli_list_json_output(fake_codex_home, capsys: pytest.CaptureFixture[str
     assert fake_codex_home.recent_thread_id in ids
 
 
+def test_cli_list_json_redacts_metadata_fields(
+    fake_codex_home, capsys: pytest.CaptureFixture[str]
+) -> None:  # type: ignore[no-untyped-def]
+    rc = cli.cmd_codex_sessions_list(_args(since="4h", include_archived=False, limit=50, json=True))
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "ghp_FAKELEAK1234567890ABCD" not in out
+    assert "sk-or-v1-abcdefghijklmnopqrstuvwxyz" not in out
+    assert "[REDACTED]" in out
+
+
 def test_cli_list_redacts_titles(fake_codex_home, capsys: pytest.CaptureFixture[str]) -> None:  # type: ignore[no-untyped-def]
     rc = cli.cmd_codex_sessions_list(_args(since="4h", include_archived=False, limit=50))
     out = capsys.readouterr().out
     assert rc == 0
     assert "sk-proj-FAKE-LEAK-XYZ" not in out
     assert "ghp_FAKELEAK" not in out
+    assert "sk-or-v1-abcdefghijklmnopqrstuvwxyz" not in out
 
 
 def test_cli_list_bad_since(fake_codex_home, capsys: pytest.CaptureFixture[str]) -> None:  # type: ignore[no-untyped-def]
@@ -118,6 +130,44 @@ def test_cli_show_json_summary(fake_codex_home, capsys: pytest.CaptureFixture[st
     payload = json.loads(out)
     assert payload["thread"]["id"] == fake_codex_home.recent_thread_id
     assert "event_type_counts" in payload["summary"]
+
+
+def test_cli_show_json_redacts_thread_metadata(
+    fake_codex_home, capsys: pytest.CaptureFixture[str]
+) -> None:  # type: ignore[no-untyped-def]
+    rc = cli.cmd_codex_sessions_show(
+        _args(
+            target=fake_codex_home.secret_titled_thread_id,
+            full=False,
+            out="",
+            max_events=2000,
+            json=True,
+        )
+    )
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "ghp_FAKELEAK1234567890ABCD" not in out
+    assert "sk-or-v1-abcdefghijklmnopqrstuvwxyz" not in out
+    assert "[REDACTED]" in out
+
+
+def test_cli_show_text_redacts_thread_metadata(
+    fake_codex_home, capsys: pytest.CaptureFixture[str]
+) -> None:  # type: ignore[no-untyped-def]
+    rc = cli.cmd_codex_sessions_show(
+        _args(
+            target=fake_codex_home.secret_titled_thread_id,
+            full=False,
+            out="",
+            max_events=2000,
+            json=False,
+        )
+    )
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "ghp_FAKELEAK1234567890ABCD" not in out
+    assert "sk-or-v1-abcdefghijklmnopqrstuvwxyz" not in out
+    assert "[REDACTED]" in out
 
 
 def test_cli_show_full_writes_to_file_by_default(

@@ -44,7 +44,7 @@ class CodexDesktopPaths:
 def resolve(home: str | os.PathLike[str] | None = None) -> CodexDesktopPaths:
     """Return canonical paths, honoring ``ARAGORA_CODEX_HOME`` when ``home`` is None."""
     if home is not None:
-        return CodexDesktopPaths(home=Path(home))
+        return CodexDesktopPaths(home=Path(home).expanduser())
     override = os.environ.get(HOME_ENV_VAR)
     if override:
         return CodexDesktopPaths(home=Path(override).expanduser())

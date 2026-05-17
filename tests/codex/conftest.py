@@ -167,7 +167,10 @@ def fake_codex_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator
 
         secret_titled_id = "019e3222-9999-7920-90f4-203877f24690"
         secret_rollout = (
-            home / "sessions" / "2026" / "05" / "16" / f"rollout-{secret_titled_id}.jsonl"
+            home
+            / "sessions"
+            / "sk-or-v1-abcdefghijklmnopqrstuvwxyz"
+            / f"rollout-{secret_titled_id}.jsonl"
         )
         _write_rollout(
             secret_rollout,
@@ -219,7 +222,7 @@ def fake_codex_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator
                 ten_minutes_ago,
                 "vscode",
                 "openai",
-                "/Users/test/repo",
+                "/Users/test/ghp_FAKELEAK1234567890ABCD/repo",
                 "leaked sk-proj-FAKE-LEAK-XYZ thread",
                 "workspace",
                 "auto",
@@ -227,8 +230,8 @@ def fake_codex_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator
                 1,
                 0,
                 None,
-                None,
-                None,
+                "abc9999",
+                "feature/sk-or-v1-abcdefghijklmnopqrstuvwxyz",
                 None,
                 "0.42.0",
                 "User asked about Bearer ghp_FAKELEAK1234567890ABCD",

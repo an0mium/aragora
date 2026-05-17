@@ -41,8 +41,11 @@ def _resolve_paths(args: argparse.Namespace) -> "CodexDesktopPaths":
 
 
 def _missing_db_message(sqlite_path: Path) -> str:
+    from aragora.codex.desktop_inspector import redact_display
+
+    display_path = redact_display(sqlite_path)
     return (
-        f"error: Codex Desktop state DB not found at {sqlite_path}\n"
+        f"error: Codex Desktop state DB not found at {display_path}\n"
         "       Pass --codex-home <path> or set ARAGORA_CODEX_HOME."
     )
 
@@ -70,7 +73,12 @@ def _format_table(rows: list[dict[str, Any]], columns: list[tuple[str, str]]) ->
 
 def cmd_codex_sessions_list(args: argparse.Namespace) -> int:
     """List Codex Desktop threads updated within ``--since``."""
-    from aragora.codex.desktop_inspector import humanize_ago, list_active_threads, truncate
+    from aragora.codex.desktop_inspector import (
+        humanize_ago,
+        list_active_threads,
+        redact_display,
+        truncate,
+    )
 
     if args.limit < 0:
         print("error: --limit must be >= 0", file=sys.stderr)
@@ -99,7 +107,7 @@ def cmd_codex_sessions_list(args: argparse.Namespace) -> int:
             {
                 "schema": "aragora-codex-sessions-list/1.0",
                 "generated_at": datetime.now(UTC).isoformat(),
-                "codex_home": str(paths.home),
+                "codex_home": redact_display(paths.home),
                 "since": args.since,
                 "since_seconds": int(since.total_seconds()),
                 "include_archived": bool(args.include_archived),
@@ -163,6 +171,7 @@ def cmd_codex_sessions_show(args: argparse.Namespace) -> int:
     from aragora.codex.desktop_inspector import (
         find_thread,
         iter_session_events,
+        redact_display,
         summarize_session,
     )
 
@@ -198,7 +207,7 @@ def cmd_codex_sessions_show(args: argparse.Namespace) -> int:
                 print(f"Branch:    {thread.git_branch}")
             if thread.git_sha:
                 print(f"Sha:       {thread.git_sha[:12]}")
-        print(f"Rollout:   {summary.rollout_path}")
+        print(f"Rollout:   {redact_display(summary.rollout_path)}")
         print(f"Scanned:   {summary.events_scanned}{' (truncated)' if summary.truncated else ''}")
         if summary.event_type_counts:
             print("Events:")

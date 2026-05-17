@@ -47,6 +47,13 @@ def _build_barrier() -> SecurityBarrier:
     return barrier
 
 
+def redact_display(value: str | Path | None) -> str | None:
+    """Return a secret-redacted string for terminal/JSON display."""
+    if value is None:
+        return None
+    return _build_barrier().redact(str(value))
+
+
 @dataclass(frozen=True, slots=True)
 class ThreadSummary:
     """Canonical metadata about one Codex Desktop thread.
@@ -76,7 +83,7 @@ class ThreadSummary:
             "title": self.title,
             "cwd": self.cwd,
             "model": self.model,
-            "rollout_path": str(self.rollout_path),
+            "rollout_path": redact_display(self.rollout_path),
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "tokens_used": self.tokens_used,
@@ -109,7 +116,7 @@ class SessionSummary:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "rollout_path": str(self.rollout_path),
+            "rollout_path": redact_display(self.rollout_path),
             "events_scanned": self.events_scanned,
             "truncated": self.truncated,
             "event_type_counts": dict(self.event_type_counts),
@@ -212,16 +219,16 @@ def list_active_threads(
                 ThreadSummary(
                     id=row["id"],
                     title=barrier.redact(row["title"] or ""),
-                    cwd=row["cwd"],
-                    model=row["model"] or None,
+                    cwd=barrier.redact(row["cwd"] or ""),
+                    model=redact_display(row["model"]) if row["model"] else None,
                     rollout_path=_rollout_path_from_db(row["rollout_path"], paths=paths),
                     created_at=_to_datetime(row["created_at"]),
                     updated_at=_to_datetime(row["updated_at"]),
                     tokens_used=int(row["tokens_used"] or 0),
                     archived=bool(row["archived"]),
-                    git_sha=row["git_sha"],
-                    git_branch=row["git_branch"],
-                    source=row["source"],
+                    git_sha=redact_display(row["git_sha"]),
+                    git_branch=redact_display(row["git_branch"]),
+                    source=barrier.redact(row["source"] or ""),
                     first_user_message=barrier.redact(row["first_user_message"] or ""),
                 )
             )
@@ -263,16 +270,16 @@ def find_thread(thread_id: str, *, paths: CodexDesktopPaths | None = None) -> Th
     return ThreadSummary(
         id=row["id"],
         title=barrier.redact(row["title"] or ""),
-        cwd=row["cwd"],
-        model=row["model"] or None,
+        cwd=barrier.redact(row["cwd"] or ""),
+        model=redact_display(row["model"]) if row["model"] else None,
         rollout_path=_rollout_path_from_db(row["rollout_path"], paths=paths),
         created_at=_to_datetime(row["created_at"]),
         updated_at=_to_datetime(row["updated_at"]),
         tokens_used=int(row["tokens_used"] or 0),
         archived=bool(row["archived"]),
-        git_sha=row["git_sha"],
-        git_branch=row["git_branch"],
-        source=row["source"],
+        git_sha=redact_display(row["git_sha"]),
+        git_branch=redact_display(row["git_branch"]),
+        source=barrier.redact(row["source"] or ""),
         first_user_message=barrier.redact(row["first_user_message"] or ""),
     )
 
