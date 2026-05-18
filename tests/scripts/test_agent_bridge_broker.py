@@ -176,6 +176,17 @@ def test_cli_healthcheck_failure_returns_6() -> None:
     )
 
 
+def test_parse_actors_sets_droid_auto_high() -> None:
+    module = _load_script_module()
+
+    registry = module._parse_actors(["reviewer:droid:claude-opus-4-7"])
+    session = registry.sessions["reviewer"]
+
+    assert session.harness == "droid"
+    assert session.model == "claude-opus-4-7"
+    assert session.harness_options == {"auto": "high"}
+
+
 def test_cli_success_returns_0_and_emits_json(capsys) -> None:
     module = _load_script_module()
 
