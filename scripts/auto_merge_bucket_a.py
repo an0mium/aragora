@@ -201,6 +201,7 @@ def gh_pr_merge_squash(
     pr_number: int,
     head_sha: str,
     delete_branch_on_merge: bool = False,
+    admin_squash: bool = False,
     *,
     runner: Runner | None = None,
 ) -> subprocess.CompletedProcess[str]:
@@ -219,6 +220,8 @@ def gh_pr_merge_squash(
         "--match-head-commit",
         head_sha,
     ]
+    if admin_squash:
+        args.append("--admin")
     if delete_branch_on_merge:
         args.append("--delete-branch")
     proc = runner(args)
@@ -485,7 +488,7 @@ def decide(
     only_pr: int | None = None,
     metadata_provider: Callable[[int], dict[str, Any]] | None = None,
     merge_packet_provider: Callable[[int], dict[str, Any]] | None = None,
-    merger: Callable[[int, str, bool], subprocess.CompletedProcess[str]] | None = None,
+    merger: Callable[[int, str, bool, bool], subprocess.CompletedProcess[str]] | None = None,
     delete_branch_on_merge: bool = False,
     now: datetime.datetime | None = None,
 ) -> tuple[list[MergeDecision], int]:
@@ -610,8 +613,9 @@ def decide(
             continue
 
         if apply:
+            admin_squash = str(metadata.get("mergeStateStatus") or "") == "BLOCKED"
             try:
-                merger(pr_number, head_sha, delete_branch_on_merge)
+                merger(pr_number, head_sha, delete_branch_on_merge, admin_squash)
             except RuntimeError as exc:
                 decisions.append(
                     MergeDecision(

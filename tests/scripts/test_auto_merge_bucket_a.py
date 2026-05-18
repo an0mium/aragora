@@ -153,14 +153,20 @@ class _MergeRecorder:
         self.calls: list[int] = []
         self.head_shas: list[str] = []
         self.delete_branch_flags: list[bool] = []
+        self.admin_squash_flags: list[bool] = []
         self._failures = expected_failures or set()
 
     def __call__(
-        self, pr_number: int, head_sha: str, delete_branch_on_merge: bool
+        self,
+        pr_number: int,
+        head_sha: str,
+        delete_branch_on_merge: bool,
+        admin_squash: bool,
     ) -> subprocess.CompletedProcess[str]:
         self.calls.append(pr_number)
         self.head_shas.append(head_sha)
         self.delete_branch_flags.append(delete_branch_on_merge)
+        self.admin_squash_flags.append(admin_squash)
         if pr_number in self._failures:
             raise RuntimeError(f"simulated merge failure on #{pr_number}")
         return subprocess.CompletedProcess(
@@ -235,6 +241,29 @@ class TestGhMerge:
         amba.gh_pr_merge_squash(9001, "b" * 40, delete_branch_on_merge=True, runner=runner)
 
         assert "--delete-branch" in calls[0]
+        assert "--admin" not in calls[0]
+
+    def test_admin_squash_is_opt_in(self):
+        calls: list[list[str]] = []
+
+        def runner(args: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        amba.gh_pr_merge_squash(9001, "c" * 40, admin_squash=True, runner=runner)
+
+        assert calls == [
+            [
+                "gh",
+                "pr",
+                "merge",
+                "9001",
+                "--squash",
+                "--match-head-commit",
+                "c" * 40,
+                "--admin",
+            ]
+        ]
 
 
 class TestDecide:
@@ -281,6 +310,7 @@ class TestDecide:
         assert [d.pr_number for d in merged] == [9001]
         assert recorder.head_shas == [make_metadata(9001)["headRefOid"]]
         assert recorder.delete_branch_flags == [False]
+        assert recorder.admin_squash_flags == [False]
         skipped_non_a = sorted(d.pr_number for d in decisions if d.decision == "skip-non-bucket-a")
         assert skipped_non_a == [9002, 9003, 9004]
 
@@ -300,6 +330,7 @@ class TestDecide:
         assert [d.pr_number for d in decisions] == [9001]
         assert recorder.calls == [9001]
         assert recorder.delete_branch_flags == [True]
+        assert recorder.admin_squash_flags == [False]
         assert exit_code == 0
 
     def test_settling_window_skips_young_pr(self):
@@ -449,6 +480,7 @@ class TestDefenseInDepth:
 
         assert packets.calls == [9001]
         assert recorder.calls == [9001]
+        assert recorder.admin_squash_flags == [True]
         assert exit_code == 0
         assert decisions[0].decision == "merge"
 
