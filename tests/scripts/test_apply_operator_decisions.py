@@ -46,7 +46,7 @@ aod = _load_module()
 
 _HEAD_SHA_DEFAULT = "a" * 40  # canonical match for FakeGh's default
 _DRIFTED_HEAD = "b" * 40
-_RECEIPT_BODY = b'{"receipt":"open-queue-settlement-test"}\n'
+_RECEIPT_BODY = b'{"pr_url":"https://github.com/synaptent/aragora/pull/100"}\n'
 _RECEIPT_SHA = hashlib.sha256(_RECEIPT_BODY).hexdigest()
 
 
@@ -399,6 +399,40 @@ def test_apply_receipt_mismatch_returns_2_before_any_gh_call(
     assert "receipt_sha256 mismatch" in capsys.readouterr().err
 
 
+def test_apply_receipt_repo_mismatch_returns_2_before_any_gh_call(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(
+        tmp_path,
+        [make_entry(100, "approve_tier", comment="lgtm")],
+        receipt_repo="attacker/repo",
+    )
+
+    rc = aod.main(apply_args(tmp_path, p))
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "receipt_repo mismatch" in capsys.readouterr().err
+
+
+def test_apply_receipt_without_pr_url_returns_2_before_any_gh_call(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    receipt_body = b'{"not_pr_url":"https://github.com/synaptent/aragora/pull/100"}\n'
+    p = write_payload(
+        tmp_path,
+        [make_entry(100, "approve_tier", comment="lgtm")],
+        receipt_sha256=hashlib.sha256(receipt_body).hexdigest(),
+    )
+    receipt_path = write_receipt(tmp_path, receipt_body)
+
+    rc = aod.main([str(p), "--apply", "--receipt-path", str(receipt_path)])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "does not contain a GitHub pr_url" in capsys.readouterr().err
+
+
 def test_apply_and_dry_run_conflict_returns_2_and_makes_no_gh_calls(
     tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -458,13 +492,16 @@ def test_apply_reject_calls_close_with_comment(tmp_path: Path, fake_gh: FakeGh) 
 
 
 def test_apply_uses_receipt_repo_for_every_gh_call(tmp_path: Path, fake_gh: FakeGh) -> None:
+    receipt_body = b'{"pr_url":"https://github.com/alternate/repo/pull/100"}\n'
     p = write_payload(
         tmp_path,
         [make_entry(100, "approve_tier", comment="lgtm")],
         receipt_repo="alternate/repo",
+        receipt_sha256=hashlib.sha256(receipt_body).hexdigest(),
     )
+    receipt_path = write_receipt(tmp_path, receipt_body)
 
-    rc = aod.main(apply_args(tmp_path, p))
+    rc = aod.main([str(p), "--apply", "--receipt-path", str(receipt_path)])
 
     assert rc == 0
     assert fake_gh.calls

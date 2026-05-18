@@ -89,6 +89,9 @@ _HUMAN_PREFIX: dict[str, str] = {
 }
 
 _REPO_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+_GITHUB_PR_URL_RE = re.compile(
+    r"^https://github\.com/(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/pull/[0-9]+/?$"
+)
 _SHA256_HEX_RE = re.compile(r"^[a-f0-9]{64}$")
 _MISSING = object()
 
@@ -174,6 +177,36 @@ def compute_file_sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def extract_receipt_repo(path: Path) -> tuple[str | None, str | None]:
+    """Extract the single GitHub ``OWNER/REPO`` from a settlement receipt JSON."""
+
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return None, f"receipt file is not valid JSON: {exc}"
+    repos: set[str] = set()
+
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            pr_url = value.get("pr_url")
+            if isinstance(pr_url, str):
+                match = _GITHUB_PR_URL_RE.fullmatch(pr_url)
+                if match:
+                    repos.add(match.group("repo"))
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(raw)
+    if not repos:
+        return None, "receipt file does not contain a GitHub pr_url"
+    if len(repos) != 1:
+        return None, "receipt file contains PR URLs from multiple repositories"
+    return next(iter(repos)), None
 
 
 def _optional_str(value: Any, *, field: str, index: int) -> str | None:
@@ -609,6 +642,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "ERROR: receipt_sha256 mismatch — payload claims "
                 f"{_short_sha(payload.receipt_sha256)} but {receipt_path} hashes to "
                 f"{_short_sha(recomputed_receipt_sha256)}. Refusing to apply.",
+                file=sys.stderr,
+            )
+            return 2
+        receipt_repo, repo_error = extract_receipt_repo(receipt_path)
+        if repo_error:
+            print(f"ERROR: cannot verify receipt repo: {repo_error}", file=sys.stderr)
+            return 2
+        if receipt_repo != payload.receipt_repo:
+            print(
+                "ERROR: receipt_repo mismatch — payload claims "
+                f"{payload.receipt_repo!r} but {receipt_path} is for {receipt_repo!r}. "
+                "Refusing to apply.",
                 file=sys.stderr,
             )
             return 2

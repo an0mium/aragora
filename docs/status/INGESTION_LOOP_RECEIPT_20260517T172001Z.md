@@ -185,10 +185,12 @@ is executed. On HEAD drift the script prints `DRIFT #7280` and moves on
 without applying — drift is expected when the author pushed a new
 commit between settlement and apply.
 
-`--apply` also requires `--receipt-path <original-receipt.json>` and
-recomputes that file's SHA-256 before any GitHub mutation. The downloaded
+`--apply` also requires `--receipt-path <original-receipt.json>`,
+recomputes that file's SHA-256, and derives the GitHub repo from the
+receipt `pr_url` before any GitHub mutation. The downloaded
 operator-decisions file can prove its own payload hash, but live mutation
-requires the original receipt file to prove the packet binding locally.
+requires the original receipt file to prove both packet binding and repo
+binding locally.
 
 (The receipt does NOT actually apply against real PRs — that's the
 operator's call.)
@@ -196,15 +198,15 @@ operator's call.)
 ## Files added
 
 - `scripts/apply_operator_decisions.py` — pure-stdlib CLI (~325 LOC)
-- `tests/scripts/test_apply_operator_decisions.py` — 41 fixture-driven tests
+- `tests/scripts/test_apply_operator_decisions.py` — 43 fixture-driven tests
 - `docs/status/INGESTION_LOOP_RECEIPT_20260517T172001Z.md` — this file
 
 ## Validation
 
 ```
 $ python3 -m pytest tests/scripts/test_apply_operator_decisions.py -q
-.........................................                                [100%]
-41 passed in 0.93s
+...........................................                              [100%]
+43 passed in 0.98s
 $ ruff check scripts/apply_operator_decisions.py tests/scripts/test_apply_operator_decisions.py
 All checks passed!
 $ ruff format --check scripts/apply_operator_decisions.py tests/scripts/test_apply_operator_decisions.py
@@ -234,6 +236,7 @@ preflight: ok
 | malformed/type-invalid row fails closed | Later bad rows block earlier mutations |
 | `--apply` requires receipt path | Original receipt file must be present before mutation |
 | receipt SHA mismatch fails closed | Downloaded payload cannot self-authorize mutation |
+| receipt repo mismatch fails closed | `receipt_repo` must match the original receipt `pr_url` repo |
 | HEAD drift skips entry, exit 0 | Drift safety |
 | `--only-pr 200` touches only #200 | Filter |
 | held PR hard-skip on `--apply` | Hold-list enforcement |
