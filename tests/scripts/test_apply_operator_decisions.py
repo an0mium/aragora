@@ -241,6 +241,18 @@ def test_dry_run_default_does_not_call_gh(
     assert "DRY RUN" in out
 
 
+def test_apply_and_dry_run_conflict_returns_2_and_makes_no_gh_calls(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(tmp_path, [make_entry(100, "approve_tier", comment="lgtm")])
+
+    rc = aod.main([str(p), "--apply", "--dry-run"])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "--apply and --dry-run are mutually exclusive" in capsys.readouterr().err
+
+
 # ---------------------------------------------------------------------------
 # Per-decision apply paths
 # ---------------------------------------------------------------------------

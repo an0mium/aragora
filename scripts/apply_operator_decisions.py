@@ -464,6 +464,10 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
+    if args.apply and args.dry_run:
+        print("ERROR: --apply and --dry-run are mutually exclusive.", file=sys.stderr)
+        return 2
+
     if shutil.which("gh") is None:
         print(
             "ERROR: `gh` CLI not found on PATH — install gh (https://cli.github.com) and retry.",
