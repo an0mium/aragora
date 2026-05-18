@@ -587,7 +587,7 @@ class TestDefenseInDepth:
 
     @pytest.mark.parametrize(
         "conclusion",
-        ["CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE"],
+        ["ACTION_REQUIRED", "CANCELLED", "FAILURE", "STARTUP_FAILURE", "TIMED_OUT"],
     )
     def test_completed_non_green_ci_caught_by_defense_in_depth(self, conclusion: str):
         payload = make_triage_payload(bucket_a_entry(9001))
@@ -615,7 +615,104 @@ class TestDefenseInDepth:
         assert recorder.calls == []
         assert exit_code == 1
         assert decisions[0].decision == "skip-tripwire"
-        assert decisions[0].reason == f"CI non-green ({conclusion})"
+        if conclusion == "FAILURE":
+            assert decisions[0].reason == "CI red (1 failures)"
+        else:
+            assert decisions[0].reason == f"CI non-green ({conclusion})"
+
+    @pytest.mark.parametrize("status", ["IN_PROGRESS", "PENDING", "QUEUED", "REQUESTED", "WAITING"])
+    def test_non_completed_check_status_caught_by_defense_in_depth(self, status: str):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry(
+            {
+                9001: make_metadata(
+                    9001,
+                    ci=[
+                        {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                        {"name": "late", "status": status, "conclusion": None},
+                    ],
+                )
+            }
+        )
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert decisions[0].reason == "CI pending (1 in-flight)"
+
+    @pytest.mark.parametrize(
+        ("state", "reason"),
+        [
+            ("ERROR", "CI red (1 failures)"),
+            ("FAILURE", "CI red (1 failures)"),
+            ("PENDING", "CI pending (1 in-flight)"),
+        ],
+    )
+    def test_status_context_state_caught_by_defense_in_depth(self, state: str, reason: str):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry(
+            {
+                9001: make_metadata(
+                    9001,
+                    ci=[
+                        {"__typename": "StatusContext", "context": "lint", "state": "SUCCESS"},
+                        {"__typename": "StatusContext", "context": "late", "state": state},
+                    ],
+                )
+            }
+        )
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert decisions[0].reason == reason
+
+    @pytest.mark.parametrize(
+        "label",
+        [
+            "autonomous",
+            "boss-ready",
+            "do not merge",
+            "do-not-merge",
+            "hold",
+            "manual_review",
+        ],
+    )
+    def test_blocking_label_caught_by_defense_in_depth(self, label: str):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001, labels=[{"name": label}])})
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert "operator label tripwire" in decisions[0].reason
 
     def test_draft_state_caught(self):
         payload = make_triage_payload(bucket_a_entry(9001))

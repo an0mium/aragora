@@ -79,6 +79,34 @@ PROTECTED_PREFIXES: tuple[str, ...] = (
 
 TRUSTED_AUTHORS: frozenset[str] = frozenset({"an0mium"})
 
+# Labels that require a human/operator stop even if Stage 1 accidentally
+# classifies the PR as Bucket A. Normalization maps spaces/underscores to "-".
+BLOCKING_LABELS: frozenset[str] = frozenset(
+    {
+        "autonomous",
+        "boss-ready",
+        "do-not-merge",
+        "hold",
+        "manual-review",
+        "manual-review-required",
+        "needs-human-review",
+        "needs-manual-review",
+    }
+)
+
+PENDING_CHECK_STATUSES: frozenset[str] = frozenset(
+    {
+        "IN_PROGRESS",
+        "PENDING",
+        "QUEUED",
+        "REQUESTED",
+        "WAITING",
+    }
+)
+RED_STATUS_CONTEXT_STATES: frozenset[str] = frozenset({"ERROR", "FAILURE"})
+PENDING_STATUS_CONTEXT_STATES: frozenset[str] = frozenset({"PENDING"})
+ALLOWED_COMPLETED_CONCLUSIONS: frozenset[str] = frozenset({"SUCCESS", "SKIPPED", "NEUTRAL"})
+
 
 @dataclasses.dataclass(frozen=True)
 class MergeDecision:
@@ -226,6 +254,71 @@ def _is_protected_path(path: str) -> bool:
     return False
 
 
+def _normalized_label_name(name: str) -> str:
+    return re.sub(r"[\s_]+", "-", name.strip().lower())
+
+
+def _label_names(metadata: dict[str, Any]) -> set[str]:
+    raw = metadata.get("labels") or []
+    out: set[str] = set()
+    if not isinstance(raw, list):
+        return out
+    for item in raw:
+        if isinstance(item, dict):
+            name = str(item.get("name") or "")
+        else:
+            name = str(item)
+        normalized = _normalized_label_name(name)
+        if normalized:
+            out.add(normalized)
+    return out
+
+
+def _ci_rollup_tripwire(checks: Any) -> str | None:
+    if not isinstance(checks, list):
+        return None
+
+    red_count = 0
+    pending_count = 0
+    non_green_conclusion: str | None = None
+
+    for check in checks:
+        if not isinstance(check, dict):
+            continue
+
+        state = str(check.get("state") or "").upper()
+        if state in RED_STATUS_CONTEXT_STATES:
+            red_count += 1
+            continue
+        if state in PENDING_STATUS_CONTEXT_STATES:
+            pending_count += 1
+            continue
+
+        status = str(check.get("status") or "").upper()
+        if status in PENDING_CHECK_STATUSES:
+            pending_count += 1
+            continue
+        if status and status != "COMPLETED":
+            pending_count += 1
+            continue
+
+        if status == "COMPLETED":
+            conclusion = str(check.get("conclusion") or "(missing)").upper()
+            if conclusion not in ALLOWED_COMPLETED_CONCLUSIONS:
+                if conclusion == "FAILURE":
+                    red_count += 1
+                elif non_green_conclusion is None:
+                    non_green_conclusion = conclusion
+
+    if red_count:
+        return f"CI red ({red_count} failures)"
+    if pending_count:
+        return f"CI pending ({pending_count} in-flight)"
+    if non_green_conclusion is not None:
+        return f"CI non-green ({non_green_conclusion})"
+    return None
+
+
 def _merge_packet_allows_blocked_state(
     metadata: dict[str, Any],
     *,
@@ -298,27 +391,13 @@ def defense_in_depth_tripwire(
         if _is_protected_path(path):
             return f"edits protected path ({path})"
 
-    checks = metadata.get("statusCheckRollup") or []
-    ci_failure = sum(1 for c in checks if isinstance(c, dict) and c.get("conclusion") == "FAILURE")
-    if ci_failure:
-        return f"CI red ({ci_failure} failures)"
+    blocking_labels = sorted(_label_names(metadata) & BLOCKING_LABELS)
+    if blocking_labels:
+        return f"operator label tripwire ({blocking_labels[0]})"
 
-    ci_pending = sum(
-        1 for c in checks if isinstance(c, dict) and c.get("status") in ("IN_PROGRESS", "QUEUED")
-    )
-    if ci_pending:
-        return f"CI pending ({ci_pending} in-flight)"
-
-    allowed_completed_conclusions = {"SUCCESS", "SKIPPED", "NEUTRAL"}
-    ci_non_green = [
-        str(c.get("conclusion") or "(missing)")
-        for c in checks
-        if isinstance(c, dict)
-        and c.get("status") == "COMPLETED"
-        and c.get("conclusion") not in allowed_completed_conclusions
-    ]
-    if ci_non_green:
-        return f"CI non-green ({ci_non_green[0]})"
+    ci_tripwire = _ci_rollup_tripwire(metadata.get("statusCheckRollup"))
+    if ci_tripwire is not None:
+        return ci_tripwire
 
     return None
 

@@ -13,9 +13,9 @@ Ship Stage 2 of `docs/roadmap/OPERATOR_DELEGATION_ROLLOUT.md` — `scripts/auto_
 ## What shipped
 
 - `scripts/auto_merge_bucket_a.py` — 502 LOC, pure stdlib + `gh` subprocess.
-- `tests/scripts/test_auto_merge_bucket_a.py` — 12 fixture-driven tests, all pass.
+- `tests/scripts/test_auto_merge_bucket_a.py` — fixture-driven guardrail tests.
 - CLI: `python3 scripts/auto_merge_bucket_a.py [--apply] [--settling-minutes N] [--only-pr N] [--json]`.
-- Architecture: subprocess-invokes `triage_open_prs.py --json`, filters Bucket A, runs independent defense-in-depth tripwire layer (protected paths, draft, mergeable, mergeStateStatus, CI red/pending, trusted author, `.github/workflows/`), honors 30-min settling window, dry-run default, writes receipt on `--apply`.
+- Architecture: subprocess-invokes `triage_open_prs.py --json`, filters Bucket A, runs independent defense-in-depth tripwire layer (protected paths, labels, draft, mergeable, mergeStateStatus, CI red/pending/non-green, trusted author, `.github/workflows/`), honors 30-min settling window, dry-run default, writes receipt on `--apply`.
 - All policy acceptance criteria from the rollout doc exercised by passing tests:
   - dry-run never mutates
   - `--apply` skips B/C/D
@@ -26,7 +26,8 @@ Ship Stage 2 of `docs/roadmap/OPERATOR_DELEGATION_ROLLOUT.md` — `scripts/auto_
 
 - PR URL: https://github.com/synaptent/aragora/pull/7292
 - Branch: `droid/P16-stage2-auto-merge-bucket-a-20260518-002325`
-- Head SHA: `70d3d78a0`
+- Initial publication head SHA: `70d3d78a0`
+- Follow-up repair note: this receipt is not merge authorization. Later commits advanced the PR head while addressing review findings; settlement must use `gh pr view 7292 --json headRefOid` and the current-head merge packet.
 - State: OPEN, draft=false, MERGEABLE, mergeState=BLOCKED (pending review)
 
 ## Bucket classification
@@ -47,7 +48,7 @@ Bucket C only because of post-ready-flip CI re-fan-out — 43 SUCCESS, 66 SKIPPE
 
 - mergeable=MERGEABLE ✓
 - draft=false ✓ (flipped this session)
-- additive only (T3: 2 new files, no existing file modified) ✓
+- initial publication was additive (2 new files); the full PR later modified existing docs/status files and repaired the new script/test files, so this line is not a current settlement proof
 - net LOC = 1043 < 1500 ✓
 - preflight ok ✓
 - no protected file touched ✓
@@ -55,7 +56,7 @@ Bucket C only because of post-ready-flip CI re-fan-out — 43 SUCCESS, 66 SKIPPE
 - no external dependency edit ✓
 - no workflow churn ✓
 - author trusted ✓
-- tests added with code ✓ (12 cases)
+- tests added with code ✓ (guardrail cases expanded during follow-up repairs)
 - pure stdlib ✓
 - CI: 43/109 SUCCESS, 0 FAILURE, 3 still PENDING at exit
 - Tier: T3 (additive code)
