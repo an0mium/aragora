@@ -959,6 +959,164 @@ class TestReceipt:
         assert "merge" in content
         assert "Classifier output sha256" in content
 
+    def test_intent_receipt_lists_planned_bucket_a_candidates(self):
+        payload = make_triage_payload(
+            bucket_a_entry(9001),
+            bucket_a_entry(9002),
+            bucket_c_entry(9003),
+        )
+        receipt_md = amba.render_intent_receipt(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            only_pr=9002,
+            now=NOW,
+        )
+
+        assert "intent receipt" in receipt_md
+        assert "before any merge attempt" in receipt_md
+        assert "#9001" not in receipt_md
+        assert "#9002" in receipt_md
+        assert "#9003" not in receipt_md
+        assert "Classifier output sha256" in receipt_md
+
+    def test_apply_main_writes_intent_receipt_before_successful_merge(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        events: list[str] = []
+
+        monkeypatch.setattr(amba, "run_triage", lambda: payload)
+        monkeypatch.setattr(
+            amba, "fetch_pr_commit_metadata", _MetadataRegistry({9001: make_metadata(9001)})
+        )
+
+        def fake_write_receipt(
+            receipt_md: str,
+            *,
+            now: datetime.datetime | None = None,
+            receipt_dir: Path | None = None,
+        ) -> Path:
+            kind = "intent" if "intent receipt" in receipt_md else "final"
+            events.append(f"write:{kind}")
+            path = tmp_path / "AUTO_MERGE_RECEIPT.md"
+            path.write_text(receipt_md, encoding="utf-8")
+            return path
+
+        def fake_merge(
+            pr_number: int,
+            head_sha: str,
+            delete_branch_on_merge: bool = False,
+            admin_squash: bool = False,
+            *,
+            runner: amba.Runner | None = None,
+        ) -> subprocess.CompletedProcess[str]:
+            events.append("merge")
+            return subprocess.CompletedProcess(
+                args=["gh", "pr", "merge", str(pr_number)],
+                returncode=0,
+                stdout="",
+                stderr="",
+            )
+
+        monkeypatch.setattr(amba, "write_receipt", fake_write_receipt)
+        monkeypatch.setattr(amba, "gh_pr_merge_squash", fake_merge)
+
+        exit_code = amba.main(["--apply", "--only-pr", "9001", "--json"])
+
+        assert exit_code == 0
+        assert events == ["write:intent", "merge", "write:final"]
+        assert json.loads(capsys.readouterr().out)["receipt_path"].endswith("AUTO_MERGE_RECEIPT.md")
+
+    def test_apply_main_keeps_intent_receipt_when_merge_fails(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        events: list[str] = []
+
+        monkeypatch.setattr(amba, "run_triage", lambda: payload)
+        monkeypatch.setattr(
+            amba, "fetch_pr_commit_metadata", _MetadataRegistry({9001: make_metadata(9001)})
+        )
+
+        def fake_write_receipt(
+            receipt_md: str,
+            *,
+            now: datetime.datetime | None = None,
+            receipt_dir: Path | None = None,
+        ) -> Path:
+            kind = "intent" if "intent receipt" in receipt_md else "final"
+            events.append(f"write:{kind}")
+            path = tmp_path / "AUTO_MERGE_RECEIPT.md"
+            path.write_text(receipt_md, encoding="utf-8")
+            return path
+
+        def failing_merge(
+            pr_number: int,
+            head_sha: str,
+            delete_branch_on_merge: bool = False,
+            admin_squash: bool = False,
+            *,
+            runner: amba.Runner | None = None,
+        ) -> subprocess.CompletedProcess[str]:
+            events.append("merge")
+            raise RuntimeError("simulated merge-side failure")
+
+        monkeypatch.setattr(amba, "write_receipt", fake_write_receipt)
+        monkeypatch.setattr(amba, "gh_pr_merge_squash", failing_merge)
+
+        exit_code = amba.main(["--apply", "--only-pr", "9001", "--json"])
+
+        assert exit_code == 1
+        assert events == ["write:intent", "merge", "write:final"]
+        output = json.loads(capsys.readouterr().out)
+        assert output["decisions"][0]["decision"] == "merge-failed"
+
+    def test_apply_main_stops_before_merge_when_intent_receipt_cannot_be_written(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        events: list[str] = []
+
+        monkeypatch.setattr(amba, "run_triage", lambda: payload)
+
+        def failing_write_receipt(
+            receipt_md: str,
+            *,
+            now: datetime.datetime | None = None,
+            receipt_dir: Path | None = None,
+        ) -> Path:
+            events.append("write")
+            raise OSError("disk full")
+
+        def fake_merge(
+            pr_number: int,
+            head_sha: str,
+            delete_branch_on_merge: bool = False,
+            admin_squash: bool = False,
+            *,
+            runner: amba.Runner | None = None,
+        ) -> subprocess.CompletedProcess[str]:
+            events.append("merge")
+            return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(amba, "write_receipt", failing_write_receipt)
+        monkeypatch.setattr(amba, "gh_pr_merge_squash", fake_merge)
+
+        exit_code = amba.main(["--apply", "--only-pr", "9001"])
+
+        assert exit_code == 2
+        assert events == ["write"]
+        assert "could not write pre-merge receipt" in capsys.readouterr().err
+
     def test_classifier_sha256_changes_when_results_change(self):
         a = make_triage_payload(bucket_a_entry(9001))
         b = make_triage_payload(bucket_a_entry(9001), bucket_c_entry(9002))

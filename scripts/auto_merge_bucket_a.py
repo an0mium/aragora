@@ -726,6 +726,65 @@ def render_receipt(
     return "\n".join(lines)
 
 
+def render_intent_receipt(
+    triage_payload: dict[str, Any],
+    *,
+    apply: bool,
+    settling_minutes: int,
+    only_pr: int | None = None,
+    now: datetime.datetime | None = None,
+) -> str:
+    """Render the durable pre-mutation audit record for an apply run."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    lines: list[str] = []
+    lines.append("# Auto-merge Bucket A intent receipt")
+    lines.append("")
+    lines.append(f"- Generated: `{now.strftime('%Y-%m-%dT%H:%M:%SZ')}`")
+    lines.append(f"- Mode: `{'apply' if apply else 'dry-run'}`")
+    lines.append(f"- Settling window: `{settling_minutes} min`")
+    lines.append(f"- Policy version: `{_policy_version()}`")
+    lines.append(f"- Classifier output sha256: `{_classifier_sha256(triage_payload)}`")
+    if only_pr is not None:
+        lines.append(f"- Only PR: `#{only_pr}`")
+    lines.append("")
+    lines.append(
+        "This intent receipt is written before any merge attempt so an interrupted "
+        "apply run still leaves durable audit evidence."
+    )
+    lines.append("")
+    lines.append("## Planned Bucket A candidates")
+    lines.append("")
+
+    candidates: list[dict[str, Any]] = []
+    for entry in triage_payload.get("results") or []:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("bucket") or "") != BUCKET_A:
+            continue
+        try:
+            pr_number = int(entry.get("pr_number") or 0)
+        except (TypeError, ValueError):
+            pr_number = 0
+        if only_pr is not None and pr_number != only_pr:
+            continue
+        candidates.append(entry)
+
+    if not candidates:
+        lines.append("No matching Bucket A PRs were present in the classifier output.")
+        lines.append("")
+        return "\n".join(lines)
+
+    lines.append("| PR | Title | Classifier reason |")
+    lines.append("|---|---|---|")
+    for entry in candidates:
+        pr_number = int(entry.get("pr_number") or 0)
+        title = str(entry.get("title") or "")
+        reason = str(entry.get("reason") or "")
+        lines.append(f"| #{pr_number} | {title} | {reason} |")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def write_receipt(
     receipt_md: str,
     *,
@@ -826,6 +885,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
+    run_started_at = datetime.datetime.now(datetime.timezone.utc)
+    receipt_path: Path | None = None
+    if args.apply:
+        receipt_md = render_intent_receipt(
+            triage_payload,
+            apply=True,
+            settling_minutes=args.settling_minutes,
+            only_pr=args.only_pr,
+            now=run_started_at,
+        )
+        try:
+            receipt_path = write_receipt(receipt_md, now=run_started_at)
+        except OSError as exc:
+            print(f"error: could not write pre-merge receipt: {exc}", file=sys.stderr)
+            return 2
+
     decisions, tripwire_exit = decide(
         triage_payload,
         apply=args.apply,
@@ -834,15 +909,19 @@ def main(argv: list[str] | None = None) -> int:
         delete_branch_on_merge=args.delete_branch_on_merge,
     )
 
-    receipt_path: Path | None = None
     if args.apply:
         receipt_md = render_receipt(
             decisions,
             triage_payload=triage_payload,
             apply=True,
             settling_minutes=args.settling_minutes,
+            now=run_started_at,
         )
-        receipt_path = write_receipt(receipt_md)
+        try:
+            receipt_path = write_receipt(receipt_md, now=run_started_at)
+        except OSError as exc:
+            print(f"error: could not write final receipt: {exc}", file=sys.stderr)
+            return 2
 
     if args.json:
         print(
