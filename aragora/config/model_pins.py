@@ -60,6 +60,21 @@ MISTRAL_LARGE_VIA_OPENROUTER: Final = "mistralai/mistral-large"
 
 
 # -----------------------------------------------------------------------------
+# Canonical-metrics + legacy underscored aliases
+# -----------------------------------------------------------------------------
+#
+# ``docs/status/claims/canonical_metrics.yaml`` and
+# ``scripts/check_canonical_metrics.py`` look for the underscored
+# frontier names (``OPUS_4_7``, ``GPT_5_4``, ``GEMINI_3_1_PRO``).
+# These map to the same direct-provider IDs as the ``*_DIRECT``
+# constants above; expose them at module scope so the security
+# canonical-metrics gate can see that the frontier floor is honored.
+OPUS_4_7: Final = OPUS_47_DIRECT
+GPT_5_4: Final = GPT55_DIRECT
+GEMINI_3_1_PRO: Final = GEMINI_31_PRO_DIRECT
+
+
+# -----------------------------------------------------------------------------
 # Frontier bundle per debate role
 # -----------------------------------------------------------------------------
 
@@ -241,6 +256,9 @@ __all__ = [
     "GROK_4_VIA_OPENROUTER",
     "MISTRAL_LARGE_DIRECT",
     "MISTRAL_LARGE_VIA_OPENROUTER",
+    "OPUS_4_7",
+    "GPT_5_4",
+    "GEMINI_3_1_PRO",
     "Role",
     "route_through_openrouter",
     "frontier_model_for_role",
