@@ -36,7 +36,6 @@ CONNECTIVITY_ERROR_TOKENS = (
     "connection timed out",
     "connection refused",
     "connection reset by peer",
-    "dial tcp",
     "command timed out after",
     "context deadline exceeded",
     "i/o timeout",
