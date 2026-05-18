@@ -55,7 +55,7 @@ experimental = [
     "playwright>=1.59.0,<2.0",
 ]
 dev = [
-    "mypy>=1.20.2,<2.0",
+    "mypy>=2.1.0,<3.0",
     "types-PyYAML>=6.0.12.20260510,<7.0",
     "types-croniter>=6.2.2.20260508,<7.0",
     "bandit>=1.9.4,<2.0",
