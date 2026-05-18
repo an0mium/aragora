@@ -28,6 +28,35 @@ def test_score_prefers_current_non_draft_pr_with_tests() -> None:
     assert 0.0 <= score.total <= 1.0
 
 
+def test_branch_only_has_less_owner_clarity_than_real_owner() -> None:
+    branch_only = WorkItem(
+        id="pr:1",
+        source="github_pr",
+        item_type="pull_request",
+        title="fix(queue): repair proof health",
+        status="open",
+        branch="codex/fix",
+    )
+    owned = WorkItem(
+        id="pr:2",
+        source="github_pr",
+        item_type="pull_request",
+        title="fix(queue): repair proof health",
+        status="open",
+        branch="codex/fix",
+        owner="codex-owner",
+    )
+
+    branch_score = score_work_item(branch_only)
+    owner_score = score_work_item(owned)
+
+    assert branch_score.owner_clarity == 0.62
+    assert owner_score.owner_clarity == 0.9
+    assert owner_score.owner_clarity > branch_score.owner_clarity
+    assert "branch is explicit but owner is unknown" in branch_score.rationale
+    assert "owner is explicit" in owner_score.rationale
+
+
 def test_score_penalizes_stale_terminal_bead() -> None:
     item = WorkItem(
         id="bead:old",

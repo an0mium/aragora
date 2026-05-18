@@ -444,3 +444,30 @@ def test_inspect_blocks_active_session_and_history_lookup_failure(
     assert inspection.active_session is True
     assert inspection.ahead_lookup_failed is True
     assert inspection.blockers == ["active_session", "ahead_lookup_failed"]
+
+
+def test_worktree_is_not_dirty_for_empty_nested_wrapper(tmp_path: Path) -> None:
+    import safe_worktree_cleanup as mod
+
+    wrapper = tmp_path / "wrapper"
+    nested = wrapper / ".worktrees" / "preflight-preflight-20260418-184346"
+    nested.mkdir(parents=True)
+    (nested / ".claude-session-anchor").write_text("")
+    second_nested = wrapper / ".worktrees" / "preflight-preflight-20260418-201113"
+    second_nested.mkdir(parents=True)
+    (second_nested / ".claude-session-anchor").write_text("")
+
+    assert mod._is_empty_nested_wrapper(wrapper) is True
+    assert mod._worktree_is_dirty(wrapper) is False
+
+
+def test_worktree_is_dirty_when_wrapper_has_real_files(tmp_path: Path) -> None:
+    import safe_worktree_cleanup as mod
+
+    wrapper = tmp_path / "wrapper"
+    nested = wrapper / ".worktrees" / "preflight-preflight-20260418-184346"
+    nested.mkdir(parents=True)
+    (nested / ".claude-session-anchor").write_text("")
+    (wrapper / "real_file.py").write_text("print('hello')")
+
+    assert mod._is_empty_nested_wrapper(wrapper) is False

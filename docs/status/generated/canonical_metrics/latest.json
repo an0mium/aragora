@@ -3,40 +3,88 @@
   "results": [
     {
       "claim_id": "canonical.km_adapters.count",
-      "claimed": "42",
-      "message": "docs claim 42 adapters but live count is 45 \u2014 drift of 3. Update CANONICAL_GOALS.md or fix adapter registration.",
-      "observed": "45",
-      "status": "fail",
+      "claimed": "46",
+      "message": "docs claim 46 adapters; live count is 46",
+      "observed": "46",
+      "status": "pass",
       "tolerance": "+/-2"
     },
     {
       "claim_id": "canonical.python_modules.count",
-      "claimed": "3800+",
-      "message": "docs claim 3800+ modules; live count is 3989 \u2014 within tolerance",
-      "observed": "3989",
+      "claimed": "135+",
+      "message": "docs claim 135+ modules; live count is 4146 \u2014 within tolerance",
+      "observed": "4146",
       "status": "pass",
       "tolerance": "+/-20%"
     },
     {
       "claim_id": "canonical.test_definitions.count",
-      "claimed": "210000+",
-      "message": "docs claim 210000+ tests; live count is 155944. Refresh CANONICAL_GOALS.md when drift exceeds 20%.",
-      "observed": "155944",
+      "claimed": "216016+",
+      "message": "docs claim 216016+ tests; live count is 159561. Refresh CANONICAL_GOALS.md when drift exceeds 20%.",
+      "observed": "159561",
       "status": "warn",
       "tolerance": "+/-20%"
     },
     {
       "claim_id": "canonical.version.matches_pyproject",
-      "claimed": "2.8.0",
-      "message": "docs and pyproject.toml both report version 2.8.0",
-      "observed": "2.8.0",
+      "claimed": "2.9.0",
+      "message": "docs and pyproject.toml both report version 2.9.0",
+      "observed": "2.9.0",
+      "status": "pass",
+      "tolerance": "exact"
+    },
+    {
+      "claim_id": "security.gitleaks.dual_stage",
+      "claimed": "gitleaks at [pre-commit, pre-push]",
+      "message": "gitleaks runs at both pre-commit and pre-push \u2014 bypass via --no-verify is caught at push time.",
+      "observed": "gitleaks block declares both stages",
+      "status": "pass",
+      "tolerance": "exact"
+    },
+    {
+      "claim_id": "security.model_pins.frontier_aligned",
+      "claimed": "OPUS_4_7, GPT_5_4, GEMINI_3_1_PRO exported",
+      "message": "model_pins registry exports the three canonical frontier IDs.",
+      "observed": "all three frontier constants present",
+      "status": "pass",
+      "tolerance": "exact"
+    },
+    {
+      "claim_id": "security.incident_log.present",
+      "claimed": "incident log + rotation schedule present",
+      "message": "2026-04-07 incident write-up and 90-day rotation schedule are intact.",
+      "observed": "both files present",
+      "status": "pass",
+      "tolerance": "exact"
+    },
+    {
+      "claim_id": "security.openrouter_fallback.wired",
+      "claimed": "QuotaFallbackMixin on anthropic/openai/gemini agents",
+      "message": "OpenRouter universal fallback is wired on all three frontier providers.",
+      "observed": "all three frontier-provider agents inherit QuotaFallbackMixin",
+      "status": "pass",
+      "tolerance": "exact"
+    },
+    {
+      "claim_id": "proof_carrying.crux_detector.wired",
+      "claimed": "CruxDetector + CruxClaim importable with detect_cruxes()",
+      "message": "Crux Engine substrate is wired \u2014 CruxDetector.detect_cruxes and CruxClaim dataclass both exist.",
+      "observed": "all three symbols present",
+      "status": "pass",
+      "tolerance": "exact"
+    },
+    {
+      "claim_id": "proof_carrying.belief_network.wired",
+      "claimed": "BeliefNetwork, BeliefNode, BeliefStatus importable",
+      "message": "Provenance substrate is wired \u2014 belief.py exports the three claim-graph primitives.",
+      "observed": "all three symbols present",
       "status": "pass",
       "tolerance": "exact"
     }
   ],
   "summary": {
-    "fail": 1,
-    "pass": 2,
+    "fail": 0,
+    "pass": 9,
     "warn": 1
   }
 }

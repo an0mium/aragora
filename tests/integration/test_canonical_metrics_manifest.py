@@ -100,11 +100,32 @@ class TestCheckScriptRunsEndToEnd:
         assert "summary" in payload
         assert len(payload["results"]) >= 1
 
+    def test_json_flag_all_claims_produces_receipt_schema(self) -> None:
+        rc, payload = _run_check("--all", "--json")
+        assert rc in {0, 1}
+        assert payload["manifest_id"] == "canonical_metrics"
+        assert set(payload) == {"manifest_id", "results", "summary"}
+        assert payload["summary"]["pass"] + payload["summary"]["warn"] + payload["summary"][
+            "fail"
+        ] == len(payload["results"])
+
     def test_single_claim_mode_isolates_one_result(self) -> None:
         rc, payload = _run_check("--claim", "canonical.version.matches_pyproject")
         assert rc in {0, 1}
         assert len(payload["results"]) == 1
         assert payload["results"][0]["claim_id"] == "canonical.version.matches_pyproject"
+
+    def test_json_flag_single_claim_isolates_one_result(self) -> None:
+        rc, payload = _run_check("--claim", "canonical.version.matches_pyproject", "--json")
+        assert rc in {0, 1}
+        assert payload["manifest_id"] == "canonical_metrics"
+        assert len(payload["results"]) == 1
+        assert payload["results"][0]["claim_id"] == "canonical.version.matches_pyproject"
+
+    def test_json_flag_does_not_replace_claim_or_all(self) -> None:
+        rc, payload = _run_check("--json")
+        assert rc == 2
+        assert payload == {}
 
     def test_unknown_claim_returns_usage_error(self) -> None:
         rc, payload = _run_check("--claim", "not_a_real_claim")

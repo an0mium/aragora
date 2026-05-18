@@ -132,8 +132,36 @@ def _lookup_open_prs(repo_root: Path, branch: str | None) -> tuple[list[dict[str
     return payload, False
 
 
+_WRAPPER_SENTINEL_FILENAMES = frozenset(
+    {
+        ".claude-session-anchor",
+        ".codex-session-anchor",
+        ".codex-session",
+        ".droid-session-anchor",
+        ".session-anchor",
+    }
+)
+
+
+def _is_empty_nested_wrapper(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    nested_wrapper = path / ".worktrees"
+    if not nested_wrapper.is_dir():
+        return False
+    try:
+        for entry in path.rglob("*"):
+            if entry.is_file() and entry.name not in _WRAPPER_SENTINEL_FILENAMES:
+                return False
+    except OSError:
+        return False
+    return True
+
+
 def _worktree_is_dirty(path: Path) -> bool:
     if not path.exists():
+        return False
+    if _is_empty_nested_wrapper(path):
         return False
     try:
         proc = subprocess.run(
