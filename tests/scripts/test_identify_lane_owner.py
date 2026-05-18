@@ -179,6 +179,59 @@ class TestLookupLiveProcess:
         assert r["found"] is False
         assert "no process_census entry matched" in r["reason"]
 
+    def test_multiple_families_same_worktree_uses_lane_source(self) -> None:
+        lane = {"source": "claude", "worktree": "/private/tmp/shared-wt"}
+        snap = fake_snapshot(
+            {
+                "codex_cli": [{"pid": 11111, "cwd": "/private/tmp/shared-wt"}],
+                "claude_code": [{"pid": 22222, "cwd": "/private/tmp/shared-wt"}],
+            }
+        )
+        r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
+        assert r["found"] is True
+        assert r["pid"] == 22222
+        assert r["family"] == "claude_code"
+        assert "disambiguated" in r["matched_via"]
+
+    def test_multiple_families_same_worktree_uses_owner_session_family(self) -> None:
+        lane = {"owner_session": "droid-ABC12345", "worktree": "/private/tmp/shared-wt"}
+        snap = fake_snapshot(
+            {
+                "codex_cli": [{"pid": 11111, "cwd": "/private/tmp/shared-wt"}],
+                "factory_droid": [{"pid": 33333, "cwd": "/private/tmp/shared-wt"}],
+            }
+        )
+        r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
+        assert r["found"] is True
+        assert r["pid"] == 33333
+        assert r["family"] == "factory_droid"
+
+    def test_multiple_families_same_worktree_without_hint_fails_closed(self) -> None:
+        lane = {"worktree": "/private/tmp/shared-wt"}
+        snap = fake_snapshot(
+            {
+                "codex_cli": [{"pid": 11111, "cwd": "/private/tmp/shared-wt"}],
+                "claude_code": [{"pid": 22222, "cwd": "/private/tmp/shared-wt"}],
+            }
+        )
+        r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
+        assert r["found"] is False
+        assert "ambiguous_same_worktree" in r["reason"]
+        assert [m["family"] for m in r["matches"]] == ["claude_code", "codex_cli"]
+
+    def test_multiple_hinted_matches_same_worktree_fails_closed(self) -> None:
+        lane = {"source": "codex", "worktree": "/private/tmp/shared-wt"}
+        snap = fake_snapshot(
+            {
+                "codex_app_server": [{"pid": 44444, "cwd": "/private/tmp/shared-wt"}],
+                "codex_cli": [{"pid": 11111, "cwd": "/private/tmp/shared-wt"}],
+            }
+        )
+        r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
+        assert r["found"] is False
+        assert "ambiguous_same_worktree" in r["reason"]
+        assert "still matched 2 entries" in r["reason"]
+
 
 # ---------------------------------------------------------------------------
 # lookup_codex_thread

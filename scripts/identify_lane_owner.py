@@ -190,6 +190,46 @@ def _default_snapshot_provider() -> dict[str, Any] | None:
     return out if isinstance(out, dict) else None
 
 
+_SOURCE_ROLE_MAP: dict[str, tuple[str, ...]] = {
+    "claude": ("claude_code",),
+    "claude_code": ("claude_code",),
+    "codex": ("codex_cli", "codex_app_server"),
+    "codex_cli": ("codex_cli",),
+    "codex_app": ("codex_app_server",),
+    "codex_app_server": ("codex_app_server",),
+    "droid": ("factory_droid",),
+    "factory": ("factory_droid",),
+    "factory_droid": ("factory_droid",),
+}
+
+
+def _family_hints_for_lane(lane: dict[str, Any]) -> tuple[str, ...]:
+    """Return live-process role hints implied by lane metadata."""
+
+    hints: list[str] = []
+    for raw in (
+        lane.get("source"),
+        lane.get("owner_session"),
+        lane.get("lane_id"),
+        lane.get("branch"),
+    ):
+        text = str(raw or "").lower()
+        if not text:
+            continue
+        for token, roles in _SOURCE_ROLE_MAP.items():
+            if token in text:
+                for role in roles:
+                    if role not in hints:
+                        hints.append(role)
+    return tuple(hints)
+
+
+def _process_match_payload(role: str, item: dict[str, Any]) -> dict[str, Any]:
+    """Safe metadata for a live process matched by cwd."""
+
+    return {"pid": item.get("pid"), "family": role, "cwd": item.get("cwd") or ""}
+
+
 def lookup_live_process(
     lane: dict[str, Any],
     *,
@@ -211,6 +251,7 @@ def lookup_live_process(
     if not isinstance(by_role, dict):
         return {"found": False, "reason": "operator-snapshot has no process_census.by_role"}
 
+    matches: list[dict[str, Any]] = []
     for role, items in by_role.items():
         if not isinstance(items, list):
             continue
@@ -219,13 +260,49 @@ def lookup_live_process(
                 continue
             cwd = it.get("cwd") or ""
             if cwd and os.path.normpath(cwd) == target_norm:
-                return {
-                    "found": True,
-                    "pid": it.get("pid"),
-                    "family": role,
-                    "cwd": cwd,
-                    "matched_via": "lane.worktree ↔ process_census.cwd (exact)",
-                }
+                matches.append(_process_match_payload(str(role), it))
+    if len(matches) == 1:
+        match = matches[0]
+        return {
+            "found": True,
+            "pid": match.get("pid"),
+            "family": match.get("family"),
+            "cwd": match.get("cwd"),
+            "matched_via": "lane.worktree ↔ process_census.cwd (exact)",
+        }
+    if len(matches) > 1:
+        matches.sort(key=lambda m: (str(m.get("family") or ""), str(m.get("pid") or "")))
+        family_hints = _family_hints_for_lane(lane)
+        hinted = [m for m in matches if m.get("family") in family_hints]
+        if len(hinted) == 1:
+            match = hinted[0]
+            return {
+                "found": True,
+                "pid": match.get("pid"),
+                "family": match.get("family"),
+                "cwd": match.get("cwd"),
+                "matched_via": (
+                    "lane.worktree ↔ process_census.cwd (exact; "
+                    "disambiguated by lane family metadata)"
+                ),
+            }
+        if hinted:
+            reason = (
+                "ambiguous_same_worktree: multiple process_census entries matched "
+                f"{target_norm}; lane family hints {list(family_hints)} still matched "
+                f"{len(hinted)} entries"
+            )
+        elif family_hints:
+            reason = (
+                "ambiguous_same_worktree: multiple process_census entries matched "
+                f"{target_norm}; none matched lane family hints {list(family_hints)}"
+            )
+        else:
+            reason = (
+                "ambiguous_same_worktree: multiple process_census entries matched "
+                f"{target_norm}; no lane family metadata available to disambiguate"
+            )
+        return {"found": False, "reason": reason, "matches": matches}
     return {
         "found": False,
         "reason": f"no process_census entry matched worktree {target_norm}",
