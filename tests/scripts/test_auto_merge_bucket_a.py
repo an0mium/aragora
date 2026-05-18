@@ -1,0 +1,428 @@
+"""Tests for ``scripts/auto_merge_bucket_a.py``.
+
+Fixture-driven; never invokes real ``gh`` or merges any PR. Every
+test constructs a synthetic Stage 1 classifier payload plus per-PR
+metadata payloads and asserts that the decisions match the policy.
+
+Coverage:
+  - dry-run never mutates (no merge calls captured)
+  - --apply merges only Bucket A; never B/C/D
+  - defense-in-depth tripwire on protected paths aborts and exits
+    non-zero overall
+  - defense-in-depth tripwire on CI-pending aborts (independent of
+    Stage 1)
+  - settling window skips young PRs
+  - --only-pr filters correctly
+  - receipt is written on apply runs, with sha256 of classifier output
+  - --json emits valid JSON with the same decisions
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import datetime
+import importlib.util
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+
+def _load_module() -> Any:
+    here = Path(__file__).resolve()
+    script_path = here.parents[2] / "scripts" / "auto_merge_bucket_a.py"
+    spec = importlib.util.spec_from_file_location("auto_merge_bucket_a_under_test", script_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"could not load spec for {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+amba = _load_module()
+
+
+NOW = datetime.datetime(2026, 5, 18, 1, 0, 0, tzinfo=datetime.timezone.utc)
+
+
+def _ago(*, minutes: int = 0, hours: int = 0) -> str:
+    delta = datetime.timedelta(minutes=minutes, hours=hours)
+    return (NOW - delta).isoformat().replace("+00:00", "Z")
+
+
+def make_triage_payload(*entries: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "summary": {"A": sum(1 for e in entries if e["bucket"] == "A")},
+        "results": list(entries),
+    }
+
+
+def bucket_a_entry(pr_number: int, title: str = "feat: tiny safe PR") -> dict[str, Any]:
+    return {
+        "pr_number": pr_number,
+        "title": title,
+        "bucket": "A",
+        "reason": "all gates clean",
+        "recommended_action": "MERGE",
+    }
+
+
+def bucket_c_entry(pr_number: int, title: str = "docs: needs review") -> dict[str, Any]:
+    return {
+        "pr_number": pr_number,
+        "title": title,
+        "bucket": "C",
+        "reason": "draft",
+        "recommended_action": "READY?",
+    }
+
+
+def make_metadata(
+    pr_number: int,
+    *,
+    last_commit_minutes_ago: int = 999,
+    is_draft: bool = False,
+    mergeable: str = "MERGEABLE",
+    merge_state: str = "CLEAN",
+    files: list[dict[str, Any]] | None = None,
+    ci: list[dict[str, Any]] | None = None,
+    labels: list[dict[str, Any]] | None = None,
+    author: str = "an0mium",
+    head_sha: str | None = None,
+    title: str = "feat: tiny safe PR",
+) -> dict[str, Any]:
+    if head_sha is None:
+        head_sha = f"{pr_number:040x}"[-40:]
+    if files is None:
+        files = [
+            {"path": "scripts/some_helper.py", "additions": 10, "deletions": 0},
+            {
+                "path": "tests/scripts/test_some_helper.py",
+                "additions": 10,
+                "deletions": 0,
+            },
+        ]
+    if ci is None:
+        ci = [
+            {
+                "name": "lint",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+            },
+            {
+                "name": "tests",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+            },
+        ]
+    return {
+        "number": pr_number,
+        "title": title,
+        "author": {"login": author},
+        "isDraft": is_draft,
+        "mergeable": mergeable,
+        "mergeStateStatus": merge_state,
+        "labels": labels or [],
+        "files": files,
+        "commits": [
+            {"committedDate": _ago(minutes=last_commit_minutes_ago)},
+        ],
+        "statusCheckRollup": ci,
+        "headRefOid": head_sha,
+    }
+
+
+class _MetadataRegistry:
+    """Map pr_number → metadata dict, with a callable interface."""
+
+    def __init__(self, entries: dict[int, dict[str, Any]]):
+        self._entries = entries
+
+    def __call__(self, pr_number: int) -> dict[str, Any]:
+        return self._entries[pr_number]
+
+
+class _MergeRecorder:
+    """Captures merge attempts. Raises if expected_failures[n] is set."""
+
+    def __init__(self, expected_failures: set[int] | None = None):
+        self.calls: list[int] = []
+        self._failures = expected_failures or set()
+
+    def __call__(self, pr_number: int) -> subprocess.CompletedProcess[str]:
+        self.calls.append(pr_number)
+        if pr_number in self._failures:
+            raise RuntimeError(f"simulated merge failure on #{pr_number}")
+        return subprocess.CompletedProcess(
+            args=["gh", "pr", "merge", str(pr_number)], returncode=0, stdout="", stderr=""
+        )
+
+
+# ---------------------------------------------------------------------------
+# Core behaviour
+# ---------------------------------------------------------------------------
+
+
+class TestDecide:
+    def test_dry_run_never_mutates(self):
+        payload = make_triage_payload(bucket_a_entry(9001), bucket_c_entry(9002))
+        meta = _MetadataRegistry({9001: make_metadata(9001)})
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=False,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+        assert recorder.calls == []
+        assert exit_code == 0
+        merge_d = [d for d in decisions if d.decision == "merge"]
+        skip_d = [d for d in decisions if d.decision == "skip-non-bucket-a"]
+        assert [d.pr_number for d in merge_d] == [9001]
+        assert all(d.applied is False for d in merge_d)
+        assert [d.pr_number for d in skip_d] == [9002]
+
+    def test_apply_skips_b_c_d_buckets(self):
+        payload = make_triage_payload(
+            bucket_a_entry(9001),
+            bucket_c_entry(9002),
+            {"pr_number": 9003, "title": "stale", "bucket": "B", "reason": "stale"},
+            {"pr_number": 9004, "title": "strategic", "bucket": "D", "reason": "future"},
+        )
+        meta = _MetadataRegistry({9001: make_metadata(9001)})
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+        assert recorder.calls == [9001]
+        assert exit_code == 0
+        merged = [d for d in decisions if d.decision == "merge" and d.applied]
+        assert [d.pr_number for d in merged] == [9001]
+        skipped_non_a = sorted(d.pr_number for d in decisions if d.decision == "skip-non-bucket-a")
+        assert skipped_non_a == [9002, 9003, 9004]
+
+    def test_settling_window_skips_young_pr(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001, last_commit_minutes_ago=5)})
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+        assert recorder.calls == []
+        assert exit_code == 0
+        assert len(decisions) == 1
+        assert decisions[0].decision == "skip-settling"
+        assert "settling window" in decisions[0].reason
+
+    def test_only_pr_filter(self):
+        payload = make_triage_payload(bucket_a_entry(9001), bucket_a_entry(9002))
+        meta = _MetadataRegistry({9001: make_metadata(9001), 9002: make_metadata(9002)})
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            only_pr=9002,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+        assert recorder.calls == [9002]
+        assert exit_code == 0
+        assert len(decisions) == 1
+        assert decisions[0].pr_number == 9002
+
+
+# ---------------------------------------------------------------------------
+# Defense-in-depth tripwires
+# ---------------------------------------------------------------------------
+
+
+class TestDefenseInDepth:
+    def test_protected_path_tripwire_forces_nonzero_exit(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry(
+            {
+                9001: make_metadata(
+                    9001,
+                    files=[
+                        {"path": "scripts/nomic_loop.py", "additions": 1},
+                        {"path": "tests/x.py", "additions": 1},
+                    ],
+                )
+            }
+        )
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert "protected path" in decisions[0].reason
+
+    def test_workflow_path_tripwire(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry(
+            {
+                9001: make_metadata(
+                    9001,
+                    files=[{"path": ".github/workflows/ci.yml", "additions": 1}],
+                )
+            }
+        )
+        recorder = _MergeRecorder()
+        _, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+        assert exit_code == 1
+        assert recorder.calls == []
+
+    def test_ci_pending_caught_by_defense_in_depth(self):
+        # Classifier said A but metadata shows a pending check —
+        # defense in depth must catch the race.
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry(
+            {
+                9001: make_metadata(
+                    9001,
+                    ci=[
+                        {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                        {"name": "slow", "status": "IN_PROGRESS", "conclusion": None},
+                    ],
+                )
+            }
+        )
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert "CI pending" in decisions[0].reason
+
+    def test_draft_state_caught(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001, is_draft=True)})
+        recorder = _MergeRecorder()
+        _, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+        assert exit_code == 1
+        assert recorder.calls == []
+
+    def test_non_trusted_author_caught(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001, author="some-other-author")})
+        recorder = _MergeRecorder()
+        _, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+        assert exit_code == 1
+        assert recorder.calls == []
+
+
+# ---------------------------------------------------------------------------
+# Receipt
+# ---------------------------------------------------------------------------
+
+
+class TestReceipt:
+    def test_receipt_is_written_on_apply(self, tmp_path: Path):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001)})
+        recorder = _MergeRecorder()
+        decisions, _ = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+        receipt_md = amba.render_receipt(
+            decisions,
+            triage_payload=payload,
+            apply=True,
+            settling_minutes=30,
+            now=NOW,
+        )
+        path = amba.write_receipt(receipt_md, now=NOW, receipt_dir=tmp_path)
+        assert path.exists()
+        content = path.read_text(encoding="utf-8")
+        assert "#9001" in content
+        assert "merge" in content
+        assert "Classifier output sha256" in content
+
+    def test_classifier_sha256_changes_when_results_change(self):
+        a = make_triage_payload(bucket_a_entry(9001))
+        b = make_triage_payload(bucket_a_entry(9001), bucket_c_entry(9002))
+        assert amba._classifier_sha256(a) != amba._classifier_sha256(b)
+
+    def test_json_output_round_trip(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001)})
+        recorder = _MergeRecorder()
+        decisions, _ = amba.decide(
+            payload,
+            apply=False,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+        out = amba.emit_json(
+            decisions,
+            triage_payload=payload,
+            apply=False,
+            settling_minutes=30,
+            receipt_path=None,
+        )
+        parsed = json.loads(out)
+        assert parsed["mode"] == "dry-run"
+        assert parsed["settling_minutes"] == 30
+        assert parsed["receipt_path"] is None
+        assert len(parsed["decisions"]) == 1
+        assert parsed["decisions"][0]["pr_number"] == 9001
