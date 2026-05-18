@@ -6,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 import scripts.reconcile_automation_outbox as mod
 
 
@@ -518,6 +520,61 @@ def test_reconcile_existing_receipt_uses_structured_requested_action_branch(
     assert payload["counts"]["satisfied_by_existing_receipt"] == 1
     assert payload["counts"]["skipped_unparseable"] == 0
     assert payload["actions"][0]["branch"] == "codex/structured-action"
+
+
+@pytest.mark.parametrize(
+    ("status", "reason", "issue_key"),
+    [
+        ("already_satisfied", "existing_issue", "existing_issue_url"),
+        ("published", "published", "created_issue_url"),
+    ],
+)
+def test_reconcile_keeps_pr_handoff_with_issue_only_receipt(
+    tmp_path: Path,
+    capsys: Any,
+    status: str,
+    reason: str,
+    issue_key: str,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-issue-only-receipt-abc123"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/issue-only-receipt",
+        key=key,
+    )
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    payload["requested_action"] = {
+        "type": "open_or_update_pr",
+        "base": "main",
+        "branch": "codex/issue-only-receipt",
+        "desired_head_sha": "abcdef1234567890abcdef1234567890abcdef12",
+    }
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": status,
+                "reason": reason,
+                issue_key: "https://github.com/synaptent/aragora/issues/7320",
+                "existing_pr_url": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["blocked_receipt_issue_only"] == 1
+    assert result["counts"]["satisfied_by_existing_receipt"] == 0
+    assert result["counts"]["still_protecting_active_work"] == 1
+    assert result["actions"][0]["decision"] == "keep"
+    assert "issue-only receipt" in result["actions"][0]["reason"]
+    assert handoff.exists()
 
 
 def test_reconcile_keeps_target_pr_receipt_when_desired_head_not_published(
