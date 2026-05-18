@@ -168,6 +168,35 @@ class _MergeRecorder:
         )
 
 
+def make_merge_packet(
+    pr_number: int,
+    *,
+    head_sha: str,
+    admin_squash_allowed: bool = True,
+    not_ready: list[int] | None = None,
+) -> dict[str, Any]:
+    return {
+        "entries": [
+            {
+                "pr_number": pr_number,
+                "head_sha": head_sha,
+                "admin_squash_allowed": admin_squash_allowed,
+            }
+        ],
+        "not_ready": [] if not_ready is None else not_ready,
+    }
+
+
+class _MergePacketRegistry:
+    def __init__(self, entries: dict[int, dict[str, Any]]):
+        self._entries = entries
+        self.calls: list[int] = []
+
+    def __call__(self, pr_number: int) -> dict[str, Any]:
+        self.calls.append(pr_number)
+        return self._entries[pr_number]
+
+
 # ---------------------------------------------------------------------------
 # Core behaviour
 # ---------------------------------------------------------------------------
@@ -356,9 +385,9 @@ class TestDecide:
 class TestDefenseInDepth:
     @pytest.mark.parametrize(
         "merge_state",
-        ["UNSTABLE", "HAS_HOOKS", "BLOCKED", "BEHIND", "DIRTY", "DRAFT", "UNKNOWN", ""],
+        ["UNSTABLE", "HAS_HOOKS", "BEHIND", "DIRTY", "DRAFT", "UNKNOWN", ""],
     )
-    def test_blocked_merge_states_are_tripwires(self, merge_state: str):
+    def test_unsafe_merge_states_are_tripwires(self, merge_state: str):
         payload = make_triage_payload(bucket_a_entry(9001))
         meta = _MetadataRegistry({9001: make_metadata(9001, merge_state=merge_state)})
         recorder = _MergeRecorder()
@@ -375,6 +404,100 @@ class TestDefenseInDepth:
         assert exit_code == 1
         assert decisions[0].decision == "skip-tripwire"
         assert "merge state not clean" in decisions[0].reason
+
+    def test_blocked_merge_state_requires_merge_packet(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001, merge_state="BLOCKED")})
+        recorder = _MergeRecorder()
+
+        def missing_packet(_pr_number: int) -> dict[str, Any]:
+            raise RuntimeError("simulated packet failure")
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merge_packet_provider=missing_packet,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert "merge-packet fetch failed" in decisions[0].reason
+
+    def test_blocked_merge_state_allowed_with_exact_head_authorized_merge_packet(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        metadata = make_metadata(9001, merge_state="BLOCKED")
+        meta = _MetadataRegistry({9001: metadata})
+        packets = _MergePacketRegistry(
+            {9001: make_merge_packet(9001, head_sha=metadata["headRefOid"])}
+        )
+        recorder = _MergeRecorder()
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merge_packet_provider=packets,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert packets.calls == [9001]
+        assert recorder.calls == [9001]
+        assert exit_code == 0
+        assert decisions[0].decision == "merge"
+
+    @pytest.mark.parametrize(
+        ("packet", "reason_fragment"),
+        [
+            (
+                make_merge_packet(9001, head_sha="b" * 40),
+                "head does not match",
+            ),
+            (
+                make_merge_packet(9001, head_sha="a" * 40, admin_squash_allowed=False),
+                "admin squash is not authorized",
+            ),
+            (
+                make_merge_packet(9001, head_sha="a" * 40, not_ready=[9001]),
+                "not_ready is non-empty",
+            ),
+            (
+                make_merge_packet(9002, head_sha="a" * 40),
+                "absent from merge-packet",
+            ),
+        ],
+    )
+    def test_blocked_merge_state_rejects_non_authorized_merge_packet(
+        self,
+        packet: dict[str, Any],
+        reason_fragment: str,
+    ):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        metadata = make_metadata(9001, merge_state="BLOCKED", head_sha="a" * 40)
+        meta = _MetadataRegistry({9001: metadata})
+        packets = _MergePacketRegistry({9001: packet})
+        recorder = _MergeRecorder()
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merge_packet_provider=packets,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert reason_fragment in decisions[0].reason
 
     @pytest.mark.parametrize(
         "protected_path",

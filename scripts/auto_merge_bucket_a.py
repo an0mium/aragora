@@ -145,6 +145,29 @@ def fetch_pr_commit_metadata(pr_number: int, *, runner: Runner | None = None) ->
     return json.loads(proc.stdout or "{}")
 
 
+def fetch_merge_packet(pr_number: int, *, runner: Runner | None = None) -> dict[str, Any]:
+    """Fetch the review-queue merge-packet for one PR."""
+    runner = runner or _default_runner
+    proc = runner(
+        [
+            "python3",
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+            "--pr",
+            str(pr_number),
+            "--json",
+        ]
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"review-queue merge-packet --pr {pr_number} failed (exit {proc.returncode}): "
+            f"{(proc.stderr or proc.stdout).strip()}"
+        )
+    return json.loads(proc.stdout or "{}")
+
+
 def gh_pr_merge_squash(
     pr_number: int,
     head_sha: str,
@@ -203,7 +226,48 @@ def _is_protected_path(path: str) -> bool:
     return False
 
 
-def defense_in_depth_tripwire(metadata: dict[str, Any]) -> str | None:
+def _merge_packet_allows_blocked_state(
+    metadata: dict[str, Any],
+    *,
+    merge_packet: dict[str, Any] | None,
+) -> str | None:
+    """Return ``None`` when a BLOCKED PR is authorized for admin squash."""
+    if merge_packet is None:
+        return "merge state BLOCKED without merge-packet authorization"
+
+    pr_number = int(metadata.get("number") or 0)
+    head_sha = str(metadata.get("headRefOid") or "")
+    if not head_sha:
+        return "merge state BLOCKED without head SHA"
+
+    not_ready = merge_packet.get("not_ready")
+    if not_ready != []:
+        return "merge state BLOCKED but merge-packet not_ready is non-empty"
+
+    entries = merge_packet.get("entries") or []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            entry_pr = int(entry.get("pr_number") or 0)
+        except (TypeError, ValueError):
+            entry_pr = 0
+        if entry_pr != pr_number:
+            continue
+        if str(entry.get("head_sha") or "") != head_sha:
+            return "merge state BLOCKED but merge-packet head does not match"
+        if entry.get("admin_squash_allowed") is not True:
+            return "merge state BLOCKED but admin squash is not authorized"
+        return None
+
+    return "merge state BLOCKED but PR is absent from merge-packet"
+
+
+def defense_in_depth_tripwire(
+    metadata: dict[str, Any],
+    *,
+    merge_packet: dict[str, Any] | None = None,
+) -> str | None:
     """Re-check the dangerous gates Stage 1 already checked.
 
     Returns a tripwire reason string on hit, or ``None`` if the PR
@@ -218,10 +282,11 @@ def defense_in_depth_tripwire(metadata: dict[str, Any]) -> str | None:
         return f"not mergeable (mergeable={mergeable or '(unknown)'})"
 
     merge_state = str(metadata.get("mergeStateStatus") or "")
-    if merge_state != "CLEAN":
-        # Stage 2 stays stricter than GitHub's broader mergeable states.
-        # Review-only BLOCKED/admin-squash exceptions must be proven by the
-        # Stage 1 merge-packet gate before this script sees Bucket A.
+    if merge_state == "BLOCKED":
+        blocked_reason = _merge_packet_allows_blocked_state(metadata, merge_packet=merge_packet)
+        if blocked_reason is not None:
+            return blocked_reason
+    elif merge_state != "CLEAN":
         return f"merge state not clean (mergeStateStatus={merge_state or '(unknown)'})"
 
     author_raw = metadata.get("author") or {}
@@ -329,6 +394,7 @@ def decide(
     settling_minutes: int,
     only_pr: int | None = None,
     metadata_provider: Callable[[int], dict[str, Any]] | None = None,
+    merge_packet_provider: Callable[[int], dict[str, Any]] | None = None,
     merger: Callable[[int, str, bool], subprocess.CompletedProcess[str]] | None = None,
     delete_branch_on_merge: bool = False,
     now: datetime.datetime | None = None,
@@ -342,6 +408,7 @@ def decide(
     requirement.
     """
     metadata_provider = metadata_provider or fetch_pr_commit_metadata
+    merge_packet_provider = merge_packet_provider or fetch_merge_packet
     merger = merger or gh_pr_merge_squash
 
     decisions: list[MergeDecision] = []
@@ -401,7 +468,25 @@ def decide(
             tripwire_exit = 1
             continue
 
-        tripwire = defense_in_depth_tripwire(metadata)
+        merge_packet: dict[str, Any] | None = None
+        if str(metadata.get("mergeStateStatus") or "") == "BLOCKED":
+            try:
+                merge_packet = merge_packet_provider(pr_number)
+            except Exception as exc:
+                decisions.append(
+                    MergeDecision(
+                        pr_number=pr_number,
+                        title=title,
+                        decision="skip-tripwire",
+                        reason=f"merge-packet fetch failed: {exc}",
+                        head_sha=head_sha or None,
+                        applied=False,
+                    )
+                )
+                tripwire_exit = 1
+                continue
+
+        tripwire = defense_in_depth_tripwire(metadata, merge_packet=merge_packet)
         if tripwire is not None:
             decisions.append(
                 MergeDecision(
