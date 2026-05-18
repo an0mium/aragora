@@ -30,6 +30,9 @@ trail is recoverable from any PR thread:
 
 Defaults to ``--dry-run`` so the first invocation never mutates state.
 ``--apply`` is required to actually call ``gh``.
+Apply mode also refuses draft/closed/merged PR targets and skips a
+decision when the same payload/receipt binding footer is already present
+on the PR, making replay idempotent.
 
 Hard-coded hold list: PRs explicitly marked as operator-only / held
 elsewhere in this repo are hard-skipped regardless of the receipt's
@@ -133,6 +136,16 @@ class EntryResult:
     status: str
     reason: str
     gh_command: list[str] | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class LivePrState:
+    """Minimal live PR state required before mutating GitHub."""
+
+    head_sha: str
+    is_draft: bool
+    state: str
+    binding_footer_present: bool
 
 
 class PayloadValidationError(ValueError):
@@ -359,10 +372,43 @@ def build_comment_body(entry: DecisionEntry, payload: OperatorDecisionsPayload) 
     return (main + footer) if main else footer.lstrip("\n")
 
 
-def _gh_view_head(pr_number: int, *, repo: str) -> tuple[str | None, str]:
-    """Return the current ``headRefOid`` for ``pr_number`` (or ``(None, err)``)."""
+def _binding_footer_marker(payload: OperatorDecisionsPayload) -> str:
+    return (
+        f"Applied from operator-decisions {_short_sha(payload.payload_sha256)} "
+        f"bound to packet {_short_sha(payload.receipt_sha256)}"
+    )
 
-    cmd = ["gh", "pr", "view", str(pr_number), "--repo", repo, "--json", "headRefOid"]
+
+def _body_collection_contains_marker(value: Any, marker: str) -> bool:
+    if not isinstance(value, list):
+        return False
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        body = item.get("body")
+        if isinstance(body, str) and marker in body:
+            return True
+    return False
+
+
+def _gh_view_pr_state(
+    pr_number: int,
+    *,
+    repo: str,
+    binding_footer_marker: str,
+) -> tuple[LivePrState | None, str]:
+    """Return live PR state required before mutation, or ``(None, err)``."""
+
+    cmd = [
+        "gh",
+        "pr",
+        "view",
+        str(pr_number),
+        "--repo",
+        repo,
+        "--json",
+        "headRefOid,isDraft,state,comments,reviews",
+    ]
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as exc:
@@ -375,7 +421,21 @@ def _gh_view_head(pr_number: int, *, repo: str) -> tuple[str | None, str]:
     head = data.get("headRefOid")
     if not head or not isinstance(head, str):
         return None, f"gh pr view #{pr_number} returned no headRefOid"
-    return head, ""
+    is_draft = data.get("isDraft")
+    if not isinstance(is_draft, bool):
+        return None, f"gh pr view #{pr_number} returned no isDraft boolean"
+    state = data.get("state")
+    if not isinstance(state, str) or not state:
+        return None, f"gh pr view #{pr_number} returned no state"
+    binding_present = _body_collection_contains_marker(
+        data.get("comments"), binding_footer_marker
+    ) or _body_collection_contains_marker(data.get("reviews"), binding_footer_marker)
+    return LivePrState(
+        head_sha=head,
+        is_draft=is_draft,
+        state=state,
+        binding_footer_present=binding_present,
+    ), ""
 
 
 def _plan_action(entry: DecisionEntry, body: str, *, repo: str) -> list[str] | None:
@@ -454,20 +514,45 @@ def process_entry(
             gh_command=cmd,
         )
 
-    live_head, err = _gh_view_head(entry.pr_number, repo=payload.receipt_repo)
-    if live_head is None:
+    live_state, err = _gh_view_pr_state(
+        entry.pr_number,
+        repo=payload.receipt_repo,
+        binding_footer_marker=_binding_footer_marker(payload),
+    )
+    if live_state is None:
         return EntryResult(
             pr_number=entry.pr_number,
             decision=entry.decision,
             status=STATUS_FAILED,
             reason=err or "gh pr view failed",
         )
-    if live_head != entry.head_sha:
+    if live_state.binding_footer_present:
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_SKIPPED,
+            reason="binding footer already present; refusing duplicate apply",
+        )
+    if live_state.state != "OPEN":
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_FAILED,
+            reason=f"PR state is {live_state.state}; refusing mutation",
+        )
+    if live_state.is_draft:
+        return EntryResult(
+            pr_number=entry.pr_number,
+            decision=entry.decision,
+            status=STATUS_FAILED,
+            reason="PR is draft; refusing mutation",
+        )
+    if live_state.head_sha != entry.head_sha:
         return EntryResult(
             pr_number=entry.pr_number,
             decision=entry.decision,
             status=STATUS_DRIFTED,
-            reason=(f"HEAD DRIFT: expected {entry.head_sha[:10]}, got {live_head[:10]}"),
+            reason=(f"HEAD DRIFT: expected {entry.head_sha[:10]}, got {live_state.head_sha[:10]}"),
         )
 
     try:
