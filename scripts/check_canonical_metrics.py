@@ -8,6 +8,7 @@ via the existing DIC-14 ClaimVerifier infrastructure.
 Usage:
     python3 scripts/check_canonical_metrics.py --claim <claim_id>
     python3 scripts/check_canonical_metrics.py --all
+    python3 scripts/check_canonical_metrics.py --all --json
 
 Exit codes:
     0  all requested claims pass (or are within tolerance)
@@ -600,6 +601,14 @@ def main() -> int:
     parser.add_argument("--claim", help="Verify a single claim by id")
     parser.add_argument("--all", action="store_true", help="Verify every claim")
     parser.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "Emit the canonical metrics receipt JSON to stdout. This is the default "
+            "output format; the flag exists for fan-out tooling compatibility."
+        ),
+    )
+    parser.add_argument(
         "--write-receipt",
         action="store_true",
         help=("Also write a receipt file to docs/status/generated/canonical_metrics/latest.json"),
@@ -621,14 +630,15 @@ def main() -> int:
     else:
         results = [check() for check in CHECKS.values()]
 
+    summary = {
+        "pass": sum(1 for r in results if r.status == "pass"),
+        "warn": sum(1 for r in results if r.status == "warn"),
+        "fail": sum(1 for r in results if r.status == "fail"),
+    }
     payload = {
         "manifest_id": "canonical_metrics",
         "results": [asdict(r) for r in results],
-        "summary": {
-            "pass": sum(1 for r in results if r.status == "pass"),
-            "warn": sum(1 for r in results if r.status == "warn"),
-            "fail": sum(1 for r in results if r.status == "fail"),
-        },
+        "summary": summary,
     }
     print(json.dumps(payload, sort_keys=True, indent=2))
 
@@ -638,7 +648,7 @@ def main() -> int:
             json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8"
         )
 
-    if payload["summary"]["fail"] > 0:
+    if summary["fail"] > 0:
         return 1
     return 0
 
