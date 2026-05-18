@@ -17,9 +17,10 @@ Lookup sources (read-only, in this precedence):
      ``session_title`` when the claimer supplied them.
 
   2. ``scripts/agent_bridge.py operator-snapshot --json``
-     ``process_census`` — best-effort live PID lookup whose cwd
-     matches the lane's worktree. Tells you which actual process is
-     the lane's owner right now.
+     ``process_census`` — best-effort live PID lookup when the
+     snapshot exposes cwd-bearing process records. If the snapshot
+     only exposes role counts, this fails closed with an explicit
+     reason instead of guessing.
 
   3. ``~/.codex/sessions/**/*.jsonl`` — exact match via the lane's
      recorded ``codex_rollout_path`` or ``codex_thread_id``, with a
@@ -224,10 +225,67 @@ def _family_hints_for_lane(lane: dict[str, Any]) -> tuple[str, ...]:
     return tuple(hints)
 
 
-def _process_match_payload(role: str, item: dict[str, Any]) -> dict[str, Any]:
+def _process_cwd(item: dict[str, Any]) -> str:
+    """Return the cwd-like field from a process record, if available."""
+
+    raw = item.get("cwd") or item.get("worktree")
+    return str(raw) if raw else ""
+
+
+def _process_match_payload(role: str, item: dict[str, Any], cwd: str) -> dict[str, Any]:
     """Safe metadata for a live process matched by cwd."""
 
-    return {"pid": item.get("pid"), "family": role, "cwd": item.get("cwd") or ""}
+    return {"pid": item.get("pid"), "family": role, "cwd": cwd}
+
+
+def _collect_process_matches(
+    process_census: dict[str, Any],
+    *,
+    target_norm: str,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Collect cwd-matching process records from the operator snapshot.
+
+    The live ``operator-snapshot`` contract currently reports
+    ``by_role`` as role counts and carries process rows in
+    ``records``. Older fixtures used ``by_role`` as role -> process
+    rows; keep that as a compatibility fallback, but do not require it.
+    The boolean reports whether any cwd-bearing record existed at all.
+    """
+
+    matches: list[dict[str, Any]] = []
+    saw_cwd_bearing_record = False
+
+    records = process_census.get("records", [])
+    if isinstance(records, list):
+        for item in records:
+            if not isinstance(item, dict):
+                continue
+            cwd = _process_cwd(item)
+            if not cwd:
+                continue
+            saw_cwd_bearing_record = True
+            if os.path.normpath(cwd) == target_norm:
+                matches.append(
+                    _process_match_payload(str(item.get("role") or "unknown"), item, cwd)
+                )
+
+    by_role = process_census.get("by_role", {})
+    if isinstance(by_role, dict):
+        for role, items in by_role.items():
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                cwd = _process_cwd(item)
+                if not cwd:
+                    continue
+                saw_cwd_bearing_record = True
+                if os.path.normpath(cwd) == target_norm:
+                    matches.append(_process_match_payload(str(role), item, cwd))
+
+    matches.sort(key=lambda m: (str(m.get("family") or ""), str(m.get("pid") or "")))
+    return matches, saw_cwd_bearing_record
 
 
 def lookup_live_process(
@@ -235,7 +293,7 @@ def lookup_live_process(
     *,
     snapshot_provider: SnapshotProvider | None = None,
 ) -> dict[str, Any]:
-    """Best-effort PID lookup: match operator-snapshot process_census cwd to lane.worktree."""
+    """Best-effort PID lookup: match cwd-bearing snapshot records to lane.worktree."""
 
     target_wt = lane.get("worktree") or ""
     if not target_wt:
@@ -247,20 +305,14 @@ def lookup_live_process(
     if snap is None:
         return {"found": False, "reason": "operator-snapshot unavailable"}
 
-    by_role = snap.get("process_census", {}).get("by_role", {})
-    if not isinstance(by_role, dict):
-        return {"found": False, "reason": "operator-snapshot has no process_census.by_role"}
+    process_census = snap.get("process_census", {})
+    if not isinstance(process_census, dict):
+        return {"found": False, "reason": "operator-snapshot has no process_census object"}
 
-    matches: list[dict[str, Any]] = []
-    for role, items in by_role.items():
-        if not isinstance(items, list):
-            continue
-        for it in items:
-            if not isinstance(it, dict):
-                continue
-            cwd = it.get("cwd") or ""
-            if cwd and os.path.normpath(cwd) == target_norm:
-                matches.append(_process_match_payload(str(role), it))
+    matches, saw_cwd_bearing_record = _collect_process_matches(
+        process_census,
+        target_norm=target_norm,
+    )
     if len(matches) == 1:
         match = matches[0]
         return {
@@ -271,7 +323,6 @@ def lookup_live_process(
             "matched_via": "lane.worktree ↔ process_census.cwd (exact)",
         }
     if len(matches) > 1:
-        matches.sort(key=lambda m: (str(m.get("family") or ""), str(m.get("pid") or "")))
         family_hints = _family_hints_for_lane(lane)
         hinted = [m for m in matches if m.get("family") in family_hints]
         if len(hinted) == 1:
@@ -303,6 +354,14 @@ def lookup_live_process(
                 f"{target_norm}; no lane family metadata available to disambiguate"
             )
         return {"found": False, "reason": reason, "matches": matches}
+    if not saw_cwd_bearing_record:
+        return {
+            "found": False,
+            "reason": (
+                "operator-snapshot process_census has no cwd-bearing process records; "
+                f"cannot match lane worktree {target_norm}"
+            ),
+        }
     return {
         "found": False,
         "reason": f"no process_census entry matched worktree {target_norm}",

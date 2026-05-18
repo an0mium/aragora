@@ -86,9 +86,14 @@ def write_lane_registry(tmp_path: Path, lanes: list[dict[str, Any]] | None = Non
     return p
 
 
-def fake_snapshot(processes_by_role: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
-    """Build a fake operator-snapshot payload with the given process census."""
-    return {"process_census": {"by_role": processes_by_role}}
+def fake_snapshot_records(
+    records: list[dict[str, Any]],
+    *,
+    by_role: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a fake operator-snapshot payload matching the live contract."""
+
+    return {"process_census": {"by_role": by_role or {}, "records": records}}
 
 
 # ---------------------------------------------------------------------------
@@ -148,14 +153,13 @@ class TestLoadAndFind:
 class TestLookupLiveProcess:
     def test_matches_codex_cli_pid_by_cwd(self) -> None:
         lane = {"worktree": "/private/tmp/p19-fixture-wt"}
-        snap = fake_snapshot(
-            {
-                "codex_cli": [
-                    {"pid": 12345, "cwd": "/private/tmp/p19-fixture-wt"},
-                    {"pid": 12346, "cwd": "/elsewhere"},
-                ],
-                "claude_code": [{"pid": 22222, "cwd": "/another/dir"}],
-            }
+        snap = fake_snapshot_records(
+            [
+                {"pid": 12345, "role": "codex_cli", "cwd": "/private/tmp/p19-fixture-wt"},
+                {"pid": 12346, "role": "codex_cli", "cwd": "/elsewhere"},
+                {"pid": 22222, "role": "claude_code", "cwd": "/another/dir"},
+            ],
+            by_role={"codex_cli": 2, "claude_code": 1},
         )
         r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
         assert r["found"] is True
@@ -163,7 +167,7 @@ class TestLookupLiveProcess:
         assert r["family"] == "codex_cli"
 
     def test_no_worktree_returns_not_found(self) -> None:
-        r = ilo.lookup_live_process({}, snapshot_provider=lambda: fake_snapshot({}))
+        r = ilo.lookup_live_process({}, snapshot_provider=lambda: fake_snapshot_records([]))
         assert r["found"] is False
         assert "no worktree" in r["reason"]
 
@@ -174,18 +178,52 @@ class TestLookupLiveProcess:
 
     def test_no_process_match_returns_not_found(self) -> None:
         lane = {"worktree": "/private/tmp/nope"}
-        snap = fake_snapshot({"codex_cli": [{"pid": 1, "cwd": "/elsewhere"}]})
+        snap = fake_snapshot_records(
+            [{"pid": 1, "role": "codex_cli", "cwd": "/elsewhere"}],
+            by_role={"codex_cli": 1},
+        )
         r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
         assert r["found"] is False
         assert "no process_census entry matched" in r["reason"]
 
+    def test_real_snapshot_shape_without_cwd_fails_closed(self) -> None:
+        lane = {"worktree": "/private/tmp/shared-wt"}
+        snap = fake_snapshot_records(
+            [
+                {
+                    "pid": 11111,
+                    "role": "claude_code",
+                    "elapsed": "00:01:00",
+                    "summary": "Claude Code local session process",
+                },
+                {
+                    "pid": 22222,
+                    "role": "codex_cli",
+                    "elapsed": "00:02:00",
+                    "summary": "Codex CLI session process",
+                },
+            ],
+            by_role={"claude_code": 1, "codex_cli": 1},
+        )
+        r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
+        assert r["found"] is False
+        assert "no cwd-bearing process records" in r["reason"]
+
+    def test_real_summary_snapshot_shape_without_records_fails_closed(self) -> None:
+        lane = {"worktree": "/private/tmp/shared-wt"}
+        snap = {"process_census": {"by_role": {"claude_code": 1, "codex_cli": 1}}}
+        r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
+        assert r["found"] is False
+        assert "no cwd-bearing process records" in r["reason"]
+
     def test_multiple_families_same_worktree_uses_lane_source(self) -> None:
         lane = {"source": "claude", "worktree": "/private/tmp/shared-wt"}
-        snap = fake_snapshot(
-            {
-                "codex_cli": [{"pid": 11111, "cwd": "/private/tmp/shared-wt"}],
-                "claude_code": [{"pid": 22222, "cwd": "/private/tmp/shared-wt"}],
-            }
+        snap = fake_snapshot_records(
+            [
+                {"pid": 11111, "role": "codex_cli", "cwd": "/private/tmp/shared-wt"},
+                {"pid": 22222, "role": "claude_code", "cwd": "/private/tmp/shared-wt"},
+            ],
+            by_role={"codex_cli": 1, "claude_code": 1},
         )
         r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
         assert r["found"] is True
@@ -195,11 +233,12 @@ class TestLookupLiveProcess:
 
     def test_multiple_families_same_worktree_uses_owner_session_family(self) -> None:
         lane = {"owner_session": "droid-ABC12345", "worktree": "/private/tmp/shared-wt"}
-        snap = fake_snapshot(
-            {
-                "codex_cli": [{"pid": 11111, "cwd": "/private/tmp/shared-wt"}],
-                "factory_droid": [{"pid": 33333, "cwd": "/private/tmp/shared-wt"}],
-            }
+        snap = fake_snapshot_records(
+            [
+                {"pid": 11111, "role": "codex_cli", "cwd": "/private/tmp/shared-wt"},
+                {"pid": 33333, "role": "factory_droid", "cwd": "/private/tmp/shared-wt"},
+            ],
+            by_role={"codex_cli": 1, "factory_droid": 1},
         )
         r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
         assert r["found"] is True
@@ -208,11 +247,12 @@ class TestLookupLiveProcess:
 
     def test_multiple_families_same_worktree_without_hint_fails_closed(self) -> None:
         lane = {"worktree": "/private/tmp/shared-wt"}
-        snap = fake_snapshot(
-            {
-                "codex_cli": [{"pid": 11111, "cwd": "/private/tmp/shared-wt"}],
-                "claude_code": [{"pid": 22222, "cwd": "/private/tmp/shared-wt"}],
-            }
+        snap = fake_snapshot_records(
+            [
+                {"pid": 11111, "role": "codex_cli", "cwd": "/private/tmp/shared-wt"},
+                {"pid": 22222, "role": "claude_code", "cwd": "/private/tmp/shared-wt"},
+            ],
+            by_role={"codex_cli": 1, "claude_code": 1},
         )
         r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
         assert r["found"] is False
@@ -221,11 +261,12 @@ class TestLookupLiveProcess:
 
     def test_multiple_hinted_matches_same_worktree_fails_closed(self) -> None:
         lane = {"source": "codex", "worktree": "/private/tmp/shared-wt"}
-        snap = fake_snapshot(
-            {
-                "codex_app_server": [{"pid": 44444, "cwd": "/private/tmp/shared-wt"}],
-                "codex_cli": [{"pid": 11111, "cwd": "/private/tmp/shared-wt"}],
-            }
+        snap = fake_snapshot_records(
+            [
+                {"pid": 44444, "role": "codex_app_server", "cwd": "/private/tmp/shared-wt"},
+                {"pid": 11111, "role": "codex_cli", "cwd": "/private/tmp/shared-wt"},
+            ],
+            by_role={"codex_app_server": 1, "codex_cli": 1},
         )
         r = ilo.lookup_live_process(lane, snapshot_provider=lambda: snap)
         assert r["found"] is False
@@ -434,7 +475,7 @@ class TestBuildOwnerInfo:
         lane = dict(SAMPLE_LANES[2])  # P28-with-rich-identity
         info = ilo.build_owner_info(
             lane,
-            snapshot_provider=lambda: fake_snapshot({}),
+            snapshot_provider=lambda: fake_snapshot_records([]),
             sessions_root=sessions_root,
             projects_root=projects_root,
             bg_path=bg,
