@@ -104,7 +104,8 @@ PENDING_CHECK_STATUSES: frozenset[str] = frozenset(
     }
 )
 RED_STATUS_CONTEXT_STATES: frozenset[str] = frozenset({"ERROR", "FAILURE"})
-PENDING_STATUS_CONTEXT_STATES: frozenset[str] = frozenset({"PENDING"})
+PENDING_STATUS_CONTEXT_STATES: frozenset[str] = frozenset({"EXPECTED", "PENDING"})
+GREEN_STATUS_CONTEXT_STATES: frozenset[str] = frozenset({"SUCCESS"})
 ALLOWED_COMPLETED_CONCLUSIONS: frozenset[str] = frozenset({"SUCCESS", "SKIPPED", "NEUTRAL"})
 
 
@@ -276,7 +277,9 @@ def _label_names(metadata: dict[str, Any]) -> set[str]:
 
 def _ci_rollup_tripwire(checks: Any) -> str | None:
     if not isinstance(checks, list):
-        return None
+        return "CI rollup unavailable"
+    if not checks:
+        return "CI rollup empty"
 
     red_count = 0
     pending_count = 0
@@ -284,7 +287,7 @@ def _ci_rollup_tripwire(checks: Any) -> str | None:
 
     for check in checks:
         if not isinstance(check, dict):
-            continue
+            return "CI rollup malformed"
 
         state = str(check.get("state") or "").upper()
         if state in RED_STATUS_CONTEXT_STATES:
@@ -293,8 +296,16 @@ def _ci_rollup_tripwire(checks: Any) -> str | None:
         if state in PENDING_STATUS_CONTEXT_STATES:
             pending_count += 1
             continue
+        if state:
+            if state in GREEN_STATUS_CONTEXT_STATES:
+                continue
+            if non_green_conclusion is None:
+                non_green_conclusion = f"STATUS_CONTEXT_{state}"
+            continue
 
         status = str(check.get("status") or "").upper()
+        if not status:
+            return "CI rollup malformed"
         if status in PENDING_CHECK_STATUSES:
             pending_count += 1
             continue

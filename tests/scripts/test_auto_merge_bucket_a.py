@@ -586,6 +586,40 @@ class TestDefenseInDepth:
         assert "CI pending" in decisions[0].reason
 
     @pytest.mark.parametrize(
+        ("rollup", "reason_fragment"),
+        [
+            (None, "CI rollup unavailable"),
+            ("not-a-list", "CI rollup unavailable"),
+            ([], "CI rollup empty"),
+            (["not-a-dict"], "CI rollup malformed"),
+            ([{"name": "empty"}], "CI rollup malformed"),
+        ],
+    )
+    def test_missing_or_malformed_ci_rollup_fails_closed(
+        self,
+        rollup: Any,
+        reason_fragment: str,
+    ):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        metadata = make_metadata(9001)
+        metadata["statusCheckRollup"] = rollup
+        meta = _MetadataRegistry({9001: metadata})
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert reason_fragment in decisions[0].reason
+
+    @pytest.mark.parametrize(
         "conclusion",
         ["ACTION_REQUIRED", "CANCELLED", "FAILURE", "STARTUP_FAILURE", "TIMED_OUT"],
     )
@@ -654,6 +688,7 @@ class TestDefenseInDepth:
         [
             ("ERROR", "CI red (1 failures)"),
             ("FAILURE", "CI red (1 failures)"),
+            ("EXPECTED", "CI pending (1 in-flight)"),
             ("PENDING", "CI pending (1 in-flight)"),
         ],
     )
@@ -684,6 +719,38 @@ class TestDefenseInDepth:
         assert exit_code == 1
         assert decisions[0].decision == "skip-tripwire"
         assert decisions[0].reason == reason
+
+    def test_unknown_status_context_state_fails_closed(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry(
+            {
+                9001: make_metadata(
+                    9001,
+                    ci=[
+                        {"__typename": "StatusContext", "context": "lint", "state": "SUCCESS"},
+                        {
+                            "__typename": "StatusContext",
+                            "context": "future-state",
+                            "state": "SOMETHING_NEW",
+                        },
+                    ],
+                )
+            }
+        )
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert decisions[0].reason == "CI non-green (STATUS_CONTEXT_SOMETHING_NEW)"
 
     @pytest.mark.parametrize(
         "label",
