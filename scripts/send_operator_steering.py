@@ -1,0 +1,304 @@
+#!/usr/bin/env python3
+"""Atomic steering-message writer for operator → agent-session inbox.
+
+Phase B of the agent-steering primitive (ships under lane id
+``P29-steering-mailbox-writer`` because the original P28-B namespace
+was contested by concurrent P28-* worktree-inventory work — see
+journal rows 29-31).
+
+Writes one JSON message file per invocation into a per-recipient
+mailbox dir:
+
+    .aragora/operator-steering/<to_session>/<utc-ts>-<short-uuid>.json
+
+Each message follows the frozen v1.0 schema documented inline and
+honoured by Phase A's ``scripts/identify_lane_owner.py``
+``steering_inbox_for()`` reader. The recipient session sees the count
+in that consolidator's ``pending_message_count`` field next time it
+runs Phase 0 of the fan-out prompt. Phase C
+(``operator-snapshot`` extension) will also surface the count directly
+in the agent_bridge snapshot once it ships.
+
+Atomic write: tempfile + ``os.replace`` so partial writes don't
+appear in the inbox glob even under SIGINT. Each message is its own
+file — no shared-file lock contention.
+
+Pure stdlib. No ``aragora.*`` imports. NEVER touches GitHub, the lane
+registry, or any path outside ``.aragora/operator-steering/``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime
+import hashlib
+import json
+import os
+import secrets
+import sys
+import tempfile
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+STEERING_INBOX_ROOT_DEFAULT = REPO_ROOT / ".aragora" / "operator-steering"
+
+SCHEMA_VERSION = "aragora-operator-steering/1.0"
+SUBJECT_MAX_CHARS = 80
+PRIORITY_CHOICES = ("low", "normal", "high", "blocking")
+SHORT_UUID_BYTES = 4  # 8 hex chars; collision risk negligible per-second
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _now_utc_iso() -> str:
+    return (
+        datetime.datetime.now(datetime.timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
+
+
+def _filename_timestamp(iso: str) -> str:
+    """Make an ISO timestamp safe for a filesystem filename."""
+
+    return iso.replace(":", "-").replace(".", "-")
+
+
+def canonical_json(value: Any) -> str:
+    """Canonical JSON matching the TS-side helper (sort_keys, no whitespace, UTF-8)."""
+
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def derive_subject(body: str, *, max_chars: int = SUBJECT_MAX_CHARS) -> str:
+    """First line of body, truncated to ``max_chars``."""
+
+    first_line = body.strip().splitlines()[0] if body.strip() else ""
+    return first_line[:max_chars]
+
+
+def build_message(
+    *,
+    to_session: str,
+    body: str,
+    from_label: str = "operator",
+    lane_id_hint: str | None = None,
+    pr_hint: int | None = None,
+    priority: str = "normal",
+    sent_at_utc: str | None = None,
+) -> dict[str, Any]:
+    """Compose the v1.0 message envelope and stamp the binding sha256."""
+
+    ts = sent_at_utc if sent_at_utc is not None else _now_utc_iso()
+    payload: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "to_session": to_session,
+        "from": from_label,
+        "sent_at_utc": ts,
+        "lane_id_hint": lane_id_hint,
+        "pr_hint": pr_hint,
+        "priority": priority,
+        "subject": derive_subject(body),
+        "body": body,
+    }
+    canonical = canonical_json(payload)
+    payload["message_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return payload
+
+
+def verify_message_sha256(message: dict[str, Any]) -> tuple[str, str, bool]:
+    """Re-derive the message's sha256 and compare to the stored value."""
+
+    claimed = str(message.get("message_sha256", ""))
+    verify_copy = {k: v for k, v in message.items() if k != "message_sha256"}
+    recomputed = hashlib.sha256(canonical_json(verify_copy).encode("utf-8")).hexdigest()
+    return claimed, recomputed, claimed == recomputed
+
+
+def _mailbox_filename(sent_at_utc: str) -> str:
+    return f"{_filename_timestamp(sent_at_utc)}-{secrets.token_hex(SHORT_UUID_BYTES)}.json"
+
+
+def write_message(
+    message: dict[str, Any],
+    *,
+    steering_inbox_root: Path = STEERING_INBOX_ROOT_DEFAULT,
+) -> Path:
+    """Atomically persist ``message`` into the recipient's mailbox.
+
+    Creates the recipient dir on first message (idempotent). Writes
+    to a tempfile in the same dir, then ``os.replace`` to the final
+    path so partial writes never appear under the inbox glob.
+
+    Returns the absolute path of the written message.
+    """
+
+    to_session = str(message.get("to_session") or "")
+    if not to_session:
+        raise ValueError("message.to_session must be a non-empty string")
+    inbox = steering_inbox_root / to_session
+    inbox.mkdir(parents=True, exist_ok=True)
+    final_name = _mailbox_filename(str(message.get("sent_at_utc") or _now_utc_iso()))
+    final_path = inbox / final_name
+    body_text = json.dumps(message, indent=2, sort_keys=True)
+
+    # Atomic write: tmp in same dir, then rename.
+    fd, tmp_path = tempfile.mkstemp(
+        prefix=".tmp-",
+        suffix=".json",
+        dir=str(inbox),
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(body_text)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_path, final_path)
+    except Exception:
+        # Clean up tempfile on failure.
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+    return final_path
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="send_operator_steering.py",
+        description=(
+            "Write an operator → agent-session steering message into the "
+            "atomic mailbox under .aragora/operator-steering/<to_session>/."
+        ),
+    )
+    parser.add_argument(
+        "--to",
+        required=True,
+        metavar="OWNER_SESSION",
+        help="Target owner_session identifier (e.g., codex-p19-repair-7292).",
+    )
+    parser.add_argument(
+        "--lane-id",
+        default=None,
+        help="Optional lane_id hint (passed through to message.lane_id_hint).",
+    )
+    parser.add_argument(
+        "--pr",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Optional PR number hint (passed through to message.pr_hint).",
+    )
+    parser.add_argument(
+        "--from",
+        dest="from_label",
+        default="operator",
+        metavar="OPERATOR_NAME",
+        help="Sender label (default: 'operator').",
+    )
+    parser.add_argument(
+        "--priority",
+        choices=PRIORITY_CHOICES,
+        default="normal",
+        help="Message priority (default: normal).",
+    )
+    body_group = parser.add_mutually_exclusive_group(required=True)
+    body_group.add_argument(
+        "--body",
+        default=None,
+        help="Inline message body (markdown).",
+    )
+    body_group.add_argument(
+        "--body-file",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Read message body from a file (markdown).",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the written record + final path as JSON to stdout.",
+    )
+    parser.add_argument(
+        "--steering-inbox-root",
+        type=Path,
+        default=STEERING_INBOX_ROOT_DEFAULT,
+        help="Override the steering inbox root (used by tests).",
+    )
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    try:
+        args = _build_parser().parse_args(argv)
+    except SystemExit as exc:
+        # argparse exits 2 on bad args; preserve that contract.
+        return int(exc.code) if isinstance(exc.code, int) else 2
+
+    # Validate / resolve body.
+    body_text: str
+    if args.body is not None:
+        body_text = args.body
+    else:
+        body_path: Path = args.body_file
+        if not body_path.exists():
+            print(f"ERROR: --body-file not found: {body_path}", file=sys.stderr)
+            return 2
+        try:
+            body_text = body_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            print(f"ERROR: cannot read --body-file: {exc}", file=sys.stderr)
+            return 2
+
+    if not body_text.strip():
+        print("ERROR: message body is empty", file=sys.stderr)
+        return 2
+
+    message = build_message(
+        to_session=args.to,
+        body=body_text,
+        from_label=args.from_label,
+        lane_id_hint=args.lane_id,
+        pr_hint=args.pr,
+        priority=args.priority,
+    )
+
+    try:
+        written_path = write_message(message, steering_inbox_root=args.steering_inbox_root)
+    except OSError as exc:
+        print(f"ERROR: failed to write message: {exc}", file=sys.stderr)
+        return 2
+
+    if args.json:
+        out = dict(message)
+        out["_written_path"] = str(written_path)
+        print(json.dumps(out, indent=2, sort_keys=True))
+    else:
+        print(
+            f"wrote {written_path}  "
+            f"(sha256 {message['message_sha256'][:10]}…, "
+            f"priority={message['priority']})"
+        )
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
