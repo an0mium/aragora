@@ -17,12 +17,14 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
@@ -97,6 +99,7 @@ class GitInfo:
     behind: int | None = None
     dirty: bool = False
     patch_equivalent_to_base: bool = False
+    smart_merge_equivalent_to_base: bool = False
     lookup_failed: bool = False
     lookup_errors: list[str] = field(default_factory=list)
 
@@ -136,6 +139,8 @@ class InventoryContext:
     git_timeout: int
     gh_timeout: int
     patch_timeout: int
+    smart_merge_detection: bool = False
+    smart_merge_main_subjects: list[str] = field(default_factory=list)
 
 
 def utc_now() -> datetime:
@@ -402,6 +407,79 @@ def git_ahead_behind(
         return None, None, True, f"unexpected ahead/behind output: {proc.stdout!r}"
 
 
+def normalize_commit_subject(subject: str) -> str:
+    """Normalize commit/PR titles for loose squash-merge equivalence checks."""
+
+    value = subject.lower()
+    value = re.sub(r"\s+\(#\d+\)\s*$", "", value)
+    value = re.sub(r"\s+\[lane:[^\]]+\]\s*$", "", value)
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return " ".join(value.split())
+
+
+def commit_subject_matches_recent_main(
+    subject: str,
+    recent_main_subjects: list[str],
+    *,
+    threshold: float = 0.80,
+) -> bool:
+    normalized = normalize_commit_subject(subject)
+    if not normalized:
+        return False
+    for recent_subject in recent_main_subjects:
+        recent = normalize_commit_subject(recent_subject)
+        if not recent:
+            continue
+        if normalized in recent or recent in normalized:
+            return True
+        if SequenceMatcher(None, normalized, recent).ratio() >= threshold:
+            return True
+    return False
+
+
+def recent_main_commit_subjects(repo: Path, base: str, *, timeout: int) -> list[str]:
+    proc = run_git(["log", base, "--since=60 days", "--pretty=format:%s"], repo, timeout=timeout)
+    if proc.returncode != 0:
+        return []
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+
+def branch_unique_commit_subjects(
+    repo_path: Path,
+    base: str,
+    rev: str,
+    *,
+    timeout: int,
+) -> list[str] | None:
+    proc = run_git(
+        ["log", "--no-merges", f"{base}..{rev}", "--pretty=format:%s"],
+        repo_path,
+        timeout=timeout,
+    )
+    if proc.returncode != 0:
+        return None
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+
+def branch_subjects_match_recent_main(
+    repo_path: Path,
+    base: str,
+    rev: str,
+    recent_main_subjects: list[str],
+    *,
+    timeout: int,
+) -> tuple[bool, list[str]]:
+    subjects = branch_unique_commit_subjects(repo_path, base, rev, timeout=timeout)
+    if not subjects:
+        return False, []
+    matched = [
+        subject
+        for subject in subjects
+        if commit_subject_matches_recent_main(subject, recent_main_subjects)
+    ]
+    return len(matched) == len(subjects), matched
+
+
 def lookup_open_prs(
     repo: Path, branch: str | None, *, timeout: int, skip_gh: bool
 ) -> tuple[list[dict[str, Any]], bool, str | None]:
@@ -636,6 +714,24 @@ def classify_candidate(
             if patch_equivalent:
                 classification = "patch_equivalent_or_merged"
                 proof.append("branch is patch-equivalent to base")
+            elif context.smart_merge_detection:
+                smart_equivalent, matched_subjects = branch_subjects_match_recent_main(
+                    repo_path,
+                    context.base,
+                    rev or "HEAD",
+                    context.smart_merge_main_subjects,
+                    timeout=context.patch_timeout,
+                )
+                git.smart_merge_equivalent_to_base = smart_equivalent
+                if smart_equivalent:
+                    classification = "patch_equivalent_or_merged"
+                    proof.append(
+                        "all unique commit subjects match recent main squash-merge subjects"
+                    )
+                    links["smart_merge_matched_subjects"] = matched_subjects
+                else:
+                    classification = "unique_unharvested"
+                    proof.append("branch has unique commits or diff ahead of base")
             else:
                 classification = "unique_unharvested"
                 proof.append("branch has unique commits or diff ahead of base")
@@ -868,6 +964,7 @@ def inventory(
     git_timeout: int,
     gh_timeout: int,
     patch_timeout: int,
+    smart_merge_detection: bool = False,
 ) -> dict[str, Any]:
     repo = resolve_repo(repo)
     base_sha = resolve_ref(repo, base, timeout=git_timeout)
@@ -901,6 +998,12 @@ def inventory(
         git_timeout=git_timeout,
         gh_timeout=gh_timeout,
         patch_timeout=patch_timeout,
+        smart_merge_detection=smart_merge_detection,
+        smart_merge_main_subjects=(
+            recent_main_commit_subjects(repo, base, timeout=git_timeout)
+            if smart_merge_detection
+            else []
+        ),
     )
     candidates = [
         classify_candidate(
@@ -921,6 +1024,7 @@ def inventory(
         "base": base,
         "base_sha": base_sha,
         "size_mode": size_mode,
+        "smart_merge_detection": smart_merge_detection,
         "limit": limit,
         "summary": build_summary(candidates),
         "candidates": [asdict(candidate) for candidate in candidates],
@@ -1002,6 +1106,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gh-timeout", type=int, default=30)
     parser.add_argument("--patch-timeout", type=int, default=45)
     parser.add_argument("--skip-gh", action="store_true")
+    parser.add_argument(
+        "--smart-merge-detection",
+        action="store_true",
+        help=(
+            "Reclassify ahead branches as patch_equivalent_or_merged when every "
+            "unique commit subject loosely matches a recent main squash-merge "
+            "subject. Default off to preserve legacy inventory behavior."
+        ),
+    )
     parser.add_argument("--write-ledger", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="Suppress ledger writes.")
     parser.add_argument("--json", action="store_true")
@@ -1027,6 +1140,7 @@ def main(argv: list[str] | None = None) -> int:
         git_timeout=args.git_timeout,
         gh_timeout=args.gh_timeout,
         patch_timeout=args.patch_timeout,
+        smart_merge_detection=args.smart_merge_detection,
     )
     if args.write_ledger and not args.dry_run:
         payload["ledger_written"] = write_ledger(args.ledger_root, payload)

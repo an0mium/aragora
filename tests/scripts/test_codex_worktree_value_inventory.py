@@ -365,6 +365,152 @@ def test_patch_equivalent_ahead_work_is_cleanup_candidate(
     assert candidate.cleanup_candidate is True
 
 
+def test_smart_merge_detection_default_off_preserves_unique_harvest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: pytest.fail("smart detector should be opt-in"),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=False,
+            smart_merge_main_subjects=["feat(scripts): already merged"],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.decision == "harvest_candidate"
+
+
+def test_smart_merge_detection_reclassifies_matching_subjects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_unique_commit_subjects",
+        lambda *_args, **_kwargs: [
+            "feat(scripts): list active sessions [lane: P42]",
+            "docs(status): inventory receipt [lane: P42]",
+        ],
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[
+                "feat(scripts): list active sessions (#7260)",
+                "docs(status): inventory receipt (#7258)",
+            ],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "patch_equivalent_or_merged"
+    assert candidate.cleanup_candidate is True
+    assert candidate.git.smart_merge_equivalent_to_base is True
+    assert "all unique commit subjects match recent main squash-merge subjects" in candidate.proof
+    assert candidate.links["smart_merge_matched_subjects"] == [
+        "feat(scripts): list active sessions [lane: P42]",
+        "docs(status): inventory receipt [lane: P42]",
+    ]
+
+
+def test_smart_merge_detection_keeps_unmatched_subjects_harvestable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_unique_commit_subjects",
+        lambda *_args, **_kwargs: [
+            "feat(scripts): list active sessions",
+            "fix(swarm): new unmerged behavior",
+        ],
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=["feat(scripts): list active sessions (#7260)"],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.smart_merge_equivalent_to_base is False
+
+
+def test_smart_merge_detection_log_failure_keeps_candidate_harvestable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(mod, "branch_unique_commit_subjects", lambda *_args, **_kwargs: None)
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=["feat(scripts): list active sessions (#7260)"],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.decision == "harvest_candidate"
+
+
+def test_commit_subject_matching_is_loose_but_not_unbounded() -> None:
+    import codex_worktree_value_inventory as mod
+
+    main_subjects = [
+        "feat(scripts): list active sessions (#7260)",
+        "docs(status): inventory receipt (#7258)",
+    ]
+
+    assert mod.commit_subject_matches_recent_main(
+        "feat(scripts): list active sessions [lane: P42]",
+        main_subjects,
+    )
+    assert mod.commit_subject_matches_recent_main(
+        "docs(status): inventory receipt",
+        main_subjects,
+    )
+    assert not mod.commit_subject_matches_recent_main(
+        "fix(swarm): unrelated dispatch behavior",
+        main_subjects,
+    )
+
+
 def test_lookup_failure_preserves_candidate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -596,3 +742,12 @@ def test_build_parser_root_omitted_yields_none(tmp_path: Path) -> None:
     args = parser.parse_args([])
 
     assert args.root is None
+
+
+def test_build_parser_smart_merge_detection_default_off() -> None:
+    import codex_worktree_value_inventory as mod
+
+    parser = mod.build_parser()
+
+    assert parser.parse_args([]).smart_merge_detection is False
+    assert parser.parse_args(["--smart-merge-detection"]).smart_merge_detection is True
