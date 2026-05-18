@@ -1,0 +1,672 @@
+#!/usr/bin/env python3
+"""Read-only consolidator: lane id / PR / branch / worktree → owner identity.
+
+Implements Phase A of the agent-steering primitive plan. Walks the
+existing aragora signals to answer the question every operator hits
+when a fan-out lane is stuck: *who actually owns this PR, and where is
+their session running?*
+
+Lookup sources (read-only, in this precedence):
+
+  1. ``.aragora/agent-bridge/lanes.json`` — primary owner identity,
+     from ``LaneRecord`` rows written by
+     ``scripts/claim_active_agent_lane.py``. Carries:
+     ``owner_session``, ``source``, ``branch``, ``worktree``,
+     ``pr_number``, plus the optional richer identity fields
+     ``codex_thread_id``, ``codex_rollout_path``, ``desktop_label``,
+     ``session_title`` when the claimer supplied them.
+
+  2. ``scripts/agent_bridge.py operator-snapshot --json``
+     ``process_census`` — best-effort live PID lookup whose cwd
+     matches the lane's worktree. Tells you which actual process is
+     the lane's owner right now.
+
+  3. ``~/.codex/sessions/**/*.jsonl`` — exact match via the lane's
+     recorded ``codex_rollout_path`` or ``codex_thread_id``, with a
+     fuzzy fallback: any recent rollout whose body contains the
+     lane's worktree path string.
+
+  4. ``~/.claude/projects/<encoded-cwd>/<uuid>.jsonl`` — Claude Code
+     session lookup via the standard cwd-encoding rule
+     (``/`` → ``-``).
+
+  5. ``~/.factory/background-processes.json`` — Factory Droid
+     background session match by branch or worktree.
+
+  6. ``.aragora/operator-steering/<owner_session>/`` — pending
+     steering-message inbox count (Phase B-built dir; Phase A only
+     reads).
+
+Pure stdlib. No ``aragora.*`` imports. Read-only — never mutates
+GitHub state, lane registry, mailboxes, or any other on-disk file.
+"""
+
+from __future__ import annotations
+
+import argparse
+import dataclasses
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from collections.abc import Callable, Sequence
+from pathlib import Path
+from typing import Any
+
+# ---------------------------------------------------------------------------
+# Paths (overridable for tests)
+# ---------------------------------------------------------------------------
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+LANE_REGISTRY_DEFAULT = REPO_ROOT / ".aragora" / "agent-bridge" / "lanes.json"
+STEERING_INBOX_ROOT_DEFAULT = REPO_ROOT / ".aragora" / "operator-steering"
+CODEX_SESSIONS_ROOT_DEFAULT = Path.home() / ".codex" / "sessions"
+CLAUDE_PROJECTS_ROOT_DEFAULT = Path.home() / ".claude" / "projects"
+FACTORY_BG_PROCESSES_DEFAULT = Path.home() / ".factory" / "background-processes.json"
+
+# Fuzzy codex rollout search window (seconds).
+CODEX_FUZZY_MAX_AGE_SECONDS = 4 * 60 * 60
+
+# Subprocess timeout for ``agent_bridge operator-snapshot``.
+SNAPSHOT_TIMEOUT_SECONDS = 30
+
+SnapshotProvider = Callable[[], dict[str, Any] | None]
+
+
+# ---------------------------------------------------------------------------
+# Output schema
+# ---------------------------------------------------------------------------
+
+
+@dataclasses.dataclass
+class LaneOwnerInfo:
+    """Consolidated owner identity for one lane.
+
+    Mirrors the schema documented in the agent-steering plan. Fields
+    that aren't applicable to a given lane carry empty dicts (with a
+    ``reason`` for debuggability) rather than ``None`` so JSON
+    consumers can switch on ``found``.
+    """
+
+    lane_id: str
+    owner_session: str
+    source: str
+    status: str
+    branch: str | None
+    worktree: str | None
+    pr_number: int | None
+    goal: str | None
+    updated_at: str | None
+    codex_thread_id: str | None
+    codex_rollout_path: str | None
+    desktop_label: str | None
+    session_title: str | None
+    live_process: dict[str, Any]
+    codex_thread: dict[str, Any]
+    claude_session: dict[str, Any]
+    factory_droid: dict[str, Any]
+    steering_inbox_path: str
+    pending_message_count: int
+
+
+# ---------------------------------------------------------------------------
+# Registry loading + match
+# ---------------------------------------------------------------------------
+
+
+def load_lane_records(registry_path: Path = LANE_REGISTRY_DEFAULT) -> list[dict[str, Any]]:
+    """Read the lane registry; return ``[]`` on missing / unparseable."""
+
+    if not registry_path.exists():
+        return []
+    try:
+        data = json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    return [r for r in data if isinstance(r, dict)] if isinstance(data, list) else []
+
+
+def find_lane(
+    records: Sequence[dict[str, Any]],
+    *,
+    lane_id: str | None = None,
+    pr: int | None = None,
+    branch: str | None = None,
+    worktree: str | None = None,
+) -> dict[str, Any] | None:
+    """Return the first matching lane record by lane_id > pr > branch > worktree."""
+
+    if lane_id:
+        for r in records:
+            if r.get("lane_id") == lane_id:
+                return r
+    if pr is not None:
+        for r in records:
+            try:
+                if int(r.get("pr_number") or 0) == int(pr):
+                    return r
+            except (TypeError, ValueError):
+                continue
+    if branch:
+        for r in records:
+            if r.get("branch") == branch:
+                return r
+    if worktree:
+        wt_norm = os.path.normpath(worktree)
+        for r in records:
+            rwt = r.get("worktree")
+            if rwt and os.path.normpath(rwt) == wt_norm:
+                return r
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Live process lookup (via agent_bridge operator-snapshot subprocess)
+# ---------------------------------------------------------------------------
+
+
+def _default_snapshot_provider() -> dict[str, Any] | None:
+    """Shell out to ``scripts/agent_bridge.py operator-snapshot --json``."""
+
+    bridge = REPO_ROOT / "scripts" / "agent_bridge.py"
+    if not bridge.is_file():
+        return None
+    try:
+        res = subprocess.run(
+            [sys.executable, str(bridge), "operator-snapshot", "--json"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=SNAPSHOT_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return None
+    try:
+        out = json.loads(res.stdout)
+    except json.JSONDecodeError:
+        return None
+    return out if isinstance(out, dict) else None
+
+
+def lookup_live_process(
+    lane: dict[str, Any],
+    *,
+    snapshot_provider: SnapshotProvider | None = None,
+) -> dict[str, Any]:
+    """Best-effort PID lookup: match operator-snapshot process_census cwd to lane.worktree."""
+
+    target_wt = lane.get("worktree") or ""
+    if not target_wt:
+        return {"found": False, "reason": "lane has no worktree to match against"}
+    target_norm = os.path.normpath(target_wt)
+
+    provider = snapshot_provider or _default_snapshot_provider
+    snap = provider()
+    if snap is None:
+        return {"found": False, "reason": "operator-snapshot unavailable"}
+
+    by_role = snap.get("process_census", {}).get("by_role", {})
+    if not isinstance(by_role, dict):
+        return {"found": False, "reason": "operator-snapshot has no process_census.by_role"}
+
+    for role, items in by_role.items():
+        if not isinstance(items, list):
+            continue
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            cwd = it.get("cwd") or ""
+            if cwd and os.path.normpath(cwd) == target_norm:
+                return {
+                    "found": True,
+                    "pid": it.get("pid"),
+                    "family": role,
+                    "cwd": cwd,
+                    "matched_via": "lane.worktree ↔ process_census.cwd (exact)",
+                }
+    return {
+        "found": False,
+        "reason": f"no process_census entry matched worktree {target_norm}",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Codex thread lookup
+# ---------------------------------------------------------------------------
+
+
+_ROLLOUT_FILENAME_RE = re.compile(
+    r"rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-([0-9a-f-]+)\.jsonl$"
+)
+
+
+def _extract_thread_id(rollout_filename: str) -> str:
+    m = _ROLLOUT_FILENAME_RE.search(rollout_filename)
+    return m.group(1) if m else ""
+
+
+def lookup_codex_thread(
+    lane: dict[str, Any],
+    *,
+    sessions_root: Path = CODEX_SESSIONS_ROOT_DEFAULT,
+    fuzzy_max_age_seconds: int = CODEX_FUZZY_MAX_AGE_SECONDS,
+    now: float | None = None,
+) -> dict[str, Any]:
+    """Find the Codex rollout file backing this lane.
+
+    Tries (in order): exact ``codex_rollout_path`` from the lane,
+    exact ``codex_thread_id`` against rollout filenames, and a fuzzy
+    fallback that scans recently-modified rollouts for the lane's
+    worktree path appearing in the rollout body.
+    """
+
+    if not sessions_root.is_dir():
+        return {"found": False, "reason": f"codex sessions root absent ({sessions_root})"}
+
+    rollout_path_hint = lane.get("codex_rollout_path")
+    if rollout_path_hint:
+        p = Path(os.path.expanduser(str(rollout_path_hint)))
+        if p.is_file():
+            return {
+                "found": True,
+                "thread_id": _extract_thread_id(p.name),
+                "rollout_path": str(p),
+                "mtime": p.stat().st_mtime,
+                "matched_via": "lane.codex_rollout_path (exact)",
+            }
+
+    thread_id_hint = lane.get("codex_thread_id")
+    if thread_id_hint:
+        for p in sessions_root.rglob("*.jsonl"):
+            if str(thread_id_hint) in p.name:
+                return {
+                    "found": True,
+                    "thread_id": str(thread_id_hint),
+                    "rollout_path": str(p),
+                    "mtime": p.stat().st_mtime,
+                    "matched_via": "lane.codex_thread_id (exact filename match)",
+                }
+
+    # Fuzzy: scan recent rollouts for the lane's worktree string.
+    worktree = lane.get("worktree")
+    if not worktree:
+        return {"found": False, "reason": "no codex identity hint and no worktree to fuzzy-match"}
+
+    current = now if now is not None else time.time()
+    candidates: list[tuple[float, Path]] = []
+    for p in sessions_root.rglob("*.jsonl"):
+        try:
+            st = p.stat()
+        except OSError:
+            continue
+        if current - st.st_mtime > fuzzy_max_age_seconds:
+            continue
+        candidates.append((st.st_mtime, p))
+
+    target_str = str(worktree)
+    matches: list[tuple[float, Path]] = []
+    for mtime, p in candidates:
+        try:
+            # Cheap substring scan; rollouts are JSONL but the cwd
+            # appears as a literal path string in numerous event
+            # payloads when Codex tools fire.
+            if target_str in p.read_text(encoding="utf-8", errors="ignore"):
+                matches.append((mtime, p))
+        except OSError:
+            continue
+
+    if not matches:
+        return {
+            "found": False,
+            "reason": (
+                f"no recent codex rollout (within {fuzzy_max_age_seconds // 60}m) "
+                f"contained worktree string"
+            ),
+        }
+    if len(matches) > 1:
+        # Multiple matches — return the most-recent but flag the
+        # ambiguity so the operator knows the answer isn't unique.
+        matches.sort(key=lambda t: t[0], reverse=True)
+        latest = matches[0][1]
+        return {
+            "found": True,
+            "thread_id": _extract_thread_id(latest.name),
+            "rollout_path": str(latest),
+            "mtime": matches[0][0],
+            "matched_via": (
+                f"fuzzy: worktree string found in {len(matches)} recent "
+                "rollouts; returning most-recent (ambiguous)"
+            ),
+        }
+    mtime, p = matches[0]
+    return {
+        "found": True,
+        "thread_id": _extract_thread_id(p.name),
+        "rollout_path": str(p),
+        "mtime": mtime,
+        "matched_via": "fuzzy: worktree string found in single recent rollout",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Claude Code session lookup
+# ---------------------------------------------------------------------------
+
+
+def _encode_cwd_for_claude(cwd: str) -> str:
+    """Replicate Claude Code's project-dir encoding rule (``/`` → ``-``)."""
+
+    # Drop trailing slash for stable encoding.
+    cwd_clean = cwd.rstrip("/")
+    encoded = cwd_clean.replace("/", "-")
+    # Leading slash → leading dash; Claude's encoding starts with '-'.
+    if not encoded.startswith("-"):
+        encoded = "-" + encoded
+    return encoded
+
+
+def lookup_claude_session(
+    lane: dict[str, Any],
+    *,
+    projects_root: Path = CLAUDE_PROJECTS_ROOT_DEFAULT,
+) -> dict[str, Any]:
+    """Find the Claude Code session backing this lane (best-effort)."""
+
+    worktree = lane.get("worktree")
+    if not worktree:
+        return {"found": False, "reason": "lane has no worktree to match against"}
+    if not projects_root.is_dir():
+        return {"found": False, "reason": f"claude projects root absent ({projects_root})"}
+
+    encoded = _encode_cwd_for_claude(str(worktree))
+    candidate = projects_root / encoded
+    if not candidate.is_dir():
+        return {"found": False, "reason": f"no claude project dir matched encoding ({encoded})"}
+
+    sessions = sorted(
+        (p for p in candidate.glob("*.jsonl")),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not sessions:
+        return {
+            "found": False,
+            "reason": f"claude project dir {encoded} has no .jsonl session files",
+        }
+    latest = sessions[0]
+    return {
+        "found": True,
+        "session_uuid": latest.stem,
+        "transcript_path": str(latest),
+        "mtime": latest.stat().st_mtime,
+        "matched_via": "lane.worktree → claude project encoding (most-recent .jsonl)",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Factory Droid lookup
+# ---------------------------------------------------------------------------
+
+
+def lookup_factory_droid(
+    lane: dict[str, Any],
+    *,
+    bg_path: Path = FACTORY_BG_PROCESSES_DEFAULT,
+) -> dict[str, Any]:
+    """Match the lane to a Factory Droid background-process record by branch or worktree."""
+
+    if not bg_path.is_file():
+        return {"found": False, "reason": f"factory bg-processes file absent ({bg_path})"}
+    try:
+        data = json.loads(bg_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"found": False, "reason": "factory bg-processes file unparseable"}
+
+    processes_raw: Any
+    if isinstance(data, list):
+        processes_raw = data
+    elif isinstance(data, dict):
+        processes_raw = data.get("processes") or data.get("background_processes") or []
+    else:
+        processes_raw = []
+
+    branch = lane.get("branch")
+    worktree = lane.get("worktree")
+    wt_norm = os.path.normpath(str(worktree)) if worktree else None
+
+    for p in processes_raw:
+        if not isinstance(p, dict):
+            continue
+        if branch and p.get("branch") == branch:
+            return {
+                "found": True,
+                "process_id": p.get("id") or p.get("pid") or p.get("session_id"),
+                "branch": branch,
+                "matched_via": "factory.branch (exact)",
+            }
+        if wt_norm:
+            p_wt = p.get("worktree") or p.get("cwd") or ""
+            if p_wt and os.path.normpath(str(p_wt)) == wt_norm:
+                return {
+                    "found": True,
+                    "process_id": p.get("id") or p.get("pid") or p.get("session_id"),
+                    "worktree": p_wt,
+                    "matched_via": "factory.worktree (exact)",
+                }
+    return {"found": False, "reason": "no factory droid process matched branch or worktree"}
+
+
+# ---------------------------------------------------------------------------
+# Steering inbox count
+# ---------------------------------------------------------------------------
+
+
+def steering_inbox_for(
+    owner_session: str, *, root: Path = STEERING_INBOX_ROOT_DEFAULT
+) -> tuple[Path, int]:
+    """Return ``(inbox_path, pending_count)``; missing dir → ``(path, 0)``."""
+
+    inbox = root / owner_session
+    if not inbox.is_dir():
+        return inbox, 0
+    count = sum(1 for _ in inbox.glob("*.json"))
+    return inbox, count
+
+
+# ---------------------------------------------------------------------------
+# Composition
+# ---------------------------------------------------------------------------
+
+
+def build_owner_info(
+    lane: dict[str, Any],
+    *,
+    snapshot_provider: SnapshotProvider | None = None,
+    sessions_root: Path = CODEX_SESSIONS_ROOT_DEFAULT,
+    projects_root: Path = CLAUDE_PROJECTS_ROOT_DEFAULT,
+    bg_path: Path = FACTORY_BG_PROCESSES_DEFAULT,
+    steering_inbox_root: Path = STEERING_INBOX_ROOT_DEFAULT,
+    fuzzy_now: float | None = None,
+) -> LaneOwnerInfo:
+    owner = str(lane.get("owner_session") or "")
+    live = lookup_live_process(lane, snapshot_provider=snapshot_provider)
+    codex = lookup_codex_thread(lane, sessions_root=sessions_root, now=fuzzy_now)
+    claude = lookup_claude_session(lane, projects_root=projects_root)
+    factory = lookup_factory_droid(lane, bg_path=bg_path)
+    inbox_path, pending = steering_inbox_for(owner, root=steering_inbox_root)
+
+    raw_pr = lane.get("pr_number")
+    try:
+        pr_number = int(raw_pr) if raw_pr is not None else None
+    except (TypeError, ValueError):
+        pr_number = None
+
+    return LaneOwnerInfo(
+        lane_id=str(lane.get("lane_id") or ""),
+        owner_session=owner,
+        source=str(lane.get("source") or ""),
+        status=str(lane.get("status") or ""),
+        branch=lane.get("branch"),
+        worktree=lane.get("worktree"),
+        pr_number=pr_number,
+        goal=lane.get("goal"),
+        updated_at=lane.get("updated_at"),
+        codex_thread_id=lane.get("codex_thread_id"),
+        codex_rollout_path=lane.get("codex_rollout_path"),
+        desktop_label=lane.get("desktop_label"),
+        session_title=lane.get("session_title"),
+        live_process=live,
+        codex_thread=codex,
+        claude_session=claude,
+        factory_droid=factory,
+        steering_inbox_path=str(inbox_path),
+        pending_message_count=pending,
+    )
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def _glyph(found: bool) -> str:
+    return "✓" if found else "✗"
+
+
+def _print_human(info: LaneOwnerInfo) -> None:
+    print(f"lane_id:        {info.lane_id}")
+    print(f"owner_session:  {info.owner_session or '(none)'}")
+    print(f"source:         {info.source or '(unspecified)'}")
+    print(f"status:         {info.status or '(unspecified)'}")
+    print(f"branch:         {info.branch or '-'}")
+    print(f"worktree:       {info.worktree or '-'}")
+    print(f"pr_number:      {info.pr_number if info.pr_number is not None else '-'}")
+    print(f"goal:           {info.goal or '-'}")
+    print(f"updated_at:     {info.updated_at or '-'}")
+    print()
+    print("self-supplied identity fields:")
+    print(f"  codex_thread_id:    {info.codex_thread_id or '(not supplied)'}")
+    print(f"  codex_rollout_path: {info.codex_rollout_path or '(not supplied)'}")
+    print(f"  desktop_label:      {info.desktop_label or '(not supplied)'}")
+    print(f"  session_title:      {info.session_title or '(not supplied)'}")
+    print()
+    print("best-effort live lookups:")
+    print(f"  live_process:   {_glyph(info.live_process.get('found', False))}  {info.live_process}")
+    print(f"  codex_thread:   {_glyph(info.codex_thread.get('found', False))}  {info.codex_thread}")
+    print(
+        f"  claude_session: {_glyph(info.claude_session.get('found', False))}  {info.claude_session}"
+    )
+    print(
+        f"  factory_droid:  {_glyph(info.factory_droid.get('found', False))}  {info.factory_droid}"
+    )
+    print()
+    print(f"steering_inbox_path:   {info.steering_inbox_path}")
+    print(f"pending_message_count: {info.pending_message_count}")
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="identify_lane_owner.py",
+        description=(
+            "Read-only consolidator that answers 'who owns this lane?' by "
+            "joining the agent_bridge lane registry with live process, "
+            "Codex rollout, Claude project, and Factory Droid signals."
+        ),
+    )
+    p.add_argument("--lane-id", help="Exact match on LaneRecord.lane_id.")
+    p.add_argument("--pr", type=int, help="Match on LaneRecord.pr_number.")
+    p.add_argument("--branch", help="Exact match on LaneRecord.branch.")
+    p.add_argument("--worktree", help="Exact match on LaneRecord.worktree (path-normalised).")
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of human table.")
+    p.add_argument(
+        "--registry-path",
+        type=Path,
+        default=LANE_REGISTRY_DEFAULT,
+        help="Override path to lanes.json (used by tests).",
+    )
+    p.add_argument(
+        "--codex-sessions-root",
+        type=Path,
+        default=CODEX_SESSIONS_ROOT_DEFAULT,
+        help="Override path to ~/.codex/sessions (used by tests).",
+    )
+    p.add_argument(
+        "--claude-projects-root",
+        type=Path,
+        default=CLAUDE_PROJECTS_ROOT_DEFAULT,
+        help="Override path to ~/.claude/projects (used by tests).",
+    )
+    p.add_argument(
+        "--factory-bg-path",
+        type=Path,
+        default=FACTORY_BG_PROCESSES_DEFAULT,
+        help="Override path to ~/.factory/background-processes.json (used by tests).",
+    )
+    p.add_argument(
+        "--steering-inbox-root",
+        type=Path,
+        default=STEERING_INBOX_ROOT_DEFAULT,
+        help="Override path to .aragora/operator-steering (used by tests).",
+    )
+    return p
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _build_parser().parse_args(argv)
+
+    if not any([args.lane_id, args.pr is not None, args.branch, args.worktree]):
+        print(
+            "ERROR: provide at least one of --lane-id / --pr / --branch / --worktree",
+            file=sys.stderr,
+        )
+        return 2
+
+    records = load_lane_records(args.registry_path)
+    if not records:
+        print(
+            f"ERROR: lane registry empty or missing at {args.registry_path}",
+            file=sys.stderr,
+        )
+        return 2
+
+    lane = find_lane(
+        records,
+        lane_id=args.lane_id,
+        pr=args.pr,
+        branch=args.branch,
+        worktree=args.worktree,
+    )
+    if lane is None:
+        criteria = {
+            k: v
+            for k, v in {
+                "lane_id": args.lane_id,
+                "pr": args.pr,
+                "branch": args.branch,
+                "worktree": args.worktree,
+            }.items()
+            if v
+        }
+        print(f"ERROR: no lane matched criteria {criteria}", file=sys.stderr)
+        return 1
+
+    info = build_owner_info(
+        lane,
+        sessions_root=args.codex_sessions_root,
+        projects_root=args.claude_projects_root,
+        bg_path=args.factory_bg_path,
+        steering_inbox_root=args.steering_inbox_root,
+    )
+
+    if args.json:
+        print(json.dumps(dataclasses.asdict(info), indent=2, sort_keys=True))
+    else:
+        _print_human(info)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
