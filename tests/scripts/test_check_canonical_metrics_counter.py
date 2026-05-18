@@ -3,9 +3,8 @@
 These tests pin the regex used by
 ``scripts/check_canonical_metrics.py::_observe_test_definitions_count``
 to count both sync and async test functions. Earlier versions of the
-counter used a sync-only regex (``^\\s*def test_``) which systematically
-undercounted async tests by ~27% in this codebase and triggered a
-false-positive "stale docs" drift on
+counter used a sync-only regex (``^\\s*def test_``) which missed
+``async def test_`` entries and triggered a false-positive "stale docs" drift on
 ``canonical.test_definitions.count``.
 
 Coverage targets:
@@ -187,9 +186,12 @@ class TestDocumentedMethodAlignment:
             "async def test_c():\n    pass\n"
             "    async def test_d(self):\n        pass\n"
             "\tasync def test_e(self):\n\t\tpass\n"
+            "async\tdef test_tab_between_async_and_def():\n    pass\n"
+            "async  def test_double_space_between_async_and_def():\n    pass\n"
             "def not_a_test():\n    pass\n"
             "async def helper():\n    pass\n"
         )
         _write(fake_repo / "tests" / "test_regex.py", body)
-        # Expected: 5 (a, b, c, d, e); 0 (not_a_test, helper) excluded.
+        # Expected: 5 (a, b, c, d, e); non-literal-space async forms,
+        # not_a_test, and helper are excluded to match the documented grep.
         assert ccm._observe_test_definitions_count() == 5

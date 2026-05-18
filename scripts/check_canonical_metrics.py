@@ -112,18 +112,18 @@ def _observe_test_definitions_count() -> int:
 
         git grep -E '^[[:space:]]*(async )?def test_' -- tests | wc -l
 
-    The earlier sync-only regex (``^\\s*def test_``) systematically
-    undercounted async tests — typically by ~27% in this codebase — and
-    caused the canonical-metrics check to falsely report a stale-docs
-    drift when the underlying issue was a counter bug. Including
-    ``async def test_`` matches the method documented in METRICS.md and
-    the count produced by pytest's collection on this repo.
+    The earlier sync-only regex (``^\\s*def test_``) missed
+    ``async def test_`` entries and caused the canonical-metrics check
+    to falsely report stale-docs drift when the underlying issue was a
+    counter bug. Including ``async def test_`` matches the method
+    documented in METRICS.md and the count produced by pytest's
+    collection on this repo.
     """
 
     tests_dir = REPO_ROOT / "tests"
     if not tests_dir.is_dir():
         return 0
-    pattern = re.compile(r"^\s*(?:async\s+)?def test_", re.MULTILINE)
+    pattern = re.compile(r"^\s*(?:async )?def test_", re.MULTILINE)
     count = 0
     for path in tests_dir.rglob("*.py"):
         try:
