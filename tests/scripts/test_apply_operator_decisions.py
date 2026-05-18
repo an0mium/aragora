@@ -46,7 +46,8 @@ aod = _load_module()
 
 _HEAD_SHA_DEFAULT = "a" * 40  # canonical match for FakeGh's default
 _DRIFTED_HEAD = "b" * 40
-_RECEIPT_SHA = "abcdef1234" + ("0" * 54)
+_RECEIPT_BODY = b'{"receipt":"open-queue-settlement-test"}\n'
+_RECEIPT_SHA = hashlib.sha256(_RECEIPT_BODY).hexdigest()
 
 
 def make_entry(
@@ -93,6 +94,22 @@ def write_payload(
     p = tmp_path / "operator-decisions.json"
     p.write_text(json.dumps(payload))
     return p
+
+
+def write_receipt(tmp_path: Path, body: bytes = _RECEIPT_BODY) -> Path:
+    p = tmp_path / "settlement-receipt.json"
+    p.write_bytes(body)
+    return p
+
+
+def apply_args(tmp_path: Path, decisions_path: Path, *extra: str) -> list[str]:
+    return [
+        str(decisions_path),
+        "--apply",
+        "--receipt-path",
+        str(write_receipt(tmp_path)),
+        *extra,
+    ]
 
 
 class FakeGh:
@@ -240,6 +257,22 @@ def test_string_receipt_verification_flag_fails_closed_before_any_gh_call(
     assert "receipt_sha256_verified must be a boolean" in capsys.readouterr().err
 
 
+def test_invalid_receipt_sha_returns_2_and_makes_no_gh_calls(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(
+        tmp_path,
+        [make_entry(100, "approve_tier")],
+        receipt_sha256="not-a-sha",
+    )
+
+    rc = aod.main([str(p), "--apply"])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "receipt_sha256 must be a lowercase 64-character SHA-256" in capsys.readouterr().err
+
+
 def test_invalid_receipt_repo_returns_2_and_makes_no_gh_calls(
     tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -341,6 +374,31 @@ def test_dry_run_default_does_not_call_gh(
     assert "DRY RUN" in out
 
 
+def test_apply_requires_receipt_path_before_any_gh_call(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(tmp_path, [make_entry(100, "approve_tier", comment="lgtm")])
+
+    rc = aod.main([str(p), "--apply"])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "--apply requires --receipt-path" in capsys.readouterr().err
+
+
+def test_apply_receipt_mismatch_returns_2_before_any_gh_call(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(tmp_path, [make_entry(100, "approve_tier", comment="lgtm")])
+    receipt_path = write_receipt(tmp_path, b'{"receipt":"different"}\n')
+
+    rc = aod.main([str(p), "--apply", "--receipt-path", str(receipt_path)])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "receipt_sha256 mismatch" in capsys.readouterr().err
+
+
 def test_apply_and_dry_run_conflict_returns_2_and_makes_no_gh_calls(
     tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -360,7 +418,7 @@ def test_apply_and_dry_run_conflict_returns_2_and_makes_no_gh_calls(
 
 def test_apply_approve_tier_calls_review_approve(tmp_path: Path, fake_gh: FakeGh) -> None:
     p = write_payload(tmp_path, [make_entry(100, "approve_tier", comment="lgtm")])
-    rc = aod.main([str(p), "--apply"])
+    rc = aod.main(apply_args(tmp_path, p))
     assert rc == 0
     # First call is HEAD verify, second is the review.
     assert fake_gh.calls[0][:3] == ["gh", "pr", "view"]
@@ -375,7 +433,7 @@ def test_apply_approve_downgrade_prepends_downgraded_marker(
     tmp_path: Path, fake_gh: FakeGh
 ) -> None:
     p = write_payload(tmp_path, [make_entry(100, "approve_downgrade", comment="downgrade to T1")])
-    aod.main([str(p), "--apply"])
+    aod.main(apply_args(tmp_path, p))
     review = fake_gh.review_calls()[0]
     body = review[review.index("--body") + 1]
     assert body.startswith("DOWNGRADED:")
@@ -383,7 +441,7 @@ def test_apply_approve_downgrade_prepends_downgraded_marker(
 
 def test_apply_request_changes_calls_request_changes(tmp_path: Path, fake_gh: FakeGh) -> None:
     p = write_payload(tmp_path, [make_entry(100, "request_changes", comment="please fix X")])
-    aod.main([str(p), "--apply"])
+    aod.main(apply_args(tmp_path, p))
     review = fake_gh.review_calls()[0]
     assert review[:4] == ["gh", "pr", "review", "100"]
     assert review[4:6] == ["--repo", "synaptent/aragora"]
@@ -392,7 +450,7 @@ def test_apply_request_changes_calls_request_changes(tmp_path: Path, fake_gh: Fa
 
 def test_apply_reject_calls_close_with_comment(tmp_path: Path, fake_gh: FakeGh) -> None:
     p = write_payload(tmp_path, [make_entry(100, "reject", comment="duplicate")])
-    aod.main([str(p), "--apply"])
+    aod.main(apply_args(tmp_path, p))
     close = fake_gh.close_calls()[0]
     assert close[:4] == ["gh", "pr", "close", "100"]
     assert close[4:6] == ["--repo", "synaptent/aragora"]
@@ -406,7 +464,7 @@ def test_apply_uses_receipt_repo_for_every_gh_call(tmp_path: Path, fake_gh: Fake
         receipt_repo="alternate/repo",
     )
 
-    rc = aod.main([str(p), "--apply"])
+    rc = aod.main(apply_args(tmp_path, p))
 
     assert rc == 0
     assert fake_gh.calls
@@ -418,7 +476,7 @@ def test_apply_hold_operator_skips_without_gh_call(
     tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
 ) -> None:
     p = write_payload(tmp_path, [make_entry(100, "hold_operator")])
-    rc = aod.main([str(p), "--apply"])
+    rc = aod.main(apply_args(tmp_path, p))
     assert rc == 0
     assert fake_gh.calls == []
     assert "operator-only" in capsys.readouterr().out
@@ -428,7 +486,7 @@ def test_null_decision_skipped(
     tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
 ) -> None:
     p = write_payload(tmp_path, [make_entry(100, None)])
-    rc = aod.main([str(p), "--apply"])
+    rc = aod.main(apply_args(tmp_path, p))
     assert rc == 0
     assert fake_gh.calls == []
     assert "no decision recorded" in capsys.readouterr().out
@@ -506,7 +564,7 @@ def test_head_drift_skips_entry(
         aod.shutil, "which", lambda exe: "/usr/local/bin/gh" if exe == "gh" else None
     )
     p = write_payload(tmp_path, [make_entry(100, "approve_tier", head_sha=_HEAD_SHA_DEFAULT)])
-    rc = aod.main([str(p), "--apply"])
+    rc = aod.main(apply_args(tmp_path, p))
     assert rc == 0
     # Only the HEAD-view call; no review.
     assert len(fake.calls) == 1
@@ -531,7 +589,7 @@ def test_only_pr_filter_touches_only_listed(tmp_path: Path, fake_gh: FakeGh) -> 
             make_entry(300, "approve_tier"),
         ],
     )
-    aod.main([str(p), "--apply", "--only-pr", "200"])
+    aod.main(apply_args(tmp_path, p, "--only-pr", "200"))
     reviews = fake_gh.review_calls()
     assert len(reviews) == 1
     assert reviews[0][3] == "200"
@@ -546,7 +604,7 @@ def test_held_pr_hard_skip(
     # Pick a real held PR number from the script's hard-coded list.
     held = next(iter(aod.HELD_PR_NUMBERS))
     p = write_payload(tmp_path, [make_entry(held, "approve_tier")])
-    rc = aod.main([str(p), "--apply"])
+    rc = aod.main(apply_args(tmp_path, p))
     assert rc == 0
     assert fake_gh.calls == []
     out = capsys.readouterr().out
@@ -603,7 +661,7 @@ def test_json_output_shape(
 
 def test_footer_carries_both_sha_prefixes(tmp_path: Path, fake_gh: FakeGh) -> None:
     p = write_payload(tmp_path, [make_entry(100, "approve_tier", comment="lgtm")])
-    aod.main([str(p), "--apply"])
+    aod.main(apply_args(tmp_path, p))
     review = fake_gh.review_calls()[0]
     body = review[review.index("--body") + 1]
     assert "Applied from operator-decisions" in body
@@ -614,7 +672,7 @@ def test_footer_carries_both_sha_prefixes(tmp_path: Path, fake_gh: FakeGh) -> No
 
 def test_footer_emits_even_when_comment_empty(tmp_path: Path, fake_gh: FakeGh) -> None:
     p = write_payload(tmp_path, [make_entry(100, "approve_tier", comment="")])
-    aod.main([str(p), "--apply"])
+    aod.main(apply_args(tmp_path, p))
     review = fake_gh.review_calls()[0]
     body = review[review.index("--body") + 1]
     # Body still contains the binding line even with no operator comment.
@@ -633,7 +691,7 @@ def test_gh_failure_returns_1(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
         aod.shutil, "which", lambda exe: "/usr/local/bin/gh" if exe == "gh" else None
     )
     p = write_payload(tmp_path, [make_entry(100, "approve_tier")])
-    rc = aod.main([str(p), "--apply"])
+    rc = aod.main(apply_args(tmp_path, p))
     # HEAD-view succeeds (its branch is independent of apply_succeeds);
     # the review call fails → status=failed → rc=1.
     assert rc == 1

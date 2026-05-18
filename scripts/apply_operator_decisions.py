@@ -89,6 +89,7 @@ _HUMAN_PREFIX: dict[str, str] = {
 }
 
 _REPO_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+_SHA256_HEX_RE = re.compile(r"^[a-f0-9]{64}$")
 _MISSING = object()
 
 
@@ -163,6 +164,16 @@ def verify_payload_sha256(raw: dict[str, Any]) -> tuple[str, str, bool]:
     canonical = canonical_json(verify_copy)
     recomputed = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return claimed, recomputed, claimed == recomputed
+
+
+def compute_file_sha256(path: Path) -> str:
+    """Return the SHA-256 hex digest of ``path``."""
+
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _optional_str(value: Any, *, field: str, index: int) -> str | None:
@@ -277,6 +288,10 @@ def validate_payload_envelope(payload: OperatorDecisionsPayload) -> str | None:
         )
     if not payload.receipt_sha256_verified:
         return "receipt_sha256_verified must be true"
+    if not _SHA256_HEX_RE.fullmatch(payload.receipt_sha256):
+        return "receipt_sha256 must be a lowercase 64-character SHA-256 hex digest"
+    if not _SHA256_HEX_RE.fullmatch(payload.payload_sha256):
+        return "payload_sha256 must be a lowercase 64-character SHA-256 hex digest"
     if not _REPO_NAME_RE.fullmatch(payload.receipt_repo):
         return (
             "receipt_repo must be a GitHub repository in OWNER/REPO form "
@@ -490,6 +505,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Mutate GitHub state. Without this flag, nothing is sent.",
     )
     parser.add_argument(
+        "--receipt-path",
+        type=Path,
+        help=(
+            "Original settlement receipt JSON used by the packet UI. "
+            "Required with --apply so the CLI independently verifies "
+            "receipt_sha256 before mutating GitHub."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help=("Explicit dry-run (this is the default behaviour when --apply is omitted)."),
@@ -568,6 +592,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     apply = bool(args.apply)
+    if apply:
+        receipt_path: Path | None = args.receipt_path
+        if receipt_path is None:
+            print(
+                "ERROR: --apply requires --receipt-path for receipt SHA verification.",
+                file=sys.stderr,
+            )
+            return 2
+        if not receipt_path.exists():
+            print(f"ERROR: receipt file not found: {receipt_path}", file=sys.stderr)
+            return 2
+        recomputed_receipt_sha256 = compute_file_sha256(receipt_path)
+        if recomputed_receipt_sha256 != payload.receipt_sha256:
+            print(
+                "ERROR: receipt_sha256 mismatch — payload claims "
+                f"{_short_sha(payload.receipt_sha256)} but {receipt_path} hashes to "
+                f"{_short_sha(recomputed_receipt_sha256)}. Refusing to apply.",
+                file=sys.stderr,
+            )
+            return 2
     only_prs: frozenset[int] = frozenset(args.only_pr)
 
     results = [

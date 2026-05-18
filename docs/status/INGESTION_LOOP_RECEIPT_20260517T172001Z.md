@@ -34,9 +34,9 @@
                │
                ▼  ★ THIS PR — the previously-missing edge
   ┌─────────────────────────┐
-  │  scripts/apply_operator │   (verifies payload_sha256 → walks entries
-  │  _decisions.py          │    → HEAD-drift check → gh pr review/close
-  │                         │    with binding footer in every body)
+  │  scripts/apply_operator │   (verifies payload_sha256 + receipt file
+  │  _decisions.py          │    SHA on --apply → HEAD-drift check →
+  │                         │    gh pr review/close with binding footer)
   └────────────┬────────────┘
                │
                ▼
@@ -53,8 +53,10 @@ pipeline is end-to-end actionable in a single shell command.
 ## CLI surface
 
 ```
-usage: apply_operator_decisions.py [-h] [--apply] [--dry-run] [--json]
-                                   [--only-pr N] [--skip-hold-decisions]
+usage: apply_operator_decisions.py [-h] [--apply]
+                                   [--receipt-path RECEIPT_PATH] [--dry-run]
+                                   [--json] [--only-pr N]
+                                   [--skip-hold-decisions]
                                    decisions_path
 
 Apply a downloaded aragora-operator-decisions/1.0 JSON to GitHub via `gh`.
@@ -65,6 +67,9 @@ positional arguments:
 
 options:
   --apply               Mutate GitHub state. Without this flag, nothing is sent.
+  --receipt-path        Original settlement receipt JSON. Required with
+                        --apply so the CLI independently verifies
+                        receipt_sha256 before mutating GitHub.
   --dry-run             Explicit dry-run (this is the default behaviour when
                         --apply is omitted).
   --json                Emit per-entry results as JSON to stdout.
@@ -83,10 +88,10 @@ exit codes:
 
 | decision | gh action |
 |---|---|
-| `approve_tier`      | `gh pr review N --approve --body <body>` |
-| `approve_downgrade` | `gh pr review N --approve --body "DOWNGRADED: <body>"` |
-| `request_changes`   | `gh pr review N --request-changes --body <body>` |
-| `reject`            | `gh pr close  N --comment <body>` |
+| `approve_tier`      | `gh pr review N --repo <receipt_repo> --approve --body <body>` |
+| `approve_downgrade` | `gh pr review N --repo <receipt_repo> --approve --body "DOWNGRADED: <body>"` |
+| `request_changes`   | `gh pr review N --repo <receipt_repo> --request-changes --body <body>` |
+| `reject`            | `gh pr close  N --repo <receipt_repo> --comment <body>` |
 | `hold_operator`     | no-op, print `SKIP` |
 | `null`              | no-op, print `SKIP (no decision recorded)` |
 
@@ -151,6 +156,7 @@ $ python3 scripts/apply_operator_decisions.py /tmp/example_operator_decisions.js
     {
       "decision": "approve_tier",
       "gh_command": ["gh", "pr", "review", "7280", "--approve", "--body",
+                     "--repo", "synaptent/aragora", "--approve", "--body",
                      "additive only, tests green\n\n---\nApplied from operator-decisions 91274c092a bound to packet abcdef1234"],
       "pr_number": 7280,
       "reason": "dry-run",
@@ -171,12 +177,18 @@ $ python3 scripts/apply_operator_decisions.py /tmp/example_operator_decisions.js
 ### What an `--apply` run would do
 
 For PR `7280` the `gh` invocation captured above would actually run.
-First a `gh pr view 7280 --json headRefOid` HEAD-drift check; on match,
-`gh pr review 7280 --approve --body "additive only, tests green\n\n---\n
+First a `gh pr view 7280 --repo synaptent/aragora --json headRefOid`
+HEAD-drift check; on match,
+`gh pr review 7280 --repo synaptent/aragora --approve --body "additive only, tests green\n\n---\n
 Applied from operator-decisions 91274c092a bound to packet abcdef1234"`
 is executed. On HEAD drift the script prints `DRIFT #7280` and moves on
 without applying — drift is expected when the author pushed a new
 commit between settlement and apply.
+
+`--apply` also requires `--receipt-path <original-receipt.json>` and
+recomputes that file's SHA-256 before any GitHub mutation. The downloaded
+operator-decisions file can prove its own payload hash, but live mutation
+requires the original receipt file to prove the packet binding locally.
 
 (The receipt does NOT actually apply against real PRs — that's the
 operator's call.)
@@ -184,15 +196,15 @@ operator's call.)
 ## Files added
 
 - `scripts/apply_operator_decisions.py` — pure-stdlib CLI (~325 LOC)
-- `tests/scripts/test_apply_operator_decisions.py` — 20 fixture-driven tests
+- `tests/scripts/test_apply_operator_decisions.py` — 41 fixture-driven tests
 - `docs/status/INGESTION_LOOP_RECEIPT_20260517T172001Z.md` — this file
 
 ## Validation
 
 ```
 $ python3 -m pytest tests/scripts/test_apply_operator_decisions.py -q
-....................                                                     [100%]
-20 passed in 1.47s
+.........................................                                [100%]
+41 passed in 0.93s
 $ ruff check scripts/apply_operator_decisions.py tests/scripts/test_apply_operator_decisions.py
 All checks passed!
 $ ruff format --check scripts/apply_operator_decisions.py tests/scripts/test_apply_operator_decisions.py
@@ -218,7 +230,10 @@ preflight: ok
 | apply reject → pr close --comment | Happy path 3 |
 | apply hold_operator → no gh call | Operator-only |
 | null decision skipped | Defensive |
-| unknown decision skipped | Defensive |
+| unknown decision fails closed | No mutation on unsupported decision IDs |
+| malformed/type-invalid row fails closed | Later bad rows block earlier mutations |
+| `--apply` requires receipt path | Original receipt file must be present before mutation |
+| receipt SHA mismatch fails closed | Downloaded payload cannot self-authorize mutation |
 | HEAD drift skips entry, exit 0 | Drift safety |
 | `--only-pr 200` touches only #200 | Filter |
 | held PR hard-skip on `--apply` | Hold-list enforcement |
@@ -248,7 +263,9 @@ python3 -m pytest tests/scripts/test_apply_operator_decisions.py -q
 python3 scripts/apply_operator_decisions.py \
     ~/Downloads/operator-decisions-2026-05-17T*.json   # dry-run
 python3 scripts/apply_operator_decisions.py \
-    ~/Downloads/operator-decisions-2026-05-17T*.json --apply
+    ~/Downloads/operator-decisions-2026-05-17T*.json \
+    --receipt-path docs/receipts/<packet-receipt>.json \
+    --apply
 ```
 
 ## Receipt self-binding
