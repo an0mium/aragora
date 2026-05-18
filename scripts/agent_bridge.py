@@ -95,6 +95,23 @@ def _bridge_file_for_read(default_path: Path) -> Path:
     return default_path
 
 
+def _bridge_files_for_lane_read() -> list[Path]:
+    """Return all lane-registry locations that can contain live claims."""
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    for path in (LANE_REGISTRY_FILE, _state_root_bridge_dir() / LANE_REGISTRY_FILE.name):
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if path.exists():
+            paths.append(path)
+    return paths or [LANE_REGISTRY_FILE]
+
+
 def _bridge_file_for_write(default_path: Path) -> Path:
     try:
         _assert_writable_dir(default_path.parent)
@@ -388,16 +405,46 @@ def _is_current_session(session: Session) -> bool:
 
 
 def _load_lane_registry() -> list[LaneRecord]:
-    registry_file = _bridge_file_for_read(LANE_REGISTRY_FILE)
-    if not registry_file.exists():
-        return []
-    try:
-        payload = json.loads(registry_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-    if not isinstance(payload, list):
-        return []
-    return [LaneRecord.from_dict(item) for item in payload if isinstance(item, dict)]
+    merged: dict[str, tuple[LaneRecord, int]] = {}
+    anonymous: list[LaneRecord] = []
+
+    for source_index, registry_file in enumerate(_bridge_files_for_lane_read()):
+        if not registry_file.exists():
+            continue
+        try:
+            payload = json.loads(registry_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(payload, list):
+            continue
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            record = LaneRecord.from_dict(item)
+            if not record.lane_id:
+                anonymous.append(record)
+                continue
+            current = merged.get(record.lane_id)
+            if current is None or _prefer_lane_record(record, source_index, current):
+                merged[record.lane_id] = (record, source_index)
+
+    return anonymous + [record for record, _source_index in merged.values()]
+
+
+def _prefer_lane_record(
+    candidate: LaneRecord,
+    candidate_source_index: int,
+    current: tuple[LaneRecord, int],
+) -> bool:
+    current_record, current_source_index = current
+    candidate_ts = _parse_timestamp(candidate.updated_at)
+    current_ts = _parse_timestamp(current_record.updated_at)
+    if candidate_ts is not None and current_ts is not None and candidate_ts != current_ts:
+        return candidate_ts > current_ts
+    # Later sources are repo-local fallbacks; prefer them when timestamps are
+    # missing or tied so claim_active_agent_lane.py writes cannot be shadowed by
+    # stale user-level bridge state.
+    return candidate_source_index >= current_source_index
 
 
 def _write_lane_registry(records: list[LaneRecord]) -> None:

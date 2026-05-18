@@ -26,6 +26,7 @@ def _patch_bridge_paths(mod, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(mod, "AGENT_BRIDGE_DIR", bridge_dir)
     monkeypatch.setattr(mod, "SESSION_SNAPSHOT_FILE", bridge_dir / "sessions.json")
     monkeypatch.setattr(mod, "LANE_REGISTRY_FILE", bridge_dir / "lanes.json")
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", tmp_path / "repo")
 
 
 def test_send_tmux_multiline_uses_delete_on_paste_buffer_transport(
@@ -419,6 +420,69 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert payload["process_census"] == {"ok": True, "total": 0, "by_role": {}}
     assert payload["health"] == {"ok": True, "issues": []}
     assert discover_include_summaries == [False]
+
+
+def test_operator_snapshot_summary_counts_repo_local_lane_when_user_registry_exists(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    user_bridge_dir = tmp_path / "user-bridge"
+    repo_root = tmp_path / "repo"
+    repo_bridge_dir = repo_root / ".aragora" / "agent-bridge"
+    user_bridge_dir.mkdir(parents=True)
+    repo_bridge_dir.mkdir(parents=True)
+    monkeypatch.delenv("ARAGORA_AUTOMATION_STATE_ROOT", raising=False)
+    monkeypatch.setattr(mod, "AGENT_BRIDGE_DIR", user_bridge_dir)
+    monkeypatch.setattr(mod, "SESSION_SNAPSHOT_FILE", user_bridge_dir / "sessions.json")
+    monkeypatch.setattr(mod, "LANE_REGISTRY_FILE", user_bridge_dir / "lanes.json")
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", repo_root)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "stale-user-lane",
+                    "owner_session": "codex-old",
+                    "status": "completed",
+                    "updated_at": "2026-05-18T12:00:00Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (repo_bridge_dir / "lanes.json").write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "repo-local-active",
+                    "owner_session": "codex-active",
+                    "status": "active",
+                    "updated_at": "2026-05-18T12:10:00Z",
+                    "branch": "codex/repo-local-active",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "lanes" not in payload
+    assert payload["summary"]["active_lanes"] == 1
 
 
 def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(
