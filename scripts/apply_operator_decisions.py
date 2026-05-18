@@ -89,6 +89,7 @@ _HUMAN_PREFIX: dict[str, str] = {
 }
 
 _REPO_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+_MISSING = object()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -197,11 +198,15 @@ def _parse_decision_entry(raw: Any, *, index: int) -> DecisionEntry:
     if not isinstance(head_sha, str) or not head_sha:
         raise PayloadValidationError(f"decisions[{index}].head_sha must be a non-empty string")
 
-    raw_decision = raw.get("decision")
-    decision = None if raw_decision in (None, "") else raw_decision
+    raw_decision = raw.get("decision", _MISSING)
+    if raw_decision is _MISSING:
+        raise PayloadValidationError(f"decisions[{index}].decision must be a string or null")
+    decision = None if raw_decision is None else raw_decision
     allowed_decisions = _APPLY_DECISIONS | {"hold_operator"}
     if decision is not None:
         if not isinstance(decision, str):
+            raise PayloadValidationError(f"decisions[{index}].decision must be a string or null")
+        if not decision:
             raise PayloadValidationError(f"decisions[{index}].decision must be a string or null")
         if decision not in allowed_decisions:
             raise PayloadValidationError(

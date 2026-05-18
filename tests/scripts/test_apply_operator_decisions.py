@@ -462,6 +462,34 @@ def test_unknown_decision_in_later_row_blocks_earlier_apply(
     assert "decisions[1].decision" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    "entry_patch",
+    [
+        {"decision": ""},
+        {"decision": None, "_remove_decision_key": True},
+    ],
+)
+def test_empty_or_missing_decision_fails_closed_before_any_gh_call(
+    tmp_path: Path,
+    fake_gh: FakeGh,
+    capsys: pytest.CaptureFixture[str],
+    entry_patch: dict[str, Any],
+) -> None:
+    first = make_entry(100, "approve_tier")
+    malformed = make_entry(200, None)
+    if entry_patch.pop("_remove_decision_key", False):
+        malformed.pop("decision")
+    else:
+        malformed.update(entry_patch)
+    p = write_payload(tmp_path, [first, malformed])
+
+    rc = aod.main([str(p), "--apply"])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "decisions[1].decision must be a string or null" in capsys.readouterr().err
+
+
 # ---------------------------------------------------------------------------
 # Head-SHA drift safety
 # ---------------------------------------------------------------------------
