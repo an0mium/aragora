@@ -68,7 +68,7 @@ def make_entry(
     }
 
 
-def canonical_payload(decisions: list[dict[str, Any]], **overrides: Any) -> dict[str, Any]:
+def canonical_payload(decisions: list[Any], **overrides: Any) -> dict[str, Any]:
     base: dict[str, Any] = {
         "schema_version": "aragora-operator-decisions/1.0",
         "generated_at_utc": "2026-05-17T17:00:00.000Z",
@@ -86,7 +86,7 @@ def canonical_payload(decisions: list[dict[str, Any]], **overrides: Any) -> dict
 
 def write_payload(
     tmp_path: Path,
-    decisions: list[dict[str, Any]],
+    decisions: list[Any],
     **overrides: Any,
 ) -> Path:
     payload = canonical_payload(decisions, **overrides)
@@ -224,6 +224,76 @@ def test_unverified_receipt_returns_2_and_makes_no_gh_calls(
     assert "receipt_sha256_verified must be true" in capsys.readouterr().err
 
 
+def test_invalid_receipt_repo_returns_2_and_makes_no_gh_calls(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(
+        tmp_path,
+        [make_entry(100, "approve_tier")],
+        receipt_repo="synaptent/aragora --repo attacker/other",
+    )
+
+    rc = aod.main([str(p), "--apply"])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "receipt_repo must be a GitHub repository" in capsys.readouterr().err
+
+
+def test_malformed_decision_row_returns_2_and_makes_no_gh_calls(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(tmp_path, [make_entry(100, "approve_tier"), "not-an-object"])
+
+    rc = aod.main([str(p), "--apply"])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "decisions[1] must be a JSON object" in capsys.readouterr().err
+
+
+def test_invalid_pr_number_returns_2_and_makes_no_gh_calls(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(tmp_path, [make_entry(100, "approve_tier"), {"pr_number": "nope"}])
+
+    rc = aod.main([str(p), "--apply"])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "pr_number must be a positive integer" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("field", "bad_value", "message"),
+    [
+        ("head_sha", 123, "head_sha must be a non-empty string"),
+        ("comment", {"not": "text"}, "comment must be a string"),
+        ("tier", 2, "tier must be a string or null"),
+        ("first_focused_at_utc", 7, "first_focused_at_utc must be a string or null"),
+        ("decided_at_utc", [], "decided_at_utc must be a string or null"),
+        ("decision_seconds", "slow", "decision_seconds must be a number or null"),
+    ],
+)
+def test_type_invalid_decision_row_returns_2_and_makes_no_gh_calls(
+    tmp_path: Path,
+    fake_gh: FakeGh,
+    capsys: pytest.CaptureFixture[str],
+    field: str,
+    bad_value: Any,
+    message: str,
+) -> None:
+    entry = make_entry(100, "approve_tier")
+    entry[field] = bad_value
+    p = write_payload(tmp_path, [entry])
+
+    rc = aod.main([str(p), "--apply"])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert message in capsys.readouterr().err
+
+
 # ---------------------------------------------------------------------------
 # Default dry-run
 # ---------------------------------------------------------------------------
@@ -265,7 +335,9 @@ def test_apply_approve_tier_calls_review_approve(tmp_path: Path, fake_gh: FakeGh
     # First call is HEAD verify, second is the review.
     assert fake_gh.calls[0][:3] == ["gh", "pr", "view"]
     review = fake_gh.calls[1]
-    assert review[:5] == ["gh", "pr", "review", "100", "--approve"]
+    assert review[:4] == ["gh", "pr", "review", "100"]
+    assert review[4:6] == ["--repo", "synaptent/aragora"]
+    assert "--approve" in review
     assert "--body" in review
 
 
@@ -283,7 +355,9 @@ def test_apply_request_changes_calls_request_changes(tmp_path: Path, fake_gh: Fa
     p = write_payload(tmp_path, [make_entry(100, "request_changes", comment="please fix X")])
     aod.main([str(p), "--apply"])
     review = fake_gh.review_calls()[0]
-    assert review[:5] == ["gh", "pr", "review", "100", "--request-changes"]
+    assert review[:4] == ["gh", "pr", "review", "100"]
+    assert review[4:6] == ["--repo", "synaptent/aragora"]
+    assert "--request-changes" in review
 
 
 def test_apply_reject_calls_close_with_comment(tmp_path: Path, fake_gh: FakeGh) -> None:
@@ -291,7 +365,23 @@ def test_apply_reject_calls_close_with_comment(tmp_path: Path, fake_gh: FakeGh) 
     aod.main([str(p), "--apply"])
     close = fake_gh.close_calls()[0]
     assert close[:4] == ["gh", "pr", "close", "100"]
+    assert close[4:6] == ["--repo", "synaptent/aragora"]
     assert "--comment" in close
+
+
+def test_apply_uses_receipt_repo_for_every_gh_call(tmp_path: Path, fake_gh: FakeGh) -> None:
+    p = write_payload(
+        tmp_path,
+        [make_entry(100, "approve_tier", comment="lgtm")],
+        receipt_repo="alternate/repo",
+    )
+
+    rc = aod.main([str(p), "--apply"])
+
+    assert rc == 0
+    assert fake_gh.calls
+    for call in fake_gh.calls:
+        assert call[call.index("--repo") + 1] == "alternate/repo"
 
 
 def test_apply_hold_operator_skips_without_gh_call(
@@ -314,14 +404,32 @@ def test_null_decision_skipped(
     assert "no decision recorded" in capsys.readouterr().out
 
 
-def test_unknown_decision_skipped(
+def test_unknown_decision_fails_closed_before_any_gh_call(
     tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
 ) -> None:
     p = write_payload(tmp_path, [make_entry(100, "weird_decision")])
     rc = aod.main([str(p), "--apply"])
-    assert rc == 0
+    assert rc == 2
     assert fake_gh.calls == []
-    assert "unknown decision" in capsys.readouterr().out
+    assert "unsupported value" in capsys.readouterr().err
+
+
+def test_unknown_decision_in_later_row_blocks_earlier_apply(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(
+        tmp_path,
+        [
+            make_entry(100, "approve_tier"),
+            make_entry(200, "future_decision"),
+        ],
+    )
+
+    rc = aod.main([str(p), "--apply"])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "decisions[1].decision" in capsys.readouterr().err
 
 
 # ---------------------------------------------------------------------------
@@ -345,6 +453,7 @@ def test_head_drift_skips_entry(
     # Only the HEAD-view call; no review.
     assert len(fake.calls) == 1
     assert fake.calls[0][:3] == ["gh", "pr", "view"]
+    assert fake.calls[0][4:6] == ["--repo", "synaptent/aragora"]
     out = capsys.readouterr().out
     assert "DRIFT" in out
     assert "HEAD DRIFT" in out
@@ -418,7 +527,15 @@ def test_json_output_shape(
     first = data["results"][0]
     assert first["pr_number"] == 100
     assert first["status"] == "would-apply"
-    assert first["gh_command"][:5] == ["gh", "pr", "review", "100", "--approve"]
+    assert first["gh_command"][:6] == [
+        "gh",
+        "pr",
+        "review",
+        "100",
+        "--repo",
+        "synaptent/aragora",
+    ]
+    assert "--approve" in first["gh_command"]
 
 
 # ---------------------------------------------------------------------------

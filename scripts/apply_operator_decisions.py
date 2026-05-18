@@ -46,6 +46,7 @@ import argparse
 import dataclasses
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -87,6 +88,8 @@ _HUMAN_PREFIX: dict[str, str] = {
     STATUS_NO_DECISION: "SKIP",
 }
 
+_REPO_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+
 
 @dataclasses.dataclass(frozen=True)
 class DecisionEntry:
@@ -127,6 +130,10 @@ class EntryResult:
     gh_command: list[str] | None = None
 
 
+class PayloadValidationError(ValueError):
+    """Raised when the downloaded payload is malformed or unsafe to apply."""
+
+
 def canonical_json(value: Any) -> str:
     """Canonical JSON serialization that matches the TS side.
 
@@ -157,43 +164,82 @@ def verify_payload_sha256(raw: dict[str, Any]) -> tuple[str, str, bool]:
     return claimed, recomputed, claimed == recomputed
 
 
+def _optional_str(value: Any, *, field: str, index: int) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise PayloadValidationError(f"decisions[{index}].{field} must be a string or null")
+    return value
+
+
+def _parse_decision_entry(raw: Any, *, index: int) -> DecisionEntry:
+    if not isinstance(raw, dict):
+        raise PayloadValidationError(f"decisions[{index}] must be a JSON object")
+    raw_pr_number = raw.get("pr_number")
+    if raw_pr_number is None:
+        raise PayloadValidationError(f"decisions[{index}].pr_number must be a positive integer")
+    try:
+        pr_number = int(raw_pr_number)
+    except (TypeError, ValueError) as exc:
+        raise PayloadValidationError(
+            f"decisions[{index}].pr_number must be a positive integer"
+        ) from exc
+    if pr_number <= 0:
+        raise PayloadValidationError(f"decisions[{index}].pr_number must be a positive integer")
+
+    head_sha = raw.get("head_sha")
+    if not isinstance(head_sha, str) or not head_sha:
+        raise PayloadValidationError(f"decisions[{index}].head_sha must be a non-empty string")
+
+    raw_decision = raw.get("decision")
+    decision = None if raw_decision in (None, "") else raw_decision
+    allowed_decisions = _APPLY_DECISIONS | {"hold_operator"}
+    if decision is not None:
+        if not isinstance(decision, str):
+            raise PayloadValidationError(f"decisions[{index}].decision must be a string or null")
+        if decision not in allowed_decisions:
+            raise PayloadValidationError(
+                f"decisions[{index}].decision has unsupported value {decision!r}"
+            )
+
+    comment = raw.get("comment", "")
+    if not isinstance(comment, str):
+        raise PayloadValidationError(f"decisions[{index}].comment must be a string")
+
+    raw_decision_seconds = raw.get("decision_seconds")
+    try:
+        decision_seconds = None if raw_decision_seconds is None else float(raw_decision_seconds)
+    except (TypeError, ValueError) as exc:
+        raise PayloadValidationError(
+            f"decisions[{index}].decision_seconds must be a number or null"
+        ) from exc
+
+    return DecisionEntry(
+        pr_number=pr_number,
+        head_sha=head_sha,
+        tier=_optional_str(raw.get("tier"), field="tier", index=index),
+        decision=decision,
+        comment=comment,
+        first_focused_at_utc=_optional_str(
+            raw.get("first_focused_at_utc"), field="first_focused_at_utc", index=index
+        ),
+        decided_at_utc=_optional_str(
+            raw.get("decided_at_utc"), field="decided_at_utc", index=index
+        ),
+        decision_seconds=decision_seconds,
+    )
+
+
 def parse_payload(raw: dict[str, Any]) -> OperatorDecisionsPayload:
     """Lift the raw dict into the typed payload + entries."""
 
-    decisions_raw = raw.get("decisions") or []
-    decisions: list[DecisionEntry] = []
-    for d in decisions_raw:
-        if not isinstance(d, dict):
-            continue
-        try:
-            pr_number = int(d.get("pr_number", 0))
-        except (TypeError, ValueError):
-            continue
-        if pr_number <= 0:
-            continue
-        raw_decision_seconds = d.get("decision_seconds")
-        try:
-            decision_seconds = None if raw_decision_seconds is None else float(raw_decision_seconds)
-        except (TypeError, ValueError):
-            decision_seconds = None
-        decisions.append(
-            DecisionEntry(
-                pr_number=pr_number,
-                head_sha=str(d.get("head_sha") or ""),
-                tier=(None if d.get("tier") is None else str(d.get("tier"))),
-                decision=(d.get("decision") if d.get("decision") else None),
-                comment=str(d.get("comment") or ""),
-                first_focused_at_utc=(
-                    None
-                    if d.get("first_focused_at_utc") is None
-                    else str(d.get("first_focused_at_utc"))
-                ),
-                decided_at_utc=(
-                    None if d.get("decided_at_utc") is None else str(d.get("decided_at_utc"))
-                ),
-                decision_seconds=decision_seconds,
-            )
-        )
+    decisions_raw = raw.get("decisions")
+    if not isinstance(decisions_raw, list):
+        raise PayloadValidationError("decisions must be a JSON array")
+    decisions = [
+        _parse_decision_entry(decision_raw, index=index)
+        for index, decision_raw in enumerate(decisions_raw)
+    ]
     return OperatorDecisionsPayload(
         schema_version=str(raw.get("schema_version", "")),
         generated_at_utc=str(raw.get("generated_at_utc", "")),
@@ -216,6 +262,11 @@ def validate_payload_envelope(payload: OperatorDecisionsPayload) -> str | None:
         )
     if not payload.receipt_sha256_verified:
         return "receipt_sha256_verified must be true"
+    if not _REPO_NAME_RE.fullmatch(payload.receipt_repo):
+        return (
+            "receipt_repo must be a GitHub repository in OWNER/REPO form "
+            "using only letters, numbers, '.', '_' or '-'"
+        )
     return None
 
 
@@ -245,10 +296,10 @@ def build_comment_body(entry: DecisionEntry, payload: OperatorDecisionsPayload) 
     return (main + footer) if main else footer.lstrip("\n")
 
 
-def _gh_view_head(pr_number: int) -> tuple[str | None, str]:
+def _gh_view_head(pr_number: int, *, repo: str) -> tuple[str | None, str]:
     """Return the current ``headRefOid`` for ``pr_number`` (or ``(None, err)``)."""
 
-    cmd = ["gh", "pr", "view", str(pr_number), "--json", "headRefOid"]
+    cmd = ["gh", "pr", "view", str(pr_number), "--repo", repo, "--json", "headRefOid"]
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as exc:
@@ -264,16 +315,16 @@ def _gh_view_head(pr_number: int) -> tuple[str | None, str]:
     return head, ""
 
 
-def _plan_action(entry: DecisionEntry, body: str) -> list[str] | None:
+def _plan_action(entry: DecisionEntry, body: str, *, repo: str) -> list[str] | None:
     """Return the ``gh`` argv to apply ``entry``, or ``None`` for no-op."""
 
     pr = str(entry.pr_number)
     if entry.decision in ("approve_tier", "approve_downgrade"):
-        return ["gh", "pr", "review", pr, "--approve", "--body", body]
+        return ["gh", "pr", "review", pr, "--repo", repo, "--approve", "--body", body]
     if entry.decision == "request_changes":
-        return ["gh", "pr", "review", pr, "--request-changes", "--body", body]
+        return ["gh", "pr", "review", pr, "--repo", repo, "--request-changes", "--body", body]
     if entry.decision == "reject":
-        return ["gh", "pr", "close", pr, "--comment", body]
+        return ["gh", "pr", "close", pr, "--repo", repo, "--comment", body]
     return None
 
 
@@ -318,16 +369,8 @@ def process_entry(
             reason="hold_operator (operator-only action)",
         )
 
-    if entry.decision not in _APPLY_DECISIONS:
-        return EntryResult(
-            pr_number=entry.pr_number,
-            decision=entry.decision,
-            status=STATUS_SKIPPED,
-            reason=f"unknown decision {entry.decision!r}",
-        )
-
     body = build_comment_body(entry, payload)
-    cmd = _plan_action(entry, body)
+    cmd = _plan_action(entry, body, repo=payload.receipt_repo)
     if cmd is None:
         # Defensive — _APPLY_DECISIONS membership already implies this
         # branch is unreachable, but keep the safety net for future
@@ -348,7 +391,7 @@ def process_entry(
             gh_command=cmd,
         )
 
-    live_head, err = _gh_view_head(entry.pr_number)
+    live_head, err = _gh_view_head(entry.pr_number, repo=payload.receipt_repo)
     if live_head is None:
         return EntryResult(
             pr_number=entry.pr_number,
@@ -500,7 +543,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 2
 
-    payload = parse_payload(raw)
+    try:
+        payload = parse_payload(raw)
+    except PayloadValidationError as exc:
+        print(f"ERROR: malformed operator-decisions payload: {exc}", file=sys.stderr)
+        return 2
     if reason := validate_payload_envelope(payload):
         print(f"ERROR: refusing operator-decisions payload: {reason}", file=sys.stderr)
         return 2
