@@ -338,9 +338,11 @@ def _merge_packet_allows_blocked_state(
     *,
     merge_packet: dict[str, Any] | None,
 ) -> str | None:
-    """Return ``None`` when a BLOCKED PR is authorized for admin squash."""
+    """Return ``None`` only for an explicit exact-head review-queue exception."""
     if merge_packet is None:
         return "merge state BLOCKED without merge-packet authorization"
+    if merge_packet.get("version") != "merge_authorization_packet.v1":
+        return "merge state BLOCKED without explicit review-queue merge authorization"
 
     pr_number = int(metadata.get("number") or 0)
     head_sha = str(metadata.get("headRefOid") or "")
@@ -365,6 +367,17 @@ def _merge_packet_allows_blocked_state(
             return "merge state BLOCKED but merge-packet head does not match"
         if entry.get("admin_squash_allowed") is not True:
             return "merge state BLOCKED but admin squash is not authorized"
+        if entry.get("status") != "satisfied":
+            return "merge state BLOCKED but merge-packet status is not satisfied"
+        if entry.get("verdict") != "admin_squash_allowed":
+            return "merge state BLOCKED but merge-packet verdict is not admin_squash_allowed"
+        if entry.get("requires_human_risk_settlement") is not False:
+            return "merge state BLOCKED but human-risk settlement is required"
+        if entry.get("unresolved_dissent") is not False:
+            return "merge state BLOCKED but unresolved dissent is present"
+        order = merge_packet.get("admin_squash_order") or []
+        if pr_number not in order:
+            return "merge state BLOCKED but PR is absent from admin_squash_order"
         return None
 
     return "merge state BLOCKED but PR is absent from merge-packet"
@@ -613,7 +626,10 @@ def decide(
             continue
 
         if apply:
-            admin_squash = str(metadata.get("mergeStateStatus") or "") == "BLOCKED"
+            admin_squash = (
+                str(metadata.get("mergeStateStatus") or "") == "BLOCKED"
+                and _merge_packet_allows_blocked_state(metadata, merge_packet=merge_packet) is None
+            )
             try:
                 merger(pr_number, head_sha, delete_branch_on_merge, admin_squash)
             except RuntimeError as exc:

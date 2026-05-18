@@ -180,17 +180,32 @@ def make_merge_packet(
     head_sha: str,
     admin_squash_allowed: bool = True,
     not_ready: list[int] | None = None,
+    version: str | None = "merge_authorization_packet.v1",
+    include_admin_squash_order: bool = True,
+    status: str = "satisfied",
+    verdict: str = "admin_squash_allowed",
+    requires_human_risk_settlement: bool = False,
+    unresolved_dissent: bool = False,
 ) -> dict[str, Any]:
-    return {
+    packet: dict[str, Any] = {
         "entries": [
             {
                 "pr_number": pr_number,
                 "head_sha": head_sha,
                 "admin_squash_allowed": admin_squash_allowed,
+                "status": status,
+                "verdict": verdict,
+                "requires_human_risk_settlement": requires_human_risk_settlement,
+                "unresolved_dissent": unresolved_dissent,
             }
         ],
         "not_ready": [] if not_ready is None else not_ready,
     }
+    if version is not None:
+        packet["version"] = version
+    if include_admin_squash_order:
+        packet["admin_squash_order"] = [pr_number]
+    return packet
 
 
 class _MergePacketRegistry:
@@ -503,6 +518,38 @@ class TestDefenseInDepth:
                 make_merge_packet(9002, head_sha="a" * 40),
                 "absent from merge-packet",
             ),
+            (
+                make_merge_packet(9001, head_sha="a" * 40, version=None),
+                "without explicit review-queue merge authorization",
+            ),
+            (
+                make_merge_packet(9001, head_sha="a" * 40, include_admin_squash_order=False),
+                "absent from admin_squash_order",
+            ),
+            (
+                make_merge_packet(9001, head_sha="a" * 40, status="needs_model_review_quorum"),
+                "status is not satisfied",
+            ),
+            (
+                make_merge_packet(
+                    9001,
+                    head_sha="a" * 40,
+                    verdict="collect_model_quorum_before_merge",
+                ),
+                "verdict is not admin_squash_allowed",
+            ),
+            (
+                make_merge_packet(
+                    9001,
+                    head_sha="a" * 40,
+                    requires_human_risk_settlement=True,
+                ),
+                "human-risk settlement is required",
+            ),
+            (
+                make_merge_packet(9001, head_sha="a" * 40, unresolved_dissent=True),
+                "unresolved dissent is present",
+            ),
         ],
     )
     def test_blocked_merge_state_rejects_non_authorized_merge_packet(
@@ -530,6 +577,42 @@ class TestDefenseInDepth:
         assert exit_code == 1
         assert decisions[0].decision == "skip-tripwire"
         assert reason_fragment in decisions[0].reason
+
+    def test_blocked_merge_state_rejects_minimal_admin_allowed_packet(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        metadata = make_metadata(9001, merge_state="BLOCKED", head_sha="a" * 40)
+        meta = _MetadataRegistry({9001: metadata})
+        packets = _MergePacketRegistry(
+            {
+                9001: {
+                    "entries": [
+                        {
+                            "pr_number": 9001,
+                            "head_sha": "a" * 40,
+                            "admin_squash_allowed": True,
+                        }
+                    ],
+                    "not_ready": [],
+                }
+            }
+        )
+        recorder = _MergeRecorder()
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merge_packet_provider=packets,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert recorder.admin_squash_flags == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert "without explicit review-queue merge authorization" in decisions[0].reason
 
     @pytest.mark.parametrize(
         "protected_path",
