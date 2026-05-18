@@ -376,14 +376,22 @@ class TestDefenseInDepth:
         assert decisions[0].decision == "skip-tripwire"
         assert "merge state not clean" in decisions[0].reason
 
-    def test_protected_path_tripwire_forces_nonzero_exit(self):
+    @pytest.mark.parametrize(
+        "protected_path",
+        [
+            "scripts/nomic_loop.py",
+            "scripts/auto_merge_bucket_a.py",
+            "scripts/triage_open_prs.py",
+        ],
+    )
+    def test_protected_path_tripwire_forces_nonzero_exit(self, protected_path: str):
         payload = make_triage_payload(bucket_a_entry(9001))
         meta = _MetadataRegistry(
             {
                 9001: make_metadata(
                     9001,
                     files=[
-                        {"path": "scripts/nomic_loop.py", "additions": 1},
+                        {"path": protected_path, "additions": 1},
                         {"path": "tests/x.py", "additions": 1},
                     ],
                 )
