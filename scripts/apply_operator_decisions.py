@@ -172,19 +172,25 @@ def _optional_str(value: Any, *, field: str, index: int) -> str | None:
     return value
 
 
+def _required_payload_str(raw: dict[str, Any], field: str) -> str:
+    value = raw.get(field)
+    if not isinstance(value, str):
+        raise PayloadValidationError(f"{field} must be a string")
+    return value
+
+
+def _required_payload_bool(raw: dict[str, Any], field: str) -> bool:
+    value = raw.get(field)
+    if not isinstance(value, bool):
+        raise PayloadValidationError(f"{field} must be a boolean")
+    return value
+
+
 def _parse_decision_entry(raw: Any, *, index: int) -> DecisionEntry:
     if not isinstance(raw, dict):
         raise PayloadValidationError(f"decisions[{index}] must be a JSON object")
     raw_pr_number = raw.get("pr_number")
-    if raw_pr_number is None:
-        raise PayloadValidationError(f"decisions[{index}].pr_number must be a positive integer")
-    try:
-        pr_number = int(raw_pr_number)
-    except (TypeError, ValueError) as exc:
-        raise PayloadValidationError(
-            f"decisions[{index}].pr_number must be a positive integer"
-        ) from exc
-    if pr_number <= 0:
+    if not isinstance(raw_pr_number, int) or isinstance(raw_pr_number, bool) or raw_pr_number <= 0:
         raise PayloadValidationError(f"decisions[{index}].pr_number must be a positive integer")
 
     head_sha = raw.get("head_sha")
@@ -207,15 +213,19 @@ def _parse_decision_entry(raw: Any, *, index: int) -> DecisionEntry:
         raise PayloadValidationError(f"decisions[{index}].comment must be a string")
 
     raw_decision_seconds = raw.get("decision_seconds")
-    try:
-        decision_seconds = None if raw_decision_seconds is None else float(raw_decision_seconds)
-    except (TypeError, ValueError) as exc:
+    if raw_decision_seconds is None:
+        decision_seconds = None
+    elif isinstance(raw_decision_seconds, bool) or not isinstance(
+        raw_decision_seconds, (int, float)
+    ):
         raise PayloadValidationError(
             f"decisions[{index}].decision_seconds must be a number or null"
-        ) from exc
+        )
+    else:
+        decision_seconds = float(raw_decision_seconds)
 
     return DecisionEntry(
-        pr_number=pr_number,
+        pr_number=raw_pr_number,
         head_sha=head_sha,
         tier=_optional_str(raw.get("tier"), field="tier", index=index),
         decision=decision,
@@ -241,14 +251,14 @@ def parse_payload(raw: dict[str, Any]) -> OperatorDecisionsPayload:
         for index, decision_raw in enumerate(decisions_raw)
     ]
     return OperatorDecisionsPayload(
-        schema_version=str(raw.get("schema_version", "")),
-        generated_at_utc=str(raw.get("generated_at_utc", "")),
-        receipt_id_hint=str(raw.get("receipt_id_hint", "")),
-        receipt_repo=str(raw.get("receipt_repo", "")),
-        receipt_sha256=str(raw.get("receipt_sha256", "")),
-        receipt_sha256_verified=bool(raw.get("receipt_sha256_verified", False)),
+        schema_version=_required_payload_str(raw, "schema_version"),
+        generated_at_utc=_required_payload_str(raw, "generated_at_utc"),
+        receipt_id_hint=_required_payload_str(raw, "receipt_id_hint"),
+        receipt_repo=_required_payload_str(raw, "receipt_repo"),
+        receipt_sha256=_required_payload_str(raw, "receipt_sha256"),
+        receipt_sha256_verified=_required_payload_bool(raw, "receipt_sha256_verified"),
         decisions=tuple(decisions),
-        payload_sha256=str(raw.get("payload_sha256", "")),
+        payload_sha256=_required_payload_str(raw, "payload_sha256"),
     )
 
 

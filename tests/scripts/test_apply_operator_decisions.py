@@ -224,6 +224,22 @@ def test_unverified_receipt_returns_2_and_makes_no_gh_calls(
     assert "receipt_sha256_verified must be true" in capsys.readouterr().err
 
 
+def test_string_receipt_verification_flag_fails_closed_before_any_gh_call(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    p = write_payload(
+        tmp_path,
+        [make_entry(100, "approve_tier")],
+        receipt_sha256_verified="true",
+    )
+
+    rc = aod.main([str(p), "--apply"])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "receipt_sha256_verified must be a boolean" in capsys.readouterr().err
+
+
 def test_invalid_receipt_repo_returns_2_and_makes_no_gh_calls(
     tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -264,6 +280,20 @@ def test_invalid_pr_number_returns_2_and_makes_no_gh_calls(
     assert "pr_number must be a positive integer" in capsys.readouterr().err
 
 
+def test_string_pr_number_returns_2_and_makes_no_gh_calls(
+    tmp_path: Path, fake_gh: FakeGh, capsys: pytest.CaptureFixture[str]
+) -> None:
+    entry = make_entry(100, "approve_tier")
+    entry["pr_number"] = "100"
+    p = write_payload(tmp_path, [entry])
+
+    rc = aod.main([str(p), "--apply"])
+
+    assert rc == 2
+    assert fake_gh.calls == []
+    assert "pr_number must be a positive integer" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize(
     ("field", "bad_value", "message"),
     [
@@ -272,7 +302,7 @@ def test_invalid_pr_number_returns_2_and_makes_no_gh_calls(
         ("tier", 2, "tier must be a string or null"),
         ("first_focused_at_utc", 7, "first_focused_at_utc must be a string or null"),
         ("decided_at_utc", [], "decided_at_utc must be a string or null"),
-        ("decision_seconds", "slow", "decision_seconds must be a number or null"),
+        ("decision_seconds", "5.0", "decision_seconds must be a number or null"),
     ],
 )
 def test_type_invalid_decision_row_returns_2_and_makes_no_gh_calls(
