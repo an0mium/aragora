@@ -536,6 +536,189 @@ def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(
     assert payload["health"]["issues"][0]["type"] == "lane_identity_conflict"
 
 
+def test_operator_snapshot_does_not_conflict_same_owner_refreshes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-a",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "pr_number": 7245,
+                    "branch": "worktree-codex-insights",
+                },
+                {
+                    "lane_id": "lane-b",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "pr_number": 7245,
+                    "branch": "worktree-codex-insights",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 400,
+            "by_role": {"codex_app_server": 400},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["active_lanes"] == 2
+    assert payload["summary"]["conflict_lanes"] == 0
+    assert payload["lane_conflicts"] == []
+    assert payload["health"]["ok"] is True
+
+
+def test_cmd_owner_json_reports_active_pr_owner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    worktree = tmp_path / "owned-worktree"
+    worktree.mkdir()
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "q01-settle-7292",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "updated_at": "2026-05-18T17:00:00Z",
+                    "branch": "droid/P16-stage2",
+                    "worktree": str(worktree),
+                    "pr_number": 7292,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_head_for_worktree",
+        lambda path: "a" * 40 if str(path) == str(worktree) else None,
+    )
+
+    rc = mod.cmd_owner(argparse.Namespace(json=True, pr=7292, branch=None, worktree=None))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "owner_status": "owned",
+        "active_owner": True,
+        "lane_id": "q01-settle-7292",
+        "owner_session": "codex-owner",
+        "pr_number": 7292,
+        "branch": "droid/P16-stage2",
+        "worktree": str(worktree),
+        "head": "a" * 40,
+        "status": "active",
+        "updated_at": "2026-05-18T17:00:00Z",
+        "recommended_operator_action": "route mutation/comment work to owner_session codex-owner; non-owners should stop or request release",
+    }
+
+
+def test_cmd_owner_json_reports_unowned_pr(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text("[]", encoding="utf-8")
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+
+    rc = mod.cmd_owner(argparse.Namespace(json=True, pr=7292, branch=None, worktree=None))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "owner_status": "unowned",
+        "active_owner": False,
+        "lane_id": None,
+        "owner_session": None,
+        "pr_number": 7292,
+        "branch": None,
+        "worktree": None,
+        "head": None,
+        "status": None,
+        "updated_at": None,
+        "recommended_operator_action": "no active owner found; claim the lane before mutation",
+    }
+
+
+def test_cmd_owner_json_reports_duplicate_pr_conflict(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-a",
+                    "owner_session": "codex-A",
+                    "status": "active",
+                    "updated_at": "2026-05-18T17:00:00Z",
+                    "branch": "feature/a",
+                    "pr_number": 7292,
+                },
+                {
+                    "lane_id": "lane-b",
+                    "owner_session": "codex-B",
+                    "status": "active",
+                    "updated_at": "2026-05-18T17:01:00Z",
+                    "branch": "feature/b",
+                    "pr_number": 7292,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+
+    rc = mod.cmd_owner(argparse.Namespace(json=True, pr=7292, branch=None, worktree=None))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["owner_status"] == "conflict"
+    assert payload["active_owner"] is True
+    assert payload["lane_id"] == "lane-a,lane-b"
+    assert payload["owner_session"] == "codex-A,codex-B"
+    assert payload["pr_number"] == 7292
+    assert payload["recommended_operator_action"] == (
+        "pause duplicate mutation; resolve active owner conflict before mutation"
+    )
+
+
 def test_collect_agent_process_census_redacts_commands_and_counts_roles() -> None:
     import agent_bridge as mod
 

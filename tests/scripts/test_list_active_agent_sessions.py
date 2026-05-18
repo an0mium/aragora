@@ -1041,6 +1041,7 @@ def test_build_conflicts_only_payload_filters_to_lane_conflicts() -> None:
                 "owner_session": "codex-A",
                 "is_active": True,
                 "is_conflict": True,
+                "codex_rollout_path": "/Users/armand/.codex/sessions/raw.jsonl",
                 "identity_conflicts": [{"key_kind": "pr_number", "key_value": "7245"}],
             },
             {
@@ -1048,6 +1049,7 @@ def test_build_conflicts_only_payload_filters_to_lane_conflicts() -> None:
                 "owner_session": "codex-Z",
                 "is_active": True,
                 "is_conflict": False,
+                "codex_rollout_path": "/Users/armand/.codex/sessions/raw-z.jsonl",
             },
         ],
         "lane_conflicts": [
@@ -1080,7 +1082,54 @@ def test_build_conflicts_only_payload_filters_to_lane_conflicts() -> None:
     assert out["conflict_count"] == 1
     assert out["conflict_lane_count"] == 1
     assert [row["lane_id"] for row in out["agent_bridge_lanes"]] == ["lane-a"]
+    assert [row["lane_id"] for row in out["active_owner_records"]] == ["lane-a", "lane-z"]
+    assert "codex_rollout_path" not in out["active_owner_records"][0]
+    assert "raw.jsonl" not in json.dumps(out)
     assert out["overlap_report"]["overlap_count"] == 1
+
+
+def test_build_conflicts_only_payload_includes_active_owners_without_conflicts() -> None:
+    payload = {
+        "schema_version": 3,
+        "generated_at": "2026-05-18T17:00:00Z",
+        "repo_root": "/repo",
+        "agent_bridge_lanes": [
+            {
+                "lane_id": "q01-settle-7292",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "is_active": True,
+                "is_conflict": False,
+                "pr_number": 7292,
+                "branch": "droid/P16-stage2",
+                "worktree": "/repo/.worktrees/p16",
+            }
+        ],
+        "lane_conflicts": [],
+        "overlap_report": {"overlaps": []},
+    }
+
+    out = detector.build_conflicts_only_payload(payload)
+
+    assert out["conflict_count"] == 0
+    assert out["conflict_lane_count"] == 0
+    assert out["agent_bridge_lanes"] == []
+    assert out["active_owner_records"] == [
+        {
+            "lane_id": "q01-settle-7292",
+            "owner_session": "codex-owner",
+            "status": "active",
+            "updated_at": None,
+            "branch": "droid/P16-stage2",
+            "worktree": "/repo/.worktrees/p16",
+            "pr_number": 7292,
+            "goal": None,
+            "source": None,
+            "next_action": None,
+            "desktop_label": None,
+            "session_title": None,
+        }
+    ]
 
 
 def test_schema_version_bumped_for_lane_desktop_metadata() -> None:

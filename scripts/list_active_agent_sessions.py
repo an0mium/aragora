@@ -863,9 +863,14 @@ def build_conflicts_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
         if "agent_bridge_lane" in set(row.get("sources") or [])
     ]
     conflict_lanes = [
-        row
+        _operator_conflict_lane_record(row)
         for row in payload.get("agent_bridge_lanes", [])
         if row.get("is_conflict") or row.get("identity_conflicts")
+    ]
+    active_owner_records = [
+        _operator_lane_record(row)
+        for row in payload.get("agent_bridge_lanes", [])
+        if row.get("is_active")
     ]
     lane_conflicts = payload.get("lane_conflicts") or []
     return {
@@ -876,6 +881,7 @@ def build_conflicts_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "conflict_lane_count": len(conflict_lanes),
         "lane_conflicts": lane_conflicts,
         "agent_bridge_lanes": conflict_lanes,
+        "active_owner_records": active_owner_records,
         "overlap_report": {
             "overlap_count": len(overlaps),
             "overlaps": overlaps,
@@ -885,6 +891,37 @@ def build_conflicts_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "to pushed PR/branch head; keep one owner and release the other lane."
         ),
     }
+
+
+def _operator_lane_record(row: dict[str, Any]) -> dict[str, Any]:
+    """Return lane ownership fields safe for compact operator routing."""
+    return {
+        "lane_id": row.get("lane_id"),
+        "owner_session": row.get("owner_session"),
+        "status": row.get("status"),
+        "updated_at": row.get("updated_at"),
+        "branch": row.get("branch"),
+        "worktree": row.get("worktree"),
+        "pr_number": row.get("pr_number"),
+        "goal": row.get("goal"),
+        "source": row.get("source"),
+        "next_action": row.get("next_action"),
+        "desktop_label": row.get("desktop_label"),
+        "session_title": row.get("session_title"),
+    }
+
+
+def _operator_conflict_lane_record(row: dict[str, Any]) -> dict[str, Any]:
+    record = _operator_lane_record(row)
+    record["is_active"] = bool(row.get("is_active"))
+    record["is_conflict"] = bool(row.get("is_conflict"))
+    if row.get("identity_conflicts"):
+        record["identity_conflicts"] = row.get("identity_conflicts")
+    if row.get("conflict_session"):
+        record["conflict_session"] = row.get("conflict_session")
+    if row.get("conflict_reason"):
+        record["conflict_reason"] = row.get("conflict_reason")
+    return record
 
 
 def render_text(payload: dict[str, Any]) -> str:

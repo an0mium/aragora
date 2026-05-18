@@ -13,6 +13,7 @@ Usage:
   python3 scripts/agent_bridge.py read <name> [--lines 20]
   python3 scripts/agent_bridge.py read-all [--lines 3] [--json]
   python3 scripts/agent_bridge.py lanes [--json]
+  python3 scripts/agent_bridge.py owner --pr 7292 [--json]
   python3 scripts/agent_bridge.py processes [--json]
   python3 scripts/agent_bridge.py tmux-map
   python3 scripts/agent_bridge.py health [--json]
@@ -468,6 +469,148 @@ def _sync_lane_records(records: list[LaneRecord], sessions: list[Session]) -> li
             record.worktree = live.worktree
             record.pr_number = live.pr_number
     return records
+
+
+def _head_for_worktree(path: str | Path | None) -> str | None:
+    if not path:
+        return None
+    worktree = Path(path)
+    if not worktree.is_dir():
+        return None
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(worktree), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    head = result.stdout.strip()
+    return head or None
+
+
+def _worktree_matches(record_worktree: str, query_worktree: str | None) -> bool:
+    if not query_worktree:
+        return False
+    if record_worktree == query_worktree:
+        return True
+    try:
+        return Path(record_worktree).resolve() == Path(query_worktree).resolve()
+    except OSError:
+        return False
+
+
+def _record_matches_owner_query(
+    record: LaneRecord,
+    *,
+    pr_number: int | None,
+    branch: str | None,
+    worktree: str | None,
+) -> bool:
+    if record.status not in ACTIVE_LANE_STATUSES:
+        return False
+    if pr_number is not None and record.pr_number == pr_number:
+        return True
+    if branch and record.branch == branch:
+        return True
+    return bool(record.worktree and _worktree_matches(record.worktree, worktree))
+
+
+def _owner_action_for(record: LaneRecord) -> str:
+    return (
+        f"route mutation/comment work to owner_session {record.owner_session}; "
+        "non-owners should stop or request release"
+    )
+
+
+def _unowned_owner_payload(
+    *,
+    pr_number: int | None,
+    branch: str | None,
+    worktree: str | None,
+) -> dict[str, Any]:
+    return {
+        "owner_status": "unowned",
+        "active_owner": False,
+        "lane_id": None,
+        "owner_session": None,
+        "pr_number": pr_number,
+        "branch": branch,
+        "worktree": worktree,
+        "head": None,
+        "status": None,
+        "updated_at": None,
+        "recommended_operator_action": "no active owner found; claim the lane before mutation",
+    }
+
+
+def _owned_owner_payload(record: LaneRecord) -> dict[str, Any]:
+    return {
+        "owner_status": "owned",
+        "active_owner": True,
+        "lane_id": record.lane_id,
+        "owner_session": record.owner_session,
+        "pr_number": record.pr_number,
+        "branch": record.branch or None,
+        "worktree": record.worktree or None,
+        "head": _head_for_worktree(record.worktree),
+        "status": record.status,
+        "updated_at": record.updated_at or None,
+        "recommended_operator_action": _owner_action_for(record),
+    }
+
+
+def _conflicted_owner_payload(records: list[LaneRecord]) -> dict[str, Any]:
+    lane_ids = sorted({record.lane_id for record in records if record.lane_id})
+    owner_sessions = sorted({record.owner_session for record in records if record.owner_session})
+    branches = sorted({record.branch for record in records if record.branch})
+    worktrees = sorted({record.worktree for record in records if record.worktree})
+    pr_numbers = sorted({record.pr_number for record in records if record.pr_number is not None})
+    updated_values = sorted(
+        (record.updated_at for record in records if record.updated_at), reverse=True
+    )
+    return {
+        "owner_status": "conflict",
+        "active_owner": True,
+        "lane_id": ",".join(lane_ids) or None,
+        "owner_session": ",".join(owner_sessions) or None,
+        "pr_number": pr_numbers[0] if len(pr_numbers) == 1 else None,
+        "branch": branches[0] if len(branches) == 1 else None,
+        "worktree": worktrees[0] if len(worktrees) == 1 else None,
+        "head": None,
+        "status": "conflict",
+        "updated_at": updated_values[0] if updated_values else None,
+        "recommended_operator_action": (
+            "pause duplicate mutation; resolve active owner conflict before mutation"
+        ),
+    }
+
+
+def _active_owner_payload(
+    records: list[LaneRecord],
+    *,
+    pr_number: int | None,
+    branch: str | None,
+    worktree: str | None,
+) -> dict[str, Any]:
+    matches = [
+        record
+        for record in records
+        if _record_matches_owner_query(
+            record, pr_number=pr_number, branch=branch, worktree=worktree
+        )
+    ]
+    if not matches:
+        return _unowned_owner_payload(pr_number=pr_number, branch=branch, worktree=worktree)
+    owners = {record.owner_session for record in matches if record.owner_session}
+    if len(owners) > 1:
+        return _conflicted_owner_payload(matches)
+    matches.sort(key=lambda record: record.updated_at or "", reverse=True)
+    return _owned_owner_payload(matches[0])
 
 
 def _load_broker_run_summaries() -> list[dict[str, Any]]:
@@ -1200,6 +1343,44 @@ def cmd_lanes(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_owner(args: argparse.Namespace) -> int:
+    """Report the active lane owner for a PR, branch, or worktree."""
+    pr_number = getattr(args, "pr", None)
+    branch = str(getattr(args, "branch", "") or "").strip() or None
+    worktree = str(getattr(args, "worktree", "") or "").strip() or None
+    if pr_number is None and branch is None and worktree is None:
+        print("Provide at least one of --pr, --branch, or --worktree.", file=sys.stderr)
+        return 2
+
+    sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state(
+        include_summaries=False,
+        include_historical=False,
+    )
+    _enrich_prs(sessions)
+    records = _sync_lane_records(_load_lane_registry(), sessions)
+    payload = _active_owner_payload(
+        records,
+        pr_number=pr_number,
+        branch=branch,
+        worktree=worktree,
+    )
+
+    if args.json:
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    if payload["owner_status"] == "unowned":
+        print(f"unowned: {payload['recommended_operator_action']}")
+        return 0
+    print(
+        f"{payload['owner_status']}: lane={payload['lane_id']} "
+        f"owner={payload['owner_session']} pr={payload['pr_number'] or '-'} "
+        f"branch={payload['branch'] or '-'} worktree={payload['worktree'] or '-'}"
+    )
+    print(payload["recommended_operator_action"])
+    return 0
+
+
 def cmd_processes(args: argparse.Namespace) -> int:
     """Report local agent/control-plane processes without exposing raw commands."""
     summary_only = bool(getattr(args, "summary_only", False))
@@ -1596,6 +1777,14 @@ def main() -> int:
     ra_p.add_argument("--lines", type=int, default=5)
 
     sub.add_parser("lanes", parents=[json_parent], help="Sessions + PR state")
+    owner_p = sub.add_parser(
+        "owner",
+        parents=[json_parent],
+        help="Find the active lane owner for a PR, branch, or worktree",
+    )
+    owner_p.add_argument("--pr", type=int, help="Pull request number to query")
+    owner_p.add_argument("--branch", help="Branch name to query")
+    owner_p.add_argument("--worktree", help="Worktree path to query")
     processes_p = sub.add_parser(
         "processes",
         parents=[json_parent],
@@ -1658,6 +1847,7 @@ def main() -> int:
         "read": cmd_read,
         "read-all": cmd_read_all,
         "lanes": cmd_lanes,
+        "owner": cmd_owner,
         "processes": cmd_processes,
         "tmux-map": cmd_tmux_map,
         "health": cmd_health,
