@@ -115,6 +115,177 @@ def test_work_robot_marks_tier_four_pr_human_gated(
     assert payload["recommendations"][0]["item"]["metadata"]["tier"] == 4
 
 
+def test_work_show_enriches_github_pr_with_active_lane_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: "/usr/bin/gh")
+
+    def fake_run(*_args, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=["gh"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 7292,
+                        "title": "Stage 2 operator-delegation",
+                        "url": "https://github.com/synaptent/aragora/pull/7292",
+                        "state": "OPEN",
+                        "isDraft": False,
+                        "headRefName": "droid/P16-stage2-auto-merge-bucket-a",
+                        "headRefOid": "abc123",
+                        "updatedAt": _now_iso(),
+                        "createdAt": _now_iso(),
+                        "reviewDecision": "REVIEW_REQUIRED",
+                        "mergeStateStatus": "DIRTY",
+                        "labels": [],
+                        "assignees": [],
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("aragora.work.sources.subprocess.run", fake_run)
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "P16-repair-7292-stage2-guards",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "pr_number": 7292,
+                    "branch": "droid/P16-stage2-auto-merge-bucket-a",
+                    "worktree": "/repo/.worktrees/p16",
+                    "updated_at": "2026-05-18T02:12:13Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_show(_args(tmp_path, work_id="pr:7292")) == 0
+    payload = _capture_json(capsys)
+    item = payload["item"]
+
+    assert item["owner"] == "codex-owner"
+    assert item["metadata"]["active_lane"] is True
+    assert item["metadata"]["lane_id"] == "P16-repair-7292-stage2-guards"
+    assert item["metadata"]["owner_session"] == "codex-owner"
+    assert item["metadata"]["lane_worktree"] == "/repo/.worktrees/p16"
+    assert item["metadata"]["lane_status"] == "active"
+    assert item["metadata"]["lane_updated_at"] == "2026-05-18T02:12:13Z"
+
+
+def test_work_show_preserves_assignee_when_lane_is_released(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: "/usr/bin/gh")
+
+    def fake_run(*_args, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=["gh"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 7292,
+                        "title": "Stage 2 operator-delegation",
+                        "url": "https://github.com/synaptent/aragora/pull/7292",
+                        "state": "OPEN",
+                        "isDraft": False,
+                        "headRefName": "droid/P16-stage2-auto-merge-bucket-a",
+                        "headRefOid": "abc123",
+                        "updatedAt": _now_iso(),
+                        "createdAt": _now_iso(),
+                        "reviewDecision": "REVIEW_REQUIRED",
+                        "mergeStateStatus": "DIRTY",
+                        "labels": [],
+                        "assignees": [{"login": "assigned-human"}],
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("aragora.work.sources.subprocess.run", fake_run)
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "P16-released",
+                    "owner_session": "old-owner",
+                    "status": "released",
+                    "pr_number": 7292,
+                    "branch": "droid/P16-stage2-auto-merge-bucket-a",
+                    "updated_at": "2026-05-18T02:12:13Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_show(_args(tmp_path, work_id="pr:7292")) == 0
+    payload = _capture_json(capsys)
+    item = payload["item"]
+
+    assert item["owner"] == "assigned-human"
+    assert item["metadata"]["active_lane"] is False
+    assert item["metadata"]["lane_id"] == "P16-released"
+    assert item["metadata"]["owner_session"] == "old-owner"
+    assert item["metadata"]["lane_status"] == "released"
+
+
+def test_work_robot_degrades_safely_on_malformed_lane_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: "/usr/bin/gh")
+
+    def fake_run(*_args, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=["gh"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 7292,
+                        "title": "Stage 2 operator-delegation",
+                        "url": "https://github.com/synaptent/aragora/pull/7292",
+                        "state": "OPEN",
+                        "isDraft": False,
+                        "headRefName": "droid/P16-stage2-auto-merge-bucket-a",
+                        "headRefOid": "abc123",
+                        "updatedAt": _now_iso(),
+                        "createdAt": _now_iso(),
+                        "reviewDecision": "REVIEW_REQUIRED",
+                        "mergeStateStatus": "DIRTY",
+                        "labels": [],
+                        "assignees": [],
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("aragora.work.sources.subprocess.run", fake_run)
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text("{not json", encoding="utf-8")
+
+    assert cmd_work_robot(_args(tmp_path)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["recommendations"][0]["item"]["owner"] is None
+    assert any(
+        health["source"] == "agent_bridge_lane" and health["status"] == "degraded"
+        for health in payload["source_health"]
+    )
+
+
 def test_work_show_finds_historical_receipt_in_all_scope(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:

@@ -13,6 +13,7 @@ from aragora.work.sources import (
     collect_broker_runs,
     collect_github_prs,
     collect_mission_files,
+    enrich_with_agent_bridge_lanes,
 )
 
 
@@ -35,6 +36,8 @@ def collect_work_items(
         collected, source_health = collector(root)
         items.extend(collected)
         health.append(source_health)
+    items, lane_health = enrich_with_agent_bridge_lanes(root, items)
+    health.append(lane_health)
 
     if scope == "current":
         items = [item for item in items if item.scope == "current"]

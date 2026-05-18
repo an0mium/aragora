@@ -12,6 +12,8 @@ from typing import Any
 from aragora.work.models import WorkItem
 from aragora.work.scoring import is_current_status, stale_factor
 
+_ACTIVE_LANE_STATUSES = {"active", "claimed", "in_progress", "in-progress", "running"}
+
 
 def _read_json(path: Path) -> dict[str, Any] | None:
     try:
@@ -42,6 +44,113 @@ def _read_jsonl(path: Path, *, limit: int = 200) -> list[dict[str, Any]]:
 
 def _health(source: str, status: str, detail: str, **extra: Any) -> dict[str, Any]:
     return {"source": source, "status": status, "detail": detail, **extra}
+
+
+def _read_agent_bridge_lane_rows(repo_root: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Read repo-local agent-bridge lane registry rows without mutating lane state."""
+    registry = repo_root / ".aragora" / "agent-bridge" / "lanes.json"
+    if not registry.exists():
+        return [], _health("agent_bridge_lane", "missing", f"{registry} not found")
+    try:
+        raw = json.loads(registry.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return [], _health("agent_bridge_lane", "degraded", f"lanes registry unreadable: {exc}")
+    if isinstance(raw, dict):
+        raw_rows = raw.get("lanes") or raw.get("items") or []
+    elif isinstance(raw, list):
+        raw_rows = raw
+    else:
+        return [], _health("agent_bridge_lane", "degraded", "lanes registry returned non-list")
+
+    rows = [row for row in raw_rows if isinstance(row, dict)]
+    return rows, _health("agent_bridge_lane", "ok", f"{len(rows)} lane row(s)")
+
+
+def _lane_is_active(row: dict[str, Any]) -> bool:
+    return str(row.get("status") or "").strip().lower() in _ACTIVE_LANE_STATUSES
+
+
+def _lane_sort_key(row: dict[str, Any]) -> tuple[int, str, str]:
+    return (
+        1 if _lane_is_active(row) else 0,
+        str(row.get("updated_at") or ""),
+        str(row.get("lane_id") or ""),
+    )
+
+
+def _best_lane(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not rows:
+        return None
+    return max(rows, key=_lane_sort_key)
+
+
+def _lane_lookup_value(row: dict[str, Any], key: str) -> str | None:
+    value = row.get(key)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _apply_lane_metadata(item: WorkItem, lane: dict[str, Any]) -> None:
+    active = _lane_is_active(lane)
+    owner_session = _lane_lookup_value(lane, "owner_session")
+    metadata = {
+        "active_lane": active,
+        "lane_id": _lane_lookup_value(lane, "lane_id"),
+        "owner_session": owner_session,
+        "lane_worktree": _lane_lookup_value(lane, "worktree"),
+        "lane_status": _lane_lookup_value(lane, "status"),
+        "lane_updated_at": _lane_lookup_value(lane, "updated_at"),
+    }
+    item.metadata.update({key: value for key, value in metadata.items() if value is not None})
+    if active and owner_session and item.owner is None:
+        item.owner = owner_session
+
+
+def enrich_with_agent_bridge_lanes(
+    repo_root: Path, items: list[WorkItem]
+) -> tuple[list[WorkItem], dict[str, Any]]:
+    """Attach active/recent lane ownership to PR work items from repo-local lanes.json."""
+    rows, health = _read_agent_bridge_lane_rows(repo_root)
+    if not rows:
+        return items, health
+
+    by_pr: dict[int, list[dict[str, Any]]] = {}
+    by_branch: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        pr_number = row.get("pr_number")
+        if isinstance(pr_number, int):
+            by_pr.setdefault(pr_number, []).append(row)
+        elif isinstance(pr_number, str) and pr_number.isdigit():
+            by_pr.setdefault(int(pr_number), []).append(row)
+        branch = _lane_lookup_value(row, "branch")
+        if branch:
+            by_branch.setdefault(branch, []).append(row)
+
+    enriched = 0
+    active = 0
+    for item in items:
+        if item.source != "github_pr":
+            continue
+        number = item.metadata.get("number")
+        candidates: list[dict[str, Any]] = []
+        if isinstance(number, int):
+            candidates.extend(by_pr.get(number, []))
+        elif isinstance(number, str) and number.isdigit():
+            candidates.extend(by_pr.get(int(number), []))
+        if item.branch:
+            candidates.extend(by_branch.get(item.branch, []))
+        lane = _best_lane(candidates)
+        if lane is None:
+            continue
+        _apply_lane_metadata(item, lane)
+        enriched += 1
+        if item.metadata.get("active_lane"):
+            active += 1
+
+    health.update({"enriched": enriched, "active": active})
+    return items, health
 
 
 def _tier_from_labels(labels: list[str]) -> int | None:

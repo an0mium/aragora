@@ -175,9 +175,17 @@ def score_work_item(item: WorkItem, *, now: datetime | None = None) -> WorkScore
         parallel_safety -= 0.12
 
     staleness = stale_factor(item.updated_at or item.created_at, now=now)
-    owner_clarity = 0.85 if item.owner or item.branch else 0.35
-    if item.owner or item.branch:
-        rationale.append("owner/branch is explicit")
+    if item.owner:
+        owner_clarity = 0.9
+        rationale.append("owner is explicit")
+    elif item.metadata.get("active_lane") and item.metadata.get("owner_session"):
+        owner_clarity = 0.86
+        rationale.append("active lane owner is explicit")
+    elif item.branch:
+        owner_clarity = 0.62
+        rationale.append("branch is explicit but owner is unknown")
+    else:
+        owner_clarity = 0.35
 
     tests = [path for path in files if str(path).startswith("tests/")]
     code = [path for path in files if str(path).startswith("aragora/")]
