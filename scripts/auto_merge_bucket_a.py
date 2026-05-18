@@ -26,6 +26,7 @@ CLI::
     python3 scripts/auto_merge_bucket_a.py [--apply]
                                            [--settling-minutes N]
                                            [--only-pr N]
+                                           [--delete-branch-on-merge]
                                            [--json]
 """
 
@@ -36,6 +37,7 @@ import dataclasses
 import datetime
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from collections.abc import Callable
@@ -142,24 +144,30 @@ def fetch_pr_commit_metadata(pr_number: int, *, runner: Runner | None = None) ->
 
 
 def gh_pr_merge_squash(
-    pr_number: int, *, runner: Runner | None = None
+    pr_number: int,
+    head_sha: str,
+    delete_branch_on_merge: bool = False,
+    *,
+    runner: Runner | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Execute ``gh pr merge --squash`` for the given PR.
+    """Execute ``gh pr merge --squash`` for the given PR and exact head.
 
     Raises ``RuntimeError`` on non-zero exit. Returns the completed
     process so callers can inspect stdout/stderr.
     """
     runner = runner or _default_runner
-    proc = runner(
-        [
-            "gh",
-            "pr",
-            "merge",
-            str(pr_number),
-            "--squash",
-            "--delete-branch",
-        ]
-    )
+    args = [
+        "gh",
+        "pr",
+        "merge",
+        str(pr_number),
+        "--squash",
+        "--match-head-commit",
+        head_sha,
+    ]
+    if delete_branch_on_merge:
+        args.append("--delete-branch")
+    proc = runner(args)
     if proc.returncode != 0:
         raise RuntimeError(
             f"gh pr merge --squash {pr_number} failed (exit {proc.returncode}): "
@@ -308,7 +316,8 @@ def decide(
     settling_minutes: int,
     only_pr: int | None = None,
     metadata_provider: Callable[[int], dict[str, Any]] | None = None,
-    merger: Callable[[int], subprocess.CompletedProcess[str]] | None = None,
+    merger: Callable[[int, str, bool], subprocess.CompletedProcess[str]] | None = None,
+    delete_branch_on_merge: bool = False,
     now: datetime.datetime | None = None,
 ) -> tuple[list[MergeDecision], int]:
     """Decide what to do with each PR; return decisions + tripwire exit code.
@@ -345,8 +354,39 @@ def decide(
             )
             continue
 
-        metadata = metadata_provider(pr_number)
+        try:
+            metadata = metadata_provider(pr_number)
+        except Exception as exc:
+            decisions.append(
+                MergeDecision(
+                    pr_number=pr_number,
+                    title=title,
+                    decision="metadata-fetch-failed",
+                    reason=f"metadata fetch failed: {exc}",
+                    applied=False,
+                )
+            )
+            tripwire_exit = 1
+            continue
         head_sha = str(metadata.get("headRefOid") or "")
+
+        try:
+            metadata_number = int(metadata.get("number") or 0)
+        except (TypeError, ValueError):
+            metadata_number = 0
+        if metadata_number != pr_number:
+            decisions.append(
+                MergeDecision(
+                    pr_number=pr_number,
+                    title=title,
+                    decision="skip-tripwire",
+                    reason=f"PR number mismatch (classifier={pr_number}, gh={metadata_number})",
+                    head_sha=head_sha or None,
+                    applied=False,
+                )
+            )
+            tripwire_exit = 1
+            continue
 
         tripwire = defense_in_depth_tripwire(metadata)
         if tripwire is not None:
@@ -383,7 +423,7 @@ def decide(
 
         if apply:
             try:
-                merger(pr_number)
+                merger(pr_number, head_sha, delete_branch_on_merge)
             except RuntimeError as exc:
                 decisions.append(
                     MergeDecision(
@@ -436,12 +476,9 @@ def _policy_version() -> str:
     if not POLICY_DOC.is_file():
         return "unknown"
     text = POLICY_DOC.read_text(encoding="utf-8")
-    for marker in ("Version: ", "version: "):
-        idx = text.find(marker)
-        if idx == -1:
-            continue
-        end = text.find("\n", idx)
-        return text[idx + len(marker) : end].strip()
+    match = re.search(r"(?im)^\s*version\s*:\s*(?P<version>.+?)\s*$", text)
+    if match is not None:
+        return match.group("version").strip()
     return "tracked-doc"
 
 
@@ -563,6 +600,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Emit JSON instead of human-readable table.",
     )
+    parser.add_argument(
+        "--delete-branch-on-merge",
+        action="store_true",
+        help="Delete merged PR branches. Default keeps branches for auditability.",
+    )
 
     args = parser.parse_args(argv)
 
@@ -581,6 +623,7 @@ def main(argv: list[str] | None = None) -> int:
         apply=args.apply,
         settling_minutes=args.settling_minutes,
         only_pr=args.only_pr,
+        delete_branch_on_merge=args.delete_branch_on_merge,
     )
 
     receipt_path: Path | None = None

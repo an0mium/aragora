@@ -151,10 +151,16 @@ class _MergeRecorder:
 
     def __init__(self, expected_failures: set[int] | None = None):
         self.calls: list[int] = []
+        self.head_shas: list[str] = []
+        self.delete_branch_flags: list[bool] = []
         self._failures = expected_failures or set()
 
-    def __call__(self, pr_number: int) -> subprocess.CompletedProcess[str]:
+    def __call__(
+        self, pr_number: int, head_sha: str, delete_branch_on_merge: bool
+    ) -> subprocess.CompletedProcess[str]:
         self.calls.append(pr_number)
+        self.head_shas.append(head_sha)
+        self.delete_branch_flags.append(delete_branch_on_merge)
         if pr_number in self._failures:
             raise RuntimeError(f"simulated merge failure on #{pr_number}")
         return subprocess.CompletedProcess(
@@ -165,6 +171,41 @@ class _MergeRecorder:
 # ---------------------------------------------------------------------------
 # Core behaviour
 # ---------------------------------------------------------------------------
+
+
+class TestGhMerge:
+    def test_merge_uses_exact_head_and_preserves_branch_by_default(self):
+        calls: list[list[str]] = []
+
+        def runner(args: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        head_sha = "a" * 40
+        amba.gh_pr_merge_squash(9001, head_sha, runner=runner)
+
+        assert calls == [
+            [
+                "gh",
+                "pr",
+                "merge",
+                "9001",
+                "--squash",
+                "--match-head-commit",
+                head_sha,
+            ]
+        ]
+
+    def test_delete_branch_is_opt_in(self):
+        calls: list[list[str]] = []
+
+        def runner(args: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        amba.gh_pr_merge_squash(9001, "b" * 40, delete_branch_on_merge=True, runner=runner)
+
+        assert "--delete-branch" in calls[0]
 
 
 class TestDecide:
@@ -209,8 +250,28 @@ class TestDecide:
         assert exit_code == 0
         merged = [d for d in decisions if d.decision == "merge" and d.applied]
         assert [d.pr_number for d in merged] == [9001]
+        assert recorder.head_shas == [make_metadata(9001)["headRefOid"]]
+        assert recorder.delete_branch_flags == [False]
         skipped_non_a = sorted(d.pr_number for d in decisions if d.decision == "skip-non-bucket-a")
         assert skipped_non_a == [9002, 9003, 9004]
+
+    def test_apply_can_opt_in_to_branch_deletion(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001)})
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            delete_branch_on_merge=True,
+            now=NOW,
+        )
+        assert [d.pr_number for d in decisions] == [9001]
+        assert recorder.calls == [9001]
+        assert recorder.delete_branch_flags == [True]
+        assert exit_code == 0
 
     def test_settling_window_skips_young_pr(self):
         payload = make_triage_payload(bucket_a_entry(9001))
@@ -248,6 +309,44 @@ class TestDecide:
         assert len(decisions) == 1
         assert decisions[0].pr_number == 9002
 
+    def test_metadata_fetch_failure_is_loud_nonzero(self):
+        def failing_metadata_provider(pr_number: int) -> dict[str, Any]:
+            raise RuntimeError(f"simulated metadata failure for #{pr_number}")
+
+        payload = make_triage_payload(bucket_a_entry(9001))
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=failing_metadata_provider,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "metadata-fetch-failed"
+        assert "simulated metadata failure" in decisions[0].reason
+
+    def test_metadata_number_mismatch_is_tripwire(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9002, head_sha="c" * 40)})
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert "PR number mismatch" in decisions[0].reason
+
 
 # ---------------------------------------------------------------------------
 # Defense-in-depth tripwires
@@ -255,6 +354,25 @@ class TestDecide:
 
 
 class TestDefenseInDepth:
+    @pytest.mark.parametrize("merge_state", ["BLOCKED", "BEHIND", "DIRTY", "DRAFT", "UNKNOWN", ""])
+    def test_blocked_merge_states_are_tripwires(self, merge_state: str):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001, merge_state=merge_state)})
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert "merge state not clean" in decisions[0].reason
+
     def test_protected_path_tripwire_forces_nonzero_exit(self):
         payload = make_triage_payload(bucket_a_entry(9001))
         meta = _MetadataRegistry(
@@ -400,6 +518,18 @@ class TestReceipt:
         a = make_triage_payload(bucket_a_entry(9001))
         b = make_triage_payload(bucket_a_entry(9001), bucket_c_entry(9002))
         assert amba._classifier_sha256(a) != amba._classifier_sha256(b)
+
+    def test_policy_version_uses_anchored_version_line(self, tmp_path: Path, monkeypatch):
+        policy_doc = tmp_path / "policy.md"
+        policy_doc.write_text(
+            "This prose mentions Version: stale but is not the version line.\n"
+            "\n"
+            "Version: operator-delegation-2026-05-18\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(amba, "POLICY_DOC", policy_doc)
+
+        assert amba._policy_version() == "operator-delegation-2026-05-18"
 
     def test_json_output_round_trip(self):
         payload = make_triage_payload(bucket_a_entry(9001))
