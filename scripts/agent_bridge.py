@@ -1241,6 +1241,107 @@ def cmd_health(args: argparse.Namespace) -> int:
     return 1
 
 
+def _collect_pending_steering_messages(
+    session_name: str | None,
+    steering_root: Path | None = None,
+) -> dict[str, Any]:
+    """Read the operator-steering mailbox(es) and surface pending counts.
+
+    Phase C of the agent-steering primitive. Reads only — never
+    mutates the mailbox. Companion to ``scripts/send_operator_steering.py``
+    (Phase B writer) and ``scripts/identify_lane_owner.py``
+    (Phase A consolidator) which both honour the same
+    ``aragora-operator-steering/1.0`` schema.
+
+    Scoping rules:
+      - ``session_name`` set     → return only that recipient's count
+                                   + latest_three.
+      - ``session_name`` falsy   → operator roll-up: count across all
+                                   recipient dirs + ``by_recipient``
+                                   map + latest_three newest across all.
+
+    Schema (stable for Phase D / future consumers):
+
+        scoped:
+          {count: int, latest_three: [{subject, sent_at_utc, priority,
+                                        lane_id_hint, pr_hint}]}
+        roll-up:
+          {count: int, by_recipient: {<session>: int}, latest_three: [...]}
+
+    Acknowledged messages live in the per-recipient ``_acked/`` subdir
+    (Phase D convention; the directory name starts with ``_`` so this
+    glob silently ignores it via ``*.json`` only matching the inbox
+    top level).
+    """
+
+    if steering_root is None:
+        steering_root = REPO_ROOT / ".aragora" / "operator-steering"
+    if not steering_root.is_dir():
+        if session_name:
+            return {"count": 0, "latest_three": []}
+        return {"count": 0, "by_recipient": {}, "latest_three": []}
+
+    def _summary_from(path: Path) -> dict[str, Any]:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {
+                "subject": "(unreadable)",
+                "sent_at_utc": "",
+                "priority": "",
+                "lane_id_hint": None,
+                "pr_hint": None,
+            }
+        if not isinstance(data, dict):
+            return {
+                "subject": "(invalid)",
+                "sent_at_utc": "",
+                "priority": "",
+                "lane_id_hint": None,
+                "pr_hint": None,
+            }
+        return {
+            "subject": str(data.get("subject") or ""),
+            "sent_at_utc": str(data.get("sent_at_utc") or ""),
+            "priority": str(data.get("priority") or ""),
+            "lane_id_hint": data.get("lane_id_hint"),
+            "pr_hint": data.get("pr_hint"),
+        }
+
+    def _inbox_files(dir_path: Path) -> list[Path]:
+        if not dir_path.is_dir():
+            return []
+        # Only count top-level *.json files — _acked/ subdir holds
+        # consumed messages per the Phase D convention.
+        return [p for p in dir_path.glob("*.json") if p.is_file()]
+
+    if session_name:
+        files = _inbox_files(steering_root / session_name)
+        summaries = sorted(
+            (_summary_from(p) for p in files),
+            key=lambda s: s["sent_at_utc"],
+            reverse=True,
+        )
+        return {"count": len(files), "latest_three": summaries[:3]}
+
+    # Roll-up across all recipient dirs.
+    by_recipient: dict[str, int] = {}
+    all_summaries: list[dict[str, Any]] = []
+    for child in sorted(steering_root.iterdir()):
+        if not child.is_dir() or child.name.startswith("."):
+            continue
+        files = _inbox_files(child)
+        if files:
+            by_recipient[child.name] = len(files)
+            all_summaries.extend(_summary_from(p) for p in files)
+    all_summaries.sort(key=lambda s: s["sent_at_utc"], reverse=True)
+    return {
+        "count": sum(by_recipient.values()),
+        "by_recipient": by_recipient,
+        "latest_three": all_summaries[:3],
+    }
+
+
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
@@ -1272,6 +1373,15 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         record_limit=50,
     )
 
+    # Phase C: surface operator-steering mailbox counts for the
+    # current session (if ARAGORA_SESSION_ID set or
+    # --steering-recipient passed) or as a roll-up across all
+    # recipient dirs (operator view).
+    steering_recipient = getattr(args, "steering_recipient", None) or os.environ.get(
+        "ARAGORA_SESSION_ID"
+    )
+    pending_steering = _collect_pending_steering_messages(steering_recipient)
+
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
         "sessions": [s.to_dict() for s in sessions],
@@ -1280,6 +1390,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "lane_conflicts": lane_conflicts,
         "process_census": process_census,
         "health": {"ok": len(issues) == 0, "issues": issues},
+        "pending_steering_messages": pending_steering,
         "summary": {
             "total_sessions": len(sessions),
             "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
@@ -1596,6 +1707,16 @@ def main() -> int:
         choices=("current", "all"),
         default="current",
         help="Snapshot scope. Default 'current' includes live bridge truth only.",
+    )
+    operator_snapshot_p.add_argument(
+        "--steering-recipient",
+        default=None,
+        metavar="SESSION",
+        help=(
+            "Scope pending_steering_messages lookup to one recipient "
+            "session. Default: env ARAGORA_SESSION_ID, then roll-up across "
+            "all recipient inbox dirs."
+        ),
     )
 
     args = parser.parse_args()
