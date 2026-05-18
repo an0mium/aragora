@@ -640,6 +640,118 @@ def test_cmd_owner_json_reports_active_pr_owner(
     }
 
 
+def test_cmd_owner_preserves_registry_identity_when_live_session_is_sparse(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    worktree = tmp_path / "owned-worktree"
+    worktree.mkdir()
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "q01-settle-7292",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "updated_at": "2026-05-18T17:00:00Z",
+                    "branch": "droid/P16-stage2",
+                    "worktree": str(worktree),
+                    "pr_number": 7292,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "discover",
+        lambda **_kwargs: [
+            mod.Session(
+                name="codex-owner",
+                agent="codex",
+                status="alive",
+                lifecycle="live",
+            )
+        ],
+    )
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_head_for_worktree", lambda _path: "b" * 40)
+
+    rc = mod.cmd_owner(argparse.Namespace(json=True, pr=7292, branch=None, worktree=None))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["owner_status"] == "owned"
+    assert payload["lane_id"] == "q01-settle-7292"
+    assert payload["owner_session"] == "codex-owner"
+    assert payload["pr_number"] == 7292
+    assert payload["branch"] == "droid/P16-stage2"
+    assert payload["worktree"] == str(worktree)
+
+
+def test_cmd_owner_preserves_identity_when_newer_registry_row_is_sparse(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    worktree = tmp_path / "owned-worktree"
+    worktree.mkdir()
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    repo_registry = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge" / "lanes.json"
+    repo_registry.parent.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "q01-settle-7292",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "updated_at": "2026-05-18T17:01:00Z",
+                    "worktree": str(worktree),
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    repo_registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "q01-settle-7292",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "updated_at": "2026-05-18T17:00:00Z",
+                    "branch": "droid/P16-stage2",
+                    "worktree": str(worktree),
+                    "pr_number": 7292,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(mod, "_head_for_worktree", lambda _path: "c" * 40)
+
+    rc = mod.cmd_owner(argparse.Namespace(json=True, pr=7292, branch=None, worktree=None))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["owner_status"] == "owned"
+    assert payload["lane_id"] == "q01-settle-7292"
+    assert payload["pr_number"] == 7292
+    assert payload["branch"] == "droid/P16-stage2"
+    assert payload["worktree"] == str(worktree)
+    assert payload["updated_at"] == "2026-05-18T17:01:00Z"
+
+
 def test_cmd_owner_json_reports_unowned_pr(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

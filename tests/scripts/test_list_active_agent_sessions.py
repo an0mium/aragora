@@ -1064,8 +1064,12 @@ def test_build_conflicts_only_payload_filters_to_lane_conflicts() -> None:
                 {
                     "kind": "pr",
                     "value": "7245",
-                    "sources": ["agent_bridge_lane"],
-                    "details": ["lane-a", "lane-b"],
+                    "sources": ["agent_bridge_lane", "codex_cli_session"],
+                    "details": [
+                        "lane-a",
+                        "lane-b",
+                        "2026/05/18/rollout-2026-05-18T11-54-20-secret.jsonl",
+                    ],
                 },
                 {
                     "kind": "branch",
@@ -1085,6 +1089,12 @@ def test_build_conflicts_only_payload_filters_to_lane_conflicts() -> None:
     assert [row["lane_id"] for row in out["active_owner_records"]] == ["lane-a", "lane-z"]
     assert "codex_rollout_path" not in out["active_owner_records"][0]
     assert "raw.jsonl" not in json.dumps(out)
+    assert "rollout-2026" not in json.dumps(out)
+    assert out["overlap_report"]["overlaps"][0]["details"] == [
+        "codex_cli_session",
+        "lane-a",
+        "lane-b",
+    ]
     assert out["overlap_report"]["overlap_count"] == 1
 
 

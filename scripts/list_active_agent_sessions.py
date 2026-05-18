@@ -858,7 +858,7 @@ def build_payload(
 def build_conflicts_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     overlap = payload.get("overlap_report") or {}
     overlaps = [
-        row
+        _operator_overlap_record(row)
         for row in overlap.get("overlaps", [])
         if "agent_bridge_lane" in set(row.get("sources") or [])
     ]
@@ -909,6 +909,28 @@ def _operator_lane_record(row: dict[str, Any]) -> dict[str, Any]:
         "desktop_label": row.get("desktop_label"),
         "session_title": row.get("session_title"),
     }
+
+
+def _operator_overlap_record(row: dict[str, Any]) -> dict[str, Any]:
+    details = sorted(
+        {
+            _operator_overlap_detail(str(detail))
+            for detail in row.get("details", [])
+            if str(detail).strip()
+        }
+    )
+    return {
+        "kind": row.get("kind"),
+        "value": row.get("value"),
+        "sources": row.get("sources") or [],
+        "details": details,
+    }
+
+
+def _operator_overlap_detail(detail: str) -> str:
+    if "rollout-" in detail or detail.endswith(".jsonl"):
+        return "codex_cli_session"
+    return detail
 
 
 def _operator_conflict_lane_record(row: dict[str, Any]) -> dict[str, Any]:

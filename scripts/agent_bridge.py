@@ -426,8 +426,18 @@ def _load_lane_registry() -> list[LaneRecord]:
                 anonymous.append(record)
                 continue
             current = merged.get(record.lane_id)
-            if current is None or _prefer_lane_record(record, source_index, current):
+            if current is None:
                 merged[record.lane_id] = (record, source_index)
+            elif _prefer_lane_record(record, source_index, current):
+                merged[record.lane_id] = (
+                    _fill_sparse_lane_identity(record, current[0]),
+                    source_index,
+                )
+            else:
+                merged[record.lane_id] = (
+                    _fill_sparse_lane_identity(current[0], record),
+                    current[1],
+                )
 
     return anonymous + [record for record, _source_index in merged.values()]
 
@@ -448,6 +458,16 @@ def _prefer_lane_record(
     return candidate_source_index >= current_source_index
 
 
+def _fill_sparse_lane_identity(preferred: LaneRecord, fallback: LaneRecord) -> LaneRecord:
+    if not preferred.branch:
+        preferred.branch = fallback.branch
+    if not preferred.worktree:
+        preferred.worktree = fallback.worktree
+    if preferred.pr_number is None:
+        preferred.pr_number = fallback.pr_number
+    return preferred
+
+
 def _write_lane_registry(records: list[LaneRecord]) -> None:
     registry_file = _bridge_file_for_write(LANE_REGISTRY_FILE)
     _atomic_write_json(registry_file, [record.to_dict() for record in records])
@@ -465,9 +485,12 @@ def _sync_lane_records(records: list[LaneRecord], sessions: list[Session]) -> li
     for record in records:
         live = session_map.get(record.owner_session)
         if live is not None:
-            record.branch = live.branch
-            record.worktree = live.worktree
-            record.pr_number = live.pr_number
+            if live.branch:
+                record.branch = live.branch
+            if live.worktree:
+                record.worktree = live.worktree
+            if live.pr_number is not None:
+                record.pr_number = live.pr_number
     return records
 
 
