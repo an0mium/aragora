@@ -216,10 +216,10 @@ def defense_in_depth_tripwire(metadata: dict[str, Any]) -> str | None:
         return f"not mergeable (mergeable={mergeable or '(unknown)'})"
 
     merge_state = str(metadata.get("mergeStateStatus") or "")
-    if merge_state not in {"CLEAN", "UNSTABLE", "HAS_HOOKS"}:
-        # CLEAN = ready; UNSTABLE = required checks passed but optional are red;
-        # HAS_HOOKS = passes required + has required hook checks. BLOCKED /
-        # BEHIND / DIRTY / UNKNOWN are all bail-out states for Stage 2.
+    if merge_state != "CLEAN":
+        # Stage 2 stays stricter than GitHub's broader mergeable states.
+        # Review-only BLOCKED/admin-squash exceptions must be proven by the
+        # Stage 1 merge-packet gate before this script sees Bucket A.
         return f"merge state not clean (mergeStateStatus={merge_state or '(unknown)'})"
 
     author_raw = metadata.get("author") or {}
@@ -241,6 +241,17 @@ def defense_in_depth_tripwire(metadata: dict[str, Any]) -> str | None:
     )
     if ci_pending:
         return f"CI pending ({ci_pending} in-flight)"
+
+    allowed_completed_conclusions = {"SUCCESS", "SKIPPED", "NEUTRAL"}
+    ci_non_green = [
+        str(c.get("conclusion") or "(missing)")
+        for c in checks
+        if isinstance(c, dict)
+        and c.get("status") == "COMPLETED"
+        and c.get("conclusion") not in allowed_completed_conclusions
+    ]
+    if ci_non_green:
+        return f"CI non-green ({ci_non_green[0]})"
 
     return None
 

@@ -354,7 +354,10 @@ class TestDecide:
 
 
 class TestDefenseInDepth:
-    @pytest.mark.parametrize("merge_state", ["BLOCKED", "BEHIND", "DIRTY", "DRAFT", "UNKNOWN", ""])
+    @pytest.mark.parametrize(
+        "merge_state",
+        ["UNSTABLE", "HAS_HOOKS", "BLOCKED", "BEHIND", "DIRTY", "DRAFT", "UNKNOWN", ""],
+    )
     def test_blocked_merge_states_are_tripwires(self, merge_state: str):
         payload = make_triage_payload(bucket_a_entry(9001))
         meta = _MetadataRegistry({9001: make_metadata(9001, merge_state=merge_state)})
@@ -450,6 +453,38 @@ class TestDefenseInDepth:
         assert exit_code == 1
         assert decisions[0].decision == "skip-tripwire"
         assert "CI pending" in decisions[0].reason
+
+    @pytest.mark.parametrize(
+        "conclusion",
+        ["CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE"],
+    )
+    def test_completed_non_green_ci_caught_by_defense_in_depth(self, conclusion: str):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry(
+            {
+                9001: make_metadata(
+                    9001,
+                    ci=[
+                        {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                        {"name": "late", "status": "COMPLETED", "conclusion": conclusion},
+                    ],
+                )
+            }
+        )
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert decisions[0].reason == f"CI non-green ({conclusion})"
 
     def test_draft_state_caught(self):
         payload = make_triage_payload(bucket_a_entry(9001))
