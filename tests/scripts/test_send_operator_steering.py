@@ -446,6 +446,188 @@ class TestJsonOutput:
 
 
 # ---------------------------------------------------------------------------
+# Active-owner routing
+# ---------------------------------------------------------------------------
+
+
+class TestActiveOwnerRouting:
+    def _write_lanes(self, tmp_path: Path, lanes: list[dict[str, Any]]) -> Path:
+        registry = tmp_path / "lanes.json"
+        registry.parent.mkdir(parents=True, exist_ok=True)
+        registry.write_text(json.dumps(lanes), encoding="utf-8")
+        return registry
+
+    def test_to_owner_pr_routes_to_single_active_owner(self, tmp_path: Path) -> None:
+        registry = self._write_lanes(
+            tmp_path,
+            [
+                {
+                    "lane_id": "old-7292",
+                    "owner_session": "codex-old",
+                    "status": "completed",
+                    "pr_number": 7292,
+                    "updated_at": "2026-05-18T01:00:00Z",
+                },
+                {
+                    "lane_id": "q23-repair-7292",
+                    "owner_session": "codex-q23",
+                    "status": "active",
+                    "pr_number": 7292,
+                    "branch": "droid/P16-stage2",
+                    "updated_at": "2026-05-19T16:05:53Z",
+                },
+            ],
+        )
+
+        rc = sos.main(
+            [
+                "--to-owner-pr",
+                "7292",
+                "--body",
+                "continue only if you own Q23",
+                "--json",
+                "--lane-registry-path",
+                str(registry),
+                "--steering-inbox-root",
+                str(tmp_path / "inbox"),
+            ]
+        )
+
+        assert rc == 0
+        msgs = _list_messages(tmp_path / "inbox", "codex-q23")
+        assert len(msgs) == 1
+        payload = json.loads(msgs[0].read_text(encoding="utf-8"))
+        assert payload["to_session"] == "codex-q23"
+
+    def test_default_owner_resolution_reads_user_and_repo_registries(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        repo_registry = self._write_lanes(tmp_path / "repo", [])
+        user_registry = self._write_lanes(
+            tmp_path / "user",
+            [
+                {
+                    "lane_id": "q23-repair-7292",
+                    "owner_session": "codex-q23",
+                    "status": "active",
+                    "pr_number": 7292,
+                    "updated_at": "2026-05-19T16:05:53Z",
+                }
+            ],
+        )
+        monkeypatch.setattr(sos, "LANE_REGISTRY_DEFAULT", repo_registry)
+        monkeypatch.setattr(sos, "USER_LANE_REGISTRY_DEFAULT", user_registry)
+
+        resolved = sos.resolve_active_owner(pr=7292)
+
+        assert resolved["lane_id"] == "q23-repair-7292"
+        assert resolved["owner_session"] == "codex-q23"
+
+    def test_to_owner_pr_json_includes_route(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry = self._write_lanes(
+            tmp_path,
+            [
+                {
+                    "lane_id": "q23-repair-7292",
+                    "owner_session": "codex-q23",
+                    "status": "active",
+                    "pr_number": 7292,
+                    "updated_at": "2026-05-19T16:05:53Z",
+                }
+            ],
+        )
+
+        rc = sos.main(
+            [
+                "--to-owner-pr",
+                "7292",
+                "--body",
+                "route metadata please",
+                "--json",
+                "--lane-registry-path",
+                str(registry),
+                "--steering-inbox-root",
+                str(tmp_path / "inbox"),
+            ]
+        )
+
+        assert rc == 0
+        parsed = json.loads(capsys.readouterr().out)
+        assert parsed["_route"]["resolved_via"] == "pr"
+        assert parsed["_route"]["lane_id"] == "q23-repair-7292"
+        assert parsed["_route"]["owner_session"] == "codex-q23"
+
+    def test_to_owner_pr_rejects_completed_only_owner(self, tmp_path: Path) -> None:
+        registry = self._write_lanes(
+            tmp_path,
+            [
+                {
+                    "lane_id": "q23-repair-7292",
+                    "owner_session": "codex-q23",
+                    "status": "completed",
+                    "pr_number": 7292,
+                    "updated_at": "2026-05-19T16:16:29Z",
+                }
+            ],
+        )
+
+        rc = sos.main(
+            [
+                "--to-owner-pr",
+                "7292",
+                "--body",
+                "must not route to completed lane",
+                "--lane-registry-path",
+                str(registry),
+                "--steering-inbox-root",
+                str(tmp_path / "inbox"),
+            ]
+        )
+
+        assert rc == 2
+        assert list((tmp_path / "inbox").rglob("*.json")) == []
+
+    def test_to_owner_pr_rejects_duplicate_active_owners(self, tmp_path: Path) -> None:
+        registry = self._write_lanes(
+            tmp_path,
+            [
+                {
+                    "lane_id": "lane-a",
+                    "owner_session": "codex-a",
+                    "status": "active",
+                    "pr_number": 7292,
+                    "updated_at": "2026-05-19T16:00:00Z",
+                },
+                {
+                    "lane_id": "lane-b",
+                    "owner_session": "codex-b",
+                    "status": "active",
+                    "pr_number": 7292,
+                    "updated_at": "2026-05-19T16:01:00Z",
+                },
+            ],
+        )
+
+        rc = sos.main(
+            [
+                "--to-owner-pr",
+                "7292",
+                "--body",
+                "must not route to ambiguous owners",
+                "--lane-registry-path",
+                str(registry),
+                "--steering-inbox-root",
+                str(tmp_path / "inbox"),
+            ]
+        )
+
+        assert rc == 2
+        assert list((tmp_path / "inbox").rglob("*.json")) == []
+
+
+# ---------------------------------------------------------------------------
 # Build / verify helpers exposed for downstream callers
 # ---------------------------------------------------------------------------
 

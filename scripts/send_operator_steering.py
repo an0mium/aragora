@@ -47,11 +47,14 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 STEERING_INBOX_ROOT_DEFAULT = REPO_ROOT / ".aragora" / "operator-steering"
+LANE_REGISTRY_DEFAULT = REPO_ROOT / ".aragora" / "agent-bridge" / "lanes.json"
+USER_LANE_REGISTRY_DEFAULT = Path.home() / ".aragora" / "agent-bridge" / "lanes.json"
 
 SCHEMA_VERSION = "aragora-operator-steering/1.0"
 SUBJECT_MAX_CHARS = 80
 PRIORITY_CHOICES = ("low", "normal", "high", "blocking")
 SHORT_UUID_BYTES = 4  # 8 hex chars; collision risk negligible per-second
+ACTIVE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +150,110 @@ def validate_to_session(to_session: str, *, steering_inbox_root: Path) -> Path:
     return inbox
 
 
+def _load_lane_records(registry_path: Path) -> list[dict[str, Any]]:
+    try:
+        data = json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    return [record for record in data if isinstance(record, dict)] if isinstance(data, list) else []
+
+
+def _load_default_lane_records(registry_path: Path) -> list[dict[str, Any]]:
+    if registry_path != LANE_REGISTRY_DEFAULT:
+        return _load_lane_records(registry_path)
+    records: list[dict[str, Any]] = []
+    seen: set[Path] = set()
+    for path in (USER_LANE_REGISTRY_DEFAULT, LANE_REGISTRY_DEFAULT):
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        records.extend(_load_lane_records(path))
+    return records
+
+
+def _is_active_lane(record: dict[str, Any]) -> bool:
+    return str(record.get("status") or "").strip().lower() in ACTIVE_STATUSES
+
+
+def _identity_matches(
+    record: dict[str, Any],
+    *,
+    pr: int | None = None,
+    branch: str | None = None,
+    worktree: str | None = None,
+) -> bool:
+    if pr is not None:
+        try:
+            if int(record.get("pr_number") or 0) == int(pr):
+                return True
+        except (TypeError, ValueError):
+            pass
+    if branch and record.get("branch") == branch:
+        return True
+    if worktree:
+        record_worktree = record.get("worktree")
+        if record_worktree and os.path.normpath(str(record_worktree)) == os.path.normpath(worktree):
+            return True
+    return False
+
+
+def _updated_at_sort_key(record: dict[str, Any]) -> str:
+    return str(record.get("updated_at") or "")
+
+
+def resolve_active_owner(
+    *,
+    registry_path: Path | None = None,
+    pr: int | None = None,
+    branch: str | None = None,
+    worktree: str | None = None,
+) -> dict[str, Any]:
+    """Resolve a single active owner by PR/branch/worktree, failing closed.
+
+    This is intentionally stricter than ``identify_lane_owner.py``: steering
+    should only route to an active owner. Released/completed rows are useful
+    history, but they are not a live dispatch target.
+    """
+
+    if pr is None and branch is None and worktree is None:
+        raise ValueError("provide at least one owner selector")
+    records = _load_default_lane_records(registry_path or LANE_REGISTRY_DEFAULT)
+    matches = [
+        record
+        for record in records
+        if _is_active_lane(record)
+        and _identity_matches(record, pr=pr, branch=branch, worktree=worktree)
+    ]
+    if not matches:
+        raise ValueError("no active owner matched the requested PR/branch/worktree")
+
+    owners = {str(record.get("owner_session") or "") for record in matches}
+    lanes = {str(record.get("lane_id") or "") for record in matches}
+    if len(owners) != 1 or len(lanes) != 1:
+        compact = [
+            {
+                "lane_id": record.get("lane_id"),
+                "owner_session": record.get("owner_session"),
+                "pr_number": record.get("pr_number"),
+                "branch": record.get("branch"),
+                "worktree": record.get("worktree"),
+                "status": record.get("status"),
+            }
+            for record in sorted(matches, key=_updated_at_sort_key, reverse=True)
+        ]
+        raise ValueError(f"multiple active owners matched; resolve conflict first: {compact}")
+
+    chosen = sorted(matches, key=_updated_at_sort_key, reverse=True)[0]
+    owner = str(chosen.get("owner_session") or "")
+    if not owner:
+        raise ValueError("matched active lane has no owner_session")
+    return chosen
+
+
 def _mailbox_filename(sent_at_utc: str) -> str:
     return f"{_filename_timestamp(sent_at_utc)}-{secrets.token_hex(SHORT_UUID_BYTES)}.json"
 
@@ -208,11 +315,27 @@ def _build_parser() -> argparse.ArgumentParser:
             "atomic mailbox under .aragora/operator-steering/<to_session>/."
         ),
     )
-    parser.add_argument(
+    target_group = parser.add_mutually_exclusive_group(required=True)
+    target_group.add_argument(
         "--to",
-        required=True,
         metavar="OWNER_SESSION",
         help="Target owner_session identifier (e.g., codex-p19-repair-7292).",
+    )
+    target_group.add_argument(
+        "--to-owner-pr",
+        type=int,
+        metavar="N",
+        help="Resolve the active owner_session for PR N from lanes.json before writing.",
+    )
+    target_group.add_argument(
+        "--to-owner-branch",
+        metavar="BRANCH",
+        help="Resolve the active owner_session for BRANCH from lanes.json before writing.",
+    )
+    target_group.add_argument(
+        "--to-owner-worktree",
+        metavar="PATH",
+        help="Resolve the active owner_session for worktree PATH from lanes.json before writing.",
     )
     parser.add_argument(
         "--lane-id",
@@ -263,6 +386,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=STEERING_INBOX_ROOT_DEFAULT,
         help="Override the steering inbox root (used by tests).",
     )
+    parser.add_argument(
+        "--lane-registry-path",
+        type=Path,
+        default=LANE_REGISTRY_DEFAULT,
+        help="Override path to lanes.json for --to-owner-* resolution (used by tests).",
+    )
     return parser
 
 
@@ -292,8 +421,39 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("ERROR: message body is empty", file=sys.stderr)
         return 2
 
+    route: dict[str, Any] | None = None
+    to_session = args.to
+    if to_session is None:
+        try:
+            owner_record = resolve_active_owner(
+                registry_path=args.lane_registry_path,
+                pr=args.to_owner_pr,
+                branch=args.to_owner_branch,
+                worktree=args.to_owner_worktree,
+            )
+        except ValueError as exc:
+            print(f"ERROR: failed to resolve active owner: {exc}", file=sys.stderr)
+            return 2
+        to_session = str(owner_record.get("owner_session") or "")
+        route = {
+            "resolved_via": (
+                "pr"
+                if args.to_owner_pr is not None
+                else "branch"
+                if args.to_owner_branch
+                else "worktree"
+            ),
+            "lane_id": owner_record.get("lane_id"),
+            "owner_session": to_session,
+            "pr_number": owner_record.get("pr_number"),
+            "branch": owner_record.get("branch"),
+            "worktree": owner_record.get("worktree"),
+            "status": owner_record.get("status"),
+            "updated_at": owner_record.get("updated_at"),
+        }
+
     message = build_message(
-        to_session=args.to,
+        to_session=to_session,
         body=body_text,
         from_label=args.from_label,
         lane_id_hint=args.lane_id,
@@ -310,6 +470,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.json:
         out = dict(message)
         out["_written_path"] = str(written_path)
+        if route is not None:
+            out["_route"] = route
         print(json.dumps(out, indent=2, sort_keys=True))
     else:
         print(

@@ -69,6 +69,7 @@ FACTORY_BG_PROCESSES_DEFAULT = Path.home() / ".factory" / "background-processes.
 
 # Fuzzy codex rollout search window (seconds).
 CODEX_FUZZY_MAX_AGE_SECONDS = 4 * 60 * 60
+ACTIVE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
 
 # Subprocess timeout for ``agent_bridge operator-snapshot``.
 SNAPSHOT_TIMEOUT_SECONDS = 30
@@ -137,29 +138,43 @@ def find_lane(
     branch: str | None = None,
     worktree: str | None = None,
 ) -> dict[str, Any] | None:
-    """Return the first matching lane record by lane_id > pr > branch > worktree."""
+    """Return the best matching lane record by lane_id > pr > branch > worktree.
+
+    Multiple historical rows can target the same PR/branch/worktree. Prefer an
+    active row, then the most recently updated historical row, so owner lookup
+    does not silently route an operator to a stale completed lane.
+    """
+
+    def best_match(matches: list[dict[str, Any]]) -> dict[str, Any] | None:
+        if not matches:
+            return None
+        active = [
+            r for r in matches if str(r.get("status") or "").strip().lower() in ACTIVE_STATUSES
+        ]
+        pool = active or matches
+        return sorted(pool, key=lambda r: str(r.get("updated_at") or ""), reverse=True)[0]
 
     if lane_id:
-        for r in records:
-            if r.get("lane_id") == lane_id:
-                return r
+        return best_match([r for r in records if r.get("lane_id") == lane_id])
     if pr is not None:
+        matches = []
         for r in records:
             try:
                 if int(r.get("pr_number") or 0) == int(pr):
-                    return r
+                    matches.append(r)
             except (TypeError, ValueError):
                 continue
+        return best_match(matches)
     if branch:
-        for r in records:
-            if r.get("branch") == branch:
-                return r
+        return best_match([r for r in records if r.get("branch") == branch])
     if worktree:
         wt_norm = os.path.normpath(worktree)
+        matches = []
         for r in records:
             rwt = r.get("worktree")
             if rwt and os.path.normpath(rwt) == wt_norm:
-                return r
+                matches.append(r)
+        return best_match(matches)
     return None
 
 

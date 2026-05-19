@@ -120,6 +120,48 @@ class TestLoadAndFind:
         assert r is not None
         assert r["lane_id"] == "P19-repair-7292-stage2-blockers"
 
+    def test_find_by_pr_prefers_active_over_stale_history(self) -> None:
+        lanes = [
+            {
+                "lane_id": "old-completed",
+                "owner_session": "codex-old",
+                "status": "completed",
+                "pr_number": 7292,
+                "updated_at": "2026-05-18T05:00:00Z",
+            },
+            {
+                "lane_id": "current-active",
+                "owner_session": "codex-current",
+                "status": "active",
+                "pr_number": 7292,
+                "updated_at": "2026-05-18T04:00:00Z",
+            },
+        ]
+        r = ilo.find_lane(lanes, pr=7292)
+        assert r is not None
+        assert r["lane_id"] == "current-active"
+
+    def test_find_by_pr_uses_newest_historical_when_unowned(self) -> None:
+        lanes = [
+            {
+                "lane_id": "older-completed",
+                "owner_session": "codex-old",
+                "status": "completed",
+                "pr_number": 7292,
+                "updated_at": "2026-05-18T04:00:00Z",
+            },
+            {
+                "lane_id": "newer-released",
+                "owner_session": "codex-new",
+                "status": "released",
+                "pr_number": 7292,
+                "updated_at": "2026-05-18T05:00:00Z",
+            },
+        ]
+        r = ilo.find_lane(lanes, pr=7292)
+        assert r is not None
+        assert r["lane_id"] == "newer-released"
+
     def test_find_by_branch(self) -> None:
         r = ilo.find_lane(
             SAMPLE_LANES, branch="droid/P20-model-pins-frontier-aligned-20260518-041438"
