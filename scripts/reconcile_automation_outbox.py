@@ -595,8 +595,8 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 for key in missing_keys:
                     emit(f"ERROR: no outbox handoff found for idempotency key {key}")
-                for path in missing_files:
-                    emit(f"ERROR: no outbox handoff found at {path}")
+                for missing_file in missing_files:
+                    emit(f"ERROR: no outbox handoff found at {missing_file}")
             return 2
     else:
         outbox_files = all_outbox_files
