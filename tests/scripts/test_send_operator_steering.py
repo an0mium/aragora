@@ -192,6 +192,44 @@ class TestArgValidation:
         assert rc == 2
 
 
+class TestRecipientPathSafety:
+    @pytest.mark.parametrize(
+        "recipient",
+        [
+            "../escape",
+            "nested/session",
+            "nested\\session",
+            "/tmp/escape",
+            ".",
+            "..",
+            " session-with-space-prefix",
+            "session-with-space-suffix ",
+        ],
+    )
+    def test_unsafe_recipients_fail_before_writing(self, tmp_path: Path, recipient: str) -> None:
+        rc = sos.main(
+            [
+                "--to",
+                recipient,
+                "--body",
+                "must not escape",
+                "--steering-inbox-root",
+                str(tmp_path / "inbox"),
+            ]
+        )
+        assert rc == 2
+        assert not (tmp_path / "escape").exists()
+        assert not (tmp_path / "inbox").exists()
+        assert list(tmp_path.rglob("*.json")) == []
+
+    def test_validator_rejects_resolving_outside_root(self, tmp_path: Path) -> None:
+        root = tmp_path / "inbox"
+        with pytest.raises(ValueError, match="path separators|plain session identifier|outside"):
+            sos.validate_to_session("../escape", steering_inbox_root=root)
+        assert not root.exists()
+        assert not (tmp_path / "escape").exists()
+
+
 # ---------------------------------------------------------------------------
 # Subject derivation + body-file path
 # ---------------------------------------------------------------------------

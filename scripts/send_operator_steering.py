@@ -124,6 +124,29 @@ def verify_message_sha256(message: dict[str, Any]) -> tuple[str, str, bool]:
     return claimed, recomputed, claimed == recomputed
 
 
+def validate_to_session(to_session: str, *, steering_inbox_root: Path) -> Path:
+    """Return the bounded inbox path for a safe session identifier."""
+
+    if not to_session:
+        raise ValueError("message.to_session must be a non-empty string")
+    if to_session != to_session.strip():
+        raise ValueError("message.to_session must not have leading or trailing whitespace")
+    if "/" in to_session or "\\" in to_session:
+        raise ValueError("message.to_session must not contain path separators")
+
+    session_path = Path(to_session)
+    if session_path.is_absolute() or to_session in {".", ".."} or ".." in session_path.parts:
+        raise ValueError("message.to_session must be a plain session identifier")
+
+    root = steering_inbox_root.resolve(strict=False)
+    inbox = (root / to_session).resolve(strict=False)
+    try:
+        inbox.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("message.to_session resolves outside the steering inbox root") from exc
+    return inbox
+
+
 def _mailbox_filename(sent_at_utc: str) -> str:
     return f"{_filename_timestamp(sent_at_utc)}-{secrets.token_hex(SHORT_UUID_BYTES)}.json"
 
@@ -143,9 +166,7 @@ def write_message(
     """
 
     to_session = str(message.get("to_session") or "")
-    if not to_session:
-        raise ValueError("message.to_session must be a non-empty string")
-    inbox = steering_inbox_root / to_session
+    inbox = validate_to_session(to_session, steering_inbox_root=steering_inbox_root)
     inbox.mkdir(parents=True, exist_ok=True)
     final_name = _mailbox_filename(str(message.get("sent_at_utc") or _now_utc_iso()))
     final_path = inbox / final_name
@@ -282,7 +303,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         written_path = write_message(message, steering_inbox_root=args.steering_inbox_root)
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         print(f"ERROR: failed to write message: {exc}", file=sys.stderr)
         return 2
 
