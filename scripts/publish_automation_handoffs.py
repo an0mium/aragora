@@ -17,9 +17,10 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
-from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -161,6 +162,17 @@ class PublishDecision:
     existing_issue_url: str | None = None
     existing_pr_url: str | None = None
     created_issue_url: str | None = None
+
+
+def summarize_decisions(decisions: Sequence[PublishDecision]) -> dict[str, Any]:
+    reason_counts = Counter(item.reason for item in decisions)
+    eligible_count = sum(1 for item in decisions if item.eligible)
+    return {
+        "total": len(decisions),
+        "eligible_count": eligible_count,
+        "ineligible_count": len(decisions) - eligible_count,
+        "reason_counts": dict(sorted(reason_counts.items())),
+    }
 
 
 def _gh_write_op(args: list[str]) -> bool:
@@ -1395,6 +1407,15 @@ def main(argv: list[str] | None = None) -> int:
     github_health = check_github_cli_health(repo_root)
     if not github_health.ready:
         decision_handoffs = handoffs[: max(args.limit, 0)]
+        decisions = [
+            PublishDecision(
+                task_title=handoff.task_title,
+                source_file=handoff.source_file,
+                eligible=False,
+                reason="github_unavailable",
+            )
+            for handoff in decision_handoffs
+        ]
         payload = {
             "repo": str(repo_root),
             "codex_home": str(codex_home),
@@ -1407,17 +1428,8 @@ def main(argv: list[str] | None = None) -> int:
             "outbox_handoff_count": len(outbox_handoffs),
             "handoff_count": len(handoffs),
             "github_health": github_health.to_dict(),
-            "decisions": [
-                asdict(
-                    PublishDecision(
-                        task_title=handoff.task_title,
-                        source_file=handoff.source_file,
-                        eligible=False,
-                        reason="github_unavailable",
-                    )
-                )
-                for handoff in decision_handoffs
-            ],
+            "decisions": [asdict(item) for item in decisions],
+            "decision_summary": summarize_decisions(decisions),
         }
         if args.json:
             print(json.dumps(payload, indent=2))
@@ -1468,6 +1480,7 @@ def main(argv: list[str] | None = None) -> int:
         "handoff_count": len(handoffs),
         "github_health": github_health.to_dict(),
         "decisions": [asdict(item) for item in results],
+        "decision_summary": summarize_decisions(results),
     }
     if args.json:
         print(json.dumps(payload, indent=2))

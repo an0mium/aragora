@@ -1380,6 +1380,39 @@ def test_decide_handoffs_respects_open_issue_cap(monkeypatch: Any, tmp_path: Pat
     assert decisions[0].reason == "open_issue_cap"
 
 
+def test_summarize_decisions_counts_eligibility_and_reasons(tmp_path: Path) -> None:
+    decisions = [
+        PublishDecision(
+            task_title="Publish ready handoff",
+            source_file=str(tmp_path / "ready.json"),
+            eligible=True,
+            reason="eligible",
+        ),
+        PublishDecision(
+            task_title="Existing issue handoff",
+            source_file=str(tmp_path / "existing.json"),
+            eligible=False,
+            reason="existing_issue",
+        ),
+        PublishDecision(
+            task_title="Second existing issue handoff",
+            source_file=str(tmp_path / "existing-2.json"),
+            eligible=False,
+            reason="existing_issue",
+        ),
+    ]
+
+    assert mod.summarize_decisions(decisions) == {
+        "total": 3,
+        "eligible_count": 1,
+        "ineligible_count": 2,
+        "reason_counts": {
+            "eligible": 1,
+            "existing_issue": 2,
+        },
+    }
+
+
 def test_referenced_pr_numbers_deduplicates_multiple_mentions(tmp_path: Path) -> None:
     handoff = Handoff(
         source_file=str(tmp_path / "memory.md"),
@@ -1629,7 +1662,16 @@ def test_main_preview_does_not_write_outbox_receipt(
 
     assert exit_code == 0
     assert not receipts.exists()
-    assert '"reason": "existing_issue"' in capsys.readouterr().out
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["decisions"][0]["reason"] == "existing_issue"
+    assert payload["decision_summary"] == {
+        "total": 1,
+        "eligible_count": 0,
+        "ineligible_count": 1,
+        "reason_counts": {
+            "existing_issue": 1,
+        },
+    }
 
 
 def test_main_accepts_explicit_dry_run_alias(monkeypatch: Any, tmp_path: Path, capsys) -> None:
@@ -1809,9 +1851,17 @@ def test_main_reports_github_health_when_unavailable(
     exit_code = mod.main(["--repo", str(tmp_path), "--codex-home", str(tmp_path), "--json"])
 
     assert exit_code == 1
-    out = capsys.readouterr().out
-    assert '"mode": "connectivity_failed"' in out
-    assert '"reason": "github_unavailable"' in out
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["github_health"]["mode"] == "connectivity_failed"
+    assert payload["decisions"][0]["reason"] == "github_unavailable"
+    assert payload["decision_summary"] == {
+        "total": 1,
+        "eligible_count": 0,
+        "ineligible_count": 1,
+        "reason_counts": {
+            "github_unavailable": 1,
+        },
+    }
 
 
 def test_main_limits_github_unavailable_decision_preview(
@@ -1860,6 +1910,14 @@ def test_main_limits_github_unavailable_decision_preview(
     assert len(payload["decisions"]) == 1
     assert payload["decisions"][0]["task_title"] == "First offline handoff"
     assert payload["decisions"][0]["reason"] == "github_unavailable"
+    assert payload["decision_summary"] == {
+        "total": 1,
+        "eligible_count": 0,
+        "ineligible_count": 1,
+        "reason_counts": {
+            "github_unavailable": 1,
+        },
+    }
 
 
 def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path) -> None:
