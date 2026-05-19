@@ -732,6 +732,73 @@ class TestDefenseInDepth:
         assert "settling window not met" in decisions[0].reason
         assert decisions[0].head_sha == "b" * 40
 
+    def test_apply_admin_squash_requires_trusted_review_queue_source(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        metadata = make_metadata(
+            9001,
+            merge_state="BLOCKED",
+            head_sha="a" * 40,
+            review_decision="APPROVED",
+        )
+        meta = _MetadataRegistry({9001: metadata})
+        packet_calls: list[int] = []
+
+        def packet_provider(pr_number: int) -> dict[str, Any]:
+            packet_calls.append(pr_number)
+            return make_merge_packet(pr_number, head_sha="a" * 40)
+
+        recorder = _MergeRecorder()
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merge_packet_provider=packet_provider,
+            review_queue_source_validator=(
+                lambda: "review-queue authorization source is branch-local"
+            ),
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert packet_calls == []
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert "branch-local" in decisions[0].reason
+
+    def test_dry_run_admin_squash_does_not_require_trusted_review_queue_source(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        metadata = make_metadata(
+            9001,
+            merge_state="BLOCKED",
+            head_sha="a" * 40,
+            review_decision="APPROVED",
+        )
+        meta = _MetadataRegistry({9001: metadata})
+        packets = _MergePacketRegistry({9001: make_merge_packet(9001, head_sha="a" * 40)})
+        recorder = _MergeRecorder()
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=False,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merge_packet_provider=packets,
+            review_queue_source_validator=(
+                lambda: "review-queue authorization source is branch-local"
+            ),
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert packets.calls == [9001]
+        assert recorder.calls == []
+        assert exit_code == 0
+        assert decisions[0].decision == "merge"
+        assert decisions[0].applied is False
+
     def test_admin_squash_rejects_stale_final_merge_packet(self):
         payload = make_triage_payload(bucket_a_entry(9001))
         metadata = make_metadata(9001, merge_state="BLOCKED", head_sha="a" * 40)
@@ -880,6 +947,8 @@ class TestDefenseInDepth:
     @pytest.mark.parametrize(
         "protected_path",
         [
+            "aragora/cli/commands/review_queue.py",
+            "aragora/policy/review_queue.py",
             "scripts/nomic_loop.py",
             "scripts/auto_merge_bucket_a.py",
             "scripts/triage_open_prs.py",
@@ -1173,6 +1242,31 @@ class TestDefenseInDepth:
         )
         assert exit_code == 1
         assert recorder.calls == []
+
+    def test_trusted_authors_can_be_configured_without_editing_script(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setenv(
+            "ARAGORA_BUCKET_A_TRUSTED_AUTHORS",
+            "an0mium,github-actions[bot]",
+        )
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001, author="github-actions[bot]")})
+        recorder = _MergeRecorder()
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == [9001]
+        assert exit_code == 0
+        assert decisions[0].decision == "merge"
 
     def test_non_trusted_author_caught(self):
         payload = make_triage_payload(bucket_a_entry(9001))

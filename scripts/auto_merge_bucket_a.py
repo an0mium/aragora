@@ -38,6 +38,7 @@ import dataclasses
 import datetime
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -75,10 +76,13 @@ PROTECTED_PATHS: frozenset[str] = frozenset(
 
 PROTECTED_PREFIXES: tuple[str, ...] = (
     ".github/workflows/",
+    "aragora/cli/",
+    "aragora/policy/",
     "secrets/",
 )
 
-TRUSTED_AUTHORS: frozenset[str] = frozenset({"an0mium"})
+DEFAULT_TRUSTED_AUTHORS: frozenset[str] = frozenset({"an0mium"})
+TRUSTED_AUTHORS_ENV = "ARAGORA_BUCKET_A_TRUSTED_AUTHORS"
 
 # Labels that require a human/operator stop even if Stage 1 accidentally
 # classifies the PR as Bucket A. Normalization maps spaces/underscores to "-".
@@ -128,10 +132,63 @@ class MergeDecision:
 
 
 Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
+ReviewQueueSourceValidator = Callable[[], str | None]
 
 
 def _default_runner(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, text=True, capture_output=True, check=False)
+
+
+def trusted_authors(env: dict[str, str] | None = None) -> frozenset[str]:
+    """Return the configured Bucket-A trusted authors.
+
+    The default mirrors the policy doc. Operators can extend the set for
+    automation identities without editing this script by setting
+    ``ARAGORA_BUCKET_A_TRUSTED_AUTHORS`` to a comma-separated login list.
+    """
+    env = env or os.environ
+    configured = frozenset(
+        login.strip() for login in env.get(TRUSTED_AUTHORS_ENV, "").split(",") if login.strip()
+    )
+    return DEFAULT_TRUSTED_AUTHORS | configured
+
+
+def _git_stdout(args: list[str], *, cwd: Path) -> str | None:
+    proc = subprocess.run(
+        ["git", "-C", str(cwd), *args],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip()
+
+
+def _review_queue_source_tripwire() -> str | None:
+    """Fail closed unless review-queue authorization comes from current main.
+
+    ``--admin`` is only safe when the code computing the merge packet is not
+    branch-local PR code. Dry-runs may still inspect packets, but apply-mode
+    BLOCKED merges require the local review-queue source to be exactly
+    ``origin/main`` with no local authorization-surface edits.
+    """
+    head = _git_stdout(["rev-parse", "HEAD"], cwd=REPO_ROOT)
+    origin_main = _git_stdout(["rev-parse", "origin/main"], cwd=REPO_ROOT)
+    if not head or not origin_main:
+        return "review-queue authorization source is unavailable"
+    if head != origin_main:
+        return (
+            "review-queue authorization source is not trusted "
+            f"(HEAD {head[:12]} != origin/main {origin_main[:12]})"
+        )
+
+    auth_status = _git_stdout(
+        ["status", "--short", "--", "aragora/cli", "aragora/policy"], cwd=REPO_ROOT
+    )
+    if auth_status:
+        return "review-queue authorization source has local authorization-surface changes"
+    return None
 
 
 def run_triage(*, runner: Runner | None = None) -> dict[str, Any]:
@@ -401,6 +458,7 @@ def _fresh_pre_merge_authorization(
     *,
     metadata_provider: Callable[[int], dict[str, Any]],
     merge_packet_provider: Callable[[int], dict[str, Any]],
+    review_queue_source_validator: ReviewQueueSourceValidator,
     settling_minutes: int,
     now: datetime.datetime | None,
 ) -> tuple[dict[str, Any], bool, str | None]:
@@ -428,6 +486,9 @@ def _fresh_pre_merge_authorization(
 
     merge_packet: dict[str, Any] | None = None
     if str(metadata.get("mergeStateStatus") or "") == "BLOCKED":
+        source_tripwire = review_queue_source_validator()
+        if source_tripwire is not None:
+            return metadata, False, source_tripwire
         try:
             merge_packet = merge_packet_provider(pr_number)
         except Exception as exc:
@@ -472,7 +533,7 @@ def defense_in_depth_tripwire(
 
     author_raw = metadata.get("author") or {}
     author = author_raw.get("login", "") if isinstance(author_raw, dict) else str(author_raw)
-    if author not in TRUSTED_AUTHORS:
+    if author not in trusted_authors():
         return f"non-trusted author ({author or '(unknown)'})"
 
     for path in _file_paths(metadata):
@@ -562,6 +623,7 @@ def decide(
     only_pr: int | None = None,
     metadata_provider: Callable[[int], dict[str, Any]] | None = None,
     merge_packet_provider: Callable[[int], dict[str, Any]] | None = None,
+    review_queue_source_validator: ReviewQueueSourceValidator | None = None,
     merger: Callable[[int, str, bool, bool], subprocess.CompletedProcess[str]] | None = None,
     delete_branch_on_merge: bool = False,
     now: datetime.datetime | None = None,
@@ -575,7 +637,12 @@ def decide(
     requirement.
     """
     metadata_provider = metadata_provider or fetch_pr_commit_metadata
+    using_default_merge_packet_provider = merge_packet_provider is None
     merge_packet_provider = merge_packet_provider or fetch_merge_packet
+    if review_queue_source_validator is None:
+        review_queue_source_validator = (
+            _review_queue_source_tripwire if using_default_merge_packet_provider else (lambda: None)
+        )
     merger = merger or gh_pr_merge_squash
 
     decisions: list[MergeDecision] = []
@@ -671,6 +738,21 @@ def decide(
 
         merge_packet: dict[str, Any] | None = None
         if str(metadata.get("mergeStateStatus") or "") == "BLOCKED":
+            if apply:
+                source_tripwire = review_queue_source_validator()
+                if source_tripwire is not None:
+                    decisions.append(
+                        MergeDecision(
+                            pr_number=pr_number,
+                            title=title,
+                            decision="skip-tripwire",
+                            reason=source_tripwire,
+                            head_sha=head_sha or None,
+                            applied=False,
+                        )
+                    )
+                    tripwire_exit = 1
+                    continue
             try:
                 merge_packet = merge_packet_provider(pr_number)
             except Exception as exc:
@@ -707,6 +789,7 @@ def decide(
                 pr_number,
                 metadata_provider=metadata_provider,
                 merge_packet_provider=merge_packet_provider,
+                review_queue_source_validator=review_queue_source_validator,
                 settling_minutes=settling_minutes,
                 now=now,
             )
