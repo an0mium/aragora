@@ -678,6 +678,41 @@ def _remote_tracking_head(repo_root: Path, branch: str | None) -> str | None:
     return value if re.fullmatch(r"[0-9a-fA-F]{7,40}", value) else None
 
 
+def _branch_tip(repo_root: Path, branch: str | None) -> str | None:
+    if not branch:
+        return None
+
+    refs = [branch] if branch.startswith("origin/") else [f"origin/{branch}", branch]
+    for ref in dict.fromkeys(refs):
+        proc = _run(["git", "rev-parse", "--verify", ref], cwd=repo_root)
+        if proc.returncode != 0:
+            continue
+        value = proc.stdout.strip()
+        if re.fullmatch(r"[0-9a-fA-F]{7,40}", value):
+            return value
+    return None
+
+
+def _stale_outbox_head(repo_root: Path, handoff: Handoff) -> str | None:
+    if handoff.source_kind != "outbox" or not handoff.branch or not handoff.desired_head:
+        return None
+    branch_tip = _branch_tip(repo_root, handoff.branch)
+    if not branch_tip or _head_matches(handoff.desired_head, branch_tip):
+        return None
+    return branch_tip
+
+
+def _local_handoff_blocker(repo_root: Path, handoff: Handoff) -> PublishDecision | None:
+    if _stale_outbox_head(repo_root, handoff):
+        return PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="stale_outbox_head",
+        )
+    return None
+
+
 def _receipt_satisfies_outbox(
     repo_root: Path,
     payload: dict[str, Any],
@@ -1169,6 +1204,10 @@ def decide_handoffs(
     open_issue_count = _open_boss_ready_count(repo_root, repo, labels)
     decisions: list[PublishDecision] = []
     for handoff in handoffs:
+        local_blocker = _local_handoff_blocker(repo_root, handoff)
+        if local_blocker is not None:
+            decisions.append(local_blocker)
+            continue
         target_pr = _target_open_pr(repo_root, repo, handoff)
         if target_pr:
             decisions.append(
@@ -1408,7 +1447,8 @@ def main(argv: list[str] | None = None) -> int:
     if not github_health.ready:
         decision_handoffs = handoffs[: max(args.limit, 0)]
         decisions = [
-            PublishDecision(
+            _local_handoff_blocker(repo_root, handoff)
+            or PublishDecision(
                 task_title=handoff.task_title,
                 source_file=handoff.source_file,
                 eligible=False,
