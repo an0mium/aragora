@@ -60,6 +60,13 @@ def _list_json(path: Path) -> list[Path]:
     return sorted(p for p in path.iterdir() if p.is_file() and p.suffix == ".json")
 
 
+def _resolve_outbox_file_filter(outbox_dir: Path, value: Path) -> Path:
+    expanded = value.expanduser()
+    if expanded.is_absolute():
+        return expanded.resolve()
+    return (outbox_dir / expanded).resolve()
+
+
 def _state_default_path(state_root: Path, default_relative: Path) -> Path:
     expanded = state_root.expanduser()
     if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
@@ -384,6 +391,25 @@ def main(argv: list[str] | None = None) -> int:
             "the selected automation outbox."
         ),
     )
+    parser.add_argument(
+        "--idempotency-key",
+        action="append",
+        default=[],
+        help=(
+            "Only reconcile the outbox handoff with this idempotency key. "
+            "Repeat to target multiple handoffs."
+        ),
+    )
+    parser.add_argument(
+        "--outbox-file",
+        action="append",
+        type=Path,
+        default=[],
+        help=(
+            "Only reconcile this outbox JSON file. Relative paths resolve inside "
+            "the selected outbox directory; repeat to target multiple handoffs."
+        ),
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--apply",
@@ -453,15 +479,58 @@ def main(argv: list[str] | None = None) -> int:
     emit(f"  {len(receipt_keys)} terminal receipt keys")
 
     emit("loading outbox files...")
-    outbox_files = _list_json(outbox_dir)
-    emit(f"  {len(outbox_files)} outbox files\n")
+    all_outbox_files = _list_json(outbox_dir)
+    emit(f"  {len(all_outbox_files)} outbox files\n")
 
     parsed_outbox_payloads: dict[Path, dict[str, Any]] = {}
-    for path in outbox_files:
+    for path in all_outbox_files:
         payload = _load_json(path)
         if isinstance(payload, dict):
             parsed_outbox_payloads[path] = payload
     superseded_targets = _superseded_targets(list(parsed_outbox_payloads.items()))
+
+    target_keys = {str(key).strip() for key in args.idempotency_key if str(key).strip()}
+    target_files = {_resolve_outbox_file_filter(outbox_dir, path) for path in args.outbox_file}
+    if target_keys or target_files:
+        outbox_files = []
+        matched_keys: set[str] = set()
+        matched_files: set[Path] = set()
+        for path in all_outbox_files:
+            resolved_path = path.resolve()
+            payload = parsed_outbox_payloads.get(path)
+            idempotency_key = str((payload or {}).get("idempotency_key") or path.stem).strip()
+            if idempotency_key in target_keys or resolved_path in target_files:
+                outbox_files.append(path)
+                if idempotency_key in target_keys:
+                    matched_keys.add(idempotency_key)
+                if resolved_path in target_files:
+                    matched_files.add(resolved_path)
+
+        missing_keys = sorted(target_keys - matched_keys)
+        missing_files = sorted(str(path) for path in target_files - matched_files)
+        if missing_keys or missing_files:
+            payload = {
+                "applied": False,
+                "dry_run": not args.apply,
+                "error": "target outbox handoff not found",
+                "missing_idempotency_keys": missing_keys,
+                "missing_outbox_files": missing_files,
+                "outbox_count": 0,
+                "outbox_dir": str(outbox_dir),
+                "repo": str(root),
+                "state_root": str(state_root),
+                "total_outbox_count": len(all_outbox_files),
+            }
+            if args.json:
+                print(json.dumps(payload, indent=2, sort_keys=True))
+            else:
+                for key in missing_keys:
+                    emit(f"ERROR: no outbox handoff found for idempotency key {key}")
+                for path in missing_files:
+                    emit(f"ERROR: no outbox handoff found at {path}")
+            return 2
+    else:
+        outbox_files = all_outbox_files
 
     open_prs_cache: dict[str, int] | None = None
     open_pr_state_available = False
@@ -713,7 +782,12 @@ def main(argv: list[str] | None = None) -> int:
                     "repo_name": args.repo_name,
                     "report": str(report_path) if report_path is not None else None,
                     "state_root": str(state_root),
+                    "target": {
+                        "idempotency_keys": sorted(target_keys),
+                        "outbox_files": sorted(str(path) for path in target_files),
+                    },
                     "terminal_receipt_count": len(receipt_keys),
+                    "total_outbox_count": len(all_outbox_files),
                 },
                 indent=2,
                 sort_keys=True,

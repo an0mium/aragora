@@ -212,6 +212,115 @@ def test_apply_uses_explicit_shared_state_dirs(
     assert (archive_dir / handoff.name).exists()
 
 
+def test_idempotency_key_filter_limits_reconciliation_scope(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    selected_key = "open-pr-codex-selected-abc123"
+    skipped_key = "open-pr-codex-skipped-def456"
+    _write_outbox_handoff(outbox_dir, branch="codex/selected", key=selected_key)
+    _write_outbox_handoff(outbox_dir, branch="codex/skipped", key=skipped_key)
+    receipt_dir.mkdir(parents=True)
+    for key in (selected_key, skipped_key):
+        (receipt_dir / f"{key}.json").write_text(
+            json.dumps({"idempotency_key": key, "status": "published"}),
+            encoding="utf-8",
+        )
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--idempotency-key",
+            selected_key,
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["outbox_count"] == 1
+    assert payload["total_outbox_count"] == 2
+    assert payload["archived"] == 1
+    assert payload["actions"][0]["branch"] == "codex/selected"
+    assert payload["target"]["idempotency_keys"] == [selected_key]
+
+
+def test_apply_outbox_file_filter_archives_only_selected_handoff(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    selected_key = "open-pr-codex-file-selected-abc123"
+    skipped_key = "open-pr-codex-file-skipped-def456"
+    selected = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/file-selected",
+        key=selected_key,
+    )
+    skipped = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/file-skipped",
+        key=skipped_key,
+    )
+    receipt_dir.mkdir(parents=True)
+    for key in (selected_key, skipped_key):
+        (receipt_dir / f"{key}.json").write_text(
+            json.dumps({"idempotency_key": key, "status": "published"}),
+            encoding="utf-8",
+        )
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--outbox-file",
+            selected.name,
+            "--apply",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    archived = tmp_path / ".aragora" / "automation-outbox-archive" / selected.name
+    assert rc == 0
+    assert payload["outbox_count"] == 1
+    assert payload["total_outbox_count"] == 2
+    assert payload["archived"] == 1
+    assert selected.exists() is False
+    assert archived.exists()
+    assert skipped.exists()
+
+
+def test_missing_target_filter_fails_closed(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-present-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/present", key=key)
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--idempotency-key",
+            "open-pr-codex-missing-def456",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 2
+    assert payload["error"] == "target outbox handoff not found"
+    assert payload["missing_idempotency_keys"] == ["open-pr-codex-missing-def456"]
+    assert payload["total_outbox_count"] == 1
+    assert (outbox_dir / f"{key}.json").exists()
+
+
 def test_explicit_outbox_dir_defaults_archive_beside_outbox(
     tmp_path: Path,
     capsys: Any,
