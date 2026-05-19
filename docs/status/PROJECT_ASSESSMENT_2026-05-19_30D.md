@@ -35,46 +35,46 @@ Did the 30 days advance the project's own stated goals?
 
 ### Raw activity profile
 
-- **741 commits** on `origin/main` (no merges) across 30 days
-- **819 PRs created** in the window by GitHub search:
-  667 merged, 50 open, 102 closed-unmerged
-- **50 open PRs** at snapshot (35 draft, 15 ready)
+- **730 commits** on `origin/main` (no merges) across 30 days
+- **826 PRs created** in the window by GitHub search:
+  668 merged, 56 open, 102 closed-unmerged
+- **56 open PRs** at snapshot (39 draft, 17 ready)
 - **Author concentration:** 91% of all no-merge commits are attributed to
-  the two founder identities (an0mium=556, Armand=118; the remaining
+  the two founder identities (an0mium=546, Armand=117; the remaining
   67 commits include 51 dependabot, 9 Claude, and 7 various
   Droid/Factory identities). Most an0mium commits are agent-authored
   squash-merges credited to the founder's GitHub identity, so the real
   bus factor is still 1. This was Opus's April-17 critique. Thirty days
   later, unchanged.
 
-Verification snapshot (2026-05-19T17:59Z):
+Verification snapshot (2026-05-19T21:38Z):
 
 ```bash
 git log origin/main --since="2026-04-19" --pretty=oneline --no-merges | wc -l
-# 741
+# 730
 
 gh pr list --state all --search 'created:>=2026-04-19' --limit 1000 \
   --json number,state,isDraft,mergedAt,createdAt,title,headRefName
-# 819 total: 667 MERGED, 50 OPEN, 102 CLOSED
+# 826 total: 668 MERGED, 56 OPEN, 102 CLOSED
 ```
 
 ### Top commit scopes (last 30 days)
 
 | Scope | Commits | % of total |
 |---|---:|---:|
-| (automation) | 145 | 19.6% |
-| (status) | 62 | 8.4% |
-| (deps) | 56 | 7.6% |
-| (agent-bridge) | 27 | 3.6% |
-| (scripts) | 25 | 3.4% |
-| (review) | 24 | 3.2% |
-| (swarm) | 23 | 3.1% |
-| (ci) | 16 | 2.2% |
+| (automation) | 142 | 19.5% |
+| (status) | 62 | 8.5% |
+| (deps) | 56 | 7.7% |
+| (agent-bridge) | 27 | 3.7% |
+| (scripts) | 26 | 3.6% |
+| (review) | 23 | 3.2% |
+| (swarm) | 22 | 3.0% |
 | (heterogeneity) | 16 | 2.2% |
+| (ci) | 15 | 2.1% |
 | (epistemic) | 13 | 1.8% |
-| (plans) | 12 | 1.6% |
+| (plans) | 11 | 1.5% |
 
-Automation-scoped commits alone are **145 commits in 30 days** — ~one automation-tool
+Automation-scoped commits alone are **142 commits in 30 days** — ~one automation-tool
 hygiene commit every five hours of wall-clock, on average. The substrate
 is not "boring" yet, despite NEXT_STEPS_CANONICAL's explicit goal: "make
 bounded unattended execution boring."
@@ -97,9 +97,11 @@ TESTED, not just SUBSTRATED:
 #### LBA 2: Cryptographic receipts
 
 - **Substrate:** `aragora.security.context_signing.get_signing_key()`,
-  receipt-trio convention, ADC v0.4 HMAC signing, `gauntlet/` receipts.
-- **30-day activity:** ~15+ receipts produced this week alone; ADC v0.4
-  (#7361) ships HMAC signing for delegation contracts.
+  receipt-trio convention, draft ADC v0.4 HMAC signing work, `gauntlet/`
+  receipts.
+- **30-day activity:** ~15+ receipts produced this week alone; ADC v0.1
+  (#7357) is merged, while ADC v0.2-v0.4 (#7358/#7360/#7361) are open
+  draft follow-ons and should not be described as shipped/current state.
 - **Tested with a buyer?** **No.** Per THESIS § Load-bearing assumptions,
   "Cryptographic receipts produce trust that matters to buyers" is tested
   against design partners. No design-partner activity in 30 days.
@@ -124,10 +126,14 @@ TESTED, not just SUBSTRATED:
 
 #### LBA 4: Design-partner wedge (H2 horizon)
 
-- **Substrate:** none specific to design-partner outreach
-- **30-day activity:** zero `git log` evidence of design-partner-named work.
-  No `docs/plans/*design-partner*` or `*wedge*` doc found. No commits in
-  scope.
+- **Substrate:** historical design-partner and wedge assets exist, including
+  `docs/status/DESIGN_PARTNER_PROGRAM.md`,
+  `docs/outreach/DESIGN_PARTNER_OPERATIONS_PLAYBOOK.md`,
+  `scripts/demo_design_partner.sh`, and
+  `docs/examples/inbox-trust-wedge-activation-*.yaml`.
+- **30-day activity:** I found substrate, not a recent external test. The
+  current 30-day evidence still does not show a design-partner conversation,
+  buyer trial, or external-user feedback loop.
 - **Tested?** **No.** Not even attempted in 30 days.
 - **Verdict:** This is the single largest LBA gap. The cryptographic-
   receipts assumption (LBA 2) is gated on a buyer testing it. No buyers
@@ -135,10 +141,14 @@ TESTED, not just SUBSTRATED:
 
 #### LBA 5: EU AI Act readiness (Aug 2 2026 deadline)
 
-- **Substrate:** `aragora/compliance/` exists with EU AI Act surfaces.
-- **30-day activity:** zero plan docs found via search. No commits in
-  this scope.
-- **Tested?** No external audit, no readiness packet generated.
+- **Substrate:** `aragora/compliance/` exists with EU AI Act surfaces, and
+  historical docs/plans exist (`docs/EU_AI_ACT_COMPLIANCE.md`,
+  `docs/compliance/EU_AI_ACT_PACKAGE.md`,
+  `docs/plans/2026-03-03-eu-ai-act-compliance-ship-design.md`,
+  `docs/plans/2026-03-05-eu-ai-act-cli-g1-signing-design.md`).
+- **30-day activity:** existing docs are not the same as a current readiness
+  test. I found no 30-day external audit or refreshed readiness packet.
+- **Tested?** No external audit, no current readiness packet generated.
 - **Verdict:** deliberately deferred per Phase-0-first policy in
   NEXT_STEPS_CANONICAL. Defensible *now*, but the Aug 2 deadline is
   ~75 days away. If Phase 0 (proof-loop graduation) doesn't close in
@@ -146,9 +156,10 @@ TESTED, not just SUBSTRATED:
 
 #### LBA 6: ADC authority-chain protocol
 
-- **Substrate:** v0.1-v0.4 shipped **in the last 48 hours**. Stack-coherence
-  audit GREEN. Four agents in parallel built four versions cleanly. The
-  ADC v0.1 PR (#7357) is already on `main`.
+- **Substrate:** ADC v0.1 shipped in the last 48 hours; ADC v0.2-v0.4 are
+  open draft follow-ons. Stack-coherence audit GREEN. Four agents in parallel
+  authored four versions cleanly, but only ADC v0.1 PR (#7357) is already on
+  `main`.
 - **30-day activity:** intense, concentrated in the last 5 days
 - **Tested?** **Partially.** The fact that four agents across two families
   built four versions in parallel without merge conflict is itself a
@@ -187,7 +198,7 @@ class. The cryptographic-receipts LBA is not tested by this corpus.
 
 ### Effort-share estimate
 
-Rough split of 741 commits:
+Rough split of 730 commits:
 
 - **Direct LBA testing:** ~30-40 commits (observe-outcomes runs, B0
   publication runs, rescue productization landings)
@@ -195,7 +206,7 @@ Rough split of 741 commits:
   fixtures): ~80-120 commits
 - **Coordination tooling** (lane registry, mailbox, broker, sweepers,
   worktree inventory, dispatch script): ~150-200 commits
-- **General automation hygiene** (fix(automation) etc.): ~145 commits
+- **General automation hygiene** (fix(automation) etc.): ~142 commits
 - **Dependency bumps:** 56 commits
 - **CI/release/docs hygiene:** ~80-100 commits
 - **Other:** rest
@@ -292,7 +303,8 @@ the difference, classify as new-primitive vs new-combination.
 - **What:** `.aragora/operator-steering/<session>/<msg>.json` —
   asynchronous operator-to-session messages surfaced via
   `operator-snapshot.pending_steering_messages`. Schema is FROZEN at
-  v1.0. Just shipped (PRs #7308 #7310 #7311) in the last week.
+  v1.0. Initial mailbox phases shipped in PRs #7308 #7310 #7311; PR #7370
+  has since merged active-owner routing to PR/branch/worktree owners.
 - **Closest external:** none I'm aware of. Slack/email/SMS are
   out-of-band; agent-bridge tools (LangChain's HumanInputRun, etc.)
   are synchronous; CrewAI human-in-the-loop is request/response.
@@ -386,14 +398,15 @@ NEXT_STEPS_CANONICAL.md (updated 2026-05-13, 6 days old) says explicitly:
 
 30-day evidence:
 
-- 145 automation-scoped commits — automation is being continuously repaired,
+- 142 automation-scoped commits — automation is being continuously repaired,
   not stabilizing
-- 50 open PRs at snapshot (35 draft, 15 ready)
-- 667 PRs merged in the 30-day GitHub search window → throughput is real,
+- 56 open PRs at snapshot (39 draft, 17 ready)
+- 668 PRs merged in the 30-day GitHub search window → throughput is real,
   not vaporware
-- ADC v0.1-v0.4 in 48 hours → this is exactly "more speculative autonomy"
-  unless framed as a safety substrate (which it is, but it's also a new
-  substrate, not stabilization of an existing one)
+- ADC v0.1 merged and ADC v0.2-v0.4 opened as drafts in 48 hours → this is
+  exactly "more speculative autonomy" unless framed as a safety substrate
+  (which it is, but it is also new substrate, not stabilization of an
+  existing one)
 - Lane registry + steering mailbox + broker + worktree value inventory +
   dispatch script + sweepers → coordination tooling explosion in the last
   10 days
@@ -468,6 +481,10 @@ Free/Pro/Enterprise tiers.
 
 **30-day evidence of design-partner / external-user activity: zero.**
 
+This is a claim about recent testing, not about repository substrate: the repo
+does contain older design-partner/wedge assets and compliance docs. They do not
+by themselves test the buyer-trust LBA in the current 30-day window.
+
 This is the persistent finding across reviews. The April-17 Opus critique
 named it. The May-6 Opus reframe named it. The May-14 Opus / Factory
 strategic review named it. It is still un-actioned.
@@ -482,7 +499,7 @@ strategic review named it. It is still un-actioned.
 | Bus factor | high | unchanged at 1 |
 | EU AI Act readiness | medium | deferred; deadline 75 days |
 | Defensible-core drift | medium | FOCUS doc stale; real work expanding |
-| Automation maintenance cost | medium | 145 automation-scoped commits suggest not "boring" yet |
+| Automation maintenance cost | medium | 142 automation-scoped commits suggest not "boring" yet |
 | Coordination tooling growth | mixed | useful in moderation; volume concerning |
 
 **Most important drift signal:** the project's own canonical document
@@ -533,13 +550,14 @@ These are bounded suggestions, not directives. Operator decides.
    on a narrow scope — changes the bus-factor-1 finding. Hard to do, but
    the value of even tiny external presence is high.
 
-5. **ADC v0.7 + v0.8 — close the dogfood loop.** The strongest
-   demonstration in the 30 days was four agents in parallel building
-   ADC. The natural close is shipping v0.7 (three-tier reversibility)
-   and v0.8 (cross-family adapter) and then dispatching the next droid
-   mission contract-bound. This would be the first agent action in the
-   project that is provably governed by the protocol the project built
-   to govern such actions. Formalize that as an LBA closure.
+5. **ADC follow-ons — close the dogfood loop.** The strongest
+   demonstration in the 30 days was four agents in parallel authoring the
+   ADC stack. First settle the open draft follow-ons (#7358/#7360/#7361);
+   then consider v0.7 (three-tier reversibility) and v0.8
+   (cross-family adapter), followed by a contract-bound Droid mission.
+   That would be the first agent action in the project that is provably
+   governed by the protocol the project built to govern such actions.
+   Formalize that as an LBA closure.
 
 6. **EU AI Act readiness packet.** 75 days to deadline is not yet
    urgent, but a 1-day audit packet generated from existing
@@ -574,17 +592,16 @@ These are bounded suggestions, not directives. Operator decides.
   productization map, governance docs in full. I did NOT do exhaustive
   code-level inspection of `aragora/debate/`, `aragora/policy/`, or
   `aragora/server/`. Verdicts on those areas rest on doc-level reading
-  plus what I touched in this conversation (ADC v0.1-v0.4 specifically).
+  plus what I touched in this conversation (ADC v0.1 and the v0.2-v0.4
+  draft follow-ons specifically).
 
-- **Founder-state observation**: I am aware that the operator has been
-  running long autonomous sessions for several weeks, that fatigue is
-  real, that the project receives a lot of internal-review attention
-  (codex, factory, opus 4.7 cross-checks). The assessment should be
-  read as "what would change the founder's next-decision," not as
-  "comprehensive judgment." I have weighted negative findings more
-  heavily than positive ones per the assessment prompt's honesty
-  discipline; the actual positive-signal-to-negative-signal ratio in
-  the 30 days is more balanced than this doc reads.
+- **Operator-context boundary**: I did not rely on raw transcripts or private
+  operator-state evidence. This assessment is repo-visible founder-decision
+  support; claims that depend on non-repo context should be treated as prompts
+  for operator judgment, not tracked facts. I have weighted negative findings
+  more heavily than positive ones per the assessment prompt's honesty
+  discipline; the actual positive-signal-to-negative-signal ratio in the 30
+  days is more balanced than this doc reads.
 
 - **What this assessment is NOT**: a comprehensive technical audit, a
   competitive analysis with verified market data, a financial / GTM
