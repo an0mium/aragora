@@ -220,6 +220,35 @@ def test_automation_pr_preflight_rejects_rescue_publish_latest_pointer(
     assert "published/rescue-productization/latest.json" in proc.stderr
 
 
+def test_automation_pr_preflight_rejects_nested_rescue_publish_pointers(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/bad-nested-rescue-publish"], cwd=repo)
+    timestamped = repo / "published" / "rescue-productization-20260516T162243Z.json"
+    latest = repo / "published" / "rescue_productization" / "snapshots" / "latest.json"
+    latest.parent.mkdir(parents=True)
+    timestamped.write_text("{}\n", encoding="utf-8")
+    latest.write_text("{}\n", encoding="utf-8")
+    _run(
+        [
+            "git",
+            "add",
+            "published/rescue-productization-20260516T162243Z.json",
+            "published/rescue_productization/snapshots/latest.json",
+        ],
+        cwd=repo,
+    )
+    _run(["git", "commit", "-m", "bad: commit nested rescue publish artifacts"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 1
+    assert "rescue productization publish artifacts" in proc.stderr
+    assert "published/rescue-productization-20260516T162243Z.json" in proc.stderr
+    assert "published/rescue_productization/snapshots/latest.json" in proc.stderr
+
+
 def test_automation_pr_preflight_accepts_unrelated_latest_json(
     tmp_path: Path,
 ) -> None:
