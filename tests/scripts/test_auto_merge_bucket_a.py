@@ -1249,7 +1249,7 @@ class TestReceipt:
             delete_branch_on_merge: bool = False,
             admin_squash: bool = False,
             *,
-            runner: amba.Runner | None = None,
+            runner: Any = None,
         ) -> subprocess.CompletedProcess[str]:
             events.append("merge")
             return subprocess.CompletedProcess(
@@ -1303,7 +1303,7 @@ class TestReceipt:
             delete_branch_on_merge: bool = False,
             admin_squash: bool = False,
             *,
-            runner: amba.Runner | None = None,
+            runner: Any = None,
         ) -> subprocess.CompletedProcess[str]:
             events.append("merge")
             raise RuntimeError("simulated merge-side failure")
@@ -1344,7 +1344,7 @@ class TestReceipt:
             delete_branch_on_merge: bool = False,
             admin_squash: bool = False,
             *,
-            runner: amba.Runner | None = None,
+            runner: Any = None,
         ) -> subprocess.CompletedProcess[str]:
             events.append("merge")
             return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
