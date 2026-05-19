@@ -32,6 +32,7 @@ _BRANCH_RE = re.compile(
     r"\b(?:origin/main|main|(?:codex|droid|claude|vision-incubator|worktree|feat|fix|"
     r"chore|docs|review)/[A-Za-z0-9._/-]+)\b"
 )
+_SAFE_TMUX_TARGET_RE = re.compile(r"^[A-Za-z0-9_.:@-]{1,128}$")
 _ACTIVE_STATUSES = {"active", "running", "pending", "queued", "claimed", "conflict"}
 
 DEFAULT_FACTORY_HOME = Path("~/.factory")
@@ -125,6 +126,18 @@ def redact_display(value: str | Path | None) -> str | None:
     if value is None:
         return None
     return _build_barrier().redact(str(value))
+
+
+def _safe_tmux_target_name(value: str | None) -> str | None:
+    name = str(value or "").strip()
+    if not name:
+        return None
+    redacted = redact_display(name)
+    if not redacted or redacted != name:
+        return None
+    if not _SAFE_TMUX_TARGET_RE.fullmatch(name):
+        return None
+    return name
 
 
 def _redact_lane(record: dict[str, Any]) -> dict[str, Any]:
@@ -372,7 +385,7 @@ def _tmux_targets(repo_root: Path | None) -> list[_TmuxTarget]:
         agent = str(payload.get("agent") or "").lower()
         if agent not in {"droid", "factory"}:
             continue
-        name = str(payload.get("name") or "").strip()
+        name = _safe_tmux_target_name(str(payload.get("name") or ""))
         if not name:
             continue
         cwd = str(payload.get("worktree") or payload.get("cwd") or "") or None

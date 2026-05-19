@@ -201,6 +201,81 @@ def test_direct_steering_does_not_use_shared_cwd_without_session_or_lane_match(
     assert brief.steering_command is None
 
 
+def test_direct_steering_ignores_secret_like_tmux_target_names(tmp_path: Path) -> None:
+    factory_home = _factory_home_with_index(
+        tmp_path,
+        [
+            {
+                "id": "factory-visible",
+                "pr_number": 7359,
+                "updated_at": int(time.time()),
+            }
+        ],
+    )
+    secret_target = "factory-ghp_FAKELEAK12345678901234"
+    repo = _repo_with_lanes(
+        tmp_path,
+        [
+            {
+                "lane_id": "P80-owner",
+                "owner_session": secret_target,
+                "status": "active",
+                "pr_number": 7359,
+                "updated_at": "2026-05-19T12:00:00Z",
+            }
+        ],
+    )
+    _write_json(
+        repo / ".aragora" / "tmux-sessions" / "factory-secret.meta.json",
+        {
+            "name": secret_target,
+            "agent": "factory",
+        },
+    )
+
+    brief = inspector.build_factory_session_briefs(
+        factory_home=factory_home,
+        repo_root=repo,
+        since=timedelta(hours=4),
+    )[0]
+    payload = brief.to_dict()
+    serialized = json.dumps(payload)
+
+    assert payload["matched_lane"]["owner_session"] == "factory-[REDACTED]"
+    assert payload["direct_steering_available"] is False
+    assert payload["steering_command"] is None
+    assert secret_target not in serialized
+
+
+def test_direct_steering_ignores_path_like_tmux_target_names(tmp_path: Path) -> None:
+    factory_home = _factory_home_with_index(
+        tmp_path,
+        [
+            {
+                "id": "factory-path-target",
+                "updated_at": int(time.time()),
+            }
+        ],
+    )
+    repo = _repo_with_lanes(tmp_path, [])
+    _write_json(
+        repo / ".aragora" / "tmux-sessions" / "factory-path.meta.json",
+        {
+            "name": "factory/path-target",
+            "agent": "droid",
+        },
+    )
+
+    brief = inspector.build_factory_session_briefs(
+        factory_home=factory_home,
+        repo_root=repo,
+        since=timedelta(hours=4),
+    )[0]
+
+    assert brief.direct_steering_available is False
+    assert brief.steering_command is None
+
+
 def test_unknown_session_returns_paste_needed(tmp_path: Path) -> None:
     factory_home = _factory_home_with_index(tmp_path, [])
 
