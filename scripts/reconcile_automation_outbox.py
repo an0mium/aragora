@@ -637,7 +637,7 @@ def main(argv: list[str] | None = None) -> int:
                 shutil.move(str(path), str(archive_dir / path.name))
             continue
 
-        open_prs, _open_pr_state_available = load_open_pr_state()
+        open_prs, open_pr_state_available = load_open_pr_state()
         if branch in open_prs:
             counts["still_protecting_active_work"] += 1
             actions.append(
@@ -651,13 +651,21 @@ def main(argv: list[str] | None = None) -> int:
             )
             continue
 
+        reason = (
+            "branch has unique commits not on main, no open PR — actively protecting"
+            if open_pr_state_available
+            else (
+                "branch has unique commits not on main, open PR state is unavailable "
+                "— actively protecting"
+            )
+        )
         counts["still_protecting_active_work"] += 1
         actions.append(
             {
                 "path": str(path),
                 "branch": branch,
                 "decision": "keep",
-                "reason": "branch has unique commits not on main, no open PR — actively protecting",
+                "reason": reason,
                 "synthetic_receipt": False,
             }
         )
