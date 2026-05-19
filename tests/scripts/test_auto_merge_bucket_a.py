@@ -329,6 +329,46 @@ class TestDecide:
         skipped_non_a = sorted(d.pr_number for d in decisions if d.decision == "skip-non-bucket-a")
         assert skipped_non_a == [9002, 9003, 9004]
 
+    def test_apply_attempts_at_most_one_merge_per_snapshot(self):
+        payload = make_triage_payload(bucket_a_entry(9001), bucket_a_entry(9002))
+        meta = _MetadataRegistry({9001: make_metadata(9001), 9002: make_metadata(9002)})
+        recorder = _MergeRecorder()
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == [9001]
+        assert exit_code == 0
+        assert [d.pr_number for d in decisions] == [9001, 9002]
+        assert decisions[0].decision == "merge"
+        assert decisions[0].applied is True
+        assert decisions[1].decision == "skip-stale-snapshot"
+        assert "rerun full triage and merge-packet validation" in decisions[1].reason
+
+    def test_apply_stops_after_one_merge_attempt_even_if_merge_fails(self):
+        payload = make_triage_payload(bucket_a_entry(9001), bucket_a_entry(9002))
+        meta = _MetadataRegistry({9001: make_metadata(9001), 9002: make_metadata(9002)})
+        recorder = _MergeRecorder(expected_failures={9001})
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == [9001]
+        assert exit_code == 1
+        assert [d.pr_number for d in decisions] == [9001, 9002]
+        assert decisions[0].decision == "merge-failed"
+        assert decisions[1].decision == "skip-stale-snapshot"
+
     def test_apply_can_opt_in_to_branch_deletion(self):
         payload = make_triage_payload(bucket_a_entry(9001))
         meta = _MetadataRegistry({9001: make_metadata(9001)})
@@ -959,6 +999,26 @@ class TestReceipt:
         assert "merge" in content
         assert "Classifier output sha256" in content
 
+    def test_intent_and_final_receipts_use_distinct_paths(self, tmp_path: Path):
+        intent_path = amba.write_receipt(
+            "intent evidence",
+            now=NOW,
+            receipt_dir=tmp_path,
+            receipt_kind="INTENT",
+        )
+        final_path = amba.write_receipt(
+            "final evidence",
+            now=NOW,
+            receipt_dir=tmp_path,
+            receipt_kind="FINAL",
+        )
+
+        assert intent_path != final_path
+        assert intent_path.name == "AUTO_MERGE_RECEIPT_20260518T010000Z_INTENT.md"
+        assert final_path.name == "AUTO_MERGE_RECEIPT_20260518T010000Z_FINAL.md"
+        assert intent_path.read_text(encoding="utf-8") == "intent evidence"
+        assert final_path.read_text(encoding="utf-8") == "final evidence"
+
     def test_intent_receipt_lists_planned_bucket_a_candidates(self):
         payload = make_triage_payload(
             bucket_a_entry(9001),
@@ -999,10 +1059,11 @@ class TestReceipt:
             *,
             now: datetime.datetime | None = None,
             receipt_dir: Path | None = None,
+            receipt_kind: str | None = None,
         ) -> Path:
-            kind = "intent" if "intent receipt" in receipt_md else "final"
+            kind = receipt_kind or ("intent" if "intent receipt" in receipt_md else "final")
             events.append(f"write:{kind}")
-            path = tmp_path / "AUTO_MERGE_RECEIPT.md"
+            path = tmp_path / f"AUTO_MERGE_RECEIPT_{kind}.md"
             path.write_text(receipt_md, encoding="utf-8")
             return path
 
@@ -1028,8 +1089,10 @@ class TestReceipt:
         exit_code = amba.main(["--apply", "--only-pr", "9001", "--json"])
 
         assert exit_code == 0
-        assert events == ["write:intent", "merge", "write:final"]
-        assert json.loads(capsys.readouterr().out)["receipt_path"].endswith("AUTO_MERGE_RECEIPT.md")
+        assert events == ["write:INTENT", "merge", "write:FINAL"]
+        assert json.loads(capsys.readouterr().out)["receipt_path"].endswith(
+            "AUTO_MERGE_RECEIPT_FINAL.md"
+        )
 
     def test_apply_main_keeps_intent_receipt_when_merge_fails(
         self,
@@ -1050,10 +1113,11 @@ class TestReceipt:
             *,
             now: datetime.datetime | None = None,
             receipt_dir: Path | None = None,
+            receipt_kind: str | None = None,
         ) -> Path:
-            kind = "intent" if "intent receipt" in receipt_md else "final"
+            kind = receipt_kind or ("intent" if "intent receipt" in receipt_md else "final")
             events.append(f"write:{kind}")
-            path = tmp_path / "AUTO_MERGE_RECEIPT.md"
+            path = tmp_path / f"AUTO_MERGE_RECEIPT_{kind}.md"
             path.write_text(receipt_md, encoding="utf-8")
             return path
 
@@ -1074,7 +1138,7 @@ class TestReceipt:
         exit_code = amba.main(["--apply", "--only-pr", "9001", "--json"])
 
         assert exit_code == 1
-        assert events == ["write:intent", "merge", "write:final"]
+        assert events == ["write:INTENT", "merge", "write:FINAL"]
         output = json.loads(capsys.readouterr().out)
         assert output["decisions"][0]["decision"] == "merge-failed"
 
@@ -1093,6 +1157,7 @@ class TestReceipt:
             *,
             now: datetime.datetime | None = None,
             receipt_dir: Path | None = None,
+            receipt_kind: str | None = None,
         ) -> Path:
             events.append("write")
             raise OSError("disk full")

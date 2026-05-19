@@ -14,9 +14,10 @@ Implements ``docs/roadmap/OPERATOR_DELEGATION_ROLLOUT.md`` Stage 2:
     PR's files, labels, draft status, mergeable status, and CI rollup.
     Any hit aborts that PR (with ``--apply``, exits the run non-zero
     overall to make the failure loud).
-  - Writes a receipt to ``docs/status/AUTO_MERGE_RECEIPT_<utc>.md``
-    on every ``--apply`` run, with the PR list, the policy version,
-    and the sha256 of the classifier output.
+  - Writes durable intent/final receipts to
+    ``docs/status/AUTO_MERGE_RECEIPT_<utc>_{INTENT,FINAL}.md`` on every
+    ``--apply`` run, with the PR list, the policy version, and the
+    sha256 of the classifier output.
 
 Pure stdlib + ``gh`` subprocess. No ``aragora.*`` imports. No third-
 party deps.
@@ -113,7 +114,9 @@ ALLOWED_COMPLETED_CONCLUSIONS: frozenset[str] = frozenset({"SUCCESS", "SKIPPED",
 class MergeDecision:
     pr_number: int
     title: str
-    decision: str  # "merge", "skip-settling", "skip-tripwire", "skip-non-bucket-a"
+    # Common values: "merge", "skip-settling", "skip-tripwire",
+    # "skip-non-bucket-a", "skip-stale-snapshot", "merge-failed".
+    decision: str
     reason: str
     head_sha: str | None = None
     applied: bool = False
@@ -519,6 +522,7 @@ def decide(
 
     decisions: list[MergeDecision] = []
     tripwire_exit = 0
+    apply_merge_attempted = False
 
     for entry in triage_payload.get("results") or []:
         if not isinstance(entry, dict):
@@ -535,6 +539,21 @@ def decide(
                     title=title,
                     decision="skip-non-bucket-a",
                     reason=f"bucket={bucket} (Stage 2 only acts on A)",
+                    applied=False,
+                )
+            )
+            continue
+
+        if apply and apply_merge_attempted:
+            decisions.append(
+                MergeDecision(
+                    pr_number=pr_number,
+                    title=title,
+                    decision="skip-stale-snapshot",
+                    reason=(
+                        "apply mode already attempted one merge from this triage/base snapshot; "
+                        "rerun full triage and merge-packet validation before another merge"
+                    ),
                     applied=False,
                 )
             )
@@ -630,6 +649,7 @@ def decide(
                 str(metadata.get("mergeStateStatus") or "") == "BLOCKED"
                 and _merge_packet_allows_blocked_state(metadata, merge_packet=merge_packet) is None
             )
+            apply_merge_attempted = True
             try:
                 merger(pr_number, head_sha, delete_branch_on_merge, admin_squash)
             except RuntimeError as exc:
@@ -790,12 +810,18 @@ def write_receipt(
     *,
     now: datetime.datetime | None = None,
     receipt_dir: Path | None = None,
+    receipt_kind: str | None = None,
 ) -> Path:
     now = now or datetime.datetime.now(datetime.timezone.utc)
     receipt_dir = receipt_dir or RECEIPT_DIR
     receipt_dir.mkdir(parents=True, exist_ok=True)
     stamp = now.strftime("%Y%m%dT%H%M%SZ")
-    path = receipt_dir / f"AUTO_MERGE_RECEIPT_{stamp}.md"
+    suffix = ""
+    if receipt_kind:
+        safe_kind = re.sub(r"[^A-Za-z0-9_-]+", "-", receipt_kind.strip()).strip("-").upper()
+        if safe_kind:
+            suffix = f"_{safe_kind}"
+    path = receipt_dir / f"AUTO_MERGE_RECEIPT_{stamp}{suffix}.md"
     path.write_text(receipt_md, encoding="utf-8")
     return path
 
@@ -896,7 +922,7 @@ def main(argv: list[str] | None = None) -> int:
             now=run_started_at,
         )
         try:
-            receipt_path = write_receipt(receipt_md, now=run_started_at)
+            receipt_path = write_receipt(receipt_md, now=run_started_at, receipt_kind="INTENT")
         except OSError as exc:
             print(f"error: could not write pre-merge receipt: {exc}", file=sys.stderr)
             return 2
@@ -918,7 +944,7 @@ def main(argv: list[str] | None = None) -> int:
             now=run_started_at,
         )
         try:
-            receipt_path = write_receipt(receipt_md, now=run_started_at)
+            receipt_path = write_receipt(receipt_md, now=run_started_at, receipt_kind="FINAL")
         except OSError as exc:
             print(f"error: could not write final receipt: {exc}", file=sys.stderr)
             return 2
