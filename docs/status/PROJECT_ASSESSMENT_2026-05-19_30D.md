@@ -35,33 +35,46 @@ Did the 30 days advance the project's own stated goals?
 
 ### Raw activity profile
 
-- **741 commits** (no merges) across 30 days
-- **200 PRs merged**
-- **50 open PRs** at snapshot (10 dependabot, 40 founder/agent-authored)
-- **Author concentration:** 91% of human-authored work attributed to the
-  founder (an0mium=554, Armand=120; the remaining 16% includes 51
-  dependabot, 9 Claude, ~6 various Droid/Factory). Most an0mium commits
-  are agent-authored squash-merges credited to the founder's GitHub
-  identity, so the real bus factor is still 1. This was Opus's
-  April-17 critique. Thirty days later, unchanged.
+- **741 commits** on `origin/main` (no merges) across 30 days
+- **819 PRs created** in the window by GitHub search:
+  667 merged, 50 open, 102 closed-unmerged
+- **50 open PRs** at snapshot (35 draft, 15 ready)
+- **Author concentration:** 91% of all no-merge commits are attributed to
+  the two founder identities (an0mium=556, Armand=118; the remaining
+  67 commits include 51 dependabot, 9 Claude, and 7 various
+  Droid/Factory identities). Most an0mium commits are agent-authored
+  squash-merges credited to the founder's GitHub identity, so the real
+  bus factor is still 1. This was Opus's April-17 critique. Thirty days
+  later, unchanged.
+
+Verification snapshot (2026-05-19T17:59Z):
+
+```bash
+git log origin/main --since="2026-04-19" --pretty=oneline --no-merges | wc -l
+# 741
+
+gh pr list --state all --search 'created:>=2026-04-19' --limit 1000 \
+  --json number,state,isDraft,mergedAt,createdAt,title,headRefName
+# 819 total: 667 MERGED, 50 OPEN, 102 CLOSED
+```
 
 ### Top commit scopes (last 30 days)
 
 | Scope | Commits | % of total |
 |---|---:|---:|
-| (automation) | 144 | 19.4% |
+| (automation) | 145 | 19.6% |
 | (status) | 62 | 8.4% |
 | (deps) | 56 | 7.6% |
 | (agent-bridge) | 27 | 3.6% |
-| (scripts) | 26 | 3.5% |
+| (scripts) | 25 | 3.4% |
 | (review) | 24 | 3.2% |
 | (swarm) | 23 | 3.1% |
+| (ci) | 16 | 2.2% |
 | (heterogeneity) | 16 | 2.2% |
 | (epistemic) | 13 | 1.8% |
-| (review-queue) | 10 | 1.3% |
-| (benchmarks) | 10 | 1.3% |
+| (plans) | 12 | 1.6% |
 
-`fix(automation)` alone is **144 commits in 30 days** — ~one automation-tool
+Automation-scoped commits alone are **145 commits in 30 days** — ~one automation-tool
 hygiene commit every five hours of wall-clock, on average. The substrate
 is not "boring" yet, despite NEXT_STEPS_CANONICAL's explicit goal: "make
 bounded unattended execution boring."
@@ -182,7 +195,7 @@ Rough split of 741 commits:
   fixtures): ~80-120 commits
 - **Coordination tooling** (lane registry, mailbox, broker, sweepers,
   worktree inventory, dispatch script): ~150-200 commits
-- **General automation hygiene** (fix(automation) etc.): ~144 commits
+- **General automation hygiene** (fix(automation) etc.): ~145 commits
 - **Dependency bumps:** 56 commits
 - **CI/release/docs hygiene:** ~80-100 commits
 - **Other:** rest
@@ -373,10 +386,11 @@ NEXT_STEPS_CANONICAL.md (updated 2026-05-13, 6 days old) says explicitly:
 
 30-day evidence:
 
-- 144 fix(automation) commits — automation is being continuously repaired,
+- 145 automation-scoped commits — automation is being continuously repaired,
   not stabilizing
-- 50 open PRs at snapshot, ~40 founder/agent-authored
-- 200 PRs merged → throughput is real, not vaporware
+- 50 open PRs at snapshot (35 draft, 15 ready)
+- 667 PRs merged in the 30-day GitHub search window → throughput is real,
+  not vaporware
 - ADC v0.1-v0.4 in 48 hours → this is exactly "more speculative autonomy"
   unless framed as a safety substrate (which it is, but it's also a new
   substrate, not stabilization of an existing one)
@@ -468,7 +482,7 @@ strategic review named it. It is still un-actioned.
 | Bus factor | high | unchanged at 1 |
 | EU AI Act readiness | medium | deferred; deadline 75 days |
 | Defensible-core drift | medium | FOCUS doc stale; real work expanding |
-| Automation maintenance cost | medium | 144 fix(automation) suggests not "boring" yet |
+| Automation maintenance cost | medium | 145 automation-scoped commits suggest not "boring" yet |
 | Coordination tooling growth | mixed | useful in moderation; volume concerning |
 
 **Most important drift signal:** the project's own canonical document
