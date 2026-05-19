@@ -39,7 +39,7 @@ Canonical audit order from `ADC_v0.1-v0.4_STACK_AUDIT.md`:
 
 Current gate result is captured in `ADC_v0.1-v0.4_MERGE_READINESS_2026-05-19.md`.
 
-Key outcome: `#7357` is merged, but `#7361` is currently `CONFLICTING` / `DIRTY`. Therefore the original audit order has drifted and v0.7 remains parked until the operator either resolves/rebases v0.4 or explicitly authorizes a named integration branch.
+Key outcome: `#7357` is merged, `#7361` has been repaired/rebased at head `9093ddbc48ac4dd2ccaa3364b527b660c089a41e`, and `#7361`, `#7358`, and `#7360` are all `MERGEABLE` / `BLOCKED` on review with no failing checks. The original audit order is mechanically restored, but v0.7 remains parked until the operator merges the base stack or explicitly authorizes a named integration branch.
 
 ## Context sweep
 
@@ -66,12 +66,23 @@ They are explicitly parked until v0.7 ships or the operator waives that prerequi
 
 ## Operator decision needed
 
-To unblock v0.7, choose one:
+To unblock v0.7:
 
-1. Resolve and land the base stack in a refreshed order after rebasing `#7361`; or
-2. Authorize a named integration branch containing v0.1-v0.4 and dispatch v0.7 against that branch.
+1. Merge/review the base stack in order `#7361 → {#7358, #7360}`; then
+2. Authorize v0.7 dispatch from current `main` using `.aragora/v16-dispatch/dispatch-adc-v0.7.sh`.
 
 Until that decision is made, the correct autonomous action is documentation, readiness reporting, and prompt preparation only.
+
+## Adjacent Lane Sweep — 2026-05-19T16:20Z
+
+```text
+P75 agent_overlap_report.py: in-flight — #7354 open draft, DIRTY/CONFLICTING, branch droid/P75-agent-overlap-report-20260519; older #7270 closed unmerged, #7267 merged adjacent overlap-detector work.
+P76 blocked_auth_failure: in-flight — #7352 open draft, DIRTY, branch codex/droid-20260519-042102-21e078d9; older #7265 merged, #7271 closed.
+Settlement UI: in-flight — #7268 open draft, CLEAN, branch codex/settlement-packet-ui-20260517; older #7266 closed unmerged.
+Older queue-settlement work: stale — #7263 open draft/BLOCKED, #7278 open draft/CLEAN but stacked on closed #7277, and #7279 operator-decisions ingestion merged.
+```
+
+No adjacent-lane dispatch is authorized from this sweep.
 
 ## Validation requirements for this wave
 
