@@ -199,6 +199,7 @@ Examples:
     _add_signing_parser(subparsers)
     _add_inbox_wedge_parser(subparsers)
     _add_codex_parser(subparsers)
+    _add_factory_parser(subparsers)
     _add_triage_parser(subparsers)
     _add_ralph_parser(subparsers)
     _add_assess_parser(subparsers)
@@ -3422,6 +3423,80 @@ def _add_codex_parser(subparsers) -> None:
     )
     digest_cmd.set_defaults(
         func=_lazy("aragora.cli.commands.codex_insights", "cmd_codex_insights_digest")
+    )
+
+
+def _add_factory_parser(subparsers) -> None:
+    """Add the 'factory' read-only inspector commands for Factory/Droid metadata."""
+
+    def parent_help(p: argparse.ArgumentParser):
+        def _cmd_parent_help(_args):
+            p.print_help()
+            return 2
+
+        return _cmd_parent_help
+
+    factory = subparsers.add_parser(
+        "factory",
+        help="Read-only inspector for Factory/Droid local session metadata",
+        description=(
+            "Surface Factory/Droid sessions from ~/.factory/ as redacted, read-only "
+            "metadata. Raw transcripts, prompts, logs, and history are not read."
+        ),
+    )
+    factory.set_defaults(func=parent_help(factory))
+    factory_sub = factory.add_subparsers(dest="factory_cmd")
+
+    sessions = factory_sub.add_parser(
+        "sessions",
+        help="Inspect Factory/Droid session metadata",
+        description="Brief Factory/Droid sessions from local metadata (read-only).",
+    )
+    sessions.set_defaults(func=parent_help(sessions))
+    sessions_sub = sessions.add_subparsers(dest="factory_sessions_cmd")
+
+    brief_cmd = sessions_sub.add_parser(
+        "brief",
+        help="Brief recent Factory/Droid sessions and route conservative next prompts",
+        description=(
+            "Build redacted Factory/Droid session briefings from local metadata. "
+            "Raw transcript text, prompt logs, history, and session logs are not emitted."
+        ),
+    )
+    brief_cmd.add_argument(
+        "--factory-home",
+        default=None,
+        help="Factory home directory (default: ~/.factory).",
+    )
+    brief_cmd.add_argument(
+        "--since",
+        default="4h",
+        help="Time window (e.g. 30m, 4h, 1d, 90s). Default: 4h.",
+    )
+    brief_cmd.add_argument(
+        "--limit",
+        type=int,
+        default=50,
+        help="Maximum number of sessions to brief (default: 50, 0 = no limit).",
+    )
+    brief_cmd.add_argument(
+        "--session",
+        default=None,
+        help="Restrict to one Factory/Droid session id or id prefix.",
+    )
+    brief_cmd.add_argument(
+        "--compact",
+        action="store_true",
+        help="Emit compact prompt-router rows instead of full briefing objects.",
+    )
+    brief_cmd.add_argument(
+        "--repo-root",
+        default=".",
+        help="Repo root used for queue/lane context (default: current directory; '' disables).",
+    )
+    brief_cmd.add_argument("--json", action="store_true", help="Emit JSON output.")
+    brief_cmd.set_defaults(
+        func=_lazy("aragora.cli.commands.factory_sessions", "cmd_factory_sessions_brief")
     )
 
 
