@@ -48,6 +48,7 @@ LOCAL_QUEUE_DETAIL_KEYS = (
     "nonterminal_receipts",
     "outbox_duplicate_idempotency_keys",
     "outbox_duplicate_branches",
+    "unsatisfied_receipted_outbox",
     "stale_target_pr_receipted_outbox",
 )
 
@@ -225,6 +226,17 @@ def _requests_target_pr(payload: Mapping[str, Any]) -> bool:
     return bool(str(requested_action.get("target_pr") or "").strip())
 
 
+def _is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is not None:
+        action_type = str(requested_action.get("type") or "").strip().lower().replace("-", "_")
+        if action_type in {"open_pr", "open_or_update_pr", "update_pr"}:
+            return True
+
+    key = str(payload.get("idempotency_key") or "").strip().lower()
+    return key.startswith(("open-pr-", "update-pr-"))
+
+
 def _remote_tracking_head(repo_root: Path, branch: str) -> str:
     branch = branch.strip()
     if not branch:
@@ -281,6 +293,36 @@ def _stale_target_pr_receipt_evidence(
             "reason": "remote_tracking_head_mismatch",
         }
     return None
+
+
+def _unsatisfied_receipt_evidence(
+    *,
+    repo_root: Path,
+    outbox_payload: Mapping[str, Any],
+    branch: str,
+    receipt_payload: Mapping[str, Any],
+) -> dict[str, str] | None:
+    reason = str(receipt_payload.get("reason") or "").strip().lower()
+    if _is_pr_publication_request(outbox_payload):
+        created_issue_url = str(receipt_payload.get("created_issue_url") or "").strip()
+        existing_issue_url = str(receipt_payload.get("existing_issue_url") or "").strip()
+        if reason in {"published", "existing_issue"} or created_issue_url or existing_issue_url:
+            evidence = {
+                "reason": "issue_receipt_for_pr_handoff",
+                "receipt_reason": reason or "missing",
+            }
+            if created_issue_url:
+                evidence["created_issue_url"] = created_issue_url
+            if existing_issue_url:
+                evidence["existing_issue_url"] = existing_issue_url
+            return evidence
+
+    return _stale_target_pr_receipt_evidence(
+        repo_root=repo_root,
+        outbox_payload=outbox_payload,
+        branch=branch,
+        receipt_payload=receipt_payload,
+    )
 
 
 def _duplicate_key_summaries(keys: Sequence[str]) -> list[dict[str, Any]]:
@@ -390,6 +432,7 @@ def _local_queue_state(
     duplicate_idempotency_keys = _duplicate_key_summaries(outbox_keys)
     duplicate_outbox_branches = _duplicate_branch_summaries(outbox_items)
     terminal_receipted_outbox_count = 0
+    unsatisfied_receipted_outbox: list[dict[str, str]] = []
     stale_target_pr_receipted_outbox: list[dict[str, str]] = []
     for path, key, branch in outbox_items:
         receipt_payloads = terminal_receipts_by_key.get(key, [])
@@ -400,27 +443,32 @@ def _local_queue_state(
             terminal_receipted_outbox_count += 1
             continue
 
-        stale_evidence: dict[str, str] | None = None
+        unsatisfied_evidence: dict[str, str] | None = None
         for receipt_path, receipt_payload in receipt_payloads:
-            stale_evidence = _stale_target_pr_receipt_evidence(
+            unsatisfied_evidence = _unsatisfied_receipt_evidence(
                 repo_root=repo_root,
                 outbox_payload=outbox_payload,
                 branch=branch,
                 receipt_payload=receipt_payload,
             )
-            if stale_evidence is None:
+            if unsatisfied_evidence is None:
                 terminal_receipted_outbox_count += 1
                 break
-            stale_evidence = {
-                **stale_evidence,
+            unsatisfied_evidence = {
+                **unsatisfied_evidence,
                 "branch": branch,
                 "file": path.name,
                 "idempotency_key": key,
                 "receipt_file": receipt_path.name,
             }
         else:
-            if stale_evidence is not None:
-                stale_target_pr_receipted_outbox.append(stale_evidence)
+            if unsatisfied_evidence is not None:
+                unsatisfied_receipted_outbox.append(unsatisfied_evidence)
+                if unsatisfied_evidence.get("reason") in {
+                    "receipt_head_mismatch",
+                    "remote_tracking_head_mismatch",
+                }:
+                    stale_target_pr_receipted_outbox.append(unsatisfied_evidence)
 
     return {
         "outbox_dir": str(outbox),
@@ -442,6 +490,10 @@ def _local_queue_state(
         "nonterminal_receipt_count": len(nonterminal_receipts),
         "nonterminal_receipts": nonterminal_receipts,
         "terminal_receipted_outbox_count": terminal_receipted_outbox_count,
+        "unsatisfied_receipted_outbox_count": len(unsatisfied_receipted_outbox),
+        "unsatisfied_receipted_outbox": unsatisfied_receipted_outbox[
+            :DUPLICATE_OUTBOX_EXAMPLE_LIMIT
+        ],
         "stale_target_pr_receipted_outbox_count": len(stale_target_pr_receipted_outbox),
         "stale_target_pr_receipted_outbox": stale_target_pr_receipted_outbox[
             :DUPLICATE_OUTBOX_EXAMPLE_LIMIT

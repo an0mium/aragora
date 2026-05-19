@@ -134,6 +134,18 @@ def test_local_queue_state_treats_stale_target_pr_receipt_as_unreceipted(
     assert payload["terminal_receipt_count"] == 1
     assert payload["terminal_receipted_outbox_count"] == 0
     assert payload["unreceipted_outbox_count"] == 1
+    assert payload["unsatisfied_receipted_outbox_count"] == 1
+    assert payload["unsatisfied_receipted_outbox"] == [
+        {
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "file": "handoff.json",
+            "idempotency_key": key,
+            "reason": "remote_tracking_head_mismatch",
+            "receipt_file": "receipt.json",
+            "remote_head_sha": remote_head,
+        }
+    ]
     assert payload["stale_target_pr_receipted_outbox_count"] == 1
     assert payload["stale_target_pr_receipted_outbox"] == [
         {
@@ -195,7 +207,109 @@ def test_local_queue_state_counts_target_pr_receipt_when_remote_head_matches(
 
     assert payload["terminal_receipted_outbox_count"] == 1
     assert payload["unreceipted_outbox_count"] == 0
+    assert payload["unsatisfied_receipted_outbox_count"] == 0
     assert payload["stale_target_pr_receipted_outbox_count"] == 0
+
+
+def test_local_queue_state_treats_issue_receipt_for_pr_handoff_as_unreceipted(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-example-abc123"
+    branch = "codex/example"
+    issue_url = "https://github.com/synaptent/aragora/issues/5889"
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "local_evidence": {"branch": branch},
+                "requested_action": {
+                    "type": "open_or_update_pr",
+                    "branch": branch,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / "receipt.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "reason": "existing_issue",
+                "status": "already_satisfied",
+                "existing_issue_url": issue_url,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod._local_queue_state(
+        repo_root=tmp_path,
+        outbox_dir=None,
+        receipt_dir=None,
+    )
+
+    assert payload["outbox_count"] == 1
+    assert payload["terminal_receipt_count"] == 1
+    assert payload["terminal_receipted_outbox_count"] == 0
+    assert payload["unreceipted_outbox_count"] == 1
+    assert payload["unsatisfied_receipted_outbox_count"] == 1
+    assert payload["unsatisfied_receipted_outbox"] == [
+        {
+            "branch": branch,
+            "existing_issue_url": issue_url,
+            "file": "handoff.json",
+            "idempotency_key": key,
+            "reason": "issue_receipt_for_pr_handoff",
+            "receipt_file": "receipt.json",
+            "receipt_reason": "existing_issue",
+        }
+    ]
+    assert payload["stale_target_pr_receipted_outbox_count"] == 0
+
+
+def test_local_queue_state_counts_issue_receipt_for_issue_handoff(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "triage-open-issue-cap-unblock-automation-publisher"
+    issue_url = "https://github.com/synaptent/aragora/issues/5889"
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "requested_action": {"type": "open_issue"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / "receipt.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "reason": "existing_issue",
+                "status": "already_satisfied",
+                "existing_issue_url": issue_url,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod._local_queue_state(
+        repo_root=tmp_path,
+        outbox_dir=None,
+        receipt_dir=None,
+    )
+
+    assert payload["terminal_receipted_outbox_count"] == 1
+    assert payload["unreceipted_outbox_count"] == 0
+    assert payload["unsatisfied_receipted_outbox_count"] == 0
 
 
 def test_local_queue_state_reports_duplicate_outbox_handoffs_by_branch(
@@ -444,6 +558,7 @@ def test_summary_only_payload_omits_detail_lists() -> None:
             "nonterminal_receipts": [{"file": "failed.json"}],
             "outbox_duplicate_idempotency_keys": [{"idempotency_key": "key", "count": 2}],
             "outbox_duplicate_branches": [{"branch": "codex/example", "count": 2}],
+            "unsatisfied_receipted_outbox": [{"branch": "codex/issue-only"}],
             "stale_target_pr_receipted_outbox": [{"branch": "codex/stale"}],
         },
         "github_queue": {
@@ -460,6 +575,7 @@ def test_summary_only_payload_omits_detail_lists() -> None:
     assert "nonterminal_receipts" not in compact["local_queue"]
     assert "outbox_duplicate_idempotency_keys" not in compact["local_queue"]
     assert "outbox_duplicate_branches" not in compact["local_queue"]
+    assert "unsatisfied_receipted_outbox" not in compact["local_queue"]
     assert "stale_target_pr_receipted_outbox" not in compact["local_queue"]
     assert compact["local_queue"]["detail_lists_omitted"] is True
     assert compact["github_queue"]["open_codex_pr_count"] == 2
