@@ -707,6 +707,41 @@ class TestMainCLI:
         assert data["pr_number"] == 7292
         assert data["live_process"]["found"] is False  # no snapshot integration in CLI default path
         assert data["pending_message_count"] == 0
+        assert data["dispatchable"] is True
+        assert data["dispatch_blocker"] is None
+        assert data["harness_confidence"] == "mailbox_only"
+        assert "send_operator_steering.py --to codex-p19-repair-7292" in data["steering_command"]
+
+    def test_completed_lane_reports_mailbox_only_but_not_dispatchable(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry = write_lane_registry(
+            tmp_path,
+            [
+                {
+                    "lane_id": "q25-finished",
+                    "owner_session": "codex-finished",
+                    "source": "codex",
+                    "status": "released",
+                    "branch": "codex/finished",
+                    "worktree": "/tmp/finished",
+                    "pr_number": 7370,
+                    "updated_at": "2026-05-19T17:49:14Z",
+                }
+            ],
+        )
+
+        rc = ilo.main(["--pr", "7370", "--json", *self._cli_args(registry, tmp_path)])
+
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data["owner_session"] == "codex-finished"
+        assert data["dispatchable"] is False
+        assert data["dispatch_blocker"] == (
+            "lane status is released; claim an active lane before steering"
+        )
+        assert data["steering_command"] is None
+        assert data["harness_confidence"] == "mailbox_only"
 
     def test_happy_path_human(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         registry = write_lane_registry(tmp_path)

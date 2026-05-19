@@ -558,6 +558,85 @@ class TestActiveOwnerRouting:
         assert parsed["_route"]["resolved_via"] == "pr"
         assert parsed["_route"]["lane_id"] == "q23-repair-7292"
         assert parsed["_route"]["owner_session"] == "codex-q23"
+        assert parsed["_route"]["dispatchable"] is True
+        assert parsed["_route"]["steering_inbox_path"] == str(tmp_path / "inbox" / "codex-q23")
+
+    def test_dry_run_to_owner_pr_does_not_write(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry = self._write_lanes(
+            tmp_path,
+            [
+                {
+                    "lane_id": "q23-repair-7292",
+                    "owner_session": "codex-q23",
+                    "status": "active",
+                    "pr_number": 7292,
+                    "updated_at": "2026-05-19T16:05:53Z",
+                }
+            ],
+        )
+
+        rc = sos.main(
+            [
+                "--to-owner-pr",
+                "7292",
+                "--body",
+                "route metadata please",
+                "--json",
+                "--dry-run",
+                "--lane-registry-path",
+                str(registry),
+                "--steering-inbox-root",
+                str(tmp_path / "inbox"),
+            ]
+        )
+
+        assert rc == 0
+        parsed = json.loads(capsys.readouterr().out)
+        assert parsed["_dry_run"] is True
+        assert parsed["_would_write"] is True
+        assert parsed["_written_path"] is None
+        assert parsed["_route"]["owner_session"] == "codex-q23"
+        assert list((tmp_path / "inbox").rglob("*.json")) == []
+
+    def test_print_target_to_owner_pr_does_not_require_body_or_write(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry = self._write_lanes(
+            tmp_path,
+            [
+                {
+                    "lane_id": "q23-repair-7292",
+                    "owner_session": "codex-q23",
+                    "status": "active",
+                    "pr_number": 7292,
+                    "updated_at": "2026-05-19T16:05:53Z",
+                }
+            ],
+        )
+
+        rc = sos.main(
+            [
+                "--to-owner-pr",
+                "7292",
+                "--print-target",
+                "--json",
+                "--lane-registry-path",
+                str(registry),
+                "--steering-inbox-root",
+                str(tmp_path / "inbox"),
+            ]
+        )
+
+        assert rc == 0
+        parsed = json.loads(capsys.readouterr().out)
+        assert parsed["_dry_run"] is True
+        assert parsed["_would_write"] is False
+        assert parsed["_target"]["resolved_via"] == "pr"
+        assert parsed["_target"]["owner_session"] == "codex-q23"
+        assert parsed["_target"]["steering_inbox_path"] == str(tmp_path / "inbox" / "codex-q23")
+        assert list((tmp_path / "inbox").rglob("*.json")) == []
 
     def test_to_owner_pr_rejects_completed_only_owner(self, tmp_path: Path) -> None:
         registry = self._write_lanes(

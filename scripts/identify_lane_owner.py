@@ -114,6 +114,10 @@ class LaneOwnerInfo:
     factory_droid: dict[str, Any]
     steering_inbox_path: str
     pending_message_count: int
+    dispatchable: bool
+    dispatch_blocker: str | None
+    steering_command: str | None
+    harness_confidence: str
 
 
 # ---------------------------------------------------------------------------
@@ -668,6 +672,70 @@ def steering_inbox_for(
     return inbox, count
 
 
+def _dispatch_blocker_for(lane: dict[str, Any], owner_session: str) -> str | None:
+    status = str(lane.get("status") or "").strip().lower()
+    if not owner_session:
+        return "lane has no owner_session"
+    if status in ACTIVE_STATUSES:
+        return None
+    if status in CONFLICT_STATUSES:
+        return "lane status is conflict; resolve the conflict before steering"
+    if status in COMPLETED_STATUSES:
+        return f"lane status is {status}; claim an active lane before steering"
+    return f"lane status is {status or 'unknown'}; claim an active lane before steering"
+
+
+def _steering_command_for(lane: dict[str, Any], owner_session: str) -> str | None:
+    if _dispatch_blocker_for(lane, owner_session) is not None:
+        return None
+    parts = [
+        "python3",
+        "scripts/send_operator_steering.py",
+        "--to",
+        owner_session,
+    ]
+    lane_id = str(lane.get("lane_id") or "")
+    if lane_id:
+        parts.extend(["--lane-id", lane_id])
+    raw_pr = lane.get("pr_number")
+    if raw_pr is not None:
+        parts.extend(["--pr", str(raw_pr)])
+    parts.extend(["--priority", "blocking", "--body", "'<message>'"])
+    return " ".join(parts)
+
+
+def _harness_confidence_for(
+    lane: dict[str, Any],
+    *,
+    live: dict[str, Any],
+    codex: dict[str, Any],
+    claude: dict[str, Any],
+    factory: dict[str, Any],
+) -> str:
+    if any(
+        lane.get(field)
+        for field in (
+            "codex_thread_id",
+            "codex_rollout_path",
+            "desktop_label",
+            "session_title",
+        )
+    ):
+        return "recorded_identity"
+    if live.get("found"):
+        return "live_process"
+    if codex.get("found"):
+        matched_via = str(codex.get("matched_via") or "")
+        if "ambiguous" in matched_via or "fuzzy" in matched_via:
+            return "mailbox_only_fuzzy_thread"
+        return "codex_thread_best_effort"
+    if claude.get("found"):
+        return "claude_session_best_effort"
+    if factory.get("found"):
+        return "factory_droid_best_effort"
+    return "mailbox_only"
+
+
 # ---------------------------------------------------------------------------
 # Composition
 # ---------------------------------------------------------------------------
@@ -689,6 +757,7 @@ def build_owner_info(
     claude = lookup_claude_session(lane, projects_root=projects_root)
     factory = lookup_factory_droid(lane, bg_path=bg_path)
     inbox_path, pending = steering_inbox_for(owner, root=steering_inbox_root)
+    dispatch_blocker = _dispatch_blocker_for(lane, owner)
 
     raw_pr = lane.get("pr_number")
     try:
@@ -716,6 +785,16 @@ def build_owner_info(
         factory_droid=factory,
         steering_inbox_path=str(inbox_path),
         pending_message_count=pending,
+        dispatchable=dispatch_blocker is None,
+        dispatch_blocker=dispatch_blocker,
+        steering_command=_steering_command_for(lane, owner),
+        harness_confidence=_harness_confidence_for(
+            lane,
+            live=live,
+            codex=codex,
+            claude=claude,
+            factory=factory,
+        ),
     )
 
 
@@ -757,6 +836,10 @@ def _print_human(info: LaneOwnerInfo) -> None:
     print()
     print(f"steering_inbox_path:   {info.steering_inbox_path}")
     print(f"pending_message_count: {info.pending_message_count}")
+    print(f"dispatchable:          {info.dispatchable}")
+    print(f"dispatch_blocker:      {info.dispatch_blocker or '-'}")
+    print(f"steering_command:      {info.steering_command or '-'}")
+    print(f"harness_confidence:    {info.harness_confidence}")
 
 
 def _build_parser() -> argparse.ArgumentParser:

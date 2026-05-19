@@ -205,6 +205,50 @@ def _updated_at_sort_key(record: dict[str, Any]) -> str:
     return str(record.get("updated_at") or "")
 
 
+def route_payload_for_record(
+    owner_record: dict[str, Any],
+    *,
+    resolved_via: str,
+    steering_inbox_root: Path,
+) -> dict[str, Any]:
+    """Return target metadata for a resolved active-owner route without writing."""
+
+    owner_session = str(owner_record.get("owner_session") or "")
+    inbox_path = validate_to_session(owner_session, steering_inbox_root=steering_inbox_root)
+    return {
+        "resolved_via": resolved_via,
+        "lane_id": owner_record.get("lane_id"),
+        "owner_session": owner_session,
+        "pr_number": owner_record.get("pr_number"),
+        "branch": owner_record.get("branch"),
+        "worktree": owner_record.get("worktree"),
+        "status": owner_record.get("status"),
+        "updated_at": owner_record.get("updated_at"),
+        "steering_inbox_path": str(inbox_path),
+        "dispatchable": True,
+        "dispatch_blocker": None,
+    }
+
+
+def direct_route_payload(to_session: str, *, steering_inbox_root: Path) -> dict[str, Any]:
+    """Return target metadata for direct ``--to`` dispatch without writing."""
+
+    inbox_path = validate_to_session(to_session, steering_inbox_root=steering_inbox_root)
+    return {
+        "resolved_via": "direct",
+        "lane_id": None,
+        "owner_session": to_session,
+        "pr_number": None,
+        "branch": None,
+        "worktree": None,
+        "status": None,
+        "updated_at": None,
+        "steering_inbox_path": str(inbox_path),
+        "dispatchable": True,
+        "dispatch_blocker": None,
+    }
+
+
 def resolve_active_owner(
     *,
     registry_path: Path | None = None,
@@ -362,7 +406,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default="normal",
         help="Message priority (default: normal).",
     )
-    body_group = parser.add_mutually_exclusive_group(required=True)
+    body_group = parser.add_mutually_exclusive_group(required=False)
     body_group.add_argument(
         "--body",
         default=None,
@@ -379,6 +423,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Emit the written record + final path as JSON to stdout.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Resolve and validate the target, but do not write a steering message.",
+    )
+    parser.add_argument(
+        "--print-target",
+        action="store_true",
+        help="Print the resolved steering target without requiring a message body or writing.",
     )
     parser.add_argument(
         "--steering-inbox-root",
@@ -402,11 +456,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         # argparse exits 2 on bad args; preserve that contract.
         return int(exc.code) if isinstance(exc.code, int) else 2
 
+    no_write = bool(args.dry_run or args.print_target)
+
     # Validate / resolve body.
     body_text: str
     if args.body is not None:
         body_text = args.body
-    else:
+    elif args.body_file is not None:
         body_path: Path = args.body_file
         if not body_path.exists():
             print(f"ERROR: --body-file not found: {body_path}", file=sys.stderr)
@@ -416,8 +472,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, UnicodeDecodeError) as exc:
             print(f"ERROR: cannot read --body-file: {exc}", file=sys.stderr)
             return 2
+    else:
+        body_text = ""
 
-    if not body_text.strip():
+    if not body_text.strip() and not args.print_target:
         print("ERROR: message body is empty", file=sys.stderr)
         return 2
 
@@ -435,22 +493,39 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"ERROR: failed to resolve active owner: {exc}", file=sys.stderr)
             return 2
         to_session = str(owner_record.get("owner_session") or "")
-        route = {
-            "resolved_via": (
-                "pr"
-                if args.to_owner_pr is not None
-                else "branch"
-                if args.to_owner_branch
-                else "worktree"
-            ),
-            "lane_id": owner_record.get("lane_id"),
-            "owner_session": to_session,
-            "pr_number": owner_record.get("pr_number"),
-            "branch": owner_record.get("branch"),
-            "worktree": owner_record.get("worktree"),
-            "status": owner_record.get("status"),
-            "updated_at": owner_record.get("updated_at"),
+        resolved_via = (
+            "pr"
+            if args.to_owner_pr is not None
+            else "branch"
+            if args.to_owner_branch
+            else "worktree"
+        )
+        route = route_payload_for_record(
+            owner_record,
+            resolved_via=resolved_via,
+            steering_inbox_root=args.steering_inbox_root,
+        )
+    else:
+        try:
+            route = direct_route_payload(to_session, steering_inbox_root=args.steering_inbox_root)
+        except ValueError as exc:
+            print(f"ERROR: failed to validate target: {exc}", file=sys.stderr)
+            return 2
+
+    if args.print_target and not body_text.strip():
+        out = {
+            "_dry_run": True,
+            "_would_write": False,
+            "_target": route,
         }
+        if args.json:
+            print(json.dumps(out, indent=2, sort_keys=True))
+        else:
+            print(
+                f"target {route['owner_session']} -> {route['steering_inbox_path']} "
+                "(no message body supplied; no write)"
+            )
+        return 0
 
     message = build_message(
         to_session=to_session,
@@ -461,18 +536,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         priority=args.priority,
     )
 
-    try:
-        written_path = write_message(message, steering_inbox_root=args.steering_inbox_root)
-    except (OSError, ValueError) as exc:
-        print(f"ERROR: failed to write message: {exc}", file=sys.stderr)
-        return 2
+    written_path: Path | None = None
+    if not no_write:
+        try:
+            written_path = write_message(message, steering_inbox_root=args.steering_inbox_root)
+        except (OSError, ValueError) as exc:
+            print(f"ERROR: failed to write message: {exc}", file=sys.stderr)
+            return 2
 
     if args.json:
         out = dict(message)
-        out["_written_path"] = str(written_path)
+        out["_dry_run"] = no_write
+        out["_would_write"] = no_write
+        out["_written_path"] = str(written_path) if written_path is not None else None
         if route is not None:
             out["_route"] = route
         print(json.dumps(out, indent=2, sort_keys=True))
+    elif no_write:
+        print(
+            f"would write to {route['steering_inbox_path']}  "
+            f"(to={route['owner_session']}, priority={message['priority']})"
+        )
     else:
         print(
             f"wrote {written_path}  "
