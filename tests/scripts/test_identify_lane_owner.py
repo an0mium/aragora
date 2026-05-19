@@ -115,6 +115,25 @@ class TestLoadAndFind:
         assert r is not None
         assert r["owner_session"] == "codex-p19-repair-7292"
 
+    def test_find_by_exact_lane_id_preserves_registry_order(self) -> None:
+        lanes = [
+            {
+                "lane_id": "duplicate-lane-id",
+                "owner_session": "codex-original",
+                "status": "released",
+                "updated_at": "2026-05-18T04:00:00Z",
+            },
+            {
+                "lane_id": "duplicate-lane-id",
+                "owner_session": "codex-newer-active",
+                "status": "active",
+                "updated_at": "2026-05-18T05:00:00Z",
+            },
+        ]
+        r = ilo.find_lane(lanes, lane_id="duplicate-lane-id")
+        assert r is not None
+        assert r["owner_session"] == "codex-original"
+
     def test_find_by_pr_number(self) -> None:
         r = ilo.find_lane(SAMPLE_LANES, pr=7292)
         assert r is not None
@@ -162,12 +181,102 @@ class TestLoadAndFind:
         assert r is not None
         assert r["lane_id"] == "newer-released"
 
+    def test_find_by_pr_prefers_conflict_over_newer_released_history(self) -> None:
+        lanes = [
+            {
+                "lane_id": "newer-released",
+                "owner_session": "codex-released",
+                "status": "released",
+                "pr_number": 7292,
+                "updated_at": "2026-05-18T05:00:00Z",
+            },
+            {
+                "lane_id": "older-conflict",
+                "owner_session": "codex-conflict",
+                "status": "conflict",
+                "pr_number": 7292,
+                "updated_at": "2026-05-18T04:00:00Z",
+            },
+        ]
+        r = ilo.find_lane(lanes, pr=7292)
+        assert r is not None
+        assert r["lane_id"] == "older-conflict"
+
+    def test_find_by_pr_treats_bad_or_missing_updated_at_as_oldest(self) -> None:
+        lanes = [
+            {
+                "lane_id": "bad-time",
+                "owner_session": "codex-bad",
+                "status": "released",
+                "pr_number": 7292,
+                "updated_at": "not-a-timestamp",
+            },
+            {
+                "lane_id": "missing-time",
+                "owner_session": "codex-missing",
+                "status": "released",
+                "pr_number": 7292,
+            },
+            {
+                "lane_id": "valid-time",
+                "owner_session": "codex-valid",
+                "status": "completed",
+                "pr_number": 7292,
+                "updated_at": "2026-05-18T04:00:00Z",
+            },
+        ]
+        r = ilo.find_lane(lanes, pr=7292)
+        assert r is not None
+        assert r["lane_id"] == "valid-time"
+
     def test_find_by_branch(self) -> None:
         r = ilo.find_lane(
             SAMPLE_LANES, branch="droid/P20-model-pins-frontier-aligned-20260518-041438"
         )
         assert r is not None
         assert r["lane_id"] == "P20-model-pins-frontier-aligned"
+
+    def test_find_by_branch_uses_duplicate_lane_ranking(self) -> None:
+        lanes = [
+            {
+                "lane_id": "newer-released",
+                "owner_session": "codex-released",
+                "status": "released",
+                "branch": "codex/shared-branch",
+                "updated_at": "2026-05-18T05:00:00Z",
+            },
+            {
+                "lane_id": "older-conflict",
+                "owner_session": "codex-conflict",
+                "status": "conflict",
+                "branch": "codex/shared-branch",
+                "updated_at": "2026-05-18T04:00:00Z",
+            },
+        ]
+        r = ilo.find_lane(lanes, branch="codex/shared-branch")
+        assert r is not None
+        assert r["lane_id"] == "older-conflict"
+
+    def test_find_by_worktree_uses_duplicate_lane_ranking(self) -> None:
+        lanes = [
+            {
+                "lane_id": "older-released",
+                "owner_session": "codex-released",
+                "status": "released",
+                "worktree": "/private/tmp/shared-worktree",
+                "updated_at": "2026-05-18T05:00:00Z",
+            },
+            {
+                "lane_id": "current-active",
+                "owner_session": "codex-active",
+                "status": "active",
+                "worktree": "/private/tmp/shared-worktree",
+                "updated_at": "2026-05-18T04:00:00Z",
+            },
+        ]
+        r = ilo.find_lane(lanes, worktree="/private/tmp/shared-worktree/")
+        assert r is not None
+        assert r["lane_id"] == "current-active"
 
     def test_find_by_worktree_path_normalised(self) -> None:
         # Trailing-slash variant must match the registry's path.

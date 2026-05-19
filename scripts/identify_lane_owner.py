@@ -53,6 +53,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -70,6 +71,8 @@ FACTORY_BG_PROCESSES_DEFAULT = Path.home() / ".factory" / "background-processes.
 # Fuzzy codex rollout search window (seconds).
 CODEX_FUZZY_MAX_AGE_SECONDS = 4 * 60 * 60
 ACTIVE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+CONFLICT_STATUSES = {"conflict", "conflicting"}
+COMPLETED_STATUSES = {"completed", "released"}
 
 # Subprocess timeout for ``agent_bridge operator-snapshot``.
 SNAPSHOT_TIMEOUT_SECONDS = 30
@@ -130,6 +133,53 @@ def load_lane_records(registry_path: Path = LANE_REGISTRY_DEFAULT) -> list[dict[
     return [r for r in data if isinstance(r, dict)] if isinstance(data, list) else []
 
 
+def _status_rank(raw_status: Any) -> int:
+    """Rank lane statuses for non-unique selectors; lower is preferred."""
+
+    status = str(raw_status or "").strip().lower()
+    if status in ACTIVE_STATUSES:
+        return 0
+    if status in CONFLICT_STATUSES:
+        return 1
+    if status in COMPLETED_STATUSES:
+        return 2
+    return 3
+
+
+def _updated_at_timestamp(raw_updated_at: Any) -> float:
+    """Parse ``updated_at`` for ordering; invalid or missing values sort oldest."""
+
+    text = str(raw_updated_at or "").strip()
+    if not text:
+        return 0.0
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return 0.0
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
+
+
+def _best_lane_match(matches: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
+    """Return the best row for non-unique selectors like PR, branch, or worktree."""
+
+    if not matches:
+        return None
+    indexed = enumerate(matches)
+    _, best = min(
+        indexed,
+        key=lambda item: (
+            _status_rank(item[1].get("status")),
+            -_updated_at_timestamp(item[1].get("updated_at")),
+            item[0],
+        ),
+    )
+    return best
+
+
 def find_lane(
     records: Sequence[dict[str, Any]],
     *,
@@ -141,21 +191,13 @@ def find_lane(
     """Return the best matching lane record by lane_id > pr > branch > worktree.
 
     Multiple historical rows can target the same PR/branch/worktree. Prefer an
-    active row, then the most recently updated historical row, so owner lookup
-    does not silently route an operator to a stale completed lane.
+    active row, then a conflict row, then the most recently updated completed or
+    released row, so owner lookup does not silently route an operator to a stale
+    completed lane. Exact lane-id lookup preserves registry order.
     """
 
-    def best_match(matches: list[dict[str, Any]]) -> dict[str, Any] | None:
-        if not matches:
-            return None
-        active = [
-            r for r in matches if str(r.get("status") or "").strip().lower() in ACTIVE_STATUSES
-        ]
-        pool = active or matches
-        return sorted(pool, key=lambda r: str(r.get("updated_at") or ""), reverse=True)[0]
-
     if lane_id:
-        return best_match([r for r in records if r.get("lane_id") == lane_id])
+        return next((r for r in records if r.get("lane_id") == lane_id), None)
     if pr is not None:
         matches = []
         for r in records:
@@ -164,9 +206,9 @@ def find_lane(
                     matches.append(r)
             except (TypeError, ValueError):
                 continue
-        return best_match(matches)
+        return _best_lane_match(matches)
     if branch:
-        return best_match([r for r in records if r.get("branch") == branch])
+        return _best_lane_match([r for r in records if r.get("branch") == branch])
     if worktree:
         wt_norm = os.path.normpath(worktree)
         matches = []
@@ -174,7 +216,7 @@ def find_lane(
             rwt = r.get("worktree")
             if rwt and os.path.normpath(rwt) == wt_norm:
                 matches.append(r)
-        return best_match(matches)
+        return _best_lane_match(matches)
     return None
 
 
