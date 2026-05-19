@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **100**
-- Total top-level invocations (including aliases): **101**
+- Canonical top-level commands: **101**
+- Total top-level invocations (including aliases): **102**
 
 ## Installation
 
@@ -81,6 +81,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `essay` | - | Refine raw ideas into a polished essay or score an existing draft | `refine`, `score` |
 | `explain` | - | Explain a debate decision (evidence chains, vote pivots, counterfactuals) | - |
 | `export` | - | Export debate artifacts | - |
+| `factory` | - | Read-only inspector for Factory/Droid local session metadata | `sessions` |
 | `gauntlet` | - | Adversarial stress-test a specification, architecture, or policy | - |
 | `genealogy` | - | DIC-24: inspect epistemic genealogy ledger for proof-carrying code units | `show` |
 | `handlers` | - | List registered HTTP handlers and routes | `list`, `routes` |
