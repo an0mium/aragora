@@ -193,6 +193,21 @@ class TestArgValidation:
 
 
 class TestRecipientPathSafety:
+    def test_empty_recipient_fails_before_writing(self, tmp_path: Path) -> None:
+        rc = sos.main(
+            [
+                "--to",
+                "",
+                "--body",
+                "must not write",
+                "--steering-inbox-root",
+                str(tmp_path / "inbox"),
+            ]
+        )
+        assert rc == 2
+        assert not (tmp_path / "inbox").exists()
+        assert list(tmp_path.rglob("*.json")) == []
+
     @pytest.mark.parametrize(
         "recipient",
         [
