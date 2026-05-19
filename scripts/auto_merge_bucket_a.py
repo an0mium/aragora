@@ -401,6 +401,8 @@ def _fresh_pre_merge_authorization(
     *,
     metadata_provider: Callable[[int], dict[str, Any]],
     merge_packet_provider: Callable[[int], dict[str, Any]],
+    settling_minutes: int,
+    now: datetime.datetime | None,
 ) -> tuple[dict[str, Any], bool, str | None]:
     """Fetch final metadata and authorization immediately before merge."""
 
@@ -415,6 +417,14 @@ def _fresh_pre_merge_authorization(
         metadata_number = 0
     if metadata_number != pr_number:
         return metadata, False, f"PR number mismatch (classifier={pr_number}, gh={metadata_number})"
+
+    settling = settling_window_skip_reason(
+        metadata,
+        settling_minutes=settling_minutes,
+        now=now,
+    )
+    if settling is not None:
+        return metadata, False, settling
 
     merge_packet: dict[str, Any] | None = None
     if str(metadata.get("mergeStateStatus") or "") == "BLOCKED":
@@ -697,6 +707,8 @@ def decide(
                 pr_number,
                 metadata_provider=metadata_provider,
                 merge_packet_provider=merge_packet_provider,
+                settling_minutes=settling_minutes,
+                now=now,
             )
             fresh_head_sha = str(fresh_metadata.get("headRefOid") or "")
             if fresh_tripwire is not None:

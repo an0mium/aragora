@@ -685,6 +685,53 @@ class TestDefenseInDepth:
         assert exit_code == 0
         assert decisions[0].decision == "merge"
 
+    def test_fresh_pre_merge_metadata_must_still_satisfy_settling_window(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        initial = make_metadata(
+            9001,
+            merge_state="BLOCKED",
+            head_sha="a" * 40,
+            last_commit_minutes_ago=999,
+        )
+        final = make_metadata(
+            9001,
+            merge_state="BLOCKED",
+            head_sha="b" * 40,
+            last_commit_minutes_ago=1,
+        )
+        metadata_calls: list[int] = []
+        packet_calls: list[int] = []
+
+        def metadata_provider(pr_number: int) -> dict[str, Any]:
+            metadata_calls.append(pr_number)
+            return initial if len(metadata_calls) == 1 else final
+
+        def packet_provider(pr_number: int) -> dict[str, Any]:
+            packet_calls.append(pr_number)
+            head_sha = "a" * 40 if len(packet_calls) == 1 else "b" * 40
+            return make_merge_packet(pr_number, head_sha=head_sha)
+
+        recorder = _MergeRecorder()
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=metadata_provider,
+            merge_packet_provider=packet_provider,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert metadata_calls == [9001, 9001]
+        assert packet_calls == [9001]
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert "fresh pre-merge validation failed" in decisions[0].reason
+        assert "settling window not met" in decisions[0].reason
+        assert decisions[0].head_sha == "b" * 40
+
     def test_admin_squash_rejects_stale_final_merge_packet(self):
         payload = make_triage_payload(bucket_a_entry(9001))
         metadata = make_metadata(9001, merge_state="BLOCKED", head_sha="a" * 40)
