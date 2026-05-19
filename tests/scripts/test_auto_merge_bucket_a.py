@@ -93,6 +93,7 @@ def make_metadata(
     labels: list[dict[str, Any]] | None = None,
     author: str = "an0mium",
     head_sha: str | None = None,
+    review_decision: str = "REVIEW_REQUIRED",
     title: str = "feat: tiny safe PR",
 ) -> dict[str, Any]:
     if head_sha is None:
@@ -133,6 +134,7 @@ def make_metadata(
         ],
         "statusCheckRollup": ci,
         "headRefOid": head_sha,
+        "reviewDecision": review_decision,
     }
 
 
@@ -186,6 +188,9 @@ def make_merge_packet(
     verdict: str = "admin_squash_allowed",
     requires_human_risk_settlement: bool = False,
     unresolved_dissent: bool = False,
+    authorization_sentence: str | None = (
+        "I accept the model quorum evidence and authorize admin squash."
+    ),
 ) -> dict[str, Any]:
     packet: dict[str, Any] = {
         "entries": [
@@ -205,6 +210,8 @@ def make_merge_packet(
         packet["version"] = version
     if include_admin_squash_order:
         packet["admin_squash_order"] = [pr_number]
+    if authorization_sentence is not None:
+        packet["authorization_sentence"] = authorization_sentence
     return packet
 
 
@@ -406,6 +413,39 @@ class TestDecide:
         assert decisions[0].decision == "skip-settling"
         assert "settling window" in decisions[0].reason
 
+    def test_blocked_young_pr_does_not_fetch_merge_packet_before_settling(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry(
+            {
+                9001: make_metadata(
+                    9001,
+                    merge_state="BLOCKED",
+                    last_commit_minutes_ago=5,
+                )
+            }
+        )
+        recorder = _MergeRecorder()
+        packet_calls: list[int] = []
+
+        def packet_provider(pr_number: int) -> dict[str, Any]:
+            packet_calls.append(pr_number)
+            raise AssertionError("merge packet should not be fetched inside settling window")
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merge_packet_provider=packet_provider,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert packet_calls == []
+        assert recorder.calls == []
+        assert exit_code == 0
+        assert decisions[0].decision == "skip-settling"
+
     def test_only_pr_filter(self):
         payload = make_triage_payload(bucket_a_entry(9001), bucket_a_entry(9002))
         meta = _MetadataRegistry({9001: make_metadata(9001), 9002: make_metadata(9002)})
@@ -533,11 +573,147 @@ class TestDefenseInDepth:
             now=NOW,
         )
 
-        assert packets.calls == [9001]
+        assert packets.calls == [9001, 9001]
         assert recorder.calls == [9001]
         assert recorder.admin_squash_flags == [True]
         assert exit_code == 0
         assert decisions[0].decision == "merge"
+
+    def test_blocked_admin_squash_requires_review_approval_or_queue_settlement(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        metadata = make_metadata(
+            9001,
+            merge_state="BLOCKED",
+            head_sha="a" * 40,
+            review_decision="REVIEW_REQUIRED",
+        )
+        meta = _MetadataRegistry({9001: metadata})
+        packets = _MergePacketRegistry(
+            {
+                9001: make_merge_packet(
+                    9001,
+                    head_sha="a" * 40,
+                    authorization_sentence=None,
+                )
+            }
+        )
+        recorder = _MergeRecorder()
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merge_packet_provider=packets,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert "without current-head review approval" in decisions[0].reason
+
+    def test_blocked_admin_squash_allows_current_head_review_approval(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        metadata = make_metadata(
+            9001,
+            merge_state="BLOCKED",
+            head_sha="a" * 40,
+            review_decision="APPROVED",
+        )
+        meta = _MetadataRegistry({9001: metadata})
+        packets = _MergePacketRegistry(
+            {
+                9001: make_merge_packet(
+                    9001,
+                    head_sha="a" * 40,
+                    authorization_sentence=None,
+                )
+            }
+        )
+        recorder = _MergeRecorder()
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merge_packet_provider=packets,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert recorder.calls == [9001]
+        assert recorder.admin_squash_flags == [True]
+        assert exit_code == 0
+        assert decisions[0].decision == "merge"
+
+    def test_admin_squash_refetches_metadata_and_packet_immediately_before_merge(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        initial = make_metadata(9001, merge_state="BLOCKED", head_sha="a" * 40)
+        final = make_metadata(9001, merge_state="BLOCKED", head_sha="b" * 40)
+        metadata_calls: list[int] = []
+        packet_calls: list[int] = []
+
+        def metadata_provider(pr_number: int) -> dict[str, Any]:
+            metadata_calls.append(pr_number)
+            return initial if len(metadata_calls) == 1 else final
+
+        def packet_provider(pr_number: int) -> dict[str, Any]:
+            packet_calls.append(pr_number)
+            head_sha = "a" * 40 if len(packet_calls) == 1 else "b" * 40
+            return make_merge_packet(pr_number, head_sha=head_sha)
+
+        recorder = _MergeRecorder()
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=metadata_provider,
+            merge_packet_provider=packet_provider,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert metadata_calls == [9001, 9001]
+        assert packet_calls == [9001, 9001]
+        assert recorder.calls == [9001]
+        assert recorder.head_shas == ["b" * 40]
+        assert recorder.admin_squash_flags == [True]
+        assert exit_code == 0
+        assert decisions[0].decision == "merge"
+
+    def test_admin_squash_rejects_stale_final_merge_packet(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        metadata = make_metadata(9001, merge_state="BLOCKED", head_sha="a" * 40)
+        meta = _MetadataRegistry({9001: metadata})
+        packet_calls: list[int] = []
+
+        def packet_provider(pr_number: int) -> dict[str, Any]:
+            packet_calls.append(pr_number)
+            head_sha = "a" * 40 if len(packet_calls) == 1 else "b" * 40
+            return make_merge_packet(pr_number, head_sha=head_sha)
+
+        recorder = _MergeRecorder()
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merge_packet_provider=packet_provider,
+            merger=recorder,
+            now=NOW,
+        )
+
+        assert packet_calls == [9001, 9001]
+        assert recorder.calls == []
+        assert exit_code == 1
+        assert decisions[0].decision == "skip-tripwire"
+        assert "fresh pre-merge validation failed" in decisions[0].reason
+        assert "head does not match" in decisions[0].reason
 
     @pytest.mark.parametrize(
         ("packet", "reason_fragment"),

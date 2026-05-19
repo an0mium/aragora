@@ -153,7 +153,7 @@ def fetch_pr_commit_metadata(pr_number: int, *, runner: Runner | None = None) ->
     (list of {path, additions, deletions}), ``isDraft`` (bool),
     ``mergeable`` (str), ``mergeStateStatus`` (str), ``statusCheckRollup``
     (list), ``author.login`` (str), ``labels`` (list), ``headRefOid``
-    (str), ``title`` (str).
+    (str), ``reviewDecision`` (str), ``title`` (str).
     """
     runner = runner or _default_runner
     proc = runner(
@@ -165,7 +165,7 @@ def fetch_pr_commit_metadata(pr_number: int, *, runner: Runner | None = None) ->
             "--json",
             (
                 "number,title,author,isDraft,mergeable,mergeStateStatus,"
-                "labels,files,commits,statusCheckRollup,headRefOid"
+                "labels,files,commits,statusCheckRollup,headRefOid,reviewDecision"
             ),
         ]
     )
@@ -341,7 +341,7 @@ def _merge_packet_allows_blocked_state(
     *,
     merge_packet: dict[str, Any] | None,
 ) -> str | None:
-    """Return ``None`` only for an explicit exact-head review-queue exception."""
+    """Return ``None`` only for an explicit exact-head admin exception."""
     if merge_packet is None:
         return "merge state BLOCKED without merge-packet authorization"
     if merge_packet.get("version") != "merge_authorization_packet.v1":
@@ -357,6 +357,11 @@ def _merge_packet_allows_blocked_state(
         return "merge state BLOCKED but merge-packet not_ready is non-empty"
 
     entries = merge_packet.get("entries") or []
+    review_decision = str(metadata.get("reviewDecision") or "")
+    has_current_head_review_approval = review_decision == "APPROVED"
+    has_review_queue_settlement = bool(
+        str(merge_packet.get("authorization_sentence") or "").strip()
+    )
     for entry in entries:
         if not isinstance(entry, dict):
             continue
@@ -381,9 +386,52 @@ def _merge_packet_allows_blocked_state(
         order = merge_packet.get("admin_squash_order") or []
         if pr_number not in order:
             return "merge state BLOCKED but PR is absent from admin_squash_order"
+        if not has_current_head_review_approval and not has_review_queue_settlement:
+            return (
+                "merge state BLOCKED without current-head review approval "
+                "or explicit review-queue settlement"
+            )
         return None
 
     return "merge state BLOCKED but PR is absent from merge-packet"
+
+
+def _fresh_pre_merge_authorization(
+    pr_number: int,
+    *,
+    metadata_provider: Callable[[int], dict[str, Any]],
+    merge_packet_provider: Callable[[int], dict[str, Any]],
+) -> tuple[dict[str, Any], bool, str | None]:
+    """Fetch final metadata and authorization immediately before merge."""
+
+    try:
+        metadata = metadata_provider(pr_number)
+    except Exception as exc:
+        return {}, False, f"metadata fetch failed: {exc}"
+
+    try:
+        metadata_number = int(metadata.get("number") or 0)
+    except (TypeError, ValueError):
+        metadata_number = 0
+    if metadata_number != pr_number:
+        return metadata, False, f"PR number mismatch (classifier={pr_number}, gh={metadata_number})"
+
+    merge_packet: dict[str, Any] | None = None
+    if str(metadata.get("mergeStateStatus") or "") == "BLOCKED":
+        try:
+            merge_packet = merge_packet_provider(pr_number)
+        except Exception as exc:
+            return metadata, False, f"merge-packet fetch failed: {exc}"
+
+    tripwire = defense_in_depth_tripwire(metadata, merge_packet=merge_packet)
+    if tripwire is not None:
+        return metadata, False, tripwire
+
+    admin_squash = (
+        str(metadata.get("mergeStateStatus") or "") == "BLOCKED"
+        and _merge_packet_allows_blocked_state(metadata, merge_packet=merge_packet) is None
+    )
+    return metadata, admin_squash, None
 
 
 def defense_in_depth_tripwire(
@@ -593,6 +641,24 @@ def decide(
             tripwire_exit = 1
             continue
 
+        settling = settling_window_skip_reason(
+            metadata,
+            settling_minutes=settling_minutes,
+            now=now,
+        )
+        if settling is not None:
+            decisions.append(
+                MergeDecision(
+                    pr_number=pr_number,
+                    title=title,
+                    decision="skip-settling",
+                    reason=settling,
+                    head_sha=head_sha or None,
+                    applied=False,
+                )
+            )
+            continue
+
         merge_packet: dict[str, Any] | None = None
         if str(metadata.get("mergeStateStatus") or "") == "BLOCKED":
             try:
@@ -626,29 +692,28 @@ def decide(
             tripwire_exit = 1
             continue
 
-        settling = settling_window_skip_reason(
-            metadata,
-            settling_minutes=settling_minutes,
-            now=now,
-        )
-        if settling is not None:
-            decisions.append(
-                MergeDecision(
-                    pr_number=pr_number,
-                    title=title,
-                    decision="skip-settling",
-                    reason=settling,
-                    head_sha=head_sha or None,
-                    applied=False,
-                )
-            )
-            continue
-
         if apply:
-            admin_squash = (
-                str(metadata.get("mergeStateStatus") or "") == "BLOCKED"
-                and _merge_packet_allows_blocked_state(metadata, merge_packet=merge_packet) is None
+            fresh_metadata, admin_squash, fresh_tripwire = _fresh_pre_merge_authorization(
+                pr_number,
+                metadata_provider=metadata_provider,
+                merge_packet_provider=merge_packet_provider,
             )
+            fresh_head_sha = str(fresh_metadata.get("headRefOid") or "")
+            if fresh_tripwire is not None:
+                decisions.append(
+                    MergeDecision(
+                        pr_number=pr_number,
+                        title=title,
+                        decision="skip-tripwire",
+                        reason=f"fresh pre-merge validation failed: {fresh_tripwire}",
+                        head_sha=fresh_head_sha or head_sha or None,
+                        applied=False,
+                    )
+                )
+                tripwire_exit = 1
+                continue
+
+            head_sha = fresh_head_sha
             apply_merge_attempted = True
             try:
                 merger(pr_number, head_sha, delete_branch_on_merge, admin_squash)
