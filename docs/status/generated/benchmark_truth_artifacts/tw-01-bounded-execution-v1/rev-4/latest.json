@@ -56,7 +56,7 @@
     "blocked_sanitation_failed": 2,
     "rescue_no_deliverable": 1
   },
-  "generated_at": "2026-05-17T14:36:42Z",
+  "generated_at": "2026-05-19T04:09:18Z",
   "in_flight_metrics": {
     "in_progress_attempted_count": 13,
     "in_progress_expected_count": 13,
@@ -341,7 +341,7 @@
       "truth_success": false
     }
   ],
-  "metrics_file": "/Users/armand/Development/aragora/.aragora/overnight/boss_metrics.jsonl",
+  "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "primary_metrics": {
     "merged_only_rate": 0.0,
     "no_rescue_truth_success_rate": 0.0,

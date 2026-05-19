@@ -44,11 +44,11 @@
     "blocked_sanitation_failed": 2,
     "rescue_no_deliverable": 1
   },
-  "generated_at": "2026-05-17T14:36:51Z",
-  "metrics_file": "/Users/armand/Development/aragora/.aragora/overnight/boss_metrics.jsonl",
+  "generated_at": "2026-05-19T04:09:29Z",
+  "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "previous_artifact": {
-    "generated_at": "2026-05-15T16:31:15Z",
-    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-4/scorecard-20260515T163115Z.json"
+    "generated_at": "2026-05-17T14:36:51Z",
+    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-4/scorecard-20260517T143651Z.json"
   },
   "proxy_metrics": {
     "corpus": {
@@ -95,8 +95,8 @@
   "rescue_counts_by_type": {
     "rescue_no_deliverable": 1
   },
-  "truth_artifact_generated_at": "2026-05-17T14:36:42Z",
-  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260517T143642Z.json",
+  "truth_artifact_generated_at": "2026-05-19T04:09:18Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260519T040918Z.json",
   "truth_metrics": {
     "merged_only_rate": 0.0,
     "no_rescue_truth_success_rate": 0.0,
