@@ -49,7 +49,7 @@ emit_json() {
     export PREFLIGHT_DOCS_ONLY="${docs_only}"
     export PREFLIGHT_FORBIDDEN_FILES="${forbidden_files}"
     export PREFLIGHT_RESCUE_PUBLISH_FILES="${rescue_publish_files}"
-    python3 - <<'PY'
+    python3 -c '
 import json
 import os
 import shlex
@@ -88,7 +88,7 @@ error = os.environ.get("PREFLIGHT_ERROR", "")
 if error:
     payload["error"] = error
 print(json.dumps(payload, sort_keys=True))
-PY
+'
 }
 
 fail_preflight() {
