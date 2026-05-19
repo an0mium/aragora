@@ -191,10 +191,13 @@ This is binary. The named goal was specifically operationalized in numeric
 terms in the canonical doc, and the actual measurement is zero against
 that goal.
 
-The corpus content is also narrow: all 13 issues are
-`missing_test_coverage` class. Even if the corpus completes 100% in the
-next 30 days, it only tests bounded-execution capability for one issue
-class. The cryptographic-receipts LBA is not tested by this corpus.
+The corpus content is mixed but still bounded: the 13 issues span
+`missing_test_coverage`, `small_refactor`, `validation_tightening`,
+`exception_narrowing`, `benchmark_corpus_maintenance`, and
+`docs_reconciliation`, with missing test coverage still the largest class
+(5/13). Even if the corpus completes 100% in the next 30 days, it only
+tests bounded-execution capability across these maintenance classes. The
+cryptographic-receipts LBA is not tested by this corpus.
 
 ### Effort-share estimate
 
