@@ -66,6 +66,8 @@ if agent_bridge_sessions is not None:
     except (OSError, RuntimeError, ValueError):
         CANONICAL_REPO_ROOT = REPO_ROOT
 ACTIVE_LANE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+CONFLICT_LANE_STATUSES = {"conflict"}
+COMPLETED_LANE_STATUSES = {"completed", "released"}
 CURRENT_SESSION_LIFECYCLES = {"live", "active_broker"}
 HISTORICAL_SESSION_LIFECYCLES = {"historical", "dead", "stale", "orphaned"}
 DEFAULT_STALE_TTL_HOURS = 24
@@ -534,8 +536,6 @@ def _record_matches_owner_query(
     branch: str | None,
     worktree: str | None,
 ) -> bool:
-    if record.status not in ACTIVE_LANE_STATUSES:
-        return False
     if pr_number is not None and record.pr_number == pr_number:
         return True
     if branch and record.branch == branch:
@@ -587,12 +587,55 @@ def _owned_owner_payload(record: LaneRecord) -> dict[str, Any]:
     }
 
 
+def _historical_owner_payload(record: LaneRecord) -> dict[str, Any]:
+    return {
+        "owner_status": "unowned",
+        "active_owner": False,
+        "lane_id": record.lane_id,
+        "owner_session": record.owner_session,
+        "pr_number": record.pr_number,
+        "branch": record.branch or None,
+        "worktree": record.worktree or None,
+        "head": _head_for_worktree(record.worktree),
+        "status": record.status,
+        "updated_at": record.updated_at or None,
+        "recommended_operator_action": (
+            f"latest matching lane is {record.status}; claim the lane before mutation"
+        ),
+    }
+
+
+def _conflict_status_owner_payload(record: LaneRecord) -> dict[str, Any]:
+    reason = record.conflict_reason or "resolve the recorded lane conflict"
+    return {
+        "owner_status": "conflict",
+        "active_owner": False,
+        "lane_id": record.lane_id,
+        "owner_session": record.owner_session,
+        "pr_number": record.pr_number,
+        "branch": record.branch or None,
+        "worktree": record.worktree or None,
+        "head": _head_for_worktree(record.worktree),
+        "status": record.status,
+        "updated_at": record.updated_at or None,
+        "conflict_session": record.conflict_session or None,
+        "conflict_reason": record.conflict_reason or None,
+        "recommended_operator_action": f"resolve lane conflict before mutation: {reason}",
+    }
+
+
 def _conflicted_owner_payload(records: list[LaneRecord]) -> dict[str, Any]:
     lane_ids = sorted({record.lane_id for record in records if record.lane_id})
     owner_sessions = sorted({record.owner_session for record in records if record.owner_session})
     branches = sorted({record.branch for record in records if record.branch})
     worktrees = sorted({record.worktree for record in records if record.worktree})
     pr_numbers = sorted({record.pr_number for record in records if record.pr_number is not None})
+    conflict_sessions = sorted(
+        {record.conflict_session for record in records if record.conflict_session}
+    )
+    conflict_reasons = sorted(
+        {record.conflict_reason for record in records if record.conflict_reason}
+    )
     updated_values = sorted(
         (record.updated_at for record in records if record.updated_at), reverse=True
     )
@@ -607,10 +650,28 @@ def _conflicted_owner_payload(records: list[LaneRecord]) -> dict[str, Any]:
         "head": None,
         "status": "conflict",
         "updated_at": updated_values[0] if updated_values else None,
+        "conflict_session": ",".join(conflict_sessions) or None,
+        "conflict_reason": " | ".join(conflict_reasons) or None,
         "recommended_operator_action": (
             "pause duplicate mutation; resolve active owner conflict before mutation"
         ),
     }
+
+
+def _lane_updated_timestamp(record: LaneRecord) -> float:
+    parsed = _parse_timestamp(record.updated_at)
+    if parsed is None:
+        return 0.0
+    return parsed.timestamp()
+
+
+def _newest_lane_record(records: list[LaneRecord]) -> LaneRecord:
+    indexed = list(enumerate(records))
+    _index, record = min(
+        indexed,
+        key=lambda item: (-_lane_updated_timestamp(item[1]), item[0]),
+    )
+    return record
 
 
 def _active_owner_payload(
@@ -629,11 +690,23 @@ def _active_owner_payload(
     ]
     if not matches:
         return _unowned_owner_payload(pr_number=pr_number, branch=branch, worktree=worktree)
-    owners = {record.owner_session for record in matches if record.owner_session}
-    if len(owners) > 1:
-        return _conflicted_owner_payload(matches)
-    matches.sort(key=lambda record: record.updated_at or "", reverse=True)
-    return _owned_owner_payload(matches[0])
+
+    active_matches = [record for record in matches if record.status in ACTIVE_LANE_STATUSES]
+    if active_matches:
+        owners = {record.owner_session for record in active_matches if record.owner_session}
+        if len(owners) > 1:
+            return _conflicted_owner_payload(active_matches)
+        return _owned_owner_payload(_newest_lane_record(active_matches))
+
+    conflict_matches = [record for record in matches if record.status in CONFLICT_LANE_STATUSES]
+    if conflict_matches:
+        return _conflict_status_owner_payload(_newest_lane_record(conflict_matches))
+
+    completed_matches = [record for record in matches if record.status in COMPLETED_LANE_STATUSES]
+    if completed_matches:
+        return _historical_owner_payload(_newest_lane_record(completed_matches))
+
+    return _unowned_owner_payload(pr_number=pr_number, branch=branch, worktree=worktree)
 
 
 def _load_broker_run_summaries() -> list[dict[str, Any]]:

@@ -831,6 +831,152 @@ def test_cmd_owner_json_reports_duplicate_pr_conflict(
     )
 
 
+def test_cmd_owner_json_reports_conflict_status_lane_instead_of_unowned(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "newer-released",
+                    "owner_session": "codex-released",
+                    "status": "released",
+                    "updated_at": "2026-05-18T17:10:00Z",
+                    "branch": "droid/P16-stage2",
+                    "pr_number": 7292,
+                },
+                {
+                    "lane_id": "q26-conflict",
+                    "owner_session": "codex-q26",
+                    "status": "conflict",
+                    "updated_at": "2026-05-18T17:00:00Z",
+                    "branch": "droid/P16-stage2",
+                    "pr_number": 7292,
+                    "conflict_session": "gemini-review",
+                    "conflict_reason": "fresh-head validation blocker",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+
+    rc = mod.cmd_owner(argparse.Namespace(json=True, pr=7292, branch=None, worktree=None))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["owner_status"] == "conflict"
+    assert payload["active_owner"] is False
+    assert payload["lane_id"] == "q26-conflict"
+    assert payload["owner_session"] == "codex-q26"
+    assert payload["pr_number"] == 7292
+    assert payload["branch"] == "droid/P16-stage2"
+    assert payload["status"] == "conflict"
+    assert payload["conflict_session"] == "gemini-review"
+    assert payload["conflict_reason"] == "fresh-head validation blocker"
+    assert payload["recommended_operator_action"] == (
+        "resolve lane conflict before mutation: fresh-head validation blocker"
+    )
+
+
+def test_cmd_owner_json_prefers_active_lane_over_conflict_status_lane(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "q26-conflict",
+                    "owner_session": "codex-q26",
+                    "status": "conflict",
+                    "updated_at": "2026-05-18T17:10:00Z",
+                    "branch": "droid/P16-stage2",
+                    "pr_number": 7292,
+                    "conflict_reason": "stale blocker",
+                },
+                {
+                    "lane_id": "q27-active",
+                    "owner_session": "codex-q27",
+                    "status": "active",
+                    "updated_at": "2026-05-18T17:00:00Z",
+                    "branch": "droid/P16-stage2",
+                    "pr_number": 7292,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+
+    rc = mod.cmd_owner(argparse.Namespace(json=True, pr=7292, branch=None, worktree=None))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["owner_status"] == "owned"
+    assert payload["lane_id"] == "q27-active"
+    assert payload["owner_session"] == "codex-q27"
+
+
+def test_cmd_owner_json_reports_newest_historical_match_when_unowned(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "older-completed",
+                    "owner_session": "codex-old",
+                    "status": "completed",
+                    "updated_at": "2026-05-18T17:00:00Z",
+                    "branch": "droid/P16-stage2",
+                    "pr_number": 7292,
+                },
+                {
+                    "lane_id": "newer-released",
+                    "owner_session": "codex-new",
+                    "status": "released",
+                    "updated_at": "2026-05-18T17:10:00Z",
+                    "branch": "droid/P16-stage2",
+                    "pr_number": 7292,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+
+    rc = mod.cmd_owner(argparse.Namespace(json=True, pr=7292, branch=None, worktree=None))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["owner_status"] == "unowned"
+    assert payload["active_owner"] is False
+    assert payload["lane_id"] == "newer-released"
+    assert payload["owner_session"] == "codex-new"
+    assert payload["status"] == "released"
+    assert payload["recommended_operator_action"] == (
+        "latest matching lane is released; claim the lane before mutation"
+    )
+
+
 def test_collect_agent_process_census_redacts_commands_and_counts_roles() -> None:
     import agent_bridge as mod
 
