@@ -42,7 +42,7 @@ import os
 import re
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -139,16 +139,16 @@ def _default_runner(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, text=True, capture_output=True, check=False)
 
 
-def trusted_authors(env: dict[str, str] | None = None) -> frozenset[str]:
+def trusted_authors(env: Mapping[str, str] | None = None) -> frozenset[str]:
     """Return the configured Bucket-A trusted authors.
 
     The default mirrors the policy doc. Operators can extend the set for
     automation identities without editing this script by setting
     ``ARAGORA_BUCKET_A_TRUSTED_AUTHORS`` to a comma-separated login list.
     """
-    env = env or os.environ
+    source = os.environ if env is None else env
     configured = frozenset(
-        login.strip() for login in env.get(TRUSTED_AUTHORS_ENV, "").split(",") if login.strip()
+        login.strip() for login in source.get(TRUSTED_AUTHORS_ENV, "").split(",") if login.strip()
     )
     return DEFAULT_TRUSTED_AUTHORS | configured
 
