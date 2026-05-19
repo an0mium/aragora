@@ -365,3 +365,103 @@ Honesty notes:
   readers might assume.
 - This diagnostic is one read pass; deeper investigation would
   involve actually running a worker. That's Move 2.
+
+---
+
+## Addendum 2026-05-19 — Move 1 attempt: blocked on stale runner registry
+
+**TL;DR.** I tried to execute Move 1 (re-run boss-loop on the 3
+Mode-B auth-failure issues #5789, #5790, #5844 now that #7248 shipped).
+The dry-run blocked before reaching credential resolution because the
+**entire registered runner fleet has stale heartbeats**. This is a third
+B0 blocker, distinct from `pr_adopted` mislabeling (Move 4) and the
+credential gate that #7248 productized.
+
+### What I ran
+
+```
+aragora swarm boss-loop \
+  --boss-issue-list "5789,5790,5844" \
+  --max-ticks 3 --no-loop --dry-run --json
+```
+
+### What the dispatch returned
+
+```json
+"selected_issue": null,
+"worker_status": "blocked",
+"stop_reason": "no_fresh_runner",
+"needs_human_reasons": ["No fresh runner: no_fresh_registered_runners"],
+"next_actions": [
+  "Re-register or refresh the Codex runner before resuming the Boss loop.",
+  "Blocked reason: no_fresh_registered_runners"
+]
+```
+
+The selection-basis trace lists ~22 rejected runners (claude-runner-*
+and codex-runner-*). Their selection-basis includes
+`freshness_status=fresh, availability=available, auth_mode verified` as
+the **required** criteria — i.e. the gate is failing the freshness
+check, not the auth-mode check that #7248 fixed.
+
+### How stale
+
+`aragora swarm status --json` shows 2,173 runner heartbeat records.
+The most recent five are dated **2026-05-14T17:45:31Z** (5 days ago);
+the next-most-recent group is dated **2026-04-13T16:57:42Z** (5 weeks
+ago). No runner has refreshed in the last 5 days.
+
+### Why this matters for the 30-day assessment
+
+The assessment's Section A/B/C synthesis assumed that **#7248 unblocked
+the credential class**. That is still true at the *gate level* — the
+sanitization productization is real. But it is **not yet sufficient to
+re-run B0**, because the registered runner fleet has aged out
+independently. The dispatch path's "is there a runner available" check
+fires before the credential gate does. So:
+
+- `blocked_auth_failure` (7/28 ticks): productized in #7248, but
+  **un-testable until runners are fresh again**
+- `blocked_not_dispatch_bounded` (8/28 ticks): productized in #7225
+  — also un-testable for the same reason
+- The Mode-A bail pattern (`pr_adopted` for 10/13 issues): can only be
+  reproduced once the dispatch substrate is back up
+
+In other words, **B0 cannot be re-measured until the runner registry
+is refreshed**, independent of any productization that has shipped
+since the last measurement on 2026-05-16.
+
+### Why I am stopping here rather than reviving runners
+
+1. Reviving runners is a separate operational action with its own
+   scope (deciding which runners to refresh, in which user/workspace
+   context, on which host, with what auth-mode). It was not in the
+   Move 1 brief.
+2. There is parallel in-flight work that may already be solving this:
+   the worktree `codex/b0-proof-loop-freshness-refresh-20260519`
+   exists on this machine. Colliding with that work would waste both
+   agents' tokens.
+3. The user's standing instruction limits autonomous mutations of
+   production substrate.
+
+### Recommended next move
+
+A short docs-only ticket / PR that names this blocker explicitly and
+points at whoever is doing the freshness-refresh work
+(`codex/b0-proof-loop-freshness-refresh-20260519`) as the canonical
+owner. Once runners are fresh, Move 1 becomes a 10-minute exercise:
+re-run the boss-loop dry-run, then the real dispatch on the 3
+auth-failure issues, then diff `.aragora/overnight/boss_metrics.jsonl`
+to confirm that `blocked_auth_failure` drops to zero for them.
+
+### Files / commands used
+
+- `aragora swarm boss-loop --dry-run --json` — primary signal
+- `aragora swarm status --json` — heartbeat ages
+- `.aragora/overnight/boss_metrics.jsonl` — 420 lines, last modified
+  2026-05-16T14:22Z (unchanged for 3 days, consistent with no
+  recent dispatch activity)
+- `git worktree list` — surfaced the parallel codex freshness work
+- `aragora.config.secrets.get_secret('ANTHROPIC_API_KEY')` —
+  returned None; expected because dispatcher resolves credentials
+  per-runner-binding, not from the parent process env
