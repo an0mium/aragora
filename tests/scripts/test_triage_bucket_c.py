@@ -84,6 +84,35 @@ def bucket_a(pr_number: int) -> dict[str, Any]:
     }
 
 
+def live_view_key(pr_number: int) -> tuple[str, ...]:
+    return (
+        "gh",
+        "pr",
+        "view",
+        str(pr_number),
+        "--repo",
+        tbc.GH_REPO,
+        "--json",
+        "state,isDraft,headRefOid,files",
+    )
+
+
+def live_view_stdout(
+    *,
+    state: str = "OPEN",
+    head: str = "head-1",
+    files: list[str] | None = None,
+) -> str:
+    return json.dumps(
+        {
+            "state": state,
+            "isDraft": True,
+            "headRefOid": head,
+            "files": [{"path": path} for path in (files or [])],
+        }
+    )
+
+
 class _RunnerRecorder:
     """Captures every subprocess call. Returns success by default."""
 
@@ -144,7 +173,9 @@ class TestDecideDryRun:
 class TestDecideApply:
     def test_apply_y_calls_gh_ready_and_comment(self):
         payload = make_triage_payload(bucket_c(9001))
-        recorder = _RunnerRecorder()
+        recorder = _RunnerRecorder(
+            stdout_for={live_view_key(9001): live_view_stdout(files=["tests/example.py"])}
+        )
         results = tbc.decide(
             payload,
             {9001: "y"},
@@ -155,14 +186,23 @@ class TestDecideApply:
         # Must have called both gh pr ready and gh pr comment.
         ready_calls = [c for c in recorder.calls if c[:3] == ("gh", "pr", "ready")]
         comment_calls = [c for c in recorder.calls if c[:3] == ("gh", "pr", "comment")]
-        assert ready_calls == [("gh", "pr", "ready", "9001")]
+        assert ready_calls == [("gh", "pr", "ready", "9001", "--repo", tbc.GH_REPO)]
         assert len(comment_calls) == 1
-        assert comment_calls[0][:4] == ("gh", "pr", "comment", "9001")
+        assert comment_calls[0][:6] == (
+            "gh",
+            "pr",
+            "comment",
+            "9001",
+            "--repo",
+            tbc.GH_REPO,
+        )
         assert results[0].status == tbc.STATUS_ADVANCED
 
     def test_apply_n_calls_gh_close(self):
         payload = make_triage_payload(bucket_c(9001, reason="CI red"))
-        recorder = _RunnerRecorder()
+        recorder = _RunnerRecorder(
+            stdout_for={live_view_key(9001): live_view_stdout(files=["tests/example.py"])}
+        )
         results = tbc.decide(
             payload,
             {9001: "n"},
@@ -172,7 +212,14 @@ class TestDecideApply:
         )
         close_calls = [c for c in recorder.calls if c[:3] == ("gh", "pr", "close")]
         assert len(close_calls) == 1
-        assert close_calls[0][:4] == ("gh", "pr", "close", "9001")
+        assert close_calls[0][:6] == (
+            "gh",
+            "pr",
+            "close",
+            "9001",
+            "--repo",
+            tbc.GH_REPO,
+        )
         assert results[0].status == tbc.STATUS_CLOSED
 
     def test_apply_d_makes_no_gh_calls(self):
@@ -241,6 +288,59 @@ class TestTripwires:
             files_provider=lambda n: [".github/workflows/ci.yml"],
         )
         assert results[0].status == tbc.STATUS_PROTECTED
+
+    def test_file_fetch_failure_fails_closed_before_mutation(self):
+        payload = make_triage_payload(bucket_c(9001))
+        recorder = _RunnerRecorder(failure_for={live_view_key(9001): 1})
+
+        results = tbc.decide(payload, {9001: "y"}, apply=True, runner=recorder)
+
+        assert results[0].status == tbc.STATUS_PROTECTED
+        assert "could not verify protected paths" in results[0].reason
+        mutation_calls = [
+            c
+            for c in recorder.calls
+            if c[:3] in (("gh", "pr", "ready"), ("gh", "pr", "close"), ("gh", "pr", "comment"))
+        ]
+        assert mutation_calls == []
+
+    def test_file_fetch_malformed_json_fails_closed_before_mutation(self):
+        payload = make_triage_payload(bucket_c(9001))
+        recorder = _RunnerRecorder(stdout_for={live_view_key(9001): "not-json"})
+
+        results = tbc.decide(payload, {9001: "n"}, apply=True, runner=recorder)
+
+        assert results[0].status == tbc.STATUS_PROTECTED
+        assert "non-JSON" in results[0].reason
+        mutation_calls = [
+            c
+            for c in recorder.calls
+            if c[:3] in (("gh", "pr", "ready"), ("gh", "pr", "close"), ("gh", "pr", "comment"))
+        ]
+        assert mutation_calls == []
+
+    def test_live_head_change_fails_closed_before_mutation(self):
+        payload = make_triage_payload(bucket_c(9001))
+        calls = 0
+
+        def runner(args: list[str]) -> subprocess.CompletedProcess[str]:
+            nonlocal calls
+            key = tuple(args)
+            if key == live_view_key(9001):
+                calls += 1
+                head = "head-1" if calls == 1 else "head-2"
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout=live_view_stdout(head=head, files=["tests/example.py"]),
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        results = tbc.decide(payload, {9001: "y"}, apply=True, runner=runner)
+
+        assert results[0].status == tbc.STATUS_LIVE_CHECK_FAILED
+        assert "live PR head changed" in results[0].reason
 
 
 class TestFiltering:

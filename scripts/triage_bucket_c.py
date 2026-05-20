@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Any, TextIO
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+GH_REPO = "synaptent/aragora"
 TRIAGE_SCRIPT = REPO_ROOT / "scripts" / "triage_open_prs.py"
 RECEIPT_DIR = REPO_ROOT / "docs" / "status"
 POLICY_DOC = REPO_ROOT / "docs" / "governance" / "OPERATOR_DELEGATION_POLICY.md"
@@ -95,6 +96,7 @@ STATUS_INVALID_RESPONSE = "invalid-response"
 STATUS_WOULD_ADVANCE = "would-advance"
 STATUS_WOULD_CLOSE = "would-close"
 STATUS_GH_FAILED = "gh-failed"
+STATUS_LIVE_CHECK_FAILED = "live-check-failed"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -105,6 +107,18 @@ class EntryResult:
     status: str
     reason: str
     gh_commands: tuple[tuple[str, ...], ...] = ()
+
+
+@dataclasses.dataclass(frozen=True)
+class PrSnapshot:
+    state: str
+    is_draft: bool
+    head_sha: str
+    files: tuple[str, ...]
+
+
+class LivePrCheckError(RuntimeError):
+    """Raised when a live PR guard cannot verify the current GitHub state."""
 
 
 # ---------------------------------------------------------------------------
@@ -131,47 +145,77 @@ def run_triage(*, runner: Runner | None = None) -> dict[str, Any]:
     return json.loads(proc.stdout or "{}")
 
 
-def fetch_pr_files(pr_number: int, *, runner: Runner | None = None) -> list[str]:
-    """Return the file paths touched by the given PR.
-
-    Used by the defense-in-depth protected-path tripwire.
-    """
+def fetch_pr_snapshot(pr_number: int, *, runner: Runner | None = None) -> PrSnapshot:
+    """Return the live PR state needed by apply-mode safety guards."""
     runner = runner or _default_runner
-    proc = runner(["gh", "pr", "view", str(pr_number), "--json", "files"])
+    proc = runner(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--repo",
+            GH_REPO,
+            "--json",
+            "state,isDraft,headRefOid,files",
+        ]
+    )
     if proc.returncode != 0:
-        return []
+        detail = (proc.stderr or proc.stdout).strip() or f"exit {proc.returncode}"
+        raise LivePrCheckError(f"gh pr view failed: {detail}")
     try:
         payload = json.loads(proc.stdout or "{}")
-    except json.JSONDecodeError:
-        return []
+    except json.JSONDecodeError as exc:
+        raise LivePrCheckError(f"gh pr view returned non-JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise LivePrCheckError("gh pr view returned non-object JSON")
+    state = str(payload.get("state") or "")
+    head_sha = str(payload.get("headRefOid") or "")
+    if not state:
+        raise LivePrCheckError("gh pr view response missing state")
+    if not head_sha:
+        raise LivePrCheckError("gh pr view response missing headRefOid")
     out: list[str] = []
     for entry in payload.get("files") or []:
         if isinstance(entry, dict):
             path = str(entry.get("path") or "")
             if path:
                 out.append(path)
-    return out
+    return PrSnapshot(
+        state=state,
+        is_draft=bool(payload.get("isDraft")),
+        head_sha=head_sha,
+        files=tuple(out),
+    )
+
+
+def fetch_pr_files(pr_number: int, *, runner: Runner | None = None) -> list[str]:
+    """Return the file paths touched by the given PR.
+
+    Used by the defense-in-depth protected-path tripwire.
+    """
+    return list(fetch_pr_snapshot(pr_number, runner=runner).files)
 
 
 def gh_pr_ready(
     pr_number: int, *, runner: Runner | None = None
 ) -> subprocess.CompletedProcess[str]:
     runner = runner or _default_runner
-    return runner(["gh", "pr", "ready", str(pr_number)])
+    return runner(["gh", "pr", "ready", str(pr_number), "--repo", GH_REPO])
 
 
 def gh_pr_close(
     pr_number: int, body: str, *, runner: Runner | None = None
 ) -> subprocess.CompletedProcess[str]:
     runner = runner or _default_runner
-    return runner(["gh", "pr", "close", str(pr_number), "--comment", body])
+    return runner(["gh", "pr", "close", str(pr_number), "--repo", GH_REPO, "--comment", body])
 
 
 def gh_pr_comment(
     pr_number: int, body: str, *, runner: Runner | None = None
 ) -> subprocess.CompletedProcess[str]:
     runner = runner or _default_runner
-    return runner(["gh", "pr", "comment", str(pr_number), "--body", body])
+    return runner(["gh", "pr", "comment", str(pr_number), "--repo", GH_REPO, "--body", body])
 
 
 # ---------------------------------------------------------------------------
@@ -256,9 +300,31 @@ def protected_path_tripwire(
 ) -> str | None:
     """Return a tripwire reason if the PR touches any protected path."""
     fetch = files_provider or (lambda n: fetch_pr_files(n, runner=runner))
-    for path in fetch(pr_number):
+    try:
+        paths = fetch(pr_number)
+    except LivePrCheckError as exc:
+        return f"could not verify protected paths ({exc})"
+    for path in paths:
         if _is_protected_path(path):
             return f"edits protected path ({path})"
+    return None
+
+
+def _verify_live_pr_before_mutation(
+    pr_number: int,
+    *,
+    expected_head: str,
+    runner: Runner | None = None,
+) -> str | None:
+    """Return a fail-closed reason if the live PR is not safe to mutate."""
+    try:
+        snapshot = fetch_pr_snapshot(pr_number, runner=runner)
+    except LivePrCheckError as exc:
+        return f"could not verify live PR before mutation ({exc})"
+    if snapshot.state != "OPEN":
+        return f"live PR state is {snapshot.state!r}, expected 'OPEN'"
+    if snapshot.head_sha != expected_head:
+        return f"live PR head changed before mutation ({snapshot.head_sha} != {expected_head})"
     return None
 
 
@@ -349,10 +415,39 @@ def decide(
             )
             continue
 
+        live_snapshot: PrSnapshot | None = None
+        if files_provider is None:
+            try:
+                live_snapshot = fetch_pr_snapshot(pr_number, runner=runner)
+            except LivePrCheckError as exc:
+                results.append(
+                    EntryResult(
+                        pr_number=pr_number,
+                        title=title,
+                        response=response,
+                        status=STATUS_PROTECTED,
+                        reason=f"could not verify protected paths ({exc})",
+                    )
+                )
+                continue
+
+        effective_files_provider = files_provider
+        if effective_files_provider is None:
+            assert live_snapshot is not None
+            snapshot_for_files = live_snapshot
+
+            def _files_from_snapshot(
+                _n: int,
+                snapshot: PrSnapshot = snapshot_for_files,
+            ) -> list[str]:
+                return list(snapshot.files)
+
+            effective_files_provider = _files_from_snapshot
+
         tripwire = protected_path_tripwire(
             pr_number,
             runner=runner,
-            files_provider=files_provider,
+            files_provider=effective_files_provider,
         )
         if tripwire is not None:
             results.append(
@@ -380,8 +475,10 @@ def decide(
 
         if response == RESPONSE_ADVANCE:
             commands: list[tuple[str, ...]] = []
-            commands.append(("gh", "pr", "ready", str(pr_number)))
-            commands.append(("gh", "pr", "comment", str(pr_number), "--body", "<advance>"))
+            commands.append(("gh", "pr", "ready", str(pr_number), "--repo", GH_REPO))
+            commands.append(
+                ("gh", "pr", "comment", str(pr_number), "--repo", GH_REPO, "--body", "<advance>")
+            )
             if not apply:
                 results.append(
                     EntryResult(
@@ -390,6 +487,38 @@ def decide(
                         response=response,
                         status=STATUS_WOULD_ADVANCE,
                         reason="bucket-C, y, tripwires clear (dry-run)",
+                        gh_commands=tuple(commands),
+                    )
+                )
+                continue
+            if live_snapshot is None:
+                try:
+                    live_snapshot = fetch_pr_snapshot(pr_number, runner=runner)
+                except LivePrCheckError as exc:
+                    results.append(
+                        EntryResult(
+                            pr_number=pr_number,
+                            title=title,
+                            response=response,
+                            status=STATUS_LIVE_CHECK_FAILED,
+                            reason=f"could not verify live PR before mutation ({exc})",
+                            gh_commands=tuple(commands),
+                        )
+                    )
+                    continue
+            live_guard = _verify_live_pr_before_mutation(
+                pr_number,
+                expected_head=live_snapshot.head_sha,
+                runner=runner,
+            )
+            if live_guard is not None:
+                results.append(
+                    EntryResult(
+                        pr_number=pr_number,
+                        title=title,
+                        response=response,
+                        status=STATUS_LIVE_CHECK_FAILED,
+                        reason=live_guard,
                         gh_commands=tuple(commands),
                     )
                 )
@@ -446,6 +575,8 @@ def decide(
                     "pr",
                     "close",
                     str(pr_number),
+                    "--repo",
+                    GH_REPO,
                     "--comment",
                     "<close>",
                 )
@@ -458,6 +589,38 @@ def decide(
                         response=response,
                         status=STATUS_WOULD_CLOSE,
                         reason="bucket-C, n, tripwires clear (dry-run)",
+                        gh_commands=tuple(commands),
+                    )
+                )
+                continue
+            if live_snapshot is None:
+                try:
+                    live_snapshot = fetch_pr_snapshot(pr_number, runner=runner)
+                except LivePrCheckError as exc:
+                    results.append(
+                        EntryResult(
+                            pr_number=pr_number,
+                            title=title,
+                            response=response,
+                            status=STATUS_LIVE_CHECK_FAILED,
+                            reason=f"could not verify live PR before mutation ({exc})",
+                            gh_commands=tuple(commands),
+                        )
+                    )
+                    continue
+            live_guard = _verify_live_pr_before_mutation(
+                pr_number,
+                expected_head=live_snapshot.head_sha,
+                runner=runner,
+            )
+            if live_guard is not None:
+                results.append(
+                    EntryResult(
+                        pr_number=pr_number,
+                        title=title,
+                        response=response,
+                        status=STATUS_LIVE_CHECK_FAILED,
+                        reason=live_guard,
                         gh_commands=tuple(commands),
                     )
                 )
@@ -670,7 +833,10 @@ def main(argv: list[str] | None = None) -> int:
         and r.response in {RESPONSE_ADVANCE, RESPONSE_CLOSE}
         for r in results
     )
-    failed = any(r.status in {STATUS_GH_FAILED, STATUS_INVALID_RESPONSE} for r in results)
+    failed = any(
+        r.status in {STATUS_GH_FAILED, STATUS_INVALID_RESPONSE, STATUS_LIVE_CHECK_FAILED}
+        for r in results
+    )
     return 1 if (blocked or failed) else 0
 
 
