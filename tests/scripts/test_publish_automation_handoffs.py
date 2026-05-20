@@ -1944,6 +1944,69 @@ def test_main_reports_github_health_when_unavailable(
     }
 
 
+def test_main_summary_only_omits_decisions_when_github_unavailable(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    handoffs = [
+        Handoff(
+            source_file=str(tmp_path / "first.md"),
+            task_title="First offline handoff",
+            priority="MEDIUM",
+            body="body",
+            labels={},
+            expires_at=None,
+        ),
+        Handoff(
+            source_file=str(tmp_path / "second.md"),
+            task_title="Second offline handoff",
+            priority="MEDIUM",
+            body="body",
+            labels={},
+            expires_at=None,
+        ),
+    ]
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: handoffs)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=True,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path),
+            "--json",
+            "--summary-only",
+        ]
+    )
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert "decisions" not in payload
+    assert payload["decision_count"] == 2
+    assert payload["decisions_omitted"] is True
+    assert payload["details_omitted"] is True
+    assert payload["decision_summary"] == {
+        "total": 2,
+        "eligible_count": 0,
+        "ineligible_count": 2,
+        "reason_counts": {
+            "github_unavailable": 2,
+        },
+    }
+
+
 def test_main_reports_stale_outbox_head_when_github_unavailable(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
