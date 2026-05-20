@@ -135,7 +135,8 @@ def _wake_argv_for_job(
     steering_inbox_root: Path,
     receipt_root: Path,
 ) -> list[str]:
-    selectors = job.get("selectors") if isinstance(job.get("selectors"), dict) else {}
+    raw_selectors = job.get("selectors")
+    selectors: dict[str, Any] = raw_selectors if isinstance(raw_selectors, dict) else {}
     argv: list[str] = []
     if selectors.get("to"):
         argv.extend(["--to", str(selectors["to"])])
@@ -206,15 +207,16 @@ def run_queue(args: argparse.Namespace) -> dict[str, Any]:
                     receipt_root=args.receipt_root,
                 )
             )
-            wake_result = wake_agent.run(wake_args)
-            if args.apply and wake_result.get("ok"):
+            result = wake_agent.run(wake_args)
+            wake_result = result
+            if args.apply and result.get("ok"):
                 status = "delivered"
             else:
                 status = "blocked"
                 if not args.apply:
                     error = "dry-run; no prompt delivered"
-                elif not wake_result.get("ok"):
-                    error = str(wake_result.get("error") or "wake_agent blocked")
+                elif not result.get("ok"):
+                    error = str(result.get("error") or "wake_agent blocked")
         except Exception as exc:  # noqa: BLE001 - queue receipts should capture all blockers.
             error = str(exc)
         receipt_path = _write_run_receipt(
