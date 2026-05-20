@@ -31,7 +31,9 @@ bootstraps and from any agent):
   ``branch``, ``worktree``, ``pr_number``, ``conflict_session``,
   ``conflict_reason``, and optional Desktop identity metadata
   (``desktop_label``, ``codex_thread_id``, ``codex_rollout_path``,
-  ``session_title``).
+  ``session_title``), plus optional steering contact metadata
+  (``contact_method``, ``contact_payload``, ``last_mailbox_check_at``,
+  ``last_delivery_at``, ``last_ack_at``).
 - A claim with the same ``lane_id`` from the same ``owner_session``
   overwrites the existing row (idempotent refresh). A claim with the
   same ``lane_id`` from a *different* ``owner_session`` is rejected
@@ -115,6 +117,11 @@ LANE_RECORD_KEYS = (
     "codex_thread_id",
     "codex_rollout_path",
     "session_title",
+    "contact_method",
+    "contact_payload",
+    "last_mailbox_check_at",
+    "last_delivery_at",
+    "last_ack_at",
 )
 
 
@@ -187,6 +194,8 @@ def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
     for key in LANE_RECORD_KEYS:
         value = row.get(key)
         if value is None or value == "":
+            continue
+        if key == "contact_payload" and not isinstance(value, dict):
             continue
         out[key] = value
     return out
@@ -328,6 +337,11 @@ def claim_lane(
     codex_thread_id: str = "",
     codex_rollout_path: str = "",
     session_title: str = "",
+    contact_method: str = "",
+    contact_payload: dict[str, Any] | None = None,
+    last_mailbox_check_at: str = "",
+    last_delivery_at: str = "",
+    last_ack_at: str = "",
     force: bool = False,
     allow_resource_conflicts: bool = False,
     updated_at: str | None = None,
@@ -361,6 +375,11 @@ def claim_lane(
             "codex_thread_id": codex_thread_id,
             "codex_rollout_path": codex_rollout_path,
             "session_title": session_title,
+            "contact_method": contact_method,
+            "contact_payload": contact_payload,
+            "last_mailbox_check_at": last_mailbox_check_at,
+            "last_delivery_at": last_delivery_at,
+            "last_ack_at": last_ack_at,
         }
         normalized = _normalize_row(new_row)
 
@@ -440,6 +459,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional visible or inferred session title for operator display.",
     )
     parser.add_argument(
+        "--contact-method",
+        default="",
+        help=(
+            "Optional steering transport, e.g. tmux:aragora:1, "
+            "codex-exec-resume:<thread_id>, codex-app-server:<socket>, "
+            "or mailbox-only."
+        ),
+    )
+    parser.add_argument(
+        "--contact-payload",
+        default="",
+        help="Optional JSON object with backend-specific steering metadata.",
+    )
+    parser.add_argument("--last-mailbox-check-at", default="")
+    parser.add_argument("--last-delivery-at", default="")
+    parser.add_argument("--last-ack-at", default="")
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Overwrite an existing claim or identity conflict owned by a different session.",
@@ -501,6 +537,12 @@ def main(argv: list[str] | None = None) -> int:
         explicit=args.registry_path,
     )
     try:
+        contact_payload = None
+        if args.contact_payload:
+            parsed_payload = json.loads(args.contact_payload)
+            if not isinstance(parsed_payload, dict):
+                raise ValueError("--contact-payload must be a JSON object")
+            contact_payload = parsed_payload
         if args.release_stale:
             row = release_stale_claims(
                 registry_path=registry_path,
@@ -526,6 +568,11 @@ def main(argv: list[str] | None = None) -> int:
                 codex_thread_id=args.codex_thread_id,
                 codex_rollout_path=args.codex_rollout_path,
                 session_title=args.session_title,
+                contact_method=args.contact_method,
+                contact_payload=contact_payload,
+                last_mailbox_check_at=args.last_mailbox_check_at,
+                last_delivery_at=args.last_delivery_at,
+                last_ack_at=args.last_ack_at,
                 force=args.force,
                 allow_resource_conflicts=args.allow_resource_conflicts,
                 updated_at=args.updated_at,

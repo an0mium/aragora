@@ -319,6 +319,15 @@ fi
     echo "command=${SESSION_COMMAND}"
 } >> "${LOG_FILE}"
 
+if [[ -f "${REPO_ROOT}/scripts/check_operator_steering.py" ]]; then
+    python3 "${REPO_ROOT}/scripts/check_operator_steering.py" \
+        --to "${SESSION_ID}" \
+        --read-by-session "${SESSION_ID}" \
+        --no-receipt \
+        --quiet-empty \
+        2>/dev/null | tee -a "${LOG_FILE}" || true
+fi
+
 cleanup_lock() {
     local exit_code=$?
     local ended_at

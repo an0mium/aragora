@@ -596,9 +596,14 @@ class TestLookupFactoryDroid:
 
 class TestSteeringInbox:
     def test_missing_inbox_dir_returns_zero_count(self, tmp_path: Path) -> None:
-        path, count = ilo.steering_inbox_for("nobody-1", root=tmp_path / "steering")
+        path, count, receipt_summary = ilo.steering_inbox_for(
+            "nobody-1", root=tmp_path / "steering"
+        )
         assert count == 0
         assert path == tmp_path / "steering" / "nobody-1"
+        assert receipt_summary["read_receipt_count"] == 0
+        assert receipt_summary["unread_message_count"] == 0
+        assert receipt_summary["latest_read_receipt"] is None
 
     def test_counts_only_dot_json_files(self, tmp_path: Path) -> None:
         inbox = tmp_path / "steering" / "claude-X"
@@ -606,9 +611,65 @@ class TestSteeringInbox:
         (inbox / "msg-a.json").write_text("{}", encoding="utf-8")
         (inbox / "msg-b.json").write_text("{}", encoding="utf-8")
         (inbox / "README.md").write_text("docs only", encoding="utf-8")
-        path, count = ilo.steering_inbox_for("claude-X", root=tmp_path / "steering")
+        path, count, receipt_summary = ilo.steering_inbox_for(
+            "claude-X", root=tmp_path / "steering"
+        )
         assert count == 2
         assert path == inbox
+        assert receipt_summary["read_receipt_count"] == 0
+        assert receipt_summary["unread_message_count"] == 2
+        assert receipt_summary["latest_read_receipt"] is None
+
+    def test_summarizes_read_receipts_without_changing_pending_count(self, tmp_path: Path) -> None:
+        inbox = tmp_path / "steering" / "claude-X"
+        receipts = inbox / "_read_receipts"
+        receipts.mkdir(parents=True)
+        (inbox / "msg-a.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "aragora-operator-steering/1.0",
+                    "message_sha256": "aaa",
+                    "sent_at_utc": "2026-05-18T01:00:00.000Z",
+                }
+            ),
+            encoding="utf-8",
+        )
+        (inbox / "msg-b.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "aragora-operator-steering/1.0",
+                    "message_sha256": "bbb",
+                    "sent_at_utc": "2026-05-18T02:00:00.000Z",
+                }
+            ),
+            encoding="utf-8",
+        )
+        (receipts / "receipt-a.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "aragora-operator-steering-read-receipt/1.0",
+                    "owner_session": "claude-X",
+                    "read_by_session": "reader",
+                    "read_at_utc": "2026-05-18T03:00:00.000Z",
+                    "message_filename": "msg-a.json",
+                    "message_sha256": "aaa",
+                    "outcome": "stale",
+                    "subject": "msg-a",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        path, count, receipt_summary = ilo.steering_inbox_for(
+            "claude-X", root=tmp_path / "steering"
+        )
+
+        assert path == inbox
+        assert count == 2
+        assert receipt_summary["read_receipt_count"] == 1
+        assert receipt_summary["unread_message_count"] == 1
+        assert receipt_summary["latest_read_receipt"]["message_filename"] == "msg-a.json"
+        assert receipt_summary["latest_read_receipt"]["outcome"] == "stale"
 
 
 # ---------------------------------------------------------------------------
@@ -637,11 +698,47 @@ class TestBuildOwnerInfo:
         assert info.codex_thread_id == "019e3942-e27e-7e72-b8d6-b61d981fd532"
         assert info.desktop_label == "Test Codex Desktop Tab"
         assert info.session_title == "Rich identity claim"
+        assert info.live_prompt_dispatchable is True
+        assert info.mailbox_dispatchable is True
         assert info.pending_message_count == 0
+        assert info.read_receipt_count == 0
+        assert info.unread_message_count == 0
+        assert info.latest_read_receipt is None
         # Live lookups all return found=False because tmp dirs are empty.
         assert info.live_process["found"] is False
         assert info.claude_session["found"] is False
         assert info.factory_droid["found"] is False
+
+    def test_contact_metadata_surfaces_and_controls_dispatch_split(self, tmp_path: Path) -> None:
+        bg = tmp_path / "factory_bg.json"
+        bg.write_text("[]", encoding="utf-8")
+        lane = {
+            "lane_id": "tmux-lane",
+            "owner_session": "codex-tmux",
+            "status": "active",
+            "contact_method": "tmux:aragora:2",
+            "contact_payload": {"target": "aragora:2"},
+            "last_mailbox_check_at": "2026-05-20T01:00:00Z",
+            "last_delivery_at": "2026-05-20T01:01:00Z",
+            "last_ack_at": "2026-05-20T01:02:00Z",
+        }
+
+        info = ilo.build_owner_info(
+            lane,
+            snapshot_provider=lambda: fake_snapshot_records([]),
+            sessions_root=tmp_path / "codex_sessions",
+            projects_root=tmp_path / "claude_projects",
+            bg_path=bg,
+            steering_inbox_root=tmp_path / "steering",
+        )
+
+        assert info.contact_method == "tmux:aragora:2"
+        assert info.contact_payload == {"target": "aragora:2"}
+        assert info.last_mailbox_check_at == "2026-05-20T01:00:00Z"
+        assert info.last_delivery_at == "2026-05-20T01:01:00Z"
+        assert info.last_ack_at == "2026-05-20T01:02:00Z"
+        assert info.mailbox_dispatchable is True
+        assert info.live_prompt_dispatchable is True
 
 
 # ---------------------------------------------------------------------------
@@ -707,6 +804,9 @@ class TestMainCLI:
         assert data["pr_number"] == 7292
         assert data["live_process"]["found"] is False  # no snapshot integration in CLI default path
         assert data["pending_message_count"] == 0
+        assert data["read_receipt_count"] == 0
+        assert data["unread_message_count"] == 0
+        assert data["latest_read_receipt"] is None
         assert data["dispatchable"] is True
         assert data["dispatch_blocker"] is None
         assert data["harness_confidence"] == "mailbox_only"

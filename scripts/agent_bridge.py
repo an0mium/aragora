@@ -183,6 +183,11 @@ class LaneRecord:
     codex_thread_id: str = ""
     codex_rollout_path: str = ""
     session_title: str = ""
+    contact_method: str = ""
+    contact_payload: dict[str, Any] | None = None
+    last_mailbox_check_at: str = ""
+    last_delivery_at: str = ""
+    last_ack_at: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v not in ("", None)}
@@ -206,6 +211,13 @@ class LaneRecord:
             codex_thread_id=str(payload.get("codex_thread_id", "")),
             codex_rollout_path=str(payload.get("codex_rollout_path", "")),
             session_title=str(payload.get("session_title", "")),
+            contact_method=str(payload.get("contact_method", "")),
+            contact_payload=payload.get("contact_payload")
+            if isinstance(payload.get("contact_payload"), dict)
+            else None,
+            last_mailbox_check_at=str(payload.get("last_mailbox_check_at", "")),
+            last_delivery_at=str(payload.get("last_delivery_at", "")),
+            last_ack_at=str(payload.get("last_ack_at", "")),
         )
 
 
@@ -1639,18 +1651,87 @@ def _collect_pending_steering_messages(
         # consumed messages per the Phase D convention.
         return [p for p in dir_path.glob("*.json") if p.is_file()]
 
+    def _read_receipt_summary(dir_path: Path, files: list[Path]) -> dict[str, Any]:
+        receipt_dir = dir_path / "_read_receipts"
+        if not receipt_dir.is_dir():
+            return {
+                "read_receipt_count": 0,
+                "unread_message_count": len(files),
+                "latest_read_receipt": None,
+            }
+
+        receipts: list[dict[str, Any]] = []
+        read_keys: set[tuple[str, str]] = set()
+        for receipt_path in receipt_dir.glob("*.json"):
+            if not receipt_path.is_file():
+                continue
+            try:
+                data = json.loads(receipt_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(data, dict):
+                continue
+            data["_receipt_filename"] = receipt_path.name
+            receipts.append(data)
+            read_keys.add(
+                (
+                    str(data.get("message_filename") or ""),
+                    str(data.get("message_sha256") or ""),
+                )
+            )
+
+        unread = 0
+        for message_path in files:
+            try:
+                message = json.loads(message_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                message = {}
+            if not isinstance(message, dict):
+                message = {}
+            key = (message_path.name, str(message.get("message_sha256") or ""))
+            if key not in read_keys:
+                unread += 1
+
+        receipts.sort(key=lambda r: str(r.get("read_at_utc") or ""), reverse=True)
+        latest = None
+        if receipts:
+            raw = receipts[0]
+            latest = {
+                "receipt_filename": raw.get("_receipt_filename"),
+                "read_at_utc": raw.get("read_at_utc"),
+                "read_by_session": raw.get("read_by_session"),
+                "message_filename": raw.get("message_filename"),
+                "message_sha256": raw.get("message_sha256"),
+                "outcome": raw.get("outcome"),
+                "subject": raw.get("subject"),
+            }
+        return {
+            "read_receipt_count": len(receipts),
+            "unread_message_count": unread,
+            "latest_read_receipt": latest,
+        }
+
     if session_name:
-        files = _inbox_files(steering_root / session_name)
+        inbox_dir = steering_root / session_name
+        files = _inbox_files(inbox_dir)
         summaries = sorted(
             (_summary_from(p) for p in files),
             key=lambda s: s["sent_at_utc"],
             reverse=True,
         )
-        return {"count": len(files), "latest_three": summaries[:3]}
+        return {
+            "count": len(files),
+            "latest_three": summaries[:3],
+            **_read_receipt_summary(inbox_dir, files),
+        }
 
     # Roll-up across all recipient dirs.
     by_recipient: dict[str, int] = {}
+    read_receipts_by_recipient: dict[str, int] = {}
     all_summaries: list[dict[str, Any]] = []
+    total_read_receipts = 0
+    total_unread = 0
+    latest_receipts: list[dict[str, Any]] = []
     for child in sorted(steering_root.iterdir()):
         if not child.is_dir() or child.name.startswith("."):
             continue
@@ -1658,11 +1739,24 @@ def _collect_pending_steering_messages(
         if files:
             by_recipient[child.name] = len(files)
             all_summaries.extend(_summary_from(p) for p in files)
+        receipt_summary = _read_receipt_summary(child, files)
+        total_read_receipts += int(receipt_summary["read_receipt_count"])
+        total_unread += int(receipt_summary["unread_message_count"])
+        if receipt_summary["read_receipt_count"]:
+            read_receipts_by_recipient[child.name] = int(receipt_summary["read_receipt_count"])
+        latest = receipt_summary["latest_read_receipt"]
+        if isinstance(latest, dict):
+            latest_receipts.append(latest)
     all_summaries.sort(key=lambda s: s["sent_at_utc"], reverse=True)
+    latest_receipts.sort(key=lambda r: str(r.get("read_at_utc") or ""), reverse=True)
     return {
         "count": sum(by_recipient.values()),
         "by_recipient": by_recipient,
         "latest_three": all_summaries[:3],
+        "read_receipt_count": total_read_receipts,
+        "unread_message_count": total_unread,
+        "read_receipts_by_recipient": read_receipts_by_recipient,
+        "latest_read_receipt": latest_receipts[0] if latest_receipts else None,
     }
 
 

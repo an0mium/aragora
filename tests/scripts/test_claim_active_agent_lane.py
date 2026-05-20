@@ -466,6 +466,27 @@ def test_desktop_identity_metadata_round_trips(tmp_registry: Path) -> None:
     assert payload[0]["session_title"] == "Review #7286"
 
 
+def test_contact_metadata_round_trips(tmp_registry: Path) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="codex-steer",
+        owner_session="codex-owner",
+        contact_method="codex-exec-resume:019e-thread",
+        contact_payload={"thread_id": "019e-thread", "socket": "/tmp/codex.sock"},
+        last_mailbox_check_at="2026-05-20T01:00:00Z",
+        last_delivery_at="2026-05-20T01:01:00Z",
+        last_ack_at="2026-05-20T01:02:00Z",
+    )
+
+    payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
+    row = payload[0]
+    assert row["contact_method"] == "codex-exec-resume:019e-thread"
+    assert row["contact_payload"]["thread_id"] == "019e-thread"
+    assert row["last_mailbox_check_at"] == "2026-05-20T01:00:00Z"
+    assert row["last_delivery_at"] == "2026-05-20T01:01:00Z"
+    assert row["last_ack_at"] == "2026-05-20T01:02:00Z"
+
+
 def test_cli_help_exits_zero() -> None:
     result = subprocess.run(
         [sys.executable, str(SCRIPT_PATH), "--help"],
@@ -496,6 +517,10 @@ def test_cli_writes_registry_via_subprocess(tmp_path: Path) -> None:
             "/Users/armand/.codex/sessions/cli.jsonl",
             "--session-title",
             "CLI lane claim",
+            "--contact-method",
+            "tmux:aragora:1",
+            "--contact-payload",
+            '{"target": "aragora:1"}',
             "--status",
             "active",
             "--registry-path",
@@ -517,6 +542,8 @@ def test_cli_writes_registry_via_subprocess(tmp_path: Path) -> None:
     assert file_payload[0]["codex_thread_id"] == "019e-cli-thread"
     assert file_payload[0]["codex_rollout_path"].endswith("cli.jsonl")
     assert file_payload[0]["session_title"] == "CLI lane claim"
+    assert file_payload[0]["contact_method"] == "tmux:aragora:1"
+    assert file_payload[0]["contact_payload"]["target"] == "aragora:1"
 
 
 def test_cli_conflict_returns_exit_code_2(tmp_path: Path) -> None:

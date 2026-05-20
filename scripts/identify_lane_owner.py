@@ -108,12 +108,22 @@ class LaneOwnerInfo:
     codex_rollout_path: str | None
     desktop_label: str | None
     session_title: str | None
+    contact_method: str | None
+    contact_payload: dict[str, Any] | None
+    last_mailbox_check_at: str | None
+    last_delivery_at: str | None
+    last_ack_at: str | None
     live_process: dict[str, Any]
     codex_thread: dict[str, Any]
     claude_session: dict[str, Any]
     factory_droid: dict[str, Any]
     steering_inbox_path: str
     pending_message_count: int
+    read_receipt_count: int
+    unread_message_count: int
+    latest_read_receipt: dict[str, Any] | None
+    mailbox_dispatchable: bool
+    live_prompt_dispatchable: bool
     dispatchable: bool
     dispatch_blocker: str | None
     steering_command: str | None
@@ -660,16 +670,86 @@ def lookup_factory_droid(
 # ---------------------------------------------------------------------------
 
 
+def _load_json_dict(path: Path) -> dict[str, Any] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _read_receipt_summary(inbox: Path, message_files: list[Path]) -> dict[str, Any]:
+    receipt_dir = inbox / "_read_receipts"
+    if not receipt_dir.is_dir():
+        return {
+            "read_receipt_count": 0,
+            "unread_message_count": len(message_files),
+            "latest_read_receipt": None,
+        }
+
+    receipts: list[dict[str, Any]] = []
+    read_keys: set[tuple[str, str]] = set()
+    for path in receipt_dir.glob("*.json"):
+        if not path.is_file():
+            continue
+        data = _load_json_dict(path)
+        if data is None:
+            continue
+        data["_receipt_filename"] = path.name
+        receipts.append(data)
+        read_keys.add(
+            (
+                str(data.get("message_filename") or ""),
+                str(data.get("message_sha256") or ""),
+            )
+        )
+
+    unread = 0
+    for path in message_files:
+        data = _load_json_dict(path) or {}
+        key = (path.name, str(data.get("message_sha256") or ""))
+        if key not in read_keys:
+            unread += 1
+
+    receipts.sort(key=lambda r: str(r.get("read_at_utc") or ""), reverse=True)
+    latest = None
+    if receipts:
+        raw = receipts[0]
+        latest = {
+            "receipt_filename": raw.get("_receipt_filename"),
+            "read_at_utc": raw.get("read_at_utc"),
+            "read_by_session": raw.get("read_by_session"),
+            "message_filename": raw.get("message_filename"),
+            "message_sha256": raw.get("message_sha256"),
+            "outcome": raw.get("outcome"),
+            "subject": raw.get("subject"),
+        }
+    return {
+        "read_receipt_count": len(receipts),
+        "unread_message_count": unread,
+        "latest_read_receipt": latest,
+    }
+
+
 def steering_inbox_for(
     owner_session: str, *, root: Path = STEERING_INBOX_ROOT_DEFAULT
-) -> tuple[Path, int]:
-    """Return ``(inbox_path, pending_count)``; missing dir → ``(path, 0)``."""
+) -> tuple[Path, int, dict[str, Any]]:
+    """Return inbox path, pending count, and read-receipt summary."""
 
     inbox = root / owner_session
     if not inbox.is_dir():
-        return inbox, 0
-    count = sum(1 for _ in inbox.glob("*.json"))
-    return inbox, count
+        return (
+            inbox,
+            0,
+            {
+                "read_receipt_count": 0,
+                "unread_message_count": 0,
+                "latest_read_receipt": None,
+            },
+        )
+    files = [path for path in inbox.glob("*.json") if path.is_file()]
+    count = len(files)
+    return inbox, count, _read_receipt_summary(inbox, files)
 
 
 def _dispatch_blocker_for(lane: dict[str, Any], owner_session: str) -> str | None:
@@ -683,6 +763,27 @@ def _dispatch_blocker_for(lane: dict[str, Any], owner_session: str) -> str | Non
     if status in COMPLETED_STATUSES:
         return f"lane status is {status}; claim an active lane before steering"
     return f"lane status is {status or 'unknown'}; claim an active lane before steering"
+
+
+def _contact_payload_for(lane: dict[str, Any]) -> dict[str, Any] | None:
+    payload = lane.get("contact_payload")
+    return payload if isinstance(payload, dict) else None
+
+
+def _live_prompt_dispatchable_for(lane: dict[str, Any], owner_session: str) -> bool:
+    if _dispatch_blocker_for(lane, owner_session) is not None:
+        return False
+    method = str(lane.get("contact_method") or "").strip()
+    if method.startswith("tmux:"):
+        return bool(method.removeprefix("tmux:").strip())
+    if method.startswith("codex-exec-resume:"):
+        return bool(method.removeprefix("codex-exec-resume:").strip())
+    if method.startswith("codex-app-server:"):
+        payload = _contact_payload_for(lane) or {}
+        return bool(
+            payload.get("socket") and (payload.get("thread_id") or lane.get("codex_thread_id"))
+        )
+    return bool(lane.get("codex_thread_id"))
 
 
 def _steering_command_for(lane: dict[str, Any], owner_session: str) -> str | None:
@@ -756,7 +857,7 @@ def build_owner_info(
     codex = lookup_codex_thread(lane, sessions_root=sessions_root, now=fuzzy_now)
     claude = lookup_claude_session(lane, projects_root=projects_root)
     factory = lookup_factory_droid(lane, bg_path=bg_path)
-    inbox_path, pending = steering_inbox_for(owner, root=steering_inbox_root)
+    inbox_path, pending, receipt_summary = steering_inbox_for(owner, root=steering_inbox_root)
     dispatch_blocker = _dispatch_blocker_for(lane, owner)
 
     raw_pr = lane.get("pr_number")
@@ -779,12 +880,22 @@ def build_owner_info(
         codex_rollout_path=lane.get("codex_rollout_path"),
         desktop_label=lane.get("desktop_label"),
         session_title=lane.get("session_title"),
+        contact_method=lane.get("contact_method"),
+        contact_payload=_contact_payload_for(lane),
+        last_mailbox_check_at=lane.get("last_mailbox_check_at"),
+        last_delivery_at=lane.get("last_delivery_at"),
+        last_ack_at=lane.get("last_ack_at"),
         live_process=live,
         codex_thread=codex,
         claude_session=claude,
         factory_droid=factory,
         steering_inbox_path=str(inbox_path),
         pending_message_count=pending,
+        read_receipt_count=int(receipt_summary["read_receipt_count"]),
+        unread_message_count=int(receipt_summary["unread_message_count"]),
+        latest_read_receipt=receipt_summary["latest_read_receipt"],
+        mailbox_dispatchable=dispatch_blocker is None,
+        live_prompt_dispatchable=_live_prompt_dispatchable_for(lane, owner),
         dispatchable=dispatch_blocker is None,
         dispatch_blocker=dispatch_blocker,
         steering_command=_steering_command_for(lane, owner),
@@ -823,6 +934,11 @@ def _print_human(info: LaneOwnerInfo) -> None:
     print(f"  codex_rollout_path: {info.codex_rollout_path or '(not supplied)'}")
     print(f"  desktop_label:      {info.desktop_label or '(not supplied)'}")
     print(f"  session_title:      {info.session_title or '(not supplied)'}")
+    print(f"  contact_method:     {info.contact_method or '(not supplied)'}")
+    print(f"  contact_payload:    {info.contact_payload or '-'}")
+    print(f"  last_mailbox_check: {info.last_mailbox_check_at or '-'}")
+    print(f"  last_delivery_at:   {info.last_delivery_at or '-'}")
+    print(f"  last_ack_at:        {info.last_ack_at or '-'}")
     print()
     print("best-effort live lookups:")
     print(f"  live_process:   {_glyph(info.live_process.get('found', False))}  {info.live_process}")
@@ -836,6 +952,11 @@ def _print_human(info: LaneOwnerInfo) -> None:
     print()
     print(f"steering_inbox_path:   {info.steering_inbox_path}")
     print(f"pending_message_count: {info.pending_message_count}")
+    print(f"read_receipt_count:    {info.read_receipt_count}")
+    print(f"unread_message_count:  {info.unread_message_count}")
+    print(f"latest_read_receipt:   {info.latest_read_receipt or '-'}")
+    print(f"mailbox_dispatchable:  {info.mailbox_dispatchable}")
+    print(f"live_prompt_dispatchable: {info.live_prompt_dispatchable}")
     print(f"dispatchable:          {info.dispatchable}")
     print(f"dispatch_blocker:      {info.dispatch_blocker or '-'}")
     print(f"steering_command:      {info.steering_command or '-'}")
