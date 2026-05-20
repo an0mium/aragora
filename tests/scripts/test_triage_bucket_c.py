@@ -113,6 +113,14 @@ def live_view_stdout(
     )
 
 
+def triage_key() -> tuple[str, ...]:
+    return ("python3", str(tbc.TRIAGE_SCRIPT), "--json")
+
+
+def triage_stdout(*entries: dict[str, Any]) -> str:
+    return json.dumps(make_triage_payload(*entries))
+
+
 class _RunnerRecorder:
     """Captures every subprocess call. Returns success by default."""
 
@@ -174,7 +182,10 @@ class TestDecideApply:
     def test_apply_y_calls_gh_ready_and_comment(self):
         payload = make_triage_payload(bucket_c(9001))
         recorder = _RunnerRecorder(
-            stdout_for={live_view_key(9001): live_view_stdout(files=["tests/example.py"])}
+            stdout_for={
+                live_view_key(9001): live_view_stdout(files=["tests/example.py"]),
+                triage_key(): triage_stdout(bucket_c(9001)),
+            }
         )
         results = tbc.decide(
             payload,
@@ -201,7 +212,10 @@ class TestDecideApply:
     def test_apply_n_calls_gh_close(self):
         payload = make_triage_payload(bucket_c(9001, reason="CI red"))
         recorder = _RunnerRecorder(
-            stdout_for={live_view_key(9001): live_view_stdout(files=["tests/example.py"])}
+            stdout_for={
+                live_view_key(9001): live_view_stdout(files=["tests/example.py"]),
+                triage_key(): triage_stdout(bucket_c(9001)),
+            }
         )
         results = tbc.decide(
             payload,
@@ -319,6 +333,27 @@ class TestTripwires:
         ]
         assert mutation_calls == []
 
+    def test_file_fetch_malformed_files_payload_fails_closed_before_mutation(self):
+        payload = make_triage_payload(bucket_c(9001))
+        recorder = _RunnerRecorder(
+            stdout_for={
+                live_view_key(9001): json.dumps(
+                    {"state": "OPEN", "isDraft": True, "headRefOid": "head-1", "files": "bad"}
+                )
+            }
+        )
+
+        results = tbc.decide(payload, {9001: "y"}, apply=True, runner=recorder)
+
+        assert results[0].status == tbc.STATUS_PROTECTED
+        assert "missing files list" in results[0].reason
+        mutation_calls = [
+            c
+            for c in recorder.calls
+            if c[:3] in (("gh", "pr", "ready"), ("gh", "pr", "close"), ("gh", "pr", "comment"))
+        ]
+        assert mutation_calls == []
+
     def test_live_head_change_fails_closed_before_mutation(self):
         payload = make_triage_payload(bucket_c(9001))
         calls = 0
@@ -341,6 +376,57 @@ class TestTripwires:
 
         assert results[0].status == tbc.STATUS_LIVE_CHECK_FAILED
         assert "live PR head changed" in results[0].reason
+
+    def test_live_tripwire_change_fails_closed_before_mutation(self):
+        payload = make_triage_payload(bucket_c(9001))
+        calls = 0
+        seen: list[tuple[str, ...]] = []
+
+        def runner(args: list[str]) -> subprocess.CompletedProcess[str]:
+            nonlocal calls
+            key = tuple(args)
+            seen.append(key)
+            if key == live_view_key(9001):
+                calls += 1
+                files = ["tests/example.py"] if calls == 1 else ["scripts/nomic_loop.py"]
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout=live_view_stdout(head="head-1", files=files),
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        results = tbc.decide(payload, {9001: "n"}, apply=True, runner=runner)
+
+        assert results[0].status == tbc.STATUS_LIVE_CHECK_FAILED
+        assert "live PR tripwire changed" in results[0].reason
+        mutation_calls = [
+            c
+            for c in seen
+            if c[:3] in (("gh", "pr", "ready"), ("gh", "pr", "close"), ("gh", "pr", "comment"))
+        ]
+        assert mutation_calls == []
+
+    def test_live_bucket_change_fails_closed_before_mutation(self):
+        payload = make_triage_payload(bucket_c(9001))
+        recorder = _RunnerRecorder(
+            stdout_for={
+                live_view_key(9001): live_view_stdout(files=["tests/example.py"]),
+                triage_key(): triage_stdout(bucket_a(9001)),
+            }
+        )
+
+        results = tbc.decide(payload, {9001: "y"}, apply=True, runner=recorder)
+
+        assert results[0].status == tbc.STATUS_LIVE_CHECK_FAILED
+        assert "live PR bucket" in results[0].reason
+        mutation_calls = [
+            c
+            for c in recorder.calls
+            if c[:3] in (("gh", "pr", "ready"), ("gh", "pr", "close"), ("gh", "pr", "comment"))
+        ]
+        assert mutation_calls == []
 
 
 class TestFiltering:

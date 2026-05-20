@@ -175,12 +175,19 @@ def fetch_pr_snapshot(pr_number: int, *, runner: Runner | None = None) -> PrSnap
         raise LivePrCheckError("gh pr view response missing state")
     if not head_sha:
         raise LivePrCheckError("gh pr view response missing headRefOid")
+    files_payload = payload.get("files")
+    if not isinstance(files_payload, list):
+        raise LivePrCheckError("gh pr view response missing files list")
     out: list[str] = []
-    for entry in payload.get("files") or []:
-        if isinstance(entry, dict):
-            path = str(entry.get("path") or "")
-            if path:
-                out.append(path)
+    for idx, entry in enumerate(files_payload):
+        if not isinstance(entry, dict):
+            raise LivePrCheckError(f"gh pr view response has malformed file entry at index {idx}")
+        path = entry.get("path")
+        if not isinstance(path, str) or not path:
+            raise LivePrCheckError(f"gh pr view response missing file path at index {idx}")
+        out.append(path)
+    if not out:
+        raise LivePrCheckError("gh pr view response had no files to verify")
     return PrSnapshot(
         state=state,
         is_draft=bool(payload.get("isDraft")),
@@ -325,7 +332,27 @@ def _verify_live_pr_before_mutation(
         return f"live PR state is {snapshot.state!r}, expected 'OPEN'"
     if snapshot.head_sha != expected_head:
         return f"live PR head changed before mutation ({snapshot.head_sha} != {expected_head})"
-    return None
+    tripwire = protected_path_tripwire(
+        pr_number,
+        runner=runner,
+        files_provider=lambda _n: list(snapshot.files),
+    )
+    if tripwire is not None:
+        return f"live PR tripwire changed before mutation ({tripwire})"
+    try:
+        live_triage = run_triage(runner=runner)
+    except (RuntimeError, json.JSONDecodeError) as exc:
+        return f"could not verify live Bucket C classification before mutation ({exc})"
+    for entry in live_triage.get("results") or []:
+        if not isinstance(entry, dict):
+            continue
+        if int(entry.get("pr_number") or 0) != pr_number:
+            continue
+        live_bucket = str(entry.get("bucket") or "")
+        if live_bucket != BUCKET_C:
+            return f"live PR bucket is {live_bucket!r}, expected {BUCKET_C!r}"
+        return None
+    return "live PR was not present in current triage output"
 
 
 # ---------------------------------------------------------------------------
