@@ -1212,6 +1212,15 @@ def audit(
     publishable_branch_backlog = (
         counts["salvage_recent_unique"] + counts["salvage_stale_remote_unique"]
     )
+    direct_handoff_outbox_branches = sum(
+        1 for record in records if record.name in handoff_outbox_branches
+    )
+    patch_equivalent_handoff_outbox_branches = sum(
+        1
+        for record in records
+        if record.category == "protected_handoff_outbox"
+        and record.name not in handoff_outbox_branches
+    )
     skipped_counts = Counter(
         record.category for record in records if record.patch_equivalence_skipped
     )
@@ -1241,6 +1250,9 @@ def audit(
             "stale_local_only_salvage_candidates": counts["salvage_stale_local_unique"],
             "handoff_receipted_branches": counts["protected_handoff_receipt"],
             "handoff_outbox_branches": counts["protected_handoff_outbox"],
+            "unresolved_handoff_outbox_branch_refs": len(handoff_outbox_branches),
+            "direct_handoff_outbox_branches": direct_handoff_outbox_branches,
+            "patch_equivalent_handoff_outbox_branches": (patch_equivalent_handoff_outbox_branches),
             "writer_should_pause_for_branch_backlog": (
                 publishable_branch_backlog >= publisher_backlog_limit
             ),
@@ -1303,6 +1315,16 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     print(f"- Diverged salvage candidates: `{summary['diverged_salvage_candidates']}`")
     print(f"- Handoff-receipted branches: `{summary['handoff_receipted_branches']}`")
     print(f"- Handoff-outbox branches: `{summary['handoff_outbox_branches']}`")
+    if "unresolved_handoff_outbox_branch_refs" in summary:
+        print(
+            "- Unresolved handoff-outbox branch refs: "
+            f"`{summary['unresolved_handoff_outbox_branch_refs']}`"
+        )
+        print(f"- Direct handoff-outbox branches: `{summary['direct_handoff_outbox_branches']}`")
+        print(
+            "- Patch-equivalent handoff-outbox branches: "
+            f"`{summary['patch_equivalent_handoff_outbox_branches']}`"
+        )
     print(
         f"- Patch-equivalence budget exhausted: `{payload['patch_equivalence_budget_exhausted']}`"
     )

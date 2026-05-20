@@ -1468,6 +1468,9 @@ def test_audit_protects_patch_equivalent_unresolved_handoff_branches(
     by_category = payload["summary"]["by_category"]
     assert by_category["protected_handoff_outbox"] == 2
     assert by_category["salvage_recent_unique"] == 1
+    assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 1
+    assert payload["summary"]["direct_handoff_outbox_branches"] == 1
+    assert payload["summary"]["patch_equivalent_handoff_outbox_branches"] == 1
     assert payload["summary"]["publishable_branch_backlog"] == 1
     assert payload["summary"]["writer_should_pause_for_branch_backlog"] is False
     stale_copy = next(
@@ -1646,12 +1649,76 @@ def test_audit_treats_superseded_branch_as_unresolved_handoff(
     )
 
     assert payload["summary"]["handoff_outbox_branches"] == 1
+    assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 2
+    assert payload["summary"]["direct_handoff_outbox_branches"] == 1
+    assert payload["summary"]["patch_equivalent_handoff_outbox_branches"] == 0
     assert payload["summary"]["publishable_branch_backlog"] == 1
     original = next(
         record for record in payload["records"] if record["name"] == "codex/stale-original"
     )
     assert original["handoff_outbox_exists"] is True
     assert original["category"] == "protected_handoff_outbox"
+
+
+def test_audit_counts_direct_outbox_refs_even_when_active_worktree_wins_category(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    row = _branch_row("codex/direct-outbox", committed_at=now)
+    worktree = tmp_path / "active-worktree"
+    worktree.mkdir()
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "direct.json").write_text(
+        json.dumps(
+            {
+                "task": "Publish direct branch",
+                "requires_github": True,
+                "requested_action": "open_pr",
+                "repo": "synaptent/aragora",
+                "local_evidence": {"branch": "codex/direct-outbox", "head": "abc123"},
+                "idempotency_key": "open-pr-codex-direct-outbox-abc123",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: [row])
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {"codex/direct-outbox": [worktree]})
+    monkeypatch.setattr(mod, "dirty_worktree", lambda _path: False)
+    monkeypatch.setattr(mod, "active_worktree", lambda _path: True)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=True,
+        publisher_backlog_limit=2,
+    )
+
+    record = payload["records"][0]
+    assert record["category"] == "protected_active_worktree"
+    assert record["handoff_outbox_exists"] is True
+    assert payload["summary"]["handoff_outbox_branches"] == 0
+    assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 1
+    assert payload["summary"]["direct_handoff_outbox_branches"] == 1
+    assert payload["summary"]["patch_equivalent_handoff_outbox_branches"] == 0
 
 
 def test_audit_treats_superseded_branch_as_terminal_receipt(
