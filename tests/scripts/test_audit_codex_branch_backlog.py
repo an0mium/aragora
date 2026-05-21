@@ -77,6 +77,24 @@ def test_branch_divergence_parses_rev_list_left_right_counts(
     assert mod.branch_divergence(tmp_path, "origin/main", "codex/example") == (7, 3)
 
 
+def test_branch_divergence_returns_none_on_rev_list_failure(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    def fake_run_git(
+        args: list[str], cwd: Path, *, timeout: int = 60
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=128,
+            stdout="",
+            stderr="fatal: ambiguous argument",
+        )
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.branch_divergence(tmp_path, "origin/main", "codex/example") is None
+
+
 def test_branch_divergence_map_parses_batch_ahead_behind_output(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
@@ -435,6 +453,52 @@ def test_audit_uses_batched_divergence_before_fallback(tmp_path: Path, monkeypat
 
     assert payload["records"][0]["ahead_count"] == 5
     assert payload["records"][0]["behind_count"] == 2
+
+
+def test_audit_protects_branch_when_divergence_lookup_fails(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    row = _branch_row(ahead_count="", behind_count="")
+    _stub_git_inventory(monkeypatch, row)
+    monkeypatch.setattr(mod, "branch_divergence_map", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(mod, "branch_divergence", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    def fail_patch_check(*_args: Any, **_kwargs: Any) -> bool:
+        raise AssertionError("unknown divergence must not run patch-equivalence checks")
+
+    monkeypatch.setattr(mod, "has_empty_branch_diff", fail_patch_check)
+    monkeypatch.setattr(mod, "is_patch_equivalent", fail_patch_check)
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    record = payload["records"][0]
+    assert record["category"] == "protected_divergence_lookup_unknown"
+    assert record["ahead_count"] is None
+    assert record["behind_count"] is None
+    assert record["divergence_lookup_failed"] is True
+    assert payload["summary"]["safe_cleanup_candidates"] == 0
+    assert payload["summary"]["by_category"] == {"protected_divergence_lookup_unknown": 1}
 
 
 def test_audit_uses_open_pr_lookup_when_github_health_is_ready(

@@ -56,6 +56,7 @@ COMPACT_RECORD_EXAMPLE_FIELDS = (
     "subject",
     "ahead_count",
     "behind_count",
+    "divergence_lookup_failed",
     "patch_equivalence_skipped",
     "open_pr",
     "worktree_paths",
@@ -75,8 +76,9 @@ class BranchRecord:
     head_sha: str
     committed_at: str
     subject: str
-    ahead_count: int
-    behind_count: int
+    ahead_count: int | None
+    behind_count: int | None
+    divergence_lookup_failed: bool
     merged_to_base: bool
     patch_equivalent_to_base: bool
     patch_equivalence_skipped: bool
@@ -707,20 +709,23 @@ def open_pr_heads(root: Path, repo: str, prefix: str) -> dict[str, int] | None:
     return heads
 
 
-def count_ahead(root: Path, base: str, branch: str) -> int:
-    ahead_count, _behind_count = branch_divergence(root, base, branch)
+def count_ahead(root: Path, base: str, branch: str) -> int | None:
+    divergence = branch_divergence(root, base, branch)
+    if divergence is None:
+        return None
+    ahead_count, _behind_count = divergence
     return ahead_count
 
 
-def branch_divergence(root: Path, base: str, branch: str) -> tuple[int, int]:
+def branch_divergence(root: Path, base: str, branch: str) -> tuple[int, int] | None:
     proc = run_git(["rev-list", "--left-right", "--count", f"{base}...{branch}"], root)
     if proc.returncode != 0:
-        return (0, 0)
+        return None
     try:
         behind_count, ahead_count = (int(part) for part in proc.stdout.split())
         return (ahead_count, behind_count)
     except ValueError:
-        return (0, 0)
+        return None
 
 
 def branch_divergence_map(
@@ -1034,20 +1039,37 @@ def audit(
             divergence = divergence_by_branch.get(branch)
             if divergence is None:
                 divergence = branch_divergence(root, base, branch)
-            ahead_count, behind_count = divergence
+            if divergence is None:
+                ahead_count = None
+                behind_count = None
+                divergence_lookup_failed = True
+            else:
+                ahead_count, behind_count = divergence
+                divergence_lookup_failed = False
         else:
+            divergence_lookup_failed = False
             try:
                 behind_count = int(row.get("behind_count", "0"))
             except ValueError:
                 divergence = divergence_by_branch.get(branch)
                 if divergence is None:
                     divergence = branch_divergence(root, base, branch)
-                _ahead_count, behind_count = divergence
+                if divergence is None:
+                    ahead_count = None
+                    behind_count = None
+                    divergence_lookup_failed = True
+                else:
+                    ahead_count, behind_count = divergence
         merged_to_base = branch in merged_branches
         patch_equivalent = False
         patch_equivalence_skipped = False
         patch_id = None
-        if ahead_count > 0 and not merged_to_base and not protected_before_patch_check:
+        if (
+            ahead_count is not None
+            and ahead_count > 0
+            and not merged_to_base
+            and not protected_before_patch_check
+        ):
             if _patch_budget_exhausted(patch_deadline):
                 patch_equivalence_budget_exhausted = True
                 patch_equivalence_skipped_branches += 1
@@ -1110,24 +1132,29 @@ def audit(
                     deadline=patch_deadline,
                 )
             handoff_outbox = patch_id in handoff_outbox_patch_ids
-        category = classify(
-            open_pr=open_pr,
-            active_paths=active_paths,
-            dirty_paths=dirty_paths,
-            ahead_count=ahead_count,
-            behind_count=behind_count,
-            merged_to_base=merged_to_base,
-            patch_equivalent_to_base=patch_equivalent,
-            handoff_receipt_exists=handoff_receipted,
-            handoff_outbox_exists=handoff_outbox,
-            committed_at=committed_at,
-            recent_cutoff=recent_cutoff,
-            remote_branch_exists=remote_exists,
-        )
-        if open_pr_lookup_failed and (
-            category.startswith("cleanup_") or category in SALVAGE_CATEGORIES
-        ):
-            category = "protected_open_pr_lookup_unknown"
+        if divergence_lookup_failed:
+            category = "protected_divergence_lookup_unknown"
+        else:
+            assert ahead_count is not None
+            assert behind_count is not None
+            category = classify(
+                open_pr=open_pr,
+                active_paths=active_paths,
+                dirty_paths=dirty_paths,
+                ahead_count=ahead_count,
+                behind_count=behind_count,
+                merged_to_base=merged_to_base,
+                patch_equivalent_to_base=patch_equivalent,
+                handoff_receipt_exists=handoff_receipted,
+                handoff_outbox_exists=handoff_outbox,
+                committed_at=committed_at,
+                recent_cutoff=recent_cutoff,
+                remote_branch_exists=remote_exists,
+            )
+            if open_pr_lookup_failed and (
+                category.startswith("cleanup_") or category in SALVAGE_CATEGORIES
+            ):
+                category = "protected_open_pr_lookup_unknown"
         if (
             not include_patch_equivalence
             and not patch_equivalent
@@ -1145,6 +1172,8 @@ def audit(
                     timeout=_patch_timeout(patch_deadline, 60),
                 )
             if patch_equivalent:
+                assert ahead_count is not None
+                assert behind_count is not None
                 category = classify(
                     open_pr=open_pr,
                     active_paths=active_paths,
@@ -1172,6 +1201,7 @@ def audit(
                 subject=row["subject"],
                 ahead_count=ahead_count,
                 behind_count=behind_count,
+                divergence_lookup_failed=divergence_lookup_failed,
                 merged_to_base=merged_to_base,
                 patch_equivalent_to_base=patch_equivalent,
                 patch_equivalence_skipped=patch_equivalence_skipped,
