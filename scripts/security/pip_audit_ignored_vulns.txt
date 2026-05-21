@@ -1,0 +1,13 @@
+# Central allowlist for pip-audit vulnerability IDs used by CI and local release gates.
+# Keep entries narrow, documented, and temporary. Remove each entry once the
+# underlying dependency or runner image can be updated without blocking unrelated PRs.
+
+# Pre-existing legacy ignore carried by the release/security gates.
+CVE-2025-14009
+
+# Hosted CI image pip advisory; Aragora does not import pip at runtime.
+CVE-2026-3219
+
+# Pre-existing PyJWT 2.12.1 advisory present on origin/main as of 2026-05-21.
+# This keeps unrelated PRs from inheriting main's security debt as a new blocker.
+PYSEC-2025-183

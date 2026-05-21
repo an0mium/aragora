@@ -572,6 +572,68 @@ class TestPreReleaseCheckScript:
             )
 
 
+class TestPipAuditGate:
+    """Validate the shared pip-audit gate helper."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.script = PROJECT_ROOT / "scripts" / "run_pip_audit_gate.py"
+        self.allowlist = PROJECT_ROOT / "scripts" / "security" / "pip_audit_ignored_vulns.txt"
+
+    def test_script_exists(self):
+        assert self.script.exists(), "scripts/run_pip_audit_gate.py does not exist"
+
+    def test_allowlist_exists_and_documents_preexisting_debt(self):
+        content = self.allowlist.read_text()
+        assert "CVE-2025-14009" in content
+        assert "CVE-2026-3219" in content
+        assert "PYSEC-2025-183" in content
+        assert "Pre-existing PyJWT" in content
+
+    def test_load_ignored_vulns_skips_comments(self, tmp_path):
+        import importlib.util
+
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text(
+            textwrap.dedent(
+                """
+                # comment
+                CVE-2025-14009
+                PYSEC-2025-183  # inline reason
+                """
+            )
+        )
+        spec = importlib.util.spec_from_file_location("run_pip_audit_gate", str(self.script))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        assert module.load_ignored_vulns(allowlist) == [
+            "CVE-2025-14009",
+            "PYSEC-2025-183",
+        ]
+
+    def test_build_command_audits_requirements_not_environment(self, tmp_path):
+        import importlib.util
+
+        req = tmp_path / "requirements.txt"
+        req.write_text("pyjwt==2.12.1\n")
+        spec = importlib.util.spec_from_file_location("run_pip_audit_gate", str(self.script))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        cmd = module.build_pip_audit_command(
+            req,
+            ["PYSEC-2025-183"],
+            python_executable="python",
+        )
+
+        assert "--requirement" in cmd
+        assert str(req) in cmd
+        assert "--ignore-vuln" in cmd
+        assert "PYSEC-2025-183" in cmd
+        assert "--path" not in cmd
+
+
 # ---------------------------------------------------------------------------
 # 3. Secret scanning gate
 # ---------------------------------------------------------------------------

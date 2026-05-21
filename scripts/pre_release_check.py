@@ -337,15 +337,9 @@ def gate_pip_audit() -> bool:
     code, output = _run_cmd(
         [
             sys.executable,
-            "-m",
-            "pip_audit",
-            "--strict",
-            "--vulnerability-service",
-            "osv",
-            "--ignore-vuln",
-            "CVE-2025-14009",
+            "scripts/run_pip_audit_gate.py",
         ],
-        timeout=120,
+        timeout=180,
     )
     if code != 0:
         vuln_lines = [l for l in output.splitlines() if "PYSEC" in l or "CVE" in l or "GHSA" in l]
