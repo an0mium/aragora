@@ -54,7 +54,7 @@ def load_ignored_vulns(
             ) from exc
 
         days_until_expiry = (expires_at - today).days
-        if days_until_expiry < 0:
+        if days_until_expiry <= 0:
             print(
                 f"{path}:{line_number}: allowlist entry {vuln_id} expired on {expires_at}; "
                 "not passing it to pip-audit",

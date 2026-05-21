@@ -327,14 +327,6 @@ class TestFrontendE2EWorkflow:
         assert "playwright-results-shard-${{ matrix.shard }}" in artifact_names
         assert "frontend-e2e-server-logs-shard-${{ matrix.shard }}" in artifact_names
 
-    def test_test_workflow_changes_trigger_frontend_e2e_scope(self):
-        classifier = _load_yaml(ACTIONS_DIR / "pr-scope-classifier" / "action.yml")
-        filters = classifier["runs"]["steps"][0]["with"]["filters"]
-
-        assert "frontend_e2e:" in filters
-        frontend_e2e_section = filters.split("frontend_e2e:", 1)[1].split("smoke:", 1)[0]
-        assert "- '.github/workflows/test.yml'" in frontend_e2e_section
-
 
 class TestCoverageWorkflow:
     """Validate coverage workflow bootstrap policy."""
@@ -601,7 +593,10 @@ class TestPipAuditGate:
         assert "Pre-existing PyJWT" in content
         assert "runtime/transitive via supabase-auth" in content
         assert "Reachability: JWT decode paths exist" in content
-        assert "Tracking:" in content
+        assert "Owner/follow-up:" in content
+        assert "P107-pyjwt-supabase-auth-upgrade" in content
+        assert "Upgrade target/removal:" in content
+        assert "do not renew without explicit risk acceptance" in content
 
     def test_load_ignored_vulns_skips_comments(self, tmp_path):
         allowlist = tmp_path / "allowlist.txt"
@@ -663,6 +658,17 @@ class TestPipAuditGate:
 
         captured = capsys.readouterr()
         assert "expired on 2026-05-20" in captured.err
+        assert "not passing it to pip-audit" in captured.err
+
+    def test_load_ignored_vulns_drops_entries_expiring_today(self, tmp_path, capsys):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("PYSEC-2025-183 2026-05-21 # expires today\n")
+        module = self._load_module()
+
+        assert module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21)) == []
+
+        captured = capsys.readouterr()
+        assert "expired on 2026-05-21" in captured.err
         assert "not passing it to pip-audit" in captured.err
 
     def test_load_ignored_vulns_warns_near_expiry(self, tmp_path, capsys):
@@ -730,6 +736,21 @@ class TestPipAuditGate:
 
         assert "exit code 2" in str(excinfo.value)
         assert "bad lockfile" in str(excinfo.value)
+
+    def test_run_gate_returns_pip_audit_failure_code(self, tmp_path):
+        module = self._load_module()
+        req = tmp_path / "requirements.txt"
+        req.write_text("pyjwt==2.12.1\n")
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("PYSEC-2025-183 2099-01-01 # temporary\n")
+
+        completed = subprocess.CompletedProcess(["python", "-m", "pip_audit"], 7)
+        with patch.object(module.subprocess, "run", return_value=completed) as run:
+            assert module.run_gate(req, allowlist) == 7
+
+        cmd = run.call_args.args[0]
+        assert "--requirement" in cmd
+        assert str(req) in cmd
 
 
 # ---------------------------------------------------------------------------

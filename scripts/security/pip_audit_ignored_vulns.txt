@@ -13,5 +13,6 @@ CVE-2026-3219 2026-08-31 # CI runner/tooling image only; not a product runtime d
 # Source/classification: runtime/transitive via supabase-auth from the enterprise/all extras.
 # Reachability: JWT decode paths exist for bearer-token authentication; this is not dev-only.
 # Severity: upstream OSV/PyPI advisory, treat as security debt pending fixed-version upgrade.
-# Tracking: remove via the next focused PyJWT/supabase-auth dependency refresh before expiry.
-PYSEC-2025-183 2026-08-31 # allow main-inherited debt without blocking unrelated security-gate repairs.
+# Owner/follow-up: security-gate steward, lane P107-pyjwt-supabase-auth-upgrade.
+# Upgrade target/removal: remove once PyJWT is above 2.12.1 or supabase-auth no longer pins a vulnerable PyJWT.
+PYSEC-2025-183 2026-06-04 # short bridge for main-inherited debt; do not renew without explicit risk acceptance.

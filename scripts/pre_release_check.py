@@ -333,7 +333,7 @@ def gate_bandit() -> bool:
 
 
 def gate_pip_audit() -> bool:
-    """Check installed packages for known vulnerabilities."""
+    """Run the locked project dependency pip-audit gate."""
     code, output = _run_cmd(
         [
             sys.executable,

@@ -90,7 +90,7 @@ jobs:
           python -m bandit -r aragora/ -c pyproject.toml -lll
 
       # ---------------------------------------------------------------
-      # pip-audit: check locked product dependencies for known CVEs
+      # pip-audit: check all locked project dependency groups for known CVEs
       # ---------------------------------------------------------------
       - name: "BLOCKING: Python dependency audit (pip-audit)"
         run: |

@@ -311,7 +311,7 @@ jobs:
       - name: Bandit security scan (HIGH severity blocking)
         run: bandit -r aragora/ -c pyproject.toml -lll
 
-      # pip-audit: fail on known vulnerabilities in locked product dependencies
+      # pip-audit: fail on known vulnerabilities in all locked project dependency groups
       - name: Python dependency audit (pip-audit)
         run: |
           python scripts/run_pip_audit_gate.py
