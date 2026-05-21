@@ -1,0 +1,194 @@
+name: Aragora Merge Quorum
+
+# Enforcing model-review-quorum gate.
+#
+# Unlike the advisory "Aragora Code Review" workflow (aragora-review-gate.yml),
+# this check CAN fail a PR and is intended to be a REQUIRED status check on
+# `main`. It is the GitHub-visible expression of the review authority defined in
+# docs/REVIEW_AUTHORITY_PRINCIPLES.md: a heterogeneous model quorum is the
+# technical reviewer; the human operator is the accountable risk settler for
+# Tier 3-4.
+#
+# It does NOT post a bot APPROVE review. It reports an honest pass/fail status.
+#
+# This file lives under .github/workflows/, so per REVIEW_AUTHORITY_PRINCIPLES.md
+# every change to it is a Tier 4 "merge-authority self-modification" and requires
+# explicit human preapproval before implementation and before merge.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to evaluate (debug; does not update PR check status)"
+        required: true
+        type: string
+
+concurrency:
+  group: aragora-merge-quorum-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: read
+
+jobs:
+  merge-quorum:
+    name: aragora-merge-quorum
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+        continue-on-error: true
+
+      - name: Fallback to system Python
+        if: steps.setup-python.outcome == 'failure'
+        shell: bash
+        run: |
+          for cmd in python3.11 python3; do
+            if command -v "$cmd" &>/dev/null; then
+              sudo ln -sf "$(command -v "$cmd")" /usr/local/bin/python
+              sudo ln -sf "$(command -v "$cmd")" /usr/local/bin/python3
+              break
+            fi
+          done
+          python --version
+
+      - name: Install Aragora
+        run: |
+          python -m pip install --upgrade pip
+          bash scripts/ci_install_project.sh --extras dev
+          python -m pip install -e . "pydantic>=2,<3" pydantic-settings aiohttp defusedxml numpy
+
+      - name: Evaluate merge quorum
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+          IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft || 'false' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$IS_DRAFT" == "true" ]]; then
+            echo "Draft PR — merge-quorum gate deferred until ready_for_review."
+            exit 0
+          fi
+
+          # Build the read-only merge authorization packet for this PR.
+          # merge-packet does not approve, comment, merge, or write receipts.
+          set +e
+          python -m aragora.cli.main review-queue merge-packet \
+            --pr "$PR_NUMBER" --repo "$GH_REPO" --json \
+            > /tmp/merge_packet.json 2> /tmp/merge_packet.err
+          packet_exit=$?
+          set -e
+
+          if [[ "$packet_exit" -ne 0 ]]; then
+            echo "::error::merge-packet command failed (exit ${packet_exit}) — failing closed."
+            cat /tmp/merge_packet.err || true
+            exit 1
+          fi
+
+          # Decide pass/fail. Fail closed on anything unexpected.
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          pr_number = str(os.environ["PR_NUMBER"]).strip()
+          repo = os.environ["GH_REPO"]
+
+          try:
+              with open("/tmp/merge_packet.json", encoding="utf-8") as fh:
+                  packet = json.load(fh)
+          except Exception as exc:  # noqa: BLE001
+              print(f"::error::merge packet is not valid JSON: {exc}")
+              sys.exit(1)
+
+          entries = packet.get("entries") or []
+          entry = next(
+              (e for e in entries if str(e.get("pr_number")) == pr_number), None
+          )
+          if entry is None:
+              print(f"::error::merge packet has no entry for PR #{pr_number} — failing closed.")
+              sys.exit(1)
+
+          tier = entry.get("tier")
+          status = entry.get("status")
+          verdict = entry.get("verdict")
+          head_sha = str(entry.get("head_sha") or "").strip()
+          reasons = entry.get("reasons") or []
+
+          print(f"PR #{pr_number} | Tier {tier} | status={status} | verdict={verdict}")
+          for reason in reasons:
+              print(f"  - {reason}")
+
+          def fail(message: str) -> None:
+              print(f"::error::{message}")
+              sys.exit(1)
+
+          def human_settlement_present() -> bool:
+              # Tier 3-4 require a head-SHA-bound human settlement signal: a commit
+              # status with context 'aragora/human-settlement' = success, set by the
+              # operator AFTER recording the local settlement receipt. A new push
+              # changes the head SHA and drops the signal — settlement is bound to
+              # the exact reviewed state. See docs/governance/MERGE_GATE_RECONCILIATION.md.
+              if not head_sha:
+                  return False
+              result = subprocess.run(
+                  [
+                      "gh", "api", f"repos/{repo}/commits/{head_sha}/statuses",
+                      "--jq",
+                      '.[] | select(.context=="aragora/human-settlement") | .state',
+                  ],
+                  capture_output=True,
+                  text=True,
+                  check=False,
+              )
+              if result.returncode != 0:
+                  print(f"::warning::could not read commit statuses: {result.stderr.strip()}")
+                  return False
+              states = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+              # The statuses API returns most-recent first.
+              return bool(states) and states[0] == "success"
+
+          # Tier 0-2: model quorum alone authorizes the merge.
+          if status == "satisfied":
+              print("Model quorum satisfied; Tier 0-2 settlement authorized.")
+              sys.exit(0)
+
+          # Genuinely not ready: checks failing/pending, or not enough model signals.
+          if status in ("repair_or_wait", "needs_model_review_quorum"):
+              fail(f"Merge quorum not met (status={status}). Resolve the reasons above before merge.")
+
+          # Dissent always needs a human, regardless of tier.
+          if status == "unresolved_dissent" or entry.get("unresolved_dissent"):
+              fail("Unresolved model dissent — requires human attention before merge.")
+
+          # Tier 3-4: model quorum prepared the packet; a recorded human
+          # settlement signal must also be present for the exact head SHA.
+          if status in ("human_risk_settlement_required", "human_preapproval_required"):
+              if human_settlement_present():
+                  print(f"Tier {tier}: human settlement signal present for {head_sha[:12]}.")
+                  sys.exit(0)
+              fail(
+                  f"Tier {tier}: model quorum prepared the risk packet, but no human "
+                  f"settlement signal is recorded for head {head_sha[:12]}. The operator "
+                  "must record settlement and set the 'aragora/human-settlement' commit "
+                  "status. See docs/governance/MERGE_GATE_RECONCILIATION.md."
+              )
+
+          fail(f"Unrecognized merge-quorum status '{status}' — failing closed.")
+          PY
