@@ -11,6 +11,7 @@ Validates:
 
 from __future__ import annotations
 
+import datetime as dt
 import os
 import re
 import subprocess
@@ -583,43 +584,103 @@ class TestPipAuditGate:
     def test_script_exists(self):
         assert self.script.exists(), "scripts/run_pip_audit_gate.py does not exist"
 
+    def _load_module(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("run_pip_audit_gate", str(self.script))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
     def test_allowlist_exists_and_documents_preexisting_debt(self):
         content = self.allowlist.read_text()
+        assert "Format: VULN-ID YYYY-MM-DD" in content
         assert "CVE-2025-14009" in content
         assert "CVE-2026-3219" in content
         assert "PYSEC-2025-183" in content
         assert "Pre-existing PyJWT" in content
+        assert "runtime/transitive via supabase-auth" in content
+        assert "Reachability: JWT decode paths exist" in content
+        assert "Tracking:" in content
 
     def test_load_ignored_vulns_skips_comments(self, tmp_path):
-        import importlib.util
-
         allowlist = tmp_path / "allowlist.txt"
         allowlist.write_text(
             textwrap.dedent(
                 """
                 # comment
-                CVE-2025-14009
-                PYSEC-2025-183  # inline reason
+                CVE-2025-14009 2026-08-31
+                PYSEC-2025-183 2026-09-15 # inline reason
                 """
             )
         )
-        spec = importlib.util.spec_from_file_location("run_pip_audit_gate", str(self.script))
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = self._load_module()
 
-        assert module.load_ignored_vulns(allowlist) == [
+        assert module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21)) == [
             "CVE-2025-14009",
             "PYSEC-2025-183",
         ]
 
-    def test_build_command_audits_requirements_not_environment(self, tmp_path):
-        import importlib.util
+    def test_load_ignored_vulns_rejects_bad_format_with_line_number(self, tmp_path):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("CVE 2025-14009 2026-08-31\n")
+        module = self._load_module()
 
+        with pytest.raises(SystemExit) as excinfo:
+            module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21))
+
+        assert f"{allowlist}:1:" in str(excinfo.value)
+        assert "expected 'VULN-ID YYYY-MM-DD # rationale'" in str(excinfo.value)
+
+    def test_load_ignored_vulns_rejects_invalid_vuln_id_with_line_number(self, tmp_path):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("pysec-2025-183 2026-08-31\n")
+        module = self._load_module()
+
+        with pytest.raises(SystemExit) as excinfo:
+            module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21))
+
+        assert f"{allowlist}:1:" in str(excinfo.value)
+        assert "invalid vulnerability ID 'pysec-2025-183'" in str(excinfo.value)
+
+    def test_load_ignored_vulns_rejects_invalid_expiry_with_line_number(self, tmp_path):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("PYSEC-2025-183 2026/08/31\n")
+        module = self._load_module()
+
+        with pytest.raises(SystemExit) as excinfo:
+            module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21))
+
+        assert f"{allowlist}:1:" in str(excinfo.value)
+        assert "invalid expiry date '2026/08/31'" in str(excinfo.value)
+
+    def test_load_ignored_vulns_drops_expired_entries(self, tmp_path, capsys):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("PYSEC-2025-183 2026-05-20 # expired\n")
+        module = self._load_module()
+
+        assert module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21)) == []
+
+        captured = capsys.readouterr()
+        assert "expired on 2026-05-20" in captured.err
+        assert "not passing it to pip-audit" in captured.err
+
+    def test_load_ignored_vulns_warns_near_expiry(self, tmp_path, capsys):
+        allowlist = tmp_path / "allowlist.txt"
+        allowlist.write_text("PYSEC-2025-183 2026-05-28 # expiring soon\n")
+        module = self._load_module()
+
+        assert module.load_ignored_vulns(allowlist, today=dt.date(2026, 5, 21)) == [
+            "PYSEC-2025-183"
+        ]
+
+        captured = capsys.readouterr()
+        assert "expires in 7 day(s) on 2026-05-28" in captured.err
+
+    def test_build_command_audits_requirements_not_environment(self, tmp_path):
         req = tmp_path / "requirements.txt"
         req.write_text("pyjwt==2.12.1\n")
-        spec = importlib.util.spec_from_file_location("run_pip_audit_gate", str(self.script))
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = self._load_module()
 
         cmd = module.build_pip_audit_command(
             req,
@@ -629,9 +690,46 @@ class TestPipAuditGate:
 
         assert "--requirement" in cmd
         assert str(req) in cmd
+        assert "--no-deps" in cmd
+        assert "--disable-pip" in cmd
         assert "--ignore-vuln" in cmd
         assert "PYSEC-2025-183" in cmd
         assert "--path" not in cmd
+
+    def test_export_requirements_includes_all_dependency_groups(self, tmp_path):
+        module = self._load_module()
+        output = tmp_path / "requirements.txt"
+
+        with patch.object(module.subprocess, "run") as run:
+            module.export_requirements(output)
+
+        cmd = run.call_args.args[0]
+        assert "--all-extras" in cmd
+        assert "--all-groups" in cmd
+        assert "--output-file" in cmd
+        assert str(output) in cmd
+        assert run.call_args.kwargs["capture_output"] is True
+        assert run.call_args.kwargs["text"] is True
+
+    def test_export_requirements_missing_uv_has_actionable_message(self, tmp_path):
+        module = self._load_module()
+
+        with patch.object(module.subprocess, "run", side_effect=FileNotFoundError):
+            with pytest.raises(SystemExit) as excinfo:
+                module.export_requirements(tmp_path / "requirements.txt")
+
+        assert "uv is not installed or is not on PATH" in str(excinfo.value)
+
+    def test_export_requirements_failure_includes_stderr(self, tmp_path):
+        module = self._load_module()
+        error = subprocess.CalledProcessError(2, ["uv", "export"], stderr="bad lockfile")
+
+        with patch.object(module.subprocess, "run", side_effect=error):
+            with pytest.raises(SystemExit) as excinfo:
+                module.export_requirements(tmp_path / "requirements.txt")
+
+        assert "exit code 2" in str(excinfo.value)
+        assert "bad lockfile" in str(excinfo.value)
 
 
 # ---------------------------------------------------------------------------
