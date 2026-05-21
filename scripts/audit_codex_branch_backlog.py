@@ -1225,6 +1225,7 @@ def audit(
         + counts["protected_handoff_receipt"]
         + counts["protected_handoff_outbox"]
         + counts["protected_open_pr_lookup_unknown"]
+        + counts["protected_divergence_lookup_unknown"]
     )
     salvage = (
         counts["salvage_recent_unique"]

@@ -498,6 +498,7 @@ def test_audit_protects_branch_when_divergence_lookup_fails(
     assert record["behind_count"] is None
     assert record["divergence_lookup_failed"] is True
     assert payload["summary"]["safe_cleanup_candidates"] == 0
+    assert payload["summary"]["protected"] == 1
     assert payload["summary"]["by_category"] == {"protected_divergence_lookup_unknown": 1}
 
 
