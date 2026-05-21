@@ -1,0 +1,45 @@
+{
+  "receipt_id": "DR-20260521-b934a0",
+  "question": "Should Aragora prioritize the EU AI Act compliance pipeline over new vertical onboarding for the August 2026 deadline?",
+  "verdict": "needs_review",
+  "confidence": 0.49450549450549447,
+  "agents": [
+    "Analyst",
+    "Critic",
+    "Synthesizer",
+    "Devil's Advocate"
+  ],
+  "rounds": 2,
+  "summary": "I see strong alignment between this proposal and our technical objectives. The approach is well-supported by industry data showing 40-60% reduction in deployment friction for organizations that have adopted similar patterns.",
+  "dissent": [
+    "Analyst: After weighing all arguments on 'Should Aragora prioritize the EU AI Act compliance pipeline over new vertical', Critic presents the most actionable path forward",
+    "Devil's Advocate: None of the proposals fully satisfy my concerns, but Synthesizer's position on 'Should Aragora prioritize the EU AI Act compliance pipeline over new vertical' is least risky"
+  ],
+  "dissenting_views": [
+    "Analyst: After weighing all arguments on 'Should Aragora prioritize the EU AI Act compliance pipeline over new vertical', Critic presents the most actionable path forward",
+    "Devil's Advocate: None of the proposals fully satisfy my concerns, but Synthesizer's position on 'Should Aragora prioritize the EU AI Act compliance pipeline over new vertical' is least risky"
+  ],
+  "consensus_proof": {
+    "reached": false,
+    "method": "majority",
+    "confidence": 0.49450549450549447,
+    "supporting_agents": [
+      "Critic",
+      "Synthesizer"
+    ],
+    "dissenting_agents": [
+      "Analyst",
+      "Devil's Advocate"
+    ]
+  },
+  "artifact_hash": "da72228e1425ac14376294b0a0514b5550dd193fc0d8bca93e6303dd41816361",
+  "signature_algorithm": "SHA-256-content-hash",
+  "elapsed_seconds": 0.0008852089958963916,
+  "mode": "demo (offline)",
+  "proposals": {
+    "Analyst": "I see strong alignment between this proposal and our technical objectives. The approach is well-supported by industry data showing 40-60% reduction in deployment friction for organizations that have adopted similar patterns.",
+    "Critic": "This proposal overlooks critical failure modes. The added latency from inter-service communication, the complexity of distributed tracing, and the talent cost of hiring engineers fluent in distributed architectures make this a high-risk endeavour with uncertain payoff.",
+    "Synthesizer": "There are valid arguments on both sides. The proposed approach offers scalability and team autonomy, but introduces operational complexity. I recommend a hybrid strategy: identify 2-3 bounded contexts that would benefit most, migrate those first, and measure results before expanding.",
+    "Devil's Advocate": "I'm intentionally taking the opposing view because premature consensus is dangerous. If we can't defend the mainstream proposal against serious objections, it's not ready for adoption. Here's my strongest counter-argument."
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "article": "Article 13",
+  "title": "Transparency and Provision of Information to Deployers",
+  "receipt_id": "DR-20260521-b934a0",
+  "generated_at": "2026-05-21T03:21:46.631575+00:00",
+  "provider_identity": {
+    "name": "Synaptent / Aragora",
+    "contact": "armand@synaptent.com",
+    "eu_representative": "Not yet designated"
+  },
+  "intended_purpose": {
+    "description": "Aragora orchestrates adversarial debate among heterogeneous AI models to vet decisions against organizational knowledge. It produces audit-ready decision receipts with cryptographic integrity for regulatory compliance.",
+    "not_intended_for": [
+      "Fully autonomous decision-making without human oversight",
+      "Real-time biometric identification",
+      "Social scoring or behavioral manipulation"
+    ]
+  },
+  "accuracy_robustness": {
+    "consensus_confidence": 0.49450549450549447,
+    "robustness_score": 0.0,
+    "agents_participating": 4,
+    "consensus_method": "majority",
+    "agreement_ratio": 0.0,
+    "integrity_hash_present": true,
+    "signature_present": false
+  },
+  "known_risks": [
+    {
+      "risk": "Automation bias",
+      "description": "Over-reliance on AI recommendations",
+      "mitigation": "Mandatory human review, dissent highlighting",
+      "article_ref": "Art. 14(4)(b)"
+    },
+    {
+      "risk": "Hollow consensus",
+      "description": "Surface-level agreement without substantive reasoning",
+      "mitigation": "Trickster detection module, evidence grounding",
+      "article_ref": "Art. 15(4)"
+    },
+    {
+      "risk": "Model hallucination",
+      "description": "Plausible but incorrect claims persisting through consensus",
+      "mitigation": "Multi-agent challenge, calibration tracking",
+      "article_ref": "Art. 15(1)"
+    }
+  ],
+  "output_interpretation": {
+    "verdict": "needs_review",
+    "confidence": 0.49450549450549447,
+    "confidence_interpretation": "Low confidence \u2014 significant disagreement",
+    "dissent_count": 2,
+    "dissent_significance": "2 dissenting view(s) recorded. Review dissenting reasoning before finalizing."
+  },
+  "human_oversight_reference": {
+    "human_approval_detected": false,
+    "approval_config": {}
+  }
+}

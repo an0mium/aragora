@@ -1,0 +1,72 @@
+{
+  "report_id": "EUAIA-ef5e216e",
+  "receipt_id": "DR-20260521-b934a0",
+  "generated_at": "2026-05-21T03:21:46.631602+00:00",
+  "risk_classification": {
+    "risk_level": "minimal",
+    "annex_iii_category": null,
+    "annex_iii_number": null,
+    "rationale": "Use case does not match high-risk or limited-risk categories. Minimal obligations apply.",
+    "matched_keywords": [],
+    "applicable_articles": [],
+    "obligations": [
+      "Voluntary adoption of codes of conduct encouraged (Article 95)."
+    ]
+  },
+  "article_mappings": [
+    {
+      "article": "Article 9",
+      "article_title": "Risk management system",
+      "requirement": "Identify and analyze known and reasonably foreseeable risks",
+      "receipt_field": "risk_summary, confidence",
+      "status": "partial",
+      "evidence": "Risk assessment performed: 0 risks identified (0 critical). Confidence: 49.5%.",
+      "recommendation": ""
+    },
+    {
+      "article": "Article 12",
+      "article_title": "Record-keeping",
+      "requirement": "Automatic logging of events with traceability",
+      "receipt_field": "provenance_chain",
+      "status": "not_satisfied",
+      "evidence": "Provenance chain contains 0 events.",
+      "recommendation": "Ensure all decision events are logged in the provenance chain."
+    },
+    {
+      "article": "Article 13",
+      "article_title": "Transparency and provision of information to deployers",
+      "requirement": "Identify participating agents, their arguments, and decision rationale",
+      "receipt_field": "consensus_proof, verdict_reasoning, dissenting_views",
+      "status": "partial",
+      "evidence": "4 agents participated. Verdict reasoning: . 2 dissenting view(s) recorded.",
+      "recommendation": "Include agent identities and reasoning in all receipts."
+    },
+    {
+      "article": "Article 14",
+      "article_title": "Human oversight",
+      "requirement": "Enable human oversight, including ability to override or halt",
+      "receipt_field": "config_used",
+      "status": "partial",
+      "evidence": "No explicit human oversight mechanism found in receipt.",
+      "recommendation": "Integrate human-in-the-loop approval before critical decisions are finalized."
+    },
+    {
+      "article": "Article 15",
+      "article_title": "Accuracy, robustness and cybersecurity",
+      "requirement": "Appropriate levels of accuracy and robustness; resilience to attacks",
+      "receipt_field": "robustness_score, artifact_hash, signature",
+      "status": "not_satisfied",
+      "evidence": "Robustness score: 0.0%. Integrity hash: present. Cryptographic signature: absent.",
+      "recommendation": "Improve robustness score and add cryptographic signing."
+    }
+  ],
+  "overall_status": "non_conformant",
+  "summary": "Conformity assessment for receipt DR-20260521-b934a0 against the EU AI Act. Risk level: minimal. 0/5 applicable article requirements satisfied.",
+  "recommendations": [
+    "Ensure all decision events are logged in the provenance chain.",
+    "Include agent identities and reasoning in all receipts.",
+    "Integrate human-in-the-loop approval before critical decisions are finalized.",
+    "Improve robustness score and add cryptographic signing."
+  ],
+  "integrity_hash": "85b346312565b0182c01f8941f341ace858a3d01e5ed0293df59dd09faf39de6"
+}
