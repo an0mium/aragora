@@ -370,11 +370,45 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Emit JSON to stdout instead of the 1-line summary"
     )
     parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help=(
+            "Print compact JSON for automation startup logs. Only applies with "
+            "--json; the full text summary is already compact."
+        ),
+    )
+    parser.add_argument(
         "--exit-nonzero-on-degraded",
         action="store_true",
         help="Exit 1 when verdict is degraded (useful in CI/launchd post-flight)",
     )
     return parser
+
+
+def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return compact publisher freshness state for startup probes."""
+
+    keep_keys = (
+        "generated_at",
+        "verdict",
+        "summary",
+        "blockers",
+        "launchd_loaded",
+        "launchd_detail",
+        "launchd_last_exit_code",
+        "cache_present",
+        "cache_age_human",
+        "cache_stale",
+        "cache_stale_threshold_seconds",
+        "outbox_real_count",
+        "outbox_cache_count",
+        "outbox_drift",
+        "drift_detail",
+    )
+    compact = {key: payload[key] for key in keep_keys if key in payload}
+    compact["details_omitted"] = True
+    compact["paths_omitted"] = any(key in payload for key in ("cache_path", "outbox_dir"))
+    return compact
 
 
 def _resolve_explicit_path(repo_root: Path, value: str | None) -> Path | None:
@@ -404,7 +438,8 @@ def main(argv: list[str] | None = None) -> int:
             "generated_at": datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z"),
             **asdict(report),
         }
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        output_payload = summary_only_payload(payload) if args.summary_only else payload
+        print(json.dumps(output_payload, indent=2, sort_keys=True))
     else:
         print(report.summary)
         if report.blockers and not args.json:

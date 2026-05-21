@@ -232,6 +232,38 @@ def test_main_json_output_includes_full_report(
     assert parsed["launchd_loaded"] is True
 
 
+def test_main_summary_only_json_omits_paths(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _write_cache(stub_repo, outbox_count=2)
+    _write_outbox_files(stub_repo, 2)
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(stub_repo),
+            "--outbox-dir",
+            str(stub_repo / ".aragora" / "automation-outbox"),
+            "--receipt-dir",
+            str(stub_repo / ".aragora" / "automation-receipts"),
+            "--json",
+            "--summary-only",
+        ]
+    )
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["verdict"] == "ready"
+    assert parsed["outbox_real_count"] == 2
+    assert parsed["details_omitted"] is True
+    assert parsed["paths_omitted"] is True
+    assert "cache_path" not in parsed
+    assert "outbox_dir" not in parsed
+    assert "cache_age_seconds" not in parsed
+
+
 def test_check_publisher_freshness_wrapper_executes_primary_script(stub_repo: Path) -> None:
     result = subprocess.run(
         [sys.executable, str(WRAPPER_SCRIPT_PATH), "--repo", str(stub_repo), "--json"],
