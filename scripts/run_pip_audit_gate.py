@@ -66,6 +66,7 @@ def export_requirements(output_path: Path) -> None:
             str(output_path),
         ],
         cwd=PROJECT_ROOT,
+        stdout=subprocess.DEVNULL,
         check=True,
     )
 
