@@ -508,6 +508,37 @@ def _sync_lane_records(records: list[LaneRecord], sessions: list[Session]) -> li
     return records
 
 
+def _conflict_lane_resolved_by_completed_owner(
+    record: LaneRecord, records: list[LaneRecord]
+) -> bool:
+    if record.status not in CONFLICT_LANE_STATUSES or not record.conflict_session:
+        return False
+    conflict_updated_at = _parse_timestamp(record.updated_at)
+    if conflict_updated_at is None:
+        return False
+    for candidate in records:
+        if candidate.owner_session != record.conflict_session:
+            continue
+        if candidate.status not in COMPLETED_LANE_STATUSES:
+            continue
+        candidate_updated_at = _parse_timestamp(candidate.updated_at)
+        if candidate_updated_at is not None and candidate_updated_at >= conflict_updated_at:
+            return True
+    return False
+
+
+def _filter_current_lane_records(records: list[LaneRecord]) -> list[LaneRecord]:
+    return [
+        record
+        for record in records
+        if record.status in ACTIVE_LANE_STATUSES
+        or (
+            record.status in CONFLICT_LANE_STATUSES
+            and not _conflict_lane_resolved_by_completed_owner(record, records)
+        )
+    ]
+
+
 def _head_for_worktree(path: str | Path | None) -> str | None:
     if not path:
         return None
@@ -1777,6 +1808,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         _enrich_prs(discovered_sessions)
         _write_session_snapshot(discovered_sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
+    if not include_historical:
+        records = _filter_current_lane_records(records)
 
     issues = _collect_health_issues(sessions, records)
     lane_conflicts = _active_lane_identity_conflicts(records)
