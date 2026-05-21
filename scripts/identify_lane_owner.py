@@ -70,9 +70,19 @@ FACTORY_BG_PROCESSES_DEFAULT = Path.home() / ".factory" / "background-processes.
 
 # Fuzzy codex rollout search window (seconds).
 CODEX_FUZZY_MAX_AGE_SECONDS = 4 * 60 * 60
-ACTIVE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+ACTIVE_STATUSES = {
+    "active",
+    "running",
+    "pending",
+    "queued",
+    "claimed",
+    "waiting_for_steering",
+    "acknowledged",
+    "working",
+    "blocked",
+}
 CONFLICT_STATUSES = {"conflict", "conflicting"}
-COMPLETED_STATUSES = {"completed", "released"}
+COMPLETED_STATUSES = {"completed", "released", "superseded"}
 
 # Subprocess timeout for ``agent_bridge operator-snapshot``.
 SNAPSHOT_TIMEOUT_SECONDS = 30
@@ -113,6 +123,8 @@ class LaneOwnerInfo:
     last_mailbox_check_at: str | None
     last_delivery_at: str | None
     last_ack_at: str | None
+    last_heartbeat_at: str | None
+    last_steering_outcome: str | None
     live_process: dict[str, Any]
     codex_thread: dict[str, Any]
     claude_session: dict[str, Any]
@@ -885,6 +897,8 @@ def build_owner_info(
         last_mailbox_check_at=lane.get("last_mailbox_check_at"),
         last_delivery_at=lane.get("last_delivery_at"),
         last_ack_at=lane.get("last_ack_at"),
+        last_heartbeat_at=lane.get("last_heartbeat_at"),
+        last_steering_outcome=lane.get("last_steering_outcome"),
         live_process=live,
         codex_thread=codex,
         claude_session=claude,
@@ -939,6 +953,8 @@ def _print_human(info: LaneOwnerInfo) -> None:
     print(f"  last_mailbox_check: {info.last_mailbox_check_at or '-'}")
     print(f"  last_delivery_at:   {info.last_delivery_at or '-'}")
     print(f"  last_ack_at:        {info.last_ack_at or '-'}")
+    print(f"  last_heartbeat_at:  {info.last_heartbeat_at or '-'}")
+    print(f"  last_steering_outcome: {info.last_steering_outcome or '-'}")
     print()
     print("best-effort live lookups:")
     print(f"  live_process:   {_glyph(info.live_process.get('found', False))}  {info.live_process}")

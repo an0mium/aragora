@@ -30,7 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 STEERING_INBOX_ROOT_DEFAULT = REPO_ROOT / ".aragora" / "operator-steering"
 LANE_REGISTRY_DEFAULT = REPO_ROOT / ".aragora" / "agent-bridge" / "lanes.json"
 READ_RECEIPT_SCHEMA_VERSION = "aragora-operator-steering-read-receipt/1.0"
-OUTCOME_CHOICES = ("read", "obeyed", "held", "stale", "superseded", "blocked")
+OUTCOME_CHOICES = ("read", "obeyed", "held", "stale", "superseded", "blocked", "completed")
 
 
 def _now_utc_iso() -> str:

@@ -65,9 +65,19 @@ if agent_bridge_sessions is not None:
         CANONICAL_REPO_ROOT = agent_bridge_sessions.resolve_canonical_repo_root(REPO_ROOT)
     except (OSError, RuntimeError, ValueError):
         CANONICAL_REPO_ROOT = REPO_ROOT
-ACTIVE_LANE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
 CONFLICT_LANE_STATUSES = {"conflict"}
-COMPLETED_LANE_STATUSES = {"completed", "released"}
+ACTIVE_LANE_STATUSES = {
+    "active",
+    "running",
+    "pending",
+    "queued",
+    "claimed",
+    "waiting_for_steering",
+    "acknowledged",
+    "working",
+    "blocked",
+}
+COMPLETED_LANE_STATUSES = {"completed", "released", "superseded"}
 CURRENT_SESSION_LIFECYCLES = {"live", "active_broker"}
 HISTORICAL_SESSION_LIFECYCLES = {"historical", "dead", "stale", "orphaned"}
 DEFAULT_STALE_TTL_HOURS = 24
@@ -188,6 +198,8 @@ class LaneRecord:
     last_mailbox_check_at: str = ""
     last_delivery_at: str = ""
     last_ack_at: str = ""
+    last_heartbeat_at: str = ""
+    last_steering_outcome: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v not in ("", None)}
@@ -218,6 +230,8 @@ class LaneRecord:
             last_mailbox_check_at=str(payload.get("last_mailbox_check_at", "")),
             last_delivery_at=str(payload.get("last_delivery_at", "")),
             last_ack_at=str(payload.get("last_ack_at", "")),
+            last_heartbeat_at=str(payload.get("last_heartbeat_at", "")),
+            last_steering_outcome=str(payload.get("last_steering_outcome", "")),
         )
 
 
