@@ -321,6 +321,41 @@ def _target_pr_state(
     return payload if isinstance(payload, Mapping) else None
 
 
+def _merged_target_pr_receipt_resolution(
+    root: Path,
+    repo_name: str,
+    payload: dict[str, Any],
+    receipt: Mapping[str, Any],
+) -> tuple[bool, str | None]:
+    """Resolve target-PR receipts whose referenced PR is already merged.
+
+    Returns (handled, keep_reason). When handled is True and keep_reason is None,
+    the receipt satisfies the handoff without needing any branch ref checks.
+    """
+
+    status = str(receipt.get("status") or "").strip().lower()
+    reason = str(receipt.get("reason") or "").strip().lower()
+    if status != "already_satisfied" or reason != "target_open_pr":
+        return False, None
+
+    desired_head = _desired_head_from_payload(payload)
+    if not desired_head:
+        return False, None
+
+    target_pr_state = _target_pr_state(root, repo_name, receipt)
+    if str((target_pr_state or {}).get("state") or "").strip().upper() != "MERGED":
+        return False, None
+
+    target_pr_head = str((target_pr_state or {}).get("headRefOid") or "").strip()
+    target_pr_number = str((target_pr_state or {}).get("number") or "").strip()
+    if _heads_match(desired_head, target_pr_head):
+        return True, None
+    return True, (
+        f"target_open_pr receipt points to merged PR #{target_pr_number} at "
+        f"{target_pr_head[:12] or 'unknown'}, not desired head {desired_head[:12]}"
+    )
+
+
 def _receipt_has_issue_reference(receipt: Mapping[str, Any]) -> bool:
     for key in (
         "created_issue_url",
@@ -387,16 +422,9 @@ def _receipt_handoff_keep_reason(
     if not desired_head:
         return None
 
-    target_pr_state = _target_pr_state(root, repo_name, receipt)
-    if str((target_pr_state or {}).get("state") or "").strip().upper() == "MERGED":
-        target_pr_head = str((target_pr_state or {}).get("headRefOid") or "").strip()
-        target_pr_number = str((target_pr_state or {}).get("number") or "").strip()
-        if _heads_match(desired_head, target_pr_head):
-            return None
-        return (
-            f"target_open_pr receipt points to merged PR #{target_pr_number} at "
-            f"{target_pr_head[:12] or 'unknown'}, not desired head {desired_head[:12]}"
-        )
+    handled, keep_reason = _merged_target_pr_receipt_resolution(root, repo_name, payload, receipt)
+    if handled:
+        return keep_reason
 
     remote_ref = f"refs/remotes/origin/{branch}"
     remote_head = _git_ref_head(root, remote_ref)
@@ -747,6 +775,50 @@ def main(argv: list[str] | None = None) -> int:
                         "synthetic_receipt": False,
                     }
                 )
+                continue
+            target_pr_handled, target_pr_keep_reason = _merged_target_pr_receipt_resolution(
+                root, args.repo_name, payload, receipt
+            )
+            if target_pr_handled:
+                if target_pr_keep_reason is not None:
+                    counts["blocked_receipt_pr_head_mismatch"] += 1
+                    counts["still_protecting_active_work"] += 1
+                    actions.append(
+                        {
+                            "path": str(path),
+                            "branch": branch,
+                            "decision": "keep",
+                            "reason": target_pr_keep_reason,
+                            "synthetic_receipt": False,
+                        }
+                    )
+                    continue
+                counts["satisfied_by_existing_receipt"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "archive",
+                        "reason": "matching receipt exists",
+                        "synthetic_receipt": False,
+                    }
+                )
+                if args.apply:
+                    shutil.move(str(path), str(archive_dir / path.name))
+                continue
+            if _branch_has_landed_on_main(root, args.base, branch):
+                counts["satisfied_by_landed_on_main"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "archive",
+                        "reason": "branch work landed on main (merge or patch-equivalent)",
+                        "synthetic_receipt": False,
+                    }
+                )
+                if args.apply:
+                    shutil.move(str(path), str(archive_dir / path.name))
                 continue
             keep_reason = _receipt_handoff_keep_reason(
                 root, args.repo_name, payload, receipt, branch

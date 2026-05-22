@@ -644,6 +644,15 @@ def test_reconcile_keeps_target_pr_receipt_when_desired_head_not_published(
             return subprocess.CompletedProcess(args=args, returncode=0, stdout=stale_remote_head)
         if args == ["rev-parse", "--verify", "codex/target-pr-refresh"]:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout=desired_head)
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"+ {desired_head}\n",
+                stderr="",
+            )
         raise AssertionError(f"unexpected git call: {args}")
 
     monkeypatch.setattr(mod, "run_git", fake_run_git)
@@ -958,6 +967,81 @@ def test_landed_branch_archives_without_github_lookup(
     reports = sorted((tmp_path / ".aragora" / "cleanup-state").glob("*.json"))
     payload = json.loads(reports[-1].read_text(encoding="utf-8"))
     assert payload["counts"]["satisfied_by_landed_on_main"] == 1
+    assert payload["counts"]["still_protecting_active_work"] == 0
+    assert payload["actions"][0]["decision"] == "archive"
+    assert (
+        payload["actions"][0]["reason"] == "branch work landed on main (merge or patch-equivalent)"
+    )
+
+
+def test_patch_equivalent_target_pr_receipt_archives_before_remote_check(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-patch-equivalent-target-pr-abc123"
+    _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/landed-patch",
+        key=key,
+        local_evidence={"desired_head_sha": "abc1234"},
+    )
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "reason": "target_open_pr",
+                "status": "already_satisfied",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", "refs/remotes/origin/codex/landed-patch"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args == ["rev-parse", "--verify", "codex/landed-patch"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout="abc1234567890\n",
+                stderr="",
+            )
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="- abc1234\n")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: (_ for _ in ()).throw(
+            AssertionError("GitHub should not be queried for patch-equivalent work")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("open PR fetch should not run for patch-equivalent work")
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--write-report"]) == 0
+
+    reports = sorted((tmp_path / ".aragora" / "cleanup-state").glob("*.json"))
+    payload = json.loads(reports[-1].read_text(encoding="utf-8"))
+    assert payload["counts"]["satisfied_by_landed_on_main"] == 1
+    assert payload["counts"]["blocked_receipt_pr_head_mismatch"] == 0
     assert payload["counts"]["still_protecting_active_work"] == 0
     assert payload["actions"][0]["decision"] == "archive"
     assert (
