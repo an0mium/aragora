@@ -93,6 +93,19 @@ DEFAULT_STALE_TTL_HOURS = 24
 HEARTBEAT_FRESH_SECONDS = 15 * 60
 DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
 DEFAULT_STEERING_OUTCOME = "unknown"
+DEFAULT_ACTIVE_LANE_EXAMPLE_LIMIT = 3
+ACTIVE_LANE_EXAMPLE_FIELDS = (
+    "lane_id",
+    "owner_session",
+    "status",
+    "updated_at",
+    "branch",
+    "worktree",
+    "pr_number",
+    "next_action",
+    "last_heartbeat_at",
+    "last_steering_outcome",
+)
 
 
 def _state_root_bridge_dir() -> Path:
@@ -2150,6 +2163,19 @@ def _collect_b0_success_rate(repo_root: Path | None = None) -> float | None:
     return _coerce_success_rate(payload.get("no_rescue_success_rate", payload.get("success_rate")))
 
 
+def _compact_active_lane_examples(
+    records: list[LaneRecord], *, limit: int = DEFAULT_ACTIVE_LANE_EXAMPLE_LIMIT
+) -> tuple[list[dict[str, Any]], int]:
+    active_records = [record for record in records if record.status in ACTIVE_LANE_STATUSES]
+    examples: list[dict[str, Any]] = []
+    for record in active_records[: max(0, limit)]:
+        payload = record.to_dict()
+        examples.append(
+            {field: payload[field] for field in ACTIVE_LANE_EXAMPLE_FIELDS if field in payload}
+        )
+    return examples, max(len(active_records) - len(examples), 0)
+
+
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
@@ -2230,9 +2256,13 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "summary": summary,
     }
     if summary_only:
+        active_lane_examples, active_lane_examples_omitted = _compact_active_lane_examples(records)
         snapshot.pop("sessions")
         snapshot.pop("lanes")
         snapshot.pop("broker_runs")
+        snapshot["active_lane_examples"] = active_lane_examples
+        snapshot["active_lane_examples_limit"] = DEFAULT_ACTIVE_LANE_EXAMPLE_LIMIT
+        snapshot["active_lane_examples_omitted"] = active_lane_examples_omitted
         snapshot["records_omitted"] = True
 
     if args.json:
