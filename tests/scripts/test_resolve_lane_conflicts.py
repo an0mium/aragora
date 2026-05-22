@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ def _load_module(script_name: str) -> Any:
 
 
 resolver = _load_module("resolve_lane_conflicts.py")
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "resolve_lane_conflicts.py"
 
 
 def test_detects_completed_owner_conflict_without_mutating(tmp_path: Path) -> None:
@@ -91,3 +93,55 @@ def test_apply_marks_conflict_superseded_and_writes_receipt(tmp_path: Path) -> N
     assert receipt["schema_version"] == "aragora-lane-conflict-resolution/1.0"
     assert receipt["lane_id"] == "P104-ssd-cleanup-continuation"
     assert receipt["new_status"] == "superseded"
+
+
+def test_concurrent_apply_preserves_registry_json(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    receipt_dir = tmp_path / "receipts"
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": f"conflict-{idx:02d}",
+                    "owner_session": f"codex-conflict-{idx:02d}",
+                    "status": "conflict",
+                    "conflict_session": f"codex-done-{idx:02d}",
+                }
+                for idx in range(8)
+            ]
+            + [
+                {
+                    "lane_id": f"done-{idx:02d}",
+                    "owner_session": f"codex-done-{idx:02d}",
+                    "status": "completed",
+                }
+                for idx in range(8)
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    procs = [
+        subprocess.Popen(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--apply",
+                "--registry-path",
+                str(registry),
+                "--receipt-dir",
+                str(receipt_dir),
+                "--json",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        for _idx in range(4)
+    ]
+    results = [proc.communicate(timeout=30) + (proc.returncode,) for proc in procs]
+
+    assert all(returncode == 0 for _stdout, _stderr, returncode in results), results
+    payload = json.loads(registry.read_text(encoding="utf-8"))
+    by_lane = {row["lane_id"]: row for row in payload}
+    assert all(by_lane[f"conflict-{idx:02d}"]["status"] == "superseded" for idx in range(8))

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,7 @@ def _load_module(script_name: str) -> Any:
 
 
 heartbeat = _load_module("agent_heartbeat.py")
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "agent_heartbeat.py"
 
 
 def test_heartbeat_upserts_owner_identity(tmp_path: Path) -> None:
@@ -56,3 +58,33 @@ def test_heartbeat_rejects_path_traversal_owner(tmp_path: Path) -> None:
             lane_id="P106",
             owner_session="../escape",
         )
+
+
+def test_concurrent_heartbeat_writes_preserve_all_rows(tmp_path: Path) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    procs = [
+        subprocess.Popen(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "--heartbeat-path",
+                str(heartbeat_path),
+                "--lane-id",
+                f"lane-{idx:02d}",
+                "--owner-session",
+                f"owner-{idx:02d}",
+                "--last-seen-at",
+                "2026-05-22T00:00:00Z",
+                "--json",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        for idx in range(12)
+    ]
+    results = [proc.communicate(timeout=30) + (proc.returncode,) for proc in procs]
+
+    assert all(returncode == 0 for _stdout, _stderr, returncode in results), results
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert sorted(row["lane_id"] for row in payload) == [f"lane-{idx:02d}" for idx in range(12)]

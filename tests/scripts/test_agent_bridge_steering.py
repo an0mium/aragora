@@ -251,6 +251,49 @@ class TestCollectPendingSteeringMessages:
         assert result["latest_three"][0]["subject"] == "(unreadable)"
 
 
+class TestCollectAgentHeartbeats:
+    def test_collect_agent_heartbeats_summarizes_fresh_and_stale(self, tmp_path: Path) -> None:
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "schema_version": "aragora-agent-heartbeat/1.0",
+                        "lane_id": "fresh-lane",
+                        "owner_session": "codex-fresh",
+                        "pid": 111,
+                        "cwd": "/tmp/fresh",
+                        "worktree": "/tmp/fresh",
+                        "branch": "codex/fresh",
+                        "pr_number": 7425,
+                        "last_seen_at": "2026-05-22T00:10:00Z",
+                    },
+                    {
+                        "schema_version": "aragora-agent-heartbeat/1.0",
+                        "lane_id": "stale-lane",
+                        "owner_session": "codex-stale",
+                        "pid": 222,
+                        "last_seen_at": "2026-05-22T00:00:00Z",
+                    },
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        result = ab._collect_agent_heartbeats(
+            heartbeat_path=heartbeat_path,
+            now="2026-05-22T00:20:00Z",
+        )
+
+        assert result["count"] == 2
+        assert result["fresh_count"] == 1
+        assert result["stale_count"] == 1
+        assert result["latest_by_owner"]["codex-fresh"]["fresh"] is True
+        assert result["latest_by_owner"]["codex-fresh"]["age_seconds"] == 600
+        assert result["latest_by_owner"]["codex-fresh"]["cwd"] == "/tmp/fresh"
+        assert result["latest_by_owner"]["codex-stale"]["fresh"] is False
+
+
 # ---------------------------------------------------------------------------
 # CLI integration — pending field appears in operator-snapshot --json output
 # ---------------------------------------------------------------------------

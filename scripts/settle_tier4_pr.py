@@ -57,6 +57,7 @@ def evaluate_tier4_gate(
     expected_head: str,
     pr_view: dict[str, Any],
     merge_packet: dict[str, Any],
+    required_checks: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     actual_head = str(pr_view.get("headRefOid") or "")
@@ -69,6 +70,11 @@ def evaluate_tier4_gate(
     merge_state = str(pr_view.get("mergeStateStatus") or "")
     if merge_state in {"DIRTY", "CONFLICTING"}:
         blockers.append(f"PR #{pr} is {merge_state}")
+    for check in required_checks or []:
+        name = str(check.get("name") or check.get("workflow") or "required check")
+        state = str(check.get("state") or check.get("conclusion") or "UNKNOWN").upper()
+        if state not in {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}:
+            blockers.append(f"required check {name} is {state}")
     not_ready = merge_packet.get("not_ready")
     if isinstance(not_ready, list):
         unexpected = sorted({str(item) for item in not_ready} - ALLOWED_TIER4_NOT_READY)
@@ -100,7 +106,19 @@ def _run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
     return payload
 
 
-def _load_live_inputs(pr: int, *, cwd: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"{' '.join(command)} did not emit JSON") from exc
+
+
+def _load_live_inputs(
+    pr: int, *, cwd: Path
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     pr_view = _run_json(
         [
             "gh",
@@ -125,7 +143,24 @@ def _load_live_inputs(pr: int, *, cwd: Path) -> tuple[dict[str, Any], dict[str, 
         ],
         cwd=cwd,
     )
-    return pr_view, merge_packet
+    checks_raw = _run_json_any(
+        [
+            "gh",
+            "pr",
+            "checks",
+            str(pr),
+            "--required",
+            "--json",
+            "name,state,bucket,workflow,link",
+        ],
+        cwd=cwd,
+    )
+    required_checks = (
+        [check for check in checks_raw if isinstance(check, dict)]
+        if isinstance(checks_raw, list)
+        else []
+    )
+    return pr_view, merge_packet, required_checks
 
 
 def _required_status_check_patch(*, repo: str, cwd: Path) -> tuple[list[str], str]:
@@ -221,12 +256,13 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        pr_view, merge_packet = _load_live_inputs(args.pr, cwd=args.cwd)
+        pr_view, merge_packet, required_checks = _load_live_inputs(args.pr, cwd=args.cwd)
         gate = evaluate_tier4_gate(
             pr=args.pr,
             expected_head=args.head,
             pr_view=pr_view,
             merge_packet=merge_packet,
+            required_checks=required_checks,
         )
         applied_commands: list[list[str]] = []
         if args.apply:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -71,3 +72,110 @@ def test_prompt_for_non_owner_read_only_when_no_lane_match(tmp_path: Path) -> No
 
     assert "If you cannot map yourself to a lane, run read-only only" in prompt
     assert "Do not paste raw transcripts" in prompt
+
+
+def test_decision_packet_redacts_transcript_fields_and_captures_pr_truth(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+
+    def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+        joined = " ".join(command)
+        if command[:2] == ["git", "status"]:
+            return subprocess.CompletedProcess(
+                command, 0, "## main...origin/main\n M dirty.py\n", ""
+            )
+        if "operator-snapshot" in joined:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                json.dumps({"health": {"ok": True}, "process_census": {"records": []}}),
+                "",
+            )
+        if "list_active_agent_sessions.py" in joined:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                json.dumps(
+                    {
+                        "sessions": [
+                            {
+                                "id": "codex-secret",
+                                "transcript_path": "/secret/transcript.jsonl",
+                                "prompt": "raw prompt text",
+                            }
+                        ]
+                    }
+                ),
+                "",
+            )
+        if command[:3] == ["gh", "pr", "view"]:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                json.dumps(
+                    {
+                        "number": 7425,
+                        "headRefOid": "91172e10a3",
+                        "state": "OPEN",
+                        "isDraft": True,
+                        "mergeStateStatus": "CLEAN",
+                    }
+                ),
+                "",
+            )
+        if command[:3] == ["gh", "pr", "checks"]:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                json.dumps([{"name": "lint", "state": "SUCCESS"}]),
+                "",
+            )
+        if "merge-packet" in joined:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                json.dumps({"admin_squash_allowed": False, "not_ready": [7425]}),
+                "",
+            )
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7425,
+        command_runner=fake_runner,
+    )
+
+    assert packet["root"]["dirty"] is True
+    assert packet["pr"]["headRefOid"] == "91172e10a3"
+    assert packet["checks"]["required"][0]["name"] == "lint"
+    assert packet["merge_packet"]["not_ready"] == [7425]
+    serialized = json.dumps(packet)
+    assert "transcript_path" not in serialized
+    assert "raw prompt text" not in serialized
+    assert "/secret/transcript.jsonl" not in serialized
+
+
+def test_decision_packet_reports_active_owner_blocker(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q50-harden-7425-control-plane",
+                    "owner_session": "codex-owner",
+                    "status": "working",
+                    "pr_number": 7425,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7425,
+        command_runner=lambda command: subprocess.CompletedProcess(command, 0, "{}", ""),
+    )
+
+    assert packet["owner"]["owner_session"] == "codex-owner"
+    assert "active owner exists for target" in packet["blockers"]

@@ -56,6 +56,7 @@ except ModuleNotFoundError:
 AGENT_BRIDGE_DIR = Path.home() / ".aragora" / "agent-bridge"
 SESSION_SNAPSHOT_FILE = AGENT_BRIDGE_DIR / "sessions.json"
 LANE_REGISTRY_FILE = AGENT_BRIDGE_DIR / "lanes.json"
+HEARTBEATS_FILE = AGENT_BRIDGE_DIR / "heartbeats.json"
 TMUX_SESSIONS_DIR = Path.home() / ".aragora" / "tmux-sessions"
 TMUX_SESSION = "aragora"
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -81,6 +82,7 @@ COMPLETED_LANE_STATUSES = {"completed", "released", "superseded"}
 CURRENT_SESSION_LIFECYCLES = {"live", "active_broker"}
 HISTORICAL_SESSION_LIFECYCLES = {"historical", "dead", "stale", "orphaned"}
 DEFAULT_STALE_TTL_HOURS = 24
+HEARTBEAT_FRESH_SECONDS = 15 * 60
 
 
 def _state_root_bridge_dir() -> Path:
@@ -1774,6 +1776,88 @@ def _collect_pending_steering_messages(
     }
 
 
+def _parse_heartbeat_timestamp(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _heartbeat_summary(
+    row: dict[str, Any],
+    *,
+    now_dt: datetime,
+    freshness_seconds: int,
+) -> dict[str, Any]:
+    seen = _parse_heartbeat_timestamp(row.get("last_seen_at"))
+    age_seconds: int | None = None
+    fresh = False
+    if seen is not None:
+        age_seconds = max(0, int((now_dt - seen).total_seconds()))
+        fresh = age_seconds <= freshness_seconds
+    return {
+        "lane_id": row.get("lane_id"),
+        "owner_session": row.get("owner_session"),
+        "thread_id": row.get("thread_id"),
+        "pid": row.get("pid"),
+        "cwd": row.get("cwd"),
+        "worktree": row.get("worktree"),
+        "branch": row.get("branch"),
+        "pr_number": row.get("pr_number"),
+        "last_seen_at": row.get("last_seen_at"),
+        "age_seconds": age_seconds,
+        "fresh": fresh,
+    }
+
+
+def _collect_agent_heartbeats(
+    heartbeat_path: Path | None = None,
+    *,
+    now: str | None = None,
+    freshness_seconds: int = HEARTBEAT_FRESH_SECONDS,
+) -> dict[str, Any]:
+    """Summarize harness heartbeat rows without exposing transcripts."""
+
+    path = heartbeat_path or _bridge_file_for_read(HEARTBEATS_FILE)
+    if not path.exists():
+        return {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}}
+    rows = [row for row in raw if isinstance(row, dict)] if isinstance(raw, list) else []
+    now_dt = _parse_heartbeat_timestamp(now) if now else datetime.now(UTC)
+    if now_dt is None:
+        now_dt = datetime.now(UTC)
+    summaries = [
+        _heartbeat_summary(row, now_dt=now_dt, freshness_seconds=freshness_seconds) for row in rows
+    ]
+    latest_by_owner: dict[str, dict[str, Any]] = {}
+    for summary in summaries:
+        owner = str(summary.get("owner_session") or "")
+        if not owner:
+            continue
+        existing = latest_by_owner.get(owner)
+        if existing is None or str(summary.get("last_seen_at") or "") > str(
+            existing.get("last_seen_at") or ""
+        ):
+            latest_by_owner[owner] = summary
+    return {
+        "count": len(summaries),
+        "fresh_count": sum(1 for summary in summaries if summary.get("fresh") is True),
+        "stale_count": sum(1 for summary in summaries if summary.get("fresh") is False),
+        "latest_by_owner": latest_by_owner,
+    }
+
+
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
@@ -1813,6 +1897,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "ARAGORA_SESSION_ID"
     )
     pending_steering = _collect_pending_steering_messages(steering_recipient)
+    agent_heartbeats = _collect_agent_heartbeats()
 
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
@@ -1823,6 +1908,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "process_census": process_census,
         "health": {"ok": len(issues) == 0, "issues": issues},
         "pending_steering_messages": pending_steering,
+        "agent_heartbeats": agent_heartbeats,
         "summary": {
             "total_sessions": len(sessions),
             "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
@@ -1840,6 +1926,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
             "health_issues": len(issues),
             "active_processes": int(process_census.get("total", 0)),
             "active_process_roles": sorted(process_census.get("by_role", {}).keys()),
+            "agent_heartbeats": int(agent_heartbeats.get("count", 0)),
+            "fresh_agent_heartbeats": int(agent_heartbeats.get("fresh_count", 0)),
         },
     }
     if summary_only:

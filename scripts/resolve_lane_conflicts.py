@@ -15,9 +15,17 @@ import os
 import secrets
 import sys
 import tempfile
+from collections.abc import Iterator
 from collections.abc import Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+
+_fcntl: Any
+try:
+    import fcntl as _fcntl
+except ImportError:
+    _fcntl = None
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
@@ -67,6 +75,22 @@ def _atomic_write(path: Path, rows: list[dict[str, Any]]) -> None:
         raise
 
 
+@contextmanager
+def _registry_write_lock(path: Path) -> Iterator[None]:
+    """Serialize conflict-resolution registry writes."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    with lock_path.open("a+", encoding="utf-8") as handle:
+        if _fcntl is not None:
+            _fcntl.flock(handle.fileno(), _fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if _fcntl is not None:
+                _fcntl.flock(handle.fileno(), _fcntl.LOCK_UN)
+
+
 def _owner_is_inactive(rows: list[dict[str, Any]], owner_session: str) -> bool:
     owner_rows = [row for row in rows if str(row.get("owner_session") or "") == owner_session]
     if not owner_rows:
@@ -74,8 +98,7 @@ def _owner_is_inactive(rows: list[dict[str, Any]], owner_session: str) -> bool:
     return all(str(row.get("status") or "") in INACTIVE_OWNER_STATUSES for row in owner_rows)
 
 
-def find_resolvable_conflicts(registry_path: Path) -> list[dict[str, Any]]:
-    rows = _read_rows(registry_path)
+def _find_resolvable_conflicts_from_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for row in rows:
         if str(row.get("status") or "") != "conflict":
@@ -96,6 +119,10 @@ def find_resolvable_conflicts(registry_path: Path) -> list[dict[str, Any]]:
                 }
             )
     return candidates
+
+
+def find_resolvable_conflicts(registry_path: Path) -> list[dict[str, Any]]:
+    return _find_resolvable_conflicts_from_rows(_read_rows(registry_path))
 
 
 def _write_receipt(
@@ -126,33 +153,39 @@ def resolve_conflicts(
     apply: bool = False,
     resolved_at: str | None = None,
 ) -> dict[str, Any]:
-    rows = _read_rows(registry_path)
     resolved_at = resolved_at or _utc_now_iso()
-    candidates = find_resolvable_conflicts(registry_path)
     receipt_paths: list[str] = []
-    if apply and candidates:
-        candidate_ids = {str(candidate["lane_id"]) for candidate in candidates}
-        out_rows: list[dict[str, Any]] = []
-        for row in rows:
-            row = dict(row)
-            if str(row.get("lane_id") or "") in candidate_ids and row.get("status") == "conflict":
-                row["status"] = "superseded"
-                row["updated_at"] = resolved_at
-                row["last_steering_outcome"] = "superseded"
-                receipt = {
-                    "schema_version": RECEIPT_SCHEMA_VERSION,
-                    "lane_id": row.get("lane_id"),
-                    "owner_session": row.get("owner_session"),
-                    "conflict_session": row.get("conflict_session"),
-                    "conflict_reason": row.get("conflict_reason"),
-                    "old_status": "conflict",
-                    "new_status": "superseded",
-                    "resolved_at_utc": resolved_at,
-                    "resolution": "conflict_session_has_only_inactive_rows",
-                }
-                receipt_paths.append(str(_write_receipt(receipt_dir=receipt_dir, receipt=receipt)))
-            out_rows.append(row)
-        _atomic_write(registry_path, out_rows)
+    with _registry_write_lock(registry_path):
+        rows = _read_rows(registry_path)
+        candidates = _find_resolvable_conflicts_from_rows(rows)
+        if apply and candidates:
+            candidate_ids = {str(candidate["lane_id"]) for candidate in candidates}
+            out_rows: list[dict[str, Any]] = []
+            for row in rows:
+                row = dict(row)
+                if (
+                    str(row.get("lane_id") or "") in candidate_ids
+                    and row.get("status") == "conflict"
+                ):
+                    row["status"] = "superseded"
+                    row["updated_at"] = resolved_at
+                    row["last_steering_outcome"] = "superseded"
+                    receipt = {
+                        "schema_version": RECEIPT_SCHEMA_VERSION,
+                        "lane_id": row.get("lane_id"),
+                        "owner_session": row.get("owner_session"),
+                        "conflict_session": row.get("conflict_session"),
+                        "conflict_reason": row.get("conflict_reason"),
+                        "old_status": "conflict",
+                        "new_status": "superseded",
+                        "resolved_at_utc": resolved_at,
+                        "resolution": "conflict_session_has_only_inactive_rows",
+                    }
+                    receipt_paths.append(
+                        str(_write_receipt(receipt_dir=receipt_dir, receipt=receipt))
+                    )
+                out_rows.append(row)
+            _atomic_write(registry_path, out_rows)
 
     return {
         "registry_path": str(registry_path),

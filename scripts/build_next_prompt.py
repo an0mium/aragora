@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
+from collections.abc import Callable
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,16 @@ ACTIVE_STATUSES = {
     "working",
     "blocked",
 }
+SENSITIVE_KEYS = {
+    "body",
+    "messages",
+    "prompt",
+    "raw_prompt",
+    "raw_transcript",
+    "transcript_file",
+    "transcript_path",
+}
+CommandRunner = Callable[[list[str]], subprocess.CompletedProcess[str]]
 CONVERGENCE_SENTENCE = (
     "If the prompt above accomplishes no incremental progress make the next prompt one "
     "that does, include this sentence in all subsequent prompts to ensure they converge "
@@ -61,6 +73,195 @@ def _find_lane(
         return None
     active = [row for row in candidates if str(row.get("status") or "") in ACTIVE_STATUSES]
     return active[0] if active else candidates[0]
+
+
+def _sanitize(value: Any) -> Any:
+    """Drop transcript/prompt-bearing fields from live-truth packets."""
+
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for key, item in value.items():
+            if str(key).lower() in SENSITIVE_KEYS:
+                continue
+            out[str(key)] = _sanitize(item)
+        return out
+    if isinstance(value, list):
+        return [_sanitize(item) for item in value]
+    if isinstance(value, str) and ("transcript" in value.lower() or "raw prompt" in value.lower()):
+        return "[redacted]"
+    return value
+
+
+def _default_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, capture_output=True, text=True, timeout=120)
+
+
+def _json_or_empty(result: subprocess.CompletedProcess[str]) -> Any:
+    if result.returncode != 0:
+        return {"error": result.stderr.strip(), "returncode": result.returncode}
+    text = (result.stdout or "").strip()
+    if not text:
+        return {}
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return {"raw": text}
+
+
+def _run_json(command: list[str], command_runner: CommandRunner) -> Any:
+    try:
+        result = command_runner(command)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"error": str(exc)}
+    return _sanitize(_json_or_empty(result))
+
+
+def _run_text(command: list[str], command_runner: CommandRunner) -> dict[str, Any]:
+    try:
+        result = command_runner(command)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"stdout": "", "stderr": str(exc), "returncode": 127}
+    return {
+        "stdout": result.stdout or "",
+        "stderr": result.stderr or "",
+        "returncode": result.returncode,
+    }
+
+
+def _root_packet(command_runner: CommandRunner) -> dict[str, Any]:
+    status = _run_text(
+        ["git", "status", "--short", "--branch", "--untracked-files=all"],
+        command_runner,
+    )
+    lines = [line for line in status["stdout"].splitlines() if line.strip()]
+    dirty = any(not line.startswith("##") for line in lines)
+    return {"dirty": dirty, "status": lines, "returncode": status["returncode"]}
+
+
+def _disk_outbox_packet(command_runner: CommandRunner) -> dict[str, Any]:
+    df = _run_text(["df", "-h", "."], command_runner)
+    outbox = _run_text(["find", ".aragora/automation-outbox", "-type", "f"], command_runner)
+    files = [line for line in outbox["stdout"].splitlines() if line.strip()]
+    return {
+        "df": df["stdout"].splitlines(),
+        "outbox_file_count": len(files) if outbox["returncode"] == 0 else None,
+        "outbox_returncode": outbox["returncode"],
+    }
+
+
+def _active_owner_map(lanes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for lane in lanes:
+        if str(lane.get("status") or "") not in ACTIVE_STATUSES:
+            continue
+        rows.append(
+            _sanitize(
+                {
+                    "lane_id": lane.get("lane_id"),
+                    "owner_session": lane.get("owner_session"),
+                    "status": lane.get("status"),
+                    "branch": lane.get("branch"),
+                    "worktree": lane.get("worktree"),
+                    "pr_number": lane.get("pr_number"),
+                    "next_action": lane.get("next_action"),
+                }
+            )
+        )
+    return rows
+
+
+def build_decision_packet(
+    *,
+    registry_path: Path,
+    lane_id: str | None = None,
+    pr: int | None = None,
+    branch: str | None = None,
+    command_runner: CommandRunner = _default_runner,
+) -> dict[str, Any]:
+    """Build machine-readable live-truth inputs for owner-aware prompts."""
+
+    lanes = _read_lanes(registry_path)
+    lane = _find_lane(lanes, lane_id=lane_id, pr=pr, branch=branch)
+    blockers: list[str] = []
+    root = _root_packet(command_runner)
+    if root["dirty"]:
+        blockers.append("dirty root")
+    if lane and str(lane.get("status") or "") in ACTIVE_STATUSES:
+        blockers.append("active owner exists for target")
+
+    packet: dict[str, Any] = {
+        "owner": _sanitize(lane) if lane else None,
+        "root": root,
+        "owner_map": _active_owner_map(lanes),
+        "bridge_health": _run_json(
+            ["python3", "scripts/agent_bridge.py", "--json", "health"],
+            command_runner,
+        ),
+        "operator_snapshot": _run_json(
+            ["python3", "scripts/agent_bridge.py", "operator-snapshot", "--json", "--summary-only"],
+            command_runner,
+        ),
+        "active_sessions": _run_json(
+            [
+                "python3",
+                "scripts/list_active_agent_sessions.py",
+                "--json",
+                "--codex-session-scan-limit",
+                "120",
+            ],
+            command_runner,
+        ),
+        "disk_outbox": _disk_outbox_packet(command_runner),
+        "pr": {},
+        "checks": {"required": []},
+        "merge_packet": {},
+        "blockers": blockers,
+        "selected_action": "read_only_owner_routing"
+        if "active owner exists for target" in blockers
+        else "repair_or_stop"
+        if root["dirty"]
+        else "queue_prompt",
+    }
+
+    if pr is not None:
+        packet["pr"] = _run_json(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(pr),
+                "--json",
+                "number,state,isDraft,headRefOid,headRefName,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,url",
+            ],
+            command_runner,
+        )
+        checks = _run_json(
+            [
+                "gh",
+                "pr",
+                "checks",
+                str(pr),
+                "--required",
+                "--json",
+                "name,state,bucket,workflow,link",
+            ],
+            command_runner,
+        )
+        packet["checks"] = {"required": checks if isinstance(checks, list) else []}
+        packet["merge_packet"] = _run_json(
+            [
+                "python3",
+                "-m",
+                "aragora.cli.main",
+                "review-queue",
+                "merge-packet",
+                "--pr",
+                str(pr),
+                "--json",
+            ],
+            command_runner,
+        )
+    return packet
 
 
 def _mailbox_command(lane: dict[str, Any] | None, *, pr: int | None, branch: str | None) -> str:
@@ -171,7 +372,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         branch=args.branch,
     )
     if args.json:
-        print(json.dumps({"prompt": prompt}, indent=2, sort_keys=True))
+        packet = build_decision_packet(
+            registry_path=args.registry_path,
+            lane_id=args.lane_id,
+            pr=args.pr,
+            branch=args.branch,
+        )
+        print(json.dumps({"prompt": prompt, "decision_packet": packet}, indent=2, sort_keys=True))
     else:
         print(prompt, end="")
     return 0

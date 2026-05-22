@@ -16,9 +16,17 @@ import os
 import re
 import sys
 import tempfile
+from collections.abc import Iterator
 from collections.abc import Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+
+_fcntl: Any
+try:
+    import fcntl as _fcntl
+except ImportError:
+    _fcntl = None
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 HEARTBEAT_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "heartbeats.json"
@@ -60,6 +68,22 @@ def _atomic_write(path: Path, rows: list[dict[str, Any]]) -> None:
         raise
 
 
+@contextmanager
+def _heartbeat_write_lock(path: Path) -> Iterator[None]:
+    """Serialize heartbeat read-modify-write cycles across harnesses."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    with lock_path.open("a+", encoding="utf-8") as handle:
+        if _fcntl is not None:
+            _fcntl.flock(handle.fileno(), _fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if _fcntl is not None:
+                _fcntl.flock(handle.fileno(), _fcntl.LOCK_UN)
+
+
 def _compact(row: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in row.items() if value not in ("", None)}
 
@@ -96,21 +120,22 @@ def record_heartbeat(
         }
     )
 
-    rows = _read_rows(heartbeat_path)
-    out: list[dict[str, Any]] = []
-    replaced = False
-    for existing in rows:
-        if (
-            str(existing.get("lane_id") or "") == lane_id
-            and str(existing.get("owner_session") or "") == owner_session
-        ):
+    with _heartbeat_write_lock(heartbeat_path):
+        rows = _read_rows(heartbeat_path)
+        out: list[dict[str, Any]] = []
+        replaced = False
+        for existing in rows:
+            if (
+                str(existing.get("lane_id") or "") == lane_id
+                and str(existing.get("owner_session") or "") == owner_session
+            ):
+                out.append(row)
+                replaced = True
+            else:
+                out.append(existing)
+        if not replaced:
             out.append(row)
-            replaced = True
-        else:
-            out.append(existing)
-    if not replaced:
-        out.append(row)
-    _atomic_write(heartbeat_path, out)
+        _atomic_write(heartbeat_path, out)
     return row
 
 
