@@ -602,6 +602,8 @@ def test_operator_snapshot_summary_counts_repo_local_lane_when_user_registry_exi
                     "status": "active",
                     "updated_at": "2026-05-18T12:10:00Z",
                     "branch": "codex/repo-local-active",
+                    "pr_number": 7436,
+                    "next_action": "rerun focused validation",
                 }
             ]
         ),
@@ -624,6 +626,19 @@ def test_operator_snapshot_summary_counts_repo_local_lane_when_user_registry_exi
     payload = json.loads(capsys.readouterr().out)
     assert "lanes" not in payload
     assert payload["summary"]["active_lanes"] == 1
+    assert payload["active_lane_examples"] == [
+        {
+            "lane_id": "repo-local-active",
+            "owner_session": "codex-active",
+            "status": "active",
+            "updated_at": "2026-05-18T12:10:00Z",
+            "branch": "codex/repo-local-active",
+            "pr_number": 7436,
+            "next_action": "rerun focused validation",
+        }
+    ]
+    assert payload["active_lane_examples_limit"] == 3
+    assert payload["active_lane_examples_omitted"] == 0
 
 
 def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(
