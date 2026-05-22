@@ -1964,6 +1964,14 @@ def test_main_summary_only_omits_decisions_when_github_unavailable(
             labels={},
             expires_at=None,
         ),
+        Handoff(
+            source_file=str(tmp_path / "third.md"),
+            task_title="Third offline handoff",
+            priority="MEDIUM",
+            body="body",
+            labels={},
+            expires_at=None,
+        ),
     ]
     monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
     monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: handoffs)
@@ -1994,7 +2002,10 @@ def test_main_summary_only_omits_decisions_when_github_unavailable(
     assert exit_code == 1
     payload = json.loads(capsys.readouterr().out)
     assert "decisions" not in payload
+    assert payload["handoff_count"] == 3
     assert payload["decision_count"] == 2
+    assert payload["decision_omitted_count"] == 1
+    assert payload["decisions_truncated"] is True
     assert payload["decisions_omitted"] is True
     assert payload["details_omitted"] is True
     assert payload["decision_summary"] == {
