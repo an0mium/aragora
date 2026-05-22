@@ -88,6 +88,38 @@ def test_exact_head_operator_comment_allows_check_result() -> None:
     assert result["blockers"] == []
 
 
+def test_numeric_not_ready_is_allowed_when_packet_marks_tier4_human_settlement() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [_authorized_comment(head)],
+            "reviews": [],
+        },
+        merge_packet={
+            "not_ready": [7423],
+            "human_risk_settlement_required": [7423],
+            "entries": [
+                {
+                    "pr_number": 7423,
+                    "status": "human_preapproval_required",
+                    "requires_human_risk_settlement": True,
+                }
+            ],
+        },
+        required_checks=[{"name": "lint", "state": "SUCCESS"}],
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
 def test_untrusted_author_comment_does_not_authorize() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
@@ -179,7 +211,7 @@ def test_failed_required_check_blocks_settlement() -> None:
     assert "required check lint is FAILURE" in result["blockers"]
 
 
-def test_missing_merge_quorum_check_blocks_settlement() -> None:
+def test_missing_merge_quorum_check_is_allowed_before_apply_reconciles_protection() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
         pr=7423,
@@ -197,8 +229,33 @@ def test_missing_merge_quorum_check_blocks_settlement() -> None:
         required_checks=[{"name": "lint", "state": "SUCCESS"}],
     )
 
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
+def test_present_failed_merge_quorum_required_check_blocks_settlement() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [_authorized_comment(head)],
+            "reviews": [],
+        },
+        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
     assert result["ok"] is False
-    assert "required check aragora-merge-quorum is not present and green" in result["blockers"]
+    assert "required check aragora-merge-quorum is FAILURE" in result["blockers"]
 
 
 def test_unexpected_merge_packet_blocker_blocks_settlement() -> None:

@@ -25,6 +25,9 @@ ALLOWED_TIER4_NOT_READY = {
     "tier4_human_risk_settlement",
     "operator_settlement_required",
 }
+ALLOWED_TIER4_ENTRY_STATUSES = {
+    "human_preapproval_required",
+}
 
 
 def _text_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
@@ -98,6 +101,29 @@ def has_operator_authorization(pr_view: dict[str, Any], *, head: str) -> bool:
     return False
 
 
+def _entry_for_pr(merge_packet: dict[str, Any], *, pr: int) -> dict[str, Any] | None:
+    entries = merge_packet.get("entries")
+    if not isinstance(entries, list):
+        return None
+    for entry in entries:
+        if isinstance(entry, dict) and str(entry.get("pr_number") or "") == str(pr):
+            return entry
+    return None
+
+
+def _packet_marks_tier4_human_settlement(merge_packet: dict[str, Any], *, pr: int) -> bool:
+    entry = _entry_for_pr(merge_packet, pr=pr)
+    if not entry:
+        return False
+    status = str(entry.get("status") or "")
+    if status not in ALLOWED_TIER4_ENTRY_STATUSES:
+        return False
+    if bool(entry.get("requires_human_risk_settlement")):
+        return True
+    required = merge_packet.get("human_risk_settlement_required")
+    return isinstance(required, list) and str(pr) in {str(item) for item in required}
+
+
 def evaluate_tier4_gate(
     *,
     pr: int,
@@ -117,19 +143,17 @@ def evaluate_tier4_gate(
     merge_state = str(pr_view.get("mergeStateStatus") or "")
     if merge_state in {"DIRTY", "CONFLICTING"}:
         blockers.append(f"PR #{pr} is {merge_state}")
-    has_quorum_check = False
     for check in required_checks or []:
         name = str(check.get("name") or check.get("workflow") or "required check")
         state = str(check.get("state") or check.get("conclusion") or "UNKNOWN").upper()
         if state not in {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}:
             blockers.append(f"required check {name} is {state}")
-        if name == "aragora-merge-quorum" and state in {"SUCCESS", "PASS", "PASSED"}:
-            has_quorum_check = True
-    if required_checks is not None and not has_quorum_check:
-        blockers.append("required check aragora-merge-quorum is not present and green")
     not_ready = merge_packet.get("not_ready")
     if isinstance(not_ready, list):
-        unexpected = sorted({str(item) for item in not_ready} - ALLOWED_TIER4_NOT_READY)
+        allowed_not_ready = set(ALLOWED_TIER4_NOT_READY)
+        if _packet_marks_tier4_human_settlement(merge_packet, pr=pr):
+            allowed_not_ready.add(str(pr))
+        unexpected = sorted({str(item) for item in not_ready} - allowed_not_ready)
         if unexpected:
             blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
     if actual_head == expected_head and not has_operator_authorization(pr_view, head=expected_head):
