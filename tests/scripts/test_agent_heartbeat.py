@@ -52,12 +52,13 @@ def test_heartbeat_upserts_owner_identity(tmp_path: Path) -> None:
 
 
 def test_heartbeat_rejects_path_traversal_owner(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="unsafe owner_session"):
-        heartbeat.record_heartbeat(
-            heartbeat_path=tmp_path / "heartbeats.json",
-            lane_id="P106",
-            owner_session="../escape",
-        )
+    for owner_session in ("../escape", ".", "..", ".hidden", "owner:session"):
+        with pytest.raises(ValueError, match="unsafe owner_session"):
+            heartbeat.record_heartbeat(
+                heartbeat_path=tmp_path / "heartbeats.json",
+                lane_id="P106",
+                owner_session=owner_session,
+            )
 
 
 def test_concurrent_heartbeat_writes_preserve_all_rows(tmp_path: Path) -> None:

@@ -91,7 +91,16 @@ def _sanitize(value: Any) -> Any:
 
 
 def _default_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, capture_output=True, text=True, timeout=120)
+    return subprocess.run(
+        command, cwd=DEFAULT_REPO_ROOT, capture_output=True, text=True, timeout=120
+    )
+
+
+def _repo_runner(repo_root: Path) -> CommandRunner:
+    def run(command: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(command, cwd=repo_root, capture_output=True, text=True, timeout=120)
+
+    return run
 
 
 def _json_or_empty(result: subprocess.CompletedProcess[str]) -> Any:
@@ -171,6 +180,7 @@ def _active_owner_map(lanes: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def build_decision_packet(
     *,
     registry_path: Path,
+    repo_root: Path = DEFAULT_REPO_ROOT,
     lane_id: str | None = None,
     pr: int | None = None,
     branch: str | None = None,
@@ -179,9 +189,10 @@ def build_decision_packet(
     """Build machine-readable live-truth inputs for owner-aware prompts."""
 
     lanes = _read_lanes(registry_path)
+    runner = _repo_runner(repo_root) if command_runner is _default_runner else command_runner
     lane = _find_lane(lanes, lane_id=lane_id, pr=pr, branch=branch)
     blockers: list[str] = []
-    root = _root_packet(command_runner)
+    root = _root_packet(runner)
     if root["dirty"]:
         blockers.append("dirty root")
     if lane and str(lane.get("status") or "") in ACTIVE_STATUSES:
@@ -193,11 +204,11 @@ def build_decision_packet(
         "owner_map": _active_owner_map(lanes),
         "bridge_health": _run_json(
             ["python3", "scripts/agent_bridge.py", "--json", "health"],
-            command_runner,
+            runner,
         ),
         "operator_snapshot": _run_json(
             ["python3", "scripts/agent_bridge.py", "operator-snapshot", "--json", "--summary-only"],
-            command_runner,
+            runner,
         ),
         "active_sessions": _run_json(
             [
@@ -207,9 +218,9 @@ def build_decision_packet(
                 "--codex-session-scan-limit",
                 "120",
             ],
-            command_runner,
+            runner,
         ),
-        "disk_outbox": _disk_outbox_packet(command_runner),
+        "disk_outbox": _disk_outbox_packet(runner),
         "pr": {},
         "checks": {"required": []},
         "merge_packet": {},
@@ -231,7 +242,7 @@ def build_decision_packet(
                 "--json",
                 "number,state,isDraft,headRefOid,headRefName,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,url",
             ],
-            command_runner,
+            runner,
         )
         checks = _run_json(
             [
@@ -243,7 +254,7 @@ def build_decision_packet(
                 "--json",
                 "name,state,bucket,workflow,link",
             ],
-            command_runner,
+            runner,
         )
         packet["checks"] = {"required": checks if isinstance(checks, list) else []}
         packet["merge_packet"] = _run_json(
@@ -257,7 +268,7 @@ def build_decision_packet(
                 str(pr),
                 "--json",
             ],
-            command_runner,
+            runner,
         )
     return packet
 
@@ -277,6 +288,7 @@ def _mailbox_command(lane: dict[str, Any] | None, *, pr: int | None, branch: str
 def build_prompt(
     *,
     registry_path: Path,
+    repo_root: Path = DEFAULT_REPO_ROOT,
     lane_id: str | None = None,
     pr: int | None = None,
     branch: str | None = None,
@@ -293,7 +305,7 @@ def build_prompt(
     )
 
     lines = [
-        "Start from live repo truth in /Users/armand/Development/aragora. Do not trust prior transcript state.",
+        f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
         "",
         "Before lane work, check your Aragora operator-steering mailbox:",
         mailbox,
@@ -357,6 +369,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=DEFAULT_REPO_ROOT / REGISTRY_RELATIVE_PATH,
     )
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=DEFAULT_REPO_ROOT,
+        help="Repo root used in generated prompt text and default live-truth commands.",
+    )
     parser.add_argument("--json", action="store_true")
     return parser
 
@@ -365,6 +383,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     prompt = build_prompt(
         registry_path=args.registry_path,
+        repo_root=args.repo_root,
         lane_id=args.lane_id,
         pr=args.pr,
         branch=args.branch,
@@ -372,6 +391,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.json:
         packet = build_decision_packet(
             registry_path=args.registry_path,
+            repo_root=args.repo_root,
             lane_id=args.lane_id,
             pr=args.pr,
             branch=args.branch,

@@ -55,11 +55,12 @@ def test_exact_head_operator_comment_allows_check_result() -> None:
             "mergeStateStatus": "BLOCKED",
             "comments": [
                 {
+                    "authorAssociation": "OWNER",
                     "body": (
                         "Tier-4 Human Settlement Authorization\n"
                         f"Authorized Head SHA: {head}\n"
                         "Authorized Action: admin_squash_merge on PR #7423\n"
-                    )
+                    ),
                 }
             ],
             "reviews": [],
@@ -70,6 +71,36 @@ def test_exact_head_operator_comment_allows_check_result() -> None:
 
     assert result["ok"] is True
     assert result["blockers"] == []
+
+
+def test_untrusted_author_comment_does_not_authorize() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "comments": [
+                {
+                    "authorAssociation": "CONTRIBUTOR",
+                    "body": (
+                        "Tier-4 Human Settlement Authorization\n"
+                        f"Authorized Head SHA: {head}\n"
+                        "Authorized Action: admin_squash_merge on PR #7423\n"
+                    ),
+                }
+            ],
+            "reviews": [],
+        },
+        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        required_checks=[{"name": "lint", "state": "SUCCESS"}],
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
 
 
 def test_head_mismatch_blocks_before_authorization() -> None:
@@ -103,11 +134,12 @@ def test_failed_required_check_blocks_settlement() -> None:
             "mergeStateStatus": "BLOCKED",
             "comments": [
                 {
+                    "authorAssociation": "OWNER",
                     "body": (
                         "Tier-4 Human Settlement Authorization\n"
                         f"Authorized Head SHA: {head}\n"
                         "Authorized Action: admin_squash_merge on PR #7423\n"
-                    )
+                    ),
                 }
             ],
             "reviews": [],
@@ -132,11 +164,12 @@ def test_unexpected_merge_packet_blocker_blocks_settlement() -> None:
             "mergeStateStatus": "BLOCKED",
             "comments": [
                 {
+                    "authorAssociation": "OWNER",
                     "body": (
                         "Tier-4 Human Settlement Authorization\n"
                         f"Authorized Head SHA: {head}\n"
                         "Authorized Action: admin_squash_merge on PR #7423\n"
-                    )
+                    ),
                 }
             ],
             "reviews": [],
@@ -164,11 +197,12 @@ def test_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Path) -> 
                 "mergeStateStatus": "BLOCKED",
                 "comments": [
                     {
+                        "authorAssociation": "OWNER",
                         "body": (
                             "Tier-4 Human Settlement Authorization\n"
                             f"Authorized Head SHA: {head}\n"
                             "Authorized Action: admin_squash_merge on PR #7423\n"
-                        )
+                        ),
                     }
                 ],
                 "reviews": [],

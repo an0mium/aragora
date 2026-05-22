@@ -18,6 +18,7 @@ from typing import Any
 DEFAULT_REPO = "synaptent/aragora"
 AUTHORIZED_MARKER = "Tier-4 Human Settlement Authorization"
 AUTHORIZED_ACTION_TOKENS = ("admin_squash_merge", "admin squash")
+TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS = {"OWNER", "MEMBER"}
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
     "tier4_human_risk_settlement",
@@ -25,8 +26,8 @@ ALLOWED_TIER4_NOT_READY = {
 }
 
 
-def _text_items(pr_view: dict[str, Any]) -> list[str]:
-    items: list[str] = []
+def _text_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
     for key in ("comments", "reviews"):
         value = pr_view.get(key)
         if not isinstance(value, list):
@@ -35,14 +36,24 @@ def _text_items(pr_view: dict[str, Any]) -> list[str]:
             if isinstance(entry, dict):
                 body = entry.get("body")
                 if isinstance(body, str):
-                    items.append(body)
+                    items.append(
+                        {
+                            "body": body,
+                            "authorAssociation": entry.get("authorAssociation"),
+                            "author": entry.get("author"),
+                        }
+                    )
     return items
 
 
 def has_operator_authorization(pr_view: dict[str, Any], *, head: str) -> bool:
-    for body in _text_items(pr_view):
+    for item in _text_items(pr_view):
+        body = str(item.get("body") or "")
         lowered = body.lower()
         if AUTHORIZED_MARKER not in body:
+            continue
+        association = str(item.get("authorAssociation") or "").upper()
+        if association not in TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS:
             continue
         if head not in body:
             continue

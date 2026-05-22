@@ -30,7 +30,7 @@ except ImportError:
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 HEARTBEAT_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "heartbeats.json"
-SAFE_OWNER_RE = re.compile(r"^[A-Za-z0-9_.:@+=,-]+$")
+SAFE_OWNER_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 def _utc_now_iso() -> str:
@@ -38,8 +38,13 @@ def _utc_now_iso() -> str:
 
 
 def _validate_owner_session(owner_session: str) -> None:
-    if not owner_session or not SAFE_OWNER_RE.fullmatch(owner_session):
-        raise ValueError("unsafe owner_session: use a non-empty id without path separators")
+    if (
+        not owner_session
+        or owner_session in {".", ".."}
+        or owner_session.startswith(".")
+        or not SAFE_OWNER_RE.fullmatch(owner_session)
+    ):
+        raise ValueError("unsafe owner_session: use a non-empty alphanumeric/dash/underscore slug")
 
 
 def _read_rows(path: Path) -> list[dict[str, Any]]:

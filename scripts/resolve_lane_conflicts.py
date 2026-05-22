@@ -98,6 +98,27 @@ def _owner_is_inactive(rows: list[dict[str, Any]], owner_session: str) -> bool:
     return all(str(row.get("status") or "") in INACTIVE_OWNER_STATUSES for row in owner_rows)
 
 
+def _unknown_conflict_sessions_from_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    known_sessions = {str(row.get("owner_session") or "") for row in rows}
+    unknown: list[dict[str, Any]] = []
+    for row in rows:
+        if str(row.get("status") or "") != "conflict":
+            continue
+        conflict_session = str(row.get("conflict_session") or "")
+        if conflict_session and conflict_session not in known_sessions:
+            unknown.append(
+                {
+                    "lane_id": row.get("lane_id"),
+                    "owner_session": row.get("owner_session"),
+                    "conflict_session": conflict_session,
+                    "conflict_reason": row.get("conflict_reason"),
+                    "current_status": row.get("status"),
+                    "resolution": "requires_manual_review_unknown_conflict_session",
+                }
+            )
+    return unknown
+
+
 def _find_resolvable_conflicts_from_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for row in rows:
@@ -158,6 +179,7 @@ def resolve_conflicts(
     with _registry_write_lock(registry_path):
         rows = _read_rows(registry_path)
         candidates = _find_resolvable_conflicts_from_rows(rows)
+        unknown_conflicts = _unknown_conflict_sessions_from_rows(rows)
         if apply and candidates:
             candidate_ids = {str(candidate["lane_id"]) for candidate in candidates}
             out_rows: list[dict[str, Any]] = []
@@ -193,6 +215,8 @@ def resolve_conflicts(
         "resolved_count": len(candidates) if apply else 0,
         "candidate_count": len(candidates),
         "candidates": candidates,
+        "unknown_session_count": len(unknown_conflicts),
+        "candidates_unknown": unknown_conflicts,
         "receipt_paths": receipt_paths,
     }
 

@@ -83,6 +83,8 @@ CURRENT_SESSION_LIFECYCLES = {"live", "active_broker"}
 HISTORICAL_SESSION_LIFECYCLES = {"historical", "dead", "stale", "orphaned"}
 DEFAULT_STALE_TTL_HOURS = 24
 HEARTBEAT_FRESH_SECONDS = 15 * 60
+DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
+DEFAULT_STEERING_OUTCOME = "unknown"
 
 
 def _state_root_bridge_dir() -> Path:
@@ -893,6 +895,26 @@ def _collect_health_issues(
                     "type": "ambiguous_lane",
                     "session": ", ".join(owners),
                     "detail": f"lane '{lane_id}' claimed by multiple active sessions",
+                }
+            )
+
+    for r in records:
+        if r.status not in ACTIVE_LANE_STATUSES:
+            continue
+        if not r.next_action or r.next_action == DEFAULT_ACTIVE_NEXT_ACTION:
+            issues.append(
+                {
+                    "type": "lane_missing_next_action",
+                    "session": r.owner_session,
+                    "detail": f"active lane '{r.lane_id}' has no actionable next_action",
+                }
+            )
+        if not r.last_steering_outcome or r.last_steering_outcome == DEFAULT_STEERING_OUTCOME:
+            issues.append(
+                {
+                    "type": "lane_missing_steering_outcome",
+                    "session": r.owner_session,
+                    "detail": f"active lane '{r.lane_id}' has no explicit steering outcome",
                 }
             )
 
@@ -1846,8 +1868,12 @@ def _collect_agent_heartbeats(
         if not owner:
             continue
         existing = latest_by_owner.get(owner)
-        if existing is None or str(summary.get("last_seen_at") or "") > str(
-            existing.get("last_seen_at") or ""
+        summary_seen = _parse_heartbeat_timestamp(summary.get("last_seen_at"))
+        existing_seen = (
+            _parse_heartbeat_timestamp(existing.get("last_seen_at")) if existing else None
+        )
+        if existing is None or (
+            summary_seen is not None and (existing_seen is None or summary_seen > existing_seen)
         ):
             latest_by_owner[owner] = summary
     return {
