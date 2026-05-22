@@ -1339,6 +1339,126 @@ def test_cmd_launch_invokes_tmux_launcher_for_droid(
     ]
 
 
+def test_cmd_launch_rejects_autonomous_droid_tmux(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    review_worktree = tmp_path / "review-worktree"
+    review_worktree.mkdir()
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", repo_root)
+
+    def _unexpected_run(*_args, **_kwargs):
+        raise AssertionError("interactive droid tmux launcher should not run")
+
+    monkeypatch.setattr(mod.subprocess, "run", _unexpected_run)
+
+    rc = mod.cmd_launch(
+        argparse.Namespace(
+            name="factory-review",
+            agent="droid",
+            prompt=["review", "#7292"],
+            file=None,
+            cwd=str(review_worktree),
+            autonomous=True,
+            timeout_seconds=10,
+            json=True,
+        )
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["agent"] == "droid"
+    assert "cannot be made autonomous" in payload["error"]
+    assert "agent_bridge.py exec --agent droid --auto high" in payload["error"]
+
+
+def test_cmd_exec_droid_uses_transport_auto_high(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+    from aragora.swarm.agent_bridge.harnesses.droid import DroidTransport
+
+    fixture = (
+        Path(__file__).resolve().parents[2]
+        / "tests"
+        / "fixtures"
+        / "agent_bridge"
+        / "droid_start.json"
+    ).read_text(encoding="utf-8")
+    captured: dict[str, object] = {}
+    commands: list[list[str]] = []
+
+    def _fake_runner(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout=fixture, stderr="")
+
+    def _fake_create_transport(agent, *, cwd, model, harness_options):
+        captured.update(
+            {
+                "agent": agent,
+                "cwd": cwd,
+                "model": model,
+                "harness_options": harness_options,
+            }
+        )
+        return DroidTransport(
+            cwd=cwd,
+            model=model,
+            harness_options=harness_options,
+            runner=_fake_runner,
+            binary_resolver=lambda _: "/usr/bin/droid",
+        )
+
+    monkeypatch.setattr(mod, "create_transport", _fake_create_transport)
+
+    rc = mod.cmd_exec(
+        argparse.Namespace(
+            agent="droid",
+            cwd=str(tmp_path),
+            model=None,
+            auto="high",
+            allowed_role=["reviewer"],
+            file=None,
+            prompt=["Review", "#7292"],
+            json=True,
+        )
+    )
+
+    assert rc == 0
+    assert captured == {
+        "agent": "droid",
+        "cwd": tmp_path.resolve(),
+        "model": None,
+        "harness_options": {"auto": "high"},
+    }
+    assert commands == [
+        [
+            "droid",
+            "exec",
+            "--auto",
+            "high",
+            "--output-format",
+            "json",
+            "--cwd",
+            str(tmp_path.resolve()),
+            "Review #7292",
+        ]
+    ]
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["command"] == commands[0]
+    assert payload["message_text"].startswith("Synthesized the review findings.")
+    assert payload["parse_status"] == "ok"
+
+
 def test_write_session_snapshot_falls_back_to_state_root(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

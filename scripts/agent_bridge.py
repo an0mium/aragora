@@ -7,6 +7,7 @@ inventory from agent_bridge_sessions.py (PR #5306).
 Usage:
   python3 scripts/agent_bridge.py sessions [--json]
   python3 scripts/agent_bridge.py launch --name codex-review --agent codex --cwd .worktrees/review --file /tmp/prompt.md
+  python3 scripts/agent_bridge.py exec --agent droid --auto high --cwd . --file /tmp/prompt.md
   python3 scripts/agent_bridge.py send <name> "Fix the LOC ratchet"
   python3 scripts/agent_bridge.py send <name> --file /tmp/prompt.md
   python3 scripts/agent_bridge.py approve <name>
@@ -38,6 +39,13 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from aragora.swarm.agent_bridge.exceptions import TransportError
+from aragora.swarm.agent_bridge.harnesses import create_transport
+
 try:
     # When run as `python3 scripts/agent_bridge.py`, Python adds scripts/ to
     # sys.path automatically, so this direct import works.  For package-style
@@ -58,7 +66,6 @@ SESSION_SNAPSHOT_FILE = AGENT_BRIDGE_DIR / "sessions.json"
 LANE_REGISTRY_FILE = AGENT_BRIDGE_DIR / "lanes.json"
 TMUX_SESSIONS_DIR = Path.home() / ".aragora" / "tmux-sessions"
 TMUX_SESSION = "aragora"
-REPO_ROOT = Path(__file__).resolve().parents[1]
 CANONICAL_REPO_ROOT = REPO_ROOT
 if agent_bridge_sessions is not None:
     try:
@@ -1248,6 +1255,28 @@ def cmd_launch(args: argparse.Namespace) -> int:
     if not launch_cwd.is_dir():
         print(f"Launch cwd does not exist or is not a directory: {launch_cwd}", file=sys.stderr)
         return 1
+    if agent in {"droid", "factory"} and getattr(args, "autonomous", False):
+        message = (
+            "Interactive Droid/Factory tmux sessions cannot be made autonomous. "
+            "Use `python3 scripts/agent_bridge.py exec --agent droid --auto high ...` "
+            "or `python3 scripts/agent_bridge_broker.py` for non-interactive Droid evidence."
+        )
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "name": args.name,
+                        "agent": agent,
+                        "cwd": str(launch_cwd),
+                        "error": message,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(message, file=sys.stderr)
+        return 1
 
     launcher = CANONICAL_REPO_ROOT / "scripts" / "tmux_session_launcher.sh"
     cmd = [
@@ -1302,6 +1331,86 @@ def cmd_launch(args: argparse.Namespace) -> int:
             print(result.stderr, end="", file=sys.stderr)
 
     return result.returncode
+
+
+def cmd_exec(args: argparse.Namespace) -> int:
+    """Run one non-interactive harness turn through the bridge transport layer."""
+    agent = str(args.agent or "droid").strip()
+    if agent not in {"codex", "claude", "droid", "factory"}:
+        print("Unsupported agent. Use codex, claude, droid, or factory.", file=sys.stderr)
+        return 1
+    launch_cwd = Path(args.cwd).expanduser() if args.cwd else Path.cwd()
+    try:
+        launch_cwd = launch_cwd.resolve()
+    except OSError as exc:
+        print(f"Invalid exec cwd: {exc}", file=sys.stderr)
+        return 1
+    if not launch_cwd.is_dir():
+        print(f"Exec cwd does not exist or is not a directory: {launch_cwd}", file=sys.stderr)
+        return 1
+
+    prompt = Path(args.file).read_text("utf-8") if args.file else " ".join(args.prompt or [])
+    if not prompt:
+        print("No prompt. Use text args or --file", file=sys.stderr)
+        return 1
+
+    harness_options: dict[str, Any] = {}
+    auto_mode = str(args.auto or "").strip()
+    if auto_mode:
+        harness_options["auto"] = auto_mode
+    elif agent in {"droid", "factory"}:
+        harness_options["auto"] = "high"
+    allowed_roles = set(args.allowed_role or ["reviewer"])
+
+    try:
+        transport = create_transport(
+            agent,
+            cwd=launch_cwd,
+            model=str(args.model).strip() if args.model else None,
+            harness_options=harness_options,
+        )
+        result = transport.launch(prompt, allowed_roles=allowed_roles)
+    except (TransportError, OSError, ValueError) as exc:
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "agent": agent,
+                        "cwd": str(launch_cwd),
+                        "error": str(exc),
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(f"Exec failed: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        footer = result.parsed_turn.footer.to_dict() if result.parsed_turn.footer else None
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "agent": agent,
+                    "cwd": str(launch_cwd),
+                    "session_id": result.session_id,
+                    "command": result.command,
+                    "exit_code": result.exit_code,
+                    "message_text": result.message_text,
+                    "parse_status": result.parsed_turn.parse_status,
+                    "footer": footer,
+                    "parse_errors": list(result.parsed_turn.parse_errors),
+                    "usage": result.usage,
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    print(result.message_text)
+    return 0
 
 
 def cmd_send(args: argparse.Namespace) -> int:
@@ -2052,6 +2161,25 @@ def main() -> int:
     )
     launch_p.add_argument("--timeout-seconds", type=int, default=120)
 
+    exec_p = sub.add_parser(
+        "exec",
+        parents=[json_parent],
+        help="Run one non-interactive harness turn",
+    )
+    exec_p.add_argument("--agent", default="droid", choices=("codex", "claude", "droid", "factory"))
+    exec_p.add_argument(
+        "--cwd",
+        help=(
+            "Working directory/worktree for the exec harness "
+            "(defaults to the caller's current directory)"
+        ),
+    )
+    exec_p.add_argument("--model", help="Model id to pass to the harness")
+    exec_p.add_argument("--auto", choices=("low", "medium", "high"), help="Droid autonomy level")
+    exec_p.add_argument("--allowed-role", action="append", help="Allowed bridge footer role")
+    exec_p.add_argument("prompt", nargs="*")
+    exec_p.add_argument("--file", help="Prompt file")
+
     send_p = sub.add_parser("send", parents=[json_parent], help="Send prompt to session")
     send_p.add_argument("name")
     send_p.add_argument("prompt", nargs="*")
@@ -2153,6 +2281,7 @@ def main() -> int:
     cmds = {
         "sessions": cmd_sessions,
         "launch": cmd_launch,
+        "exec": cmd_exec,
         "send": cmd_send,
         "approve": cmd_approve,
         "read": cmd_read,
