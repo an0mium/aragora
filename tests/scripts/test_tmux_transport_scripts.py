@@ -155,6 +155,54 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     assert registry_payload["sessions"]["testpane"]["tmux_window"] == "@17"
 
 
+def test_tmux_session_launcher_autonomous_codex_prompt_uses_exec(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "codex-auto",
+            "--agent",
+            "codex",
+            "--autonomous",
+            "--prompt",
+            "report git status only",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "Waiting up to" not in result.stdout
+    calls = _load_tmux_calls(env)
+    assert any(
+        call[:2] == ["send-keys", "-t"]
+        and call[2] == "@17"
+        and "bash '" in call[3]
+        and "codex-auto.launch.sh" in call[3]
+        and "--full-auto" not in call[3]
+        for call in calls
+    )
+    launch_script = Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "codex-auto.launch.sh"
+    launch_body = launch_script.read_text(encoding="utf-8")
+    assert "codex exec --dangerously-bypass-approvals-and-sandbox - <" in launch_body
+    assert "--ask-for-approval" not in launch_body
+    assert "--full-auto" not in launch_body
+    assert not any("report git status only" in json.dumps(call) for call in calls)
+    assert (Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "codex-auto.prompt.md").read_text(
+        encoding="utf-8"
+    ) == "report git status only\n"
+
+
 def test_tmux_session_launcher_accepts_new_codex_readiness_markers(tmp_path: Path) -> None:
     _write_fake_tmux(tmp_path)
     env = _fake_tmux_env(tmp_path)

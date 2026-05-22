@@ -11,7 +11,8 @@
 #   ./scripts/tmux_session_launcher.sh --kill codex-conductor
 #
 # Flags:
-#   --autonomous   Grant full permissions (Claude: --dangerously-skip-permissions, Codex: --full-auto)
+#   --autonomous   Grant full permissions (Claude: --dangerously-skip-permissions,
+#                  Codex: codex exec --dangerously-bypass-approvals-and-sandbox)
 #                  Required for agents to run Bash, edit files, etc. in tmux lanes.
 #
 # Each session gets:
@@ -246,12 +247,52 @@ fi
 # Build the launch command
 # When --autonomous is set:
 #   - Claude gets ARAGORA_ADMIN_APPROVED=1 → --dangerously-skip-permissions (can run Bash)
-#   - Codex gets --full-auto approval mode
+#   - Prompted Codex uses non-interactive `codex exec --dangerously-bypass-approvals-and-sandbox`
+#   - Unprompted Codex stays interactive and gets the local `--yolo` compatibility alias
 #   - Droid/Factory prompted work always uses `droid exec --auto high`; use
 #     ARAGORA_DROID_AUTO_LEVEL=low|medium|high to lower the level explicitly.
 if [[ "${AGENT}" == "codex" ]]; then
     if [[ "${AUTONOMOUS}" == "1" ]]; then
-        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh --agent '${NAME}' --base main --full-auto"
+        if [[ -n "${PROMPT}" ]]; then
+            CODEX_EXEC_PROMPT_FILE="${PROMPT_FILE}"
+            if [[ -z "${CODEX_EXEC_PROMPT_FILE}" ]]; then
+                CODEX_EXEC_PROMPT_FILE="${LOG_DIR}/${NAME}.prompt.md"
+                printf '%s\n' "${PROMPT}" > "${CODEX_EXEC_PROMPT_FILE}"
+            fi
+            CODEX_EXEC_PROMPT_FILE="$(cd "$(dirname "${CODEX_EXEC_PROMPT_FILE}")" && pwd)/$(basename "${CODEX_EXEC_PROMPT_FILE}")"
+            CODEX_EXEC_LAUNCH_FILE="${LOG_DIR}/${NAME}.launch.sh"
+            python3 - "${CODEX_EXEC_LAUNCH_FILE}" "${WORKDIR}" "${NAME}" "${CODEX_EXEC_PROMPT_FILE}" <<'PY'
+import os
+import shlex
+import sys
+from pathlib import Path
+
+launch_file, workdir, name, prompt_file = sys.argv[1:5]
+body = "\n".join(
+    [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        f"cd {shlex.quote(workdir)}",
+        (
+            "./scripts/codex_session.sh "
+            f"--agent {shlex.quote(name)} --base main --yolo -- "
+            "codex exec --dangerously-bypass-approvals-and-sandbox "
+            f"- < {shlex.quote(prompt_file)}"
+        ),
+        "",
+    ]
+)
+path = Path(launch_file)
+path.write_text(body, encoding="utf-8")
+os.chmod(path, 0o700)
+PY
+            LAUNCH_CMD="bash '${CODEX_EXEC_LAUNCH_FILE}'"
+            # `codex exec` consumes the prompt directly; do not also paste it
+            # into an interactive pane.
+            PROMPT=""
+        else
+            LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh --agent '${NAME}' --base main --yolo"
+        fi
     else
         LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh --agent '${NAME}' --base main"
     fi

@@ -5,6 +5,7 @@
 #   ./scripts/codex_session.sh
 #   ./scripts/codex_session.sh --agent codex-qa
 #   ./scripts/codex_session.sh --agent codex-qa --full-auto
+#   ./scripts/codex_session.sh --agent codex-qa --yolo
 #   ./scripts/codex_session.sh --orchestrator crewai
 #   ./scripts/codex_session.sh --agent codex-qa --base main -- python -m pytest tests/debate -q
 #   ./scripts/codex_session.sh --managed-dir .worktrees/codex-auto-qa --no-maintain --no-reconcile
@@ -38,6 +39,7 @@ WRITE_SCOPES=()
 CLAIMED_PATHS=()
 TEST_COMMANDS=()
 CODEX_ARGS=()
+AUTONOMOUS_CODEX=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -101,8 +103,8 @@ while [[ $# -gt 0 ]]; do
             ALLOW_LEASE_OVERLAP=true
             shift
             ;;
-        --full-auto)
-            CODEX_ARGS+=(--full-auto)
+        --full-auto|--yolo)
+            AUTONOMOUS_CODEX=true
             shift
             ;;
         --dangerously-bypass-approvals-and-sandbox)
@@ -122,6 +124,14 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if ${AUTONOMOUS_CODEX}; then
+    if ! codex exec --dangerously-bypass-approvals-and-sandbox --help >/dev/null 2>&1; then
+        echo "Codex autonomous mode requires 'codex exec --dangerously-bypass-approvals-and-sandbox', but this Codex CLI does not support it." >&2
+        exit 2
+    fi
+    CODEX_ARGS+=(--dangerously-bypass-approvals-and-sandbox)
+fi
 
 ENSURE_ARGS=(ensure --agent "${AGENT}" --base "${BASE_BRANCH}" --print-path)
 if [[ -n "${SESSION_ID_OVERRIDE}" ]]; then
