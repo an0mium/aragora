@@ -111,6 +111,12 @@ def test_github_connectivity_error_detects_dns_lookup_failures() -> None:
     assert mod.is_github_connectivity_error(
         'Get "https://api.github.com/rate_limit": dial tcp 140.82.112.6:443: connect: network is unreachable'
     )
+    assert mod.is_github_connectivity_error(
+        'Get "https://api.github.com/rate_limit": read: connection reset by peer'
+    )
+    assert mod.is_github_connectivity_error(
+        'Get "https://api.github.com/rate_limit": proxyconnect tcp: i/o timeout'
+    )
 
 
 def test_github_connectivity_error_detects_bounded_probe_timeouts() -> None:

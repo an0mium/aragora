@@ -175,6 +175,18 @@ def summarize_decisions(decisions: Sequence[PublishDecision]) -> dict[str, Any]:
     }
 
 
+def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return compact publisher status for recurring automation logs."""
+
+    compact = dict(payload)
+    decisions = compact.pop("decisions", None)
+    if isinstance(decisions, Sequence) and not isinstance(decisions, (str, bytes, bytearray)):
+        compact["decision_count"] = len(decisions)
+        compact["decisions_omitted"] = True
+    compact["details_omitted"] = True
+    return compact
+
+
 def _gh_write_op(args: list[str]) -> bool:
     return len(args) >= 2 and (args[0], args[1]) in {
         ("issue", "create"),
@@ -1401,6 +1413,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Preview eligible handoffs without writing; this is the default mode",
     )
     parser.add_argument("--json", action="store_true", help="Print machine-readable output")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, omit per-handoff decisions and print compact counts only.",
+    )
     return parser
 
 
@@ -1472,7 +1489,8 @@ def main(argv: list[str] | None = None) -> int:
             "decision_summary": summarize_decisions(decisions),
         }
         if args.json:
-            print(json.dumps(payload, indent=2))
+            output_payload = summary_only_payload(payload) if args.summary_only else payload
+            print(json.dumps(output_payload, indent=2))
         else:
             if handoffs:
                 print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
@@ -1523,7 +1541,8 @@ def main(argv: list[str] | None = None) -> int:
         "decision_summary": summarize_decisions(results),
     }
     if args.json:
-        print(json.dumps(payload, indent=2))
+        output_payload = summary_only_payload(payload) if args.summary_only else payload
+        print(json.dumps(output_payload, indent=2))
     else:
         for item in results:
             marker = (

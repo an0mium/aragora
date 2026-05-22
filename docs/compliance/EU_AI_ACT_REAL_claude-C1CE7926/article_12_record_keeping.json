@@ -1,0 +1,50 @@
+{
+  "article": "Article 12",
+  "title": "Record-Keeping",
+  "receipt_id": "DR-20260521-b934a0",
+  "generated_at": "2026-05-21T03:21:46.631575+00:00",
+  "event_log": [],
+  "reference_databases": [],
+  "input_record": {
+    "input_summary": "Should Aragora prioritize the EU AI Act compliance pipeline over new vertical onboarding for the August 2026 deadline?",
+    "input_hash": "835868a1967a261dc3fba8cd97e76537b806527e58799caf4217fdd81ccc630e",
+    "agents_participating": [
+      "Critic",
+      "Synthesizer",
+      "Analyst",
+      "Devil's Advocate"
+    ]
+  },
+  "technical_documentation": {
+    "annex_iv_sec1_general": {
+      "system_name": "Aragora Decision Integrity Platform",
+      "version": "2.9.0",
+      "provider": "Synaptent / Aragora",
+      "intended_purpose": "Multi-agent adversarial vetting of decisions against organizational knowledge, delivering audit-ready decision receipts."
+    },
+    "annex_iv_sec2_development": {
+      "architecture": "Multi-agent debate with adversarial consensus",
+      "consensus_method": "majority",
+      "agents": [
+        "Critic",
+        "Synthesizer",
+        "Analyst",
+        "Devil's Advocate"
+      ],
+      "protocol": "adversarial",
+      "rounds": 0
+    },
+    "annex_iv_sec5_risk_management": {
+      "adversarial_debate": "Multi-agent challenge reduces single-point-of-failure",
+      "hollow_consensus_detection": "Trickster module",
+      "circuit_breakers": "Per-agent failure isolation",
+      "calibration_monitoring": "Continuous Brier score tracking"
+    }
+  },
+  "retention_policy": {
+    "minimum_months": 6,
+    "basis": "Art. 26(6) \u2014 minimum 6 months for high-risk systems",
+    "provenance_events": 0,
+    "integrity_mechanism": "SHA-256 hash chain"
+  }
+}

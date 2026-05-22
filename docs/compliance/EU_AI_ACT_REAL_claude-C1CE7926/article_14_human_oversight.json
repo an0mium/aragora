@@ -1,0 +1,83 @@
+{
+  "article": "Article 14",
+  "title": "Human Oversight",
+  "receipt_id": "DR-20260521-b934a0",
+  "generated_at": "2026-05-21T03:21:46.631575+00:00",
+  "oversight_model": {
+    "primary": "Human-on-the-Loop (HOTL)",
+    "description": "System operates with monitoring-based oversight. Human intervention on anomalies.",
+    "human_approval_detected": false
+  },
+  "understanding_monitoring": {
+    "capabilities_documented": [
+      "Multi-agent adversarial debate with consensus",
+      "Tamper-evident decision receipts",
+      "Calibration tracking per agent",
+      "Dissent recording for minority opinions"
+    ],
+    "limitations_documented": [
+      "Consensus does not guarantee correctness",
+      "Confidence != probability of being correct",
+      "Performance varies by domain complexity",
+      "Underlying model knowledge cutoff dates apply"
+    ],
+    "monitoring_features": [
+      "Real-time debate spectate view",
+      "Agent performance dashboard",
+      "Calibration drift alerts",
+      "Anomaly detection"
+    ]
+  },
+  "automation_bias_safeguards": {
+    "warnings_present": true,
+    "mechanisms": [
+      "Dissent views prominently displayed alongside verdict",
+      "Confidence scores presented with interpretation context",
+      "Periodic independent evaluation prompts",
+      "Mandatory review intervals"
+    ]
+  },
+  "interpretation_features": {
+    "explainability": [
+      "Factor decomposition: contributing factors with weights",
+      "Counterfactual analysis: what-if scenarios",
+      "Evidence chain: claims linked to sources",
+      "Vote pivot: which arguments changed outcomes"
+    ]
+  },
+  "override_capability": {
+    "override_available": true,
+    "mechanisms": [
+      {
+        "action": "Reject verdict",
+        "description": "Deployer rejects AI consensus and decides independently",
+        "audit_logged": true
+      },
+      {
+        "action": "Override with reason",
+        "description": "Deployer overrides with documented rationale",
+        "audit_logged": true
+      },
+      {
+        "action": "Reverse prior decision",
+        "description": "Previously accepted decisions can be reversed",
+        "audit_logged": true
+      }
+    ]
+  },
+  "intervention_capability": {
+    "stop_available": true,
+    "mechanisms": [
+      {
+        "action": "Stop debate",
+        "description": "Halts debate mid-round, partial results preserved",
+        "safe_state": true
+      },
+      {
+        "action": "Cancel decision",
+        "description": "Cancels in-progress decision, no downstream actions",
+        "safe_state": true
+      }
+    ]
+  }
+}

@@ -125,6 +125,14 @@ def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> 
             ),
         ],
     )
+    productization_map_path = tmp_path / "rescue_productization.json"
+    mod.write_productization_map_payload(
+        productization_map_path,
+        {
+            "schema_version": 1,
+            "entries": [],
+        },
+    )
     publish_dir = tmp_path / "published"
 
     exit_code = mod.main(
@@ -132,7 +140,7 @@ def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> 
             "--path",
             str(ledger.path),
             "--productization-map",
-            str(tmp_path / "rescue_productization.json"),
+            str(productization_map_path),
             "--publish-dir",
             str(publish_dir),
             "--repo",
@@ -142,8 +150,8 @@ def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> 
         ]
     )
 
-    assert exit_code == 0
     payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
     assert payload["repo"] == "synaptent/aragora"
     assert "generated_at" in payload
     assert payload["summary"]["repeated_class_count"] == 1
