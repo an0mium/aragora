@@ -26,6 +26,7 @@ import argparse
 import ast
 import json
 import shutil
+import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
@@ -250,6 +251,76 @@ def _receipt_has_pr_reference(receipt: Mapping[str, Any]) -> bool:
     return False
 
 
+def _pr_number_from_value(value: Any) -> int | None:
+    text = str(value or "").strip().rstrip("/")
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    marker = "/pull/"
+    if marker not in text:
+        return None
+    candidate = text.rsplit(marker, 1)[1].split("/", 1)[0]
+    return int(candidate) if candidate.isdigit() else None
+
+
+def _target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
+    for key in ("target_pr", "pr_number", "pull_request_number"):
+        number = _pr_number_from_value(receipt.get(key))
+        if number is not None:
+            return number
+    for key in (
+        "created_pr_url",
+        "existing_pr_url",
+        "pr_url",
+        "pull_request_url",
+        "created_pull_request_url",
+        "existing_pull_request_url",
+    ):
+        number = _pr_number_from_value(receipt.get(key))
+        if number is not None:
+            return number
+    return None
+
+
+def _target_pr_state(
+    root: Path,
+    repo_name: str,
+    receipt: Mapping[str, Any],
+) -> Mapping[str, Any] | None:
+    number = _target_pr_number_from_receipt(receipt)
+    if number is None:
+        return None
+    repo = str(receipt.get("repo") or repo_name).strip() or repo_name
+    try:
+        proc = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(number),
+                "--repo",
+                repo,
+                "--json",
+                "number,state,headRefOid",
+            ],
+            cwd=root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, Mapping) else None
+
+
 def _receipt_has_issue_reference(receipt: Mapping[str, Any]) -> bool:
     for key in (
         "created_issue_url",
@@ -300,6 +371,7 @@ def _git_ref_head(root: Path, ref: str) -> str:
 
 def _receipt_handoff_keep_reason(
     root: Path,
+    repo_name: str,
     payload: dict[str, Any],
     receipt: Mapping[str, Any],
     branch: str,
@@ -314,6 +386,17 @@ def _receipt_handoff_keep_reason(
     desired_head = _desired_head_from_payload(payload)
     if not desired_head:
         return None
+
+    target_pr_state = _target_pr_state(root, repo_name, receipt)
+    if str((target_pr_state or {}).get("state") or "").strip().upper() == "MERGED":
+        target_pr_head = str((target_pr_state or {}).get("headRefOid") or "").strip()
+        target_pr_number = str((target_pr_state or {}).get("number") or "").strip()
+        if _heads_match(desired_head, target_pr_head):
+            return None
+        return (
+            f"target_open_pr receipt points to merged PR #{target_pr_number} at "
+            f"{target_pr_head[:12] or 'unknown'}, not desired head {desired_head[:12]}"
+        )
 
     remote_ref = f"refs/remotes/origin/{branch}"
     remote_head = _git_ref_head(root, remote_ref)
@@ -665,7 +748,9 @@ def main(argv: list[str] | None = None) -> int:
                     }
                 )
                 continue
-            keep_reason = _receipt_handoff_keep_reason(root, payload, receipt, branch)
+            keep_reason = _receipt_handoff_keep_reason(
+                root, args.repo_name, payload, receipt, branch
+            )
             if keep_reason is not None:
                 counts["blocked_receipt_pr_head_mismatch"] += 1
                 counts["still_protecting_active_work"] += 1
