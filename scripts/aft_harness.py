@@ -126,7 +126,7 @@ class HoldoutTask:
         #   - `rationale_seeds` as a list of "key=value" strings (parse to dict)
         #   - `title` (we treat it as already-redacted because the extractor
         #     does not pull comment bodies or diffs)
-        label = row.get("label") or row.get("decision")
+        label = row.get("label") or row.get("decision") or "open_aged"
         raw_seeds = row.get("rationale_seeds", {})
         if isinstance(raw_seeds, list):
             seeds: dict = {}
