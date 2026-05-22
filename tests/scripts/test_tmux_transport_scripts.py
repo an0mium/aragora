@@ -201,6 +201,13 @@ def test_tmux_session_launcher_autonomous_codex_prompt_uses_exec(
     assert (Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "codex-auto.prompt.md").read_text(
         encoding="utf-8"
     ) == "report git status only\n"
+    meta = json.loads(
+        (Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "codex-auto.meta.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert meta["has_prompt"] is True
+    assert meta["prompt_file"].endswith("codex-auto.prompt.md")
 
 
 def test_tmux_session_launcher_accepts_new_codex_readiness_markers(tmp_path: Path) -> None:
@@ -313,6 +320,14 @@ def test_tmux_session_launcher_supports_droid_agent(tmp_path: Path) -> None:
         for call in calls
     )
     assert not any("review only" in json.dumps(call) for call in calls)
+    meta = json.loads(
+        (Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "factory-review.meta.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert meta["has_prompt"] is True
+    assert meta["prompt_file"].endswith("factory-review.prompt.md")
+    assert Path(meta["prompt_file"]).read_text(encoding="utf-8") == "review only\n"
 
 
 def test_tmux_session_launcher_supports_droid_prompt_file(tmp_path: Path) -> None:

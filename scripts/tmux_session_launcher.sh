@@ -225,6 +225,7 @@ fi
 LOG_FILE="${LOG_DIR}/${NAME}.log"
 META_FILE="${LOG_DIR}/${NAME}.meta.json"
 REGISTRY_REPO_ROOT="${ARAGORA_TMUX_REGISTRY_REPO_ROOT:-${REPO_ROOT}}"
+HAS_PROMPT=""
 
 # Ensure tmux session exists
 if ! tmux has-session -t "${TMUX_SESSION}" 2>/dev/null; then
@@ -244,6 +245,10 @@ if [[ -n "${PROMPT_FILE}" ]]; then
     PROMPT="$(cat "${PROMPT_FILE}")"
 fi
 
+if [[ -n "${PROMPT}" ]]; then
+    HAS_PROMPT="yes"
+fi
+
 # Build the launch command
 # When --autonomous is set:
 #   - Claude gets ARAGORA_ADMIN_APPROVED=1 → --dangerously-skip-permissions (can run Bash)
@@ -260,8 +265,9 @@ if [[ "${AGENT}" == "codex" ]]; then
                 printf '%s\n' "${PROMPT}" > "${CODEX_EXEC_PROMPT_FILE}"
             fi
             CODEX_EXEC_PROMPT_FILE="$(cd "$(dirname "${CODEX_EXEC_PROMPT_FILE}")" && pwd)/$(basename "${CODEX_EXEC_PROMPT_FILE}")"
+            PROMPT_FILE="${CODEX_EXEC_PROMPT_FILE}"
             CODEX_EXEC_LAUNCH_FILE="${LOG_DIR}/${NAME}.launch.sh"
-            python3 - "${CODEX_EXEC_LAUNCH_FILE}" "${WORKDIR}" "${NAME}" "${CODEX_EXEC_PROMPT_FILE}" <<'PY'
+            python3 -c '
 import os
 import shlex
 import sys
@@ -285,7 +291,7 @@ body = "\n".join(
 path = Path(launch_file)
 path.write_text(body, encoding="utf-8")
 os.chmod(path, 0o700)
-PY
+' "${CODEX_EXEC_LAUNCH_FILE}" "${WORKDIR}" "${NAME}" "${CODEX_EXEC_PROMPT_FILE}"
             LAUNCH_CMD="bash '${CODEX_EXEC_LAUNCH_FILE}'"
             # `codex exec` consumes the prompt directly; do not also paste it
             # into an interactive pane.
@@ -318,6 +324,7 @@ elif [[ "${AGENT}" == "droid" || "${AGENT}" == "factory" ]]; then
             printf '%s\n' "${PROMPT}" > "${DROID_EXEC_PROMPT_FILE}"
         fi
         DROID_EXEC_PROMPT_FILE="$(cd "$(dirname "${DROID_EXEC_PROMPT_FILE}")" && pwd)/$(basename "${DROID_EXEC_PROMPT_FILE}")"
+        PROMPT_FILE="${DROID_EXEC_PROMPT_FILE}"
         LAUNCH_CMD="cd '${WORKDIR}' && droid exec --auto '${DROID_AUTO_LEVEL}' --cwd '${WORKDIR}' -f '${DROID_EXEC_PROMPT_FILE}'"
         # `droid exec -f` consumes the prompt directly; do not also paste it
         # into an interactive pane.
@@ -401,7 +408,7 @@ try:
     registry_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 except Exception as exc:
     print("warning: failed to register launcher session: " + str(exc), file=sys.stderr)
-' "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${WORKDIR}" "${PROMPT_FILE}" "${META_FILE}" "${PROMPT:+yes}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}"
+' "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${WORKDIR}" "${PROMPT_FILE}" "${META_FILE}" "${HAS_PROMPT}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}"
 
 echo "Launched '${NAME}' (${AGENT}) in tmux session '${TMUX_SESSION}'"
 echo "  Cwd: ${WORKDIR}"
