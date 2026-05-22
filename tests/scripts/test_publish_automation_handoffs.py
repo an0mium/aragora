@@ -118,6 +118,37 @@ def _repo_with_patch_equivalent_codex_branch(tmp_path: Path) -> tuple[Path, str]
     return repo, head
 
 
+def _repo_with_stale_outbox_head(tmp_path: Path) -> tuple[Path, str, str]:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return proc.stdout.strip()
+
+    git("init")
+    git("checkout", "-b", "main")
+    git("config", "user.email", "codex@example.com")
+    git("config", "user.name", "Codex")
+    (repo / "README.md").write_text("base\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-m", "base")
+    git("checkout", "-b", "codex/example")
+    (repo / "README.md").write_text("base\nold\n", encoding="utf-8")
+    git("commit", "-am", "old")
+    old_head = git("rev-parse", "HEAD")
+    (repo / "README.md").write_text("base\nold\nnew\n", encoding="utf-8")
+    git("commit", "-am", "new")
+    new_head = git("rev-parse", "HEAD")
+    return repo, old_head, new_head
+
+
 def test_load_handoffs_parses_structured_memory(tmp_path: Path) -> None:
     _memory(tmp_path, "founder-review", _handoff())
 
@@ -1187,6 +1218,8 @@ def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
             )
         if args[:3] == ["gh", "pr", "list"]:
             return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["git", "rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(args, 1, "", "unknown ref")
         raise AssertionError(f"unexpected args: {args}")
 
     monkeypatch.setattr(mod, "_run", fake_run)
@@ -1252,6 +1285,8 @@ def test_decide_handoffs_keeps_branch_update_actionable_when_pr_head_is_stale(
             return subprocess.CompletedProcess(args, 0, "[]", "")
         if args[:3] == ["gh", "pr", "list"]:
             return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["git", "rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(args, 1, "", "unknown ref")
         raise AssertionError(f"unexpected args: {args}")
 
     monkeypatch.setattr(mod, "_run", fake_run)
@@ -1272,6 +1307,51 @@ def test_decide_handoffs_keeps_branch_update_actionable_when_pr_head_is_stale(
             reason="eligible",
         )
     ]
+
+
+def test_decide_handoffs_blocks_stale_outbox_head_before_pr_lookup(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    repo, old_head, new_head = _repo_with_stale_outbox_head(tmp_path)
+    handoff = Handoff(
+        source_file=str(tmp_path / "outbox.json"),
+        task_title="Open draft PR for stale evidence",
+        priority="MEDIUM",
+        body="body",
+        labels={},
+        expires_at=None,
+        source_kind="outbox",
+        branch="codex/example",
+        desired_head=old_head,
+    )
+    real_run = mod._run
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args and args[0] == "gh":
+            raise AssertionError(f"unexpected GitHub lookup for stale handoff: {args}")
+        return real_run(args, cwd=cwd)
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=repo,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="stale_outbox_head",
+        )
+    ]
+    assert mod._branch_tip(repo, "codex/example") == new_head
 
 
 def test_decide_handoffs_prefers_branch_pr_over_duplicate_issue(
@@ -1378,6 +1458,39 @@ def test_decide_handoffs_respects_open_issue_cap(monkeypatch: Any, tmp_path: Pat
 
     assert decisions[0].eligible is False
     assert decisions[0].reason == "open_issue_cap"
+
+
+def test_summarize_decisions_counts_eligibility_and_reasons(tmp_path: Path) -> None:
+    decisions = [
+        PublishDecision(
+            task_title="Publish ready handoff",
+            source_file=str(tmp_path / "ready.json"),
+            eligible=True,
+            reason="eligible",
+        ),
+        PublishDecision(
+            task_title="Existing issue handoff",
+            source_file=str(tmp_path / "existing.json"),
+            eligible=False,
+            reason="existing_issue",
+        ),
+        PublishDecision(
+            task_title="Second existing issue handoff",
+            source_file=str(tmp_path / "existing-2.json"),
+            eligible=False,
+            reason="existing_issue",
+        ),
+    ]
+
+    assert mod.summarize_decisions(decisions) == {
+        "total": 3,
+        "eligible_count": 1,
+        "ineligible_count": 2,
+        "reason_counts": {
+            "eligible": 1,
+            "existing_issue": 2,
+        },
+    }
 
 
 def test_referenced_pr_numbers_deduplicates_multiple_mentions(tmp_path: Path) -> None:
@@ -1629,7 +1742,16 @@ def test_main_preview_does_not_write_outbox_receipt(
 
     assert exit_code == 0
     assert not receipts.exists()
-    assert '"reason": "existing_issue"' in capsys.readouterr().out
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["decisions"][0]["reason"] == "existing_issue"
+    assert payload["decision_summary"] == {
+        "total": 1,
+        "eligible_count": 0,
+        "ineligible_count": 1,
+        "reason_counts": {
+            "existing_issue": 1,
+        },
+    }
 
 
 def test_main_accepts_explicit_dry_run_alias(monkeypatch: Any, tmp_path: Path, capsys) -> None:
@@ -1809,9 +1931,140 @@ def test_main_reports_github_health_when_unavailable(
     exit_code = mod.main(["--repo", str(tmp_path), "--codex-home", str(tmp_path), "--json"])
 
     assert exit_code == 1
-    out = capsys.readouterr().out
-    assert '"mode": "connectivity_failed"' in out
-    assert '"reason": "github_unavailable"' in out
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["github_health"]["mode"] == "connectivity_failed"
+    assert payload["decisions"][0]["reason"] == "github_unavailable"
+    assert payload["decision_summary"] == {
+        "total": 1,
+        "eligible_count": 0,
+        "ineligible_count": 1,
+        "reason_counts": {
+            "github_unavailable": 1,
+        },
+    }
+
+
+def test_main_summary_only_omits_decisions_when_github_unavailable(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    handoffs = [
+        Handoff(
+            source_file=str(tmp_path / "first.md"),
+            task_title="First offline handoff",
+            priority="MEDIUM",
+            body="body",
+            labels={},
+            expires_at=None,
+        ),
+        Handoff(
+            source_file=str(tmp_path / "second.md"),
+            task_title="Second offline handoff",
+            priority="MEDIUM",
+            body="body",
+            labels={},
+            expires_at=None,
+        ),
+    ]
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: handoffs)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=True,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path),
+            "--json",
+            "--summary-only",
+        ]
+    )
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert "decisions" not in payload
+    assert payload["decision_count"] == 2
+    assert payload["decisions_omitted"] is True
+    assert payload["details_omitted"] is True
+    assert payload["decision_summary"] == {
+        "total": 2,
+        "eligible_count": 0,
+        "ineligible_count": 2,
+        "reason_counts": {
+            "github_unavailable": 2,
+        },
+    }
+
+
+def test_main_reports_stale_outbox_head_when_github_unavailable(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    repo, old_head, _new_head = _repo_with_stale_outbox_head(tmp_path)
+    outbox = repo / ".aragora" / "automation-outbox"
+    receipts = repo / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "open-pr-codex-example-oldhead.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                repo="synaptent/aragora",
+                requested_action={
+                    "type": "open_or_update_pr",
+                    "branch": "codex/example",
+                    "base": "main",
+                    "desired_head_sha": old_head,
+                },
+                local_evidence={
+                    "branch": "codex/example",
+                    "base": "main",
+                    "head_sha": old_head,
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(repo_root),
+        ),
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(repo),
+            "--codex-home",
+            str(tmp_path / "codex-home"),
+            "--outbox-dir",
+            str(outbox),
+            "--receipt-dir",
+            str(receipts),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["outbox_handoff_count"] == 1
+    assert payload["decisions"][0]["reason"] == "stale_outbox_head"
 
 
 def test_main_limits_github_unavailable_decision_preview(
@@ -1860,6 +2113,14 @@ def test_main_limits_github_unavailable_decision_preview(
     assert len(payload["decisions"]) == 1
     assert payload["decisions"][0]["task_title"] == "First offline handoff"
     assert payload["decisions"][0]["reason"] == "github_unavailable"
+    assert payload["decision_summary"] == {
+        "total": 1,
+        "eligible_count": 0,
+        "ineligible_count": 1,
+        "reason_counts": {
+            "github_unavailable": 1,
+        },
+    }
 
 
 def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path) -> None:

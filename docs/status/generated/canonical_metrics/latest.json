@@ -12,17 +12,17 @@
     {
       "claim_id": "canonical.python_modules.count",
       "claimed": "135+",
-      "message": "docs claim 135+ modules; live count is 4146 \u2014 within tolerance",
-      "observed": "4146",
+      "message": "docs claim 135+ modules; live count is 4145 \u2014 within tolerance",
+      "observed": "4145",
       "status": "pass",
       "tolerance": "+/-20%"
     },
     {
       "claim_id": "canonical.test_definitions.count",
       "claimed": "216016+",
-      "message": "docs claim 216016+ tests; live count is 159561. Refresh CANONICAL_GOALS.md when drift exceeds 20%.",
-      "observed": "159561",
-      "status": "warn",
+      "message": "docs claim 216016+ tests; live count is 218808",
+      "observed": "218808",
+      "status": "pass",
       "tolerance": "+/-20%"
     },
     {
@@ -84,7 +84,7 @@
   ],
   "summary": {
     "fail": 0,
-    "pass": 9,
-    "warn": 1
+    "pass": 10,
+    "warn": 0
   }
 }

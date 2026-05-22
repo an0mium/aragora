@@ -17,9 +17,10 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
-from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -161,6 +162,29 @@ class PublishDecision:
     existing_issue_url: str | None = None
     existing_pr_url: str | None = None
     created_issue_url: str | None = None
+
+
+def summarize_decisions(decisions: Sequence[PublishDecision]) -> dict[str, Any]:
+    reason_counts = Counter(item.reason for item in decisions)
+    eligible_count = sum(1 for item in decisions if item.eligible)
+    return {
+        "total": len(decisions),
+        "eligible_count": eligible_count,
+        "ineligible_count": len(decisions) - eligible_count,
+        "reason_counts": dict(sorted(reason_counts.items())),
+    }
+
+
+def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return compact publisher status for recurring automation logs."""
+
+    compact = dict(payload)
+    decisions = compact.pop("decisions", None)
+    if isinstance(decisions, Sequence) and not isinstance(decisions, (str, bytes, bytearray)):
+        compact["decision_count"] = len(decisions)
+        compact["decisions_omitted"] = True
+    compact["details_omitted"] = True
+    return compact
 
 
 def _gh_write_op(args: list[str]) -> bool:
@@ -666,6 +690,41 @@ def _remote_tracking_head(repo_root: Path, branch: str | None) -> str | None:
     return value if re.fullmatch(r"[0-9a-fA-F]{7,40}", value) else None
 
 
+def _branch_tip(repo_root: Path, branch: str | None) -> str | None:
+    if not branch:
+        return None
+
+    refs = [branch] if branch.startswith("origin/") else [f"origin/{branch}", branch]
+    for ref in dict.fromkeys(refs):
+        proc = _run(["git", "rev-parse", "--verify", ref], cwd=repo_root)
+        if proc.returncode != 0:
+            continue
+        value = proc.stdout.strip()
+        if re.fullmatch(r"[0-9a-fA-F]{7,40}", value):
+            return value
+    return None
+
+
+def _stale_outbox_head(repo_root: Path, handoff: Handoff) -> str | None:
+    if handoff.source_kind != "outbox" or not handoff.branch or not handoff.desired_head:
+        return None
+    branch_tip = _branch_tip(repo_root, handoff.branch)
+    if not branch_tip or _head_matches(handoff.desired_head, branch_tip):
+        return None
+    return branch_tip
+
+
+def _local_handoff_blocker(repo_root: Path, handoff: Handoff) -> PublishDecision | None:
+    if _stale_outbox_head(repo_root, handoff):
+        return PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="stale_outbox_head",
+        )
+    return None
+
+
 def _receipt_satisfies_outbox(
     repo_root: Path,
     payload: dict[str, Any],
@@ -1157,6 +1216,10 @@ def decide_handoffs(
     open_issue_count = _open_boss_ready_count(repo_root, repo, labels)
     decisions: list[PublishDecision] = []
     for handoff in handoffs:
+        local_blocker = _local_handoff_blocker(repo_root, handoff)
+        if local_blocker is not None:
+            decisions.append(local_blocker)
+            continue
         target_pr = _target_open_pr(repo_root, repo, handoff)
         if target_pr:
             decisions.append(
@@ -1350,6 +1413,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Preview eligible handoffs without writing; this is the default mode",
     )
     parser.add_argument("--json", action="store_true", help="Print machine-readable output")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, omit per-handoff decisions and print compact counts only.",
+    )
     return parser
 
 
@@ -1395,6 +1463,16 @@ def main(argv: list[str] | None = None) -> int:
     github_health = check_github_cli_health(repo_root)
     if not github_health.ready:
         decision_handoffs = handoffs[: max(args.limit, 0)]
+        decisions = [
+            _local_handoff_blocker(repo_root, handoff)
+            or PublishDecision(
+                task_title=handoff.task_title,
+                source_file=handoff.source_file,
+                eligible=False,
+                reason="github_unavailable",
+            )
+            for handoff in decision_handoffs
+        ]
         payload = {
             "repo": str(repo_root),
             "codex_home": str(codex_home),
@@ -1407,20 +1485,12 @@ def main(argv: list[str] | None = None) -> int:
             "outbox_handoff_count": len(outbox_handoffs),
             "handoff_count": len(handoffs),
             "github_health": github_health.to_dict(),
-            "decisions": [
-                asdict(
-                    PublishDecision(
-                        task_title=handoff.task_title,
-                        source_file=handoff.source_file,
-                        eligible=False,
-                        reason="github_unavailable",
-                    )
-                )
-                for handoff in decision_handoffs
-            ],
+            "decisions": [asdict(item) for item in decisions],
+            "decision_summary": summarize_decisions(decisions),
         }
         if args.json:
-            print(json.dumps(payload, indent=2))
+            output_payload = summary_only_payload(payload) if args.summary_only else payload
+            print(json.dumps(output_payload, indent=2))
         else:
             if handoffs:
                 print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
@@ -1468,9 +1538,11 @@ def main(argv: list[str] | None = None) -> int:
         "handoff_count": len(handoffs),
         "github_health": github_health.to_dict(),
         "decisions": [asdict(item) for item in results],
+        "decision_summary": summarize_decisions(results),
     }
     if args.json:
-        print(json.dumps(payload, indent=2))
+        output_payload = summary_only_payload(payload) if args.summary_only else payload
+        print(json.dumps(output_payload, indent=2))
     else:
         for item in results:
             marker = (

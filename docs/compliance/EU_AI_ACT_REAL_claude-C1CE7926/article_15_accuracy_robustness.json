@@ -1,0 +1,31 @@
+{
+  "artifact_id": "ART15-c9f174f4",
+  "receipt_id": "DR-20260521-b934a0",
+  "generated_at": "2026-05-21T03:21:46.631575+00:00",
+  "accuracy_metrics": {
+    "consensus_confidence": 0.4945,
+    "agreement_ratio": 1.0,
+    "agent_count": 0,
+    "vote_confidence_mean": 0.0
+  },
+  "robustness_score": 0.0,
+  "adversarial_testing": {
+    "dissent_detected": false,
+    "dissent_count": 0,
+    "hollow_consensus_checked": true,
+    "rhetorical_device_scoring": true,
+    "multi_round_critique": true
+  },
+  "cryptographic_controls": {
+    "integrity_hash_algorithm": "SHA-256",
+    "integrity_hash_present": true,
+    "signature_present": false,
+    "signing_algorithm": "SHA-256-content-hash"
+  },
+  "error_indicators": [
+    "Low consensus confidence: 49%",
+    "Below-threshold robustness score: 0.00"
+  ],
+  "continuous_monitoring": "ELO-based model performance tracking updated after each debate. Brier calibration scores updated after settlement resolution. SettlementTracker monitors claim accuracy over review_horizon_days.",
+  "integrity_hash": "9abebf1a3f49502aa647e5fb2acf47b131c88eb80a08896150c58009d0ded963"
+}

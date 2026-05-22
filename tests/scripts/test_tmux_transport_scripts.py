@@ -198,7 +198,7 @@ def test_tmux_session_launcher_does_not_treat_codex_banner_as_ready(tmp_path: Pa
     log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
     log_dir.mkdir(parents=True)
     (log_dir / "testpane.log").write_text(
-        "boot\nOpenAI Codex (v0.125.0)\n",
+        "boot\nOpenAI Codex (v0.125.0)\nUse /rename to rename your threads\n",
         encoding="utf-8",
     )
 
@@ -223,6 +223,9 @@ def test_tmux_session_launcher_does_not_treat_codex_banner_as_ready(tmp_path: Pa
     assert "Timed out waiting for readiness markers for testpane; prompt not sent." in result.stdout
     calls = _load_tmux_calls(env)
     assert ["load-buffer", "-"] not in calls
+    assert not any(
+        call[:2] == ["send-keys", "-t"] and "hello from launcher" in call for call in calls
+    )
 
 
 def test_tmux_session_launcher_supports_droid_agent(tmp_path: Path) -> None:
@@ -253,16 +256,83 @@ def test_tmux_session_launcher_supports_droid_agent(tmp_path: Path) -> None:
         check=True,
     )
 
-    assert "Readiness markers detected for factory-review." in result.stdout
     calls = _load_tmux_calls(env)
     assert any(
-        call[:2] == ["send-keys", "-t"] and call[2] == "@17" and "droid --cwd" in call[3]
+        call[:2] == ["send-keys", "-t"]
+        and call[2] == "@17"
+        and "droid exec --auto 'high'" in call[3]
+        and "-f" in call[3]
         for call in calls
     )
+    assert not any("review only" in json.dumps(call) for call in calls)
+
+
+def test_tmux_session_launcher_supports_droid_prompt_file(tmp_path: Path) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+    prompt_file = tmp_path / "review.md"
+    prompt_file.write_text("review from file", encoding="utf-8")
+
+    log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
+    log_dir.mkdir(parents=True)
+    (log_dir / "factory-review.log").write_text("boot\nDroid\n", encoding="utf-8")
+
+    subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "factory-review",
+            "--agent",
+            "factory",
+            "--prompt-file",
+            str(prompt_file),
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    calls = _load_tmux_calls(env)
     assert any(
-        call[:2] == ["send-keys", "-t"] and call[2] == "@17" and "review only" in call
+        call[:2] == ["send-keys", "-t"]
+        and call[2] == "@17"
+        and "droid exec --auto 'high'" in call[3]
+        and f"-f '{prompt_file}'" in call[3]
         for call in calls
     )
+    assert not any("review from file" in json.dumps(call) for call in calls)
+
+
+def test_tmux_session_launcher_rejects_unprompted_droid_auto_off_by_default(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "factory-review",
+            "--agent",
+            "droid",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "interactive Droid starts Auto Off" in result.stderr
 
 
 def test_tmux_session_launcher_does_not_send_prompt_before_readiness_by_default(

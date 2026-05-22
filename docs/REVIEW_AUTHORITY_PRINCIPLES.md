@@ -35,4 +35,16 @@ Machine reviews remain advisory in GitHub terms: they do not become bot `APPROVE
 
 A change to `aragora/cli/commands/review_queue.py` is treated as Tier 4 because the model-quorum logic that gates the change *is* the code being changed. Without the elevation, a bug or weakening introduced in the diff would be evaluated by the version of the gate it is trying to land — the artifact under review would be its own arbiter. Tier 4 keeps the human in the chain of trust for these PRs specifically.
 
+## Enforcement on GitHub
+
+Two workflows express this policy on GitHub, and they are deliberately separate.
+
+`aragora-review-gate.yml` ("Aragora Code Review") is advisory. It runs the heterogeneous model review, posts findings as a PR comment, and never fails a PR. `scripts/check_aragora_review_gate_policy.py` guards it against drift and keeps it advisory on purpose.
+
+`aragora-merge-quorum.yml` ("aragora-merge-quorum") is enforcing. It is the required status check on `main`. It builds the read-only merge-authorization packet (`review-queue merge-packet`) for the PR's exact head SHA and fails the check unless the packet authorizes the merge. For Tier 0-2 it passes when the model-quorum verdict is `admin_squash_allowed` with no unresolved dissent. For Tier 3-4 it passes only when, in addition to the model quorum, a head-SHA-bound human settlement signal is recorded — the `aragora/human-settlement` commit status, set by the operator after the local settlement receipt is written — and it fails closed until then.
+
+Branch protection on `main` therefore requires status checks (CI plus `aragora-merge-quorum`) and does not require a human approving review. This is intentional. A human `APPROVE` review by the author, or by any second GitHub identity the author controls, is a symbolic approval with no independent competence behind it: it satisfies the mechanism while defeating the four factors above. The model quorum supplies the technical review; the operator's recorded risk settlement supplies accountability and stake. Neither is a bot `APPROVE`, and neither pretends a second person reviewed the diff.
+
+A second GitHub account operated by the same person as the PR author MUST NOT be used to satisfy any review requirement. It fails the independence factor this document is built on, and in the audit trail it is indistinguishable from a genuine independent review — which makes it worse than no approval at all. Review authority on this repo comes from the model quorum and the operator's recorded settlement, never from a second login.
+
 These principles fit the repo's existing pillars rather than adding new ones. Receipts bind decisions to the exact reviewed state. Evidence-first review requires concrete validation and current-head truth before a merge decision is meaningful. Bounded scope keeps approvals legible enough that an approver can understand what is being accepted. The goal is not symbolic human presence. The goal is a reviewer with enough competence, independence, accountability, and stake to make the approval mean something.

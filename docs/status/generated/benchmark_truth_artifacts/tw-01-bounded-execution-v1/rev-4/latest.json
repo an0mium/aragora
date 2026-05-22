@@ -56,11 +56,11 @@
     "blocked_sanitation_failed": 2,
     "rescue_no_deliverable": 1
   },
-  "generated_at": "2026-05-19T04:09:18Z",
+  "generated_at": "2026-05-21T02:53:16Z",
   "in_flight_metrics": {
     "in_progress_attempted_count": 13,
     "in_progress_expected_count": 13,
-    "in_progress_graduation_rate": 0.0,
+    "in_progress_graduation_rate": 0.3077,
     "in_progress_issue_numbers": [
       5185,
       5187,
@@ -76,7 +76,7 @@
       5839,
       5844
     ],
-    "in_progress_success_count": 0,
+    "in_progress_success_count": 4,
     "note": "In-flight corpus issues are bounded open tasks autonomy is on the hook to resolve. Graduation occurs when a merged PR closes them; they then move to verified via a corpus revision."
   },
   "issues": [
@@ -103,82 +103,130 @@
     {
       "expected_status": "in_progress",
       "had_rescue": false,
-      "issue_closed_at": null,
+      "issue_closed_at": "2026-05-20T02:32:14Z",
       "issue_number": 5187,
-      "issue_state": "OPEN",
-      "issue_state_reason": "",
+      "issue_state": "CLOSED",
+      "issue_state_reason": "COMPLETED",
       "issue_title": "[B0-cohort] Add unit tests for storage/governance/metrics.py",
       "issue_url": "https://github.com/synaptent/aragora/issues/5187",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [],
-      "no_rescue_truth_success": false,
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-05-20T02:32:13Z",
+          "number": 7377,
+          "state": "MERGED",
+          "title": "test(storage): cover governance metric helpers",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/7377"
+        }
+      ],
+      "no_rescue_truth_success": true,
       "proxy_pr_signal": true,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "in_progress_open",
-      "truth_success": false
+      "truth_state": "merged_pr",
+      "truth_success": true
     },
     {
       "expected_status": "in_progress",
       "had_rescue": false,
-      "issue_closed_at": null,
+      "issue_closed_at": "2026-05-20T02:34:07Z",
       "issue_number": 5197,
-      "issue_state": "OPEN",
-      "issue_state_reason": "",
+      "issue_state": "CLOSED",
+      "issue_state_reason": "COMPLETED",
       "issue_title": "[B0-cohort] Add unit tests for tournaments/database.py",
       "issue_url": "https://github.com/synaptent/aragora/issues/5197",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [],
-      "no_rescue_truth_success": false,
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-05-20T02:34:06Z",
+          "number": 7378,
+          "state": "MERGED",
+          "title": "test(tournaments): cover tournament database schema",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/7378"
+        }
+      ],
+      "no_rescue_truth_success": true,
       "proxy_pr_signal": true,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "in_progress_open",
-      "truth_success": false
+      "truth_state": "merged_pr",
+      "truth_success": true
     },
     {
       "expected_status": "in_progress",
       "had_rescue": false,
-      "issue_closed_at": null,
+      "issue_closed_at": "2026-05-20T02:40:44Z",
       "issue_number": 5198,
-      "issue_state": "OPEN",
-      "issue_state_reason": "",
+      "issue_state": "CLOSED",
+      "issue_state_reason": "COMPLETED",
       "issue_title": "[B0-cohort] Add unit tests for server/debate_origin/models.py",
       "issue_url": "https://github.com/synaptent/aragora/issues/5198",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [],
-      "no_rescue_truth_success": false,
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-05-20T02:40:43Z",
+          "number": 7379,
+          "state": "MERGED",
+          "title": "test(server): cover debate origin model serialization",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/7379"
+        }
+      ],
+      "no_rescue_truth_success": true,
       "proxy_pr_signal": true,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "in_progress_open",
-      "truth_success": false
+      "truth_state": "merged_pr",
+      "truth_success": true
     },
     {
       "expected_status": "in_progress",
       "had_rescue": false,
-      "issue_closed_at": null,
+      "issue_closed_at": "2026-05-20T01:41:18Z",
       "issue_number": 5200,
-      "issue_state": "OPEN",
-      "issue_state_reason": "",
+      "issue_state": "CLOSED",
+      "issue_state_reason": "COMPLETED",
       "issue_title": "[B0-cohort] Add unit tests for server/handlers/admin/health/liveness.py",
       "issue_url": "https://github.com/synaptent/aragora/issues/5200",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [],
-      "no_rescue_truth_success": false,
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-05-20T01:41:17Z",
+          "number": 7380,
+          "state": "MERGED",
+          "title": "test(server): cover liveness health handler",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/7380"
+        }
+      ],
+      "no_rescue_truth_success": true,
       "proxy_pr_signal": true,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "in_progress_open",
-      "truth_success": false
+      "truth_state": "merged_pr",
+      "truth_success": true
     },
     {
       "expected_status": "in_progress",
@@ -341,11 +389,11 @@
       "truth_success": false
     }
   ],
-  "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+  "metrics_file": "/Users/armand/Development/aragora/.aragora/overnight/boss_metrics.jsonl",
   "primary_metrics": {
-    "merged_only_rate": 0.0,
-    "no_rescue_truth_success_rate": 0.0,
-    "truth_success_rate": 0.0,
+    "merged_only_rate": 0.3077,
+    "no_rescue_truth_success_rate": 0.3077,
+    "truth_success_rate": 0.3077,
     "truth_success_rate_verified": 0.0
   },
   "proxy_metrics": {

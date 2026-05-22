@@ -88,11 +88,25 @@ def _write_message(
 class TestCollectPendingSteeringMessages:
     def test_empty_mailbox_scoped(self, tmp_path: Path) -> None:
         result = ab._collect_pending_steering_messages("fixture-a", steering_root=tmp_path)
-        assert result == {"count": 0, "latest_three": []}
+        assert result == {
+            "count": 0,
+            "latest_three": [],
+            "read_receipt_count": 0,
+            "unread_message_count": 0,
+            "latest_read_receipt": None,
+        }
 
     def test_empty_mailbox_rollup(self, tmp_path: Path) -> None:
         result = ab._collect_pending_steering_messages(None, steering_root=tmp_path)
-        assert result == {"count": 0, "by_recipient": {}, "latest_three": []}
+        assert result == {
+            "count": 0,
+            "by_recipient": {},
+            "latest_three": [],
+            "read_receipt_count": 0,
+            "unread_message_count": 0,
+            "read_receipts_by_recipient": {},
+            "latest_read_receipt": None,
+        }
 
     def test_missing_dir_returns_zero(self, tmp_path: Path) -> None:
         # Steering root does not exist at all.
@@ -124,6 +138,51 @@ class TestCollectPendingSteeringMessages:
         assert first["priority"] == "high"
         assert first["lane_id_hint"] == "P30-fixture"
         assert first["pr_hint"] == 9000
+        assert result["read_receipt_count"] == 0
+        assert result["unread_message_count"] == 1
+        assert result["latest_read_receipt"] is None
+
+    def test_read_receipts_reduce_unread_but_preserve_pending_count(self, tmp_path: Path) -> None:
+        _write_message(
+            tmp_path,
+            "fixture-receipts",
+            body="already read",
+            sent_at_utc="2026-05-18T01:00:00.000Z",
+            filename="msg-a.json",
+        )
+        _write_message(
+            tmp_path,
+            "fixture-receipts",
+            body="still unread",
+            sent_at_utc="2026-05-18T02:00:00.000Z",
+            filename="msg-b.json",
+        )
+        receipt_dir = tmp_path / "fixture-receipts" / "_read_receipts"
+        receipt_dir.mkdir(parents=True)
+        msg_a = json.loads((tmp_path / "fixture-receipts" / "msg-a.json").read_text())
+        (receipt_dir / "receipt-a.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "aragora-operator-steering-read-receipt/1.0",
+                    "owner_session": "fixture-receipts",
+                    "read_by_session": "reader",
+                    "read_at_utc": "2026-05-18T03:00:00.000Z",
+                    "message_filename": "msg-a.json",
+                    "message_sha256": msg_a["message_sha256"],
+                    "outcome": "obeyed",
+                    "subject": "already read",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = ab._collect_pending_steering_messages("fixture-receipts", steering_root=tmp_path)
+
+        assert result["count"] == 2
+        assert result["read_receipt_count"] == 1
+        assert result["unread_message_count"] == 1
+        assert result["latest_read_receipt"]["message_filename"] == "msg-a.json"
+        assert result["latest_read_receipt"]["outcome"] == "obeyed"
 
     def test_five_messages_returns_top_three_newest(self, tmp_path: Path) -> None:
         # Write 5 with strictly-increasing sent_at_utc.
@@ -149,6 +208,9 @@ class TestCollectPendingSteeringMessages:
         result = ab._collect_pending_steering_messages(None, steering_root=tmp_path)
         assert result["count"] == 4
         assert result["by_recipient"] == {"alpha": 2, "beta": 1, "gamma": 1}
+        assert result["read_receipt_count"] == 0
+        assert result["unread_message_count"] == 4
+        assert result["read_receipts_by_recipient"] == {}
         # latest_three sorted newest first across all recipients
         subjects = [m["subject"] for m in result["latest_three"]]
         assert subjects == ["g-only", "b-only", "a-second"]

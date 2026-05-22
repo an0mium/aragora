@@ -53,6 +53,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -69,6 +70,9 @@ FACTORY_BG_PROCESSES_DEFAULT = Path.home() / ".factory" / "background-processes.
 
 # Fuzzy codex rollout search window (seconds).
 CODEX_FUZZY_MAX_AGE_SECONDS = 4 * 60 * 60
+ACTIVE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+CONFLICT_STATUSES = {"conflict", "conflicting"}
+COMPLETED_STATUSES = {"completed", "released"}
 
 # Subprocess timeout for ``agent_bridge operator-snapshot``.
 SNAPSHOT_TIMEOUT_SECONDS = 30
@@ -104,12 +108,26 @@ class LaneOwnerInfo:
     codex_rollout_path: str | None
     desktop_label: str | None
     session_title: str | None
+    contact_method: str | None
+    contact_payload: dict[str, Any] | None
+    last_mailbox_check_at: str | None
+    last_delivery_at: str | None
+    last_ack_at: str | None
     live_process: dict[str, Any]
     codex_thread: dict[str, Any]
     claude_session: dict[str, Any]
     factory_droid: dict[str, Any]
     steering_inbox_path: str
     pending_message_count: int
+    read_receipt_count: int
+    unread_message_count: int
+    latest_read_receipt: dict[str, Any] | None
+    mailbox_dispatchable: bool
+    live_prompt_dispatchable: bool
+    dispatchable: bool
+    dispatch_blocker: str | None
+    steering_command: str | None
+    harness_confidence: str
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +147,53 @@ def load_lane_records(registry_path: Path = LANE_REGISTRY_DEFAULT) -> list[dict[
     return [r for r in data if isinstance(r, dict)] if isinstance(data, list) else []
 
 
+def _status_rank(raw_status: Any) -> int:
+    """Rank lane statuses for non-unique selectors; lower is preferred."""
+
+    status = str(raw_status or "").strip().lower()
+    if status in ACTIVE_STATUSES:
+        return 0
+    if status in CONFLICT_STATUSES:
+        return 1
+    if status in COMPLETED_STATUSES:
+        return 2
+    return 3
+
+
+def _updated_at_timestamp(raw_updated_at: Any) -> float:
+    """Parse ``updated_at`` for ordering; invalid or missing values sort oldest."""
+
+    text = str(raw_updated_at or "").strip()
+    if not text:
+        return 0.0
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return 0.0
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
+
+
+def _best_lane_match(matches: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
+    """Return the best row for non-unique selectors like PR, branch, or worktree."""
+
+    if not matches:
+        return None
+    indexed = enumerate(matches)
+    _, best = min(
+        indexed,
+        key=lambda item: (
+            _status_rank(item[1].get("status")),
+            -_updated_at_timestamp(item[1].get("updated_at")),
+            item[0],
+        ),
+    )
+    return best
+
+
 def find_lane(
     records: Sequence[dict[str, Any]],
     *,
@@ -137,29 +202,35 @@ def find_lane(
     branch: str | None = None,
     worktree: str | None = None,
 ) -> dict[str, Any] | None:
-    """Return the first matching lane record by lane_id > pr > branch > worktree."""
+    """Return the best matching lane record by lane_id > pr > branch > worktree.
+
+    Multiple historical rows can target the same PR/branch/worktree. Prefer an
+    active row, then a conflict row, then the most recently updated completed or
+    released row, so owner lookup does not silently route an operator to a stale
+    completed lane. Exact lane-id lookup preserves registry order.
+    """
 
     if lane_id:
-        for r in records:
-            if r.get("lane_id") == lane_id:
-                return r
+        return next((r for r in records if r.get("lane_id") == lane_id), None)
     if pr is not None:
+        matches = []
         for r in records:
             try:
                 if int(r.get("pr_number") or 0) == int(pr):
-                    return r
+                    matches.append(r)
             except (TypeError, ValueError):
                 continue
+        return _best_lane_match(matches)
     if branch:
-        for r in records:
-            if r.get("branch") == branch:
-                return r
+        return _best_lane_match([r for r in records if r.get("branch") == branch])
     if worktree:
         wt_norm = os.path.normpath(worktree)
+        matches = []
         for r in records:
             rwt = r.get("worktree")
             if rwt and os.path.normpath(rwt) == wt_norm:
-                return r
+                matches.append(r)
+        return _best_lane_match(matches)
     return None
 
 
@@ -599,16 +670,171 @@ def lookup_factory_droid(
 # ---------------------------------------------------------------------------
 
 
+def _load_json_dict(path: Path) -> dict[str, Any] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _read_receipt_summary(inbox: Path, message_files: list[Path]) -> dict[str, Any]:
+    receipt_dir = inbox / "_read_receipts"
+    if not receipt_dir.is_dir():
+        return {
+            "read_receipt_count": 0,
+            "unread_message_count": len(message_files),
+            "latest_read_receipt": None,
+        }
+
+    receipts: list[dict[str, Any]] = []
+    read_keys: set[tuple[str, str]] = set()
+    for path in receipt_dir.glob("*.json"):
+        if not path.is_file():
+            continue
+        data = _load_json_dict(path)
+        if data is None:
+            continue
+        data["_receipt_filename"] = path.name
+        receipts.append(data)
+        read_keys.add(
+            (
+                str(data.get("message_filename") or ""),
+                str(data.get("message_sha256") or ""),
+            )
+        )
+
+    unread = 0
+    for path in message_files:
+        data = _load_json_dict(path) or {}
+        key = (path.name, str(data.get("message_sha256") or ""))
+        if key not in read_keys:
+            unread += 1
+
+    receipts.sort(key=lambda r: str(r.get("read_at_utc") or ""), reverse=True)
+    latest = None
+    if receipts:
+        raw = receipts[0]
+        latest = {
+            "receipt_filename": raw.get("_receipt_filename"),
+            "read_at_utc": raw.get("read_at_utc"),
+            "read_by_session": raw.get("read_by_session"),
+            "message_filename": raw.get("message_filename"),
+            "message_sha256": raw.get("message_sha256"),
+            "outcome": raw.get("outcome"),
+            "subject": raw.get("subject"),
+        }
+    return {
+        "read_receipt_count": len(receipts),
+        "unread_message_count": unread,
+        "latest_read_receipt": latest,
+    }
+
+
 def steering_inbox_for(
     owner_session: str, *, root: Path = STEERING_INBOX_ROOT_DEFAULT
-) -> tuple[Path, int]:
-    """Return ``(inbox_path, pending_count)``; missing dir → ``(path, 0)``."""
+) -> tuple[Path, int, dict[str, Any]]:
+    """Return inbox path, pending count, and read-receipt summary."""
 
     inbox = root / owner_session
     if not inbox.is_dir():
-        return inbox, 0
-    count = sum(1 for _ in inbox.glob("*.json"))
-    return inbox, count
+        return (
+            inbox,
+            0,
+            {
+                "read_receipt_count": 0,
+                "unread_message_count": 0,
+                "latest_read_receipt": None,
+            },
+        )
+    files = [path for path in inbox.glob("*.json") if path.is_file()]
+    count = len(files)
+    return inbox, count, _read_receipt_summary(inbox, files)
+
+
+def _dispatch_blocker_for(lane: dict[str, Any], owner_session: str) -> str | None:
+    status = str(lane.get("status") or "").strip().lower()
+    if not owner_session:
+        return "lane has no owner_session"
+    if status in ACTIVE_STATUSES:
+        return None
+    if status in CONFLICT_STATUSES:
+        return "lane status is conflict; resolve the conflict before steering"
+    if status in COMPLETED_STATUSES:
+        return f"lane status is {status}; claim an active lane before steering"
+    return f"lane status is {status or 'unknown'}; claim an active lane before steering"
+
+
+def _contact_payload_for(lane: dict[str, Any]) -> dict[str, Any] | None:
+    payload = lane.get("contact_payload")
+    return payload if isinstance(payload, dict) else None
+
+
+def _live_prompt_dispatchable_for(lane: dict[str, Any], owner_session: str) -> bool:
+    if _dispatch_blocker_for(lane, owner_session) is not None:
+        return False
+    method = str(lane.get("contact_method") or "").strip()
+    if method.startswith("tmux:"):
+        return bool(method.removeprefix("tmux:").strip())
+    if method.startswith("codex-exec-resume:"):
+        return bool(method.removeprefix("codex-exec-resume:").strip())
+    if method.startswith("codex-app-server:"):
+        payload = _contact_payload_for(lane) or {}
+        return bool(
+            payload.get("socket") and (payload.get("thread_id") or lane.get("codex_thread_id"))
+        )
+    return bool(lane.get("codex_thread_id"))
+
+
+def _steering_command_for(lane: dict[str, Any], owner_session: str) -> str | None:
+    if _dispatch_blocker_for(lane, owner_session) is not None:
+        return None
+    parts = [
+        "python3",
+        "scripts/send_operator_steering.py",
+        "--to",
+        owner_session,
+    ]
+    lane_id = str(lane.get("lane_id") or "")
+    if lane_id:
+        parts.extend(["--lane-id", lane_id])
+    raw_pr = lane.get("pr_number")
+    if raw_pr is not None:
+        parts.extend(["--pr", str(raw_pr)])
+    parts.extend(["--priority", "blocking", "--body", "'<message>'"])
+    return " ".join(parts)
+
+
+def _harness_confidence_for(
+    lane: dict[str, Any],
+    *,
+    live: dict[str, Any],
+    codex: dict[str, Any],
+    claude: dict[str, Any],
+    factory: dict[str, Any],
+) -> str:
+    if any(
+        lane.get(field)
+        for field in (
+            "codex_thread_id",
+            "codex_rollout_path",
+            "desktop_label",
+            "session_title",
+        )
+    ):
+        return "recorded_identity"
+    if live.get("found"):
+        return "live_process"
+    if codex.get("found"):
+        matched_via = str(codex.get("matched_via") or "")
+        if "ambiguous" in matched_via or "fuzzy" in matched_via:
+            return "mailbox_only_fuzzy_thread"
+        return "codex_thread_best_effort"
+    if claude.get("found"):
+        return "claude_session_best_effort"
+    if factory.get("found"):
+        return "factory_droid_best_effort"
+    return "mailbox_only"
 
 
 # ---------------------------------------------------------------------------
@@ -631,7 +857,8 @@ def build_owner_info(
     codex = lookup_codex_thread(lane, sessions_root=sessions_root, now=fuzzy_now)
     claude = lookup_claude_session(lane, projects_root=projects_root)
     factory = lookup_factory_droid(lane, bg_path=bg_path)
-    inbox_path, pending = steering_inbox_for(owner, root=steering_inbox_root)
+    inbox_path, pending, receipt_summary = steering_inbox_for(owner, root=steering_inbox_root)
+    dispatch_blocker = _dispatch_blocker_for(lane, owner)
 
     raw_pr = lane.get("pr_number")
     try:
@@ -653,12 +880,32 @@ def build_owner_info(
         codex_rollout_path=lane.get("codex_rollout_path"),
         desktop_label=lane.get("desktop_label"),
         session_title=lane.get("session_title"),
+        contact_method=lane.get("contact_method"),
+        contact_payload=_contact_payload_for(lane),
+        last_mailbox_check_at=lane.get("last_mailbox_check_at"),
+        last_delivery_at=lane.get("last_delivery_at"),
+        last_ack_at=lane.get("last_ack_at"),
         live_process=live,
         codex_thread=codex,
         claude_session=claude,
         factory_droid=factory,
         steering_inbox_path=str(inbox_path),
         pending_message_count=pending,
+        read_receipt_count=int(receipt_summary["read_receipt_count"]),
+        unread_message_count=int(receipt_summary["unread_message_count"]),
+        latest_read_receipt=receipt_summary["latest_read_receipt"],
+        mailbox_dispatchable=dispatch_blocker is None,
+        live_prompt_dispatchable=_live_prompt_dispatchable_for(lane, owner),
+        dispatchable=dispatch_blocker is None,
+        dispatch_blocker=dispatch_blocker,
+        steering_command=_steering_command_for(lane, owner),
+        harness_confidence=_harness_confidence_for(
+            lane,
+            live=live,
+            codex=codex,
+            claude=claude,
+            factory=factory,
+        ),
     )
 
 
@@ -687,6 +934,11 @@ def _print_human(info: LaneOwnerInfo) -> None:
     print(f"  codex_rollout_path: {info.codex_rollout_path or '(not supplied)'}")
     print(f"  desktop_label:      {info.desktop_label or '(not supplied)'}")
     print(f"  session_title:      {info.session_title or '(not supplied)'}")
+    print(f"  contact_method:     {info.contact_method or '(not supplied)'}")
+    print(f"  contact_payload:    {info.contact_payload or '-'}")
+    print(f"  last_mailbox_check: {info.last_mailbox_check_at or '-'}")
+    print(f"  last_delivery_at:   {info.last_delivery_at or '-'}")
+    print(f"  last_ack_at:        {info.last_ack_at or '-'}")
     print()
     print("best-effort live lookups:")
     print(f"  live_process:   {_glyph(info.live_process.get('found', False))}  {info.live_process}")
@@ -700,6 +952,15 @@ def _print_human(info: LaneOwnerInfo) -> None:
     print()
     print(f"steering_inbox_path:   {info.steering_inbox_path}")
     print(f"pending_message_count: {info.pending_message_count}")
+    print(f"read_receipt_count:    {info.read_receipt_count}")
+    print(f"unread_message_count:  {info.unread_message_count}")
+    print(f"latest_read_receipt:   {info.latest_read_receipt or '-'}")
+    print(f"mailbox_dispatchable:  {info.mailbox_dispatchable}")
+    print(f"live_prompt_dispatchable: {info.live_prompt_dispatchable}")
+    print(f"dispatchable:          {info.dispatchable}")
+    print(f"dispatch_blocker:      {info.dispatch_blocker or '-'}")
+    print(f"steering_command:      {info.steering_command or '-'}")
+    print(f"harness_confidence:    {info.harness_confidence}")
 
 
 def _build_parser() -> argparse.ArgumentParser:

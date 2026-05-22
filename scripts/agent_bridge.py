@@ -66,6 +66,8 @@ if agent_bridge_sessions is not None:
     except (OSError, RuntimeError, ValueError):
         CANONICAL_REPO_ROOT = REPO_ROOT
 ACTIVE_LANE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+CONFLICT_LANE_STATUSES = {"conflict"}
+COMPLETED_LANE_STATUSES = {"completed", "released"}
 CURRENT_SESSION_LIFECYCLES = {"live", "active_broker"}
 HISTORICAL_SESSION_LIFECYCLES = {"historical", "dead", "stale", "orphaned"}
 DEFAULT_STALE_TTL_HOURS = 24
@@ -181,6 +183,11 @@ class LaneRecord:
     codex_thread_id: str = ""
     codex_rollout_path: str = ""
     session_title: str = ""
+    contact_method: str = ""
+    contact_payload: dict[str, Any] | None = None
+    last_mailbox_check_at: str = ""
+    last_delivery_at: str = ""
+    last_ack_at: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v not in ("", None)}
@@ -204,6 +211,13 @@ class LaneRecord:
             codex_thread_id=str(payload.get("codex_thread_id", "")),
             codex_rollout_path=str(payload.get("codex_rollout_path", "")),
             session_title=str(payload.get("session_title", "")),
+            contact_method=str(payload.get("contact_method", "")),
+            contact_payload=payload.get("contact_payload")
+            if isinstance(payload.get("contact_payload"), dict)
+            else None,
+            last_mailbox_check_at=str(payload.get("last_mailbox_check_at", "")),
+            last_delivery_at=str(payload.get("last_delivery_at", "")),
+            last_ack_at=str(payload.get("last_ack_at", "")),
         )
 
 
@@ -534,8 +548,6 @@ def _record_matches_owner_query(
     branch: str | None,
     worktree: str | None,
 ) -> bool:
-    if record.status not in ACTIVE_LANE_STATUSES:
-        return False
     if pr_number is not None and record.pr_number == pr_number:
         return True
     if branch and record.branch == branch:
@@ -587,12 +599,55 @@ def _owned_owner_payload(record: LaneRecord) -> dict[str, Any]:
     }
 
 
+def _historical_owner_payload(record: LaneRecord) -> dict[str, Any]:
+    return {
+        "owner_status": "unowned",
+        "active_owner": False,
+        "lane_id": record.lane_id,
+        "owner_session": record.owner_session,
+        "pr_number": record.pr_number,
+        "branch": record.branch or None,
+        "worktree": record.worktree or None,
+        "head": _head_for_worktree(record.worktree),
+        "status": record.status,
+        "updated_at": record.updated_at or None,
+        "recommended_operator_action": (
+            f"latest matching lane is {record.status}; claim the lane before mutation"
+        ),
+    }
+
+
+def _conflict_status_owner_payload(record: LaneRecord) -> dict[str, Any]:
+    reason = record.conflict_reason or "resolve the recorded lane conflict"
+    return {
+        "owner_status": "conflict",
+        "active_owner": False,
+        "lane_id": record.lane_id,
+        "owner_session": record.owner_session,
+        "pr_number": record.pr_number,
+        "branch": record.branch or None,
+        "worktree": record.worktree or None,
+        "head": _head_for_worktree(record.worktree),
+        "status": record.status,
+        "updated_at": record.updated_at or None,
+        "conflict_session": record.conflict_session or None,
+        "conflict_reason": record.conflict_reason or None,
+        "recommended_operator_action": f"resolve lane conflict before mutation: {reason}",
+    }
+
+
 def _conflicted_owner_payload(records: list[LaneRecord]) -> dict[str, Any]:
     lane_ids = sorted({record.lane_id for record in records if record.lane_id})
     owner_sessions = sorted({record.owner_session for record in records if record.owner_session})
     branches = sorted({record.branch for record in records if record.branch})
     worktrees = sorted({record.worktree for record in records if record.worktree})
     pr_numbers = sorted({record.pr_number for record in records if record.pr_number is not None})
+    conflict_sessions = sorted(
+        {record.conflict_session for record in records if record.conflict_session}
+    )
+    conflict_reasons = sorted(
+        {record.conflict_reason for record in records if record.conflict_reason}
+    )
     updated_values = sorted(
         (record.updated_at for record in records if record.updated_at), reverse=True
     )
@@ -607,10 +662,28 @@ def _conflicted_owner_payload(records: list[LaneRecord]) -> dict[str, Any]:
         "head": None,
         "status": "conflict",
         "updated_at": updated_values[0] if updated_values else None,
+        "conflict_session": ",".join(conflict_sessions) or None,
+        "conflict_reason": " | ".join(conflict_reasons) or None,
         "recommended_operator_action": (
             "pause duplicate mutation; resolve active owner conflict before mutation"
         ),
     }
+
+
+def _lane_updated_timestamp(record: LaneRecord) -> float:
+    parsed = _parse_timestamp(record.updated_at)
+    if parsed is None:
+        return 0.0
+    return parsed.timestamp()
+
+
+def _newest_lane_record(records: list[LaneRecord]) -> LaneRecord:
+    indexed = list(enumerate(records))
+    _index, record = min(
+        indexed,
+        key=lambda item: (-_lane_updated_timestamp(item[1]), item[0]),
+    )
+    return record
 
 
 def _active_owner_payload(
@@ -629,11 +702,23 @@ def _active_owner_payload(
     ]
     if not matches:
         return _unowned_owner_payload(pr_number=pr_number, branch=branch, worktree=worktree)
-    owners = {record.owner_session for record in matches if record.owner_session}
-    if len(owners) > 1:
-        return _conflicted_owner_payload(matches)
-    matches.sort(key=lambda record: record.updated_at or "", reverse=True)
-    return _owned_owner_payload(matches[0])
+
+    active_matches = [record for record in matches if record.status in ACTIVE_LANE_STATUSES]
+    if active_matches:
+        owners = {record.owner_session for record in active_matches if record.owner_session}
+        if len(owners) > 1:
+            return _conflicted_owner_payload(active_matches)
+        return _owned_owner_payload(_newest_lane_record(active_matches))
+
+    conflict_matches = [record for record in matches if record.status in CONFLICT_LANE_STATUSES]
+    if conflict_matches:
+        return _conflict_status_owner_payload(_newest_lane_record(conflict_matches))
+
+    completed_matches = [record for record in matches if record.status in COMPLETED_LANE_STATUSES]
+    if completed_matches:
+        return _historical_owner_payload(_newest_lane_record(completed_matches))
+
+    return _unowned_owner_payload(pr_number=pr_number, branch=branch, worktree=worktree)
 
 
 def _load_broker_run_summaries() -> list[dict[str, Any]]:
@@ -1566,18 +1651,87 @@ def _collect_pending_steering_messages(
         # consumed messages per the Phase D convention.
         return [p for p in dir_path.glob("*.json") if p.is_file()]
 
+    def _read_receipt_summary(dir_path: Path, files: list[Path]) -> dict[str, Any]:
+        receipt_dir = dir_path / "_read_receipts"
+        if not receipt_dir.is_dir():
+            return {
+                "read_receipt_count": 0,
+                "unread_message_count": len(files),
+                "latest_read_receipt": None,
+            }
+
+        receipts: list[dict[str, Any]] = []
+        read_keys: set[tuple[str, str]] = set()
+        for receipt_path in receipt_dir.glob("*.json"):
+            if not receipt_path.is_file():
+                continue
+            try:
+                data = json.loads(receipt_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(data, dict):
+                continue
+            data["_receipt_filename"] = receipt_path.name
+            receipts.append(data)
+            read_keys.add(
+                (
+                    str(data.get("message_filename") or ""),
+                    str(data.get("message_sha256") or ""),
+                )
+            )
+
+        unread = 0
+        for message_path in files:
+            try:
+                message = json.loads(message_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                message = {}
+            if not isinstance(message, dict):
+                message = {}
+            key = (message_path.name, str(message.get("message_sha256") or ""))
+            if key not in read_keys:
+                unread += 1
+
+        receipts.sort(key=lambda r: str(r.get("read_at_utc") or ""), reverse=True)
+        latest = None
+        if receipts:
+            raw = receipts[0]
+            latest = {
+                "receipt_filename": raw.get("_receipt_filename"),
+                "read_at_utc": raw.get("read_at_utc"),
+                "read_by_session": raw.get("read_by_session"),
+                "message_filename": raw.get("message_filename"),
+                "message_sha256": raw.get("message_sha256"),
+                "outcome": raw.get("outcome"),
+                "subject": raw.get("subject"),
+            }
+        return {
+            "read_receipt_count": len(receipts),
+            "unread_message_count": unread,
+            "latest_read_receipt": latest,
+        }
+
     if session_name:
-        files = _inbox_files(steering_root / session_name)
+        inbox_dir = steering_root / session_name
+        files = _inbox_files(inbox_dir)
         summaries = sorted(
             (_summary_from(p) for p in files),
             key=lambda s: s["sent_at_utc"],
             reverse=True,
         )
-        return {"count": len(files), "latest_three": summaries[:3]}
+        return {
+            "count": len(files),
+            "latest_three": summaries[:3],
+            **_read_receipt_summary(inbox_dir, files),
+        }
 
     # Roll-up across all recipient dirs.
     by_recipient: dict[str, int] = {}
+    read_receipts_by_recipient: dict[str, int] = {}
     all_summaries: list[dict[str, Any]] = []
+    total_read_receipts = 0
+    total_unread = 0
+    latest_receipts: list[dict[str, Any]] = []
     for child in sorted(steering_root.iterdir()):
         if not child.is_dir() or child.name.startswith("."):
             continue
@@ -1585,11 +1739,24 @@ def _collect_pending_steering_messages(
         if files:
             by_recipient[child.name] = len(files)
             all_summaries.extend(_summary_from(p) for p in files)
+        receipt_summary = _read_receipt_summary(child, files)
+        total_read_receipts += int(receipt_summary["read_receipt_count"])
+        total_unread += int(receipt_summary["unread_message_count"])
+        if receipt_summary["read_receipt_count"]:
+            read_receipts_by_recipient[child.name] = int(receipt_summary["read_receipt_count"])
+        latest = receipt_summary["latest_read_receipt"]
+        if isinstance(latest, dict):
+            latest_receipts.append(latest)
     all_summaries.sort(key=lambda s: s["sent_at_utc"], reverse=True)
+    latest_receipts.sort(key=lambda r: str(r.get("read_at_utc") or ""), reverse=True)
     return {
         "count": sum(by_recipient.values()),
         "by_recipient": by_recipient,
         "latest_three": all_summaries[:3],
+        "read_receipt_count": total_read_receipts,
+        "unread_message_count": total_unread,
+        "read_receipts_by_recipient": read_receipts_by_recipient,
+        "latest_read_receipt": latest_receipts[0] if latest_receipts else None,
     }
 
 
