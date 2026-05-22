@@ -95,6 +95,49 @@ def test_apply_marks_conflict_superseded_and_writes_receipt(tmp_path: Path) -> N
     assert receipt["new_status"] == "superseded"
 
 
+def test_apply_supersedes_only_exact_conflict_row(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    receipt_dir = tmp_path / "receipts"
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "shared-lane",
+                    "owner_session": "codex-conflict-a",
+                    "status": "conflict",
+                    "conflict_session": "codex-done",
+                },
+                {
+                    "lane_id": "shared-lane",
+                    "owner_session": "codex-conflict-b",
+                    "status": "conflict",
+                    "conflict_session": "codex-unknown",
+                },
+                {
+                    "lane_id": "done-lane",
+                    "owner_session": "codex-done",
+                    "status": "completed",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = resolver.resolve_conflicts(
+        registry_path=registry,
+        receipt_dir=receipt_dir,
+        apply=True,
+        resolved_at="2026-05-21T23:45:00Z",
+    )
+
+    rows = json.loads(registry.read_text(encoding="utf-8"))
+    by_owner = {row["owner_session"]: row for row in rows}
+    assert result["resolved_count"] == 1
+    assert result["unknown_session_count"] == 1
+    assert by_owner["codex-conflict-a"]["status"] == "superseded"
+    assert by_owner["codex-conflict-b"]["status"] == "conflict"
+
+
 def test_concurrent_apply_preserves_registry_json(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
     receipt_dir = tmp_path / "receipts"

@@ -181,14 +181,23 @@ def resolve_conflicts(
         candidates = _find_resolvable_conflicts_from_rows(rows)
         unknown_conflicts = _unknown_conflict_sessions_from_rows(rows)
         if apply and candidates:
-            candidate_ids = {str(candidate["lane_id"]) for candidate in candidates}
+            candidate_keys = {
+                (
+                    str(candidate.get("lane_id") or ""),
+                    str(candidate.get("owner_session") or ""),
+                    str(candidate.get("conflict_session") or ""),
+                )
+                for candidate in candidates
+            }
             out_rows: list[dict[str, Any]] = []
             for row in rows:
                 row = dict(row)
-                if (
-                    str(row.get("lane_id") or "") in candidate_ids
-                    and row.get("status") == "conflict"
-                ):
+                row_key = (
+                    str(row.get("lane_id") or ""),
+                    str(row.get("owner_session") or ""),
+                    str(row.get("conflict_session") or ""),
+                )
+                if row_key in candidate_keys and row.get("status") == "conflict":
                     row["status"] = "superseded"
                     row["updated_at"] = resolved_at
                     row["last_steering_outcome"] = "superseded"
