@@ -35,6 +35,7 @@ CONNECTIVITY_ERROR_TOKENS = (
     "network is unreachable",
     "connection timed out",
     "connection refused",
+    "connection reset by peer",
     "command timed out after",
     "context deadline exceeded",
     "i/o timeout",
@@ -46,6 +47,7 @@ CONNECTIVITY_ERROR_TOKENS = (
     "lookup github.com",
     "no such host",
     "no route to host",
+    "proxyconnect tcp",
 )
 
 

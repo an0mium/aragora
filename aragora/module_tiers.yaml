@@ -139,13 +139,13 @@ modules:
     tier: core
     py_files: 1115
     importer_count: 180
-    test_file_count: 1877
+    test_file_count: 1879
     override_reason: "FastAPI server + 3K+ API operations"
   - name: storage
     tier: core
     py_files: 104
     importer_count: 227
-    test_file_count: 164
+    test_file_count: 165
     override_reason: "persistence layer"
 
   # --- integrated (90) ---
@@ -716,7 +716,7 @@ modules:
     tier: experimental
     py_files: 3
     importer_count: 1
-    test_file_count: 2
+    test_file_count: 3
   - name: transcription
     tier: experimental
     py_files: 3

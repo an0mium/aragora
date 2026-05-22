@@ -96,6 +96,14 @@ def write_payload(
     return p
 
 
+def binding_marker_for_payload(path: Path) -> str:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return (
+        f"Applied from operator-decisions {payload['payload_sha256'][:10]} "
+        f"bound to packet {payload['receipt_sha256'][:10]}"
+    )
+
+
 def write_receipt(tmp_path: Path, body: bytes = _RECEIPT_BODY) -> Path:
     p = tmp_path / "settlement-receipt.json"
     p.write_bytes(body)
@@ -119,9 +127,17 @@ class FakeGh:
         self,
         *,
         head_oid: str = _HEAD_SHA_DEFAULT,
+        is_draft: bool = False,
+        state: str = "OPEN",
+        comments: list[dict[str, str]] | None = None,
+        reviews: list[dict[str, str]] | None = None,
         apply_succeeds: bool = True,
     ) -> None:
         self.head_oid = head_oid
+        self.is_draft = is_draft
+        self.state = state
+        self.comments = comments or []
+        self.reviews = reviews or []
         self.apply_succeeds = apply_succeeds
         self.calls: list[list[str]] = []
 
@@ -131,7 +147,15 @@ class FakeGh:
             return subprocess.CompletedProcess(
                 args=cmd,
                 returncode=0,
-                stdout=json.dumps({"headRefOid": self.head_oid}),
+                stdout=json.dumps(
+                    {
+                        "headRefOid": self.head_oid,
+                        "isDraft": self.is_draft,
+                        "state": self.state,
+                        "comments": self.comments,
+                        "reviews": self.reviews,
+                    }
+                ),
                 stderr="",
             )
         if not self.apply_succeeds:
@@ -610,6 +634,86 @@ def test_head_drift_skips_entry(
     out = capsys.readouterr().out
     assert "DRIFT" in out
     assert "HEAD DRIFT" in out
+
+
+def test_apply_refuses_draft_pr_before_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake = FakeGh(is_draft=True)
+    monkeypatch.setattr(aod.subprocess, "run", fake.run)
+    monkeypatch.setattr(
+        aod.shutil, "which", lambda exe: "/usr/local/bin/gh" if exe == "gh" else None
+    )
+    p = write_payload(tmp_path, [make_entry(100, "approve_tier")])
+
+    rc = aod.main(apply_args(tmp_path, p))
+
+    assert rc == 1
+    assert len(fake.calls) == 1
+    assert fake.calls[0][:3] == ["gh", "pr", "view"]
+    assert fake.review_calls() == []
+    out = capsys.readouterr().out
+    assert "FAIL" in out
+    assert "draft" in out
+
+
+@pytest.mark.parametrize("state", ["CLOSED", "MERGED"])
+def test_apply_refuses_non_open_pr_before_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    state: str,
+) -> None:
+    fake = FakeGh(state=state)
+    monkeypatch.setattr(aod.subprocess, "run", fake.run)
+    monkeypatch.setattr(
+        aod.shutil, "which", lambda exe: "/usr/local/bin/gh" if exe == "gh" else None
+    )
+    p = write_payload(tmp_path, [make_entry(100, "reject")])
+
+    rc = aod.main(apply_args(tmp_path, p))
+
+    assert rc == 1
+    assert len(fake.calls) == 1
+    assert fake.calls[0][:3] == ["gh", "pr", "view"]
+    assert fake.close_calls() == []
+    out = capsys.readouterr().out
+    assert "FAIL" in out
+    assert state in out
+
+
+@pytest.mark.parametrize(
+    ("decision", "collection_name"),
+    [("approve_tier", "reviews"), ("reject", "comments")],
+)
+def test_apply_skips_duplicate_binding_replay_before_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    decision: str,
+    collection_name: str,
+) -> None:
+    p = write_payload(tmp_path, [make_entry(100, decision)])
+    marker = binding_marker_for_payload(p)
+    fake_kwargs: dict[str, Any] = {collection_name: [{"body": f"prior run\n{marker}"}]}
+    fake = FakeGh(**fake_kwargs)
+    monkeypatch.setattr(aod.subprocess, "run", fake.run)
+    monkeypatch.setattr(
+        aod.shutil, "which", lambda exe: "/usr/local/bin/gh" if exe == "gh" else None
+    )
+
+    rc = aod.main(apply_args(tmp_path, p))
+
+    assert rc == 0
+    assert len(fake.calls) == 1
+    assert fake.calls[0][:3] == ["gh", "pr", "view"]
+    assert fake.review_calls() == []
+    assert fake.close_calls() == []
+    out = capsys.readouterr().out
+    assert "SKIP" in out
+    assert "duplicate apply" in out
 
 
 # ---------------------------------------------------------------------------
