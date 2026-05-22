@@ -123,6 +123,8 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     "aragora/cli/parser.py",
 )
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
+MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"
+MERGE_QUORUM_WORKFLOW_NAME = "Aragora Merge Quorum"
 
 LANE_ORDER: dict[str, int] = {
     "ready_now": 0,
@@ -1202,6 +1204,8 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     for check in _latest_status_check_rollup(checks):
         if not isinstance(check, dict):
             continue
+        if _is_merge_quorum_self_check(check):
+            continue
         status = str(check.get("status") or check.get("state") or "").upper()
         conclusion = str(check.get("conclusion") or "").upper()
         # Status-context rollups use ``state`` without a separate conclusion.
@@ -1277,6 +1281,15 @@ def _status_check_identity(check: dict[str, Any]) -> str:
     if workflow:
         return f"check-run:{workflow}:{name}"
     return f"status-context:{name}"
+
+
+def _is_merge_quorum_self_check(check: dict[str, Any]) -> bool:
+    """Ignore the merge-quorum workflow's own status while building its packet."""
+    name = str(check.get("name") or check.get("context") or "").strip()
+    if name != MERGE_QUORUM_CHECK_NAME:
+        return False
+    workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
+    return workflow in {"", MERGE_QUORUM_WORKFLOW_NAME}
 
 
 def _filter_lanes(

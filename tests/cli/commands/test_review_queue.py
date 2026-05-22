@@ -296,6 +296,71 @@ class TestSummarizeChecks:
         assert has_fail
         assert not has_pending
 
+    def test_merge_quorum_self_check_pending_is_ignored(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "startedAt": "2026-05-22T14:08:46Z",
+            },
+            {
+                "name": "lint",
+                "workflowName": "Lint",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+                "completedAt": "2026-05-22T13:01:00Z",
+            },
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1/1 green"
+        assert not has_fail
+        assert not has_pending
+
+    def test_merge_quorum_self_check_failure_is_ignored(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "completedAt": "2026-05-22T14:09:40Z",
+            },
+            {
+                "name": "Generate & Validate",
+                "workflowName": "OpenAPI Spec",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+                "completedAt": "2026-05-22T12:46:43Z",
+            },
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1/1 green"
+        assert not has_fail
+        assert not has_pending
+
+    def test_similarly_named_check_in_other_workflow_still_blocks(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Release Readiness Gate",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "completedAt": "2026-05-22T14:09:40Z",
+            },
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 failing / 1 total"
+        assert has_fail
+        assert not has_pending
+
 
 # --- _classify_pr lane logic -----------------------------------------------
 
