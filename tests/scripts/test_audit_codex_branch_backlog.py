@@ -158,7 +158,7 @@ def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     assert compact["records"] == []
     assert compact["records_omitted"] is True
     assert compact["record_examples"] == {}
-    assert compact["record_examples_limit"] == 3
+    assert compact["record_examples_limit"] == 0
     assert payload["records"] == [{"name": "codex/one"}, {"name": "codex/two"}]
 
 
@@ -224,7 +224,7 @@ def test_summary_only_payload_keeps_compact_category_examples() -> None:
         ],
     }
 
-    compact = mod.summary_only_payload(payload)
+    compact = mod.summary_only_payload(payload, example_limit=3)
 
     cleanup_examples = compact["record_examples"]["cleanup_patch_equivalent"]
     assert [item["name"] for item in cleanup_examples] == [
