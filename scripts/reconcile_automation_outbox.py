@@ -496,6 +496,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Print a machine-readable reconciliation result instead of human text",
     )
     parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, omit per-handoff action details and print only compact counts.",
+    )
+    parser.add_argument(
         "--write-report",
         action="store_true",
         help=(
@@ -856,35 +861,34 @@ def main(argv: list[str] | None = None) -> int:
     if not args.apply:
         emit("\n  DRY-RUN — re-run with --apply to actually archive files.")
     if args.json:
-        print(
-            json.dumps(
-                {
-                    "actions": actions,
-                    "applied": args.apply,
-                    "archive_dir": str(archive_dir),
-                    "archived": archived,
-                    "base": args.base,
-                    "counts": counts,
-                    "dry_run": not args.apply,
-                    "kept": kept,
-                    "outbox_count": len(outbox_files),
-                    "outbox_dir": str(outbox_dir),
-                    "receipt_dir": str(receipt_dir),
-                    "repo": str(root),
-                    "repo_name": args.repo_name,
-                    "report": str(report_path) if report_path is not None else None,
-                    "state_root": str(state_root),
-                    "target": {
-                        "idempotency_keys": sorted(target_keys),
-                        "outbox_files": sorted(str(path) for path in target_files),
-                    },
-                    "terminal_receipt_count": len(receipt_keys),
-                    "total_outbox_count": len(all_outbox_files),
-                },
-                indent=2,
-                sort_keys=True,
-            )
-        )
+        payload = {
+            "actions": actions,
+            "applied": args.apply,
+            "archive_dir": str(archive_dir),
+            "archived": archived,
+            "base": args.base,
+            "counts": counts,
+            "dry_run": not args.apply,
+            "kept": kept,
+            "outbox_count": len(outbox_files),
+            "outbox_dir": str(outbox_dir),
+            "receipt_dir": str(receipt_dir),
+            "repo": str(root),
+            "repo_name": args.repo_name,
+            "report": str(report_path) if report_path is not None else None,
+            "state_root": str(state_root),
+            "target": {
+                "idempotency_keys": sorted(target_keys),
+                "outbox_files": sorted(str(path) for path in target_files),
+            },
+            "terminal_receipt_count": len(receipt_keys),
+            "total_outbox_count": len(all_outbox_files),
+        }
+        if args.summary_only:
+            payload["action_count"] = len(actions)
+            payload["actions_omitted"] = True
+            payload.pop("actions", None)
+        print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 
 

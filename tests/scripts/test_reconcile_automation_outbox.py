@@ -143,6 +143,31 @@ def test_json_output_reports_reconciliation_without_human_preamble(
     assert payload["actions"][0]["branch"] == "codex/json-output"
 
 
+def test_json_summary_only_omits_action_details(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-summary-only-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/summary-only", key=key)
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "published"}),
+        encoding="utf-8",
+    )
+
+    rc = mod.main(["--repo", str(tmp_path), "--json", "--summary-only"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["archived"] == 1
+    assert payload["kept"] == 0
+    assert payload["action_count"] == 1
+    assert payload["actions_omitted"] is True
+    assert "actions" not in payload
+
+
 def test_state_root_can_point_at_direct_dot_aragora(
     tmp_path: Path,
     capsys: Any,
