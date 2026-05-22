@@ -539,7 +539,7 @@ modules:
     tier: integrated
     py_files: 102
     importer_count: 32
-    test_file_count: 162
+    test_file_count: 161
   - name: templates
     tier: integrated
     py_files: 1
