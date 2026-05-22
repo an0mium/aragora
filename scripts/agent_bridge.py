@@ -56,10 +56,11 @@ except ModuleNotFoundError:
 AGENT_BRIDGE_DIR = Path.home() / ".aragora" / "agent-bridge"
 SESSION_SNAPSHOT_FILE = AGENT_BRIDGE_DIR / "sessions.json"
 LANE_REGISTRY_FILE = AGENT_BRIDGE_DIR / "lanes.json"
-HEARTBEATS_FILE = AGENT_BRIDGE_DIR / "heartbeats.json"
+USER_HEARTBEATS_FILE = AGENT_BRIDGE_DIR / "heartbeats.json"
 TMUX_SESSIONS_DIR = Path.home() / ".aragora" / "tmux-sessions"
 TMUX_SESSION = "aragora"
 REPO_ROOT = Path(__file__).resolve().parents[1]
+HEARTBEATS_FILE = REPO_ROOT / ".aragora" / "agent-bridge" / "heartbeats.json"
 CANONICAL_REPO_ROOT = REPO_ROOT
 if agent_bridge_sessions is not None:
     try:
@@ -110,6 +111,18 @@ def _bridge_file_for_read(default_path: Path) -> Path:
     if fallback_path.exists():
         return fallback_path
     return default_path
+
+
+def _heartbeat_file_for_read() -> Path:
+    repo_path = HEARTBEATS_FILE
+    if repo_path.exists():
+        return repo_path
+    fallback_path = _state_root_bridge_dir() / repo_path.name
+    if fallback_path.exists():
+        return fallback_path
+    if USER_HEARTBEATS_FILE.exists():
+        return USER_HEARTBEATS_FILE
+    return repo_path
 
 
 def _bridge_files_for_lane_read() -> list[Path]:
@@ -915,6 +928,14 @@ def _collect_health_issues(
                     "type": "lane_missing_steering_outcome",
                     "session": r.owner_session,
                     "detail": f"active lane '{r.lane_id}' has no explicit steering outcome",
+                }
+            )
+        if not r.last_heartbeat_at:
+            issues.append(
+                {
+                    "type": "lane_missing_heartbeat",
+                    "session": r.owner_session,
+                    "detail": f"active lane '{r.lane_id}' has no heartbeat timestamp",
                 }
             )
 
@@ -1848,7 +1869,7 @@ def _collect_agent_heartbeats(
 ) -> dict[str, Any]:
     """Summarize harness heartbeat rows without exposing transcripts."""
 
-    path = heartbeat_path or _bridge_file_for_read(HEARTBEATS_FILE)
+    path = heartbeat_path or _heartbeat_file_for_read()
     if not path.exists():
         return {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}}
     try:
