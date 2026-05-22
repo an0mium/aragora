@@ -163,3 +163,30 @@ All 22 endpoints aligned. Paths corrected (`/actions`, `/sessions/{id}/end`), mi
 - [x] OpenClaw standalone gateway demo running (`examples/openclaw_gateway.py --demo`)
 - [x] Full decision-to-attestation pipeline demonstrated (`examples/decision_pipeline.py --demo`)
 - [x] EU AI Act compliance artifacts generated automatically (`ComplianceArtifactGenerator` — Art. 12/13/14 bundles, 25 tests)
+
+---
+
+## Experimental Tracks (additive, gated on result)
+
+The following tracks are *experiments*, not commitments. They are
+explicitly additive to the 30/60/90 success criteria above and do not
+re-prioritize them. Each track has a pre-registered falsification rule
+and ships exactly one external-proof artifact before it expands.
+
+### Advocate Feasibility Test (AFT v0.1) — opened 2026-05-22
+
+- **Question:** Can a small, locally-runnable, locally-finetuned
+  open-weight model serve as a cost- and privacy-preserving fast-path
+  proposer for an operator's revealed-preference decisions on bounded
+  routine tasks, while escalating to the full debate substrate when
+  its calibrated confidence falls below threshold?
+- **First task:** PR triage (3-class: `merged_fast | closed_no_merge | open_aged`).
+- **Posture:** non-pivoting augmentation layer between operator surface
+  and existing debate substrate. No pillar moves. See
+  `docs/specs/ARAGORA_ROADMAP_REVISION_ADVOCATES.md`.
+- **Falsification rule:** if `local_advocate` fails to beat
+  `baseline_random` on accuracy at p<0.05 after Bonferroni correction,
+  the advocate-ensemble hypothesis is declared falsified for PR triage
+  and we do not expand to other domains. See
+  `scripts/aft_harness.py::PRE_REGISTERED_HYPOTHESES`.
+- **Tracking:** PR #7438 (Tier 1 scaffold, no live caller).
