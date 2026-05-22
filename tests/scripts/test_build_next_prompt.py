@@ -88,7 +88,13 @@ def test_decision_packet_redacts_transcript_fields_and_captures_pr_truth(tmp_pat
             return subprocess.CompletedProcess(
                 command,
                 0,
-                json.dumps({"health": {"ok": True}, "process_census": {"records": []}}),
+                json.dumps(
+                    {
+                        "health": {"ok": True},
+                        "process_census": {"records": []},
+                        "diagnostic": "transcript file not found",
+                    }
+                ),
                 "",
             )
         if "list_active_agent_sessions.py" in joined:
@@ -153,6 +159,7 @@ def test_decision_packet_redacts_transcript_fields_and_captures_pr_truth(tmp_pat
     assert "transcript_path" not in serialized
     assert "raw prompt text" not in serialized
     assert "/secret/transcript.jsonl" not in serialized
+    assert "transcript file not found" in serialized
 
 
 def test_decision_packet_reports_active_owner_blocker(tmp_path: Path) -> None:

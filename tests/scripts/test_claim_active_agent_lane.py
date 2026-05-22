@@ -56,7 +56,7 @@ def test_fresh_claim_writes_single_row(tmp_registry: Path) -> None:
     assert payload[0]["lane_id"] == "droid/phase-x"
     assert payload[0]["status"] == "active"
     assert payload[0]["updated_at"].endswith("Z")
-    assert payload[0]["last_heartbeat_at"].endswith("Z")
+    assert "last_heartbeat_at" not in payload[0]
     assert payload[0]["last_steering_outcome"] == "unknown"
     assert payload[0]["next_action"] == "unspecified active lane action"
 

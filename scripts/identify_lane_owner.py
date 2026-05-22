@@ -800,8 +800,9 @@ def load_heartbeats(heartbeat_path: Path = HEARTBEATS_DEFAULT) -> list[dict[str,
 
 
 def _heartbeat_matches_lane(row: dict[str, Any], lane: dict[str, Any], owner: str) -> bool:
-    if owner and str(row.get("owner_session") or "") == owner:
-        return True
+    row_owner = str(row.get("owner_session") or "")
+    if owner:
+        return row_owner == owner
     for key in ("lane_id", "branch", "worktree"):
         lane_value = lane.get(key)
         row_value = row.get(key)

@@ -87,8 +87,6 @@ def _sanitize(value: Any) -> Any:
         return out
     if isinstance(value, list):
         return [_sanitize(item) for item in value]
-    if isinstance(value, str) and ("transcript" in value.lower() or "raw prompt" in value.lower()):
-        return "[redacted]"
     return value
 
 

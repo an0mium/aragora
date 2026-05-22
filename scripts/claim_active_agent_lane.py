@@ -382,7 +382,6 @@ def claim_lane(
         timestamp = updated_at or _utc_now_iso()
         if status in ACTIVE_STATUSES:
             next_action = next_action or DEFAULT_ACTIVE_NEXT_ACTION
-            last_heartbeat_at = last_heartbeat_at or timestamp
             last_steering_outcome = last_steering_outcome or DEFAULT_STEERING_OUTCOME
 
         new_row: dict[str, Any] = {
