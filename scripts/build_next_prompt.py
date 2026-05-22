@@ -26,7 +26,6 @@ ACTIVE_STATUSES = {
     "blocked",
 }
 SENSITIVE_KEYS = {
-    "body",
     "messages",
     "prompt",
     "raw_prompt",

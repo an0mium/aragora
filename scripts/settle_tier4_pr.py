@@ -17,8 +17,9 @@ from typing import Any
 
 DEFAULT_REPO = "synaptent/aragora"
 AUTHORIZED_MARKER = "Tier-4 Human Settlement Authorization"
-AUTHORIZED_ACTION_TOKENS = ("admin_squash_merge", "admin squash")
-TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS = {"OWNER", "MEMBER"}
+AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
+AUTHORIZED_PROTECTION_TOKENS = ("branch_protection_reconcile", "branch protection reconcile")
+TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS = {"OWNER"}
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
     "tier4_human_risk_settlement",
@@ -41,12 +42,42 @@ def _text_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
                             "body": body,
                             "authorAssociation": entry.get("authorAssociation"),
                             "author": entry.get("author"),
+                            "createdAt": entry.get("createdAt") or entry.get("submittedAt"),
                         }
                     )
     return items
 
 
+def _parse_timestamp(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    return f"{text[:-1]}+00:00" if text.endswith("Z") else text
+
+
+def _head_committed_at(pr_view: dict[str, Any]) -> str:
+    direct = str(pr_view.get("headCommittedDate") or "").strip()
+    if direct:
+        return direct
+    commits = pr_view.get("commits")
+    if isinstance(commits, list) and commits:
+        latest = commits[-1]
+        if isinstance(latest, dict):
+            return str(latest.get("committedDate") or "").strip()
+    return ""
+
+
+def _authorization_is_fresh(item: dict[str, Any], *, head_committed_at: str) -> bool:
+    if not head_committed_at:
+        return False
+    created_at = str(item.get("createdAt") or "").strip()
+    if not created_at:
+        return False
+    return _parse_timestamp(created_at) >= _parse_timestamp(head_committed_at)
+
+
 def has_operator_authorization(pr_view: dict[str, Any], *, head: str) -> bool:
+    head_committed_at = _head_committed_at(pr_view)
     for item in _text_items(pr_view):
         body = str(item.get("body") or "")
         lowered = body.lower()
@@ -55,9 +86,14 @@ def has_operator_authorization(pr_view: dict[str, Any], *, head: str) -> bool:
         association = str(item.get("authorAssociation") or "").upper()
         if association not in TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS:
             continue
+        if not _authorization_is_fresh(item, head_committed_at=head_committed_at):
+            continue
         if head not in body:
             continue
-        if any(token in lowered for token in AUTHORIZED_ACTION_TOKENS):
+        if all(
+            any(token in lowered for token in token_group)
+            for token_group in (AUTHORIZED_MERGE_TOKENS, AUTHORIZED_PROTECTION_TOKENS)
+        ):
             return True
     return False
 
@@ -81,11 +117,16 @@ def evaluate_tier4_gate(
     merge_state = str(pr_view.get("mergeStateStatus") or "")
     if merge_state in {"DIRTY", "CONFLICTING"}:
         blockers.append(f"PR #{pr} is {merge_state}")
+    has_quorum_check = False
     for check in required_checks or []:
         name = str(check.get("name") or check.get("workflow") or "required check")
         state = str(check.get("state") or check.get("conclusion") or "UNKNOWN").upper()
         if state not in {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}:
             blockers.append(f"required check {name} is {state}")
+        if name == "aragora-merge-quorum" and state in {"SUCCESS", "PASS", "PASSED"}:
+            has_quorum_check = True
+    if required_checks is not None and not has_quorum_check:
+        blockers.append("required check aragora-merge-quorum is not present and green")
     not_ready = merge_packet.get("not_ready")
     if isinstance(not_ready, list):
         unexpected = sorted({str(item) for item in not_ready} - ALLOWED_TIER4_NOT_READY)
@@ -137,10 +178,11 @@ def _load_live_inputs(
             "view",
             str(pr),
             "--json",
-            "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,url",
+            "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,url",
         ],
         cwd=cwd,
     )
+    pr_view["headCommittedDate"] = _head_committed_at(pr_view)
     merge_packet = _run_json(
         [
             sys.executable,
@@ -199,8 +241,74 @@ def _run_command(command: list[str], *, cwd: Path, input_text: str | None = None
     subprocess.run(command, cwd=cwd, input=input_text, text=True, check=True, timeout=180)
 
 
+def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
+    base = f"repos/{repo}/branches/main/protection"
+    snapshot: dict[str, Any] = {}
+    for key, endpoint in {
+        "required_pull_request_reviews": f"{base}/required_pull_request_reviews",
+        "required_status_checks": f"{base}/required_status_checks",
+        "enforce_admins": f"{base}/enforce_admins",
+    }.items():
+        try:
+            snapshot[key] = _run_json(["gh", "api", endpoint], cwd=cwd)
+        except RuntimeError as exc:
+            snapshot[key] = {"snapshot_error": str(exc)}
+    return snapshot
+
+
+def _restore_branch_protection(*, repo: str, cwd: Path, snapshot: dict[str, Any]) -> list[str]:
+    base = f"repos/{repo}/branches/main/protection"
+    errors: list[str] = []
+    reviews = snapshot.get("required_pull_request_reviews")
+    if isinstance(reviews, dict) and "snapshot_error" not in reviews:
+        command = [
+            "gh",
+            "api",
+            "--method",
+            "PATCH",
+            f"{base}/required_pull_request_reviews",
+            "--input",
+            "-",
+        ]
+        try:
+            _run_command(command, cwd=cwd, input_text=json.dumps(reviews))
+        except (OSError, subprocess.SubprocessError) as exc:
+            errors.append(f"restore required_pull_request_reviews failed: {exc}")
+    checks = snapshot.get("required_status_checks")
+    if isinstance(checks, dict) and "snapshot_error" not in checks:
+        command = [
+            "gh",
+            "api",
+            "--method",
+            "PATCH",
+            f"{base}/required_status_checks",
+            "--input",
+            "-",
+        ]
+        try:
+            _run_command(command, cwd=cwd, input_text=json.dumps(checks))
+        except (OSError, subprocess.SubprocessError) as exc:
+            errors.append(f"restore required_status_checks failed: {exc}")
+    enforce = snapshot.get("enforce_admins")
+    if isinstance(enforce, dict) and "snapshot_error" not in enforce:
+        enabled = bool(enforce.get("enabled", False))
+        command = [
+            "gh",
+            "api",
+            "--method",
+            "POST" if enabled else "DELETE",
+            f"{base}/enforce_admins",
+        ]
+        try:
+            _run_command(command, cwd=cwd)
+        except (OSError, subprocess.SubprocessError) as exc:
+            errors.append(f"restore enforce_admins failed: {exc}")
+    return errors
+
+
 def _apply_settlement(*, pr: int, head: str, repo: str, cwd: Path) -> list[list[str]]:
     commands: list[list[str]] = []
+    snapshot = _branch_protection_snapshot(repo=repo, cwd=cwd)
     merge_command = [
         "gh",
         "pr",
@@ -211,43 +319,50 @@ def _apply_settlement(*, pr: int, head: str, repo: str, cwd: Path) -> list[list[
         "--match-head-commit",
         head,
     ]
-    _run_command(merge_command, cwd=cwd)
-    commands.append(merge_command)
+    try:
+        _run_command(merge_command, cwd=cwd)
+        commands.append(merge_command)
 
-    reviews_command = [
-        "gh",
-        "api",
-        "--method",
-        "PATCH",
-        f"repos/{repo}/branches/main/protection/required_pull_request_reviews",
-        "--input",
-        "-",
-    ]
-    _run_command(
-        reviews_command,
-        cwd=cwd,
-        input_text=json.dumps(
-            {
-                "required_approving_review_count": 0,
-                "require_code_owner_reviews": False,
-            }
-        ),
-    )
-    commands.append(reviews_command)
+        reviews_command = [
+            "gh",
+            "api",
+            "--method",
+            "PATCH",
+            f"repos/{repo}/branches/main/protection/required_pull_request_reviews",
+            "--input",
+            "-",
+        ]
+        _run_command(
+            reviews_command,
+            cwd=cwd,
+            input_text=json.dumps(
+                {
+                    "required_approving_review_count": 0,
+                    "require_code_owner_reviews": False,
+                }
+            ),
+        )
+        commands.append(reviews_command)
 
-    checks_command, checks_payload = _required_status_check_patch(repo=repo, cwd=cwd)
-    _run_command(checks_command, cwd=cwd, input_text=checks_payload)
-    commands.append(checks_command)
+        checks_command, checks_payload = _required_status_check_patch(repo=repo, cwd=cwd)
+        _run_command(checks_command, cwd=cwd, input_text=checks_payload)
+        commands.append(checks_command)
 
-    enforce_command = [
-        "gh",
-        "api",
-        "--method",
-        "POST",
-        f"repos/{repo}/branches/main/protection/enforce_admins",
-    ]
-    _run_command(enforce_command, cwd=cwd)
-    commands.append(enforce_command)
+        enforce_command = [
+            "gh",
+            "api",
+            "--method",
+            "POST",
+            f"repos/{repo}/branches/main/protection/enforce_admins",
+        ]
+        _run_command(enforce_command, cwd=cwd)
+        commands.append(enforce_command)
+    except (OSError, subprocess.SubprocessError) as exc:
+        rollback_errors = _restore_branch_protection(repo=repo, cwd=cwd, snapshot=snapshot)
+        raise RuntimeError(
+            "Tier 4 apply failed after partial execution; "
+            f"completed_commands={len(commands)} rollback_errors={rollback_errors}: {exc}"
+        ) from exc
     return commands
 
 

@@ -293,6 +293,33 @@ class TestCollectAgentHeartbeats:
         assert result["latest_by_owner"]["codex-fresh"]["cwd"] == "/tmp/fresh"
         assert result["latest_by_owner"]["codex-stale"]["fresh"] is False
 
+    def test_collect_agent_heartbeats_compares_parsed_timestamps(self, tmp_path: Path) -> None:
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "lane_id": "old-lane",
+                        "owner_session": "codex-owner",
+                        "last_seen_at": "2026-05-22T00:09:00Z",
+                    },
+                    {
+                        "lane_id": "new-lane",
+                        "owner_session": "codex-owner",
+                        "last_seen_at": "2026-05-22T00:10:00+00:00",
+                    },
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        result = ab._collect_agent_heartbeats(
+            heartbeat_path=heartbeat_path,
+            now="2026-05-22T00:20:00Z",
+        )
+
+        assert result["latest_by_owner"]["codex-owner"]["lane_id"] == "new-lane"
+
 
 # ---------------------------------------------------------------------------
 # CLI integration — pending field appears in operator-snapshot --json output
