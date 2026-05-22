@@ -808,9 +808,10 @@ def _heartbeat_matches_lane(row: dict[str, Any], lane: dict[str, Any], owner: st
         if lane_value and row_value and str(lane_value) == str(row_value):
             return True
     raw_pr = lane.get("pr_number")
-    if raw_pr is not None and row.get("pr_number") is not None:
+    row_pr = row.get("pr_number")
+    if raw_pr is not None and row_pr is not None:
         try:
-            return int(row.get("pr_number")) == int(raw_pr)
+            return int(row_pr) == int(raw_pr)
         except (TypeError, ValueError):
             return False
     return False
