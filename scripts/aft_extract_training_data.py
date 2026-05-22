@@ -108,17 +108,54 @@ class PRDecision:
     review_count: int
 
 
-def run_gh(args: list[str]) -> str:
-    """Run `gh` and return stdout; raise RuntimeError on failure."""
-    result = subprocess.run(
-        ["gh", *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"gh {args[0]} failed: {result.stderr[:300]}")
-    return result.stdout
+def run_gh(args: list[str], max_attempts: int = 4, base_delay: float = 2.0) -> str:
+    """Run `gh` and return stdout; retry on transient HTTP 5xx and rate-limit errors.
+
+    Retries with exponential backoff (base_delay * 2**attempt + small jitter).
+    Raises RuntimeError after `max_attempts` failures or for non-transient errors.
+    """
+    import random as _random
+    import time as _time
+
+    last_err = ""
+    for attempt in range(max_attempts):
+        result = subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return result.stdout
+        last_err = result.stderr or ""
+        # Treat 5xx, rate-limit, and timeout as transient
+        transient = any(
+            token in last_err
+            for token in (
+                "502",
+                "503",
+                "504",
+                "rate limit",
+                "timed out",
+                "timeout",
+                "Bad Gateway",
+                "stream error",
+                "CANCEL",
+                "connection reset",
+                "EOF",
+                "i/o timeout",
+            )
+        )
+        if not transient or attempt == max_attempts - 1:
+            raise RuntimeError(f"gh {args[0]} failed: {last_err[:300]}")
+        delay = base_delay * (2**attempt) + _random.uniform(0, 1)
+        print(
+            f"gh transient failure (attempt {attempt + 1}/{max_attempts}): "
+            f"{last_err.strip()[:120]}; retrying in {delay:.1f}s",
+            file=sys.stderr,
+        )
+        _time.sleep(delay)
+    raise RuntimeError(f"gh {args[0]} failed after {max_attempts} attempts: {last_err[:300]}")
 
 
 def fetch_prs(

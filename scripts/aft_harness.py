@@ -50,8 +50,8 @@ import argparse
 import json
 import logging
 import math
-import os
 import random
+import shlex
 import statistics
 import subprocess
 import sys
@@ -120,11 +120,45 @@ class HoldoutTask:
 
     @classmethod
     def from_row(cls, row: dict) -> "HoldoutTask":
+        # Accept both the extractor's canonical schema (aft-pr-triage/0.1)
+        # and a harness-native schema for test fixtures. The extractor emits:
+        #   - `decision` (rename to label)
+        #   - `rationale_seeds` as a list of "key=value" strings (parse to dict)
+        #   - `title` (we treat it as already-redacted because the extractor
+        #     does not pull comment bodies or diffs)
+        label = row.get("label") or row.get("decision")
+        raw_seeds = row.get("rationale_seeds", {})
+        if isinstance(raw_seeds, list):
+            seeds: dict = {}
+            for item in raw_seeds:
+                if isinstance(item, str) and "=" in item:
+                    k, _, v = item.partition("=")
+                    # coerce common typed values
+                    if v.isdigit():
+                        seeds[k] = int(v)
+                    elif v.lower() in {"true", "false"}:
+                        seeds[k] = v.lower() == "true"
+                    else:
+                        seeds[k] = v
+        else:
+            seeds = raw_seeds or {}
+        # Derive convenient observable cues the FrontierRules heuristic looks at
+        seeds.setdefault("has_reviews", bool(row.get("review_count", 0)))
+        seeds.setdefault("label_count", len(row.get("labels", []) or []))
+        if "comment_count" not in seeds and "comment_count" in row:
+            seeds["comment_count"] = row["comment_count"]
+        # Bucket diff_size if the raw extractor emitted a numeric value
+        if isinstance(seeds.get("diff_size"), int):
+            n = seeds["diff_size"]
+            seeds["diff_size"] = "small" if n < 200 else ("medium" if n < 1000 else "large")
+        if isinstance(seeds.get("file_count"), int):
+            n = seeds["file_count"]
+            seeds["file_count"] = "few" if n < 5 else ("many" if n < 25 else "huge")
         return cls(
             pr_number=row["pr_number"],
-            label=row["label"],
-            rationale_seeds=row.get("rationale_seeds", {}),
-            title_redacted=row.get("title_redacted", ""),
+            label=label,
+            rationale_seeds=seeds,
+            title_redacted=row.get("title_redacted") or row.get("title") or "",
             tier_hint=row.get("tier_hint", "unknown"),
         )
 
@@ -167,7 +201,7 @@ class BaselineRandom(Condition):
                         row = json.loads(line)
                     except json.JSONDecodeError:
                         continue
-                    label = row.get("label")
+                    label = row.get("label") or row.get("decision")
                     if label in CLASSES:
                         priors[label] += 1
         if not priors:
@@ -613,9 +647,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--advocate-cmd",
-        nargs="+",
         default=None,
-        help="Command for the local advocate shim (JSONL stdin/stdout)",
+        help=(
+            "Command for the local advocate shim (JSONL stdin/stdout). "
+            "Pass as a single shell-quoted string; flags are parsed via shlex. "
+            "Example: --advocate-cmd 'bin/aft-advocate --backend stub'"
+        ),
     )
     parser.add_argument(
         "--frontier-dry-run",
@@ -656,7 +693,8 @@ def main(argv: list[str] | None = None) -> int:
         elif name == "frontier_rules":
             conds.append(FrontierRules(dry_run=args.frontier_dry_run))
         elif name == "local_advocate":
-            conds.append(LocalAdvocate(advocate_cmd=args.advocate_cmd))
+            cmd_tokens = shlex.split(args.advocate_cmd) if args.advocate_cmd else None
+            conds.append(LocalAdvocate(advocate_cmd=cmd_tokens))
         else:
             LOG.warning("Unknown condition: %s", name)
 
