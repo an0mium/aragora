@@ -230,23 +230,23 @@ class TestSummarizeChecks:
         assert not has_pending
         assert "1/1 green" in summary
 
-    def test_merge_quorum_self_pending_excluded_from_summary(self) -> None:
-        checks = [
-            {"name": "aragora-merge-quorum", "status": "IN_PROGRESS", "conclusion": ""},
-            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
-        ]
-        summary, has_fail, has_pending = _summarize_checks(checks)
-        assert summary == "1/1 green"
-        assert not has_fail
-        assert not has_pending
-
-    def test_merge_quorum_self_failure_excluded_from_summary(self) -> None:
+    def test_current_merge_quorum_self_check_pending_is_ignored(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26288586838")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
         checks = [
             {
                 "name": "aragora-merge-quorum",
                 "workflowName": "Aragora Merge Quorum",
-                "status": "COMPLETED",
-                "conclusion": "FAILURE",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26288586838/job/77396719826"
+                ),
             },
             {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
         ]
@@ -255,9 +255,67 @@ class TestSummarizeChecks:
         assert not has_fail
         assert not has_pending
 
-    def test_unrelated_failure_still_blocks_with_merge_quorum_present(self) -> None:
+    def test_merge_quorum_pending_outside_current_run_still_blocks(self) -> None:
         checks = [
-            {"name": "aragora-merge-quorum", "status": "IN_PROGRESS", "conclusion": ""},
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26288586838/job/77396719826"
+                ),
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1 pending / 2 total"
+        assert not has_fail
+        assert has_pending
+
+    def test_completed_merge_quorum_failure_still_blocks(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26288586838")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26288586838/job/77396719826"
+                ),
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1 failing / 2 total"
+        assert has_fail
+        assert not has_pending
+
+    def test_unrelated_failure_still_blocks_with_merge_quorum_present(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26288586838")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26288586838/job/77396719826"
+                ),
+            },
             {"name": "typecheck", "status": "COMPLETED", "conclusion": "FAILURE"},
             {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
         ]
@@ -266,12 +324,23 @@ class TestSummarizeChecks:
         assert has_fail
         assert not has_pending
 
-    def test_unrelated_pending_still_blocks_with_merge_quorum_present(self) -> None:
+    def test_unrelated_pending_still_blocks_with_merge_quorum_present(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26288586838")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
         checks = [
             {
                 "name": "aragora-merge-quorum",
-                "status": "COMPLETED",
-                "conclusion": "FAILURE",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26288586838/job/77396719826"
+                ),
             },
             {"name": "typecheck", "status": "IN_PROGRESS", "conclusion": ""},
             {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
@@ -347,7 +416,7 @@ class TestSummarizeChecks:
         assert has_fail
         assert not has_pending
 
-    def test_merge_quorum_self_check_pending_is_ignored(self) -> None:
+    def test_merge_quorum_self_check_pending_outside_current_run_blocks(self) -> None:
         checks = [
             {
                 "name": "aragora-merge-quorum",
@@ -367,11 +436,11 @@ class TestSummarizeChecks:
 
         summary, has_fail, has_pending = _summarize_checks(checks)
 
-        assert summary == "1/1 green"
+        assert summary == "1 pending / 2 total"
         assert not has_fail
-        assert not has_pending
+        assert has_pending
 
-    def test_merge_quorum_self_check_failure_is_ignored(self) -> None:
+    def test_merge_quorum_self_check_failure_is_preserved(self) -> None:
         checks = [
             {
                 "name": "aragora-merge-quorum",
@@ -391,8 +460,8 @@ class TestSummarizeChecks:
 
         summary, has_fail, has_pending = _summarize_checks(checks)
 
-        assert summary == "1/1 green"
-        assert not has_fail
+        assert summary == "1 failing / 2 total"
+        assert has_fail
         assert not has_pending
 
     def test_similarly_named_check_in_other_workflow_still_blocks(self) -> None:
@@ -1252,7 +1321,7 @@ class TestBuildQueueAndPacket:
         assert packet.machine_recommendation == "approve_candidate"
         assert packet.checks_summary == "2/2 green"
 
-    def test_build_packet_ignores_merge_quorum_self_failure(
+    def test_build_packet_preserves_completed_merge_quorum_failure(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         pr_payload = _make_pr(
@@ -1273,12 +1342,11 @@ class TestBuildQueueAndPacket:
             lambda args: pr_payload,
         )
         packet = _build_packet("6281", repo_override=None)
-        assert packet.machine_recommendation == "approve_candidate"
-        assert packet.checks_summary == "1/1 green"
-        assert not any("checks failing" in flag for flag in packet.risk_flags)
+        assert packet.machine_recommendation == "repair_first"
+        assert packet.checks_summary == "1 failing / 2 total"
+        assert "checks failing (1 failing / 2 total)" in packet.risk_flags
         assert (
-            "checks are failing; repair before settlement"
-            not in packet.model_review_quorum["reasons"]
+            "checks are failing; repair before settlement" in packet.model_review_quorum["reasons"]
         )
 
     def test_build_packet_preserves_non_self_check_failure(
@@ -1303,8 +1371,8 @@ class TestBuildQueueAndPacket:
         )
         packet = _build_packet("6282", repo_override=None)
         assert packet.machine_recommendation == "repair_first"
-        assert packet.checks_summary == "1 failing / 2 total"
-        assert "checks failing (1 failing / 2 total)" in packet.risk_flags
+        assert packet.checks_summary == "2 failing / 3 total"
+        assert "checks failing (2 failing / 3 total)" in packet.risk_flags
         assert (
             "checks are failing; repair before settlement" in packet.model_review_quorum["reasons"]
         )
