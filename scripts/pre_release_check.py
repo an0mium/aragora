@@ -337,7 +337,7 @@ def gate_pip_audit() -> bool:
     code, output = _run_cmd(
         [
             sys.executable,
-            "scripts/run_pip_audit_gate.py",
+            str(PROJECT_ROOT / "scripts" / "run_pip_audit_gate.py"),
         ],
         timeout=180,
     )

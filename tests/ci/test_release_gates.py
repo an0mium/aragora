@@ -327,6 +327,14 @@ class TestFrontendE2EWorkflow:
         assert "playwright-results-shard-${{ matrix.shard }}" in artifact_names
         assert "frontend-e2e-server-logs-shard-${{ matrix.shard }}" in artifact_names
 
+    def test_test_workflow_changes_trigger_frontend_e2e_scope(self):
+        classifier = _load_yaml(ACTIONS_DIR / "pr-scope-classifier" / "action.yml")
+        filters = classifier["runs"]["steps"][0]["with"]["filters"]
+
+        assert "frontend_e2e:" in filters
+        frontend_e2e_section = filters.split("frontend_e2e:", 1)[1].split("smoke:", 1)[0]
+        assert "- '.github/workflows/test.yml'" in frontend_e2e_section
+
 
 class TestCoverageWorkflow:
     """Validate coverage workflow bootstrap policy."""
@@ -564,6 +572,20 @@ class TestPreReleaseCheckScript:
                 f"gate '{gate_name}' in category but not in ALL_GATES"
             )
 
+    def test_pip_audit_gate_invokes_helper_by_absolute_repo_path(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("pre_release_check", str(self.script))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        with patch.object(module, "_run_cmd", return_value=(0, "")) as run_cmd:
+            assert module.gate_pip_audit() is True
+
+        cmd = run_cmd.call_args.args[0]
+        assert Path(cmd[1]).is_absolute()
+        assert Path(cmd[1]) == PROJECT_ROOT / "scripts" / "run_pip_audit_gate.py"
+
 
 class TestPipAuditGate:
     """Validate the shared pip-audit gate helper."""
@@ -596,7 +618,11 @@ class TestPipAuditGate:
         assert "Owner/follow-up:" in content
         assert "P107-pyjwt-supabase-auth-upgrade" in content
         assert "Upgrade target/removal:" in content
-        assert "do not renew without explicit risk acceptance" in content
+        assert "Risk acceptance: Tier 4 #7407 settlement" in content
+        pyjwt_line = next(
+            line for line in content.splitlines() if line.startswith("PYSEC-2025-183")
+        )
+        assert "2026-08-31" in pyjwt_line
 
     def test_load_ignored_vulns_skips_comments(self, tmp_path):
         allowlist = tmp_path / "allowlist.txt"
@@ -710,10 +736,13 @@ class TestPipAuditGate:
             module.export_requirements(output)
 
         cmd = run.call_args.args[0]
+        assert "--frozen" in cmd
         assert "--all-extras" in cmd
         assert "--all-groups" in cmd
+        assert "--no-emit-project" in cmd
         assert "--output-file" in cmd
         assert str(output) in cmd
+        assert run.call_args.kwargs["cwd"] == module.PROJECT_ROOT
         assert run.call_args.kwargs["capture_output"] is True
         assert run.call_args.kwargs["text"] is True
 
