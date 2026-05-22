@@ -51,6 +51,9 @@ interface ShaCheck {
   matches: boolean;
   claimed: string;
   recomputed: string;
+  hmacClaimed: string;
+  hmacPresent: boolean;
+  hmacVerified: boolean;
 }
 
 export default function PacketsClient() {
@@ -107,6 +110,9 @@ export default function PacketsClient() {
           matches: false,
           claimed: String(parsed.sha256 ?? ''),
           recomputed: `(verify-failed: ${(err as Error).message})`,
+          hmacClaimed: String(parsed.hmac_sha256 ?? ''),
+          hmacPresent: Boolean(parsed.hmac_sha256),
+          hmacVerified: false,
         });
       }
     } catch (err) {
@@ -295,6 +301,8 @@ export default function PacketsClient() {
       receipt_repo: String(receipt.repo ?? ''),
       receipt_sha256: String(receipt.sha256 ?? ''),
       receipt_sha256_verified: Boolean(shaCheck?.matches),
+      receipt_hmac_sha256_present: Boolean(shaCheck?.hmacPresent),
+      receipt_hmac_sha256_verified: Boolean(shaCheck?.hmacVerified),
       decisions: entries,
     };
     const canonical = canonicalJson(payload);
@@ -441,9 +449,18 @@ export default function PacketsClient() {
                 className="mt-2"
                 style={{ color: shaCheck.matches ? 'var(--accent)' : 'var(--crimson)' }}
               >
-                sha256 {shaCheck.matches ? 'verified ✓' : 'mismatch ✗'} —{' '}
+                sha256 payload {shaCheck.matches ? 'match ✓' : 'mismatch ✗'} —{' '}
                 {shaCheck.claimed.slice(0, 10) || '(none)'} vs{' '}
                 {shaCheck.recomputed.slice(0, 10)}
+                <div
+                  data-testid="packets-hmac-check"
+                  className="mt-1"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  {shaCheck.hmacPresent
+                    ? 'hmac_sha256 present; not verified in browser'
+                    : 'hmac_sha256 absent; hash-only receipt'}
+                </div>
               </div>
             )}
           </div>

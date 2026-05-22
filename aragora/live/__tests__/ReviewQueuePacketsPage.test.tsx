@@ -188,14 +188,32 @@ describe('ReviewQueuePacketsPage', () => {
     );
   });
 
-  it('surfaces sha256 verification result when receipt carries a matching hash', async () => {
+  it('surfaces sha256 payload match when receipt carries a matching hash', async () => {
     const receipt = await withSha(buildReceipt());
     render(<PacketsClient />);
     await pickReceiptFile(receipt);
 
     await waitFor(() => {
-      expect(screen.getByTestId('packets-sha-check')).toHaveTextContent(/verified/);
+      expect(screen.getByTestId('packets-sha-check')).toHaveTextContent(/payload match/);
     });
+    expect(screen.getByTestId('packets-hmac-check')).toHaveTextContent(/hash-only receipt/);
+  });
+
+  it('does not claim browser-side HMAC verification for signed receipts', async () => {
+    const receipt = await withSha({
+      ...buildReceipt(),
+      hmac_sha256: 'f'.repeat(64),
+      signed_at_utc: '2026-05-17T14:29:11.000Z',
+    });
+    render(<PacketsClient />);
+    await pickReceiptFile(receipt);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('packets-sha-check')).toHaveTextContent(/payload match/);
+    });
+    expect(screen.getByTestId('packets-hmac-check')).toHaveTextContent(
+      /not verified in browser/,
+    );
   });
 
   it('detects sha256 mismatch when the claimed hash is wrong', async () => {
@@ -204,7 +222,7 @@ describe('ReviewQueuePacketsPage', () => {
     await pickReceiptFile(receipt);
 
     await waitFor(() => {
-      expect(screen.getByTestId('packets-sha-check')).toHaveTextContent(/mismatch/);
+      expect(screen.getByTestId('packets-sha-check')).toHaveTextContent(/payload mismatch/);
     });
   });
 
@@ -294,12 +312,16 @@ describe('ReviewQueuePacketsPage', () => {
       const parsed = JSON.parse(blobBodies[0]) as {
         schema_version: string;
         receipt_id_hint: string;
+        receipt_hmac_sha256_present: boolean;
+        receipt_hmac_sha256_verified: boolean;
         decisions: Array<{ pr_number: number; decision: string | null; comment: string }>;
         payload_sha256: string;
       };
       expect(parsed.schema_version).toBe('aragora-operator-decisions/1.0');
       expect(parsed.receipt_id_hint).toBe(RECEIPT_ID_HINT);
       expect(parsed.payload_sha256).toMatch(/^[0-9a-f]{64}$/);
+      expect(parsed.receipt_hmac_sha256_present).toBe(false);
+      expect(parsed.receipt_hmac_sha256_verified).toBe(false);
       const reject = parsed.decisions.find((d) => d.pr_number === 7245);
       expect(reject?.decision).toBe('reject');
       expect(reject?.comment).toBe('duplicate of #7240');

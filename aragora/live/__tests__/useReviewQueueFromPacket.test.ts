@@ -222,6 +222,33 @@ describe('verifyReceiptSha256', () => {
     expect(result.matches).toBe(true);
     expect(result.claimed).toBe(sha);
     expect(result.recomputed).toBe(sha);
+    expect(result.hmacPresent).toBe(false);
+    expect(result.hmacVerified).toBe(false);
+  });
+
+  it('does not claim browser-side hmac verification for signed receipts', async () => {
+    const payload: SettlementReceipt = {
+      schema_version: 'aragora-open-queue-settlement/1.0',
+      generated_at_utc: '2026-05-17T00:00:00.000Z',
+      pinned_state: [{ number: 1, head_sha: 'a', tier: '0' }],
+    };
+    const canonical = canonicalJson({ ...payload });
+    const bytes = new TextEncoder().encode(canonical);
+    const hash = await crypto.subtle.digest('SHA-256', bytes);
+    const sha = Array.from(new Uint8Array(hash))
+      .map((x) => x.toString(16).padStart(2, '0'))
+      .join('');
+    const signed: SettlementReceipt = {
+      ...payload,
+      sha256: sha,
+      hmac_sha256: 'f'.repeat(64),
+      signed_at_utc: '2026-05-17T00:01:00.000Z',
+    };
+    const result = await verifyReceiptSha256(signed);
+    expect(result.matches).toBe(true);
+    expect(result.hmacClaimed).toBe('f'.repeat(64));
+    expect(result.hmacPresent).toBe(true);
+    expect(result.hmacVerified).toBe(false);
   });
 
   it('flags mismatch when the payload is tampered after signing', async () => {

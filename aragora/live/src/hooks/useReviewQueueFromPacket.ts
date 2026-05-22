@@ -175,13 +175,21 @@ export function mapReceiptToReviewQueueList(
  * fields (`sha256`, `hmac_sha256`, `signed_at_utc`) were added. Re-derive
  * here using `crypto.subtle.digest` (Web Crypto API) so the page can show a
  * match/mismatch indicator on load.
+ *
+ * This browser-side check only proves payload integrity. It intentionally does
+ * not treat `hmac_sha256` as verified because the signing key is not available
+ * in the packet review UI.
  */
 export async function verifyReceiptSha256(receipt: SettlementReceipt): Promise<{
   claimed: string;
   recomputed: string;
   matches: boolean;
+  hmacClaimed: string;
+  hmacPresent: boolean;
+  hmacVerified: boolean;
 }> {
   const claimed = String(receipt.sha256 ?? '');
+  const hmacClaimed = String(receipt.hmac_sha256 ?? '');
   // Strip signature fields the way the generator does.
   const verifyCopy: Record<string, unknown> = { ...receipt };
   delete verifyCopy.sha256;
@@ -193,7 +201,14 @@ export async function verifyReceiptSha256(receipt: SettlementReceipt): Promise<{
   const recomputed = Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
-  return { claimed, recomputed, matches: claimed === recomputed };
+  return {
+    claimed,
+    recomputed,
+    matches: claimed === recomputed,
+    hmacClaimed,
+    hmacPresent: hmacClaimed.length > 0,
+    hmacVerified: false,
+  };
 }
 
 /** Canonical JSON serialization matching python's `json.dumps(obj, sort_keys=True, separators=(',', ':'))`. */
