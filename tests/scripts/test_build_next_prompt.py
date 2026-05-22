@@ -74,6 +74,29 @@ def test_prompt_for_non_owner_read_only_when_no_lane_match(tmp_path: Path) -> No
     assert "Do not paste raw transcripts" in prompt
 
 
+def test_prompt_shell_quotes_live_lane_values(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane; echo pwned",
+                    "owner_session": "codex-owner",
+                    "status": "working",
+                    "branch": "branch; echo pwned",
+                    "pr_number": 7425,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    prompt = prompt_builder.build_prompt(registry_path=registry, pr=7425)
+
+    assert "--lane-id 'lane; echo pwned'" in prompt
+    assert "--lane-id lane; echo pwned" not in prompt
+
+
 def test_decision_packet_redacts_transcript_fields_and_captures_pr_truth(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
     registry.write_text("[]\n", encoding="utf-8")

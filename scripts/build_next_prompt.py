@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import subprocess
 import sys
 from collections.abc import Callable
@@ -275,12 +276,16 @@ def build_decision_packet(
 def _mailbox_command(lane: dict[str, Any] | None, *, pr: int | None, branch: str | None) -> str:
     if lane and lane.get("lane_id"):
         return (
-            f"python3 scripts/read_operator_steering.py --lane-id {lane['lane_id']} --json || true"
+            "python3 scripts/read_operator_steering.py --lane-id "
+            f"{shlex.quote(str(lane['lane_id']))} --json || true"
         )
     if pr is not None:
         return f"python3 scripts/read_operator_steering.py --pr {pr} --json || true"
     if branch:
-        return f"python3 scripts/read_operator_steering.py --branch {branch} --json || true"
+        return (
+            "python3 scripts/read_operator_steering.py --branch "
+            f"{shlex.quote(branch)} --json || true"
+        )
     return "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only || true"
 
 
