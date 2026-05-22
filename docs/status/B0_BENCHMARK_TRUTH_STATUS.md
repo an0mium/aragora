@@ -71,8 +71,8 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 
 ## Deltas
 
-- `merged_only_rate`: 0.3077
-- `no_rescue_truth_success_rate`: 0.3077
-- `proxy_no_rescue_success_rate`: 0.0000
-- `truth_success_rate`: 0.3077
-- `unique_issues_attempted`: 0.0000
+- Merged-only rate (`merged_only_rate`): 0.3077
+- No-rescue truth success rate (`no_rescue_truth_success_rate`): 0.3077
+- Proxy no-rescue success rate (`proxy_no_rescue_success_rate`): 0.0000
+- Full-corpus truth success rate (legacy/context) (`truth_success_rate`): 0.3077
+- Unique issues attempted (`unique_issues_attempted`): 0.0000

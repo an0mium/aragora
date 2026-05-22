@@ -158,7 +158,9 @@ def test_render_status_markdown_includes_metrics_and_paths(tmp_path: Path) -> No
     assert "## Proxy Metrics" in markdown
     assert "| Proxy no-rescue success rate | 100.0% |" in markdown
     assert "## Deltas" in markdown
-    assert "`truth_success_rate`: 0.2500" in markdown
+    assert (
+        "Full-corpus truth success rate (legacy/context) (`truth_success_rate`): 0.2500" in markdown
+    )
 
 
 def test_render_status_markdown_headlines_verified_rate_and_in_flight_metrics(

@@ -134,6 +134,29 @@ def _render_mapping(mapping: dict[str, Any]) -> list[str]:
     return [f"- `{key}`: {_format_value(value)}" for key, value in mapping.items()]
 
 
+_DELTA_LABELS = {
+    "truth_success_rate": "Full-corpus truth success rate (legacy/context)",
+    "truth_success_rate_verified": "Verified truth success rate (primary)",
+    "no_rescue_truth_success_rate": "No-rescue truth success rate",
+    "merged_only_rate": "Merged-only rate",
+    "proxy_no_rescue_success_rate": "Proxy no-rescue success rate",
+    "unique_issues_attempted": "Unique issues attempted",
+}
+
+
+def _render_delta_mapping(mapping: dict[str, Any]) -> list[str]:
+    if not mapping:
+        return ["- none"]
+    lines: list[str] = []
+    for key, value in mapping.items():
+        label = _DELTA_LABELS.get(key)
+        if label:
+            lines.append(f"- {label} (`{key}`): {_format_value(value)}")
+        else:
+            lines.append(f"- `{key}`: {_format_value(value)}")
+    return lines
+
+
 def _format_issue_numbers(values: Any) -> str:
     issue_numbers = [
         int(value) for value in list(values or []) if isinstance(value, int) and int(value) > 0
@@ -518,7 +541,7 @@ def render_status_markdown(
                 "",
                 "## Deltas",
                 "",
-                *_render_mapping(deltas),
+                *_render_delta_mapping(deltas),
             ]
         )
     lines.append("")
