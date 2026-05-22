@@ -1196,11 +1196,23 @@ def _classify_pr(pr: dict[str, Any]) -> QueueItem:
     )
 
 
+def _is_merge_quorum_self_check(check: dict[str, Any]) -> bool:
+    """Return True for the required check that executes this merge-packet gate."""
+    name_fields = (
+        str(check.get("name") or "").strip().lower(),
+        str(check.get("context") or "").strip().lower(),
+    )
+    workflow_name = str(check.get("workflowName") or "").strip().lower()
+    return "aragora-merge-quorum" in name_fields or workflow_name == "aragora merge quorum"
+
+
 def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     """Return ``(summary, has_failures, has_pending)`` for a statusCheckRollup."""
     success = failure = pending = 0
     for check in checks:
         if not isinstance(check, dict):
+            continue
+        if _is_merge_quorum_self_check(check):
             continue
         status = str(check.get("status") or check.get("state") or "").upper()
         conclusion = str(check.get("conclusion") or "").upper()

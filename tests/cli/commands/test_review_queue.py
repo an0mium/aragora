@@ -230,6 +230,57 @@ class TestSummarizeChecks:
         assert not has_pending
         assert "1/1 green" in summary
 
+    def test_merge_quorum_self_pending_excluded_from_summary(self) -> None:
+        checks = [
+            {"name": "aragora-merge-quorum", "status": "IN_PROGRESS", "conclusion": ""},
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1/1 green"
+        assert not has_fail
+        assert not has_pending
+
+    def test_merge_quorum_self_failure_excluded_from_summary(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1/1 green"
+        assert not has_fail
+        assert not has_pending
+
+    def test_unrelated_failure_still_blocks_with_merge_quorum_present(self) -> None:
+        checks = [
+            {"name": "aragora-merge-quorum", "status": "IN_PROGRESS", "conclusion": ""},
+            {"name": "typecheck", "status": "COMPLETED", "conclusion": "FAILURE"},
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1 failing / 2 total"
+        assert has_fail
+        assert not has_pending
+
+    def test_unrelated_pending_still_blocks_with_merge_quorum_present(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+            },
+            {"name": "typecheck", "status": "IN_PROGRESS", "conclusion": ""},
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1 pending / 2 total"
+        assert not has_fail
+        assert has_pending
+
     def test_no_checks(self) -> None:
         summary, has_fail, has_pending = _summarize_checks([])
         assert summary == "no checks"
@@ -1080,6 +1131,63 @@ class TestBuildQueueAndPacket:
         packet = _build_packet("6280", repo_override=None)
         assert packet.machine_recommendation == "approve_candidate"
         assert packet.checks_summary == "2/2 green"
+
+    def test_build_packet_ignores_merge_quorum_self_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=6281,
+            checks=[
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            ],
+            files=["scripts/build_next_prompt.py"],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("6281", repo_override=None)
+        assert packet.machine_recommendation == "approve_candidate"
+        assert packet.checks_summary == "1/1 green"
+        assert not any("checks failing" in flag for flag in packet.risk_flags)
+        assert (
+            "checks are failing; repair before settlement"
+            not in packet.model_review_quorum["reasons"]
+        )
+
+    def test_build_packet_preserves_non_self_check_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=6282,
+            checks=[
+                {
+                    "name": "aragora-merge-quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+                {"name": "lint", "status": "COMPLETED", "conclusion": "FAILURE"},
+                {"name": "typecheck", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            ],
+            files=["scripts/build_next_prompt.py"],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("6282", repo_override=None)
+        assert packet.machine_recommendation == "repair_first"
+        assert packet.checks_summary == "1 failing / 2 total"
+        assert "checks failing (1 failing / 2 total)" in packet.risk_flags
+        assert (
+            "checks are failing; repair before settlement" in packet.model_review_quorum["reasons"]
+        )
 
     def test_build_packet_flags_high_risk_paths(self, monkeypatch: pytest.MonkeyPatch) -> None:
         pr_payload = _make_pr(
