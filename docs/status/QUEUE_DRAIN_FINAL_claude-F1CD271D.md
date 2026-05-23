@@ -3,6 +3,7 @@
 **Session:** `claude-F1CD271D` (handoff/status doc; no merges in this doc-writing step; one no-op superseded PR close recorded below)
 **Window covered:** 2026-05-21T23:53Z (#7423 governance unblock landing) → 2026-05-22T17:40Z
 **Queue state snapshot:** OPEN 38 (= DRAFT 33 + READY 5) / SESSION-CLOSED 4 (intentional closes recorded by this Claude arc, not part of OPEN)
+**Postscript as of 2026-05-23T16:35Z:** this file is a historical handoff snapshot. Later live state resolved #7278 by normal protected squash, and branch protection now requires `aragora-merge-quorum`.
 
 ## Headline
 
@@ -86,11 +87,11 @@ Sorted by ascending LOC. Recommendation is the same for all: **rebase onto curre
 | **#7422** | 2212 | codex/salvage-eu-ai-act-claude-c1ce7926 | docs(compliance): preserve EU AI Act artifacts. Do not close from this summary alone: first diff #7422 against merged #7392 and confirm every unique compliance artifact is already on main or intentionally obsolete. |
 | **#7364** | 2698 | codex/harvest-bucket-a-automerge | Harvest bucket-a auto-merge guard stack |
 
-### Stuck on required-check MISSING (1) — structural BP issue
+### Historical: required-check MISSING on #7278 (resolved after this snapshot)
 
 | PR | Recommendation |
 |----|----------------|
-| **#7278** | `mergeable=MERGEABLE, ms=BLOCKED`. Rebased onto current main but the 5 BP-required checks (`lint`, `typecheck`, `sdk-parity`, `Generate & Validate`, `TypeScript SDK Type Check`) don't appear in the check rollup. See investigation below. **Operator-tier BP change required.** |
+| **#7278** | Historical snapshot: `mergeable=MERGEABLE, ms=BLOCKED` because required check contexts were missing/cancelled at the time of this handoff. Later live state: `aragora-merge-quorum` was rerun successfully and #7278 merged by normal protected squash at merge commit `afa7236da4603c715d38b911da74411ace3fb038`. Do not treat the older #7278 unblock advice below as current. |
 
 ### Unstable (1)
 
@@ -107,11 +108,13 @@ These appeared since pass 11 — opened by other agents/sessions. **Next drain p
 | **#7434** | 97 | codex/merge-packet-stale-check-accounting | fix(review-queue): ignore superseded stale check runs |
 | **#7433** | 226 | codex/reconcile-merged-target-pr-receipts | fix(automation): reconcile merged target PR receipts |
 
-Both `CLEAN-draft`, all 5 required SUCCESS expected per pattern. Drainable on next pass.
+Both were `CLEAN-draft` in this snapshot, with the then-required checks expected to pass per pattern. Re-verify current branch protection and `aragora-merge-quorum` before any future drain pass.
 
-## Investigation: required-check MISSING on #7278 (Option 2)
+## Historical investigation: required-check MISSING on #7278 (Option 2)
 
-### Hypothesis confirmed (structural BP misconfiguration)
+### Historical hypothesis (superseded by later live merge)
+
+This section records the investigation state during the queue-drain window. It is not a current assertion that #7278 is blocked: after this snapshot, `aragora-merge-quorum` was rerun, passed, and #7278 merged normally.
 
 The 5 BP-required check names (`lint`, `typecheck`, `sdk-parity`, `Generate & Validate`, `TypeScript SDK Type Check`) map to these workflow files/jobs on the current branch:
 
@@ -143,9 +146,9 @@ For a frontend-only PR like #7278 (only `aragora/live/**` changed):
 - `lint-run` job is SKIPPED via `if:` evaluating false
 - GitHub Actions records the SKIP, but the status context `lint` may not register against the PR's commit at all — different from a "skipped with conclusion=skipped" status
 
-For previously-merged frontend/docs-only PRs (#7327, #7386), the same required check names did register all 5 contexts. Re-verify the exact workflow definitions on #7278's current head before changing branch protection or pushing a no-op; the table above is the concrete path list to inspect first.
+For previously-merged frontend/docs-only PRs (#7327, #7386), the same required check names did register all 5 contexts. The historical next step was to re-verify the exact workflow definitions on #7278's then-current head before changing branch protection or pushing a no-op; the table above is the concrete path list that was used for that investigation.
 
-### Why #7278 specifically is stuck
+### Why #7278 appeared stuck during the snapshot
 
 Two compounding factors:
 1. **Branch head may not match current main's workflow file:** even after rebase, the PR's HEAD can use an older workflow version if the branch was not refreshed after the gate fixes. `pull_request` events use the workflow file from the HEAD branch.
@@ -163,16 +166,16 @@ Three options in order of cleanliness:
 
 Option A is the cleanest and aligns with `MERGE_GATE_RECONCILIATION.md`'s intent (status checks are the authoritative gate).
 
-### What this means for #7278
+### What this meant for #7278 during the snapshot
 
-Until the operator implements Option A/B/C above, **#7278 cannot merge via the normal squash path**. Options for unblocking this PR specifically:
+At the time of this handoff, #7278 appeared unable to merge via the normal squash path. That is no longer current: #7278 later merged normally at `afa7236da4603c715d38b911da74411ace3fb038` after `aragora-merge-quorum` was rerun successfully. The historical unblock options considered then were:
 
 1. **Close + re-open** the PR (sometimes triggers a full workflow re-evaluation against current main's workflow file). Low-cost retry.
-2. **Push a no-op commit** (empty commit on the branch) to force fresh workflow runs at current head. Higher-friction but reliable.
+2. **Push a no-op commit** (empty commit on the branch) to force fresh workflow runs at the then-current head. Higher-friction but reliable.
 3. **Operator admin-merge** with `gh pr merge 7278 --squash --admin` (BP allows admin merge despite missing required checks IF `enforce_admins=false`, but current BP has `enforce_admins=true` so this won't work either).
 4. **Operator temporarily flips `enforce_admins=false`** → admin-squash-merge → flip back. Audit-logged emergency stop.
 
-Path 1 or 4 are the realistic operator actions. Not for this session.
+This historical analysis should not be used as an instruction to mutate branch protection or reopen #7278.
 
 ## What landed by other paths during this arc
 
@@ -183,12 +186,20 @@ Approximate count from `git log origin/main` commits during the window:
 
 Combined, the queue went from ~51 open at the start of my arc to 38 now — net **-13 over 18 hours**.
 
-## Branch protection (unchanged through this arc)
+## Branch protection snapshot
 
+Historical state during this Claude arc:
 ```
 approvals=0, code_owners=false, enforce_admins=true
 required_checks: ["lint","typecheck","sdk-parity","Generate & Validate","TypeScript SDK Type Check"]
 aragora-merge-quorum: NOT in required list (gate workflow exists + functional, but not enforced)
+```
+
+Current live update as of 2026-05-23T16:35Z:
+
+```
+approvals=0, code_owners=false, enforce_admins=true
+required_checks: ["lint","typecheck","sdk-parity","Generate & Validate","TypeScript SDK Type Check","aragora-merge-quorum"]
 ```
 
 ## `aragora-merge-quorum` workflow health
@@ -198,7 +209,7 @@ Confirmed functional this arc:
 - ≥2 `failure` verdicts (PR #7295 logged `Tier 1 | status=repair_or_wait | verdict=not_ready_for_settlement`)
 - ~11 `cancelled` per 60-min window (PRs merged before workflow finishes — race condition, not gate failure)
 
-**Recommendation:** Keep `aragora-merge-quorum` non-required until the model-signal pipeline is wired to produce ≥1 signal per PR routinely. Until then, promoting to required would block every PR not authored by a session with manual signal collection.
+**Historical recommendation:** during the window above, keep `aragora-merge-quorum` non-required until the model-signal pipeline is wired to produce ≥1 signal per PR routinely. Current live state supersedes this: branch protection now requires `aragora-merge-quorum`, so future PRs must treat that check as a hard gate.
 
 ## Recommended operator next actions (priority order)
 
@@ -206,7 +217,7 @@ Confirmed functional this arc:
 2. **Settle the Dependabot #7300** (auto-merge or manual review of fastapi bump).
 3. **Investigate superseded large dirty PRs before any close** — for #7422, perform a content diff against merged #7392 and confirm no unique compliance artifact would be lost; for #7364, verify whether the auto-merge guard stack is already on main.
 4. **Operator-tier rebase wave on the 18 dirty PRs**, smallest first. Dispatch a Codex session per PR with the prompt "rebase + resolve conflicts; merge if green; close if superseded."
-5. **Fix the required-check-MISSING structural issue** (see investigation above) before promoting `aragora-merge-quorum` to required.
+5. **Historical #7278 required-check issue:** resolved after this snapshot when `aragora-merge-quorum` passed and #7278 merged. For future PRs, treat `aragora-merge-quorum` as required and rerun/repair it rather than assuming it is advisory.
 6. **Resolve ADC chain** (#7358-#7376) — operator-tier governance review.
 7. **Resolve vision-incubator/* Tier 3 PRs** (#7262, #7276, #7291, #7319) — operator risk settlement.
 8. **#7410 superseded close** ✅ already recorded for this Claude arc; do not count it as a merge.
