@@ -66,7 +66,17 @@ except ImportError:
 REPO_LANE_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
 USER_LANE_PATH = Path.home() / ".aragora" / "agent-bridge" / "lanes.json"
 
-ACTIVE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+ACTIVE_STATUSES = {
+    "active",
+    "running",
+    "pending",
+    "queued",
+    "claimed",
+    "waiting_for_steering",
+    "acknowledged",
+    "working",
+    "blocked",
+}
 
 
 def _utc_now() -> dt.datetime:

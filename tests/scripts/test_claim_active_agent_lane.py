@@ -56,6 +56,25 @@ def test_fresh_claim_writes_single_row(tmp_registry: Path) -> None:
     assert payload[0]["lane_id"] == "droid/phase-x"
     assert payload[0]["status"] == "active"
     assert payload[0]["updated_at"].endswith("Z")
+    assert payload[0]["last_heartbeat_at"] == payload[0]["updated_at"]
+    assert payload[0]["last_steering_outcome"] == "unknown"
+    assert payload[0]["next_action"] == "unspecified active lane action"
+
+
+def test_lifecycle_state_machine_statuses_round_trip(tmp_registry: Path) -> None:
+    result = claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="control-plane-lane",
+        owner_session="codex-control-plane",
+        status="working",
+        next_action="finish current mailbox steering",
+        last_heartbeat_at="2026-05-21T20:00:00Z",
+        last_steering_outcome="obeyed",
+    )
+
+    assert result["status"] == "working"
+    assert result["last_heartbeat_at"] == "2026-05-21T20:00:00Z"
+    assert result["last_steering_outcome"] == "obeyed"
 
 
 def test_same_owner_refresh_overwrites_in_place(tmp_registry: Path) -> None:

@@ -68,3 +68,38 @@ export function toneColor(tone: 'ok' | 'warn' | 'fail' | 'neutral'): string {
       return 'text-slate-400';
   }
 }
+
+/**
+ * Map a tier string ('0'..'4') to a compact badge label, full tooltip
+ * label, and tone color following the 5-tier table in
+ * `docs/REVIEW_AUTHORITY_PRINCIPLES.md`.
+ *
+ * Returns null when the tier is null/undefined/empty so that callers
+ * can omit the badge entirely.
+ *
+ * (Convergent with PR #7273 which adds the same helper for inline
+ * tier badges on the live `ReviewQueueCard`. Both PRs share the same
+ * shape so whichever lands first leaves a no-op rebase for the
+ * other.)
+ */
+export function tierBadge(
+  tier: string | number | null | undefined,
+): { label: string; fullLabel: string; tone: 'ok' | 'warn' | 'fail' | 'neutral' } | null {
+  if (tier === null || tier === undefined) return null;
+  const value = String(tier).trim();
+  if (value === '') return null;
+  switch (value) {
+    case '0':
+      return { label: 'T0', fullLabel: 'Tier 0 — docs/tests only', tone: 'ok' };
+    case '1':
+      return { label: 'T1', fullLabel: 'Tier 1 — additive internal', tone: 'ok' };
+    case '2':
+      return { label: 'T2', fullLabel: 'Tier 2 — live CLI / automation', tone: 'warn' };
+    case '3':
+      return { label: 'T3', fullLabel: 'Tier 3 — semantic / persistence / API', tone: 'warn' };
+    case '4':
+      return { label: 'T4', fullLabel: 'Tier 4 — secrets / deploy / merge authority', tone: 'fail' };
+    default:
+      return { label: `T?`, fullLabel: `Tier ${value} (unknown)`, tone: 'neutral' };
+  }
+}

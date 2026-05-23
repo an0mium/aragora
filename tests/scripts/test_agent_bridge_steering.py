@@ -251,6 +251,133 @@ class TestCollectPendingSteeringMessages:
         assert result["latest_three"][0]["subject"] == "(unreadable)"
 
 
+class TestCollectAgentHeartbeats:
+    def test_collect_agent_heartbeats_summarizes_fresh_and_stale(self, tmp_path: Path) -> None:
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "schema_version": "aragora-agent-heartbeat/1.0",
+                        "lane_id": "fresh-lane",
+                        "owner_session": "codex-fresh",
+                        "pid": 111,
+                        "cwd": "/tmp/fresh",
+                        "worktree": "/tmp/fresh",
+                        "branch": "codex/fresh",
+                        "pr_number": 7425,
+                        "last_seen_at": "2026-05-22T00:10:00Z",
+                    },
+                    {
+                        "schema_version": "aragora-agent-heartbeat/1.0",
+                        "lane_id": "stale-lane",
+                        "owner_session": "codex-stale",
+                        "pid": 222,
+                        "last_seen_at": "2026-05-22T00:00:00Z",
+                    },
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        result = ab._collect_agent_heartbeats(
+            heartbeat_path=heartbeat_path,
+            now="2026-05-22T00:20:00Z",
+        )
+
+        assert result["count"] == 2
+        assert result["fresh_count"] == 1
+        assert result["stale_count"] == 1
+        assert result["latest_by_owner"]["codex-fresh"]["fresh"] is True
+        assert result["latest_by_owner"]["codex-fresh"]["age_seconds"] == 600
+        assert result["latest_by_owner"]["codex-fresh"]["cwd"] == "/tmp/fresh"
+        assert result["latest_by_owner"]["codex-stale"]["fresh"] is False
+
+    def test_collect_agent_heartbeats_compares_parsed_timestamps(self, tmp_path: Path) -> None:
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "lane_id": "old-lane",
+                        "owner_session": "codex-owner",
+                        "last_seen_at": "2026-05-22T00:09:00Z",
+                    },
+                    {
+                        "lane_id": "new-lane",
+                        "owner_session": "codex-owner",
+                        "last_seen_at": "2026-05-22T00:10:00+00:00",
+                    },
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        result = ab._collect_agent_heartbeats(
+            heartbeat_path=heartbeat_path,
+            now="2026-05-22T00:20:00Z",
+        )
+
+        assert result["latest_by_owner"]["codex-owner"]["lane_id"] == "new-lane"
+
+    def test_collect_agent_heartbeats_defaults_to_repo_state(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        repo_heartbeat_path = tmp_path / "repo" / ".aragora" / "agent-bridge" / "heartbeats.json"
+        user_heartbeat_path = tmp_path / "home" / ".aragora" / "agent-bridge" / "heartbeats.json"
+        repo_heartbeat_path.parent.mkdir(parents=True)
+        user_heartbeat_path.parent.mkdir(parents=True)
+        repo_heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "lane_id": "repo-lane",
+                        "owner_session": "codex-repo",
+                        "last_seen_at": "2026-05-22T00:10:00Z",
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+        user_heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "lane_id": "user-lane",
+                        "owner_session": "codex-user",
+                        "last_seen_at": "2026-05-22T00:10:00Z",
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(ab, "HEARTBEATS_FILE", repo_heartbeat_path)
+        monkeypatch.setattr(ab, "USER_HEARTBEATS_FILE", user_heartbeat_path)
+
+        result = ab._collect_agent_heartbeats(now="2026-05-22T00:20:00Z")
+
+        assert result["count"] == 1
+        assert "codex-repo" in result["latest_by_owner"]
+        assert "codex-user" not in result["latest_by_owner"]
+
+
+def test_health_flags_active_lane_missing_heartbeat() -> None:
+    issues = ab._collect_health_issues(
+        [],
+        [
+            ab.LaneRecord(
+                lane_id="active-without-heartbeat",
+                owner_session="codex-active",
+                status="active",
+                next_action="continue bounded work",
+                last_steering_outcome="obeyed",
+            )
+        ],
+    )
+
+    assert any(issue["type"] == "lane_missing_heartbeat" for issue in issues)
+
+
 # ---------------------------------------------------------------------------
 # CLI integration — pending field appears in operator-snapshot --json output
 # ---------------------------------------------------------------------------

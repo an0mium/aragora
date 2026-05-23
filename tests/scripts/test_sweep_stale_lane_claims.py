@@ -129,6 +129,50 @@ def test_apply_expires_stale_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     assert by_lane["live"]["status"] == "active"
 
 
+def test_new_lifecycle_statuses_participate_in_stale_sweep(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sweep_stale_lane_claims as mod
+
+    registry = tmp_path / "lanes.json"
+    _write_registry(
+        registry,
+        [
+            {
+                "lane_id": "old-working",
+                "owner_session": "ghost-working",
+                "branch": "missing-branch",
+                "status": "working",
+                "updated_at": "2026-05-15T12:00:00Z",
+            },
+            {
+                "lane_id": "already-superseded",
+                "owner_session": "ghost-superseded",
+                "branch": "missing-branch",
+                "status": "superseded",
+                "updated_at": "2026-05-15T12:00:00Z",
+            },
+        ],
+    )
+
+    monkeypatch.setattr(mod, "branch_exists_locally", lambda *_a, **_k: False)
+    monkeypatch.setattr(mod, "branch_exists_remotely", lambda *_a, **_k: False)
+
+    report = mod.sweep(
+        registry_path=registry,
+        repo=tmp_path,
+        max_age_hours=24.0,
+        apply=False,
+        check_branches=True,
+        check_remote=True,
+        now=dt.datetime(2026, 5, 18, 18, 0, tzinfo=dt.UTC),
+    )
+
+    assert report["active_rows"] == 1
+    assert report["stale_rows"] == 1
+    assert report["stale_records"][0]["lane_id"] == "old-working"
+
+
 def test_worktree_missing_signals_stale(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import sweep_stale_lane_claims as mod
 

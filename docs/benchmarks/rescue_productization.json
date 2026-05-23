@@ -21,6 +21,13 @@
       "target": "#7209",
       "target_kind": "issue",
       "title": "Productize blocked_auth_failure (B0 rev-4 largest failure class)"
+    },
+    {
+      "class": "admission_class_credential_envelope_synthesis_v1",
+      "notes": "A2 PR-2 (#7248) landed credential-envelope corpus synthesis under ARAGORA_CREDENTIAL_ENVELOPE_PROBE. When dispatch contract gating exposes blocked_auth_failure on a flagged rev-4 corpus shape (e.g. exception_narrowing on #5789, #5790), the synthesizer returns a new CredentialEnvelope with corpus_admitted markers on missing slices and preserves complete slices verbatim, allowing preflight receipt execution to proceed without modifying CredentialEnvelope.from_environment(). Linked fixture lists the canonical admission-recovery scenarios. Complements PR-1 (#7225) admission_class_corpus_synthesis_v1 (corpus-aware dispatch for blocked_not_dispatch_bounded). Tracks #7209.",
+      "target": "docs/benchmarks/admission_recovery_scenarios.json",
+      "target_kind": "fixture",
+      "title": "A2 PR-2 productization fixture: credential-envelope corpus synthesis scenarios"
     }
   ]
 }

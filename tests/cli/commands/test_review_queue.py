@@ -230,6 +230,126 @@ class TestSummarizeChecks:
         assert not has_pending
         assert "1/1 green" in summary
 
+    def test_current_merge_quorum_self_check_pending_is_ignored(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26288586838")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26288586838/job/77396719826"
+                ),
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1/1 green"
+        assert not has_fail
+        assert not has_pending
+
+    def test_merge_quorum_pending_outside_current_run_still_blocks(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26288586838/job/77396719826"
+                ),
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1 pending / 2 total"
+        assert not has_fail
+        assert has_pending
+
+    def test_completed_merge_quorum_failure_still_blocks(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26288586838")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26288586838/job/77396719826"
+                ),
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1 failing / 2 total"
+        assert has_fail
+        assert not has_pending
+
+    def test_unrelated_failure_still_blocks_with_merge_quorum_present(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26288586838")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26288586838/job/77396719826"
+                ),
+            },
+            {"name": "typecheck", "status": "COMPLETED", "conclusion": "FAILURE"},
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1 failing / 2 total"
+        assert has_fail
+        assert not has_pending
+
+    def test_unrelated_pending_still_blocks_with_merge_quorum_present(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26288586838")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26288586838/job/77396719826"
+                ),
+            },
+            {"name": "typecheck", "status": "IN_PROGRESS", "conclusion": ""},
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(checks)
+        assert summary == "1 pending / 2 total"
+        assert not has_fail
+        assert has_pending
+
     def test_no_checks(self) -> None:
         summary, has_fail, has_pending = _summarize_checks([])
         assert summary == "no checks"
@@ -240,6 +360,260 @@ class TestSummarizeChecks:
         checks: list[Any] = ["not a dict", None, {"status": "COMPLETED", "conclusion": "SUCCESS"}]
         summary, _, _ = _summarize_checks(checks)
         assert "1/1 green" in summary
+
+    def test_superseded_historical_failure_ignored_by_latest_check_identity(self) -> None:
+        checks = [
+            {
+                "name": "build",
+                "workflowName": "Build Documentation (PR Check)",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "completedAt": "2026-04-19T00:39:02Z",
+            },
+            {
+                "name": "build",
+                "workflowName": "Build Documentation (PR Check)",
+                "status": "COMPLETED",
+                "conclusion": "SKIPPED",
+                "completedAt": "2026-05-21T15:28:50Z",
+            },
+            {
+                "name": "lint",
+                "workflowName": "Lint",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+                "completedAt": "2026-05-21T15:29:19Z",
+            },
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1/1 green"
+        assert not has_fail
+        assert not has_pending
+
+    def test_latest_failure_for_same_check_identity_still_blocks(self) -> None:
+        checks = [
+            {
+                "name": "build",
+                "workflowName": "Build Documentation (PR Check)",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+                "completedAt": "2026-05-21T15:28:50Z",
+            },
+            {
+                "name": "build",
+                "workflowName": "Build Documentation (PR Check)",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "completedAt": "2026-05-21T15:30:50Z",
+            },
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 failing / 1 total"
+        assert has_fail
+        assert not has_pending
+
+    def test_merge_quorum_self_check_pending_outside_current_run_blocks(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "startedAt": "2026-05-22T14:08:46Z",
+            },
+            {
+                "name": "lint",
+                "workflowName": "Lint",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+                "completedAt": "2026-05-22T13:01:00Z",
+            },
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 pending / 2 total"
+        assert not has_fail
+        assert has_pending
+
+    def test_merge_quorum_self_check_failure_is_preserved(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "completedAt": "2026-05-22T14:09:40Z",
+            },
+            {
+                "name": "Generate & Validate",
+                "workflowName": "OpenAPI Spec",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+                "completedAt": "2026-05-22T12:46:43Z",
+            },
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 failing / 2 total"
+        assert has_fail
+        assert not has_pending
+
+    def test_merge_quorum_self_check_requires_matching_repo_url(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26311249200")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/fork/aragora/actions/runs/26311249200/job/77460233891"
+                ),
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 pending / 2 total"
+        assert not has_fail
+        assert has_pending
+
+    def test_merge_quorum_self_check_requires_path_match_not_query(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26311249200")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/pull/7436?"
+                    "next=/synaptent/aragora/actions/runs/26311249200/job/77460233891"
+                ),
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 pending / 2 total"
+        assert not has_fail
+        assert has_pending
+
+    def test_merge_quorum_self_check_requires_path_match_not_fragment(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26311249200")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/pull/7436#"
+                    "/synaptent/aragora/actions/runs/26311249200/job/77460233891"
+                ),
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 pending / 2 total"
+        assert not has_fail
+        assert has_pending
+
+    def test_merge_quorum_self_check_requires_server_host(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26311249200")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.enterprise.example")
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26311249200/job/77460233891"
+                ),
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 pending / 2 total"
+        assert not has_fail
+        assert has_pending
+
+    def test_merge_quorum_self_check_requires_repository_env(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26311249200")
+        monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": (
+                    "https://github.com/synaptent/aragora/actions/runs/26311249200/job/77460233891"
+                ),
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 pending / 2 total"
+        assert not has_fail
+        assert has_pending
+
+    def test_similarly_named_check_in_other_workflow_still_blocks(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Release Readiness Gate",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "completedAt": "2026-05-22T14:09:40Z",
+            },
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 failing / 1 total"
+        assert has_fail
+        assert not has_pending
 
 
 # --- _classify_pr lane logic -----------------------------------------------
@@ -1080,6 +1454,62 @@ class TestBuildQueueAndPacket:
         packet = _build_packet("6280", repo_override=None)
         assert packet.machine_recommendation == "approve_candidate"
         assert packet.checks_summary == "2/2 green"
+
+    def test_build_packet_preserves_completed_merge_quorum_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=6281,
+            checks=[
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            ],
+            files=["scripts/build_next_prompt.py"],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("6281", repo_override=None)
+        assert packet.machine_recommendation == "repair_first"
+        assert packet.checks_summary == "1 failing / 2 total"
+        assert "checks failing (1 failing / 2 total)" in packet.risk_flags
+        assert (
+            "checks are failing; repair before settlement" in packet.model_review_quorum["reasons"]
+        )
+
+    def test_build_packet_preserves_non_self_check_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=6282,
+            checks=[
+                {
+                    "name": "aragora-merge-quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+                {"name": "lint", "status": "COMPLETED", "conclusion": "FAILURE"},
+                {"name": "typecheck", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            ],
+            files=["scripts/build_next_prompt.py"],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("6282", repo_override=None)
+        assert packet.machine_recommendation == "repair_first"
+        assert packet.checks_summary == "2 failing / 3 total"
+        assert "checks failing (2 failing / 3 total)" in packet.risk_flags
+        assert (
+            "checks are failing; repair before settlement" in packet.model_review_quorum["reasons"]
+        )
 
     def test_build_packet_flags_high_risk_paths(self, monkeypatch: pytest.MonkeyPatch) -> None:
         pr_payload = _make_pr(

@@ -181,6 +181,156 @@ class TestLoadAndFind:
         assert r is not None
         assert r["lane_id"] == "newer-released"
 
+
+class TestHeartbeatSummary:
+    def test_build_owner_info_includes_fresh_heartbeat(self, tmp_path: Path) -> None:
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "schema_version": "aragora-agent-heartbeat/1.0",
+                        "lane_id": "P19-repair-7292-stage2-blockers",
+                        "owner_session": "codex-p19-repair-7292",
+                        "pid": 1234,
+                        "cwd": "/tmp/aragora",
+                        "worktree": "/private/tmp/p19-fixture-wt",
+                        "branch": "droid/P16-stage2-auto-merge-bucket-a-20260518-002325",
+                        "pr_number": 7292,
+                        "last_seen_at": "2026-05-22T00:05:00Z",
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        info = ilo.build_owner_info(
+            SAMPLE_LANES[0],
+            snapshot_provider=lambda: None,
+            sessions_root=tmp_path / "codex",
+            projects_root=tmp_path / "claude",
+            bg_path=tmp_path / "factory.json",
+            steering_inbox_root=tmp_path / "steering",
+            heartbeat_path=heartbeat_path,
+            heartbeat_now="2026-05-22T00:10:00Z",
+        )
+
+        assert info.latest_heartbeat is not None
+        assert info.latest_heartbeat["fresh"] is True
+        assert info.latest_heartbeat["age_seconds"] == 300
+        assert info.latest_heartbeat["pid"] == 1234
+        assert info.latest_heartbeat["cwd"] == "/tmp/aragora"
+        assert info.latest_heartbeat["worktree"] == "/private/tmp/p19-fixture-wt"
+        assert (
+            info.latest_heartbeat["branch"]
+            == "droid/P16-stage2-auto-merge-bucket-a-20260518-002325"
+        )
+        assert info.latest_heartbeat["pr_number"] == 7292
+
+    def test_build_owner_info_marks_stale_heartbeat(self, tmp_path: Path) -> None:
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "lane_id": "P19-repair-7292-stage2-blockers",
+                        "owner_session": "codex-p19-repair-7292",
+                        "last_seen_at": "2026-05-22T00:00:00Z",
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        info = ilo.build_owner_info(
+            SAMPLE_LANES[0],
+            snapshot_provider=lambda: None,
+            sessions_root=tmp_path / "codex",
+            projects_root=tmp_path / "claude",
+            bg_path=tmp_path / "factory.json",
+            steering_inbox_root=tmp_path / "steering",
+            heartbeat_path=heartbeat_path,
+            heartbeat_now="2026-05-22T00:20:00Z",
+        )
+
+        assert info.latest_heartbeat is not None
+        assert info.latest_heartbeat["fresh"] is False
+        assert info.latest_heartbeat["age_seconds"] == 1200
+
+    def test_build_owner_info_prefers_claimed_owner_heartbeat(self, tmp_path: Path) -> None:
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "lane_id": "P19-repair-7292-stage2-blockers",
+                        "owner_session": "other-owner",
+                        "branch": "droid/P16-stage2-auto-merge-bucket-a-20260518-002325",
+                        "pr_number": 7292,
+                        "last_seen_at": "2026-05-22T00:10:00Z",
+                    },
+                    {
+                        "lane_id": "P19-repair-7292-stage2-blockers",
+                        "owner_session": "codex-p19-repair-7292",
+                        "branch": "droid/P16-stage2-auto-merge-bucket-a-20260518-002325",
+                        "pr_number": 7292,
+                        "last_seen_at": "2026-05-22T00:05:00Z",
+                    },
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        info = ilo.build_owner_info(
+            SAMPLE_LANES[0],
+            snapshot_provider=lambda: None,
+            sessions_root=tmp_path / "codex",
+            projects_root=tmp_path / "claude",
+            bg_path=tmp_path / "factory.json",
+            steering_inbox_root=tmp_path / "steering",
+            heartbeat_path=heartbeat_path,
+            heartbeat_now="2026-05-22T00:20:00Z",
+        )
+
+        assert info.latest_heartbeat is not None
+        assert info.latest_heartbeat["owner_session"] == "codex-p19-repair-7292"
+        assert info.latest_heartbeat["age_seconds"] == 900
+
+    def test_build_owner_info_requires_target_lane_heartbeat(self, tmp_path: Path) -> None:
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "lane_id": "other-lane",
+                        "owner_session": "codex-p19-repair-7292",
+                        "last_seen_at": "2026-05-22T00:10:00Z",
+                    },
+                    {
+                        "lane_id": "P19-repair-7292-stage2-blockers",
+                        "owner_session": "codex-p19-repair-7292",
+                        "last_seen_at": "2026-05-22T00:00:00Z",
+                    },
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        info = ilo.build_owner_info(
+            SAMPLE_LANES[0],
+            snapshot_provider=lambda: None,
+            sessions_root=tmp_path / "codex",
+            projects_root=tmp_path / "claude",
+            bg_path=tmp_path / "factory.json",
+            steering_inbox_root=tmp_path / "steering",
+            heartbeat_path=heartbeat_path,
+            heartbeat_now="2026-05-22T00:20:00Z",
+        )
+
+        assert info.latest_heartbeat is not None
+        assert info.latest_heartbeat["lane_id"] == "P19-repair-7292-stage2-blockers"
+        assert info.latest_heartbeat["age_seconds"] == 1200
+
     def test_find_by_pr_prefers_conflict_over_newer_released_history(self) -> None:
         lanes = [
             {

@@ -53,6 +53,29 @@ For Codex-driven automations in this repo, default to maximum safe autonomy. Fin
   use disposable worktrees, branch-scoped commits, additive edits, and non-destructive cleanup. Never delete worktrees or branches with uncommitted changes, unique commits, or open PRs.
 - Keep scope bounded:
   prefer measurable improvements on live paths over speculative breadth, and use Aragora itself when it improves decisions without dominating a small direct fix.
+- Before lane work, check your operator-steering mailbox with
+  `python3 scripts/read_operator_steering.py --lane-id <LANE_ID> --json` (or
+  `--pr` / `--branch` when that is the only selector you know). If you read a
+  message, write an outcome receipt with `--outcome obeyed|held|stale|superseded|blocked|completed`
+  before mutating lane state. `_read_receipts/` is proof-of-read/outcome only;
+  it is not an ack protocol, and top-level message files remain pending until a
+  future explicit ack/move protocol exists.
+- Active lanes must expose their next action and owner liveness. Claim/refresh
+  lanes with `next_action`, `last_heartbeat_at`, and `last_steering_outcome`;
+  long-running harnesses should also run `python3 scripts/agent_heartbeat.py`
+  so other sessions can see owner_session, pid/thread hints, cwd, worktree,
+  branch, PR number, and last_seen_at without opening raw transcripts.
+- Do not paste old transcripts or accumulated logs into new prompts. Use
+  `python3 scripts/build_next_prompt.py` plus the live queue/owner tools to
+  rebuild concise, owner-specific prompts that begin with mailbox checking.
+- Resolve stale conflict rows only through
+  `python3 scripts/resolve_lane_conflicts.py --dry-run` and, when safe,
+  `--apply`; it marks conflicts `superseded` with append-only receipts rather
+  than deleting or rewriting unrelated ownership rows.
+- Tier 4 merge/protection work can be prepared autonomously but not applied
+  without exact-head, repo-visible operator settlement. Use
+  `python3 scripts/settle_tier4_pr.py --check --pr <N> --head <SHA>` before
+  any Tier 4 merge/protection mutation.
 
 ### Amend-guard helper
 

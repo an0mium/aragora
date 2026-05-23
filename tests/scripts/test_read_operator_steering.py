@@ -121,6 +121,32 @@ def test_no_receipt_lists_messages_without_writing(tmp_path: Path, capsys: Any) 
     assert msg.exists()
 
 
+def test_completed_outcome_receipt(tmp_path: Path, capsys: Any) -> None:
+    steering_root = tmp_path / "steering"
+    _write_message(steering_root, "codex-completed", "complete lane")
+
+    rc = ros.main(
+        [
+            "--to",
+            "codex-completed",
+            "--outcome",
+            "completed",
+            "--outcome-note",
+            "lane completed after steering",
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    assert json.loads(capsys.readouterr().out)["receipt_count"] == 1
+    receipts = _receipt_files(steering_root, "codex-completed")
+    receipt = json.loads(receipts[0].read_text(encoding="utf-8"))
+    assert receipt["outcome"] == "completed"
+    assert receipt["outcome_note"] == "lane completed after steering"
+
+
 def test_rejects_unsafe_session_before_reading(tmp_path: Path, capsys: Any) -> None:
     rc = ros.main(
         [

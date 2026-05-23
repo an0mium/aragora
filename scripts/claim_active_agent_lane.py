@@ -33,7 +33,8 @@ bootstraps and from any agent):
   (``desktop_label``, ``codex_thread_id``, ``codex_rollout_path``,
   ``session_title``), plus optional steering contact metadata
   (``contact_method``, ``contact_payload``, ``last_mailbox_check_at``,
-  ``last_delivery_at``, ``last_ack_at``).
+  ``last_delivery_at``, ``last_ack_at``), plus lifecycle observability fields
+  (``last_heartbeat_at`` and ``last_steering_outcome``).
 - A claim with the same ``lane_id`` from the same ``owner_session``
   overwrites the existing row (idempotent refresh). A claim with the
   same ``lane_id`` from a *different* ``owner_session`` is rejected
@@ -95,8 +96,13 @@ ALLOWED_STATUSES = (
     "pending",
     "queued",
     "claimed",
+    "waiting_for_steering",
+    "acknowledged",
+    "working",
+    "blocked",
     "released",
     "completed",
+    "superseded",
     "conflict",
 )
 
@@ -122,6 +128,8 @@ LANE_RECORD_KEYS = (
     "last_mailbox_check_at",
     "last_delivery_at",
     "last_ack_at",
+    "last_heartbeat_at",
+    "last_steering_outcome",
 )
 
 
@@ -129,7 +137,20 @@ class ClaimError(Exception):
     """Raised when a lane claim would conflict with an existing row."""
 
 
-ACTIVE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+ACTIVE_STATUSES = {
+    "active",
+    "running",
+    "pending",
+    "queued",
+    "claimed",
+    "waiting_for_steering",
+    "acknowledged",
+    "working",
+    "blocked",
+}
+
+DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
+DEFAULT_STEERING_OUTCOME = "unknown"
 
 
 def _utc_now_iso() -> str:
@@ -342,6 +363,8 @@ def claim_lane(
     last_mailbox_check_at: str = "",
     last_delivery_at: str = "",
     last_ack_at: str = "",
+    last_heartbeat_at: str = "",
+    last_steering_outcome: str = "",
     force: bool = False,
     allow_resource_conflicts: bool = False,
     updated_at: str | None = None,
@@ -357,6 +380,10 @@ def claim_lane(
     with _registry_write_lock(registry_path):
         rows = _read_existing(registry_path)
         timestamp = updated_at or _utc_now_iso()
+        if status in ACTIVE_STATUSES:
+            next_action = next_action or DEFAULT_ACTIVE_NEXT_ACTION
+            last_heartbeat_at = last_heartbeat_at or timestamp
+            last_steering_outcome = last_steering_outcome or DEFAULT_STEERING_OUTCOME
 
         new_row: dict[str, Any] = {
             "lane_id": lane_id,
@@ -380,6 +407,8 @@ def claim_lane(
             "last_mailbox_check_at": last_mailbox_check_at,
             "last_delivery_at": last_delivery_at,
             "last_ack_at": last_ack_at,
+            "last_heartbeat_at": last_heartbeat_at,
+            "last_steering_outcome": last_steering_outcome,
         }
         normalized = _normalize_row(new_row)
 
@@ -475,6 +504,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--last-mailbox-check-at", default="")
     parser.add_argument("--last-delivery-at", default="")
     parser.add_argument("--last-ack-at", default="")
+    parser.add_argument(
+        "--last-heartbeat-at",
+        default="",
+        help=(
+            "Last owner heartbeat timestamp. Active lifecycle rows persist this "
+            "field; omitted values default to the lane update timestamp."
+        ),
+    )
+    parser.add_argument(
+        "--last-steering-outcome",
+        default="",
+        help=(
+            "Latest operator-steering outcome, e.g. obeyed, held, stale, "
+            "superseded, blocked, completed, or unknown."
+        ),
+    )
     parser.add_argument(
         "--force",
         action="store_true",
@@ -573,6 +618,8 @@ def main(argv: list[str] | None = None) -> int:
                 last_mailbox_check_at=args.last_mailbox_check_at,
                 last_delivery_at=args.last_delivery_at,
                 last_ack_at=args.last_ack_at,
+                last_heartbeat_at=args.last_heartbeat_at,
+                last_steering_outcome=args.last_steering_outcome,
                 force=args.force,
                 allow_resource_conflicts=args.allow_resource_conflicts,
                 updated_at=args.updated_at,

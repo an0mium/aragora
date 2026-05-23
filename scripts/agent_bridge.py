@@ -64,20 +64,35 @@ except ModuleNotFoundError:
 AGENT_BRIDGE_DIR = Path.home() / ".aragora" / "agent-bridge"
 SESSION_SNAPSHOT_FILE = AGENT_BRIDGE_DIR / "sessions.json"
 LANE_REGISTRY_FILE = AGENT_BRIDGE_DIR / "lanes.json"
+USER_HEARTBEATS_FILE = AGENT_BRIDGE_DIR / "heartbeats.json"
 TMUX_SESSIONS_DIR = Path.home() / ".aragora" / "tmux-sessions"
 TMUX_SESSION = "aragora"
+HEARTBEATS_FILE = REPO_ROOT / ".aragora" / "agent-bridge" / "heartbeats.json"
 CANONICAL_REPO_ROOT = REPO_ROOT
 if agent_bridge_sessions is not None:
     try:
         CANONICAL_REPO_ROOT = agent_bridge_sessions.resolve_canonical_repo_root(REPO_ROOT)
     except (OSError, RuntimeError, ValueError):
         CANONICAL_REPO_ROOT = REPO_ROOT
-ACTIVE_LANE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
 CONFLICT_LANE_STATUSES = {"conflict"}
-COMPLETED_LANE_STATUSES = {"completed", "released"}
+ACTIVE_LANE_STATUSES = {
+    "active",
+    "running",
+    "pending",
+    "queued",
+    "claimed",
+    "waiting_for_steering",
+    "acknowledged",
+    "working",
+    "blocked",
+}
+COMPLETED_LANE_STATUSES = {"completed", "released", "superseded"}
 CURRENT_SESSION_LIFECYCLES = {"live", "active_broker"}
 HISTORICAL_SESSION_LIFECYCLES = {"historical", "dead", "stale", "orphaned"}
 DEFAULT_STALE_TTL_HOURS = 24
+HEARTBEAT_FRESH_SECONDS = 15 * 60
+DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
+DEFAULT_STEERING_OUTCOME = "unknown"
 
 
 def _state_root_bridge_dir() -> Path:
@@ -103,6 +118,18 @@ def _bridge_file_for_read(default_path: Path) -> Path:
     if fallback_path.exists():
         return fallback_path
     return default_path
+
+
+def _heartbeat_file_for_read() -> Path:
+    repo_path = HEARTBEATS_FILE
+    if repo_path.exists():
+        return repo_path
+    fallback_path = _state_root_bridge_dir() / repo_path.name
+    if fallback_path.exists():
+        return fallback_path
+    if USER_HEARTBEATS_FILE.exists():
+        return USER_HEARTBEATS_FILE
+    return repo_path
 
 
 def _bridge_files_for_lane_read() -> list[Path]:
@@ -195,6 +222,8 @@ class LaneRecord:
     last_mailbox_check_at: str = ""
     last_delivery_at: str = ""
     last_ack_at: str = ""
+    last_heartbeat_at: str = ""
+    last_steering_outcome: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v not in ("", None)}
@@ -225,6 +254,8 @@ class LaneRecord:
             last_mailbox_check_at=str(payload.get("last_mailbox_check_at", "")),
             last_delivery_at=str(payload.get("last_delivery_at", "")),
             last_ack_at=str(payload.get("last_ack_at", "")),
+            last_heartbeat_at=str(payload.get("last_heartbeat_at", "")),
+            last_steering_outcome=str(payload.get("last_steering_outcome", "")),
         )
 
 
@@ -513,6 +544,37 @@ def _sync_lane_records(records: list[LaneRecord], sessions: list[Session]) -> li
             if live.pr_number is not None:
                 record.pr_number = live.pr_number
     return records
+
+
+def _conflict_lane_resolved_by_completed_owner(
+    record: LaneRecord, records: list[LaneRecord]
+) -> bool:
+    if record.status not in CONFLICT_LANE_STATUSES or not record.conflict_session:
+        return False
+    conflict_updated_at = _parse_timestamp(record.updated_at)
+    if conflict_updated_at is None:
+        return False
+    for candidate in records:
+        if candidate.owner_session != record.conflict_session:
+            continue
+        if candidate.status not in COMPLETED_LANE_STATUSES:
+            continue
+        candidate_updated_at = _parse_timestamp(candidate.updated_at)
+        if candidate_updated_at is not None and candidate_updated_at >= conflict_updated_at:
+            return True
+    return False
+
+
+def _filter_current_lane_records(records: list[LaneRecord]) -> list[LaneRecord]:
+    return [
+        record
+        for record in records
+        if record.status in ACTIVE_LANE_STATUSES
+        or (
+            record.status in CONFLICT_LANE_STATUSES
+            and not _conflict_lane_resolved_by_completed_owner(record, records)
+        )
+    ]
 
 
 def _head_for_worktree(path: str | Path | None) -> str | None:
@@ -884,6 +946,34 @@ def _collect_health_issues(
                     "type": "ambiguous_lane",
                     "session": ", ".join(owners),
                     "detail": f"lane '{lane_id}' claimed by multiple active sessions",
+                }
+            )
+
+    for r in records:
+        if r.status not in ACTIVE_LANE_STATUSES:
+            continue
+        if not r.next_action or r.next_action == DEFAULT_ACTIVE_NEXT_ACTION:
+            issues.append(
+                {
+                    "type": "lane_missing_next_action",
+                    "session": r.owner_session,
+                    "detail": f"active lane '{r.lane_id}' has no actionable next_action",
+                }
+            )
+        if not r.last_steering_outcome or r.last_steering_outcome == DEFAULT_STEERING_OUTCOME:
+            issues.append(
+                {
+                    "type": "lane_missing_steering_outcome",
+                    "session": r.owner_session,
+                    "detail": f"active lane '{r.lane_id}' has no explicit steering outcome",
+                }
+            )
+        if not r.last_heartbeat_at:
+            issues.append(
+                {
+                    "type": "lane_missing_heartbeat",
+                    "session": r.owner_session,
+                    "detail": f"active lane '{r.lane_id}' has no heartbeat timestamp",
                 }
             )
 
@@ -1869,6 +1959,92 @@ def _collect_pending_steering_messages(
     }
 
 
+def _parse_heartbeat_timestamp(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _heartbeat_summary(
+    row: dict[str, Any],
+    *,
+    now_dt: datetime,
+    freshness_seconds: int,
+) -> dict[str, Any]:
+    seen = _parse_heartbeat_timestamp(row.get("last_seen_at"))
+    age_seconds: int | None = None
+    fresh = False
+    if seen is not None:
+        age_seconds = max(0, int((now_dt - seen).total_seconds()))
+        fresh = age_seconds <= freshness_seconds
+    return {
+        "lane_id": row.get("lane_id"),
+        "owner_session": row.get("owner_session"),
+        "thread_id": row.get("thread_id"),
+        "pid": row.get("pid"),
+        "cwd": row.get("cwd"),
+        "worktree": row.get("worktree"),
+        "branch": row.get("branch"),
+        "pr_number": row.get("pr_number"),
+        "last_seen_at": row.get("last_seen_at"),
+        "age_seconds": age_seconds,
+        "fresh": fresh,
+    }
+
+
+def _collect_agent_heartbeats(
+    heartbeat_path: Path | None = None,
+    *,
+    now: str | None = None,
+    freshness_seconds: int = HEARTBEAT_FRESH_SECONDS,
+) -> dict[str, Any]:
+    """Summarize harness heartbeat rows without exposing transcripts."""
+
+    path = heartbeat_path or _heartbeat_file_for_read()
+    if not path.exists():
+        return {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}}
+    rows = [row for row in raw if isinstance(row, dict)] if isinstance(raw, list) else []
+    now_dt = _parse_heartbeat_timestamp(now) if now else datetime.now(UTC)
+    if now_dt is None:
+        now_dt = datetime.now(UTC)
+    summaries = [
+        _heartbeat_summary(row, now_dt=now_dt, freshness_seconds=freshness_seconds) for row in rows
+    ]
+    latest_by_owner: dict[str, dict[str, Any]] = {}
+    for summary in summaries:
+        owner = str(summary.get("owner_session") or "")
+        if not owner:
+            continue
+        existing = latest_by_owner.get(owner)
+        summary_seen = _parse_heartbeat_timestamp(summary.get("last_seen_at"))
+        existing_seen = (
+            _parse_heartbeat_timestamp(existing.get("last_seen_at")) if existing else None
+        )
+        if existing is None or (
+            summary_seen is not None and (existing_seen is None or summary_seen > existing_seen)
+        ):
+            latest_by_owner[owner] = summary
+    return {
+        "count": len(summaries),
+        "fresh_count": sum(1 for summary in summaries if summary.get("fresh") is True),
+        "stale_count": sum(1 for summary in summaries if summary.get("fresh") is False),
+        "latest_by_owner": latest_by_owner,
+    }
+
+
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
@@ -1886,6 +2062,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         _enrich_prs(discovered_sessions)
         _write_session_snapshot(discovered_sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
+    if not include_historical:
+        records = _filter_current_lane_records(records)
 
     issues = _collect_health_issues(sessions, records)
     lane_conflicts = _active_lane_identity_conflicts(records)
@@ -1908,6 +2086,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "ARAGORA_SESSION_ID"
     )
     pending_steering = _collect_pending_steering_messages(steering_recipient)
+    agent_heartbeats = _collect_agent_heartbeats()
 
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
@@ -1918,6 +2097,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "process_census": process_census,
         "health": {"ok": len(issues) == 0, "issues": issues},
         "pending_steering_messages": pending_steering,
+        "agent_heartbeats": agent_heartbeats,
         "summary": {
             "total_sessions": len(sessions),
             "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
@@ -1935,6 +2115,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
             "health_issues": len(issues),
             "active_processes": int(process_census.get("total", 0)),
             "active_process_roles": sorted(process_census.get("by_role", {}).keys()),
+            "agent_heartbeats": int(agent_heartbeats.get("count", 0)),
+            "fresh_agent_heartbeats": int(agent_heartbeats.get("fresh_count", 0)),
         },
     }
     if summary_only:
