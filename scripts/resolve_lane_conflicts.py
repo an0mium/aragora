@@ -649,8 +649,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"finding_count={result['finding_count']}")
             if result.get("owner_steering_text"):
                 print(result["owner_steering_text"])
-            for command in result.get("owner_release_commands") or []:
-                print(command)
+            owner_release_commands = result.get("owner_release_commands")
+            if isinstance(owner_release_commands, list):
+                for command in owner_release_commands:
+                    print(command)
             if result.get("operator_apply_command"):
                 print(result["operator_apply_command"])
         if args.apply and result.get("resolved_count", 0) == 0:
@@ -667,11 +669,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         verb = "resolved" if args.apply else "candidate"
         print(f"{verb}_count={result['resolved_count' if args.apply else 'candidate_count']}")
-        for candidate in result["candidates"]:
-            print(
-                f"- lane_id={candidate['lane_id']} conflict_session="
-                f"{candidate['conflict_session']} -> superseded"
-            )
+        candidates = result.get("candidates")
+        if isinstance(candidates, list):
+            for candidate in candidates:
+                if not isinstance(candidate, dict):
+                    continue
+                print(
+                    f"- lane_id={candidate['lane_id']} conflict_session="
+                    f"{candidate['conflict_session']} -> superseded"
+                )
     return 0
 
 
