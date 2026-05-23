@@ -261,7 +261,12 @@ Rules (in priority order):
         self.cli_cmd = cli_cmd or self._discover_cli()
 
     def _discover_cli(self) -> list[str] | None:
-        for candidate in (["aragora", "ask"], ["claude", "--print"]):
+        # Prefer `claude --print` over `aragora ask` because the latter requires
+        # API keys loaded in env or AWS Secrets Manager and silently fails on a
+        # naked workstation, while `claude --print` works whenever the user is
+        # already running inside or has installed Claude Code. The harness
+        # never depends on a specific provider; this is just discovery order.
+        for candidate in (["claude", "--print"], ["aragora", "ask"]):
             try:
                 subprocess.run(
                     [candidate[0], "--version"],

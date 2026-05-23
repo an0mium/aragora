@@ -115,6 +115,11 @@ def make_mlx_backend(
 ) -> Callable[[dict], dict]:
     try:
         from mlx_lm import generate, load  # type: ignore
+
+        try:
+            from mlx_lm.sample_utils import make_sampler  # type: ignore
+        except ImportError:
+            make_sampler = None  # older mlx-lm versions accept `temp=` directly
     except ImportError as exc:  # pragma: no cover - dependency
         LOG.warning("mlx-lm not installed (%s); falling back to stub", exc)
         err_msg = f"mlx-lm unavailable: {exc}"
@@ -136,8 +141,13 @@ def make_mlx_backend(
             tokenize=False,
             add_generation_prompt=True,
         )
+        gen_kwargs: dict = {"max_tokens": max_tokens}
+        if make_sampler is not None:
+            gen_kwargs["sampler"] = make_sampler(temp=temperature)
+        else:
+            gen_kwargs["temp"] = temperature
         try:
-            text = generate(mdl, tokenizer, prompt=prompt, max_tokens=max_tokens, temp=temperature)
+            text = generate(mdl, tokenizer, prompt=prompt, **gen_kwargs)
         except Exception as exc:  # noqa: BLE001
             return dict(stub_backend(task), error=f"mlx generate failed: {exc}")
         parsed = _parse_model_reply(text)
