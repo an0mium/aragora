@@ -208,12 +208,12 @@
       }
     ]
   },
-  "generated_at": "2026-05-23T03:46:28.183559+00:00",
+  "generated_at": "2026-05-23T19:21:46.986449+00:00",
   "git": {
     "branch": "worktree-aft-advocate-feasibility",
     "dirty": true,
-    "head_sha": "7fbc37efb9e9638dd4edf47ffa918f1b644b0d92",
-    "head_short": "7fbc37efb9"
+    "head_sha": "d73bfbc8f95c971b6051a1d79c1757659ff366fe",
+    "head_short": "d73bfbc8f9"
   },
   "holdout_size": 78,
   "model": {

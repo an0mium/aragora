@@ -1,7 +1,16 @@
-# AFT v0.1 Result: H1 PASS (preliminary)
+# AFT v0.1 Result: H1 PASS (preliminary) — SUPERSEDED
+
+> **⚠️ SUPERSEDED BY [`AFT_RESULT_v0.2.md`](AFT_RESULT_v0.2.md).** The "H1 PASS"
+> conclusion below was **inflated** by two confounds that v0.2 repaired:
+> (1) a weak frontier prompt that defaulted to an empty `open_aged` class,
+> and (2) data contamination between training and the held-out set. The
+> clean v0.2 evaluation shows the advocate is **directionally** better than
+> the repaired frontier baseline but **not statistically separable** at
+> n≤78. Read v0.2 for the current verdict. This file is kept on disk as
+> an audit trail of the original inflated reading.
 
 **Date:** 2026-05-22
-**Status:** Hypothesis H1 cleared at preliminary scale (n=50, small model)
+**Status:** Hypothesis H1 cleared at preliminary scale (n=50, small model) — *no longer the operative verdict; see v0.2*
 **Related:** PR #7438, `docs/status/AFT_BASELINE_v0.1.md` (superseded by this doc),
 `docs/specs/ARAGORA_ROADMAP_REVISION_ADVOCATES.md`,
 `docs/specs/LOCAL_ADVOCATE_TRAINING_PIPELINE.md`
