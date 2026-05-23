@@ -394,3 +394,33 @@ def test_settlement_guard_prompt_includes_live_state_and_mailbox(tmp_path: Path)
         "If the prompt above accomplishes no incremental progress make the next prompt one that does"
         in prompt
     )
+
+
+def test_settlement_guard_prompt_uses_pr_mailbox_when_only_completed_lane_matches(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "completed-lane",
+                    "owner_session": "completed-owner",
+                    "status": "completed",
+                    "pr_number": 7435,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7435,
+        expected_head="live-head",
+        command_runner=_settlement_runner(),
+    )
+
+    prompt = prompt_builder.build_settlement_guard_prompt(packet, pr=7435)
+
+    assert "python3 scripts/read_operator_steering.py --pr 7435" in prompt
+    assert "--lane-id completed-lane" not in prompt

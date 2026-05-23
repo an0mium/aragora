@@ -535,9 +535,10 @@ def build_settlement_guard_prompt(
     guard = packet.get("settlement_guard")
     guard = guard if isinstance(guard, dict) else {}
     owner = packet.get("owner") if isinstance(packet.get("owner"), dict) else None
-    mailbox = _mailbox_command(owner, pr=pr, branch=branch)
     owners = guard.get("target_active_lanes")
     owners = owners if isinstance(owners, list) else []
+    active_owner = owners[0] if len(owners) == 1 and isinstance(owners[0], dict) else None
+    mailbox = _mailbox_command(active_owner, pr=pr, branch=branch)
     owner_summary = (
         ", ".join(
             f"{row.get('lane_id')} / {row.get('owner_session')}"
