@@ -918,6 +918,10 @@ def main(argv: list[str] | None = None) -> int:
         emit(f"  {k:>40}: {v}")
     archived = sum(1 for a in actions if a["decision"] == "archive")
     kept = sum(1 for a in actions if a["decision"] == "keep")
+    reason_counts: dict[str, int] = {}
+    for action in actions:
+        reason = str(action.get("reason") or "unknown").strip() or "unknown"
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
     emit(f"\n  total: {archived} archived, {kept} kept")
 
     should_write_report = args.apply or args.write_report or args.report_path is not None
@@ -957,6 +961,7 @@ def main(argv: list[str] | None = None) -> int:
             "kept": kept,
             "outbox_count": len(outbox_files),
             "outbox_dir": str(outbox_dir),
+            "reason_counts": reason_counts,
             "receipt_dir": str(receipt_dir),
             "repo": str(root),
             "repo_name": args.repo_name,

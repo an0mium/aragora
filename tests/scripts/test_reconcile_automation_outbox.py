@@ -165,6 +165,7 @@ def test_json_summary_only_omits_action_details(
     assert payload["kept"] == 0
     assert payload["action_count"] == 1
     assert payload["actions_omitted"] is True
+    assert payload["reason_counts"] == {"matching receipt exists": 1}
     assert "actions" not in payload
 
 
