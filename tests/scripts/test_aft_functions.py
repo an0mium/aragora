@@ -36,6 +36,20 @@ from scripts.aft_harness import (
 from scripts.aft_repeated_eval import aggregate
 from scripts.aft_to_mlx_chat import convert_row
 
+# bin/aft-advocate has no .py extension, so import via importlib.util's
+# spec-from-file-location with an explicit SourceFileLoader.
+import importlib.machinery
+import importlib.util
+import pathlib as _pl
+
+_AFT_ADV_PATH = _pl.Path(__file__).resolve().parents[2] / "bin" / "aft-advocate"
+_AFT_ADV_LOADER = importlib.machinery.SourceFileLoader("aft_advocate_shim", str(_AFT_ADV_PATH))
+_AFT_ADV_SPEC = importlib.util.spec_from_loader("aft_advocate_shim", _AFT_ADV_LOADER)
+if _AFT_ADV_SPEC is None:  # pragma: no cover - defensive
+    raise ImportError(f"Could not load spec for {_AFT_ADV_PATH}")
+aft_advocate = importlib.util.module_from_spec(_AFT_ADV_SPEC)  # noqa: N816
+_AFT_ADV_LOADER.exec_module(aft_advocate)
+
 
 def _pr(
     *,
@@ -415,3 +429,86 @@ class TestAggregate:
         agg = aggregate([])
         assert agg["n_runs"] == 0
         assert agg["conditions"] == {}
+
+
+# ----- bin/aft-advocate::_parse_model_reply --------------------------------
+#
+# These cover the fix landed in response to the PR #7438 Tier-2 logic
+# reviewer's defer dissent: the previous keyword-scan fallback used a
+# substring match over the full reply text and silently translated prose
+# mentions of a class token into a positive prediction. The fix requires
+# either valid JSON or an exact bare-label reply; everything else falls
+# through to DEFAULT_LABEL / DEFAULT_CONFIDENCE.
+
+
+class TestParseModelReply:
+    def test_valid_json_round_trips(self) -> None:
+        out = aft_advocate._parse_model_reply('{"label": "closed_no_merge", "confidence": 0.85}')
+        assert out == {"label": "closed_no_merge", "confidence": 0.85}
+
+    def test_last_valid_json_line_wins(self) -> None:
+        # Reverse-iteration: later valid JSON overrides earlier prose
+        reply = 'Some prose mentioning merged_fast.\n{"label": "open_aged", "confidence": 0.6}\n'
+        out = aft_advocate._parse_model_reply(reply)
+        assert out["label"] == "open_aged"
+
+    def test_invalid_label_in_json_falls_through(self) -> None:
+        # JSON label outside CLASSES doesn't count as parsed; no other
+        # signal present → falls through to DEFAULT_LABEL.
+        out = aft_advocate._parse_model_reply('{"label": "MERGED", "confidence": 0.9}')
+        assert out["label"] == aft_advocate.DEFAULT_LABEL
+        assert out["confidence"] == aft_advocate.DEFAULT_CONFIDENCE
+
+    def test_prose_substring_does_not_spoof_prediction(self) -> None:
+        # DEFECT REGRESSION: prior implementation substring-matched class
+        # tokens in arbitrary prose. Now this must fall through to default.
+        reply = "Looks like a merged_fast PR (small diff, has reviews)."
+        out = aft_advocate._parse_model_reply(reply)
+        assert out["label"] == aft_advocate.DEFAULT_LABEL
+        assert out["confidence"] == aft_advocate.DEFAULT_CONFIDENCE
+
+    def test_defect_repro_invalid_json_plus_prose_token(self) -> None:
+        # Combination case from the dissent: invalid-JSON label PLUS prose
+        # containing a CLASSES token. Must NOT translate prose into a
+        # prediction; must fall through.
+        reply = (
+            "Looking at this PR: matches the pattern of a merged_fast change.\n"
+            '{"label": "MERGED", "confidence": 0.7}\n'
+        )
+        out = aft_advocate._parse_model_reply(reply)
+        assert out["label"] == aft_advocate.DEFAULT_LABEL
+
+    def test_bare_label_reply_is_accepted_with_default_confidence(self) -> None:
+        # Bare-token reply (e.g., model trained to emit just the class)
+        # remains acceptable but only at DEFAULT_CONFIDENCE so a downstream
+        # threshold can escalate.
+        out = aft_advocate._parse_model_reply("merged_fast")
+        assert out["label"] == "merged_fast"
+        assert out["confidence"] == aft_advocate.DEFAULT_CONFIDENCE
+
+    def test_bare_label_uppercase_normalized(self) -> None:
+        out = aft_advocate._parse_model_reply("OPEN_AGED")
+        assert out["label"] == "open_aged"
+        assert out["confidence"] == aft_advocate.DEFAULT_CONFIDENCE
+
+    def test_empty_reply_falls_through(self) -> None:
+        out = aft_advocate._parse_model_reply("")
+        assert out["label"] == aft_advocate.DEFAULT_LABEL
+        assert out["confidence"] == aft_advocate.DEFAULT_CONFIDENCE
+
+    def test_label_inside_token_does_not_match(self) -> None:
+        # 'merged_fast_typo' must not match 'merged_fast' as a bare label.
+        out = aft_advocate._parse_model_reply("merged_fast_typo")
+        assert out["label"] == aft_advocate.DEFAULT_LABEL
+
+    def test_json_with_extra_keys_still_parses(self) -> None:
+        out = aft_advocate._parse_model_reply(
+            '{"label": "closed_no_merge", "confidence": 0.9, "rationale": "ignored"}'
+        )
+        assert out["label"] == "closed_no_merge"
+
+    def test_confidence_clamped_to_unit_interval(self) -> None:
+        high = aft_advocate._parse_model_reply('{"label": "merged_fast", "confidence": 99}')
+        assert high["confidence"] == 1.0
+        low = aft_advocate._parse_model_reply('{"label": "merged_fast", "confidence": -3}')
+        assert low["confidence"] == 0.0

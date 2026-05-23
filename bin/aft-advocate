@@ -90,6 +90,25 @@ def _format_user_prompt(task: dict) -> str:
 
 
 def _parse_model_reply(text: str) -> dict:
+    """Parse a model reply into a {label, confidence} dict.
+
+    Resolution order:
+      1. Walk reply lines in reverse; first JSON object whose `label` is in
+         CLASSES wins (this is the trained-output happy path).
+      2. If no valid JSON is found, accept the reply ONLY if its entire
+         trimmed text is exactly a class token (bare-label answer like
+         `merged_fast\\n`). Anything else falls through.
+      3. Fall through: emit DEFAULT_LABEL with DEFAULT_CONFIDENCE.
+
+    The earlier implementation did a substring scan across the full reply
+    text and matched any class token appearing in prose — e.g., "Looks
+    like a merged_fast PR" silently became a positive prediction. That
+    was the defect flagged by the Tier-2 logic reviewer on PR #7438. The
+    fix narrows the post-JSON fallback to a strict exact-token match so
+    prose can never spoof a prediction; everything else falls through to
+    DEFAULT_LABEL / DEFAULT_CONFIDENCE, which is the safe, advisable
+    behavior for a downstream caller that gates on confidence.
+    """
     text = (text or "").strip()
     for line in reversed(text.splitlines()):
         line = line.strip()
@@ -103,10 +122,9 @@ def _parse_model_reply(text: str) -> dict:
         if label in CLASSES:
             conf = float(obj.get("confidence", 0.5))
             return {"label": label, "confidence": max(0.0, min(1.0, conf))}
-    lower = text.lower()
-    for cls in CLASSES:
-        if cls in lower:
-            return {"label": cls, "confidence": 0.4}
+    bare = text.strip().lower()
+    if bare in CLASSES:
+        return {"label": bare, "confidence": DEFAULT_CONFIDENCE}
     return {"label": DEFAULT_LABEL, "confidence": DEFAULT_CONFIDENCE}
 
 
