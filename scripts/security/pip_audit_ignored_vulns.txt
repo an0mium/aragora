@@ -8,12 +8,3 @@ CVE-2025-14009 2026-08-31 # legacy inherited gate debt; sunset through a focused
 
 # Hosted CI image pip advisory; Aragora does not import pip at runtime.
 CVE-2026-3219 2026-08-31 # CI runner/tooling image only; not a product runtime dependency.
-
-# Pre-existing PyJWT 2.12.1 advisory present on origin/main as of 2026-05-21.
-# Source/classification: runtime/transitive via supabase-auth from the enterprise/all extras.
-# Reachability: JWT decode paths exist for bearer-token authentication; this is not dev-only.
-# Severity: upstream OSV/PyPI advisory, treat as security debt pending fixed-version upgrade.
-# Owner/follow-up: security-gate steward, lane P107-pyjwt-supabase-auth-upgrade.
-# Upgrade target/removal: remove once PyJWT is above 2.12.1 or supabase-auth no longer pins a vulnerable PyJWT.
-# Risk acceptance: Tier 4 #7407 settlement must explicitly accept this temporary runtime debt.
-PYSEC-2025-183 2026-08-31 # main-inherited PyJWT debt; remove on P107 upgrade or earlier fixed supabase-auth release.

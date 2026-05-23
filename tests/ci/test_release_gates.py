@@ -594,6 +594,7 @@ class TestPipAuditGate:
     def setup(self):
         self.script = PROJECT_ROOT / "scripts" / "run_pip_audit_gate.py"
         self.allowlist = PROJECT_ROOT / "scripts" / "security" / "pip_audit_ignored_vulns.txt"
+        self.uv_lock = PROJECT_ROOT / "uv.lock"
 
     def test_script_exists(self):
         assert self.script.exists(), "scripts/run_pip_audit_gate.py does not exist"
@@ -606,23 +607,17 @@ class TestPipAuditGate:
         spec.loader.exec_module(module)
         return module
 
-    def test_allowlist_exists_and_documents_preexisting_debt(self):
+    def test_allowlist_omits_resolved_pyjwt_debt(self):
         content = self.allowlist.read_text()
         assert "Format: VULN-ID YYYY-MM-DD" in content
         assert "CVE-2025-14009" in content
         assert "CVE-2026-3219" in content
-        assert "PYSEC-2025-183" in content
-        assert "Pre-existing PyJWT" in content
-        assert "runtime/transitive via supabase-auth" in content
-        assert "Reachability: JWT decode paths exist" in content
-        assert "Owner/follow-up:" in content
-        assert "P107-pyjwt-supabase-auth-upgrade" in content
-        assert "Upgrade target/removal:" in content
-        assert "Risk acceptance: Tier 4 #7407 settlement" in content
-        pyjwt_line = next(
-            line for line in content.splitlines() if line.startswith("PYSEC-2025-183")
-        )
-        assert "2026-08-31" in pyjwt_line
+        assert "PYSEC-2025-183" not in content
+        lock_content = self.uv_lock.read_text()
+        assert "pyjwt-2.12.1" not in lock_content
+        assert "pyjwt-2.13.0" in lock_content
+        assert "starlette-1.0.0" not in lock_content
+        assert "starlette-1.0.1" in lock_content
 
     def test_load_ignored_vulns_skips_comments(self, tmp_path):
         allowlist = tmp_path / "allowlist.txt"
