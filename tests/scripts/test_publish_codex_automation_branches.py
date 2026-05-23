@@ -153,6 +153,12 @@ def test_parser_accepts_receipt_dir_for_shared_cli_compatibility(tmp_path: Path)
     assert args.receipt_dir == receipt_dir
 
 
+def test_parser_accepts_dry_run_alias_for_default_planning_mode() -> None:
+    args = _build_parser().parse_args(["--dry-run"])
+
+    assert args.apply is False
+
+
 def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() -> None:
     decisions = select_publishable_branches(
         [
