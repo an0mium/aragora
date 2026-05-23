@@ -1,12 +1,12 @@
 # Queue Drain Final Tally + Per-PR Recommendations
 
-**Session:** `claude-F1CD271D` (handoff doc only; no merges this session)
+**Session:** `claude-F1CD271D` (handoff/status doc; no merges in this doc-writing step; one no-op superseded PR close recorded below)
 **Window covered:** 2026-05-21T23:53Z (#7423 governance unblock landing) → 2026-05-22T17:40Z
-**Queue state:** OPEN 38 / DRAFT 33 / READY 5 / CLOSED 4 (intentional this session)
+**Queue state snapshot:** OPEN 38 (= DRAFT 33 + READY 5) / SESSION-CLOSED 4 (intentional closes recorded by this Claude arc, not part of OPEN)
 
 ## Headline
 
-The **mechanical bounded drain is exhausted**. 28 PRs merged + 4 PRs closed (3 patch-equivalent auto-close + 1 superseded close) by this Claude session arc; ~7+ more landed via other paths (operator manual, codex automations, other agents). What remains is structural debt requiring case-by-case manual work or operator-tier action.
+The **mechanical bounded drain is exhausted**. 28 PRs merged + 4 PRs closed (3 patch-equivalent auto-close + 1 superseded close) by this Claude session arc; ~7+ more landed via other paths (operator manual, codex automations, other agents). "Closed" here means resolved without merge, while OPEN remains the live queue tally above. What remains is structural debt requiring case-by-case manual work or operator-tier action.
 
 ## Merges this Claude arc (28)
 
@@ -14,7 +14,7 @@ In chronological order:
 
 `#7423 #7337 #7411 #7414 #7396 #7397 #7398 #7389 #7390 #7387 #7392 #7427 #7330 #7366 #7335 #7368 #7293 #7327 #7332 #7349 #7362 #7251 #7386 #7430 #7429 #7431 #7432 #7351`
 
-Plus: **#7416, #7417, #7418** (patch-equivalent auto-close via rebase force-push) and **#7410** (closed as superseded by main's `test.yml` matrix refactor).
+Plus: **#7416, #7417, #7418** (patch-equivalent auto-close via rebase force-push) and **#7410** (closed as superseded by main's `test.yml` matrix refactor). These four are the SESSION-CLOSED count above and are separate from the 28 merged PR numbers.
 
 ## Remaining 38 open PRs — categorized + recommendation
 
@@ -83,7 +83,7 @@ Sorted by ascending LOC. Recommendation is the same for all: **rebase onto curre
 | **#7348** | 582 | claude/R02-wake-agent-cli | R02: wake_agent.sh unified dispatch CLI |
 | **#7383** | 783 | codex/operator-steering-read-receipts-clean | feat: add operator steering read receipts |
 | **#7354** | 1572 | droid/P75-agent-overlap-report | feat(scripts): cross-family agent overlap report consolidator |
-| **#7422** | 2212 | codex/salvage-eu-ai-act-claude-c1ce7926 | docs(compliance): preserve EU AI Act artifacts (potentially superseded by #7392, verify before closing) |
+| **#7422** | 2212 | codex/salvage-eu-ai-act-claude-c1ce7926 | docs(compliance): preserve EU AI Act artifacts. Do not close from this summary alone: first diff #7422 against merged #7392 and confirm every unique compliance artifact is already on main or intentionally obsolete. |
 | **#7364** | 2698 | codex/harvest-bucket-a-automerge | Harvest bucket-a auto-merge guard stack |
 
 ### Stuck on required-check MISSING (1) — structural BP issue
@@ -113,7 +113,17 @@ Both `CLEAN-draft`, all 5 required SUCCESS expected per pattern. Drainable on ne
 
 ### Hypothesis confirmed (structural BP misconfiguration)
 
-The 5 BP-required check names (`lint`, `typecheck`, `sdk-parity`, `Generate & Validate`, `TypeScript SDK Type Check`) come from workflow files that use a two-job pattern:
+The 5 BP-required check names (`lint`, `typecheck`, `sdk-parity`, `Generate & Validate`, `TypeScript SDK Type Check`) map to these workflow files/jobs on the current branch:
+
+| Required check | Workflow file | Required status job | Work job / scope gate |
+|----------------|---------------|---------------------|-----------------------|
+| `lint` | `.github/workflows/lint.yml` | `lint` | `lint-run` gated by `changes` / `.github/actions/pr-scope-classifier` |
+| `typecheck` | `.github/workflows/lint.yml` | `typecheck` | `typecheck-run` gated by `changes` / `.github/actions/pr-scope-classifier` |
+| `sdk-parity` | `.github/workflows/sdk-parity.yml` | `sdk-parity` | `sdk-parity-run` gated by `changes` / `.github/actions/pr-scope-classifier` |
+| `Generate & Validate` | `.github/workflows/openapi.yml` | `generate` with `name: Generate & Validate` | `generate-run` / OpenAPI scope |
+| `TypeScript SDK Type Check` | `.github/workflows/sdk-test.yml` | `typescript-sdk` with `name: TypeScript SDK Type Check` | `typescript-sdk-run` gated by `changes` |
+
+The workflow files above currently use, or previously used on the PR head may use, a two-job pattern:
 
 ```yaml
 jobs:
@@ -133,12 +143,12 @@ For a frontend-only PR like #7278 (only `aragora/live/**` changed):
 - `lint-run` job is SKIPPED via `if:` evaluating false
 - GitHub Actions records the SKIP, but the status context `lint` may not register against the PR's commit at all — different from a "skipped with conclusion=skipped" status
 
-For previously-merged frontend/docs-only PRs (#7327, #7386), the same workflows somehow DID register all 5 required checks (likely a different version of the workflow with explicit `name:` context registration, or different `changes` resolution due to the `changes/...` filter group used).
+For previously-merged frontend/docs-only PRs (#7327, #7386), the same required check names did register all 5 contexts. Re-verify the exact workflow definitions on #7278's current head before changing branch protection or pushing a no-op; the table above is the concrete path list to inspect first.
 
 ### Why #7278 specifically is stuck
 
 Two compounding factors:
-1. **Branch head doesn't match current main's workflow file:** even after rebase, the PR's HEAD may use the OLDER workflow version (depending on when rebase ran). `pull_request` events use the workflow file from the HEAD branch.
+1. **Branch head may not match current main's workflow file:** even after rebase, the PR's HEAD can use an older workflow version if the branch was not refreshed after the gate fixes. `pull_request` events use the workflow file from the HEAD branch.
 2. **Paths-filter skip without status registration:** the skipped `*-run` jobs don't always report a `lint`/`typecheck`/etc. status context against the PR's commit. BP perpetually waits for these contexts.
 
 ### Recommended fix (operator-tier, NOT this session)
@@ -194,16 +204,16 @@ Confirmed functional this arc:
 
 1. **Drain the 2 new CLEAN drafts** (#7433, #7434) via standard bounded-drain. Trivial; reduces queue to 36.
 2. **Settle the Dependabot #7300** (auto-merge or manual review of fastapi bump).
-3. **Investigate + close superseded large dirty PRs** — #7422 (potentially duplicate of merged #7392), #7364 (auto-merge guard stack — verify if work is on main).
+3. **Investigate superseded large dirty PRs before any close** — for #7422, perform a content diff against merged #7392 and confirm no unique compliance artifact would be lost; for #7364, verify whether the auto-merge guard stack is already on main.
 4. **Operator-tier rebase wave on the 18 dirty PRs**, smallest first. Dispatch a Codex session per PR with the prompt "rebase + resolve conflicts; merge if green; close if superseded."
 5. **Fix the required-check-MISSING structural issue** (see investigation above) before promoting `aragora-merge-quorum` to required.
 6. **Resolve ADC chain** (#7358-#7376) — operator-tier governance review.
 7. **Resolve vision-incubator/* Tier 3 PRs** (#7262, #7276, #7291, #7319) — operator risk settlement.
-8. **Close #7410** ✅ done this session.
+8. **#7410 superseded close** ✅ already recorded for this Claude arc; do not count it as a merge.
 
 ## Total session impact
 
-- **28 merges + 4 closes** (3 patch-equivalent auto-close + 1 superseded close) = **32 PRs resolved** by Claude sessions
+- **28 merges + 4 non-merge closes** (3 patch-equivalent auto-close + 1 superseded close) = **32 PRs resolved** by Claude sessions
 - Queue: 51+ → 38 (net -13 over ~18h with concurrent operator/agent traffic)
 - Structural unjam (PR #7423) shipped + functional gate workflow on main
 - No protected files modified, no `--admin` bypasses
@@ -214,6 +224,6 @@ Confirmed functional this arc:
 - `docs/status/QUEUE_DRAIN_FINAL_claude-F1CD271D.md` (this file)
 - (Optional) Future: separate `REQUIRED_CHECK_MISSING_ANALYSIS.md` if Option 2 deserves standalone treatment
 
-## Closures executed this session
+## Non-merge closures recorded this Claude arc
 
 - **#7410** — `gh pr close 7410 --comment "Superseded by main's test.yml matrix refactor — debate shard now has timeout: 60. Closing as no-op."` ✅
