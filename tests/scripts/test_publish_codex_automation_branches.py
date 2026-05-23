@@ -271,6 +271,17 @@ def test_automation_guardrails_block_when_spend_caps_are_exhausted(
     assert report.blockers == ["daily_spend_usd=51.25 at or above cap 50.00"]
 
 
+def test_codex_rss_probe_treats_blocked_process_census_as_unavailable(
+    monkeypatch: Any,
+) -> None:
+    def blocked_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise PermissionError("ps blocked by sandbox")
+
+    monkeypatch.setattr(mod, "_run", blocked_run)
+
+    assert mod._codex_rss_gib() is None
+
+
 def test_outbox_superseded_branches_reads_local_supersession_metadata(
     tmp_path: Path,
 ) -> None:

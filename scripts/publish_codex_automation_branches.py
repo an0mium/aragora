@@ -427,7 +427,10 @@ def _free_disk_gib(path: Path) -> float:
 
 
 def _codex_rss_gib() -> float | None:
-    proc = _run(["ps", "-axo", "rss=,comm="], cwd=REPO_ROOT)
+    try:
+        proc = _run(["ps", "-axo", "rss=,comm="], cwd=REPO_ROOT)
+    except OSError:
+        return None
     if proc.returncode != 0:
         return None
     rss_kib = 0
