@@ -239,21 +239,42 @@ class FrontierRules(Condition):
 
     OPERATOR_RULES = """\
 You are triaging a single Aragora PR into exactly one of:
-  merged_fast       : low-risk, scoped, should land within 14 days
-  closed_no_merge   : superseded, patch-equivalent, off-tranche, or wrong
-  open_aged         : substantive but not yet ready; needs operator-tier review
+  merged_fast       : merged within 14 days of creation. The majority class.
+                      Most PRs in this repo are bounded automation/code/docs
+                      changes that pass review and land quickly.
+  closed_no_merge   : closed without merging. Typically: superseded by another
+                      PR, patch-equivalent to main, off-tranche, scout/probe
+                      artifact, or rejected.
+  open_aged         : still open more than 14 days after creation. Rare in
+                      current operating conditions because the repo's merge
+                      cadence is aggressive — empty in recent data.
 
-Rules (in priority order):
-  1. If title or branch namespace suggests workflow/governance self-modification
-     (paths like `.github/workflows/`, `aragora/cli/commands/review_queue.py`,
-     `docs/REVIEW_AUTHORITY_PRINCIPLES.md`), prefer open_aged unless evidence
-     points strongly to supersession.
-  2. If branch namespace starts with `codex/`, `claude/`, `droid/` AND diff is
-     small (<200 LOC) AND no reviews AND label count is 0, prefer
-     closed_no_merge (likely patch-equivalent or scout artifact).
-  3. If has_reviews is true OR comment_count >= 3, prefer merged_fast unless
-     rule 1 applies.
-  4. Otherwise default to open_aged.
+Calibration prior (revealed from history):
+  In ~556 recent PRs the class distribution was approximately
+  merged_fast 90%, closed_no_merge 10%, open_aged 0%.
+  When uncertain, prefer merged_fast.
+
+Rules (apply in order; first match wins):
+  1. If clear supersession or patch-equivalence signals are present
+     (very small diff <50 LOC AND no reviews AND no labels AND branch
+     namespace in {preflight, codex, claude, droid}), prefer
+     closed_no_merge with confidence 0.65.
+  2. If has_reviews is true OR comment_count >= 3 OR label_count >= 1,
+     prefer merged_fast with confidence 0.80. Reviewed/labeled PRs
+     almost always land.
+  3. If branch namespace is `dependabot` or `renovate`, prefer
+     merged_fast with confidence 0.85 (dependency PRs land fast or
+     get auto-superseded by the next bump).
+  4. If diff is medium (<1000 LOC) and from `claude`/`codex`/`droid`
+     with a normal title (no "rebase", "patch-equivalent", "preflight"),
+     prefer merged_fast with confidence 0.70.
+  5. Otherwise prefer merged_fast with confidence 0.55 — the prior
+     dominates uncertainty.
+
+Do NOT default to open_aged. That class is empty in current data; emitting
+it on uncertain inputs is the failure mode of the previous prompt revision.
+Only emit open_aged when the rationale_seeds explicitly show a PR open >14
+days AND substantive (large diff or many comments).
 """
 
     def __init__(self, cli_cmd: list[str] | None = None, dry_run: bool = False) -> None:
@@ -280,16 +301,34 @@ Rules (in priority order):
         return None
 
     def _heuristic(self, task: HoldoutTask) -> tuple[str, float]:
+        """Calibrated dry-run heuristic encoding the same rules as OPERATOR_RULES.
+
+        Used only when no frontier CLI is available so the `frontier_rules`
+        condition stays comparable in dry-run mode. Matches the calibration
+        prior (~90% merged_fast in current data); does not default to open_aged.
+        """
         seeds = task.rationale_seeds or {}
         ns = seeds.get("branch_namespace", "")
-        if task.tier_hint in {"tier_4", "tier_3"}:
-            return "open_aged", 0.65
-        if ns in {"codex", "claude", "droid"} and seeds.get("diff_size", "unknown") == "small":
-            if not seeds.get("has_reviews") and seeds.get("label_count", 0) == 0:
-                return "closed_no_merge", 0.55
-        if seeds.get("has_reviews") or seeds.get("comment_count", 0) >= 3:
-            return "merged_fast", 0.6
-        return "open_aged", 0.4
+        # Dependency bots almost always land fast or get superseded by the next bump.
+        if ns in {"dependabot", "renovate"}:
+            return "merged_fast", 0.85
+        # Reviewed/labeled/discussed PRs almost always land.
+        if (
+            seeds.get("has_reviews")
+            or seeds.get("comment_count", 0) >= 3
+            or seeds.get("label_count", 0) >= 1
+        ):
+            return "merged_fast", 0.80
+        # Tiny scout/probe artifacts from short-lived branches → closed_no_merge.
+        if (
+            ns in {"preflight", "codex", "claude", "droid"}
+            and seeds.get("diff_size", "unknown") == "small"
+            and not seeds.get("has_reviews")
+            and seeds.get("label_count", 0) == 0
+        ):
+            return "closed_no_merge", 0.65
+        # Fallback prior: when uncertain, predict the majority class.
+        return "merged_fast", 0.55
 
     def predict(self, task: HoldoutTask) -> Prediction:
         t0 = time.perf_counter()
