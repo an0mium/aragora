@@ -3,7 +3,7 @@
 **Session:** `claude-F1CD271D` (handoff/status doc; no merges in this doc-writing step; one no-op superseded PR close recorded below)
 **Window covered:** 2026-05-21T23:53Z (#7423 governance unblock landing) → 2026-05-22T17:40Z
 **Queue state snapshot:** OPEN 38 (= DRAFT 33 + READY 5) / SESSION-CLOSED 4 (intentional closes recorded by this Claude arc, not part of OPEN)
-**Postscript as of 2026-05-23T16:35Z:** this file is a historical handoff snapshot. Later live state resolved #7278 by normal protected squash, and branch protection now requires `aragora-merge-quorum`.
+**Postscript as of 2026-05-23T19:07Z:** this file is a historical handoff snapshot. Later live state resolved #7278, #7295, #7433, and #7434; branch protection now requires `aragora-merge-quorum`.
 
 ## Headline
 
@@ -25,7 +25,7 @@ Plus: **#7416, #7417, #7418** (patch-equivalent auto-close via rebase force-push
 |----|--------|----------------|
 | **#7407** | codex/security-gate-product-audit-policy | Q59 owns it; let owner finish or release lane |
 | **#7425** | codex/full-autonomy-control-plane | Q51 / Q52 own; let owner finish |
-| **#7295** | dependabot/npm_and_yarn/.../bundle-analyzer | Q60 owns the repair lane |
+| **#7295** | dependabot/npm_and_yarn/.../bundle-analyzer | Historical row; merged after this snapshot in `6991328374607b54d4e0054b78fe0e130d463833` |
 
 ### ADC (Aragora Delegation Contract) chain (5)
 
@@ -99,16 +99,16 @@ Sorted by ascending LOC. Recommendation is the same for all: **rebase onto curre
 |----|----------------|
 | **#7391** | docs(compliance) EU AI Act artifact, head `0855c00895`. `ms=UNSTABLE` because `aragora-merge-quorum` returned FAILURE (gate functional, model signals missing for this PR). Either close as duplicate of #7392 (already merged) OR wait for signal pipeline + retry. |
 
-### Other CLEAN drafts (2) — POTENTIALLY DRAINABLE (not attempted this pass)
+### Other CLEAN drafts (2) — historical, now merged
 
-These appeared since pass 11 — opened by other agents/sessions. **Next drain pass can attempt these.**
+These appeared since pass 11 — opened by other agents/sessions. Both merged after this snapshot; do not attempt them from this handoff.
 
 | PR | LOC | Branch | Title |
 |----|----:|--------|-------|
-| **#7434** | 97 | codex/merge-packet-stale-check-accounting | fix(review-queue): ignore superseded stale check runs |
-| **#7433** | 226 | codex/reconcile-merged-target-pr-receipts | fix(automation): reconcile merged target PR receipts |
+| **#7434** | 97 | codex/merge-packet-stale-check-accounting | Historical row; merged after this snapshot in `0ec7464d80d340184a6b1988880ee5d45ac085f4` |
+| **#7433** | 226 | codex/reconcile-merged-target-pr-receipts | Historical row; merged after this snapshot in `ada4dfcf2a7d3fe1c79965e89f9e87af8a6b4ec1` |
 
-Both were `CLEAN-draft` in this snapshot, with the then-required checks expected to pass per pattern. Re-verify current branch protection and `aragora-merge-quorum` before any future drain pass.
+Both were `CLEAN-draft` in this snapshot and later merged. Re-verify current branch protection and `aragora-merge-quorum` before any future drain pass.
 
 ## Historical investigation: required-check MISSING on #7278 (Option 2)
 
@@ -195,7 +195,7 @@ required_checks: ["lint","typecheck","sdk-parity","Generate & Validate","TypeScr
 aragora-merge-quorum: NOT in required list (gate workflow exists + functional, but not enforced)
 ```
 
-Current live update as of 2026-05-23T16:35Z:
+Current live update as of 2026-05-23T19:07Z:
 
 ```
 approvals=0, code_owners=false, enforce_admins=true
@@ -213,14 +213,15 @@ Confirmed functional this arc:
 
 ## Recommended operator next actions (priority order)
 
-1. **Drain the 2 new CLEAN drafts** (#7433, #7434) via standard bounded-drain. Trivial; reduces queue to 36.
-2. **Settle the Dependabot #7300** (auto-merge or manual review of fastapi bump).
-3. **Investigate superseded large dirty PRs before any close** — for #7422, perform a content diff against merged #7392 and confirm no unique compliance artifact would be lost; for #7364, verify whether the auto-merge guard stack is already on main.
-4. **Operator-tier rebase wave on the 18 dirty PRs**, smallest first. Dispatch a Codex session per PR with the prompt "rebase + resolve conflicts; merge if green; close if superseded."
-5. **Historical #7278 required-check issue:** resolved after this snapshot when `aragora-merge-quorum` passed and #7278 merged. For future PRs, treat `aragora-merge-quorum` as required and rerun/repair it rather than assuming it is advisory.
-6. **Resolve ADC chain** (#7358-#7376) — operator-tier governance review.
-7. **Resolve vision-incubator/* Tier 3 PRs** (#7262, #7276, #7291, #7319) — operator risk settlement.
-8. **#7410 superseded close** ✅ already recorded for this Claude arc; do not count it as a merge.
+1. **Do not re-drain #7433/#7434 from this handoff**; both already merged after the snapshot.
+2. **Settle remaining low-risk PRs only from live `merge-packet` truth** under the current required `aragora-merge-quorum` branch-protection rule.
+3. **Settle the Dependabot #7300** only if live checks and merge-packet policy pass.
+4. **Investigate superseded large dirty PRs before any close** — for #7422, perform a content diff against merged #7392 and confirm no unique compliance artifact would be lost; for #7364, verify whether the auto-merge guard stack is already on main.
+5. **Operator-tier rebase wave on the dirty PRs**, smallest first. Dispatch a Codex session per PR with the prompt "rebase + resolve conflicts; merge if green; close if superseded."
+6. **Historical #7278 required-check issue:** resolved after this snapshot when `aragora-merge-quorum` passed and #7278 merged. For future PRs, treat `aragora-merge-quorum` as required and rerun/repair it rather than assuming it is advisory.
+7. **Resolve ADC chain** (#7358-#7376) — operator-tier governance review.
+8. **Resolve vision-incubator/* Tier 3 PRs** (#7262, #7276, #7291, #7319) — operator risk settlement.
+9. **#7410 superseded close** ✅ already recorded for this Claude arc; do not count it as a merge.
 
 ## Total session impact
 
