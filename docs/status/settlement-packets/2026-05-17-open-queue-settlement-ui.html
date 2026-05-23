@@ -1,0 +1,1170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open Queue Settlement Sign-off</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --panel-2: #f1f4f8;
+      --ink: #1b2430;
+      --muted: #637084;
+      --border: #d8dee8;
+      --accent: #176d75;
+      --accent-2: #0f4f57;
+      --warn: #985900;
+      --bad: #a33636;
+      --good: #207044;
+      --hold: #5e548e;
+      --shadow: 0 16px 45px rgba(28, 39, 55, 0.11);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.45;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    .shell {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 20px 72px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: start;
+      padding: 28px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: var(--panel-2);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+      overflow-wrap: anywhere;
+    }
+
+    .subtle {
+      color: var(--muted);
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 3px 9px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--panel-2);
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 260px;
+    }
+
+    .primary,
+    .secondary {
+      min-height: 40px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 9px 14px;
+      cursor: pointer;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .primary:hover {
+      background: var(--accent-2);
+    }
+
+    .secondary {
+      background: var(--panel);
+      color: var(--accent);
+      border-color: var(--border);
+    }
+
+    .secondary:hover {
+      border-color: var(--accent);
+    }
+
+    .secondary:disabled,
+    .primary:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .status {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status.good {
+      border-color: rgba(32, 112, 68, 0.35);
+      color: var(--good);
+      background: rgba(32, 112, 68, 0.06);
+    }
+
+    .status.bad {
+      border-color: rgba(163, 54, 54, 0.35);
+      color: var(--bad);
+      background: rgba(163, 54, 54, 0.06);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel-pad {
+      padding: 20px;
+    }
+
+    .summary {
+      position: sticky;
+      top: 16px;
+      align-self: start;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-top: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .summary-row:first-of-type {
+      border-top: 0;
+    }
+
+    .summary-row strong {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cards {
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .card-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 7px;
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .pr-number {
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tier {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px;
+      height: 24px;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .head-sha {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .fact {
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 4px 7px;
+      color: var(--muted);
+      background: var(--panel-2);
+      font-size: 12px;
+    }
+
+    .fact.red,
+    .flag.red {
+      border-color: rgba(163, 54, 54, 0.35);
+      color: var(--bad);
+      background: rgba(163, 54, 54, 0.07);
+    }
+
+    .fact.yellow,
+    .flag.yellow {
+      border-color: rgba(152, 89, 0, 0.35);
+      color: var(--warn);
+      background: rgba(152, 89, 0, 0.08);
+    }
+
+    .fact.green,
+    .flag.green {
+      border-color: rgba(32, 112, 68, 0.35);
+      color: var(--good);
+      background: rgba(32, 112, 68, 0.07);
+    }
+
+    .guidance {
+      margin-top: 20px;
+      padding: 16px 18px;
+      border: 1px solid rgba(152, 89, 0, 0.3);
+      border-radius: 8px;
+      background: #fff8ed;
+      color: #4a310f;
+      box-shadow: var(--shadow);
+    }
+
+    .guidance strong {
+      color: var(--warn);
+    }
+
+    .clusters {
+      display: grid;
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .cluster-card {
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .cluster-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+
+    .cluster-members,
+    .flag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .flag {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 4px 7px;
+      background: var(--panel-2);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .cluster-options {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .cluster-choice {
+      display: block;
+      min-height: 88px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--panel-2);
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .cluster-choice:hover {
+      border-color: var(--accent);
+    }
+
+    .cluster-choice input {
+      margin-right: 6px;
+      accent-color: var(--accent);
+    }
+
+    .cluster-choice span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+    }
+
+    .recommendation {
+      margin: 14px 0;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .context-block {
+      display: grid;
+      gap: 8px;
+      margin: 14px 0;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fbfcfe;
+      font-size: 13px;
+    }
+
+    .context-block p {
+      margin: 0;
+    }
+
+    .approval-locked {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(152, 89, 0, 0.32);
+      border-radius: 6px;
+      background: rgba(152, 89, 0, 0.07);
+      color: var(--warn);
+      font-size: 13px;
+    }
+
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .decision {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 42px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--panel-2);
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .decision:hover {
+      border-color: var(--accent);
+    }
+
+    .decision.disabled {
+      cursor: not-allowed;
+      opacity: 0.54;
+    }
+
+    .decision.disabled:hover {
+      border-color: var(--border);
+    }
+
+    .decision input {
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .decision.approve {
+      color: var(--good);
+    }
+
+    .decision.request {
+      color: var(--warn);
+    }
+
+    .decision.reject {
+      color: var(--bad);
+    }
+
+    .decision.hold {
+      color: var(--hold);
+    }
+
+    .details {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      gap: 8px 12px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .details label {
+      color: var(--muted);
+    }
+
+    .downgrade-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 10px;
+    }
+
+    textarea {
+      min-height: 64px;
+      resize: vertical;
+    }
+
+    .empty {
+      padding: 28px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .file-fallback {
+      display: none;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      background: var(--panel-2);
+    }
+
+    .file-fallback.visible {
+      display: block;
+    }
+
+    @media (max-width: 980px) {
+      header,
+      .grid,
+      .card-head {
+        grid-template-columns: 1fr;
+      }
+
+      .summary {
+        position: static;
+      }
+
+      .controls {
+        min-width: 0;
+      }
+
+      .decision-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .cluster-options {
+        grid-template-columns: 1fr;
+      }
+
+      .details {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .shell {
+        padding: 14px 10px 48px;
+      }
+
+      header,
+      .panel-pad,
+      .card {
+        padding: 16px;
+      }
+
+      h1 {
+        font-size: 23px;
+      }
+
+      .decision-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <section>
+        <h1>Open Queue Settlement Sign-off</h1>
+        <p class="subtle">
+          Non-mutating operator worksheet for the 2026-05-17 settlement packet.
+          Decisions are exported locally and bound to the packet receipt plus
+          the decision-safety context shown here.
+        </p>
+        <div class="meta" id="receiptMeta">
+          <span class="pill">waiting for receipt</span>
+        </div>
+      </section>
+      <section class="controls" aria-label="Settlement controls">
+        <button class="primary" id="exportButton" type="button" disabled>Download decisions JSON</button>
+        <button class="secondary" id="fillHoldsButton" type="button" disabled>Apply safe holds</button>
+        <button class="secondary" id="clearButton" type="button" disabled>Clear choices</button>
+      </section>
+    </header>
+
+    <div class="status" id="status">Loading receipt and context.</div>
+    <div class="file-fallback" id="fileFallback">
+      <p class="subtle">If your browser blocks local fetches, load both JSON files manually.</p>
+      <label for="receiptFile">Receipt JSON</label>
+      <input id="receiptFile" type="file" accept="application/json">
+      <label for="contextFile" style="display:block;margin-top:10px;">Decision-safety context JSON</label>
+      <input id="contextFile" type="file" accept="application/json">
+    </div>
+
+    <section class="guidance" aria-label="Decision safety notice">
+      <p>
+        <strong>Do not approve by default.</strong>
+        This packet is pinned evidence, not live GitHub state. Several PRs are
+        draft, held, Tier-3, failing, or members of duplicate/conflict clusters.
+        Use the cluster choices below before approving any clustered PR.
+      </p>
+      <p class="subtle" style="margin-top:8px;">
+        UI actions only create a local JSON artifact. They do not approve,
+        request changes, label, mark ready, merge, close, or call GitHub.
+      </p>
+    </section>
+
+    <section class="clusters" id="clusterPanel" aria-label="Cluster decisions">
+      <div class="cluster-card">Waiting for settlement context.</div>
+    </section>
+
+    <section class="grid">
+      <div class="cards" id="cards">
+        <div class="panel empty">Receipt not loaded yet.</div>
+      </div>
+
+      <aside class="panel panel-pad summary" aria-label="Decision summary">
+        <h2>Decision Summary</h2>
+        <div class="summary-row"><span>Packet PRs</span><strong id="countTotal">0</strong></div>
+        <div class="summary-row"><span>Decided</span><strong id="countDecided">0</strong></div>
+        <div class="summary-row"><span>Approve</span><strong id="countApprove">0</strong></div>
+        <div class="summary-row"><span>Approve downgraded</span><strong id="countDowngrade">0</strong></div>
+        <div class="summary-row"><span>Request changes</span><strong id="countRequest">0</strong></div>
+        <div class="summary-row"><span>Reject</span><strong id="countReject">0</strong></div>
+        <div class="summary-row"><span>Hold</span><strong id="countHold">0</strong></div>
+        <div class="summary-row"><span>Cluster choices</span><strong id="countClusters">0</strong></div>
+        <div class="summary-row"><span>Receipt hash</span><strong id="shortHash">-</strong></div>
+        <p class="subtle" style="margin-top:14px;font-size:13px;">
+          This page does not submit anything. The downloaded JSON is the artifact
+          to commit, attach, or use as explicit operator sign-off.
+        </p>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const RECEIPT_PATH = "../../receipts/open-queue-settlement-20260517T142811Z.json";
+    const CONTEXT_PATH = "2026-05-17-open-queue-settlement-context.json";
+    const DECISION_TYPES = [
+      ["approve", "Approve Tier"],
+      ["approve_downgraded", "Approve downgraded"],
+      ["request_changes", "Request changes"],
+      ["reject", "Reject"],
+      ["hold", "Hold"]
+    ];
+
+    let receipt = null;
+    let context = null;
+    let contextHash = null;
+    const decisions = new Map();
+    const clusterChoices = new Map();
+
+    const $ = (id) => document.getElementById(id);
+
+    function setStatus(message, tone = "") {
+      const el = $("status");
+      el.className = `status ${tone}`.trim();
+      el.innerHTML = message;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function canonicalize(value) {
+      if (Array.isArray(value)) {
+        return `[${value.map(canonicalize).join(",")}]`;
+      }
+      if (value && typeof value === "object") {
+        return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(",")}}`;
+      }
+      return JSON.stringify(value);
+    }
+
+    async function sha256Hex(text) {
+      const bytes = new TextEncoder().encode(text);
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+
+    function normalizePinnedState(data) {
+      const pinned = Array.isArray(data.pinned_state) ? data.pinned_state : [];
+      return [...pinned].sort((a, b) => Number(a.number) - Number(b.number));
+    }
+
+    function isDraft(item) {
+      return item.draft === true || item.is_draft === true;
+    }
+
+    function contextFor(item) {
+      return context?.per_pr_context?.[String(item.number)] || {};
+    }
+
+    function clusters() {
+      return Array.isArray(context?.clusters) ? context.clusters : [];
+    }
+
+    function clusterFor(id) {
+      return clusters().find((cluster) => cluster.id === id) || null;
+    }
+
+    function clusterChoiceFor(id) {
+      return clusterChoices.get(id) || "";
+    }
+
+    function flagSeverityClass(flags) {
+      if (!Array.isArray(flags) || flags.length === 0) return "green";
+      if (flags.some((flag) => flag.severity === "red")) return "red";
+      if (flags.some((flag) => flag.severity === "yellow")) return "yellow";
+      return "green";
+    }
+
+    function renderFlag(flag) {
+      if (typeof flag === "string") {
+        return `<span class="flag yellow">${escapeHtml(flag)}</span>`;
+      }
+      const severity = flag.severity || "yellow";
+      const label = flag.label || "Review";
+      const detail = flag.detail ? `: ${flag.detail}` : "";
+      return `<span class="flag ${escapeHtml(severity)}">${escapeHtml(label + detail)}</span>`;
+    }
+
+    function renderFlagList(flags, emptyText) {
+      if (!Array.isArray(flags) || flags.length === 0) {
+        return `<div class="flag-list"><span class="flag green">${escapeHtml(emptyText)}</span></div>`;
+      }
+      return `<div class="flag-list">${flags.map(renderFlag).join("")}</div>`;
+    }
+
+    function approvalDisabledReason(item) {
+      const prContext = contextFor(item);
+      const clusterId = prContext.conflict_cluster;
+      if (!clusterId) return "";
+      const cluster = clusterFor(clusterId);
+      if (!cluster) return "";
+      const choice = clusterChoiceFor(clusterId);
+      if (!choice) {
+        return `Choose a ${cluster.name} decision above before approving this PR.`;
+      }
+      const selected = (cluster.choices || []).find((entry) => entry.value === choice);
+      const enabled = Array.isArray(selected?.enables_approval_for)
+        ? selected.enables_approval_for.map(String)
+        : [];
+      if (!enabled.includes(String(item.number))) {
+        return `Current cluster choice does not allow approving #${item.number}.`;
+      }
+      return "";
+    }
+
+    function decisionFor(number) {
+      return decisions.get(String(number)) || null;
+    }
+
+    function updateMeta(data) {
+      const generated = data.generated_at_utc || "unknown generation time";
+      const count = data.pr_count_at_pin ?? normalizePinnedState(data).length;
+      const hmac = data.hmac_sha256 ? "HMAC signed" : "unsigned receipt";
+      $("receiptMeta").innerHTML = `
+        <span class="pill">${escapeHtml(data.repo || "unknown repo")}</span>
+        <span class="pill">${escapeHtml(count)} pinned PRs</span>
+        <span class="pill">${escapeHtml(generated)}</span>
+        <span class="pill">${escapeHtml(hmac)}</span>
+        <span class="pill">${contextHash ? `context ${escapeHtml(contextHash.slice(0, 8))}` : "context pending"}</span>
+      `;
+      $("shortHash").textContent = data.sha256 ? `${data.sha256.slice(0, 8)}...${data.sha256.slice(-8)}` : "-";
+    }
+
+    function render() {
+      if (!receipt) return;
+      const pinned = normalizePinnedState(receipt);
+      renderClusterPanel();
+      $("cards").innerHTML = pinned.map(renderCard).join("");
+      $("countTotal").textContent = String(pinned.length);
+      $("exportButton").disabled = false;
+      $("fillHoldsButton").disabled = false;
+      $("clearButton").disabled = false;
+      updateSummary();
+    }
+
+    function renderClusterPanel() {
+      if (!context) {
+        $("clusterPanel").innerHTML = `<div class="cluster-card">Context not loaded. Cluster approvals remain conservative.</div>`;
+        return;
+      }
+      const clusterCards = clusters().map((cluster) => {
+        const selected = clusterChoiceFor(cluster.id);
+        const choices = (cluster.choices || []).map((choice) => `
+          <label class="cluster-choice">
+            <input type="radio" name="cluster-${escapeHtml(cluster.id)}" data-cluster="${escapeHtml(cluster.id)}"
+              value="${escapeHtml(choice.value)}" ${selected === choice.value ? "checked" : ""}>
+            <strong>${escapeHtml(choice.label)}</strong>
+            <span>${escapeHtml(choice.description || "")}</span>
+          </label>
+        `).join("");
+        return `
+          <article class="cluster-card" data-cluster-card="${escapeHtml(cluster.id)}">
+            <div class="cluster-head">
+              <div>
+                <h2>${escapeHtml(cluster.name)}</h2>
+                <p>${escapeHtml(cluster.summary || "")}</p>
+              </div>
+              <span class="pill">${escapeHtml(cluster.decision_type || "cluster")}</span>
+            </div>
+            <p class="subtle">${escapeHtml(cluster.operator_guidance || "")}</p>
+            <div class="cluster-members">
+              ${(cluster.members || []).map((member) => `<span class="fact">#${escapeHtml(member)}</span>`).join("")}
+            </div>
+            ${renderFlagList(cluster.red_flags || [], "No cluster red flags captured.")}
+            <div class="cluster-options" role="radiogroup" aria-label="${escapeHtml(cluster.name)} decision">
+              ${choices}
+            </div>
+          </article>
+        `;
+      }).join("");
+      $("clusterPanel").innerHTML = clusterCards || `<div class="cluster-card">No conflict clusters captured.</div>`;
+    }
+
+    function renderCard(item) {
+      const number = String(item.number);
+      const tier = String(item.tier ?? "");
+      const prContext = contextFor(item);
+      const existing = decisionFor(number);
+      const chosen = existing?.decision || "";
+      const downgradeTier = existing?.downgrade_tier ?? tier;
+      const note = existing?.note || "";
+      const radioName = `decision-${number}`;
+      const flags = Array.isArray(prContext.red_flags) ? prContext.red_flags : [];
+      const severity = flagSeverityClass(flags);
+      const approvalLock = approvalDisabledReason(item);
+      const decisionControls = DECISION_TYPES.map(([value, label]) => {
+        const checked = chosen === value ? "checked" : "";
+        const isApproval = value === "approve" || value === "approve_downgraded";
+        const disabled = isApproval && approvalLock ? "disabled" : "";
+        const title = disabled ? `title="${escapeHtml(approvalLock)}"` : "";
+        const tone = value === "approve" || value === "approve_downgraded"
+          ? "approve"
+          : value === "request_changes"
+            ? "request"
+            : value === "reject"
+              ? "reject"
+              : "hold";
+        return `
+          <label class="decision ${tone} ${disabled ? "disabled" : ""}" ${title}>
+            <input type="radio" name="${radioName}" value="${value}" ${checked} ${disabled}
+              data-pr="${number}" aria-label="${escapeHtml(label)} for PR #${number}">
+            <span>${escapeHtml(label)}</span>
+          </label>
+        `;
+      }).join("");
+
+      return `
+        <article class="card" data-pr="${number}">
+          <div class="card-head">
+            <div>
+              <div class="title">
+                <span class="pr-number">#${number}</span>
+                <span>${escapeHtml(prContext.title || item.title || `PR #${number}`)}</span>
+                <span class="tier">T${escapeHtml(tier)}</span>
+              </div>
+              <div class="head-sha">${escapeHtml(item.head_sha || "")}</div>
+              <div class="facts">
+                <span class="fact">${isDraft(item) ? "draft" : "ready"}</span>
+                <span class="fact">${escapeHtml(item.decision || "decision unknown")}</span>
+                <span class="fact">${escapeHtml(item.merge_state || "merge unknown")}</span>
+                <span class="fact ${Number(item.failures || 0) > 0 ? "red" : "green"}">failures ${escapeHtml(item.failures ?? 0)}</span>
+                <span class="fact ${Number(item.in_flight || 0) > 0 ? "yellow" : "green"}">in flight ${escapeHtml(item.in_flight ?? 0)}</span>
+                <span class="fact">${escapeHtml(item.files_touched_count ?? "?")} files</span>
+                <span class="fact ${severity}">${severity === "green" ? "no red flags captured" : `${severity} flags`}</span>
+                ${prContext.conflict_cluster ? `<span class="fact yellow">cluster ${escapeHtml(prContext.conflict_cluster)}</span>` : ""}
+              </div>
+            </div>
+          </div>
+
+          <div class="context-block">
+            <p><strong>What this does:</strong> ${escapeHtml(prContext.intent || "No one-line intent captured in the settlement context.")}</p>
+            <p><strong>Why this may need care:</strong> ${escapeHtml(prContext.risk_statement || "No risk statement captured.")}</p>
+            <p><strong>Evidence:</strong> ${escapeHtml(prContext.model_quorum_summary || "No evidence summary captured.")}</p>
+            <p><strong>Safe default:</strong> ${escapeHtml(prContext.safe_default_action || "Make an explicit operator decision.")}</p>
+          </div>
+
+          ${renderFlagList(flags, "No red flags captured in context.")}
+
+          <p class="recommendation">${escapeHtml(item.recommended_action || "No recommendation captured.")}</p>
+
+          ${approvalLock ? `<div class="approval-locked">${escapeHtml(approvalLock)}</div>` : ""}
+
+          <div class="decision-grid" role="radiogroup" aria-label="Operator decision for PR #${number}">
+            ${decisionControls}
+          </div>
+
+          <div class="details">
+            <label for="downgrade-${number}">Downgrade tier</label>
+            <div class="downgrade-row">
+              <select id="downgrade-${number}" data-pr="${number}">
+                ${["0", "1", "2", "3", "4"].map((candidate) => `
+                  <option value="${candidate}" ${String(downgradeTier) === candidate ? "selected" : ""}>Tier ${candidate}</option>
+                `).join("")}
+              </select>
+              <span class="subtle">Used only for "Approve downgraded".</span>
+            </div>
+
+            <label for="note-${number}">Operator note</label>
+            <textarea id="note-${number}" data-pr="${number}" placeholder="Optional reason, blocker, or acceptance note.">${escapeHtml(note)}</textarea>
+          </div>
+        </article>
+      `;
+    }
+
+    function setDecision(prNumber, patch) {
+      const key = String(prNumber);
+      const current = decisions.get(key) || {
+        pr: Number(prNumber),
+        head_sha: normalizePinnedState(receipt).find((item) => String(item.number) === key)?.head_sha || "",
+        decision: null,
+        downgrade_tier: null,
+        note: ""
+      };
+      decisions.set(key, { ...current, ...patch });
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const values = Array.from(decisions.values()).filter((entry) => entry.decision);
+      const counts = {
+        approve: 0,
+        approve_downgraded: 0,
+        request_changes: 0,
+        reject: 0,
+        hold: 0
+      };
+      for (const entry of values) {
+        if (entry.decision in counts) counts[entry.decision] += 1;
+      }
+      $("countDecided").textContent = String(values.length);
+      $("countApprove").textContent = String(counts.approve);
+      $("countDowngrade").textContent = String(counts.approve_downgraded);
+      $("countRequest").textContent = String(counts.request_changes);
+      $("countReject").textContent = String(counts.reject);
+      $("countHold").textContent = String(counts.hold);
+      $("countClusters").textContent = `${clusterChoices.size}/${clusters().length}`;
+    }
+
+    function clearChoices() {
+      decisions.clear();
+      clusterChoices.clear();
+      render();
+    }
+
+    function clearDisallowedApprovals() {
+      if (!receipt) return;
+      for (const item of normalizePinnedState(receipt)) {
+        const key = String(item.number);
+        const entry = decisions.get(key);
+        if (!entry || !["approve", "approve_downgraded"].includes(entry.decision)) continue;
+        const disabledReason = approvalDisabledReason(item);
+        if (disabledReason) {
+          decisions.set(key, {
+            ...entry,
+            decision: null,
+            note: entry.note || disabledReason
+          });
+        }
+      }
+    }
+
+    function holdAllDrafts() {
+      for (const item of normalizePinnedState(receipt)) {
+        const prContext = contextFor(item);
+        const hasRedFlag = Array.isArray(prContext.red_flags)
+          && prContext.red_flags.some((flag) => flag.severity === "red");
+        if (isDraft(item) || hasRedFlag || prContext.conflict_cluster) {
+          setDecision(item.number, {
+            decision: "hold",
+            downgrade_tier: null,
+            note: prContext.safe_default_action || "Held by safe-default worksheet action."
+          });
+        }
+      }
+      render();
+    }
+
+    async function buildDecisionArtifact() {
+      const pinned = normalizePinnedState(receipt);
+      const rows = pinned.map((item) => {
+        const key = String(item.number);
+        const entry = decisions.get(key) || {};
+        const prContext = contextFor(item);
+        return {
+          pr: Number(item.number),
+          title: prContext.title || item.title || `PR #${item.number}`,
+          head_sha: item.head_sha || "",
+          receipt_tier: String(item.tier ?? ""),
+          decision: entry.decision || "undecided",
+          downgrade_tier: entry.decision === "approve_downgraded" ? String(entry.downgrade_tier ?? "") : null,
+          note: entry.note || "",
+          conflict_cluster: prContext.conflict_cluster || null,
+          safe_default_action: prContext.safe_default_action || null,
+          red_flags_seen: Array.isArray(prContext.red_flags)
+            ? prContext.red_flags.map((flag) => typeof flag === "string" ? flag : flag.label)
+            : []
+        };
+      });
+      const cluster_choices = clusters().map((cluster) => ({
+        cluster_id: cluster.id,
+        name: cluster.name,
+        choice: clusterChoiceFor(cluster.id) || "undecided"
+      }));
+      const payload = {
+        schema_version: "aragora-open-queue-operator-decisions/1.0",
+        generated_at_utc: new Date().toISOString(),
+        non_mutating_notice: context?.decision_artifact_notice
+          || "This does not mutate GitHub. It only records local operator decisions.",
+        source_packet: "docs/status/settlement-packets/2026-05-17-open-queue-settlement.md",
+        source_receipt: "docs/receipts/open-queue-settlement-20260517T142811Z.json",
+        source_receipt_sha256: receipt.sha256 || null,
+        source_receipt_schema: receipt.schema_version || null,
+        source_context: CONTEXT_PATH,
+        source_context_sha256: contextHash,
+        repo: receipt.repo || "synaptent/aragora",
+        pr_count_at_pin: receipt.pr_count_at_pin ?? rows.length,
+        cluster_choices,
+        decisions: rows
+      };
+      payload.decisions_sha256 = await sha256Hex(canonicalize({
+        source_receipt_sha256: payload.source_receipt_sha256,
+        source_context_sha256: payload.source_context_sha256,
+        cluster_choices: payload.cluster_choices,
+        decisions: payload.decisions
+      }));
+      return payload;
+    }
+
+    async function exportDecisions() {
+      if (!receipt) return;
+      const payload = await buildDecisionArtifact();
+      const text = `${JSON.stringify(payload, null, 2)}\n`;
+      const blob = new Blob([text], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().replaceAll(":", "").replaceAll("-", "").split(".")[0] + "Z";
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `operator-decisions-open-queue-settlement-${stamp}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setStatus(`Downloaded decisions JSON with binding <code>${payload.decisions_sha256}</code>.`, "good");
+    }
+
+    async function loadReceiptFromText(text) {
+      const data = JSON.parse(text);
+      if (!Array.isArray(data.pinned_state)) {
+        throw new Error("receipt is missing pinned_state array");
+      }
+      receipt = data;
+      updateMeta(data);
+      render();
+      if (context) $("fileFallback").classList.remove("visible");
+      setStatus(
+        context
+          ? `Loaded ${normalizePinnedState(data).length} pinned PRs and decision-safety context.`
+          : `Loaded ${normalizePinnedState(data).length} pinned PRs from receipt <code>${escapeHtml(data.sha256 || "no hash")}</code>. Loading context.`,
+        "good"
+      );
+    }
+
+    async function loadContextFromText(text) {
+      const data = JSON.parse(text);
+      if (!data.per_pr_context || !Array.isArray(data.clusters)) {
+        throw new Error("context is missing per_pr_context or clusters");
+      }
+      context = data;
+      contextHash = await sha256Hex(text);
+      if (receipt) {
+        updateMeta(receipt);
+        render();
+        $("fileFallback").classList.remove("visible");
+      }
+      setStatus(
+        receipt
+          ? `Loaded receipt and decision-safety context. Context hash <code>${escapeHtml(contextHash)}</code>.`
+          : `Loaded decision-safety context <code>${escapeHtml(contextHash)}</code>. Load the receipt next.`,
+        "good"
+      );
+    }
+
+    async function loadReceipt() {
+      try {
+        const response = await fetch(RECEIPT_PATH, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        await loadReceiptFromText(await response.text());
+        const contextResponse = await fetch(CONTEXT_PATH, { cache: "no-store" });
+        if (!contextResponse.ok) throw new Error(`context HTTP ${contextResponse.status}`);
+        await loadContextFromText(await contextResponse.text());
+      } catch (error) {
+        setStatus(`Could not fetch all settlement inputs automatically: ${escapeHtml(error.message)}. Serve from <code>docs/</code> or load the receipt file below.`, "bad");
+        $("fileFallback").classList.add("visible");
+      }
+    }
+
+    document.addEventListener("change", (event) => {
+      const target = event.target;
+      if (target.matches("input[type='radio'][data-pr]")) {
+        setDecision(target.dataset.pr, { decision: target.value });
+        return;
+      }
+      if (target.matches("input[type='radio'][data-cluster]")) {
+        clusterChoices.set(target.dataset.cluster, target.value);
+        clearDisallowedApprovals();
+        render();
+        return;
+      }
+      if (target.matches("select[data-pr]")) {
+        setDecision(target.dataset.pr, { downgrade_tier: target.value });
+        return;
+      }
+      if (target.id === "receiptFile" && target.files?.[0]) {
+        target.files[0].text()
+          .then(loadReceiptFromText)
+          .catch((error) => setStatus(`Receipt load failed: ${escapeHtml(error.message)}`, "bad"));
+      }
+      if (target.id === "contextFile" && target.files?.[0]) {
+        target.files[0].text()
+          .then(loadContextFromText)
+          .catch((error) => setStatus(`Context load failed: ${escapeHtml(error.message)}`, "bad"));
+      }
+    });
+
+    document.addEventListener("input", (event) => {
+      const target = event.target;
+      if (target.matches("textarea[data-pr]")) {
+        setDecision(target.dataset.pr, { note: target.value });
+      }
+    });
+
+    $("exportButton").addEventListener("click", exportDecisions);
+    $("clearButton").addEventListener("click", clearChoices);
+    $("fillHoldsButton").addEventListener("click", holdAllDrafts);
+
+    loadReceipt();
+  </script>
+</body>
+</html>

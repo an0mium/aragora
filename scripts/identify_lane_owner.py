@@ -63,16 +63,28 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LANE_REGISTRY_DEFAULT = REPO_ROOT / ".aragora" / "agent-bridge" / "lanes.json"
+HEARTBEATS_DEFAULT = REPO_ROOT / ".aragora" / "agent-bridge" / "heartbeats.json"
 STEERING_INBOX_ROOT_DEFAULT = REPO_ROOT / ".aragora" / "operator-steering"
 CODEX_SESSIONS_ROOT_DEFAULT = Path.home() / ".codex" / "sessions"
 CLAUDE_PROJECTS_ROOT_DEFAULT = Path.home() / ".claude" / "projects"
 FACTORY_BG_PROCESSES_DEFAULT = Path.home() / ".factory" / "background-processes.json"
+HEARTBEAT_FRESH_SECONDS = 15 * 60
 
 # Fuzzy codex rollout search window (seconds).
 CODEX_FUZZY_MAX_AGE_SECONDS = 4 * 60 * 60
-ACTIVE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+ACTIVE_STATUSES = {
+    "active",
+    "running",
+    "pending",
+    "queued",
+    "claimed",
+    "waiting_for_steering",
+    "acknowledged",
+    "working",
+    "blocked",
+}
 CONFLICT_STATUSES = {"conflict", "conflicting"}
-COMPLETED_STATUSES = {"completed", "released"}
+COMPLETED_STATUSES = {"completed", "released", "superseded"}
 
 # Subprocess timeout for ``agent_bridge operator-snapshot``.
 SNAPSHOT_TIMEOUT_SECONDS = 30
@@ -113,6 +125,8 @@ class LaneOwnerInfo:
     last_mailbox_check_at: str | None
     last_delivery_at: str | None
     last_ack_at: str | None
+    last_heartbeat_at: str | None
+    last_steering_outcome: str | None
     live_process: dict[str, Any]
     codex_thread: dict[str, Any]
     claude_session: dict[str, Any]
@@ -122,6 +136,7 @@ class LaneOwnerInfo:
     read_receipt_count: int
     unread_message_count: int
     latest_read_receipt: dict[str, Any] | None
+    latest_heartbeat: dict[str, Any] | None
     mailbox_dispatchable: bool
     live_prompt_dispatchable: bool
     dispatchable: bool
@@ -752,6 +767,113 @@ def steering_inbox_for(
     return inbox, count, _read_receipt_summary(inbox, files)
 
 
+# ---------------------------------------------------------------------------
+# Harness heartbeat lookup
+# ---------------------------------------------------------------------------
+
+
+def _parse_iso_utc(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def load_heartbeats(heartbeat_path: Path = HEARTBEATS_DEFAULT) -> list[dict[str, Any]]:
+    """Read heartbeat rows; fail closed to an empty list."""
+
+    if not heartbeat_path.exists():
+        return []
+    try:
+        data = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    return [row for row in data if isinstance(row, dict)] if isinstance(data, list) else []
+
+
+def _heartbeat_matches_lane(row: dict[str, Any], lane: dict[str, Any], owner: str) -> bool:
+    row_owner = str(row.get("owner_session") or "")
+    if owner and row_owner != owner:
+        return False
+    lane_id = str(lane.get("lane_id") or "")
+    if lane_id:
+        return str(row.get("lane_id") or "") == lane_id
+    for key in ("lane_id", "branch", "worktree"):
+        lane_value = lane.get(key)
+        row_value = row.get(key)
+        if lane_value and row_value and str(lane_value) == str(row_value):
+            return True
+    raw_pr = lane.get("pr_number")
+    row_pr = row.get("pr_number")
+    if raw_pr is not None and row_pr is not None:
+        try:
+            return int(row_pr) == int(raw_pr)
+        except (TypeError, ValueError):
+            return False
+    return False
+
+
+def _heartbeat_summary(
+    row: dict[str, Any],
+    *,
+    now: datetime,
+    freshness_seconds: int,
+) -> dict[str, Any]:
+    seen = _parse_iso_utc(row.get("last_seen_at"))
+    age_seconds: int | None = None
+    fresh = False
+    if seen is not None:
+        age_seconds = max(0, int((now - seen).total_seconds()))
+        fresh = age_seconds <= freshness_seconds
+    return {
+        "lane_id": row.get("lane_id"),
+        "owner_session": row.get("owner_session"),
+        "thread_id": row.get("thread_id"),
+        "pid": row.get("pid"),
+        "cwd": row.get("cwd"),
+        "worktree": row.get("worktree"),
+        "branch": row.get("branch"),
+        "pr_number": row.get("pr_number"),
+        "last_seen_at": row.get("last_seen_at"),
+        "age_seconds": age_seconds,
+        "fresh": fresh,
+    }
+
+
+def latest_heartbeat_for_lane(
+    lane: dict[str, Any],
+    *,
+    heartbeat_path: Path = HEARTBEATS_DEFAULT,
+    heartbeat_now: str | None = None,
+    freshness_seconds: int = HEARTBEAT_FRESH_SECONDS,
+) -> dict[str, Any] | None:
+    """Return the newest heartbeat row matching this lane, with freshness."""
+
+    now = _parse_iso_utc(heartbeat_now) if heartbeat_now else datetime.now(timezone.utc)
+    if now is None:
+        now = datetime.now(timezone.utc)
+    owner = str(lane.get("owner_session") or "")
+    rows = [
+        row for row in load_heartbeats(heartbeat_path) if _heartbeat_matches_lane(row, lane, owner)
+    ]
+    if not rows:
+        return None
+    rows.sort(
+        key=lambda row: _parse_iso_utc(row.get("last_seen_at"))
+        or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+    return _heartbeat_summary(rows[0], now=now, freshness_seconds=freshness_seconds)
+
+
 def _dispatch_blocker_for(lane: dict[str, Any], owner_session: str) -> str | None:
     status = str(lane.get("status") or "").strip().lower()
     if not owner_session:
@@ -850,6 +972,9 @@ def build_owner_info(
     projects_root: Path = CLAUDE_PROJECTS_ROOT_DEFAULT,
     bg_path: Path = FACTORY_BG_PROCESSES_DEFAULT,
     steering_inbox_root: Path = STEERING_INBOX_ROOT_DEFAULT,
+    heartbeat_path: Path = HEARTBEATS_DEFAULT,
+    heartbeat_now: str | None = None,
+    heartbeat_fresh_seconds: int = HEARTBEAT_FRESH_SECONDS,
     fuzzy_now: float | None = None,
 ) -> LaneOwnerInfo:
     owner = str(lane.get("owner_session") or "")
@@ -858,6 +983,12 @@ def build_owner_info(
     claude = lookup_claude_session(lane, projects_root=projects_root)
     factory = lookup_factory_droid(lane, bg_path=bg_path)
     inbox_path, pending, receipt_summary = steering_inbox_for(owner, root=steering_inbox_root)
+    heartbeat = latest_heartbeat_for_lane(
+        lane,
+        heartbeat_path=heartbeat_path,
+        heartbeat_now=heartbeat_now,
+        freshness_seconds=heartbeat_fresh_seconds,
+    )
     dispatch_blocker = _dispatch_blocker_for(lane, owner)
 
     raw_pr = lane.get("pr_number")
@@ -885,6 +1016,8 @@ def build_owner_info(
         last_mailbox_check_at=lane.get("last_mailbox_check_at"),
         last_delivery_at=lane.get("last_delivery_at"),
         last_ack_at=lane.get("last_ack_at"),
+        last_heartbeat_at=lane.get("last_heartbeat_at"),
+        last_steering_outcome=lane.get("last_steering_outcome"),
         live_process=live,
         codex_thread=codex,
         claude_session=claude,
@@ -894,6 +1027,7 @@ def build_owner_info(
         read_receipt_count=int(receipt_summary["read_receipt_count"]),
         unread_message_count=int(receipt_summary["unread_message_count"]),
         latest_read_receipt=receipt_summary["latest_read_receipt"],
+        latest_heartbeat=heartbeat,
         mailbox_dispatchable=dispatch_blocker is None,
         live_prompt_dispatchable=_live_prompt_dispatchable_for(lane, owner),
         dispatchable=dispatch_blocker is None,
@@ -939,6 +1073,8 @@ def _print_human(info: LaneOwnerInfo) -> None:
     print(f"  last_mailbox_check: {info.last_mailbox_check_at or '-'}")
     print(f"  last_delivery_at:   {info.last_delivery_at or '-'}")
     print(f"  last_ack_at:        {info.last_ack_at or '-'}")
+    print(f"  last_heartbeat_at:  {info.last_heartbeat_at or '-'}")
+    print(f"  last_steering_outcome: {info.last_steering_outcome or '-'}")
     print()
     print("best-effort live lookups:")
     print(f"  live_process:   {_glyph(info.live_process.get('found', False))}  {info.live_process}")
@@ -955,6 +1091,7 @@ def _print_human(info: LaneOwnerInfo) -> None:
     print(f"read_receipt_count:    {info.read_receipt_count}")
     print(f"unread_message_count:  {info.unread_message_count}")
     print(f"latest_read_receipt:   {info.latest_read_receipt or '-'}")
+    print(f"latest_heartbeat:      {info.latest_heartbeat or '-'}")
     print(f"mailbox_dispatchable:  {info.mailbox_dispatchable}")
     print(f"live_prompt_dispatchable: {info.live_prompt_dispatchable}")
     print(f"dispatchable:          {info.dispatchable}")
@@ -1007,6 +1144,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=STEERING_INBOX_ROOT_DEFAULT,
         help="Override path to .aragora/operator-steering (used by tests).",
     )
+    p.add_argument(
+        "--heartbeat-path",
+        type=Path,
+        default=HEARTBEATS_DEFAULT,
+        help="Override path to .aragora/agent-bridge/heartbeats.json (used by tests).",
+    )
     return p
 
 
@@ -1055,6 +1198,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         projects_root=args.claude_projects_root,
         bg_path=args.factory_bg_path,
         steering_inbox_root=args.steering_inbox_root,
+        heartbeat_path=args.heartbeat_path,
     )
 
     if args.json:

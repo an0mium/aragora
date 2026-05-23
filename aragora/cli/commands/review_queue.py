@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sqlite3
 import subprocess
 import sys
@@ -31,6 +32,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from aragora.review.invalidation import (
     BaselineMeasurement,
@@ -123,6 +125,9 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     "aragora/cli/parser.py",
 )
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
+MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"
+MERGE_QUORUM_WORKFLOW_NAME = "Aragora Merge Quorum"
+MERGE_QUORUM_JOB_ID = "merge-quorum"
 
 LANE_ORDER: dict[str, int] = {
     "ready_now": 0,
@@ -1199,8 +1204,10 @@ def _classify_pr(pr: dict[str, Any]) -> QueueItem:
 def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     """Return ``(summary, has_failures, has_pending)`` for a statusCheckRollup."""
     success = failure = pending = 0
-    for check in checks:
+    for check in _latest_status_check_rollup(checks):
         if not isinstance(check, dict):
+            continue
+        if _is_current_merge_quorum_self_check(check):
             continue
         status = str(check.get("status") or check.get("state") or "").upper()
         conclusion = str(check.get("conclusion") or "").upper()
@@ -1237,6 +1244,81 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     if success > 0:
         return (f"{success}/{total} green", False, False)
     return ("no checks", False, False)
+
+
+def _latest_status_check_rollup(checks: list) -> list[dict[str, Any]]:
+    """Collapse superseded check-rollup entries to their latest identity.
+
+    GitHub's PR ``statusCheckRollup`` can retain older Actions check runs for
+    the same workflow/job at the current head.  Merge-packet should gate on the
+    latest visible state for a check identity, matching ``gh pr checks``.
+    """
+    latest: dict[str, tuple[str, int, dict[str, Any]]] = {}
+    passthrough: list[dict[str, Any]] = []
+    for index, check in enumerate(checks):
+        if not isinstance(check, dict):
+            continue
+        key = _status_check_identity(check)
+        if not key:
+            passthrough.append(check)
+            continue
+        timestamp = str(
+            check.get("completedAt")
+            or check.get("startedAt")
+            or check.get("createdAt")
+            or check.get("updatedAt")
+            or ""
+        )
+        previous = latest.get(key)
+        if previous is None or (timestamp, index) >= (previous[0], previous[1]):
+            latest[key] = (timestamp, index, check)
+    ordered = sorted(latest.values(), key=lambda item: item[1])
+    return passthrough + [item[2] for item in ordered]
+
+
+def _status_check_identity(check: dict[str, Any]) -> str:
+    workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
+    name = str(check.get("name") or check.get("context") or "").strip()
+    if not name:
+        return ""
+    if workflow:
+        return f"check-run:{workflow}:{name}"
+    return f"status-context:{name}"
+
+
+def _is_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
+    """Ignore only this merge-quorum workflow run while building its packet."""
+    workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
+    name = str(check.get("name") or check.get("context") or "").strip()
+    if workflow != MERGE_QUORUM_WORKFLOW_NAME or name != MERGE_QUORUM_CHECK_NAME:
+        return False
+
+    status = str(check.get("status") or check.get("state") or "").upper()
+    conclusion = str(check.get("conclusion") or "").upper()
+    if conclusion or status not in {"IN_PROGRESS", "QUEUED", "PENDING", "EXPECTED"}:
+        return False
+
+    if os.environ.get("GITHUB_WORKFLOW") != MERGE_QUORUM_WORKFLOW_NAME:
+        return False
+    if os.environ.get("GITHUB_JOB") != MERGE_QUORUM_JOB_ID:
+        return False
+
+    run_id = str(os.environ.get("GITHUB_RUN_ID") or "").strip()
+    repo = str(os.environ.get("GITHUB_REPOSITORY") or "").strip()
+    if not run_id or not repo:
+        return False
+
+    server_url = str(os.environ.get("GITHUB_SERVER_URL") or "https://github.com")
+    details_url = str(check.get("detailsUrl") or check.get("link") or "").strip()
+    parsed_server = urlparse(server_url)
+    parsed_details = urlparse(details_url)
+    expected_path_prefix = f"/{repo}/actions/runs/{run_id}/"
+    return (
+        parsed_details.scheme in {"http", "https"}
+        and bool(parsed_server.netloc)
+        and parsed_details.netloc == parsed_server.netloc
+        and parsed_details.path.startswith(expected_path_prefix)
+    )
 
 
 def _filter_lanes(

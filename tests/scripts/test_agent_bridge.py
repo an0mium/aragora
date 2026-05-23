@@ -587,6 +587,56 @@ def test_operator_snapshot_does_not_conflict_same_owner_refreshes(
     assert payload["health"]["ok"] is True
 
 
+def test_operator_snapshot_current_scope_ignores_resolved_conflict_lane(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "p104-stands-down",
+                    "owner_session": "codex-p104",
+                    "status": "conflict",
+                    "conflict_session": "codex-r03",
+                    "conflict_reason": "r03 owns follow-through",
+                    "updated_at": "2026-05-21T18:13:49Z",
+                },
+                {
+                    "lane_id": "r03-follow-through",
+                    "owner_session": "codex-r03",
+                    "status": "completed",
+                    "updated_at": "2026-05-21T18:37:57Z",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["conflict_lanes"] == 0
+    assert payload["health"] == {"ok": True, "issues": []}
+    assert payload["lane_conflicts"] == []
+
+
 def test_cmd_owner_json_reports_active_pr_owner(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

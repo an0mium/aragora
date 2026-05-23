@@ -26,6 +26,7 @@ import argparse
 import ast
 import json
 import shutil
+import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
@@ -58,6 +59,13 @@ def _list_json(path: Path) -> list[Path]:
     if not path.exists():
         return []
     return sorted(p for p in path.iterdir() if p.is_file() and p.suffix == ".json")
+
+
+def _resolve_outbox_file_filter(outbox_dir: Path, value: Path) -> Path:
+    expanded = value.expanduser()
+    if expanded.is_absolute():
+        return expanded.resolve()
+    return (outbox_dir / expanded).resolve()
 
 
 def _state_default_path(state_root: Path, default_relative: Path) -> Path:
@@ -206,6 +214,145 @@ def _desired_head_from_payload(payload: dict[str, Any]) -> str:
     return ""
 
 
+def _requested_action_type(payload: Mapping[str, Any]) -> str:
+    requested_action = payload.get("requested_action")
+    requested_action_mapping = _mapping_from_action(requested_action)
+    if requested_action_mapping is not None:
+        return str(requested_action_mapping.get("type") or "").strip().lower()
+    if isinstance(requested_action, str):
+        return requested_action.strip().lower()
+    return ""
+
+
+def _is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
+    return _requested_action_type(payload) in {
+        "open_pr",
+        "open_pull_request",
+        "open_or_update_pr",
+        "open_or_update_pull_request",
+        "push_branch_and_open_pr",
+        "push_branch_and_open_pull_request",
+        "push_branch_and_open_or_update_pr",
+        "push_branch_and_open_or_update_pull_request",
+    }
+
+
+def _receipt_has_pr_reference(receipt: Mapping[str, Any]) -> bool:
+    for key in (
+        "created_pr_url",
+        "existing_pr_url",
+        "pr_url",
+        "pull_request_url",
+        "created_pull_request_url",
+        "existing_pull_request_url",
+    ):
+        if str(receipt.get(key) or "").strip():
+            return True
+    return False
+
+
+def _pr_number_from_value(value: Any) -> int | None:
+    text = str(value or "").strip().rstrip("/")
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    marker = "/pull/"
+    if marker not in text:
+        return None
+    candidate = text.rsplit(marker, 1)[1].split("/", 1)[0]
+    return int(candidate) if candidate.isdigit() else None
+
+
+def _target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
+    for key in ("target_pr", "pr_number", "pull_request_number"):
+        number = _pr_number_from_value(receipt.get(key))
+        if number is not None:
+            return number
+    for key in (
+        "created_pr_url",
+        "existing_pr_url",
+        "pr_url",
+        "pull_request_url",
+        "created_pull_request_url",
+        "existing_pull_request_url",
+    ):
+        number = _pr_number_from_value(receipt.get(key))
+        if number is not None:
+            return number
+    return None
+
+
+def _target_pr_state(
+    root: Path,
+    repo_name: str,
+    receipt: Mapping[str, Any],
+) -> Mapping[str, Any] | None:
+    number = _target_pr_number_from_receipt(receipt)
+    if number is None:
+        return None
+    repo = str(receipt.get("repo") or repo_name).strip() or repo_name
+    try:
+        proc = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(number),
+                "--repo",
+                repo,
+                "--json",
+                "number,state,headRefOid",
+            ],
+            cwd=root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, Mapping) else None
+
+
+def _receipt_has_issue_reference(receipt: Mapping[str, Any]) -> bool:
+    for key in (
+        "created_issue_url",
+        "existing_issue_url",
+        "issue_url",
+    ):
+        if str(receipt.get(key) or "").strip():
+            return True
+    return False
+
+
+def _issue_only_pr_receipt_keep_reason(
+    payload: Mapping[str, Any],
+    receipt: Mapping[str, Any],
+) -> str | None:
+    """Return why an issue-only receipt cannot satisfy a PR-intended handoff."""
+
+    if not _is_pr_publication_request(payload):
+        return None
+
+    status = str(receipt.get("status") or "").strip().lower()
+    if status not in {"already_satisfied", "published"} or _receipt_has_pr_reference(receipt):
+        return None
+
+    reason = str(receipt.get("reason") or "").strip().lower()
+    if reason in {"published", "existing_issue", "created_issue"} or _receipt_has_issue_reference(
+        receipt
+    ):
+        return "PR-intended handoff has issue-only receipt; keep until a PR receipt exists"
+    return None
+
+
 def _heads_match(expected: str, actual: str) -> bool:
     expected_value = expected.strip().lower()
     actual_value = actual.strip().lower()
@@ -224,6 +371,7 @@ def _git_ref_head(root: Path, ref: str) -> str:
 
 def _receipt_handoff_keep_reason(
     root: Path,
+    repo_name: str,
     payload: dict[str, Any],
     receipt: Mapping[str, Any],
     branch: str,
@@ -238,6 +386,17 @@ def _receipt_handoff_keep_reason(
     desired_head = _desired_head_from_payload(payload)
     if not desired_head:
         return None
+
+    target_pr_state = _target_pr_state(root, repo_name, receipt)
+    if str((target_pr_state or {}).get("state") or "").strip().upper() == "MERGED":
+        target_pr_head = str((target_pr_state or {}).get("headRefOid") or "").strip()
+        target_pr_number = str((target_pr_state or {}).get("number") or "").strip()
+        if _heads_match(desired_head, target_pr_head):
+            return None
+        return (
+            f"target_open_pr receipt points to merged PR #{target_pr_number} at "
+            f"{target_pr_head[:12] or 'unknown'}, not desired head {desired_head[:12]}"
+        )
 
     remote_ref = f"refs/remotes/origin/{branch}"
     remote_head = _git_ref_head(root, remote_ref)
@@ -384,6 +543,25 @@ def main(argv: list[str] | None = None) -> int:
             "the selected automation outbox."
         ),
     )
+    parser.add_argument(
+        "--idempotency-key",
+        action="append",
+        default=[],
+        help=(
+            "Only reconcile the outbox handoff with this idempotency key. "
+            "Repeat to target multiple handoffs."
+        ),
+    )
+    parser.add_argument(
+        "--outbox-file",
+        action="append",
+        type=Path,
+        default=[],
+        help=(
+            "Only reconcile this outbox JSON file. Relative paths resolve inside "
+            "the selected outbox directory; repeat to target multiple handoffs."
+        ),
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--apply",
@@ -399,6 +577,11 @@ def main(argv: list[str] | None = None) -> int:
         "--json",
         action="store_true",
         help="Print a machine-readable reconciliation result instead of human text",
+    )
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, omit per-handoff action details and print only compact counts.",
     )
     parser.add_argument(
         "--write-report",
@@ -453,15 +636,58 @@ def main(argv: list[str] | None = None) -> int:
     emit(f"  {len(receipt_keys)} terminal receipt keys")
 
     emit("loading outbox files...")
-    outbox_files = _list_json(outbox_dir)
-    emit(f"  {len(outbox_files)} outbox files\n")
+    all_outbox_files = _list_json(outbox_dir)
+    emit(f"  {len(all_outbox_files)} outbox files\n")
 
     parsed_outbox_payloads: dict[Path, dict[str, Any]] = {}
-    for path in outbox_files:
+    for path in all_outbox_files:
         payload = _load_json(path)
         if isinstance(payload, dict):
             parsed_outbox_payloads[path] = payload
     superseded_targets = _superseded_targets(list(parsed_outbox_payloads.items()))
+
+    target_keys = {str(key).strip() for key in args.idempotency_key if str(key).strip()}
+    target_files = {_resolve_outbox_file_filter(outbox_dir, path) for path in args.outbox_file}
+    if target_keys or target_files:
+        outbox_files = []
+        matched_keys: set[str] = set()
+        matched_files: set[Path] = set()
+        for path in all_outbox_files:
+            resolved_path = path.resolve()
+            payload = parsed_outbox_payloads.get(path)
+            idempotency_key = str((payload or {}).get("idempotency_key") or path.stem).strip()
+            if idempotency_key in target_keys or resolved_path in target_files:
+                outbox_files.append(path)
+                if idempotency_key in target_keys:
+                    matched_keys.add(idempotency_key)
+                if resolved_path in target_files:
+                    matched_files.add(resolved_path)
+
+        missing_keys = sorted(target_keys - matched_keys)
+        missing_files = sorted(str(path) for path in target_files - matched_files)
+        if missing_keys or missing_files:
+            payload = {
+                "applied": False,
+                "dry_run": not args.apply,
+                "error": "target outbox handoff not found",
+                "missing_idempotency_keys": missing_keys,
+                "missing_outbox_files": missing_files,
+                "outbox_count": 0,
+                "outbox_dir": str(outbox_dir),
+                "repo": str(root),
+                "state_root": str(state_root),
+                "total_outbox_count": len(all_outbox_files),
+            }
+            if args.json:
+                print(json.dumps(payload, indent=2, sort_keys=True))
+            else:
+                for key in missing_keys:
+                    emit(f"ERROR: no outbox handoff found for idempotency key {key}")
+                for missing_file in missing_files:
+                    emit(f"ERROR: no outbox handoff found at {missing_file}")
+            return 2
+    else:
+        outbox_files = all_outbox_files
 
     open_prs_cache: dict[str, int] | None = None
     open_pr_state_available = False
@@ -482,6 +708,7 @@ def main(argv: list[str] | None = None) -> int:
     counts = {
         "satisfied_by_existing_receipt": 0,
         "blocked_receipt_pr_head_mismatch": 0,
+        "blocked_receipt_issue_only": 0,
         "satisfied_by_superseded_handoff": 0,
         "satisfied_by_landed_on_main": 0,
         "satisfied_by_open_pr_merged": 0,  # placeholder; we only know open PRs
@@ -507,7 +734,23 @@ def main(argv: list[str] | None = None) -> int:
 
         receipt = receipt_payloads_by_key.get(idem)
         if receipt is not None:
-            keep_reason = _receipt_handoff_keep_reason(root, payload, receipt, branch)
+            issue_only_keep_reason = _issue_only_pr_receipt_keep_reason(payload, receipt)
+            if issue_only_keep_reason is not None:
+                counts["blocked_receipt_issue_only"] += 1
+                counts["still_protecting_active_work"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "keep",
+                        "reason": issue_only_keep_reason,
+                        "synthetic_receipt": False,
+                    }
+                )
+                continue
+            keep_reason = _receipt_handoff_keep_reason(
+                root, args.repo_name, payload, receipt, branch
+            )
             if keep_reason is not None:
                 counts["blocked_receipt_pr_head_mismatch"] += 1
                 counts["still_protecting_active_work"] += 1
@@ -703,30 +946,34 @@ def main(argv: list[str] | None = None) -> int:
     if not args.apply:
         emit("\n  DRY-RUN — re-run with --apply to actually archive files.")
     if args.json:
-        print(
-            json.dumps(
-                {
-                    "actions": actions,
-                    "applied": args.apply,
-                    "archive_dir": str(archive_dir),
-                    "archived": archived,
-                    "base": args.base,
-                    "counts": counts,
-                    "dry_run": not args.apply,
-                    "kept": kept,
-                    "outbox_count": len(outbox_files),
-                    "outbox_dir": str(outbox_dir),
-                    "receipt_dir": str(receipt_dir),
-                    "repo": str(root),
-                    "repo_name": args.repo_name,
-                    "report": str(report_path) if report_path is not None else None,
-                    "state_root": str(state_root),
-                    "terminal_receipt_count": len(receipt_keys),
-                },
-                indent=2,
-                sort_keys=True,
-            )
-        )
+        payload = {
+            "actions": actions,
+            "applied": args.apply,
+            "archive_dir": str(archive_dir),
+            "archived": archived,
+            "base": args.base,
+            "counts": counts,
+            "dry_run": not args.apply,
+            "kept": kept,
+            "outbox_count": len(outbox_files),
+            "outbox_dir": str(outbox_dir),
+            "receipt_dir": str(receipt_dir),
+            "repo": str(root),
+            "repo_name": args.repo_name,
+            "report": str(report_path) if report_path is not None else None,
+            "state_root": str(state_root),
+            "target": {
+                "idempotency_keys": sorted(target_keys),
+                "outbox_files": sorted(str(path) for path in target_files),
+            },
+            "terminal_receipt_count": len(receipt_keys),
+            "total_outbox_count": len(all_outbox_files),
+        }
+        if args.summary_only:
+            payload["action_count"] = len(actions)
+            payload["actions_omitted"] = True
+            payload.pop("actions", None)
+        print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 
 

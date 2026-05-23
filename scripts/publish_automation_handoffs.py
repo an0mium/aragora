@@ -181,7 +181,13 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     compact = dict(payload)
     decisions = compact.pop("decisions", None)
     if isinstance(decisions, Sequence) and not isinstance(decisions, (str, bytes, bytearray)):
-        compact["decision_count"] = len(decisions)
+        decision_count = len(decisions)
+        compact["decision_count"] = decision_count
+        handoff_count = compact.get("handoff_count")
+        if isinstance(handoff_count, int):
+            omitted_count = max(handoff_count - decision_count, 0)
+            compact["decision_omitted_count"] = omitted_count
+            compact["decisions_truncated"] = omitted_count > 0
         compact["decisions_omitted"] = True
     compact["details_omitted"] = True
     return compact
