@@ -263,6 +263,23 @@ def _packet_authorizes(merge_packet: Any, *, pr: int | None) -> bool:
     return not not_ready or (pr is not None and pr not in not_ready)
 
 
+def _packet_authorization_reason(merge_packet: Any, *, pr: int | None) -> str | None:
+    if not isinstance(merge_packet, dict) or not merge_packet:
+        return "merge-packet authorization is missing or malformed"
+    entry = _merge_packet_entry(merge_packet, pr)
+    if not entry:
+        target = f"PR #{pr}" if pr is not None else "target PR"
+        return f"merge-packet has no entry for {target}"
+    if not entry.get("admin_squash_allowed"):
+        return "merge-packet does not authorize admin squash"
+    not_ready = _packet_not_ready(merge_packet)
+    if pr is not None and pr in not_ready:
+        return f"merge-packet still lists PR #{pr} as not_ready"
+    if pr is None and not_ready:
+        return "merge-packet still has not_ready entries"
+    return None
+
+
 def _pending_required_checks(checks: Any) -> list[dict[str, str]]:
     if not isinstance(checks, list):
         return []
@@ -303,9 +320,12 @@ def build_settlement_guard(
     target_lanes = packet.get("target_active_lanes")
     target_lanes = target_lanes if isinstance(target_lanes, list) else []
     reasons: list[str] = []
+    authorization_reason = _packet_authorization_reason(merge_packet, pr=pr)
 
     if expected_head and live_head and expected_head != live_head:
         reasons.append(f"expected head {expected_head} does not match live head {live_head}")
+    if authorization_reason:
+        reasons.append(authorization_reason)
     if len(target_lanes) > 1:
         owners = ", ".join(
             str(row.get("owner_session") or row.get("lane_id")) for row in target_lanes
@@ -313,7 +333,7 @@ def build_settlement_guard(
         reasons.append(f"multiple active target owners: {owners}")
     if packet_head and live_head and packet_head != live_head:
         reasons.append(f"merge-packet head {packet_head} does not match live head {live_head}")
-    if pending_checks and _packet_authorizes(merge_packet, pr=pr):
+    if pending_checks and not authorization_reason:
         names = ", ".join(
             f"{check['workflow']} / {check['name']}".strip(" /") for check in pending_checks
         )

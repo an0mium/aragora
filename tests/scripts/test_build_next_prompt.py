@@ -218,6 +218,8 @@ def _settlement_runner(
     live_head: str = "live-head",
     packet_head: str = "live-head",
     packet_ready: bool = True,
+    include_packet: bool = True,
+    include_packet_entry: bool = True,
     pending_checks: bool = False,
 ) -> Any:
     def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -250,18 +252,23 @@ def _settlement_runner(
             ]
             return subprocess.CompletedProcess(command, 0, json.dumps(checks), "")
         if "merge-packet" in joined:
+            if not include_packet:
+                return subprocess.CompletedProcess(command, 0, "{}", "")
+            entries = [
+                {
+                    "pr_number": 7435,
+                    "head_sha": packet_head,
+                    "admin_squash_allowed": packet_ready,
+                }
+            ]
+            if not include_packet_entry:
+                entries = []
             return subprocess.CompletedProcess(
                 command,
                 0,
                 json.dumps(
                     {
-                        "entries": [
-                            {
-                                "pr_number": 7435,
-                                "head_sha": packet_head,
-                                "admin_squash_allowed": packet_ready,
-                            }
-                        ],
+                        "entries": entries,
                         "not_ready": [] if packet_ready else [7435],
                     }
                 ),
@@ -339,6 +346,54 @@ def test_settlement_guard_fails_closed_on_stale_merge_packet_head(tmp_path: Path
     guard = packet["settlement_guard"]
     assert guard["verdict"] == "fail_closed"
     assert "merge-packet head old-head does not match live head live-head" in guard["reasons"]
+
+
+def test_settlement_guard_fails_closed_on_missing_merge_packet(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7435,
+        expected_head="live-head",
+        command_runner=_settlement_runner(include_packet=False),
+    )
+
+    guard = packet["settlement_guard"]
+    assert guard["verdict"] == "fail_closed"
+    assert "merge-packet authorization is missing or malformed" in guard["reasons"]
+
+
+def test_settlement_guard_fails_closed_on_missing_pr_packet_entry(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7435,
+        expected_head="live-head",
+        command_runner=_settlement_runner(include_packet_entry=False),
+    )
+
+    guard = packet["settlement_guard"]
+    assert guard["verdict"] == "fail_closed"
+    assert "merge-packet has no entry for PR #7435" in guard["reasons"]
+
+
+def test_settlement_guard_fails_closed_on_unauthorized_merge_packet(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7435,
+        expected_head="live-head",
+        command_runner=_settlement_runner(packet_ready=False),
+    )
+
+    guard = packet["settlement_guard"]
+    assert guard["verdict"] == "fail_closed"
+    assert "merge-packet does not authorize admin squash" in guard["reasons"]
 
 
 def test_settlement_guard_fails_closed_on_ready_packet_with_pending_checks(tmp_path: Path) -> None:
