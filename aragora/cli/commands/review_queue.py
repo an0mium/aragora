@@ -1929,6 +1929,7 @@ def _build_packet(
             "files",
             "body",
             "comments",
+            "reviews",
             "commits",
         ]
     )
@@ -2355,6 +2356,12 @@ def _build_model_review_quorum(
     blocking_workflow_state = bool(blocking_workflow_reasons)
     unresolved_dissent = bool(dissenting_views)
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
+    review_object_warnings = _review_object_quorum_warnings(
+        pr.get("reviews") or [],
+        counted_reviewer_ids=counted_reviewer_ids,
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+    )
     signal_count = len(counted_reviewer_ids)
     has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
         _known_model_reviewer_id(item) for item in dogfood_evidence
@@ -2392,6 +2399,7 @@ def _build_model_review_quorum(
         )
         if not has_required_dogfood:
             reasons.append("focused adversarial dogfood evidence is required")
+        reasons.extend(review_object_warnings)
 
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
@@ -3056,6 +3064,78 @@ def _model_review_signals_from_comments(
             }
         )
     return signals[:5]
+
+
+def _review_object_quorum_warnings(
+    reviews: list[Any],
+    *,
+    counted_reviewer_ids: list[str],
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> list[str]:
+    """Warn when ``review-pr`` evidence is present in non-countable form.
+
+    Merge quorum intentionally counts model evidence from PR comments because
+    comments are easier to audit, quote, and mirror across queue tooling. A
+    GitHub review object alone should therefore not satisfy quorum, but it
+    should produce an operator-visible warning instead of silently looking like
+    missing evidence.
+    """
+    counted = set(counted_reviewer_ids)
+    warnings: list[str] = []
+    warned: set[str] = set()
+    for review in reviews:
+        if not isinstance(review, dict):
+            continue
+        if not _is_review_grounded_on_head(review, head_sha, head_committed_at):
+            continue
+        body = str(review.get("body", "") or "")
+        reviewer_id = _known_model_reviewer_id(
+            {"reviewer_id": _review_pr_reviewer_from_body(body), "provider": ""}
+        )
+        if not reviewer_id:
+            reviewer_id = _normalize_model_reviewer_id(_infer_model_reviewer_from_text(body))
+        if not reviewer_id or reviewer_id in counted or reviewer_id in warned:
+            continue
+        warnings.append(
+            "GitHub review object from "
+            f"{reviewer_id} is advisory-only for merge-packet model quorum; "
+            "mirror the review-pr output into a current-head PR comment before settlement"
+        )
+        warned.add(reviewer_id)
+    return warnings
+
+
+def _review_pr_reviewer_from_body(body: str) -> str:
+    for line in str(body).splitlines():
+        stripped = line.strip()
+        if not stripped.lower().startswith("- reviewer:"):
+            continue
+        value = stripped.split(":", 1)[1].strip().strip("`")
+        return value.strip()
+    return ""
+
+
+def _is_review_grounded_on_head(
+    review: dict[str, Any],
+    head_sha: str,
+    head_committed_at: str,
+) -> bool:
+    if not head_sha:
+        return True
+    commit = review.get("commit")
+    if isinstance(commit, dict) and str(commit.get("oid", "") or "").strip() == head_sha:
+        return True
+    body = str(review.get("body", "") or "")
+    head_short = head_sha[:7]
+    if head_short and head_short in body:
+        return True
+    if not head_committed_at:
+        return False
+    submitted = str(review.get("submittedAt", "") or "")
+    if not submitted:
+        return False
+    return submitted >= head_committed_at
 
 
 def _infer_model_reviewer_from_text(text: str) -> str:
