@@ -155,7 +155,6 @@ aragora/cli/commands/ralph.py:0: error: Item "None" of "dict[Any, Any] | Any | N
 aragora/cli/commands/ralph.py:0: error: Value of type "dict[Any, Any] | Any | None" is not indexable  [index]
 aragora/cli/commands/ralph.py:0: error: Value of type "dict[Any, Any] | Any | None" is not indexable  [index]
 aragora/cli/commands/ralph.py:0: error: Value of type "dict[Any, Any] | Any | None" is not indexable  [index]
-aragora/cli/commands/review_queue.py:0: error: Name "_is_merge_quorum_self_check" already defined on line 0  [no-redef]
 aragora/cli/commands/tasks.py:0: error: Argument 1 to "run" has incompatible type "Awaitable[Any]"; expected "Coroutine[Any, Any, Never]"  [arg-type]
 aragora/cli/commands/worktree.py:0: error: "object" has no attribute "__iter__"; maybe "__dir__" or "__str__"? (not iterable)  [attr-defined]
 aragora/cli/commands/worktree.py:0: error: "object" has no attribute "get"  [attr-defined]
