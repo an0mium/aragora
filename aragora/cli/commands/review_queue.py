@@ -3124,10 +3124,14 @@ def _is_review_grounded_on_head(
     if not head_sha:
         return True
     commit = review.get("commit")
-    if isinstance(commit, dict) and str(commit.get("oid", "") or "").strip() == head_sha:
-        return True
     body = str(review.get("body", "") or "")
     head_short = head_sha[:7]
+    if isinstance(commit, dict):
+        commit_oid = str(commit.get("oid", "") or "").strip()
+        if commit_oid:
+            if commit_oid == head_sha:
+                return True
+            return bool(head_short and head_short in body)
     if head_short and head_short in body:
         return True
     if not head_committed_at:
