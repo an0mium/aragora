@@ -1257,6 +1257,41 @@ def _publish_decisions(
     return results
 
 
+def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return compact JSON for automation startup logs."""
+
+    compact = dict(payload)
+    decisions = payload.get("decisions")
+    if isinstance(decisions, list):
+        reason_counts: dict[str, int] = {}
+        eligible_count = 0
+        for decision in decisions:
+            if not isinstance(decision, Mapping):
+                continue
+            if decision.get("eligible") is True:
+                eligible_count += 1
+            reason = decision.get("reason")
+            reason_key = reason if isinstance(reason, str) and reason else "unknown"
+            reason_counts[reason_key] = reason_counts.get(reason_key, 0) + 1
+        compact["decision_count"] = len(decisions)
+        compact["eligible_decision_count"] = eligible_count
+        compact["ineligible_decision_count"] = len(decisions) - eligible_count
+        compact["decision_reason_counts"] = reason_counts
+        compact["decisions_omitted"] = True
+        compact.pop("decisions", None)
+
+    queue_health = compact.get("queue_health")
+    if isinstance(queue_health, Mapping):
+        compact_queue = dict(queue_health)
+        unhealthy_open_prs = compact_queue.pop("unhealthy_open_prs", None)
+        if isinstance(unhealthy_open_prs, list):
+            compact_queue["unhealthy_open_prs_omitted"] = len(unhealthy_open_prs)
+        compact["queue_health"] = compact_queue
+
+    compact["details_omitted"] = True
+    return compact
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Publish recent committed codex automation branches into GitHub PRs."
@@ -1310,6 +1345,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Print machine-readable output",
+    )
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, omit verbose decision and open-PR detail lists.",
     )
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument(
@@ -1427,6 +1467,8 @@ def main(argv: list[str] | None = None) -> int:
             "decisions": [],
         }
         if args.json:
+            if args.summary_only:
+                unavailable_payload = summary_only_payload(unavailable_payload)
             print(json.dumps(unavailable_payload, indent=2))
         else:
             print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
@@ -1536,6 +1578,9 @@ def main(argv: list[str] | None = None) -> int:
                 preflight_script=None if args.skip_preflight else str(args.preflight_script),
             )
             payload["published"] = published
+
+    if args.summary_only:
+        payload = summary_only_payload(payload)
 
     if args.json:
         print(json.dumps(payload, indent=2))

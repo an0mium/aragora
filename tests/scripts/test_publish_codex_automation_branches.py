@@ -143,6 +143,78 @@ def test_parser_defaults_match_publisher_budget_constants() -> None:
     assert args.outbox_dir is None
     assert args.allow_unhealthy_queue_publish is False
     assert args.receipt_dir is None
+    assert args.summary_only is False
+
+
+def test_main_summary_only_omits_decisions_and_unhealthy_pr_details(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    branch = _branch("codex/compact-publisher")
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_duplicate_open_pr_patch_branches", lambda *args: set())
+    monkeypatch.setattr(mod, "_branches_with_pr_history", lambda *args: set())
+    monkeypatch.setattr(mod, "_branches_with_resolved_related_work", lambda *args: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "evaluate_automation_guardrails",
+        lambda repo_root, open_pr_count, max_open_prs: mod.AutomationGuardrailReport(
+            ok=True,
+            blockers=[],
+            metrics={},
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: [
+            {
+                "number": 7001,
+                "title": "Failing automation PR",
+                "headRefName": "codex/failing",
+                "mergeStateStatus": "DIRTY",
+                "reviewDecision": None,
+                "statusCheckRollup": [],
+            }
+        ],
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--json", "--summary-only"])
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "decisions" not in payload
+    assert payload["decision_count"] == 1
+    assert payload["eligible_decision_count"] == 1
+    assert payload["ineligible_decision_count"] == 0
+    assert payload["decision_reason_counts"] == {"eligible": 1}
+    assert payload["decisions_omitted"] is True
+    assert payload["details_omitted"] is True
+    assert payload["queue_health"]["unhealthy_open_pr_count"] == 1
+    assert "unhealthy_open_prs" not in payload["queue_health"]
+    assert payload["queue_health"]["unhealthy_open_prs_omitted"] == 1
 
 
 def test_parser_accepts_receipt_dir_for_shared_cli_compatibility(tmp_path: Path) -> None:
