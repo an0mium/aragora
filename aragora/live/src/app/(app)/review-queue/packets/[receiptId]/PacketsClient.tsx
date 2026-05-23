@@ -14,7 +14,6 @@
  *   1..5            pick decision option in PACKET_DECISION_OPTIONS
  *                   order: 1=approve_tier, 2=approve_downgrade,
  *                   3=request_changes, 4=reject, 5=hold_operator
- *   Tab             focus the comment textarea on the selected card
  *   ? (or Shift-/)  toggle the keyboard-help overlay
  *   Escape          close the help overlay
  * Key handling is suppressed when focus is already in an editable
@@ -54,6 +53,16 @@ interface ShaCheck {
   hmacClaimed: string;
   hmacPresent: boolean;
   hmacVerified: boolean;
+}
+
+function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'SELECT' ||
+    target.isContentEditable
+  );
 }
 
 export default function PacketsClient() {
@@ -175,16 +184,9 @@ export default function PacketsClient() {
     if (!receipt) return undefined;
     const onKey = (ev: KeyboardEvent) => {
       if (ev.defaultPrevented) return;
-      const target = ev.target as HTMLElement | null;
-      const inEditable = target
-        ? target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable
-        : false;
+      const inEditable = isEditableKeyboardTarget(ev.target);
 
-      // The help-toggle key works even inside editable elements so the
-      // operator can always pull the cheat-sheet back up.
+      if (inEditable) return;
       if (ev.key === '?' || (ev.key === '/' && ev.shiftKey)) {
         ev.preventDefault();
         setHelpOpen((open) => !open);
@@ -197,7 +199,6 @@ export default function PacketsClient() {
           return;
         }
       }
-      if (inEditable) return;
       if (helpOpen) return;
       if (queue.prs.length === 0) return;
       const current = selectedIndex ?? 0;
@@ -210,18 +211,6 @@ export default function PacketsClient() {
       if (ev.key === 'k' || ev.key === 'ArrowUp') {
         ev.preventDefault();
         setSelectedIndex(Math.max(0, current - 1));
-        return;
-      }
-      if (ev.key === 'Tab' && !ev.shiftKey) {
-        const pr = queue.prs[current];
-        if (!pr) return;
-        const textarea = document.querySelector<HTMLTextAreaElement>(
-          `[data-testid="packet-decision-comment-${pr.number}"]`,
-        );
-        if (textarea) {
-          ev.preventDefault();
-          textarea.focus();
-        }
         return;
       }
       // Digit shortcuts 1..5 map to PACKET_DECISION_OPTIONS in order.
@@ -358,7 +347,7 @@ export default function PacketsClient() {
               style={{ color: 'var(--text-muted)' }}
               data-testid="packets-keyboard-hint"
             >
-              keys: j/k · 1-5 · Tab · ?
+              keys: j/k · 1-5 · ?
             </span>
           </div>
           <p className="text-text-muted font-theme-data text-sm">
@@ -587,10 +576,6 @@ export default function PacketsClient() {
                   <tr>
                     <td className="pr-3 py-0.5" style={{ color: 'var(--accent)' }}>5</td>
                     <td>HOLD (operator-only)</td>
-                  </tr>
-                  <tr>
-                    <td className="pr-3 py-0.5" style={{ color: 'var(--accent)' }}>Tab</td>
-                    <td>focus comment textarea</td>
                   </tr>
                   <tr>
                     <td className="pr-3 py-0.5" style={{ color: 'var(--accent)' }}>?</td>

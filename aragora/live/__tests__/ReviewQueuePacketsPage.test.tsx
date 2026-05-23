@@ -424,18 +424,24 @@ describe('ReviewQueuePacketsPage keyboard sign-off', () => {
     expect(screen.getByTestId('packets-decided-count')).toHaveTextContent('2/2');
   });
 
-  it('Tab moves focus to the selected card\'s comment textarea', async () => {
+  it('does not treat Tab as a global packet shortcut', async () => {
     render(<PacketsClient />);
     await pickReceiptFile(buildReceipt());
     await waitFor(() => {
       expect(screen.getByTestId('packets-decision-list')).toBeInTheDocument();
     });
 
-    fireEvent.keyDown(window, { key: 'Tab' });
-    await waitFor(() => {
-      const textarea = screen.getByTestId('packet-decision-comment-7240');
-      expect(document.activeElement).toBe(textarea);
+    const event = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
     });
+    window.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(document.activeElement).not.toBe(
+      screen.getByTestId('packet-decision-comment-7240'),
+    );
   });
 
   it('? toggles the keyboard help overlay; Esc closes it', async () => {
@@ -474,6 +480,22 @@ describe('ReviewQueuePacketsPage keyboard sign-off', () => {
       'packet-decision-option-7240-approve_tier',
     ) as HTMLInputElement;
     expect(input.checked).toBe(false);
+  });
+
+  it('does not toggle keyboard help while typing ? in the comment textarea', async () => {
+    render(<PacketsClient />);
+    await pickReceiptFile(buildReceipt());
+    await waitFor(() => {
+      expect(screen.getByTestId('packets-decision-list')).toBeInTheDocument();
+    });
+
+    const textarea = screen.getByTestId(
+      'packet-decision-comment-7240',
+    ) as HTMLTextAreaElement;
+    textarea.focus();
+    fireEvent.keyDown(textarea, { key: '?' });
+
+    expect(screen.queryByTestId('packets-help-overlay')).toBeNull();
   });
 
   it('records per-decision timing fields in the downloaded JSON', async () => {
