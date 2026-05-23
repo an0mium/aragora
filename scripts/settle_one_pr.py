@@ -85,8 +85,14 @@ def _run_json(
 
 
 def _entry_pr(entry: dict[str, Any]) -> int | None:
+    return _coerce_int(entry.get("pr_number"))
+
+
+def _coerce_int(value: Any) -> int | None:
+    if value is None:
+        return None
     try:
-        return int(entry.get("pr_number"))
+        return int(str(value))
     except (TypeError, ValueError):
         return None
 
@@ -118,18 +124,22 @@ def select_candidate(
         return entry, []
 
     entries = [entry for entry in packet.get("entries") or [] if isinstance(entry, dict)]
-    admin_order = [int(pr) for pr in packet.get("admin_squash_order") or [] if str(pr).isdigit()]
-    for pr_number in admin_order:
-        if pr_number in exclude:
+    admin_order: list[int] = []
+    for raw_pr in packet.get("admin_squash_order") or []:
+        pr_number = _coerce_int(raw_pr)
+        if pr_number is not None:
+            admin_order.append(pr_number)
+    for ordered_pr in admin_order:
+        if ordered_pr in exclude:
             continue
-        entry = _entry_by_pr(packet, pr_number)
+        entry = _entry_by_pr(packet, ordered_pr)
         if entry is not None:
             return entry, []
 
     evidence_candidates: list[dict[str, Any]] = []
     for entry in entries:
-        pr_number = _entry_pr(entry)
-        if pr_number is None or pr_number in exclude:
+        entry_pr_number = _entry_pr(entry)
+        if entry_pr_number is None or entry_pr_number in exclude:
             continue
         if bool(entry.get("requires_human_risk_settlement")):
             continue
@@ -137,7 +147,9 @@ def select_candidate(
             continue
         if str(entry.get("machine_recommendation", "")).strip() == "repair_first":
             continue
-        tier = int(entry.get("tier") if entry.get("tier") is not None else 99)
+        tier = _coerce_int(entry.get("tier"))
+        if tier is None:
+            tier = 99
         if tier > 2:
             continue
         if not _is_green_summary(str(entry.get("checks_summary", ""))):
@@ -154,8 +166,10 @@ def select_candidate(
 def entry_blockers(entry: dict[str, Any]) -> list[str]:
     blockers: list[str] = []
     pr_number = _entry_pr(entry)
-    tier = int(entry.get("tier") if entry.get("tier") is not None else 99)
-    if pr_number in HUMAN_RISK_EXCLUDES:
+    tier = _coerce_int(entry.get("tier"))
+    if tier is None:
+        tier = 99
+    if pr_number is not None and pr_number in HUMAN_RISK_EXCLUDES:
         blockers.append(f"PR #{pr_number} is excluded by this steward scope")
     if tier > 2:
         blockers.append(f"Tier {tier} requires report-only handling")
