@@ -211,3 +211,186 @@ def test_decision_packet_reports_active_owner_blocker(tmp_path: Path) -> None:
 
     assert packet["owner"]["owner_session"] == "codex-owner"
     assert "active owner exists for target" in packet["blockers"]
+
+
+def _settlement_runner(
+    *,
+    live_head: str = "live-head",
+    packet_head: str = "live-head",
+    packet_ready: bool = True,
+    pending_checks: bool = False,
+) -> Any:
+    def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+        joined = " ".join(command)
+        if command[:2] == ["git", "status"]:
+            return subprocess.CompletedProcess(command, 0, "## main...origin/main\n", "")
+        if command[:3] == ["gh", "pr", "view"]:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                json.dumps(
+                    {
+                        "number": 7435,
+                        "headRefOid": live_head,
+                        "state": "OPEN",
+                        "isDraft": False,
+                        "mergeStateStatus": "CLEAN",
+                    }
+                ),
+                "",
+            )
+        if command[:3] == ["gh", "pr", "checks"]:
+            checks = [
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflow": "Aragora Merge Quorum",
+                    "state": "IN_PROGRESS" if pending_checks else "SUCCESS",
+                    "bucket": "pending" if pending_checks else "pass",
+                }
+            ]
+            return subprocess.CompletedProcess(command, 0, json.dumps(checks), "")
+        if "merge-packet" in joined:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                json.dumps(
+                    {
+                        "entries": [
+                            {
+                                "pr_number": 7435,
+                                "head_sha": packet_head,
+                                "admin_squash_allowed": packet_ready,
+                            }
+                        ],
+                        "not_ready": [] if packet_ready else [7435],
+                    }
+                ),
+                "",
+            )
+        return subprocess.CompletedProcess(command, 0, "{}", "")
+
+    return fake_runner
+
+
+def test_settlement_guard_fails_closed_on_expected_head_drift(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7435,
+        expected_head="old-head",
+        command_runner=_settlement_runner(live_head="live-head"),
+    )
+
+    guard = packet["settlement_guard"]
+    assert guard["verdict"] == "fail_closed"
+    assert "expected head old-head does not match live head live-head" in guard["reasons"]
+
+
+def test_settlement_guard_fails_closed_on_duplicate_active_lanes(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "one",
+                    "owner_session": "owner-one",
+                    "status": "active",
+                    "pr_number": 7435,
+                    "branch": "same",
+                },
+                {
+                    "lane_id": "two",
+                    "owner_session": "owner-two",
+                    "status": "blocked",
+                    "pr_number": 7435,
+                    "branch": "same",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7435,
+        expected_head="live-head",
+        command_runner=_settlement_runner(),
+    )
+
+    guard = packet["settlement_guard"]
+    assert guard["verdict"] == "fail_closed"
+    assert "multiple active owners exist for target" in packet["blockers"]
+    assert any("multiple active target owners" in reason for reason in guard["reasons"])
+
+
+def test_settlement_guard_fails_closed_on_stale_merge_packet_head(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7435,
+        expected_head="live-head",
+        command_runner=_settlement_runner(live_head="live-head", packet_head="old-head"),
+    )
+
+    guard = packet["settlement_guard"]
+    assert guard["verdict"] == "fail_closed"
+    assert "merge-packet head old-head does not match live head live-head" in guard["reasons"]
+
+
+def test_settlement_guard_fails_closed_on_ready_packet_with_pending_checks(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7435,
+        expected_head="live-head",
+        command_runner=_settlement_runner(pending_checks=True),
+    )
+
+    guard = packet["settlement_guard"]
+    assert guard["verdict"] == "fail_closed"
+    assert guard["pending_checks"][0]["name"] == "aragora-merge-quorum"
+    assert any("checks are pending" in reason for reason in guard["reasons"])
+
+
+def test_settlement_guard_passes_for_clean_authorized_packet(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7435,
+        expected_head="live-head",
+        command_runner=_settlement_runner(),
+    )
+
+    guard = packet["settlement_guard"]
+    assert guard["verdict"] == "pass"
+    assert guard["merge_packet_authorizes"] is True
+    assert guard["reasons"] == []
+
+
+def test_settlement_guard_prompt_includes_live_state_and_mailbox(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7435,
+        expected_head="live-head",
+        command_runner=_settlement_runner(pending_checks=True),
+    )
+
+    prompt = prompt_builder.build_settlement_guard_prompt(packet, pr=7435)
+
+    assert "python3 scripts/read_operator_steering.py --pr 7435" in prompt
+    assert "Live head: live-head" in prompt
+    assert "Pending required checks: Aragora Merge Quorum / aragora-merge-quorum" in prompt
+    assert (
+        "If the prompt above accomplishes no incremental progress make the next prompt one that does"
+        in prompt
+    )

@@ -40,6 +40,15 @@ CONVERGENCE_SENTENCE = (
     "that does, include this sentence in all subsequent prompts to ensure they converge "
     "towards prompts that make incremental progress."
 )
+PENDING_CHECK_STATES = {
+    "ACTION_REQUIRED",
+    "EXPECTED",
+    "IN_PROGRESS",
+    "PENDING",
+    "QUEUED",
+    "REQUESTED",
+    "WAITING",
+}
 
 
 def _read_lanes(path: Path) -> list[dict[str, Any]]:
@@ -177,6 +186,152 @@ def _active_owner_map(lanes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def _active_target_lanes(
+    lanes: list[dict[str, Any]],
+    *,
+    lane: dict[str, Any] | None,
+    lane_id: str | None = None,
+    pr: int | None = None,
+    branch: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return active lanes that appear to own the selected PR/branch/worktree."""
+
+    keys: list[tuple[str, Any]] = []
+    if lane_id:
+        keys.append(("lane_id", lane_id))
+    if pr is not None:
+        keys.append(("pr_number", pr))
+    if branch:
+        keys.append(("branch", branch))
+    if lane:
+        for key in ("pr_number", "branch", "worktree"):
+            value = lane.get(key)
+            if value not in (None, ""):
+                keys.append((key, value))
+
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in lanes:
+        if str(row.get("status") or "") not in ACTIVE_STATUSES:
+            continue
+        if not any(row.get(key) == value for key, value in keys):
+            continue
+        row_key = str(row.get("lane_id") or id(row))
+        if row_key in seen:
+            continue
+        seen.add(row_key)
+        rows.append(
+            _sanitize(
+                {
+                    "lane_id": row.get("lane_id"),
+                    "owner_session": row.get("owner_session"),
+                    "status": row.get("status"),
+                    "branch": row.get("branch"),
+                    "worktree": row.get("worktree"),
+                    "pr_number": row.get("pr_number"),
+                    "next_action": row.get("next_action"),
+                }
+            )
+        )
+    return rows
+
+
+def _merge_packet_entry(merge_packet: Any, pr: int | None) -> dict[str, Any]:
+    if not isinstance(merge_packet, dict):
+        return {}
+    entries = merge_packet.get("entries")
+    if isinstance(entries, list):
+        for entry in entries:
+            if isinstance(entry, dict) and pr is not None and entry.get("pr_number") == pr:
+                return entry
+        return {}
+    return merge_packet
+
+
+def _packet_not_ready(merge_packet: Any) -> list[Any]:
+    if not isinstance(merge_packet, dict):
+        return []
+    not_ready = merge_packet.get("not_ready")
+    return not_ready if isinstance(not_ready, list) else []
+
+
+def _packet_authorizes(merge_packet: Any, *, pr: int | None) -> bool:
+    entry = _merge_packet_entry(merge_packet, pr)
+    if not entry.get("admin_squash_allowed"):
+        return False
+    not_ready = _packet_not_ready(merge_packet)
+    return not not_ready or (pr is not None and pr not in not_ready)
+
+
+def _pending_required_checks(checks: Any) -> list[dict[str, str]]:
+    if not isinstance(checks, list):
+        return []
+    pending: list[dict[str, str]] = []
+    for check in checks:
+        if not isinstance(check, dict):
+            continue
+        bucket = str(check.get("bucket") or "").lower()
+        state = str(check.get("state") or "").upper()
+        if bucket == "pending" or state in PENDING_CHECK_STATES:
+            pending.append(
+                {
+                    "name": str(check.get("name") or ""),
+                    "workflow": str(check.get("workflow") or ""),
+                    "state": str(check.get("state") or ""),
+                    "bucket": str(check.get("bucket") or ""),
+                }
+            )
+    return pending
+
+
+def build_settlement_guard(
+    packet: dict[str, Any],
+    *,
+    pr: int | None = None,
+    expected_head: str | None = None,
+) -> dict[str, Any]:
+    """Fail-closed settlement preflight for exact-head prompts."""
+
+    pr_packet = packet.get("pr") if isinstance(packet.get("pr"), dict) else {}
+    merge_packet = (
+        packet.get("merge_packet") if isinstance(packet.get("merge_packet"), dict) else {}
+    )
+    entry = _merge_packet_entry(merge_packet, pr)
+    live_head = str(pr_packet.get("headRefOid") or "") if isinstance(pr_packet, dict) else ""
+    packet_head = str(entry.get("head_sha") or entry.get("headRefOid") or "")
+    pending_checks = _pending_required_checks(packet.get("checks", {}).get("required"))
+    target_lanes = packet.get("target_active_lanes")
+    target_lanes = target_lanes if isinstance(target_lanes, list) else []
+    reasons: list[str] = []
+
+    if expected_head and live_head and expected_head != live_head:
+        reasons.append(f"expected head {expected_head} does not match live head {live_head}")
+    if len(target_lanes) > 1:
+        owners = ", ".join(
+            str(row.get("owner_session") or row.get("lane_id")) for row in target_lanes
+        )
+        reasons.append(f"multiple active target owners: {owners}")
+    if packet_head and live_head and packet_head != live_head:
+        reasons.append(f"merge-packet head {packet_head} does not match live head {live_head}")
+    if pending_checks and _packet_authorizes(merge_packet, pr=pr):
+        names = ", ".join(
+            f"{check['workflow']} / {check['name']}".strip(" /") for check in pending_checks
+        )
+        reasons.append(f"merge-packet authorizes settlement while checks are pending: {names}")
+
+    return {
+        "allowed": not reasons,
+        "verdict": "pass" if not reasons else "fail_closed",
+        "reasons": reasons,
+        "expected_head": expected_head,
+        "live_head": live_head or None,
+        "merge_packet_head": packet_head or None,
+        "pending_checks": pending_checks,
+        "target_active_lanes": target_lanes,
+        "merge_packet_authorizes": _packet_authorizes(merge_packet, pr=pr),
+    }
+
+
 def build_decision_packet(
     *,
     registry_path: Path,
@@ -184,6 +339,7 @@ def build_decision_packet(
     lane_id: str | None = None,
     pr: int | None = None,
     branch: str | None = None,
+    expected_head: str | None = None,
     command_runner: CommandRunner = _default_runner,
 ) -> dict[str, Any]:
     """Build machine-readable live-truth inputs for owner-aware prompts."""
@@ -191,15 +347,21 @@ def build_decision_packet(
     lanes = _read_lanes(registry_path)
     runner = _repo_runner(repo_root) if command_runner is _default_runner else command_runner
     lane = _find_lane(lanes, lane_id=lane_id, pr=pr, branch=branch)
+    target_active_lanes = _active_target_lanes(
+        lanes, lane=lane, lane_id=lane_id, pr=pr, branch=branch
+    )
     blockers: list[str] = []
     root = _root_packet(runner)
     if root["dirty"]:
         blockers.append("dirty root")
     if lane and str(lane.get("status") or "") in ACTIVE_STATUSES:
         blockers.append("active owner exists for target")
+    if len(target_active_lanes) > 1:
+        blockers.append("multiple active owners exist for target")
 
     packet: dict[str, Any] = {
         "owner": _sanitize(lane) if lane else None,
+        "target_active_lanes": target_active_lanes,
         "root": root,
         "owner_map": _active_owner_map(lanes),
         "bridge_health": _run_json(
@@ -270,6 +432,7 @@ def build_decision_packet(
             ],
             runner,
         )
+    packet["settlement_guard"] = build_settlement_guard(packet, pr=pr, expected_head=expected_head)
     return packet
 
 
@@ -362,6 +525,68 @@ def build_prompt(
     return "\n".join(lines) + "\n"
 
 
+def build_settlement_guard_prompt(
+    packet: dict[str, Any],
+    *,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    pr: int | None = None,
+    branch: str | None = None,
+) -> str:
+    guard = packet.get("settlement_guard")
+    guard = guard if isinstance(guard, dict) else {}
+    owner = packet.get("owner") if isinstance(packet.get("owner"), dict) else None
+    mailbox = _mailbox_command(owner, pr=pr, branch=branch)
+    owners = guard.get("target_active_lanes")
+    owners = owners if isinstance(owners, list) else []
+    owner_summary = (
+        ", ".join(
+            f"{row.get('lane_id')} / {row.get('owner_session')}"
+            for row in owners
+            if isinstance(row, dict)
+        )
+        or "none"
+    )
+    pending = guard.get("pending_checks")
+    pending = pending if isinstance(pending, list) else []
+    pending_summary = (
+        ", ".join(
+            f"{row.get('workflow')} / {row.get('name')}".strip(" /")
+            for row in pending
+            if isinstance(row, dict)
+        )
+        or "none"
+    )
+    reasons = guard.get("reasons")
+    reasons = reasons if isinstance(reasons, list) else []
+    reason_summary = "; ".join(str(reason) for reason in reasons) or "none"
+    target = f"PR #{pr}" if pr is not None else branch or "the live queue"
+
+    return "\n".join(
+        [
+            f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+            "",
+            "Before acting, check your Aragora operator-steering mailbox:",
+            mailbox,
+            "If a steering message redirects or says stop, obey it before doing anything else. Do not delete, edit, move, or acknowledge mailbox files.",
+            "",
+            f"Goal: settlement-guard {target} before any edit, push, comment, merge, mark-ready, cleanup, or workflow rerun.",
+            f"Guard verdict to verify, not trust: {guard.get('verdict') or 'unknown'}.",
+            f"Expected head: {guard.get('expected_head') or 'not supplied'}",
+            f"Live head: {guard.get('live_head') or 'unknown'}",
+            f"Merge-packet head: {guard.get('merge_packet_head') or 'unknown'}",
+            f"Active target owners: {owner_summary}",
+            f"Pending required checks: {pending_summary}",
+            f"Fail-closed reasons: {reason_summary}",
+            "",
+            "Re-check git status, lanes, identify_lane_owner.py, gh pr view/checks, and merge-packet before mutating.",
+            "If the guard still fails closed, do not mutate; report the exact blockers and produce the next bounded prompt.",
+            "If the guard passes and merge-packet returns admin_squash_allowed=true and not_ready=[], exact-head settlement may proceed only within the prompt's PR/tier constraints.",
+            CONVERGENCE_SENTENCE,
+            "",
+        ]
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     selector = parser.add_mutually_exclusive_group()
@@ -379,6 +604,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_REPO_ROOT,
         help="Repo root used in generated prompt text and default live-truth commands.",
     )
+    parser.add_argument("--expected-head", help="Exact head SHA the prompt intends to handle.")
+    parser.add_argument(
+        "--settlement-guard",
+        action="store_true",
+        help="Emit a fail-closed settlement guard prompt populated from live truth.",
+    )
     parser.add_argument("--json", action="store_true")
     return parser
 
@@ -392,15 +623,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         pr=args.pr,
         branch=args.branch,
     )
-    if args.json:
+    packet: dict[str, Any] | None = None
+    guard_prompt: str | None = None
+    if args.json or args.settlement_guard:
         packet = build_decision_packet(
             registry_path=args.registry_path,
             repo_root=args.repo_root,
             lane_id=args.lane_id,
             pr=args.pr,
             branch=args.branch,
+            expected_head=args.expected_head,
         )
-        print(json.dumps({"prompt": prompt, "decision_packet": packet}, indent=2, sort_keys=True))
+        guard_prompt = build_settlement_guard_prompt(
+            packet,
+            repo_root=args.repo_root,
+            pr=args.pr,
+            branch=args.branch,
+        )
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "prompt": prompt,
+                    "settlement_guard_prompt": guard_prompt,
+                    "decision_packet": packet,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    elif args.settlement_guard:
+        print(guard_prompt or "", end="")
     else:
         print(prompt, end="")
     return 0
