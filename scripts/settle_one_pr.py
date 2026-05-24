@@ -18,6 +18,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 CONVERGENCE_SENTENCE = (
     "If the prompt above accomplishes no incremental progress make the next prompt one "
@@ -296,11 +297,15 @@ def required_check_source_report(
         return {
             "status": "unknown",
             "blockers": ["branch protection required_status_checks JSON unavailable"],
+            "suggestions": [
+                "ensure gh can read branch protection required_status_checks before settlement"
+            ],
         }
     if not isinstance(pr_view, dict):
         return {
             "status": "unknown",
             "blockers": ["PR statusCheckRollup JSON unavailable"],
+            "suggestions": ["rerun gh pr view with statusCheckRollup before settlement"],
         }
 
     rollup = pr_view.get("statusCheckRollup") or []
@@ -308,15 +313,17 @@ def required_check_source_report(
         return {
             "status": "unknown",
             "blockers": ["PR statusCheckRollup is not a list"],
+            "suggestions": ["rerun gh pr view with statusCheckRollup before settlement"],
         }
 
     blockers: list[str] = []
+    suggestions: list[str] = []
     for required in protection.get("checks") or []:
         if not isinstance(required, dict):
             continue
         context = str(required.get("context") or "")
         app_id = required.get("app_id")
-        if not context or app_id is None:
+        if not context or app_id in (None, -1):
             continue
 
         matching = [
@@ -336,13 +343,17 @@ def required_check_source_report(
                 f"{context} is app-pinned to app_id {app_id}, but only a manual "
                 "StatusContext is green"
             )
+            suggestions.append(
+                f"rerun the app-sourced {context} check; do not satisfy it with a manual status"
+            )
         else:
             blockers.append(
                 f"{context} is app-pinned to app_id {app_id}, but no successful CheckRun is present"
             )
+            suggestions.append(f"rerun the app-sourced {context} check")
 
     status = "pass" if not blockers else "blocked"
-    return {"status": status, "blockers": blockers}
+    return {"status": status, "blockers": blockers, "suggestions": suggestions}
 
 
 def validation_report(
@@ -494,18 +505,26 @@ def build_report(
                 "view",
                 str(pr_number),
                 "--json",
-                "number,state,isDraft,headRefOid,headRefName,mergeable,mergeStateStatus,statusCheckRollup",
+                (
+                    "number,state,isDraft,headRefOid,headRefName,baseRefName,mergeable,"
+                    "mergeStateStatus,statusCheckRollup"
+                ),
             ],
             cwd=cwd,
         )
         report["pr_view_check"] = view_cmd
         blockers.extend(head_blockers(selected, pr_view))
 
+        base_ref = "main"
+        if isinstance(pr_view, dict):
+            base_ref = str(pr_view.get("baseRefName") or base_ref)
+        protected_branch = quote(base_ref, safe="")
+
         protection, protection_cmd = _run_json(
             [
                 "gh",
                 "api",
-                "repos/{owner}/{repo}/branches/main/protection/required_status_checks",
+                f"repos/{{owner}}/{{repo}}/branches/{protected_branch}/protection/required_status_checks",
             ],
             cwd=cwd,
         )
@@ -532,6 +551,7 @@ def build_report(
         source_report = required_check_source_report(protection, pr_view)
         report["checks"]["required_sources"] = source_report
         blockers.extend(source_report["blockers"])
+        report["suggested_commands"].extend(source_report.get("suggestions") or [])
 
     should_validate = validate and not blockers
     report["validation"] = validation_report(selected, cwd=cwd, run_validation=should_validate)
