@@ -278,6 +278,7 @@ def test_app_pinned_required_check_accepts_rest_check_run_source() -> None:
             "check_runs": [
                 {
                     "name": "aragora-merge-quorum",
+                    "status": "completed",
                     "conclusion": "success",
                     "app": {"id": 15368, "slug": "github-actions"},
                 }

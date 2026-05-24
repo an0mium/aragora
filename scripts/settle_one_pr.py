@@ -279,7 +279,10 @@ def _rollup_name(item: dict[str, Any]) -> str:
 
 
 def _rollup_success(item: dict[str, Any]) -> bool:
-    state = str(item.get("state") or item.get("status") or item.get("conclusion") or "").upper()
+    conclusion = str(item.get("conclusion") or "").upper()
+    if conclusion:
+        return conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL"}
+    state = str(item.get("state") or item.get("status") or "").upper()
     return state in {"SUCCESS", "SKIPPED", "NEUTRAL"}
 
 
@@ -605,6 +608,11 @@ def build_report(
                 "gh",
                 "api",
                 f"repos/{{owner}}/{{repo}}/commits/{head_ref}/check-runs?per_page=100",
+                "--jq",
+                (
+                    "{check_runs: [.check_runs[] | "
+                    "{name, status, conclusion, app: {id: .app.id, slug: .app.slug}}]}"
+                ),
             ],
             cwd=cwd,
         )
