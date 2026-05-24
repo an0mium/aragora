@@ -42,6 +42,7 @@ def _authorized_comment(
         "authorAssociation": association,
         "author": {"login": author},
         "createdAt": AUTH_CREATED_AT,
+        "url": "https://github.example/pr/7423#issuecomment-1",
         "body": (
             "Tier-4 Human Settlement Authorization\n"
             f"Authorized Head SHA: {head}\n"
@@ -311,6 +312,31 @@ def test_configured_trusted_member_comment_authorizes(monkeypatch: Any) -> None:
     assert result["blockers"] == []
 
 
+def test_configured_trusted_member_permission_check_runs_once(monkeypatch: Any) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    checked_logins: list[str] = []
+    monkeypatch.setenv("ARAGORA_TIER4_TRUSTED_OPERATORS", "trusted-member")
+
+    def permission_checker(login: str) -> bool:
+        checked_logins.append(login)
+        return login == "trusted-member"
+
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, association="MEMBER", author="trusted-member")],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        permission_checker=permission_checker,
+    )
+
+    assert result["ok"] is True
+    assert checked_logins == ["trusted-member"]
+
+
 def test_trusted_member_comment_requires_admin_permission(monkeypatch: Any) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     monkeypatch.setenv("ARAGORA_TIER4_TRUSTED_OPERATORS", "trusted-member")
@@ -431,6 +457,7 @@ def test_stale_authorization_comment_does_not_authorize() -> None:
         pr_view=_pr_view(head, comments=[stale]),
         merge_packet=_tier4_packet(),
         required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-member"],
     )
 
     assert result["ok"] is False
@@ -519,6 +546,143 @@ def test_unexpected_merge_packet_blocker_blocks_settlement() -> None:
 
     assert result["ok"] is False
     assert "merge-packet has unexpected blockers: model_quorum" in result["blockers"]
+
+
+def test_authorization_diagnostics_explain_member_rejection() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head, association="MEMBER")]),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert result["required_author_associations"] == ["OWNER"]
+    assert "Tier-4 Human Settlement Authorization" in result["settlement_comment_template"]
+    assert "PR: #7423" in result["settlement_comment_template"]
+    assert f"Exact head: {head}" in result["settlement_comment_template"]
+    assert (
+        "admin_squash_merge and branch_protection_reconcile"
+        in result["settlement_comment_template"]
+    )
+    diagnostics = result["authorization_diagnostics"]
+    assert len(diagnostics) == 1
+    diagnostic = diagnostics[0]
+    assert diagnostic["kind"] == "comment"
+    assert diagnostic["author"] == "owner-user"
+    assert diagnostic["authorAssociation"] == "MEMBER"
+    assert diagnostic["url"] == "https://github.example/pr/7423#issuecomment-1"
+    assert diagnostic["marker_present"] is True
+    assert diagnostic["trusted_author_association"] is False
+    assert diagnostic["fresh_after_head_commit"] is True
+    assert diagnostic["exact_head_present"] is True
+    assert diagnostic["merge_action_present"] is True
+    assert diagnostic["branch_protection_action_present"] is True
+    assert diagnostic["accepted"] is False
+    assert diagnostic["rejection_reasons"] == [
+        "MEMBER login owner-user is not in trusted operator allowlist"
+    ]
+
+
+def test_authorization_diagnostics_accept_owner_comment() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is True
+    assert result["authorization_diagnostics"][0]["accepted"] is True
+    assert result["authorization_diagnostics"][0]["rejection_reasons"] == []
+
+
+def test_authorization_diagnostics_report_stale_comment() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    stale = _authorized_comment(head)
+    stale["createdAt"] = "2026-05-21T23:59:00Z"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[stale]),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["authorization_diagnostics"][0]["fresh_after_head_commit"] is False
+    assert result["authorization_diagnostics"][0]["rejection_reasons"] == [
+        "authorization is older than head commit"
+    ]
+
+
+def test_authorization_diagnostics_report_missing_head_and_tokens() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    bad = _authorized_comment("different-head")
+    bad["body"] = (
+        "Tier-4 Human Settlement Authorization\n"
+        "PR: #7423\n"
+        "Exact head: different-head\n"
+        "Authorized action: admin_squash_merge only\n"
+    )
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[bad]),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        require_branch_protection_token=True,
+    )
+
+    diagnostic = result["authorization_diagnostics"][0]
+    assert diagnostic["exact_head_present"] is False
+    assert diagnostic["merge_action_present"] is True
+    assert diagnostic["branch_protection_action_present"] is False
+    assert diagnostic["rejection_reasons"] == [
+        "exact head is missing",
+        "branch_protection_reconcile action is missing",
+    ]
+
+
+def test_check_json_includes_authorization_diagnostics(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[_authorized_comment(head, association="MEMBER")]),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+
+    rc = settler.main(
+        [
+            "--check",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 1
+    payload = settler.json.loads(capsys.readouterr().out)
+    gate = payload["gate"]
+    assert gate["required_author_associations"] == ["OWNER"]
+    assert gate["authorization_diagnostics"][0]["rejection_reasons"] == [
+        "MEMBER login owner-user is not in trusted operator allowlist"
+    ]
 
 
 def test_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Path) -> None:
