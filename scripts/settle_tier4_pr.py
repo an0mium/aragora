@@ -91,7 +91,7 @@ def _trusted_operator_logins(extra_logins: Sequence[str] | None = None) -> froze
         if login.strip()
     }
     explicit = {login.strip().lower() for login in extra_logins or () if login.strip()}
-    return configured | explicit
+    return frozenset(configured | explicit)
 
 
 def _author_login(item: dict[str, Any]) -> str:
