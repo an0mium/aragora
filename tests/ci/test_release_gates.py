@@ -723,7 +723,7 @@ class TestPipAuditGate:
         assert "PYSEC-2025-183" in cmd
         assert "--path" not in cmd
 
-    def test_export_requirements_includes_all_dependency_groups(self, tmp_path):
+    def test_export_requirements_audits_product_runtime_extra(self, tmp_path):
         module = self._load_module()
         output = tmp_path / "requirements.txt"
 
@@ -732,8 +732,11 @@ class TestPipAuditGate:
 
         cmd = run.call_args.args[0]
         assert "--frozen" in cmd
-        assert "--all-extras" in cmd
-        assert "--all-groups" in cmd
+        assert "--extra" in cmd
+        assert cmd[cmd.index("--extra") + 1] == "all"
+        assert "--no-dev" in cmd
+        assert "--all-extras" not in cmd
+        assert "--all-groups" not in cmd
         assert "--no-emit-project" in cmd
         assert "--output-file" in cmd
         assert str(output) in cmd
