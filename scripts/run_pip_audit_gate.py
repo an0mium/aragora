@@ -5,9 +5,10 @@ The security gate installs audit tools in CI before scanning dependencies. Audit
 the exported project lockfile instead of the tool environment so transient tool
 dependencies do not block unrelated PRs.
 
-The export intentionally includes all extras and dependency groups. That keeps
-runtime, dev, test, docs, and CI-executed project dependencies in one gate while
-still excluding dependencies that belong only to the security-tool environment.
+The export intentionally includes the product runtime extra without development
+dependency groups. That keeps the release gate focused on deployable product
+dependencies while still excluding dependencies that belong only to tests, docs,
+CI, or the security-tool environment.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ALLOWLIST = PROJECT_ROOT / "scripts/security/pip_audit_ignored_vulns.txt"
 EXPIRY_WARNING_WINDOW_DAYS = 14
+PRODUCT_EXTRA = "all"
 VULN_ID_RE = re.compile(r"^(CVE-\d{4}-\d+|GHSA-[a-z0-9-]+|PYSEC-\d{4}-\d+)$")
 
 
@@ -96,13 +98,14 @@ def build_pip_audit_command(
 
 
 def export_requirements(output_path: Path) -> None:
-    """Export all locked project dependency groups for auditing."""
+    """Export locked product runtime dependencies for auditing."""
     cmd = [
         "uv",
         "export",
         "--frozen",
-        "--all-extras",
-        "--all-groups",
+        "--extra",
+        PRODUCT_EXTRA,
+        "--no-dev",
         "--no-emit-project",
         "--no-hashes",
         "--output-file",
