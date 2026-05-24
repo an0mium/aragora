@@ -83,6 +83,45 @@ def test_local_queue_state_matches_receipts_by_idempotency_key(tmp_path: Path) -
     assert payload["unreceipted_outbox_count"] == 0
 
 
+def test_local_queue_state_treats_cleanup_receipts_as_terminal(tmp_path: Path) -> None:
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    receipts.mkdir(parents=True)
+    terminal_cleanup_statuses = [
+        "checkout_removed_branch_preserved",
+        "checkout_removed",
+        "checkout_retired",
+        "local_branch_retired",
+        "patch_equivalent_to_active_handoff",
+        "patch_equivalent_to_newer_handoff",
+        "retired",
+        "retired_local_merged",
+        "retired_local_superseded",
+        "superseded_by_pr_7447",
+        "superseded_by_refreshed_handoff",
+    ]
+    for index, status in enumerate(terminal_cleanup_statuses):
+        (receipts / f"receipt-{index}.json").write_text(
+            json.dumps(
+                {
+                    "idempotency_key": f"cleanup-{index}",
+                    "status": status,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    payload = mod._local_queue_state(
+        repo_root=tmp_path,
+        outbox_dir=None,
+        receipt_dir=None,
+    )
+
+    assert payload["receipt_count"] == len(terminal_cleanup_statuses)
+    assert payload["terminal_receipt_count"] == len(terminal_cleanup_statuses)
+    assert payload["nonterminal_receipt_count"] == 0
+    assert payload["nonterminal_receipts"] == []
+
+
 def test_local_queue_state_treats_stale_target_pr_receipt_as_unreceipted(
     monkeypatch: Any,
     tmp_path: Path,
