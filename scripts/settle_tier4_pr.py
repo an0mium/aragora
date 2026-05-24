@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Sequence
@@ -20,6 +21,9 @@ AUTHORIZED_MARKER = "Tier-4 Human Settlement Authorization"
 AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 AUTHORIZED_PROTECTION_TOKENS = ("branch_protection_reconcile", "branch protection reconcile")
 TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS = {"OWNER"}
+TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"MEMBER"}
+DEFAULT_TRUSTED_OPERATOR_LOGINS = frozenset({"an0mium"})
+TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
     "tier4_human_risk_settlement",
@@ -79,6 +83,33 @@ def _authorization_is_fresh(item: dict[str, Any], *, head_committed_at: str) -> 
     return _parse_timestamp(created_at) >= _parse_timestamp(head_committed_at)
 
 
+def _trusted_operator_logins() -> frozenset[str]:
+    configured = {
+        login.strip().lower()
+        for login in os.environ.get(TRUSTED_OPERATOR_LOGINS_ENV, "").split(",")
+        if login.strip()
+    }
+    return DEFAULT_TRUSTED_OPERATOR_LOGINS | configured
+
+
+def _author_login(item: dict[str, Any]) -> str:
+    author = item.get("author")
+    if isinstance(author, dict):
+        return str(author.get("login") or "").strip().lower()
+    if isinstance(author, str):
+        return author.strip().lower()
+    return ""
+
+
+def _is_trusted_operator_author(item: dict[str, Any]) -> bool:
+    association = str(item.get("authorAssociation") or "").upper()
+    if association in TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS:
+        return True
+    if association not in TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS:
+        return False
+    return _author_login(item) in _trusted_operator_logins()
+
+
 def has_operator_authorization(pr_view: dict[str, Any], *, head: str) -> bool:
     head_committed_at = _head_committed_at(pr_view)
     for item in _text_items(pr_view):
@@ -86,8 +117,7 @@ def has_operator_authorization(pr_view: dict[str, Any], *, head: str) -> bool:
         lowered = body.lower()
         if AUTHORIZED_MARKER not in body:
             continue
-        association = str(item.get("authorAssociation") or "").upper()
-        if association not in TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS:
+        if not _is_trusted_operator_author(item):
             continue
         if not _authorization_is_fresh(item, head_committed_at=head_committed_at):
             continue

@@ -26,9 +26,15 @@ HEAD_COMMITTED_AT = "2026-05-22T00:00:00Z"
 AUTH_CREATED_AT = "2026-05-22T00:05:00Z"
 
 
-def _authorized_comment(head: str, *, association: str = "OWNER") -> dict[str, str]:
+def _authorized_comment(
+    head: str,
+    *,
+    association: str = "OWNER",
+    author: str = "owner-user",
+) -> dict[str, Any]:
     return {
         "authorAssociation": association,
+        "author": {"login": author},
         "createdAt": AUTH_CREATED_AT,
         "body": (
             "Tier-4 Human Settlement Authorization\n"
@@ -132,6 +138,95 @@ def test_untrusted_author_comment_does_not_authorize() -> None:
             "mergeStateStatus": "BLOCKED",
             "headCommittedDate": HEAD_COMMITTED_AT,
             "comments": [_authorized_comment(head, association="CONTRIBUTOR")],
+            "reviews": [],
+        },
+        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+
+
+def test_untrusted_member_comment_does_not_authorize() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [_authorized_comment(head, association="MEMBER", author="random-member")],
+            "reviews": [],
+        },
+        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+
+
+def test_configured_trusted_member_comment_authorizes(monkeypatch: Any) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    monkeypatch.setenv("ARAGORA_TIER4_TRUSTED_OPERATORS", "trusted-member")
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [_authorized_comment(head, association="MEMBER", author="trusted-member")],
+            "reviews": [],
+        },
+        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
+def test_default_trusted_operator_member_comment_authorizes() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [_authorized_comment(head, association="MEMBER", author="an0mium")],
+            "reviews": [],
+        },
+        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
+def test_authorization_comment_for_different_head_does_not_authorize() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [_authorized_comment("different-head")],
             "reviews": [],
         },
         merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
