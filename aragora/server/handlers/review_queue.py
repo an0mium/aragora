@@ -44,6 +44,7 @@ import os
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 from aragora.pdb import storage as brief_storage
@@ -67,6 +68,7 @@ DEFER_HOURS = 4
 # Hard upper-bound on PR numbers we accept in paths to avoid DoS via huge ints
 # or malformed input. GitHub PR numbers are sequential, 6-7 digits at most.
 MAX_PR_NUMBER = 10_000_000
+DECISION_SECONDS_SAMPLES_KEY = "decision_seconds_samples"
 
 # Rate limiter for the review-queue surface. One human operator per session; a
 # generous ceiling is fine (keyboard shortcuts can fire fast).
@@ -242,8 +244,7 @@ def _load_brief(pr_number: int) -> dict[str, Any] | None:
 
 
 def _load_stats(when: datetime | None = None) -> dict[str, Any]:
-    path = _session_stats_path(when)
-    if not path.exists():
+    def empty_stats() -> dict[str, Any]:
         return {
             "date": (when or datetime.now(UTC)).strftime("%Y-%m-%d"),
             "approved": 0,
@@ -252,29 +253,18 @@ def _load_stats(when: datetime | None = None) -> dict[str, Any]:
             "total_decision_seconds": 0.0,
             "decision_count": 0,
             "streak": 0,
+            DECISION_SECONDS_SAMPLES_KEY: [],
         }
+
+    path = _session_stats_path(when)
+    if not path.exists():
+        return empty_stats()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
-        return {
-            "date": (when or datetime.now(UTC)).strftime("%Y-%m-%d"),
-            "approved": 0,
-            "request_changes": 0,
-            "deferred": 0,
-            "total_decision_seconds": 0.0,
-            "decision_count": 0,
-            "streak": 0,
-        }
+        return empty_stats()
     if not isinstance(data, dict):
-        return {
-            "date": (when or datetime.now(UTC)).strftime("%Y-%m-%d"),
-            "approved": 0,
-            "request_changes": 0,
-            "deferred": 0,
-            "total_decision_seconds": 0.0,
-            "decision_count": 0,
-            "streak": 0,
-        }
+        return empty_stats()
     # Fill in defaults for older session files without all fields.
     data.setdefault("approved", 0)
     data.setdefault("request_changes", 0)
@@ -282,6 +272,7 @@ def _load_stats(when: datetime | None = None) -> dict[str, Any]:
     data.setdefault("total_decision_seconds", 0.0)
     data.setdefault("decision_count", 0)
     data.setdefault("streak", 0)
+    data[DECISION_SECONDS_SAMPLES_KEY] = _decision_seconds_samples(data)
     return data
 
 
@@ -305,12 +296,25 @@ def _record_action(
     elif action == "defer":
         stats["deferred"] = int(stats.get("deferred", 0)) + 1
     if decision_seconds is not None and decision_seconds >= 0:
-        stats["total_decision_seconds"] = float(stats.get("total_decision_seconds", 0.0)) + float(
-            decision_seconds
-        )
+        seconds = float(decision_seconds)
+        stats["total_decision_seconds"] = float(stats.get("total_decision_seconds", 0.0)) + seconds
         stats["decision_count"] = int(stats.get("decision_count", 0)) + 1
+        samples = _decision_seconds_samples(stats)
+        samples.append(seconds)
+        stats[DECISION_SECONDS_SAMPLES_KEY] = samples
     _save_stats(stats, when)
     return stats
+
+
+def _decision_seconds_samples(stats: dict[str, Any]) -> list[float]:
+    raw = stats.get(DECISION_SECONDS_SAMPLES_KEY)
+    if not isinstance(raw, list):
+        return []
+    samples: list[float] = []
+    for value in raw:
+        if isinstance(value, (int, float)) and float(value) >= 0:
+            samples.append(float(value))
+    return samples
 
 
 def _shape_pr(pr: dict[str, Any], deferred: set[int]) -> dict[str, Any]:
@@ -628,7 +632,12 @@ class ReviewQueueHandler(BaseHandler):
         stats = _load_stats()
         decision_count = int(stats.get("decision_count", 0) or 0)
         total_seconds = float(stats.get("total_decision_seconds", 0.0) or 0.0)
-        median_seconds = (total_seconds / decision_count) if decision_count > 0 else None
+        duration_samples = _decision_seconds_samples(stats)
+        median_seconds: float | None
+        if duration_samples:
+            median_seconds = float(median(duration_samples))
+        else:
+            median_seconds = (total_seconds / decision_count) if decision_count > 0 else None
         return json_response(
             {
                 "stats": {

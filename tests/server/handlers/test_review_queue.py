@@ -280,6 +280,7 @@ class TestApprove:
         assert stats_data["approved"] == 1
         assert stats_data["streak"] == 1
         assert stats_data["decision_count"] == 1
+        assert stats_data["decision_seconds_samples"] == [12.0]
 
     def test_approve_requires_auth(self, handler, rq_root):
         from aragora.server.handlers.utils.responses import HandlerResult
@@ -385,15 +386,37 @@ class TestStats:
                 handler.handle_post("/api/v1/review-queue/prs/42/approve", {}, mock_h_a)
                 mock_h_b = _mock_handler("POST", body=b'{"decision_seconds":20}')
                 handler.handle_post("/api/v1/review-queue/prs/43/approve", {}, mock_h_b)
+                mock_h_c = _mock_handler("POST", body=b'{"decision_seconds":90}')
+                handler.handle_post("/api/v1/review-queue/prs/44/approve", {}, mock_h_c)
         mock_h_stats = _mock_handler("GET")
         result = handler.handle("/api/v1/review-queue/stats", {}, mock_h_stats)
         data = _parse(result)
         stats = data["stats"]
-        assert stats["approved"] == 2
-        assert stats["decision_count"] == 2
-        # Mean used as "median" proxy for v0 (single-user session).
-        assert stats["median_decision_seconds"] == pytest.approx(15.0)
-        assert stats["streak"] == 2
+        assert stats["approved"] == 3
+        assert stats["decision_count"] == 3
+        assert stats["median_decision_seconds"] == pytest.approx(20.0)
+        assert stats["streak"] == 3
+
+    def test_legacy_stats_without_samples_keep_mean_fallback(self, handler, rq_root):
+        stats_path = rq_root / "session-legacy.json"
+        stats_path.write_text(
+            json.dumps(
+                {
+                    "date": "2026-05-25",
+                    "approved": 2,
+                    "request_changes": 0,
+                    "deferred": 0,
+                    "total_decision_seconds": 30.0,
+                    "decision_count": 2,
+                    "streak": 2,
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch.object(rq, "_session_stats_path", return_value=stats_path):
+            result = handler.handle("/api/v1/review-queue/stats", {}, _mock_handler("GET"))
+        data = _parse(result)
+        assert data["stats"]["median_decision_seconds"] == pytest.approx(15.0)
 
     def test_streak_resets_on_request_changes(self, handler, rq_root):
         with patch.object(handler, "require_auth_or_error", return_value=(_auth_user(), None)):
