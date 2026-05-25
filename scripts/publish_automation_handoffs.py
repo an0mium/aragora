@@ -1360,6 +1360,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Maximum number of issues to create in one apply run",
     )
     parser.add_argument(
+        "--max-decisions",
+        type=int,
+        dest="limit",
+        default=argparse.SUPPRESS,
+        help="Compatibility alias for --limit when previewing publisher decisions",
+    )
+    parser.add_argument(
         "--max-open-issues",
         type=int,
         default=DEFAULT_MAX_OPEN_ISSUES,
