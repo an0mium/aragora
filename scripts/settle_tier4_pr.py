@@ -26,6 +26,10 @@ TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"MEMBER"}
 TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
 PermissionChecker = Callable[[str], bool]
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
+HUMAN_SETTLEMENT_STATUS_BLOCKER = f"missing {HUMAN_SETTLEMENT_CONTEXT} status"
+OPERATOR_COMMENT_BLOCKER = "missing or invalid repo-visible Tier 4 operator settlement comment"
+REQUIRED_CHECKS_BLOCKER = "required checks are missing"
+TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
 ALLOWED_TIER4_NOT_READY = {
@@ -333,6 +337,8 @@ def evaluate_tier4_gate(
     merge_state = str(pr_view.get("mergeStateStatus") or "")
     if merge_state in {"DIRTY", "CONFLICTING"}:
         blockers.append(f"PR #{pr} is {merge_state}")
+    if not required_checks:
+        blockers.append(REQUIRED_CHECKS_BLOCKER)
     for check in required_checks or []:
         name = str(check.get("name") or check.get("workflow") or "required check")
         state = str(check.get("state") or check.get("conclusion") or "UNKNOWN").upper()
@@ -348,20 +354,27 @@ def evaluate_tier4_gate(
             blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
     authorized_actions: set[str] = set()
     if actual_head == expected_head:
-        authorized_actions = _operator_authorized_actions(
-            pr_view,
-            pr=pr,
-            head=expected_head,
-            merge_packet=merge_packet,
-            required_checks=required_checks,
-            require_branch_protection_token=require_branch_protection_token,
-            repo=repo,
-            cwd=cwd,
-            trusted_operator_logins=trusted_operator_logins,
-            permission_checker=permission_checker,
-        )
-        if not authorized_actions:
-            blockers.append("missing repo-visible Tier 4 operator settlement comment")
+        if not _required_checks_are_green(required_checks):
+            pass
+        elif not _human_settlement_status_is_success(pr_view):
+            blockers.append(HUMAN_SETTLEMENT_STATUS_BLOCKER)
+        elif not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
+            blockers.append(TIER4_EVIDENCE_BLOCKER)
+        else:
+            authorized_actions = _operator_authorized_actions(
+                pr_view,
+                pr=pr,
+                head=expected_head,
+                merge_packet=merge_packet,
+                required_checks=required_checks,
+                require_branch_protection_token=require_branch_protection_token,
+                repo=repo,
+                cwd=cwd,
+                trusted_operator_logins=trusted_operator_logins,
+                permission_checker=permission_checker,
+            )
+            if not authorized_actions:
+                blockers.append(OPERATOR_COMMENT_BLOCKER)
 
     return {
         "ok": not blockers,
