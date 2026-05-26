@@ -1566,9 +1566,15 @@ def _build_merge_authorization_packet(
             "dogfood_evidence": quorum["dogfood_evidence"],
             "counted_reviewer_ids": quorum["counted_reviewer_ids"],
             "reasons": quorum["reasons"],
+            "ready_for_review_authorization_sentence": quorum.get(
+                "ready_for_review_authorization_sentence"
+            ),
         }
         entries.append(entry)
 
+    ready_authorization_entries = [
+        entry for entry in entries if entry.get("ready_for_review_authorization_sentence")
+    ]
     return {
         "version": "merge_authorization_packet.v1",
         "generated_at": datetime.now(UTC).isoformat(),
@@ -1590,6 +1596,13 @@ def _build_merge_authorization_packet(
         ],
         "human_risk_settlement_required": [
             entry["pr_number"] for entry in entries if bool(entry["requires_human_risk_settlement"])
+        ],
+        "ready_for_review_authorization_required": [
+            entry["pr_number"] for entry in ready_authorization_entries
+        ],
+        "ready_for_review_authorization_sentences": [
+            entry["ready_for_review_authorization_sentence"]
+            for entry in ready_authorization_entries
         ],
         "not_ready": [
             entry["pr_number"]
@@ -1638,6 +1651,16 @@ def _build_model_review_quorum(
     quorum_satisfied = (
         signal_count >= requirement["required_model_signals"] and has_required_dogfood
     )
+    ready_for_review_authorization_sentence = _ready_for_review_authorization_sentence(
+        pr,
+        tier=tier,
+        requirement=requirement,
+        quorum_satisfied=quorum_satisfied,
+        has_pending=has_pending,
+        has_failures=has_failures,
+        unresolved_dissent=unresolved_dissent,
+        machine_recommendation=machine_recommendation,
+    )
 
     reasons = [tier_reason]
     if has_failures:
@@ -1646,6 +1669,8 @@ def _build_model_review_quorum(
         reasons.append("checks are pending; wait before settlement")
     if unresolved_dissent:
         reasons.append("unresolved model dissent is present")
+    if ready_for_review_authorization_sentence:
+        reasons.append("draft PR; ready-for-review authorization required before settlement")
     if not quorum_satisfied:
         reasons.append(
             "model quorum incomplete: "
@@ -1702,6 +1727,7 @@ def _build_model_review_quorum(
         "dissenting_views": dissenting_views,
         "unresolved_dissent": unresolved_dissent,
         "reasons": reasons,
+        "ready_for_review_authorization_sentence": ready_for_review_authorization_sentence,
     }
 
 
@@ -1777,6 +1803,10 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
 def _has_blocking_workflow_state(pr: dict[str, Any]) -> bool:
     if bool(pr.get("isDraft", False)):
         return True
+    return _has_non_draft_blocking_workflow_state(pr)
+
+
+def _has_non_draft_blocking_workflow_state(pr: dict[str, Any]) -> bool:
     mergeable = str(pr.get("mergeable", "")).strip().upper()
     if mergeable == "CONFLICTING":
         return True
@@ -1786,6 +1816,48 @@ def _has_blocking_workflow_state(pr: dict[str, Any]) -> bool:
         if isinstance(label, dict) and label.get("name")
     ]
     return any(label in PARKED_LABELS for label in labels)
+
+
+def _ready_for_review_authorization_sentence(
+    pr: dict[str, Any],
+    *,
+    tier: int,
+    requirement: dict[str, Any],
+    quorum_satisfied: bool,
+    has_pending: bool,
+    has_failures: bool,
+    unresolved_dissent: bool,
+    machine_recommendation: str,
+) -> str | None:
+    """Return an exact-head ready authorization sentence for draft Tier 0-2 PRs."""
+
+    if not bool(pr.get("isDraft", False)):
+        return None
+    if tier > 2:
+        return None
+    if (
+        not quorum_satisfied
+        or has_pending
+        or has_failures
+        or unresolved_dissent
+        or machine_recommendation == "repair_first"
+    ):
+        return None
+    if bool(requirement["requires_human_risk_settlement"]) or bool(
+        requirement["requires_human_preapproval"]
+    ):
+        return None
+    if _has_non_draft_blocking_workflow_state(pr):
+        return None
+
+    pr_number = pr.get("number")
+    head_sha = str(pr.get("headRefOid", "") or "").strip()
+    if pr_number in (None, "") or not head_sha:
+        return None
+    return (
+        f"Ready-for-review Authorization: For PR #{pr_number} at exact head {head_sha}, "
+        "I authorize ready_for_review / marking ready for this exact head only."
+    )
 
 
 def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, Any]]:
@@ -2731,12 +2803,23 @@ def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
 
     admin_order = packet.get("admin_squash_order") or []
     human_required = packet.get("human_risk_settlement_required") or []
+    ready_required = packet.get("ready_for_review_authorization_required") or []
     not_ready = packet.get("not_ready") or []
     print(f"admin squash order: {', '.join(f'#{n}' for n in admin_order) or '(none)'}")
     print(
         f"human risk settlement required: {', '.join(f'#{n}' for n in human_required) or '(none)'}"
     )
+    print(
+        "ready-for-review authorization required: "
+        f"{', '.join(f'#{n}' for n in ready_required) or '(none)'}"
+    )
     print(f"not ready: {', '.join(f'#{n}' for n in not_ready) or '(none)'}")
+    sentences = packet.get("ready_for_review_authorization_sentences") or []
+    if sentences:
+        print()
+        print("ready-for-review authorization sentence(s):")
+        for sentence in sentences:
+            print(sentence)
     print()
 
     for entry in packet.get("entries") or []:

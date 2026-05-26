@@ -1174,6 +1174,11 @@ class TestModelReviewQuorum:
         )
         assert quorum["status"] == "repair_or_wait"
         assert quorum["admin_squash_allowed"] is False
+        assert (
+            quorum["ready_for_review_authorization_sentence"]
+            == "Ready-for-review Authorization: For PR #1 at exact head sha00000001, "
+            "I authorize ready_for_review / marking ready for this exact head only."
+        )
 
     def test_tier_three_never_admin_squashes_without_human_risk_settlement(self) -> None:
         pr = _make_pr(files=["aragora/reputation/store.py"])
@@ -2343,6 +2348,76 @@ class TestSettlementHelpers:
         assert payload["queue_pressure"]["active"] is True
         assert payload["admin_squash_order"] == [1]
         assert payload["entries"][0]["verdict"] == "admin_squash_allowed"
+
+    def test_merge_packet_emits_ready_authorization_sentence_for_draft_quorum(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        queue = [_classify_pr(_make_pr(number=42, is_draft=True))]
+        sentence = (
+            "Ready-for-review Authorization: For PR #42 at exact head headsha, "
+            "I authorize ready_for_review / marking ready for this exact head only."
+        )
+
+        def _fake_build_packet(
+            pr_ref: str,
+            *,
+            repo_override: str | None,
+            execute_reviewers: bool = False,
+        ) -> ReviewPacket:
+            return ReviewPacket(
+                pr_number=int(pr_ref),
+                title="draft automation guard",
+                url=f"https://github.com/synaptent/aragora/pull/{pr_ref}",
+                head_sha="headsha",
+                base_sha="basesha",
+                author="codex",
+                is_draft=True,
+                additions=1,
+                deletions=1,
+                changed_files=1,
+                queue_bucket="parked",
+                touched_subsystems=["aragora.cli.commands"],
+                high_risk_paths_touched=[],
+                validation=[],
+                checks_summary="20/20 green",
+                risk_flags=["draft PR"],
+                machine_recommendation="needs_human_attention",
+                machine_recommendation_reason="draft PR",
+                packet_sha="sha256:test",
+                generated_at="2026-04-28T00:00:00+00:00",
+                model_review_quorum={
+                    "tier": 2,
+                    "tier_name": "tier_2_live_automation",
+                    "status": "repair_or_wait",
+                    "verdict": "not_ready_for_settlement",
+                    "admin_squash_allowed": False,
+                    "requires_human_risk_settlement": False,
+                    "unresolved_dissent": False,
+                    "reviewer_signals": [{"reviewer_id": "claude"}],
+                    "dogfood_evidence": [{"reviewer_id": "codex"}],
+                    "counted_reviewer_ids": ["claude", "codex"],
+                    "reasons": [
+                        "live automation, CLI, observability, retry, or cache surface touched"
+                    ],
+                    "ready_for_review_authorization_sentence": sentence,
+                },
+            )
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._build_queue", lambda limit: queue)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_packet",
+            _fake_build_packet,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["42"],
+            limit=10,
+            repo_override=None,
+        )
+
+        assert packet["ready_for_review_authorization_required"] == [42]
+        assert packet["ready_for_review_authorization_sentences"] == [sentence]
+        assert packet["entries"][0]["ready_for_review_authorization_sentence"] == sentence
 
     def test_act_command_requires_reason_for_request_changes(self) -> None:
         ns = argparse.Namespace(
