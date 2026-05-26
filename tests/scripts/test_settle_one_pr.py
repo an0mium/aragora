@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import scripts.settle_one_pr as settle_one_pr
 from scripts.settle_one_pr import (
     CONVERGENCE_SENTENCE,
     build_report,
     entry_blockers,
     head_blockers,
-    load_open_pr_metadata,
     owner_blockers,
+    policy_exclusion_reasons,
     recursive_prompt,
     required_check_report,
+    required_check_source_report,
     select_candidate,
 )
 
@@ -107,52 +109,40 @@ def test_select_candidate_skips_repair_first_prs() -> None:
 
 
 def test_select_candidate_excludes_adc_and_continues() -> None:
-    adc_entry = {
-        **_entry(7376, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]),
-        "title": "docs(governance): ADC follow-on deepening packet",
-    }
+    adc = _entry(7376, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"])
     next_entry = _entry(
-        7448, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
+        7450, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
     )
 
     selected, blockers, exclusions = select_candidate(
-        _packet(adc_entry, next_entry),
+        _packet(adc, next_entry),
+        policy_metadata={7376: {"title": "docs(governance): ADC follow-on deepening packet"}},
         return_exclusions=True,
     )
 
     assert blockers == []
     assert selected is next_entry
-    assert exclusions == [
-        {
-            "pr_number": 7376,
-            "title": "docs(governance): ADC follow-on deepening packet",
-            "head_sha": adc_entry["head_sha"],
-            "reasons": ["ADC PR"],
-        }
-    ]
+    assert exclusions[0]["pr_number"] == 7376
+    assert exclusions[0]["reasons"] == ["ADC PR"]
 
 
 def test_select_candidate_excludes_active_owned_and_dependabot() -> None:
-    active_owned = _entry(
-        7407, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
-    )
-    dependabot = _entry(
-        7300, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
-    )
+    active = _entry(7460, tier=0, reasons=["docs/tests/status-only"])
+    dependabot = _entry(7300, tier=1, reasons=["docs/tests/status-only"])
     next_entry = _entry(
-        7449, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
+        7450, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
     )
 
     selected, blockers, exclusions = select_candidate(
-        _packet(active_owned, dependabot, next_entry),
-        active_owned_prs={7407},
+        _packet(active, dependabot, next_entry),
+        active_owned_prs={7460},
         policy_metadata={7300: {"author": {"login": "dependabot[bot]"}}},
         return_exclusions=True,
     )
 
     assert blockers == []
     assert selected is next_entry
-    assert [item["pr_number"] for item in exclusions] == [7407, 7300]
+    assert [item["pr_number"] for item in exclusions] == [7460, 7300]
     assert exclusions[0]["reasons"] == ["active-owned lane"]
     assert exclusions[1]["reasons"] == ["Dependabot PR"]
 
@@ -201,22 +191,22 @@ def test_select_candidate_excludes_plural_workflow_and_migration_paths() -> None
     assert all(item["reasons"] == [SURFACE_REASON] for item in exclusions)
 
 
-def test_select_candidate_excludes_auth_security_rbac_and_deployments_surfaces() -> None:
-    auth = _entry(7454, tier=0, reasons=["docs/tests/status-only"])
-    security = _entry(7455, tier=0, reasons=["docs/tests/status-only"])
-    rbac = _entry(7456, tier=0, reasons=["docs/tests/status-only"])
-    deployment = _entry(7457, tier=0, reasons=["docs/tests/status-only"])
+def test_select_candidate_excludes_auth_variants_and_public_api_paths() -> None:
+    authn = _entry(7454, tier=0, reasons=["docs/tests/status-only"])
+    authz = _entry(7455, tier=0, reasons=["docs/tests/status-only"])
+    oauth = _entry(7456, tier=0, reasons=["docs/tests/status-only"])
+    public_api = _entry(7457, tier=0, reasons=["docs/tests/status-only"])
     next_entry = _entry(
         7458, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
     )
 
     selected, blockers, exclusions = select_candidate(
-        _packet(auth, security, rbac, deployment, next_entry),
+        _packet(authn, authz, oauth, public_api, next_entry),
         policy_metadata={
-            7454: {"files": [{"path": "aragora/auth/providers.py"}]},
-            7455: {"title": "docs: security posture packet"},
-            7456: {"headRefName": "codex/rbac-policy-handoff"},
-            7457: {"files": [{"path": "deployments/worker.toml"}]},
+            7454: {"files": [{"path": "aragora/authentication/providers.py"}]},
+            7455: {"files": [{"path": "authorization/policies.py"}]},
+            7456: {"files": [{"path": "oauth/providers.py"}]},
+            7457: {"files": [{"path": "public/api/routes.py"}]},
         },
         return_exclusions=True,
     )
@@ -243,45 +233,15 @@ def test_select_candidate_does_not_treat_authored_text_as_auth_surface() -> None
     assert exclusions == []
 
 
-def test_load_open_pr_metadata_requests_files(monkeypatch, tmp_path: Path) -> None:
-    seen: dict[str, list[str]] = {}
+def test_policy_exclusion_reasons_reports_file_path_only_unsafe_surface() -> None:
+    entry = _entry(7461, tier=0, reasons=["docs/tests/status-only"])
 
-    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120) -> tuple[list[dict], dict]:
-        seen["args"] = args
-        return (
-            [{"number": 7454, "files": [{"path": ".github/workflows/ci.yml"}]}],
-            {"command": "fake"},
-        )
-
-    monkeypatch.setattr("scripts.settle_one_pr._run_json", fake_run_json)
-
-    metadata, command = load_open_pr_metadata(tmp_path)
-
-    json_fields = seen["args"][seen["args"].index("--json") + 1].split(",")
-    assert "files" in json_fields
-    assert metadata[7454]["files"] == [{"path": ".github/workflows/ci.yml"}]
-    assert command == {"command": "fake"}
-
-
-def test_build_report_reports_policy_exclusions() -> None:
-    adc_entry = {
-        **_entry(7376, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]),
-        "title": "docs(governance): ADC follow-on deepening packet",
-    }
-
-    report = build_report(
-        _packet(adc_entry),
-        cwd=Path.cwd(),
-        state_root=Path.cwd(),
-        explicit_pr=None,
-        exclude_prs=set(),
-        live=False,
-        validate=False,
+    reasons = policy_exclusion_reasons(
+        entry,
+        policy_metadata={7461: {"files": [{"path": "public/api/routes.py"}]}},
     )
 
-    assert report["status"] == "no_candidate"
-    assert report["policy_exclusions"][0]["pr_number"] == 7376
-    assert report["policy_exclusions"][0]["reasons"] == ["ADC PR"]
+    assert reasons == [SURFACE_REASON]
 
 
 def test_tier3_or_human_risk_is_report_only() -> None:
@@ -357,6 +317,335 @@ def test_cancelled_merge_quorum_suggests_rerun() -> None:
     assert report["status"] == "blocked"
     assert report["blockers"] == ["aragora-merge-quorum is cancelled"]
     assert report["suggestions"] == ["gh run rerun 123456789 --failed"]
+
+
+def test_app_pinned_required_check_blocks_manual_status_spoof() -> None:
+    report = required_check_source_report(
+        {"checks": [{"context": "aragora-merge-quorum", "app_id": 15368}]},
+        {
+            "statusCheckRollup": [
+                {
+                    "__typename": "StatusContext",
+                    "context": "aragora-merge-quorum",
+                    "state": "SUCCESS",
+                }
+            ]
+        },
+    )
+
+    assert report["status"] == "blocked"
+    assert report["blockers"] == [
+        "aragora-merge-quorum is app-pinned to app_id 15368, but only a manual "
+        "StatusContext is green"
+    ]
+    assert report["suggestions"] == [
+        "rerun the app-sourced aragora-merge-quorum check; do not satisfy it with a manual status"
+    ]
+
+
+def test_app_pinned_required_check_accepts_successful_check_run() -> None:
+    report = required_check_source_report(
+        {"checks": [{"context": "aragora-merge-quorum", "app_id": 15368}]},
+        {
+            "statusCheckRollup": [
+                {
+                    "__typename": "StatusContext",
+                    "context": "aragora-merge-quorum",
+                    "state": "SUCCESS",
+                },
+                {
+                    "__typename": "CheckRun",
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "SUCCESS",
+                    "workflowName": "Aragora Merge Quorum",
+                    "checkSuite": {"app": {"databaseId": 15368}},
+                },
+            ]
+        },
+    )
+
+    assert report == {"status": "pass", "blockers": [], "suggestions": []}
+
+
+def test_app_pinned_required_check_blocks_wrong_app_check_run() -> None:
+    report = required_check_source_report(
+        {"checks": [{"context": "aragora-merge-quorum", "app_id": 15368}]},
+        {
+            "statusCheckRollup": [
+                {
+                    "__typename": "CheckRun",
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "SUCCESS",
+                    "checkSuite": {"app": {"databaseId": 42}},
+                }
+            ]
+        },
+    )
+
+    assert report["status"] == "blocked"
+    assert report["blockers"] == [
+        "aragora-merge-quorum is app-pinned to app_id 15368, but successful "
+        "CheckRun app_id(s) were [42]"
+    ]
+    assert report["suggestions"] == ["rerun the app-sourced aragora-merge-quorum check"]
+
+
+def test_app_pinned_required_check_blocks_unverified_check_run_source() -> None:
+    report = required_check_source_report(
+        {"checks": [{"context": "aragora-merge-quorum", "app_id": 15368}]},
+        {
+            "statusCheckRollup": [
+                {
+                    "__typename": "CheckRun",
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "SUCCESS",
+                }
+            ]
+        },
+    )
+
+    assert report["status"] == "blocked"
+    assert report["blockers"] == [
+        "aragora-merge-quorum is app-pinned to app_id 15368, but CheckRun "
+        "source app could not be verified"
+    ]
+    assert report["suggestions"] == ["fetch commit check-runs with app metadata before settlement"]
+
+
+def test_app_pinned_required_check_accepts_rest_check_run_source() -> None:
+    report = required_check_source_report(
+        {"checks": [{"context": "aragora-merge-quorum", "app_id": 15368}]},
+        {"statusCheckRollup": []},
+        {
+            "check_runs": [
+                {
+                    "name": "aragora-merge-quorum",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "app": {"id": 15368, "slug": "github-actions"},
+                }
+            ]
+        },
+    )
+
+    assert report == {"status": "pass", "blockers": [], "suggestions": []}
+
+
+def test_app_pinned_required_check_treats_neutral_check_run_as_passing() -> None:
+    report = required_check_source_report(
+        {"checks": [{"context": "aragora-merge-quorum", "app_id": 15368}]},
+        {
+            "statusCheckRollup": [
+                {
+                    "__typename": "CheckRun",
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "NEUTRAL",
+                    "checkSuite": {"app": {"databaseId": 15368}},
+                }
+            ]
+        },
+    )
+
+    assert report == {"status": "pass", "blockers": [], "suggestions": []}
+
+
+def test_unpinned_null_required_check_allows_status_context() -> None:
+    report = required_check_source_report(
+        {"checks": [{"context": "legacy-status", "app_id": None}]},
+        {
+            "statusCheckRollup": [
+                {
+                    "__typename": "StatusContext",
+                    "context": "legacy-status",
+                    "state": "SUCCESS",
+                }
+            ]
+        },
+    )
+
+    assert report == {"status": "pass", "blockers": [], "suggestions": []}
+
+
+def test_unpinned_any_source_required_check_allows_status_context() -> None:
+    report = required_check_source_report(
+        {"checks": [{"context": "legacy-status", "app_id": -1}]},
+        {
+            "statusCheckRollup": [
+                {
+                    "__typename": "StatusContext",
+                    "context": "legacy-status",
+                    "state": "SUCCESS",
+                }
+            ]
+        },
+    )
+
+    assert report == {"status": "pass", "blockers": [], "suggestions": []}
+
+
+def test_required_check_source_report_fails_closed_without_protection_json() -> None:
+    report = required_check_source_report(
+        None,
+        {"statusCheckRollup": []},
+    )
+
+    assert report["status"] == "unknown"
+    assert report["blockers"] == ["branch protection required_status_checks JSON unavailable"]
+    assert report["suggestions"] == [
+        "ensure gh can read branch protection required_status_checks before settlement"
+    ]
+
+
+def test_build_report_reads_required_checks_from_pr_base_branch(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        if args[:3] == ["gh", "pr", "list"]:
+            return [], {"command": "metadata", "returncode": 0}
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+            return {"status": "completed"}, {"command": "owner", "returncode": 0}
+        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+            return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
+        if args[:3] == ["gh", "pr", "view"]:
+            return (
+                {
+                    "headRefOid": "0000000000000000000000000000000000001008",
+                    "baseRefName": "release/2026.05",
+                    "isDraft": False,
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "statusCheckRollup": [
+                        {
+                            "__typename": "CheckRun",
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "SUCCESS",
+                        }
+                    ],
+                },
+                {"command": "view", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/required_status_checks"):
+            return (
+                {"checks": [{"context": "aragora-merge-quorum", "app_id": 15368}]},
+                {"command": "protection", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/check-runs?per_page=100"):
+            return (
+                {
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "success",
+                            "app": {"id": 15368},
+                        }
+                    ]
+                },
+                {"command": "check-runs", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "checks"]:
+            return (
+                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                {"command": "checks", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                1008,
+                status="satisfied",
+                verdict="admin_squash_allowed",
+                admin_squash_allowed=True,
+                reasons=["bounded internal code surface"],
+            ),
+            admin_order=[1008],
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=1008,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["status"] == "packet_authorized_dry_run"
+    assert any(
+        cmd[:2] == ["gh", "api"]
+        and cmd[2]
+        == "repos/{owner}/{repo}/branches/release%2F2026.05/protection/required_status_checks"
+        for cmd in commands
+    )
+
+
+def test_build_report_fails_closed_when_required_check_sources_unreadable(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "list"]:
+            return [], {"command": "metadata", "returncode": 0}
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+            return {"status": "completed"}, {"command": "owner", "returncode": 0}
+        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+            return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
+        if args[:3] == ["gh", "pr", "view"]:
+            return (
+                {
+                    "headRefOid": "0000000000000000000000000000000000001009",
+                    "baseRefName": "main",
+                    "isDraft": False,
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "statusCheckRollup": [
+                        {
+                            "__typename": "CheckRun",
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "SUCCESS",
+                        }
+                    ],
+                },
+                {"command": "view", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/required_status_checks"):
+            return None, {"command": "protection", "returncode": 403}
+        if args[:2] == ["gh", "api"] and args[2].endswith("/check-runs?per_page=100"):
+            return {"check_runs": []}, {"command": "check-runs", "returncode": 0}
+        if args[:3] == ["gh", "pr", "checks"]:
+            return (
+                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                {"command": "checks", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                1009,
+                status="satisfied",
+                verdict="admin_squash_allowed",
+                admin_squash_allowed=True,
+                reasons=["bounded internal code surface"],
+            ),
+            admin_order=[1009],
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=1009,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["status"] == "blocked"
+    assert "branch protection required_status_checks JSON unavailable" in report["blockers"]
 
 
 def test_recursive_prompt_always_contains_convergence_sentence() -> None:
