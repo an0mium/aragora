@@ -26,9 +26,15 @@ HEAD_COMMITTED_AT = "2026-05-22T00:00:00Z"
 AUTH_CREATED_AT = "2026-05-22T00:05:00Z"
 
 
-def _authorized_comment(head: str, *, association: str = "OWNER") -> dict[str, str]:
+def _authorized_comment(
+    head: str,
+    *,
+    association: str = "OWNER",
+    author: str = "owner-user",
+) -> dict[str, Any]:
     return {
         "authorAssociation": association,
+        "author": {"login": author},
         "createdAt": AUTH_CREATED_AT,
         "body": (
             "Tier-4 Human Settlement Authorization\n"
@@ -132,6 +138,174 @@ def test_untrusted_author_comment_does_not_authorize() -> None:
             "mergeStateStatus": "BLOCKED",
             "headCommittedDate": HEAD_COMMITTED_AT,
             "comments": [_authorized_comment(head, association="CONTRIBUTOR")],
+            "reviews": [],
+        },
+        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+
+
+def test_untrusted_member_comment_does_not_authorize() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [_authorized_comment(head, association="MEMBER", author="random-member")],
+            "reviews": [],
+        },
+        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+
+
+def test_configured_trusted_member_comment_authorizes(monkeypatch: Any) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    monkeypatch.setenv("ARAGORA_TIER4_TRUSTED_OPERATORS", "trusted-member")
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [_authorized_comment(head, association="MEMBER", author="trusted-member")],
+            "reviews": [],
+        },
+        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        required_checks=_valid_checks(),
+        permission_checker=lambda login: login == "trusted-member",
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
+def test_trusted_member_comment_requires_admin_permission(monkeypatch: Any) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    monkeypatch.setenv("ARAGORA_TIER4_TRUSTED_OPERATORS", "trusted-member")
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [_authorized_comment(head, association="MEMBER", author="trusted-member")],
+            "reviews": [],
+        },
+        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        required_checks=_valid_checks(),
+        permission_checker=lambda login: False,
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+
+
+def test_an0mium_member_comment_requires_explicit_allowlist() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [_authorized_comment(head, association="MEMBER", author="an0mium")],
+            "reviews": [],
+        },
+        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        required_checks=_valid_checks(),
+        permission_checker=lambda login: True,
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+
+
+def test_cli_trusted_operator_login_authorizes_member_comment(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            {
+                "headRefOid": head,
+                "state": "OPEN",
+                "isDraft": False,
+                "mergeStateStatus": "BLOCKED",
+                "headCommittedDate": HEAD_COMMITTED_AT,
+                "comments": [
+                    _authorized_comment(head, association="MEMBER", author="trusted-member")
+                ],
+                "reviews": [],
+            },
+            {"not_ready": ["human_risk_settlement"]},
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_login_has_admin_permission",
+        lambda login, repo, cwd: login == "trusted-member",
+    )
+
+    rc = settler.main(
+        [
+            "--check",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+
+
+def test_collaborator_permission_payload_only_treats_admin_as_admin() -> None:
+    assert settler._collaborator_permission_is_admin({"permission": "admin"}) is True
+    assert settler._collaborator_permission_is_admin({"role_name": "admin"}) is True
+    for permission in ("maintain", "write", "triage", "read"):
+        assert settler._collaborator_permission_is_admin({"permission": permission}) is False
+
+
+def test_authorization_comment_for_different_head_does_not_authorize() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view={
+            "headRefOid": head,
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [_authorized_comment("different-head")],
             "reviews": [],
         },
         merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},

@@ -317,7 +317,16 @@ Honest edges — regions the thesis does not claim to cover today:
 - **Low-consequence, high-volume decisions** where the overhead of
   structural decomposition exceeds the value of the decision. The
   product's internal rule: structure-first applies to consequential
-  decisions; trivial decisions get a fast path.
+  decisions; trivial decisions get a fast path. *Experimental
+  extension under test:* per-operator local advocate models (small,
+  open-weight, locally finetuned on the operator's revealed-preference
+  decision history) as a candidate fast-path proposer that escalates
+  to the full debate substrate when its calibrated confidence falls
+  below threshold. The hypothesis is falsifiable; see
+  `docs/specs/ARAGORA_ROADMAP_REVISION_ADVOCATES.md` and the
+  pre-registered Advocate Feasibility Test in `scripts/aft_harness.py`.
+  This does not weaken the structure-first rule; it adds a measured
+  pre-filter for the bucket the rule already excludes.
 - **Closed belief systems that maintain surprise-reduction through
   hermeneutic reinterpretation rather than prediction.** A framework
   that explains away anomalies after they occur is not the same as a
