@@ -1,11 +1,11 @@
 """Governance tests pinning the current state of `_infer_model_reviewer_from_text`.
 
-These tests are the regression target for the Tier 4 model-quorum-family
-expansion patch designed in `docs/specs/MODEL_QUORUM_FAMILY_EXPANSION.md`.
-They exist for two reasons:
+These tests are the current-state characterization target for the Tier 4
+model-quorum-family expansion patch designed in
+`docs/specs/MODEL_QUORUM_FAMILY_EXPANSION.md`. They exist for two reasons:
 
 1. They *pin* the current state of the recognizer so that the Tier 4 patch
-   has an explicit, machine-checkable regression floor — the patch must
+   has an explicit, machine-checkable regression floor: the patch must
    keep the existing claude/codex/gemini/grok/tesla/harvey/factory markers
    working while *adding* recognition for the gap families.
 
@@ -17,19 +17,19 @@ They exist for two reasons:
    non-author account — would not be counted toward the quorum.
 
 After the Tier 4 patch lands, the gap-demonstration tests will need to be
-inverted (assert that the family IS recognized). At that point the tests
-also become the regression floor for the new state.
+inverted (assert that the family IS recognized). At that point this file
+also becomes the regression floor for the new state.
 
 Per `docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance`:
 
   > "A change that adds a new family marker ... is a Tier 4
   >  merge-authority self-modification. ... The pre-approval artifact ...
-  >  is a design document in docs/specs/ ... and failing governance tests
-  >  in tests/governance/ that pin the current state of the gate so the
-  >  implementation has a regression target."
+  >  is a design document in docs/specs/ ... and governance tests
+  >  in tests/governance/ that characterize the current gate behavior
+  >  and pin the gap to be inverted by the implementation."
 
 This file IS that pre-approval test surface. The implementation that
-satisfies these tests waits for operator preapproval.
+inverts the gap-demonstration assertions waits for operator preapproval.
 """
 
 from __future__ import annotations

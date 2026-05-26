@@ -44,8 +44,8 @@ before implementation AND before merge.
 2. A new privacy-tier-by-jurisdiction subsection in
    `docs/REVIEW_AUTHORITY_PRINCIPLES.md` codifying which model families
    are eligible for which Tier
-3. Failing tests in `tests/governance/` demonstrating the current
-   recognizer gap on the families enumerated below
+3. Current-state governance tests in `tests/governance/` demonstrating
+   the current recognizer gap on the families enumerated below
 
 ### Out of scope for this PR (Tier 4, requires operator nod)
 1. The actual `_infer_model_reviewer_from_text` patch
@@ -271,11 +271,11 @@ The diff is small (~40 lines including the helpers + one branch). The
 Tier 4 escalation is about the *governance significance*, not the line
 count.
 
-## Failing tests landed in this PR (Tier 1)
+## Current-state governance tests landed in this PR (Tier 1)
 
 `tests/governance/test_model_quorum_recognizer_gaps.py` — proves the
-current state of the gate so the eventual Tier 4 patch has a regression
-target:
+current state of the gate so the eventual Tier 4 patch has a
+machine-checkable gap record to invert:
 
 1. `test_existing_recognizers_still_resolve` — sanity that the seven
    families recognized today (`claude`, `codex`, `gemini`, `grok`,
@@ -408,5 +408,6 @@ families that aragora *already pays for* via OpenRouter but cannot
 mixed quorums for routine work, Western-only quorums for high-stakes
 work, jurisdictional payload boundaries always.
 
-This PR lands the spec, the contract, and the failing tests. The patch
-itself waits for operator preapproval per the Tier 4 rule.
+This PR lands the spec, the contract, and passing current-state
+governance tests that document the recognizer gap. The implementation
+patch itself waits for operator preapproval per the Tier 4 rule.
