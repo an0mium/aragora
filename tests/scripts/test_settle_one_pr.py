@@ -8,6 +8,8 @@ from scripts.settle_one_pr import (
     build_report,
     entry_blockers,
     head_blockers,
+    load_broad_packet_lazily,
+    load_open_pr_metadata,
     owner_blockers,
     policy_exclusion_reasons,
     recursive_prompt,
@@ -242,6 +244,118 @@ def test_policy_exclusion_reasons_reports_file_path_only_unsafe_surface() -> Non
     )
 
     assert reasons == [SURFACE_REASON]
+
+
+def test_open_pr_metadata_uses_light_list_fields(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        return [], {"command": "metadata", "returncode": 0}
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    metadata, command = load_open_pr_metadata(Path.cwd(), limit=100)
+
+    assert metadata == {}
+    assert command["returncode"] == 0
+    fields = commands[0][commands[0].index("--json") + 1]
+    assert "files" not in fields
+    assert "statusCheckRollup" not in fields
+
+
+def test_broad_packet_lazy_loader_skips_cheap_policy_exclusions(monkeypatch) -> None:
+    merge_packet_prs: list[int] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [
+                    {
+                        "number": 7376,
+                        "title": "docs(governance): ADC follow-on deepening packet",
+                        "headRefName": "adc-follow-on",
+                    },
+                    {
+                        "number": 7449,
+                        "title": "fix(settlement): exclude unsafe PR surfaces",
+                        "headRefName": "codex/settle-one-policy-exclusions-20260523",
+                    },
+                ],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+            pr_number = int(args[args.index("--pr") + 1])
+            merge_packet_prs.append(pr_number)
+            return _packet(_entry(pr_number)), {"command": "packet", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
+
+    assert merge_packet_prs == [7449]
+    assert [entry["pr_number"] for entry in packet["entries"]] == [7449]
+
+
+def test_build_report_lazy_loads_file_scope_for_selected_candidate(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [
+                    {
+                        "number": 7451,
+                        "title": "fix: candidate",
+                        "headRefName": "codex/candidate",
+                    }
+                ],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
+            return (
+                {
+                    "number": 7451,
+                    "title": "fix: candidate",
+                    "headRefName": "codex/candidate",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": ".github/workflows/ci.yml"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(7451, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"])
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=None,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["selected_pr"] is None
+    assert report["status"] == "no_candidate"
+    assert report["policy_exclusions"][0]["pr_number"] == 7451
+    assert report["policy_exclusions"][0]["reasons"] == [SURFACE_REASON]
+    list_fields = commands[0][commands[0].index("--json") + 1]
+    assert "files" not in list_fields
+    assert any(args[:3] == ["gh", "pr", "view"] and args[3] == "7451" for args in commands)
 
 
 def test_tier3_or_human_risk_is_report_only() -> None:
