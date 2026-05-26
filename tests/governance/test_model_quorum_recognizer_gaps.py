@@ -6,14 +6,15 @@ They exist for two reasons:
 
 1. They *pin* the current state of the recognizer so that the Tier 4 patch
    has an explicit, machine-checkable regression floor — the patch must
-   keep the existing claude/openai/gemini/grok/mistral/deepseek/qwen/kimi
-   markers working while *adding* recognition for the new families.
+   keep the existing claude/codex/gemini/grok/tesla/harvey/factory markers
+   working while *adding* recognition for the gap families.
 
-2. They *demonstrate* the gap: each of the new families (GLM, MiniMax, Yi,
-   Hermes) currently returns `unknown_model_reviewer`, which means a
-   reviewer signal posted by that family — even if grounded on the
-   current head SHA, even if posted by a non-author account — would not
-   be counted toward the quorum.
+2. They *demonstrate* the gap: already-routed families such as OpenAI,
+   Mistral/Codestral, DeepSeek, Qwen, Kimi/Moonshot and new proposed
+   families such as GLM, MiniMax, Yi, and Hermes currently return
+   `unknown_model_reviewer`, which means a reviewer signal posted by that
+   family — even if grounded on the current head SHA, even if posted by a
+   non-author account — would not be counted toward the quorum.
 
 After the Tier 4 patch lands, the gap-demonstration tests will need to be
 inverted (assert that the family IS recognized). At that point the tests
@@ -121,7 +122,7 @@ def test_proposed_family_markers_currently_unrecognized(
     recognizer SHOULD count under the design in
     `docs/specs/MODEL_QUORUM_FAMILY_EXPANSION.md`, but today it returns
     `unknown_model_reviewer` because the marker is missing from
-    `_known_model_reviewer_id`'s `known_markers` table.
+    `_infer_model_reviewer_from_text`'s current seven-marker tuple.
 
     After the Tier 4 patch lands this test will be inverted (or moved
     to a positive-recognition test parameterized by the new families).

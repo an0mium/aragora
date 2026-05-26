@@ -1,6 +1,6 @@
 # Model Quorum Family Expansion (Pre-Approval Design, Tier 4 implementation)
 
-**Status:** draft, pending operator preapproval
+**Status:** operator preapproval recorded; PR-A2 implementation pending
 **Owner:** Armand
 **Date:** 2026-05-24
 **Related:** `docs/REVIEW_AUTHORITY_PRINCIPLES.md`,
@@ -23,12 +23,12 @@ heterogeneous Chinese open-weight families like DeepSeek, Qwen, and Kimi
 *are* available via OpenRouter (and aragora's `api_agents/openrouter.py`
 already wires them), they cannot be *counted* as reviewer signals because
 `aragora/cli/commands/review_queue.py::_infer_model_reviewer_from_text`
-only recognizes the marker substrings `claude / codex / openai / grok /
-gemini / mistral / deepseek / qwen / kimi / tesla / harvey / factory`.
-The recognizer was last grown in 2026-Q1; several Chinese-family models
-that aragora now routes to are unrecognized, and the new May-2026
-Western variants (Gemini 3.5 Flash, Grok 4.3) need explicit family
-mapping.
+only recognizes the marker substrings `claude / codex / tesla / harvey /
+factory / grok / gemini`. The broader normalizer knows about OpenAI,
+Mistral, DeepSeek, Qwen, and Kimi, but that code path never runs for PR
+comments once the recognizer returns `unknown_model_reviewer`. The new
+May-2026 Western variants (Gemini 3.5 Flash, Grok 4.3) also need explicit
+family mapping.
 
 This document proposes the narrowest viable expansion of the reviewer
 pool and the governance contract it must satisfy. **It is the pre-
@@ -111,17 +111,7 @@ when CLI providers were technically available.
 | **MiniMax M2** | `minimax/minimax-m2` | Distinct training lineage; multimodal capable |
 | **Nous Hermes 4** (Western open-weight) | `nousresearch/hermes-4-405b` | Western-jurisdiction balance to the Chinese cluster |
 | **Gemini 3.5 Flash** (Western, agentic-tier) | `google/gemini-3.5-flash` | 4× faster, $1.50/$9, wins on agentic/coding benchmarks (76% Terminal-Bench 2.1, 84% MCP Atlas), loses on pure reasoning vs 3.1 Pro — both have a place |
-| **Grok 4.3** (Western, May 2026) | `x-ai/grok-4.3` | Released 2026-05-06; 20% cheaper than 4.20; strong on CaseLaw/CorpFin; **weak on coding/hard math** (13th place), so role-restricted to policy/governance lenses |
-
-### NOT YET wired anywhere in `aragora/agents/api_agents/`
-
-| Family | OpenRouter id | Reason to add |
-|---|---|---|
-| **GLM-4.6** (Zhipu) | `z-ai/glm-4.6` (or `zhipuai/glm-4.6`) | Strong reasoning + agentic; distinct family from DeepSeek; sane prices |
-| **MiniMax M2** | `minimax/minimax-m2` | Distinct training lineage; multimodal capable |
-| **Nous Hermes 4** (Western open-weight) | `nousresearch/hermes-4-405b` | Western-jurisdiction balance to the Chinese cluster |
-| **Gemini 3.5 Flash** (Western, agentic-tier) | `google/gemini-3.5-flash` | 4× faster, $1.50/$9, wins on agentic/coding benchmarks (76% Terminal-Bench 2.1, 84% MCP Atlas), loses on pure reasoning vs 3.1 Pro — both have a place |
-| **Grok 4.3** (Western, recent) | `x-ai/grok-4.3` | Released 2026-05-06; 20% cheaper than 4.20; strong on CaseLaw/CorpFin; **weak on coding/hard math**, so role-restricted to policy/governance lenses |
+| **Grok 4.3** (Western, May 2026) | `x-ai/grok-4.3` | Current xAI/OpenRouter listing with 1M context and low token price; role-restricted to policy/governance reviewer lenses until local evals prove broader coding value |
 
 ## Family-by-Tier-by-Jurisdiction privacy contract
 
@@ -137,7 +127,7 @@ gate for high-Tier work.
 | 1 (additive internal, no live caller) | ✓ counted | ✓ counted |
 | 2 (live automation, CLI, observability, retry, cache) | ✓ counted | ✓ counted; **at least 1 of the 2 required signals must be Western** |
 | 3 (semantic correctness, persistence, security, public API, migrations) | ✓ counted | **Advisory-only — not counted toward quorum** |
-| 4 (secrets, deployment, workflow policy, destructive ops, merge-authority self-mod) | ✓ counted | **Advisory-only — not counted; one signal must be Anthropic or OpenAI** |
+| 4 (secrets, deployment, workflow policy, destructive ops, merge-authority self-mod) | ✓ counted — **Western-only counted quorum required** | **Advisory-only — not counted** |
 
 ### Privacy-jurisdiction-routing rule
 
@@ -151,6 +141,8 @@ jurisdiction eligibility:
 | Inbox triage features (low-information, no body) | ✓ | ✓ |
 | Inbox triage *raw email body* | ✓ if AWS Secrets Manager loaded | **✗ never** |
 | Customer PII / financials / credentials | ✓ if data-residency policy permits | **✗ never** |
+| Secrets, encryption keys, OAuth tokens | ✓ if data-residency policy permits | **✗ never** |
+| Private legal material (contracts, settlements, NDAs) | ✓ if data-residency policy permits | **✗ never** |
 | Healthcare / regulated data | Vertical-specific allowlist only | **✗ never** |
 
 ### Rationale
@@ -285,20 +277,21 @@ count.
 current state of the gate so the eventual Tier 4 patch has a regression
 target:
 
-1. `test_glm_marker_currently_unrecognized` — input mentions
-   `"GLM independent semantic review on head abc1234"`, asserts the
-   current recognizer returns `unknown_model_reviewer`. After the Tier 4
-   patch lands this test will need to be inverted (or replaced).
-2. `test_minimax_marker_currently_unrecognized` — same shape, MiniMax.
-3. `test_yi_marker_currently_unrecognized` — same shape, Yi.
-4. `test_hermes_marker_currently_unrecognized` — same shape, Nous Hermes.
-5. `test_existing_recognizers_still_work` — sanity that the existing
-   claude/openai/gemini/grok/mistral/deepseek/qwen/kimi markers still
-   resolve correctly. This is the regression floor — the Tier 4 patch
-   must keep these passing.
-6. `test_unknown_garbage_stays_unknown` — input that mentions no model
+1. `test_existing_recognizers_still_resolve` — sanity that the seven
+   families recognized today (`claude`, `codex`, `gemini`, `grok`,
+   `tesla`, `harvey`, `factory`) stay recognized. This is the regression
+   floor — the Tier 4 patch must keep these passing.
+2. `test_proposed_family_markers_currently_unrecognized` — parameterized
+   gap-of-record for already-routed-but-uncounted families (OpenAI,
+   Anthropic, Mistral/Codestral, DeepSeek, Qwen, Kimi/Moonshot) plus new
+   proposed additions (GLM/Zhipu/Z-AI, MiniMax, Yi, Nous/Hermes).
+   After the Tier 4 patch lands this test will need to be inverted (or
+   replaced with a positive-recognition suite).
+3. `test_unknown_garbage_stays_unknown` — input that mentions no model
    family at all returns `unknown_model_reviewer`. Guards against
    over-eager recognizers that match arbitrary substrings.
+4. `test_recognizer_is_case_insensitive` — pins current lowercase
+   matching behavior for existing recognized families.
 
 These tests are *governance tests* and live under `tests/governance/` so
 they can be required CI for any future change to the recognizer.
@@ -367,6 +360,18 @@ Verify against provider docs/API listings and document any mismatch":
 | Mistral | `mistralai/mistral-large-*` | (operator's posture: retained for EU/regulatory diversity; not a preferred capability reviewer) | aligned | none on pin; tier-policy demotion captured in principles doc |
 | Open-weight (DeepSeek/Qwen/Kimi/Yi) | various (`deepseek/v3.2`, `qwen/qwen3-max`, `moonshotai/kimi-k2.6`, `01-ai/yi-large`) | match provider model pages | aligned | recognizer additions only |
 | GLM / MiniMax / Hermes | not yet wired | `z-ai/glm-4.6`, `minimax/minimax-m2`, `nousresearch/hermes-4-405b` | new wirings needed | wire in `api_agents/openrouter.py` alongside recognizer additions |
+
+Sources checked: Anthropic Claude Opus page
+(`https://www.anthropic.com/claude/opus`), OpenAI models page
+(`https://developers.openai.com/api/docs/models`), Google DeepMind Gemini
+3.5 Flash model card
+(`https://deepmind.google/models/model-cards/gemini-3-5-flash/`), xAI Grok
+4.3 docs (`https://docs.x.ai/developers/models/grok-4.3`), and OpenRouter's
+Grok 4.3 listing (`https://openrouter.ai/x-ai/grok-4.3`). The OpenAI
+`gpt-5.5` row was rechecked against official OpenAI docs on 2026-05-26
+after one stale search snippet briefly suggested an older `gpt-5.2` latest
+link; the canonical model index and model detail page both confirmed
+`gpt-5.5`.
 
 **Mismatch tally:** **0 hard mismatches** between repo pins and provider-
 official IDs. **2 "lagging on newest variant" cases**: Gemini 3.5 Flash
