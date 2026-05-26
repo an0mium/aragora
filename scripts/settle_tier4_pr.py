@@ -136,7 +136,11 @@ def _is_trusted_operator_author(
     if association not in TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS:
         return False
     login = _author_login(item)
-    return login in trusted_operator_logins and permission_checker(login)
+    if not login:
+        return False
+    if trusted_operator_logins and login not in trusted_operator_logins:
+        return False
+    return permission_checker(login)
 
 
 def _state_is_success(value: Any) -> bool:
@@ -191,17 +195,25 @@ def _packet_has_counted_tier4_evidence(merge_packet: dict[str, Any], *, pr: int)
 def _comment_authorizes_requested_action(
     body: str, *, require_branch_protection_token: bool
 ) -> bool:
-    lowered = body.lower()
-    if not any(token in lowered for token in AUTHORIZED_MERGE_TOKENS):
+    actions = _comment_authorized_actions(body)
+    if "merge" not in actions:
         return False
-    if require_branch_protection_token and not any(
-        token in lowered for token in AUTHORIZED_PROTECTION_TOKENS
-    ):
+    if require_branch_protection_token and "branch_protection" not in actions:
         return False
     return True
 
 
-def has_operator_authorization(
+def _comment_authorized_actions(body: str) -> set[str]:
+    lowered = body.lower()
+    actions: set[str] = set()
+    if any(token in lowered for token in AUTHORIZED_MERGE_TOKENS):
+        actions.add("merge")
+    if any(token in lowered for token in AUTHORIZED_PROTECTION_TOKENS):
+        actions.add("branch_protection")
+    return actions
+
+
+def _operator_authorized_actions(
     pr_view: dict[str, Any],
     *,
     pr: int,
@@ -213,13 +225,13 @@ def has_operator_authorization(
     cwd: Path | None = None,
     trusted_operator_logins: Sequence[str] | None = None,
     permission_checker: PermissionChecker | None = None,
-) -> bool:
+) -> set[str]:
     if not _required_checks_are_green(required_checks):
-        return False
+        return set()
     if not _human_settlement_status_is_success(pr_view):
-        return False
+        return set()
     if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
-        return False
+        return set()
 
     head_committed_at = _head_committed_at(pr_view)
     allowed_logins = _trusted_operator_logins(trusted_operator_logins)
@@ -241,8 +253,37 @@ def has_operator_authorization(
         if _comment_authorizes_requested_action(
             body, require_branch_protection_token=require_branch_protection_token
         ):
-            return True
-    return False
+            return _comment_authorized_actions(body)
+    return set()
+
+
+def has_operator_authorization(
+    pr_view: dict[str, Any],
+    *,
+    pr: int,
+    head: str,
+    merge_packet: dict[str, Any],
+    required_checks: list[dict[str, Any]] | None = None,
+    require_branch_protection_token: bool = False,
+    repo: str = DEFAULT_REPO,
+    cwd: Path | None = None,
+    trusted_operator_logins: Sequence[str] | None = None,
+    permission_checker: PermissionChecker | None = None,
+) -> bool:
+    return bool(
+        _operator_authorized_actions(
+            pr_view,
+            pr=pr,
+            head=head,
+            merge_packet=merge_packet,
+            required_checks=required_checks,
+            require_branch_protection_token=require_branch_protection_token,
+            repo=repo,
+            cwd=cwd,
+            trusted_operator_logins=trusted_operator_logins,
+            permission_checker=permission_checker,
+        )
+    )
 
 
 def _entry_for_pr(merge_packet: dict[str, Any], *, pr: int) -> dict[str, Any] | None:
@@ -305,19 +346,22 @@ def evaluate_tier4_gate(
         unexpected = sorted({str(item) for item in not_ready} - allowed_not_ready)
         if unexpected:
             blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
-    if actual_head == expected_head and not has_operator_authorization(
-        pr_view,
-        pr=pr,
-        head=expected_head,
-        merge_packet=merge_packet,
-        required_checks=required_checks,
-        require_branch_protection_token=require_branch_protection_token,
-        repo=repo,
-        cwd=cwd,
-        trusted_operator_logins=trusted_operator_logins,
-        permission_checker=permission_checker,
-    ):
-        blockers.append("missing repo-visible Tier 4 operator settlement comment")
+    authorized_actions: set[str] = set()
+    if actual_head == expected_head:
+        authorized_actions = _operator_authorized_actions(
+            pr_view,
+            pr=pr,
+            head=expected_head,
+            merge_packet=merge_packet,
+            required_checks=required_checks,
+            require_branch_protection_token=require_branch_protection_token,
+            repo=repo,
+            cwd=cwd,
+            trusted_operator_logins=trusted_operator_logins,
+            permission_checker=permission_checker,
+        )
+        if not authorized_actions:
+            blockers.append("missing repo-visible Tier 4 operator settlement comment")
 
     return {
         "ok": not blockers,
@@ -326,6 +370,7 @@ def evaluate_tier4_gate(
         "actual_head": actual_head,
         "merge_state": merge_state,
         "blockers": blockers,
+        "authorized_actions": sorted(authorized_actions),
     }
 
 
@@ -490,9 +535,18 @@ def _restore_branch_protection(*, repo: str, cwd: Path, snapshot: dict[str, Any]
     return errors
 
 
-def _apply_settlement(*, pr: int, head: str, repo: str, cwd: Path) -> list[list[str]]:
+def _apply_settlement(
+    *,
+    pr: int,
+    head: str,
+    repo: str,
+    cwd: Path,
+    reconcile_branch_protection: bool = False,
+) -> list[list[str]]:
     commands: list[list[str]] = []
-    snapshot = _branch_protection_snapshot(repo=repo, cwd=cwd)
+    snapshot = (
+        _branch_protection_snapshot(repo=repo, cwd=cwd) if reconcile_branch_protection else {}
+    )
     merge_command = [
         "gh",
         "pr",
@@ -506,6 +560,9 @@ def _apply_settlement(*, pr: int, head: str, repo: str, cwd: Path) -> list[list[
     try:
         _run_command(merge_command, cwd=cwd)
         commands.append(merge_command)
+
+        if not reconcile_branch_protection:
+            return commands
 
         reviews_command = [
             "gh",
@@ -564,9 +621,10 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         help=(
-            "Allow a repo-visible MEMBER authorization comment from this login "
-            "when live GitHub collaborator permission is admin. Repeatable; "
-            f"also reads comma-separated {TRUSTED_OPERATOR_LOGINS_ENV}."
+            "Restrict repo-visible MEMBER authorization comments to this admin "
+            "login. Repeatable; also reads comma-separated "
+            f"{TRUSTED_OPERATOR_LOGINS_ENV}. If omitted, any live admin MEMBER "
+            f"may authorize when {HUMAN_SETTLEMENT_CONTEXT} is success."
         ),
     )
     parser.add_argument("--json", action="store_true")
@@ -583,7 +641,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             pr_view=pr_view,
             merge_packet=merge_packet,
             required_checks=required_checks,
-            require_branch_protection_token=bool(args.apply),
+            require_branch_protection_token=False,
             repo=args.repo,
             cwd=args.cwd,
             trusted_operator_logins=args.trusted_operator_login,
@@ -597,6 +655,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 head=args.head,
                 repo=args.repo,
                 cwd=args.cwd,
+                reconcile_branch_protection="branch_protection"
+                in set(gate.get("authorized_actions") or []),
             )
         out = {"gate": gate, "applied_commands": applied_commands}
     except RuntimeError as exc:
