@@ -4,7 +4,9 @@
 The script is intentionally read-only. It does not approve, comment, mark
 ready, rerun workflows, or merge. It gathers the repeated settlement gates into
 one report so a follow-up executor can make bounded progress without broad queue
-drain.
+drain. Live mode fails closed when `gh` cannot read branch-protection required
+check source metadata; app-pinned required checks must be satisfied by the
+expected GitHub App, not by manual status spoofing.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 CONVERGENCE_SENTENCE = (
     "If the prompt above accomplishes no incremental progress make the next prompt one "
@@ -271,6 +274,158 @@ def required_check_report(checks: Any) -> dict[str, Any]:
     return {"status": status, "blockers": blockers, "suggestions": suggestions}
 
 
+def _rollup_name(item: dict[str, Any]) -> str:
+    return str(item.get("name") or item.get("context") or "")
+
+
+def _rollup_success(item: dict[str, Any]) -> bool:
+    conclusion = str(item.get("conclusion") or "").upper()
+    if conclusion:
+        return conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL"}
+    state = str(item.get("state") or item.get("status") or "").upper()
+    return state in {"SUCCESS", "SKIPPED", "NEUTRAL"}
+
+
+def _check_run_app_id(item: dict[str, Any]) -> int | None:
+    """Extract the source GitHub App database id from common CheckRun shapes."""
+    direct = _coerce_int(item.get("app_id") or item.get("appId") or item.get("appDatabaseId"))
+    if direct is not None:
+        return direct
+
+    app = item.get("app")
+    if isinstance(app, dict):
+        app_id = _coerce_int(app.get("id") or app.get("databaseId"))
+        if app_id is not None:
+            return app_id
+
+    check_suite = item.get("checkSuite")
+    if isinstance(check_suite, dict):
+        suite_app = check_suite.get("app")
+        if isinstance(suite_app, dict):
+            return _coerce_int(suite_app.get("id") or suite_app.get("databaseId"))
+
+    return None
+
+
+def _check_runs_from_payload(payload: Any) -> list[dict[str, Any]]:
+    if isinstance(payload, dict):
+        check_runs = payload.get("check_runs") or payload.get("nodes") or []
+    else:
+        check_runs = payload
+    if not isinstance(check_runs, list):
+        return []
+    return [item for item in check_runs if isinstance(item, dict)]
+
+
+def required_check_source_report(
+    protection: Any,
+    pr_view: Any,
+    check_runs_payload: Any = None,
+) -> dict[str, Any]:
+    """Fail closed when an app-pinned required check is only a manual status.
+
+    GitHub branch protection may pin a required check context to a specific App.
+    In that case a manually posted commit status with the same context can look
+    green in `gh pr checks`, but GitHub will reject mergePullRequest because the
+    expected App did not set the check. The steward should surface that before
+    an executor tries to merge.
+    """
+    if not isinstance(protection, dict):
+        return {
+            "status": "unknown",
+            "blockers": ["branch protection required_status_checks JSON unavailable"],
+            "suggestions": [
+                "ensure gh can read branch protection required_status_checks before settlement"
+            ],
+        }
+    if not isinstance(pr_view, dict):
+        return {
+            "status": "unknown",
+            "blockers": ["PR statusCheckRollup JSON unavailable"],
+            "suggestions": ["rerun gh pr view with statusCheckRollup before settlement"],
+        }
+
+    rollup = pr_view.get("statusCheckRollup") or []
+    if not isinstance(rollup, list):
+        return {
+            "status": "unknown",
+            "blockers": ["PR statusCheckRollup is not a list"],
+            "suggestions": ["rerun gh pr view with statusCheckRollup before settlement"],
+        }
+
+    check_runs = _check_runs_from_payload(check_runs_payload)
+    blockers: list[str] = []
+    suggestions: list[str] = []
+    for required in protection.get("checks") or []:
+        if not isinstance(required, dict):
+            continue
+        context = str(required.get("context") or "")
+        app_id = required.get("app_id")
+        if not context or app_id in (None, -1):
+            continue
+        expected_app_id = _coerce_int(app_id)
+        if expected_app_id is None:
+            blockers.append(f"{context} has unparseable pinned app_id {app_id!r}")
+            suggestions.append("inspect branch protection required_status_checks.checks")
+            continue
+
+        matching = [
+            item for item in rollup if isinstance(item, dict) and _rollup_name(item) == context
+        ]
+        matching_check_runs = [
+            item
+            for item in [*matching, *check_runs]
+            if _rollup_name(item) == context
+            and (item.get("__typename") == "CheckRun" or "app" in item or "checkSuite" in item)
+        ]
+        successful_check_runs = [item for item in matching_check_runs if _rollup_success(item)]
+        successful_expected_app_runs = [
+            item for item in successful_check_runs if _check_run_app_id(item) == expected_app_id
+        ]
+        if successful_expected_app_runs:
+            continue
+
+        has_successful_status = any(
+            item.get("__typename") == "StatusContext" and _rollup_success(item) for item in matching
+        )
+        observed_app_ids = sorted(
+            {
+                observed
+                for item in successful_check_runs
+                if (observed := _check_run_app_id(item)) is not None
+            }
+        )
+        has_unverified_successful_check_run = bool(successful_check_runs) and not observed_app_ids
+        if has_successful_status:
+            blockers.append(
+                f"{context} is app-pinned to app_id {expected_app_id}, but only a manual "
+                "StatusContext is green"
+            )
+            suggestions.append(
+                f"rerun the app-sourced {context} check; do not satisfy it with a manual status"
+            )
+        elif observed_app_ids:
+            blockers.append(
+                f"{context} is app-pinned to app_id {expected_app_id}, but successful "
+                f"CheckRun app_id(s) were {observed_app_ids}"
+            )
+            suggestions.append(f"rerun the app-sourced {context} check")
+        elif has_unverified_successful_check_run:
+            blockers.append(
+                f"{context} is app-pinned to app_id {expected_app_id}, but CheckRun "
+                "source app could not be verified"
+            )
+            suggestions.append("fetch commit check-runs with app metadata before settlement")
+        else:
+            blockers.append(
+                f"{context} is app-pinned to app_id {expected_app_id}, but no successful CheckRun is present"
+            )
+            suggestions.append(f"rerun the app-sourced {context} check")
+
+    status = "pass" if not blockers else "blocked"
+    return {"status": status, "blockers": blockers, "suggestions": suggestions}
+
+
 def validation_report(
     entry: dict[str, Any], *, cwd: Path, run_validation: bool
 ) -> list[dict[str, Any]]:
@@ -420,12 +575,48 @@ def build_report(
                 "view",
                 str(pr_number),
                 "--json",
-                "number,state,isDraft,headRefOid,headRefName,mergeable,mergeStateStatus,statusCheckRollup",
+                (
+                    "number,state,isDraft,headRefOid,headRefName,baseRefName,mergeable,"
+                    "mergeStateStatus,statusCheckRollup"
+                ),
             ],
             cwd=cwd,
         )
         report["pr_view_check"] = view_cmd
         blockers.extend(head_blockers(selected, pr_view))
+
+        base_ref = "main"
+        if isinstance(pr_view, dict):
+            base_ref = str(pr_view.get("baseRefName") or base_ref)
+        protected_branch = quote(base_ref, safe="")
+
+        protection, protection_cmd = _run_json(
+            [
+                "gh",
+                "api",
+                f"repos/{{owner}}/{{repo}}/branches/{protected_branch}/protection/required_status_checks",
+            ],
+            cwd=cwd,
+        )
+        report["required_check_source_command"] = protection_cmd
+
+        head_ref = report["head_sha"]
+        if isinstance(pr_view, dict):
+            head_ref = str(pr_view.get("headRefOid") or head_ref)
+        check_runs_payload, check_runs_cmd = _run_json(
+            [
+                "gh",
+                "api",
+                f"repos/{{owner}}/{{repo}}/commits/{head_ref}/check-runs?per_page=100",
+                "--jq",
+                (
+                    "{check_runs: [.check_runs[] | "
+                    "{name, status, conclusion, app: {id: .app.id, slug: .app.slug}}]}"
+                ),
+            ],
+            cwd=cwd,
+        )
+        report["check_run_source_command"] = check_runs_cmd
 
         required_checks, required_cmd = _run_json(
             [
@@ -445,13 +636,22 @@ def build_report(
         blockers.extend(check_report["blockers"])
         report["suggested_commands"].extend(check_report["suggestions"])
 
+        source_report = required_check_source_report(protection, pr_view, check_runs_payload)
+        report["checks"]["required_sources"] = source_report
+        blockers.extend(source_report["blockers"])
+        report["suggested_commands"].extend(source_report.get("suggestions") or [])
+
     should_validate = validate and not blockers
     report["validation"] = validation_report(selected, cwd=cwd, run_validation=should_validate)
     for item in report["validation"]:
         if item.get("status") == "blocked":
             blockers.append(f"validation failed: {item.get('command')}")
 
-    if selected.get("admin_squash_allowed") and selected.get("status") == "satisfied":
+    if (
+        not blockers
+        and selected.get("admin_squash_allowed")
+        and selected.get("status") == "satisfied"
+    ):
         report["status"] = "packet_authorized_dry_run"
         report["suggested_commands"].append(
             f"gh pr merge {pr_number} --squash --match-head-commit {report['head_sha']}"

@@ -44,9 +44,48 @@ DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 _MEMORY_CONFIG_KEYS = {field.name for field in fields(MemoryConfig)}
 _ML_CONFIG_KEYS = {field.name for field in fields(MLConfig)}
 
+_AGENT_FAILURE_RESPONSE_MARKERS = (
+    "[system: agent ",
+    "[error generating proposal:",
+    "[no proposals available",
+    "agent timed out",
+    "connection failed",
+    "encountered an error",
+    "encountered an unexpected situation",
+    "something went wrong with",
+    "needs to restart their thought process",
+    "tripped over an edge case",
+    "experienced a minor cognitive hiccup",
+    "got confused and needs to recalibrate",
+    "a wild bug appeared",
+    "has achieved unexpected behavior",
+    "fatal exception in",
+    "error 418:",
+)
+
 
 class _StrictWallClockTimeout(TimeoutError):
     """Raised when a hard wall-clock timeout expires."""
+
+
+def _looks_like_agent_failure_response(text: Any) -> bool:
+    """Detect autonomic failure placeholders that should not count as answers."""
+
+    normalized = str(text or "").strip().lower()
+    if not normalized:
+        return True
+    return any(marker in normalized for marker in _AGENT_FAILURE_RESPONSE_MARKERS)
+
+
+def _result_has_only_agent_failure_outputs(result: Any) -> bool:
+    """Return true when a debate produced only failure placeholders."""
+
+    proposals = getattr(result, "proposals", None)
+    if isinstance(proposals, dict) and proposals:
+        return all(_looks_like_agent_failure_response(value) for value in proposals.values())
+
+    final_answer = getattr(result, "final_answer", "")
+    return _looks_like_agent_failure_response(final_answer)
 
 
 @contextmanager
@@ -1911,6 +1950,46 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 file=sys.stderr,
             )
 
+    if not (force_local or offline):
+        from aragora.config.provider_readiness import (
+            agent_type_has_configured_provider,
+            agent_provider_options,
+            discover_provider_credentials,
+            format_provider_bootstrap_error,
+        )
+
+        credential_report = discover_provider_credentials()
+        requested_specs = parse_agents(agents)
+        provider_backed_specs = [
+            spec
+            for spec in requested_specs
+            if not agent_type_has_configured_provider(spec.provider, credential_report)
+        ]
+        if provider_backed_specs:
+            if not credential_report.any_configured:
+                print(format_provider_bootstrap_error(credential_report), file=sys.stderr)
+            else:
+                configured = ", ".join(credential_report.configured_providers)
+                print(
+                    "One or more selected agent providers are not configured.",
+                    file=sys.stderr,
+                )
+                print(f"Configured providers: {configured}", file=sys.stderr)
+                for spec in provider_backed_specs:
+                    options = agent_provider_options(spec.provider)
+                    required = ", ".join(options) if options else spec.provider
+                    print(
+                        f"  - {spec.provider}: requires one of {required}",
+                        file=sys.stderr,
+                    )
+                print(
+                    "Run "
+                    f"'aragora validate-env --smoke --agents {agents} --verbose' "
+                    "and select only configured agents.",
+                    file=sys.stderr,
+                )
+            raise SystemExit(1)
+
     explain = getattr(args, "explain", False)
 
     # Apply preset configuration if specified
@@ -2658,6 +2737,14 @@ def cmd_ask(args: argparse.Namespace) -> None:
         raise SystemExit(1)
     except RuntimeError as e:
         print(f"Debate failed quality gate: {e}", file=sys.stderr)
+        raise SystemExit(1)
+
+    if _result_has_only_agent_failure_outputs(result):
+        print(
+            "Debate failed: all selected agents returned provider/error placeholders. "
+            f"Run 'aragora validate-env --smoke --agents {agents} --verbose' and retry.",
+            file=sys.stderr,
+        )
         raise SystemExit(1)
 
     print("\n" + "=" * 60)

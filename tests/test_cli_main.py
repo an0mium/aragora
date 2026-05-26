@@ -306,10 +306,11 @@ class TestPlansExecuteParser:
 class TestCommandHandlers:
     """Tests for command handler functions."""
 
-    def test_cmd_ask_runs_debate(self):
+    def test_cmd_ask_runs_debate(self, monkeypatch):
         """Should run debate with parsed arguments."""
         from aragora.cli.main import cmd_ask
 
+        monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
         args = argparse.Namespace(
             task="Test task",
             agents="codex,claude",
@@ -320,6 +321,7 @@ class TestCommandHandlers:
             db="test.db",
             verbose=False,
             demo=False,
+            post_consensus_quality=False,
         )
 
         with patch("aragora.cli.commands.debate._is_server_available", return_value=False):
@@ -332,6 +334,83 @@ class TestCommandHandlers:
                 cmd_ask(args)
 
                 mock_run.assert_called_once()
+
+    def test_cmd_ask_exits_when_selected_agent_provider_is_missing(self, monkeypatch, capsys):
+        """Should fail before debate when any selected provider cannot be configured."""
+        from aragora.cli.main import cmd_ask
+
+        monkeypatch.setenv("GROK_API_KEY", "test-grok-key")
+        monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+        args = argparse.Namespace(
+            task="Test task",
+            agents="grok,mistral",
+            rounds=1,
+            consensus="majority",
+            context="",
+            learn=False,
+            db="test.db",
+            verbose=False,
+            demo=False,
+            post_consensus_quality=False,
+        )
+
+        with patch("aragora.cli.commands.debate._is_server_available", return_value=False):
+            with pytest.raises(SystemExit) as exc:
+                cmd_ask(args)
+
+        assert exc.value.code == 1
+        captured = capsys.readouterr()
+        assert "selected agent providers are not configured" in captured.err
+        assert "mistral" in captured.err
+        assert "aragora validate-env --smoke --agents grok,mistral --verbose" in captured.err
+
+    def test_cmd_ask_exits_when_all_agents_return_failure_placeholders(self, monkeypatch, capsys):
+        """Provider smoke should fail when autonomic placeholders are the only output."""
+        from aragora.cli.main import cmd_ask
+
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        args = argparse.Namespace(
+            task="Test task",
+            agents="openai",
+            rounds=1,
+            consensus="majority",
+            context="",
+            learn=False,
+            db="test.db",
+            verbose=False,
+            demo=False,
+            post_consensus_quality=False,
+        )
+        mock_result = MagicMock()
+        mock_result.final_answer = "A wild bug appeared! openai is handling it."
+        mock_result.proposals = {"openai_proposer": "A wild bug appeared! openai is handling it."}
+
+        with patch("aragora.cli.commands.debate._is_server_available", return_value=False):
+            with patch(
+                "aragora.cli.commands.debate.run_debate",
+                new=AsyncMock(return_value=mock_result),
+            ):
+                with pytest.raises(SystemExit) as exc:
+                    cmd_ask(args)
+
+        assert exc.value.code == 1
+        captured = capsys.readouterr()
+        assert "all selected agents returned provider/error placeholders" in captured.err
+        assert "aragora validate-env --smoke --agents openai --verbose" in captured.err
+
+    def test_agent_failure_detection_keeps_mixed_successful_debates(self):
+        """A valid response from any agent keeps graceful degradation semantics."""
+        from aragora.cli.commands.debate import _result_has_only_agent_failure_outputs
+
+        result = MagicMock()
+        result.final_answer = "Valid synthesis"
+        result.proposals = {
+            "gemini_proposer": "A wild bug appeared! gemini is handling it.",
+            "openai_critic": "A concrete answer from a live provider.",
+        }
+
+        assert _result_has_only_agent_failure_outputs(result) is False
 
     def test_cmd_stats_shows_statistics(self):
         """Should display memory statistics."""

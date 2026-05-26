@@ -1259,6 +1259,22 @@ def _add_validate_env_parser(subparsers) -> None:
     validate_env_parser.add_argument(
         "--strict", "-s", action="store_true", help="Fail on warnings (for CI/CD enforcement)"
     )
+    validate_env_parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Run a tiny live provider answer smoke test for selected agents",
+    )
+    validate_env_parser.add_argument(
+        "--agents",
+        default="",
+        help="Comma-separated agents to smoke-test, for example: gemini,grok",
+    )
+    validate_env_parser.add_argument(
+        "--smoke-timeout",
+        type=float,
+        default=20.0,
+        help="Per-agent smoke-test timeout in seconds",
+    )
     validate_env_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_validate_env"))
 
 

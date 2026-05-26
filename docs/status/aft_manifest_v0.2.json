@@ -1,0 +1,248 @@
+{
+  "adapter_artifacts": [
+    {
+      "files": {
+        "0000100_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "999f605507a3d9aa43d4a92f1d785d86d97b0d4ae0c4ddac5f216b7a75333fb2"
+        },
+        "0000200_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "74a88e0d09f83e733ce8a01f1d94993c21f9abc18611a2ab62f34cfc6b845260"
+        },
+        "0000300_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "4f52f2670a2855c47e953461b0d50b256f75e93a3ce0d2e290e1bc5ebc90db64"
+        },
+        "0000400_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "973ce0009ed8850dffce6d242938b7f020fcca4b8923655b98607fd8a1528b2c"
+        },
+        "0000500_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "0b1dd16b41709c43503e8c58e842c289d54dfedb36bb9a71e49f3c0c433a855d"
+        },
+        "0000600_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "95c43eeda3f87c3b7bf10022242d917f2f90f875618393a3829d0ae332ee2dd9"
+        },
+        "0000700_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "48f3984fe423a5342ca228b36956e0a28df9210d2968e0a1207639076d8aee07"
+        },
+        "0000800_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "c67655e3331441f4c05fce55d075226b54bfd199d8b053f6c21f83de12dd7f56"
+        },
+        "0000900_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "ba4b41862c9eeaae87b2e36b926d3346c08c0969df516be45c2186b8b1414c4c"
+        },
+        "0001000_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "1ab7ac406f9e8f7dc8a131ca1acb9421b247493eedb52735140a5f063233ac89"
+        },
+        "0001100_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "b6b45d518e7427e0d96b851f2b7d49bf1771111c2f62f6de6f6df4532c1bba6c"
+        },
+        "0001200_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "f09aed9086e24416edbe4b3f4a9410175001d2f15655347caacb8569879f4052"
+        },
+        "0001300_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "33da8a935755dc0a376533e8fc89acae21e0107e04ae90d07d3f2cdee33bc68d"
+        },
+        "0001400_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "0236497805fbb66cbd262e12ce35483d6a767a21dc80238c8cb3ccf531362ed9"
+        },
+        "0001500_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "b6bc6f63ee155cc1a6c181bee78bb0ee76993dc1eb170f09070d92247972b7e4"
+        },
+        "adapter_config.json": {
+          "bytes": 979,
+          "sha256": "b4786b24034b948c2080a61e0e114935d38df9f81eea10aef3c8d388cb713748"
+        },
+        "adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "b6bc6f63ee155cc1a6c181bee78bb0ee76993dc1eb170f09070d92247972b7e4"
+        }
+      },
+      "path": "artifacts/advocates/aft-qwen7b-r2"
+    },
+    {
+      "files": {
+        "0000100_adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "f02d237b774ff8afb89d6a935d7273553169d6204b5cb2b0f82930cae3ca6cc0"
+        },
+        "0000200_adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "256386622466c15b305ef48b870d6e7de6d916678ec337459cd694bab7694696"
+        },
+        "0000300_adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "e6e133830ff231cbb2514da2ac18920359dfbc38cc2ef3a4a0689d5fb45c4c69"
+        },
+        "0000400_adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "1ba8a11908a9cc2cb731592a7523a07ab3af9aa404ee47db383306fa9588022a"
+        },
+        "0000500_adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "f1e50bee6126e4976eb780ecf005ace9c4b9c6f1bb2c41647c6e5cfad5c9f2ab"
+        },
+        "adapter_config.json": {
+          "bytes": 987,
+          "sha256": "35702ded76f869e06cadf6b8e83da90c162e539e327fae00a12a3aa38fefefad"
+        },
+        "adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "f1e50bee6126e4976eb780ecf005ace9c4b9c6f1bb2c41647c6e5cfad5c9f2ab"
+        }
+      },
+      "path": "artifacts/advocates/aft-pilot-llama1b-500"
+    },
+    {
+      "files": {
+        "0000100_adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "8717b7acc87498f68fe8956c34439deab97540841a81d2b1e8060e8ee30a0fe1"
+        },
+        "0000200_adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "f67edf01f964e12a8ab2fac44371eec325cdf557b5560b4b7afad980b6d00a77"
+        },
+        "0000300_adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "a28ecc46b8199f1afca344a6e7752c3e8db6eb12a241a40d0bc6b086021967a8"
+        },
+        "0000400_adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "203ef68aed972cc3cc9e7d0af378954cde9aa5afa4d384e320a511b33c702122"
+        },
+        "0000500_adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "742e195a44486d44a7a172775d61d607676efbd270980b773d6243867ba4e831"
+        },
+        "adapter_config.json": {
+          "bytes": 1197,
+          "sha256": "5a7b7fead5038039212300a830395199860efb2aace713e040ce141b52f1bd97"
+        },
+        "adapters.safetensors": {
+          "bytes": 11284092,
+          "sha256": "742e195a44486d44a7a172775d61d607676efbd270980b773d6243867ba4e831"
+        }
+      },
+      "path": "artifacts/advocates/seeded/mlx-community_Llama-3.2-1B-Instruct-4bit__seed_00017"
+    },
+    {
+      "files": {
+        "0000100_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "077e5bc765bc25f808fa3f926f335184c8541ded44f54697069af1cbaafb23ff"
+        },
+        "0000200_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "fa6a058830e887ffe029b801edf7dedb420a0c9564cc54222d35ffa5116ff2cd"
+        },
+        "0000300_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "0155cfcfdeb5700d1c24ed5ba7c3c60553e441d1fae1c0c6389f7db29d1ca0e6"
+        },
+        "0000400_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "af8f7e9000299725a29206421cee8f94d77503a8f06feb79c4587384b43d5095"
+        },
+        "0000500_adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "9dfced2cabe78df833591a9646cd67c85975e7ebb7f51a4ac28fa59cfd5bc2eb"
+        },
+        "adapter_config.json": {
+          "bytes": 1040,
+          "sha256": "33f6401a6b4bd08b0259d56f3fc31495a7c37a53a4f067af75b2bf7c0f713ad6"
+        },
+        "adapters.safetensors": {
+          "bytes": 23080740,
+          "sha256": "9dfced2cabe78df833591a9646cd67c85975e7ebb7f51a4ac28fa59cfd5bc2eb"
+        }
+      },
+      "path": "artifacts/advocates/seeded/mlx-community_Qwen2.5-7B-Instruct-4bit__seed_00017"
+    }
+  ],
+  "corpus": {
+    "bytes": 350771,
+    "path": "data/aft/pr_triage_corpus.jsonl",
+    "sha256": "54d7ac936f8aea831b395f9de3a3e32dcea5d78f76cbc392da028d85a870964e"
+  },
+  "environment": {
+    "cwd": "/Users/armand/Development/aragora/.claude/worktrees/aft-advocate-feasibility",
+    "hostname": "MacBook-Pro-5.local",
+    "user": "armand"
+  },
+  "evaluation": {
+    "command": [],
+    "summaries": [
+      {
+        "bytes": 1514,
+        "path": "data/aft/results/aft_summary_20260523T034214Z.json",
+        "sha256": "9ae600da713a8d210dd9ac092d2af6ab9d52636e9847fbebefcf9040c8f8283b"
+      },
+      {
+        "bytes": 1496,
+        "path": "data/aft/results/aft_summary_20260523T034306Z.json",
+        "sha256": "8826a4546a52c01bb6633fef805e9479b6103dd257fc9df6937ef923f9cc6c62"
+      },
+      {
+        "bytes": 1490,
+        "path": "data/aft/results/aft_summary_20260523T032248Z.json",
+        "sha256": "e8047f8b44872b36c278f9d0b1428fce19c74737b1e49f85dfc72d0ffe2d52b8"
+      },
+      {
+        "bytes": 458,
+        "path": "data/aft/results/aft_summary_20260523T032532Z.json",
+        "sha256": "b3b08155dca3b4b97937d8c58aaa2a03ef6c2d79db8b73c29b5fe7393d3b5eb3"
+      }
+    ]
+  },
+  "generated_at": "2026-05-23T19:21:46.986449+00:00",
+  "git": {
+    "branch": "worktree-aft-advocate-feasibility",
+    "dirty": true,
+    "head_sha": "d73bfbc8f95c971b6051a1d79c1757659ff366fe",
+    "head_short": "d73bfbc8f9"
+  },
+  "holdout_size": 78,
+  "model": {
+    "huggingface_url": "https://huggingface.co/mlx-community/Llama-3.2-1B-Instruct-4bit AND mlx-community/Qwen2.5-7B-Instruct-4bit",
+    "name": "mlx-community/Llama-3.2-1B-Instruct-4bit AND mlx-community/Qwen2.5-7B-Instruct-4bit",
+    "revision": "unpinned"
+  },
+  "notes": "v0.2 tightened: repaired frontier prompt + clean per-seed train-eval. See docs/status/AFT_RESULT_v0.2.md for verdict.",
+  "schema_version": "aft-manifest/0.1",
+  "seeds": [
+    17,
+    23,
+    42,
+    71,
+    99
+  ],
+  "tool_versions": {
+    "huggingface_hub": "1.16.1",
+    "mlx": "unknown",
+    "mlx_lm": "0.31.3",
+    "platform": "macOS-26.2-arm64-arm-64bit",
+    "python": "3.11.11",
+    "transformers": "5.9.0"
+  },
+  "training_args": {
+    "batch_size": 2,
+    "fine_tune_type": "lora",
+    "iters": 500,
+    "learning_rate": 0.0001,
+    "num_layers": 8
+  }
+}

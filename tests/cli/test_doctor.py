@@ -24,6 +24,15 @@ from aragora.cli.doctor import (
     print_section,
 )
 
+from aragora.config.provider_readiness import PROVIDER_CREDENTIAL_SPECS
+
+
+def _clear_provider_env(monkeypatch):
+    for spec in PROVIDER_CREDENTIAL_SPECS:
+        for env_var in spec.env_vars:
+            monkeypatch.setenv(env_var, "")
+    monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "false")
+
 
 # ===========================================================================
 # Tests: check_icon
@@ -120,17 +129,9 @@ class TestCheckPackages:
 class TestCheckApiKeys:
     """Tests for check_api_keys function."""
 
-    @staticmethod
-    def _mock_secret_presence(monkeypatch, configured: set[str]) -> None:
-        def fake_presence(name: str, strict: bool | None = None) -> SimpleNamespace:
-            del strict
-            return SimpleNamespace(source="env" if name in configured else "missing")
-
-        monkeypatch.setattr("aragora.cli.doctor.get_secret_presence", fake_presence)
-
     def test_returns_list(self, monkeypatch):
         """Test returns a list of tuples."""
-        self._mock_secret_presence(monkeypatch, set())
+        _clear_provider_env(monkeypatch)
 
         result = check_api_keys()
         assert isinstance(result, list)
@@ -138,7 +139,7 @@ class TestCheckApiKeys:
 
     def test_no_llm_keys_shows_warning(self, monkeypatch):
         """Test warning when no LLM keys are set."""
-        self._mock_secret_presence(monkeypatch, set())
+        _clear_provider_env(monkeypatch)
 
         result = check_api_keys()
         names = [name for name, _, _ in result]
@@ -149,7 +150,8 @@ class TestCheckApiKeys:
 
     def test_anthropic_key_configured(self, monkeypatch):
         """Test Anthropic key detection."""
-        self._mock_secret_presence(monkeypatch, {"ANTHROPIC_API_KEY"})
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
         result = check_api_keys()
         anthropic = [item for item in result if item[0] == "ANTHROPIC_API_KEY"]
@@ -160,7 +162,8 @@ class TestCheckApiKeys:
 
     def test_openai_key_configured(self, monkeypatch):
         """Test OpenAI key detection."""
-        self._mock_secret_presence(monkeypatch, {"OPENAI_API_KEY"})
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         result = check_api_keys()
         openai = [item for item in result if item[0] == "OPENAI_API_KEY"]
@@ -171,7 +174,8 @@ class TestCheckApiKeys:
 
     def test_optional_keys_detected(self, monkeypatch):
         """Test optional API keys are detected."""
-        self._mock_secret_presence(monkeypatch, {"OPENROUTER_API_KEY"})
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
 
         result = check_api_keys()
         openrouter = [item for item in result if item[0] == "OPENROUTER_API_KEY"]
@@ -182,29 +186,33 @@ class TestCheckApiKeys:
 
     def test_gemini_only_counts_as_llm_provider(self, monkeypatch):
         """Gemini must satisfy the same provider requirement as validate-env."""
-        self._mock_secret_presence(monkeypatch, {"GEMINI_API_KEY"})
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
 
         result = check_api_keys()
         llm_provider = [item for item in result if item[0] == "LLM Provider"]
 
-        assert llm_provider == [("LLM Provider", "GEMINI_API_KEY", True)]
+        assert llm_provider == [("LLM Provider", "configured: gemini", True)]
 
     def test_google_and_grok_aliases_count_as_llm_providers(self, monkeypatch):
         """Provider aliases should not produce a doctor/validate-env disagreement."""
-        self._mock_secret_presence(monkeypatch, {"GOOGLE_API_KEY", "GROK_API_KEY"})
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+        monkeypatch.setenv("GROK_API_KEY", "test-key")
 
         result = check_api_keys()
-        gemini = [item for item in result if item[0] == "GEMINI_API_KEY"]
-        xai = [item for item in result if item[0] == "XAI_API_KEY"]
+        gemini = [item for item in result if item[0] == "GEMINI_API_KEY/GOOGLE_API_KEY"]
+        xai = [item for item in result if item[0] == "XAI_API_KEY/GROK_API_KEY"]
         llm_provider = [item for item in result if item[0] == "LLM Provider"]
 
-        assert gemini == [("GEMINI_API_KEY", "configured via GOOGLE_API_KEY", True)]
-        assert xai == [("XAI_API_KEY", "configured via GROK_API_KEY", True)]
-        assert llm_provider == [("LLM Provider", "GEMINI_API_KEY, XAI_API_KEY", True)]
+        assert gemini == [("GEMINI_API_KEY/GOOGLE_API_KEY", "configured", True)]
+        assert xai == [("XAI_API_KEY/GROK_API_KEY", "configured", True)]
+        assert llm_provider == [("LLM Provider", "configured: gemini, xai", True)]
 
     def test_live_validation_marks_rejected_provider_unready(self, monkeypatch):
         """doctor --validate should not treat an expired configured key as ready."""
-        self._mock_secret_presence(monkeypatch, {"GEMINI_API_KEY"})
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
 
         def fake_validate_provider_key(provider: str) -> SimpleNamespace:
             assert provider == "gemini"
@@ -220,17 +228,17 @@ class TestCheckApiKeys:
         )
 
         result = check_api_keys(validate_live=True)
-        gemini = [item for item in result if item[0] == "GEMINI_API_KEY"]
+        gemini = [item for item in result if item[0] == "GEMINI_API_KEY/GOOGLE_API_KEY"]
         llm_provider = [item for item in result if item[0] == "LLM Provider"]
 
         assert gemini == [
             (
-                "GEMINI_API_KEY",
+                "GEMINI_API_KEY/GOOGLE_API_KEY",
                 "configured; live invalid: Provider rejected the API key",
                 False,
             )
         ]
-        assert llm_provider == [("LLM Provider", "invalid provider(s): GEMINI_API_KEY", False)]
+        assert llm_provider == [("LLM Provider", "invalid provider(s): gemini", False)]
 
 
 # ===========================================================================
@@ -432,9 +440,8 @@ class TestMain:
 
     def test_returns_1_when_checks_fail(self, monkeypatch):
         """Test returns 1 when checks fail."""
-        # Remove all LLM keys to cause failure
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        # Remove all provider keys to cause failure
+        _clear_provider_env(monkeypatch)
 
         with patch("aragora.cli.doctor.check_server", new=AsyncMock(return_value=[])):
             result = main()

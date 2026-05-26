@@ -17,38 +17,9 @@ import os
 import sys
 from pathlib import Path
 
-from aragora.config.secrets import get_secret_presence
-
-
-_AI_PROVIDER_KEYS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("ANTHROPIC_API_KEY", ("ANTHROPIC_API_KEY",)),
-    ("OPENAI_API_KEY", ("OPENAI_API_KEY",)),
-    ("OPENROUTER_API_KEY", ("OPENROUTER_API_KEY",)),
-    ("GEMINI_API_KEY", ("GEMINI_API_KEY", "GOOGLE_API_KEY")),
-    ("MISTRAL_API_KEY", ("MISTRAL_API_KEY",)),
-    ("XAI_API_KEY", ("XAI_API_KEY", "GROK_API_KEY")),
-    ("DEEPSEEK_API_KEY", ("DEEPSEEK_API_KEY",)),
-)
-
-_VALIDATION_PROVIDER_BY_DISPLAY_KEY: dict[str, str] = {
-    "ANTHROPIC_API_KEY": "anthropic",
-    "OPENAI_API_KEY": "openai",
-    "OPENROUTER_API_KEY": "openrouter",
-    "GEMINI_API_KEY": "gemini",
-    "MISTRAL_API_KEY": "mistral",
-    "XAI_API_KEY": "grok",
-    "DEEPSEEK_API_KEY": "deepseek",
-}
+from aragora.config.provider_readiness import discover_provider_credentials
 
 HealthCheck = tuple[str, str, bool | None]
-
-
-def _configured_secret_var(env_vars: tuple[str, ...]) -> str | None:
-    """Return the first usable secret variable name from env/AWS-backed discovery."""
-    for env_var in env_vars:
-        if get_secret_presence(env_var).source in {"aws", "env"}:
-            return env_var
-    return None
 
 
 def check_icon(ok: bool | None) -> str:
@@ -103,43 +74,43 @@ def check_packages() -> list[HealthCheck]:
 def check_api_keys(validate_live: bool = False) -> list[HealthCheck]:
     """Check API key configuration."""
     checks: list[HealthCheck] = []
-
-    # At least one real provider is required. Keep this in sync with validate-env:
-    # env vars, .env hydration, AWS Secrets Manager, and provider aliases all count.
-    configured_providers = []
+    report = discover_provider_credentials()
     invalid_providers = []
-    for display_key, env_vars in _AI_PROVIDER_KEYS:
-        configured_var = _configured_secret_var(env_vars)
-        if configured_var:
-            configured_providers.append(display_key)
-            status = (
-                "configured"
-                if configured_var == display_key
-                else f"configured via {configured_var}"
-            )
+
+    for provider in report.providers:
+        env_label = "/".join(provider.checked_env_vars)
+        if provider.configured:
+            status = "configured"
             ok = True
             if validate_live:
-                provider_name = _VALIDATION_PROVIDER_BY_DISPLAY_KEY[display_key]
-                from aragora.cli.api_keys import validate_provider_key
+                from aragora.cli.api_keys import get_supported_provider_names, validate_provider_key
 
-                report = validate_provider_key(provider_name)
-                status = f"{status}; live {report.remote_status}"
-                if not report.is_valid:
-                    status = f"{status}: {report.message}"
-                    invalid_providers.append(display_key)
-                    ok = False
-            checks.append((display_key, status, ok))
+                validation_provider = "grok" if provider.provider == "xai" else provider.provider
+                if validation_provider in set(get_supported_provider_names()):
+                    validation_report = validate_provider_key(validation_provider)
+                    status = f"{status}; live {validation_report.remote_status}"
+                    if not validation_report.is_valid:
+                        status = f"{status}: {validation_report.message}"
+                        invalid_providers.append(provider.provider)
+                        ok = False
+                else:
+                    status = f"{status}; live skipped"
+            checks.append((env_label, status, ok))
         else:
-            checks.append((display_key, "not set", None))
+            checks.append((env_label, "not set", None))
 
     if invalid_providers:
         checks.append(
             ("LLM Provider", f"invalid provider(s): {', '.join(invalid_providers)}", False)
         )
-    elif configured_providers:
-        checks.append(("LLM Provider", ", ".join(configured_providers), True))
+    elif report.any_configured:
+        configured = ", ".join(report.configured_providers)
+        checks.append(("LLM Provider", f"configured: {configured}", True))
     else:
-        checks.append(("LLM Provider", "NO API KEY SET", False))
+        detail = "NO API KEY SET"
+        if report.discovery_errors:
+            detail += f" ({'; '.join(report.discovery_errors)})"
+        checks.append(("LLM Provider", detail, False))
 
     return checks
 

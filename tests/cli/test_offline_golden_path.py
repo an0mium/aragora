@@ -7,7 +7,8 @@ import argparse
 import gc
 import inspect
 import json
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -21,6 +22,20 @@ def _stub_cmd_ask_global_side_effects(request):
     async def _fake_shutdown() -> None:
         await asyncio.sleep(0)
 
+    provider_report = SimpleNamespace(
+        any_configured=True,
+        configured_providers=("anthropic", "openai", "gemini", "xai", "openrouter"),
+    )
+    provider_readiness_patches = (
+        patch(
+            "aragora.config.provider_readiness.discover_provider_credentials",
+            return_value=provider_report,
+        ),
+        patch(
+            "aragora.config.provider_readiness.agent_type_has_configured_provider",
+            return_value=True,
+        ),
+    )
     cleanup_sensitive_tests = {
         "test_cmd_ask_demo_forces_local_offline",
         # Demo quality finalization can leave selector sockets pending on
@@ -39,18 +54,24 @@ def _stub_cmd_ask_global_side_effects(request):
 
     receipt_patch = patch.object(debate_cmd, "_persist_debate_receipt", return_value=None)
     if request.node.name in cleanup_sensitive_tests:
-        with receipt_patch:
+        with ExitStack() as stack:
+            for provider_patch in provider_readiness_patches:
+                stack.enter_context(provider_patch)
+            stack.enter_context(receipt_patch)
             yield
         return
 
-    with (
-        patch.object(
-            debate_cmd,
-            "_shutdown_cmd_ask_resources",
-            new=AsyncMock(side_effect=_fake_shutdown),
-        ),
-        receipt_patch,
-    ):
+    with ExitStack() as stack:
+        for provider_patch in provider_readiness_patches:
+            stack.enter_context(provider_patch)
+        stack.enter_context(
+            patch.object(
+                debate_cmd,
+                "_shutdown_cmd_ask_resources",
+                new=AsyncMock(side_effect=_fake_shutdown),
+            )
+        )
+        stack.enter_context(receipt_patch)
         yield
 
 

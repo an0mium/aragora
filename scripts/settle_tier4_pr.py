@@ -9,17 +9,25 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 DEFAULT_REPO = "synaptent/aragora"
 AUTHORIZED_MARKER = "Tier-4 Human Settlement Authorization"
 AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 AUTHORIZED_PROTECTION_TOKENS = ("branch_protection_reconcile", "branch protection reconcile")
 TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS = {"OWNER"}
+TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"MEMBER"}
+TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
+PermissionChecker = Callable[[str], bool]
+HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
+SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
+MIN_TIER4_COUNTED_REVIEWER_IDS = 2
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
     "tier4_human_risk_settlement",
@@ -79,23 +87,159 @@ def _authorization_is_fresh(item: dict[str, Any], *, head_committed_at: str) -> 
     return _parse_timestamp(created_at) >= _parse_timestamp(head_committed_at)
 
 
-def has_operator_authorization(pr_view: dict[str, Any], *, head: str) -> bool:
+def _trusted_operator_logins(extra_logins: Sequence[str] | None = None) -> frozenset[str]:
+    configured = {
+        login.strip().lower()
+        for login in os.environ.get(TRUSTED_OPERATOR_LOGINS_ENV, "").split(",")
+        if login.strip()
+    }
+    explicit = {login.strip().lower() for login in extra_logins or () if login.strip()}
+    return frozenset(configured | explicit)
+
+
+def _author_login(item: dict[str, Any]) -> str:
+    author = item.get("author")
+    if isinstance(author, dict):
+        return str(author.get("login") or "").strip().lower()
+    if isinstance(author, str):
+        return author.strip().lower()
+    return ""
+
+
+def _collaborator_permission_is_admin(payload: dict[str, Any]) -> bool:
+    return (
+        str(payload.get("permission") or "").lower() == "admin"
+        or str(payload.get("role_name") or "").lower() == "admin"
+    )
+
+
+def _login_has_admin_permission(login: str, repo: str, cwd: Path | None) -> bool:
+    if not login:
+        return False
+    endpoint = f"repos/{repo}/collaborators/{quote(login, safe='')}/permission"
+    try:
+        payload = _run_json(["gh", "api", endpoint], cwd=cwd)
+    except RuntimeError:
+        return False
+    return _collaborator_permission_is_admin(payload)
+
+
+def _is_trusted_operator_author(
+    item: dict[str, Any],
+    *,
+    trusted_operator_logins: frozenset[str],
+    permission_checker: PermissionChecker,
+) -> bool:
+    association = str(item.get("authorAssociation") or "").upper()
+    if association in TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS:
+        return True
+    if association not in TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS:
+        return False
+    login = _author_login(item)
+    return login in trusted_operator_logins and permission_checker(login)
+
+
+def _state_is_success(value: Any) -> bool:
+    return str(value or "").upper() in SUCCESS_STATES
+
+
+def _required_checks_are_green(required_checks: list[dict[str, Any]] | None) -> bool:
+    if not required_checks:
+        return False
+    for check in required_checks:
+        state = check.get("state") or check.get("conclusion")
+        if not _state_is_success(state):
+            return False
+    return True
+
+
+def _human_settlement_status_is_success(pr_view: dict[str, Any]) -> bool:
+    rollup = pr_view.get("statusCheckRollup")
+    if not isinstance(rollup, list):
+        return False
+    for item in rollup:
+        if not isinstance(item, dict):
+            continue
+        context = str(item.get("context") or item.get("name") or "")
+        if context != HUMAN_SETTLEMENT_CONTEXT:
+            continue
+        state = item.get("state") or item.get("conclusion")
+        return _state_is_success(state)
+    return False
+
+
+def _packet_has_counted_tier4_evidence(merge_packet: dict[str, Any], *, pr: int) -> bool:
+    entry = _entry_for_pr(merge_packet, pr=pr)
+    if not entry:
+        return False
+    if bool(entry.get("unresolved_dissent")):
+        return False
+    counted = entry.get("counted_reviewer_ids")
+    counted_ids = (
+        {str(item).strip() for item in counted if isinstance(item, str) and str(item).strip()}
+        if isinstance(counted, list)
+        else set()
+    )
+    if len(counted_ids) < MIN_TIER4_COUNTED_REVIEWER_IDS:
+        return False
+    dogfood = entry.get("dogfood_evidence")
+    if not isinstance(dogfood, list) or not dogfood:
+        return False
+    return True
+
+
+def _comment_authorizes_requested_action(
+    body: str, *, require_branch_protection_token: bool
+) -> bool:
+    lowered = body.lower()
+    if not any(token in lowered for token in AUTHORIZED_MERGE_TOKENS):
+        return False
+    if require_branch_protection_token and not any(
+        token in lowered for token in AUTHORIZED_PROTECTION_TOKENS
+    ):
+        return False
+    return True
+
+
+def has_operator_authorization(
+    pr_view: dict[str, Any],
+    *,
+    pr: int,
+    head: str,
+    merge_packet: dict[str, Any],
+    required_checks: list[dict[str, Any]] | None = None,
+    require_branch_protection_token: bool = False,
+    repo: str = DEFAULT_REPO,
+    cwd: Path | None = None,
+    trusted_operator_logins: Sequence[str] | None = None,
+    permission_checker: PermissionChecker | None = None,
+) -> bool:
+    if not _required_checks_are_green(required_checks):
+        return False
+    if not _human_settlement_status_is_success(pr_view):
+        return False
+    if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
+        return False
+
     head_committed_at = _head_committed_at(pr_view)
+    allowed_logins = _trusted_operator_logins(trusted_operator_logins)
+    checker = permission_checker or (lambda login: _login_has_admin_permission(login, repo, cwd))
     for item in _text_items(pr_view):
         body = str(item.get("body") or "")
-        lowered = body.lower()
         if AUTHORIZED_MARKER not in body:
             continue
-        association = str(item.get("authorAssociation") or "").upper()
-        if association not in TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS:
+        if not _is_trusted_operator_author(
+            item,
+            trusted_operator_logins=allowed_logins,
+            permission_checker=checker,
+        ):
             continue
         if not _authorization_is_fresh(item, head_committed_at=head_committed_at):
             continue
         if head not in body:
             continue
-        if all(
-            any(token in lowered for token in token_group)
-            for token_group in (AUTHORIZED_MERGE_TOKENS, AUTHORIZED_PROTECTION_TOKENS)
+        if _comment_authorizes_requested_action(
+            body, require_branch_protection_token=require_branch_protection_token
         ):
             return True
     return False
@@ -131,6 +275,11 @@ def evaluate_tier4_gate(
     pr_view: dict[str, Any],
     merge_packet: dict[str, Any],
     required_checks: list[dict[str, Any]] | None = None,
+    require_branch_protection_token: bool = False,
+    repo: str = DEFAULT_REPO,
+    cwd: Path | None = None,
+    trusted_operator_logins: Sequence[str] | None = None,
+    permission_checker: PermissionChecker | None = None,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     actual_head = str(pr_view.get("headRefOid") or "")
@@ -146,7 +295,7 @@ def evaluate_tier4_gate(
     for check in required_checks or []:
         name = str(check.get("name") or check.get("workflow") or "required check")
         state = str(check.get("state") or check.get("conclusion") or "UNKNOWN").upper()
-        if state not in {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}:
+        if not _state_is_success(state):
             blockers.append(f"required check {name} is {state}")
     not_ready = merge_packet.get("not_ready")
     if isinstance(not_ready, list):
@@ -156,7 +305,18 @@ def evaluate_tier4_gate(
         unexpected = sorted({str(item) for item in not_ready} - allowed_not_ready)
         if unexpected:
             blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
-    if actual_head == expected_head and not has_operator_authorization(pr_view, head=expected_head):
+    if actual_head == expected_head and not has_operator_authorization(
+        pr_view,
+        pr=pr,
+        head=expected_head,
+        merge_packet=merge_packet,
+        required_checks=required_checks,
+        require_branch_protection_token=require_branch_protection_token,
+        repo=repo,
+        cwd=cwd,
+        trusted_operator_logins=trusted_operator_logins,
+        permission_checker=permission_checker,
+    ):
         blockers.append("missing repo-visible Tier 4 operator settlement comment")
 
     return {
@@ -202,7 +362,7 @@ def _load_live_inputs(
             "view",
             str(pr),
             "--json",
-            "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,url",
+            "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,statusCheckRollup,url",
         ],
         cwd=cwd,
     )
@@ -399,6 +559,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--head", required=True)
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--cwd", type=Path, default=Path.cwd())
+    parser.add_argument(
+        "--trusted-operator-login",
+        action="append",
+        default=[],
+        help=(
+            "Allow a repo-visible MEMBER authorization comment from this login "
+            "when live GitHub collaborator permission is admin. Repeatable; "
+            f"also reads comma-separated {TRUSTED_OPERATOR_LOGINS_ENV}."
+        ),
+    )
     parser.add_argument("--json", action="store_true")
     return parser
 
@@ -413,6 +583,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             pr_view=pr_view,
             merge_packet=merge_packet,
             required_checks=required_checks,
+            require_branch_protection_token=bool(args.apply),
+            repo=args.repo,
+            cwd=args.cwd,
+            trusted_operator_logins=args.trusted_operator_login,
         )
         applied_commands: list[list[str]] = []
         if args.apply:

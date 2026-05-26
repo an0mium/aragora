@@ -1,0 +1,345 @@
+#!/usr/bin/env python3
+"""AFT advocate shim.
+
+Reads one JSON object per line on stdin and writes one JSON object per line
+on stdout. Used by `scripts/aft_harness.py::LocalAdvocate` so the harness
+does not take a hard dependency on any particular inference backend.
+
+Backends
+--------
+
+  stub    : deterministic heuristic, no model needed; useful for end-to-end
+            plumbing tests.
+  mlx     : loads a base model + (optional) LoRA adapter via `mlx_lm`.
+  ollama  : routes to a local Ollama daemon over HTTP.
+  http    : routes to any OpenAI-chat-compatible endpoint (vLLM, llama.cpp
+            server, lmstudio, etc.).
+
+The stub backend is always available. Other backends fail closed if their
+dependency is missing — they emit a JSON line with `{"label": "open_aged",
+"confidence": 0.34, "error": "..."}` so the harness can carry on and so
+that condition is correctly tagged in the summary report.
+
+Input contract (one JSON object per line):
+    {
+      "pr_number": <int>,
+      "title_redacted": <str>,
+      "tier_hint": <str>,
+      "rationale_seeds": { ... }
+    }
+
+Output contract (one JSON object per line):
+    {
+      "label": "merged_fast|closed_no_merge|open_aged",
+      "confidence": <float 0..1>,
+      "backend": <str>           # informational
+    }
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import os
+import sys
+from typing import Any, Callable
+
+LOG = logging.getLogger("aft-advocate")
+CLASSES = ("merged_fast", "closed_no_merge", "open_aged")
+DEFAULT_LABEL = "open_aged"
+DEFAULT_CONFIDENCE = 0.34
+
+SYSTEM_PROMPT = (
+    "You are a per-operator PR-triage advocate. You see only low-information "
+    "metadata about one pull request (no diff, no comment bodies). Reply with "
+    "exactly one JSON object on a single line: "
+    '{"label": "merged_fast|closed_no_merge|open_aged", "confidence": <float 0..1>}. '
+    "Be honest about uncertainty: low confidence is acceptable and useful."
+)
+
+
+# -- Backends ----------------------------------------------------------------
+
+
+def stub_backend(task: dict) -> dict:
+    """Deterministic heuristic for plumbing tests.
+
+    Mirrors the LocalAdvocate stub in `scripts/aft_harness.py` so the
+    harness's `_stubbed` output is reproducible when the shim is invoked
+    with `--backend stub`.
+    """
+    seeds = task.get("rationale_seeds") or {}
+    tier = task.get("tier_hint", "unknown")
+    if seeds.get("label_count", 0) > 0 and seeds.get("has_reviews"):
+        return {"label": "merged_fast", "confidence": 0.7, "backend": "stub"}
+    if tier == "tier_4":
+        return {"label": "open_aged", "confidence": 0.75, "backend": "stub"}
+    if seeds.get("branch_namespace") in {"codex", "claude"} and not seeds.get("has_reviews"):
+        return {"label": "closed_no_merge", "confidence": 0.6, "backend": "stub"}
+    return {"label": "open_aged", "confidence": 0.45, "backend": "stub"}
+
+
+def _format_user_prompt(task: dict) -> str:
+    return (
+        f"pr_number: {task.get('pr_number')}\n"
+        f"title_redacted: {task.get('title_redacted', '')}\n"
+        f"tier_hint: {task.get('tier_hint', 'unknown')}\n"
+        f"rationale_seeds: {json.dumps(task.get('rationale_seeds', {}), sort_keys=True)}"
+    )
+
+
+def _parse_model_reply(text: str) -> dict:
+    """Parse a model reply into a {label, confidence} dict.
+
+    Resolution order:
+      1. Walk reply lines in reverse; first JSON object whose `label` is in
+         CLASSES wins (this is the trained-output happy path).
+      2. If no valid JSON is found, accept the reply ONLY if its entire
+         trimmed text is exactly a class token (bare-label answer like
+         `merged_fast\\n`). Anything else falls through.
+      3. Fall through: emit DEFAULT_LABEL with DEFAULT_CONFIDENCE.
+
+    The earlier implementation did a substring scan across the full reply
+    text and matched any class token appearing in prose — e.g., "Looks
+    like a merged_fast PR" silently became a positive prediction. That
+    was the defect flagged by the Tier-2 logic reviewer on PR #7438. The
+    fix narrows the post-JSON fallback to a strict exact-token match so
+    prose can never spoof a prediction; everything else falls through to
+    DEFAULT_LABEL / DEFAULT_CONFIDENCE, which is the safe, advisable
+    behavior for a downstream caller that gates on confidence.
+    """
+    text = (text or "").strip()
+    for line in reversed(text.splitlines()):
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        label = obj.get("label")
+        if label in CLASSES:
+            conf = float(obj.get("confidence", 0.5))
+            return {"label": label, "confidence": max(0.0, min(1.0, conf))}
+    bare = text.strip().lower()
+    if bare in CLASSES:
+        return {"label": bare, "confidence": DEFAULT_CONFIDENCE}
+    return {"label": DEFAULT_LABEL, "confidence": DEFAULT_CONFIDENCE}
+
+
+def make_mlx_backend(
+    model: str, adapter: str | None, max_tokens: int, temperature: float
+) -> Callable[[dict], dict]:
+    make_sampler: Any = None
+    try:
+        from mlx_lm import generate, load  # type: ignore
+
+        try:
+            from mlx_lm.sample_utils import (  # type: ignore  # noqa: F811
+                make_sampler,
+            )
+        except ImportError:
+            # older mlx-lm versions accept `temp=` directly; leave make_sampler=None
+            pass
+    except ImportError as exc:  # pragma: no cover - dependency
+        LOG.warning("mlx-lm not installed (%s); falling back to stub", exc)
+        err_msg = f"mlx-lm unavailable: {exc}"
+        return lambda task: dict(stub_backend(task), error=err_msg)
+
+    try:
+        loaded = load(model, adapter_path=adapter) if adapter else load(model)
+        # mlx_lm.load returns (model, tokenizer) by default; with
+        # return_config=True it returns a 3-tuple. We use the 2-tuple form.
+        mdl, tokenizer = loaded[0], loaded[1]
+    except Exception as exc:  # noqa: BLE001 - we surface, not crash
+        LOG.warning("mlx load failed for %s (%s); falling back to stub", model, exc)
+        err_msg = f"mlx load failed: {exc}"
+        return lambda task: dict(stub_backend(task), error=err_msg)
+
+    def _predict(task: dict) -> dict:
+        prompt = tokenizer.apply_chat_template(
+            [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": _format_user_prompt(task)},
+            ],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        gen_kwargs: dict = {"max_tokens": max_tokens}
+        if make_sampler is not None:
+            gen_kwargs["sampler"] = make_sampler(temp=temperature)
+        else:
+            gen_kwargs["temp"] = temperature
+        try:
+            text = generate(mdl, tokenizer, prompt=prompt, **gen_kwargs)
+        except Exception as exc:  # noqa: BLE001
+            return dict(stub_backend(task), error=f"mlx generate failed: {exc}")
+        parsed = _parse_model_reply(text)
+        parsed["backend"] = f"mlx:{model}" + (f"+{adapter}" if adapter else "")
+        return parsed
+
+    return _predict
+
+
+def make_ollama_backend(
+    model: str, host: str, max_tokens: int, temperature: float
+) -> Callable[[dict], dict]:
+    try:
+        import urllib.error
+        import urllib.request
+    except ImportError as exc:  # pragma: no cover
+        err_msg = f"urllib unavailable: {exc}"
+        return lambda task: dict(stub_backend(task), error=err_msg)
+
+    url = host.rstrip("/") + "/api/chat"
+
+    def _predict(task: dict) -> dict:
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": _format_user_prompt(task)},
+            ],
+            "stream": False,
+            "options": {"temperature": temperature, "num_predict": max_tokens},
+        }
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+            return dict(stub_backend(task), error=f"ollama call failed: {exc}")
+        text = (body.get("message") or {}).get("content", "")
+        parsed = _parse_model_reply(text)
+        parsed["backend"] = f"ollama:{model}"
+        return parsed
+
+    return _predict
+
+
+def make_http_backend(
+    model: str, url: str, api_key: str | None, max_tokens: int, temperature: float
+) -> Callable[[dict], dict]:
+    """OpenAI-chat-compatible endpoint (vLLM, llama.cpp server, LM Studio)."""
+    import urllib.request
+    import urllib.error
+
+    def _predict(task: dict) -> dict:
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": _format_user_prompt(task)},
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+            return dict(stub_backend(task), error=f"http call failed: {exc}")
+        try:
+            text = body["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            return dict(stub_backend(task), error=f"http response malformed: {exc}")
+        parsed = _parse_model_reply(text)
+        parsed["backend"] = f"http:{model}"
+        return parsed
+
+    return _predict
+
+
+# -- Driver ------------------------------------------------------------------
+
+
+def _resolve_backend(args: argparse.Namespace) -> Callable[[dict], dict]:
+    backend = args.backend
+    if backend == "stub":
+        return stub_backend
+    if backend == "mlx":
+        if not args.model:
+            LOG.error("--model required for mlx backend")
+            sys.exit(2)
+        return make_mlx_backend(args.model, args.adapter, args.max_tokens, args.temperature)
+    if backend == "ollama":
+        if not args.model:
+            LOG.error("--model required for ollama backend")
+            sys.exit(2)
+        return make_ollama_backend(args.model, args.host, args.max_tokens, args.temperature)
+    if backend == "http":
+        if not args.model or not args.url:
+            LOG.error("--model and --url required for http backend")
+            sys.exit(2)
+        api_key = os.environ.get("AFT_ADVOCATE_API_KEY") or args.api_key
+        return make_http_backend(args.model, args.url, api_key, args.max_tokens, args.temperature)
+    LOG.error("Unknown backend: %s", backend)
+    sys.exit(2)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="AFT advocate shim (JSONL stdin → JSONL stdout)")
+    parser.add_argument("--backend", choices=("stub", "mlx", "ollama", "http"), default="stub")
+    parser.add_argument("--model", default=None)
+    parser.add_argument("--adapter", default=None, help="LoRA adapter path (mlx only)")
+    parser.add_argument("--host", default="http://127.0.0.1:11434", help="Ollama host")
+    parser.add_argument("--url", default=None, help="OpenAI-compatible chat completions URL")
+    parser.add_argument("--api-key", default=None, help="API key (or set AFT_ADVOCATE_API_KEY)")
+    parser.add_argument("--max-tokens", type=int, default=64)
+    parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument("--verbose", "-v", action="store_true")
+    args = parser.parse_args(argv)
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s aft-advocate: %(message)s",
+        stream=sys.stderr,
+    )
+
+    predict = _resolve_backend(args)
+
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            task = json.loads(line)
+        except json.JSONDecodeError as exc:
+            LOG.warning("skipping malformed input line: %s", exc)
+            sys.stdout.write(
+                json.dumps(
+                    {
+                        "label": DEFAULT_LABEL,
+                        "confidence": DEFAULT_CONFIDENCE,
+                        "backend": args.backend,
+                        "error": f"input parse failure: {exc}",
+                    }
+                )
+                + "\n"
+            )
+            sys.stdout.flush()
+            continue
+        try:
+            result = predict(task)
+        except Exception as exc:  # noqa: BLE001 - never crash the shim
+            LOG.warning("backend failure on PR %s: %s", task.get("pr_number"), exc)
+            result = dict(stub_backend(task), error=f"backend failure: {exc}")
+        if result.get("label") not in CLASSES:
+            result["label"] = DEFAULT_LABEL
+        result["confidence"] = max(
+            0.0, min(1.0, float(result.get("confidence", DEFAULT_CONFIDENCE)))
+        )
+        sys.stdout.write(json.dumps(result, sort_keys=True) + "\n")
+        sys.stdout.flush()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
