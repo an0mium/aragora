@@ -1,8 +1,20 @@
 # B0 Benchmark Truth Status
 
-Last updated: 2026-05-21T02:53:29Z
+Last updated: 2026-05-26T22:51:31Z
 
 This is the repo-tracked recurring `TW-02` publication surface for the fixed benchmark corpus.
+
+> **2026-05-26 refresh note**: re-ran `scripts/build_benchmark_truth_artifact.py
+> --publish` against the current corpus snapshot. The primary (verified) truth
+> success rate is **unchanged at 0.0%** — no new corpus issue gained a verified
+> linked PR since 2026-05-21. The full-corpus legacy rate is also unchanged at
+> 30.8%. The honest reading: the proxy-PR signal rate (76.9%) demonstrates
+> work-attempted, but the verified-by-PR-link metric — which is the metric
+> external claims must point at — is still zero. This is the artifact-of-record
+> for the FOCUS.md 14-day sprint goal #4. New timestamped artifact published at
+> `.aragora/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260526T225131Z.json`.
+> The outreach gate in FOCUS.md (`truth_success_rate_verified ≥ 50%`) remains
+> closed as designed.
 
 ## Corpus
 

@@ -44,12 +44,15 @@ proofs come next. Four near-term proofs gate everything else.
    `0763b894381bbef8832d8ff9d5d74bdde37ace30`. The bench is deterministic
    (stub backend, no live providers), so the dogfood is cheap.
 
-4. **Publish B0 truth result, whatever it is.** `truth_success_rate = 0.0%`
-   stale at 2026-05-21 has been the public-claim weak point for 5+ days.
-   Re-run `scripts/build_benchmark_truth_artifact.py` on a current corpus
-   snapshot. If the rate is still zero, the falsification *is* the artifact
-   — publish it and ratchet the public claim down to what is measured.
-   Honest measurement beats unsubstantiated marketing.
+4. **Publish B0 truth result, whatever it is.** *Refreshed 2026-05-26*: the
+   primary (verified) `truth_success_rate_verified` is **unchanged at 0.0%**;
+   full-corpus legacy rate is 30.8%; proxy-PR signal rate is 76.9%. The
+   verified-by-PR-link metric — which external claims must point at — is
+   still zero. New artifact at
+   `.aragora/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260526T225131Z.json`.
+   This *is* the published falsification: the public claim must ratchet
+   down to what is measured, not what is hoped. Honest measurement beats
+   unsubstantiated marketing.
 
 ### Sprint anti-goals
 
@@ -57,7 +60,8 @@ proofs come next. Four near-term proofs gate everything else.
   or coordination primitives that produce more orchestration is the
   substrate-overbuild failure mode. Use existing tools.
 - **No premature external outreach.** Outreach is unlocked only when *all*
-  of these are true: (a) B0 `truth_success_rate ≥ 50%`, (b) `aragora demo
+  of these are true: (a) B0 `truth_success_rate_verified ≥ 50%` (the
+  verified-by-PR-link metric, not the legacy/proxy rate), (b) `aragora demo
   --receipt` round-trips for a non-operator user, (c) at least one frontier-
   model adversarial review of a real PR survives unmodified. Until then,
   solo + frontier-model + harness progress is higher leverage than burning
