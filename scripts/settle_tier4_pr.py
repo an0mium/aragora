@@ -25,6 +25,9 @@ TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS = {"OWNER"}
 TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"MEMBER"}
 TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
 PermissionChecker = Callable[[str], bool]
+HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
+SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
+MIN_TIER4_COUNTED_REVIEWER_IDS = 2
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
     "tier4_human_risk_settlement",
@@ -136,21 +139,93 @@ def _is_trusted_operator_author(
     return login in trusted_operator_logins and permission_checker(login)
 
 
+def _state_is_success(value: Any) -> bool:
+    return str(value or "").upper() in SUCCESS_STATES
+
+
+def _required_checks_are_green(required_checks: list[dict[str, Any]] | None) -> bool:
+    if not required_checks:
+        return False
+    for check in required_checks:
+        state = check.get("state") or check.get("conclusion")
+        if not _state_is_success(state):
+            return False
+    return True
+
+
+def _human_settlement_status_is_success(pr_view: dict[str, Any]) -> bool:
+    rollup = pr_view.get("statusCheckRollup")
+    if not isinstance(rollup, list):
+        return False
+    for item in rollup:
+        if not isinstance(item, dict):
+            continue
+        context = str(item.get("context") or item.get("name") or "")
+        if context != HUMAN_SETTLEMENT_CONTEXT:
+            continue
+        state = item.get("state") or item.get("conclusion")
+        return _state_is_success(state)
+    return False
+
+
+def _packet_has_counted_tier4_evidence(merge_packet: dict[str, Any], *, pr: int) -> bool:
+    entry = _entry_for_pr(merge_packet, pr=pr)
+    if not entry:
+        return False
+    if bool(entry.get("unresolved_dissent")):
+        return False
+    counted = entry.get("counted_reviewer_ids")
+    counted_ids = (
+        {str(item).strip() for item in counted if isinstance(item, str) and str(item).strip()}
+        if isinstance(counted, list)
+        else set()
+    )
+    if len(counted_ids) < MIN_TIER4_COUNTED_REVIEWER_IDS:
+        return False
+    dogfood = entry.get("dogfood_evidence")
+    if not isinstance(dogfood, list) or not dogfood:
+        return False
+    return True
+
+
+def _comment_authorizes_requested_action(
+    body: str, *, require_branch_protection_token: bool
+) -> bool:
+    lowered = body.lower()
+    if not any(token in lowered for token in AUTHORIZED_MERGE_TOKENS):
+        return False
+    if require_branch_protection_token and not any(
+        token in lowered for token in AUTHORIZED_PROTECTION_TOKENS
+    ):
+        return False
+    return True
+
+
 def has_operator_authorization(
     pr_view: dict[str, Any],
     *,
+    pr: int,
     head: str,
+    merge_packet: dict[str, Any],
+    required_checks: list[dict[str, Any]] | None = None,
+    require_branch_protection_token: bool = False,
     repo: str = DEFAULT_REPO,
     cwd: Path | None = None,
     trusted_operator_logins: Sequence[str] | None = None,
     permission_checker: PermissionChecker | None = None,
 ) -> bool:
+    if not _required_checks_are_green(required_checks):
+        return False
+    if not _human_settlement_status_is_success(pr_view):
+        return False
+    if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
+        return False
+
     head_committed_at = _head_committed_at(pr_view)
     allowed_logins = _trusted_operator_logins(trusted_operator_logins)
     checker = permission_checker or (lambda login: _login_has_admin_permission(login, repo, cwd))
     for item in _text_items(pr_view):
         body = str(item.get("body") or "")
-        lowered = body.lower()
         if AUTHORIZED_MARKER not in body:
             continue
         if not _is_trusted_operator_author(
@@ -163,9 +238,8 @@ def has_operator_authorization(
             continue
         if head not in body:
             continue
-        if all(
-            any(token in lowered for token in token_group)
-            for token_group in (AUTHORIZED_MERGE_TOKENS, AUTHORIZED_PROTECTION_TOKENS)
+        if _comment_authorizes_requested_action(
+            body, require_branch_protection_token=require_branch_protection_token
         ):
             return True
     return False
@@ -201,6 +275,7 @@ def evaluate_tier4_gate(
     pr_view: dict[str, Any],
     merge_packet: dict[str, Any],
     required_checks: list[dict[str, Any]] | None = None,
+    require_branch_protection_token: bool = False,
     repo: str = DEFAULT_REPO,
     cwd: Path | None = None,
     trusted_operator_logins: Sequence[str] | None = None,
@@ -220,7 +295,7 @@ def evaluate_tier4_gate(
     for check in required_checks or []:
         name = str(check.get("name") or check.get("workflow") or "required check")
         state = str(check.get("state") or check.get("conclusion") or "UNKNOWN").upper()
-        if state not in {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}:
+        if not _state_is_success(state):
             blockers.append(f"required check {name} is {state}")
     not_ready = merge_packet.get("not_ready")
     if isinstance(not_ready, list):
@@ -232,7 +307,11 @@ def evaluate_tier4_gate(
             blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
     if actual_head == expected_head and not has_operator_authorization(
         pr_view,
+        pr=pr,
         head=expected_head,
+        merge_packet=merge_packet,
+        required_checks=required_checks,
+        require_branch_protection_token=require_branch_protection_token,
         repo=repo,
         cwd=cwd,
         trusted_operator_logins=trusted_operator_logins,
@@ -283,7 +362,7 @@ def _load_live_inputs(
             "view",
             str(pr),
             "--json",
-            "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,url",
+            "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,statusCheckRollup,url",
         ],
         cwd=cwd,
     )
@@ -504,6 +583,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             pr_view=pr_view,
             merge_packet=merge_packet,
             required_checks=required_checks,
+            require_branch_protection_token=bool(args.apply),
             repo=args.repo,
             cwd=args.cwd,
             trusted_operator_logins=args.trusted_operator_login,

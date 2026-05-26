@@ -31,7 +31,13 @@ def _authorized_comment(
     *,
     association: str = "OWNER",
     author: str = "owner-user",
+    include_branch_protection: bool = True,
 ) -> dict[str, Any]:
+    branch_line = (
+        "Authorized Action: branch_protection_reconcile on main\n"
+        if include_branch_protection
+        else ""
+    )
     return {
         "authorAssociation": association,
         "author": {"login": author},
@@ -40,8 +46,58 @@ def _authorized_comment(
             "Tier-4 Human Settlement Authorization\n"
             f"Authorized Head SHA: {head}\n"
             "Authorized Action: admin_squash_merge on PR #7423\n"
-            "Authorized Action: branch_protection_reconcile on main\n"
+            f"{branch_line}"
         ),
+    }
+
+
+def _pr_view(
+    head: str,
+    *,
+    comments: list[dict[str, Any]],
+    human_settlement_state: str | None = "SUCCESS",
+) -> dict[str, Any]:
+    status_rollup = (
+        [{"context": "aragora/human-settlement", "state": human_settlement_state}]
+        if human_settlement_state is not None
+        else []
+    )
+    return {
+        "headRefOid": head,
+        "state": "OPEN",
+        "isDraft": False,
+        "mergeStateStatus": "BLOCKED",
+        "headCommittedDate": HEAD_COMMITTED_AT,
+        "comments": comments,
+        "reviews": [],
+        "statusCheckRollup": status_rollup,
+    }
+
+
+def _tier4_packet(
+    pr: int = 7423,
+    *,
+    counted_reviewer_ids: list[str] | None = None,
+    dogfood_evidence: list[dict[str, str]] | None = None,
+    unresolved_dissent: bool = False,
+) -> dict[str, Any]:
+    return {
+        "not_ready": [pr],
+        "human_risk_settlement_required": [pr],
+        "entries": [
+            {
+                "pr_number": pr,
+                "status": "human_preapproval_required",
+                "requires_human_risk_settlement": True,
+                "unresolved_dissent": unresolved_dissent,
+                "counted_reviewer_ids": (
+                    ["codex", "grok"] if counted_reviewer_ids is None else counted_reviewer_ids
+                ),
+                "dogfood_evidence": (
+                    [{"reviewer_id": "codex"}] if dogfood_evidence is None else dogfood_evidence
+                ),
+            }
+        ],
     }
 
 
@@ -77,17 +133,103 @@ def test_exact_head_operator_comment_allows_check_result() -> None:
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment(head)],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, include_branch_protection=False)],
+        ),
+        merge_packet=_tier4_packet(),
         required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
+def test_member_operator_comment_with_status_and_evidence_allows_check_result() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="MEMBER",
+                    author="trusted-member",
+                    include_branch_protection=False,
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-member"],
+        permission_checker=lambda login: login == "trusted-member",
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
+def test_member_operator_comment_without_human_status_does_not_authorize() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, association="MEMBER")],
+            human_settlement_state=None,
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+
+
+def test_operator_comment_without_counted_evidence_does_not_authorize() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(counted_reviewer_ids=["codex"]),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+
+
+def test_branch_protection_mode_requires_branch_protection_token() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, include_branch_protection=False)],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        require_branch_protection_token=True,
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+
+
+def test_branch_protection_mode_accepts_branch_protection_token() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        require_branch_protection_token=True,
     )
 
     assert result["ok"] is True
@@ -99,26 +241,11 @@ def test_numeric_not_ready_is_allowed_when_packet_marks_tier4_human_settlement()
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment(head)],
-            "reviews": [],
-        },
-        merge_packet={
-            "not_ready": [7423],
-            "human_risk_settlement_required": [7423],
-            "entries": [
-                {
-                    "pr_number": 7423,
-                    "status": "human_preapproval_required",
-                    "requires_human_risk_settlement": True,
-                }
-            ],
-        },
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, include_branch_protection=False)],
+        ),
+        merge_packet=_tier4_packet(),
         required_checks=[{"name": "lint", "state": "SUCCESS"}],
     )
 
@@ -131,16 +258,11 @@ def test_untrusted_author_comment_does_not_authorize() -> None:
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment(head, association="CONTRIBUTOR")],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, association="CONTRIBUTOR")],
+        ),
+        merge_packet=_tier4_packet(),
         required_checks=_valid_checks(),
     )
 
@@ -176,16 +298,11 @@ def test_configured_trusted_member_comment_authorizes(monkeypatch: Any) -> None:
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment(head, association="MEMBER", author="trusted-member")],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, association="MEMBER", author="trusted-member")],
+        ),
+        merge_packet=_tier4_packet(),
         required_checks=_valid_checks(),
         permission_checker=lambda login: login == "trusted-member",
     )
@@ -249,18 +366,11 @@ def test_cli_trusted_operator_login_authorizes_member_comment(
         settler,
         "_load_live_inputs",
         lambda pr, cwd: (
-            {
-                "headRefOid": head,
-                "state": "OPEN",
-                "isDraft": False,
-                "mergeStateStatus": "BLOCKED",
-                "headCommittedDate": HEAD_COMMITTED_AT,
-                "comments": [
-                    _authorized_comment(head, association="MEMBER", author="trusted-member")
-                ],
-                "reviews": [],
-            },
-            {"not_ready": ["human_risk_settlement"]},
+            _pr_view(
+                head,
+                comments=[_authorized_comment(head, association="MEMBER", author="trusted-member")],
+            ),
+            _tier4_packet(),
             _valid_checks(),
         ),
     )
@@ -323,16 +433,8 @@ def test_stale_authorization_comment_does_not_authorize() -> None:
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [stale],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        pr_view=_pr_view(head, comments=[stale]),
+        merge_packet=_tier4_packet(),
         required_checks=_valid_checks(),
     )
 
@@ -365,16 +467,8 @@ def test_failed_required_check_blocks_settlement() -> None:
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment(head)],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(),
         required_checks=[
             {"name": "lint", "state": "FAILURE"},
             {"name": "aragora-merge-quorum", "state": "SUCCESS"},
@@ -390,16 +484,8 @@ def test_missing_merge_quorum_check_is_allowed_before_apply_reconciles_protectio
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment(head)],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(),
         required_checks=[{"name": "lint", "state": "SUCCESS"}],
     )
 
@@ -412,16 +498,8 @@ def test_present_failed_merge_quorum_required_check_blocks_settlement() -> None:
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment(head)],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(),
         required_checks=[
             {"name": "lint", "state": "SUCCESS"},
             {"name": "aragora-merge-quorum", "state": "FAILURE"},
@@ -434,19 +512,13 @@ def test_present_failed_merge_quorum_required_check_blocks_settlement() -> None:
 
 def test_unexpected_merge_packet_blocker_blocks_settlement() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    packet = _tier4_packet()
+    packet["not_ready"] = ["human_risk_settlement", "model_quorum"]
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment(head)],
-            "reviews": [],
-        },
-        merge_packet={"not_ready": ["human_risk_settlement", "model_quorum"]},
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=packet,
         required_checks=_valid_checks(),
     )
 
@@ -462,16 +534,8 @@ def test_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Path) -> 
         settler,
         "_load_live_inputs",
         lambda pr, cwd: (
-            {
-                "headRefOid": head,
-                "state": "OPEN",
-                "isDraft": False,
-                "mergeStateStatus": "BLOCKED",
-                "headCommittedDate": HEAD_COMMITTED_AT,
-                "comments": [_authorized_comment(head)],
-                "reviews": [],
-            },
-            {"not_ready": ["human_risk_settlement"]},
+            _pr_view(head, comments=[_authorized_comment(head)]),
+            _tier4_packet(),
             _valid_checks(),
         ),
     )
