@@ -31,6 +31,18 @@ _STATUS_REVIEW_EVENT_BY_STATUS = {
     "blocked_nonreviewable": "COMMENT",
 }
 _OPTIONAL_AGENT_PLACEHOLDERS = {"", "none", "null"}
+_REVIEWER_FAMILY_MARKERS = (
+    ("codex", ("codex", "openai", "gpt")),
+    ("claude", ("claude", "anthropic")),
+    ("grok", ("grok", "xai")),
+    ("gemini", ("gemini", "google")),
+    ("openrouter", ("openrouter",)),
+    ("mistral", ("mistral", "codestral")),
+    ("deepseek", ("deepseek",)),
+    ("qwen", ("qwen",)),
+    ("kimi", ("kimi", "moonshot")),
+    ("factory", ("factory", "droid")),
+)
 
 
 @dataclass(slots=True)
@@ -386,6 +398,11 @@ async def _run_review_pass(
         status = "blocked_nonreviewable"
     findings = _normalize_findings(parsed.get("findings", []))
     summary = str(parsed.get("summary", "")).strip()
+    route_blocker = _codex_fallback_blocker(reviewer, dict(routing.get("candidate") or {}))
+    if route_blocker:
+        status = "blocked_nonreviewable"
+        summary = route_blocker["body"]
+        findings = [route_blocker]
     if status == "changes_requested" and not findings:
         findings = [{"title": "Blocking changes requested", "body": raw_response, "priority": "P1"}]
     if status == "blocked_nonreviewable" and not findings:
@@ -405,6 +422,45 @@ async def _run_review_pass(
         attempts=[dict(item) for item in routing.get("attempts", []) if isinstance(item, dict)],
         raw_response=raw_response,
     )
+
+
+def _reviewer_family(value: object) -> str:
+    lower = str(value or "").strip().lower()
+    if not lower:
+        return ""
+    for family, markers in _REVIEWER_FAMILY_MARKERS:
+        if any(marker in lower for marker in markers):
+            return family
+    return lower
+
+
+def _candidate_family(candidate: dict[str, Any]) -> str:
+    provider = str(candidate.get("provider", "") or "").strip()
+    if provider:
+        return _reviewer_family(provider)
+    label = str(candidate.get("label", "") or "").strip()
+    return _reviewer_family(label)
+
+
+def _codex_fallback_blocker(
+    requested_reviewer: str,
+    candidate: dict[str, Any],
+) -> dict[str, str] | None:
+    requested_family = _reviewer_family(requested_reviewer)
+    if not requested_family or requested_family == "codex":
+        return None
+    if _candidate_family(candidate) != "codex":
+        return None
+    candidate_label = str(candidate.get("label", "") or "").strip() or "codex"
+    return {
+        "title": "Requested reviewer routed to Codex",
+        "body": (
+            f"Requested reviewer `{requested_reviewer}` requires non-Codex evidence, but "
+            f"review-pr selected Codex candidate `{candidate_label}`. Re-run with a real "
+            "non-Codex reviewer or do not count this result as non-Codex quorum evidence."
+        ),
+        "priority": "P1",
+    }
 
 
 async def _run_fix_pass(
