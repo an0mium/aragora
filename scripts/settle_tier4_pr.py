@@ -535,6 +535,7 @@ def evaluate_tier4_gate(
         actual_head == expected_head
         and required_checks_green
         and not authorization_precondition_blockers
+        and not blockers
     ):
         authorized_actions = _operator_authorized_actions(
             pr_view,

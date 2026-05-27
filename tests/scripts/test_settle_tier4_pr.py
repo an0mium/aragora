@@ -621,6 +621,48 @@ def test_unexpected_merge_packet_blocker_blocks_settlement() -> None:
     assert "merge-packet has unexpected blockers: model_quorum" in result["blockers"]
 
 
+def test_unexpected_packet_blocker_does_not_report_missing_trusted_member_comment(
+    monkeypatch: Any,
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    packet = _tier4_packet()
+    packet["not_ready"] = ["human_risk_settlement", "model_quorum"]
+    monkeypatch.setenv("ARAGORA_TIER4_TRUSTED_OPERATORS", "trusted-member")
+
+    def permission_checker(login: str) -> bool:
+        raise AssertionError(f"permission check should be lazy, got {login}")
+
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="MEMBER",
+                    author="trusted-member",
+                )
+            ],
+        ),
+        merge_packet=packet,
+        required_checks=_valid_checks(),
+        permission_checker=permission_checker,
+    )
+
+    diagnostic = result["authorization_diagnostics"][0]
+    assert result["ok"] is False
+    assert "merge-packet has unexpected blockers: model_quorum" in result["blockers"]
+    assert "missing repo-visible Tier 4 operator settlement comment" not in result["blockers"]
+    assert result["admin_permission_evaluation"] == "skipped_early_gate_blockers"
+    assert diagnostic["admin_permission_required"] is True
+    assert diagnostic["admin_permission_evaluated"] is False
+    assert (
+        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        in diagnostic["rejection_reasons"]
+    )
+
+
 def test_authorization_diagnostics_explain_member_rejection() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
