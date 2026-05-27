@@ -1946,6 +1946,14 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Override the review-queue root used for settlement receipts.",
     )
     record_parser.add_argument(
+        "--apply-post-merge-lane-audit",
+        action="store_true",
+        help=(
+            "For admin_squash_merge records, apply merged-PR lane supersession "
+            "using the live merge commit guard. Default is dry-run/report only."
+        ),
+    )
+    record_parser.add_argument(
         "--json",
         dest="json_output",
         action="store_true",

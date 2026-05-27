@@ -28,6 +28,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,8 +52,14 @@ from aragora.swarm.pr_review_protocol import (
 )
 from aragora.triage.auto_handle_calibration import AutoHandleCalibrationStore
 from aragora.worktree.fleet import resolve_repo_root
+from scripts.post_merge_lane_audit import (
+    post_merge_lane_audit_failed,
+    post_merge_lane_audit_failure_reason,
+    run_post_merge_lane_audit,
+)
 
 UTC = timezone.utc
+PostMergeLaneAuditProvider = Callable[[int, bool], dict[str, Any]]
 
 # Lane classification thresholds and risk-path catalog.
 LARGE_DIFF_THRESHOLD = 500  # additions + deletions, beyond which "needs_human_attention"
@@ -255,9 +262,13 @@ class SettlementReceipt:
     outcome_rollback: bool | None = None
     outcome_reopened_pr: bool | None = None
     outcome_observed_at: str | None = None
+    post_merge_lane_audit: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        if payload.get("post_merge_lane_audit") is None:
+            payload.pop("post_merge_lane_audit", None)
+        return payload
 
 
 @dataclass(slots=True)
@@ -268,9 +279,14 @@ class RecordedSettlementResult:
     receipt_sha256: str
     idempotent: bool
     written: bool
+    post_merge_lane_audit: dict[str, Any] | None = None
+    post_merge_lane_audit_failed: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         payload = self.receipt.to_dict()
+        if self.post_merge_lane_audit is not None:
+            payload["post_merge_lane_audit"] = self.post_merge_lane_audit
+            payload["post_merge_lane_audit_failed"] = self.post_merge_lane_audit_failed
         payload.update(
             {
                 "receipt_sha256": self.receipt_sha256,
@@ -412,6 +428,15 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         help=(
             "Override the review-queue store root used for settlement "
             "receipts. Defaults to <repo>/.aragora/review-queue."
+        ),
+    )
+    record_p.add_argument(
+        "--apply-post-merge-lane-audit",
+        action="store_true",
+        help=(
+            "For admin_squash_merge records, apply merged-PR lane supersession "
+            "after verifying GitHub reports MERGED and using the live merge "
+            "commit as the exact guard. Default is dry-run/report only."
         ),
     )
     record_p.add_argument("--json", action="store_true", help="Output local receipt as JSON")
@@ -886,6 +911,7 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
             repo_root=repo_root,
             repo_override=getattr(args, "repo", None),
             review_queue_root=getattr(args, "review_queue_root", None),
+            apply_post_merge_lane_audit=bool(getattr(args, "apply_post_merge_lane_audit", False)),
         )
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -894,7 +920,7 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
         print(json.dumps(result.to_dict(), indent=2))
     else:
         _render_recorded_settlement_result(result)
-    return 0
+    return 1 if result.post_merge_lane_audit_failed else 0
 
 
 def _cmd_evidence_lint(args: argparse.Namespace) -> int:
@@ -2570,6 +2596,8 @@ def _record_external_settlement(
     repo_root: Path,
     repo_override: str | None,
     review_queue_root: str | Path | None,
+    apply_post_merge_lane_audit: bool = False,
+    post_merge_lane_audit_provider: PostMergeLaneAuditProvider | None = None,
 ) -> RecordedSettlementResult:
     pr_number = _parse_pr_number(pr_ref)
     expected_head_sha = str(head_sha or "").strip()
@@ -2594,6 +2622,28 @@ def _record_external_settlement(
             "admin_squash_merge records require the PR to be MERGED on GitHub; "
             f"current state is {github_state or 'unknown'}"
         )
+    post_merge_lane_audit: dict[str, Any] | None = None
+    if action == "admin_squash_merge":
+        audit_provider = post_merge_lane_audit_provider
+        if audit_provider is None:
+            audit_provider = lambda pr, audit_apply=False: run_post_merge_lane_audit(
+                pr,
+                repo_root=repo_root,
+                apply=audit_apply,
+            )
+        try:
+            post_merge_lane_audit = audit_provider(pr_number, apply_post_merge_lane_audit)
+        except Exception as exc:
+            post_merge_lane_audit = {
+                "audit_ok": False,
+                "audit_applied": False,
+                "audit_apply_requested": apply_post_merge_lane_audit,
+                "audit_error": str(exc),
+            }
+    audit_failed = post_merge_lane_audit_failed(
+        post_merge_lane_audit,
+        apply_requested=apply_post_merge_lane_audit,
+    )
 
     pr_url = str(pr_payload.get("url", "") or "").strip()
     base_sha = str(pr_payload.get("baseRefOid", "") or "").strip()
@@ -2631,6 +2681,7 @@ def _record_external_settlement(
         queue_bucket="external_settlement",
         machine_recommendation="operator_recorded_external_settlement",
         github_event=github_event,
+        post_merge_lane_audit=post_merge_lane_audit,
     )
     root = _resolve_review_queue_root_override(repo_root, review_queue_root)
     receipt_path = _settlement_receipt_path_for_root(
@@ -2654,6 +2705,8 @@ def _record_external_settlement(
             receipt_sha256=_receipt_file_sha256(receipt_path),
             idempotent=True,
             written=False,
+            post_merge_lane_audit=post_merge_lane_audit,
+            post_merge_lane_audit_failed=audit_failed,
         )
 
     _write_json(receipt_path, new_payload)
@@ -2662,6 +2715,8 @@ def _record_external_settlement(
         receipt_sha256=_receipt_file_sha256(receipt_path),
         idempotent=False,
         written=True,
+        post_merge_lane_audit=post_merge_lane_audit,
+        post_merge_lane_audit_failed=audit_failed,
     )
 
 
@@ -2870,6 +2925,17 @@ def _render_settlement_receipt(receipt: SettlementReceipt) -> None:
 
 def _render_recorded_settlement_result(result: RecordedSettlementResult) -> None:
     _render_settlement_receipt(result.receipt)
+    if result.post_merge_lane_audit is not None:
+        audit = result.post_merge_lane_audit
+        print("  post-merge lane audit:")
+        print(f"    finding count: {audit.get('finding_count', 'unknown')}")
+        print(f"    resolved count: {audit.get('resolved_count', 'unknown')}")
+        if audit.get("blocked_reason"):
+            print(f"    blocked:       {audit['blocked_reason']}")
+        if result.post_merge_lane_audit_failed:
+            print(f"    failed:        {post_merge_lane_audit_failure_reason(audit)}")
+        if audit.get("operator_apply_command"):
+            print(f"    apply command: {audit['operator_apply_command']}")
     print(f"  receipt sha:  {result.receipt_sha256}")
     print(f"  idempotent:   {str(result.idempotent).lower()}")
     print(f"  written:      {str(result.written).lower()}")

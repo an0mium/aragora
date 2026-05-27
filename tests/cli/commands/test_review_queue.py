@@ -1798,6 +1798,7 @@ class TestCommandDispatch:
                 "admin_squash_merge",
                 "--reason",
                 "operator authorized exact-head merge",
+                "--apply-post-merge-lane-audit",
                 "--json",
             ]
         )
@@ -1806,6 +1807,7 @@ class TestCommandDispatch:
         assert ns_record.head_sha == "headsha123"
         assert ns_record.action == "admin_squash_merge"
         assert ns_record.reason == "operator authorized exact-head merge"
+        assert ns_record.apply_post_merge_lane_audit is True
 
     def test_cmd_review_queue_with_no_subcommand_returns_2(self) -> None:
         ns = argparse.Namespace(review_queue_command=None)
@@ -1827,6 +1829,7 @@ class TestCommandDispatch:
                 "admin_squash_merge",
                 "--reason",
                 "operator authorized exact-head merge",
+                "--apply-post-merge-lane-audit",
                 "--json",
             ]
         )
@@ -1837,6 +1840,7 @@ class TestCommandDispatch:
         assert ns.head_sha == "headsha123"
         assert ns.action == "admin_squash_merge"
         assert ns.reason == "operator authorized exact-head merge"
+        assert ns.apply_post_merge_lane_audit is True
         assert ns.json_output is True
 
     def test_top_level_parser_registers_evidence_lint(self) -> None:
@@ -2126,6 +2130,96 @@ class TestSettlementHelpers:
         assert saved["head_sha"] == "headsha123"
         assert saved["packet_sha"].startswith("sha256:")
 
+    def test_record_external_admin_merge_includes_post_merge_lane_audit(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "MERGED",
+                    "mergedAt": "2026-05-10T08:00:00Z",
+                }
+            if args == ["api", "user"]:
+                return {"login": "an0mium"}
+            raise AssertionError(args)
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+        audit_calls: list[tuple[int, bool]] = []
+
+        def audit_provider(pr_number: int, apply: bool = False) -> dict[str, Any]:
+            audit_calls.append((pr_number, apply))
+            return {
+                "finding_count": 1,
+                "resolved_count": 0,
+                "blocked_reason": None,
+                "owner_steering_text": "",
+                "owner_release_commands": [],
+                "operator_apply_command": "python3 scripts/resolve_lane_conflicts.py --apply ...",
+                "receipt_paths": [],
+                "github_state": {"state": "MERGED", "mergeCommit": "merge-sha"},
+                "audit_ok": True,
+                "audit_applied": False,
+            }
+
+        result = _record_external_settlement(
+            pr_ref="6294",
+            head_sha="headsha123",
+            action="admin_squash_merge",
+            reason="operator authorized exact-head merge",
+            repo_root=tmp_path,
+            repo_override=None,
+            review_queue_root=None,
+            post_merge_lane_audit_provider=audit_provider,
+        )
+
+        assert audit_calls == [(6294, False)]
+        assert result.post_merge_lane_audit is not None
+        assert result.to_dict()["post_merge_lane_audit"]["operator_apply_command"].startswith(
+            "python3 scripts/resolve_lane_conflicts.py"
+        )
+        saved = json.loads(Path(result.receipt.receipt_path).read_text())
+        assert saved["post_merge_lane_audit"]["finding_count"] == 1
+
+    def test_record_external_non_merge_settlement_does_not_run_post_merge_lane_audit(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "OPEN",
+                    "mergedAt": "",
+                }
+            if args == ["api", "user"]:
+                return {"login": "an0mium"}
+            raise AssertionError(args)
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        def audit_provider(pr_number: int, apply: bool = False) -> dict[str, Any]:
+            raise AssertionError("post-merge audit should only run for admin_squash_merge")
+
+        result = _record_external_settlement(
+            pr_ref="6294",
+            head_sha="headsha123",
+            action="comment",
+            reason="operator recorded a comment",
+            repo_root=tmp_path,
+            repo_override=None,
+            review_queue_root=None,
+            post_merge_lane_audit_provider=audit_provider,
+        )
+
+        assert result.post_merge_lane_audit is None
+        assert "post_merge_lane_audit" not in result.to_dict()
+
     def test_record_external_settlement_is_idempotent(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
@@ -2293,6 +2387,79 @@ class TestSettlementHelpers:
 
         assert rc == 1
         assert "gh unavailable" in err_buf.getvalue()
+
+    def test_record_settlement_command_records_audit_apply_failure_then_returns_1(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue.resolve_repo_root",
+            lambda cwd: tmp_path,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._require_clean_worktree",
+            lambda repo_root: None,
+        )
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "MERGED",
+                    "mergedAt": "2026-05-10T08:00:00Z",
+                }
+            if args == ["api", "user"]:
+                return {"login": "an0mium"}
+            raise AssertionError(args)
+
+        def _audit_failure(
+            pr_number: int,
+            *,
+            repo_root: Path | None = None,
+            apply: bool = False,
+        ) -> dict[str, Any]:
+            assert pr_number == 6294
+            assert apply is True
+            return {
+                "finding_count": 1,
+                "resolved_count": 0,
+                "blocked_reason": "merge_commit_mismatch",
+                "operator_apply_command": "python3 scripts/resolve_lane_conflicts.py --apply ...",
+                "receipt_paths": [],
+                "github_state": {"state": "MERGED", "mergeCommit": "merge-sha"},
+                "audit_ok": False,
+                "audit_applied": False,
+                "audit_error": "merge_commit_mismatch",
+            }
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue.run_post_merge_lane_audit",
+            _audit_failure,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="record-settlement",
+            pr="6294",
+            repo=None,
+            head_sha="headsha123",
+            action="admin_squash_merge",
+            reason="operator authorized exact-head merge",
+            review_queue_root=None,
+            apply_post_merge_lane_audit=True,
+            json=True,
+        )
+
+        out_buf = io.StringIO()
+        with redirect_stdout(out_buf):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out_buf.getvalue())
+        assert rc == 1
+        assert payload["post_merge_lane_audit_failed"] is True
+        assert payload["post_merge_lane_audit"]["blocked_reason"] == "merge_commit_mismatch"
+        assert Path(payload["receipt_path"]).is_file()
 
     def test_build_command_renders_table(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
