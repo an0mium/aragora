@@ -1349,6 +1349,7 @@ def _build_packet(
             "headRefOid",
             "baseRefOid",
             "state",
+            "mergedAt",
             "isDraft",
             "mergeable",
             "reviewDecision",
@@ -1389,14 +1390,14 @@ def _build_packet(
     additions = int(pr.get("additions", 0) or 0)
     deletions = int(pr.get("deletions", 0) or 0)
     is_draft = bool(pr.get("isDraft", False))
-    github_state = _github_pr_state(pr)
+    settlement_state_block = _settlement_state_block_reason(pr)
     mergeable = str(pr.get("mergeable", "")).strip().upper()
     queue_item = _classify_pr(pr)
     validation = _extract_validation_commands(str(pr.get("body", "") or ""))
 
     risk_flags: list[str] = []
-    if github_state and github_state != "OPEN":
-        risk_flags.append(f"PR is already {github_state}")
+    if settlement_state_block:
+        risk_flags.append(settlement_state_block)
     if is_draft:
         risk_flags.append("draft PR")
     if parked_label_hits:
@@ -1412,11 +1413,12 @@ def _build_packet(
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
 
-    if has_failures or mergeable == "CONFLICTING" or (github_state and github_state != "OPEN"):
+    if settlement_state_block:
+        recommendation = "needs_human_attention"
+        recommendation_reason = settlement_state_block
+    elif has_failures or mergeable == "CONFLICTING":
         recommendation = "repair_first"
-        recommendation_reason = (
-            "checks failing, merge conflict, or PR is not open — fix before review"
-        )
+        recommendation_reason = "checks failing or merge conflict — fix before review"
     elif is_draft:
         recommendation = "needs_human_attention"
         recommendation_reason = "draft PR — keep parked until it is ready for review"
@@ -1788,9 +1790,9 @@ def _has_blocking_workflow_state(pr: dict[str, Any]) -> bool:
 
 def _blocking_workflow_state_reasons(pr: dict[str, Any]) -> list[str]:
     reasons: list[str] = []
-    github_state = _github_pr_state(pr)
-    if github_state and github_state != "OPEN":
-        reasons.append(f"PR is already {github_state}")
+    settlement_state_block = _settlement_state_block_reason(pr)
+    if settlement_state_block:
+        reasons.append(settlement_state_block)
     if bool(pr.get("isDraft", False)):
         reasons.append("draft PR")
     mergeable = str(pr.get("mergeable", "")).strip().upper()
@@ -1807,8 +1809,18 @@ def _blocking_workflow_state_reasons(pr: dict[str, Any]) -> list[str]:
     return reasons
 
 
-def _github_pr_state(pr: dict[str, Any]) -> str:
-    return str(pr.get("state", "") or "").strip().upper()
+def _settlement_state_block_reason(pr: dict[str, Any]) -> str:
+    state = str(pr.get("state") or "").strip().upper()
+    merged_at = str(pr.get("mergedAt") or "").strip()
+    if merged_at:
+        if state == "OPEN":
+            return (
+                "PR state is OPEN but mergedAt is set; settlement applies only to open unmerged PRs"
+            )
+        return f"PR is {state or 'MERGED'}; settlement applies only to open PRs"
+    if state and state != "OPEN":
+        return f"PR is {state}; settlement applies only to open PRs"
+    return ""
 
 
 def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, Any]]:
