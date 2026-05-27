@@ -484,6 +484,46 @@ def test_head_mismatch_blocks_before_authorization() -> None:
     assert "head mismatch: expected expected, got actual" in result["blockers"]
 
 
+def test_head_mismatch_skips_member_permission_check(monkeypatch: Any) -> None:
+    monkeypatch.setenv("ARAGORA_TIER4_TRUSTED_OPERATORS", "trusted-member")
+
+    def permission_checker(login: str) -> bool:
+        raise AssertionError(f"permission check should be lazy, got {login}")
+
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head="expected",
+        pr_view={
+            "headRefOid": "actual",
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [
+                _authorized_comment(
+                    "expected",
+                    association="MEMBER",
+                    author="trusted-member",
+                )
+            ],
+            "reviews": [],
+            "statusCheckRollup": [{"context": "aragora/human-settlement", "state": "SUCCESS"}],
+        },
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        permission_checker=permission_checker,
+    )
+
+    diagnostic = result["authorization_diagnostics"][0]
+    assert result["admin_permission_evaluation"] == "skipped_early_gate_blockers"
+    assert diagnostic["admin_permission_required"] is True
+    assert diagnostic["admin_permission_evaluated"] is False
+    assert (
+        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        in diagnostic["rejection_reasons"]
+    )
+
+
 def test_failed_required_check_blocks_settlement() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
@@ -499,6 +539,44 @@ def test_failed_required_check_blocks_settlement() -> None:
 
     assert result["ok"] is False
     assert "required check lint is FAILURE" in result["blockers"]
+
+
+def test_failed_required_check_skips_member_permission_check(monkeypatch: Any) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    monkeypatch.setenv("ARAGORA_TIER4_TRUSTED_OPERATORS", "trusted-member")
+
+    def permission_checker(login: str) -> bool:
+        raise AssertionError(f"permission check should be lazy, got {login}")
+
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="MEMBER",
+                    author="trusted-member",
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=[
+            {"name": "lint", "state": "FAILURE"},
+            {"name": "aragora-merge-quorum", "state": "SUCCESS"},
+        ],
+        permission_checker=permission_checker,
+    )
+
+    diagnostic = result["authorization_diagnostics"][0]
+    assert result["admin_permission_evaluation"] == "skipped_early_gate_blockers"
+    assert diagnostic["admin_permission_required"] is True
+    assert diagnostic["admin_permission_evaluated"] is False
+    assert (
+        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        in diagnostic["rejection_reasons"]
+    )
 
 
 def test_missing_merge_quorum_check_is_allowed_before_apply_reconciles_protection() -> None:

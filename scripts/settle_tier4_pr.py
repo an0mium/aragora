@@ -131,12 +131,28 @@ def _is_trusted_operator_author(
     *,
     trusted_operator_logins: frozenset[str],
     permission_checker: PermissionChecker,
+    evaluate_member_permissions: bool = True,
 ) -> bool:
     return not _operator_author_rejection_reason(
         item,
         trusted_operator_logins=trusted_operator_logins,
         permission_checker=permission_checker,
+        evaluate_member_permissions=evaluate_member_permissions,
     )
+
+
+def _trusted_member_requires_permission_check(
+    item: dict[str, Any],
+    *,
+    trusted_operator_logins: frozenset[str],
+) -> bool:
+    association = str(item.get("authorAssociation") or "").upper()
+    if association not in TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS:
+        return False
+    login = _author_login(item)
+    if not login:
+        return False
+    return not trusted_operator_logins or login in trusted_operator_logins
 
 
 def _operator_author_rejection_reason(
@@ -144,6 +160,7 @@ def _operator_author_rejection_reason(
     *,
     trusted_operator_logins: frozenset[str],
     permission_checker: PermissionChecker,
+    evaluate_member_permissions: bool = True,
 ) -> str:
     association = str(item.get("authorAssociation") or "").upper()
     if association in TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS:
@@ -155,6 +172,8 @@ def _operator_author_rejection_reason(
         return f"{association} login <missing> is not available"
     if trusted_operator_logins and login not in trusted_operator_logins:
         return f"{association} login {login} is not in trusted operator allowlist"
+    if not evaluate_member_permissions:
+        return ""
     if not permission_checker(login):
         return f"trusted member {login or '<missing>'} lacks admin permission"
     return ""
@@ -180,6 +199,7 @@ def _authorization_diagnostic(
     require_branch_protection_token: bool,
     trusted_operator_logins: frozenset[str],
     permission_checker: PermissionChecker,
+    evaluate_member_permissions: bool = True,
 ) -> dict[str, Any]:
     body = str(item.get("body") or "")
     association = str(item.get("authorAssociation") or "").upper()
@@ -188,7 +208,13 @@ def _authorization_diagnostic(
         item,
         trusted_operator_logins=trusted_operator_logins,
         permission_checker=permission_checker,
+        evaluate_member_permissions=evaluate_member_permissions,
     )
+    admin_permission_required = _trusted_member_requires_permission_check(
+        item,
+        trusted_operator_logins=trusted_operator_logins,
+    )
+    admin_permission_evaluated = admin_permission_required and evaluate_member_permissions
     trusted_author_association = not author_rejection
     fresh_after_head_commit = _authorization_is_fresh(item, head_committed_at=head_committed_at)
     exact_head_present = head in body
@@ -201,6 +227,10 @@ def _authorization_diagnostic(
         rejection_reasons.append("authorization marker is missing")
     if author_rejection:
         rejection_reasons.append(author_rejection)
+    if admin_permission_required and not evaluate_member_permissions:
+        rejection_reasons.append(
+            "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        )
     if not fresh_after_head_commit:
         rejection_reasons.append("authorization is older than head commit")
     if not exact_head_present:
@@ -218,6 +248,8 @@ def _authorization_diagnostic(
         "url": item.get("url"),
         "marker_present": marker_present,
         "trusted_author_association": trusted_author_association,
+        "admin_permission_required": admin_permission_required,
+        "admin_permission_evaluated": admin_permission_evaluated,
         "fresh_after_head_commit": fresh_after_head_commit,
         "exact_head_present": exact_head_present,
         "merge_action_present": merge_action_present,
@@ -238,12 +270,16 @@ def authorization_diagnostics(
     cwd: Path | None = None,
     trusted_operator_logins: Sequence[str] | None = None,
     permission_checker: PermissionChecker | None = None,
+    evaluate_member_permissions: bool = True,
 ) -> dict[str, Any]:
     head_committed_at = _head_committed_at(pr_view)
     allowed_logins = _trusted_operator_logins(trusted_operator_logins)
     checker = permission_checker or (lambda login: _login_has_admin_permission(login, repo, cwd))
     return {
         "required_author_associations": sorted(TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS),
+        "admin_permission_evaluation": "enabled"
+        if evaluate_member_permissions
+        else "skipped_early_gate_blockers",
         "head_committed_at": head_committed_at,
         "settlement_comment_template": _settlement_comment_template(pr=pr, head=head),
         "authorization_diagnostics": [
@@ -254,6 +290,7 @@ def authorization_diagnostics(
                 require_branch_protection_token=require_branch_protection_token,
                 trusted_operator_logins=allowed_logins,
                 permission_checker=checker,
+                evaluate_member_permissions=evaluate_member_permissions,
             )
             for item in _text_items(pr_view)
         ],
@@ -474,6 +511,7 @@ def evaluate_tier4_gate(
         cwd=cwd,
         trusted_operator_logins=trusted_operator_logins,
         permission_checker=permission_checker,
+        evaluate_member_permissions=not blockers,
     )
     authorized_actions: set[str] = set()
     if actual_head == expected_head:
