@@ -342,6 +342,24 @@ def test_policy_exclusion_reasons_reports_common_unsafe_path_variants() -> None:
         assert reasons == [SURFACE_REASON], path
 
 
+def test_policy_exclusion_reasons_does_not_overmatch_auth_or_workflow_words() -> None:
+    harmless_paths = [
+        "aragora/authoring/foo.py",
+        "authors.py",
+        "authority_check.py",
+        "tests/authoring_test.py",
+        "aragora/workflow/orchestrator.py",
+        "tests/fixtures/migrations/sample.py",
+    ]
+
+    for index, path in enumerate(harmless_paths, start=7470):
+        reasons = policy_exclusion_reasons(
+            _entry(index, tier=0, reasons=["docs/tests/status-only"]),
+            policy_metadata={index: {"files": [{"path": path}]}},
+        )
+        assert reasons == [], path
+
+
 def test_explicit_pr_policy_exclusion_surfaces_in_blockers_and_exclusions() -> None:
     report = build_report(
         _packet(_entry(7462)),
@@ -445,6 +463,7 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_fails(
     packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
 
     assert [entry["pr_number"] for entry in packet["entries"]] == [7449]
+    assert packet["load_warnings"] == ["bulk merge-packet failed; using fallback: HTTP 504"]
     assert bulk_calls == 1
     targeted = [command for command in commands if "--pr" in command]
     assert len(targeted) == 1
@@ -504,7 +523,40 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
     packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
 
     assert packet["entries"] == []
+    assert packet["load_warnings"] == ["bulk merge-packet failed; using fallback: HTTP 504"]
     assert packet["load_blockers"] == ["merge-packet for #7449 failed: GraphQL timeout"]
+
+
+def test_combine_packets_preserves_source_packet_timestamps(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+            if "--limit" in args:
+                return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
+            pr_number = int(args[args.index("--pr") + 1])
+            packet = _packet(_entry(pr_number))
+            packet["generated_at"] = f"packet-{pr_number}-generated-at"
+            return packet, {"command": "packet", "returncode": 0}
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [
+                    {"number": 7449, "title": "fix(settlement)", "headRefName": "codex/settle"},
+                    {"number": 7450, "title": "fix(next)", "headRefName": "codex/next"},
+                ],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
+
+    assert packet["source_generated_at"] == [
+        "packet-7449-generated-at",
+        "packet-7450-generated-at",
+    ]
 
 
 def test_broad_selection_continues_past_excluded_candidate_from_bulk_packet() -> None:
@@ -630,7 +682,10 @@ def test_build_report_fails_closed_when_operator_snapshot_fails(monkeypatch) -> 
 
 
 def test_build_report_blocks_repo_mismatch_when_repo_override_supplied(monkeypatch) -> None:
+    snapshot_called = False
+
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        nonlocal snapshot_called
         del cwd, timeout
         if args[:3] == ["gh", "pr", "list"]:
             return (
@@ -638,6 +693,7 @@ def test_build_report_blocks_repo_mismatch_when_repo_override_supplied(monkeypat
                 {"command": "metadata", "returncode": 0},
             )
         if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            snapshot_called = True
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return (
@@ -682,6 +738,112 @@ def test_build_report_blocks_repo_mismatch_when_repo_override_supplied(monkeypat
 
     assert report["status"] == "blocked"
     assert "--repo other/repo does not match cwd origin synaptent/aragora" in report["blockers"]
+    assert snapshot_called is False
+
+
+def test_lazy_policy_metadata_continues_past_failed_pr_view(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [
+                    {"number": 7451, "title": "fix: flaky", "headRefName": "codex/flaky"},
+                    {"number": 7452, "title": "fix: next", "headRefName": "codex/next"},
+                ],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+            return {"status": "completed"}, {"command": "owner", "returncode": 0}
+        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+            return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
+            return None, {"command": "policy-view-7451", "returncode": 1, "stderr": "timeout"}
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "7452"
+            and "statusCheckRollup" in args[5]
+        ):
+            return (
+                {
+                    "headRefOid": "0000000000000000000000000000000000007452",
+                    "baseRefName": "main",
+                    "isDraft": False,
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "statusCheckRollup": [
+                        {
+                            "__typename": "CheckRun",
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "SUCCESS",
+                        }
+                    ],
+                },
+                {"command": "view-7452", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7452":
+            return (
+                {
+                    "number": 7452,
+                    "title": "fix: next",
+                    "headRefName": "codex/next",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "scripts/settle_one_pr.py"}],
+                },
+                {"command": "policy-view-7452", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/required_status_checks"):
+            return (
+                {"checks": [{"context": "aragora-merge-quorum", "app_id": 15368}]},
+                {"command": "protection", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/check-runs?per_page=100"):
+            return (
+                {
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "success",
+                            "app": {"id": 15368},
+                        }
+                    ]
+                },
+                {"command": "check-runs", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "checks"]:
+            return (
+                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                {"command": "checks", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                7451, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
+            ),
+            _entry(
+                7452, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
+            ),
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=None,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["selected_pr"] == 7452
+    assert report["status"] == "ready_for_minimum_evidence"
+    assert report["policy_exclusions"][0]["pr_number"] == 7451
+    assert report["policy_exclusions"][0]["reasons"] == [
+        "selected-candidate policy metadata unavailable"
+    ]
 
 
 def test_build_report_fails_closed_when_selected_policy_metadata_unavailable(

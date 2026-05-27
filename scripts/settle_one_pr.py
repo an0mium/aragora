@@ -43,10 +43,10 @@ SURFACE_EXCLUDE_REASON = (
 )
 UNSAFE_SURFACE_PATH_RE = re.compile(
     r"(^|/)(?:"
-    r"\.github/workflows?|workflows?|security(?:[_-]?[a-z0-9]+)?|"
-    r"auth(?:[_-]?[a-z0-9]+)?|authentication|authorization|oauth|rbac|"
-    r"secrets?|deploy(?:s|ments)?(?:[_-]?[a-z0-9]+)?|"
-    r"migrat(?:e|ion)(?:s|[_-]?[a-z0-9]+)?|legal|compliance|destructive"
+    r"\.github/workflows?|security(?:[_-][a-z0-9]+)?|"
+    r"auth(?:[_-][a-z0-9]+)?|authentication|authorization|oauth|rbac|"
+    r"secrets?|deploy(?:s|ments)?(?:[_-][a-z0-9]+)?|"
+    r"migrat(?:e|ion)(?:s|[_-][a-z0-9]+)?|legal|compliance|destructive"
     r")(?:[./_-]|$)|(^|/)public[-_/ ]?apis?([./_-]|$)",
     re.IGNORECASE,
 )
@@ -177,6 +177,23 @@ def _file_paths(entry: dict[str, Any], metadata: dict[str, Any]) -> list[str]:
     return paths
 
 
+def _path_segments(path: str) -> list[str]:
+    return [segment for segment in path.replace("\\", "/").strip().lower().split("/") if segment]
+
+
+def _component_stem(segment: str) -> str:
+    # Keep separator-sensitive matching explicit so "authoring" is not treated as "auth".
+    return segment.rsplit(".", 1)[0]
+
+
+def _has_prefixed_component(component: str, stem: str) -> bool:
+    return component == stem or component.startswith(f"{stem}_") or component.startswith(f"{stem}-")
+
+
+def _is_docs_or_tests_path(segments: list[str]) -> bool:
+    return bool(segments) and segments[0] in {"doc", "docs", "test", "tests"}
+
+
 def _is_dependabot_pr(entry: dict[str, Any], metadata: dict[str, Any]) -> bool:
     author = metadata.get("author") or entry.get("author")
     if isinstance(author, dict):
@@ -192,9 +209,44 @@ def _is_dependabot_pr(entry: dict[str, Any], metadata: dict[str, Any]) -> bool:
 
 def _touches_unsafe_surface(entry: dict[str, Any], metadata: dict[str, Any]) -> bool:
     for path in _file_paths(entry, metadata):
-        normalized = path.replace("\\", "/").strip().lower()
-        if UNSAFE_SURFACE_PATH_RE.search(normalized):
+        segments = _path_segments(path)
+        if _is_docs_or_tests_path(segments):
+            continue
+        if len(segments) >= 2 and segments[0] == ".github" and segments[1] == "workflows":
             return True
+        for index, segment in enumerate(segments):
+            component = _component_stem(segment)
+            if segment in {"public-api", "public_api"} or (
+                segment == "public"
+                and index + 1 < len(segments)
+                and segments[index + 1].startswith("api")
+            ):
+                return True
+            if component in {"authentication", "authorization", "oauth", "rbac"}:
+                return True
+            if _has_prefixed_component(component, "auth"):
+                return True
+            if _has_prefixed_component(component, "security"):
+                return True
+            if _has_prefixed_component(component, "secret") or component == "secrets":
+                return True
+            if _has_prefixed_component(component, "deploy") or component in {
+                "deployment",
+                "deployments",
+            }:
+                return True
+            if (
+                _has_prefixed_component(component, "migrate")
+                or _has_prefixed_component(component, "migration")
+                or component == "migrations"
+            ):
+                return True
+            if _has_prefixed_component(component, "legal"):
+                return True
+            if _has_prefixed_component(component, "compliance"):
+                return True
+            if _has_prefixed_component(component, "destructive"):
+                return True
     return False
 
 
@@ -247,6 +299,24 @@ def _exclusion_record(entry: dict[str, Any], reasons: list[str]) -> dict[str, An
         "head_sha": entry.get("head_sha"),
         "reasons": reasons,
     }
+
+
+def _merge_exclusions(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[tuple[Any, tuple[str, ...]]] = set()
+    for group in groups:
+        for item in group:
+            if not isinstance(item, dict):
+                continue
+            key = (
+                item.get("pr_number"),
+                tuple(str(reason) for reason in item.get("reasons") or []),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
+    return merged
 
 
 SelectionResult = tuple[dict[str, Any] | None, list[str]]
@@ -792,30 +862,46 @@ def select_candidate_with_lazy_policy_metadata(
     """Select a candidate while loading heavy file metadata only as needed."""
     metadata_commands: list[dict[str, Any]] = []
     loaded: set[int] = set()
+    unavailable: set[int] = set()
+    accumulated_exclusions: list[dict[str, Any]] = []
     max_attempts = len([entry for entry in packet.get("entries") or [] if isinstance(entry, dict)])
     max_attempts = max(1, max_attempts + 1)
     for _ in range(max_attempts):
+        effective_exclude_prs = set(exclude_prs) | unavailable
         selected, blockers, exclusions = cast(
             SelectionResultWithExclusions,
             select_candidate(
                 packet,
                 explicit_pr=explicit_pr,
-                exclude_prs=exclude_prs,
+                exclude_prs=effective_exclude_prs,
                 active_owned_prs=active_owned_prs,
                 policy_metadata=policy_metadata,
                 return_exclusions=True,
             ),
         )
+        accumulated_exclusions = _merge_exclusions(accumulated_exclusions, exclusions)
         pr_number = _entry_pr(selected or {})
         if pr_number is None or pr_number in loaded:
-            return selected, blockers, exclusions, metadata_commands
+            if selected is None and unavailable:
+                return (
+                    None,
+                    ["selected-candidate policy metadata unavailable"],
+                    accumulated_exclusions,
+                    metadata_commands,
+                )
+            return selected, blockers, accumulated_exclusions, metadata_commands
         metadata, command = load_pr_policy_metadata(cwd, pr_number, repo=repo)
         metadata_commands.append(command)
         loaded.add(pr_number)
         if command.get("returncode") != 0 or not metadata:
             reason = "selected-candidate policy metadata unavailable"
-            exclusions.append(_exclusion_record(selected or {}, [reason]))
-            return None, [reason], exclusions, metadata_commands
+            failed_exclusion = _exclusion_record(selected or {}, [reason])
+            accumulated_exclusions = _merge_exclusions(accumulated_exclusions, [failed_exclusion])
+            if explicit_pr is not None:
+                return None, [reason], accumulated_exclusions, metadata_commands
+            if pr_number is not None:
+                unavailable.add(pr_number)
+            continue
         merged = dict(policy_metadata.get(pr_number) or {})
         merged.update(metadata)
         policy_metadata[pr_number] = merged
@@ -824,13 +910,25 @@ def select_candidate_with_lazy_policy_metadata(
         select_candidate(
             packet,
             explicit_pr=explicit_pr,
-            exclude_prs=exclude_prs,
+            exclude_prs=set(exclude_prs) | unavailable,
             active_owned_prs=active_owned_prs,
             policy_metadata=policy_metadata,
             return_exclusions=True,
         ),
     )
-    return selected, blockers, exclusions, metadata_commands
+    if selected is None and unavailable:
+        return (
+            None,
+            ["selected-candidate policy metadata unavailable"],
+            _merge_exclusions(accumulated_exclusions, exclusions),
+            metadata_commands,
+        )
+    return (
+        selected,
+        blockers,
+        _merge_exclusions(accumulated_exclusions, exclusions),
+        metadata_commands,
+    )
 
 
 def recursive_prompt(report: dict[str, Any]) -> str:
@@ -875,16 +973,19 @@ def build_report(
     policy_context: dict[str, Any] = {}
     policy_metadata_commands: list[dict[str, Any]] = []
     preselection_blockers = [str(item) for item in packet.get("load_blockers") or []]
+    load_warnings = [str(item) for item in packet.get("load_warnings") or []]
     if live:
-        policy_metadata, metadata_command = load_open_pr_metadata(cwd, repo=repo)
-        active_owned_prs, active_owned_command = load_active_owned_prs(cwd)
-        snapshot_blocker = active_owned_snapshot_blocker(active_owned_command)
-        if snapshot_blocker:
-            preselection_blockers.append(snapshot_blocker)
         repo_blocker, repo_command, cwd_repo = repo_cwd_blocker(cwd, repo)
         if repo_blocker:
             preselection_blockers.append(repo_blocker)
+        policy_metadata, metadata_command = load_open_pr_metadata(cwd, repo=repo)
         policy_metadata_commands.append(metadata_command)
+        active_owned_command: dict[str, Any] | None = None
+        if not repo_blocker:
+            active_owned_prs, active_owned_command = load_active_owned_prs(cwd)
+            snapshot_blocker = active_owned_snapshot_blocker(active_owned_command)
+            if snapshot_blocker:
+                preselection_blockers.append(snapshot_blocker)
         policy_context = {
             "repo": repo,
             "policy_metadata_commands": policy_metadata_commands,
@@ -894,6 +995,8 @@ def build_report(
         if repo is not None:
             policy_context["cwd_repo_command"] = repo_command
             policy_context["cwd_repo"] = cwd_repo
+        if load_warnings:
+            policy_context["load_warnings"] = load_warnings
 
     if live:
         selected, selection_blockers, policy_exclusions, lazy_commands = (
@@ -939,6 +1042,7 @@ def build_report(
         "evidence": {},
         "checks": {},
         "policy_context": policy_context,
+        "load_warnings": load_warnings,
         "policy_exclusions": policy_exclusions,
         "validation": [],
         "suggested_commands": [],
@@ -1161,7 +1265,11 @@ def _combine_packets(packets: list[dict[str, Any]]) -> dict[str, Any]:
     admin_order: list[int] = []
     human_risk: list[int] = []
     not_ready: list[int] = []
+    source_generated_at: list[str] = []
     for packet in packets:
+        generated_at = packet.get("generated_at")
+        if generated_at:
+            source_generated_at.append(str(generated_at))
         for entry in packet.get("entries") or []:
             if isinstance(entry, dict):
                 entries.append(entry)
@@ -1184,6 +1292,7 @@ def _combine_packets(packets: list[dict[str, Any]]) -> dict[str, Any]:
         "admin_squash_order": admin_order,
         "human_risk_settlement_required": human_risk,
         "not_ready": not_ready,
+        "source_generated_at": source_generated_at,
     }
 
 
@@ -1212,6 +1321,7 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
     try:
         return _load_broad_packet_bulk(cwd=cwd, limit=limit, repo=repo)
     except RuntimeError as bulk_error:
+        load_warnings = [f"bulk merge-packet failed; using fallback: {bulk_error}"]
         metadata: dict[int, dict[str, Any]] = {}
         metadata, command = load_open_pr_metadata(cwd, limit=limit, repo=repo)
         if command.get("returncode") != 0:
@@ -1220,6 +1330,7 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
                 str(bulk_error),
                 command.get("stderr") or command.get("stdout") or "gh pr list failed",
             ]
+            packet["load_warnings"] = load_warnings
             return packet
 
     active_owned_prs, active_owned_command = load_active_owned_prs(cwd)
@@ -1227,6 +1338,7 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
     if snapshot_blocker:
         packet = _empty_packet()
         packet["load_blockers"] = [snapshot_blocker]
+        packet["load_warnings"] = load_warnings
         return packet
     packets: list[dict[str, Any]] = []
     packet_failures: list[str] = []
@@ -1265,6 +1377,7 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
         if selected is not None:
             selected_seen = True
     packet = _combine_packets(packets) if packets else _empty_packet()
+    packet["load_warnings"] = load_warnings
     if packet_failures:
         packet["load_blockers"] = packet_failures
     return packet
