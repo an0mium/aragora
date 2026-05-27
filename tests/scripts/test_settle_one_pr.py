@@ -330,6 +330,8 @@ def test_policy_exclusion_reasons_reports_common_unsafe_path_variants() -> None:
     unsafe_paths = [
         "aragora/auth_helpers/providers.py",
         "aragora/security_utils.py",
+        "aragora/secrets_manager.py",
+        "infra/secrets-prod.yaml",
         "infra/deploy-prod.yaml",
         "scripts/migrate_users.py",
     ]

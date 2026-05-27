@@ -228,7 +228,9 @@ def _touches_unsafe_surface(entry: dict[str, Any], metadata: dict[str, Any]) -> 
                 return True
             if _has_prefixed_component(component, "security"):
                 return True
-            if _has_prefixed_component(component, "secret") or component == "secrets":
+            if _has_prefixed_component(component, "secret") or _has_prefixed_component(
+                component, "secrets"
+            ):
                 return True
             if _has_prefixed_component(component, "deploy") or component in {
                 "deployment",
