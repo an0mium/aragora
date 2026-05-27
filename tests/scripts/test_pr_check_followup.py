@@ -444,3 +444,214 @@ def test_green_conflicting_pr_emits_branch_conflict_prompt() -> None:
     assert result.action == "diagnose_branch_conflict"
     assert "branch conflict" in result.prompt
     assert "Do not merge" in result.prompt
+
+
+def _required_check(
+    name: str,
+    bucket: str,
+    *,
+    workflow: str = "Tests",
+    state: str | None = None,
+    run_id: str = "123",
+    job_id: str = "456",
+) -> dict[str, str]:
+    return {
+        "name": name,
+        "bucket": bucket,
+        "state": state or bucket.upper(),
+        "workflow": workflow,
+        "link": f"https://github.com/synaptent/aragora/actions/runs/{run_id}/job/{job_id}",
+    }
+
+
+def _merge_packet(
+    *,
+    allowed: bool = True,
+    not_ready: list[int] | None = None,
+    head: str = "head-sha",
+) -> dict[str, Any]:
+    return {
+        "entries": [
+            {
+                "pr_number": 7443,
+                "head_sha": head,
+                "admin_squash_allowed": allowed,
+                "status": "satisfied" if allowed else "repair_or_wait",
+                "verdict": "admin_squash_allowed" if allowed else "not_ready_for_settlement",
+            }
+        ],
+        "admin_squash_order": [7443] if allowed else [],
+        "not_ready": not_ready or [],
+    }
+
+
+def test_settlement_guard_required_pending_blocks_packet_authorization() -> None:
+    result = followup.build_followup_result(
+        _pr([_check("Tests", "Type Check", "SUCCESS")]),
+        required_checks=[
+            _required_check("aragora-merge-quorum", "pending", workflow="Aragora Merge Quorum"),
+        ],
+        merge_packet=_merge_packet(allowed=True),
+        settlement_guard=True,
+    )
+
+    assert result.action == "monitor_required_checks"
+    assert result.rerun_commands == []
+    assert result.settlement_guard is not None
+    assert result.settlement_guard.direct_required_checks_green is False
+    assert "required checks are still pending/failing" in result.prompt
+    assert "admin squash merge" not in result.prompt
+
+
+def test_settlement_guard_full_rollup_pending_blocks_stale_quorum_rerun() -> None:
+    result = followup.build_followup_result(
+        _pr([_check("Aragora Merge Quorum", "aragora-merge-quorum", "CANCELLED")]),
+        required_checks=[
+            _required_check(
+                "aragora-merge-quorum",
+                "cancel",
+                workflow="Aragora Merge Quorum",
+                state="CANCELLED",
+                run_id="77",
+                job_id="88",
+            ),
+        ],
+        full_rollup_checks=[
+            _required_check(
+                "aragora-merge-quorum",
+                "cancel",
+                workflow="Aragora Merge Quorum",
+                state="CANCELLED",
+                run_id="77",
+                job_id="88",
+            ),
+            _required_check("Baseline Determinism", "pending", workflow="Tests"),
+        ],
+        merge_packet=_merge_packet(allowed=True),
+        settlement_guard=True,
+        allow_rerun_commands=True,
+    )
+
+    assert result.action == "monitor_full_rollup"
+    assert result.rerun_commands == []
+    assert "Baseline Determinism" in result.prompt
+    assert "gh run rerun" not in result.prompt
+
+
+def test_settlement_guard_safe_stale_quorum_emits_rerun_only_when_allowed() -> None:
+    result = followup.build_followup_result(
+        _pr([_check("Aragora Merge Quorum", "aragora-merge-quorum", "CANCELLED")]),
+        required_checks=[
+            _required_check(
+                "aragora-merge-quorum",
+                "cancel",
+                workflow="Aragora Merge Quorum",
+                state="CANCELLED",
+                run_id="77",
+                job_id="88",
+            ),
+        ],
+        full_rollup_checks=[
+            _required_check(
+                "aragora-merge-quorum",
+                "cancel",
+                workflow="Aragora Merge Quorum",
+                state="CANCELLED",
+                run_id="77",
+                job_id="88",
+            ),
+            _required_check("Type Check", "pass", workflow="Tests"),
+        ],
+        merge_packet=_merge_packet(allowed=True),
+        settlement_guard=True,
+        allow_rerun_commands=False,
+    )
+    allowed = followup.build_followup_result(
+        _pr([_check("Aragora Merge Quorum", "aragora-merge-quorum", "CANCELLED")]),
+        required_checks=[
+            _required_check(
+                "aragora-merge-quorum",
+                "cancel",
+                workflow="Aragora Merge Quorum",
+                state="CANCELLED",
+                run_id="77",
+                job_id="88",
+            ),
+        ],
+        full_rollup_checks=[
+            _required_check(
+                "aragora-merge-quorum",
+                "cancel",
+                workflow="Aragora Merge Quorum",
+                state="CANCELLED",
+                run_id="77",
+                job_id="88",
+            ),
+            _required_check("Type Check", "pass", workflow="Tests"),
+        ],
+        merge_packet=_merge_packet(allowed=True),
+        settlement_guard=True,
+        allow_rerun_commands=True,
+    )
+
+    assert result.action == "rerun_stale_merge_quorum"
+    assert result.rerun_commands == []
+    assert allowed.action == "rerun_stale_merge_quorum"
+    assert allowed.rerun_commands == ["gh run rerun 77 --job 88"]
+
+
+def test_settlement_guard_real_non_quorum_failure_repairs_not_reruns() -> None:
+    result = followup.build_followup_result(
+        _pr([_check("Tests", "Type Check", "FAILURE")]),
+        required_checks=[_required_check("Type Check", "fail", workflow="Tests")],
+        full_rollup_checks=[_required_check("Type Check", "fail", workflow="Tests")],
+        merge_packet=_merge_packet(allowed=True),
+        settlement_guard=True,
+        allow_rerun_commands=True,
+    )
+
+    assert result.action == "repair_failures"
+    assert result.rerun_commands == []
+    assert "Repair only the real failed checks" in result.prompt
+
+
+def test_settlement_guard_green_checks_and_packet_authorized_prompts_operator_auth() -> None:
+    result = followup.build_followup_result(
+        _pr([_check("Tests", "Type Check", "SUCCESS")]),
+        required_checks=[_required_check("Type Check", "pass", workflow="Tests")],
+        full_rollup_checks=[_required_check("Type Check", "pass", workflow="Tests")],
+        merge_packet=_merge_packet(allowed=True),
+        settlement_guard=True,
+    )
+
+    assert result.action == "ready_for_operator_authorization"
+    assert result.settlement_guard is not None
+    assert result.settlement_guard.merge_packet_authorizes is True
+    assert "I explicitly authorize exact-head admin squash merge for PR #7443" in result.prompt
+    assert "gh pr merge 7443 --squash --admin --match-head-commit head-sha" in result.prompt
+
+
+def test_pr_checks_exit_code_8_still_parses_pending_stdout(monkeypatch: Any) -> None:
+    completed = followup.subprocess.CompletedProcess(
+        args=["gh", "pr", "checks"],
+        returncode=8,
+        stdout='[{"name":"Type Check","bucket":"pending","state":"IN_PROGRESS","workflow":"Tests","link":""}]',
+        stderr="checks pending",
+    )
+
+    def fake_run(*args: Any, **kwargs: Any) -> Any:
+        return completed
+
+    monkeypatch.setattr(followup.subprocess, "run", fake_run)
+
+    rows = followup._run_json_allow_pending(["gh", "pr", "checks", "7443"])
+
+    assert rows == [
+        {
+            "name": "Type Check",
+            "bucket": "pending",
+            "state": "IN_PROGRESS",
+            "workflow": "Tests",
+            "link": "",
+        }
+    ]
