@@ -421,7 +421,7 @@ def build_prompt(
     return "\n".join(lines)
 
 
-def _run_gh_json(args: list[str]) -> dict[str, Any]:
+def _run_gh_json(args: list[str]) -> Any:
     completed = subprocess.run(args, check=True, text=True, capture_output=True)
     return json.loads(completed.stdout)
 
@@ -483,11 +483,15 @@ def _rate_limit_snapshot(resource: str = "core") -> dict[str, Any]:
     }
 
 
+def _dict_or_empty(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def _rest_check_run_to_rollup(item: dict[str, Any]) -> dict[str, Any]:
-    suite = item.get("check_suite") if isinstance(item.get("check_suite"), dict) else {}
-    app = item.get("app") if isinstance(item.get("app"), dict) else {}
-    if not app and isinstance(suite.get("app"), dict):
-        app = suite["app"]
+    suite = _dict_or_empty(item.get("check_suite"))
+    app = _dict_or_empty(item.get("app"))
+    if not app:
+        app = _dict_or_empty(suite.get("app"))
     return {
         "__typename": "CheckRun",
         "workflowName": str(item.get("workflow_name") or item.get("workflowName") or ""),
@@ -519,7 +523,7 @@ def _rest_status_to_rollup(item: dict[str, Any]) -> dict[str, Any]:
 
 def _rest_pr_to_pr_data(repo: str, pr_number: int) -> dict[str, Any]:
     payload = _run_gh_json(["gh", "api", f"repos/{repo}/pulls/{pr_number}"])
-    head = payload.get("head") if isinstance(payload.get("head"), dict) else {}
+    head = _dict_or_empty(payload.get("head"))
     return {
         "number": int(payload.get("number") or pr_number),
         "state": str(payload.get("state") or "").upper(),
