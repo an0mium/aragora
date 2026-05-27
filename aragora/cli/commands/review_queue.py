@@ -1348,6 +1348,7 @@ def _build_packet(
             "url",
             "headRefOid",
             "baseRefOid",
+            "state",
             "isDraft",
             "mergeable",
             "reviewDecision",
@@ -1388,11 +1389,14 @@ def _build_packet(
     additions = int(pr.get("additions", 0) or 0)
     deletions = int(pr.get("deletions", 0) or 0)
     is_draft = bool(pr.get("isDraft", False))
+    github_state = _github_pr_state(pr)
     mergeable = str(pr.get("mergeable", "")).strip().upper()
     queue_item = _classify_pr(pr)
     validation = _extract_validation_commands(str(pr.get("body", "") or ""))
 
     risk_flags: list[str] = []
+    if github_state and github_state != "OPEN":
+        risk_flags.append(f"PR is already {github_state}")
     if is_draft:
         risk_flags.append("draft PR")
     if parked_label_hits:
@@ -1408,9 +1412,11 @@ def _build_packet(
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
 
-    if has_failures or mergeable == "CONFLICTING":
+    if has_failures or mergeable == "CONFLICTING" or (github_state and github_state != "OPEN"):
         recommendation = "repair_first"
-        recommendation_reason = "checks failing or merge conflict — fix before review"
+        recommendation_reason = (
+            "checks failing, merge conflict, or PR is not open — fix before review"
+        )
     elif is_draft:
         recommendation = "needs_human_attention"
         recommendation_reason = "draft PR — keep parked until it is ready for review"
@@ -1628,7 +1634,8 @@ def _build_model_review_quorum(
     dissenting_views = [
         view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
     ]
-    blocking_workflow_state = _has_blocking_workflow_state(pr)
+    blocking_workflow_reasons = _blocking_workflow_state_reasons(pr)
+    blocking_workflow_state = bool(blocking_workflow_reasons)
     unresolved_dissent = bool(dissenting_views)
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
     signal_count = len(counted_reviewer_ids)
@@ -1644,6 +1651,7 @@ def _build_model_review_quorum(
         reasons.append("checks are failing; repair before settlement")
     if has_pending:
         reasons.append("checks are pending; wait before settlement")
+    reasons.extend(blocking_workflow_reasons)
     if unresolved_dissent:
         reasons.append("unresolved model dissent is present")
     if not quorum_satisfied:
@@ -1775,17 +1783,32 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
 
 
 def _has_blocking_workflow_state(pr: dict[str, Any]) -> bool:
+    return bool(_blocking_workflow_state_reasons(pr))
+
+
+def _blocking_workflow_state_reasons(pr: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    github_state = _github_pr_state(pr)
+    if github_state and github_state != "OPEN":
+        reasons.append(f"PR is already {github_state}")
     if bool(pr.get("isDraft", False)):
-        return True
+        reasons.append("draft PR")
     mergeable = str(pr.get("mergeable", "")).strip().upper()
     if mergeable == "CONFLICTING":
-        return True
+        reasons.append("merge conflict")
     labels = [
         str(label.get("name", "")).strip()
         for label in (pr.get("labels") or [])
         if isinstance(label, dict) and label.get("name")
     ]
-    return any(label in PARKED_LABELS for label in labels)
+    parked_label_hits = [label for label in labels if label in PARKED_LABELS]
+    if parked_label_hits:
+        reasons.append(f"parked label ({','.join(parked_label_hits)})")
+    return reasons
+
+
+def _github_pr_state(pr: dict[str, Any]) -> str:
+    return str(pr.get("state", "") or "").strip().upper()
 
 
 def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, Any]]:

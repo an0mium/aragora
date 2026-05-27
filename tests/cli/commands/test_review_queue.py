@@ -58,6 +58,7 @@ def _make_pr(
     *,
     number: int = 1,
     title: str = "test PR",
+    state: str = "OPEN",
     is_draft: bool = False,
     mergeable: str = "MERGEABLE",
     review_decision: str = "",
@@ -75,6 +76,7 @@ def _make_pr(
         "number": number,
         "title": title,
         "url": f"https://github.com/synaptent/aragora/pull/{number}",
+        "state": state,
         "headRefName": f"branch-{number}",
         "headRefOid": f"sha{number:08d}",
         "baseRefOid": "basesha0001",
@@ -1174,6 +1176,22 @@ class TestModelReviewQuorum:
         )
         assert quorum["status"] == "repair_or_wait"
         assert quorum["admin_squash_allowed"] is False
+
+    def test_merged_state_blocks_settlement_even_with_quorum(self) -> None:
+        pr = _make_pr(files=["docs/README.md"], state="MERGED")
+        pr["comments"] = [_dogfood_comment("## Claude focused dogfood\npass")]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["docs/README.md"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["status"] == "repair_or_wait"
+        assert quorum["verdict"] == "not_ready_for_settlement"
+        assert quorum["admin_squash_allowed"] is False
+        assert "PR is already MERGED" in quorum["reasons"]
 
     def test_tier_three_never_admin_squashes_without_human_risk_settlement(self) -> None:
         pr = _make_pr(files=["aragora/reputation/store.py"])
