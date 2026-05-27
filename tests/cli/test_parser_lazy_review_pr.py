@@ -9,7 +9,7 @@ from aragora.cli.parser import build_parser
 
 
 def test_build_parser_keeps_review_pr_runtime_lazy(monkeypatch):
-    sys.modules.pop("aragora.cli.commands.review_pr", None)
+    monkeypatch.delitem(sys.modules, "aragora.cli.commands.review_pr", raising=False)
     imported: list[str] = []
     real_import = builtins.__import__
 
@@ -46,7 +46,7 @@ def test_build_parser_keeps_triage_status_free_of_heavy_review_imports(monkeypat
         "aragora.worktree",
         "aragora.worktree.fleet",
     ):
-        sys.modules.pop(module_name, None)
+        monkeypatch.delitem(sys.modules, module_name, raising=False)
 
     imported: list[str] = []
     real_import = builtins.__import__
@@ -71,7 +71,7 @@ def test_build_parser_keeps_triage_status_free_of_heavy_review_imports(monkeypat
 
 
 def test_build_parser_keeps_review_queue_runtime_lazy(monkeypatch):
-    sys.modules.pop("aragora.cli.commands.review_queue", None)
+    monkeypatch.delitem(sys.modules, "aragora.cli.commands.review_queue", raising=False)
     imported: list[str] = []
     real_import = builtins.__import__
 
@@ -106,7 +106,7 @@ def test_build_parser_keeps_review_queue_runtime_lazy(monkeypatch):
 
 
 def test_build_parser_registers_review_queue_baseline_lazily(monkeypatch):
-    sys.modules.pop("aragora.cli.commands.review_queue", None)
+    monkeypatch.delitem(sys.modules, "aragora.cli.commands.review_queue", raising=False)
     imported: list[str] = []
     real_import = builtins.__import__
 
@@ -155,7 +155,7 @@ def test_build_parser_registers_review_queue_baseline_lazily(monkeypatch):
 
 
 def test_build_parser_registers_review_queue_merge_packet_lazily(monkeypatch):
-    sys.modules.pop("aragora.cli.commands.review_queue", None)
+    monkeypatch.delitem(sys.modules, "aragora.cli.commands.review_queue", raising=False)
     imported: list[str] = []
     real_import = builtins.__import__
 
