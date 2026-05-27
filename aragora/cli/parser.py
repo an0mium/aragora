@@ -1984,6 +1984,11 @@ def _add_review_queue_parser(subparsers) -> None:
         help="GitHub repo slug override (owner/name). Defaults to current repo context.",
     )
     merge_packet_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root used for settlement receipt lookups.",
+    )
+    merge_packet_parser.add_argument(
         "--execute-reviewers",
         action="store_true",
         help="Attempt live heterogeneous reviewer execution for each packet.",
