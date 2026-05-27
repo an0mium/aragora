@@ -149,6 +149,44 @@ def test_select_candidate_excludes_active_owned_and_dependabot() -> None:
     assert exclusions[1]["reasons"] == ["Dependabot PR"]
 
 
+def test_policy_exclusion_reasons_uses_reliable_dependabot_signals() -> None:
+    human_entry = _entry(
+        7301,
+        tier=0,
+        reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"],
+    )
+
+    assert (
+        policy_exclusion_reasons(
+            human_entry,
+            policy_metadata={
+                7301: {
+                    "author": {"login": "human-maintainer"},
+                    "headRefName": "codex/docs-dependabot-mention",
+                    "title": "docs: explain dependabot/ branch handling",
+                }
+            },
+        )
+        == []
+    )
+
+    dependabot_entry = _entry(
+        7302,
+        tier=0,
+        reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"],
+    )
+
+    assert policy_exclusion_reasons(
+        dependabot_entry,
+        policy_metadata={
+            7302: {
+                "author": {"login": "human-maintainer"},
+                "headRefName": "dependabot/npm_and_yarn/qs-6.15.2",
+            }
+        },
+    ) == ["Dependabot PR"]
+
+
 def test_select_candidate_excludes_dirty_and_continues() -> None:
     dirty = _entry(7408, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"])
     next_entry = _entry(
@@ -235,6 +273,27 @@ def test_select_candidate_does_not_treat_authored_text_as_auth_surface() -> None
     assert exclusions == []
 
 
+def test_policy_exclusion_reasons_does_not_flag_plain_unsafe_words_in_docs() -> None:
+    docs = _entry(
+        7460,
+        tier=0,
+        reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"],
+    )
+
+    reasons = policy_exclusion_reasons(
+        docs,
+        policy_metadata={
+            7460: {
+                "title": "docs(compliance): clarify legal disclaimer for destructive cleanup",
+                "headRefName": "codex/legal-disclaimer-docs",
+                "files": [{"path": "README.md"}, {"path": "docs/status/cleanup.md"}],
+            }
+        },
+    )
+
+    assert reasons == []
+
+
 def test_policy_exclusion_reasons_reports_file_path_only_unsafe_surface() -> None:
     entry = _entry(7461, tier=0, reasons=["docs/tests/status-only"])
 
@@ -244,6 +303,29 @@ def test_policy_exclusion_reasons_reports_file_path_only_unsafe_surface() -> Non
     )
 
     assert reasons == [SURFACE_REASON]
+
+
+def test_explicit_pr_policy_exclusion_surfaces_in_blockers_and_exclusions() -> None:
+    report = build_report(
+        _packet(_entry(7462)),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=7462,
+        exclude_prs={7462},
+        live=False,
+        validate=False,
+    )
+
+    assert report["selected_pr"] == 7462
+    assert report["policy_exclusions"] == [
+        {
+            "pr_number": 7462,
+            "title": "PR 7462",
+            "head_sha": "0000000000000000000000000000000000007462",
+            "reasons": ["explicitly excluded by steward scope"],
+        }
+    ]
+    assert "excluded_by_policy: explicitly excluded by steward scope" in report["blockers"]
 
 
 def test_open_pr_metadata_uses_light_list_fields(monkeypatch) -> None:
@@ -265,11 +347,42 @@ def test_open_pr_metadata_uses_light_list_fields(monkeypatch) -> None:
     assert "statusCheckRollup" not in fields
 
 
-def test_broad_packet_lazy_loader_skips_cheap_policy_exclusions(monkeypatch) -> None:
-    merge_packet_prs: list[int] = []
+def test_broad_packet_lazy_loader_uses_single_bulk_packet(monkeypatch) -> None:
+    commands: list[list[str]] = []
 
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
+        commands.append(args)
+        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+            assert "--limit" in args
+            assert "--pr" not in args
+            return _packet(_entry(7376), _entry(7449)), {"command": "packet", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
+
+    assert [entry["pr_number"] for entry in packet["entries"]] == [7376, 7449]
+    assert len(commands) == 1
+
+
+def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_fails(
+    monkeypatch,
+) -> None:
+    commands: list[list[str]] = []
+    bulk_calls = 0
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        nonlocal bulk_calls
+        del cwd, timeout
+        commands.append(args)
+        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+            if "--limit" in args:
+                bulk_calls += 1
+                return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
+            pr_number = int(args[args.index("--pr") + 1])
+            return _packet(_entry(pr_number)), {"command": "packet", "returncode": 0}
         if args[:3] == ["gh", "pr", "list"]:
             return (
                 [
@@ -288,65 +401,56 @@ def test_broad_packet_lazy_loader_skips_cheap_policy_exclusions(monkeypatch) -> 
             )
         if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
-            pr_number = int(args[args.index("--pr") + 1])
-            merge_packet_prs.append(pr_number)
-            return _packet(_entry(pr_number)), {"command": "packet", "returncode": 0}
         raise AssertionError(args)
 
     monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
 
     packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
 
-    assert merge_packet_prs == [7449]
     assert [entry["pr_number"] for entry in packet["entries"]] == [7449]
+    assert bulk_calls == 1
+    targeted = [command for command in commands if "--pr" in command]
+    assert len(targeted) == 1
+    assert targeted[0][targeted[0].index("--pr") + 1] == "7449"
 
 
-def test_broad_packet_lazy_loader_continues_beyond_first_eight_non_candidates(
+def test_broad_packet_lazy_loader_returns_empty_when_bulk_and_light_metadata_fail(
     monkeypatch,
 ) -> None:
-    pr_numbers = list(range(8001, 8010))
-    merge_packet_prs: list[int] = []
-
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:3] == ["gh", "pr", "list"]:
-            return (
-                [
-                    {
-                        "number": pr_number,
-                        "title": f"PR {pr_number}",
-                        "headRefName": f"codex/pr-{pr_number}",
-                    }
-                    for pr_number in pr_numbers
-                ],
-                {"command": "metadata", "returncode": 0},
-            )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
-            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
-            pr_number = int(args[args.index("--pr") + 1])
-            merge_packet_prs.append(pr_number)
-            if pr_number == pr_numbers[-1]:
-                return _packet(_entry(pr_number)), {"command": "packet", "returncode": 0}
-            return (
-                _packet(
-                    _entry(
-                        pr_number,
-                        checks_summary="1 pending / 10 total",
-                        reasons=["checks are pending; wait before settlement"],
-                    )
-                ),
-                {"command": "packet", "returncode": 0},
-            )
+            return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
+        if args[:3] == ["gh", "pr", "list"]:
+            return None, {"command": "metadata", "returncode": 1, "stderr": "HTTP 504"}
         raise AssertionError(args)
 
     monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
 
     packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
 
-    assert merge_packet_prs == pr_numbers
-    assert packet["entries"][-1]["pr_number"] == pr_numbers[-1]
+    assert packet["entries"] == []
+    assert packet["load_blockers"] == ["HTTP 504", "HTTP 504"]
+
+
+def test_broad_selection_continues_past_excluded_candidate_from_bulk_packet() -> None:
+    adc = _entry(7376, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"])
+    candidate = _entry(
+        7449,
+        tier=2,
+        reasons=["live automation surface", "model quorum incomplete: 0/2"],
+    )
+
+    selected, blockers, exclusions = select_candidate(
+        _packet(adc, candidate),
+        policy_metadata={7376: {"title": "docs(governance): ADC follow-on deepening packet"}},
+        return_exclusions=True,
+    )
+
+    assert blockers == []
+    assert selected is candidate
+    assert exclusions[0]["pr_number"] == 7376
+    assert exclusions[0]["reasons"] == ["ADC PR"]
 
 
 def test_build_report_threads_repo_to_policy_metadata(monkeypatch) -> None:

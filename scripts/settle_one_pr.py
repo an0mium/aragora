@@ -41,12 +41,11 @@ SURFACE_EXCLUDE_REASON = (
     "security/auth/RBAC/secrets/deploy/workflow/legal/compliance/destructive/"
     "migration/public-API surface"
 )
-SURFACE_EXCLUDE_RE = re.compile(
-    r"(^|[^a-z0-9])("
-    r"workflows?|security|auth(?:entication|orization)?|oauth|rbac|"
-    r"secrets?|deploys?|deployments?|legal|compliance|destructive|"
-    r"migrations?|public[-_/ ]?apis?"
-    r")([^a-z0-9]|$)",
+UNSAFE_SURFACE_PATH_RE = re.compile(
+    r"(^|/)(?:"
+    r"\.github/workflows?|workflows?|security|auth|authentication|authorization|oauth|rbac|"
+    r"secrets?|deploys?|deployments?|legal|compliance|destructive|migrations?"
+    r")(/|$)|(^|/)public[-_/ ]?apis?(/|$)",
     re.IGNORECASE,
 )
 
@@ -162,6 +161,48 @@ def _metadata_text(entry: dict[str, Any], metadata: dict[str, Any]) -> str:
     return " ".join(fields)
 
 
+def _branch_values(entry: dict[str, Any], metadata: dict[str, Any]) -> list[str]:
+    values: list[str] = []
+    for key in ("headRefName", "head_ref_name", "branch"):
+        value = metadata.get(key, entry.get(key))
+        if value:
+            values.append(str(value).strip())
+    return values
+
+
+def _file_paths(entry: dict[str, Any], metadata: dict[str, Any]) -> list[str]:
+    paths: list[str] = []
+    for file_item in metadata.get("files") or entry.get("files") or []:
+        if isinstance(file_item, dict):
+            value = file_item.get("path")
+        else:
+            value = file_item
+        if value:
+            paths.append(str(value).strip())
+    return paths
+
+
+def _is_dependabot_pr(entry: dict[str, Any], metadata: dict[str, Any]) -> bool:
+    author = metadata.get("author") or entry.get("author")
+    if isinstance(author, dict):
+        author_login = str(author.get("login") or "")
+    else:
+        author_login = str(author or "")
+    if author_login.lower().startswith("dependabot"):
+        return True
+    return any(
+        branch.lower().startswith("dependabot/") for branch in _branch_values(entry, metadata)
+    )
+
+
+def _touches_unsafe_surface(entry: dict[str, Any], metadata: dict[str, Any]) -> bool:
+    for path in _file_paths(entry, metadata):
+        normalized = path.replace("\\", "/").strip().lower()
+        if UNSAFE_SURFACE_PATH_RE.search(normalized):
+            return True
+    return False
+
+
 def policy_exclusion_reasons(
     entry: dict[str, Any],
     *,
@@ -181,12 +222,7 @@ def policy_exclusion_reasons(
 
     metadata = _metadata_for_entry(entry, policy_metadata)
     metadata_text = _metadata_text(entry, metadata)
-    author = metadata.get("author") or entry.get("author")
-    if isinstance(author, dict):
-        author_login = str(author.get("login") or "")
-    else:
-        author_login = str(author or "")
-    if author_login.startswith("dependabot") or "dependabot/" in metadata_text:
+    if _is_dependabot_pr(entry, metadata):
         reasons.append("Dependabot PR")
 
     mergeable = str(metadata.get("mergeable") or entry.get("mergeable") or "").upper()
@@ -198,7 +234,7 @@ def policy_exclusion_reasons(
 
     if re.search(r"(^|[^a-z0-9])adc([^a-z0-9]|$)", metadata_text, re.IGNORECASE):
         reasons.append("ADC PR")
-    if SURFACE_EXCLUDE_RE.search(metadata_text):
+    if _touches_unsafe_surface(entry, metadata):
         reasons.append(SURFACE_EXCLUDE_REASON)
 
     tier = _coerce_int(entry.get("tier"))
@@ -733,10 +769,9 @@ def select_candidate_with_lazy_policy_metadata(
             reason = "selected-candidate policy metadata unavailable"
             exclusions.append(_exclusion_record(selected or {}, [reason]))
             return None, [reason], exclusions, metadata_commands
-        if metadata:
-            merged = dict(policy_metadata.get(pr_number) or {})
-            merged.update(metadata)
-            policy_metadata[pr_number] = merged
+        merged = dict(policy_metadata.get(pr_number) or {})
+        merged.update(metadata)
+        policy_metadata[pr_number] = merged
     selected, blockers, exclusions = cast(
         SelectionResultWithExclusions,
         select_candidate(
@@ -1038,6 +1073,27 @@ def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str,
     return payload
 
 
+def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[str, Any]:
+    command = [
+        "python3",
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "merge-packet",
+        "--json",
+        "--limit",
+        str(limit),
+    ]
+    if repo:
+        command.extend(["--repo", repo])
+    payload, result = _run_json(command, cwd=cwd, timeout=600)
+    if result["returncode"] != 0:
+        raise RuntimeError(result["stderr"] or result["stdout"] or "merge-packet failed")
+    if not isinstance(payload, dict):
+        raise RuntimeError("merge-packet did not return a JSON object")
+    return payload
+
+
 def _combine_packets(packets: list[dict[str, Any]]) -> dict[str, Any]:
     entries: list[dict[str, Any]] = []
     admin_order: list[int] = []
@@ -1091,9 +1147,18 @@ def _light_entry_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict[str, Any]:
-    metadata, command = load_open_pr_metadata(cwd, limit=limit, repo=repo)
-    if command.get("returncode") != 0:
-        raise RuntimeError(command.get("stderr") or command.get("stdout") or "gh pr list failed")
+    try:
+        return _load_broad_packet_bulk(cwd=cwd, limit=limit, repo=repo)
+    except RuntimeError as bulk_error:
+        metadata, command = load_open_pr_metadata(cwd, limit=limit, repo=repo)
+        if command.get("returncode") != 0:
+            packet = _empty_packet()
+            packet["load_blockers"] = [
+                str(bulk_error),
+                command.get("stderr") or command.get("stdout") or "gh pr list failed",
+            ]
+            return packet
+
     active_owned_prs, _active_owned_command = load_active_owned_prs(cwd)
     packets: list[dict[str, Any]] = []
     selected_seen = False
@@ -1107,7 +1172,10 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
         )
         if light_reasons:
             continue
-        packets.append(_load_single_pr_packet(cwd=cwd, pr=pr_number, repo=repo))
+        try:
+            packets.append(_load_single_pr_packet(cwd=cwd, pr=pr_number, repo=repo))
+        except RuntimeError:
+            continue
         if selected_seen:
             packets_after_selected += 1
             if packets_after_selected >= BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD:
