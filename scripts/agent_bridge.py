@@ -2045,6 +2045,17 @@ def _collect_agent_heartbeats(
     }
 
 
+def _compact_agent_heartbeats_for_summary(agent_heartbeats: dict[str, Any]) -> dict[str, Any]:
+    """Keep heartbeat counts without dumping every owner row in compact output."""
+
+    latest_by_owner = agent_heartbeats.get("latest_by_owner")
+    omitted = len(latest_by_owner) if isinstance(latest_by_owner, dict) else 0
+    compact = {key: agent_heartbeats.get(key, 0) for key in ("count", "fresh_count", "stale_count")}
+    if omitted:
+        compact["latest_by_owner_omitted"] = omitted
+    return compact
+
+
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
@@ -2123,6 +2134,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         snapshot.pop("sessions")
         snapshot.pop("lanes")
         snapshot.pop("broker_runs")
+        snapshot["agent_heartbeats"] = _compact_agent_heartbeats_for_summary(agent_heartbeats)
         snapshot["records_omitted"] = True
 
     if args.json:
