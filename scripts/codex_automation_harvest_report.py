@@ -379,7 +379,8 @@ def write_latest_report(report: Mapping[str, Any], *, state_root: Path) -> Path:
 
 
 def print_markdown(report: Mapping[str, Any]) -> None:
-    counts = report.get("counts") if isinstance(report.get("counts"), Mapping) else {}
+    raw_counts = report.get("counts")
+    counts: Mapping[str, Any] = raw_counts if isinstance(raw_counts, Mapping) else {}
     print("# Codex Automation Harvest Report\n")
     print(f"- Repo: `{report.get('repo')}`")
     print(f"- State root: `{report.get('state_root')}`")
