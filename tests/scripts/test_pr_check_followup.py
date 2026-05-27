@@ -313,7 +313,8 @@ def test_wait_run_timeout_keeps_prompt_in_monitor_mode() -> None:
     assert "did not settle before the wait timeout" in result.prompt
 
 
-def test_prompt_always_contains_incremental_progress_sentence() -> None:
+def test_prompt_always_contains_recursive_convergence_sentences() -> None:
     result = followup.build_followup_result(_pr([]))
 
     assert followup.INCREMENTAL_PROGRESS_SENTENCE in result.prompt
+    assert followup.META_AUTOMATION_SENTENCE in result.prompt

@@ -25,6 +25,13 @@ INCREMENTAL_PROGRESS_SENTENCE = (
     "does, include this sentence in all subsequent prompts to ensure they converge towards "
     "prompts that make incremental progress."
 )
+META_AUTOMATION_SENTENCE = (
+    "If any of the work involved can be better automated and made more autonomous by "
+    "improving aragora tooling at a meta level create a plan to do that instead, include "
+    "this sentence in all subsequent prompts to ensure they converge towards automating "
+    "and making more autonomous all steps at a meta level where this makes sense for the "
+    "repo and project."
+)
 
 FAILURE_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "ACTION_REQUIRED"}
 GREEN_CONCLUSIONS = {"SUCCESS", "SKIPPED", "NEUTRAL"}
@@ -654,6 +661,7 @@ def build_prompt(
             "",
             "Final report must include root state, active/conflict lanes, head/check state, action withheld/taken, and a recursive best next prompt.",
             INCREMENTAL_PROGRESS_SENTENCE,
+            META_AUTOMATION_SENTENCE,
         ]
     )
     return "\n".join(lines)
