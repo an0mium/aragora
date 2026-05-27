@@ -390,6 +390,29 @@ def build_target_diagnostic(
     return base
 
 
+def _diagnostic_count(diagnostic: dict[str, Any], key: str) -> int:
+    value = diagnostic.get(key)
+    return len(value) if isinstance(value, list) else 0
+
+
+def _diagnostic_active_owner_session(diagnostic: dict[str, Any]) -> str:
+    active_owner = diagnostic.get("active_owner")
+    if isinstance(active_owner, dict):
+        return str(active_owner.get("owner_session") or "")
+    return ""
+
+
+def _format_target_diagnostic(diagnostic: dict[str, Any]) -> str:
+    if diagnostic.get("safe_to_send"):
+        owner = _diagnostic_active_owner_session(diagnostic) or "<unknown>"
+        return f"active owner found: {owner}; no write"
+    return (
+        f"{diagnostic.get('reason')}: {diagnostic.get('recommendation')} "
+        f"(historical={_diagnostic_count(diagnostic, 'historical_related_sessions')}, "
+        f"family_candidates={_diagnostic_count(diagnostic, 'family_session_candidates')})"
+    )
+
+
 def resolve_active_owner(
     *,
     registry_path: Path | None = None,
@@ -674,15 +697,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         }
         if args.json:
             print(json.dumps(out, indent=2, sort_keys=True))
-        elif diagnostic["safe_to_send"]:
-            owner = diagnostic["active_owner"]["owner_session"]
-            print(f"active owner found: {owner}; no write")
         else:
-            print(
-                f"{diagnostic['reason']}: {diagnostic['recommendation']} "
-                f"(historical={len(diagnostic['historical_related_sessions'])}, "
-                f"family_candidates={len(diagnostic['family_session_candidates'])})"
-            )
+            print(_format_target_diagnostic(diagnostic))
         return 0
 
     if to_session is None:
@@ -712,11 +728,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if args.json:
                     print(json.dumps(out, indent=2, sort_keys=True))
                 else:
-                    print(
-                        f"{diagnostic['reason']}: {diagnostic['recommendation']} "
-                        f"(historical={len(diagnostic['historical_related_sessions'])}, "
-                        f"family_candidates={len(diagnostic['family_session_candidates'])})"
-                    )
+                    print(_format_target_diagnostic(diagnostic))
                 return 0
             print(f"ERROR: failed to resolve active owner: {exc}", file=sys.stderr)
             return 2
