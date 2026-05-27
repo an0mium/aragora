@@ -380,12 +380,13 @@ def _receipt_handoff_keep_reason(
 
     status = str(receipt.get("status") or "").strip().lower()
     reason = str(receipt.get("reason") or "").strip().lower()
-    if status != "already_satisfied" or reason != "target_open_pr":
+    if status != "already_satisfied" or reason not in {"target_open_pr", "existing_pr"}:
         return None
 
     desired_head = _desired_head_from_payload(payload)
     if not desired_head:
         return None
+    receipt_label = f"{reason} receipt"
 
     target_pr_state = _target_pr_state(root, repo_name, receipt)
     if str((target_pr_state or {}).get("state") or "").strip().upper() == "MERGED":
@@ -394,7 +395,7 @@ def _receipt_handoff_keep_reason(
         if _heads_match(desired_head, target_pr_head):
             return None
         return (
-            f"target_open_pr receipt points to merged PR #{target_pr_number} at "
+            f"{receipt_label} points to merged PR #{target_pr_number} at "
             f"{target_pr_head[:12] or 'unknown'}, not desired head {desired_head[:12]}"
         )
 
@@ -408,11 +409,11 @@ def _receipt_handoff_keep_reason(
         short_desired = desired_head[:12]
         if remote_head:
             return (
-                f"target_open_pr receipt exists, but origin/{branch} is "
+                f"{receipt_label} exists, but origin/{branch} is "
                 f"{remote_head[:12]}, not desired head {short_desired}"
             )
         return (
-            f"target_open_pr receipt exists, but origin/{branch} is unavailable "
+            f"{receipt_label} exists, but origin/{branch} is unavailable "
             f"and local desired head {short_desired} still needs publication"
         )
     return None
