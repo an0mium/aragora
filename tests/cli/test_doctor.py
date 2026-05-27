@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -182,6 +183,37 @@ class TestCheckApiKeys:
         assert len(openrouter) == 1
         assert openrouter[0][1] == "configured"
         assert openrouter[0][2] is True
+
+    def test_validate_live_marks_rejected_provider_unready(self, monkeypatch):
+        """doctor --validate should not treat an expired configured key as ready."""
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+
+        def fake_validate_provider_key(provider: str) -> SimpleNamespace:
+            assert provider == "gemini"
+            return SimpleNamespace(
+                remote_status="invalid",
+                is_valid=False,
+                message="Provider rejected the API key",
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.api_keys.validate_provider_key",
+            fake_validate_provider_key,
+        )
+
+        result = check_api_keys(validate_live=True)
+        gemini = [item for item in result if item[0] == "GEMINI_API_KEY/GOOGLE_API_KEY"]
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert gemini == [
+            (
+                "GEMINI_API_KEY/GOOGLE_API_KEY",
+                "configured; live invalid: Provider rejected the API key",
+                False,
+            )
+        ]
+        assert llm_provider == [("LLM Provider", "invalid provider(s): Google Gemini", False)]
 
 
 # ===========================================================================

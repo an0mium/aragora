@@ -69,19 +69,43 @@ def check_packages() -> list[tuple[str, str, bool | None]]:
     return checks
 
 
-def check_api_keys() -> list[tuple[str, str, bool | None]]:
+def check_api_keys(validate_live: bool = False) -> list[tuple[str, str, bool | None]]:
     """Check API key configuration."""
     checks: list[tuple[str, str, bool | None]] = []
     report = discover_provider_credentials()
+    invalid_providers: list[str] = []
 
     for provider in report.providers:
         env_label = "/".join(provider.checked_env_vars)
-        if provider.configured:
-            checks.append((env_label, "configured", True))
-        else:
+        if not provider.configured:
             checks.append((env_label, "not set", None))
+            continue
 
-    if report.any_configured:
+        status = "configured"
+        if provider.available_via and provider.available_via != provider.checked_env_vars[0]:
+            status = f"configured via {provider.available_via}"
+        ok = True
+        if validate_live:
+            try:
+                from aragora.cli.api_keys import validate_provider_key
+
+                validation = validate_provider_key(provider.provider)
+            except ValueError as exc:
+                status = f"{status}; live skipped: {exc}"
+            else:
+                status = f"{status}; live {validation.remote_status}"
+                if not validation.is_valid:
+                    status = f"{status}: {validation.message}"
+                    invalid_providers.append(provider.display_name)
+                    ok = False
+
+        checks.append((env_label, status, ok))
+
+    if invalid_providers:
+        checks.append(
+            ("LLM Provider", f"invalid provider(s): {', '.join(invalid_providers)}", False)
+        )
+    elif report.any_configured:
         configured = ", ".join(report.configured_providers)
         checks.append(("LLM Provider", f"configured: {configured}", True))
     else:
@@ -186,7 +210,7 @@ def check_environment() -> list[tuple[str, str, bool | None]]:
     return checks
 
 
-def main() -> int:
+def main(validate_keys: bool = False) -> int:
     """Run comprehensive health checks."""
     print("\n\033[1;36m" + "=" * 50 + "\033[0m")
     print("\033[1;36m       ARAGORA HEALTH CHECK\033[0m")
@@ -215,7 +239,7 @@ def main() -> int:
 
     # API Keys
     print_section("API Keys")
-    key_checks = check_api_keys()
+    key_checks = check_api_keys(validate_live=validate_keys)
     all_checks.extend(key_checks)
     for name, status, ok in key_checks:
         print(f"  {check_icon(ok)} {name}: {status}")

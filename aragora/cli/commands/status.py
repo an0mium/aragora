@@ -213,7 +213,7 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     """Handle 'doctor' command - run system health checks."""
     from aragora.cli.doctor import main as doctor_main
 
-    sys.exit(doctor_main())
+    sys.exit(doctor_main(validate_keys=getattr(args, "validate", False)))
 
 
 def cmd_validate(_: argparse.Namespace) -> None:
@@ -221,7 +221,7 @@ def cmd_validate(_: argparse.Namespace) -> None:
     # run_validate doesn't exist; reuse doctor main for now
     from aragora.cli.doctor import main as doctor_main
 
-    sys.exit(doctor_main())
+    sys.exit(doctor_main(validate_keys=True))
 
 
 def cmd_validate_env(args: argparse.Namespace) -> None:
