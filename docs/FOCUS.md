@@ -92,14 +92,20 @@
 ### Sprint 2 anti-goals
 
 - **No new review-queue, settlement, merge-quorum, or steering meta-
-  tooling unless it directly unblocks #7479 or fresh-agent dogfood
-  proof.** This is the explicit anti-substrate guardrail for sprint 2.
-  Any PR in `aragora/cli/commands/review_queue.py`,
+  tooling unless it (a) directly unblocks #7479 or fresh-agent dogfood
+  proof, OR (b) explicitly closes or supersedes an existing open PR
+  in the same surface.** This is the explicit anti-substrate guardrail
+  for sprint 2. Any PR in `aragora/cli/commands/review_queue.py`,
   `scripts/settle_*.py`, `scripts/*steering*.py`, `scripts/*harvest*.py`,
   `.github/workflows/aragora-merge-quorum.yml`, or
   `.github/workflows/aragora-review-gate.yml` must, in its PR body,
-  state which of #7479 or the fresh-agent dogfood proof it unblocks —
-  by file:line — and stand down if it cannot.
+  EITHER state which of #7479 or the fresh-agent dogfood proof it
+  unblocks — by file:line — OR cite the open PR number it
+  closes/supersedes, or stand down. Rationale: post-saturation process
+  work in this surface is the dominant form of substrate-overbuild
+  this sprint, and the close-or-supersede clause makes the rule self-
+  policing — every new PR must either advance a load-bearing target or
+  net-close the queue, not extend it.
 - **No premature external outreach.** Same gate as sprint 1: outreach
   is unlocked only when *all* of these are true: (a) B0
   `truth_success_rate_verified ≥ 50%` (verified-by-PR-link metric, not
