@@ -222,18 +222,21 @@ def _get_project_id() -> str | None:
 
 def _get_current_key(svc_config: Any) -> str | None:
     """Get the current Gemini API key."""
-    # Try secrets module first
     try:
-        from aragora.config.secrets import get_secret
+        from aragora.config import get_api_key
 
-        key = get_secret(svc_config.secret_manager_key)
+        key = get_api_key(
+            svc_config.secret_manager_key,
+            "GEMINI_API_KEY",
+            "GOOGLE_API_KEY",
+            required=False,
+        )
         if key:
             return key
     except (ImportError, RuntimeError, OSError, ValueError):
         logger.debug("Could not load Gemini key via secrets module")
 
-    # Env fallback — check both GEMINI_API_KEY and GOOGLE_API_KEY
-    return os.environ.get(svc_config.secret_manager_key) or os.environ.get("GOOGLE_API_KEY")
+    return None
 
 
 async def _create_api_key(

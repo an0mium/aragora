@@ -18,7 +18,7 @@
 | Test files (test_*.py under tests/) | `5229` | `tests/` | `git ls-files tests \| grep -E '(^\|/)test_[^/]*\.py$' \| wc -l` |
 | Test functions (class + module level) | `218984` | `tests/` | `git grep -E '^[[:space:]]*(async )?def test_' -- tests \| wc -l` |
 | @pytest.mark.parametrize decorators | `701` | `tests/` | `git grep -E '@pytest\.mark\.parametrize' -- tests \| wc -l` |
-| CLI top-level command modules | `70` | `aragora/cli/commands/` | `git ls-files aragora/cli/commands \| grep -E '/[^/]*\.py$' \| grep -v '/__' \| wc -l` |
+| CLI top-level command modules | `71` | `aragora/cli/commands/` | `git ls-files aragora/cli/commands \| grep -E '/[^/]*\.py$' \| grep -v '/__' \| wc -l` |
 | OpenAPI paths | `2870` | `docs/api/openapi.json` | `python -c "import json; print(len(json.load(open('docs/api/openapi.json'))['paths']))"` |
 | OpenAPI operations (HTTP verbs) | `3297` | `docs/api/openapi.json` | `python -c "import json; spec=json.load(open('docs/api/openapi.json')); print(sum(1 for p in spec['paths'].values() for m in p if m.lower() in {'get','post','put','delete','patch','head','options'}))"` |
 | @require_permission decorator calls | `1365` | `aragora/` | `git grep -E '@require_permission\(' -- aragora \| wc -l` |

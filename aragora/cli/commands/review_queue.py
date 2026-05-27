@@ -449,6 +449,39 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     merge_packet_p.add_argument("--json", action="store_true", help="Output as JSON")
 
+    evidence_lint_p = sub.add_parser(
+        "evidence-lint",
+        help="Dry-run whether a proposed evidence comment will count for model quorum",
+        description=(
+            "Lint a proposed PR comment against the same current-head evidence "
+            "parsers used by review-queue merge-packet. This is read-only: it "
+            "does not fetch GitHub, post comments, write receipts, or mutate state."
+        ),
+    )
+    evidence_lint_p.add_argument("--pr", required=True, help="PR number the evidence targets")
+    evidence_lint_p.add_argument(
+        "--head-sha",
+        required=True,
+        help="Exact PR head SHA the proposed comment must cite.",
+    )
+    evidence_lint_p.add_argument(
+        "--head-committed-at",
+        default="",
+        help=(
+            "Optional current head committedDate. When supplied, comments must either "
+            "cite --head-sha or have a createdAt at/after this timestamp."
+        ),
+    )
+    body_group = evidence_lint_p.add_mutually_exclusive_group(required=True)
+    body_group.add_argument("--body", help="Proposed evidence comment body to lint")
+    body_group.add_argument("--body-file", help="Read proposed evidence comment body from file")
+    evidence_lint_p.add_argument(
+        "--author",
+        default="local",
+        help="GitHub author login to simulate for the proposed comment (default: local)",
+    )
+    evidence_lint_p.add_argument("--json", action="store_true", help="Output as JSON")
+
     baseline_p = sub.add_parser(
         "baseline",
         help="Measure empirical invalidation baseline from on-disk stores (#6375)",
@@ -635,6 +668,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_record_settlement(args)
     if command == "merge-packet":
         return _cmd_merge_packet(args)
+    if command == "evidence-lint":
+        return _cmd_evidence_lint(args)
     if command == "baseline":
         return _cmd_baseline(args)
     if command == "observe-outcomes":
@@ -647,7 +682,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_health_alert(args)
     print(
         "Usage: aragora review-queue "
-        "{build,packet,run,act,record-settlement,merge-packet,baseline,observe-outcomes,"
+        "{build,packet,run,act,record-settlement,merge-packet,evidence-lint,baseline,"
+        "observe-outcomes,"
         "health,health-alert} [...]\n"
         "Run 'aragora review-queue run --help' for the human settlement loop.",
         file=sys.stderr,
@@ -859,6 +895,45 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
     else:
         _render_recorded_settlement_result(result)
     return 0
+
+
+def _cmd_evidence_lint(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
+    body_file = getattr(args, "body_file", None)
+    try:
+        if body_file:
+            body = Path(str(body_file)).read_text(encoding="utf-8")
+        else:
+            body = str(getattr(args, "body", "") or "")
+    except OSError as exc:
+        if json_output:
+            print(
+                json.dumps(
+                    {
+                        "mode": "evidence_lint",
+                        "would_count": False,
+                        "problems": [f"body_file_unreadable: {exc}"],
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(f"error: could not read --body-file: {exc}", file=sys.stderr)
+        return 1
+
+    result = _lint_evidence_comment(
+        pr=str(getattr(args, "pr", "") or ""),
+        head_sha=str(getattr(args, "head_sha", "") or ""),
+        head_committed_at=str(getattr(args, "head_committed_at", "") or ""),
+        body=body,
+        author=str(getattr(args, "author", "") or ""),
+        source="body_file" if body_file else "inline",
+    )
+    if json_output:
+        print(json.dumps(result, indent=2))
+    else:
+        _render_evidence_lint(result)
+    return 0 if result["would_count"] else 1
 
 
 def _cmd_merge_packet(args: argparse.Namespace) -> int:
@@ -1818,6 +1893,95 @@ def _counted_model_reviewer_ids(
     return sorted(reviewer_ids)
 
 
+def _lint_evidence_comment(
+    *,
+    pr: str,
+    head_sha: str,
+    head_committed_at: str,
+    body: str,
+    author: str,
+    source: str,
+) -> dict[str, Any]:
+    """Dry-run whether one proposed comment would satisfy quorum parsers."""
+    grounded, grounding_method = _proposed_evidence_head_grounding(body, head_sha)
+    comment = {
+        "author": {"login": author},
+        "body": body,
+        "createdAt": "",
+    }
+    if grounded:
+        dogfood_evidence = _dogfood_evidence_from_comments([comment])
+        reviewer_signals = _model_review_signals_from_comments([comment])
+    else:
+        dogfood_evidence = []
+        reviewer_signals = []
+    counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
+    inferred_reviewer = _infer_model_reviewer_from_text(body)
+    lower = body.lower()
+
+    problems: list[str] = []
+    if not body.strip():
+        problems.append("empty_body")
+    if not grounded:
+        problems.append("missing_current_head_grounding")
+    if str(author or "").strip() == "github-actions":
+        problems.append("github_actions_author_not_counted")
+    if inferred_reviewer == "unknown_model_reviewer":
+        problems.append("missing_known_model_reviewer_heading")
+    if not any(
+        token in lower
+        for token in (
+            "dogfood",
+            "adversarial",
+            "cross-author",
+            "recheck",
+            "codex review",
+            "claude review",
+            "grok independent",
+            "gemini independent",
+            "independent semantic review",
+            "independent model review",
+            "model-family semantic signal",
+        )
+    ):
+        problems.append("missing_dogfood_or_review_trigger")
+    if not counted_reviewer_ids:
+        problems.append("no_counted_model_reviewer")
+
+    return {
+        "mode": "evidence_lint",
+        "pr_number": str(pr),
+        "head_sha": head_sha,
+        "head_committed_at": head_committed_at,
+        "source": source,
+        "author": author,
+        "comment_summary": _first_nonempty_line(body)[:240],
+        "inferred_reviewer": inferred_reviewer,
+        "current_head_grounded": grounded,
+        "current_head_grounding_method": grounding_method,
+        "dogfood_evidence": dogfood_evidence,
+        "reviewer_signals": reviewer_signals,
+        "counted_reviewer_ids": counted_reviewer_ids,
+        "would_count": bool(counted_reviewer_ids),
+        "problems": problems,
+    }
+
+
+def _proposed_evidence_head_grounding(body: str, head_sha: str) -> tuple[bool, str]:
+    """Require proposed comments to cite the target head SHA prefix.
+
+    Unlike persisted GitHub comments, evidence-lint inputs have no trustworthy
+    ``createdAt``.  Lint mode therefore does not use timestamp recency as a
+    substitute for current-head grounding.
+    """
+    normalized_head = str(head_sha or "").strip().lower()
+    if len(normalized_head) < 7:
+        return False, "missing_head_sha_argument"
+    if normalized_head[:7] in str(body or "").lower():
+        return True, "head_sha_citation"
+    return False, "missing_head_sha_citation"
+
+
 def _head_committed_at_from_pr(pr: dict[str, Any]) -> str:
     """Return the ``committedDate`` of the PR head commit, or ``""``.
 
@@ -2758,6 +2922,20 @@ def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
         for reason in entry.get("reasons") or []:
             print(f"  - {reason}")
         print()
+
+
+def _render_evidence_lint(result: dict[str, Any]) -> None:
+    print("# Evidence lint")
+    print(f"PR: #{result.get('pr_number', '')}")
+    print(f"head: {result.get('head_sha', '')}")
+    print(f"would count: {str(result.get('would_count', False)).lower()}")
+    counted = result.get("counted_reviewer_ids") or []
+    print(f"counted reviewers: {', '.join(counted) or '(none)'}")
+    problems = result.get("problems") or []
+    if problems:
+        print("problems:")
+        for problem in problems:
+            print(f"  - {problem}")
 
 
 def _render_baseline_report(

@@ -25,6 +25,7 @@ from aragora.config import (
     MAX_CONCURRENT_DEBATES,
     MAX_ROUNDS,
 )
+from aragora.config.secrets import get_secret_presence
 from aragora.server.debate_factory import (
     DEFAULT_ENABLE_VERTICALS,
     DebateConfig,
@@ -166,6 +167,7 @@ def _normalize_agent_names(agents_value: Any) -> list[str]:
     names: list[str] = []
     if isinstance(agents_value, list):
         for item in agents_value:
+            name: Any = None
             if isinstance(item, str):
                 name = item.strip()
             elif isinstance(item, dict):
@@ -440,7 +442,7 @@ def _validate_production_settlement_metadata(metadata: dict[str, Any]) -> None:
         missing.append("metric")
     horizon = settlement.get("review_horizon_days")
     try:
-        if int(horizon) <= 0:
+        if horizon is None or int(horizon) <= 0:
             missing.append("review_horizon_days")
     except (ValueError, TypeError):
         missing.append("review_horizon_days")
@@ -813,10 +815,9 @@ class DebateController:
         """
         import asyncio
         import json
-        import os
 
         # Check for API key first
-        if not os.getenv("ANTHROPIC_API_KEY"):
+        if get_secret_presence("ANTHROPIC_API_KEY").source not in {"aws", "env"}:
             logger.error("[quick_classify] ANTHROPIC_API_KEY not set - skipping classification")
             return _DEFAULT_CLASSIFICATION
 
@@ -1211,7 +1212,7 @@ class DebateController:
         selection_strategy: str,
     ) -> dict[str, Any]:
         """Build a compact comparison summary for one candidate lineup."""
-        final_report = {}
+        final_report: dict[str, Any] = {}
         if isinstance(quality_meta, dict):
             final_report = quality_meta.get("final_report", {}) or {}
 

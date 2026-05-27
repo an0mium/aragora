@@ -1256,6 +1256,8 @@ See [BOT_INTEGRATIONS.md](../integrations/BOT_INTEGRATIONS.md) for detailed setu
 | `ARAGORA_AUDIT_SIGNING_KEY` | Optional | Key for signing audit log entries | - |
 | `ARAGORA_METRICS_TOKEN` | Optional | Auth token for metrics endpoint | - |
 | `ARAGORA_SECRET_NAME` | Optional | AWS Secrets Manager secret name | - |
+| `ARAGORA_USE_SECRETS_MANAGER` | Optional | Enable AWS Secrets Manager loading | `false` locally, auto in prod/staging/AWS runtimes |
+| `ARAGORA_SECRETS_STRICT` | Optional | Block critical-secret env fallback | `false` locally, auto in prod/staging |
 | `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS` | Optional | Allow unverified webhooks (dev only) | `false` |
 
 **Security Notes:**
@@ -1265,6 +1267,7 @@ See [BOT_INTEGRATIONS.md](../integrations/BOT_INTEGRATIONS.md) for detailed setu
 - Secrets Manager is auto-enabled in production/staging or AWS-managed runtimes.
   For local development, set `ARAGORA_USE_SECRETS_MANAGER=true` to opt in.
   `ARAGORA_SECRET_NAME` still falls back to `aragora/production` when Secrets Manager is enabled.
+- Use `python3 -m aragora.cli.main secrets health --json` to verify source status without printing secret values.
 
 ## Knowledge System
 

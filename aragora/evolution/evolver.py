@@ -14,7 +14,7 @@ from enum import Enum
 # Import gauntlet types for vulnerability recording
 from typing import TYPE_CHECKING, Any
 
-from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.config import DB_TIMEOUT_SECONDS, get_api_key
 from aragora.core import Agent, DebateResult
 from aragora.debate.safety import resolve_prompt_evolution
 from aragora.memory.store import CritiqueStore
@@ -408,7 +408,9 @@ class PromptEvolver(SQLiteStore):
             created_at=row[6],
         )
 
-    def save_prompt_version(self, agent_name: str, prompt: str, metadata: dict = None) -> int:
+    def save_prompt_version(
+        self, agent_name: str, prompt: str, metadata: dict[str, Any] | None = None
+    ) -> int:
         """Save a new prompt version."""
         with self.connection() as conn:
             cursor = conn.cursor()
@@ -502,11 +504,9 @@ class PromptEvolver(SQLiteStore):
 
         Falls back to append strategy if LLM is unavailable.
         """
-        import os
-
         import httpx
 
-        api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        api_key = get_api_key("ANTHROPIC_API_KEY", "OPENAI_API_KEY", required=False)
         if not api_key or not patterns:
             return self._evolve_append(current_prompt, patterns)
 
@@ -538,8 +538,8 @@ Return ONLY the refined prompt, no explanations."""
         transport = httpx.HTTPTransport(retries=2)
 
         try:
-            anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-            openai_key = os.environ.get("OPENAI_API_KEY")
+            anthropic_key = get_api_key("ANTHROPIC_API_KEY", required=False)
+            openai_key = get_api_key("OPENAI_API_KEY", required=False)
 
             with httpx.Client(
                 transport=transport, timeout=httpx.Timeout(30.0, connect=5.0)

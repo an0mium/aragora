@@ -123,18 +123,16 @@ async def rotate_openrouter_key(
 
 def _get_current_key(svc_config: Any) -> str | None:
     """Get the current OpenRouter API key."""
-    # Try secrets module first
     try:
-        from aragora.config.secrets import get_secret
+        from aragora.config import get_api_key
 
-        key = get_secret(svc_config.secret_manager_key)
+        key = get_api_key(svc_config.secret_manager_key, "OPENROUTER_API_KEY", required=False)
         if key:
             return key
     except (ImportError, RuntimeError, OSError, ValueError):
         logger.debug("Could not load OpenRouter key via secrets module")
 
-    # Env fallback
-    return os.environ.get(svc_config.secret_manager_key) or os.environ.get("OPENROUTER_API_KEY")
+    return None
 
 
 async def _create_openrouter_key(current_key: str) -> dict[str, Any] | None:

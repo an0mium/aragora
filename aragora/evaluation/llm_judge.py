@@ -24,6 +24,8 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
+from aragora.config import get_api_key
+
 logger = logging.getLogger(__name__)
 
 
@@ -829,10 +831,9 @@ Provide your comparison:"""
 
         except ImportError:
             # Fallback to direct API call using HTTP pool
-            import os
             from aragora.server.http_client_pool import get_http_pool
 
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
+            api_key = get_api_key("ANTHROPIC_API_KEY", required=False)
             if not api_key:
                 raise ValueError("ANTHROPIC_API_KEY not set")
 

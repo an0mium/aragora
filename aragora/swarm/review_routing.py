@@ -13,6 +13,7 @@ from typing import Any
 
 from aragora.agents.base import create_agent
 from aragora.agents.errors.exceptions import CLISubprocessError
+from aragora.config.secrets import get_secret_presence
 
 logger = logging.getLogger(__name__)
 
@@ -234,7 +235,7 @@ def _claude_profile_preflight(candidate: ReviewCandidate, *, repo_root: Path) ->
 
 
 def _openrouter_preflight() -> dict[str, Any]:
-    if not os.environ.get("OPENROUTER_API_KEY"):
+    if get_secret_presence("OPENROUTER_API_KEY").source not in {"aws", "env"}:
         return {"ok": False, "detail": "OPENROUTER_API_KEY is not configured"}
     try:
         ctx = ssl.create_default_context()

@@ -25,7 +25,6 @@ Requirements:
 
 import asyncio
 import logging
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -33,12 +32,20 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from aragora.config.secrets import get_secret_presence
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+def _has_api_key(*names: str) -> bool:
+    """Return API-key availability without exposing or logging values."""
+    return any(get_secret_presence(name).source in {"aws", "env"} for name in names)
+
 
 # Comprehensive self-knowledge context for agents (V2 - enhanced emphasis on data/comms/memory)
 ARAGORA_SELF_KNOWLEDGE = """
@@ -232,11 +239,11 @@ async def create_agents():
     available_providers = []
 
     # Check which API keys are available
-    has_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    has_openai = bool(os.environ.get("OPENAI_API_KEY"))
-    has_openrouter = bool(os.environ.get("OPENROUTER_API_KEY"))
-    has_gemini = bool(os.environ.get("GEMINI_API_KEY"))
-    has_grok = bool(os.environ.get("XAI_API_KEY"))
+    has_anthropic = _has_api_key("ANTHROPIC_API_KEY")
+    has_openai = _has_api_key("OPENAI_API_KEY")
+    has_openrouter = _has_api_key("OPENROUTER_API_KEY")
+    has_gemini = _has_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY")
+    has_grok = _has_api_key("XAI_API_KEY", "GROK_API_KEY")
 
     if has_anthropic:
         available_providers.append("anthropic")
@@ -518,11 +525,11 @@ def main():
     print("Checking API keys...")
     print()
 
-    has_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    has_openai = bool(os.environ.get("OPENAI_API_KEY"))
-    has_openrouter = bool(os.environ.get("OPENROUTER_API_KEY"))
-    has_gemini = bool(os.environ.get("GEMINI_API_KEY"))
-    has_grok = bool(os.environ.get("XAI_API_KEY"))
+    has_anthropic = _has_api_key("ANTHROPIC_API_KEY")
+    has_openai = _has_api_key("OPENAI_API_KEY")
+    has_openrouter = _has_api_key("OPENROUTER_API_KEY")
+    has_gemini = _has_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY")
+    has_grok = _has_api_key("XAI_API_KEY", "GROK_API_KEY")
 
     print(
         f"  OPENROUTER_API_KEY: {'[Y] Set (enables fallback + frontier models)' if has_openrouter else '[X] Not set (recommended)'}"

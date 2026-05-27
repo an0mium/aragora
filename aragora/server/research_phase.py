@@ -23,6 +23,7 @@ import httpx
 
 from aragora.agents.errors.classifier import ErrorClassifier
 from aragora.agents.fallback import get_default_fallback_enabled
+from aragora.config.secrets import get_secret_presence
 
 if TYPE_CHECKING:
     import anthropic
@@ -156,7 +157,7 @@ class PreDebateResearcher:
             return None
         if self._openrouter_agent is not None:
             return self._openrouter_agent
-        if not os.getenv("OPENROUTER_API_KEY"):
+        if get_secret_presence("OPENROUTER_API_KEY").source not in {"aws", "env"}:
             return None
 
         from aragora.agents.api_agents import OpenRouterAgent

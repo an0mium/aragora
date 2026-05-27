@@ -146,6 +146,7 @@ Examples:
     _add_repl_parser(subparsers)
     _add_config_parser(subparsers)
     _add_api_key_parser(subparsers)
+    _add_secrets_parser(subparsers)
     _add_replay_parser(subparsers)
     _add_bench_parser(subparsers)
     _add_review_parser(subparsers)
@@ -1568,6 +1569,54 @@ def _add_api_key_parser(subparsers) -> None:
     validate_parser.add_argument("provider", help="Provider name to validate")
 
 
+def _add_secrets_parser(subparsers) -> None:
+    """Add the `secrets` subcommand parser."""
+    secrets_parser = subparsers.add_parser(
+        "secrets",
+        help="Inspect AWS Secrets Manager-backed secret presence",
+        description="Presence-only secret health checks and process bootstrap helpers.",
+    )
+    secrets_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.secrets", "cmd_secrets"),
+        parser=secrets_parser,
+    )
+    secrets_subparsers = secrets_parser.add_subparsers(dest="secrets_command")
+
+    health_parser = secrets_subparsers.add_parser(
+        "health",
+        help="Report secret source status without printing values",
+    )
+    health_parser.add_argument(
+        "--name",
+        action="append",
+        help="Secret name to check; repeat for multiple names",
+    )
+    health_parser.add_argument(
+        "--require-all",
+        action="store_true",
+        help="Exit non-zero when any requested secret is missing or strict-blocked",
+    )
+    health_parser.add_argument("--json", action="store_true", help="Emit JSON output")
+    health_parser.set_defaults(func=_lazy("aragora.cli.commands.secrets", "cmd_secrets_health"))
+
+    hydrate_parser = secrets_subparsers.add_parser(
+        "hydrate",
+        help="Hydrate this process env from Secrets Manager and report key names only",
+    )
+    hydrate_parser.add_argument(
+        "--name",
+        action="append",
+        help="Secret name to hydrate; repeat for multiple names",
+    )
+    hydrate_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite existing environment values in this process",
+    )
+    hydrate_parser.add_argument("--json", action="store_true", help="Emit JSON output")
+    hydrate_parser.set_defaults(func=_lazy("aragora.cli.commands.secrets", "cmd_secrets_hydrate"))
+
+
 def _add_replay_parser(subparsers) -> None:
     """Add the 'replay' subcommand parser."""
     replay_parser = subparsers.add_parser("replay", help="Replay stored debates")
@@ -1903,6 +1952,43 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Output local receipt as JSON.",
     )
     record_parser.set_defaults(func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue"))
+
+    evidence_lint_parser = queue_subparsers.add_parser(
+        "evidence-lint",
+        help="Dry-run whether a proposed evidence comment will count for model quorum",
+        description=(
+            "Lint a proposed PR comment against the same current-head evidence "
+            "parsers used by review-queue merge-packet. This is read-only."
+        ),
+    )
+    evidence_lint_parser.add_argument("--pr", required=True, help="PR number the evidence targets")
+    evidence_lint_parser.add_argument(
+        "--head-sha",
+        required=True,
+        help="Exact PR head SHA the proposed comment must cite.",
+    )
+    evidence_lint_parser.add_argument(
+        "--head-committed-at",
+        default="",
+        help="Optional current head committedDate for stricter current-head grounding.",
+    )
+    body_group = evidence_lint_parser.add_mutually_exclusive_group(required=True)
+    body_group.add_argument("--body", help="Proposed evidence comment body to lint")
+    body_group.add_argument("--body-file", help="Read proposed evidence comment body from file")
+    evidence_lint_parser.add_argument(
+        "--author",
+        default="local",
+        help="GitHub author login to simulate for the proposed comment.",
+    )
+    evidence_lint_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output as JSON",
+    )
+    evidence_lint_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
 
     baseline_parser = queue_subparsers.add_parser(
         "baseline",

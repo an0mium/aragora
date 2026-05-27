@@ -1745,6 +1745,25 @@ class TestCommandDispatch:
         ns_merge_packet = root.parse_args(["review-queue", "merge-packet", "--pr", "6280"])
         assert ns_merge_packet.review_queue_command == "merge-packet"
         assert ns_merge_packet.pr == ["6280"]
+        # evidence-lint invocation parses
+        ns_evidence_lint = root.parse_args(
+            [
+                "review-queue",
+                "evidence-lint",
+                "--pr",
+                "6280",
+                "--head-sha",
+                "headsha123",
+                "--body",
+                "## Codex focused dogfood\nCurrent head: headsha123",
+                "--json",
+            ]
+        )
+        assert ns_evidence_lint.review_queue_command == "evidence-lint"
+        assert ns_evidence_lint.pr == "6280"
+        assert ns_evidence_lint.head_sha == "headsha123"
+        assert ns_evidence_lint.body_file is None
+        assert ns_evidence_lint.json is True
         # run invocation parses
         ns_run = root.parse_args(["review-queue", "run", "--limit", "3", "--ready-only"])
         assert ns_run.review_queue_command == "run"
@@ -1819,6 +1838,135 @@ class TestCommandDispatch:
         assert ns.action == "admin_squash_merge"
         assert ns.reason == "operator authorized exact-head merge"
         assert ns.json_output is True
+
+    def test_top_level_parser_registers_evidence_lint(self) -> None:
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        ns = parser.parse_args(
+            [
+                "review-queue",
+                "evidence-lint",
+                "--pr",
+                "7445",
+                "--head-sha",
+                "cd87c5a1b2db34f04167906553502db3ede9525e",
+                "--body",
+                "## Claude review\nCurrent head: cd87c5a1b2db34f04167906553502db3ede9525e",
+                "--json",
+            ]
+        )
+
+        assert ns.command == "review-queue"
+        assert ns.review_queue_command == "evidence-lint"
+        assert ns.pr == "7445"
+        assert ns.head_sha == "cd87c5a1b2db34f04167906553502db3ede9525e"
+        assert ns.body_file is None
+        assert ns.json_output is True
+
+    def test_evidence_lint_counts_current_head_dogfood(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=(
+                "## Codex focused dogfood\n\n"
+                "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                "Validation passed for the exact touched surface."
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 0
+        assert payload["mode"] == "evidence_lint"
+        assert payload["would_count"] is True
+        assert payload["counted_reviewer_ids"] == ["codex"]
+        assert payload["dogfood_evidence"][0]["reviewer_id"] == "codex"
+        assert payload["current_head_grounding_method"] == "head_sha_citation"
+        assert payload["problems"] == []
+
+    def test_evidence_lint_rejects_ungrounded_comment(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body="## Claude review\n\nLooks good, but no exact head citation.",
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_head_grounding_method"] == "missing_head_sha_citation"
+        assert "missing_current_head_grounding" in payload["problems"]
+        assert "no_counted_model_reviewer" in payload["problems"]
+
+    def test_evidence_lint_requires_head_sha_when_timestamp_omitted(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="",
+            body="## Codex focused dogfood\n\nValidation passed, but no SHA citation.",
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_head_grounding_method"] == "missing_head_sha_citation"
+        assert "missing_current_head_grounding" in payload["problems"]
+
+    def test_evidence_lint_reads_body_file(self, tmp_path: Path) -> None:
+        body_file = tmp_path / "comment.md"
+        body_file.write_text(
+            "## Claude review\n\n"
+            "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+            "I reviewed the exact-head evidence-lint diff.",
+            encoding="utf-8",
+        )
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=None,
+            body_file=str(body_file),
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 0
+        assert payload["would_count"] is True
+        assert payload["counted_reviewer_ids"] == ["claude"]
+        assert payload["current_head_grounding_method"] == "head_sha_citation"
+        assert payload["reviewer_signals"][0]["reviewer_id"] == "claude"
 
 
 class TestSettlementHelpers:

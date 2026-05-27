@@ -303,8 +303,8 @@ class QuotaFallbackMixin:
             # ImportError: config module not available
             # KeyError: API key not in config
             # OSError: file-based config read failure
-            logger.debug("Config-based API key retrieval failed, using env var: %s", e)
-            openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+            logger.debug("Config-based API key retrieval failed: %s", e)
+            openrouter_key = None
         if not openrouter_key:
             return None
 

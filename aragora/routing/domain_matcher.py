@@ -12,10 +12,11 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import re
 import time
 from typing import TYPE_CHECKING
+
+from aragora.config.secrets import get_secret_presence
 
 if TYPE_CHECKING:
     import anthropic
@@ -44,7 +45,7 @@ class _DomainCache:
         normalized = text.lower().strip()[:500]
         return hashlib.sha256(f"{normalized}:{top_n}".encode()).hexdigest()[:16]
 
-    def get(self, text: str, top_n: int) -> list[tuple[str, float] | None]:
+    def get(self, text: str, top_n: int) -> list[tuple[str, float]] | None:
         """Get cached result if valid."""
         key = self._make_key(text, top_n)
         entry = self._cache.get(key)
@@ -383,7 +384,7 @@ class DomainDetector:
 
     def __init__(
         self,
-        custom_keywords: dict[str, list[str] | None] = None,
+        custom_keywords: dict[str, list[str]] | None = None,
         use_llm: bool = True,
         client: anthropic.Anthropic | None = None,
         use_cache: bool = True,
@@ -402,8 +403,11 @@ class DomainDetector:
                 if domain in self.keywords:
                     self.keywords[domain].extend(words)
                 else:
-                    self.keywords[domain] = words
-        self.use_llm = use_llm and os.environ.get("ANTHROPIC_API_KEY")
+                    self.keywords[domain] = list(words)
+        self.use_llm = use_llm and get_secret_presence("ANTHROPIC_API_KEY").source in {
+            "aws",
+            "env",
+        }
         self._client = client
         self._use_cache = use_cache
 
@@ -420,7 +424,7 @@ class DomainDetector:
                 self.use_llm = False
         return self._client
 
-    def _detect_with_llm(self, task_text: str, top_n: int = 3) -> list[tuple[str, float] | None]:
+    def _detect_with_llm(self, task_text: str, top_n: int = 3) -> list[tuple[str, float]] | None:
         """Detect domains using Claude Haiku for accurate classification.
 
         Returns None if LLM classification fails (caller should use keyword fallback).
@@ -486,7 +490,7 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
             domains = result.get("domains", [])
 
             # Validate and normalize
-            valid_results = []
+            valid_results: list[tuple[str, float]] = []
             for d in domains:
                 name = d.get("name", "").lower().replace(" ", "_")
                 conf = float(d.get("confidence", 0.5))

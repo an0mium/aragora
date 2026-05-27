@@ -29,37 +29,17 @@ async def call_claude(prompt: str, system: str = "") -> str:
 
 
 def _resolve_openrouter_key() -> str:
-    """Resolve OpenRouter API key: env → dedicated AWS secret → bundled secret."""
-    import os
-
-    # 1. Environment variable (fastest)
-    key = os.getenv("OPENROUTER_API_KEY", "")
-    if key and not key.startswith("new-key"):
-        return key
-
-    # 2. Dedicated AWS secret at aragora/api/openrouter
+    """Resolve OpenRouter API key through Aragora's secret provider."""
     try:
-        import boto3
+        from aragora.config import get_api_key
 
-        client = boto3.client("secretsmanager")
-        resp = client.get_secret_value(SecretId="aragora/api/openrouter")
-        key = resp["SecretString"].strip()
-        if key:
-            return key
-    except Exception:
-        pass
-
-    # 3. Bundled production secret
-    try:
-        from aragora.config.secrets import get_secret
-
-        key = get_secret("OPENROUTER_API_KEY") or ""
+        key = get_api_key("OPENROUTER_API_KEY", required=False) or ""
         if key and not key.startswith("new-key"):
             return key
     except Exception:
         pass
 
-    msg = "OPENROUTER_API_KEY not found in env, AWS (aragora/api/openrouter), or bundled secrets"
+    msg = "OPENROUTER_API_KEY not found through Aragora secret provider"
     raise RuntimeError(msg)
 
 
