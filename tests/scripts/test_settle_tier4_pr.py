@@ -556,6 +556,7 @@ def test_authorization_diagnostics_explain_member_rejection() -> None:
         pr_view=_pr_view(head, comments=[_authorized_comment(head, association="MEMBER")]),
         merge_packet=_tier4_packet(),
         required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-member"],
     )
 
     assert result["ok"] is False
