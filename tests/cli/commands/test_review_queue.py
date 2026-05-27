@@ -1455,6 +1455,132 @@ class TestBuildQueueAndPacket:
         assert packet.machine_recommendation == "approve_candidate"
         assert packet.checks_summary == "2/2 green"
 
+    def test_merged_pr_fails_closed_before_admin_authorization(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7470, files=["docs/status/focus.md"])
+        pr_payload["state"] = "MERGED"
+        pr_payload["mergedAt"] = "2026-05-27T00:19:36Z"
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7470", repo_override=None)
+        quorum = packet.model_review_quorum
+
+        assert packet.machine_recommendation == "needs_human_attention"
+        assert "PR is MERGED; settlement applies only to open PRs" in packet.risk_flags
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["status"] == "repair_or_wait"
+        assert "PR is MERGED; settlement applies only to open PRs" in quorum["reasons"]
+
+    def test_closed_pr_fails_closed_before_admin_authorization(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7471, files=["docs/status/closed.md"])
+        pr_payload["state"] = "CLOSED"
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7471", repo_override=None)
+
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert (
+            "PR is CLOSED; settlement applies only to open PRs"
+            in packet.model_review_quorum["reasons"]
+        )
+
+    def test_open_authorized_pr_still_allows_admin_squash(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7472, files=["docs/status/open.md"])
+        pr_payload["state"] = "OPEN"
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7472", repo_override=None)
+
+        assert packet.machine_recommendation == "approve_candidate"
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+        assert packet.model_review_quorum["status"] == "satisfied"
+
+    def test_inconsistent_open_state_with_merged_at_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7473, files=["docs/status/stale.md"])
+        pr_payload["state"] = "OPEN"
+        pr_payload["mergedAt"] = "2026-05-27T00:19:36Z"
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7473", repo_override=None)
+
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert (
+            "PR state is OPEN but mergedAt is set; settlement applies only to open unmerged PRs"
+        ) in packet.model_review_quorum["reasons"]
+
+    def test_merge_packet_omits_merged_pr_from_admin_squash_order(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7470, files=["docs/status/focus.md"])
+        pr_payload["state"] = "MERGED"
+        pr_payload["mergedAt"] = "2026-05-27T00:19:36Z"
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_queue",
+            lambda limit: [_classify_pr(_make_pr(number=7470))],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7470"],
+            limit=10,
+            repo_override=None,
+        )
+
+        assert packet["entries"][0]["status"] == "repair_or_wait"
+        assert packet["entries"][0]["admin_squash_allowed"] is False
+        assert packet["admin_squash_order"] == []
+        assert packet["not_ready"] == [7470]
+
     def test_build_packet_preserves_completed_merge_quorum_failure(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -1348,6 +1348,8 @@ def _build_packet(
             "url",
             "headRefOid",
             "baseRefOid",
+            "state",
+            "mergedAt",
             "isDraft",
             "mergeable",
             "reviewDecision",
@@ -1382,6 +1384,7 @@ def _build_packet(
         if isinstance(lab, dict) and lab.get("name")
     ]
     parked_label_hits = [lab for lab in labels if lab in PARKED_LABELS]
+    settlement_state_block = _settlement_state_block_reason(pr)
     touched = sorted({_subsystem_for(p) for p in files})
     high_risk = [p for p in files if _is_high_risk_path(p)]
     checks_summary, has_failures, has_pending = _summarize_checks(pr.get("statusCheckRollup") or [])
@@ -1393,6 +1396,8 @@ def _build_packet(
     validation = _extract_validation_commands(str(pr.get("body", "") or ""))
 
     risk_flags: list[str] = []
+    if settlement_state_block:
+        risk_flags.append(settlement_state_block)
     if is_draft:
         risk_flags.append("draft PR")
     if parked_label_hits:
@@ -1408,7 +1413,10 @@ def _build_packet(
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
 
-    if has_failures or mergeable == "CONFLICTING":
+    if settlement_state_block:
+        recommendation = "needs_human_attention"
+        recommendation_reason = settlement_state_block
+    elif has_failures or mergeable == "CONFLICTING":
         recommendation = "repair_first"
         recommendation_reason = "checks failing or merge conflict — fix before review"
     elif is_draft:
@@ -1629,6 +1637,7 @@ def _build_model_review_quorum(
         view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
     ]
     blocking_workflow_state = _has_blocking_workflow_state(pr)
+    settlement_state_block = _settlement_state_block_reason(pr)
     unresolved_dissent = bool(dissenting_views)
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
     signal_count = len(counted_reviewer_ids)
@@ -1640,6 +1649,8 @@ def _build_model_review_quorum(
     )
 
     reasons = [tier_reason]
+    if settlement_state_block:
+        reasons.append(settlement_state_block)
     if has_failures:
         reasons.append("checks are failing; repair before settlement")
     if has_pending:
@@ -1661,6 +1672,7 @@ def _build_model_review_quorum(
         or has_pending
         or machine_recommendation == "repair_first"
         or blocking_workflow_state
+        or settlement_state_block
     ):
         status = "repair_or_wait"
         verdict = "not_ready_for_settlement"
@@ -1775,6 +1787,8 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
 
 
 def _has_blocking_workflow_state(pr: dict[str, Any]) -> bool:
+    if _settlement_state_block_reason(pr):
+        return True
     if bool(pr.get("isDraft", False)):
         return True
     mergeable = str(pr.get("mergeable", "")).strip().upper()
@@ -1786,6 +1800,20 @@ def _has_blocking_workflow_state(pr: dict[str, Any]) -> bool:
         if isinstance(label, dict) and label.get("name")
     ]
     return any(label in PARKED_LABELS for label in labels)
+
+
+def _settlement_state_block_reason(pr: dict[str, Any]) -> str:
+    state = str(pr.get("state") or "").strip().upper()
+    merged_at = str(pr.get("mergedAt") or "").strip()
+    if merged_at:
+        if state == "OPEN":
+            return (
+                "PR state is OPEN but mergedAt is set; settlement applies only to open unmerged PRs"
+            )
+        return f"PR is {state or 'MERGED'}; settlement applies only to open PRs"
+    if state and state != "OPEN":
+        return f"PR is {state}; settlement applies only to open PRs"
+    return ""
 
 
 def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, Any]]:
