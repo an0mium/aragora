@@ -31,7 +31,7 @@ CONVERGENCE_SENTENCE = (
 VERSION = "settle_one_steward.v1"
 MERGE_QUORUM = "aragora-merge-quorum"
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
-BROAD_PACKET_LOOKAHEAD = 8
+BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD = 8
 OPEN_PR_LIGHT_FIELDS = (
     "number,title,url,headRefName,headRefOid,isDraft,mergeable,mergeStateStatus,"
     "reviewDecision,labels,author,additions,deletions,changedFiles"
@@ -700,6 +700,7 @@ def select_candidate_with_lazy_policy_metadata(
     packet: dict[str, Any],
     *,
     cwd: Path,
+    repo: str | None,
     explicit_pr: int | None,
     exclude_prs: set[int],
     active_owned_prs: set[int],
@@ -725,9 +726,13 @@ def select_candidate_with_lazy_policy_metadata(
         pr_number = _entry_pr(selected or {})
         if pr_number is None or pr_number in loaded:
             return selected, blockers, exclusions, metadata_commands
-        metadata, command = load_pr_policy_metadata(cwd, pr_number)
+        metadata, command = load_pr_policy_metadata(cwd, pr_number, repo=repo)
         metadata_commands.append(command)
         loaded.add(pr_number)
+        if command.get("returncode") != 0 or not metadata:
+            reason = "selected-candidate policy metadata unavailable"
+            exclusions.append(_exclusion_record(selected or {}, [reason]))
+            return None, [reason], exclusions, metadata_commands
         if metadata:
             merged = dict(policy_metadata.get(pr_number) or {})
             merged.update(metadata)
@@ -781,16 +786,18 @@ def build_report(
     exclude_prs: set[int],
     live: bool,
     validate: bool,
+    repo: str | None = None,
 ) -> dict[str, Any]:
     policy_metadata: dict[int, dict[str, Any]] = {}
     active_owned_prs: set[int] = set()
     policy_context: dict[str, Any] = {}
     policy_metadata_commands: list[dict[str, Any]] = []
     if live:
-        policy_metadata, metadata_command = load_open_pr_metadata(cwd)
+        policy_metadata, metadata_command = load_open_pr_metadata(cwd, repo=repo)
         active_owned_prs, active_owned_command = load_active_owned_prs(cwd)
         policy_metadata_commands.append(metadata_command)
         policy_context = {
+            "repo": repo,
             "policy_metadata_commands": policy_metadata_commands,
             "operator_snapshot_command": active_owned_command,
             "active_owned_prs": sorted(active_owned_prs),
@@ -801,6 +808,7 @@ def build_report(
             select_candidate_with_lazy_policy_metadata(
                 packet,
                 cwd=cwd,
+                repo=repo,
                 explicit_pr=explicit_pr,
                 exclude_prs=exclude_prs,
                 active_owned_prs=active_owned_prs,
@@ -1061,6 +1069,17 @@ def _combine_packets(packets: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _empty_packet() -> dict[str, Any]:
+    return {
+        "version": "merge_authorization_packet.v1",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "entries": [],
+        "admin_squash_order": [],
+        "human_risk_settlement_required": [],
+        "not_ready": [],
+    }
+
+
 def _light_entry_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     return {
         "pr_number": metadata.get("number"),
@@ -1077,10 +1096,9 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
         raise RuntimeError(command.get("stderr") or command.get("stdout") or "gh pr list failed")
     active_owned_prs, _active_owned_command = load_active_owned_prs(cwd)
     packets: list[dict[str, Any]] = []
-    checked = 0
+    selected_seen = False
+    packets_after_selected = 0
     for pr_number, item in metadata.items():
-        if checked >= BROAD_PACKET_LOOKAHEAD:
-            break
         light_reasons = policy_exclusion_reasons(
             _light_entry_from_metadata(item),
             exclude_prs=HUMAN_RISK_EXCLUDES,
@@ -1090,16 +1108,26 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
         if light_reasons:
             continue
         packets.append(_load_single_pr_packet(cwd=cwd, pr=pr_number, repo=repo))
-        checked += 1
+        if selected_seen:
+            packets_after_selected += 1
+            if packets_after_selected >= BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD:
+                break
+            continue
+        selected, _blockers, _exclusions = cast(
+            SelectionResultWithExclusions,
+            select_candidate(
+                _combine_packets(packets),
+                explicit_pr=None,
+                exclude_prs=HUMAN_RISK_EXCLUDES,
+                active_owned_prs=active_owned_prs,
+                policy_metadata=metadata,
+                return_exclusions=True,
+            ),
+        )
+        if selected is not None:
+            selected_seen = True
     if not packets:
-        return {
-            "version": "merge_authorization_packet.v1",
-            "generated_at": datetime.now(UTC).isoformat(),
-            "entries": [],
-            "admin_squash_order": [],
-            "human_risk_settlement_required": [],
-            "not_ready": [],
-        }
+        return _empty_packet()
     return _combine_packets(packets)
 
 
@@ -1143,6 +1171,7 @@ def main(argv: list[str] | None = None) -> int:
             state_root=_state_repo_root(cwd),
             explicit_pr=args.pr,
             exclude_prs=exclude_prs,
+            repo=args.repo,
             live=not args.no_live,
             validate=not args.no_validate,
         )
