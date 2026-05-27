@@ -294,6 +294,27 @@ def test_policy_exclusion_reasons_does_not_flag_plain_unsafe_words_in_docs() -> 
     assert reasons == []
 
 
+def test_policy_exclusion_reasons_scopes_adc_to_title_and_branch() -> None:
+    entry = _entry(
+        7461,
+        tier=0,
+        reasons=["docs/tests/status-only", "downstream classifier mentioned adc token"],
+    )
+
+    reasons = policy_exclusion_reasons(
+        entry,
+        policy_metadata={
+            7461: {
+                "title": "docs: explain bridge glossary",
+                "headRefName": "codex/docs-glossary",
+                "files": [{"path": "docs/adc/glossary.md"}],
+            }
+        },
+    )
+
+    assert reasons == []
+
+
 def test_policy_exclusion_reasons_reports_file_path_only_unsafe_surface() -> None:
     entry = _entry(7461, tier=0, reasons=["docs/tests/status-only"])
 
@@ -303,6 +324,22 @@ def test_policy_exclusion_reasons_reports_file_path_only_unsafe_surface() -> Non
     )
 
     assert reasons == [SURFACE_REASON]
+
+
+def test_policy_exclusion_reasons_reports_common_unsafe_path_variants() -> None:
+    unsafe_paths = [
+        "aragora/auth_helpers/providers.py",
+        "aragora/security_utils.py",
+        "infra/deploy-prod.yaml",
+        "scripts/migrate_users.py",
+    ]
+
+    for index, path in enumerate(unsafe_paths, start=7463):
+        reasons = policy_exclusion_reasons(
+            _entry(index, tier=0, reasons=["docs/tests/status-only"]),
+            policy_metadata={index: {"files": [{"path": path}]}},
+        )
+        assert reasons == [SURFACE_REASON], path
 
 
 def test_explicit_pr_policy_exclusion_surfaces_in_blockers_and_exclusions() -> None:
@@ -433,6 +470,43 @@ def test_broad_packet_lazy_loader_returns_empty_when_bulk_and_light_metadata_fai
     assert packet["load_blockers"] == ["HTTP 504", "HTTP 504"]
 
 
+def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
+    monkeypatch,
+) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+            if "--limit" in args:
+                return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
+            pr_number = args[args.index("--pr") + 1]
+            return None, {
+                "command": f"packet {pr_number}",
+                "returncode": 1,
+                "stderr": "GraphQL timeout",
+            }
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [
+                    {
+                        "number": 7449,
+                        "title": "fix(settlement): exclude unsafe PR surfaces",
+                        "headRefName": "codex/settle-one-policy-exclusions-20260523",
+                    },
+                ],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
+
+    assert packet["entries"] == []
+    assert packet["load_blockers"] == ["merge-packet for #7449 failed: GraphQL timeout"]
+
+
 def test_broad_selection_continues_past_excluded_candidate_from_bulk_packet() -> None:
     adc = _entry(7376, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"])
     candidate = _entry(
@@ -506,6 +580,108 @@ def test_build_report_threads_repo_to_policy_metadata(monkeypatch) -> None:
     view_command = next(args for args in commands if args[:3] == ["gh", "pr", "view"])
     assert list_command[-2:] == ["--repo", "example/repo"]
     assert view_command[-2:] == ["--repo", "example/repo"]
+
+
+def test_build_report_fails_closed_when_operator_snapshot_fails(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [{"number": 7451, "title": "fix: candidate", "headRefName": "codex/candidate"}],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return None, {"command": "snapshot", "returncode": 1, "stderr": "snapshot failed"}
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
+            return (
+                {
+                    "number": 7451,
+                    "title": "fix: candidate",
+                    "headRefName": "codex/candidate",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "scripts/settle_one_pr.py"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(7451, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"])
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=None,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["status"] == "blocked"
+    assert any(
+        blocker.startswith(
+            "operator-snapshot unavailable; active-owned exclusions cannot be trusted"
+        )
+        for blocker in report["blockers"]
+    )
+
+
+def test_build_report_blocks_repo_mismatch_when_repo_override_supplied(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [{"number": 7451, "title": "fix: candidate", "headRefName": "codex/candidate"}],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
+            return (
+                {
+                    "number": 7451,
+                    "title": "fix: candidate",
+                    "headRefName": "codex/candidate",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "scripts/settle_one_pr.py"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    def fake_run(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args == ["git", "remote", "get-url", "origin"]:
+            return {
+                "command": "git remote get-url origin",
+                "returncode": 0,
+                "stdout": "git@github.com:synaptent/aragora.git",
+                "stderr": "",
+            }
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+    monkeypatch.setattr(settle_one_pr, "_run", fake_run)
+
+    report = build_report(
+        _packet(
+            _entry(7451, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"])
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=None,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+        repo="other/repo",
+    )
+
+    assert report["status"] == "blocked"
+    assert "--repo other/repo does not match cwd origin synaptent/aragora" in report["blockers"]
 
 
 def test_build_report_fails_closed_when_selected_policy_metadata_unavailable(
