@@ -53,7 +53,7 @@ from aragora.agents.registry import AgentRegistry
 from aragora.agents.spec import AgentSpec
 from aragora.billing.usage import UsageTracker
 from aragora.config import get_api_key
-from aragora.config.secrets import get_secret
+from aragora.config.secrets import get_secret, get_secret_presence
 from aragora.pulse.ingestor import (
     HackerNewsIngestor,
     PulseManager,
@@ -130,13 +130,11 @@ def _normalize_documents(value: Any, max_items: int = 50) -> list[str]:
 def _openrouter_key_available() -> bool:
     """Return True if OpenRouter key is configured via secrets or env."""
     try:
-        value = get_secret("OPENROUTER_API_KEY")
-        if value and value.strip():
+        if get_secret("OPENROUTER_API_KEY", strict=False):
             return True
-    except (ImportError, AttributeError, KeyError, OSError) as e:
-        logger.debug("Secrets module unavailable, falling back to env: %s", e)
-    env_value = os.getenv("OPENROUTER_API_KEY")
-    return bool(env_value and env_value.strip())
+    except (ImportError, KeyError, OSError, ValueError):
+        pass
+    return get_secret_presence("OPENROUTER_API_KEY", strict=False).source in {"aws", "env"}
 
 
 # Check if debate orchestrator is available
@@ -372,6 +370,9 @@ def _create_debate_agents(
 ) -> list[Agent]:
     """Create and wrap agents from filtered specs, assigning roles by position."""
     agents: list[Agent] = []
+    agent_factory = create_agent
+    if agent_factory is None:
+        return agents
     for i, spec in enumerate(agent_specs):
         role = spec.role
         if role is None:
@@ -382,7 +383,7 @@ def _create_debate_agents(
             else:
                 role = "critic"
         try:
-            agent = create_agent(
+            agent = agent_factory(
                 model_type=cast("AgentType", spec.provider),
                 name=spec.name,
                 role=role,
@@ -513,8 +514,15 @@ def execute_debate_thread(
         logger.info("[debate] %s: Created %s agents: %s", debate_id, len(agents), agent_names)
 
         # Create environment and protocol
-        env = Environment(task=question, context="", max_rounds=rounds)
-        protocol = DebateProtocol(
+        environment_cls = Environment
+        protocol_cls = DebateProtocol
+        arena_cls = Arena
+        if environment_cls is None or protocol_cls is None or arena_cls is None:
+            _set_debate_error(debate_id, "Debate orchestrator unavailable", emitter)
+            return
+
+        env = environment_cls(task=question, context="", max_rounds=rounds)
+        protocol = protocol_cls(
             rounds=rounds,
             consensus=cast("ConsensusType", consensus),
             proposer_count=len(agents),
@@ -534,7 +542,7 @@ def execute_debate_thread(
             except (ImportError, TypeError):
                 pass
 
-        arena = Arena(
+        arena = arena_cls(
             env,
             agents,
             protocol,

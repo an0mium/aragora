@@ -173,22 +173,85 @@ helm install aragora deploy/helm/aragora \
 
 ### AWS Secrets Manager
 
-```bash
-# Create secret
-aws secretsmanager create-secret \
-  --name aragora/api-keys \
-  --secret-string '{"ANTHROPIC_API_KEY":"sk-ant-...","OPENAI_API_KEY":"sk-..."}'
+Aragora's runtime secret loader expects one bundled JSON secret as the source of
+truth. Use a deployment secret such as `aragora/production` and a separate local
+operator secret such as `aragora/local/armand`.
 
-# In ECS task definition
+Create a local JSON file outside the repo and never commit it:
+
+```json
 {
-  "secrets": [
+  "ANTHROPIC_API_KEY": "replace-with-provider-key",
+  "OPENAI_API_KEY": "replace-with-provider-key",
+  "GEMINI_API_KEY": "replace-with-provider-key",
+  "GOOGLE_API_KEY": "optional-gemini-alias",
+  "XAI_API_KEY": "replace-with-provider-key",
+  "GROK_API_KEY": "optional-xai-alias",
+  "OPENROUTER_API_KEY": "replace-with-provider-key"
+}
+```
+
+Create or update the bundled secret:
+
+```bash
+aws secretsmanager create-secret \
+  --name aragora/local/armand \
+  --secret-string file:///secure/tmp/aragora-local-secrets.json \
+  --region us-east-2
+
+aws secretsmanager put-secret-value \
+  --secret-id aragora/local/armand \
+  --secret-string file:///secure/tmp/aragora-local-secrets.json \
+  --region us-east-2
+```
+
+Select the secret at runtime. Provider keys should not be exported into shell
+profiles, `.env`, or repo artifacts:
+
+```bash
+export ARAGORA_USE_SECRETS_MANAGER=true
+export ARAGORA_SECRETS_STRICT=true
+export ARAGORA_SECRET_NAME=aragora/local/armand
+export AWS_REGION=us-east-2
+
+python3 -m aragora.cli.main secrets health --json --require-all
+```
+
+The health command reports only `aws`, `env`, `missing`, or
+`blocked_by_strict_mode`; it never prints secret values. CLI startup hydrates
+Secrets Manager values into the current process for legacy provider CLIs, but it
+does not write those keys to disk or mutate the parent shell.
+
+Grant least-privilege IAM access to the exact secret ARN. Add `kms:Decrypt` only
+when the secret uses a customer-managed KMS key:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
     {
-      "name": "ANTHROPIC_API_KEY",
-      "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789:secret:aragora/api-keys:ANTHROPIC_API_KEY::"
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": "arn:aws:secretsmanager:us-east-2:123456789012:secret:aragora/local/armand-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "kms:Decrypt",
+      "Resource": "arn:aws:kms:us-east-2:123456789012:key/replace-with-key-id",
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": "secretsmanager.us-east-2.amazonaws.com"
+        }
+      }
     }
   ]
 }
 ```
+
+For deployed services, set `ARAGORA_SECRET_NAME=aragora/production` and attach
+the IAM policy to the task role, instance profile, Lambda role, or Kubernetes
+workload identity. Prefer AWS SSO/profile or role-based credentials for local
+Codex machines; avoid long-lived AWS access keys.
 
 ### AWS Parameter Store
 
@@ -240,29 +303,22 @@ spec:
 
 ## Secret Rotation
 
-### Automatic Rotation
+### Rotation
 
-For production, implement secret rotation:
+Rotate by updating the bundled AWS secret value, then refresh long-running
+processes:
 
-```python
-# Example rotation script
-import boto3
-from datetime import datetime, timedelta
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id aragora/production \
+  --secret-string file:///secure/tmp/aragora-production-secrets.json \
+  --region us-east-2
 
-def rotate_api_key():
-    # 1. Generate new key from provider
-    new_key = provider.create_api_key()
-
-    # 2. Update secret store
-    client = boto3.client('secretsmanager')
-    client.update_secret(
-        SecretId='aragora/api-keys',
-        SecretString=json.dumps({'ANTHROPIC_API_KEY': new_key})
-    )
-
-    # 3. Restart pods to pick up new secret
-    # Or use reloader: https://github.com/stakater/Reloader
+python3 -m aragora.cli.main secrets health --json --require-all
 ```
+
+Short-lived CLI runs pick up the new value on the next invocation. Long-lived
+workers should either restart or call `refresh_secrets()` after rotation.
 
 ### Using Reloader
 

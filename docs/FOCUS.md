@@ -4,6 +4,83 @@
 > not general-purpose agent orchestration. This document defines what to invest in,
 > what to maintain, and what to deprioritize.
 
+## Current 14-Day Operational Sprint (2026-05-26)
+
+> **Operating principle**: producer:merger ratio has degraded — orchestration
+> overbuild is the dominant failure mode. For the next 14 days, every action
+> should reduce open queue depth, ground an external proof, or be deferred.
+> When in doubt, *do not* spin a new lane. (See substrate-freeze rule under
+> "Product Principles" in operator memory.)
+
+The strategy in this document is not changing. What is changing is which
+proofs come next. Four near-term proofs gate everything else.
+
+### Sprint goals
+
+1. **Settle #7443** (provider bootstrap + receipt repair) via the Tier 4
+   merge-only settlement tool. `scripts/settle_tier4_pr.py` was repaired in
+   #7469 to accept a merge-only settlement when the exact-head, green-required,
+   counted-evidence, no-unresolved-dissent, and operator-allowlist gates all
+   pass — without demanding the `branch_protection_reconcile` token. As of
+   2026-05-26 the `--check` mode returns `gate.ok = true` for #7443 head
+   `5a692b5dd54f05f2befe0df7b497c56e3c6ead6f`. The Tier-4 Human Settlement
+   Authorization comment (admin_squash_merge) is already posted on that head.
+   Action remaining: operator runs `--apply`. Settlement work is otherwise
+   done.
+
+2. **Land #7450** (model-quorum family-expansion spec, Tier 0). PR is no
+   longer draft; `aragora-merge-quorum` is currently FAILURE because the
+   advisory review workflow posts comments headed `## Aragora Code Review`,
+   which the recognizer in `_infer_model_reviewer_from_text` does not
+   resolve (its current seven-marker tuple expects family-named headers like
+   "Claude independent semantic review"). The fix is *not* a recognizer
+   change (that is what #7450 itself authorizes); it is making the advisory
+   review post with a family-named header on the exact head. Once one
+   recognizable signal lands at the current head, Tier 0 settlement
+   authorizes.
+
+3. **Land #7451** (model-family bench harness scaffold, Tier 1). Needs two
+   model signals plus one focused dogfood at current head
+   `0763b894381bbef8832d8ff9d5d74bdde37ace30`. The bench is deterministic
+   (stub backend, no live providers), so the dogfood is cheap.
+
+4. **Publish B0 truth result, whatever it is.** *Refreshed 2026-05-26*: the
+   primary (verified) `truth_success_rate_verified` is **unchanged at 0.0%**;
+   full-corpus legacy rate is 30.8%; proxy-PR signal rate is 76.9%. The
+   verified-by-PR-link metric — which external claims must point at — is
+   still zero. New artifact at
+   `.aragora/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260526T225131Z.json`.
+   This *is* the published falsification: the public claim must ratchet
+   down to what is measured, not what is hoped. Honest measurement beats
+   unsubstantiated marketing.
+
+### Sprint anti-goals
+
+- **No new orchestration scaffolding.** Adding ADC versions, lane registries,
+  or coordination primitives that produce more orchestration is the
+  substrate-overbuild failure mode. Use existing tools.
+- **No premature external outreach.** Outreach is unlocked only when *all*
+  of these are true: (a) B0 `truth_success_rate_verified ≥ 50%` (the
+  verified-by-PR-link metric, not the legacy/proxy rate), (b) `aragora demo
+  --receipt` round-trips for a non-operator user, (c) at least one frontier-
+  model adversarial review of a real PR survives unmodified. Until then,
+  solo + frontier-model + harness progress is higher leverage than burning
+  finite warm-intro inventory on a weak artifact.
+- **No Tier 4 self-mods without pre-approval discipline.** Per
+  `docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance`,
+  any change to `scripts/settle_tier4_pr.py`, `aragora-merge-quorum.yml`, or
+  the family recognizer in `aragora/cli/commands/review_queue.py` requires a
+  design doc in `docs/specs/` and failing governance tests in
+  `tests/governance/` *before* the implementation.
+
+### Sprint exit condition
+
+End of sprint = either (a) all four sprint goals shipped, or (b) explicit
+operator decision to extend, replace, or abandon a goal. The sprint does
+*not* extend by drift.
+
+---
+
 ## The Problem
 
 The codebase has grown to **3,296 Python files / 1.48M LOC** across 120+ top-level modules.

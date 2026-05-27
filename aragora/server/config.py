@@ -223,7 +223,9 @@ def get_research_config() -> ResearchConfig:
 class OpenRouterConfig:
     """OpenRouter API configuration for LLM fallback."""
 
-    api_key: str | None = field(default_factory=lambda: os.getenv("OPENROUTER_API_KEY"))
+    api_key: str | None = field(
+        default_factory=lambda: get_secret("OPENROUTER_API_KEY", strict=False)
+    )
 
     @property
     def is_available(self) -> bool:

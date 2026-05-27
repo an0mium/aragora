@@ -71,6 +71,56 @@ def test_normalize_optional_agent_rejects_placeholder_none() -> None:
 
 
 @pytest.mark.asyncio
+async def test_run_review_pass_blocks_codex_fallback_for_requested_noncodex(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sample_target: review_pr.PullRequestTarget,
+) -> None:
+    async def _fake_generate_review_response(*_: object, **__: object) -> dict[str, object]:
+        return {
+            "candidate": {"provider": "codex", "label": "codex"},
+            "response": json.dumps(
+                {
+                    "status": "passed",
+                    "summary": "No issues found.",
+                    "findings": [],
+                }
+            ),
+            "attempts": [
+                {
+                    "candidate": "codex",
+                    "stage": "generate",
+                    "detail": "ok",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(review_pr, "generate_review_response", _fake_generate_review_response)
+
+    result = await review_pr._run_review_pass(
+        target=sample_target,
+        diff_text="diff --git a/foo b/foo\n+ok\n",
+        reviewer="grok",
+        worker_model="codex",
+        repo_root=tmp_path,
+    )
+
+    assert result.status == "blocked_nonreviewable"
+    assert result.candidate == {"provider": "codex", "label": "codex"}
+    assert result.findings == [
+        {
+            "title": "Requested reviewer routed to Codex",
+            "body": (
+                "Requested reviewer `grok` requires non-Codex evidence, but review-pr "
+                "selected Codex candidate `codex`. Re-run with a real non-Codex reviewer "
+                "or do not count this result as non-Codex quorum evidence."
+            ),
+            "priority": "P1",
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_run_review_pr_loop_review_only_writes_artifact(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

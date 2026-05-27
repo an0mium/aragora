@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -855,7 +854,7 @@ class KimiLegacyAgent(APIAgent):
     ):
         super().__init__(name=name, model=model, role=role)
         self.system_prompt = system_prompt
-        self.api_key = api_key or os.environ.get("KIMI_API_KEY")
+        self.api_key = api_key or get_api_key("KIMI_API_KEY")
         self.base_url = "https://api.moonshot.cn/v1"
         self.agent_type = "kimi"
 

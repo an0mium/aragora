@@ -120,9 +120,20 @@ def __getattr__(name: str) -> object:
 
 def main() -> int:
     try:
+        from aragora.config.secrets import hydrate_env_from_secrets
+
+        # Secrets Manager is authoritative when enabled. Hydrate only this
+        # process so legacy provider CLIs can read env vars without writing
+        # keys to disk or the parent shell.
+        hydrate_env_from_secrets(overwrite=True)
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+        logger.warning("Could not hydrate AWS-managed API keys: %s", exc)
+
+    try:
         from aragora.cli.api_keys import hydrate_env_from_secure_store
 
-        hydrate_env_from_secure_store()
+        # Local secure-store keys are a dev fallback and must not override AWS.
+        hydrate_env_from_secure_store(overwrite=False)
     except (ImportError, OSError, RuntimeError, ValueError) as exc:
         logger.warning("Could not hydrate stored API keys: %s", exc)
 

@@ -19,6 +19,8 @@ from pathlib import Path
 
 from aragora.config.provider_readiness import discover_provider_credentials
 
+HealthCheck = tuple[str, str, bool | None]
+
 
 def check_icon(ok: bool | None) -> str:
     """Return status icon."""
@@ -35,9 +37,9 @@ def print_section(title: str) -> None:
     print("-" * 40)
 
 
-def check_packages() -> list[tuple[str, str, bool | None]]:
+def check_packages() -> list[HealthCheck]:
     """Check required and optional packages."""
-    checks: list[tuple[str, str, bool | None]] = []
+    checks: list[HealthCheck] = []
 
     # Required packages
     required = ["aiohttp", "pydantic", "sqlite3", "asyncio"]
@@ -69,19 +71,39 @@ def check_packages() -> list[tuple[str, str, bool | None]]:
     return checks
 
 
-def check_api_keys() -> list[tuple[str, str, bool | None]]:
+def check_api_keys(validate_live: bool = False) -> list[HealthCheck]:
     """Check API key configuration."""
-    checks: list[tuple[str, str, bool | None]] = []
+    checks: list[HealthCheck] = []
     report = discover_provider_credentials()
+    invalid_providers = []
 
     for provider in report.providers:
         env_label = "/".join(provider.checked_env_vars)
         if provider.configured:
-            checks.append((env_label, "configured", True))
+            status = "configured"
+            ok = True
+            if validate_live:
+                from aragora.cli.api_keys import get_supported_provider_names, validate_provider_key
+
+                validation_provider = "grok" if provider.provider == "xai" else provider.provider
+                if validation_provider in set(get_supported_provider_names()):
+                    validation_report = validate_provider_key(validation_provider)
+                    status = f"{status}; live {validation_report.remote_status}"
+                    if not validation_report.is_valid:
+                        status = f"{status}: {validation_report.message}"
+                        invalid_providers.append(provider.provider)
+                        ok = False
+                else:
+                    status = f"{status}; live skipped"
+            checks.append((env_label, status, ok))
         else:
             checks.append((env_label, "not set", None))
 
-    if report.any_configured:
+    if invalid_providers:
+        checks.append(
+            ("LLM Provider", f"invalid provider(s): {', '.join(invalid_providers)}", False)
+        )
+    elif report.any_configured:
         configured = ", ".join(report.configured_providers)
         checks.append(("LLM Provider", f"configured: {configured}", True))
     else:
@@ -93,9 +115,9 @@ def check_api_keys() -> list[tuple[str, str, bool | None]]:
     return checks
 
 
-def check_storage() -> list[tuple[str, str, bool | None]]:
+def check_storage() -> list[HealthCheck]:
     """Check storage backends."""
-    checks: list[tuple[str, str, bool | None]] = []
+    checks: list[HealthCheck] = []
 
     # Check data directory
     data_dir = Path.home() / ".aragora"
@@ -142,9 +164,9 @@ def check_storage() -> list[tuple[str, str, bool | None]]:
     return checks
 
 
-async def check_server() -> list[tuple[str, str, bool | None]]:
+async def check_server() -> list[HealthCheck]:
     """Check if server is running and responsive."""
-    checks: list[tuple[str, str, bool | None]] = []
+    checks: list[HealthCheck] = []
 
     try:
         from aragora.server.http_client_pool import get_http_pool
@@ -167,9 +189,9 @@ async def check_server() -> list[tuple[str, str, bool | None]]:
     return checks
 
 
-def check_environment() -> list[tuple[str, str, bool | None]]:
+def check_environment() -> list[HealthCheck]:
     """Check environment configuration."""
-    checks: list[tuple[str, str, bool | None]] = []
+    checks: list[HealthCheck] = []
 
     # Python version
     py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
@@ -186,7 +208,7 @@ def check_environment() -> list[tuple[str, str, bool | None]]:
     return checks
 
 
-def main() -> int:
+def main(validate_keys: bool = False) -> int:
     """Run comprehensive health checks."""
     print("\n\033[1;36m" + "=" * 50 + "\033[0m")
     print("\033[1;36m       ARAGORA HEALTH CHECK\033[0m")
@@ -215,7 +237,7 @@ def main() -> int:
 
     # API Keys
     print_section("API Keys")
-    key_checks = check_api_keys()
+    key_checks = check_api_keys(validate_live=validate_keys)
     all_checks.extend(key_checks)
     for name, status, ok in key_checks:
         print(f"  {check_icon(ok)} {name}: {status}")

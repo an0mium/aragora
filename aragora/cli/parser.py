@@ -146,6 +146,7 @@ Examples:
     _add_repl_parser(subparsers)
     _add_config_parser(subparsers)
     _add_api_key_parser(subparsers)
+    _add_secrets_parser(subparsers)
     _add_replay_parser(subparsers)
     _add_bench_parser(subparsers)
     _add_review_parser(subparsers)
@@ -1566,6 +1567,54 @@ def _add_api_key_parser(subparsers) -> None:
         "validate", help="Validate a configured provider key"
     )
     validate_parser.add_argument("provider", help="Provider name to validate")
+
+
+def _add_secrets_parser(subparsers) -> None:
+    """Add the `secrets` subcommand parser."""
+    secrets_parser = subparsers.add_parser(
+        "secrets",
+        help="Inspect AWS Secrets Manager-backed secret presence",
+        description="Presence-only secret health checks and process bootstrap helpers.",
+    )
+    secrets_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.secrets", "cmd_secrets"),
+        parser=secrets_parser,
+    )
+    secrets_subparsers = secrets_parser.add_subparsers(dest="secrets_command")
+
+    health_parser = secrets_subparsers.add_parser(
+        "health",
+        help="Report secret source status without printing values",
+    )
+    health_parser.add_argument(
+        "--name",
+        action="append",
+        help="Secret name to check; repeat for multiple names",
+    )
+    health_parser.add_argument(
+        "--require-all",
+        action="store_true",
+        help="Exit non-zero when any requested secret is missing or strict-blocked",
+    )
+    health_parser.add_argument("--json", action="store_true", help="Emit JSON output")
+    health_parser.set_defaults(func=_lazy("aragora.cli.commands.secrets", "cmd_secrets_health"))
+
+    hydrate_parser = secrets_subparsers.add_parser(
+        "hydrate",
+        help="Hydrate this process env from Secrets Manager and report key names only",
+    )
+    hydrate_parser.add_argument(
+        "--name",
+        action="append",
+        help="Secret name to hydrate; repeat for multiple names",
+    )
+    hydrate_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite existing environment values in this process",
+    )
+    hydrate_parser.add_argument("--json", action="store_true", help="Emit JSON output")
+    hydrate_parser.set_defaults(func=_lazy("aragora.cli.commands.secrets", "cmd_secrets_hydrate"))
 
 
 def _add_replay_parser(subparsers) -> None:

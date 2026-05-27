@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **101**
-- Total top-level invocations (including aliases): **102**
+- Canonical top-level commands: **102**
+- Total top-level invocations (including aliases): **103**
 
 ## Installation
 
@@ -117,6 +117,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `review-pr` | - | Review a live GitHub PR head and optionally run a fixer loop | - |
 | `review-queue` | - | PR review queue + advisory packets + human settlement | `act`, `baseline`, `build`, `health`, `health-alert`, `merge-packet`, `observe-outcomes`, `packet`, `record-settlement`, `run` |
 | `rlm` | - | RLM (Recursive Language Models) operations | `clear-cache`, `compress`, `query`, `stats` |
+| `secrets` | - | Inspect AWS Secrets Manager-backed secret presence | `health`, `hydrate` |
 | `security` | - | Security operations (encryption, key rotation) | `health`, `list-tokens`, `migrate`, `rotate-key`, `rotate-token`, `status`, `verify-token` |
 | `self-improve` | - | Run self-improvement pipeline with worktree isolation and validation | - |
 | `serve` | - | Run live debate server | - |

@@ -335,27 +335,22 @@ def test_trusted_member_comment_requires_admin_permission(monkeypatch: Any) -> N
     assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
 
 
-def test_an0mium_member_comment_requires_explicit_allowlist() -> None:
+def test_admin_member_comment_does_not_require_explicit_allowlist() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment(head, association="MEMBER", author="an0mium")],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, association="MEMBER", author="an0mium")],
+        ),
+        merge_packet=_tier4_packet(),
         required_checks=_valid_checks(),
-        permission_checker=lambda login: True,
+        permission_checker=lambda login: login == "an0mium",
     )
 
-    assert result["ok"] is False
-    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+    assert result["ok"] is True
+    assert result["blockers"] == []
 
 
 def test_cli_trusted_operator_login_authorizes_member_comment(
@@ -570,3 +565,52 @@ def test_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Path) -> 
     ]
     assert "required_approving_review_count" in str(commands[1][1])
     assert commands[-1][0][-1].endswith("/protection/enforce_admins")
+
+
+def test_apply_merge_only_authorization_skips_branch_protection(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(
+                head,
+                comments=[_authorized_comment(head, include_branch_protection=False)],
+            ),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_branch_protection_snapshot",
+        lambda repo, cwd: {"unexpected": "snapshot"},
+    )
+
+    rc = settler.main(["--apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
+
+    assert rc == 0
+    assert commands == [
+        (
+            [
+                "gh",
+                "pr",
+                "merge",
+                "7423",
+                "--squash",
+                "--admin",
+                "--match-head-commit",
+                head,
+            ],
+            None,
+        )
+    ]

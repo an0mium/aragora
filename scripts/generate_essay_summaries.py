@@ -16,13 +16,14 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 import time
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+from aragora.config import get_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -294,7 +295,7 @@ def main(argv: list[str] | None = None) -> None:
     selected = resolve_models(args.models)
 
     # Validate API key (unless dry run)
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+    api_key = get_api_key("OPENROUTER_API_KEY", required=False) or ""
     if not args.dry_run and not api_key:
         print("Error: OPENROUTER_API_KEY environment variable is not set.")
         sys.exit(1)

@@ -15,6 +15,7 @@ import logging
 from collections import OrderedDict
 from typing import Any
 
+from aragora.config.secrets import get_secret_presence
 from aragora.prompt_engine.processing import (
     append_context_block,
     format_answered_questions,
@@ -92,9 +93,7 @@ class PromptResearcher:
             logger.warning("Could not create Anthropic agent: %s", e)
 
         try:
-            import os
-
-            if os.environ.get("OPENROUTER_API_KEY", "").strip():
+            if get_secret_presence("OPENROUTER_API_KEY").source in {"aws", "env"}:
                 from aragora.agents.api_agents.openrouter import OpenRouterAgent
 
                 self._agent = OpenRouterAgent(name="researcher", model="anthropic/claude-opus-4.7")

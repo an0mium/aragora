@@ -213,7 +213,7 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     """Handle 'doctor' command - run system health checks."""
     from aragora.cli.doctor import main as doctor_main
 
-    sys.exit(doctor_main())
+    sys.exit(doctor_main(validate_keys=getattr(args, "validate", False)))
 
 
 def cmd_validate(_: argparse.Namespace) -> None:
@@ -221,7 +221,7 @@ def cmd_validate(_: argparse.Namespace) -> None:
     # run_validate doesn't exist; reuse doctor main for now
     from aragora.cli.doctor import main as doctor_main
 
-    sys.exit(doctor_main())
+    sys.exit(doctor_main(validate_keys=True))
 
 
 def cmd_validate_env(args: argparse.Namespace) -> None:
@@ -373,13 +373,48 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
         )
 
         provider_report = discover_provider_credentials()
+        provider_validation = []
+        provider_validation_errors = []
         if provider_report.any_configured:
+            from aragora.cli.api_keys import get_supported_provider_names, validate_provider_key
+
+            supported_validation_providers = set(get_supported_provider_names())
+            for provider in provider_report.providers:
+                if not provider.configured:
+                    continue
+                validation_provider = "grok" if provider.provider == "xai" else provider.provider
+                if validation_provider not in supported_validation_providers:
+                    provider_validation.append(
+                        {
+                            "provider": provider.provider,
+                            "remote_status": "skipped",
+                            "is_valid": True,
+                            "message": "live validation not supported for this provider",
+                        }
+                    )
+                    continue
+                report = validate_provider_key(validation_provider)
+                provider_validation.append(
+                    {
+                        "provider": provider.provider,
+                        "remote_status": report.remote_status,
+                        "is_valid": report.is_valid,
+                        "message": report.message,
+                    }
+                )
+                if not report.is_valid:
+                    provider_validation_errors.append(f"{provider.provider}: {report.message}")
+
             results["checks"]["ai_providers"] = {
-                "status": "ok",
+                "status": "error" if provider_validation_errors else "ok",
                 "configured": list(provider_report.configured_providers),
                 "hydrated_env_vars": list(provider_report.hydrated_env_vars),
                 "dotenv_paths": list(provider_report.dotenv_paths),
+                "validation": provider_validation,
             }
+            if provider_validation_errors:
+                results["errors"].extend(provider_validation_errors)
+                results["valid"] = False
         else:
             results["checks"]["ai_providers"] = {
                 "status": "error",

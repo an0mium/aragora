@@ -1030,15 +1030,19 @@ If a key compromise is detected:
 
 | Environment | Recommended Storage |
 |-------------|-------------------|
-| Development | `.env` file (gitignored) |
-| Staging | Environment variables or secrets manager |
-| Production | AWS Secrets Manager, HashiCorp Vault, or cloud KMS |
+| Development | AWS Secrets Manager local bundle, or `.env` only with strict mode disabled |
+| Staging | AWS Secrets Manager with strict mode enabled |
+| Production | AWS Secrets Manager, HashiCorp Vault, or cloud KMS with strict mode enabled |
 
 ```bash
-# Example: AWS Secrets Manager integration
-export ARAGORA_ENCRYPTION_KEY=$(aws secretsmanager get-secret-value \
-  --secret-id aragora/encryption-key \
-  --query SecretString --output text)
+# Example: AWS Secrets Manager JSON-bundle integration.
+# Provider keys stay in AWS and are hydrated only into the child process.
+export ARAGORA_USE_SECRETS_MANAGER=true
+export ARAGORA_SECRETS_STRICT=true
+export ARAGORA_SECRET_NAME=aragora/production
+export AWS_REGION=us-east-2
+
+python3 -m aragora.cli.main secrets health --json --require-all
 ```
 
 ### RBAC (Role-Based Access Control)
