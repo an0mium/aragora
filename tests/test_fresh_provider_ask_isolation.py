@@ -158,6 +158,38 @@ async def test_synthesis_uses_combined_output_when_optional_anthropic_missing():
 
 
 @pytest.mark.asyncio
+async def test_round_knowledge_refresh_treats_external_embedding_failure_as_optional():
+    """Expired unrelated embedding providers must not fail an explicit-provider ask."""
+    from aragora.debate.orchestrator_delegates import ArenaDelegatesMixin
+    from aragora.exceptions import ExternalServiceError
+
+    class Harness(ArenaDelegatesMixin):
+        def __init__(self) -> None:
+            self.enable_knowledge_retrieval = True
+            self.env = SimpleNamespace(task="Provider isolation validation")
+            self._km_manager = SimpleNamespace(
+                fetch_context=AsyncMock(
+                    side_effect=ExternalServiceError(
+                        service="Gemini Embedding",
+                        reason="API key expired",
+                        status_code=400,
+                    )
+                )
+            )
+
+    harness = Harness()
+
+    refreshed = await harness._refresh_knowledge_context_for_round(
+        "explicit Grok provider returned a response",
+        SimpleNamespace(),
+        1,
+    )
+
+    assert refreshed == 0
+    harness._km_manager.fetch_context.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_llm_judge_skips_when_optional_anthropic_missing(monkeypatch: pytest.MonkeyPatch):
     """Optional post-debate judging must not become an unrelated provider failure."""
     from aragora.evaluation.llm_judge import LLMJudge
