@@ -30,12 +30,31 @@ fi
 HANDOFF_OUTBOX_DIR="${ARAGORA_AUTOMATION_OUTBOX_DIR:-${AUTOMATION_STATE_ROOT}/.aragora/automation-outbox}"
 HANDOFF_RECEIPT_DIR="${ARAGORA_AUTOMATION_RECEIPT_DIR:-${AUTOMATION_STATE_ROOT}/.aragora/automation-receipts}"
 GITHUB_STATUS_CACHE="${ARAGORA_AUTOMATION_GITHUB_STATUS_CACHE:-${AUTOMATION_STATE_ROOT}/.aragora/automation-github-status/latest.json}"
+HARVEST_REPORT_PATH="${AUTOMATION_STATE_ROOT}/.aragora/automation-harvest/latest.json"
 STAMP() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
 
 repo_root_available() {
   [[ -d "${REPO_ROOT}" && ( -d "${REPO_ROOT}/.git" || -f "${REPO_ROOT}/.git" ) ]]
+}
+
+write_harvest_report() {
+  if ! repo_root_available; then
+    return 0
+  fi
+  if python3 scripts/codex_automation_harvest_report.py \
+    --repo "${REPO_ROOT}" \
+    --state-root "${AUTOMATION_STATE_ROOT}/.aragora" \
+    --outbox-dir "${HANDOFF_OUTBOX_DIR}" \
+    --receipt-dir "${HANDOFF_RECEIPT_DIR}" \
+    --publisher-cache "${GITHUB_STATUS_CACHE}" \
+    --write-latest \
+    --json >/dev/null; then
+    echo "$(STAMP) [codex-automation-publisher] wrote local harvest summary: ${HARVEST_REPORT_PATH}"
+  else
+    echo "$(STAMP) [codex-automation-publisher] local harvest summary failed; continuing"
+  fi
 }
 
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
@@ -87,6 +106,7 @@ if python3 scripts/cache_codex_automation_github_status.py \
 else
   echo "$(STAMP) [codex-automation-publisher] GitHub queue status cache failed; continuing"
 fi
+write_harvest_report
 HEALTH_READY="$(
   printf '%s' "${HEALTH_JSON}" \
     | python3 -c 'import json,sys; print("true" if json.load(sys.stdin).get("ready") else "false")' \
@@ -192,5 +212,6 @@ if python3 scripts/publish_automation_handoffs.py \
 else
   echo "$(STAMP) [codex-automation-publisher] handoff publish pass failed; continuing"
 fi
+write_harvest_report
 
 echo "$(STAMP) [codex-automation-publisher] publish pass complete"
