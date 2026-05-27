@@ -57,6 +57,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
+from aragora.config import get_api_key
+
 logger = logging.getLogger(__name__)
 
 
@@ -399,8 +401,6 @@ class LeanBackend:
         2. Claude (fallback, good reasoning)
         3. GPT-4 (fallback)
         """
-        import os
-
         from aragora.server.http_client_pool import get_http_pool
 
         # Try DeepSeek-Prover first if configured
@@ -419,7 +419,7 @@ class LeanBackend:
                     return None
 
         # Fall back to Claude/OpenAI
-        api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        api_key = get_api_key("ANTHROPIC_API_KEY", "OPENAI_API_KEY", required=False)
         if not api_key:
             return None
 
@@ -446,8 +446,8 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
 ```"""
 
         try:
-            anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-            openai_key = os.environ.get("OPENAI_API_KEY")
+            anthropic_key = get_api_key("ANTHROPIC_API_KEY", required=False)
+            openai_key = get_api_key("OPENAI_API_KEY", required=False)
 
             if anthropic_key:
                 url = "https://api.anthropic.com/v1/messages"
@@ -674,11 +674,9 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
             - confidence: 0.0-1.0 confidence in the match
             - explanation: Why it matches or doesn't match
         """
-        import os
-
         from aragora.server.http_client_pool import get_http_pool
 
-        api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        api_key = get_api_key("ANTHROPIC_API_KEY", "OPENAI_API_KEY", required=False)
         if not api_key:
             # Can't verify without LLM - return low confidence
             return False, 0.3, "No LLM available to verify semantic match"
@@ -712,8 +710,8 @@ Examples of MATCHING:
 - Claim about prime divisibility and theorem proves corresponding property"""
 
         try:
-            anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-            openai_key = os.environ.get("OPENAI_API_KEY")
+            anthropic_key = get_api_key("ANTHROPIC_API_KEY", required=False)
+            openai_key = get_api_key("OPENAI_API_KEY", required=False)
 
             if anthropic_key:
                 url = "https://api.anthropic.com/v1/messages"

@@ -14,11 +14,12 @@ __all__ = ["ActionPlan", "RescueAction", "plan_rescue", "try_quarantine_override
 
 import json
 import logging
-import os
 import re
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any
+
+from aragora.config import get_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +115,7 @@ def plan_rescue(
         )
 
     user_prompt = "\n\n".join(context_parts)
-    resolved_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
+    resolved_key = api_key or get_api_key("OPENROUTER_API_KEY", required=False) or ""
     resolved_model = model or _DEFAULT_MODEL
 
     if not resolved_key:

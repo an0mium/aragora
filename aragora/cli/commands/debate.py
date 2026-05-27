@@ -28,6 +28,7 @@ from aragora.config import (
     DEFAULT_ROUNDS,
     MAX_AGENTS_PER_DEBATE,
 )
+from aragora.config.secrets import get_secret_presence
 from aragora.core import Environment
 from aragora.debate.arena_primary_configs import MLConfig, MemoryConfig
 from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -676,7 +677,10 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
     try:
         import hashlib
         import json
+        from datetime import datetime, timezone
         from pathlib import Path
+
+        from aragora.gauntlet.receipt_models import DecisionReceipt
 
         receipts_dir = Path.home() / ".aragora" / "receipts"
         receipts_dir.mkdir(parents=True, exist_ok=True)
@@ -685,6 +689,7 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         consensus_reached = getattr(result, "consensus_reached", False)
         confidence = getattr(result, "confidence", 0.0)
         final_answer = getattr(result, "final_answer", "") or ""
+        task = str(getattr(result, "task", "") or "")
         metadata = getattr(result, "metadata", None)
         agent_models = metadata.get("agent_models", {}) if isinstance(metadata, dict) else {}
         messages = list(getattr(result, "messages", []) or [])
@@ -708,23 +713,71 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
                 }
             )
 
+        timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        if timestamp.endswith("+00:00"):
+            timestamp = timestamp[: -len("+00:00")] + "Z"
+        agents = list(dict.fromkeys(response["agent"] for response in agent_responses))
+        input_hash = hashlib.sha256(
+            json.dumps(
+                {
+                    "task": task,
+                    "agents": agents,
+                    "agent_responses": agent_responses,
+                },
+                sort_keys=True,
+                default=str,
+            ).encode()
+        ).hexdigest()
         receipt = {
+            "receipt_id": f"debate-{debate_id}",
+            "gauntlet_id": str(debate_id),
             "debate_id": debate_id,
-            "task": getattr(result, "task", ""),
+            "timestamp": timestamp,
+            "task": task,
+            "input_summary": task[:500],
+            "input_hash": input_hash,
+            "risk_summary": {"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0},
+            "attacks_attempted": 0,
+            "attacks_successful": 0,
+            "probes_run": 0,
+            "vulnerabilities_found": 0,
+            "verdict": "PASS" if consensus_reached else "CONDITIONAL",
+            "verdict_reasoning": final_answer[:2000],
+            "robustness_score": round(confidence, 4) if confidence else 0.0,
             "consensus_reached": consensus_reached,
             "confidence": round(confidence, 4) if confidence else 0.0,
             "final_answer": final_answer[:2000],
             "rounds_used": getattr(result, "rounds_used", 0),
-            "agents": list(dict.fromkeys(response["agent"] for response in agent_responses)),
+            "agents": agents,
             "agent_responses": agent_responses,
             "dissenting_views": [
                 str(v)[:500] for v in (getattr(result, "dissenting_views", []) or [])
             ],
+            "consensus_proof": {
+                "reached": bool(consensus_reached),
+                "confidence": round(confidence, 4) if confidence else 0.0,
+                "supporting_agents": agents if consensus_reached else [],
+                "dissenting_agents": [],
+                "method": "majority",
+                "evidence_hash": input_hash,
+            },
+            "provenance_chain": [
+                {
+                    "timestamp": timestamp,
+                    "event_type": "verdict",
+                    "agent": "aragora ask",
+                    "description": "Debate receipt persisted from aragora ask.",
+                    "evidence_hash": input_hash,
+                }
+            ],
+            "schema_version": "1.1",
         }
         model_comparison = metadata.get("model_comparison") if isinstance(metadata, dict) else None
         if isinstance(model_comparison, dict):
             receipt["model_comparison"] = model_comparison
 
+        receipt["artifact_hash"] = DecisionReceipt.from_dict(receipt).artifact_hash
+        receipt["checksum"] = receipt["artifact_hash"]
         content_hash = hashlib.sha256(
             json.dumps(receipt, sort_keys=True, default=str).encode()
         ).hexdigest()[:16]
@@ -2069,7 +2122,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                     continue
 
         # Optional OpenRouter fallback for quota/billing/provider outages.
-        if os.environ.get("OPENROUTER_API_KEY") and not any(
+        if get_secret_presence("OPENROUTER_API_KEY").source in {"aws", "env"} and not any(
             spec.provider == "openrouter" for spec in ordered_specs
         ):
             try:

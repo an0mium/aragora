@@ -130,6 +130,12 @@ by the candidate id.
 )
 
 
+def _has_api_key(*names: str) -> bool:
+    from aragora.config import get_api_key
+
+    return bool(get_api_key(*names, required=False))
+
+
 async def run_debate() -> dict:
     from aragora.agents import create_agent
     from aragora.core import Environment
@@ -139,7 +145,7 @@ async def run_debate() -> dict:
     agent_specs = []
 
     # Note: GEMINI_API_KEY observed expired in this environment. Skipping.
-    if os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY"):
+    if _has_api_key("XAI_API_KEY", "GROK_API_KEY"):
         try:
             agents.append(
                 create_agent(

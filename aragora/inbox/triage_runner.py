@@ -26,6 +26,7 @@ from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import dataclass
 from typing import Any
 
+from aragora.config.secrets import get_secret_presence
 from aragora.inbox.auto_approval import AutoApprovalPolicy
 from aragora.inbox.trust_wedge import (
     ActionIntent,
@@ -44,6 +45,12 @@ from aragora.inbox.triage_diagnostics import (
 from aragora.utils.semantic_extraction import ExtractionProvider, extract_json_object_llm_first
 
 logger = logging.getLogger(__name__)
+
+
+def _has_api_key(*names: str) -> bool:
+    """Return API-key availability without exposing secret values."""
+    return any(get_secret_presence(name).source in {"aws", "env"} for name in names)
+
 
 _SUPPORTED_TRIAGE_PROFILES = {"baseline", "staged_v1"}
 _DEFAULT_TRIAGE_PROFILE = "staged_v1"
@@ -396,8 +403,6 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
       - OpenRouter/DeepSeek as critic
     Falls back to OpenAI if keys are missing.
     """
-    import os
-
     from aragora.agents.base import create_agent
 
     agents: list[Any] = []
@@ -422,21 +427,21 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
         except (ImportError, RuntimeError, ValueError, OSError):
             logger.debug("Triage agent unavailable: provider=%s role=%s", provider, role)
 
-    if os.environ.get("OPENAI_API_KEY"):
+    if _has_api_key("OPENAI_API_KEY"):
         _append_agent(
             "openai-api",
             name="triage-proposer",
             role="proposer",
             model="gpt-5.4",
         )
-    elif os.environ.get("ANTHROPIC_API_KEY"):
+    elif _has_api_key("ANTHROPIC_API_KEY"):
         _append_agent(
             "anthropic-api",
             name="triage-proposer",
             role="proposer",
             model="claude-haiku-4-5-20251001",
         )
-    elif os.environ.get("OPENROUTER_API_KEY") and "openrouter" not in providers_used:
+    elif _has_api_key("OPENROUTER_API_KEY") and "openrouter" not in providers_used:
         _append_agent(
             "openrouter",
             name="triage-proposer",
@@ -444,21 +449,21 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
             model="anthropic/claude-haiku-4-5-20251001",
         )
 
-    if os.environ.get("OPENROUTER_API_KEY"):
+    if _has_api_key("OPENROUTER_API_KEY"):
         _append_agent(
             "openrouter",
             name="triage-critic",
             role="critic",
             model="deepseek/deepseek-v4-pro",
         )
-    elif os.environ.get("OPENAI_API_KEY"):
+    elif _has_api_key("OPENAI_API_KEY"):
         _append_agent(
             "openai-api",
             name="triage-critic",
             role="critic",
             model="gpt-5.4",
         )
-    elif os.environ.get("ANTHROPIC_API_KEY"):
+    elif _has_api_key("ANTHROPIC_API_KEY"):
         _append_agent(
             "anthropic-api",
             name="triage-critic",
@@ -466,21 +471,21 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
             model="claude-haiku-4-5-20251001",
         )
 
-    if os.environ.get("ANTHROPIC_API_KEY") and "anthropic-api" not in providers_used:
+    if _has_api_key("ANTHROPIC_API_KEY") and "anthropic-api" not in providers_used:
         _append_agent(
             "anthropic-api",
             name="triage-reviewer",
             role="synthesizer",
             model="claude-haiku-4-5-20251001",
         )
-    elif os.environ.get("OPENAI_API_KEY") and len(agents) < 3:
+    elif _has_api_key("OPENAI_API_KEY") and len(agents) < 3:
         _append_agent(
             "openai-api",
             name="triage-reviewer",
             role="synthesizer",
             model="gpt-5.4",
         )
-    elif os.environ.get("OPENROUTER_API_KEY") and len(agents) < 3:
+    elif _has_api_key("OPENROUTER_API_KEY") and len(agents) < 3:
         # Use a different model family for heterogeneous consensus
         _append_agent(
             "openrouter",
