@@ -252,6 +252,20 @@ def _settlement_check_packet(
     }
 
 
+def _head_drift_blocker(*, pr: int, requested_head: str, pr_state: Any) -> str | None:
+    if not isinstance(pr_state, dict):
+        return "live PR state unavailable; cannot verify requested head"
+    live_head = str(pr_state.get("headRefOid") or "").strip()
+    if not live_head:
+        return "live PR head unavailable; cannot verify requested head"
+    if live_head != requested_head:
+        return (
+            f"PR #{pr} head drifted from requested {requested_head} to live {live_head}; "
+            "do not prepare settlement apply for a stale head"
+        )
+    return None
+
+
 def _focused_tests_packet(
     *,
     repair_cwd: Path | None,
@@ -293,10 +307,15 @@ def _prompt_for(packet: dict[str, Any]) -> str:
     mergeable = pr_state.get("mergeable")
     merge_state = pr_state.get("mergeStateStatus")
     gate = packet["validation"]["settlement_check"]
-    blockers = gate.get("blockers") or []
+    blockers = packet.get("apply_blockers") or gate.get("blockers") or []
 
     if root_dirty:
         next_action = "First classify and preserve the root dirty state before any mutation."
+    elif any("head drifted" in str(blocker) for blocker in blockers):
+        next_action = (
+            "Stop before settlement apply because the requested head no longer matches the "
+            "live PR head."
+        )
     elif blockers or merge_state in {"DIRTY", "CONFLICTING"} or mergeable == "CONFLICTING":
         next_action = "Diagnose only the live branch conflict or merge-packet blocker."
     elif gate.get("ok"):
@@ -362,6 +381,12 @@ def build_followup_packet(
         repo_root,
         runner,
     )
+    pr_payload = pr_state.get("payload")
+    head_drift_blocker = _head_drift_blocker(
+        pr=pr,
+        requested_head=head,
+        pr_state=pr_payload,
+    )
     remote = _remote_branch_packet(
         repo_root,
         branch=repair_branch,
@@ -387,9 +412,15 @@ def build_followup_packet(
         if run_focused_tests
         else {"ran": False, "ok": None, "reason": "disabled"}
     )
+    settlement_blockers = list(settlement_check.get("blockers", []))
+    apply_blockers = (
+        [head_drift_blocker, *settlement_blockers] if head_drift_blocker else settlement_blockers
+    )
     packet = {
         "pr": pr,
         "head": head,
+        "live_head": pr_payload.get("headRefOid") if isinstance(pr_payload, dict) else None,
+        "requested_head_matches_live": head_drift_blocker is None,
         "repair_head": repair_head,
         "owner": owner.get("payload"),
         "mailbox": _mailbox_summary(owner.get("payload")),
@@ -402,7 +433,7 @@ def build_followup_packet(
             "settlement_check": settlement_check,
             "focused_tests": focused_tests,
         },
-        "apply_blockers": settlement_check.get("blockers", []),
+        "apply_blockers": apply_blockers,
     }
     if include_prompt:
         packet["next_prompt"] = _prompt_for(packet)

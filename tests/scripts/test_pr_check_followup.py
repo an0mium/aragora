@@ -204,6 +204,40 @@ def test_failed_rerun_after_checkout_is_substantive_blocker() -> None:
     assert "Do not rerun cancelled rows" in result.prompt
 
 
+def test_wait_run_stale_head_does_not_drive_current_head_rerun() -> None:
+    wait_run = followup.diagnose_wait_run(
+        "99",
+        {
+            "status": "completed",
+            "conclusion": "cancelled",
+            "workflowName": "Tests",
+            "headSha": "old-head",
+            "jobs": [
+                _job(
+                    "Build Documentation",
+                    "cancelled",
+                    job_id="101",
+                    steps=[
+                        {"name": "Set up job", "conclusion": "success"},
+                        {"name": "Checkout", "conclusion": "cancelled"},
+                    ],
+                )
+            ],
+        },
+        pr_head="new-head",
+    )
+    result = followup.build_followup_result(
+        _pr([], head="new-head"),
+        wait_run=wait_run,
+        allow_rerun_commands=True,
+    )
+
+    assert result.action == "stale_wait_run"
+    assert result.rerun_commands == []
+    assert "waited Actions run belongs to stale head old-head" in result.prompt
+    assert "gh run rerun 99 --job 101" not in result.prompt
+
+
 def test_merge_quorum_model_quorum_failure_emits_evidence_prompt() -> None:
     result = followup.build_followup_result(
         _pr(

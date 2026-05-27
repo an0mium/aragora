@@ -78,6 +78,48 @@ async def test_generate_review_response_fails_over_to_next_candidate() -> None:
 
 
 @pytest.mark.asyncio
+async def test_generate_review_response_candidate_blocker_stops_before_generation() -> None:
+    run_candidate = AsyncMock(side_effect=AssertionError("candidate generation should not run"))
+    blocker = {
+        "title": "Requested reviewer routed to Codex",
+        "body": "requested non-Codex reviewer selected Codex",
+        "priority": "P1",
+    }
+
+    with (
+        patch(
+            "aragora.swarm.review_routing.resolve_review_candidates",
+            return_value=[ReviewCandidate(provider="codex", label="codex")],
+        ),
+        patch(
+            "aragora.swarm.review_routing.preflight_review_candidate",
+            return_value={"ok": True, "detail": "codex available"},
+        ),
+        patch("aragora.swarm.review_routing._run_review_candidate", new=run_candidate),
+    ):
+        result = await generate_review_response(
+            "review this",
+            worker_model="claude",
+            preferred_review_model="grok",
+            repo_root=Path("/tmp/repo"),
+            candidate_blocker=lambda candidate: blocker if candidate.provider == "codex" else None,
+        )
+
+    assert result["candidate"]["label"] == "codex"
+    assert result["response"] == ""
+    assert result["blocked"] == blocker
+    assert result["attempts"] == [
+        {
+            "candidate": "codex",
+            "stage": "route_guard",
+            "kind": "blocked_nonreviewable",
+            "detail": "Requested reviewer routed to Codex",
+        }
+    ]
+    run_candidate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_generate_review_response_records_unexpected_exception_detail() -> None:
     with (
         patch(

@@ -352,7 +352,13 @@ def _has_branch_conflict(pr_data: dict[str, Any]) -> bool:
     return mergeable == "CONFLICTING" or merge_state == "DIRTY"
 
 
-def classify_run_job(job: dict[str, Any], run_id: str, run_data: dict[str, Any]) -> CheckDiagnosis:
+def classify_run_job(
+    job: dict[str, Any],
+    run_id: str,
+    run_data: dict[str, Any],
+    *,
+    pr_head: str | None = None,
+) -> CheckDiagnosis:
     """Classify an Actions job from gh run view JSON."""
     job_id = _job_id(job)
     status = str(job.get("status") or "").upper()
@@ -363,7 +369,10 @@ def classify_run_job(job: dict[str, Any], run_id: str, run_data: dict[str, Any])
     classification = "unknown"
     summary = ""
 
-    if conclusion == "CANCELLED":
+    if pr_head and head_sha and head_sha != pr_head:
+        classification = "stale_cancelled"
+        summary = f"run belongs to stale head {head_sha}; current PR head is {pr_head}"
+    elif conclusion == "CANCELLED":
         if _is_early_cancelled_steps(
             [step for step in job.get("steps") or [] if isinstance(step, dict)]
         ):
@@ -433,12 +442,13 @@ def diagnose_wait_run(
     run_id: str,
     run_data: dict[str, Any],
     *,
+    pr_head: str | None = None,
     timed_out: bool = False,
     log_summary_by_job: dict[str, list[str]] | None = None,
 ) -> WaitRunDiagnosis:
     """Build a diagnosis for a waited Actions run."""
     jobs = [
-        classify_run_job(job, run_id, run_data)
+        classify_run_job(job, run_id, run_data, pr_head=pr_head)
         for job in run_data.get("jobs") or []
         if isinstance(job, dict)
     ]
@@ -466,6 +476,8 @@ def _derive_action(
 ) -> str:
     if expected_head and head != expected_head:
         return "head_drift"
+    if wait_run and wait_run.head_sha and head and wait_run.head_sha != head:
+        return "stale_wait_run"
 
     wait_jobs = wait_run.jobs if wait_run else []
     if wait_run and (
@@ -528,7 +540,7 @@ def build_followup_result(
             diagnosis.log_summary = log_summary_by_job.get(diagnosis.job_id, [])
         checks.append(diagnosis)
 
-    if wait_run:
+    if wait_run and not (wait_run.head_sha and head and wait_run.head_sha != head):
         waited_job_ids = {job.job_id for job in wait_run.jobs if job.job_id}
         checks = [check for check in checks if check.job_id not in waited_job_ids]
         checks.extend(wait_run.jobs)
@@ -591,6 +603,14 @@ def build_prompt(
         lines.extend(
             [
                 f"Goal: refresh #{pr_number} follow-up because the live head drifted from {expected_head} to {head}. Do not merge, rerun, push, edit files, start cleanup, or start broader queue settlement.",
+                "",
+            ]
+        )
+    elif action == "stale_wait_run":
+        run_head = wait_run.head_sha if wait_run else "unknown"
+        lines.extend(
+            [
+                f"Goal: refresh #{pr_number} follow-up because the waited Actions run belongs to stale head {run_head}, while the live PR head is {head}. Do not merge, rerun, push, edit files, start cleanup, or start broader queue settlement.",
                 "",
             ]
         )
@@ -700,6 +720,10 @@ def build_prompt(
     elif action == "rerun_cancelled":
         lines.append(
             "Only early-cancelled rows remain; rerun commands were intentionally withheld by the helper. Re-run the helper with --allow-rerun-commands to generate exact commands."
+        )
+    elif action == "stale_wait_run":
+        lines.append(
+            "Ignore the stale waited run for current-head decisions. Re-run the helper against a current-head run/check or omit --wait-run and use live statusCheckRollup."
         )
     elif action == "monitor" and wait_run and wait_run.timed_out:
         lines.append(
@@ -822,6 +846,7 @@ def fetch_live_result(
         wait_run = diagnose_wait_run(
             wait_run_id,
             run_data,
+            pr_head=head,
             timed_out=timed_out,
             log_summary_by_job=log_summary_by_job,
         )

@@ -71,28 +71,34 @@ def test_normalize_optional_agent_rejects_placeholder_none() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("requested_reviewer", ["grok", "claude", "gemini"])
 async def test_run_review_pass_blocks_codex_fallback_for_requested_noncodex(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     sample_target: review_pr.PullRequestTarget,
+    requested_reviewer: str,
 ) -> None:
-    async def _fake_generate_review_response(*_: object, **__: object) -> dict[str, object]:
+    async def _fake_generate_review_response(
+        *_: object,
+        candidate_blocker: object,
+        **__: object,
+    ) -> dict[str, object]:
+        candidate = {"provider": "codex", "label": "codex"}
+        assert callable(candidate_blocker)
+        blocked = candidate_blocker(candidate)
+        assert blocked
         return {
-            "candidate": {"provider": "codex", "label": "codex"},
-            "response": json.dumps(
-                {
-                    "status": "passed",
-                    "summary": "No issues found.",
-                    "findings": [],
-                }
-            ),
+            "candidate": candidate,
+            "response": "",
             "attempts": [
                 {
                     "candidate": "codex",
-                    "stage": "generate",
-                    "detail": "ok",
+                    "stage": "route_guard",
+                    "kind": "blocked_nonreviewable",
+                    "detail": "Requested reviewer routed to Codex",
                 }
             ],
+            "blocked": blocked,
         }
 
     monkeypatch.setattr(review_pr, "generate_review_response", _fake_generate_review_response)
@@ -100,7 +106,7 @@ async def test_run_review_pass_blocks_codex_fallback_for_requested_noncodex(
     result = await review_pr._run_review_pass(
         target=sample_target,
         diff_text="diff --git a/foo b/foo\n+ok\n",
-        reviewer="grok",
+        reviewer=requested_reviewer,
         worker_model="codex",
         repo_root=tmp_path,
     )
@@ -111,13 +117,75 @@ async def test_run_review_pass_blocks_codex_fallback_for_requested_noncodex(
         {
             "title": "Requested reviewer routed to Codex",
             "body": (
-                "Requested reviewer `grok` requires non-Codex evidence, but review-pr "
+                f"Requested reviewer `{requested_reviewer}` requires non-Codex evidence, but review-pr "
                 "selected Codex candidate `codex`. Re-run with a real non-Codex reviewer "
                 "or do not count this result as non-Codex quorum evidence."
             ),
             "priority": "P1",
         }
     ]
+    assert result.raw_response == ""
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("requested_reviewer", ["grok", "claude", "gemini"])
+async def test_run_review_pr_loop_does_not_publish_codex_routed_noncodex_review(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sample_target: review_pr.PullRequestTarget,
+    requested_reviewer: str,
+) -> None:
+    monkeypatch.setattr(review_pr, "_fetch_pr_target", lambda *_, **__: sample_target)
+    monkeypatch.setattr(review_pr, "_fetch_pr_diff", lambda *_: "diff --git a/foo b/foo\n+ok\n")
+
+    async def _fake_review(**_: object) -> review_pr.ReviewPass:
+        return review_pr.ReviewPass(
+            reviewer=requested_reviewer,
+            reviewed_at="2026-03-21T10:00:00+00:00",
+            status="blocked_nonreviewable",
+            summary="Requested non-Codex reviewer routed to Codex.",
+            findings=[
+                {
+                    "title": "Requested reviewer routed to Codex",
+                    "body": "Requested non-Codex reviewer routed to Codex.",
+                    "priority": "P1",
+                }
+            ],
+            candidate={"provider": "codex", "label": "codex"},
+            attempts=[
+                {
+                    "candidate": "codex",
+                    "stage": "route_guard",
+                    "kind": "blocked_nonreviewable",
+                    "detail": "Requested reviewer routed to Codex",
+                }
+            ],
+            raw_response="",
+        )
+
+    async def _should_not_publish(**_: object) -> dict[str, object]:
+        raise AssertionError("_publish_review_outcome should not publish Codex-routed evidence")
+
+    monkeypatch.setattr(review_pr, "_run_review_pass", _fake_review)
+    monkeypatch.setattr(review_pr, "_publish_review_outcome", _should_not_publish)
+
+    result = await review_pr.run_review_pr_loop(
+        pr_ref="1137",
+        repo_root=tmp_path,
+        reviewer=requested_reviewer,
+        artifact_root=tmp_path / "artifacts",
+        publish_review=True,
+    )
+
+    assert result["final_status"] == "blocked_nonreviewable"
+    assert result["github_review"] == {
+        "posted": False,
+        "event": None,
+        "mode": "advisory",
+        "url": None,
+        "error": "Requested non-Codex reviewer routed to Codex before review generation.",
+    }
+    assert result["review_runs"][0]["candidate"] == {"provider": "codex", "label": "codex"}
 
 
 @pytest.mark.asyncio

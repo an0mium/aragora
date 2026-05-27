@@ -33,12 +33,16 @@ class FakeRunner:
         settlement_ok: bool = False,
         pr_mergeable: str = "CONFLICTING",
         merge_state: str = "DIRTY",
+        pr_head: str = "5a692b5dd54f05f2befe0df7b497c56e3c6ead6f",
+        root_dirty: bool = True,
     ) -> None:
         self.commands: list[tuple[Path, list[str]]] = []
         self.worktree_found = worktree_found
         self.settlement_ok = settlement_ok
         self.pr_mergeable = pr_mergeable
         self.merge_state = merge_state
+        self.pr_head = pr_head
+        self.root_dirty = root_dirty
 
     def __call__(self, command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
         self.commands.append((cwd, command))
@@ -65,6 +69,8 @@ class FakeRunner:
                     "## codex/droid-7443-tier4-settlement-20260526...origin/codex/droid-7443-tier4-settlement-20260526\n",
                     "",
                 )
+            if not self.root_dirty:
+                return subprocess.CompletedProcess(command, 0, "## main...origin/main\n", "")
             return subprocess.CompletedProcess(
                 command,
                 0,
@@ -81,7 +87,7 @@ class FakeRunner:
                     "state": "OPEN",
                     "isDraft": False,
                     "headRefName": "codex/harvest-provider-readiness-secrets-cli-20260523",
-                    "headRefOid": "5a692b5dd54f05f2befe0df7b497c56e3c6ead6f",
+                    "headRefOid": self.pr_head,
                     "mergeable": self.pr_mergeable,
                     "mergeStateStatus": self.merge_state,
                     "url": "https://github.com/synaptent/aragora/pull/7443",
@@ -207,3 +213,33 @@ def test_missing_repair_worktree_reports_validation_blocker(tmp_path: Path) -> N
     assert packet["validation"]["settlement_check"]["ran"] is False
     assert packet["validation"]["settlement_check"]["blockers"] == ["repair worktree not found"]
     assert packet["validation"]["focused_tests"]["ran"] is False
+
+
+def test_live_head_drift_blocks_settlement_apply_prompt(tmp_path: Path) -> None:
+    runner = FakeRunner(
+        settlement_ok=True,
+        pr_mergeable="MERGEABLE",
+        merge_state="UNSTABLE",
+        pr_head="new-head",
+        root_dirty=False,
+    )
+
+    packet = followup.build_followup_packet(
+        pr=7443,
+        head="old-head",
+        repair_branch="codex/droid-7443-tier4-settlement-20260526",
+        repair_head="63ff1513b4eb1e9a73b5ce3dbbc92a0179c00f67",
+        repo_root=tmp_path,
+        include_prompt=True,
+        runner=runner,
+    )
+
+    assert packet["requested_head_matches_live"] is False
+    assert packet["live_head"] == "new-head"
+    assert packet["apply_blockers"][0] == (
+        "PR #7443 head drifted from requested old-head to live new-head; "
+        "do not prepare settlement apply for a stale head"
+    )
+    assert packet["validation"]["settlement_check"]["ok"] is True
+    assert "Stop before settlement apply" in packet["next_prompt"]
+    assert "Prepare exact-head settlement apply" not in packet["next_prompt"]
