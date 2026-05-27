@@ -506,11 +506,12 @@ def evaluate_tier4_gate(
         if unexpected:
             blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
 
+    required_checks_green = _required_checks_are_green(required_checks)
     authorization_precondition_blockers: list[str] = []
     if actual_head == expected_head:
         if not required_checks:
             authorization_precondition_blockers.append(REQUIRED_CHECKS_BLOCKER)
-        elif not _required_checks_are_green(required_checks):
+        elif not required_checks_green:
             pass
         elif not _human_settlement_status_is_success(pr_view):
             authorization_precondition_blockers.append(HUMAN_SETTLEMENT_STATUS_BLOCKER)
@@ -530,7 +531,11 @@ def evaluate_tier4_gate(
         evaluate_member_permissions=not blockers,
     )
     authorized_actions: set[str] = set()
-    if actual_head == expected_head and not authorization_precondition_blockers:
+    if (
+        actual_head == expected_head
+        and required_checks_green
+        and not authorization_precondition_blockers
+    ):
         authorized_actions = _operator_authorized_actions(
             pr_view,
             pr=pr,

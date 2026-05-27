@@ -532,6 +532,7 @@ def test_failed_required_check_blocks_settlement() -> None:
 
     assert result["ok"] is False
     assert "required check lint is FAILURE" in result["blockers"]
+    assert "missing repo-visible Tier 4 operator settlement comment" not in result["blockers"]
 
 
 def test_failed_required_check_skips_member_permission_check(monkeypatch: Any) -> None:
@@ -601,6 +602,7 @@ def test_present_failed_merge_quorum_required_check_blocks_settlement() -> None:
 
     assert result["ok"] is False
     assert "required check aragora-merge-quorum is FAILURE" in result["blockers"]
+    assert "missing repo-visible Tier 4 operator settlement comment" not in result["blockers"]
 
 
 def test_unexpected_merge_packet_blocker_blocks_settlement() -> None:
