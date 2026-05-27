@@ -2086,7 +2086,43 @@ class TestSettlementHelpers:
                 review_queue_root=None,
             )
 
-    def test_record_external_settlement_rejects_unmerged_admin_merge(
+    def test_record_external_settlement_writes_open_admin_merge_authorization(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "OPEN",
+                    "mergedAt": "",
+                }
+            if args == ["api", "user"]:
+                return {"login": "an0mium"}
+            raise AssertionError(args)
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        result = _record_external_settlement(
+            pr_ref="6294",
+            head_sha="headsha123",
+            action="admin_squash_merge",
+            reason="operator authorized exact-head merge",
+            repo_root=tmp_path,
+            repo_override=None,
+            review_queue_root=None,
+        )
+
+        assert result.written is True
+        assert result.receipt.action == "admin_squash_merge"
+        assert result.receipt.github_event == "ADMIN_SQUASH_MERGE"
+        assert result.receipt.reviewed_at
+        assert result.receipt.head_sha == "headsha123"
+        assert Path(result.receipt.receipt_path).exists()
+
+    def test_record_external_settlement_rejects_closed_unmerged_admin_merge(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         monkeypatch.setattr(
@@ -2096,12 +2132,12 @@ class TestSettlementHelpers:
                 "url": "https://github.com/synaptent/aragora/pull/6294",
                 "headRefOid": "headsha123",
                 "baseRefOid": "basesha123",
-                "state": "OPEN",
+                "state": "CLOSED",
                 "mergedAt": "",
             },
         )
 
-        with pytest.raises(_GhError, match="require the PR to be MERGED"):
+        with pytest.raises(_GhError, match="require an OPEN or MERGED PR"):
             _record_external_settlement(
                 pr_ref="6294",
                 head_sha="headsha123",

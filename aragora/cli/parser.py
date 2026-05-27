@@ -1878,13 +1878,13 @@ def _add_review_queue_parser(subparsers) -> None:
     record_parser.add_argument(
         "--head-sha",
         required=True,
-        help="Exact PR head SHA that was externally settled.",
+        help="Exact PR head SHA that was externally settled or authorized.",
     )
     record_parser.add_argument(
         "--action",
         required=True,
         choices=("approve", "request_changes", "comment", "admin_squash_merge"),
-        help="Externally observed settlement action to record.",
+        help="Operator settlement action or post-merge outcome to record.",
     )
     record_parser.add_argument(
         "--reason",

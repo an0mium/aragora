@@ -376,8 +376,9 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         "record-settlement",
         help="Record an already-authorized PR settlement without mutating GitHub",
         description=(
-            "Write a local review-queue settlement receipt after an external\n"
-            "operator decision, such as an exact-head admin squash merge. This\n"
+            "Write a local review-queue settlement receipt for an external\n"
+            "operator decision, such as an exact-head admin squash merge\n"
+            "authorization before merge or a recorded post-merge outcome. This\n"
             "is local-only: it verifies the live PR head/state, writes under\n"
             ".aragora/review-queue/receipts (or --review-queue-root), and does\n"
             "not approve, comment, merge, or otherwise mutate GitHub."
@@ -393,13 +394,13 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     record_p.add_argument(
         "--head-sha",
         required=True,
-        help="Exact PR head SHA that was externally settled.",
+        help="Exact PR head SHA that was externally settled or authorized.",
     )
     record_p.add_argument(
         "--action",
         required=True,
         choices=("approve", "request_changes", "comment", "admin_squash_merge"),
-        help="Externally observed settlement action to record.",
+        help="Operator settlement action or post-merge outcome to record.",
     )
     record_p.add_argument(
         "--reason",
@@ -2425,9 +2426,9 @@ def _record_external_settlement(
         )
     github_state = str(pr_payload.get("state", "") or "").strip().upper()
     merged_at = str(pr_payload.get("mergedAt", "") or "").strip()
-    if action == "admin_squash_merge" and github_state != "MERGED":
+    if action == "admin_squash_merge" and github_state not in {"OPEN", "MERGED"}:
         raise _GhError(
-            "admin_squash_merge records require the PR to be MERGED on GitHub; "
+            "admin_squash_merge records require an OPEN or MERGED PR on GitHub; "
             f"current state is {github_state or 'unknown'}"
         )
 
