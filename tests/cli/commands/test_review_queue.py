@@ -643,6 +643,30 @@ class TestSummarizeChecks:
         assert has_fail
         assert not has_pending
 
+    def test_cancelled_merge_quorum_check_blocks_settlement_summary(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "COMPLETED",
+                "conclusion": "CANCELLED",
+                "completedAt": "2026-05-27T17:13:53Z",
+            },
+            {
+                "name": "lint",
+                "workflowName": "Tests",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+                "completedAt": "2026-05-27T17:14:53Z",
+            },
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 failing / 2 total"
+        assert has_fail
+        assert not has_pending
+
 
 # --- _classify_pr lane logic -----------------------------------------------
 
@@ -1573,6 +1597,48 @@ class TestBuildQueueAndPacket:
         assert packet.machine_recommendation == "approve_candidate"
         assert packet.model_review_quorum["admin_squash_allowed"] is True
         assert packet.model_review_quorum["status"] == "satisfied"
+
+    def test_cancelled_merge_quorum_blocks_admin_squash_authorization(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7456,
+            files=["docs/status/open.md"],
+            checks=[
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "CANCELLED",
+                    "completedAt": "2026-05-27T17:13:53Z",
+                },
+                {
+                    "name": "lint",
+                    "workflowName": "Tests",
+                    "status": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                    "completedAt": "2026-05-27T17:14:53Z",
+                },
+            ],
+        )
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7456", repo_override=None)
+        quorum = packet.model_review_quorum
+
+        assert packet.checks_summary == "1 failing / 2 total"
+        assert packet.machine_recommendation == "repair_first"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["status"] == "repair_or_wait"
+        assert "checks are failing; repair before settlement" in quorum["reasons"]
 
     def test_inconsistent_open_state_with_merged_at_fails_closed(
         self, monkeypatch: pytest.MonkeyPatch

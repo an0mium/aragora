@@ -1312,6 +1312,8 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
             conclusion = "FAILURE"
         if conclusion == "SUCCESS":
             success += 1
+        elif conclusion == "CANCELLED" and _is_merge_quorum_check(check):
+            failure += 1
         elif conclusion in ("FAILURE", "TIMED_OUT", "ACTION_REQUIRED"):
             failure += 1
         elif conclusion in ("CANCELLED", "SKIPPED", "NEUTRAL", "STALE"):
@@ -1370,11 +1372,15 @@ def _status_check_identity(check: dict[str, Any]) -> str:
     return f"status-context:{name}"
 
 
-def _is_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
-    """Ignore only this merge-quorum workflow run while building its packet."""
+def _is_merge_quorum_check(check: dict[str, Any]) -> bool:
     workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
     name = str(check.get("name") or check.get("context") or "").strip()
-    if workflow != MERGE_QUORUM_WORKFLOW_NAME or name != MERGE_QUORUM_CHECK_NAME:
+    return workflow == MERGE_QUORUM_WORKFLOW_NAME and name == MERGE_QUORUM_CHECK_NAME
+
+
+def _is_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
+    """Ignore only this merge-quorum workflow run while building its packet."""
+    if not _is_merge_quorum_check(check):
         return False
 
     status = str(check.get("status") or check.get("state") or "").upper()
