@@ -304,7 +304,7 @@ def build_target_diagnostic(
 ) -> dict[str, Any]:
     """Summarize owner-target routing without writing steering messages."""
 
-    if pr is None and branch is None and worktree is None:
+    if pr is None and not branch and not worktree:
         raise ValueError("provide at least one owner selector")
 
     resolved_via = "pr" if pr is not None else "branch" if branch else "worktree"
@@ -682,13 +682,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.diagnose_target and to_session is None:
-        diagnostic = build_target_diagnostic(
-            registry_path=args.lane_registry_path,
-            pr=args.to_owner_pr,
-            branch=args.to_owner_branch,
-            worktree=args.to_owner_worktree,
-            steering_inbox_root=args.steering_inbox_root,
-        )
+        try:
+            diagnostic = build_target_diagnostic(
+                registry_path=args.lane_registry_path,
+                pr=args.to_owner_pr,
+                branch=args.to_owner_branch,
+                worktree=args.to_owner_worktree,
+                steering_inbox_root=args.steering_inbox_root,
+            )
+        except ValueError as exc:
+            print(f"ERROR: failed to resolve active owner: {exc}", file=sys.stderr)
+            return 2
         out = {
             "_dry_run": True,
             "_would_write": False,
@@ -711,13 +715,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         except ValueError as exc:
             if no_write:
-                diagnostic = build_target_diagnostic(
-                    registry_path=args.lane_registry_path,
-                    pr=args.to_owner_pr,
-                    branch=args.to_owner_branch,
-                    worktree=args.to_owner_worktree,
-                    steering_inbox_root=args.steering_inbox_root,
-                )
+                try:
+                    diagnostic = build_target_diagnostic(
+                        registry_path=args.lane_registry_path,
+                        pr=args.to_owner_pr,
+                        branch=args.to_owner_branch,
+                        worktree=args.to_owner_worktree,
+                        steering_inbox_root=args.steering_inbox_root,
+                    )
+                except ValueError:
+                    print(f"ERROR: failed to resolve active owner: {exc}", file=sys.stderr)
+                    return 2
                 diagnostic["resolution_error"] = str(exc)
                 out = {
                     "_dry_run": True,

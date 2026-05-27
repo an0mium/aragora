@@ -638,6 +638,25 @@ class TestActiveOwnerRouting:
         assert parsed["_target"]["steering_inbox_path"] == str(tmp_path / "inbox" / "codex-q23")
         assert list((tmp_path / "inbox").rglob("*.json")) == []
 
+    def test_print_target_without_selector_returns_parse_error(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        rc = sos.main(["--print-target", "--json"])
+
+        captured = capsys.readouterr()
+        assert rc == 2
+        assert "one of the arguments" in captured.err
+
+    def test_print_target_empty_branch_returns_clean_error(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        rc = sos.main(["--to-owner-branch", "", "--print-target", "--json"])
+
+        captured = capsys.readouterr()
+        assert rc == 2
+        assert "ERROR: failed to resolve active owner:" in captured.err
+        assert "Traceback" not in captured.err
+
     def test_to_owner_pr_rejects_completed_only_owner(self, tmp_path: Path) -> None:
         registry = self._write_lanes(
             tmp_path,
@@ -744,6 +763,27 @@ class TestActiveOwnerRouting:
         assert diagnostic["active_owner"]["owner_session"] == "codex-q23"
         assert diagnostic["historical_related_sessions"] == []
         assert list((tmp_path / "inbox").rglob("*.json")) == []
+
+    def test_diagnose_target_without_selector_returns_parse_error(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        rc = sos.main(["--diagnose-target", "--json"])
+
+        captured = capsys.readouterr()
+        assert rc == 2
+        assert "one of the arguments" in captured.err
+
+    def test_diagnose_target_empty_branch_returns_clean_error(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        rc = sos.main(["--to-owner-branch", "", "--diagnose-target", "--json"])
+
+        captured = capsys.readouterr()
+        assert rc == 2
+        assert "ERROR: failed to resolve active owner: provide at least one owner selector" in (
+            captured.err
+        )
+        assert "Traceback" not in captured.err
 
     def test_dry_run_no_active_owner_returns_structured_no_target(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
