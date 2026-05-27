@@ -55,6 +55,17 @@ SUBJECT_MAX_CHARS = 80
 PRIORITY_CHOICES = ("low", "normal", "high", "blocking")
 SHORT_UUID_BYTES = 4  # 8 hex chars; collision risk negligible per-second
 ACTIVE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+FAMILY_SESSION_MARKERS = (
+    "aider",
+    "claude",
+    "codex",
+    "droid",
+    "factory",
+    "gemini",
+    "grok",
+    "harvey",
+)
+TARGET_DIAGNOSTIC_LIMIT = 5
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +216,40 @@ def _updated_at_sort_key(record: dict[str, Any]) -> str:
     return str(record.get("updated_at") or "")
 
 
+def _matching_lane_records(
+    records: list[dict[str, Any]],
+    *,
+    pr: int | None = None,
+    branch: str | None = None,
+    worktree: str | None = None,
+) -> list[dict[str, Any]]:
+    return [
+        record
+        for record in records
+        if _identity_matches(record, pr=pr, branch=branch, worktree=worktree)
+    ]
+
+
+def _compact_lane_record(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "lane_id": record.get("lane_id"),
+        "owner_session": record.get("owner_session"),
+        "pr_number": record.get("pr_number"),
+        "branch": record.get("branch"),
+        "worktree": record.get("worktree"),
+        "status": record.get("status"),
+        "updated_at": record.get("updated_at"),
+    }
+
+
+def _looks_like_agent_family_session(record: dict[str, Any]) -> bool:
+    haystack = " ".join(
+        str(record.get(key) or "").lower()
+        for key in ("owner_session", "lane_id", "source", "agent", "branch")
+    )
+    return any(marker in haystack for marker in FAMILY_SESSION_MARKERS)
+
+
 def route_payload_for_record(
     owner_record: dict[str, Any],
     *,
@@ -247,6 +292,102 @@ def direct_route_payload(to_session: str, *, steering_inbox_root: Path) -> dict[
         "dispatchable": True,
         "dispatch_blocker": None,
     }
+
+
+def build_target_diagnostic(
+    *,
+    registry_path: Path | None = None,
+    pr: int | None = None,
+    branch: str | None = None,
+    worktree: str | None = None,
+    steering_inbox_root: Path = STEERING_INBOX_ROOT_DEFAULT,
+) -> dict[str, Any]:
+    """Summarize owner-target routing without writing steering messages."""
+
+    if pr is None and branch is None and worktree is None:
+        raise ValueError("provide at least one owner selector")
+
+    resolved_via = "pr" if pr is not None else "branch" if branch else "worktree"
+    records = _load_default_lane_records(registry_path or LANE_REGISTRY_DEFAULT)
+    matches = _matching_lane_records(records, pr=pr, branch=branch, worktree=worktree)
+    active_matches = [record for record in matches if _is_active_lane(record)]
+    historical_matches = sorted(
+        [record for record in matches if not _is_active_lane(record)],
+        key=_updated_at_sort_key,
+        reverse=True,
+    )
+    historical = [
+        _compact_lane_record(record) for record in historical_matches[:TARGET_DIAGNOSTIC_LIMIT]
+    ]
+    family_candidates = [
+        _compact_lane_record(record)
+        for record in historical_matches
+        if _looks_like_agent_family_session(record)
+    ][:TARGET_DIAGNOSTIC_LIMIT]
+
+    base: dict[str, Any] = {
+        "selector": {
+            "resolved_via": resolved_via,
+            "pr_number": pr,
+            "branch": branch,
+            "worktree": worktree,
+        },
+        "active_owner_found": False,
+        "active_owner": None,
+        "historical_related_sessions": historical,
+        "family_session_candidates": family_candidates,
+        "safe_to_send": False,
+        "reason": "no_active_owner",
+        "recommendation": (
+            "No active owner matched. Do not send to historical sessions; "
+            "ask the intended recipient to claim a lane if new steering is needed."
+        ),
+    }
+    if not active_matches:
+        if historical:
+            base["recommendation"] = (
+                "No active owner matched. Historical sessions are advisory only; "
+                "do not send unless a new active lane is claimed."
+            )
+        return base
+
+    owners = {str(record.get("owner_session") or "") for record in active_matches}
+    lanes = {str(record.get("lane_id") or "") for record in active_matches}
+    if len(owners) != 1 or len(lanes) != 1:
+        base["reason"] = "multiple_active_owners"
+        base["active_owner_candidates"] = [
+            _compact_lane_record(record)
+            for record in sorted(active_matches, key=_updated_at_sort_key, reverse=True)
+        ]
+        base["recommendation"] = (
+            "Multiple active owners matched. Resolve the lane conflict before sending steering."
+        )
+        return base
+
+    chosen = sorted(active_matches, key=_updated_at_sort_key, reverse=True)[0]
+    try:
+        route = route_payload_for_record(
+            chosen,
+            resolved_via=resolved_via,
+            steering_inbox_root=steering_inbox_root,
+        )
+    except ValueError as exc:
+        base["reason"] = "invalid_active_owner"
+        base["active_owner_candidates"] = [_compact_lane_record(chosen)]
+        base["dispatch_blocker"] = str(exc)
+        base["recommendation"] = "Matched active owner is not dispatchable; repair lane metadata."
+        return base
+
+    base.update(
+        {
+            "active_owner_found": True,
+            "active_owner": route,
+            "safe_to_send": True,
+            "reason": "active_owner_found",
+            "recommendation": "Active owner resolved; sending is safe if the operator intends it.",
+        }
+    )
+    return base
 
 
 def resolve_active_owner(
@@ -435,6 +576,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Print the resolved steering target without requiring a message body or writing.",
     )
     parser.add_argument(
+        "--diagnose-target",
+        action="store_true",
+        help=(
+            "Print active-owner diagnostics without requiring a message body or writing. "
+            "Historical sessions are advisory only and are never implicit recipients."
+        ),
+    )
+    parser.add_argument(
         "--steering-inbox-root",
         type=Path,
         default=STEERING_INBOX_ROOT_DEFAULT,
@@ -456,7 +605,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         # argparse exits 2 on bad args; preserve that contract.
         return int(exc.code) if isinstance(exc.code, int) else 2
 
-    no_write = bool(args.dry_run or args.print_target)
+    no_write = bool(args.dry_run or args.print_target or args.diagnose_target)
 
     # Validate / resolve body.
     body_text: str
@@ -475,12 +624,67 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         body_text = ""
 
-    if not body_text.strip() and not args.print_target:
+    if not body_text.strip() and not (args.print_target or args.diagnose_target):
         print("ERROR: message body is empty", file=sys.stderr)
         return 2
 
     route: dict[str, Any] | None = None
     to_session = args.to
+    if args.diagnose_target and to_session is not None:
+        try:
+            route = direct_route_payload(to_session, steering_inbox_root=args.steering_inbox_root)
+        except ValueError as exc:
+            print(f"ERROR: failed to validate target: {exc}", file=sys.stderr)
+            return 2
+        diagnostic = {
+            "selector": {"resolved_via": "direct", "owner_session": to_session},
+            "active_owner_found": True,
+            "active_owner": route,
+            "historical_related_sessions": [],
+            "family_session_candidates": [],
+            "safe_to_send": True,
+            "reason": "direct_target",
+            "recommendation": "Direct target validated; sending is safe if the operator intends it.",
+        }
+        out = {
+            "_dry_run": True,
+            "_would_write": False,
+            "_route": route,
+            "_target_diagnostic": diagnostic,
+        }
+        if args.json:
+            print(json.dumps(out, indent=2, sort_keys=True))
+        else:
+            print(f"target {to_session} is directly dispatchable; no write")
+        return 0
+
+    if args.diagnose_target and to_session is None:
+        diagnostic = build_target_diagnostic(
+            registry_path=args.lane_registry_path,
+            pr=args.to_owner_pr,
+            branch=args.to_owner_branch,
+            worktree=args.to_owner_worktree,
+            steering_inbox_root=args.steering_inbox_root,
+        )
+        out = {
+            "_dry_run": True,
+            "_would_write": False,
+            "_route": diagnostic.get("active_owner"),
+            "_target_diagnostic": diagnostic,
+        }
+        if args.json:
+            print(json.dumps(out, indent=2, sort_keys=True))
+        elif diagnostic["safe_to_send"]:
+            owner = diagnostic["active_owner"]["owner_session"]
+            print(f"active owner found: {owner}; no write")
+        else:
+            print(
+                f"{diagnostic['reason']}: {diagnostic['recommendation']} "
+                f"(historical={len(diagnostic['historical_related_sessions'])}, "
+                f"family_candidates={len(diagnostic['family_session_candidates'])})"
+            )
+        return 0
+
     if to_session is None:
         try:
             owner_record = resolve_active_owner(
@@ -490,6 +694,30 @@ def main(argv: Sequence[str] | None = None) -> int:
                 worktree=args.to_owner_worktree,
             )
         except ValueError as exc:
+            if no_write:
+                diagnostic = build_target_diagnostic(
+                    registry_path=args.lane_registry_path,
+                    pr=args.to_owner_pr,
+                    branch=args.to_owner_branch,
+                    worktree=args.to_owner_worktree,
+                    steering_inbox_root=args.steering_inbox_root,
+                )
+                diagnostic["resolution_error"] = str(exc)
+                out = {
+                    "_dry_run": True,
+                    "_would_write": False,
+                    "_route": None,
+                    "_target_diagnostic": diagnostic,
+                }
+                if args.json:
+                    print(json.dumps(out, indent=2, sort_keys=True))
+                else:
+                    print(
+                        f"{diagnostic['reason']}: {diagnostic['recommendation']} "
+                        f"(historical={len(diagnostic['historical_related_sessions'])}, "
+                        f"family_candidates={len(diagnostic['family_session_candidates'])})"
+                    )
+                return 0
             print(f"ERROR: failed to resolve active owner: {exc}", file=sys.stderr)
             return 2
         to_session = str(owner_record.get("owner_session") or "")
