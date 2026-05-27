@@ -26,6 +26,10 @@ TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"MEMBER"}
 TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
 PermissionChecker = Callable[[str], bool]
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
+HUMAN_SETTLEMENT_STATUS_BLOCKER = f"missing or unsuccessful {HUMAN_SETTLEMENT_CONTEXT} status"
+OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comment"
+REQUIRED_CHECKS_BLOCKER = "required checks are missing"
+TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
 ALLOWED_TIER4_NOT_READY = {
@@ -502,6 +506,18 @@ def evaluate_tier4_gate(
         if unexpected:
             blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
 
+    authorization_precondition_blockers: list[str] = []
+    if actual_head == expected_head:
+        if not required_checks:
+            authorization_precondition_blockers.append(REQUIRED_CHECKS_BLOCKER)
+        elif not _required_checks_are_green(required_checks):
+            pass
+        elif not _human_settlement_status_is_success(pr_view):
+            authorization_precondition_blockers.append(HUMAN_SETTLEMENT_STATUS_BLOCKER)
+        elif not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
+            authorization_precondition_blockers.append(TIER4_EVIDENCE_BLOCKER)
+    blockers.extend(authorization_precondition_blockers)
+
     diagnostic_report = authorization_diagnostics(
         pr_view,
         pr=pr,
@@ -514,7 +530,7 @@ def evaluate_tier4_gate(
         evaluate_member_permissions=not blockers,
     )
     authorized_actions: set[str] = set()
-    if actual_head == expected_head:
+    if actual_head == expected_head and not authorization_precondition_blockers:
         authorized_actions = _operator_authorized_actions(
             pr_view,
             pr=pr,
@@ -529,7 +545,7 @@ def evaluate_tier4_gate(
             diagnostic_report=diagnostic_report,
         )
         if not authorized_actions:
-            blockers.append("missing repo-visible Tier 4 operator settlement comment")
+            blockers.append(OPERATOR_COMMENT_BLOCKER)
 
     return {
         "ok": not blockers,

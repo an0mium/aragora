@@ -110,19 +110,13 @@ def _valid_checks() -> list[dict[str, str]]:
 
 
 def test_missing_operator_comment_blocks_settlement() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
         pr=7423,
-        expected_head="57c740022e3c432718462efa12ca79f1df4f674d",
-        pr_view={
-            "headRefOid": "57c740022e3c432718462efa12ca79f1df4f674d",
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [{"body": "looks good"}],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[{"body": "looks good"}]),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
     )
 
     assert result["ok"] is False
@@ -172,14 +166,14 @@ def test_member_operator_comment_with_status_and_evidence_allows_check_result() 
     assert result["blockers"] == []
 
 
-def test_member_operator_comment_without_human_status_does_not_authorize() -> None:
+def test_operator_comment_without_human_status_does_not_authorize() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
         pr_view=_pr_view(
             head,
-            comments=[_authorized_comment(head, association="MEMBER")],
+            comments=[_authorized_comment(head)],
             human_settlement_state=None,
         ),
         merge_packet=_tier4_packet(),
@@ -187,7 +181,8 @@ def test_member_operator_comment_without_human_status_does_not_authorize() -> No
     )
 
     assert result["ok"] is False
-    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+    assert "missing or unsuccessful aragora/human-settlement status" in result["blockers"]
+    assert "missing repo-visible Tier 4 operator settlement comment" not in result["blockers"]
 
 
 def test_operator_comment_without_counted_evidence_does_not_authorize() -> None:
@@ -201,7 +196,23 @@ def test_operator_comment_without_counted_evidence_does_not_authorize() -> None:
     )
 
     assert result["ok"] is False
-    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+    assert "missing Tier 4 model/dogfood settlement evidence" in result["blockers"]
+    assert "missing repo-visible Tier 4 operator settlement comment" not in result["blockers"]
+
+
+def test_missing_required_checks_report_distinct_blocker() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(),
+        required_checks=[],
+    )
+
+    assert result["ok"] is False
+    assert "required checks are missing" in result["blockers"]
+    assert "missing repo-visible Tier 4 operator settlement comment" not in result["blockers"]
 
 
 def test_branch_protection_mode_requires_branch_protection_token() -> None:
@@ -276,16 +287,11 @@ def test_untrusted_member_comment_does_not_authorize() -> None:
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment(head, association="MEMBER", author="random-member")],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, association="MEMBER", author="random-member")],
+        ),
+        merge_packet=_tier4_packet(),
         required_checks=_valid_checks(),
     )
 
@@ -343,16 +349,11 @@ def test_trusted_member_comment_requires_admin_permission(monkeypatch: Any) -> N
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment(head, association="MEMBER", author="trusted-member")],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, association="MEMBER", author="trusted-member")],
+        ),
+        merge_packet=_tier4_packet(),
         required_checks=_valid_checks(),
         permission_checker=lambda login: False,
     )
@@ -430,16 +431,8 @@ def test_authorization_comment_for_different_head_does_not_authorize() -> None:
     result = settler.evaluate_tier4_gate(
         pr=7423,
         expected_head=head,
-        pr_view={
-            "headRefOid": head,
-            "state": "OPEN",
-            "isDraft": False,
-            "mergeStateStatus": "BLOCKED",
-            "headCommittedDate": HEAD_COMMITTED_AT,
-            "comments": [_authorized_comment("different-head")],
-            "reviews": [],
-        },
-        merge_packet={"admin_squash_allowed": False, "not_ready": ["human_risk_settlement"]},
+        pr_view=_pr_view(head, comments=[_authorized_comment("different-head")]),
+        merge_packet=_tier4_packet(),
         required_checks=_valid_checks(),
     )
 
