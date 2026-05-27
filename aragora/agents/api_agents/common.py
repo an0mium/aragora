@@ -310,8 +310,14 @@ def is_openrouter_fallback_available() -> bool:
     if not get_default_fallback_enabled():
         return False
 
-    # Only consider fallback available if the OpenRouter key is set
-    return bool(get_api_key("OPENROUTER_API_KEY", required=False))
+    # Only consider fallback available if the OpenRouter key is set.  Strict
+    # secret mode may make this optional probe unavailable; that should disable
+    # fallback, not block a selected primary provider.
+    try:
+        return bool(get_api_key("OPENROUTER_API_KEY", required=False))
+    except Exception as exc:  # noqa: BLE001 - optional fallback must be fail-closed
+        logger.debug("OpenRouter fallback unavailable: %s", exc)
+        return False
 
 
 def get_primary_api_key(*env_vars: str, allow_openrouter_fallback: bool = False) -> str | None:
@@ -320,8 +326,13 @@ def get_primary_api_key(*env_vars: str, allow_openrouter_fallback: bool = False)
     When fallback is allowed and OpenRouter is configured, this returns None
     instead of raising to allow agent instantiation with fallback-only mode.
     """
-    if allow_openrouter_fallback and is_openrouter_fallback_available():
-        return get_api_key(*env_vars, required=False)
+    if allow_openrouter_fallback:
+        primary_key = get_api_key(*env_vars, required=False)
+        if primary_key:
+            return primary_key
+        if is_openrouter_fallback_available():
+            return None
+        return get_api_key(*env_vars, required=True)
     return get_api_key(*env_vars, required=True)
 
 

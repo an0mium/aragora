@@ -109,6 +109,11 @@ class SynthesisGenerator:
             synthesis = self._combine_proposals_as_synthesis(ctx)
             synthesis_source = "combined"
 
+        if not synthesis and not self._anthropic_synthesis_available():
+            logger.debug("synthesis_llm_skipped reason=anthropic_api_key_unavailable")
+            synthesis = self._combine_proposals_as_synthesis(ctx)
+            synthesis_source = "combined"
+
         if synthesis:
             # Store synthesis in result
             ctx.result.synthesis = synthesis
@@ -218,6 +223,17 @@ class SynthesisGenerator:
         self._generate_export_links(ctx)
 
         return True
+
+    @staticmethod
+    def _anthropic_synthesis_available() -> bool:
+        """Return whether optional Anthropic-backed synthesis can run."""
+        try:
+            from aragora.config import get_api_key
+
+            return bool(get_api_key("ANTHROPIC_API_KEY", required=False))
+        except Exception as exc:  # noqa: BLE001 - optional synthesis probe
+            logger.debug("synthesis_key_probe_failed error=%s", exc)
+            return False
 
     def _is_likely_truncated(self, synthesis: str) -> bool:
         """Heuristic check for truncated/incomplete synthesis output."""

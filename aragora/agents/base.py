@@ -286,6 +286,7 @@ AgentType = Literal[
     "anthropic-api",
     "openai-api",
     "grok",
+    "mistral-api",
     # API-based (via OpenRouter)
     "deepseek",
     "deepseek-r1",
