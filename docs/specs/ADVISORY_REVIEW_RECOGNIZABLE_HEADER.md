@@ -1,216 +1,165 @@
-# Advisory-Review Workflow: Recognizable Per-Model Header (Tier 4 Pre-Approval)
+# Lineage-Bound Model Review Quorum (Tier 4 Pre-Approval)
 
-**Status**: design doc / pre-approval artifact for a Tier 4 merge-authority-
-adjacent change. **Not implemented in this PR.** This file + the failing
-governance tests in
+**Status:** design doc / pre-approval artifact for a future Tier 4
+merge-authority change. **Not implemented in this PR.** This file and
 `tests/governance/test_advisory_review_recognizable_header.py` are the
-pre-approval artifact for the future implementation PR, per
+pre-approval artifact required by
 `docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance`.
 
-## Problem statement
+## Problem Statement
 
-`aragora-merge-quorum.yml` requires *recognized* model-review signals to
-satisfy the Tier 0–2 quorum. Signals are recognized via
-`aragora/cli/commands/review_queue.py::_infer_model_reviewer_from_text`,
-which scans a PR comment's first markdown heading (falling back to the
-first 200 characters) for one of seven family markers:
-`claude / codex / tesla / harvey / factory / grok / gemini`.
+`aragora-merge-quorum.yml` counts model-review signals through
+`aragora/cli/commands/review_queue.py`. Today the comment recognizer
+infers a reviewer from the first markdown heading and counts the
+surface marker it finds: `claude`, `codex`, `tesla`, `harvey`,
+`factory`, `grok`, or `gemini`.
 
-The advisory `aragora-review-gate.yml` workflow currently posts comments
-headed `## Aragora Code Review` (see lines 280 and 291 of
-`.github/workflows/aragora-review-gate.yml` as of `main` at the time of
-writing). None of the recognizer's seven markers appear in that header.
-The recognizer therefore maps every advisory review comment to
-`unknown_model_reviewer`, which `_known_model_reviewer_id` neutralizes
-at counting time.
+That is not enough for router-style tools. `Factory`, `Codex`, `Tesla`,
+and `Harvey` are harness/product identities, not necessarily underlying
+model lineages. A comment headed `## Factory independent semantic
+review...` may disclose `Factory Droid (GPT-5.5)` in the body, but the
+merge packet only records `factory`. A second comment headed
+`## Codex independent semantic review...` then counts as `codex`, even
+though both signals may be OpenAI-lineage. The packet shows two
+heterogeneous surface reviewers while proving only one underlying model
+family.
 
-This is a *silent quorum-suppression bug*: the advisory review *does*
-run, and it *does* invoke real model agents (`--agents anthropic-api,
-openai-api`, see line 162 of the same workflow), but the resulting
-comment is invisible to the recognizer. Two PRs are blocked on this
-specific gap as of 2026-05-26:
+This is a quorum-integrity gap, not a cosmetic metadata issue. It can
+overstate heterogeneity in Tier 1-2 packets, and it is especially
+dangerous for Tier 4 self-modification evidence where the audit trail
+must show what model lineages actually reviewed the gate change.
 
-- **#7450** (model-quorum family-expansion spec, Tier 0): non-draft, all
-  required checks green; `aragora-merge-quorum` returns
-  `needs_model_review_quorum: 0/1 signal(s)`. The advisory review *did*
-  post; it just doesn't count.
-- **#7451** (model-family bench harness scaffold, Tier 1): same root
-  cause.
+The older version of this design only made the advisory workflow emit a
+recognizable family heading. That is insufficient. The future
+implementation must bind counted signals to structured underlying model
+family metadata.
 
-A FOCUS.md operator dogfood note on #7451 documents this gap from the
-operator side; this file is the design-side companion.
+## Counting Contract
 
-## Non-goals
+Counted PR-comment evidence must use this structure:
 
-The following changes are explicitly **out of scope** of the
-implementation PR this design authorizes. Each is independently Tier 4
-and would need its own pre-approval artifact:
+```md
+## Factory independent semantic review on head <full-sha>
 
-- **No change to `_infer_model_reviewer_from_text`.** The recognizer
-  stays at exactly the seven markers listed above. (Expanding the marker
-  set is what PR #7450 separately authorizes.)
-- **No change to `_normalize_model_reviewer_id`.** The 12-family
-  normalization table stays as-is.
-- **No change to `aragora-merge-quorum.yml`.** The merge-quorum
-  evaluator is untouched. The current quorum-counting and dissent rules
-  apply unchanged to the new per-family comments.
-- **No change to the Tier-eligibility table or jurisdictional payload
-  rules** in `docs/REVIEW_AUTHORITY_PRINCIPLES.md`. The advisory review
-  already routes only PR title+diff (a payload-class explicitly
-  permitted for Western families in the principles doc), and that does
-  not change.
-- **No widening of which families count at which Tier.** A Tier 0–2 PR
-  that previously needed N recognized signals still needs N recognized
-  signals; this PR just makes the existing advisory output recognizable
-  so it can be one of them.
+**Reviewer harness:** factory
+**Model family:** openai
+**Model id:** gpt-5.5
+**Receipt artifact:** <local path or URL>
+```
 
-## Proposed contract
+The canonical counted `model_family` IDs are:
 
-The advisory `aragora-review-gate.yml` workflow currently posts one
-comment per PR (header `## Aragora Code Review`) summarizing the
-combined findings of all participating model agents. The proposed
-contract changes the *comment shape*, not the review behavior.
+`claude`, `openai`, `gemini`, `grok`, `mistral`, `deepseek`, `qwen`,
+`kimi`, `yi`, `glm`, `minimax`, `hermes`.
 
-For each *participating model agent* that produced a per-agent finding
-list in `review.json`, the workflow emits one PR comment whose:
+Rules:
 
-- **first markdown heading** is exactly
-  `## <Family> independent semantic review on head <full-SHA>`
-  where `<Family>` is the recognizer-eligible family marker
-  corresponding to the agent (e.g. `Claude` for `anthropic-api`,
-  `OpenAI` … see "Agent-to-family mapping" below), and `<full-SHA>`
-  is `$GITHUB_SHA` for the workflow run (the exact head the review
-  scanned).
-- **body** contains *only that agent's* findings (or an explicit "no
-  findings" line). The summary preamble and severity formatting from
-  the existing comment template are reused per agent.
-- **first 200 characters** still include the family name (the
-  recognizer's fallback path) — this is automatically satisfied by the
-  heading-line contract above.
-- **trailing footer** explicitly notes "Advisory-only — does not bypass
-  the merge-quorum check; counted only when the merge-quorum evaluator
-  resolves a recognized family marker on the exact head SHA."
+1. Router/product surface markers (`factory`, `codex`, `tesla`,
+   `harvey`) are not counted families by themselves. They count only
+   when the structured `**Model family:** ...` line resolves to a
+   canonical model family.
+2. Direct family headings (`## Claude ...`, `## Gemini ...`,
+   `## Grok ...`, `## OpenAI ...`) may self-map to their model family
+   when no explicit `Model family` line is present.
+3. If a direct family heading conflicts with an explicit `Model family`
+   line, the signal is rejected as identity-conflicted. Example:
+   `## Claude ...` plus `**Model family:** openai` does not count.
+4. The parser reads only the first markdown heading plus the nearby
+   structured metadata block. Body prose, subheadings, quoted diffs,
+   and model output text cannot override identity.
+5. Comments missing the current head SHA, posted by `github-actions`,
+   or resolving to unknown/conflicting identity remain visible in
+   `reviewer_signals` but do not contribute to the counted quorum.
 
-If `review.json` does not contain per-agent attribution (the current
-JSON shape merges findings), the implementation MUST add per-agent
-attribution as a precondition. A workflow that fabricates a family-name
-header without underlying per-agent provenance is a regression and
-explicitly disallowed by this design.
+## Merge-Packet Contract
 
-If a participating agent produced *no* findings, the workflow still
-emits the per-agent comment with a "no issues found" body, headed
-identically. This makes the recognizer count it as one signal — which
-is the correct accounting under Tier 0 (`1 independent model review
-or dogfood note`) and Tier 1+ (`N model signals, at least one
-adversarial`).
+For compatibility, `counted_reviewer_ids` remains in the JSON packet,
+but after the implementation it contains canonical model-family IDs,
+not router/product markers.
 
-### Agent-to-family mapping
+The implementation also adds:
 
-| `--agents` value | Recognized family name in heading |
-| --- | --- |
-| `anthropic-api` | `Claude` |
-| `openai-api` | `OpenAI` *(not yet recognized — pending #7450)* |
-| `gemini-api` | `Gemini` |
-| `grok-api` | `Grok` |
-| `codex-cli` | `Codex` |
+- `counted_model_families`: sorted canonical family IDs used for quorum
+  counting.
+- Per-signal identity fields:
+  - `surface_reviewer_id`
+  - `model_family`
+  - `model_id`
+  - `identity_source`
+  - `identity_problems`
 
-Until #7450 lands, `openai-api`-produced comments are headed `OpenAI` but
-still resolve to `unknown_model_reviewer` (because `openai` is not in
-the recognizer's seven-marker tuple yet). The advisory comment is still
-posted — visibility is preserved — it just does not count toward the
-quorum until #7450 expands the recognizer.
+Router comments with missing or invalid lineage metadata still appear
+in `reviewer_signals` with `identity_problems`, so the audit trail shows
+why a visible review did not count.
 
-This is the correct ordering: this PR makes per-family attribution
-possible *first*, and #7450 (separately pre-approved by its own design
-doc + governance tests) makes more of those families *count* second.
-Reversing the order would expand the recognizer without ensuring real
-attribution is plumbed through — exactly the silent-attribution-bug
-class this whole gate is designed to prevent.
+## Tier Policy
 
-## Tier classification
+This change is Tier 4 because it changes which evidence satisfies the
+model-quorum gate. It touches `review_queue.py` behavior in the future
+implementation PR, and that code is merge-authority self-modification
+per `docs/REVIEW_AUTHORITY_PRINCIPLES.md`.
 
-Per `docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change
-governance` ("Loosening any of these constraints in CI … requires the
-same preapproval discipline as the original addition"), this change
-**is Tier 4** even though it does not modify Python code: it changes
-what gets counted toward the model-quorum requirement that gates
-`main`-protected merges. The implementation PR will need:
+This PR is only the pre-approval artifact:
 
-- this design doc, merged,
-- the failing governance tests in
-  `tests/governance/test_advisory_review_recognizable_header.py`,
-  merged in this PR (they pin the current state as the regression floor),
-- explicit operator Tier 4 preapproval in the implementation PR before
-  the workflow change lands.
+- design doc
+- governance tests that characterize the current unsafe behavior
+- no workflow change
+- no recognizer/counting implementation change
+- no merge/settlement action
 
-## Risk dimensions
+The implementation PR requires explicit operator preapproval at the
+implementation step and exact-head human settlement before merge.
 
-| # | Risk | Mitigation in the proposed contract |
-| --- | --- | --- |
-| 1 | Mis-attribution: workflow stamps `## Claude …` on a comment that aggregates other agents' findings. | Per-agent provenance MUST come from `review.json`'s per-agent attribution; aggregation is forbidden. |
-| 2 | Fabricated SHA: workflow stamps a SHA that wasn't actually reviewed (e.g., stale checkout). | Heading SHA MUST be `$GITHUB_SHA` for the workflow run (already-checked-out commit). The recognizer's `_is_comment_grounded_on_head` cross-checks against the actual head SHA at quorum-evaluation time; a mismatch is silently dropped. |
-| 3 | Header injection: a model output includes literal text matching the recognized header pattern within its body. | The recognizer scans **only** the *first* line that starts with `#`. It never re-scans subheadings or body text; the 200-char fallback fires **only** when the body contains no `#` heading at all. The workflow always emits a structured first heading, so neither subheadings nor body text — including diff-quoted family names — can displace it. Pinned by `test_recognizer_only_scans_first_heading` and `test_diff_text_containing_family_name_in_body_does_not_resolve`. Existing behavior; no new exposure. |
-| 4 | Counting the same advisory comment as multiple signals (re-runs, edits, force-pushes). | The merge-quorum evaluator already dedupes via `_known_model_reviewer_id` (one signal per family per head SHA). A force-push changes the head SHA and drops all prior signals — including the new ones — which is correct per the head-bound settlement principle. |
-| 5 | Workflow-output spoofing by a malicious PR diff that includes a fake "## Claude independent semantic review on head abc …" in `pr.diff`. | The recognizer is run on PR-comment bodies, never on `pr.diff` contents. Diff text is review *input*, not review *output*. No new exposure. |
-| 6 | "No findings" comment from a non-participating agent (e.g., agent crashed but the workflow still emits its per-agent comment). | The workflow MUST only emit a per-agent comment when `review.json` records that agent as having produced output (success or empty-findings). A crashed agent produces no comment — accurately reflecting that the agent did not actually review. |
+## Implementation PR Plan
 
-## Failing governance tests (regression floor)
+The separate implementation PR will:
 
-`tests/governance/test_advisory_review_recognizable_header.py` pins the
-current state as the regression floor:
+1. Add a structured identity parser in
+   `aragora/cli/commands/review_queue.py` that returns both the surface
+   reviewer marker and the canonical model family.
+2. Update comment review-signal extraction and dogfood extraction to
+   attach identity metadata and identity problems.
+3. Update quorum counting to dedupe/count by canonical model family.
+4. Preserve existing exact-head grounding, first-heading safety,
+   GitHub Actions exclusion, unknown-reviewer fail-closed behavior, and
+   stale-comment exclusion.
+5. Update evidence-lint output to report missing model-family
+   disclosure, unknown model-family disclosure, and heading/body
+   conflicts.
+6. Update the advisory-review emitter/workflow contract so generated
+   comments include `Reviewer harness`, `Model family`, `Model id`, and
+   `Receipt artifact`.
 
-- The literal `## Aragora Code Review` header used by the current
-  workflow resolves to `unknown_model_reviewer` (proves the gap is
-  real, today).
-- The proposed `## Claude independent semantic review on head <sha>`
-  header resolves to `claude` (proves the recognizer already supports
-  the proposed contract — *no recognizer change is needed*; this PR is
-  pure workflow-side plumbing).
-- Header injection in body text past the first heading is ignored
-  (proves the recognizer is not loosened by this design).
-- Empty / arbitrary-prose bodies stay unknown (proves the recognizer
-  is not loosened by this design).
+Do not combine this with:
 
-After the implementation PR lands and the workflow emits the new
-headers, the "pinned current state" assertions become regression
-guards: a regression that reverts the workflow to the `## Aragora Code
-Review` shape would resurface the silent-quorum-suppression bug, and
-the governance tests would flag it.
+- #7480 settlement-recording work
+- PR-A2 family expansion
+- any merge-quorum settlement action
 
-## Implementation PR plan (out of scope of this PR)
+## Governance Test Intent
 
-A future PR will:
+`tests/governance/test_advisory_review_recognizable_header.py`
+currently pins the gap that the implementation will invert:
 
-1. Audit `aragora.cli.review review --output-format json` to confirm
-   per-agent attribution is present in `review.json`. If absent, add
-   it (this is itself a Tier 2 change in the CLI, separately scoped).
-2. Modify `.github/workflows/aragora-review-gate.yml` to emit one
-   comment per participating agent with the contract above.
-3. Update the existing comment-update path (currently keyed by
-   `startswith("## Aragora Code Review")`) to be keyed per family per
-   head SHA (e.g., `startswith("## Claude independent semantic review
-   on head <head-sha-prefix>")`) so re-runs update rather than
-   duplicate.
-4. Convert the failing governance tests in this PR's `tests/governance`
-   to passing tests (or move them to a positive-recognition suite),
-   per the regression-floor pattern described in
-   `tests/governance/test_model_quorum_recognizer_gaps.py`.
-5. Verify on a real PR (e.g., dogfood the implementation on the
-   implementation PR itself) that the new comments count toward the
-   merge-quorum and the quorum-evaluator log shows `1/1 signal(s)
-   satisfied` instead of `0/1`.
+- Factory without `Model family` counts as `factory` today; after the
+  implementation it must be advisory-only with
+  `missing_model_family_disclosure`.
+- Codex without `Model family` counts as `codex` today; after the
+  implementation it must be advisory-only unless it discloses lineage.
+- Factory(OpenAI) + Codex(OpenAI) counts as two surface reviewers today;
+  after the implementation it must count as one model family.
+- Factory(OpenAI) + Claude(Claude) currently counts for the wrong
+  reason (`factory` + `claude`); after the implementation it must count
+  as `openai` + `claude`.
+- `## Claude ...` plus `Model family: openai` counts as `claude` today;
+  after the implementation it must be rejected as conflicted.
+- Body-only and diff-quoted family names must continue not to override
+  the first heading.
 
-## Operator preapproval requested
+## Operator Preapproval Requested
 
-Approving this PR (and the failing governance tests) constitutes
-preapproval to *draft* the implementation PR described above. The
-implementation PR will require a *second* preapproval at the
-implementation step per Tier 4 discipline.
-
-This PR contains no live workflow change. Until the implementation PR
-lands, the advisory review continues to post the current header and
-continues to be counted as `unknown_model_reviewer`. PRs that need a
-counted signal today still need to obtain one from a non-author
-identity by another means (e.g., a focused dogfood post from a bot
-identity, or running the recognized-family review CLI from a separate
-GitHub login).
+Approving this PR constitutes preapproval to draft the separate
+lineage-bound implementation PR described above. It does not authorize
+merge of the implementation PR. That future PR remains Tier 4 and
+requires exact-head model evidence plus explicit operator settlement
+before merge.
