@@ -2018,6 +2018,65 @@ def test_main_summary_only_omits_decisions_when_github_unavailable(
     }
 
 
+def test_main_local_only_summary_never_probes_github(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / ".aragora" / "automation-outbox" / "example.json"),
+        task_title="Publish provider dogfood proof branch",
+        priority="HIGH",
+        body="body",
+        labels={},
+        expires_at=None,
+        idempotency_key="open-pr-codex-provider-proof-abc123",
+        source_kind="outbox",
+        branch="codex/provider-proof",
+    )
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
+    monkeypatch.setattr(
+        mod,
+        "load_outbox_handoffs",
+        lambda repo_root, outbox_dir=None, receipt_dir=None: [handoff],
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: (_ for _ in ()).throw(AssertionError("GitHub probe forbidden")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "decide_handoffs",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("GitHub decisions forbidden")),
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path),
+            "--json",
+            "--summary-only",
+            "--local-only",
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["github_health"]["mode"] == "local_only"
+    assert payload["handoff_count"] == 1
+    assert payload["decision_count"] == 1
+    assert payload["decision_summary"] == {
+        "total": 1,
+        "eligible_count": 0,
+        "ineligible_count": 1,
+        "reason_counts": {
+            "local_only_preview": 1,
+        },
+    }
+
+
 def test_main_reports_stale_outbox_head_when_github_unavailable(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:

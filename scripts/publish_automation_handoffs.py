@@ -1424,6 +1424,15 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="With --json, omit per-handoff decisions and print compact counts only.",
     )
+    parser.add_argument(
+        "--local-only",
+        "--no-github",
+        action="store_true",
+        help=(
+            "Build a bounded local preview without probing GitHub or running "
+            "issue/PR duplicate lookups. Safe for sandboxed automations."
+        ),
+    )
     return parser
 
 
@@ -1466,6 +1475,47 @@ def main(argv: list[str] | None = None) -> int:
         key=lambda item: (_source_mtime(item.source_file), item.priority),
         reverse=True,
     )
+    if args.local_only:
+        decision_handoffs = handoffs[: max(args.limit, 0)]
+        decisions = [
+            _local_handoff_blocker(repo_root, handoff)
+            or PublishDecision(
+                task_title=handoff.task_title,
+                source_file=handoff.source_file,
+                eligible=False,
+                reason="local_only_preview",
+            )
+            for handoff in decision_handoffs
+        ]
+        payload = {
+            "repo": str(repo_root),
+            "codex_home": str(codex_home),
+            "github_repo": args.github_repo,
+            "labels": labels,
+            "automation_ids": sorted(automation_ids),
+            "outbox_dir": str(outbox_dir),
+            "receipt_dir": str(receipt_dir),
+            "memory_handoff_count": len(memory_handoffs),
+            "outbox_handoff_count": len(outbox_handoffs),
+            "handoff_count": len(handoffs),
+            "github_health": {
+                "ready": False,
+                "auth_ok": False,
+                "api_ok": False,
+                "mode": "local_only",
+                "error": "GitHub probing intentionally skipped",
+                "repo": str(repo_root),
+            },
+            "decisions": [asdict(item) for item in decisions],
+            "decision_summary": summarize_decisions(decisions),
+        }
+        if args.json:
+            output_payload = summary_only_payload(payload) if args.summary_only else payload
+            print(json.dumps(output_payload, indent=2))
+        else:
+            print(f"local_only: {len(handoffs)} handoffs loaded; GitHub probing skipped")
+        return 0
+
     github_health = check_github_cli_health(repo_root)
     if not github_health.ready:
         decision_handoffs = handoffs[: max(args.limit, 0)]

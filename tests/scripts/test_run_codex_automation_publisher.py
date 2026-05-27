@@ -55,6 +55,16 @@ def test_publisher_wrapper_handles_missing_gh_as_unavailable() -> None:
     assert "GitHub unavailable; leaving automations in handoff-only mode" in script
 
 
+def test_publisher_wrapper_writes_stable_harvest_summary() -> None:
+    script = (REPO_ROOT / "scripts" / "run_codex_automation_publisher.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "scripts/codex_automation_harvest_report.py" in script
+    assert "--write-latest" in script
+    assert "automation-harvest/latest.json" in script
+
+
 def test_launchd_installer_prefers_canonical_git_worktree_root() -> None:
     script = (REPO_ROOT / "scripts" / "install_codex_automation_publisher_launchd.sh").read_text(
         encoding="utf-8"
