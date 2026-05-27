@@ -120,3 +120,108 @@ def test_prompt_always_contains_incremental_progress_sentence() -> None:
     result = followup.build_followup_result(_pr([]))
 
     assert followup.INCREMENTAL_PROGRESS_SENTENCE in result.prompt
+
+
+def test_rest_source_fetches_checks_without_graphql_pr_view(monkeypatch: Any) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_gh_json(args: list[str]) -> dict[str, Any] | list[dict[str, Any]]:
+        calls.append(args)
+        if args == ["gh", "api", "rate_limit"]:
+            return {
+                "resources": {
+                    "core": {
+                        "limit": 5000,
+                        "remaining": 4990,
+                        "reset": 1779853680,
+                    }
+                }
+            }
+        if args == ["gh", "api", "repos/synaptent/aragora/pulls/7447"]:
+            return {
+                "number": 7447,
+                "state": "open",
+                "draft": False,
+                "html_url": "https://github.com/synaptent/aragora/pull/7447",
+                "head": {
+                    "ref": "codex/review-queue-evidence-lint-20260523",
+                    "sha": "head-sha",
+                },
+            }
+        if args[-1] == "repos/synaptent/aragora/commits/head-sha/check-runs?per_page=100":
+            return {
+                "check_runs": [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "details_url": (
+                            "https://github.com/synaptent/aragora/actions/runs/123/job/456"
+                        ),
+                        "started_at": "2026-05-27T02:47:34Z",
+                        "completed_at": "2026-05-27T02:48:30Z",
+                        "check_suite": {"head_sha": "head-sha"},
+                    }
+                ]
+            }
+        if args[-1] == "repos/synaptent/aragora/commits/head-sha/statuses?per_page=100":
+            return [
+                {
+                    "context": "aragora/human-settlement",
+                    "state": "success",
+                    "target_url": "https://github.com/synaptent/aragora/pull/7447",
+                    "updated_at": "2026-05-27T02:35:17Z",
+                }
+            ]
+        raise AssertionError(f"unexpected gh JSON call: {args}")
+
+    monkeypatch.setattr(followup, "_repo_slug_from_git", lambda: "synaptent/aragora")
+    monkeypatch.setattr(followup, "_run_gh_json", fake_run_gh_json)
+
+    result = followup.fetch_live_result_rest(
+        7447,
+        expected_head="head-sha",
+        include_logs=False,
+        allow_rerun_commands=False,
+        min_rest_remaining=5,
+    )
+
+    assert result.source == "rest"
+    assert result.action == "green"
+    assert result.rate_limit is not None
+    assert result.rate_limit["remaining"] == 4990
+    assert not any(call[:3] == ["gh", "pr", "view"] for call in calls)
+
+
+def test_rest_source_stops_before_exhausting_core_rate_limit(monkeypatch: Any) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_gh_json(args: list[str]) -> dict[str, Any]:
+        calls.append(args)
+        assert args == ["gh", "api", "rate_limit"]
+        return {
+            "resources": {
+                "core": {
+                    "limit": 5000,
+                    "remaining": 3,
+                    "reset": 1779853680,
+                }
+            }
+        }
+
+    monkeypatch.setattr(followup, "_repo_slug_from_git", lambda: "synaptent/aragora")
+    monkeypatch.setattr(followup, "_run_gh_json", fake_run_gh_json)
+
+    result = followup.fetch_live_result_rest(
+        7447,
+        expected_head="head-sha",
+        include_logs=False,
+        allow_rerun_commands=False,
+        min_rest_remaining=5,
+    )
+
+    assert result.action == "github_rate_limited"
+    assert result.source == "rest"
+    assert result.rate_limit is not None
+    assert result.rate_limit["remaining"] == 3
+    assert calls == [["gh", "api", "rate_limit"]]

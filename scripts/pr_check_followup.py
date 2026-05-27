@@ -14,6 +14,7 @@ import subprocess
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlparse
 
 
 INCREMENTAL_PROGRESS_SENTENCE = (
@@ -22,7 +23,7 @@ INCREMENTAL_PROGRESS_SENTENCE = (
     "prompts that make incremental progress."
 )
 
-FAILURE_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "ACTION_REQUIRED"}
+FAILURE_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "ERROR"}
 GREEN_CONCLUSIONS = {"SUCCESS", "SKIPPED", "NEUTRAL"}
 PENDING_STATUSES = {"IN_PROGRESS", "QUEUED", "PENDING", "EXPECTED", "REQUESTED", "WAITING"}
 CHECKOUT_MARKERS = ("checkout", "sparse-checkout", "repository checkout")
@@ -67,6 +68,8 @@ class FollowupResult:
     checks: list[CheckDiagnosis]
     rerun_commands: list[str]
     prompt: str
+    source: str = "graphql"
+    rate_limit: dict[str, Any] | None = None
 
 
 def parse_run_job_ids(details_url: str) -> tuple[str | None, str | None]:
@@ -243,6 +246,8 @@ def build_followup_result(
     run_data_by_id: dict[str, dict[str, Any]] | None = None,
     log_summary_by_job: dict[str, list[str]] | None = None,
     allow_rerun_commands: bool = False,
+    source: str = "graphql",
+    rate_limit: dict[str, Any] | None = None,
 ) -> FollowupResult:
     """Build the follow-up decision from already-fetched PR/run data."""
     pr_number = int(pr_data.get("number") or pr_data.get("pr") or 0)
@@ -292,6 +297,8 @@ def build_followup_result(
         checks=checks,
         rerun_commands=rerun_commands,
         prompt=prompt,
+        source=source,
+        rate_limit=rate_limit,
     )
 
 
@@ -314,6 +321,13 @@ def build_prompt(
         lines.extend(
             [
                 f"Goal: refresh #{pr_number} follow-up because the live head drifted from {expected_head} to {head}. Do not merge, rerun, push, edit files, start cleanup, or start broader queue settlement.",
+                "",
+            ]
+        )
+    elif action == "github_rate_limited":
+        lines.extend(
+            [
+                f"Goal: wait for GitHub API rate-limit reset before continuing #{pr_number} follow-up at head {pin}. Do not merge, rerun, push, edit files, start cleanup, or touch unrelated PRs/files.",
                 "",
             ]
         )
@@ -373,7 +387,11 @@ def build_prompt(
                 lines.append(f"  log: {item}")
         lines.append("")
 
-    if action == "repair_failures":
+    if action == "github_rate_limited":
+        lines.append(
+            "GitHub API quota is exhausted or below the helper safety floor. Check `gh api rate_limit` and resume after reset."
+        )
+    elif action == "repair_failures":
         lines.append(
             "Repair only the real failed checks. Do not rerun cancelled rows until the substantive failures are green."
         )
@@ -411,6 +429,165 @@ def _run_gh_json(args: list[str]) -> dict[str, Any]:
 def _run_gh_log(args: list[str]) -> str:
     completed = subprocess.run(args, check=True, text=True, capture_output=True)
     return completed.stdout
+
+
+def _repo_slug_from_git() -> str:
+    completed = subprocess.run(
+        ["git", "remote", "get-url", "origin"],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    remote = completed.stdout.strip()
+    if remote.startswith("git@"):
+        _, _, path = remote.partition(":")
+    else:
+        parsed = urlparse(remote)
+        path = parsed.path.lstrip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    if not path or "/" not in path:
+        raise RuntimeError(f"could not derive GitHub repo slug from origin URL: {remote!r}")
+    return path
+
+
+def _rate_limit_snapshot(resource: str = "core") -> dict[str, Any]:
+    try:
+        payload = _run_gh_json(["gh", "api", "rate_limit"])
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+        return {
+            "resource": resource,
+            "ready": False,
+            "remaining": None,
+            "limit": None,
+            "reset": None,
+            "reset_at": None,
+            "error": str(exc),
+        }
+    data = (
+        ((payload.get("resources") or {}).get(resource) or {}) if isinstance(payload, dict) else {}
+    )
+    reset = data.get("reset")
+    reset_at = None
+    if isinstance(reset, int):
+        reset_at = datetime.fromtimestamp(reset, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    remaining = data.get("remaining")
+    return {
+        "resource": resource,
+        "ready": isinstance(remaining, int) and remaining > 0,
+        "remaining": remaining,
+        "limit": data.get("limit"),
+        "reset": reset,
+        "reset_at": reset_at,
+        "error": "",
+    }
+
+
+def _rest_check_run_to_rollup(item: dict[str, Any]) -> dict[str, Any]:
+    suite = item.get("check_suite") if isinstance(item.get("check_suite"), dict) else {}
+    app = item.get("app") if isinstance(item.get("app"), dict) else {}
+    if not app and isinstance(suite.get("app"), dict):
+        app = suite["app"]
+    return {
+        "__typename": "CheckRun",
+        "workflowName": str(item.get("workflow_name") or item.get("workflowName") or ""),
+        "name": str(item.get("name") or ""),
+        "status": str(item.get("status") or "").upper(),
+        "conclusion": str(item.get("conclusion") or "").upper(),
+        "detailsUrl": str(item.get("details_url") or item.get("html_url") or ""),
+        "startedAt": str(item.get("started_at") or ""),
+        "completedAt": str(item.get("completed_at") or ""),
+        "headSha": str(item.get("head_sha") or suite.get("head_sha") or ""),
+        "app": app,
+        "databaseId": item.get("database_id") or item.get("id"),
+    }
+
+
+def _rest_status_to_rollup(item: dict[str, Any]) -> dict[str, Any]:
+    state = str(item.get("state") or "").upper()
+    return {
+        "__typename": "StatusContext",
+        "context": str(item.get("context") or ""),
+        "name": str(item.get("context") or ""),
+        "status": state,
+        "conclusion": "",
+        "detailsUrl": str(item.get("target_url") or ""),
+        "startedAt": str(item.get("updated_at") or item.get("created_at") or ""),
+        "completedAt": str(item.get("updated_at") or item.get("created_at") or ""),
+    }
+
+
+def _rest_pr_to_pr_data(repo: str, pr_number: int) -> dict[str, Any]:
+    payload = _run_gh_json(["gh", "api", f"repos/{repo}/pulls/{pr_number}"])
+    head = payload.get("head") if isinstance(payload.get("head"), dict) else {}
+    return {
+        "number": int(payload.get("number") or pr_number),
+        "state": str(payload.get("state") or "").upper(),
+        "isDraft": bool(payload.get("draft")),
+        "headRefName": str(head.get("ref") or ""),
+        "headRefOid": str(head.get("sha") or ""),
+        "mergeable": payload.get("mergeable"),
+        "mergeStateStatus": payload.get("mergeable_state"),
+        "url": str(payload.get("html_url") or ""),
+        "statusCheckRollup": [],
+    }
+
+
+def _rest_check_rollup(repo: str, head: str) -> list[dict[str, Any]]:
+    check_payload = _run_gh_json(
+        [
+            "gh",
+            "api",
+            "-H",
+            "Accept: application/vnd.github+json",
+            f"repos/{repo}/commits/{head}/check-runs?per_page=100",
+        ]
+    )
+    checks = [
+        _rest_check_run_to_rollup(item)
+        for item in check_payload.get("check_runs", [])
+        if isinstance(item, dict)
+    ]
+    statuses_payload = _run_gh_json(
+        [
+            "gh",
+            "api",
+            "-H",
+            "Accept: application/vnd.github+json",
+            f"repos/{repo}/commits/{head}/statuses?per_page=100",
+        ]
+    )
+    statuses = [_rest_status_to_rollup(item) for item in statuses_payload if isinstance(item, dict)]
+    return checks + statuses
+
+
+def _rate_limited_result(
+    pr_number: int,
+    *,
+    expected_head: str | None,
+    rate_limit: dict[str, Any],
+    source: str,
+) -> FollowupResult:
+    head = expected_head or ""
+    prompt = build_prompt(
+        pr_number=pr_number,
+        head=head,
+        expected_head=expected_head,
+        action="github_rate_limited",
+        checks=[],
+        rerun_commands=[],
+    )
+    return FollowupResult(
+        pr=pr_number,
+        head=head,
+        expected_head=expected_head,
+        action="github_rate_limited",
+        checks=[],
+        rerun_commands=[],
+        prompt=prompt,
+        source=source,
+        rate_limit=rate_limit,
+    )
 
 
 def fetch_live_result(
@@ -472,6 +649,77 @@ def fetch_live_result(
     )
 
 
+def fetch_live_result_rest(
+    pr_number: int,
+    *,
+    expected_head: str | None,
+    include_logs: bool,
+    allow_rerun_commands: bool,
+    min_rest_remaining: int,
+) -> FollowupResult:
+    """Fetch live PR/check data through GitHub REST endpoints.
+
+    This avoids the GraphQL-backed ``gh pr view --json statusCheckRollup`` path, which
+    is expensive during long polling loops. The helper still uses ``gh`` for auth and
+    transport, but the PR, check-run, and status data come from REST endpoints.
+    """
+    repo = _repo_slug_from_git()
+    rate_limit = _rate_limit_snapshot("core")
+    remaining = rate_limit.get("remaining")
+    if isinstance(remaining, int) and remaining <= min_rest_remaining:
+        return _rate_limited_result(
+            pr_number,
+            expected_head=expected_head,
+            rate_limit=rate_limit,
+            source="rest",
+        )
+
+    pr_data = _rest_pr_to_pr_data(repo, pr_number)
+    head = str(pr_data.get("headRefOid") or "")
+    if head:
+        pr_data["statusCheckRollup"] = _rest_check_rollup(repo, head)
+
+    run_data_by_id: dict[str, dict[str, Any]] = {}
+    log_summary_by_job: dict[str, list[str]] = {}
+    for check in latest_status_check_rollup(list(pr_data.get("statusCheckRollup") or [])):
+        diagnosis = classify_check(check, head, {"headSha": check.get("headSha")})
+        if diagnosis.classification not in {"real_failure", "early_cancelled", "unknown"}:
+            continue
+        if not diagnosis.run_id or not diagnosis.job_id or diagnosis.run_id in run_data_by_id:
+            continue
+        try:
+            run_data_by_id[diagnosis.run_id] = _run_gh_json(
+                [
+                    "gh",
+                    "run",
+                    "view",
+                    diagnosis.run_id,
+                    "--json",
+                    "status,conclusion,event,headSha,workflowName,jobs",
+                ]
+            )
+        except (subprocess.CalledProcessError, json.JSONDecodeError):
+            continue
+        if include_logs and diagnosis.classification == "real_failure":
+            try:
+                log_text = _run_gh_log(
+                    ["gh", "run", "view", diagnosis.run_id, "--job", diagnosis.job_id, "--log"]
+                )
+                log_summary_by_job[diagnosis.job_id] = summarize_log(log_text)
+            except subprocess.CalledProcessError:
+                log_summary_by_job[diagnosis.job_id] = ["failed to fetch job log"]
+
+    return build_followup_result(
+        pr_data,
+        expected_head=expected_head,
+        run_data_by_id=run_data_by_id,
+        log_summary_by_job=log_summary_by_job,
+        allow_rerun_commands=allow_rerun_commands,
+        source="rest",
+        rate_limit=rate_limit,
+    )
+
+
 def _result_to_json(result: FollowupResult) -> str:
     payload = asdict(result)
     payload["generated_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -484,6 +732,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--head", help="Expected PR head SHA; head drift stops the prompt")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     parser.add_argument("--prompt", action="store_true", help="Print the recursive prompt")
+    parser.add_argument(
+        "--source",
+        choices=("graphql", "rest"),
+        default="graphql",
+        help=(
+            "Where to fetch PR check state from. Use 'rest' for long polling to avoid "
+            "burning GitHub GraphQL quota on statusCheckRollup."
+        ),
+    )
+    parser.add_argument(
+        "--min-rest-remaining",
+        type=int,
+        default=5,
+        help="Stop REST polling when core API remaining quota is at or below this floor.",
+    )
     parser.add_argument(
         "--include-logs",
         action="store_true",
@@ -499,12 +762,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_arg_parser().parse_args(argv)
-    result = fetch_live_result(
-        args.pr,
-        expected_head=args.head,
-        include_logs=args.include_logs,
-        allow_rerun_commands=args.allow_rerun_commands,
-    )
+    if args.source == "rest":
+        result = fetch_live_result_rest(
+            args.pr,
+            expected_head=args.head,
+            include_logs=args.include_logs,
+            allow_rerun_commands=args.allow_rerun_commands,
+            min_rest_remaining=max(0, int(args.min_rest_remaining)),
+        )
+    else:
+        result = fetch_live_result(
+            args.pr,
+            expected_head=args.head,
+            include_logs=args.include_logs,
+            allow_rerun_commands=args.allow_rerun_commands,
+        )
     if args.json:
         print(_result_to_json(result))
     if args.prompt or not args.json:
