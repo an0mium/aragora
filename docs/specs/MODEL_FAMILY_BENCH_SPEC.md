@@ -78,9 +78,23 @@ contract in `docs/REVIEW_AUTHORITY_PRINCIPLES.md`) is justified.
 
 ## Task categories
 
-Three task classes, drawn from aragora's actual operational surfaces:
+Three task classes, drawn from aragora's actual operational surfaces.
 
-### 1. PR review (10 tasks)
+> **Scaffold-vs-target scope (PR-B, this PR).** The full preregistered
+> corpus is **25 tasks** (10 PR-review + 5 debate-critique + 10
+> inbox-triage). The corpus checked in by *this PR* (PR-B) is a
+> **9-task scaffold** (3 + 3 + 3) that proves the plumbing
+> — orchestrator, scoring, Pareto frontier, pairwise McNemar, small-n
+> warnings, summary JSON shape — round-trips cleanly. The remaining
+> 16 tasks land in a follow-on PR alongside the per-task-class
+> per-family-class statistical summaries the H1-H5 hypotheses
+> actually need. Treat the per-class task counts below as the
+> **target** for the full corpus, not the count present in this PR's
+> fixtures; the harness reports the actual loaded count
+> (`summary["n_tasks"]`) and a `stub_only_run: true` flag at the top
+> of every output JSON.
+
+### 1. PR review (10 tasks — target; this PR ships 3 as scaffold)
 
 Synthetic PRs of varying tier and shape:
 - 4 Tier 0-1 docs/tests/scoped-code PRs
@@ -99,7 +113,7 @@ about (small/scoped vs sprawling, additive vs surgical, with-tests vs
 without, etc.) without containing any operator-private content. Same
 discipline as the AFT extractor.
 
-### 2. Debate critique (5 tasks)
+### 2. Debate critique (5 tasks — target; this PR ships 3 as scaffold)
 
 Synthetic debate prompts with one valid-looking-but-flawed argument
 each (logical fallacy, hidden assumption, irrelevant evidence, etc.).
@@ -107,7 +121,7 @@ Reviewer must surface the flaw. Scoring: did the reviewer name the
 specific flaw (per a curated answer key) vs produce a generic critique
 vs miss it entirely.
 
-### 3. Inbox triage proxy (10 tasks)
+### 3. Inbox triage proxy (10 tasks — target; this PR ships 3 as scaffold)
 
 AFT-style low-information features (`{subject_token_count,
 sender_domain_class, label_count, has_reviews}`) → ground-truth
@@ -115,9 +129,16 @@ action (`archive | reply | escalate`). Reuses AFT harness types
 directly. No raw email content — same privacy boundary the AFT
 extractor enforces.
 
-Total: 25 tasks. Small by ML-benchmark standards; appropriate for
-**plumbing + Pareto-direction sensing** rather than statistical
-publication. The harness will print the small-n caveat in its summary.
+Target total: **25 tasks** (preregistered). Small by ML-benchmark
+standards even at the target size; appropriate for **plumbing +
+Pareto-direction sensing** rather than statistical publication. The
+harness prints the small-n caveat in its summary at any task count.
+
+In this PR (PR-B) the checked-in fixture corpus is **9 tasks** (3 per
+class) — a scaffold sized to validate the plumbing without
+overstating benchmark readiness. The 16-task gap to the
+preregistered target lands in a follow-on PR that also adds
+per-task-class summaries.
 
 ## Scoring
 
@@ -167,16 +188,23 @@ bin/aft-bench-family                (shim per family; future PR)
 - `scripts/aft_family_bench_scoring.py` — pure-function scoring
   helpers (pareto frontier identification, Jaccard distance on flag
   sets for H4, cost/quality table builder). Importable for tests.
-- `tests/fixtures/family_bench/` — the 25-task synthetic corpus
-  (checked in; tiny; ~5KB total)
+- `tests/fixtures/family_bench/` — a **9-task scaffold** of the
+  synthetic corpus (3 PR-review + 3 debate-critique + 3 inbox-triage,
+  checked in; ~5KB total). The remaining 16 tasks needed to reach the
+  preregistered 25-task corpus land in a follow-on PR — see
+  "Scaffold-vs-target scope" under §Corpus above.
 - `tests/scripts/test_aft_family_bench.py` — pure-function unit tests
   for the scoring helpers (~15-20 cases)
 
 ## What's NOT in this PR
 
-- No live provider calls (orchestrator runs only against stub backend
-  in this PR; the `--allow-live` flag wires the API call paths but
-  refuses to invoke them without explicit operator credentials).
+- No live provider calls. The orchestrator runs only against the
+  stub backend in this PR. `--allow-live` is reserved for a future
+  PR and **fails closed** today — passing it exits non-zero with a
+  clear error rather than silently running the stub. The flag and
+  `--max-cost-usd` remain in the CLI surface as the forward-compat
+  hooks the live-wiring PR will populate (credentials + cost-cap
+  guardrail enforced there, not here).
 - No `bin/aft-bench-family` shim with non-stub backends — that's a
   follow-on PR-C once H1-H5 indicate which families are worth wiring.
 - No wiring into the quorum gate (that's PR-A2, Tier 4, blocked on

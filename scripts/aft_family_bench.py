@@ -215,26 +215,40 @@ def family_summary(family: str, per_task_records: list[dict]) -> dict[str, float
 def pairwise_significance(
     family_records: dict[str, list[dict]],
 ) -> dict[str, dict[str, float]]:
-    """Paired McNemar across all family pairs, Bonferroni-corrected."""
+    """Paired McNemar across all family pairs, Bonferroni-corrected.
+
+    Pairs are joined by ``task_id`` (the inner-join intersection of the
+    two families' task sets). Under the current ``run_bench`` every
+    family runs every task, so the intersection equals the full task
+    set; the explicit join keeps the comparison correct under live or
+    failure-tolerant runs where one family may emit fewer records than
+    another. A previous implementation sorted each family's records and
+    truncated to ``n_min``, which would silently compare different
+    tasks if the per-family record sets ever diverged.
+    """
     families = sorted(family_records.keys())
     pairs = [(a, b) for i, a in enumerate(families) for b in families[i + 1 :]]
     bonf = max(1, len(pairs))
     out: dict[str, dict[str, float]] = {}
     for a, b in pairs:
-        ra = sorted(family_records[a], key=lambda r: r["task_id"])
-        rb = sorted(family_records[b], key=lambda r: r["task_id"])
-        a_correct = [r["correct"] for r in ra]
-        b_correct = [r["correct"] for r in rb]
-        # Only count pairs where both families saw the same task (defensive)
-        n_min = min(len(a_correct), len(b_correct))
-        p = mcnemar_p(a_correct[:n_min], b_correct[:n_min])
+        # Inner-join on task_id so each pair compares the *same* task,
+        # not just the same-indexed sorted position. Defensive against
+        # duplicate task_ids within a single family by keeping the last
+        # record (predictable; matches dict-construction semantics).
+        a_by_task = {r["task_id"]: r["correct"] for r in family_records[a]}
+        b_by_task = {r["task_id"]: r["correct"] for r in family_records[b]}
+        common_task_ids = sorted(a_by_task.keys() & b_by_task.keys())
+        a_correct = [a_by_task[t] for t in common_task_ids]
+        b_correct = [b_by_task[t] for t in common_task_ids]
+        p = mcnemar_p(a_correct, b_correct)
         # Disagreement count for the small-n warning
-        disagreements = sum(1 for x, y in zip(a_correct[:n_min], b_correct[:n_min]) if x != y)
+        disagreements = sum(1 for x, y in zip(a_correct, b_correct) if x != y)
         out[f"{a}__vs__{b}"] = {
             "p_value": p,
             "p_value_bonferroni": min(1.0, p * bonf),
             "n_disagreements": disagreements,
             "bonferroni_factor": bonf,
+            "n_paired_tasks": len(common_task_ids),
         }
     return out
 
@@ -337,13 +351,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--allow-live",
         action="store_true",
-        help="Allow live provider calls (NOT wired in PR-B; flag is parsed for forward compat).",
+        help=(
+            "Reserved for a future PR that wires live provider backends. "
+            "In PR-B this flag is parsed for forward-compat only; passing "
+            "it FAILS CLOSED with a non-zero exit instead of silently "
+            "running the stub backend."
+        ),
     )
     parser.add_argument(
         "--max-cost-usd",
         type=float,
         default=5.00,
-        help="Cost cap for live runs (PR-B forward-compat).",
+        help=(
+            "Cost cap reserved for live runs. Parsed for forward-compat "
+            "only in PR-B; has no effect on the stub backend."
+        ),
     )
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args(argv)
@@ -352,6 +374,21 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+
+    if args.allow_live:
+        # Fail closed: PR-B does not wire any live backend. Silently running
+        # the stub while accepting --allow-live would let a future caller
+        # mistake a stub-only run for live evidence. The flag survives in
+        # the CLI surface for forward-compat (a follow-on PR will wire the
+        # actual live provider paths with credentials + cost-cap guardrail),
+        # but invoking it here must refuse with a clear error.
+        LOG.error(
+            "--allow-live is reserved for a future PR. No live provider "
+            "backend is wired in PR-B; refusing to run to avoid letting "
+            "stub-only output be misread as live evidence. Re-run without "
+            "--allow-live for a stub-only bench."
+        )
+        return 3
 
     unknown_families = [f for f in args.families if f not in COST_PER_CALL_ESTIMATE]
     if unknown_families:

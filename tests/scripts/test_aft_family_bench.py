@@ -324,6 +324,99 @@ class TestPairwiseSignificance:
         assert "a__vs__b" in sig
         assert sig["a__vs__b"]["bonferroni_factor"] == 1
         assert sig["a__vs__b"]["n_disagreements"] == 2
+        # The new task_id-join contract: both families saw both tasks.
+        assert sig["a__vs__b"]["n_paired_tasks"] == 2
+
+    def test_inner_joins_on_task_id_not_sorted_position(self) -> None:
+        """Defensive: differing per-family task sets MUST inner-join on task_id.
+
+        A previous implementation sorted and truncated to ``n_min``, which
+        would silently compare different tasks if the per-family record
+        sets ever diverged (live runs with one family failing or skipped
+        tasks). This test pins the inner-join behavior: only the
+        intersection of task_ids is compared, never positionally aligned
+        records.
+        """
+        # Family "a" has t1, t2. Family "b" has t2, t3. Common: {t2}.
+        # Family a: t1=True, t2=False. Family b: t2=False, t3=True.
+        # The only paired task is t2 (both False → no disagreement).
+        sig = pairwise_significance(
+            {
+                "a": [
+                    {"task_id": "t1", "correct": True},
+                    {"task_id": "t2", "correct": False},
+                ],
+                "b": [
+                    {"task_id": "t2", "correct": False},
+                    {"task_id": "t3", "correct": True},
+                ],
+            }
+        )
+        assert sig["a__vs__b"]["n_paired_tasks"] == 1
+        assert sig["a__vs__b"]["n_disagreements"] == 0
+
+    def test_disjoint_task_sets_produce_zero_paired_tasks(self) -> None:
+        """Inner-join correctness under fully disjoint task sets."""
+        sig = pairwise_significance(
+            {
+                "a": [{"task_id": "t1", "correct": True}],
+                "b": [{"task_id": "t2", "correct": True}],
+            }
+        )
+        assert sig["a__vs__b"]["n_paired_tasks"] == 0
+        assert sig["a__vs__b"]["n_disagreements"] == 0
+
+
+# ----- CLI main() behavior --------------------------------------------
+
+
+class TestMainFailClosedOnAllowLive:
+    """PR-B contract: ``--allow-live`` must fail closed.
+
+    Letting --allow-live silently fall back to the stub would let a
+    future caller mistake stub-only output for live evidence. The flag
+    survives in the CLI surface for forward-compat (a follow-on PR
+    will wire the actual live provider paths), but invoking it in
+    PR-B must refuse with a clear error.
+    """
+
+    def test_allow_live_returns_nonzero_exit(self) -> None:
+        from scripts.aft_family_bench import main
+
+        rc = main(
+            [
+                "--allow-live",
+                "--corpus",
+                str(CORPUS_DIR),
+                "--families",
+                "claude",
+            ]
+        )
+        assert rc == 3, (
+            f"--allow-live must fail closed with exit 3, got {rc}. "
+            "Silently running the stub when --allow-live is requested "
+            "would let stub-only output be misread as live evidence."
+        )
+
+    def test_stub_only_invocation_still_succeeds(self, tmp_path) -> None:
+        from scripts.aft_family_bench import main
+
+        out_dir = tmp_path / "bench-out"
+        rc = main(
+            [
+                "--corpus",
+                str(CORPUS_DIR),
+                "--families",
+                "claude",
+                "deepseek",
+                "--out",
+                str(out_dir),
+            ]
+        )
+        assert rc == 0
+        # One summary file written
+        produced = list(out_dir.glob("bench_summary_*.json"))
+        assert len(produced) == 1
 
 
 # ----- end-to-end smoke ------------------------------------------------
