@@ -93,6 +93,8 @@ class FollowupResult:
 
     pr: int
     head: str
+    mergeable: str
+    merge_state_status: str
     expected_head: str | None
     action: str
     checks: list[CheckDiagnosis]
@@ -317,6 +319,39 @@ def _has_model_quorum_blocker(check: CheckDiagnosis) -> bool:
     return any(marker in text for marker in MODEL_QUORUM_MARKERS)
 
 
+def _wait_check_selector_parts(selector: str) -> tuple[str, str] | None:
+    """Parse a workflow/name selector into normalized parts."""
+    parts = [part.strip().lower() for part in selector.split("/", maxsplit=1)]
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        return None
+    return parts[0], parts[1]
+
+
+def wait_check_run_id(pr_data: dict[str, Any], selector: str) -> str | None:
+    """Return the run id for a matching in-progress status check, if any."""
+    parsed = _wait_check_selector_parts(selector)
+    if parsed is None:
+        return None
+    expected_workflow, expected_name = parsed
+    pr_head = str(pr_data.get("headRefOid") or "").strip()
+    for check in latest_status_check_rollup(list(pr_data.get("statusCheckRollup") or [])):
+        workflow = str(check.get("workflowName") or check.get("workflow") or "").strip().lower()
+        name = str(check.get("name") or check.get("context") or "").strip().lower()
+        if workflow != expected_workflow or name != expected_name:
+            continue
+        diagnosis = classify_check(check, pr_head)
+        if diagnosis.classification == "in_progress":
+            return diagnosis.run_id
+        return None
+    return None
+
+
+def _has_branch_conflict(pr_data: dict[str, Any]) -> bool:
+    mergeable = str(pr_data.get("mergeable") or "").upper()
+    merge_state = str(pr_data.get("mergeStateStatus") or "").upper()
+    return mergeable == "CONFLICTING" or merge_state == "DIRTY"
+
+
 def classify_run_job(job: dict[str, Any], run_id: str, run_data: dict[str, Any]) -> CheckDiagnosis:
     """Classify an Actions job from gh run view JSON."""
     job_id = _job_id(job)
@@ -427,6 +462,7 @@ def _derive_action(
     *,
     expected_head: str | None,
     head: str,
+    branch_conflict: bool = False,
 ) -> str:
     if expected_head and head != expected_head:
         return "head_drift"
@@ -465,6 +501,8 @@ def _derive_action(
         return "diagnose_unknown"
     if any(check.classification == "early_cancelled" for check in checks):
         return "rerun_cancelled"
+    if branch_conflict:
+        return "diagnose_branch_conflict"
     return "green"
 
 
@@ -480,6 +518,8 @@ def build_followup_result(
     """Build the follow-up decision from already-fetched PR/run data."""
     pr_number = int(pr_data.get("number") or pr_data.get("pr") or 0)
     head = str(pr_data.get("headRefOid") or "").strip()
+    mergeable = str(pr_data.get("mergeable") or "").strip()
+    merge_state_status = str(pr_data.get("mergeStateStatus") or "").strip()
     checks: list[CheckDiagnosis] = []
     for check in latest_status_check_rollup(list(pr_data.get("statusCheckRollup") or [])):
         run_id, _job_id_value = parse_run_job_ids(str(check.get("detailsUrl") or ""))
@@ -489,10 +529,17 @@ def build_followup_result(
         checks.append(diagnosis)
 
     if wait_run:
-        existing_job_ids = {check.job_id for check in checks if check.job_id}
-        checks.extend(job for job in wait_run.jobs if job.job_id not in existing_job_ids)
+        waited_job_ids = {job.job_id for job in wait_run.jobs if job.job_id}
+        checks = [check for check in checks if check.job_id not in waited_job_ids]
+        checks.extend(wait_run.jobs)
 
-    action = _derive_action(checks, wait_run, expected_head=expected_head, head=head)
+    action = _derive_action(
+        checks,
+        wait_run,
+        expected_head=expected_head,
+        head=head,
+        branch_conflict=_has_branch_conflict(pr_data),
+    )
     rerun_commands = [
         check.rerun_command
         for check in checks
@@ -513,6 +560,8 @@ def build_followup_result(
     return FollowupResult(
         pr=pr_number,
         head=head,
+        mergeable=mergeable,
+        merge_state_status=merge_state_status,
         expected_head=expected_head,
         action=action,
         checks=checks,
@@ -570,6 +619,13 @@ def build_prompt(
         lines.extend(
             [
                 f"Goal: monitor #{pr_number} at head {pin} until checks settle. Do not merge, rerun, push, edit files, start cleanup, or start broader queue settlement.",
+                "",
+            ]
+        )
+    elif action == "diagnose_branch_conflict":
+        lines.extend(
+            [
+                f"Goal: diagnose only #{pr_number}'s live branch conflict or mergeability blocker at head {pin}. Do not merge, rerun CI, push, edit files outside a later explicitly authorized conflict repair, start cleanup, or start broader queue settlement.",
                 "",
             ]
         )
@@ -655,6 +711,10 @@ def build_prompt(
         lines.append(
             f"If #{pr_number} remains green/green-equivalent, run review-queue merge-packet for the PR. Do not merge."
         )
+    elif action == "diagnose_branch_conflict":
+        lines.append(
+            f"Checks are green/green-equivalent, but #{pr_number} is still CONFLICTING/DIRTY. Diagnose only the live branch conflict or merge-packet blocker and produce a bounded repair prompt. Do not merge."
+        )
 
     lines.extend(
         [
@@ -728,6 +788,7 @@ def fetch_live_result(
     include_logs: bool,
     allow_rerun_commands: bool,
     wait_run_id: str | None = None,
+    wait_check: str | None = None,
     wait_interval_seconds: float = 180.0,
     wait_timeout_seconds: float = 1800.0,
 ) -> FollowupResult:
@@ -746,6 +807,9 @@ def fetch_live_result(
     run_data_by_id: dict[str, dict[str, Any]] = {}
     log_summary_by_job: dict[str, list[str]] = {}
     wait_run: WaitRunDiagnosis | None = None
+
+    if wait_run_id is None and wait_check:
+        wait_run_id = wait_check_run_id(pr_data, wait_check)
 
     if wait_run_id:
         run_data, timed_out = wait_for_run(
@@ -830,6 +894,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Poll one GitHub Actions run until completion before generating the prompt",
     )
     parser.add_argument(
+        "--wait-check",
+        help="Poll the run for an in-progress status check selected as 'Workflow/Check name'",
+    )
+    parser.add_argument(
         "--wait-interval-seconds",
         type=float,
         default=180.0,
@@ -852,6 +920,7 @@ def main(argv: list[str] | None = None) -> int:
         include_logs=args.include_logs,
         allow_rerun_commands=args.allow_rerun_commands,
         wait_run_id=args.wait_run,
+        wait_check=args.wait_check,
         wait_interval_seconds=args.wait_interval_seconds,
         wait_timeout_seconds=args.wait_timeout_seconds,
     )

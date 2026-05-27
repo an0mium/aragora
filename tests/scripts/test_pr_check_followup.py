@@ -44,8 +44,20 @@ def _check(
     }
 
 
-def _pr(checks: list[dict[str, str]], head: str = "head-sha") -> dict[str, Any]:
-    return {"number": 7443, "headRefOid": head, "statusCheckRollup": checks}
+def _pr(
+    checks: list[dict[str, str]],
+    head: str = "head-sha",
+    *,
+    mergeable: str = "MERGEABLE",
+    merge_state_status: str = "CLEAN",
+) -> dict[str, Any]:
+    return {
+        "number": 7443,
+        "headRefOid": head,
+        "mergeable": mergeable,
+        "mergeStateStatus": merge_state_status,
+        "statusCheckRollup": checks,
+    }
 
 
 def _job(
@@ -318,3 +330,83 @@ def test_prompt_always_contains_recursive_convergence_sentences() -> None:
 
     assert followup.INCREMENTAL_PROGRESS_SENTENCE in result.prompt
     assert followup.META_AUTOMATION_SENTENCE in result.prompt
+
+
+def test_wait_check_waits_for_matching_status_row_then_emits_reruns(monkeypatch: Any) -> None:
+    pr_data = _pr(
+        [
+            {
+                "workflowName": "Tests",
+                "name": "Baseline Determinism",
+                "status": "IN_PROGRESS",
+                "conclusion": "",
+                "detailsUrl": "https://github.com/synaptent/aragora/actions/runs/99/job/101",
+                "startedAt": "2026-05-27T02:22:12Z",
+                "completedAt": "",
+            },
+            _check("Metrics Drift", "check", "CANCELLED", run_id="2", job_id="20"),
+        ]
+    )
+    calls: list[list[str]] = []
+
+    def fake_run_gh_json(args: list[str]) -> dict[str, Any]:
+        calls.append(args)
+        if args[:3] == ["gh", "pr", "view"]:
+            return pr_data
+        if args[:4] == ["gh", "run", "view", "99"]:
+            return {
+                "status": "completed",
+                "conclusion": "success",
+                "workflowName": "Tests",
+                "headSha": "head-sha",
+                "jobs": [_job("Baseline Determinism", "success", job_id="101")],
+            }
+        if args[:4] == ["gh", "run", "view", "2"]:
+            return {
+                "headSha": "head-sha",
+                "workflowName": "Metrics Drift",
+                "jobs": [
+                    _job(
+                        "check",
+                        "cancelled",
+                        job_id="20",
+                        steps=[
+                            {"name": "Set up job", "conclusion": "success"},
+                            {"name": "Checkout", "conclusion": "cancelled"},
+                        ],
+                    )
+                ],
+            }
+        raise AssertionError(f"unexpected gh json call: {args}")
+
+    monkeypatch.setattr(followup, "_run_gh_json", fake_run_gh_json)
+
+    result = followup.fetch_live_result(
+        7443,
+        expected_head="head-sha",
+        include_logs=False,
+        allow_rerun_commands=True,
+        wait_check="Tests/Baseline Determinism",
+        wait_interval_seconds=0,
+        wait_timeout_seconds=0,
+    )
+
+    assert any(args[:4] == ["gh", "run", "view", "99"] for args in calls)
+    assert result.wait_run is not None
+    assert result.wait_run.run_id == "99"
+    assert result.action == "rerun_cancelled"
+    assert result.rerun_commands == ["gh run rerun 2 --job 20"]
+
+
+def test_green_conflicting_pr_emits_branch_conflict_prompt() -> None:
+    result = followup.build_followup_result(
+        _pr(
+            [_check("Tests", "Baseline Determinism", "SUCCESS")],
+            mergeable="CONFLICTING",
+            merge_state_status="DIRTY",
+        )
+    )
+
+    assert result.action == "diagnose_branch_conflict"
+    assert "branch conflict" in result.prompt
+    assert "Do not merge" in result.prompt
