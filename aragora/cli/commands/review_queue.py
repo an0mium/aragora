@@ -468,6 +468,14 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         help="GitHub repo slug override (owner/name). Defaults to current repo context.",
     )
     merge_packet_p.add_argument(
+        "--review-queue-root",
+        default=None,
+        help=(
+            "Override the review-queue store root used for settlement receipt lookups. "
+            "Defaults to <repo>/.aragora/review-queue."
+        ),
+    )
+    merge_packet_p.add_argument(
         "--execute-reviewers",
         action="store_true",
         help="Attempt live heterogeneous reviewer execution for each packet.",
@@ -969,6 +977,7 @@ def _cmd_merge_packet(args: argparse.Namespace) -> int:
             pr_refs=list(getattr(args, "pr", []) or []),
             limit=int(getattr(args, "limit", 30) or 30),
             repo_override=getattr(args, "repo", None),
+            review_queue_root=getattr(args, "review_queue_root", None),
             execute_reviewers=bool(getattr(args, "execute_reviewers", False)),
         )
     except _GhError as exc:
@@ -1439,6 +1448,7 @@ def _build_packet(
     pr_ref: str,
     *,
     repo_override: str | None,
+    review_queue_root: str | Path | None = None,
     execute_reviewers: bool = False,
 ) -> ReviewPacket:
     number = _parse_pr_number(pr_ref)
@@ -1449,6 +1459,8 @@ def _build_packet(
             "url",
             "headRefOid",
             "baseRefOid",
+            "state",
+            "mergedAt",
             "isDraft",
             "mergeable",
             "reviewDecision",
@@ -1489,11 +1501,23 @@ def _build_packet(
     additions = int(pr.get("additions", 0) or 0)
     deletions = int(pr.get("deletions", 0) or 0)
     is_draft = bool(pr.get("isDraft", False))
+    settlement_state_block = _settlement_state_block_reason(pr)
+    settlement_recorded = str(
+        pr.get("state") or ""
+    ).strip().upper() == "MERGED" and _has_recorded_admin_squash_settlement(
+        pr_number=number,
+        head_sha=str(pr.get("headRefOid", "")).strip(),
+        review_queue_root=review_queue_root,
+    )
     mergeable = str(pr.get("mergeable", "")).strip().upper()
     queue_item = _classify_pr(pr)
     validation = _extract_validation_commands(str(pr.get("body", "") or ""))
 
     risk_flags: list[str] = []
+    if settlement_recorded:
+        risk_flags.append("exact-head admin_squash_merge settlement receipt recorded")
+    elif settlement_state_block:
+        risk_flags.append(settlement_state_block)
     if is_draft:
         risk_flags.append("draft PR")
     if parked_label_hits:
@@ -1509,7 +1533,13 @@ def _build_packet(
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
 
-    if has_failures or mergeable == "CONFLICTING":
+    if settlement_recorded:
+        recommendation = "settled_noop"
+        recommendation_reason = "PR is already merged with an exact-head settlement receipt"
+    elif settlement_state_block:
+        recommendation = "needs_human_attention"
+        recommendation_reason = settlement_state_block
+    elif has_failures or mergeable == "CONFLICTING":
         recommendation = "repair_first"
         recommendation_reason = "checks failing or merge conflict — fix before review"
     elif is_draft:
@@ -1608,6 +1638,7 @@ def _build_packet(
             machine_recommendation=recommendation,
             has_pending=has_pending,
             has_failures=has_failures,
+            settlement_recorded=settlement_recorded,
         ),
     )
     packet.packet_sha = _packet_sha(packet)
@@ -1619,6 +1650,7 @@ def _build_merge_authorization_packet(
     pr_refs: list[str],
     limit: int,
     repo_override: str | None,
+    review_queue_root: str | Path | None = None,
     execute_reviewers: bool = False,
 ) -> dict[str, Any]:
     if pr_refs:
@@ -1629,10 +1661,13 @@ def _build_merge_authorization_packet(
         refs = [str(item.number) for item in queue]
         queue_size = len(queue)
 
-    packets = [
-        _build_packet(ref, repo_override=repo_override, execute_reviewers=execute_reviewers)
-        for ref in refs
-    ]
+    packet_kwargs: dict[str, Any] = {
+        "repo_override": repo_override,
+        "execute_reviewers": execute_reviewers,
+    }
+    if review_queue_root is not None:
+        packet_kwargs["review_queue_root"] = review_queue_root
+    packets = [_build_packet(ref, **packet_kwargs) for ref in refs]
     queue_pressure_active = queue_size > MODEL_REVIEW_QUEUE_CAP
     entries = []
     for packet in packets:
@@ -1695,7 +1730,7 @@ def _build_merge_authorization_packet(
         "not_ready": [
             entry["pr_number"]
             for entry in entries
-            if entry["status"] not in {"satisfied", "human_risk_settlement_required"}
+            if entry["status"] not in {"satisfied", "human_risk_settlement_required", "settled"}
         ],
     }
 
@@ -1708,6 +1743,7 @@ def _build_model_review_quorum(
     machine_recommendation: str,
     has_pending: bool,
     has_failures: bool,
+    settlement_recorded: bool = False,
 ) -> dict[str, Any]:
     tier, tier_name, tier_reason = _classify_model_review_tier(files, pr=pr)
     requirement = _tier_requirement(tier)
@@ -1729,7 +1765,8 @@ def _build_model_review_quorum(
     dissenting_views = [
         view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
     ]
-    blocking_workflow_state = _has_blocking_workflow_state(pr)
+    blocking_workflow_reasons = _blocking_workflow_state_reasons(pr)
+    blocking_workflow_state = bool(blocking_workflow_reasons)
     unresolved_dissent = bool(dissenting_views)
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
     signal_count = len(counted_reviewer_ids)
@@ -1741,13 +1778,17 @@ def _build_model_review_quorum(
     )
 
     reasons = [tier_reason]
-    if has_failures:
+    if settlement_recorded:
+        reasons.append("exact-head admin_squash_merge settlement receipt recorded")
+    if has_failures and not settlement_recorded:
         reasons.append("checks are failing; repair before settlement")
-    if has_pending:
+    if has_pending and not settlement_recorded:
         reasons.append("checks are pending; wait before settlement")
-    if unresolved_dissent:
+    if not settlement_recorded:
+        reasons.extend(blocking_workflow_reasons)
+    if unresolved_dissent and not settlement_recorded:
         reasons.append("unresolved model dissent is present")
-    if not quorum_satisfied:
+    if not quorum_satisfied and not settlement_recorded:
         reasons.append(
             "model quorum incomplete: "
             f"{signal_count}/{requirement['required_model_signals']} signal(s)"
@@ -1757,7 +1798,11 @@ def _build_model_review_quorum(
 
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
-    if (
+    if settlement_recorded:
+        status = "settled"
+        verdict = "already_merged_settlement_recorded"
+        requires_human_risk_settlement = False
+    elif (
         has_failures
         or has_pending
         or machine_recommendation == "repair_first"
@@ -1876,17 +1921,72 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
 
 
 def _has_blocking_workflow_state(pr: dict[str, Any]) -> bool:
+    return bool(_blocking_workflow_state_reasons(pr))
+
+
+def _blocking_workflow_state_reasons(pr: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    settlement_state_block = _settlement_state_block_reason(pr)
+    if settlement_state_block:
+        reasons.append(settlement_state_block)
     if bool(pr.get("isDraft", False)):
-        return True
+        reasons.append("draft PR")
     mergeable = str(pr.get("mergeable", "")).strip().upper()
     if mergeable == "CONFLICTING":
-        return True
+        reasons.append("merge conflict")
     labels = [
         str(label.get("name", "")).strip()
         for label in (pr.get("labels") or [])
         if isinstance(label, dict) and label.get("name")
     ]
-    return any(label in PARKED_LABELS for label in labels)
+    parked_label_hits = [label for label in labels if label in PARKED_LABELS]
+    if parked_label_hits:
+        reasons.append(f"parked label ({','.join(parked_label_hits)})")
+    return reasons
+
+
+def _settlement_state_block_reason(pr: dict[str, Any]) -> str:
+    state = str(pr.get("state") or "").strip().upper()
+    merged_at = str(pr.get("mergedAt") or "").strip()
+    if merged_at:
+        if state == "OPEN":
+            return (
+                "PR state is OPEN but mergedAt is set; settlement applies only to open unmerged PRs"
+            )
+        return f"PR is {state or 'MERGED'}; settlement applies only to open PRs"
+    if state and state != "OPEN":
+        return f"PR is {state}; settlement applies only to open PRs"
+    return ""
+
+
+def _has_recorded_admin_squash_settlement(
+    *,
+    pr_number: int,
+    head_sha: str,
+    review_queue_root: str | Path | None,
+) -> bool:
+    if not head_sha:
+        return False
+    repo_root = resolve_repo_root(Path.cwd())
+    root = _resolve_review_queue_root_override(repo_root, review_queue_root)
+    receipts_dir = root / "receipts"
+    if not receipts_dir.is_dir():
+        return False
+    for path in receipts_dir.glob(f"pr-{pr_number}-*.json"):
+        try:
+            payload = _read_receipt_payload(path)
+        except _GhError:
+            continue
+        if int(payload.get("pr_number") or 0) != pr_number:
+            continue
+        if str(payload.get("head_sha") or "").strip() != head_sha:
+            continue
+        if str(payload.get("action") or "").strip() != "admin_squash_merge":
+            continue
+        if str(payload.get("github_event") or "").strip() != "ADMIN_SQUASH_MERGE":
+            continue
+        return True
+    return False
 
 
 def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, Any]]:
