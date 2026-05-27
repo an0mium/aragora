@@ -529,6 +529,45 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
     assert packet["load_blockers"] == ["merge-packet for #7449 failed: GraphQL timeout"]
 
 
+def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+            if "--limit" in args:
+                return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
+            pr_number = int(args[args.index("--pr") + 1])
+            return (
+                _packet(
+                    _entry(
+                        pr_number,
+                        checks_summary="1/2 failing",
+                        reasons=["docs/tests/status-only"],
+                    )
+                ),
+                {"command": "packet", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [
+                    {"number": number, "title": f"fix {number}", "headRefName": f"codex/{number}"}
+                    for number in range(7449, 7460)
+                ],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
+
+    assert any(
+        warning.startswith("fallback per-PR merge-packet queries:")
+        for warning in packet["load_warnings"]
+    )
+
+
 def test_combine_packets_preserves_source_packet_timestamps(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
@@ -681,6 +720,40 @@ def test_build_report_fails_closed_when_operator_snapshot_fails(monkeypatch) -> 
         )
         for blocker in report["blockers"]
     )
+
+
+def test_build_report_does_not_reload_snapshot_when_packet_already_failed_closed(
+    monkeypatch,
+) -> None:
+    snapshot_called = False
+    blocker = "operator-snapshot unavailable; active-owned exclusions cannot be trusted: outage"
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        nonlocal snapshot_called
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "list"]:
+            return [], {"command": "metadata", "returncode": 0}
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            snapshot_called = True
+            return None, {"command": "snapshot", "returncode": 1, "stderr": "outage"}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = _packet()
+    packet["load_blockers"] = [blocker]
+    report = build_report(
+        packet,
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=None,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert snapshot_called is False
+    assert report["blockers"].count(blocker) == 1
 
 
 def test_build_report_blocks_repo_mismatch_when_repo_override_supplied(monkeypatch) -> None:

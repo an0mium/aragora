@@ -41,15 +41,6 @@ SURFACE_EXCLUDE_REASON = (
     "security/auth/RBAC/secrets/deploy/workflow/legal/compliance/destructive/"
     "migration/public-API surface"
 )
-UNSAFE_SURFACE_PATH_RE = re.compile(
-    r"(^|/)(?:"
-    r"\.github/workflows?|security(?:[_-][a-z0-9]+)?|"
-    r"auth(?:[_-][a-z0-9]+)?|authentication|authorization|oauth|rbac|"
-    r"secrets?|deploy(?:s|ments)?(?:[_-][a-z0-9]+)?|"
-    r"migrat(?:e|ion)(?:s|[_-][a-z0-9]+)?|legal|compliance|destructive"
-    r")(?:[./_-]|$)|(^|/)public[-_/ ]?apis?([./_-]|$)",
-    re.IGNORECASE,
-)
 
 
 def _repo_root() -> Path:
@@ -813,6 +804,19 @@ def active_owned_snapshot_blocker(command: dict[str, Any]) -> str | None:
     return "operator-snapshot unavailable; active-owned exclusions cannot be trusted"
 
 
+def _has_operator_snapshot_load_blocker(blockers: list[str]) -> bool:
+    return any(
+        blocker.startswith(
+            "operator-snapshot unavailable; active-owned exclusions cannot be trusted"
+        )
+        for blocker in blockers
+    )
+
+
+def _dedupe_strings(items: list[str]) -> list[str]:
+    return list(dict.fromkeys(items))
+
+
 def _normalize_repo_slug(value: str | None) -> str | None:
     if not value:
         return None
@@ -983,11 +987,19 @@ def build_report(
         policy_metadata, metadata_command = load_open_pr_metadata(cwd, repo=repo)
         policy_metadata_commands.append(metadata_command)
         active_owned_command: dict[str, Any] | None = None
-        if not repo_blocker:
+        snapshot_preblocked = _has_operator_snapshot_load_blocker(preselection_blockers)
+        if not repo_blocker and not snapshot_preblocked:
             active_owned_prs, active_owned_command = load_active_owned_prs(cwd)
             snapshot_blocker = active_owned_snapshot_blocker(active_owned_command)
             if snapshot_blocker:
                 preselection_blockers.append(snapshot_blocker)
+        elif snapshot_preblocked:
+            active_owned_command = {
+                "command": "python3 scripts/agent_bridge.py operator-snapshot --json",
+                "returncode": None,
+                "skipped": True,
+                "reason": "operator-snapshot failure already carried by packet load_blockers",
+            }
         policy_context = {
             "repo": repo,
             "policy_metadata_commands": policy_metadata_commands,
@@ -1026,7 +1038,7 @@ def build_report(
             ),
         )
     has_preselection_blockers = bool(preselection_blockers)
-    selection_blockers = [*preselection_blockers, *selection_blockers]
+    selection_blockers = _dedupe_strings([*preselection_blockers, *selection_blockers])
     report: dict[str, Any] = {
         "version": VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -1215,7 +1227,7 @@ def build_report(
     else:
         report["status"] = "needs_packet_rerun"
 
-    report["blockers"] = blockers
+    report["blockers"] = _dedupe_strings(blockers)
     report["recursive_best_next_prompt"] = recursive_prompt(report)
     return report
 
@@ -1344,6 +1356,7 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
         return packet
     packets: list[dict[str, Any]] = []
     packet_failures: list[str] = []
+    packet_attempts = 0
     selected_seen = False
     packets_after_selected = 0
     for pr_number, item in metadata.items():
@@ -1355,6 +1368,7 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
         )
         if light_reasons:
             continue
+        packet_attempts += 1
         try:
             packets.append(_load_single_pr_packet(cwd=cwd, pr=pr_number, repo=repo))
         except RuntimeError as exc:
@@ -1379,6 +1393,11 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
         if selected is not None:
             selected_seen = True
     packet = _combine_packets(packets) if packets else _empty_packet()
+    if packet_attempts > BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD:
+        load_warnings.append(
+            "fallback per-PR merge-packet queries: "
+            f"{packet_attempts} (light candidates={len(metadata)}, limit={limit})"
+        )
     packet["load_warnings"] = load_warnings
     if packet_failures:
         packet["load_blockers"] = packet_failures
