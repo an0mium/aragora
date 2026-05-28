@@ -2192,7 +2192,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     )
     pending_steering = _collect_pending_steering_messages(steering_recipient)
     agent_heartbeats = _collect_agent_heartbeats()
-    summary = {
+    summary: dict[str, Any] = {
         "total_sessions": len(sessions),
         "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
         "live_sessions": sum(1 for s in sessions if _is_current_session(s)),
@@ -2246,7 +2246,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     )
     print(f"Broker:   {summary['active_broker_runs']} active run(s)")
     print(f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict")
-    process_roles = ", ".join(summary["active_process_roles"]) or "-"
+    active_process_roles = [str(role) for role in summary.get("active_process_roles", [])]
+    process_roles = ", ".join(active_process_roles) or "-"
     print(f"Processes:{summary['active_processes']} recognized ({process_roles})")
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
     print(f"Health:   {health_status}")
