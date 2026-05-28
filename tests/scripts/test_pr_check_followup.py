@@ -343,6 +343,9 @@ def test_merge_quorum_model_quorum_failure_emits_evidence_prompt() -> None:
     assert "## Codex focused adversarial dogfood" not in result.prompt
     assert "Model family: openai" not in result.prompt
     assert "not Codex, not any OpenAI-family model" in result.prompt
+    assert (
+        "python3 scripts/collect_model_evidence.py --pr 7443 --head evidence-head" in result.prompt
+    )
     assert "Post exactly one valid PR comment" in result.prompt
     assert "Do not merge" in result.prompt
 

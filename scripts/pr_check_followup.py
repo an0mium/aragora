@@ -973,6 +973,9 @@ def build_prompt(
         )
     elif action == "collect_model_evidence":
         lines.append(
+            f"Use the bounded evidence helper first: python3 scripts/collect_model_evidence.py --pr {pr_number} --head {pin} --family-order gemini,droid-gemini,claude,droid-claude-opus --json"
+        )
+        lines.append(
             "If merge-packet still blocks on model quorum or focused adversarial dogfood, collect exactly one current-head non-Codex model/dogfood evidence signal."
         )
         lines.append(
@@ -982,7 +985,7 @@ def build_prompt(
             "Use a countable non-Codex header and metadata block, for example `## Claude focused adversarial dogfood`, `Exact head: <HEAD>`, `Reviewer harness: claude-code`, `Model family: claude`, `Model id: <MODEL>`, and `Receipt artifact: <PATH>`."
         )
         lines.append(
-            "Post exactly one valid PR comment only if the evidence is current-head, not Codex, not any OpenAI-family model, lists files reviewed, puts findings first, includes validation run/not-run reasons, includes focused adversarial dogfood verdict, and states that it is not merge authorization."
+            "Post exactly one valid PR comment by rerunning the helper with --post-comment only if the evidence is current-head, not Codex, not any OpenAI-family model, lists files reviewed, puts findings first, includes validation run/not-run reasons, includes focused adversarial dogfood verdict, states that it is not merge authorization, evidence-lint says would_count=true, and the model reports no blocking findings."
         )
         lines.append(
             "Then rerun review-queue merge-packet for the PR and report the next blocker. Do not merge."
