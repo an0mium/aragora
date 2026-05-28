@@ -9,19 +9,24 @@ all flags (--list, --topic, --server).
 from __future__ import annotations
 
 import argparse
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 import aragora_debate  # noqa: F401
 
+from aragora.cli.commands.receipt import cmd_receipt_verify
 from aragora.cli.demo import (
     DEMO_TASKS,
     _AGENT_CONFIGS,
     _DEFAULT_DEMO,
+    _build_builtin_demo_result,
+    _build_receipt_data,
     _print_banner,
     _print_result,
     _run_mock_demo,
+    _save_demo_receipt,
     _wrap,
     list_demos,
     main,
@@ -323,6 +328,30 @@ class TestDemoIntegration:
         assert result.receipt.receipt_id.startswith("DR-")
         assert result.receipt.signature is not None
         assert result.receipt.signature_algorithm == "SHA-256-content-hash"
+
+    def test_demo_receipt_payload_is_canonical_and_verifiable(self, tmp_path, capsys):
+        """Saved demo receipts round-trip through the receipt verifier."""
+        from aragora.gauntlet.receipt_models import DecisionReceipt
+
+        result = _build_builtin_demo_result("Should we use Kubernetes?")
+        receipt_data = _build_receipt_data(result, elapsed=0.25)
+
+        assert receipt_data["question"] == "Should we use Kubernetes?"
+        assert receipt_data["summary"]
+        assert receipt_data["artifact_hash"]
+        assert DecisionReceipt.from_dict(receipt_data).verify_integrity() is True
+
+        receipt_path = tmp_path / "demo-receipt.json"
+        _save_demo_receipt(result, 0.25, str(receipt_path))
+
+        saved = json.loads(receipt_path.read_text())
+        assert DecisionReceipt.from_dict(saved).verify_integrity() is True
+
+        with pytest.raises(SystemExit) as exc:
+            cmd_receipt_verify(argparse.Namespace(receipt=str(receipt_path), verbose=True))
+
+        assert exc.value.code == 0
+        assert "Result: VALID" in capsys.readouterr().out
 
 
 class TestOfflineMockFallback:

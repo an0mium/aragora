@@ -199,6 +199,7 @@ def test_run_real_demo_reraises_unexpected_live_errors():
 def test_build_live_receipt_data_parses_string_consensus_flags(raw_consensus, expected):
     """Live demo receipts normalize string consensus flags consistently."""
     from aragora.cli.demo import _build_live_receipt_data
+    from aragora.gauntlet.receipt_models import DecisionReceipt
 
     receipt = _build_live_receipt_data(
         {
@@ -213,3 +214,7 @@ def test_build_live_receipt_data_parses_string_consensus_flags(raw_consensus, ex
 
     assert receipt["consensus_proof"]["reached"] is expected
     assert receipt["verdict"] == ("consensus" if expected else "no_consensus")
+    assert receipt["timestamp"]
+    assert receipt["artifact_hash"]
+    assert receipt["question"] == "Should we ship?"
+    assert DecisionReceipt.from_dict(receipt).verify_integrity() is True

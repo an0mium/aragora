@@ -10,9 +10,10 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 > linked PR since 2026-05-21. The full-corpus legacy rate is also unchanged at
 > 30.8%. The honest reading: the proxy-PR signal rate (76.9%) demonstrates
 > work-attempted, but the verified-by-PR-link metric — which is the metric
-> external claims must point at — is still zero. This is the artifact-of-record
-> for the FOCUS.md 14-day sprint goal #4. New timestamped artifact published at
-> `.aragora/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260526T225131Z.json`.
+> external claims must point at — is still zero. The repo-tracked evidence for
+> the FOCUS.md 14-day sprint goal #4 remains the generated status pointers
+> below; the rerun also produced local `.aragora/` operator artifacts, which are
+> intentionally not part of the tracked public artifact set.
 > The outreach gate in FOCUS.md (`truth_success_rate_verified ≥ 50%`) remains
 > closed as designed.
 
