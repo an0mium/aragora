@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -9,6 +10,9 @@ from typing import Any
 import pytest
 
 import scripts.reconcile_automation_outbox as mod
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+WRAPPER_SCRIPT_PATH = REPO_ROOT / "scripts" / "reconcile_automation_handoffs.py"
 
 
 def _unhealthy_github() -> SimpleNamespace:
@@ -166,6 +170,28 @@ def test_json_summary_only_omits_action_details(
     assert payload["action_count"] == 1
     assert payload["actions_omitted"] is True
     assert "actions" not in payload
+
+
+def test_reconcile_automation_handoffs_wrapper_executes_primary_script(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(WRAPPER_SCRIPT_PATH),
+            "--repo",
+            str(tmp_path),
+            "--json",
+            "--summary-only",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["repo"] == str(tmp_path.resolve())
+    assert payload["outbox_count"] == 0
+    assert payload["actions_omitted"] is True
 
 
 def test_state_root_can_point_at_direct_dot_aragora(
