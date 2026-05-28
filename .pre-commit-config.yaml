@@ -38,7 +38,8 @@ repos:
   # typecheck gate. Touched `aragora/**.py` files use CI's changed-file mypy
   # flags; CI force-full trigger files run the full typecheck tier locally.
   # CI remains authoritative because it installs the project and computes the
-  # changed-file plan from the PR/branch base.
+  # changed-file plan from the PR/branch base; local pre-push remains a fast
+  # guardrail, not the source of truth.
   #
   # We intentionally do NOT run the manual `mypy_with_baseline.py` helper on
   # pre-push. The required CI workflow uses `scripts/run_typecheck_gate.py` plus
@@ -46,7 +47,7 @@ repos:
   # explicit local baseline filtering or regeneration.
   #
   # This hook runs in an isolated `language: python` env, so pre-commit installs
-  # mypy and the same type stubs as CI — the gate never depends on the
+  # mypy and the same type stubs as CI — the gate does not depend on the
   # developer's active environment having mypy (no "No module named mypy"
   # surprises). The changed-file path uses `--follow-imports=skip` /
   # `--ignore-missing-imports` so it does not need the full project installed.
@@ -60,18 +61,26 @@ repos:
         name: mypy (changed aragora files or full CI trigger)
         entry: >-
           bash -c 'set -euo pipefail;
-          force_full=0;
-          for path in "$@"; do
-            case "$path" in
-              pyproject.toml|.github/workflows/lint.yml|scripts/run_typecheck_gate.py|scripts/test_tiers.sh|requirements*.txt|.github/actions/pr-scope-classifier/*)
-                force_full=1
-                ;;
-            esac
-          done;
-          if [[ "$force_full" == "1" ]]; then
+          targets_file="$(mktemp)";
+          plan_file="$(mktemp)";
+          trap "rm -f \"$targets_file\" \"$plan_file\"" EXIT;
+          args=("$@");
+          if git rev-parse --verify origin/main >/dev/null 2>&1; then
+            while IFS= read -r deleted_path; do
+              [[ -n "$deleted_path" ]] && args+=("$deleted_path");
+            done < <(git diff --name-only --diff-filter=D origin/main...HEAD -- "aragora/*.py" "aragora/**/*.py" 2>/dev/null || true);
+          fi;
+          python scripts/run_typecheck_gate.py --repo-root . --files "${args[@]}" --targets-file "$targets_file" --json > "$plan_file";
+          mode="$(sed -n "s/.*\"mode\": \"\\([^\"]*\\)\".*/\\1/p" "$plan_file" | head -1)";
+          if [[ "$mode" == "full" ]]; then
+            venv_bin="$(python -c "import os, sys; print(os.path.dirname(sys.executable))")";
+            export PATH="$venv_bin:$PATH";
             bash scripts/test_tiers.sh typecheck;
+          elif [[ "$mode" == "changed" ]]; then
+            mapfile -t targets < "$targets_file";
+            mypy --ignore-missing-imports --follow-imports=skip --show-error-codes "${targets[@]}";
           else
-            mypy --ignore-missing-imports --follow-imports=skip --show-error-codes "$@";
+            cat "$plan_file";
           fi' --
         language: python
         additional_dependencies:
@@ -84,9 +93,11 @@ repos:
           - types-PyYAML
         # pre-commit passes only the changed, still-existing files matching
         # `files:` — either touched aragora Python files or CI force-full
-        # trigger files handled by the entrypoint above.
+        # trigger files handled by the entrypoint above. `always_run` lets the
+        # entrypoint also catch deleted aragora Python files from the git diff.
         pass_filenames: true
-        files: ^(aragora/.*\.py|pyproject\.toml|\.github/workflows/lint\.yml|scripts/run_typecheck_gate\.py|scripts/test_tiers\.sh|requirements.*\.txt|\.github/actions/pr-scope-classifier/.*)$
+        always_run: true
+        files: ^(aragora/.*\.py|pyproject\.toml|\.github/workflows/lint\.yml|scripts/run_typecheck_gate\.py|scripts/test_tiers\.sh|(.*/)?requirements[^/]*\.txt|\.github/actions/pr-scope-classifier/.*)$
         # Run on pre-push to catch type errors before they hit CI.
         stages: [pre-push]
 
