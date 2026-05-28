@@ -1271,7 +1271,11 @@ def _classify_pr(pr: dict[str, Any]) -> QueueItem:
     additions = int(pr.get("additions", 0) or 0)
     deletions = int(pr.get("deletions", 0) or 0)
     changed_files = int(pr.get("changedFiles", 0) or 0)
+    checks_unavailable = _check_rollup_unavailable(pr)
     checks_summary, has_failures, has_pending = _summarize_checks(pr.get("statusCheckRollup") or [])
+    if checks_unavailable:
+        checks_summary = "no checks reported"
+        has_pending = True
 
     parked_label_hits = [lab for lab in labels if lab in PARKED_LABELS]
 
@@ -1283,6 +1287,8 @@ def _classify_pr(pr: dict[str, Any]) -> QueueItem:
         lane, reason = "parked", "merge conflict"
     elif has_failures:
         lane, reason = "repairable", checks_summary
+    elif checks_unavailable:
+        lane, reason = "needs_attention", checks_summary
     elif has_pending:
         lane, reason = "needs_attention", f"checks pending ({checks_summary})"
     elif additions + deletions > LARGE_DIFF_THRESHOLD:
@@ -1356,6 +1362,17 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     if success > 0:
         return (f"{success}/{total} green", False, False)
     return ("no checks", False, False)
+
+
+def _check_rollup_unavailable(pr: dict[str, Any]) -> bool:
+    """Return true when an open PR has no GitHub PR-facing check rollup."""
+    pr_state = str(pr.get("state") or "").strip().upper()
+    if pr_state and pr_state != "OPEN":
+        return False
+    if pr.get("mergedAt"):
+        return False
+    rollup = pr.get("statusCheckRollup")
+    return rollup is None or rollup == []
 
 
 def _latest_status_check_rollup(checks: list) -> list[dict[str, Any]]:
@@ -1503,7 +1520,11 @@ def _build_packet(
     parked_label_hits = [lab for lab in labels if lab in PARKED_LABELS]
     touched = sorted({_subsystem_for(p) for p in files})
     high_risk = [p for p in files if _is_high_risk_path(p)]
+    checks_unavailable = _check_rollup_unavailable(pr)
     checks_summary, has_failures, has_pending = _summarize_checks(pr.get("statusCheckRollup") or [])
+    if checks_unavailable:
+        checks_summary = "no checks reported"
+        has_pending = True
     additions = int(pr.get("additions", 0) or 0)
     deletions = int(pr.get("deletions", 0) or 0)
     is_draft = bool(pr.get("isDraft", False))
@@ -1547,6 +1568,8 @@ def _build_packet(
         risk_flags.append(f"large diff (+{additions}/-{deletions})")
     if mergeable == "CONFLICTING":
         risk_flags.append("merge conflict")
+    if checks_unavailable:
+        risk_flags.append("check rollup unavailable")
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
 
@@ -1559,6 +1582,9 @@ def _build_packet(
     elif has_failures or mergeable == "CONFLICTING":
         recommendation = "repair_first"
         recommendation_reason = "checks failing or merge conflict — fix before review"
+    elif checks_unavailable:
+        recommendation = "needs_human_attention"
+        recommendation_reason = "check rollup unavailable — wait for GitHub to report checks"
     elif is_draft:
         recommendation = "needs_human_attention"
         recommendation_reason = "draft PR — keep parked until it is ready for review"
@@ -1655,6 +1681,7 @@ def _build_packet(
             machine_recommendation=recommendation,
             has_pending=has_pending,
             has_failures=has_failures,
+            checks_unavailable=checks_unavailable,
             settlement_recorded=settlement_recorded,
             human_risk_settlement_recorded=human_risk_settlement_recorded,
         ),
@@ -1761,6 +1788,7 @@ def _build_model_review_quorum(
     machine_recommendation: str,
     has_pending: bool,
     has_failures: bool,
+    checks_unavailable: bool = False,
     settlement_recorded: bool = False,
     human_risk_settlement_recorded: bool = False,
 ) -> dict[str, Any]:
@@ -1803,7 +1831,9 @@ def _build_model_review_quorum(
         reasons.append("exact-head human risk settlement receipt recorded")
     if has_failures and not settlement_recorded:
         reasons.append("checks are failing; repair before settlement")
-    if has_pending and not settlement_recorded:
+    if checks_unavailable and not settlement_recorded:
+        reasons.append("checks are unavailable; wait for GitHub check rollup before settlement")
+    elif has_pending and not settlement_recorded:
         reasons.append("checks are pending; wait before settlement")
     if not settlement_recorded:
         reasons.extend(blocking_workflow_reasons)
@@ -1826,6 +1856,7 @@ def _build_model_review_quorum(
     elif (
         has_failures
         or has_pending
+        or checks_unavailable
         or machine_recommendation == "repair_first"
         or blocking_workflow_state
     ):
