@@ -181,3 +181,16 @@ class TestRescueEventType:
         """RescueEventType members should be usable as plain strings."""
         assert isinstance(RescueEventType.OTHER, str)
         assert RescueEventType.OTHER == "other"
+
+
+class TestPublicExports:
+    def test_rescue_events_exports_public_api(self) -> None:
+        from aragora.swarm import rescue_events
+
+        assert set(rescue_events.__all__) == {
+            "DEFAULT_RESCUE_LEDGER_PATH",
+            "RescueEvent",
+            "RescueEventLedger",
+            "RescueEventType",
+            "record_rescue",
+        }
