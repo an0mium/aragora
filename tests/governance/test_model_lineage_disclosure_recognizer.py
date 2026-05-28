@@ -134,6 +134,34 @@ LINEAGE_REGEX = re.compile(
 )
 
 
+def _strip_fenced_code_blocks(markdown: str) -> str:
+    """Reference contract: lineage parsing ignores fenced code blocks."""
+    prose_lines: list[str] = []
+    in_fence = False
+    fence_marker: str | None = None
+
+    for line in markdown.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith(("```", "~~~")):
+            marker = stripped[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = None
+            continue
+        if not in_fence:
+            prose_lines.append(line)
+
+    return "\n".join(prose_lines)
+
+
+def _search_lineage_body_prose(markdown: str) -> re.Match[str] | None:
+    """Reference parser shape: apply LINEAGE_REGEX only to body prose."""
+    return LINEAGE_REGEX.search(_strip_fenced_code_blocks(markdown))
+
+
 @pytest.mark.parametrize(
     "body, expected_harness, expected_model_id",
     [
@@ -234,7 +262,8 @@ def test_lineage_regex_accepts_well_formed_disclosures(
         # Note: uppercase model_id like "GPT-5.5" is technically
         # accepted by the current regex (IGNORECASE flag makes
         # `[a-z]` match `[a-zA-Z]`). Convention is lowercase
-        # (matching aragora/agents/spec.py::Spec.ALLOWED_PROVIDERS)
+        # (matching the implementation PR's lineage prefix table,
+        # which must stay aligned with AgentSpec/ALLOWED_AGENT_TYPES)
         # but the regex itself doesn't enforce case. Operators
         # treating uppercase model_id as a different lineage than
         # lowercase would need to add a separate normalization
@@ -397,27 +426,30 @@ def test_lineage_regex_does_not_match_heading() -> None:
     )
 
 
-def test_lineage_regex_matches_reviewer_shaped_code_block_content_today() -> None:
-    """Current limitation: regex matches Reviewer-shaped lines in code blocks.
+def test_lineage_parser_ignores_reviewer_shaped_code_block_content() -> None:
+    """Reviewer-shaped lines in code blocks are not attestations.
 
     Defensive concern: a reviewer pasting code with a literal
-    `Reviewer: foo (bar)` line (no comment-marker prefix) will trip
-    the regex because the current spec has no fenced-code-block
-    awareness. The implementation PR should add code-fence detection
-    to suppress these false positives; this test pins the current
-    limitation as the regression floor so the fix is verifiable.
+    `Reviewer: foo (bar)` line (no comment-marker prefix) must not
+    populate model_lineage. The implementation PR must use this
+    regex-plus-context contract, not the raw regex alone.
 
     Note: bodies with `# Reviewer: ...` (hash-prefixed Python comments)
     do NOT match because the regex starts with `^\\s*\\*{0,2}Reviewer`
     and `#` is neither whitespace nor an asterisk. Only un-prefixed
-    Reviewer-shaped lines inside code blocks trip the regex.
+    Reviewer-shaped lines inside code blocks need explicit fence
+    filtering.
     """
     body = "Sample code:\n\n```\nReviewer: SomeAgent (some-model-v1)\n```\n"
-    match = LINEAGE_REGEX.search(body)
-    assert match is not None, (
-        "Current LINEAGE_REGEX behavior: matches Reviewer-shaped "
-        "lines inside code blocks. The implementation PR should add "
-        "code-fence detection to suppress these false positives; "
-        "this test pins the current limitation as the regression "
-        "floor so the fix is verifiable."
+    raw_match = LINEAGE_REGEX.search(body)
+    assert raw_match is not None, (
+        "This fixture must remain capable of demonstrating why raw "
+        "LINEAGE_REGEX is insufficient by itself."
+    )
+
+    prose_match = _search_lineage_body_prose(body)
+    assert prose_match is None, (
+        "The lineage parser contract must ignore Reviewer-shaped "
+        "lines inside fenced code blocks so example text cannot be "
+        "laundered into model-lineage evidence."
     )

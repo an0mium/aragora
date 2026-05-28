@@ -108,8 +108,12 @@ This matches lines like:
 - `**Reviewer:** Aragora harness (grok-4-3-mini)`
 - `**Reviewer lineage:** Factory Droid (gpt-5.5)`
 
-The `model_id` capture is normalized to the family taxonomy used in
-`aragora/agents/spec.py::Spec.ALLOWED_PROVIDERS`:
+The `model_id` capture is normalized by a new model-lineage prefix
+table introduced by the implementation PR. The table's provider names
+must stay aligned with the real agent-provider vocabulary validated by
+`aragora/agents/spec.py::AgentSpec` via
+`aragora.config.settings::ALLOWED_AGENT_TYPES`; it does not depend on a
+pre-existing provider allowlist constant in `aragora/agents/spec.py`.
 
 | model_id prefix | normalized model family |
 | --- | --- |
@@ -126,6 +130,11 @@ The `model_id` capture is normalized to the family taxonomy used in
 
 The harness identity is recorded but not normalized for counting
 purposes — it's audit-trail metadata.
+
+The parser applies `LINEAGE_REGEX` only to body prose outside fenced
+Markdown code blocks. A reviewer-shaped line inside a fenced code block,
+for example `Reviewer: SomeAgent (some-model-v1)`, is example text, not
+an operator attestation, and must not populate `model_lineage`.
 
 ### Recognizer return shape
 
@@ -196,6 +205,7 @@ The implementation PR will need:
 | 4 | Heading/body disagreement — comment headed `## Claude ...` but body declares `**Reviewer:** Factory Droid (gpt-5.5)`. Is this a recognizer-bug, an operator-error, or a deliberate cross-attribution claim? | The recognizer returns `family_marker="claude"` (from heading) and `model_lineage="openai"` (from body). The merge-quorum evaluator surfaces the discrepancy as `family_lineage_mismatch: true` in the per-signal record, and (in Variant B) optionally treats the signal as `unknown_model_reviewer`. The variant-B treatment is operator-decided in the follow-on pre-approval. |
 | 5 | Model-ID drift — new model IDs (e.g., `gpt-5.6`, `claude-opus-5-0`) won't match the prefix table. | The prefix table is a *living* document. Adding new model-ID prefixes to the normalization table is a Tier 4 pre-approval pattern (same shape as #7472 for family additions). Governance tests pin the current prefix table; updates require pre-approval. |
 | 6 | Counted-quorum impact — Variant B would retroactively un-count many existing signals on open PRs. | Variant A is recommended for first implementation precisely to avoid this. Variant B's follow-on PR ships with an explicit observation-period and a per-PR transition policy (e.g., `lineage_disclosed_after: <date>` field in the merge-packet). |
+| 7 | Fenced-code spoofing — a review body includes example code containing `Reviewer: SomeAgent (some-model-v1)`, and a naive regex treats it as an attestation. | The parser contract is regex-plus-context: skip fenced Markdown code blocks before applying `LINEAGE_REGEX`. Governance tests pin this as a required safety floor so implementation cannot accidentally count example text as model lineage. |
 
 ## Failing governance tests (regression floor)
 
@@ -211,9 +221,10 @@ the current state as the regression floor:
   behavior so the implementation PR can be verified to break it
   intentionally.
 - **Parser contract for `**Reviewer:**`**: ≥10 positive examples
-  matching the regex (covering all major model families); ≥10
-  negative examples (missing prefix, missing parens, missing model-
-  id, mis-spelled keyword).
+  matching the regex outside fenced code blocks (covering all major
+  model families); ≥10 negative examples (missing prefix, missing
+  parens, missing model-id, mis-spelled keyword, fenced-code example
+  text).
 - **Model-ID prefix normalization**: each entry in the prefix table
   has a positive test. Unknown prefixes produce `unknown_model_lineage`.
 - **Body-detection precedence**: the parser scans the entire body,
@@ -239,9 +250,9 @@ A future PR will:
    with `def _infer_model_reviewer_from_text(text: str) -> RecognizedReviewer`
    (or equivalent NamedTuple). Existing call sites use
    `.family_marker`; new call sites use `.model_lineage`.
-2. Add the body-scanning `LINEAGE_REGEX` parser and the prefix-
-   normalization table as module-level constants in
-   `aragora/cli/commands/review_queue.py`.
+2. Add the body-scanning `LINEAGE_REGEX` parser, fenced-code-block
+   filtering, and the prefix-normalization table as module-level
+   constants/helpers in `aragora/cli/commands/review_queue.py`.
 3. Update `aragora-merge-quorum.yml` (or its evaluator script) to
    record `model_lineage`, `lineage_undeclared`, and
    `family_lineage_mismatch` per per-signal record in the merge-
