@@ -95,6 +95,14 @@ class SynthesisGenerator:
             self._generate_export_links(ctx)
             return True
 
+        if self._should_preserve_single_agent_answer(ctx):
+            direct_answer = next(iter(ctx.proposals.values()))
+            ctx.result.synthesis = direct_answer
+            ctx.result.final_answer = direct_answer
+            self._emit_synthesis_events(ctx, direct_answer, "single_agent_direct")
+            self._generate_export_links(ctx)
+            return True
+
         logger.info("synthesis_generation_start")
 
         synthesis: str | None = None
@@ -223,6 +231,16 @@ class SynthesisGenerator:
         self._generate_export_links(ctx)
 
         return True
+
+    def _should_preserve_single_agent_answer(self, ctx: DebateContext) -> bool:
+        if len(ctx.proposals) != 1:
+            return False
+        if getattr(self.protocol, "single_agent_direct_answer", False) is True:
+            return True
+
+        consensus = getattr(self.protocol, "consensus", None)
+        rounds = getattr(self.protocol, "rounds", None)
+        return consensus == "none" and isinstance(rounds, int) and rounds <= 1
 
     @staticmethod
     def _anthropic_synthesis_available() -> bool:

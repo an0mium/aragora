@@ -228,6 +228,9 @@ class DebateProtocol:
         "crux_finder",
     ] = "judge"
     consensus_threshold: float = 0.6  # fraction needed for majority
+    single_agent_direct_answer: bool = False
+    # When true, a one-agent local ask should answer the user directly instead
+    # of using proposal/synthesis framing intended for multi-agent debate.
     allow_abstain: bool = True
     require_reasoning: bool = True
 
