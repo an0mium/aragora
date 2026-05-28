@@ -2239,7 +2239,6 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         print(json.dumps(snapshot, indent=2))
         return 0
 
-    summary = snapshot["summary"]
     print(f"Operator Snapshot @ {snapshot['timestamp']}")
     print("=" * 80)
     print(
