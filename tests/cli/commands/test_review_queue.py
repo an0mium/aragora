@@ -62,6 +62,7 @@ def _make_pr(
     merged_at: str = "",
     is_draft: bool = False,
     mergeable: str = "MERGEABLE",
+    merge_state_status: str = "CLEAN",
     review_decision: str = "",
     labels: list[str] | None = None,
     additions: int = 10,
@@ -84,6 +85,7 @@ def _make_pr(
         "baseRefOid": "basesha0001",
         "isDraft": is_draft,
         "mergeable": mergeable,
+        "mergeStateStatus": merge_state_status,
         "reviewDecision": review_decision,
         "labels": [{"name": lab} for lab in (labels or [])],
         "author": {"login": author},
@@ -91,7 +93,8 @@ def _make_pr(
         "deletions": deletions,
         "changedFiles": changed_files,
         "statusCheckRollup": checks
-        or [{"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"}],
+        if checks is not None
+        else [{"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"}],
         "files": [{"path": p} for p in (files or [])],
         "body": body,
     }
@@ -1594,6 +1597,175 @@ class TestBuildQueueAndPacket:
         )
         packet = _build_packet("7472", repo_override=None)
 
+        assert packet.machine_recommendation == "approve_candidate"
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+        assert packet.model_review_quorum["status"] == "satisfied"
+
+    def test_empty_rollup_with_pending_direct_check_runs_blocks_admin_squash(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7465, checks=[], files=["pyproject.toml", "uv.lock"])
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Codex focused dogfood\nCurrent head: sha00007465\nNo blockers.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Claude review\nCurrent head: sha00007465\nVerdict: approve.",
+            },
+        ]
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args and args[0] == "api" and any("check-runs" in arg for arg in args):
+                return {
+                    "check_runs": [
+                        {
+                            "name": "lint",
+                            "status": "completed",
+                            "conclusion": "success",
+                        },
+                        {
+                            "name": "Test (core, ubuntu-latest, py3.13)",
+                            "status": "in_progress",
+                            "conclusion": None,
+                        },
+                    ]
+                }
+            raise AssertionError(f"unexpected gh json call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+
+        assert packet.checks_summary == "direct check-runs pending (1 pending / 2 total)"
+        assert packet.machine_recommendation == "needs_human_attention"
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert "checks are pending; wait before settlement" in packet.model_review_quorum["reasons"]
+
+    def test_green_rollup_with_failing_direct_check_runs_blocks_admin_squash(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7466, files=["docs/status/open.md"])
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args and args[0] == "api" and any("check-runs" in arg for arg in args):
+                return {
+                    "check_runs": [
+                        {
+                            "name": "lint",
+                            "status": "completed",
+                            "conclusion": "success",
+                        },
+                        {
+                            "name": "Nightly Slow Tier",
+                            "status": "completed",
+                            "conclusion": "failure",
+                        },
+                    ]
+                }
+            raise AssertionError(f"unexpected gh json call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        packet = _build_packet("7466", repo_override=None)
+
+        assert packet.checks_summary == "1/1 green; direct check-runs failing (1 failing / 2 total)"
+        assert packet.machine_recommendation == "repair_first"
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert (
+            "checks are failing; repair before settlement" in packet.model_review_quorum["reasons"]
+        )
+
+    def test_blocked_merge_state_blocks_admin_squash_even_when_checks_are_green(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7467,
+            files=["docs/status/open.md"],
+            merge_state_status="BLOCKED",
+        )
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args and args[0] == "api" and any("check-runs" in arg for arg in args):
+                return {
+                    "check_runs": [
+                        {
+                            "name": "lint",
+                            "status": "completed",
+                            "conclusion": "success",
+                        }
+                    ]
+                }
+            raise AssertionError(f"unexpected gh json call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        packet = _build_packet("7467", repo_override=None)
+
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert (
+            "GitHub mergeStateStatus is BLOCKED; required checks or branch protection "
+            "are not satisfied"
+        ) in packet.model_review_quorum["reasons"]
+
+    def test_empty_rollup_with_green_direct_check_runs_allows_open_authorized_pr(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7468, checks=[], files=["docs/status/open.md"])
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args and args[0] == "api" and any("check-runs" in arg for arg in args):
+                return {
+                    "check_runs": [
+                        {
+                            "name": "lint",
+                            "status": "completed",
+                            "conclusion": "success",
+                        },
+                        {
+                            "name": "typecheck",
+                            "status": "completed",
+                            "conclusion": "success",
+                        },
+                    ]
+                }
+            raise AssertionError(f"unexpected gh json call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        packet = _build_packet("7468", repo_override=None)
+
+        assert packet.checks_summary == "direct check-runs 2/2 green"
         assert packet.machine_recommendation == "approve_candidate"
         assert packet.model_review_quorum["admin_squash_allowed"] is True
         assert packet.model_review_quorum["status"] == "satisfied"

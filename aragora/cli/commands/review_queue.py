@@ -135,6 +135,18 @@ PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
 MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"
 MERGE_QUORUM_WORKFLOW_NAME = "Aragora Merge Quorum"
 MERGE_QUORUM_JOB_ID = "merge-quorum"
+DIRECT_CHECK_RUN_FAILURE_CONCLUSIONS: tuple[str, ...] = (
+    "FAILURE",
+    "TIMED_OUT",
+    "ACTION_REQUIRED",
+    "STARTUP_FAILURE",
+    "CANCELLED",
+)
+DIRECT_CHECK_RUN_IGNORED_CONCLUSIONS: tuple[str, ...] = (
+    "SKIPPED",
+    "NEUTRAL",
+    "STALE",
+)
 
 LANE_ORDER: dict[str, int] = {
     "ready_now": 0,
@@ -1358,6 +1370,125 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     return ("no checks", False, False)
 
 
+def _combine_check_summaries(
+    rollup_summary: str,
+    direct_summary: str,
+    *,
+    direct_has_failures: bool,
+    direct_has_pending: bool,
+) -> str:
+    if not direct_summary:
+        return rollup_summary
+    if rollup_summary == "no checks":
+        return direct_summary
+    if direct_has_failures or direct_has_pending:
+        return f"{rollup_summary}; {direct_summary}"
+    return rollup_summary
+
+
+def _summarize_exact_head_check_runs(
+    pr: dict[str, Any],
+    *,
+    repo_override: str | None,
+) -> tuple[str, bool, bool]:
+    """Return exact-head check-run state from GitHub's commit check-runs API."""
+    head_sha = str(pr.get("headRefOid", "") or "").strip()
+    if not head_sha:
+        return ("", False, False)
+    repo = str(repo_override or "").strip() or _repo_from_url(str(pr.get("url", "") or ""))
+    if not repo:
+        return ("", False, False)
+
+    try:
+        payload = _gh_json(
+            [
+                "api",
+                "-X",
+                "GET",
+                f"repos/{repo}/commits/{head_sha}/check-runs",
+                "-F",
+                "per_page=100",
+            ]
+        )
+    except _GhError as exc:
+        if not pr.get("statusCheckRollup"):
+            return (f"direct check-runs unavailable ({exc})", True, False)
+        return ("", False, False)
+
+    if not isinstance(payload, dict):
+        return ("", False, False)
+    check_runs = payload.get("check_runs")
+    if not isinstance(check_runs, list):
+        return ("", False, False)
+
+    success = failure = pending = 0
+    for run in check_runs:
+        if not isinstance(run, dict):
+            continue
+        if _is_current_merge_quorum_self_check_run(run):
+            continue
+        status = str(run.get("status") or "").upper()
+        conclusion = str(run.get("conclusion") or "").upper()
+        if status != "COMPLETED":
+            pending += 1
+        elif conclusion == "SUCCESS":
+            success += 1
+        elif conclusion in DIRECT_CHECK_RUN_FAILURE_CONCLUSIONS:
+            failure += 1
+        elif conclusion in DIRECT_CHECK_RUN_IGNORED_CONCLUSIONS:
+            continue
+        else:
+            pending += 1
+
+    total = success + failure + pending
+    if failure > 0:
+        return (f"direct check-runs failing ({failure} failing / {total} total)", True, pending > 0)
+    if pending > 0:
+        return (f"direct check-runs pending ({pending} pending / {total} total)", False, True)
+    if success > 0:
+        return (f"direct check-runs {success}/{total} green", False, False)
+    return ("", False, False)
+
+
+def _is_current_merge_quorum_self_check_run(check: dict[str, Any]) -> bool:
+    name = str(check.get("name") or check.get("context") or "").strip()
+    if name != MERGE_QUORUM_CHECK_NAME:
+        return False
+
+    status = str(check.get("status") or check.get("state") or "").upper()
+    conclusion = str(check.get("conclusion") or "").upper()
+    if conclusion or status not in {"IN_PROGRESS", "QUEUED", "PENDING", "EXPECTED", "REQUESTED"}:
+        return False
+
+    if os.environ.get("GITHUB_WORKFLOW") != MERGE_QUORUM_WORKFLOW_NAME:
+        return False
+    if os.environ.get("GITHUB_JOB") != MERGE_QUORUM_JOB_ID:
+        return False
+
+    run_id = str(os.environ.get("GITHUB_RUN_ID") or "").strip()
+    repo = str(os.environ.get("GITHUB_REPOSITORY") or "").strip()
+    if not run_id or not repo:
+        return False
+
+    server_url = str(os.environ.get("GITHUB_SERVER_URL") or "https://github.com")
+    details_url = str(
+        check.get("detailsUrl")
+        or check.get("details_url")
+        or check.get("html_url")
+        or check.get("link")
+        or ""
+    ).strip()
+    parsed_server = urlparse(server_url)
+    parsed_details = urlparse(details_url)
+    expected_path_prefix = f"/{repo}/actions/runs/{run_id}/"
+    return (
+        parsed_details.scheme in {"http", "https"}
+        and bool(parsed_server.netloc)
+        and parsed_details.netloc == parsed_server.netloc
+        and parsed_details.path.startswith(expected_path_prefix)
+    )
+
+
 def _latest_status_check_rollup(checks: list) -> list[dict[str, Any]]:
     """Collapse superseded check-rollup entries to their latest identity.
 
@@ -1469,6 +1600,7 @@ def _build_packet(
             "mergedAt",
             "isDraft",
             "mergeable",
+            "mergeStateStatus",
             "reviewDecision",
             "labels",
             "author",
@@ -1504,6 +1636,17 @@ def _build_packet(
     touched = sorted({_subsystem_for(p) for p in files})
     high_risk = [p for p in files if _is_high_risk_path(p)]
     checks_summary, has_failures, has_pending = _summarize_checks(pr.get("statusCheckRollup") or [])
+    direct_checks_summary, direct_has_failures, direct_has_pending = (
+        _summarize_exact_head_check_runs(pr, repo_override=repo_override)
+    )
+    checks_summary = _combine_check_summaries(
+        checks_summary,
+        direct_checks_summary,
+        direct_has_failures=direct_has_failures,
+        direct_has_pending=direct_has_pending,
+    )
+    has_failures = has_failures or direct_has_failures
+    has_pending = has_pending or direct_has_pending
     additions = int(pr.get("additions", 0) or 0)
     deletions = int(pr.get("deletions", 0) or 0)
     is_draft = bool(pr.get("isDraft", False))
@@ -1940,6 +2083,12 @@ def _blocking_workflow_state_reasons(pr: dict[str, Any]) -> list[str]:
     mergeable = str(pr.get("mergeable", "")).strip().upper()
     if mergeable == "CONFLICTING":
         reasons.append("merge conflict")
+    merge_state_status = str(pr.get("mergeStateStatus", "")).strip().upper()
+    if merge_state_status == "BLOCKED":
+        reasons.append(
+            "GitHub mergeStateStatus is BLOCKED; required checks or branch protection "
+            "are not satisfied"
+        )
     labels = [
         str(label.get("name", "")).strip()
         for label in (pr.get("labels") or [])
@@ -2732,11 +2881,14 @@ def _record_external_settlement(
     if action == "admin_squash_merge":
         audit_provider = post_merge_lane_audit_provider
         if audit_provider is None:
-            audit_provider = lambda pr, audit_apply=False: run_post_merge_lane_audit(
-                pr,
-                repo_root=repo_root,
-                apply=audit_apply,
-            )
+
+            def audit_provider(pr: int, audit_apply: bool = False) -> dict[str, Any]:
+                return run_post_merge_lane_audit(
+                    pr,
+                    repo_root=repo_root,
+                    apply=audit_apply,
+                )
+
         try:
             post_merge_lane_audit = audit_provider(pr_number, apply_post_merge_lane_audit)
         except Exception as exc:
