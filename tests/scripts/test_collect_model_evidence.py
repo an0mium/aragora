@@ -126,6 +126,7 @@ def test_uncounted_route_is_skipped_before_model_execution() -> None:
                         "problems": ["missing_known_model_reviewer_heading"],
                     }
                 ),
+                returncode=1,
             )
         if args[:2] == ["droid", "exec"]:
             raise AssertionError("uncounted route should be skipped before model execution")

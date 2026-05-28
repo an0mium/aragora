@@ -355,9 +355,15 @@ def _lint_comment(
         ],
         timeout_seconds=180.0,
     )
-    if completed.returncode != 0:
-        raise RuntimeError((completed.stderr or completed.stdout or "").strip())
-    return _json_from_stdout(completed)
+    if completed.returncode == 0:
+        return _json_from_stdout(completed)
+    try:
+        lint = _json_from_stdout(completed)
+    except RuntimeError:
+        raise RuntimeError((completed.stderr or completed.stdout or "").strip()) from None
+    if lint.get("mode") == "evidence_lint" or "would_count" in lint:
+        return lint
+    raise RuntimeError((completed.stderr or completed.stdout or "").strip())
 
 
 def _preflight_route_counts(
