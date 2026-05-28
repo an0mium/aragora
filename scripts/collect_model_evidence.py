@@ -85,10 +85,6 @@ DEFAULT_ROUTE_ORDER: tuple[str, ...] = (
     "droid-gemini",
     "droid-claude-opus",
     "droid-claude-sonnet",
-    "droid-gpt54",
-    "droid-kimi",
-    "droid-glm",
-    "droid-minimax",
 )
 
 

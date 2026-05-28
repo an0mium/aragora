@@ -973,7 +973,7 @@ def build_prompt(
         )
     elif action == "collect_model_evidence":
         lines.append(
-            f"Use the bounded evidence helper first: python3 scripts/collect_model_evidence.py --pr {pr_number} --head {pin} --family-order gemini,droid-gemini,claude,droid-claude-opus --json"
+            f"Use the bounded evidence helper first: python3 scripts/collect_model_evidence.py --pr {pr_number} --head {pin} --family-order gemini,grok,claude,droid-gemini,droid-claude-opus --json"
         )
         lines.append(
             "If merge-packet still blocks on model quorum or focused adversarial dogfood, collect exactly one current-head non-Codex model/dogfood evidence signal."
