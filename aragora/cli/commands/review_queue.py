@@ -1338,6 +1338,8 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
             conclusion = "FAILURE"
         if conclusion == "SUCCESS":
             success += 1
+        elif conclusion == "CANCELLED" and _is_merge_quorum_check(check):
+            failure += 1
         elif conclusion in ("FAILURE", "TIMED_OUT", "ACTION_REQUIRED"):
             failure += 1
         elif conclusion in ("CANCELLED", "SKIPPED", "NEUTRAL", "STALE"):
@@ -1396,11 +1398,15 @@ def _status_check_identity(check: dict[str, Any]) -> str:
     return f"status-context:{name}"
 
 
-def _is_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
-    """Ignore only this merge-quorum workflow run while building its packet."""
+def _is_merge_quorum_check(check: dict[str, Any]) -> bool:
     workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
     name = str(check.get("name") or check.get("context") or "").strip()
-    if workflow != MERGE_QUORUM_WORKFLOW_NAME or name != MERGE_QUORUM_CHECK_NAME:
+    return workflow == MERGE_QUORUM_WORKFLOW_NAME and name == MERGE_QUORUM_CHECK_NAME
+
+
+def _is_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
+    """Ignore only this merge-quorum workflow run while building its packet."""
+    if not _is_merge_quorum_check(check):
         return False
 
     status = str(check.get("status") or check.get("state") or "").upper()
@@ -1502,12 +1508,21 @@ def _build_packet(
     deletions = int(pr.get("deletions", 0) or 0)
     is_draft = bool(pr.get("isDraft", False))
     settlement_state_block = _settlement_state_block_reason(pr)
-    settlement_recorded = str(
-        pr.get("state") or ""
-    ).strip().upper() == "MERGED" and _has_recorded_admin_squash_settlement(
+    pr_state = str(pr.get("state") or "").strip().upper()
+    head_sha = str(pr.get("headRefOid", "")).strip()
+    settlement_recorded = pr_state == "MERGED" and _has_recorded_admin_squash_settlement(
         pr_number=number,
-        head_sha=str(pr.get("headRefOid", "")).strip(),
+        head_sha=head_sha,
         review_queue_root=review_queue_root,
+    )
+    human_risk_settlement_recorded = (
+        pr_state == "OPEN"
+        and not settlement_state_block
+        and _has_recorded_human_risk_settlement(
+            pr_number=number,
+            head_sha=head_sha,
+            review_queue_root=review_queue_root,
+        )
     )
     mergeable = str(pr.get("mergeable", "")).strip().upper()
     queue_item = _classify_pr(pr)
@@ -1516,6 +1531,8 @@ def _build_packet(
     risk_flags: list[str] = []
     if settlement_recorded:
         risk_flags.append("exact-head admin_squash_merge settlement receipt recorded")
+    elif human_risk_settlement_recorded:
+        risk_flags.append("exact-head human risk settlement receipt recorded")
     elif settlement_state_block:
         risk_flags.append(settlement_state_block)
     if is_draft:
@@ -1639,6 +1656,7 @@ def _build_packet(
             has_pending=has_pending,
             has_failures=has_failures,
             settlement_recorded=settlement_recorded,
+            human_risk_settlement_recorded=human_risk_settlement_recorded,
         ),
     )
     packet.packet_sha = _packet_sha(packet)
@@ -1744,6 +1762,7 @@ def _build_model_review_quorum(
     has_pending: bool,
     has_failures: bool,
     settlement_recorded: bool = False,
+    human_risk_settlement_recorded: bool = False,
 ) -> dict[str, Any]:
     tier, tier_name, tier_reason = _classify_model_review_tier(files, pr=pr)
     requirement = _tier_requirement(tier)
@@ -1780,6 +1799,8 @@ def _build_model_review_quorum(
     reasons = [tier_reason]
     if settlement_recorded:
         reasons.append("exact-head admin_squash_merge settlement receipt recorded")
+    elif human_risk_settlement_recorded:
+        reasons.append("exact-head human risk settlement receipt recorded")
     if has_failures and not settlement_recorded:
         reasons.append("checks are failing; repair before settlement")
     if has_pending and not settlement_recorded:
@@ -1821,6 +1842,11 @@ def _build_model_review_quorum(
         status = "human_preapproval_required"
         verdict = "tier_4_human_preapproval_required"
         requires_human_risk_settlement = True
+    elif requires_human_risk_settlement and human_risk_settlement_recorded:
+        status = "satisfied"
+        verdict = "admin_squash_allowed"
+        requires_human_risk_settlement = False
+        admin_squash_allowed = True
     elif requires_human_risk_settlement:
         status = "human_risk_settlement_required"
         verdict = "model_quorum_satisfied_human_risk_settlement_required"
@@ -1838,6 +1864,7 @@ def _build_model_review_quorum(
         "required_model_signals": requirement["required_model_signals"],
         "requires_adversarial_dogfood": requirement["requires_adversarial_dogfood"],
         "requires_human_risk_settlement": requires_human_risk_settlement,
+        "human_risk_settlement_recorded": human_risk_settlement_recorded,
         "requires_human_preapproval": requirement["requires_human_preapproval"],
         "admin_squash_allowed": admin_squash_allowed,
         "status": status,
@@ -1984,6 +2011,40 @@ def _has_recorded_admin_squash_settlement(
         if str(payload.get("action") or "").strip() != "admin_squash_merge":
             continue
         if str(payload.get("github_event") or "").strip() != "ADMIN_SQUASH_MERGE":
+            continue
+        return True
+    return False
+
+
+def _has_recorded_human_risk_settlement(
+    *,
+    pr_number: int,
+    head_sha: str,
+    review_queue_root: str | Path | None,
+) -> bool:
+    if not head_sha:
+        return False
+    repo_root = resolve_repo_root(Path.cwd())
+    root = _resolve_review_queue_root_override(repo_root, review_queue_root)
+    receipts_dir = root / "receipts"
+    if not receipts_dir.is_dir():
+        return False
+    # Local settlement receipts are a trusted operator-controlled store, matching
+    # admin-squash settlement receipt handling. This path is read-only and exact
+    # head bound; it must not infer approval from GitHub comments alone.
+    allowed_events = {"APPROVE", "RECORDED_EXTERNAL_APPROVE"}
+    for path in receipts_dir.glob(f"pr-{pr_number}-*.json"):
+        try:
+            payload = _read_receipt_payload(path)
+        except _GhError:
+            continue
+        if int(payload.get("pr_number") or 0) != pr_number:
+            continue
+        if str(payload.get("head_sha") or "").strip() != head_sha:
+            continue
+        if str(payload.get("action") or "").strip() != "approve":
+            continue
+        if str(payload.get("github_event") or "").strip() not in allowed_events:
             continue
         return True
     return False
@@ -2726,11 +2787,14 @@ def _record_external_settlement(
     if action == "admin_squash_merge":
         audit_provider = post_merge_lane_audit_provider
         if audit_provider is None:
-            audit_provider = lambda pr, audit_apply=False: run_post_merge_lane_audit(
-                pr,
-                repo_root=repo_root,
-                apply=audit_apply,
-            )
+
+            def audit_provider(pr: int, audit_apply: bool = False) -> dict[str, Any]:
+                return run_post_merge_lane_audit(
+                    pr,
+                    repo_root=repo_root,
+                    apply=audit_apply,
+                )
+
         try:
             post_merge_lane_audit = audit_provider(pr_number, apply_post_merge_lane_audit)
         except Exception as exc:

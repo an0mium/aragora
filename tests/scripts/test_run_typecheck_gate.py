@@ -63,7 +63,7 @@ def test_build_typecheck_plan_forces_full_on_deleted_aragora_target(tmp_path: Pa
     assert "deleted_target:aragora/deleted_module.py" in plan.reasons
 
 
-def test_get_changed_files_uses_git_diff(monkeypatch: object, tmp_path: Path) -> None:
+def test_get_changed_files_uses_git_diff(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
     def _fake_run(
@@ -93,8 +93,8 @@ def test_get_changed_files_uses_git_diff(monkeypatch: object, tmp_path: Path) ->
     assert captured["cwd"] == tmp_path
 
 
-def test_get_changed_files_falls_back_to_two_dot_diff_on_missing_merge_base(
-    monkeypatch: object, tmp_path: Path
+def test_get_changed_files_fails_closed_on_missing_merge_base(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     calls: list[list[str]] = []
 
@@ -106,13 +106,56 @@ def test_get_changed_files_falls_back_to_two_dot_diff_on_missing_merge_base(
         check: bool,
     ) -> SimpleNamespace:
         calls.append(cmd)
-        if len(calls) == 1:
-            raise subprocess.CalledProcessError(
-                128,
-                cmd,
-                stderr="fatal: no merge base",
+        raise subprocess.CalledProcessError(
+            128,
+            cmd,
+            stderr="fatal: no merge base",
+        )
+
+    monkeypatch.setattr(run_typecheck_gate.subprocess, "run", _fake_run)
+
+    with pytest.raises(run_typecheck_gate.ChangedFilesError) as excinfo:
+        run_typecheck_gate.get_changed_files(
+            repo_root=tmp_path,
+            base_ref="main",
+            head_ref="HEAD",
+        )
+
+    assert "Refusing to fall back to origin/main..HEAD" in str(excinfo.value)
+    assert "pass explicit changed files with --files" in str(excinfo.value)
+    assert calls == [
+        ["git", "diff", "--name-only", "origin/main...HEAD"],
+    ]
+
+
+def test_get_changed_files_uses_pr_head_parent_for_stale_pull_request_merge_ref(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "pull_request")
+    calls: list[list[str]] = []
+
+    def _fake_run(
+        cmd: list[str],
+        cwd: Path,
+        capture_output: bool,
+        text: bool,
+        check: bool,
+    ) -> SimpleNamespace:
+        calls.append(cmd)
+        if cmd == ["git", "rev-parse", "origin/main"]:
+            return SimpleNamespace(stdout="current-base\n")
+        if cmd == ["git", "rev-parse", "HEAD^1"]:
+            return SimpleNamespace(stdout="stale-base\n")
+        if cmd == ["git", "rev-parse", "HEAD^2"]:
+            return SimpleNamespace(stdout="pr-head\n")
+        if cmd == ["git", "diff", "--name-only", "origin/main...pr-head"]:
+            return SimpleNamespace(
+                stdout=(
+                    "docs/specs/MODEL_LINEAGE_DISCLOSURE.md\n"
+                    "tests/governance/test_model_lineage_disclosure_recognizer.py\n"
+                )
             )
-        return SimpleNamespace(stdout="aragora/cli/main.py\n")
+        raise AssertionError(f"unexpected command: {cmd}")
 
     monkeypatch.setattr(run_typecheck_gate.subprocess, "run", _fake_run)
 
@@ -122,15 +165,75 @@ def test_get_changed_files_falls_back_to_two_dot_diff_on_missing_merge_base(
         head_ref="HEAD",
     )
 
-    assert changed == ["aragora/cli/main.py"]
-    assert calls == [
-        ["git", "diff", "--name-only", "origin/main...HEAD"],
-        ["git", "diff", "--name-only", "origin/main..HEAD"],
+    assert changed == [
+        "docs/specs/MODEL_LINEAGE_DISCLOSURE.md",
+        "tests/governance/test_model_lineage_disclosure_recognizer.py",
     ]
+    assert ["git", "diff", "--name-only", "origin/main...HEAD"] not in calls
+
+
+def test_get_changed_files_deepens_history_for_no_merge_base_pr_head(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "pull_request")
+    monkeypatch.setenv("GITHUB_HEAD_REF", "codex/model-lineage-docs")
+    calls: list[list[str]] = []
+
+    def _fake_run(
+        cmd: list[str],
+        cwd: Path,
+        capture_output: bool,
+        text: bool,
+        check: bool,
+    ) -> SimpleNamespace:
+        calls.append(cmd)
+        if cmd == ["git", "rev-parse", "origin/main"]:
+            return SimpleNamespace(stdout="current-base\n")
+        if cmd == ["git", "rev-parse", "HEAD^1"]:
+            return SimpleNamespace(stdout="stale-base\n")
+        if cmd == ["git", "rev-parse", "HEAD^2"]:
+            return SimpleNamespace(stdout="pr-head\n")
+        if cmd == ["git", "fetch", "--no-tags", "--deepen=128", "origin", "main"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if cmd == ["git", "diff", "--name-only", "origin/main...pr-head"]:
+            if calls.count(["git", "diff", "--name-only", "origin/main...pr-head"]) == 1:
+                raise subprocess.CalledProcessError(
+                    128,
+                    cmd,
+                    stderr="fatal: origin/main...pr-head: no merge base",
+                )
+            return SimpleNamespace(
+                stdout=(
+                    "docs/specs/MODEL_LINEAGE_DISCLOSURE.md\n"
+                    "tests/governance/test_model_lineage_disclosure_recognizer.py\n"
+                )
+            )
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(run_typecheck_gate.subprocess, "run", _fake_run)
+
+    changed = run_typecheck_gate.get_changed_files(
+        repo_root=tmp_path,
+        base_ref="main",
+        head_ref="HEAD",
+    )
+    plan = run_typecheck_gate.build_typecheck_plan(
+        repo_root=tmp_path,
+        changed_files=changed,
+    )
+
+    assert changed == [
+        "docs/specs/MODEL_LINEAGE_DISCLOSURE.md",
+        "tests/governance/test_model_lineage_disclosure_recognizer.py",
+    ]
+    assert plan.mode == "skip"
+    assert plan.targets == []
+    assert "no_aragora_python_targets" in plan.reasons
+    assert ["git", "diff", "--name-only", "origin/main..HEAD"] not in calls
 
 
 def test_get_changed_files_raises_non_merge_base_git_failure(
-    monkeypatch: object, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     def _fake_run(
         cmd: list[str],
@@ -151,7 +254,9 @@ def test_get_changed_files_raises_non_merge_base_git_failure(
         )
 
 
-def test_main_writes_github_outputs_and_targets_file(tmp_path: Path, capsys: object) -> None:
+def test_main_writes_github_outputs_and_targets_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     repo_root = tmp_path
     (repo_root / "aragora" / "inbox").mkdir(parents=True)
     (repo_root / "aragora" / "inbox" / "triage_runner.py").write_text(
@@ -184,3 +289,64 @@ def test_main_writes_github_outputs_and_targets_file(tmp_path: Path, capsys: obj
     output = github_output.read_text(encoding="utf-8")
     assert "mode=changed" in output
     assert "target_count=1" in output
+
+
+def test_main_accepts_explicit_docs_test_files_without_git_diff(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def _fake_run(*args: object, **kwargs: object) -> None:
+        raise AssertionError("explicit --files should not query git diff")
+
+    monkeypatch.setattr(run_typecheck_gate.subprocess, "run", _fake_run)
+
+    exit_code = run_typecheck_gate.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--files",
+            "docs/specs/MODEL_LINEAGE_DISCLOSURE.md",
+            "tests/governance/test_model_lineage_disclosure_recognizer.py",
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "skip"
+    assert payload["targets"] == []
+    assert payload["changed_files"] == [
+        "docs/specs/MODEL_LINEAGE_DISCLOSURE.md",
+        "tests/governance/test_model_lineage_disclosure_recognizer.py",
+    ]
+    assert payload["reasons"] == ["no_aragora_python_targets"]
+
+
+def test_main_exits_cleanly_when_changed_files_cannot_be_computed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def _fake_run(
+        cmd: list[str],
+        cwd: Path,
+        capture_output: bool,
+        text: bool,
+        check: bool,
+    ) -> SimpleNamespace:
+        raise subprocess.CalledProcessError(
+            128,
+            cmd,
+            stderr="fatal: no merge base",
+        )
+
+    monkeypatch.setattr(run_typecheck_gate.subprocess, "run", _fake_run)
+
+    with pytest.raises(SystemExit) as excinfo:
+        run_typecheck_gate.main(
+            [
+                "--repo-root",
+                str(tmp_path),
+                "--base-ref",
+                "main",
+            ]
+        )
+
+    assert "Refusing to fall back to origin/main..HEAD" in str(excinfo.value)

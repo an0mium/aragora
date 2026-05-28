@@ -457,6 +457,7 @@ class TestGenerateMandatorySynthesis:
 
         with (
             patch("aragora.utils.env.is_offline_mode", return_value=False),
+            patch.object(gen, "_anthropic_synthesis_available", return_value=True),
             patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class,
         ):
             mock_agent = AsyncMock()
@@ -488,6 +489,7 @@ class TestGenerateMandatorySynthesis:
 
         with (
             patch("aragora.utils.env.is_offline_mode", return_value=False),
+            patch.object(gen, "_anthropic_synthesis_available", return_value=True),
             patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class,
         ):
             mock_agent = MagicMock()

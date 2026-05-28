@@ -657,11 +657,11 @@ def decide(
         )
     merger = merger or gh_pr_merge_squash
     if post_merge_lane_audit_provider is None:
-        post_merge_lane_audit_provider = lambda pr, audit_apply=False: run_post_merge_lane_audit(
-            pr,
-            repo_root=REPO_ROOT,
-            apply=audit_apply,
-        )
+
+        def _default_post_merge_lane_audit(pr: int, audit_apply: bool = False) -> dict[str, Any]:
+            return run_post_merge_lane_audit(pr, repo_root=REPO_ROOT, apply=audit_apply)
+
+        post_merge_lane_audit_provider = _default_post_merge_lane_audit
 
     decisions: list[MergeDecision] = []
     tripwire_exit = 0

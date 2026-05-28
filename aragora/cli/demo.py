@@ -18,15 +18,23 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import json
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-
-from aragora.config.secrets import is_secret_usable
 from typing import Any, cast
 
-from aragora.gauntlet.receipt_models import _normalize_receipt_boolean
+from aragora.config.secrets import is_secret_usable
+
+from aragora.gauntlet.receipt_models import (
+    AgentResponseRecord,
+    ConsensusProof,
+    DecisionReceipt,
+    ProvenanceRecord,
+    _normalize_receipt_boolean,
+)
 
 try:
     from aragora_debate.arena import Arena
@@ -155,6 +163,98 @@ def _wrap(text: str, width: int = 72) -> list[str]:
     return lines or [""]
 
 
+def _receipt_confidence(value: Any) -> float:
+    try:
+        confidence = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, min(1.0, confidence))
+
+
+def _receipt_input_hash(payload: dict[str, Any]) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+
+def _canonical_demo_receipt(
+    *,
+    receipt_id: str,
+    question: str,
+    verdict: str,
+    confidence: Any,
+    agents: list[str],
+    rounds: int,
+    summary: str,
+    dissenting_views: list[str],
+    consensus_proof: ConsensusProof,
+    proposals: dict[str, Any],
+    elapsed: float,
+    mode: str,
+    signature_algorithm: str = "",
+) -> dict[str, Any]:
+    timestamp = datetime.now(timezone.utc).isoformat()
+    input_hash = _receipt_input_hash(
+        {
+            "question": question,
+            "summary": summary,
+            "agents": agents,
+            "rounds": rounds,
+            "proposals": proposals,
+        }
+    )
+    receipt_id = receipt_id or f"DR-DEMO-{input_hash[:8].upper()}"
+    confidence_value = _receipt_confidence(confidence)
+    receipt = DecisionReceipt(
+        receipt_id=receipt_id,
+        gauntlet_id=receipt_id,
+        timestamp=timestamp,
+        input_summary=question,
+        input_hash=input_hash,
+        risk_summary={"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0},
+        attacks_attempted=0,
+        attacks_successful=0,
+        probes_run=0,
+        vulnerabilities_found=0,
+        verdict=verdict,
+        confidence=confidence_value,
+        robustness_score=confidence_value,
+        verdict_reasoning=summary,
+        dissenting_views=dissenting_views,
+        consensus_proof=consensus_proof,
+        provenance_chain=[
+            ProvenanceRecord(
+                timestamp=timestamp,
+                event_type="verdict",
+                agent="aragora demo",
+                description=summary,
+                evidence_hash=input_hash,
+            )
+        ],
+        agent_responses=[
+            AgentResponseRecord(agent=str(agent), response=str(response), role="proposer", round=1)
+            for agent, response in proposals.items()
+        ],
+        config_used={"mode": mode, "elapsed_seconds": elapsed},
+    )
+    data = receipt.to_dict()
+    data.update(
+        {
+            "question": question,
+            "agents": agents,
+            "rounds": rounds,
+            "summary": summary,
+            "dissent": dissenting_views,
+            "elapsed_seconds": elapsed,
+            "mode": mode,
+            "proposals": proposals,
+        }
+    )
+    if signature_algorithm:
+        data["signature_algorithm"] = signature_algorithm
+    return data
+
+
 def _build_receipt_data(result: DebateResult, elapsed: float) -> dict[str, Any]:
     """Build a receipt dict from a DebateResult for saving/rendering."""
     verdict_str = "consensus"
@@ -186,23 +286,36 @@ def _build_receipt_data(result: DebateResult, elapsed: float) -> dict[str, Any]:
 
     summary = result.final_answer or ""
 
-    return {
-        "receipt_id": receipt_id,
-        "question": result.task,
-        "verdict": verdict_str,
-        "confidence": result.confidence,
-        "agents": result.participants,
-        "rounds": result.rounds_used,
-        "summary": summary,
-        "dissent": dissent_items,
-        "dissenting_views": dissent_items,
-        "consensus_proof": consensus_proof,
-        "artifact_hash": artifact_hash,
-        "signature_algorithm": signature_algorithm,
-        "elapsed_seconds": elapsed,
-        "mode": "demo (offline)",
-        "proposals": result.proposals,
-    }
+    reached = bool(getattr(result, "consensus_reached", False))
+    if consensus_proof:
+        consensus = ConsensusProof(**consensus_proof)
+    else:
+        consensus = ConsensusProof(
+            reached=reached,
+            method="majority",
+            confidence=_receipt_confidence(result.confidence),
+            supporting_agents=list(result.participants) if reached else [],
+            dissenting_agents=[] if reached else list(result.participants),
+        )
+
+    data = _canonical_demo_receipt(
+        receipt_id=receipt_id,
+        question=result.task,
+        verdict=verdict_str,
+        confidence=result.confidence,
+        agents=list(result.participants),
+        rounds=int(result.rounds_used or 0),
+        summary=summary,
+        dissenting_views=dissent_items,
+        consensus_proof=consensus,
+        proposals=dict(result.proposals or {}),
+        elapsed=elapsed,
+        mode="demo (offline)",
+        signature_algorithm=signature_algorithm,
+    )
+    if artifact_hash:
+        data["source_artifact_hash"] = artifact_hash
+    return data
 
 
 def _print_receipt_summary(result: DebateResult, elapsed: float, receipt_file: str) -> None:
@@ -686,29 +799,29 @@ def _build_live_receipt_data(
     """Build receipt payload from the live playground debate response."""
     consensus_reached = _normalize_receipt_boolean(result.get("consensus_reached"))
     supporting_agents = list(result.get("participants") or []) if consensus_reached else []
-    return {
-        "receipt_id": "",
-        "question": topic,
-        "verdict": result.get("verdict") or ("consensus" if consensus_reached else "no_consensus"),
-        "confidence": result.get("confidence", 0.0),
-        "agents": list(result.get("participants") or []),
-        "rounds": result.get("rounds_used", 0),
-        "summary": result.get("final_answer", ""),
-        "dissent": list(result.get("dissenting_views") or []),
-        "dissenting_views": list(result.get("dissenting_views") or []),
-        "consensus_proof": {
-            "reached": consensus_reached,
-            "method": result.get("verdict") or "playground-live",
-            "confidence": result.get("confidence", 0.0),
-            "supporting_agents": supporting_agents,
-            "dissenting_agents": [],
-        },
-        "artifact_hash": "",
-        "signature_algorithm": "",
-        "elapsed_seconds": elapsed,
-        "mode": "demo (live)",
-        "proposals": result.get("proposals", {}),
-    }
+    agents = list(result.get("participants") or [])
+    verdict = result.get("verdict") or ("consensus" if consensus_reached else "no_consensus")
+    confidence = _receipt_confidence(result.get("confidence", 0.0))
+    return _canonical_demo_receipt(
+        receipt_id=str(result.get("receipt_id") or ""),
+        question=topic,
+        verdict=str(verdict),
+        confidence=confidence,
+        agents=agents,
+        rounds=int(result.get("rounds_used") or 0),
+        summary=str(result.get("final_answer") or ""),
+        dissenting_views=list(result.get("dissenting_views") or []),
+        consensus_proof=ConsensusProof(
+            reached=consensus_reached,
+            method=str(result.get("verdict") or "playground-live"),
+            confidence=confidence,
+            supporting_agents=supporting_agents,
+            dissenting_agents=[] if consensus_reached else agents,
+        ),
+        proposals=dict(result.get("proposals") or {}),
+        elapsed=elapsed,
+        mode="demo (live)",
+    )
 
 
 def _save_live_demo_receipt(

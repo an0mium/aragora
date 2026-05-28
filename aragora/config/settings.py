@@ -1310,6 +1310,7 @@ ALLOWED_AGENT_TYPES: frozenset[str] = frozenset(
         "anthropic-api",
         "openai-api",
         "grok",
+        "mistral-api",
         # API-based (via OpenRouter)
         "deepseek",
         "deepseek-r1",

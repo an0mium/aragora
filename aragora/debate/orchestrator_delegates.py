@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from aragora.core import Agent, Critique, DebateResult, Message, Vote
 from aragora.debate.config.defaults import DEBATE_DEFAULTS
+from aragora.exceptions import ExternalServiceError
 from aragora.knowledge.mound.retrieval import build_debate_knowledge_query
 
 if TYPE_CHECKING:
@@ -358,7 +359,13 @@ class ArenaDelegatesMixin:
                 limit=5,
                 auth_context=getattr(self, "auth_context", None),
             )
-        except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+        except (
+            AttributeError,
+            ExternalServiceError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+        ) as exc:
             logger.debug("[knowledge_mound] Round refresh failed: %s", exc)
             return 0
 

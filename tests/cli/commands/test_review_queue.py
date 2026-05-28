@@ -162,6 +162,33 @@ def _write_admin_squash_receipt(
     return path
 
 
+def _write_human_risk_settlement_receipt(
+    review_queue_root: Path,
+    *,
+    pr_number: int,
+    head_sha: str,
+    action: str = "approve",
+    github_event: str = "APPROVE",
+    payload_pr_number: int | None = None,
+) -> Path:
+    receipts_dir = review_queue_root / "receipts"
+    receipts_dir.mkdir(parents=True, exist_ok=True)
+    path = receipts_dir / f"pr-{pr_number}-recorded-{head_sha[:12]}-approve.json"
+    path.write_text(
+        json.dumps(
+            {
+                "pr_number": pr_number if payload_pr_number is None else payload_pr_number,
+                "head_sha": head_sha,
+                "action": action,
+                "github_event": github_event,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 def _dogfood_comment(
     body: str = "## Cross-author adversarial dogfood (Claude)\n6/6 pass",
 ) -> dict[str, Any]:
@@ -640,6 +667,30 @@ class TestSummarizeChecks:
         summary, has_fail, has_pending = _summarize_checks(checks)
 
         assert summary == "1 failing / 1 total"
+        assert has_fail
+        assert not has_pending
+
+    def test_cancelled_merge_quorum_check_blocks_settlement_summary(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "COMPLETED",
+                "conclusion": "CANCELLED",
+                "completedAt": "2026-05-27T17:13:53Z",
+            },
+            {
+                "name": "lint",
+                "workflowName": "Tests",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+                "completedAt": "2026-05-27T17:14:53Z",
+            },
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 failing / 2 total"
         assert has_fail
         assert not has_pending
 
@@ -1239,6 +1290,70 @@ class TestModelReviewQuorum:
         assert quorum["admin_squash_allowed"] is False
         assert quorum["requires_human_risk_settlement"] is True
 
+    def test_tier_three_human_risk_settlement_allows_admin_squash(self) -> None:
+        pr = _make_pr(files=["aragora/reputation/store.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/reputation/store.py"],
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+            human_risk_settlement_recorded=True,
+        )
+        assert quorum["tier"] == 3
+        assert quorum["status"] == "satisfied"
+        assert quorum["verdict"] == "admin_squash_allowed"
+        assert quorum["admin_squash_allowed"] is True
+        assert quorum["requires_human_risk_settlement"] is False
+        assert quorum["human_risk_settlement_recorded"] is True
+        assert "exact-head human risk settlement receipt recorded" in quorum["reasons"]
+
+    def test_human_risk_settlement_does_not_clear_unresolved_dissent(self) -> None:
+        pr = _make_pr(files=["aragora/reputation/store.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/reputation/store.py"],
+            protocol=_executed_protocol(dissent=True),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+            human_risk_settlement_recorded=True,
+        )
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["requires_human_risk_settlement"] is True
+
+    @pytest.mark.parametrize(
+        ("has_failures", "has_pending"),
+        [
+            (True, False),
+            (False, True),
+        ],
+    )
+    def test_human_risk_settlement_does_not_clear_failing_or_pending_checks(
+        self,
+        *,
+        has_failures: bool,
+        has_pending: bool,
+    ) -> None:
+        pr = _make_pr(files=["aragora/reputation/store.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/reputation/store.py"],
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=has_pending,
+            has_failures=has_failures,
+            human_risk_settlement_recorded=True,
+        )
+        assert quorum["status"] == "repair_or_wait"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["requires_human_risk_settlement"] is True
+
     def test_independent_model_review_comment_counts_as_quorum_signal(self) -> None:
         pr = _make_pr(files=["aragora/debate/team_selector.py"])
         pr["comments"] = [
@@ -1574,6 +1689,48 @@ class TestBuildQueueAndPacket:
         assert packet.model_review_quorum["admin_squash_allowed"] is True
         assert packet.model_review_quorum["status"] == "satisfied"
 
+    def test_cancelled_merge_quorum_blocks_admin_squash_authorization(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7456,
+            files=["docs/status/open.md"],
+            checks=[
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "CANCELLED",
+                    "completedAt": "2026-05-27T17:13:53Z",
+                },
+                {
+                    "name": "lint",
+                    "workflowName": "Tests",
+                    "status": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                    "completedAt": "2026-05-27T17:14:53Z",
+                },
+            ],
+        )
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7456", repo_override=None)
+        quorum = packet.model_review_quorum
+
+        assert packet.checks_summary == "1 failing / 2 total"
+        assert packet.machine_recommendation == "repair_first"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["status"] == "repair_or_wait"
+        assert "checks are failing; repair before settlement" in quorum["reasons"]
+
     def test_inconsistent_open_state_with_merged_at_fails_closed(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1677,6 +1834,122 @@ class TestBuildQueueAndPacket:
         ]
         assert packet["admin_squash_order"] == []
         assert packet["human_risk_settlement_required"] == []
+        assert packet["not_ready"] == []
+
+    @pytest.mark.parametrize("github_event", ["APPROVE", "RECORDED_EXTERNAL_APPROVE"])
+    def test_open_tier_three_with_exact_human_risk_receipt_is_authorized(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        github_event: str,
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7466,
+            files=["aragora/reputation/store.py"],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        review_queue_root = tmp_path / "review-queue"
+        _write_human_risk_settlement_receipt(
+            review_queue_root,
+            pr_number=7466,
+            head_sha=str(pr_payload["headRefOid"]),
+            github_event=github_event,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_queue",
+            lambda limit: [_classify_pr(_make_pr(number=7466))],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7466"],
+            limit=10,
+            repo_override=None,
+            review_queue_root=review_queue_root,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["status"] == "satisfied"
+        assert entry["verdict"] == "admin_squash_allowed"
+        assert entry["admin_squash_allowed"] is True
+        assert entry["requires_human_risk_settlement"] is False
+        assert entry["reasons"] == [
+            "semantic, persistence, security, API, or SDK surface touched",
+            "exact-head human risk settlement receipt recorded",
+        ]
+        assert packet["admin_squash_order"] == [7466]
+        assert packet["human_risk_settlement_required"] == []
+        assert packet["not_ready"] == []
+
+    @pytest.mark.parametrize(
+        ("head_sha", "action", "github_event", "payload_pr_number"),
+        [
+            ("stale-head-sha", "approve", "APPROVE", None),
+            (None, "request_changes", "APPROVE", None),
+            (None, "approve", "COMMENT", None),
+            (None, "approve", "APPROVE", 9999),
+        ],
+    )
+    def test_open_tier_three_with_invalid_human_risk_receipt_stays_blocked(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        head_sha: str | None,
+        action: str,
+        github_event: str,
+        payload_pr_number: int | None,
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7466,
+            files=["aragora/reputation/store.py"],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        review_queue_root = tmp_path / "review-queue"
+        _write_human_risk_settlement_receipt(
+            review_queue_root,
+            pr_number=7466,
+            head_sha=head_sha or str(pr_payload["headRefOid"]),
+            action=action,
+            github_event=github_event,
+            payload_pr_number=payload_pr_number,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_queue",
+            lambda limit: [_classify_pr(_make_pr(number=7466))],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7466"],
+            limit=10,
+            repo_override=None,
+            review_queue_root=review_queue_root,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["status"] == "human_risk_settlement_required"
+        assert entry["admin_squash_allowed"] is False
+        assert entry["requires_human_risk_settlement"] is True
+        assert packet["admin_squash_order"] == []
+        assert packet["human_risk_settlement_required"] == [7466]
         assert packet["not_ready"] == []
 
     def test_merged_pr_with_stale_settlement_receipt_stays_fail_closed(
