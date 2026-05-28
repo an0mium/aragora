@@ -1,6 +1,6 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-05-13
+Last updated: 2026-05-28
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
@@ -12,12 +12,11 @@ This is the single source of truth for short-horizon execution priorities.
 
 The immediate gate is operating the proof loop that already exists: keep recurring benchmark truth publication complete, fresh, and trustworthy on current `main`; keep `CS-01..03` narrower than measured proof; and do not expand the `B2` guard until repeated runs support it. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop, not adding new roadmap scope.
 
-Current May 13 proof-loop state:
+Current May 28 proof-loop state:
 
 - `docs/THESIS.md` is v4 canonical.
-- H1-01 rev-4 readiness is `promotion_ready`: 15 staged issues have metrics-backed `worker_outcome` evidence, meeting the 15-issue floor for canonical promotion.
-- The first canonical rev-4 B0 slice is not promoted yet; `docs/benchmarks/corpus.json` remains at the existing one-issue rev-4 corpus until the promotion step is executed explicitly.
-- Fresh B0 publication remains complete for the existing canonical corpus and reports 0.0% current truth success.
+- The canonical B0 corpus is revision 5. It keeps the same 13-member corpus, graduates only #5187, #5197, #5198, and #5200 to `verified` after strict GitHub `closedByPullRequestsReferences` proof, and leaves the other 9 members `in_progress`.
+- Fresh B0 publication is complete for revision 5 and reports `truth_success_rate_verified = 100.0%` over the verified subset, with full-corpus truth still `30.8%`.
 - The first settlement receipt exists for `#7060`, and `review-queue observe-outcomes --window-days 14 --max-receipts 5 --json` dry-runs over it successfully with all five v2 outcome signals false and no receipt JSON writes.
 - The first `observe-outcomes --write` remains a separate Tier-4 operator decision over a bounded manually verifiable receipt slice.
 

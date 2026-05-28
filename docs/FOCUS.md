@@ -20,7 +20,7 @@
 | 1 | Settle #7443 (provider bootstrap + receipt repair) | **Shipped** | Merged 2026-05-27T02:25:17Z as `7318af7e5b`. Tier 4 settled via repaired `scripts/settle_tier4_pr.py` (#7469 / #7471 lineage) using the model-quorum + `aragora/human-settlement` chain, normal protected squash with `--match-head-commit`, no admin-fallback needed. |
 | 2 | Land #7450 (model-quorum family-expansion pre-approval) | **Shipped** | Merged as `dd144b4a3f`. The recognizer-header gap remains — implementation PR is governed by separate Tier 4 pre-approval #7472 (open, awaiting operator design review). |
 | 3 | Land #7451 (model-family bench harness scaffold) | **Evidence satisfied; needs ready/settlement only** | Still open/draft at head `113a706c92831c0fb889d6e3da35ee454ceb6a94`. After repair commit `113a706c92` (addressing the three Codex request-changes blockers), the merge-packet counts `codex` + `factory` and 1 dogfood at the exact head; required checks are green; no unresolved dissent. Remaining blocker is operator/draft boundary, not evidence. |
-| 4 | Publish B0 truth result, whatever it is | **Falsified honestly** | Re-ran `scripts/build_benchmark_truth_artifact.py --publish` 2026-05-26T22:51:31Z; verified `truth_success_rate_verified` is **0.0%** at this corpus. The repo-tracked evidence remains the generated B0 truth pointers under `docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/`; local `.aragora/` rerun artifacts are intentionally not tracked. The 0.0% IS the artifact — the public claim must ratchet to what is measured. Legacy/proxy rates (30.8% / 76.9%) are not substitutes. |
+| 4 | Publish B0 truth result, whatever it is | **Falsified honestly; superseded by rev-5 graduation proof** | Re-ran `scripts/build_benchmark_truth_artifact.py --publish` 2026-05-26T22:51:31Z; verified `truth_success_rate_verified` was **0.0%** at that corpus state. The honest reading was correct at the time. On 2026-05-28, rev-5 graduated only the four issues with strict GitHub `closedByPullRequestsReferences` proof (#5187/#5197/#5198/#5200 via PRs #7377/#7378/#7379/#7380), moving the primary verified subset to **100.0%** while full-corpus truth remains **30.8%** and 9 issues remain in progress. Repo-tracked evidence remains under `docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/`. Legacy/proxy rates are still not substitutes. |
 | — | Bonus — #7483 follow-up routing fix | **Shipped** | Merged 2026-05-27T17:22:58Z as `12615421be3af363803c1a68a5bb32d5105028b9`. Not a primary sprint goal but adjacent settlement-tooling work that landed cleanly. |
 
 ---
@@ -57,10 +57,14 @@
    `.aragora/proof/post-7496-demo/20260528T061018Z/` shows provider keys
    unset, Secrets Manager disabled, `aragora demo --receipt` exiting 0,
    and `aragora receipt verify` exiting 0 for receipt `DR-20260528-fac8d2`
-   (`VALID (3/3 checks passed)`). These `.aragora/` proof files are local
-   operator-held evidence, not repo-tracked public artifacts. Goal status:
-   core product capability and outreach-gate clause (b) are satisfied;
-   outreach remains closed on clauses (a) and (c).
+   (`VALID (3/3 checks passed)`). The follow-up product-claim proof under
+   `.aragora/proof/product-claim/20260528T141156Z/` preserves a Grok
+   frontier adversarial review of product-scope PR #7496. These `.aragora/`
+   proof files are local operator-held evidence, not repo-tracked public
+   artifacts. Goal status: core product capability and outreach-gate clause
+   (b) are satisfied; any external claim must stay limited to the conservative
+   evidence-bound statement that demo receipt verification works while broader
+   autonomy proof remains measured by the B0 corpus.
 
 3. **Operator design-review of #7472 (advisory-review recognizable
    header pre-approval).** #7472 is the Tier 4 design doc + 18 passing
@@ -112,10 +116,13 @@
   legacy/proxy), (b) `aragora demo --receipt` round-trips for a non-
   operator user (satisfied by the local post-#7496 proof under
   `.aragora/proof/post-7496-demo/20260528T061018Z/`), (c) at least one
-  frontier-model adversarial review of a real PR survives unmodified
-  (Factory + Codex already meeting this for #7451 is encouraging but not
-  yet repeated on a product-scope PR end-to-end). Clauses (a) and (c)
-  remain open, so external outreach remains locked.
+  frontier-model adversarial review of a real product-scope PR survives
+  unmodified (satisfied for the conservative demo-receipt claim by the
+  Grok product-claim artifact under
+  `.aragora/proof/product-claim/20260528T141156Z/`). The allowed outreach
+  claim is narrow: demo receipt verification works on current main, while
+  broader autonomy reliability remains bounded by the B0 full-corpus truth
+  rate and the 9 still-in-progress corpus issues.
 - **No Tier 4 self-mods without pre-approval discipline.** Unchanged
   from sprint 1. Any change to `scripts/settle_tier4_pr.py`,
   `aragora-merge-quorum.yml`, `aragora-review-gate.yml`, or the family

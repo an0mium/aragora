@@ -1,7 +1,7 @@
 {
   "corpus_id": "tw-01-bounded-execution-v1",
-  "revision": 4,
-  "recorded_on": "2026-04-26",
+  "revision": 5,
+  "recorded_on": "2026-05-28",
   "success_contract": "mergeable_pr_or_merged_pr",
   "run_cadence": "weekly_or_better",
   "change_control": "Issue membership stays fixed until an explicit corpus revision edits this file.",
@@ -16,6 +16,11 @@
     "in_progress": "Issue is OPEN at corpus authoring time, bounded, and has been dispatched at least once to the autonomous boss loop (a recorded `worker_outcome` in .aragora/overnight/boss_metrics.jsonl). Autonomy is on the hook to resolve it. Excluded from `truth_success_rate_verified` until it graduates."
   },
   "revision_log": [
+    {
+      "revision": 5,
+      "recorded_on": "2026-05-28",
+      "change": "B0 verified-graduation pass: promote #5187, #5197, #5198, and #5200 from in_progress to verified after live GitHub truth confirmed each issue is CLOSED/COMPLETED and closed by a merged PR through the strict closedByPullRequestsReferences edge (#7377, #7378, #7379, #7380 respectively). Membership is unchanged; open or unlinked in-progress entries remain in_progress."
+    },
     {
       "revision": 4,
       "recorded_on": "2026-05-14",
@@ -106,7 +111,7 @@
       "issue_id": 5187,
       "title": "[B0-cohort] Add unit tests for storage/governance/metrics.py",
       "execution_class": "missing_test_coverage",
-      "expected_status": "in_progress",
+      "expected_status": "verified",
       "scope_hint": [
         "aragora/storage/governance/metrics.py",
         "tests/storage/governance/test_metrics.py"
@@ -117,6 +122,13 @@
       ],
       "source_reference": "github.com/synaptent/aragora/issues/5187",
       "added_in_revision": 4,
+      "graduated_in_revision": 5,
+      "graduation_proof": {
+        "proof_surface": "GitHub closedByPullRequestsReferences",
+        "closed_at": "2026-05-20T02:32:14Z",
+        "closed_by_pull_request": 7377,
+        "verified_on": "2026-05-28"
+      },
       "github_labels": [
         "autonomous"
       ],
@@ -128,13 +140,13 @@
           "deliverable_pr_created"
         ]
       },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created."
+      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created. Graduated to verified in revision 5 after GitHub closedByPullRequestsReferences confirmed PR #7377 closed the issue."
     },
     {
       "issue_id": 5197,
       "title": "[B0-cohort] Add unit tests for tournaments/database.py",
       "execution_class": "missing_test_coverage",
-      "expected_status": "in_progress",
+      "expected_status": "verified",
       "scope_hint": [
         "aragora/tournaments/database.py",
         "tests/tournaments/test_database.py"
@@ -145,6 +157,13 @@
       ],
       "source_reference": "github.com/synaptent/aragora/issues/5197",
       "added_in_revision": 4,
+      "graduated_in_revision": 5,
+      "graduation_proof": {
+        "proof_surface": "GitHub closedByPullRequestsReferences",
+        "closed_at": "2026-05-20T02:34:07Z",
+        "closed_by_pull_request": 7378,
+        "verified_on": "2026-05-28"
+      },
       "github_labels": [
         "autonomous"
       ],
@@ -156,13 +175,13 @@
           "deliverable_pr_created"
         ]
       },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created."
+      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created. Graduated to verified in revision 5 after GitHub closedByPullRequestsReferences confirmed PR #7378 closed the issue."
     },
     {
       "issue_id": 5198,
       "title": "[B0-cohort] Add unit tests for server/debate_origin/models.py",
       "execution_class": "missing_test_coverage",
-      "expected_status": "in_progress",
+      "expected_status": "verified",
       "scope_hint": [
         "aragora/server/debate_origin/models.py",
         "tests/server/debate_origin/test_models.py"
@@ -173,6 +192,13 @@
       ],
       "source_reference": "github.com/synaptent/aragora/issues/5198",
       "added_in_revision": 4,
+      "graduated_in_revision": 5,
+      "graduation_proof": {
+        "proof_surface": "GitHub closedByPullRequestsReferences",
+        "closed_at": "2026-05-20T02:40:44Z",
+        "closed_by_pull_request": 7379,
+        "verified_on": "2026-05-28"
+      },
       "github_labels": [
         "autonomous"
       ],
@@ -184,13 +210,13 @@
           "deliverable_pr_created"
         ]
       },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created."
+      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created. Graduated to verified in revision 5 after GitHub closedByPullRequestsReferences confirmed PR #7379 closed the issue."
     },
     {
       "issue_id": 5200,
       "title": "[B0-cohort] Add unit tests for server/handlers/admin/health/liveness.py",
       "execution_class": "missing_test_coverage",
-      "expected_status": "in_progress",
+      "expected_status": "verified",
       "scope_hint": [
         "aragora/server/handlers/admin/health/liveness.py",
         "tests/server/handlers/admin/health/test_liveness.py"
@@ -201,6 +227,13 @@
       ],
       "source_reference": "github.com/synaptent/aragora/issues/5200",
       "added_in_revision": 4,
+      "graduated_in_revision": 5,
+      "graduation_proof": {
+        "proof_surface": "GitHub closedByPullRequestsReferences",
+        "closed_at": "2026-05-20T01:41:18Z",
+        "closed_by_pull_request": 7380,
+        "verified_on": "2026-05-28"
+      },
       "github_labels": [
         "autonomous"
       ],
@@ -212,7 +245,7 @@
           "deliverable_pr_created"
         ]
       },
-      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created."
+      "honesty_note": "Promoted from rev-4 staging on 2026-05-14 after 2 recorded worker_outcome row(s) in boss_metrics.jsonl. Terminal class history: blocked_not_dispatch_bounded, deliverable_pr_created. Graduated to verified in revision 5 after GitHub closedByPullRequestsReferences confirmed PR #7380 closed the issue."
     },
     {
       "issue_id": 5426,
