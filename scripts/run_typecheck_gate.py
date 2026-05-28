@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -19,6 +20,35 @@ FORCE_FULL_EXACT_PATHS = {
     "scripts/test_tiers.sh",
 }
 FORCE_FULL_PREFIXES = (".github/actions/pr-scope-classifier/",)
+
+
+class ChangedFilesError(RuntimeError):
+    """Raised when changed files cannot be computed truthfully from git refs."""
+
+
+def _git_stdout(*, repo_root: Path, args: list[str]) -> str:
+    proc = subprocess.run(
+        ["git", *args],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return proc.stdout.strip()
+
+
+def _diff_head_for_changed_files(*, repo_root: Path, base: str, head_ref: str) -> str:
+    if os.environ.get("GITHUB_EVENT_NAME") not in {"pull_request", "pull_request_target"}:
+        return head_ref
+    try:
+        base_tip = _git_stdout(repo_root=repo_root, args=["rev-parse", base])
+        first_parent = _git_stdout(repo_root=repo_root, args=["rev-parse", f"{head_ref}^1"])
+        second_parent = _git_stdout(repo_root=repo_root, args=["rev-parse", f"{head_ref}^2"])
+    except subprocess.CalledProcessError:
+        return head_ref
+    if first_parent and second_parent and first_parent != base_tip:
+        return second_parent
+    return head_ref
 
 
 @dataclass(frozen=True)
@@ -117,9 +147,11 @@ def build_typecheck_plan(*, repo_root: Path, changed_files: list[str]) -> Typech
 
 def get_changed_files(*, repo_root: Path, base_ref: str, head_ref: str = "HEAD") -> list[str]:
     base = base_ref if base_ref.startswith("origin/") else f"origin/{base_ref}"
+    diff_head = _diff_head_for_changed_files(repo_root=repo_root, base=base, head_ref=head_ref)
+    diff_spec = f"{base}...{diff_head}"
     try:
         proc = subprocess.run(
-            ["git", "diff", "--name-only", f"{base}...{head_ref}"],
+            ["git", "diff", "--name-only", diff_spec],
             cwd=repo_root,
             capture_output=True,
             text=True,
@@ -128,13 +160,18 @@ def get_changed_files(*, repo_root: Path, base_ref: str, head_ref: str = "HEAD")
     except subprocess.CalledProcessError as exc:
         if exc.returncode != 128:
             raise
-        proc = subprocess.run(
-            ["git", "diff", "--name-only", f"{base}..{head_ref}"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            check=True,
+        details = (exc.stderr or exc.stdout or "").strip()
+        message = (
+            f"Unable to compute changed files with merge-base diff {diff_spec}. "
+            f"Refusing to fall back to {base}..{head_ref} because stale or shallow "
+            "PR merge refs can include unrelated mainline files in the phase-1 "
+            "typecheck gate. Regenerate the PR merge ref, fetch sufficient history, "
+            "or pass explicit changed files with --files from the PR API or workflow "
+            "changed-file output."
         )
+        if details:
+            message = f"{message} Git reported: {details}"
+        raise ChangedFilesError(message) from exc
     return [line for line in proc.stdout.splitlines() if line.strip()]
 
 
@@ -205,11 +242,14 @@ def main(argv: list[str] | None = None) -> int:
     else:
         if not args.base_ref:
             raise SystemExit("--base-ref is required unless --files is provided.")
-        changed_files = get_changed_files(
-            repo_root=repo_root,
-            base_ref=args.base_ref,
-            head_ref=args.head_ref,
-        )
+        try:
+            changed_files = get_changed_files(
+                repo_root=repo_root,
+                base_ref=args.base_ref,
+                head_ref=args.head_ref,
+            )
+        except ChangedFilesError as exc:
+            raise SystemExit(str(exc)) from exc
 
     plan = build_typecheck_plan(repo_root=repo_root, changed_files=changed_files)
 
