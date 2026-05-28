@@ -17,6 +17,7 @@ from aragora.cli.main import (
     parse_agents,
     get_event_emitter_if_available,
     main,
+    _should_hydrate_startup_secrets,
 )
 
 
@@ -535,6 +536,59 @@ class TestDemoTasks:
 
 class TestMain:
     """Tests for main entry point."""
+
+    def test_record_settlement_skips_startup_secret_hydration(self):
+        """Receipt-only settlement recording should not need provider secrets."""
+        parser = cli_parser.build_parser()
+        args = parser.parse_args(
+            [
+                "review-queue",
+                "record-settlement",
+                "7495",
+                "--head-sha",
+                "017d33990628ed8a3369dfb600cafcc0a6548bc7",
+                "--action",
+                "admin_squash_merge",
+                "--reason",
+                "post-merge receipt",
+            ]
+        )
+
+        assert _should_hydrate_startup_secrets(args) is False
+
+    def test_model_command_keeps_startup_secret_hydration(self):
+        """Commands that may invoke model providers keep startup hydration."""
+        parser = cli_parser.build_parser()
+        args = parser.parse_args(["ask", "Design a rate limiter"])
+
+        assert _should_hydrate_startup_secrets(args) is True
+
+    def test_main_record_settlement_does_not_hydrate_secrets(self, monkeypatch):
+        """The main entry point should skip AWS/local secret stores for receipts."""
+        fake_args = argparse.Namespace(
+            command="review-queue",
+            review_queue_command="record-settlement",
+            verbose=False,
+            func=lambda _args: 0,
+        )
+        fake_parser = Mock()
+        fake_parser.parse_args.return_value = fake_args
+
+        def _unexpected_hydration(*_args, **_kwargs):
+            raise AssertionError("record-settlement should not hydrate startup secrets")
+
+        monkeypatch.setattr("aragora.cli.main.build_parser", lambda: fake_parser)
+        monkeypatch.setattr("aragora.modes.register_all_builtins", lambda: None)
+        monkeypatch.setattr(
+            "aragora.config.secrets.hydrate_env_from_secrets",
+            _unexpected_hydration,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.api_keys.hydrate_env_from_secure_store",
+            _unexpected_hydration,
+        )
+
+        assert main() == 0
 
     def test_main_no_command_shows_help(self, capsys):
         """Should show help when no command provided."""
