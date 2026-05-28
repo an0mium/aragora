@@ -87,6 +87,19 @@ DEFAULT_ROUTE_ORDER: tuple[str, ...] = (
     "droid-claude-sonnet",
 )
 
+DROID_DISABLED_TOOLS = ",".join(
+    [
+        "create-cli",
+        "edit-cli",
+        "execute-cli",
+        "glob-search-cli",
+        "grep_tool_cli",
+        "ls-cli",
+        "read-cli",
+        "task-cli",
+    ]
+)
+
 
 def _default_runner(
     args: list[str],
@@ -153,7 +166,7 @@ def _route_command(route: ModelRoute, prompt: str) -> tuple[list[str], str | Non
                 "--output-format",
                 "json",
                 "--disabled-tools",
-                "Execute",
+                DROID_DISABLED_TOOLS,
                 "--cwd",
                 str(DEFAULT_REPO_ROOT),
             ],

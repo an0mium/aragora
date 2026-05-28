@@ -102,7 +102,10 @@ def test_direct_gemini_failure_falls_back_to_droid_gemini() -> None:
     assert result.comment is not None
     assert result.comment.startswith("## Gemini via Droid focused adversarial dogfood")
     assert any(args and args[0] == "gemini" for args in calls)
-    assert any(args[:3] == ["droid", "exec", "--model"] for args in calls)
+    droid_call = next(args for args in calls if args[:3] == ["droid", "exec", "--model"])
+    disabled_tools = droid_call[droid_call.index("--disabled-tools") + 1]
+    assert "execute-cli" in disabled_tools
+    assert "edit-cli" in disabled_tools
 
 
 def test_uncounted_route_is_skipped_before_model_execution() -> None:
