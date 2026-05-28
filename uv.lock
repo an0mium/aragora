@@ -277,6 +277,7 @@ connectors = [
 dev = [
     { name = "bandit" },
     { name = "mypy" },
+    { name = "mypy-baseline" },
     { name = "types-croniter" },
     { name = "types-pyyaml" },
 ]
@@ -315,6 +316,7 @@ requires-dist = [
     { name = "fastapi", marker = "extra == 'all'", specifier = ">=0.136.1,<1.0" },
     { name = "fastapi", marker = "extra == 'gateway'", specifier = ">=0.136.1,<1.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=2.1.0,<3.0" },
+    { name = "mypy-baseline", marker = "extra == 'dev'", specifier = ">=0.7.4,<0.8" },
     { name = "playwright", marker = "extra == 'all'", specifier = ">=1.59.0,<2.0" },
     { name = "playwright", marker = "extra == 'experimental'", specifier = ">=1.59.0,<2.0" },
     { name = "pydantic", marker = "extra == 'test'", specifier = ">=2.13.3,<3.0" },
@@ -2195,6 +2197,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/0f/4c/215a4eeb63cacc5f17f516691ea7285d11e249802b942476bff15922a314/mypy-2.1.0-cp314-cp314t-win_amd64.whl", hash = "sha256:b33b6cd332695bba180d55e717a79d3038e479a2c49cc5eb3d53603409b9a5d7", size = 12866622, upload-time = "2026-05-11T18:34:39.945Z" },
     { url = "https://files.pythonhosted.org/packages/4b/50/1043e1db5f455ffe4c9ab22747cd8ca2bc492b1e4f4e21b130a44ee2b217/mypy-2.1.0-cp314-cp314t-win_arm64.whl", hash = "sha256:4f910fe825376a7b66ef7ca8c98e5a149e8cd64c19ae71d84047a74ee060d4e6", size = 10610798, upload-time = "2026-05-11T18:36:31.444Z" },
     { url = "https://files.pythonhosted.org/packages/0d/2a/13ca1f292f6db1b98ff495ef3467736b331621c5917cad984b7043e7348d/mypy-2.1.0-py3-none-any.whl", hash = "sha256:a663814603a5c563fb87a4f96fb473eeb30d1f5a4885afcf44f9db000a366289", size = 2693302, upload-time = "2026-05-11T18:31:29.246Z" },
+]
+
+[[package]]
+name = "mypy-baseline"
+version = "0.7.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/08/7e/484e07e1b27f9999f5f3f5097f0dfbb1ba756b0a2ed14acca764abad6cc8/mypy_baseline-0.7.4.tar.gz", hash = "sha256:c69d9964ebb2922f53245336bc506d9d277c8a35349a60ce50cff0c48a8702cc", size = 319098 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9e/77/3dee0c8f219cc5e68e7d84abc1ecc315856104c459658890bd9ecce17815/mypy_baseline-0.7.4-py3-none-any.whl", hash = "sha256:012c5f2f2bf9770b0e846d22580a72b9d43bdfe04148fee10a8af47b5bdd35c7", size = 17853 },
 ]
 
 [[package]]
