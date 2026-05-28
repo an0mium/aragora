@@ -29,6 +29,7 @@ from aragora.cli.commands.review_queue import (
     _filter_lanes,
     _GhError,
     _is_high_risk_path,
+    _is_current_merge_quorum_self_check_run,
     _parse_pr_number,
     _record_external_settlement,
     _requested_action,
@@ -1645,6 +1646,267 @@ class TestBuildQueueAndPacket:
         assert packet.model_review_quorum["admin_squash_allowed"] is False
         assert packet.model_review_quorum["status"] == "repair_or_wait"
         assert "checks are pending; wait before settlement" in packet.model_review_quorum["reasons"]
+
+    def test_truncated_direct_check_runs_fail_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        pr_payload = _make_pr(number=7495, files=["docs/status/open.md"])
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args and args[0] == "api" and any("check-runs" in arg for arg in args):
+                return {
+                    "total_count": 101,
+                    "check_runs": [
+                        {
+                            "name": f"check-{idx}",
+                            "status": "completed",
+                            "conclusion": "success",
+                        }
+                        for idx in range(100)
+                    ],
+                }
+            raise AssertionError(f"unexpected gh json call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        packet = _build_packet("7495", repo_override=None)
+
+        assert packet.checks_summary == "1/1 green; direct check-runs incomplete (100/101 returned)"
+        assert packet.machine_recommendation == "needs_human_attention"
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert "checks are pending; wait before settlement" in packet.model_review_quorum["reasons"]
+
+    def test_direct_check_run_api_error_blocks_even_with_rollup(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7496, files=["docs/status/open.md"])
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args and args[0] == "api" and any("check-runs" in arg for arg in args):
+                raise _GhError("gh unavailable")
+            raise AssertionError(f"unexpected gh json call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        packet = _build_packet("7496", repo_override=None)
+
+        assert packet.checks_summary == "1/1 green; direct check-runs unavailable (gh unavailable)"
+        assert packet.machine_recommendation == "needs_human_attention"
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert "checks are pending; wait before settlement" in packet.model_review_quorum["reasons"]
+
+    def test_current_merge_quorum_self_check_run_pending_is_ignored(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26555329971")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+        pr_payload = _make_pr(number=7497, checks=[], files=["docs/status/open.md"])
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args and args[0] == "api" and any("check-runs" in arg for arg in args):
+                return {
+                    "total_count": 2,
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "status": "in_progress",
+                            "conclusion": None,
+                            "details_url": (
+                                "https://github.com/synaptent/aragora/actions/runs/"
+                                "26555329971/job/78225856248"
+                            ),
+                        },
+                        {
+                            "name": "lint",
+                            "status": "completed",
+                            "conclusion": "success",
+                        },
+                    ],
+                }
+            raise AssertionError(f"unexpected gh json call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        packet = _build_packet("7497", repo_override=None)
+
+        assert packet.checks_summary == "direct check-runs 1/1 green"
+        assert packet.machine_recommendation == "approve_candidate"
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+        assert packet.model_review_quorum["status"] == "satisfied"
+
+    @pytest.mark.parametrize(
+        ("run", "env_overrides"),
+        [
+            ({"name": "lint"}, {}),
+            ({"status": "completed", "conclusion": "success"}, {}),
+            (
+                {
+                    "details_url": (
+                        "https://github.com/fork/aragora/actions/runs/26555329971/job/78225856248"
+                    )
+                },
+                {},
+            ),
+            ({}, {"GITHUB_RUN_ID": ""}),
+        ],
+    )
+    def test_merge_quorum_self_check_run_requires_matching_name_status_env_and_url(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        run: dict[str, str | None],
+        env_overrides: dict[str, str],
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26555329971")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+        for key, value in env_overrides.items():
+            if value:
+                monkeypatch.setenv(key, value)
+            else:
+                monkeypatch.delenv(key, raising=False)
+        check_run: dict[str, str | None] = {
+            "name": "aragora-merge-quorum",
+            "status": "in_progress",
+            "conclusion": None,
+            "details_url": (
+                "https://github.com/synaptent/aragora/actions/runs/26555329971/job/78225856248"
+            ),
+        }
+        check_run.update(run)
+
+        assert _is_current_merge_quorum_self_check_run(check_run) is False
+
+    def test_merge_quorum_self_check_run_matches_current_run(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "26555329971")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+
+        assert _is_current_merge_quorum_self_check_run(
+            {
+                "name": "aragora-merge-quorum",
+                "status": "in_progress",
+                "conclusion": None,
+                "details_url": (
+                    "https://github.com/synaptent/aragora/actions/runs/26555329971/job/78225856248"
+                ),
+            }
+        )
+
+    def test_cancelled_non_merge_quorum_direct_check_run_is_ignored(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7498, checks=[], files=["docs/status/open.md"])
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args and args[0] == "api" and any("check-runs" in arg for arg in args):
+                return {
+                    "total_count": 2,
+                    "check_runs": [
+                        {
+                            "name": "Nightly Slow Tier",
+                            "status": "completed",
+                            "conclusion": "cancelled",
+                        },
+                        {
+                            "name": "lint",
+                            "status": "completed",
+                            "conclusion": "success",
+                        },
+                    ],
+                }
+            raise AssertionError(f"unexpected gh json call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        packet = _build_packet("7498", repo_override=None)
+
+        assert packet.checks_summary == "direct check-runs 1/1 green"
+        assert packet.machine_recommendation == "approve_candidate"
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+
+    def test_cancelled_merge_quorum_direct_check_run_blocks_admin_squash(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7499, checks=[], files=["docs/status/open.md"])
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args and args[0] == "api" and any("check-runs" in arg for arg in args):
+                return {
+                    "total_count": 2,
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "status": "completed",
+                            "conclusion": "cancelled",
+                        },
+                        {
+                            "name": "lint",
+                            "status": "completed",
+                            "conclusion": "success",
+                        },
+                    ],
+                }
+            raise AssertionError(f"unexpected gh json call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        packet = _build_packet("7499", repo_override=None)
+
+        assert packet.checks_summary == "direct check-runs failing (1 failing / 2 total)"
+        assert packet.machine_recommendation == "repair_first"
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert (
+            "checks are failing; repair before settlement" in packet.model_review_quorum["reasons"]
+        )
 
     def test_green_rollup_with_failing_direct_check_runs_blocks_admin_squash(
         self, monkeypatch: pytest.MonkeyPatch

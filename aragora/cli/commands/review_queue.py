@@ -140,9 +140,9 @@ DIRECT_CHECK_RUN_FAILURE_CONCLUSIONS: tuple[str, ...] = (
     "TIMED_OUT",
     "ACTION_REQUIRED",
     "STARTUP_FAILURE",
-    "CANCELLED",
 )
 DIRECT_CHECK_RUN_IGNORED_CONCLUSIONS: tuple[str, ...] = (
+    "CANCELLED",
     "SKIPPED",
     "NEUTRAL",
     "STALE",
@@ -1411,15 +1411,20 @@ def _summarize_exact_head_check_runs(
             ]
         )
     except _GhError as exc:
-        if not pr.get("statusCheckRollup"):
-            return (f"direct check-runs unavailable ({exc})", True, False)
-        return ("", False, False)
+        return (f"direct check-runs unavailable ({exc})", False, True)
 
     if not isinstance(payload, dict):
         return ("", False, False)
     check_runs = payload.get("check_runs")
     if not isinstance(check_runs, list):
         return ("", False, False)
+    total_count = payload.get("total_count")
+    if isinstance(total_count, int) and total_count > len(check_runs):
+        return (
+            f"direct check-runs incomplete ({len(check_runs)}/{total_count} returned)",
+            False,
+            True,
+        )
 
     success = failure = pending = 0
     for run in check_runs:
@@ -1433,6 +1438,8 @@ def _summarize_exact_head_check_runs(
             pending += 1
         elif conclusion == "SUCCESS":
             success += 1
+        elif conclusion == "CANCELLED" and _is_merge_quorum_check_run(run):
+            failure += 1
         elif conclusion in DIRECT_CHECK_RUN_FAILURE_CONCLUSIONS:
             failure += 1
         elif conclusion in DIRECT_CHECK_RUN_IGNORED_CONCLUSIONS:
@@ -1448,6 +1455,11 @@ def _summarize_exact_head_check_runs(
     if success > 0:
         return (f"direct check-runs {success}/{total} green", False, False)
     return ("", False, False)
+
+
+def _is_merge_quorum_check_run(check: dict[str, Any]) -> bool:
+    name = str(check.get("name") or "").strip()
+    return name == MERGE_QUORUM_CHECK_NAME
 
 
 def _is_current_merge_quorum_self_check_run(check: dict[str, Any]) -> bool:
