@@ -46,8 +46,14 @@ repos:
   # its baseline locally is environment-fragile (exact mypy version + every
   # type-stub version + importable project deps + mypy's incremental cache),
   # which previously made every local push fail on thousands of phantom "new"
-  # errors in untouched files. `--follow-imports=skip` makes this gate need no
-  # project deps or stubs, so it is robust in any developer environment.
+  # errors in untouched files.
+  #
+  # This hook runs in an isolated `language: python` env, so pre-commit installs
+  # the pinned `mypy` itself — the gate never depends on the developer's active
+  # environment having mypy (no "No module named mypy" surprises). The
+  # `--follow-imports=skip` / `--ignore-missing-imports` flags mean it needs no
+  # project deps or type stubs, so the isolated env type-checks changed files
+  # correctly without the full project installed.
   #
   # Run the full baseline check manually when you want it:
   #   python scripts/ci/mypy_with_baseline.py        # report NEW errors only
@@ -56,8 +62,10 @@ repos:
     hooks:
       - id: typecheck-changed
         name: mypy (changed aragora files, mirrors CI typecheck gate)
-        entry: python -m mypy --ignore-missing-imports --follow-imports=skip --show-error-codes
-        language: system
+        entry: mypy --ignore-missing-imports --follow-imports=skip --show-error-codes
+        language: python
+        additional_dependencies:
+          - mypy==1.19.1
         # pre-commit passes only the changed, still-existing files matching
         # `files:` — i.e. the same "touched aragora Python file(s)" CI checks.
         pass_filenames: true
