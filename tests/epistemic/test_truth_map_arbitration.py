@@ -208,8 +208,15 @@ class TestOrthogonality:
     def test_no_arbitrations_param_preserves_existing_summary_keys(self) -> None:
         d = build_truth_map(claim_results=[]).to_dict()
         expected = {
-            "total_claims", "passing", "failing", "stale",
-            "unsupported", "error", "open_crux_count",
-            "active_arbitrations", "expired_arbitrations", "reversed_arbitrations",
+            "total_claims",
+            "passing",
+            "failing",
+            "stale",
+            "unsupported",
+            "error",
+            "open_crux_count",
+            "active_arbitrations",
+            "expired_arbitrations",
+            "reversed_arbitrations",
         }
         assert expected <= d["summary"].keys()
