@@ -20,7 +20,7 @@
 | 1 | Settle #7443 (provider bootstrap + receipt repair) | **Shipped** | Merged 2026-05-27T02:25:17Z as `7318af7e5b`. Tier 4 settled via repaired `scripts/settle_tier4_pr.py` (#7469 / #7471 lineage) using the model-quorum + `aragora/human-settlement` chain, normal protected squash with `--match-head-commit`, no admin-fallback needed. |
 | 2 | Land #7450 (model-quorum family-expansion pre-approval) | **Shipped** | Merged as `dd144b4a3f`. The recognizer-header gap remains — implementation PR is governed by separate Tier 4 pre-approval #7472 (open, awaiting operator design review). |
 | 3 | Land #7451 (model-family bench harness scaffold) | **Evidence satisfied; needs ready/settlement only** | Still open/draft at head `113a706c92831c0fb889d6e3da35ee454ceb6a94`. After repair commit `113a706c92` (addressing the three Codex request-changes blockers), the merge-packet counts `codex` + `factory` and 1 dogfood at the exact head; required checks are green; no unresolved dissent. Remaining blocker is operator/draft boundary, not evidence. |
-| 4 | Publish B0 truth result, whatever it is | **Falsified honestly** | Re-ran `scripts/build_benchmark_truth_artifact.py --publish` 2026-05-26T22:51:31Z; verified `truth_success_rate_verified` is **0.0%** at this corpus. New artifact at `.aragora/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260526T225131Z.json`. The 0.0% IS the artifact — the public claim must ratchet to what is measured. Legacy/proxy rates (30.8% / 76.9%) are not substitutes. |
+| 4 | Publish B0 truth result, whatever it is | **Falsified honestly** | Re-ran `scripts/build_benchmark_truth_artifact.py --publish` 2026-05-26T22:51:31Z; verified `truth_success_rate_verified` is **0.0%** at this corpus. The repo-tracked evidence remains the generated B0 truth pointers under `docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/`; local `.aragora/` rerun artifacts are intentionally not tracked. The 0.0% IS the artifact — the public claim must ratchet to what is measured. Legacy/proxy rates (30.8% / 76.9%) are not substitutes. |
 | — | Bonus — #7483 follow-up routing fix | **Shipped** | Merged 2026-05-27T17:22:58Z as `12615421be3af363803c1a68a5bb32d5105028b9`. Not a primary sprint goal but adjacent settlement-tooling work that landed cleanly. |
 
 ---
@@ -46,17 +46,18 @@
 
 2. **Run fresh-agent product-proof sequence end-to-end.** **Operator
    proof passed; strict outreach reading still needs non-operator demo
-   proof.** The post-#7479 proof artifact at
+   proof.** A local post-#7479 operator proof run recorded under
    `.aragora/proof/post-7479/20260528T035207Z/` shows
    `aragora validate-env --json`, `aragora doctor --validate`,
    `aragora ask --agents grok --decision-integrity`, and
    `aragora receipt verify` all exiting 0 on current main. The receipt
    `/Users/armand/.aragora/receipts/9e2e072d-04e7-4968-8475-a2d134b85656_b6f334a28539822d.json`
-   verified successfully. Goal status: core product capability proven
-   by operator run; outreach-gate clause (b) remains open only under the
-   literal non-operator `aragora demo --receipt` requirement. The next
-   bounded proof step is a non-operator/fresh-user demo receipt run, not
-   another operator rerun of the same path.
+   verified successfully. These `.aragora/` proof files are local operator
+   evidence, not repo-tracked public artifacts. Goal status: core product
+   capability proven by operator run; outreach-gate clause (b) remains open
+   only under the literal non-operator `aragora demo --receipt` requirement.
+   The next bounded proof step is a non-operator/fresh-user demo receipt run,
+   not another operator rerun of the same path.
 
 3. **Operator design-review of #7472 (advisory-review recognizable
    header pre-approval).** #7472 is the Tier 4 design doc + 18 passing
