@@ -37,7 +37,9 @@ repos:
   # Type checking with mypy on the same local planning surface as CI's REQUIRED
   # phase-1 typecheck gate. Touched `aragora/**.py` files use CI's changed-file
   # mypy flags; CI force-full trigger files run the same full typecheck script
-  # used by the workflow.
+  # used by the workflow. This intentionally drops the old pre-push
+  # baseline-style cross-file scan so local pushes follow the required CI gate
+  # instead of failing on unrelated full-tree debt.
   # CI remains authoritative because it installs the project and computes the
   # changed-file plan from the PR/branch base; local pre-push remains a fast
   # guardrail, not the source of truth.
@@ -50,9 +52,8 @@ repos:
   # This hook runs in an isolated `language: python` env, so pre-commit installs
   # mypy and the same type-stub packages as CI — the gate does not depend on the
   # developer's active environment having mypy (no "No module named mypy"
-  # surprises). The hook pins mypy to Aragora's current known-good 1.x range so
-  # local pushes do not break when pre-commit builds a fresh isolated env; CI
-  # remains authoritative.
+  # surprises). The hook pins mypy to Aragora's current known-good local version
+  # so pre-commit env rebuilds are deterministic; CI remains authoritative.
   #
   # Run the full baseline check manually when you want it:
   #   python scripts/ci/mypy_with_baseline.py        # report NEW errors only
@@ -76,7 +77,7 @@ repos:
                 aragora/*.py) plan_files+=("$deleted_path") ;;
               esac;
             done < <(git diff --name-only --diff-filter=D origin/main...HEAD -- aragora/ 2>/dev/null || true);
-          elif [[ "$#" -eq 0 ]]; then
+          else
             echo "warning: origin/main is unavailable; deleted aragora Python files cannot be inferred locally" >&2;
           fi;
           python scripts/run_typecheck_gate.py --repo-root . --files "${plan_files[@]}" --targets-file "$targets_file" --json > "$plan_file";
@@ -90,13 +91,21 @@ repos:
             while IFS= read -r target; do
               [[ -n "$target" ]] && targets+=("$target");
             done < "$targets_file";
-            mypy --ignore-missing-imports --follow-imports=skip --show-error-codes "${targets[@]}";
-          else
+            if [[ "${#targets[@]}" -gt 0 ]]; then
+              mypy --ignore-missing-imports --follow-imports=skip --show-error-codes "${targets[@]}";
+            else
+              echo "warning: typecheck planner returned changed mode with no targets; skipping local mypy" >&2;
+            fi;
+          elif [[ "$mode" == "skip" ]]; then
             cat "$plan_file";
+          else
+            echo "error: unknown typecheck planner mode: $mode" >&2;
+            cat "$plan_file" >&2;
+            exit 1;
           fi' --
         language: python
         additional_dependencies:
-          - mypy>=1.19.0,<2.0
+          - mypy==1.19.1
           - types-requests
           - types-redis
           - types-python-dateutil
