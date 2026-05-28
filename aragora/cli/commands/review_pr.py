@@ -371,16 +371,97 @@ def _fetch_pr_target(
     )
 
 
+# Generated / lock / vendored files add no review signal but can dominate a PR
+# diff and crowd out human-authored changes. Concretely, a ~450KB `.mypy-baseline`
+# resync pushed the actual 8-line code change past MAX_DIFF_CHARS, so the model
+# reviewer only saw noise and returned `blocked_nonreviewable`. These are dropped
+# from the diff *before* truncation so real source changes always survive.
+_GENERATED_DIFF_BASENAMES = frozenset(
+    {
+        ".mypy-baseline",
+        "package-lock.json",
+        "poetry.lock",
+        "pnpm-lock.yaml",
+        "yarn.lock",
+        "Cargo.lock",
+        "uv.lock",
+        "Pipfile.lock",
+        "go.sum",
+        "composer.lock",
+        "Gemfile.lock",
+    }
+)
+_GENERATED_DIFF_SUFFIXES = (".lock", ".snap")
+_GENERATED_DIFF_PATH_RE = re.compile(
+    r"(?:^|/)generated_types\.py$|(?:^|/)[^/]*\.generated\.[^/]*$|/(?:__generated__|generated)/"
+)
+
+
+def _is_generated_diff_path(path: str) -> bool:
+    """True if ``path`` is a generated/lock/vendored file with no review signal."""
+    name = path.rsplit("/", 1)[-1]
+    if name in _GENERATED_DIFF_BASENAMES:
+        return True
+    if any(name.endswith(suffix) for suffix in _GENERATED_DIFF_SUFFIXES):
+        return True
+    return bool(_GENERATED_DIFF_PATH_RE.search(path))
+
+
+def _strip_generated_file_diffs(diff_text: str) -> tuple[str, list[str]]:
+    """Drop per-file sections for generated/lock files from a unified diff.
+
+    Returns ``(filtered_diff, dropped_paths)``. Splitting on ``diff --git``
+    headers keeps each file's hunks intact; a section is dropped when its target
+    path matches :func:`_is_generated_diff_path`.
+    """
+    if "diff --git " not in diff_text:
+        return diff_text, []
+    sections = re.split(r"(?m)(?=^diff --git )", diff_text)
+    kept: list[str] = []
+    dropped: list[str] = []
+    for section in sections:
+        if not section.strip():
+            continue
+        header = section.splitlines()[0]
+        match = re.match(r"diff --git a/(.+?) b/(.+)", header)
+        path = match.group(2) if match else ""
+        if path and _is_generated_diff_path(path):
+            dropped.append(path)
+            continue
+        kept.append(section)
+    return "".join(kept), dropped
+
+
 def _fetch_pr_diff(target: PullRequestTarget) -> str:
     gh_cmd = ["gh", "pr", "diff", str(target.number)]
     if target.repo:
         gh_cmd.extend(["--repo", target.repo])
     proc = _run_command(gh_cmd, cwd=Path.cwd())
-    diff_text = proc.stdout
+    raw_diff = proc.stdout
+    if not raw_diff.strip():
+        raise RuntimeError(f"PR #{target.number} has no diff to review")
+
+    diff_text, dropped = _strip_generated_file_diffs(raw_diff)
+    unique_dropped = sorted(set(dropped))
+
+    if not diff_text.strip():
+        # PR touches only generated/lock files — nothing human-authored to review.
+        listed = ", ".join(unique_dropped[:10]) + ("..." if len(unique_dropped) > 10 else "")
+        return (
+            f"[All changes in PR #{target.number} are generated/lock files "
+            f"({listed}); no human-authored source changes to review.]"
+        )
+
     if len(diff_text) > MAX_DIFF_CHARS:
         diff_text = diff_text[:MAX_DIFF_CHARS] + f"\n\n... [truncated at {MAX_DIFF_CHARS} chars]"
-    if not diff_text.strip():
-        raise RuntimeError(f"PR #{target.number} has no diff to review")
+
+    if unique_dropped:
+        listed = ", ".join(unique_dropped[:10]) + ("..." if len(unique_dropped) > 10 else "")
+        diff_text += (
+            f"\n\n[note: omitted {len(unique_dropped)} generated/lock file(s) "
+            f"from review to preserve reviewable source: {listed}]"
+        )
+
     return diff_text
 
 
