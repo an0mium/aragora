@@ -35,33 +35,28 @@
 
 ### Sprint 2 goals (≤4)
 
-1. **Land #7479 — load-bearing product-proof unblocker.** The
-   `aragora ask --decision-integrity` receipt round-trip is currently
-   blocked by a strict-secrets bug in `get_api_key`: the
-   `is_openrouter_fallback_available()` probe raises
-   `SecretNotFoundError` before the `required=False` path is reached,
-   so *all* `aragora ask` calls fail regardless of which provider is
-   selected. #7479 (`fix(ask): isolate explicit provider credentials`)
-   targets exactly this bug; PR is draft, BLOCKED on typecheck/test
-   workflow failures, 0/2 model signals. Goal acceptance: #7479 merged
-   AND the product-proof sequence at
-   `.aragora/proof/post-7443/20260527T025354Z/` re-runs to produce a
-   verifiable receipt end-to-end on a real provider call. Falsification:
-   the bug turns out to be deeper than diagnosed and the proof sequence
-   still fails post-merge.
+1. **Land #7479 — load-bearing product-proof unblocker.** **Shipped.**
+   #7479 (`fix(ask): isolate explicit provider credentials`) merged as
+   `d4f488de28877157b3e14156277594f9fe147305` and fixed the strict-
+   secrets bug where `is_openrouter_fallback_available()` raised
+   `SecretNotFoundError` before the `required=False` path was reached.
+   That bug had blocked *all* `aragora ask` calls regardless of provider
+   selection. Goal status: complete; no further #7479 action belongs in
+   this sprint unless a regression appears.
 
-2. **Run fresh-agent product-proof sequence end-to-end.** Once #7479
-   lands, a non-operator (or a non-author identity) runs
+2. **Run fresh-agent product-proof sequence end-to-end.** **Operator
+   proof passed; strict outreach reading still needs non-operator demo
+   proof.** The post-#7479 proof artifact at
+   `.aragora/proof/post-7479/20260528T035207Z/` shows
    `aragora validate-env --json`, `aragora doctor --validate`,
-   `aragora ask "<simple-task>" --decision-integrity`, and
-   `aragora receipt verify <produced-receipt>` against current main,
-   captures all four outputs under
-   `.aragora/proof/post-7479/<timestamp>/`, and reports a clean
-   round-trip. This is the load-bearing artifact for FOCUS.md outreach-
-   gate clause (b). Goal acceptance: receipt round-trips end-to-end
-   AND the artifact is reproducible from a fresh checkout. Falsification:
-   the receipt round-trip exposes additional bugs upstream of the
-   strict-secrets fix.
+   `aragora ask --agents grok --decision-integrity`, and
+   `aragora receipt verify` all exiting 0 on current main. The receipt
+   `/Users/armand/.aragora/receipts/9e2e072d-04e7-4968-8475-a2d134b85656_b6f334a28539822d.json`
+   verified successfully. Goal status: core product capability proven
+   by operator run; outreach-gate clause (b) remains open only under the
+   literal non-operator `aragora demo --receipt` requirement. The next
+   bounded proof step is a non-operator/fresh-user demo receipt run, not
+   another operator rerun of the same path.
 
 3. **Operator design-review of #7472 (advisory-review recognizable
    header pre-approval).** #7472 is the Tier 4 design doc + 18 passing
@@ -76,44 +71,45 @@
    signal and ends the lane cleanly.
 
 4. **Substrate triage — decide which open review-queue /
-   settlement-tooling PRs survive sprint 2.** At sprint-open there are
+   settlement-tooling PRs survive sprint 2.** **Triage target reached;
+   keep pressure on net-closing behavior.** The initial surface had
    11+ open `codex/...` branches and ~8 PRs (#7480, #7476, #7473,
-   #7448, #7453, #7481, #7484, plus open settle-tooling drafts) in the
-   review-queue / settlement-tooling surface. Many are functional
-   variants of one another (`settlement-followup-helper` had three r-
-   suffixed variants alone). Goal acceptance: by the end of sprint 2,
-   the open count in this surface is ≤3, achieved by closing redundant
-   branches with explicit operator reasoning and/or merging the genuinely
-   complementary ones under Tier 4 discipline. No new branches in this
-   surface unless they directly unblock goal #1 or goal #2. Falsification:
-   the triage produces a new "consolidation PR" rather than closing
-   existing ones — that itself is more substrate.
+   #7448, #7453, #7481, #7484, plus open settle-tooling drafts). After
+   the triage/merge cycle, the remaining governance/tooling surface is
+   small enough for deliberate handling: #7472 remains the advisory-
+   review recognizable-header pre-approval, #7480 remains the Tier 4
+   pre-merge settlement-recording fix, and #7487 shipped as
+   `08bbd426e0` (`fix(review-queue): block cancelled merge quorum
+   checks`). Goal status: the ≤3 open-surface target is met after #7487
+   merged; future process work must still close or supersede an existing
+   open item or directly unblock the remaining product-proof/demo path.
 
 ### Sprint 2 anti-goals
 
 - **No new review-queue, settlement, merge-quorum, or steering meta-
-  tooling unless it (a) directly unblocks #7479 or fresh-agent dogfood
-  proof, OR (b) explicitly closes or supersedes an existing open PR
-  in the same surface.** This is the explicit anti-substrate guardrail
-  for sprint 2. Any PR in `aragora/cli/commands/review_queue.py`,
+  tooling unless it (a) directly unblocks the remaining non-operator
+  demo/product-proof path, OR (b) explicitly closes or supersedes an
+  existing open PR in the same surface.** This is the explicit anti-
+  substrate guardrail for sprint 2. Any PR in
+  `aragora/cli/commands/review_queue.py`,
   `scripts/settle_*.py`, `scripts/*steering*.py`, `scripts/*harvest*.py`,
   `.github/workflows/aragora-merge-quorum.yml`, or
   `.github/workflows/aragora-review-gate.yml` must, in its PR body,
-  EITHER state which of #7479 or the fresh-agent dogfood proof it
-  unblocks — by file:line — OR cite the open PR number it
-  closes/supersedes, or stand down. Rationale: post-saturation process
-  work in this surface is the dominant form of substrate-overbuild
-  this sprint, and the close-or-supersede clause makes the rule self-
-  policing — every new PR must either advance a load-bearing target or
-  net-close the queue, not extend it.
+  EITHER state which remaining product-proof/demo gate it unblocks — by
+  file:line — OR cite the open PR number it closes/supersedes, or stand
+  down. Rationale: post-saturation process work in this surface is the
+  dominant form of substrate-overbuild this sprint, and the close-or-
+  supersede clause makes the rule self-policing — every new PR must
+  either advance a load-bearing target or net-close the queue, not
+  extend it.
 - **No premature external outreach.** Same gate as sprint 1: outreach
   is unlocked only when *all* of these are true: (a) B0
   `truth_success_rate_verified ≥ 50%` (verified-by-PR-link metric, not
   legacy/proxy), (b) `aragora demo --receipt` round-trips for a non-
-  operator user (gated on sprint 2 goal #2), (c) at least one
-  frontier-model adversarial review of a real PR survives unmodified
-  (Factory + Codex already meeting this for #7451 is encouraging but
-  not yet repeated on a product-scope PR end-to-end).
+  operator user (operator proof passed, strict non-operator proof still
+  open), (c) at least one frontier-model adversarial review of a real PR
+  survives unmodified (Factory + Codex already meeting this for #7451 is
+  encouraging but not yet repeated on a product-scope PR end-to-end).
 - **No Tier 4 self-mods without pre-approval discipline.** Unchanged
   from sprint 1. Any change to `scripts/settle_tier4_pr.py`,
   `aragora-merge-quorum.yml`, `aragora-review-gate.yml`, or the family
