@@ -34,27 +34,34 @@ repos:
         types_or: [python, pyi]
         exclude: ^sdk/python/aragora/generated_types\.py$  # Auto-generated, must stay stable
 
-  # Type checking with mypy (filtered through mypy-baseline).
-  # The repo carries ~4k pre-existing mypy errors tracked in `.mypy-baseline`.
-  # This hook runs mypy against `aragora/` and `scripts/` and fails the push
-  # only on NEW errors — existing debt is accepted. Regenerate the baseline
-  # via: `python scripts/ci/mypy_with_baseline.py --sync` (see
-  # `docs/plans/2026-04-18-mypy-debt-audit.md` for the operator workflow).
+  # Type checking with mypy on CHANGED files — mirrors CI's REQUIRED phase-1
+  # typecheck gate (.github/workflows/lint.yml runs
+  # `mypy --ignore-missing-imports --follow-imports=skip --show-error-codes`
+  # on touched `aragora/**.py` for PR/branch pushes). Passing here ⇒ passing
+  # the required CI typecheck.
+  #
+  # We intentionally do NOT run the full-tree `mypy-baseline` diff on pre-push.
+  # That tier only runs in CI on direct-to-main pushes
+  # (`scripts/ci/mypy_with_baseline.py`) and is `ci.skip`-ped here. Reproducing
+  # its baseline locally is environment-fragile (exact mypy version + every
+  # type-stub version + importable project deps + mypy's incremental cache),
+  # which previously made every local push fail on thousands of phantom "new"
+  # errors in untouched files. `--follow-imports=skip` makes this gate need no
+  # project deps or stubs, so it is robust in any developer environment.
+  #
+  # Run the full baseline check manually when you want it:
+  #   python scripts/ci/mypy_with_baseline.py        # report NEW errors only
+  #   python scripts/ci/mypy_with_baseline.py --sync  # regenerate .mypy-baseline
   - repo: local
     hooks:
-      - id: mypy-baseline
-        name: mypy (baseline-filtered)
-        entry: python scripts/ci/mypy_with_baseline.py
-        language: python
-        pass_filenames: false
-        additional_dependencies:
-          - mypy==1.10.0
-          - mypy-baseline==0.7.4
-          - types-requests
-          - types-python-dateutil
-        # Only trigger when Python files under aragora/ or scripts/ change.
-        # (Full-tree mypy still runs — the filter just gates when it runs.)
-        files: ^(aragora/|scripts/).*\.py$
+      - id: typecheck-changed
+        name: mypy (changed aragora files, mirrors CI typecheck gate)
+        entry: python -m mypy --ignore-missing-imports --follow-imports=skip --show-error-codes
+        language: system
+        # pre-commit passes only the changed, still-existing files matching
+        # `files:` — i.e. the same "touched aragora Python file(s)" CI checks.
+        pass_filenames: true
+        files: ^aragora/.*\.py$
         # Run on pre-push to catch type errors before they hit CI.
         stages: [pre-push]
 
