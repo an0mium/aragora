@@ -17,6 +17,7 @@ Current May 28 proof-loop state:
 - `docs/THESIS.md` is v4 canonical.
 - H1-01 rev-4 was promoted into the canonical corpus and rev-5 now graduates the first five strict linked successes.
 - Fresh B0 publication remains complete for the canonical corpus and reports 100.0% `truth_success_rate_verified` over five verified entries; full-corpus truth remains 38.5%, with eight entries still in progress.
+- The remaining Sprint 2 outreach proof gate now has product-scope frontier evidence: Claude reviewed SDK websocket PR [#7513](https://github.com/synaptent/aragora/pull/7513) at exact head `6531ebad2968ae9e2888f08ba237473c41eb0e21`, preserved unmodified in [the PR comment](https://github.com/synaptent/aragora/pull/7513#issuecomment-4567004963), and approved with non-blocking follow-ups. This satisfies the frontier/adversarial-review evidence gate; actual outreach remains an operator decision.
 - The first settlement receipt exists for `#7060`, and `review-queue observe-outcomes --window-days 14 --max-receipts 5 --json` dry-runs over it successfully with all five v2 outcome signals false and no receipt JSON writes.
 - The first `observe-outcomes --write` remains a separate Tier-4 operator decision over a bounded manually verifiable receipt slice.
 
@@ -79,7 +80,7 @@ What is still missing:
 - proof that recurring benchmark publication stays complete and fresh on `main` without operator babysitting
 - broader repair-loop coverage on top of the existing audit trail
 - lower-rescue unattended operation on bounded backlogs
-- ongoing discipline so external claims stay narrower than the recurring proof surfaces
+- ongoing discipline so actual external outreach stays no broader than the recurring proof surfaces and the preserved frontier-review evidence
 - delayed decision-integrity work that turns important claims into executable evidence-linked objects and debates into ranked `CruxSet` outputs, after the proof-first Foreman gate is stable
 
 The work now is not “add more speculative autonomy.” It is “make bounded unattended execution boring.”
