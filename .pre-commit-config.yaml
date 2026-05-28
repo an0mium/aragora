@@ -34,26 +34,22 @@ repos:
         types_or: [python, pyi]
         exclude: ^sdk/python/aragora/generated_types\.py$  # Auto-generated, must stay stable
 
-  # Type checking with mypy on CHANGED files — mirrors CI's REQUIRED phase-1
-  # typecheck gate (.github/workflows/lint.yml runs
-  # `mypy --ignore-missing-imports --follow-imports=skip --show-error-codes`
-  # on touched `aragora/**.py` for PR/branch pushes). Passing here ⇒ passing
-  # the required CI typecheck.
+  # Type checking with mypy on the same local surfaces as CI's REQUIRED phase-1
+  # typecheck gate. Touched `aragora/**.py` files use CI's changed-file mypy
+  # flags; CI force-full trigger files run the full typecheck tier locally.
+  # CI remains authoritative because it installs the project and computes the
+  # changed-file plan from the PR/branch base.
   #
-  # We intentionally do NOT run the full-tree `mypy-baseline` diff on pre-push.
-  # That tier only runs in CI on direct-to-main pushes
-  # (`scripts/ci/mypy_with_baseline.py`) and is `ci.skip`-ped here. Reproducing
-  # its baseline locally is environment-fragile (exact mypy version + every
-  # type-stub version + importable project deps + mypy's incremental cache),
-  # which previously made every local push fail on thousands of phantom "new"
-  # errors in untouched files.
+  # We intentionally do NOT run the manual `mypy_with_baseline.py` helper on
+  # pre-push. The required CI workflow uses `scripts/run_typecheck_gate.py` plus
+  # `scripts/test_tiers.sh typecheck`; the baseline helper is available only for
+  # explicit local baseline filtering or regeneration.
   #
   # This hook runs in an isolated `language: python` env, so pre-commit installs
-  # the pinned `mypy` itself — the gate never depends on the developer's active
-  # environment having mypy (no "No module named mypy" surprises). The
-  # `--follow-imports=skip` / `--ignore-missing-imports` flags mean it needs no
-  # project deps or type stubs, so the isolated env type-checks changed files
-  # correctly without the full project installed.
+  # mypy and the same type stubs as CI — the gate never depends on the
+  # developer's active environment having mypy (no "No module named mypy"
+  # surprises). The changed-file path uses `--follow-imports=skip` /
+  # `--ignore-missing-imports` so it does not need the full project installed.
   #
   # Run the full baseline check manually when you want it:
   #   python scripts/ci/mypy_with_baseline.py        # report NEW errors only
@@ -61,15 +57,36 @@ repos:
   - repo: local
     hooks:
       - id: typecheck-changed
-        name: mypy (changed aragora files, mirrors CI typecheck gate)
-        entry: mypy --ignore-missing-imports --follow-imports=skip --show-error-codes
+        name: mypy (changed aragora files or full CI trigger)
+        entry: >-
+          bash -c 'set -euo pipefail;
+          force_full=0;
+          for path in "$@"; do
+            case "$path" in
+              pyproject.toml|.github/workflows/lint.yml|scripts/run_typecheck_gate.py|scripts/test_tiers.sh|requirements*.txt|.github/actions/pr-scope-classifier/*)
+                force_full=1
+                ;;
+            esac
+          done;
+          if [[ "$force_full" == "1" ]]; then
+            bash scripts/test_tiers.sh typecheck;
+          else
+            mypy --ignore-missing-imports --follow-imports=skip --show-error-codes "$@";
+          fi' --
         language: python
         additional_dependencies:
-          - mypy==1.19.1
+          - mypy
+          - types-requests
+          - types-redis
+          - types-python-dateutil
+          - types-setuptools
+          - types-jsonschema
+          - types-PyYAML
         # pre-commit passes only the changed, still-existing files matching
-        # `files:` — i.e. the same "touched aragora Python file(s)" CI checks.
+        # `files:` — either touched aragora Python files or CI force-full
+        # trigger files handled by the entrypoint above.
         pass_filenames: true
-        files: ^aragora/.*\.py$
+        files: ^(aragora/.*\.py|pyproject\.toml|\.github/workflows/lint\.yml|scripts/run_typecheck_gate\.py|scripts/test_tiers\.sh|requirements.*\.txt|\.github/actions/pr-scope-classifier/.*)$
         # Run on pre-push to catch type errors before they hit CI.
         stages: [pre-push]
 
