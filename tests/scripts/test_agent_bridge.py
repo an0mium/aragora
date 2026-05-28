@@ -503,6 +503,9 @@ def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(
                     "status": "active",
                     "pr_number": 7245,
                     "branch": "worktree-codex-insights",
+                    "next_action": "continue lane-a work",
+                    "last_heartbeat_at": "2026-05-28T00:00:00Z",
+                    "last_steering_outcome": "obeyed",
                 },
                 {
                     "lane_id": "lane-b",
@@ -510,6 +513,9 @@ def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(
                     "status": "active",
                     "pr_number": 7245,
                     "branch": "worktree-codex-insights",
+                    "next_action": "continue lane-b work",
+                    "last_heartbeat_at": "2026-05-28T00:00:00Z",
+                    "last_steering_outcome": "obeyed",
                 },
             ]
         ),
@@ -554,6 +560,9 @@ def test_operator_snapshot_does_not_conflict_same_owner_refreshes(
                     "status": "active",
                     "pr_number": 7245,
                     "branch": "worktree-codex-insights",
+                    "next_action": "continue owner refresh",
+                    "last_heartbeat_at": "2026-05-28T00:00:00Z",
+                    "last_steering_outcome": "obeyed",
                 },
                 {
                     "lane_id": "lane-b",
@@ -561,6 +570,9 @@ def test_operator_snapshot_does_not_conflict_same_owner_refreshes(
                     "status": "active",
                     "pr_number": 7245,
                     "branch": "worktree-codex-insights",
+                    "next_action": "continue owner refresh",
+                    "last_heartbeat_at": "2026-05-28T00:00:00Z",
+                    "last_steering_outcome": "obeyed",
                 },
             ]
         ),
@@ -1809,6 +1821,9 @@ def test_health_reports_claimed_claude_transcript_missing_worktree(tmp_path: Pat
                 lane_id="review",
                 owner_session="claude-review",
                 status="active",
+                next_action="inspect removed review worktree",
+                last_heartbeat_at="2026-05-28T00:00:00Z",
+                last_steering_outcome="obeyed",
             )
         ],
     )
