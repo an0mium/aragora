@@ -84,20 +84,20 @@ class SynthesisGenerator:
         # If no proposals, emit a minimal synthesis to avoid silent endings
         if not ctx.proposals:
             logger.warning("synthesis_fallback reason=no_proposals")
-            synthesis = (
+            fallback_synthesis = (
                 "## Debate Summary\n\n"
                 "No proposals were generated. One or more agents may have failed to respond."
             )
-            ctx.result.synthesis = synthesis
+            ctx.result.synthesis = fallback_synthesis
             # Synthesis is the definitive final answer — always overwrite.
-            ctx.result.final_answer = synthesis
-            self._emit_synthesis_events(ctx, synthesis, "fallback")
+            ctx.result.final_answer = fallback_synthesis
+            self._emit_synthesis_events(ctx, fallback_synthesis, "fallback")
             self._generate_export_links(ctx)
             return True
 
         logger.info("synthesis_generation_start")
 
-        synthesis = None
+        synthesis: str | None = None
         synthesis_source = "opus"
 
         # In offline/demo mode (or when explicitly disabled), avoid attempting
@@ -106,6 +106,11 @@ class SynthesisGenerator:
         from aragora.utils.env import is_offline_mode
 
         if is_offline_mode() or not getattr(self.protocol, "enable_llm_synthesis", True):
+            synthesis = self._combine_proposals_as_synthesis(ctx)
+            synthesis_source = "combined"
+
+        if not synthesis and not self._anthropic_synthesis_available():
+            logger.debug("synthesis_llm_skipped reason=anthropic_api_key_unavailable")
             synthesis = self._combine_proposals_as_synthesis(ctx)
             synthesis_source = "combined"
 
@@ -140,14 +145,14 @@ class SynthesisGenerator:
             # Generate synthesis with timeout (60s to fit within phase budget)
             # Pass user_prompt WITHOUT context_messages to avoid essay-pattern priming
             with streaming_task_context("synthesis-agent:opus_synthesis"):
-                synthesis = await asyncio.wait_for(
+                opus_synthesis = await asyncio.wait_for(
                     synthesizer.generate(user_prompt),
                     timeout=60.0,
                 )
             synthesis = await self._ensure_complete_synthesis(
                 ctx=ctx,
                 synthesizer=synthesizer,
-                synthesis=synthesis,
+                synthesis=opus_synthesis,
                 source="opus",
             )
             logger.info("synthesis_generated_opus chars=%s", len(synthesis))
@@ -174,14 +179,14 @@ class SynthesisGenerator:
                 system_prompt, user_prompt = self._build_synthesis_prompt_parts(ctx)
                 synthesizer.system_prompt = system_prompt
                 with streaming_task_context("synthesis-agent-fallback:sonnet_synthesis"):
-                    synthesis = await asyncio.wait_for(
+                    sonnet_synthesis = await asyncio.wait_for(
                         synthesizer.generate(user_prompt),
                         timeout=30.0,
                     )
                 synthesis = await self._ensure_complete_synthesis(
                     ctx=ctx,
                     synthesizer=synthesizer,
-                    synthesis=synthesis,
+                    synthesis=sonnet_synthesis,
                     source="sonnet",
                 )
                 logger.info("synthesis_generated_sonnet chars=%s", len(synthesis))
@@ -218,6 +223,17 @@ class SynthesisGenerator:
         self._generate_export_links(ctx)
 
         return True
+
+    @staticmethod
+    def _anthropic_synthesis_available() -> bool:
+        """Return whether optional Anthropic-backed synthesis can run."""
+        try:
+            from aragora.config import get_api_key
+
+            return bool(get_api_key("ANTHROPIC_API_KEY", required=False))
+        except Exception as exc:  # noqa: BLE001 - optional synthesis probe
+            logger.debug("synthesis_key_probe_failed error=%s", exc)
+            return False
 
     def _is_likely_truncated(self, synthesis: str) -> bool:
         """Heuristic check for truncated/incomplete synthesis output."""

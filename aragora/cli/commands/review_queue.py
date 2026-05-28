@@ -1518,7 +1518,6 @@ def _build_packet(
             review_queue_root=review_queue_root,
         )
     )
-    human_risk_settlement_recorded = human_risk_settlement_recorded and not settlement_recorded
     mergeable = str(pr.get("mergeable", "")).strip().upper()
     queue_item = _classify_pr(pr)
     validation = _extract_validation_commands(str(pr.get("body", "") or ""))
@@ -2024,6 +2023,9 @@ def _has_recorded_human_risk_settlement(
     receipts_dir = root / "receipts"
     if not receipts_dir.is_dir():
         return False
+    # Local settlement receipts are a trusted operator-controlled store, matching
+    # admin-squash settlement receipt handling. This path is read-only and exact
+    # head bound; it must not infer approval from GitHub comments alone.
     allowed_events = {"APPROVE", "RECORDED_EXTERNAL_APPROVE"}
     for path in receipts_dir.glob(f"pr-{pr_number}-*.json"):
         try:

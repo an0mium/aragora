@@ -167,6 +167,9 @@ def _write_human_risk_settlement_receipt(
     *,
     pr_number: int,
     head_sha: str,
+    action: str = "approve",
+    github_event: str = "APPROVE",
+    payload_pr_number: int | None = None,
 ) -> Path:
     receipts_dir = review_queue_root / "receipts"
     receipts_dir.mkdir(parents=True, exist_ok=True)
@@ -174,10 +177,10 @@ def _write_human_risk_settlement_receipt(
     path.write_text(
         json.dumps(
             {
-                "pr_number": pr_number,
+                "pr_number": pr_number if payload_pr_number is None else payload_pr_number,
                 "head_sha": head_sha,
-                "action": "approve",
-                "github_event": "APPROVE",
+                "action": action,
+                "github_event": github_event,
             }
         )
         + "\n",
@@ -1299,6 +1302,34 @@ class TestModelReviewQuorum:
         assert quorum["admin_squash_allowed"] is False
         assert quorum["requires_human_risk_settlement"] is True
 
+    @pytest.mark.parametrize(
+        ("has_failures", "has_pending"),
+        [
+            (True, False),
+            (False, True),
+        ],
+    )
+    def test_human_risk_settlement_does_not_clear_failing_or_pending_checks(
+        self,
+        *,
+        has_failures: bool,
+        has_pending: bool,
+    ) -> None:
+        pr = _make_pr(files=["aragora/reputation/store.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/reputation/store.py"],
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=has_pending,
+            has_failures=has_failures,
+            human_risk_settlement_recorded=True,
+        )
+        assert quorum["status"] == "repair_or_wait"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["requires_human_risk_settlement"] is True
+
     def test_independent_model_review_comment_counts_as_quorum_signal(self) -> None:
         pr = _make_pr(files=["aragora/debate/team_selector.py"])
         pr["comments"] = [
@@ -1739,8 +1770,12 @@ class TestBuildQueueAndPacket:
         assert packet["human_risk_settlement_required"] == []
         assert packet["not_ready"] == []
 
+    @pytest.mark.parametrize("github_event", ["APPROVE", "RECORDED_EXTERNAL_APPROVE"])
     def test_open_tier_three_with_exact_human_risk_receipt_is_authorized(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        github_event: str,
     ) -> None:
         pr_payload = _make_pr(
             number=7466,
@@ -1758,6 +1793,7 @@ class TestBuildQueueAndPacket:
             review_queue_root,
             pr_number=7466,
             head_sha=str(pr_payload["headRefOid"]),
+            github_event=github_event,
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",
@@ -1788,8 +1824,23 @@ class TestBuildQueueAndPacket:
         assert packet["human_risk_settlement_required"] == []
         assert packet["not_ready"] == []
 
-    def test_open_tier_three_with_stale_human_risk_receipt_stays_blocked(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    @pytest.mark.parametrize(
+        ("head_sha", "action", "github_event", "payload_pr_number"),
+        [
+            ("stale-head-sha", "approve", "APPROVE", None),
+            (None, "request_changes", "APPROVE", None),
+            (None, "approve", "COMMENT", None),
+            (None, "approve", "APPROVE", 9999),
+        ],
+    )
+    def test_open_tier_three_with_invalid_human_risk_receipt_stays_blocked(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        head_sha: str | None,
+        action: str,
+        github_event: str,
+        payload_pr_number: int | None,
     ) -> None:
         pr_payload = _make_pr(
             number=7466,
@@ -1806,7 +1857,10 @@ class TestBuildQueueAndPacket:
         _write_human_risk_settlement_receipt(
             review_queue_root,
             pr_number=7466,
-            head_sha="stale-head-sha",
+            head_sha=head_sha or str(pr_payload["headRefOid"]),
+            action=action,
+            github_event=github_event,
+            payload_pr_number=payload_pr_number,
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._build_queue",

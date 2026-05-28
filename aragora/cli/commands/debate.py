@@ -174,6 +174,23 @@ def parse_agents(agents_str: str) -> list[AgentSpec]:
     return AgentSpec.coerce_list(agents_str, warn=False)
 
 
+def _resolved_cli_provider_key(provider: str) -> str | None:
+    """Return the CLI-resolved key for an explicit provider, if configured.
+
+    The CLI key store is the same surface used by ``validate-env`` live
+    provider checks. Passing this key into direct API agents keeps explicit
+    ``aragora ask --agents <provider>`` runs from re-discovering credentials
+    through unrelated fallback probes.
+    """
+    try:
+        from aragora.cli.api_keys import get_provider_key
+
+        value, _source = get_provider_key(provider)
+    except (RuntimeError, ValueError):
+        return None
+    return value.strip() if value and value.strip() else None
+
+
 def _coalesce_grouped_arena_configs(arena_kwargs: dict[str, Any]) -> None:
     """Backfill grouped Arena config objects from legacy per-flag kwargs."""
     existing_memory_cfg = arena_kwargs.get("memory_config")
@@ -1244,11 +1261,13 @@ async def run_debate(
                 role = "critic"
 
         try:
+            api_key = _resolved_cli_provider_key(spec.provider)
             agent = create_agent(
                 model_type=cast(AgentType, spec.provider),
                 name=spec.name or f"{spec.provider}_{role}",
                 role=role,
                 model=spec.model,  # Pass model from spec
+                api_key=api_key,
             )
         except (ValueError, ImportError, RuntimeError) as e:
             failed_agents.append(f"{spec.provider} ({e})")
