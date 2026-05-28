@@ -44,14 +44,23 @@ repos:
     hooks:
       - id: mypy-baseline
         name: mypy (baseline-filtered)
-        entry: python scripts/ci/mypy_with_baseline.py
-        language: python
+        entry: python3 scripts/ci/mypy_with_baseline.py
+        # language MUST be `system`, not `python`. mypy's output depends on
+        # which third-party packages are importable (pydantic, langchain,
+        # supabase, redis, httpx, anthropic, sentence-transformers, ...): a
+        # `try: import x` guarded by `except ImportError` reads as a redefinition
+        # when `x` is absent, pydantic `BaseModel` stops being valid as a base
+        # class, etc. `.mypy-baseline` is synced — and CI's lint.yml runs mypy —
+        # after `pip install -e .`, i.e. with those deps importable. A
+        # `language: python` hook builds an isolated venv holding only the
+        # `additional_dependencies`, so those imports fail and mypy reports
+        # hundreds of phantom "new" errors in untouched files, failing every
+        # push and forcing `--no-verify`. `language: system` reuses the
+        # contributor's active project interpreter (the same `python3` that ran
+        # `pip install -e .`), so local output matches the baseline and CI.
+        # Requires `mypy` and `mypy-baseline` installed in that interpreter.
+        language: system
         pass_filenames: false
-        additional_dependencies:
-          - mypy==1.10.0
-          - mypy-baseline==0.7.4
-          - types-requests
-          - types-python-dateutil
         # Only trigger when Python files under aragora/ or scripts/ change.
         # (Full-tree mypy still runs — the filter just gates when it runs.)
         files: ^(aragora/|scripts/).*\.py$
