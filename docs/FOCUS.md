@@ -59,8 +59,11 @@
    and `aragora receipt verify` exiting 0 for receipt `DR-20260528-fac8d2`
    (`VALID (3/3 checks passed)`). These `.aragora/` proof files are local
    operator-held evidence, not repo-tracked public artifacts. Goal status:
-   core product capability and outreach-gate clause (b) are satisfied;
-   outreach remains closed on clauses (a) and (c).
+   core product capability and outreach-gate clause (b) are satisfied.
+   After the rev-5 B0 graduation, clause (a) is also satisfied by
+   `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`: `truth_success_rate_verified`
+   is 100.0% across five strict verified entries. Outreach remains closed
+   on clause (c).
 
 3. **Operator design-review of #7472 (advisory-review recognizable
    header pre-approval).** #7472 is the Tier 4 design doc + 18 passing
@@ -114,8 +117,9 @@
   `.aragora/proof/post-7496-demo/20260528T061018Z/`), (c) at least one
   frontier-model adversarial review of a real PR survives unmodified
   (Factory + Codex already meeting this for #7451 is encouraging but not
-  yet repeated on a product-scope PR end-to-end). Clauses (a) and (c)
-  remain open, so external outreach remains locked.
+  yet repeated on a product-scope PR end-to-end). Clauses (a) and (b)
+  are satisfied; clause (c) remains open, so external outreach remains
+  locked.
 - **No Tier 4 self-mods without pre-approval discipline.** Unchanged
   from sprint 1. Any change to `scripts/settle_tier4_pr.py`,
   `aragora-merge-quorum.yml`, `aragora-review-gate.yml`, or the family
