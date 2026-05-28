@@ -294,6 +294,34 @@ def test_policy_exclusion_reasons_does_not_flag_plain_unsafe_words_in_docs() -> 
     assert reasons == []
 
 
+def test_policy_exclusion_reasons_allows_docs_site_generated_secrets_deploy_docs() -> None:
+    docs = _entry(
+        7485,
+        tier=0,
+        reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"],
+    )
+
+    reasons = policy_exclusion_reasons(
+        docs,
+        policy_metadata={
+            7485: {
+                "title": "docs: refresh generated deployment status",
+                "headRefName": "codex/docs-site-status-refresh",
+                "files": [
+                    {"path": "docs-site/docs/contributing/b0-benchmark-truth-status.md"},
+                    {"path": "docs-site/docs/deployment/secrets-management.md"},
+                    {"path": "docs-site/docs/getting-started/environment.md"},
+                    {"path": "docs-site/docs/operations/overview.md"},
+                    {"path": "docs/FOCUS.md"},
+                    {"path": "docs/status/B0_BENCHMARK_TRUTH_STATUS.md"},
+                ],
+            }
+        },
+    )
+
+    assert reasons == []
+
+
 def test_policy_exclusion_reasons_scopes_adc_to_title_and_branch() -> None:
     entry = _entry(
         7461,

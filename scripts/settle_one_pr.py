@@ -182,7 +182,15 @@ def _has_prefixed_component(component: str, stem: str) -> bool:
 
 
 def _is_docs_or_tests_path(segments: list[str]) -> bool:
-    return bool(segments) and segments[0] in {"doc", "docs", "test", "tests"}
+    if not segments:
+        return False
+    if segments[0] in {"doc", "docs", "test", "tests"}:
+        return True
+    return (
+        len(segments) >= 2
+        and segments[0] in {"docs-site", "documentation-site", "site", "website"}
+        and segments[1] in {"doc", "docs", "documentation"}
+    )
 
 
 def _is_dependabot_pr(entry: dict[str, Any], metadata: dict[str, Any]) -> bool:
