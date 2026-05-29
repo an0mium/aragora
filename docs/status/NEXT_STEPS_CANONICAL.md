@@ -1,6 +1,6 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-05-13
+Last updated: 2026-05-29
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
@@ -22,6 +22,23 @@ Current May 28 proof-loop state:
 - The first `observe-outcomes --write` remains a separate Tier-4 operator decision over a bounded manually verifiable receipt slice.
 
 Operator commands only count as proof when they are run from a clean, current `origin/main` observer. A dirty or diverged founder checkout is planning context, not runtime truth.
+
+### AI tool adoption guardrail
+
+New frontier-agent tools may enter active Aragora operations only when they
+reduce a measured bottleneck without increasing autonomous sprawl. Treat any
+new Codex, Claude, Gemini, Copilot, Cursor, Devin, Mistral, Windsurf, or
+similar surface as **planning-only** until it demonstrates at least one of:
+
+- improved B0 or external proof production on current `main`
+- countable exact-head evidence or receipt quality that `merge-packet` can verify
+- net queue closure without increasing open drafts or conflicting PRs
+- lower human gate latency through better resumability or checkpoint response
+
+Do not add another writer fleet, background agent, scheduled agent, or broad
+subagent workflow merely because the tool can run more work. The default
+adoption pattern is: one bounded pilot, one receipt, one measured effect, then
+decide whether to keep or retire it.
 
 ### `B2` guard expansion criteria
 
