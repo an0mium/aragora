@@ -195,6 +195,32 @@ def _dogfood_comment(
     return {"author": {"login": "an0mium"}, "body": body}
 
 
+def _codex_openai_body(
+    heading: str = "## Codex focused dogfood",
+    body: str = "local checks pass",
+) -> str:
+    return (
+        f"{heading}\n\n"
+        "**Reviewer harness:** codex\n"
+        "**Model family:** openai\n"
+        "**Model id:** gpt-5-codex\n"
+        "**Receipt artifact:** /tmp/codex-review.md\n\n"
+        f"{body}"
+    )
+
+
+def _codex_openai_comment(
+    *,
+    heading: str = "## Codex focused dogfood",
+    body: str = "local checks pass",
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    comment = _dogfood_comment(_codex_openai_body(heading=heading, body=body))
+    if created_at is not None:
+        comment["createdAt"] = created_at
+    return comment
+
+
 def _executed_protocol(*, dissent: bool = False) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "status": EXECUTED_PROTOCOL_STATUS,
@@ -975,14 +1001,20 @@ class TestModelReviewQuorum:
     def test_duplicate_codex_comments_do_not_satisfy_tier_two_quorum(self) -> None:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
-            _dogfood_comment("## Codex focused dogfood\nlocal checks pass"),
+            _codex_openai_comment(),
             {
                 "author": {"login": "an0mium"},
-                "body": "## Codex review\nLGTM after local dogfood.",
+                "body": _codex_openai_body(
+                    heading="## Codex review",
+                    body="LGTM after local dogfood.",
+                ),
             },
             {
                 "author": {"login": "an0mium"},
-                "body": "## Codex review\nSecond same-model note.",
+                "body": _codex_openai_body(
+                    heading="## Codex review",
+                    body="Second same-model note.",
+                ),
             },
         ]
         quorum = _build_model_review_quorum(
@@ -996,13 +1028,13 @@ class TestModelReviewQuorum:
         assert quorum["tier"] == 2
         assert quorum["status"] == "needs_model_review_quorum"
         assert quorum["admin_squash_allowed"] is False
-        assert quorum["counted_reviewer_ids"] == ["codex"]
+        assert quorum["counted_reviewer_ids"] == ["openai"]
         assert "model quorum incomplete: 1/2 signal(s)" in quorum["reasons"]
 
     def test_codex_dogfood_and_grok_review_satisfy_tier_two_quorum(self) -> None:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
-            _dogfood_comment("## Codex focused dogfood\nlocal checks pass"),
+            _codex_openai_comment(),
             {
                 "author": {"login": "an0mium"},
                 "body": "## Grok independent model review\nVerdict: approve.",
@@ -1019,7 +1051,10 @@ class TestModelReviewQuorum:
         assert quorum["tier"] == 2
         assert quorum["status"] == "satisfied"
         assert quorum["admin_squash_allowed"] is True
-        assert quorum["counted_reviewer_ids"] == ["codex", "grok"]
+        assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
+        assert quorum["counted_model_families"] == ["grok", "openai"]
+        assert quorum["dogfood_evidence"][0]["surface_reviewer_id"] == "codex"
+        assert quorum["dogfood_evidence"][0]["model_family"] == "openai"
 
     def test_unknown_dogfood_does_not_count_or_satisfy_required_dogfood(self) -> None:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
@@ -1048,7 +1083,7 @@ class TestModelReviewQuorum:
         has no model-review heading must not be tagged as a Codex signal."""
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
-            _dogfood_comment("## Codex focused dogfood\nlocal checks pass"),
+            _codex_openai_comment(),
             {
                 "author": {"login": "an0mium"},
                 "body": (
@@ -1072,14 +1107,14 @@ class TestModelReviewQuorum:
         # The rebase note's heading does not contain a model name.  The
         # heuristic must NOT scan the entire body and pick up the branch
         # name ``codex/...`` in line 2 of the body.
-        assert quorum["counted_reviewer_ids"] == ["codex"]
+        assert quorum["counted_reviewer_ids"] == ["openai"]
         # The dogfood evidence list should still include both comments
         # (the rebase note matches "rebased" → not a marker; "drain"
         # → not a marker; but the body does not actually contain any
         # of dogfood/adversarial/cross-author/recheck), so it is not
         # added to dogfood_evidence at all.
         dogfood_authors = [entry.get("reviewer_id") for entry in quorum["dogfood_evidence"]]
-        assert "codex" in dogfood_authors
+        assert "openai" in dogfood_authors
         # Ensure the rebase note didn't sneak into reviewer_signals.
         for sig in quorum["reviewer_signals"]:
             assert "rebase" not in (sig.get("summary", "") or "").lower()
@@ -1124,7 +1159,7 @@ class TestModelReviewQuorum:
             # Posted BEFORE the head was committed → stale.
             {
                 "author": {"login": "an0mium"},
-                "body": "## Codex focused dogfood\nlocal checks pass",
+                "body": _codex_openai_body(),
                 "createdAt": "2026-04-28T18:00:00Z",
             },
             {
@@ -1155,7 +1190,7 @@ class TestModelReviewQuorum:
         pr["comments"] = [
             {
                 "author": {"login": "an0mium"},
-                "body": "## Codex focused dogfood\nlocal checks pass",
+                "body": _codex_openai_body(),
                 "createdAt": "2026-04-28T20:05:00Z",
             },
             {
@@ -1172,7 +1207,7 @@ class TestModelReviewQuorum:
             has_pending=False,
             has_failures=False,
         )
-        assert quorum["counted_reviewer_ids"] == ["codex", "grok"]
+        assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
         assert quorum["status"] == "satisfied"
 
     def test_stale_comment_with_head_sha_citation_still_counts(self) -> None:
@@ -1188,9 +1223,8 @@ class TestModelReviewQuorum:
             # Predates head BUT cites head SHA → grounded.
             {
                 "author": {"login": "an0mium"},
-                "body": (
-                    f"## Codex focused dogfood\n"
-                    f"Reviewed at head {head_sha[:7]} – local checks pass."
+                "body": _codex_openai_body(
+                    body=f"Reviewed at head {head_sha[:7]} - local checks pass."
                 ),
                 "createdAt": "2026-04-28T18:00:00Z",
             },
@@ -1208,7 +1242,7 @@ class TestModelReviewQuorum:
             has_pending=False,
             has_failures=False,
         )
-        assert quorum["counted_reviewer_ids"] == ["codex", "grok"]
+        assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
         assert quorum["status"] == "satisfied"
 
     def test_unresolved_dissent_forces_human_risk_settlement(self) -> None:
@@ -1357,7 +1391,7 @@ class TestModelReviewQuorum:
     def test_independent_model_review_comment_counts_as_quorum_signal(self) -> None:
         pr = _make_pr(files=["aragora/debate/team_selector.py"])
         pr["comments"] = [
-            _dogfood_comment("## Codex focused dogfood\n10/10 pass"),
+            _codex_openai_comment(body="10/10 pass"),
             {
                 "author": {"login": "an0mium"},
                 "body": "## Grok independent semantic review\nVerdict: approve after human risk settlement.",
@@ -1376,7 +1410,7 @@ class TestModelReviewQuorum:
         assert len(quorum["reviewer_signals"]) == 1
         assert quorum["reviewer_signals"][0]["reviewer_id"] == "grok"
         assert len(quorum["dogfood_evidence"]) == 1
-        assert quorum["counted_reviewer_ids"] == ["codex", "grok"]
+        assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
 
     def test_github_actions_advisory_review_does_not_count_as_model_signal(self) -> None:
         pr = _make_pr(files=["aragora/debate/team_selector.py"])
@@ -1421,7 +1455,7 @@ class TestModelReviewQuorum:
         files = ["aragora/cli/commands/review_queue.py"]
         pr = _make_pr(files=files)
         pr["comments"] = [
-            _dogfood_comment("## Codex focused dogfood\nlocal checks pass"),
+            _codex_openai_comment(),
             {
                 "author": {"login": "an0mium"},
                 "body": "## Grok independent model review\nVerdict: approve.",
@@ -2443,10 +2477,11 @@ class TestCommandDispatch:
             pr="7445",
             head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
             head_committed_at="2026-05-23T19:00:00Z",
-            body=(
-                "## Codex focused dogfood\n\n"
-                "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
-                "Validation passed for the exact touched surface."
+            body=_codex_openai_body(
+                body=(
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Validation passed for the exact touched surface."
+                )
             ),
             body_file=None,
             author="an0mium",
@@ -2461,8 +2496,8 @@ class TestCommandDispatch:
         assert rc == 0
         assert payload["mode"] == "evidence_lint"
         assert payload["would_count"] is True
-        assert payload["counted_reviewer_ids"] == ["codex"]
-        assert payload["dogfood_evidence"][0]["reviewer_id"] == "codex"
+        assert payload["counted_reviewer_ids"] == ["openai"]
+        assert payload["dogfood_evidence"][0]["reviewer_id"] == "openai"
         assert payload["current_head_grounding_method"] == "head_sha_citation"
         assert payload["problems"] == []
 

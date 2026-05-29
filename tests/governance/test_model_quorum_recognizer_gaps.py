@@ -1,24 +1,19 @@
-"""Governance tests pinning the current state of `_infer_model_reviewer_from_text`.
+"""Governance tests for direct model-family recognition.
 
-These tests are the current-state characterization target for the Tier 4
+These tests were the current-state characterization target for the Tier 4
 model-quorum-family expansion patch designed in
-`docs/specs/MODEL_QUORUM_FAMILY_EXPANSION.md`. They exist for two reasons:
+`docs/specs/MODEL_QUORUM_FAMILY_EXPANSION.md`. After the lineage-bound
+quorum implementation they pin the new positive behavior:
 
 1. They *pin* the current state of the recognizer so that the Tier 4 patch
    has an explicit, machine-checkable regression floor: the patch must
    keep the existing claude/codex/gemini/grok/tesla/harvey/factory markers
    working while *adding* recognition for the gap families.
 
-2. They *demonstrate* the gap: already-routed families such as OpenAI,
-   Mistral/Codestral, DeepSeek, Qwen, Kimi/Moonshot and new proposed
-   families such as GLM, MiniMax, Yi, and Hermes currently return
-   `unknown_model_reviewer`, which means a reviewer signal posted by that
-   family — even if grounded on the current head SHA, even if posted by a
-   non-author account — would not be counted toward the quorum.
-
-After the Tier 4 patch lands, the gap-demonstration tests will need to be
-inverted (assert that the family IS recognized). At that point this file
-also becomes the regression floor for the new state.
+2. They assert that canonical model-family headings such as OpenAI,
+   Mistral/Codestral, DeepSeek, Qwen, Kimi/Moonshot, GLM, MiniMax, Yi,
+   and Hermes now resolve to canonical family IDs for lineage-bound
+   quorum evidence.
 
 Per `docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance`:
 
@@ -28,8 +23,8 @@ Per `docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance`:
   >  in tests/governance/ that characterize the current gate behavior
   >  and pin the gap to be inverted by the implementation."
 
-This file IS that pre-approval test surface. The implementation that
-inverts the gap-demonstration assertions waits for operator preapproval.
+This file now records that the pre-approved implementation intentionally
+inverted the former gap-demonstration assertions.
 """
 
 from __future__ import annotations
@@ -77,62 +72,40 @@ def test_existing_recognizers_still_resolve(comment_body: str, expected_family: 
     assert _infer_model_reviewer_from_text(comment_body) == expected_family
 
 
-# ----- Markers expected to NOT resolve today (gap demonstration) -----
+# ----- Markers expected to resolve after lineage-bound implementation -----
 #
-# Each of these families is either (a) already routable via OpenRouter
-# but not recognized as a reviewer source, or (b) a new family to be
-# added per the design spec. After the Tier 4 patch these assertions
-# should INVERT — but until then, this file documents the gap.
+# Each of these families is canonical for lineage-bound quorum counting.
 
 
 _GAP_MARKERS_HEAD_SHA = "abc1234"
 
 
 @pytest.mark.parametrize(
-    "comment_body, family_name",
+    "comment_body, expected_family",
     [
-        # Already-routed-by-aragora families that the recognizer DOES NOT count today.
-        # This is the surprise gap: aragora pays for OpenRouter access to these models
-        # via api_agents/openrouter.py, but their PR-comment signals are silently dropped.
         ("OpenAI independent model review on head abc1234", "openai"),
-        ("Anthropic independent semantic review on head abc1234", "anthropic"),
+        ("Anthropic independent semantic review on head abc1234", "claude"),
         ("Mistral independent model review on head abc1234", "mistral"),
-        ("Codestral independent semantic review on head abc1234", "mistral (via codestral marker)"),
+        ("Codestral independent semantic review on head abc1234", "mistral"),
         ("DeepSeek independent semantic review on head abc1234", "deepseek"),
         ("Qwen independent semantic review on head abc1234", "qwen"),
         ("Kimi independent semantic review on head abc1234", "kimi"),
-        ("Moonshot independent semantic review on head abc1234", "kimi (via moonshot marker)"),
-        # New families to add per the design spec + operator answer #2.
+        ("Moonshot independent semantic review on head abc1234", "kimi"),
         ("GLM independent semantic review on head abc1234", "glm"),
-        ("Zhipu independent semantic review on head abc1234", "glm (via zhipu marker)"),
-        ("Z-AI independent semantic review on head abc1234", "glm (via z-ai marker)"),
+        ("Zhipu independent semantic review on head abc1234", "glm"),
+        ("Z-AI independent semantic review on head abc1234", "glm"),
         ("MiniMax independent semantic review on head abc1234", "minimax"),
         ("Yi-Large independent semantic review on head abc1234", "yi"),
         ("Nous Hermes independent semantic review on head abc1234", "hermes"),
         ("Hermes independent semantic review on head abc1234", "hermes"),
     ],
 )
-def test_proposed_family_markers_currently_unrecognized(
+def test_canonical_model_family_markers_resolve(
     comment_body: str,
-    family_name: str,
+    expected_family: str,
 ) -> None:
-    """GAP DEMONSTRATION: families that should resolve after the patch.
-
-    Each input here would post a valid reviewer comment that the
-    recognizer SHOULD count under the design in
-    `docs/specs/MODEL_QUORUM_FAMILY_EXPANSION.md`, but today it returns
-    `unknown_model_reviewer` because the marker is missing from
-    `_infer_model_reviewer_from_text`'s current seven-marker tuple.
-
-    After the Tier 4 patch lands this test will be inverted (or moved
-    to a positive-recognition test parameterized by the new families).
-    The current assertion is the gap-of-record.
-    """
-    assert _infer_model_reviewer_from_text(comment_body) == "unknown_model_reviewer", (
-        f"Family {family_name!r} now appears to be recognized. If the Tier 4 patch "
-        "has landed, invert this assertion (or move to the positive-recognition "
-        f"suite) — the comment {comment_body!r} should now resolve to {family_name!r}."
-    )
+    """Canonical families resolve to the lineage ID used by quorum counting."""
+    assert _infer_model_reviewer_from_text(comment_body) == expected_family
 
 
 def test_unknown_garbage_stays_unknown() -> None:
