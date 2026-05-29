@@ -209,6 +209,56 @@ class TestCheckApiKeys:
         assert xai == [("XAI_API_KEY/GROK_API_KEY", "configured", True)]
         assert llm_provider == [("LLM Provider", "configured: gemini, xai", True)]
 
+    def test_aws_secrets_posture_recognized_when_no_env_keys(self, monkeypatch):
+        """Canonical local posture (keys in AWS Secrets Manager, not env) must not FAIL.
+
+        Per project policy, provider keys live in AWS Secrets Manager and are
+        loaded via aragora.config.secrets. When the AWS posture is configured and
+        a provider key is resolvable there, doctor must report OK/INFO, not FAIL.
+        """
+        _clear_provider_env(monkeypatch)
+
+        def fake_posture():
+            return SimpleNamespace(
+                available=True,
+                providers=("anthropic",),
+                detail="via AWS Secrets Manager",
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.doctor._aws_secrets_provider_posture",
+            fake_posture,
+        )
+
+        result = check_api_keys()
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert len(llm_provider) == 1
+        _name, status, ok = llm_provider[0]
+        # Must NOT be a hard failure.
+        assert ok is not False
+        assert "NO API KEY SET" not in status
+        assert "AWS Secrets Manager" in status
+
+    def test_no_env_keys_and_no_aws_posture_still_fails(self, monkeypatch):
+        """A genuinely keyless machine (no env keys, no AWS posture) must still FAIL."""
+        _clear_provider_env(monkeypatch)
+
+        def fake_posture():
+            return SimpleNamespace(available=False, providers=(), detail="")
+
+        monkeypatch.setattr(
+            "aragora.cli.doctor._aws_secrets_provider_posture",
+            fake_posture,
+        )
+
+        result = check_api_keys()
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert llm_provider
+        assert llm_provider[0][2] is False
+        assert "NO API KEY SET" in llm_provider[0][1]
+
     def test_live_validation_marks_rejected_provider_unready(self, monkeypatch):
         """doctor --validate should not treat an expired configured key as ready."""
         _clear_provider_env(monkeypatch)

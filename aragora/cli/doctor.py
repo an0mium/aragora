@@ -17,9 +17,83 @@ import os
 import sys
 from pathlib import Path
 
-from aragora.config.provider_readiness import discover_provider_credentials
+from dataclasses import dataclass
+
+from aragora.config.provider_readiness import (
+    PROVIDER_CREDENTIAL_SPECS,
+    discover_provider_credentials,
+)
 
 HealthCheck = tuple[str, str, bool | None]
+
+
+@dataclass(frozen=True)
+class _AwsSecretsPosture:
+    """Presence-only summary of the AWS Secrets Manager provider posture.
+
+    Never carries secret values — only whether a provider credential is
+    resolvable from AWS Secrets Manager and which provider(s) are present.
+    """
+
+    available: bool
+    providers: tuple[str, ...]
+    detail: str
+
+
+def _aws_secrets_provider_posture() -> _AwsSecretsPosture:
+    """Detect whether provider keys are resolvable via AWS Secrets Manager.
+
+    Per project policy the canonical local posture keeps provider keys in AWS
+    Secrets Manager (not the process env), loaded via ``aragora.config.secrets``.
+    Local runs leave AWS opt-out by default, so ``discover_provider_credentials``
+    will not find env keys. This probe forces an AWS-backed ``SecretManager`` and
+    uses the presence-only API so no secret value is ever read or logged.
+
+    Returns an unavailable posture (never raises) when boto3 is missing, AWS is
+    unreachable, or no provider secret is present — so a genuinely keyless
+    machine still fails the doctor check.
+    """
+
+    try:
+        from aragora.config.secrets import SecretManager, SecretsConfig
+    except ImportError:
+        return _AwsSecretsPosture(False, (), "")
+
+    try:
+        base = SecretsConfig.from_env()
+    except (OSError, RuntimeError, ValueError):
+        return _AwsSecretsPosture(False, (), "")
+
+    # Force an AWS-backed lookup even in the default local opt-out posture, but
+    # keep the bounded timeouts/region set from the environment configuration.
+    config = SecretsConfig(
+        aws_region=base.aws_region,
+        aws_regions=list(base.aws_regions),
+        secret_name=base.secret_name,
+        use_aws=True,
+        cache_ttl_seconds=base.cache_ttl_seconds,
+        aws_connect_timeout_seconds=base.aws_connect_timeout_seconds,
+        aws_read_timeout_seconds=base.aws_read_timeout_seconds,
+        aws_max_attempts=base.aws_max_attempts,
+    )
+
+    try:
+        manager = SecretManager(config)
+        present: list[str] = []
+        for spec in PROVIDER_CREDENTIAL_SPECS:
+            for env_var in spec.env_vars:
+                # presence(...) returns the source only, never the secret value.
+                if manager.presence(env_var).source == "aws":
+                    present.append(spec.provider)
+                    break
+    except Exception:  # noqa: BLE001 — diagnostic probe must never crash doctor
+        return _AwsSecretsPosture(False, (), "")
+
+    if not present:
+        return _AwsSecretsPosture(False, (), "")
+
+    detail = "via AWS Secrets Manager: " + ", ".join(present)
+    return _AwsSecretsPosture(True, tuple(present), detail)
 
 
 def check_icon(ok: bool | None) -> str:
@@ -107,10 +181,17 @@ def check_api_keys(validate_live: bool = False) -> list[HealthCheck]:
         configured = ", ".join(report.configured_providers)
         checks.append(("LLM Provider", f"configured: {configured}", True))
     else:
-        detail = "NO API KEY SET"
-        if report.discovery_errors:
-            detail += f" ({'; '.join(report.discovery_errors)})"
-        checks.append(("LLM Provider", detail, False))
+        # No provider key in env/.env. Before failing, recognize the canonical
+        # local posture where keys live in AWS Secrets Manager (loaded via
+        # aragora.config.secrets) instead of the process environment.
+        posture = _aws_secrets_provider_posture()
+        if posture.available:
+            checks.append(("LLM Provider", posture.detail, True))
+        else:
+            detail = "NO API KEY SET"
+            if report.discovery_errors:
+                detail += f" ({'; '.join(report.discovery_errors)})"
+            checks.append(("LLM Provider", detail, False))
 
     return checks
 
