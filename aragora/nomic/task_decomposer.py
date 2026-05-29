@@ -1560,7 +1560,7 @@ class TaskDecomposer:
         try:
             client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
-                model="claude-opus-4-7",
+                model="claude-opus-4-8",
                 max_tokens=1024,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -1594,7 +1594,7 @@ class TaskDecomposer:
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "anthropic/claude-opus-4.7",
+                    "model": "anthropic/claude-opus-4.8",
                     "max_tokens": 1024,
                     "messages": [{"role": "user", "content": prompt}],
                 },
@@ -2686,7 +2686,7 @@ class TaskDecomposer:
             return [
                 OpenRouterAgent(
                     name="or-claude",
-                    model="anthropic/claude-opus-4.7",
+                    model="anthropic/claude-opus-4.8",
                     api_key=openrouter_key,
                 ),
                 OpenRouterAgent(
@@ -2803,12 +2803,12 @@ Prioritize by impact: which improvements would provide the most value?"""
                     [
                         AnthropicAPIAgent(
                             name="claude-strategist",
-                            model="claude-opus-4-7",
+                            model="claude-opus-4-8",
                             api_key=anthropic_key,
                         ),
                         AnthropicAPIAgent(
                             name="claude-architect",
-                            model="claude-opus-4-7",
+                            model="claude-opus-4-8",
                             api_key=anthropic_key,
                         ),
                     ]
@@ -2839,7 +2839,7 @@ Prioritize by impact: which improvements would provide the most value?"""
                     [
                         OpenRouterAgent(
                             name="or-claude",
-                            model="anthropic/claude-opus-4.7",
+                            model="anthropic/claude-opus-4.8",
                         ),
                         OpenRouterAgent(
                             name="or-gpt",

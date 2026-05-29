@@ -2,7 +2,7 @@
 
 The security gate ``security.model_pins.frontier_aligned`` (see
 ``scripts/check_canonical_metrics.py``) verifies that the underscored
-frontier names ``OPUS_4_7`` / ``GPT_5_4`` / ``GEMINI_3_1_PRO`` are
+frontier names ``OPUS_4_8`` / ``OPUS_4_7`` / ``GPT_5_4`` / ``GEMINI_3_1_PRO`` are
 exported alongside the ``*_DIRECT`` constants. These tests pin that
 contract so it can't silently regress.
 """
@@ -19,6 +19,9 @@ class TestUnderscoredAliasesExist:
     def test_opus_4_7_is_module_attribute(self) -> None:
         assert hasattr(model_pins, "OPUS_4_7")
 
+    def test_opus_4_8_is_module_attribute(self) -> None:
+        assert hasattr(model_pins, "OPUS_4_8")
+
     def test_gpt_5_4_is_module_attribute(self) -> None:
         assert hasattr(model_pins, "GPT_5_4")
 
@@ -30,6 +33,9 @@ class TestAliasesMatchFrontier:
     def test_opus_4_7_matches_direct(self) -> None:
         assert model_pins.OPUS_4_7 == model_pins.OPUS_47_DIRECT
 
+    def test_opus_4_8_matches_direct(self) -> None:
+        assert model_pins.OPUS_4_8 == model_pins.OPUS_48_DIRECT
+
     def test_gpt_5_4_matches_direct(self) -> None:
         assert model_pins.GPT_5_4 == model_pins.GPT55_DIRECT
 
@@ -39,7 +45,7 @@ class TestAliasesMatchFrontier:
 
 class TestAliasesInAll:
     def test_all_includes_three_aliases(self) -> None:
-        required = {"OPUS_4_7", "GPT_5_4", "GEMINI_3_1_PRO"}
+        required = {"OPUS_4_8", "OPUS_4_7", "GPT_5_4", "GEMINI_3_1_PRO"}
         assert required <= set(model_pins.__all__)
 
 
@@ -54,6 +60,9 @@ class TestCanonicalMetricsRegex:
 
     def test_check_regex_matches_opus_4_7(self) -> None:
         assert self._matches("OPUS_4_7")
+
+    def test_check_regex_matches_opus_4_8(self) -> None:
+        assert self._matches("OPUS_4_8")
 
     def test_check_regex_matches_gpt_5_4(self) -> None:
         assert self._matches("GPT_5_4")

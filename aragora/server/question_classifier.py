@@ -298,7 +298,7 @@ Guidelines:
 
         try:
             response = await self.client.messages.create(
-                model="claude-opus-4-7",
+                model="claude-opus-4-8",
                 max_tokens=1000,
                 messages=[{"role": "user", "content": prompt}],
             )

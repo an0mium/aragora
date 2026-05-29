@@ -65,7 +65,7 @@ class ExplorationAgent(CLIAgent):
     - Synthesize cross-document understanding
 
     Example:
-        >>> agent = ExplorationAgent(name="claude_explorer", model="claude-opus-4-7")
+        >>> agent = ExplorationAgent(name="claude_explorer", model="claude-opus-4-8")
         >>> understanding = await agent.read_chunk(chunk, context=[])
         >>> questions = await agent.generate_questions(understanding)
     """
@@ -198,7 +198,7 @@ Return JSON:
     def __init__(
         self,
         name: str,
-        model: str = "claude-opus-4-7",
+        model: str = "claude-opus-4-8",
         role: AgentRole = "analyst",
         timeout: int = 120,
         config: ExplorationConfig | None = None,

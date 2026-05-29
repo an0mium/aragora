@@ -375,6 +375,7 @@ class TestEstimateDebateCostPricingAccuracy:
         "model,provider,price_key",
         [
             ("claude-opus-4", "anthropic", "claude-opus-4"),
+            ("claude-opus-4-8", "anthropic", "claude-opus-4.8"),
             ("claude-opus-4-7", "anthropic", "claude-opus-4.7"),
             ("claude-sonnet-4", "anthropic", "claude-sonnet-4"),
             ("claude-sonnet-4-6", "anthropic", "claude-sonnet-4.6"),
@@ -397,6 +398,7 @@ class TestEstimateDebateCostPricingAccuracy:
         "model,provider,price_key",
         [
             ("claude-opus-4", "anthropic", "claude-opus-4"),
+            ("claude-opus-4-8", "anthropic", "claude-opus-4.8"),
             ("claude-opus-4-7", "anthropic", "claude-opus-4.7"),
             ("claude-sonnet-4", "anthropic", "claude-sonnet-4"),
             ("claude-sonnet-4-6", "anthropic", "claude-sonnet-4.6"),
