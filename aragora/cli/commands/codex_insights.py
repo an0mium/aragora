@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -74,7 +75,11 @@ def cmd_codex_insights_summary(args: argparse.Namespace) -> int:
         )
         return 0
     print(f"Window:    {since} ({len(pairs)} threads scanned)")
-    print(f"Tokens:    {pattern.total_tokens_used:,}")
+    print(f"Tokens (window-created threads): {pattern.window_created_tokens:,}")
+    print(
+        f"Lifetime tokens (all active threads, NOT window consumption): "
+        f"{pattern.total_tokens_used:,}"
+    )
     print(f"Distinct cwds: {pattern.distinct_cwds}")
     print(
         f"Duration:  p50={pattern.duration_seconds_p50:.1f}s  p95={pattern.duration_seconds_p95:.1f}s"
@@ -106,11 +111,13 @@ def cmd_codex_insights_anomalies(args: argparse.Namespace) -> int:
         include_archived=args.include_archived,
         paths=paths,
     )
+    cutoff = datetime.now(UTC) - since
     anomalies = detect_anomalies(
         pairs,
         token_cap=args.token_cap,
         runaway_tool_calls=args.runaway_tool_calls,
         stuck_turn_minutes=args.stuck_turn_minutes,
+        cutoff=cutoff,
     )
     if args.json:
         _emit_json([a.to_dict() for a in anomalies])
