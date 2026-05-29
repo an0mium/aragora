@@ -46,6 +46,12 @@ DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 # ---------------------------------------------------------------------------
 from aragora.cli.parser import get_version, build_parser  # noqa: E402, F401
 
+_STARTUP_SECRET_HYDRATION_EXEMPTIONS = frozenset(
+    {
+        ("review-queue", "record-settlement"),
+    }
+)
+
 # Lazy re-export mapping: name -> (module, attr)
 _LAZY_REEXPORTS: dict[str, tuple[str, str]] = {
     # From aragora.cli.commands.debate
@@ -118,7 +124,16 @@ def __getattr__(name: str) -> object:
     raise AttributeError(f"module 'aragora.cli.main' has no attribute {name!r}")
 
 
-def main() -> int:
+def _should_hydrate_startup_secrets(args: object) -> bool:
+    """Return whether this CLI command should hydrate provider secrets."""
+    command = str(getattr(args, "command", "") or "")
+    if not command:
+        return False
+    review_queue_command = str(getattr(args, "review_queue_command", "") or "")
+    return (command, review_queue_command) not in _STARTUP_SECRET_HYDRATION_EXEMPTIONS
+
+
+def _hydrate_startup_secrets() -> None:
     try:
         from aragora.config.secrets import hydrate_env_from_secrets
 
@@ -126,7 +141,7 @@ def main() -> int:
         # process so legacy provider CLIs can read env vars without writing
         # keys to disk or the parent shell.
         hydrate_env_from_secrets(overwrite=True)
-    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+    except (AttributeError, ImportError, OSError, RuntimeError, ValueError) as exc:
         logger.warning("Could not hydrate AWS-managed API keys: %s", exc)
 
     try:
@@ -137,6 +152,8 @@ def main() -> int:
     except (ImportError, OSError, RuntimeError, ValueError) as exc:
         logger.warning("Could not hydrate stored API keys: %s", exc)
 
+
+def main() -> int:
     # Register built-in modes here (not at module level) to avoid import-time cost
     from aragora.modes import register_all_builtins
 
@@ -159,6 +176,9 @@ def main() -> int:
     # full Secrets Manager responses (including plaintext secrets) at DEBUG.
     for noisy_logger in ("botocore", "boto3", "urllib3", "s3transfer"):
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+
+    if _should_hydrate_startup_secrets(args):
+        _hydrate_startup_secrets()
 
     result = args.func(args)
     if isinstance(result, int):

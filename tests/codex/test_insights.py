@@ -126,6 +126,110 @@ def test_detect_anomalies_token_cap_exceeded(tmp_path: Path) -> None:
     assert any(a.kind == "token_cap_exceeded" for a in anomalies)
 
 
+def _thread_with_created(
+    *, id: str, tokens: int, created_at: datetime, rollout: Path
+) -> ThreadSummary:
+    now = datetime.now(UTC)
+    return ThreadSummary(
+        id=id,
+        title="t",
+        cwd="/repo",
+        model="gpt-5.5",
+        rollout_path=rollout,
+        created_at=created_at,
+        updated_at=now,
+        tokens_used=tokens,
+        archived=False,
+        git_sha=None,
+        git_branch="main",
+        source="vscode",
+        first_user_message="x",
+    )
+
+
+def test_token_cap_anomaly_ignores_pre_window_threads(tmp_path: Path) -> None:
+    """REGRESSION: a months-old thread whose LIFETIME tokens exceed the cap
+    must NOT be flagged token_cap_exceeded when a window cutoff is supplied.
+
+    This is the false-alarm bug: tokens_used is a lifetime cumulative field,
+    so a 60-day-old thread always exceeds a 100k cap even if it consumed
+    almost nothing in the analysis window. Scoping to created_at >= cutoff
+    means the cap only applies to threads that genuinely ran in-window
+    (where lifetime tokens == window consumption).
+    """
+    rollout = tmp_path / "old.jsonl"
+    rollout.write_text("{}\n", encoding="utf-8")
+    now = datetime.now(UTC)
+    old_thread = _thread_with_created(
+        id="old", tokens=5_000_000_000, created_at=now - timedelta(days=60), rollout=rollout
+    )
+    summary = _make_summary(rollout, tool_calls={"Read": 1})
+    cutoff = now - timedelta(hours=6)
+    anomalies = insights.detect_anomalies(
+        [(old_thread, summary)],
+        token_cap=100_000,
+        cutoff=cutoff,
+    )
+    assert not any(a.kind == "token_cap_exceeded" for a in anomalies), (
+        "60-day-old thread's lifetime tokens must not trigger token_cap_exceeded "
+        "when a window cutoff is supplied — that is the false-alarm bug."
+    )
+
+
+def test_token_cap_anomaly_flags_window_created_threads(tmp_path: Path) -> None:
+    """A thread CREATED within the window with tokens over cap IS flagged.
+
+    For window-created threads, lifetime tokens == window consumption, so the
+    cap is a meaningful per-run signal.
+    """
+    rollout = tmp_path / "new.jsonl"
+    rollout.write_text("{}\n", encoding="utf-8")
+    now = datetime.now(UTC)
+    new_thread = _thread_with_created(
+        id="new", tokens=999_999, created_at=now - timedelta(minutes=30), rollout=rollout
+    )
+    summary = _make_summary(rollout, tool_calls={"Read": 1})
+    cutoff = now - timedelta(hours=6)
+    anomalies = insights.detect_anomalies(
+        [(new_thread, summary)],
+        token_cap=100_000,
+        cutoff=cutoff,
+    )
+    assert any(a.kind == "token_cap_exceeded" for a in anomalies)
+
+
+def test_token_cap_anomaly_unscoped_without_cutoff_preserves_legacy(tmp_path: Path) -> None:
+    """Back-compat: with no cutoff, behavior is unchanged (flag any over-cap)."""
+    rollout = tmp_path / "any.jsonl"
+    rollout.write_text("{}\n", encoding="utf-8")
+    now = datetime.now(UTC)
+    old_thread = _thread_with_created(
+        id="any", tokens=999_999, created_at=now - timedelta(days=60), rollout=rollout
+    )
+    summary = _make_summary(rollout, tool_calls={"Read": 1})
+    anomalies = insights.detect_anomalies([(old_thread, summary)], token_cap=100_000)
+    assert any(a.kind == "token_cap_exceeded" for a in anomalies)
+
+
+def test_split_token_totals_separates_window_from_lifetime(tmp_path: Path) -> None:
+    """The token split helper distinguishes window-created from lifetime totals."""
+    rollout = tmp_path / "r.jsonl"
+    rollout.write_text("{}\n", encoding="utf-8")
+    now = datetime.now(UTC)
+    cutoff = now - timedelta(hours=6)
+    threads = [
+        _thread_with_created(
+            id="old", tokens=5_000_000_000, created_at=now - timedelta(days=60), rollout=rollout
+        ),
+        _thread_with_created(
+            id="new", tokens=1_000, created_at=now - timedelta(minutes=30), rollout=rollout
+        ),
+    ]
+    lifetime, window_created = insights._split_token_totals(threads, cutoff=cutoff)
+    assert lifetime == 5_000_001_000  # both threads' lifetime totals
+    assert window_created == 1_000  # only the window-created thread
+
+
 def test_detect_anomalies_stuck_turn(tmp_path: Path) -> None:
     rollout = tmp_path / "r.jsonl"
     rollout.write_text("{}\n", encoding="utf-8")

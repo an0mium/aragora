@@ -45,19 +45,22 @@
    this sprint unless a regression appears.
 
 2. **Run fresh-agent product-proof sequence end-to-end.** **Operator
-   proof passed; strict outreach reading still needs non-operator demo
-   proof.** A local post-#7479 operator proof run recorded under
+   proof and strict non-operator demo receipt proof passed.** A local
+   post-#7479 operator proof run recorded under
    `.aragora/proof/post-7479/20260528T035207Z/` shows
    `aragora validate-env --json`, `aragora doctor --validate`,
    `aragora ask --agents grok --decision-integrity`, and
    `aragora receipt verify` all exiting 0 on current main. The receipt
    `/Users/armand/.aragora/receipts/9e2e072d-04e7-4968-8475-a2d134b85656_b6f334a28539822d.json`
-   verified successfully. These `.aragora/` proof files are local operator
-   evidence, not repo-tracked public artifacts. Goal status: core product
-   capability proven by operator run; outreach-gate clause (b) remains open
-   only under the literal non-operator `aragora demo --receipt` requirement.
-   The next bounded proof step is a non-operator/fresh-user demo receipt run,
-   not another operator rerun of the same path.
+   verified successfully. After #7496 (`933c82b183404eaf92e30bbbbf50a0e4afea3dd7`)
+   landed, the strict non-operator/fresh-user demo proof recorded under
+   `.aragora/proof/post-7496-demo/20260528T061018Z/` shows provider keys
+   unset, Secrets Manager disabled, `aragora demo --receipt` exiting 0,
+   and `aragora receipt verify` exiting 0 for receipt `DR-20260528-fac8d2`
+   (`VALID (3/3 checks passed)`). These `.aragora/` proof files are local
+   operator-held evidence, not repo-tracked public artifacts. Goal status:
+   core product capability and outreach-gate clause (b) are satisfied;
+   outreach remains closed on clauses (a) and (c).
 
 3. **Operator design-review of #7472 (advisory-review recognizable
    header pre-approval).** #7472 is the Tier 4 design doc + 18 passing
@@ -107,10 +110,12 @@
   is unlocked only when *all* of these are true: (a) B0
   `truth_success_rate_verified ≥ 50%` (verified-by-PR-link metric, not
   legacy/proxy), (b) `aragora demo --receipt` round-trips for a non-
-  operator user (operator proof passed, strict non-operator proof still
-  open), (c) at least one frontier-model adversarial review of a real PR
-  survives unmodified (Factory + Codex already meeting this for #7451 is
-  encouraging but not yet repeated on a product-scope PR end-to-end).
+  operator user (satisfied by the local post-#7496 proof under
+  `.aragora/proof/post-7496-demo/20260528T061018Z/`), (c) at least one
+  frontier-model adversarial review of a real PR survives unmodified
+  (Factory + Codex already meeting this for #7451 is encouraging but not
+  yet repeated on a product-scope PR end-to-end). Clauses (a) and (c)
+  remain open, so external outreach remains locked.
 - **No Tier 4 self-mods without pre-approval discipline.** Unchanged
   from sprint 1. Any change to `scripts/settle_tier4_pr.py`,
   `aragora-merge-quorum.yml`, `aragora-review-gate.yml`, or the family

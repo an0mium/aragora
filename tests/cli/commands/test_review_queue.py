@@ -1689,6 +1689,34 @@ class TestBuildQueueAndPacket:
         assert packet.model_review_quorum["admin_squash_allowed"] is True
         assert packet.model_review_quorum["status"] == "satisfied"
 
+    def test_open_pr_with_missing_check_rollup_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7465, files=["docs/status/open.md"])
+        pr_payload["statusCheckRollup"] = None
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7465", repo_override=None)
+
+        assert packet.checks_summary == "no checks reported"
+        assert packet.machine_recommendation == "needs_human_attention"
+        assert "check rollup unavailable" in packet.risk_flags
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert (
+            "checks are unavailable; wait for GitHub check rollup before settlement"
+            in packet.model_review_quorum["reasons"]
+        )
+
     def test_cancelled_merge_quorum_blocks_admin_squash_authorization(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
