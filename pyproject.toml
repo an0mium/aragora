@@ -56,6 +56,7 @@ experimental = [
 ]
 dev = [
     "mypy>=2.1.0,<3.0",
+    "mypy-baseline>=0.7.4,<0.8",
     "types-PyYAML>=6.0.12.20260510,<7.0",
     "types-croniter>=6.2.2.20260508,<7.0",
     "bandit>=1.9.4,<2.0",
@@ -210,3 +211,14 @@ disable_error_code = ["misc"]
 [[tool.mypy.overrides]]
 module = ["scripts.nomic_loop"]
 disable_error_code = ["misc", "assignment", "no-redef"]
+
+# ``scripts.validate_alertmanager`` uses the same optional-import fallback
+# idiom (``try: import yaml`` / ``except ImportError: yaml = None``). Whether
+# mypy flags the ``yaml = None`` rebinding as [assignment] depends on whether
+# the ``types-PyYAML`` stub is importable in the interpreter running mypy, so
+# the diagnostic is environment-dependent — it is absent from ``.mypy-baseline``
+# (synced without the stub) but fires once the stub is present, breaking the
+# pre-push hook. The rebinding is intentional and guarded before use.
+[[tool.mypy.overrides]]
+module = ["scripts.validate_alertmanager"]
+disable_error_code = ["assignment"]

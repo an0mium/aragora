@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -539,6 +540,27 @@ class TestAragoraWebSocketReconnection:
         event_data = handler.call_args[0][0]
         assert event_data["code"] == 1006
         assert event_data["reason"] == "Connection lost"
+
+    def test_handle_disconnect_without_event_loop_emits_disconnected(self) -> None:
+        """_handle_disconnect does not require a main-thread event loop."""
+        ws = AragoraWebSocket("https://api.aragora.ai")
+        handler = MagicMock()
+        ws.on("disconnected", handler)
+
+        try:
+            previous_loop = asyncio.get_event_loop()
+        except RuntimeError:
+            previous_loop = None
+
+        asyncio.set_event_loop(None)
+        try:
+            ws._handle_disconnect(1006, "Connection lost")
+        finally:
+            asyncio.set_event_loop(previous_loop)
+
+        handler.assert_called_once()
+        assert ws.state == "disconnected"
+        assert ws._reconnect_task is None
 
     def test_handle_disconnect_schedules_reconnect(self) -> None:
         """_handle_disconnect schedules reconnection if auto_reconnect enabled."""
