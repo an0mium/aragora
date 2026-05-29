@@ -59,8 +59,15 @@
    and `aragora receipt verify` exiting 0 for receipt `DR-20260528-fac8d2`
    (`VALID (3/3 checks passed)`). These `.aragora/` proof files are local
    operator-held evidence, not repo-tracked public artifacts. Goal status:
-   core product capability and outreach-gate clause (b) are satisfied;
-   outreach remains closed on clauses (a) and (c).
+   core product capability and outreach-gate clause (b) are satisfied.
+   After the rev-5 B0 graduation, clause (a) is also satisfied by
+   `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`: `truth_success_rate_verified`
+   is 100.0% across five strict verified entries. Clause (c) is satisfied by
+   the unmodified Claude frontier adversarial review on product-scope SDK PR
+   #7513 at exact head `6531ebad2968ae9e2888f08ba237473c41eb0e21`
+   ([comment](https://github.com/synaptent/aragora/pull/7513#issuecomment-4567004963)).
+   All three outreach evidence gates are now satisfied; actually performing
+   outreach remains an operator decision, not an autonomous action.
 
 3. **Operator design-review of #7472 (advisory-review recognizable
    header pre-approval).** #7472 is the Tier 4 design doc + 18 passing
@@ -113,9 +120,11 @@
   operator user (satisfied by the local post-#7496 proof under
   `.aragora/proof/post-7496-demo/20260528T061018Z/`), (c) at least one
   frontier-model adversarial review of a real PR survives unmodified
-  (Factory + Codex already meeting this for #7451 is encouraging but not
-  yet repeated on a product-scope PR end-to-end). Clauses (a) and (c)
-  remain open, so external outreach remains locked.
+  (satisfied by the Claude frontier adversarial review on product-scope
+  SDK PR #7513 at exact head
+  `6531ebad2968ae9e2888f08ba237473c41eb0e21`). Clauses (a), (b), and
+  (c) are satisfied; external outreach execution still requires an
+  explicit operator decision.
 - **No Tier 4 self-mods without pre-approval discipline.** Unchanged
   from sprint 1. Any change to `scripts/settle_tier4_pr.py`,
   `aragora-merge-quorum.yml`, `aragora-review-gate.yml`, or the family
