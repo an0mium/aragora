@@ -43,7 +43,14 @@ class SessionPattern:
     archived_excluded: bool
     model_distribution: dict[str, int]
     tool_call_distribution: dict[str, int]
+    # NOTE: ``total_tokens_used`` is the sum of each active thread's *lifetime*
+    # cumulative ``tokens_used`` field, NOT tokens consumed within the analysis
+    # window. A thread last touched in-window but created weeks ago contributes
+    # its entire lifetime total. Use ``window_created_tokens`` for a figure that
+    # approximates in-window consumption (threads created within the window,
+    # whose lifetime total == window consumption). See _split_token_totals.
     total_tokens_used: int
+    window_created_tokens: int
     distinct_cwds: int
     duration_seconds_p50: float
     duration_seconds_p95: float
@@ -171,19 +178,21 @@ def summarize_patterns(
         paths=paths,
     )
     now = datetime.now(UTC)
+    cutoff = now - since
     per_thread: list[tuple[ThreadSummary, SessionSummary]] = []
     tool_call_counts: Counter[str] = Counter()
     model_counts: Counter[str] = Counter()
     durations: list[float] = []
     abandoned = 0
-    total_tokens = 0
     cwds: set[str] = set()
+    scanned_threads: list[ThreadSummary] = []
 
     for thread in threads:
         if not thread.rollout_path.exists():
             continue
         summary = summarize_session(thread.rollout_path, max_events=max_events_per_summary)
         per_thread.append((thread, summary))
+        scanned_threads.append(thread)
         for name, count in summary.tool_call_counts.items():
             tool_call_counts[name] += count
         if thread.model:
@@ -191,9 +200,10 @@ def summarize_patterns(
         durations.append(_session_duration_seconds(summary))
         if _is_abandoned(thread, summary, now=now):
             abandoned += 1
-        total_tokens += thread.tokens_used
         if thread.cwd:
             cwds.add(thread.cwd)
+
+    lifetime_tokens, window_created_tokens = _split_token_totals(scanned_threads, cutoff=cutoff)
 
     pattern = SessionPattern(
         window_seconds=int(since.total_seconds()),
@@ -201,7 +211,8 @@ def summarize_patterns(
         archived_excluded=not include_archived,
         model_distribution=dict(model_counts),
         tool_call_distribution=dict(tool_call_counts),
-        total_tokens_used=total_tokens,
+        total_tokens_used=lifetime_tokens,
+        window_created_tokens=window_created_tokens,
         distinct_cwds=len(cwds),
         duration_seconds_p50=_percentile(durations, 0.5),
         duration_seconds_p95=_percentile(durations, 0.95),
@@ -210,12 +221,28 @@ def summarize_patterns(
     return pattern, per_thread
 
 
+def _split_token_totals(threads: list[ThreadSummary], *, cutoff: datetime) -> tuple[int, int]:
+    """Split token totals into (lifetime, window_created).
+
+    ``tokens_used`` on a ThreadSummary is the thread's *lifetime* cumulative
+    total. Summing it across all window-active threads (``lifetime``) double-
+    counts pre-window history for long-lived threads. ``window_created`` sums
+    only threads created at or after ``cutoff`` — for those, lifetime total
+    equals in-window consumption, so it is the honest "tokens consumed in this
+    window" approximation. Returns ``(lifetime, window_created)``.
+    """
+    lifetime = sum(t.tokens_used for t in threads)
+    window_created = sum(t.tokens_used for t in threads if t.created_at >= cutoff)
+    return lifetime, window_created
+
+
 def detect_anomalies(
     pairs: list[tuple[ThreadSummary, SessionSummary]],
     *,
     token_cap: int = DEFAULT_TOKEN_ANOMALY_THRESHOLD,
     runaway_tool_calls: int = DEFAULT_RUNAWAY_TOOL_CALLS,
     stuck_turn_minutes: int = DEFAULT_STUCK_TURN_MINUTES,
+    cutoff: datetime | None = None,
 ) -> list[Anomaly]:
     """Return a list of anomalies detected across the (thread, summary) pairs.
 
@@ -224,7 +251,15 @@ def detect_anomalies(
       with no recent user turn
     - ``stuck_turn``: last event is ``turn_start`` (or similar) with no
       matching completion and silence exceeds ``stuck_turn_minutes``
-    - ``token_cap_exceeded``: thread.tokens_used > ``token_cap``
+    - ``token_cap_exceeded``: a thread's ``tokens_used`` exceeds ``token_cap``.
+
+    ``cutoff`` window-scopes the ``token_cap_exceeded`` check. ``tokens_used``
+    is a *lifetime* cumulative field, so a months-old thread always exceeds any
+    modest cap regardless of in-window activity (the false-alarm bug). When
+    ``cutoff`` is supplied, the cap is only applied to threads created at or
+    after ``cutoff`` — those whose lifetime total equals their in-window
+    consumption. When ``cutoff`` is ``None`` the legacy behavior (flag any
+    thread over cap) is preserved for backward compatibility.
     """
     now = datetime.now(UTC)
     anomalies: list[Anomaly] = []
@@ -252,15 +287,29 @@ def detect_anomalies(
                 )
             )
 
-        if thread.tokens_used >= token_cap:
+        # token_cap_exceeded is only meaningful for threads whose tokens were
+        # consumed within the window. tokens_used is lifetime-cumulative, so a
+        # cutoff scopes the check to window-created threads (lifetime == window
+        # consumption). cutoff=None preserves legacy unscoped behavior.
+        token_cap_in_scope = cutoff is None or thread.created_at >= cutoff
+        if token_cap_in_scope and thread.tokens_used >= token_cap:
             anomalies.append(
                 Anomaly(
                     thread_id=thread.id,
                     rollout_path=_redacted_path(summary.rollout_path),
                     kind="token_cap_exceeded",
                     severity="medium",
-                    detail=(f"tokens_used={thread.tokens_used} >= cap={token_cap}"),
-                    evidence={"tokens_used": thread.tokens_used, "cap": token_cap},
+                    detail=(
+                        f"tokens_used={thread.tokens_used} >= cap={token_cap} "
+                        f"(thread created in-window)"
+                        if cutoff is not None
+                        else f"tokens_used={thread.tokens_used} >= cap={token_cap}"
+                    ),
+                    evidence={
+                        "tokens_used": thread.tokens_used,
+                        "cap": token_cap,
+                        "window_scoped": cutoff is not None,
+                    },
                 )
             )
 
@@ -396,7 +445,7 @@ def build_digest(
         paths=paths,
         max_events_per_summary=max_events_per_summary,
     )
-    anomalies = detect_anomalies(pairs)
+    anomalies = detect_anomalies(pairs, cutoff=datetime.now(UTC) - since)
     crossref = crossref_work_board(pairs)
     inspector_summaries = tuple(
         {

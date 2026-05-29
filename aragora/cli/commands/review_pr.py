@@ -31,6 +31,18 @@ _STATUS_REVIEW_EVENT_BY_STATUS = {
     "blocked_nonreviewable": "COMMENT",
 }
 _OPTIONAL_AGENT_PLACEHOLDERS = {"", "none", "null"}
+_REVIEWER_FAMILY_MARKERS = (
+    ("codex", ("codex", "openai", "gpt")),
+    ("claude", ("claude", "anthropic")),
+    ("grok", ("grok", "xai")),
+    ("gemini", ("gemini", "google")),
+    ("openrouter", ("openrouter",)),
+    ("mistral", ("mistral", "codestral")),
+    ("deepseek", ("deepseek",)),
+    ("qwen", ("qwen",)),
+    ("kimi", ("kimi", "moonshot")),
+    ("factory", ("factory", "droid")),
+)
 
 
 @dataclass(slots=True)
@@ -280,6 +292,14 @@ async def run_review_pr_loop(
             "url": None,
             "error": stale_reason,
         }
+    elif _has_codex_route_blocker(review_runs):
+        payload["github_review"] = {
+            "posted": False,
+            "event": None,
+            "mode": "advisory" if advisory_only else "status",
+            "url": None,
+            "error": "Requested non-Codex reviewer routed to Codex before review generation.",
+        }
     elif publish_review:
         payload["github_review"] = await _publish_review_outcome(
             target=target,
@@ -378,7 +398,23 @@ async def _run_review_pass(
         worker_model=worker_model,
         preferred_review_model=reviewer,
         repo_root=repo_root,
+        candidate_blocker=_review_candidate_blocker(reviewer),
     )
+    candidate = dict(routing.get("candidate") or {})
+    attempts = [dict(item) for item in routing.get("attempts", []) if isinstance(item, dict)]
+    blocked = routing.get("blocked")
+    if isinstance(blocked, dict):
+        finding = _normalize_route_blocker(blocked)
+        return ReviewPass(
+            reviewer=reviewer,
+            reviewed_at=_now_iso(),
+            status="blocked_nonreviewable",
+            summary=finding["body"],
+            findings=[finding],
+            candidate=candidate,
+            attempts=attempts,
+            raw_response="",
+        )
     raw_response = str(routing.get("response", "")).strip()
     parsed = _extract_first_json_object(raw_response)
     status = str(parsed.get("status", "")).strip().lower()
@@ -386,6 +422,11 @@ async def _run_review_pass(
         status = "blocked_nonreviewable"
     findings = _normalize_findings(parsed.get("findings", []))
     summary = str(parsed.get("summary", "")).strip()
+    route_blocker = _codex_fallback_blocker(reviewer, candidate)
+    if route_blocker:
+        status = "blocked_nonreviewable"
+        summary = route_blocker["body"]
+        findings = [route_blocker]
     if status == "changes_requested" and not findings:
         findings = [{"title": "Blocking changes requested", "body": raw_response, "priority": "P1"}]
     if status == "blocked_nonreviewable" and not findings:
@@ -401,9 +442,86 @@ async def _run_review_pass(
         status=status,
         summary=summary,
         findings=findings,
-        candidate=dict(routing.get("candidate") or {}),
-        attempts=[dict(item) for item in routing.get("attempts", []) if isinstance(item, dict)],
+        candidate=candidate,
+        attempts=attempts,
         raw_response=raw_response,
+    )
+
+
+def _reviewer_family(value: object) -> str:
+    lower = str(value or "").strip().lower()
+    if not lower:
+        return ""
+    for family, markers in _REVIEWER_FAMILY_MARKERS:
+        if any(marker in lower for marker in markers):
+            return family
+    return lower
+
+
+def _candidate_family(candidate: dict[str, Any]) -> str:
+    provider = str(candidate.get("provider", "") or "").strip()
+    if provider:
+        return _reviewer_family(provider)
+    label = str(candidate.get("label", "") or "").strip()
+    return _reviewer_family(label)
+
+
+def _codex_fallback_blocker(
+    requested_reviewer: str,
+    candidate: dict[str, Any],
+) -> dict[str, str] | None:
+    requested_family = _reviewer_family(requested_reviewer)
+    if not requested_family or requested_family == "codex":
+        return None
+    if _candidate_family(candidate) != "codex":
+        return None
+    candidate_label = str(candidate.get("label", "") or "").strip() or "codex"
+    return {
+        "title": "Requested reviewer routed to Codex",
+        "body": (
+            f"Requested reviewer `{requested_reviewer}` requires non-Codex evidence, but "
+            f"review-pr selected Codex candidate `{candidate_label}`. Re-run with a real "
+            "non-Codex reviewer or do not count this result as non-Codex quorum evidence."
+        ),
+        "priority": "P1",
+    }
+
+
+def _review_candidate_blocker(requested_reviewer: str):
+    def _block(candidate: object) -> dict[str, str] | None:
+        to_dict = getattr(candidate, "to_dict", None)
+        if callable(to_dict):
+            payload = to_dict()
+        elif isinstance(candidate, dict):
+            payload = candidate
+        else:
+            payload = {}
+        return _codex_fallback_blocker(requested_reviewer, dict(payload))
+
+    return _block
+
+
+def _normalize_route_blocker(blocked: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "title": str(blocked.get("title") or "Requested reviewer routed to Codex"),
+        "body": str(blocked.get("body") or "Requested non-Codex reviewer routed to Codex."),
+        "priority": str(blocked.get("priority") or "P1"),
+    }
+
+
+def _has_codex_route_blocker(review_runs: list[dict[str, Any]]) -> bool:
+    if not review_runs:
+        return False
+    latest_review = review_runs[-1]
+    if str(latest_review.get("status") or "").strip().lower() != "blocked_nonreviewable":
+        return False
+    findings = latest_review.get("findings")
+    if not isinstance(findings, list):
+        return False
+    return any(
+        isinstance(item, dict)
+        and str(item.get("title") or "").strip() == "Requested reviewer routed to Codex"
+        for item in findings
     )
 
 

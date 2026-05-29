@@ -19,7 +19,6 @@ warnings.simplefilter("ignore")
 import asyncio  # noqa: E402
 import json  # noqa: E402
 import logging  # noqa: E402
-import os  # noqa: E402
 import sys  # noqa: E402
 import time  # noqa: E402
 from pathlib import Path  # noqa: E402
@@ -27,6 +26,8 @@ from pathlib import Path  # noqa: E402
 # Ensure the project root is on sys.path so `aragora` is importable.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+from aragora.config import get_api_key  # noqa: E402
 
 # Keep library logs quiet so the script output stays clean.
 logging.basicConfig(level=logging.ERROR, format="%(message)s")
@@ -39,10 +40,10 @@ QUESTION = "What are the three most important principles for designing a reliabl
 def _has_api_keys() -> dict[str, str]:
     """Return dict of available provider -> key."""
     keys: dict[str, str] = {}
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        keys["anthropic"] = os.environ["ANTHROPIC_API_KEY"]
-    if os.environ.get("OPENAI_API_KEY"):
-        keys["openai"] = os.environ["OPENAI_API_KEY"]
+    if anthropic_key := get_api_key("ANTHROPIC_API_KEY", required=False):
+        keys["anthropic"] = anthropic_key
+    if openai_key := get_api_key("OPENAI_API_KEY", required=False):
+        keys["openai"] = openai_key
     return keys
 
 

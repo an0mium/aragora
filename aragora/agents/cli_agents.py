@@ -32,6 +32,7 @@ from aragora.agents.errors import (
     ErrorClassifier,
 )
 from aragora.agents.registry import AgentRegistry
+from aragora.config import get_api_key
 from aragora.core import Agent, Critique, Message
 from aragora.core_types import AgentRole
 from aragora.resilience import BaseCircuitBreaker, get_v2_circuit_breaker as get_circuit_breaker
@@ -306,7 +307,7 @@ class CLIAgent(CritiqueMixin, Agent):
             return None
 
         if self._fallback_agent is None:
-            api_key = os.environ.get("OPENROUTER_API_KEY")
+            api_key = get_api_key("OPENROUTER_API_KEY", required=False)
             if not api_key:
                 logger.warning(
                     "[%s] No OPENROUTER_API_KEY set, fallback disabled - rate limit errors will not have a fallback",

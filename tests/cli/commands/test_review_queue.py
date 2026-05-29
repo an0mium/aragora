@@ -58,6 +58,8 @@ def _make_pr(
     *,
     number: int = 1,
     title: str = "test PR",
+    state: str = "OPEN",
+    merged_at: str = "",
     is_draft: bool = False,
     mergeable: str = "MERGEABLE",
     review_decision: str = "",
@@ -75,6 +77,8 @@ def _make_pr(
         "number": number,
         "title": title,
         "url": f"https://github.com/synaptent/aragora/pull/{number}",
+        "state": state,
+        "mergedAt": merged_at,
         "headRefName": f"branch-{number}",
         "headRefOid": f"sha{number:08d}",
         "baseRefOid": "basesha0001",
@@ -132,6 +136,57 @@ def _make_reviewer_output(
         latency_ms=100,
         cost_usd=0.2,
     )
+
+
+def _write_admin_squash_receipt(
+    review_queue_root: Path,
+    *,
+    pr_number: int,
+    head_sha: str,
+) -> Path:
+    receipts_dir = review_queue_root / "receipts"
+    receipts_dir.mkdir(parents=True, exist_ok=True)
+    path = receipts_dir / f"pr-{pr_number}-recorded-{head_sha[:12]}-admin_squash_merge.json"
+    path.write_text(
+        json.dumps(
+            {
+                "pr_number": pr_number,
+                "head_sha": head_sha,
+                "action": "admin_squash_merge",
+                "github_event": "ADMIN_SQUASH_MERGE",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _write_human_risk_settlement_receipt(
+    review_queue_root: Path,
+    *,
+    pr_number: int,
+    head_sha: str,
+    action: str = "approve",
+    github_event: str = "APPROVE",
+    payload_pr_number: int | None = None,
+) -> Path:
+    receipts_dir = review_queue_root / "receipts"
+    receipts_dir.mkdir(parents=True, exist_ok=True)
+    path = receipts_dir / f"pr-{pr_number}-recorded-{head_sha[:12]}-approve.json"
+    path.write_text(
+        json.dumps(
+            {
+                "pr_number": pr_number if payload_pr_number is None else payload_pr_number,
+                "head_sha": head_sha,
+                "action": action,
+                "github_event": github_event,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
 
 
 def _dogfood_comment(
@@ -612,6 +667,30 @@ class TestSummarizeChecks:
         summary, has_fail, has_pending = _summarize_checks(checks)
 
         assert summary == "1 failing / 1 total"
+        assert has_fail
+        assert not has_pending
+
+    def test_cancelled_merge_quorum_check_blocks_settlement_summary(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "COMPLETED",
+                "conclusion": "CANCELLED",
+                "completedAt": "2026-05-27T17:13:53Z",
+            },
+            {
+                "name": "lint",
+                "workflowName": "Tests",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+                "completedAt": "2026-05-27T17:14:53Z",
+            },
+        ]
+
+        summary, has_fail, has_pending = _summarize_checks(checks)
+
+        assert summary == "1 failing / 2 total"
         assert has_fail
         assert not has_pending
 
@@ -1175,6 +1254,26 @@ class TestModelReviewQuorum:
         assert quorum["status"] == "repair_or_wait"
         assert quorum["admin_squash_allowed"] is False
 
+    def test_merged_state_blocks_settlement_even_with_quorum(self) -> None:
+        pr = _make_pr(
+            files=["docs/README.md"],
+            state="MERGED",
+            merged_at="2026-05-27T00:19:36Z",
+        )
+        pr["comments"] = [_dogfood_comment("## Claude focused dogfood\npass")]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["docs/README.md"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["status"] == "repair_or_wait"
+        assert quorum["verdict"] == "not_ready_for_settlement"
+        assert quorum["admin_squash_allowed"] is False
+        assert "PR is MERGED; settlement applies only to open PRs" in quorum["reasons"]
+
     def test_tier_three_never_admin_squashes_without_human_risk_settlement(self) -> None:
         pr = _make_pr(files=["aragora/reputation/store.py"])
         pr["comments"] = [_dogfood_comment()]
@@ -1188,6 +1287,70 @@ class TestModelReviewQuorum:
         )
         assert quorum["tier"] == 3
         assert quorum["status"] == "human_risk_settlement_required"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["requires_human_risk_settlement"] is True
+
+    def test_tier_three_human_risk_settlement_allows_admin_squash(self) -> None:
+        pr = _make_pr(files=["aragora/reputation/store.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/reputation/store.py"],
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+            human_risk_settlement_recorded=True,
+        )
+        assert quorum["tier"] == 3
+        assert quorum["status"] == "satisfied"
+        assert quorum["verdict"] == "admin_squash_allowed"
+        assert quorum["admin_squash_allowed"] is True
+        assert quorum["requires_human_risk_settlement"] is False
+        assert quorum["human_risk_settlement_recorded"] is True
+        assert "exact-head human risk settlement receipt recorded" in quorum["reasons"]
+
+    def test_human_risk_settlement_does_not_clear_unresolved_dissent(self) -> None:
+        pr = _make_pr(files=["aragora/reputation/store.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/reputation/store.py"],
+            protocol=_executed_protocol(dissent=True),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+            human_risk_settlement_recorded=True,
+        )
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["requires_human_risk_settlement"] is True
+
+    @pytest.mark.parametrize(
+        ("has_failures", "has_pending"),
+        [
+            (True, False),
+            (False, True),
+        ],
+    )
+    def test_human_risk_settlement_does_not_clear_failing_or_pending_checks(
+        self,
+        *,
+        has_failures: bool,
+        has_pending: bool,
+    ) -> None:
+        pr = _make_pr(files=["aragora/reputation/store.py"])
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/reputation/store.py"],
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=has_pending,
+            has_failures=has_failures,
+            human_risk_settlement_recorded=True,
+        )
+        assert quorum["status"] == "repair_or_wait"
         assert quorum["admin_squash_allowed"] is False
         assert quorum["requires_human_risk_settlement"] is True
 
@@ -1454,6 +1617,400 @@ class TestBuildQueueAndPacket:
         packet = _build_packet("6280", repo_override=None)
         assert packet.machine_recommendation == "approve_candidate"
         assert packet.checks_summary == "2/2 green"
+
+    def test_merged_pr_fails_closed_before_admin_authorization(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7470,
+            files=["docs/status/focus.md"],
+            state="MERGED",
+            merged_at="2026-05-27T00:19:36Z",
+        )
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7470", repo_override=None)
+        quorum = packet.model_review_quorum
+
+        assert packet.machine_recommendation == "needs_human_attention"
+        assert "PR is MERGED; settlement applies only to open PRs" in packet.risk_flags
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["status"] == "repair_or_wait"
+        assert "PR is MERGED; settlement applies only to open PRs" in quorum["reasons"]
+
+    def test_closed_pr_fails_closed_before_admin_authorization(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7471, files=["docs/status/closed.md"], state="CLOSED")
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7471", repo_override=None)
+
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert (
+            "PR is CLOSED; settlement applies only to open PRs"
+            in packet.model_review_quorum["reasons"]
+        )
+
+    def test_open_authorized_pr_still_allows_admin_squash(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7472, files=["docs/status/open.md"])
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7472", repo_override=None)
+
+        assert packet.machine_recommendation == "approve_candidate"
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+        assert packet.model_review_quorum["status"] == "satisfied"
+
+    def test_open_pr_with_missing_check_rollup_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7465, files=["docs/status/open.md"])
+        pr_payload["statusCheckRollup"] = None
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7465", repo_override=None)
+
+        assert packet.checks_summary == "no checks reported"
+        assert packet.machine_recommendation == "needs_human_attention"
+        assert "check rollup unavailable" in packet.risk_flags
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert (
+            "checks are unavailable; wait for GitHub check rollup before settlement"
+            in packet.model_review_quorum["reasons"]
+        )
+
+    def test_cancelled_merge_quorum_blocks_admin_squash_authorization(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7456,
+            files=["docs/status/open.md"],
+            checks=[
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "CANCELLED",
+                    "completedAt": "2026-05-27T17:13:53Z",
+                },
+                {
+                    "name": "lint",
+                    "workflowName": "Tests",
+                    "status": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                    "completedAt": "2026-05-27T17:14:53Z",
+                },
+            ],
+        )
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7456", repo_override=None)
+        quorum = packet.model_review_quorum
+
+        assert packet.checks_summary == "1 failing / 2 total"
+        assert packet.machine_recommendation == "repair_first"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["status"] == "repair_or_wait"
+        assert "checks are failing; repair before settlement" in quorum["reasons"]
+
+    def test_inconsistent_open_state_with_merged_at_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7473,
+            files=["docs/status/stale.md"],
+            merged_at="2026-05-27T00:19:36Z",
+        )
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+        packet = _build_packet("7473", repo_override=None)
+
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert (
+            "PR state is OPEN but mergedAt is set; settlement applies only to open unmerged PRs"
+        ) in packet.model_review_quorum["reasons"]
+
+    def test_merge_packet_omits_merged_pr_from_admin_squash_order(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7470,
+            files=["docs/status/focus.md"],
+            state="MERGED",
+            merged_at="2026-05-27T00:19:36Z",
+        )
+        pr_payload["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_queue",
+            lambda limit: [_classify_pr(_make_pr(number=7470))],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7470"],
+            limit=10,
+            repo_override=None,
+        )
+
+        assert packet["entries"][0]["status"] == "repair_or_wait"
+        assert packet["entries"][0]["admin_squash_allowed"] is False
+        assert packet["admin_squash_order"] == []
+        assert packet["not_ready"] == [7470]
+
+    def test_merged_pr_with_exact_settlement_receipt_is_settled_noop(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7447,
+            files=["aragora/cli/commands/review_queue.py"],
+            state="MERGED",
+            merged_at="2026-05-27T02:57:31Z",
+        )
+        review_queue_root = tmp_path / "review-queue"
+        _write_admin_squash_receipt(
+            review_queue_root,
+            pr_number=7447,
+            head_sha=str(pr_payload["headRefOid"]),
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_queue",
+            lambda limit: [_classify_pr(_make_pr(number=7447))],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7447"],
+            limit=10,
+            repo_override=None,
+            review_queue_root=review_queue_root,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["status"] == "settled"
+        assert entry["verdict"] == "already_merged_settlement_recorded"
+        assert entry["admin_squash_allowed"] is False
+        assert entry["requires_human_risk_settlement"] is False
+        assert entry["reasons"] == [
+            "workflow/deploy/destructive surface touched",
+            "exact-head admin_squash_merge settlement receipt recorded",
+        ]
+        assert packet["admin_squash_order"] == []
+        assert packet["human_risk_settlement_required"] == []
+        assert packet["not_ready"] == []
+
+    @pytest.mark.parametrize("github_event", ["APPROVE", "RECORDED_EXTERNAL_APPROVE"])
+    def test_open_tier_three_with_exact_human_risk_receipt_is_authorized(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        github_event: str,
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7466,
+            files=["aragora/reputation/store.py"],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        review_queue_root = tmp_path / "review-queue"
+        _write_human_risk_settlement_receipt(
+            review_queue_root,
+            pr_number=7466,
+            head_sha=str(pr_payload["headRefOid"]),
+            github_event=github_event,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_queue",
+            lambda limit: [_classify_pr(_make_pr(number=7466))],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7466"],
+            limit=10,
+            repo_override=None,
+            review_queue_root=review_queue_root,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["status"] == "satisfied"
+        assert entry["verdict"] == "admin_squash_allowed"
+        assert entry["admin_squash_allowed"] is True
+        assert entry["requires_human_risk_settlement"] is False
+        assert entry["reasons"] == [
+            "semantic, persistence, security, API, or SDK surface touched",
+            "exact-head human risk settlement receipt recorded",
+        ]
+        assert packet["admin_squash_order"] == [7466]
+        assert packet["human_risk_settlement_required"] == []
+        assert packet["not_ready"] == []
+
+    @pytest.mark.parametrize(
+        ("head_sha", "action", "github_event", "payload_pr_number"),
+        [
+            ("stale-head-sha", "approve", "APPROVE", None),
+            (None, "request_changes", "APPROVE", None),
+            (None, "approve", "COMMENT", None),
+            (None, "approve", "APPROVE", 9999),
+        ],
+    )
+    def test_open_tier_three_with_invalid_human_risk_receipt_stays_blocked(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        head_sha: str | None,
+        action: str,
+        github_event: str,
+        payload_pr_number: int | None,
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7466,
+            files=["aragora/reputation/store.py"],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        review_queue_root = tmp_path / "review-queue"
+        _write_human_risk_settlement_receipt(
+            review_queue_root,
+            pr_number=7466,
+            head_sha=head_sha or str(pr_payload["headRefOid"]),
+            action=action,
+            github_event=github_event,
+            payload_pr_number=payload_pr_number,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_queue",
+            lambda limit: [_classify_pr(_make_pr(number=7466))],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7466"],
+            limit=10,
+            repo_override=None,
+            review_queue_root=review_queue_root,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["status"] == "human_risk_settlement_required"
+        assert entry["admin_squash_allowed"] is False
+        assert entry["requires_human_risk_settlement"] is True
+        assert packet["admin_squash_order"] == []
+        assert packet["human_risk_settlement_required"] == [7466]
+        assert packet["not_ready"] == []
+
+    def test_merged_pr_with_stale_settlement_receipt_stays_fail_closed(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7447,
+            files=["docs/status/focus.md"],
+            state="MERGED",
+            merged_at="2026-05-27T02:57:31Z",
+        )
+        review_queue_root = tmp_path / "review-queue"
+        _write_admin_squash_receipt(
+            review_queue_root,
+            pr_number=7447,
+            head_sha="stale-head-sha",
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+
+        packet = _build_packet(
+            "7447",
+            repo_override=None,
+            review_queue_root=review_queue_root,
+        )
+
+        quorum = packet.model_review_quorum
+        assert quorum["status"] == "repair_or_wait"
+        assert quorum["verdict"] == "not_ready_for_settlement"
+        assert quorum["admin_squash_allowed"] is False
+        assert "PR is MERGED; settlement applies only to open PRs" in quorum["reasons"]
 
     def test_build_packet_preserves_completed_merge_quorum_failure(
         self, monkeypatch: pytest.MonkeyPatch
@@ -1745,6 +2302,37 @@ class TestCommandDispatch:
         ns_merge_packet = root.parse_args(["review-queue", "merge-packet", "--pr", "6280"])
         assert ns_merge_packet.review_queue_command == "merge-packet"
         assert ns_merge_packet.pr == ["6280"]
+        ns_merge_packet_root = root.parse_args(
+            [
+                "review-queue",
+                "merge-packet",
+                "--pr",
+                "6280",
+                "--review-queue-root",
+                "/tmp/review-queue",
+            ]
+        )
+        assert ns_merge_packet_root.review_queue_command == "merge-packet"
+        assert ns_merge_packet_root.review_queue_root == "/tmp/review-queue"
+        # evidence-lint invocation parses
+        ns_evidence_lint = root.parse_args(
+            [
+                "review-queue",
+                "evidence-lint",
+                "--pr",
+                "6280",
+                "--head-sha",
+                "headsha123",
+                "--body",
+                "## Codex focused dogfood\nCurrent head: headsha123",
+                "--json",
+            ]
+        )
+        assert ns_evidence_lint.review_queue_command == "evidence-lint"
+        assert ns_evidence_lint.pr == "6280"
+        assert ns_evidence_lint.head_sha == "headsha123"
+        assert ns_evidence_lint.body_file is None
+        assert ns_evidence_lint.json is True
         # run invocation parses
         ns_run = root.parse_args(["review-queue", "run", "--limit", "3", "--ready-only"])
         assert ns_run.review_queue_command == "run"
@@ -1779,6 +2367,7 @@ class TestCommandDispatch:
                 "admin_squash_merge",
                 "--reason",
                 "operator authorized exact-head merge",
+                "--apply-post-merge-lane-audit",
                 "--json",
             ]
         )
@@ -1787,6 +2376,7 @@ class TestCommandDispatch:
         assert ns_record.head_sha == "headsha123"
         assert ns_record.action == "admin_squash_merge"
         assert ns_record.reason == "operator authorized exact-head merge"
+        assert ns_record.apply_post_merge_lane_audit is True
 
     def test_cmd_review_queue_with_no_subcommand_returns_2(self) -> None:
         ns = argparse.Namespace(review_queue_command=None)
@@ -1808,6 +2398,7 @@ class TestCommandDispatch:
                 "admin_squash_merge",
                 "--reason",
                 "operator authorized exact-head merge",
+                "--apply-post-merge-lane-audit",
                 "--json",
             ]
         )
@@ -1818,7 +2409,137 @@ class TestCommandDispatch:
         assert ns.head_sha == "headsha123"
         assert ns.action == "admin_squash_merge"
         assert ns.reason == "operator authorized exact-head merge"
+        assert ns.apply_post_merge_lane_audit is True
         assert ns.json_output is True
+
+    def test_top_level_parser_registers_evidence_lint(self) -> None:
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        ns = parser.parse_args(
+            [
+                "review-queue",
+                "evidence-lint",
+                "--pr",
+                "7445",
+                "--head-sha",
+                "cd87c5a1b2db34f04167906553502db3ede9525e",
+                "--body",
+                "## Claude review\nCurrent head: cd87c5a1b2db34f04167906553502db3ede9525e",
+                "--json",
+            ]
+        )
+
+        assert ns.command == "review-queue"
+        assert ns.review_queue_command == "evidence-lint"
+        assert ns.pr == "7445"
+        assert ns.head_sha == "cd87c5a1b2db34f04167906553502db3ede9525e"
+        assert ns.body_file is None
+        assert ns.json_output is True
+
+    def test_evidence_lint_counts_current_head_dogfood(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=(
+                "## Codex focused dogfood\n\n"
+                "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                "Validation passed for the exact touched surface."
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 0
+        assert payload["mode"] == "evidence_lint"
+        assert payload["would_count"] is True
+        assert payload["counted_reviewer_ids"] == ["codex"]
+        assert payload["dogfood_evidence"][0]["reviewer_id"] == "codex"
+        assert payload["current_head_grounding_method"] == "head_sha_citation"
+        assert payload["problems"] == []
+
+    def test_evidence_lint_rejects_ungrounded_comment(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body="## Claude review\n\nLooks good, but no exact head citation.",
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_head_grounding_method"] == "missing_head_sha_citation"
+        assert "missing_current_head_grounding" in payload["problems"]
+        assert "no_counted_model_reviewer" in payload["problems"]
+
+    def test_evidence_lint_requires_head_sha_when_timestamp_omitted(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="",
+            body="## Codex focused dogfood\n\nValidation passed, but no SHA citation.",
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_head_grounding_method"] == "missing_head_sha_citation"
+        assert "missing_current_head_grounding" in payload["problems"]
+
+    def test_evidence_lint_reads_body_file(self, tmp_path: Path) -> None:
+        body_file = tmp_path / "comment.md"
+        body_file.write_text(
+            "## Claude review\n\n"
+            "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+            "I reviewed the exact-head evidence-lint diff.",
+            encoding="utf-8",
+        )
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=None,
+            body_file=str(body_file),
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 0
+        assert payload["would_count"] is True
+        assert payload["counted_reviewer_ids"] == ["claude"]
+        assert payload["current_head_grounding_method"] == "head_sha_citation"
+        assert payload["reviewer_signals"][0]["reviewer_id"] == "claude"
 
 
 class TestSettlementHelpers:
@@ -1977,6 +2698,96 @@ class TestSettlementHelpers:
         assert saved["pr_number"] == 6294
         assert saved["head_sha"] == "headsha123"
         assert saved["packet_sha"].startswith("sha256:")
+
+    def test_record_external_admin_merge_includes_post_merge_lane_audit(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "MERGED",
+                    "mergedAt": "2026-05-10T08:00:00Z",
+                }
+            if args == ["api", "user"]:
+                return {"login": "an0mium"}
+            raise AssertionError(args)
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+        audit_calls: list[tuple[int, bool]] = []
+
+        def audit_provider(pr_number: int, apply: bool = False) -> dict[str, Any]:
+            audit_calls.append((pr_number, apply))
+            return {
+                "finding_count": 1,
+                "resolved_count": 0,
+                "blocked_reason": None,
+                "owner_steering_text": "",
+                "owner_release_commands": [],
+                "operator_apply_command": "python3 scripts/resolve_lane_conflicts.py --apply ...",
+                "receipt_paths": [],
+                "github_state": {"state": "MERGED", "mergeCommit": "merge-sha"},
+                "audit_ok": True,
+                "audit_applied": False,
+            }
+
+        result = _record_external_settlement(
+            pr_ref="6294",
+            head_sha="headsha123",
+            action="admin_squash_merge",
+            reason="operator authorized exact-head merge",
+            repo_root=tmp_path,
+            repo_override=None,
+            review_queue_root=None,
+            post_merge_lane_audit_provider=audit_provider,
+        )
+
+        assert audit_calls == [(6294, False)]
+        assert result.post_merge_lane_audit is not None
+        assert result.to_dict()["post_merge_lane_audit"]["operator_apply_command"].startswith(
+            "python3 scripts/resolve_lane_conflicts.py"
+        )
+        saved = json.loads(Path(result.receipt.receipt_path).read_text())
+        assert saved["post_merge_lane_audit"]["finding_count"] == 1
+
+    def test_record_external_non_merge_settlement_does_not_run_post_merge_lane_audit(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "OPEN",
+                    "mergedAt": "",
+                }
+            if args == ["api", "user"]:
+                return {"login": "an0mium"}
+            raise AssertionError(args)
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        def audit_provider(pr_number: int, apply: bool = False) -> dict[str, Any]:
+            raise AssertionError("post-merge audit should only run for admin_squash_merge")
+
+        result = _record_external_settlement(
+            pr_ref="6294",
+            head_sha="headsha123",
+            action="comment",
+            reason="operator recorded a comment",
+            repo_root=tmp_path,
+            repo_override=None,
+            review_queue_root=None,
+            post_merge_lane_audit_provider=audit_provider,
+        )
+
+        assert result.post_merge_lane_audit is None
+        assert "post_merge_lane_audit" not in result.to_dict()
 
     def test_record_external_settlement_is_idempotent(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -2145,6 +2956,79 @@ class TestSettlementHelpers:
 
         assert rc == 1
         assert "gh unavailable" in err_buf.getvalue()
+
+    def test_record_settlement_command_records_audit_apply_failure_then_returns_1(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue.resolve_repo_root",
+            lambda cwd: tmp_path,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._require_clean_worktree",
+            lambda repo_root: None,
+        )
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "MERGED",
+                    "mergedAt": "2026-05-10T08:00:00Z",
+                }
+            if args == ["api", "user"]:
+                return {"login": "an0mium"}
+            raise AssertionError(args)
+
+        def _audit_failure(
+            pr_number: int,
+            *,
+            repo_root: Path | None = None,
+            apply: bool = False,
+        ) -> dict[str, Any]:
+            assert pr_number == 6294
+            assert apply is True
+            return {
+                "finding_count": 1,
+                "resolved_count": 0,
+                "blocked_reason": "merge_commit_mismatch",
+                "operator_apply_command": "python3 scripts/resolve_lane_conflicts.py --apply ...",
+                "receipt_paths": [],
+                "github_state": {"state": "MERGED", "mergeCommit": "merge-sha"},
+                "audit_ok": False,
+                "audit_applied": False,
+                "audit_error": "merge_commit_mismatch",
+            }
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue.run_post_merge_lane_audit",
+            _audit_failure,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="record-settlement",
+            pr="6294",
+            repo=None,
+            head_sha="headsha123",
+            action="admin_squash_merge",
+            reason="operator authorized exact-head merge",
+            review_queue_root=None,
+            apply_post_merge_lane_audit=True,
+            json=True,
+        )
+
+        out_buf = io.StringIO()
+        with redirect_stdout(out_buf):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out_buf.getvalue())
+        assert rc == 1
+        assert payload["post_merge_lane_audit_failed"] is True
+        assert payload["post_merge_lane_audit"]["blocked_reason"] == "merge_commit_mismatch"
+        assert Path(payload["receipt_path"]).is_file()
 
     def test_build_command_renders_table(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(

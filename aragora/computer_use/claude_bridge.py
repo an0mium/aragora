@@ -25,10 +25,10 @@ Usage:
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from aragora.config import get_api_key
 from aragora.computer_use.actions import Action
 
 if TYPE_CHECKING:
@@ -97,7 +97,7 @@ class ClaudeComputerUseBridge:
             api_key: Anthropic API key (uses ANTHROPIC_API_KEY env var if not provided)
             config: Bridge configuration
         """
-        self._api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+        self._api_key = api_key or get_api_key("ANTHROPIC_API_KEY", required=False) or ""
         self._config = config or BridgeConfig()
         self._client: Any = None
         self._conversation: list[ConversationMessage] = []

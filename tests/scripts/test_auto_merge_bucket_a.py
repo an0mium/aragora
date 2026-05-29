@@ -336,6 +336,106 @@ class TestDecide:
         skipped_non_a = sorted(d.pr_number for d in decisions if d.decision == "skip-non-bucket-a")
         assert skipped_non_a == [9002, 9003, 9004]
 
+    def test_apply_success_runs_post_merge_lane_audit_dry_run_by_default(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001)})
+        recorder = _MergeRecorder()
+        audit_calls: list[tuple[int, bool]] = []
+
+        def audit_provider(pr_number: int, apply: bool = False) -> dict[str, Any]:
+            audit_calls.append((pr_number, apply))
+            return {
+                "finding_count": 1,
+                "resolved_count": 0,
+                "operator_apply_command": "python3 scripts/resolve_lane_conflicts.py --apply ...",
+                "github_state": {"state": "MERGED", "mergeCommit": "merge-sha"},
+                "audit_ok": True,
+                "audit_applied": False,
+            }
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            post_merge_lane_audit_provider=audit_provider,
+            now=NOW,
+        )
+
+        assert exit_code == 0
+        assert audit_calls == [(9001, False)]
+        assert decisions[0].applied is True
+        assert (
+            decisions[0]
+            .post_merge_lane_audit["operator_apply_command"]
+            .startswith("python3 scripts/resolve_lane_conflicts.py")
+        )
+
+    def test_apply_post_merge_lane_audit_flag_applies_guarded_audit(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001)})
+        recorder = _MergeRecorder()
+        audit_calls: list[tuple[int, bool]] = []
+
+        def audit_provider(pr_number: int, apply: bool = False) -> dict[str, Any]:
+            audit_calls.append((pr_number, apply))
+            return {
+                "finding_count": 1,
+                "resolved_count": 1,
+                "receipt_paths": ["/tmp/receipt.json"],
+                "github_state": {"state": "MERGED", "mergeCommit": "merge-sha"},
+                "audit_ok": True,
+                "audit_applied": True,
+            }
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            post_merge_lane_audit_provider=audit_provider,
+            apply_post_merge_lane_audit=True,
+            now=NOW,
+        )
+
+        assert exit_code == 0
+        assert audit_calls == [(9001, True)]
+        assert decisions[0].post_merge_lane_audit["receipt_paths"] == ["/tmp/receipt.json"]
+
+    def test_apply_post_merge_lane_audit_failure_is_reported_after_merge(self):
+        payload = make_triage_payload(bucket_a_entry(9001))
+        meta = _MetadataRegistry({9001: make_metadata(9001)})
+        recorder = _MergeRecorder()
+
+        def audit_provider(pr_number: int, apply: bool = False) -> dict[str, Any]:
+            return {
+                "finding_count": 1,
+                "resolved_count": 0,
+                "blocked_reason": "operator_authorization_required",
+                "github_state": {"state": "MERGED", "mergeCommit": "merge-sha"},
+                "audit_ok": False,
+                "audit_error": "operator_authorization_required",
+            }
+
+        decisions, exit_code = amba.decide(
+            payload,
+            apply=True,
+            settling_minutes=30,
+            metadata_provider=meta,
+            merger=recorder,
+            post_merge_lane_audit_provider=audit_provider,
+            apply_post_merge_lane_audit=True,
+            now=NOW,
+        )
+
+        assert recorder.calls == [9001]
+        assert decisions[0].applied is True
+        assert decisions[0].post_merge_lane_audit["audit_ok"] is False
+        assert "post-merge lane audit failed" in decisions[0].reason
+        assert exit_code == 1
+
     def test_apply_attempts_at_most_one_merge_per_snapshot(self):
         payload = make_triage_payload(bucket_a_entry(9001), bucket_a_entry(9002))
         meta = _MetadataRegistry({9001: make_metadata(9001), 9002: make_metadata(9002)})

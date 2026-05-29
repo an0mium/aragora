@@ -28,6 +28,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,8 +52,14 @@ from aragora.swarm.pr_review_protocol import (
 )
 from aragora.triage.auto_handle_calibration import AutoHandleCalibrationStore
 from aragora.worktree.fleet import resolve_repo_root
+from scripts.post_merge_lane_audit import (
+    post_merge_lane_audit_failed,
+    post_merge_lane_audit_failure_reason,
+    run_post_merge_lane_audit,
+)
 
 UTC = timezone.utc
+PostMergeLaneAuditProvider = Callable[[int, bool], dict[str, Any]]
 
 # Lane classification thresholds and risk-path catalog.
 LARGE_DIFF_THRESHOLD = 500  # additions + deletions, beyond which "needs_human_attention"
@@ -255,9 +262,13 @@ class SettlementReceipt:
     outcome_rollback: bool | None = None
     outcome_reopened_pr: bool | None = None
     outcome_observed_at: str | None = None
+    post_merge_lane_audit: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        if payload.get("post_merge_lane_audit") is None:
+            payload.pop("post_merge_lane_audit", None)
+        return payload
 
 
 @dataclass(slots=True)
@@ -268,9 +279,14 @@ class RecordedSettlementResult:
     receipt_sha256: str
     idempotent: bool
     written: bool
+    post_merge_lane_audit: dict[str, Any] | None = None
+    post_merge_lane_audit_failed: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         payload = self.receipt.to_dict()
+        if self.post_merge_lane_audit is not None:
+            payload["post_merge_lane_audit"] = self.post_merge_lane_audit
+            payload["post_merge_lane_audit_failed"] = self.post_merge_lane_audit_failed
         payload.update(
             {
                 "receipt_sha256": self.receipt_sha256,
@@ -414,6 +430,15 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
             "receipts. Defaults to <repo>/.aragora/review-queue."
         ),
     )
+    record_p.add_argument(
+        "--apply-post-merge-lane-audit",
+        action="store_true",
+        help=(
+            "For admin_squash_merge records, apply merged-PR lane supersession "
+            "after verifying GitHub reports MERGED and using the live merge "
+            "commit as the exact guard. Default is dry-run/report only."
+        ),
+    )
     record_p.add_argument("--json", action="store_true", help="Output local receipt as JSON")
 
     merge_packet_p = sub.add_parser(
@@ -443,11 +468,52 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         help="GitHub repo slug override (owner/name). Defaults to current repo context.",
     )
     merge_packet_p.add_argument(
+        "--review-queue-root",
+        default=None,
+        help=(
+            "Override the review-queue store root used for settlement receipt lookups. "
+            "Defaults to <repo>/.aragora/review-queue."
+        ),
+    )
+    merge_packet_p.add_argument(
         "--execute-reviewers",
         action="store_true",
         help="Attempt live heterogeneous reviewer execution for each packet.",
     )
     merge_packet_p.add_argument("--json", action="store_true", help="Output as JSON")
+
+    evidence_lint_p = sub.add_parser(
+        "evidence-lint",
+        help="Dry-run whether a proposed evidence comment will count for model quorum",
+        description=(
+            "Lint a proposed PR comment against the same current-head evidence "
+            "parsers used by review-queue merge-packet. This is read-only: it "
+            "does not fetch GitHub, post comments, write receipts, or mutate state."
+        ),
+    )
+    evidence_lint_p.add_argument("--pr", required=True, help="PR number the evidence targets")
+    evidence_lint_p.add_argument(
+        "--head-sha",
+        required=True,
+        help="Exact PR head SHA the proposed comment must cite.",
+    )
+    evidence_lint_p.add_argument(
+        "--head-committed-at",
+        default="",
+        help=(
+            "Optional current head committedDate. When supplied, comments must either "
+            "cite --head-sha or have a createdAt at/after this timestamp."
+        ),
+    )
+    body_group = evidence_lint_p.add_mutually_exclusive_group(required=True)
+    body_group.add_argument("--body", help="Proposed evidence comment body to lint")
+    body_group.add_argument("--body-file", help="Read proposed evidence comment body from file")
+    evidence_lint_p.add_argument(
+        "--author",
+        default="local",
+        help="GitHub author login to simulate for the proposed comment (default: local)",
+    )
+    evidence_lint_p.add_argument("--json", action="store_true", help="Output as JSON")
 
     baseline_p = sub.add_parser(
         "baseline",
@@ -635,6 +701,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_record_settlement(args)
     if command == "merge-packet":
         return _cmd_merge_packet(args)
+    if command == "evidence-lint":
+        return _cmd_evidence_lint(args)
     if command == "baseline":
         return _cmd_baseline(args)
     if command == "observe-outcomes":
@@ -647,7 +715,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_health_alert(args)
     print(
         "Usage: aragora review-queue "
-        "{build,packet,run,act,record-settlement,merge-packet,baseline,observe-outcomes,"
+        "{build,packet,run,act,record-settlement,merge-packet,evidence-lint,baseline,"
+        "observe-outcomes,"
         "health,health-alert} [...]\n"
         "Run 'aragora review-queue run --help' for the human settlement loop.",
         file=sys.stderr,
@@ -850,6 +919,7 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
             repo_root=repo_root,
             repo_override=getattr(args, "repo", None),
             review_queue_root=getattr(args, "review_queue_root", None),
+            apply_post_merge_lane_audit=bool(getattr(args, "apply_post_merge_lane_audit", False)),
         )
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -858,7 +928,46 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
         print(json.dumps(result.to_dict(), indent=2))
     else:
         _render_recorded_settlement_result(result)
-    return 0
+    return 1 if result.post_merge_lane_audit_failed else 0
+
+
+def _cmd_evidence_lint(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
+    body_file = getattr(args, "body_file", None)
+    try:
+        if body_file:
+            body = Path(str(body_file)).read_text(encoding="utf-8")
+        else:
+            body = str(getattr(args, "body", "") or "")
+    except OSError as exc:
+        if json_output:
+            print(
+                json.dumps(
+                    {
+                        "mode": "evidence_lint",
+                        "would_count": False,
+                        "problems": [f"body_file_unreadable: {exc}"],
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(f"error: could not read --body-file: {exc}", file=sys.stderr)
+        return 1
+
+    result = _lint_evidence_comment(
+        pr=str(getattr(args, "pr", "") or ""),
+        head_sha=str(getattr(args, "head_sha", "") or ""),
+        head_committed_at=str(getattr(args, "head_committed_at", "") or ""),
+        body=body,
+        author=str(getattr(args, "author", "") or ""),
+        source="body_file" if body_file else "inline",
+    )
+    if json_output:
+        print(json.dumps(result, indent=2))
+    else:
+        _render_evidence_lint(result)
+    return 0 if result["would_count"] else 1
 
 
 def _cmd_merge_packet(args: argparse.Namespace) -> int:
@@ -868,6 +977,7 @@ def _cmd_merge_packet(args: argparse.Namespace) -> int:
             pr_refs=list(getattr(args, "pr", []) or []),
             limit=int(getattr(args, "limit", 30) or 30),
             repo_override=getattr(args, "repo", None),
+            review_queue_root=getattr(args, "review_queue_root", None),
             execute_reviewers=bool(getattr(args, "execute_reviewers", False)),
         )
     except _GhError as exc:
@@ -1161,7 +1271,11 @@ def _classify_pr(pr: dict[str, Any]) -> QueueItem:
     additions = int(pr.get("additions", 0) or 0)
     deletions = int(pr.get("deletions", 0) or 0)
     changed_files = int(pr.get("changedFiles", 0) or 0)
+    checks_unavailable = _check_rollup_unavailable(pr)
     checks_summary, has_failures, has_pending = _summarize_checks(pr.get("statusCheckRollup") or [])
+    if checks_unavailable:
+        checks_summary = "no checks reported"
+        has_pending = True
 
     parked_label_hits = [lab for lab in labels if lab in PARKED_LABELS]
 
@@ -1173,6 +1287,8 @@ def _classify_pr(pr: dict[str, Any]) -> QueueItem:
         lane, reason = "parked", "merge conflict"
     elif has_failures:
         lane, reason = "repairable", checks_summary
+    elif checks_unavailable:
+        lane, reason = "needs_attention", checks_summary
     elif has_pending:
         lane, reason = "needs_attention", f"checks pending ({checks_summary})"
     elif additions + deletions > LARGE_DIFF_THRESHOLD:
@@ -1228,6 +1344,8 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
             conclusion = "FAILURE"
         if conclusion == "SUCCESS":
             success += 1
+        elif conclusion == "CANCELLED" and _is_merge_quorum_check(check):
+            failure += 1
         elif conclusion in ("FAILURE", "TIMED_OUT", "ACTION_REQUIRED"):
             failure += 1
         elif conclusion in ("CANCELLED", "SKIPPED", "NEUTRAL", "STALE"):
@@ -1244,6 +1362,17 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     if success > 0:
         return (f"{success}/{total} green", False, False)
     return ("no checks", False, False)
+
+
+def _check_rollup_unavailable(pr: dict[str, Any]) -> bool:
+    """Return true when an open PR has no GitHub PR-facing check rollup."""
+    pr_state = str(pr.get("state") or "").strip().upper()
+    if pr_state and pr_state != "OPEN":
+        return False
+    if pr.get("mergedAt"):
+        return False
+    rollup = pr.get("statusCheckRollup")
+    return rollup is None or rollup == []
 
 
 def _latest_status_check_rollup(checks: list) -> list[dict[str, Any]]:
@@ -1286,11 +1415,15 @@ def _status_check_identity(check: dict[str, Any]) -> str:
     return f"status-context:{name}"
 
 
-def _is_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
-    """Ignore only this merge-quorum workflow run while building its packet."""
+def _is_merge_quorum_check(check: dict[str, Any]) -> bool:
     workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
     name = str(check.get("name") or check.get("context") or "").strip()
-    if workflow != MERGE_QUORUM_WORKFLOW_NAME or name != MERGE_QUORUM_CHECK_NAME:
+    return workflow == MERGE_QUORUM_WORKFLOW_NAME and name == MERGE_QUORUM_CHECK_NAME
+
+
+def _is_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
+    """Ignore only this merge-quorum workflow run while building its packet."""
+    if not _is_merge_quorum_check(check):
         return False
 
     status = str(check.get("status") or check.get("state") or "").upper()
@@ -1338,6 +1471,7 @@ def _build_packet(
     pr_ref: str,
     *,
     repo_override: str | None,
+    review_queue_root: str | Path | None = None,
     execute_reviewers: bool = False,
 ) -> ReviewPacket:
     number = _parse_pr_number(pr_ref)
@@ -1348,6 +1482,8 @@ def _build_packet(
             "url",
             "headRefOid",
             "baseRefOid",
+            "state",
+            "mergedAt",
             "isDraft",
             "mergeable",
             "reviewDecision",
@@ -1384,15 +1520,42 @@ def _build_packet(
     parked_label_hits = [lab for lab in labels if lab in PARKED_LABELS]
     touched = sorted({_subsystem_for(p) for p in files})
     high_risk = [p for p in files if _is_high_risk_path(p)]
+    checks_unavailable = _check_rollup_unavailable(pr)
     checks_summary, has_failures, has_pending = _summarize_checks(pr.get("statusCheckRollup") or [])
+    if checks_unavailable:
+        checks_summary = "no checks reported"
+        has_pending = True
     additions = int(pr.get("additions", 0) or 0)
     deletions = int(pr.get("deletions", 0) or 0)
     is_draft = bool(pr.get("isDraft", False))
+    settlement_state_block = _settlement_state_block_reason(pr)
+    pr_state = str(pr.get("state") or "").strip().upper()
+    head_sha = str(pr.get("headRefOid", "")).strip()
+    settlement_recorded = pr_state == "MERGED" and _has_recorded_admin_squash_settlement(
+        pr_number=number,
+        head_sha=head_sha,
+        review_queue_root=review_queue_root,
+    )
+    human_risk_settlement_recorded = (
+        pr_state == "OPEN"
+        and not settlement_state_block
+        and _has_recorded_human_risk_settlement(
+            pr_number=number,
+            head_sha=head_sha,
+            review_queue_root=review_queue_root,
+        )
+    )
     mergeable = str(pr.get("mergeable", "")).strip().upper()
     queue_item = _classify_pr(pr)
     validation = _extract_validation_commands(str(pr.get("body", "") or ""))
 
     risk_flags: list[str] = []
+    if settlement_recorded:
+        risk_flags.append("exact-head admin_squash_merge settlement receipt recorded")
+    elif human_risk_settlement_recorded:
+        risk_flags.append("exact-head human risk settlement receipt recorded")
+    elif settlement_state_block:
+        risk_flags.append(settlement_state_block)
     if is_draft:
         risk_flags.append("draft PR")
     if parked_label_hits:
@@ -1405,12 +1568,23 @@ def _build_packet(
         risk_flags.append(f"large diff (+{additions}/-{deletions})")
     if mergeable == "CONFLICTING":
         risk_flags.append("merge conflict")
+    if checks_unavailable:
+        risk_flags.append("check rollup unavailable")
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
 
-    if has_failures or mergeable == "CONFLICTING":
+    if settlement_recorded:
+        recommendation = "settled_noop"
+        recommendation_reason = "PR is already merged with an exact-head settlement receipt"
+    elif settlement_state_block:
+        recommendation = "needs_human_attention"
+        recommendation_reason = settlement_state_block
+    elif has_failures or mergeable == "CONFLICTING":
         recommendation = "repair_first"
         recommendation_reason = "checks failing or merge conflict — fix before review"
+    elif checks_unavailable:
+        recommendation = "needs_human_attention"
+        recommendation_reason = "check rollup unavailable — wait for GitHub to report checks"
     elif is_draft:
         recommendation = "needs_human_attention"
         recommendation_reason = "draft PR — keep parked until it is ready for review"
@@ -1507,6 +1681,9 @@ def _build_packet(
             machine_recommendation=recommendation,
             has_pending=has_pending,
             has_failures=has_failures,
+            checks_unavailable=checks_unavailable,
+            settlement_recorded=settlement_recorded,
+            human_risk_settlement_recorded=human_risk_settlement_recorded,
         ),
     )
     packet.packet_sha = _packet_sha(packet)
@@ -1518,6 +1695,7 @@ def _build_merge_authorization_packet(
     pr_refs: list[str],
     limit: int,
     repo_override: str | None,
+    review_queue_root: str | Path | None = None,
     execute_reviewers: bool = False,
 ) -> dict[str, Any]:
     if pr_refs:
@@ -1528,10 +1706,13 @@ def _build_merge_authorization_packet(
         refs = [str(item.number) for item in queue]
         queue_size = len(queue)
 
-    packets = [
-        _build_packet(ref, repo_override=repo_override, execute_reviewers=execute_reviewers)
-        for ref in refs
-    ]
+    packet_kwargs: dict[str, Any] = {
+        "repo_override": repo_override,
+        "execute_reviewers": execute_reviewers,
+    }
+    if review_queue_root is not None:
+        packet_kwargs["review_queue_root"] = review_queue_root
+    packets = [_build_packet(ref, **packet_kwargs) for ref in refs]
     queue_pressure_active = queue_size > MODEL_REVIEW_QUEUE_CAP
     entries = []
     for packet in packets:
@@ -1594,7 +1775,7 @@ def _build_merge_authorization_packet(
         "not_ready": [
             entry["pr_number"]
             for entry in entries
-            if entry["status"] not in {"satisfied", "human_risk_settlement_required"}
+            if entry["status"] not in {"satisfied", "human_risk_settlement_required", "settled"}
         ],
     }
 
@@ -1607,6 +1788,9 @@ def _build_model_review_quorum(
     machine_recommendation: str,
     has_pending: bool,
     has_failures: bool,
+    checks_unavailable: bool = False,
+    settlement_recorded: bool = False,
+    human_risk_settlement_recorded: bool = False,
 ) -> dict[str, Any]:
     tier, tier_name, tier_reason = _classify_model_review_tier(files, pr=pr)
     requirement = _tier_requirement(tier)
@@ -1628,7 +1812,8 @@ def _build_model_review_quorum(
     dissenting_views = [
         view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
     ]
-    blocking_workflow_state = _has_blocking_workflow_state(pr)
+    blocking_workflow_reasons = _blocking_workflow_state_reasons(pr)
+    blocking_workflow_state = bool(blocking_workflow_reasons)
     unresolved_dissent = bool(dissenting_views)
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
     signal_count = len(counted_reviewer_ids)
@@ -1640,13 +1825,21 @@ def _build_model_review_quorum(
     )
 
     reasons = [tier_reason]
-    if has_failures:
+    if settlement_recorded:
+        reasons.append("exact-head admin_squash_merge settlement receipt recorded")
+    elif human_risk_settlement_recorded:
+        reasons.append("exact-head human risk settlement receipt recorded")
+    if has_failures and not settlement_recorded:
         reasons.append("checks are failing; repair before settlement")
-    if has_pending:
+    if checks_unavailable and not settlement_recorded:
+        reasons.append("checks are unavailable; wait for GitHub check rollup before settlement")
+    elif has_pending and not settlement_recorded:
         reasons.append("checks are pending; wait before settlement")
-    if unresolved_dissent:
+    if not settlement_recorded:
+        reasons.extend(blocking_workflow_reasons)
+    if unresolved_dissent and not settlement_recorded:
         reasons.append("unresolved model dissent is present")
-    if not quorum_satisfied:
+    if not quorum_satisfied and not settlement_recorded:
         reasons.append(
             "model quorum incomplete: "
             f"{signal_count}/{requirement['required_model_signals']} signal(s)"
@@ -1656,9 +1849,14 @@ def _build_model_review_quorum(
 
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
-    if (
+    if settlement_recorded:
+        status = "settled"
+        verdict = "already_merged_settlement_recorded"
+        requires_human_risk_settlement = False
+    elif (
         has_failures
         or has_pending
+        or checks_unavailable
         or machine_recommendation == "repair_first"
         or blocking_workflow_state
     ):
@@ -1675,6 +1873,11 @@ def _build_model_review_quorum(
         status = "human_preapproval_required"
         verdict = "tier_4_human_preapproval_required"
         requires_human_risk_settlement = True
+    elif requires_human_risk_settlement and human_risk_settlement_recorded:
+        status = "satisfied"
+        verdict = "admin_squash_allowed"
+        requires_human_risk_settlement = False
+        admin_squash_allowed = True
     elif requires_human_risk_settlement:
         status = "human_risk_settlement_required"
         verdict = "model_quorum_satisfied_human_risk_settlement_required"
@@ -1692,6 +1895,7 @@ def _build_model_review_quorum(
         "required_model_signals": requirement["required_model_signals"],
         "requires_adversarial_dogfood": requirement["requires_adversarial_dogfood"],
         "requires_human_risk_settlement": requires_human_risk_settlement,
+        "human_risk_settlement_recorded": human_risk_settlement_recorded,
         "requires_human_preapproval": requirement["requires_human_preapproval"],
         "admin_squash_allowed": admin_squash_allowed,
         "status": status,
@@ -1775,17 +1979,106 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
 
 
 def _has_blocking_workflow_state(pr: dict[str, Any]) -> bool:
+    return bool(_blocking_workflow_state_reasons(pr))
+
+
+def _blocking_workflow_state_reasons(pr: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    settlement_state_block = _settlement_state_block_reason(pr)
+    if settlement_state_block:
+        reasons.append(settlement_state_block)
     if bool(pr.get("isDraft", False)):
-        return True
+        reasons.append("draft PR")
     mergeable = str(pr.get("mergeable", "")).strip().upper()
     if mergeable == "CONFLICTING":
-        return True
+        reasons.append("merge conflict")
     labels = [
         str(label.get("name", "")).strip()
         for label in (pr.get("labels") or [])
         if isinstance(label, dict) and label.get("name")
     ]
-    return any(label in PARKED_LABELS for label in labels)
+    parked_label_hits = [label for label in labels if label in PARKED_LABELS]
+    if parked_label_hits:
+        reasons.append(f"parked label ({','.join(parked_label_hits)})")
+    return reasons
+
+
+def _settlement_state_block_reason(pr: dict[str, Any]) -> str:
+    state = str(pr.get("state") or "").strip().upper()
+    merged_at = str(pr.get("mergedAt") or "").strip()
+    if merged_at:
+        if state == "OPEN":
+            return (
+                "PR state is OPEN but mergedAt is set; settlement applies only to open unmerged PRs"
+            )
+        return f"PR is {state or 'MERGED'}; settlement applies only to open PRs"
+    if state and state != "OPEN":
+        return f"PR is {state}; settlement applies only to open PRs"
+    return ""
+
+
+def _has_recorded_admin_squash_settlement(
+    *,
+    pr_number: int,
+    head_sha: str,
+    review_queue_root: str | Path | None,
+) -> bool:
+    if not head_sha:
+        return False
+    repo_root = resolve_repo_root(Path.cwd())
+    root = _resolve_review_queue_root_override(repo_root, review_queue_root)
+    receipts_dir = root / "receipts"
+    if not receipts_dir.is_dir():
+        return False
+    for path in receipts_dir.glob(f"pr-{pr_number}-*.json"):
+        try:
+            payload = _read_receipt_payload(path)
+        except _GhError:
+            continue
+        if int(payload.get("pr_number") or 0) != pr_number:
+            continue
+        if str(payload.get("head_sha") or "").strip() != head_sha:
+            continue
+        if str(payload.get("action") or "").strip() != "admin_squash_merge":
+            continue
+        if str(payload.get("github_event") or "").strip() != "ADMIN_SQUASH_MERGE":
+            continue
+        return True
+    return False
+
+
+def _has_recorded_human_risk_settlement(
+    *,
+    pr_number: int,
+    head_sha: str,
+    review_queue_root: str | Path | None,
+) -> bool:
+    if not head_sha:
+        return False
+    repo_root = resolve_repo_root(Path.cwd())
+    root = _resolve_review_queue_root_override(repo_root, review_queue_root)
+    receipts_dir = root / "receipts"
+    if not receipts_dir.is_dir():
+        return False
+    # Local settlement receipts are a trusted operator-controlled store, matching
+    # admin-squash settlement receipt handling. This path is read-only and exact
+    # head bound; it must not infer approval from GitHub comments alone.
+    allowed_events = {"APPROVE", "RECORDED_EXTERNAL_APPROVE"}
+    for path in receipts_dir.glob(f"pr-{pr_number}-*.json"):
+        try:
+            payload = _read_receipt_payload(path)
+        except _GhError:
+            continue
+        if int(payload.get("pr_number") or 0) != pr_number:
+            continue
+        if str(payload.get("head_sha") or "").strip() != head_sha:
+            continue
+        if str(payload.get("action") or "").strip() != "approve":
+            continue
+        if str(payload.get("github_event") or "").strip() not in allowed_events:
+            continue
+        return True
+    return False
 
 
 def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1816,6 +2109,95 @@ def _counted_model_reviewer_ids(
         if reviewer_id:
             reviewer_ids.add(reviewer_id)
     return sorted(reviewer_ids)
+
+
+def _lint_evidence_comment(
+    *,
+    pr: str,
+    head_sha: str,
+    head_committed_at: str,
+    body: str,
+    author: str,
+    source: str,
+) -> dict[str, Any]:
+    """Dry-run whether one proposed comment would satisfy quorum parsers."""
+    grounded, grounding_method = _proposed_evidence_head_grounding(body, head_sha)
+    comment = {
+        "author": {"login": author},
+        "body": body,
+        "createdAt": "",
+    }
+    if grounded:
+        dogfood_evidence = _dogfood_evidence_from_comments([comment])
+        reviewer_signals = _model_review_signals_from_comments([comment])
+    else:
+        dogfood_evidence = []
+        reviewer_signals = []
+    counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
+    inferred_reviewer = _infer_model_reviewer_from_text(body)
+    lower = body.lower()
+
+    problems: list[str] = []
+    if not body.strip():
+        problems.append("empty_body")
+    if not grounded:
+        problems.append("missing_current_head_grounding")
+    if str(author or "").strip() == "github-actions":
+        problems.append("github_actions_author_not_counted")
+    if inferred_reviewer == "unknown_model_reviewer":
+        problems.append("missing_known_model_reviewer_heading")
+    if not any(
+        token in lower
+        for token in (
+            "dogfood",
+            "adversarial",
+            "cross-author",
+            "recheck",
+            "codex review",
+            "claude review",
+            "grok independent",
+            "gemini independent",
+            "independent semantic review",
+            "independent model review",
+            "model-family semantic signal",
+        )
+    ):
+        problems.append("missing_dogfood_or_review_trigger")
+    if not counted_reviewer_ids:
+        problems.append("no_counted_model_reviewer")
+
+    return {
+        "mode": "evidence_lint",
+        "pr_number": str(pr),
+        "head_sha": head_sha,
+        "head_committed_at": head_committed_at,
+        "source": source,
+        "author": author,
+        "comment_summary": _first_nonempty_line(body)[:240],
+        "inferred_reviewer": inferred_reviewer,
+        "current_head_grounded": grounded,
+        "current_head_grounding_method": grounding_method,
+        "dogfood_evidence": dogfood_evidence,
+        "reviewer_signals": reviewer_signals,
+        "counted_reviewer_ids": counted_reviewer_ids,
+        "would_count": bool(counted_reviewer_ids),
+        "problems": problems,
+    }
+
+
+def _proposed_evidence_head_grounding(body: str, head_sha: str) -> tuple[bool, str]:
+    """Require proposed comments to cite the target head SHA prefix.
+
+    Unlike persisted GitHub comments, evidence-lint inputs have no trustworthy
+    ``createdAt``.  Lint mode therefore does not use timestamp recency as a
+    substitute for current-head grounding.
+    """
+    normalized_head = str(head_sha or "").strip().lower()
+    if len(normalized_head) < 7:
+        return False, "missing_head_sha_argument"
+    if normalized_head[:7] in str(body or "").lower():
+        return True, "head_sha_citation"
+    return False, "missing_head_sha_citation"
 
 
 def _head_committed_at_from_pr(pr: dict[str, Any]) -> str:
@@ -2406,6 +2788,8 @@ def _record_external_settlement(
     repo_root: Path,
     repo_override: str | None,
     review_queue_root: str | Path | None,
+    apply_post_merge_lane_audit: bool = False,
+    post_merge_lane_audit_provider: PostMergeLaneAuditProvider | None = None,
 ) -> RecordedSettlementResult:
     pr_number = _parse_pr_number(pr_ref)
     expected_head_sha = str(head_sha or "").strip()
@@ -2430,6 +2814,31 @@ def _record_external_settlement(
             "admin_squash_merge records require the PR to be MERGED on GitHub; "
             f"current state is {github_state or 'unknown'}"
         )
+    post_merge_lane_audit: dict[str, Any] | None = None
+    if action == "admin_squash_merge":
+        audit_provider = post_merge_lane_audit_provider
+        if audit_provider is None:
+
+            def audit_provider(pr: int, audit_apply: bool = False) -> dict[str, Any]:
+                return run_post_merge_lane_audit(
+                    pr,
+                    repo_root=repo_root,
+                    apply=audit_apply,
+                )
+
+        try:
+            post_merge_lane_audit = audit_provider(pr_number, apply_post_merge_lane_audit)
+        except Exception as exc:
+            post_merge_lane_audit = {
+                "audit_ok": False,
+                "audit_applied": False,
+                "audit_apply_requested": apply_post_merge_lane_audit,
+                "audit_error": str(exc),
+            }
+    audit_failed = post_merge_lane_audit_failed(
+        post_merge_lane_audit,
+        apply_requested=apply_post_merge_lane_audit,
+    )
 
     pr_url = str(pr_payload.get("url", "") or "").strip()
     base_sha = str(pr_payload.get("baseRefOid", "") or "").strip()
@@ -2467,6 +2876,7 @@ def _record_external_settlement(
         queue_bucket="external_settlement",
         machine_recommendation="operator_recorded_external_settlement",
         github_event=github_event,
+        post_merge_lane_audit=post_merge_lane_audit,
     )
     root = _resolve_review_queue_root_override(repo_root, review_queue_root)
     receipt_path = _settlement_receipt_path_for_root(
@@ -2490,6 +2900,8 @@ def _record_external_settlement(
             receipt_sha256=_receipt_file_sha256(receipt_path),
             idempotent=True,
             written=False,
+            post_merge_lane_audit=post_merge_lane_audit,
+            post_merge_lane_audit_failed=audit_failed,
         )
 
     _write_json(receipt_path, new_payload)
@@ -2498,6 +2910,8 @@ def _record_external_settlement(
         receipt_sha256=_receipt_file_sha256(receipt_path),
         idempotent=False,
         written=True,
+        post_merge_lane_audit=post_merge_lane_audit,
+        post_merge_lane_audit_failed=audit_failed,
     )
 
 
@@ -2706,6 +3120,17 @@ def _render_settlement_receipt(receipt: SettlementReceipt) -> None:
 
 def _render_recorded_settlement_result(result: RecordedSettlementResult) -> None:
     _render_settlement_receipt(result.receipt)
+    if result.post_merge_lane_audit is not None:
+        audit = result.post_merge_lane_audit
+        print("  post-merge lane audit:")
+        print(f"    finding count: {audit.get('finding_count', 'unknown')}")
+        print(f"    resolved count: {audit.get('resolved_count', 'unknown')}")
+        if audit.get("blocked_reason"):
+            print(f"    blocked:       {audit['blocked_reason']}")
+        if result.post_merge_lane_audit_failed:
+            print(f"    failed:        {post_merge_lane_audit_failure_reason(audit)}")
+        if audit.get("operator_apply_command"):
+            print(f"    apply command: {audit['operator_apply_command']}")
     print(f"  receipt sha:  {result.receipt_sha256}")
     print(f"  idempotent:   {str(result.idempotent).lower()}")
     print(f"  written:      {str(result.written).lower()}")
@@ -2758,6 +3183,20 @@ def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
         for reason in entry.get("reasons") or []:
             print(f"  - {reason}")
         print()
+
+
+def _render_evidence_lint(result: dict[str, Any]) -> None:
+    print("# Evidence lint")
+    print(f"PR: #{result.get('pr_number', '')}")
+    print(f"head: {result.get('head_sha', '')}")
+    print(f"would count: {str(result.get('would_count', False)).lower()}")
+    counted = result.get("counted_reviewer_ids") or []
+    print(f"counted reviewers: {', '.join(counted) or '(none)'}")
+    problems = result.get("problems") or []
+    if problems:
+        print("problems:")
+        for problem in problems:
+            print(f"  - {problem}")
 
 
 def _render_baseline_report(

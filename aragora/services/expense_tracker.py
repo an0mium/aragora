@@ -35,6 +35,8 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from aragora.config import get_api_key
+
 if TYPE_CHECKING:
     from aragora.connectors.accounting.qbo import QuickBooksConnector
     from aragora.storage.expense_store import ExpenseStoreBackend
@@ -806,14 +808,12 @@ class ExpenseTracker:
         Uses Anthropic Claude API (with OpenAI fallback) to intelligently
         categorize expenses based on vendor name, amount, and description.
         """
-        import os
-
         # Try Anthropic first, then OpenAI
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        api_key = get_api_key("ANTHROPIC_API_KEY", required=False)
         provider = "anthropic"
 
         if not api_key:
-            api_key = os.environ.get("OPENAI_API_KEY")
+            api_key = get_api_key("OPENAI_API_KEY", required=False)
             provider = "openai"
 
         if not api_key:

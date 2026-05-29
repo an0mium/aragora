@@ -22,7 +22,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -44,6 +43,7 @@ from aragora.gauntlet import (
     POLICY_GAUNTLET,
 )
 from aragora.export.decision_receipt import DecisionReceiptGenerator
+from aragora.config.secrets import get_secret_presence
 
 # Configure logging
 logging.basicConfig(
@@ -52,6 +52,10 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+def _has_api_key(*names: str) -> bool:
+    return any(get_secret_presence(name).source in {"aws", "env"} for name in names)
 
 
 # ANSI colors for terminal output
@@ -251,11 +255,11 @@ def create_agents(use_real_apis: bool = False) -> list[Agent]:
             )
 
             agents = []
-            if os.getenv("ANTHROPIC_API_KEY"):
+            if _has_api_key("ANTHROPIC_API_KEY"):
                 agents.append(AnthropicAgent("claude-adversary", model="claude-sonnet-4-20250514"))
-            if os.getenv("OPENAI_API_KEY"):
+            if _has_api_key("OPENAI_API_KEY"):
                 agents.append(OpenAIAgent("gpt-adversary", model="gpt-4o"))
-            if os.getenv("GEMINI_API_KEY"):
+            if _has_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY"):
                 agents.append(GeminiAgent("gemini-adversary"))
             if agents:
                 logger.info(f"Using {len(agents)} real API agents")

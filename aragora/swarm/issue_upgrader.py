@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import ast
 import logging
-import os
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+from aragora.config import get_api_key
 
 logger = logging.getLogger(__name__)
 _PATH_RE = re.compile(r"`(?P<path>aragora/[^\s`]+\.py)`")
@@ -538,11 +539,11 @@ Return a JSON object with:
 
     text: str | None = None
     try:
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        api_key = get_api_key("ANTHROPIC_API_KEY", required=False)
         if api_key:
             import anthropic
 
-            client = anthropic.AsyncAnthropic()
+            client = anthropic.AsyncAnthropic(api_key=api_key)
             response = await client.messages.create(
                 model=model,
                 max_tokens=512,
@@ -555,7 +556,7 @@ Return a JSON object with:
 
     if text is None:
         try:
-            or_key = os.environ.get("OPENROUTER_API_KEY")
+            or_key = get_api_key("OPENROUTER_API_KEY", required=False)
             if or_key:
                 import httpx
 

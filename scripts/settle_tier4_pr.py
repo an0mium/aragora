@@ -26,6 +26,10 @@ TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"MEMBER"}
 TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
 PermissionChecker = Callable[[str], bool]
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
+HUMAN_SETTLEMENT_STATUS_BLOCKER = f"missing or unsuccessful {HUMAN_SETTLEMENT_CONTEXT} status"
+OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comment"
+REQUIRED_CHECKS_BLOCKER = "required checks are missing"
+TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
 ALLOWED_TIER4_NOT_READY = {
@@ -50,9 +54,11 @@ def _text_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
                 if isinstance(body, str):
                     items.append(
                         {
+                            "kind": "review" if key == "reviews" else "comment",
                             "body": body,
                             "authorAssociation": entry.get("authorAssociation"),
                             "author": entry.get("author"),
+                            "url": entry.get("url"),
                             "createdAt": entry.get("createdAt") or entry.get("submittedAt"),
                         }
                     )
@@ -129,14 +135,170 @@ def _is_trusted_operator_author(
     *,
     trusted_operator_logins: frozenset[str],
     permission_checker: PermissionChecker,
+    evaluate_member_permissions: bool = True,
+) -> bool:
+    return not _operator_author_rejection_reason(
+        item,
+        trusted_operator_logins=trusted_operator_logins,
+        permission_checker=permission_checker,
+        evaluate_member_permissions=evaluate_member_permissions,
+    )
+
+
+def _trusted_member_requires_permission_check(
+    item: dict[str, Any],
+    *,
+    trusted_operator_logins: frozenset[str],
 ) -> bool:
     association = str(item.get("authorAssociation") or "").upper()
-    if association in TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS:
-        return True
     if association not in TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS:
         return False
     login = _author_login(item)
-    return login in trusted_operator_logins and permission_checker(login)
+    if not login:
+        return False
+    return not trusted_operator_logins or login in trusted_operator_logins
+
+
+def _operator_author_rejection_reason(
+    item: dict[str, Any],
+    *,
+    trusted_operator_logins: frozenset[str],
+    permission_checker: PermissionChecker,
+    evaluate_member_permissions: bool = True,
+) -> str:
+    association = str(item.get("authorAssociation") or "").upper()
+    if association in TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS:
+        return ""
+    if association not in TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS:
+        return f"authorAssociation {association or '<missing>'} is not trusted"
+    login = _author_login(item)
+    if not login:
+        return f"{association} login <missing> is not available"
+    if trusted_operator_logins and login not in trusted_operator_logins:
+        return f"{association} login {login} is not in trusted operator allowlist"
+    if not evaluate_member_permissions:
+        return ""
+    if not permission_checker(login):
+        return f"trusted member {login or '<missing>'} lacks admin permission"
+    return ""
+
+
+def _settlement_comment_template(*, pr: int, head: str) -> str:
+    return (
+        "Tier-4 Human Settlement Authorization\n\n"
+        f"PR: #{pr}\n"
+        f"Exact head: {head}\n"
+        "Authorized action: admin_squash_merge and branch_protection_reconcile, "
+        f"only if #{pr} is non-draft and live exact-head checks/merge-packet "
+        "remain otherwise green.\n\n"
+        "Human-risk settlement: I accept the Tier 4 risk for this PR."
+    )
+
+
+def _authorization_diagnostic(
+    item: dict[str, Any],
+    *,
+    head: str,
+    head_committed_at: str,
+    require_branch_protection_token: bool,
+    trusted_operator_logins: frozenset[str],
+    permission_checker: PermissionChecker,
+    evaluate_member_permissions: bool = True,
+) -> dict[str, Any]:
+    body = str(item.get("body") or "")
+    association = str(item.get("authorAssociation") or "").upper()
+    marker_present = AUTHORIZED_MARKER in body
+    author_rejection = _operator_author_rejection_reason(
+        item,
+        trusted_operator_logins=trusted_operator_logins,
+        permission_checker=permission_checker,
+        evaluate_member_permissions=evaluate_member_permissions,
+    )
+    admin_permission_required = _trusted_member_requires_permission_check(
+        item,
+        trusted_operator_logins=trusted_operator_logins,
+    )
+    admin_permission_evaluated = admin_permission_required and evaluate_member_permissions
+    trusted_author_association = not author_rejection
+    fresh_after_head_commit = _authorization_is_fresh(item, head_committed_at=head_committed_at)
+    exact_head_present = head in body
+    authorized_actions = _comment_authorized_actions(body)
+    merge_action_present = "merge" in authorized_actions
+    branch_protection_action_present = "branch_protection" in authorized_actions
+
+    rejection_reasons: list[str] = []
+    if not marker_present:
+        rejection_reasons.append("authorization marker is missing")
+    if author_rejection:
+        rejection_reasons.append(author_rejection)
+    if admin_permission_required and not evaluate_member_permissions:
+        rejection_reasons.append(
+            "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        )
+    if not fresh_after_head_commit:
+        rejection_reasons.append("authorization is older than head commit")
+    if not exact_head_present:
+        rejection_reasons.append("exact head is missing")
+    if not merge_action_present:
+        rejection_reasons.append("admin_squash_merge action is missing")
+    if require_branch_protection_token and not branch_protection_action_present:
+        rejection_reasons.append("branch_protection_reconcile action is missing")
+
+    return {
+        "kind": item.get("kind") or "text",
+        "author": _author_login(item),
+        "authorAssociation": association,
+        "createdAt": item.get("createdAt"),
+        "url": item.get("url"),
+        "marker_present": marker_present,
+        "trusted_author_association": trusted_author_association,
+        "admin_permission_required": admin_permission_required,
+        "admin_permission_evaluated": admin_permission_evaluated,
+        "fresh_after_head_commit": fresh_after_head_commit,
+        "exact_head_present": exact_head_present,
+        "merge_action_present": merge_action_present,
+        "branch_protection_action_present": branch_protection_action_present,
+        "authorized_actions": sorted(authorized_actions),
+        "accepted": not rejection_reasons,
+        "rejection_reasons": rejection_reasons,
+    }
+
+
+def authorization_diagnostics(
+    pr_view: dict[str, Any],
+    *,
+    pr: int,
+    head: str,
+    require_branch_protection_token: bool = False,
+    repo: str = DEFAULT_REPO,
+    cwd: Path | None = None,
+    trusted_operator_logins: Sequence[str] | None = None,
+    permission_checker: PermissionChecker | None = None,
+    evaluate_member_permissions: bool = True,
+) -> dict[str, Any]:
+    head_committed_at = _head_committed_at(pr_view)
+    allowed_logins = _trusted_operator_logins(trusted_operator_logins)
+    checker = permission_checker or (lambda login: _login_has_admin_permission(login, repo, cwd))
+    return {
+        "required_author_associations": sorted(TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS),
+        "admin_permission_evaluation": "enabled"
+        if evaluate_member_permissions
+        else "skipped_early_gate_blockers",
+        "head_committed_at": head_committed_at,
+        "settlement_comment_template": _settlement_comment_template(pr=pr, head=head),
+        "authorization_diagnostics": [
+            _authorization_diagnostic(
+                item,
+                head=head,
+                head_committed_at=head_committed_at,
+                require_branch_protection_token=require_branch_protection_token,
+                trusted_operator_logins=allowed_logins,
+                permission_checker=checker,
+                evaluate_member_permissions=evaluate_member_permissions,
+            )
+            for item in _text_items(pr_view)
+        ],
+    }
 
 
 def _state_is_success(value: Any) -> bool:
@@ -191,14 +353,65 @@ def _packet_has_counted_tier4_evidence(merge_packet: dict[str, Any], *, pr: int)
 def _comment_authorizes_requested_action(
     body: str, *, require_branch_protection_token: bool
 ) -> bool:
-    lowered = body.lower()
-    if not any(token in lowered for token in AUTHORIZED_MERGE_TOKENS):
+    actions = _comment_authorized_actions(body)
+    if "merge" not in actions:
         return False
-    if require_branch_protection_token and not any(
-        token in lowered for token in AUTHORIZED_PROTECTION_TOKENS
-    ):
+    if require_branch_protection_token and "branch_protection" not in actions:
         return False
     return True
+
+
+def _comment_authorized_actions(body: str) -> set[str]:
+    lowered = body.lower()
+    actions: set[str] = set()
+    if any(token in lowered for token in AUTHORIZED_MERGE_TOKENS):
+        actions.add("merge")
+    if any(token in lowered for token in AUTHORIZED_PROTECTION_TOKENS):
+        actions.add("branch_protection")
+    return actions
+
+
+def _operator_authorized_actions(
+    pr_view: dict[str, Any],
+    *,
+    pr: int,
+    head: str,
+    merge_packet: dict[str, Any],
+    required_checks: list[dict[str, Any]] | None = None,
+    require_branch_protection_token: bool = False,
+    repo: str = DEFAULT_REPO,
+    cwd: Path | None = None,
+    trusted_operator_logins: Sequence[str] | None = None,
+    permission_checker: PermissionChecker | None = None,
+    diagnostic_report: dict[str, Any] | None = None,
+) -> set[str]:
+    if not _required_checks_are_green(required_checks):
+        return set()
+    if not _human_settlement_status_is_success(pr_view):
+        return set()
+    if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
+        return set()
+
+    report = diagnostic_report
+    if report is None:
+        report = authorization_diagnostics(
+            pr_view,
+            pr=pr,
+            head=head,
+            require_branch_protection_token=require_branch_protection_token,
+            repo=repo,
+            cwd=cwd,
+            trusted_operator_logins=trusted_operator_logins,
+            permission_checker=permission_checker,
+        )
+    for diagnostic in report.get("authorization_diagnostics", []):
+        if not isinstance(diagnostic, dict) or not diagnostic.get("accepted"):
+            continue
+        actions = diagnostic.get("authorized_actions")
+        if not isinstance(actions, list):
+            return set()
+        return {str(action) for action in actions if str(action)}
+    return set()
 
 
 def has_operator_authorization(
@@ -213,36 +426,23 @@ def has_operator_authorization(
     cwd: Path | None = None,
     trusted_operator_logins: Sequence[str] | None = None,
     permission_checker: PermissionChecker | None = None,
+    diagnostic_report: dict[str, Any] | None = None,
 ) -> bool:
-    if not _required_checks_are_green(required_checks):
-        return False
-    if not _human_settlement_status_is_success(pr_view):
-        return False
-    if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
-        return False
-
-    head_committed_at = _head_committed_at(pr_view)
-    allowed_logins = _trusted_operator_logins(trusted_operator_logins)
-    checker = permission_checker or (lambda login: _login_has_admin_permission(login, repo, cwd))
-    for item in _text_items(pr_view):
-        body = str(item.get("body") or "")
-        if AUTHORIZED_MARKER not in body:
-            continue
-        if not _is_trusted_operator_author(
-            item,
-            trusted_operator_logins=allowed_logins,
-            permission_checker=checker,
-        ):
-            continue
-        if not _authorization_is_fresh(item, head_committed_at=head_committed_at):
-            continue
-        if head not in body:
-            continue
-        if _comment_authorizes_requested_action(
-            body, require_branch_protection_token=require_branch_protection_token
-        ):
-            return True
-    return False
+    return bool(
+        _operator_authorized_actions(
+            pr_view,
+            pr=pr,
+            head=head,
+            merge_packet=merge_packet,
+            required_checks=required_checks,
+            require_branch_protection_token=require_branch_protection_token,
+            repo=repo,
+            cwd=cwd,
+            trusted_operator_logins=trusted_operator_logins,
+            permission_checker=permission_checker,
+            diagnostic_report=diagnostic_report,
+        )
+    )
 
 
 def _entry_for_pr(merge_packet: dict[str, Any], *, pr: int) -> dict[str, Any] | None:
@@ -305,19 +505,53 @@ def evaluate_tier4_gate(
         unexpected = sorted({str(item) for item in not_ready} - allowed_not_ready)
         if unexpected:
             blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
-    if actual_head == expected_head and not has_operator_authorization(
+
+    required_checks_green = _required_checks_are_green(required_checks)
+    authorization_precondition_blockers: list[str] = []
+    if actual_head == expected_head:
+        if not required_checks:
+            authorization_precondition_blockers.append(REQUIRED_CHECKS_BLOCKER)
+        elif not required_checks_green:
+            pass
+        elif not _human_settlement_status_is_success(pr_view):
+            authorization_precondition_blockers.append(HUMAN_SETTLEMENT_STATUS_BLOCKER)
+        elif not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
+            authorization_precondition_blockers.append(TIER4_EVIDENCE_BLOCKER)
+    blockers.extend(authorization_precondition_blockers)
+
+    diagnostic_report = authorization_diagnostics(
         pr_view,
         pr=pr,
         head=expected_head,
-        merge_packet=merge_packet,
-        required_checks=required_checks,
         require_branch_protection_token=require_branch_protection_token,
         repo=repo,
         cwd=cwd,
         trusted_operator_logins=trusted_operator_logins,
         permission_checker=permission_checker,
+        evaluate_member_permissions=not blockers,
+    )
+    authorized_actions: set[str] = set()
+    if (
+        actual_head == expected_head
+        and required_checks_green
+        and not authorization_precondition_blockers
+        and not blockers
     ):
-        blockers.append("missing repo-visible Tier 4 operator settlement comment")
+        authorized_actions = _operator_authorized_actions(
+            pr_view,
+            pr=pr,
+            head=expected_head,
+            merge_packet=merge_packet,
+            required_checks=required_checks,
+            require_branch_protection_token=require_branch_protection_token,
+            repo=repo,
+            cwd=cwd,
+            trusted_operator_logins=trusted_operator_logins,
+            permission_checker=permission_checker,
+            diagnostic_report=diagnostic_report,
+        )
+        if not authorized_actions:
+            blockers.append(OPERATOR_COMMENT_BLOCKER)
 
     return {
         "ok": not blockers,
@@ -326,6 +560,8 @@ def evaluate_tier4_gate(
         "actual_head": actual_head,
         "merge_state": merge_state,
         "blockers": blockers,
+        "authorized_actions": sorted(authorized_actions),
+        **diagnostic_report,
     }
 
 
@@ -490,9 +726,18 @@ def _restore_branch_protection(*, repo: str, cwd: Path, snapshot: dict[str, Any]
     return errors
 
 
-def _apply_settlement(*, pr: int, head: str, repo: str, cwd: Path) -> list[list[str]]:
+def _apply_settlement(
+    *,
+    pr: int,
+    head: str,
+    repo: str,
+    cwd: Path,
+    reconcile_branch_protection: bool = False,
+) -> list[list[str]]:
     commands: list[list[str]] = []
-    snapshot = _branch_protection_snapshot(repo=repo, cwd=cwd)
+    snapshot = (
+        _branch_protection_snapshot(repo=repo, cwd=cwd) if reconcile_branch_protection else {}
+    )
     merge_command = [
         "gh",
         "pr",
@@ -506,6 +751,9 @@ def _apply_settlement(*, pr: int, head: str, repo: str, cwd: Path) -> list[list[
     try:
         _run_command(merge_command, cwd=cwd)
         commands.append(merge_command)
+
+        if not reconcile_branch_protection:
+            return commands
 
         reviews_command = [
             "gh",
@@ -564,9 +812,10 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         help=(
-            "Allow a repo-visible MEMBER authorization comment from this login "
-            "when live GitHub collaborator permission is admin. Repeatable; "
-            f"also reads comma-separated {TRUSTED_OPERATOR_LOGINS_ENV}."
+            "Restrict repo-visible MEMBER authorization comments to this admin "
+            "login. Repeatable; also reads comma-separated "
+            f"{TRUSTED_OPERATOR_LOGINS_ENV}. If omitted, any live admin MEMBER "
+            f"may authorize when {HUMAN_SETTLEMENT_CONTEXT} is success."
         ),
     )
     parser.add_argument("--json", action="store_true")
@@ -583,7 +832,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             pr_view=pr_view,
             merge_packet=merge_packet,
             required_checks=required_checks,
-            require_branch_protection_token=bool(args.apply),
+            require_branch_protection_token=False,
             repo=args.repo,
             cwd=args.cwd,
             trusted_operator_logins=args.trusted_operator_login,
@@ -597,6 +846,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 head=args.head,
                 repo=args.repo,
                 cwd=args.cwd,
+                reconcile_branch_protection="branch_protection"
+                in set(gate.get("authorized_actions") or []),
             )
         out = {"gate": gate, "applied_commands": applied_commands}
     except RuntimeError as exc:

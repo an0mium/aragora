@@ -72,7 +72,7 @@ class TestModeInRunDebate:
 
         created_agents = []
 
-        def mock_create_agent(model_type, name, role, model=None):
+        def mock_create_agent(model_type, name, role, model=None, **kwargs):
             agent = MagicMock()
             agent.name = name
             agent.role = role
@@ -132,7 +132,7 @@ class TestModeInRunDebate:
         created_agents = []
         original_prompt = "Default agent prompt"
 
-        def mock_create_agent(model_type, name, role, model=None):
+        def mock_create_agent(model_type, name, role, model=None, **kwargs):
             agent = MagicMock()
             agent.name = name
             agent.role = role

@@ -19,7 +19,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast, overload
 from urllib.parse import quote
 
 CONVERGENCE_SENTENCE = (
@@ -31,6 +31,16 @@ CONVERGENCE_SENTENCE = (
 VERSION = "settle_one_steward.v1"
 MERGE_QUORUM = "aragora-merge-quorum"
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
+BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD = 8
+OPEN_PR_LIGHT_FIELDS = (
+    "number,title,url,headRefName,headRefOid,isDraft,mergeable,mergeStateStatus,"
+    "reviewDecision,labels,author,additions,deletions,changedFiles"
+)
+PR_POLICY_FIELDS = "number,title,headRefName,author,mergeable,mergeStateStatus,files"
+SURFACE_EXCLUDE_REASON = (
+    "security/auth/RBAC/secrets/deploy/workflow/legal/compliance/destructive/"
+    "migration/public-API surface"
+)
 
 
 def _repo_root() -> Path:
@@ -87,6 +97,12 @@ def _run_json(
         return None, result
 
 
+def _with_repo(args: list[str], repo: str | None) -> list[str]:
+    if repo:
+        return [*args, "--repo", repo]
+    return args
+
+
 def _entry_pr(entry: dict[str, Any]) -> int | None:
     return _coerce_int(entry.get("pr_number"))
 
@@ -112,18 +128,247 @@ def _entry_by_pr(packet: dict[str, Any], pr_number: int) -> dict[str, Any] | Non
     return None
 
 
+def _metadata_for_entry(
+    entry: dict[str, Any], policy_metadata: dict[int, dict[str, Any]] | None
+) -> dict[str, Any]:
+    pr_number = _entry_pr(entry)
+    if pr_number is None or not policy_metadata:
+        return {}
+    metadata = policy_metadata.get(pr_number)
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _title_branch_text(entry: dict[str, Any], metadata: dict[str, Any]) -> str:
+    fields: list[str] = []
+    for key in ("title", "headRefName", "head_ref_name", "branch"):
+        value = metadata.get(key, entry.get(key))
+        if value:
+            fields.append(str(value))
+    return " ".join(fields)
+
+
+def _branch_values(entry: dict[str, Any], metadata: dict[str, Any]) -> list[str]:
+    values: list[str] = []
+    for key in ("headRefName", "head_ref_name", "branch"):
+        value = metadata.get(key, entry.get(key))
+        if value:
+            values.append(str(value).strip())
+    return values
+
+
+def _file_paths(entry: dict[str, Any], metadata: dict[str, Any]) -> list[str]:
+    paths: list[str] = []
+    for file_item in metadata.get("files") or entry.get("files") or []:
+        if isinstance(file_item, dict):
+            value = file_item.get("path")
+        else:
+            value = file_item
+        if value:
+            paths.append(str(value).strip())
+    return paths
+
+
+def _path_segments(path: str) -> list[str]:
+    return [segment for segment in path.replace("\\", "/").strip().lower().split("/") if segment]
+
+
+def _component_stem(segment: str) -> str:
+    # Keep separator-sensitive matching explicit so "authoring" is not treated as "auth".
+    return segment.rsplit(".", 1)[0]
+
+
+def _has_prefixed_component(component: str, stem: str) -> bool:
+    return component == stem or component.startswith(f"{stem}_") or component.startswith(f"{stem}-")
+
+
+def _is_docs_or_tests_path(segments: list[str]) -> bool:
+    return bool(segments) and segments[0] in {"doc", "docs", "test", "tests"}
+
+
+def _is_dependabot_pr(entry: dict[str, Any], metadata: dict[str, Any]) -> bool:
+    author = metadata.get("author") or entry.get("author")
+    if isinstance(author, dict):
+        author_login = str(author.get("login") or "")
+    else:
+        author_login = str(author or "")
+    if author_login.lower().startswith("dependabot"):
+        return True
+    return any(
+        branch.lower().startswith("dependabot/") for branch in _branch_values(entry, metadata)
+    )
+
+
+def _touches_unsafe_surface(entry: dict[str, Any], metadata: dict[str, Any]) -> bool:
+    for path in _file_paths(entry, metadata):
+        segments = _path_segments(path)
+        if _is_docs_or_tests_path(segments):
+            continue
+        if len(segments) >= 2 and segments[0] == ".github" and segments[1] == "workflows":
+            return True
+        for index, segment in enumerate(segments):
+            component = _component_stem(segment)
+            if segment in {"public-api", "public_api"} or (
+                segment == "public"
+                and index + 1 < len(segments)
+                and segments[index + 1].startswith("api")
+            ):
+                return True
+            if component in {"authentication", "authorization", "oauth", "rbac"}:
+                return True
+            if _has_prefixed_component(component, "auth"):
+                return True
+            if _has_prefixed_component(component, "security"):
+                return True
+            if _has_prefixed_component(component, "secret") or _has_prefixed_component(
+                component, "secrets"
+            ):
+                return True
+            if _has_prefixed_component(component, "deploy") or component in {
+                "deployment",
+                "deployments",
+            }:
+                return True
+            if (
+                _has_prefixed_component(component, "migrate")
+                or _has_prefixed_component(component, "migration")
+                or component == "migrations"
+            ):
+                return True
+            if _has_prefixed_component(component, "legal"):
+                return True
+            if _has_prefixed_component(component, "compliance"):
+                return True
+            if _has_prefixed_component(component, "destructive"):
+                return True
+    return False
+
+
+def policy_exclusion_reasons(
+    entry: dict[str, Any],
+    *,
+    exclude_prs: set[int] | None = None,
+    active_owned_prs: set[int] | None = None,
+    policy_metadata: dict[int, dict[str, Any]] | None = None,
+) -> list[str]:
+    """Return repo/operator policy reasons that make an entry report-only."""
+    pr_number = _entry_pr(entry)
+    exclude = set(exclude_prs or set())
+    active_owned = set(active_owned_prs or set())
+    reasons: list[str] = []
+    if pr_number is not None and pr_number in exclude:
+        reasons.append("explicitly excluded by steward scope")
+    if pr_number is not None and pr_number in active_owned:
+        reasons.append("active-owned lane")
+
+    metadata = _metadata_for_entry(entry, policy_metadata)
+    title_branch_text = _title_branch_text(entry, metadata)
+    if _is_dependabot_pr(entry, metadata):
+        reasons.append("Dependabot PR")
+
+    mergeable = str(metadata.get("mergeable") or entry.get("mergeable") or "").upper()
+    merge_state = str(
+        metadata.get("mergeStateStatus") or entry.get("mergeStateStatus") or ""
+    ).upper()
+    if mergeable == "CONFLICTING" or merge_state == "DIRTY":
+        reasons.append("dirty/conflicting PR")
+
+    if re.search(r"(^|[^a-z0-9])adc([^a-z0-9]|$)", title_branch_text, re.IGNORECASE):
+        reasons.append("ADC PR")
+    if _touches_unsafe_surface(entry, metadata):
+        reasons.append(SURFACE_EXCLUDE_REASON)
+
+    tier = _coerce_int(entry.get("tier"))
+    if tier is not None and tier > 2:
+        reasons.append(f"Tier {tier}")
+    if bool(entry.get("requires_human_risk_settlement")):
+        reasons.append("requires_human_risk_settlement=true")
+    return list(dict.fromkeys(reasons))
+
+
+def _exclusion_record(entry: dict[str, Any], reasons: list[str]) -> dict[str, Any]:
+    return {
+        "pr_number": _entry_pr(entry),
+        "title": entry.get("title"),
+        "head_sha": entry.get("head_sha"),
+        "reasons": reasons,
+    }
+
+
+def _merge_exclusions(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[tuple[Any, tuple[str, ...]]] = set()
+    for group in groups:
+        for item in group:
+            if not isinstance(item, dict):
+                continue
+            key = (
+                item.get("pr_number"),
+                tuple(str(reason) for reason in item.get("reasons") or []),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
+    return merged
+
+
+SelectionResult = tuple[dict[str, Any] | None, list[str]]
+SelectionResultWithExclusions = tuple[dict[str, Any] | None, list[str], list[dict[str, Any]]]
+
+
+@overload
 def select_candidate(
     packet: dict[str, Any],
     *,
     explicit_pr: int | None = None,
     exclude_prs: set[int] | None = None,
-) -> tuple[dict[str, Any] | None, list[str]]:
+    active_owned_prs: set[int] | None = None,
+    policy_metadata: dict[int, dict[str, Any]] | None = None,
+    return_exclusions: Literal[False] = False,
+) -> SelectionResult: ...
+
+
+@overload
+def select_candidate(
+    packet: dict[str, Any],
+    *,
+    explicit_pr: int | None = None,
+    exclude_prs: set[int] | None = None,
+    active_owned_prs: set[int] | None = None,
+    policy_metadata: dict[int, dict[str, Any]] | None = None,
+    return_exclusions: Literal[True],
+) -> SelectionResultWithExclusions: ...
+
+
+def select_candidate(
+    packet: dict[str, Any],
+    *,
+    explicit_pr: int | None = None,
+    exclude_prs: set[int] | None = None,
+    active_owned_prs: set[int] | None = None,
+    policy_metadata: dict[int, dict[str, Any]] | None = None,
+    return_exclusions: bool = False,
+) -> SelectionResult | SelectionResultWithExclusions:
     """Select one dry-run settlement candidate from a merge packet."""
     exclude = set(exclude_prs or set())
+    exclusions: list[dict[str, Any]] = []
     if explicit_pr is not None:
         entry = _entry_by_pr(packet, explicit_pr)
         if entry is None:
-            return None, [f"merge-packet has no entry for PR #{explicit_pr}"]
+            blockers = [f"merge-packet has no entry for PR #{explicit_pr}"]
+            if return_exclusions:
+                return None, blockers, exclusions
+            return None, blockers
+        policy_reasons = policy_exclusion_reasons(
+            entry,
+            exclude_prs=exclude,
+            active_owned_prs=active_owned_prs,
+            policy_metadata=policy_metadata,
+        )
+        if policy_reasons:
+            exclusions.append(_exclusion_record(entry, policy_reasons))
+        if return_exclusions:
+            return entry, [], exclusions
         return entry, []
 
     entries = [entry for entry in packet.get("entries") or [] if isinstance(entry, dict)]
@@ -133,16 +378,35 @@ def select_candidate(
         if pr_number is not None:
             admin_order.append(pr_number)
     for ordered_pr in admin_order:
-        if ordered_pr in exclude:
-            continue
         entry = _entry_by_pr(packet, ordered_pr)
-        if entry is not None:
-            return entry, []
+        if entry is None:
+            continue
+        policy_reasons = policy_exclusion_reasons(
+            entry,
+            exclude_prs=exclude,
+            active_owned_prs=active_owned_prs,
+            policy_metadata=policy_metadata,
+        )
+        if policy_reasons:
+            exclusions.append(_exclusion_record(entry, policy_reasons))
+            continue
+        if return_exclusions:
+            return entry, [], exclusions
+        return entry, []
 
     evidence_candidates: list[dict[str, Any]] = []
     for entry in entries:
         entry_pr_number = _entry_pr(entry)
-        if entry_pr_number is None or entry_pr_number in exclude:
+        if entry_pr_number is None:
+            continue
+        policy_reasons = policy_exclusion_reasons(
+            entry,
+            exclude_prs=exclude,
+            active_owned_prs=active_owned_prs,
+            policy_metadata=policy_metadata,
+        )
+        if policy_reasons:
+            exclusions.append(_exclusion_record(entry, policy_reasons))
             continue
         if bool(entry.get("requires_human_risk_settlement")):
             continue
@@ -161,9 +425,14 @@ def select_candidate(
         if "model quorum incomplete" in reasons or "dogfood" in reasons:
             evidence_candidates.append(entry)
     if evidence_candidates:
+        if return_exclusions:
+            return evidence_candidates[0], [], exclusions
         return evidence_candidates[0], []
 
-    return None, ["no Tier 0-2 non-human-risk green PR needs only settlement evidence"]
+    blockers = ["no Tier 0-2 non-human-risk green PR needs only settlement evidence"]
+    if return_exclusions:
+        return None, blockers, exclusions
+    return None, blockers
 
 
 def entry_blockers(entry: dict[str, Any]) -> list[str]:
@@ -457,6 +726,217 @@ def validation_report(
     return reports
 
 
+def load_open_pr_metadata(
+    cwd: Path, *, limit: int = 200, repo: str | None = None
+) -> tuple[dict[int, dict[str, Any]], dict[str, Any]]:
+    payload, command = _run_json(
+        _with_repo(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--state",
+                "open",
+                "--limit",
+                str(limit),
+                "--json",
+                OPEN_PR_LIGHT_FIELDS,
+            ],
+            repo,
+        ),
+        cwd=cwd,
+    )
+    metadata: dict[int, dict[str, Any]] = {}
+    if isinstance(payload, list):
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            pr_number = _coerce_int(item.get("number"))
+            if pr_number is not None:
+                metadata[pr_number] = item
+    return metadata, command
+
+
+def load_pr_policy_metadata(
+    cwd: Path, pr_number: int, *, repo: str | None = None
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    payload, command = _run_json(
+        _with_repo(
+            ["gh", "pr", "view", str(pr_number), "--json", PR_POLICY_FIELDS],
+            repo,
+        ),
+        cwd=cwd,
+    )
+    if isinstance(payload, dict):
+        return payload, command
+    return {}, command
+
+
+def load_active_owned_prs(cwd: Path) -> tuple[set[int], dict[str, Any]]:
+    payload, command = _run_json(
+        ["python3", "scripts/agent_bridge.py", "operator-snapshot", "--json"],
+        cwd=cwd,
+    )
+    active_owned: set[int] = set()
+    if isinstance(payload, dict):
+        for lane in payload.get("lanes") or []:
+            if not isinstance(lane, dict):
+                continue
+            if str(lane.get("status") or "").lower() != "active":
+                continue
+            pr_number = _coerce_int(lane.get("pr_number"))
+            if pr_number is not None:
+                active_owned.add(pr_number)
+        command["operator_snapshot_ok"] = True
+    else:
+        command["operator_snapshot_ok"] = False
+        if command.get("returncode") == 0 and not command.get("json_error"):
+            command["json_error"] = "operator-snapshot did not return a JSON object"
+    return active_owned, command
+
+
+def active_owned_snapshot_blocker(command: dict[str, Any]) -> str | None:
+    if command.get("operator_snapshot_ok"):
+        return None
+    detail = command.get("stderr") or command.get("json_error") or command.get("stdout") or ""
+    if detail:
+        return f"operator-snapshot unavailable; active-owned exclusions cannot be trusted: {detail}"
+    return "operator-snapshot unavailable; active-owned exclusions cannot be trusted"
+
+
+def _has_operator_snapshot_load_blocker(blockers: list[str]) -> bool:
+    return any(
+        blocker.startswith(
+            "operator-snapshot unavailable; active-owned exclusions cannot be trusted"
+        )
+        for blocker in blockers
+    )
+
+
+def _dedupe_strings(items: list[str]) -> list[str]:
+    return list(dict.fromkeys(items))
+
+
+def _normalize_repo_slug(value: str | None) -> str | None:
+    if not value:
+        return None
+    text = value.strip()
+    if text.endswith(".git"):
+        text = text[:-4]
+    if text.startswith("git@github.com:"):
+        text = text.split(":", 1)[1]
+    elif "github.com/" in text:
+        text = text.split("github.com/", 1)[1]
+    text = text.strip("/")
+    parts = [part for part in text.split("/") if part]
+    if len(parts) < 2:
+        return None
+    return "/".join(parts[-2:]).lower()
+
+
+def cwd_repo_slug(cwd: Path) -> tuple[str | None, dict[str, Any]]:
+    command = _run(["git", "remote", "get-url", "origin"], cwd=cwd)
+    if command.get("returncode") != 0:
+        return None, command
+    return _normalize_repo_slug(str(command.get("stdout") or "")), command
+
+
+def repo_cwd_blocker(
+    cwd: Path, repo: str | None
+) -> tuple[str | None, dict[str, Any] | None, str | None]:
+    expected = _normalize_repo_slug(repo)
+    if expected is None:
+        return None, None, None
+    actual, command = cwd_repo_slug(cwd)
+    if actual is None:
+        return "cwd origin repo unavailable while --repo is supplied", command, actual
+    if actual != expected:
+        return f"--repo {repo} does not match cwd origin {actual}", command, actual
+    return None, command, actual
+
+
+def select_candidate_with_lazy_policy_metadata(
+    packet: dict[str, Any],
+    *,
+    cwd: Path,
+    repo: str | None,
+    explicit_pr: int | None,
+    exclude_prs: set[int],
+    active_owned_prs: set[int],
+    policy_metadata: dict[int, dict[str, Any]],
+) -> tuple[dict[str, Any] | None, list[str], list[dict[str, Any]], list[dict[str, Any]]]:
+    """Select a candidate while loading heavy file metadata only as needed."""
+    metadata_commands: list[dict[str, Any]] = []
+    loaded: set[int] = set()
+    unavailable: set[int] = set()
+    accumulated_exclusions: list[dict[str, Any]] = []
+    max_attempts = len([entry for entry in packet.get("entries") or [] if isinstance(entry, dict)])
+    max_attempts = max(1, max_attempts + 1)
+    for _ in range(max_attempts):
+        effective_exclude_prs = set(exclude_prs) | unavailable
+        selected, blockers, exclusions = cast(
+            SelectionResultWithExclusions,
+            select_candidate(
+                packet,
+                explicit_pr=explicit_pr,
+                exclude_prs=effective_exclude_prs,
+                active_owned_prs=active_owned_prs,
+                policy_metadata=policy_metadata,
+                return_exclusions=True,
+            ),
+        )
+        accumulated_exclusions = _merge_exclusions(accumulated_exclusions, exclusions)
+        pr_number = _entry_pr(selected or {})
+        if pr_number is None or pr_number in loaded:
+            if selected is None and unavailable:
+                return (
+                    None,
+                    ["selected-candidate policy metadata unavailable"],
+                    accumulated_exclusions,
+                    metadata_commands,
+                )
+            return selected, blockers, accumulated_exclusions, metadata_commands
+        metadata, command = load_pr_policy_metadata(cwd, pr_number, repo=repo)
+        metadata_commands.append(command)
+        loaded.add(pr_number)
+        if command.get("returncode") != 0 or not metadata:
+            reason = "selected-candidate policy metadata unavailable"
+            failed_exclusion = _exclusion_record(selected or {}, [reason])
+            accumulated_exclusions = _merge_exclusions(accumulated_exclusions, [failed_exclusion])
+            if explicit_pr is not None:
+                return None, [reason], accumulated_exclusions, metadata_commands
+            if pr_number is not None:
+                unavailable.add(pr_number)
+            continue
+        merged = dict(policy_metadata.get(pr_number) or {})
+        merged.update(metadata)
+        policy_metadata[pr_number] = merged
+    selected, blockers, exclusions = cast(
+        SelectionResultWithExclusions,
+        select_candidate(
+            packet,
+            explicit_pr=explicit_pr,
+            exclude_prs=set(exclude_prs) | unavailable,
+            active_owned_prs=active_owned_prs,
+            policy_metadata=policy_metadata,
+            return_exclusions=True,
+        ),
+    )
+    if selected is None and unavailable:
+        return (
+            None,
+            ["selected-candidate policy metadata unavailable"],
+            _merge_exclusions(accumulated_exclusions, exclusions),
+            metadata_commands,
+        )
+    return (
+        selected,
+        blockers,
+        _merge_exclusions(accumulated_exclusions, exclusions),
+        metadata_commands,
+    )
+
+
 def recursive_prompt(report: dict[str, Any]) -> str:
     pr_number = report.get("selected_pr")
     if pr_number:
@@ -492,10 +972,73 @@ def build_report(
     exclude_prs: set[int],
     live: bool,
     validate: bool,
+    repo: str | None = None,
 ) -> dict[str, Any]:
-    selected, selection_blockers = select_candidate(
-        packet, explicit_pr=explicit_pr, exclude_prs=exclude_prs
-    )
+    policy_metadata: dict[int, dict[str, Any]] = {}
+    active_owned_prs: set[int] = set()
+    policy_context: dict[str, Any] = {}
+    policy_metadata_commands: list[dict[str, Any]] = []
+    preselection_blockers = [str(item) for item in packet.get("load_blockers") or []]
+    load_warnings = [str(item) for item in packet.get("load_warnings") or []]
+    if live:
+        repo_blocker, repo_command, cwd_repo = repo_cwd_blocker(cwd, repo)
+        if repo_blocker:
+            preselection_blockers.append(repo_blocker)
+        policy_metadata, metadata_command = load_open_pr_metadata(cwd, repo=repo)
+        policy_metadata_commands.append(metadata_command)
+        active_owned_command: dict[str, Any] | None = None
+        snapshot_preblocked = _has_operator_snapshot_load_blocker(preselection_blockers)
+        if not repo_blocker and not snapshot_preblocked:
+            active_owned_prs, active_owned_command = load_active_owned_prs(cwd)
+            snapshot_blocker = active_owned_snapshot_blocker(active_owned_command)
+            if snapshot_blocker:
+                preselection_blockers.append(snapshot_blocker)
+        elif snapshot_preblocked:
+            active_owned_command = {
+                "command": "python3 scripts/agent_bridge.py operator-snapshot --json",
+                "returncode": None,
+                "skipped": True,
+                "reason": "operator-snapshot failure already carried by packet load_blockers",
+            }
+        policy_context = {
+            "repo": repo,
+            "policy_metadata_commands": policy_metadata_commands,
+            "operator_snapshot_command": active_owned_command,
+            "active_owned_prs": sorted(active_owned_prs),
+        }
+        if repo is not None:
+            policy_context["cwd_repo_command"] = repo_command
+            policy_context["cwd_repo"] = cwd_repo
+        if load_warnings:
+            policy_context["load_warnings"] = load_warnings
+
+    if live:
+        selected, selection_blockers, policy_exclusions, lazy_commands = (
+            select_candidate_with_lazy_policy_metadata(
+                packet,
+                cwd=cwd,
+                repo=repo,
+                explicit_pr=explicit_pr,
+                exclude_prs=exclude_prs,
+                active_owned_prs=active_owned_prs,
+                policy_metadata=policy_metadata,
+            )
+        )
+        policy_metadata_commands.extend(lazy_commands)
+    else:
+        selected, selection_blockers, policy_exclusions = cast(
+            SelectionResultWithExclusions,
+            select_candidate(
+                packet,
+                explicit_pr=explicit_pr,
+                exclude_prs=exclude_prs,
+                active_owned_prs=active_owned_prs,
+                policy_metadata=policy_metadata,
+                return_exclusions=True,
+            ),
+        )
+    has_preselection_blockers = bool(preselection_blockers)
+    selection_blockers = _dedupe_strings([*preselection_blockers, *selection_blockers])
     report: dict[str, Any] = {
         "version": VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -512,20 +1055,35 @@ def build_report(
         "blockers": selection_blockers,
         "evidence": {},
         "checks": {},
+        "policy_context": policy_context,
+        "load_warnings": load_warnings,
+        "policy_exclusions": policy_exclusions,
         "validation": [],
         "suggested_commands": [],
     }
     if selected is None:
+        if has_preselection_blockers:
+            report["status"] = "blocked"
         report["recursive_best_next_prompt"] = recursive_prompt(report)
         return report
 
     pr_number = _entry_pr(selected)
     report["selected_pr"] = pr_number
     report["head_sha"] = str(selected.get("head_sha", "") or "")
-    blockers = entry_blockers(selected)
+    blockers = list(selection_blockers)
+    blockers.extend(entry_blockers(selected))
+    blockers.extend(
+        f"excluded_by_policy: {reason}"
+        for reason in policy_exclusion_reasons(
+            selected,
+            exclude_prs=exclude_prs,
+            active_owned_prs=active_owned_prs,
+            policy_metadata=policy_metadata,
+        )
+    )
     report["evidence"] = evidence_summary(selected)
 
-    if live and pr_number is not None:
+    if live and pr_number is not None and not blockers:
         state_root = state_root or _state_repo_root(cwd)
         registry_path = state_root / ".aragora" / "agent-bridge" / "lanes.json"
         steering_root = state_root / ".aragora" / "operator-steering"
@@ -669,12 +1227,12 @@ def build_report(
     else:
         report["status"] = "needs_packet_rerun"
 
-    report["blockers"] = blockers
+    report["blockers"] = _dedupe_strings(blockers)
     report["recursive_best_next_prompt"] = recursive_prompt(report)
     return report
 
 
-def load_packet(*, cwd: Path, pr: int | None, limit: int, repo: str | None) -> dict[str, Any]:
+def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str, Any]:
     command = [
         "python3",
         "-m",
@@ -682,11 +1240,9 @@ def load_packet(*, cwd: Path, pr: int | None, limit: int, repo: str | None) -> d
         "review-queue",
         "merge-packet",
         "--json",
+        "--pr",
+        str(pr),
     ]
-    if pr is not None:
-        command.extend(["--pr", str(pr)])
-    else:
-        command.extend(["--limit", str(limit)])
     if repo:
         command.extend(["--repo", repo])
     payload, result = _run_json(command, cwd=cwd, timeout=600)
@@ -695,6 +1251,163 @@ def load_packet(*, cwd: Path, pr: int | None, limit: int, repo: str | None) -> d
     if not isinstance(payload, dict):
         raise RuntimeError("merge-packet did not return a JSON object")
     return payload
+
+
+def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[str, Any]:
+    command = [
+        "python3",
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "merge-packet",
+        "--json",
+        "--limit",
+        str(limit),
+    ]
+    if repo:
+        command.extend(["--repo", repo])
+    payload, result = _run_json(command, cwd=cwd, timeout=600)
+    if result["returncode"] != 0:
+        raise RuntimeError(result["stderr"] or result["stdout"] or "merge-packet failed")
+    if not isinstance(payload, dict):
+        raise RuntimeError("merge-packet did not return a JSON object")
+    return payload
+
+
+def _combine_packets(packets: list[dict[str, Any]]) -> dict[str, Any]:
+    entries: list[dict[str, Any]] = []
+    admin_order: list[int] = []
+    human_risk: list[int] = []
+    not_ready: list[int] = []
+    source_generated_at: list[str] = []
+    for packet in packets:
+        generated_at = packet.get("generated_at")
+        if generated_at:
+            source_generated_at.append(str(generated_at))
+        for entry in packet.get("entries") or []:
+            if isinstance(entry, dict):
+                entries.append(entry)
+        for raw_pr in packet.get("admin_squash_order") or []:
+            pr_number = _coerce_int(raw_pr)
+            if pr_number is not None and pr_number not in admin_order:
+                admin_order.append(pr_number)
+        for raw_pr in packet.get("human_risk_settlement_required") or []:
+            pr_number = _coerce_int(raw_pr)
+            if pr_number is not None and pr_number not in human_risk:
+                human_risk.append(pr_number)
+        for raw_pr in packet.get("not_ready") or []:
+            pr_number = _coerce_int(raw_pr)
+            if pr_number is not None and pr_number not in not_ready:
+                not_ready.append(pr_number)
+    return {
+        "version": "merge_authorization_packet.v1",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "entries": entries,
+        "admin_squash_order": admin_order,
+        "human_risk_settlement_required": human_risk,
+        "not_ready": not_ready,
+        "source_generated_at": source_generated_at,
+    }
+
+
+def _empty_packet() -> dict[str, Any]:
+    return {
+        "version": "merge_authorization_packet.v1",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "entries": [],
+        "admin_squash_order": [],
+        "human_risk_settlement_required": [],
+        "not_ready": [],
+    }
+
+
+def _light_entry_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "pr_number": metadata.get("number"),
+        "title": metadata.get("title"),
+        "head_sha": metadata.get("headRefOid"),
+        "tier": 0,
+        "reasons": [],
+    }
+
+
+def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict[str, Any]:
+    try:
+        return _load_broad_packet_bulk(cwd=cwd, limit=limit, repo=repo)
+    except RuntimeError as bulk_error:
+        load_warnings = [f"bulk merge-packet failed; using fallback: {bulk_error}"]
+        metadata: dict[int, dict[str, Any]] = {}
+        metadata, command = load_open_pr_metadata(cwd, limit=limit, repo=repo)
+        if command.get("returncode") != 0:
+            packet = _empty_packet()
+            packet["load_blockers"] = [
+                str(bulk_error),
+                command.get("stderr") or command.get("stdout") or "gh pr list failed",
+            ]
+            packet["load_warnings"] = load_warnings
+            return packet
+
+    active_owned_prs, active_owned_command = load_active_owned_prs(cwd)
+    snapshot_blocker = active_owned_snapshot_blocker(active_owned_command)
+    if snapshot_blocker:
+        packet = _empty_packet()
+        packet["load_blockers"] = [snapshot_blocker]
+        packet["load_warnings"] = load_warnings
+        return packet
+    packets: list[dict[str, Any]] = []
+    packet_failures: list[str] = []
+    packet_attempts = 0
+    selected_seen = False
+    packets_after_selected = 0
+    for pr_number, item in metadata.items():
+        light_reasons = policy_exclusion_reasons(
+            _light_entry_from_metadata(item),
+            exclude_prs=HUMAN_RISK_EXCLUDES,
+            active_owned_prs=active_owned_prs,
+            policy_metadata=metadata,
+        )
+        if light_reasons:
+            continue
+        packet_attempts += 1
+        try:
+            packets.append(_load_single_pr_packet(cwd=cwd, pr=pr_number, repo=repo))
+        except RuntimeError as exc:
+            packet_failures.append(f"merge-packet for #{pr_number} failed: {exc}")
+            continue
+        if selected_seen:
+            packets_after_selected += 1
+            if packets_after_selected >= BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD:
+                break
+            continue
+        selected, _blockers, _exclusions = cast(
+            SelectionResultWithExclusions,
+            select_candidate(
+                _combine_packets(packets),
+                explicit_pr=None,
+                exclude_prs=HUMAN_RISK_EXCLUDES,
+                active_owned_prs=active_owned_prs,
+                policy_metadata=metadata,
+                return_exclusions=True,
+            ),
+        )
+        if selected is not None:
+            selected_seen = True
+    packet = _combine_packets(packets) if packets else _empty_packet()
+    if packet_attempts > BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD:
+        load_warnings.append(
+            "fallback per-PR merge-packet queries: "
+            f"{packet_attempts} (light candidates={len(metadata)}, limit={limit})"
+        )
+    packet["load_warnings"] = load_warnings
+    if packet_failures:
+        packet["load_blockers"] = packet_failures
+    return packet
+
+
+def load_packet(*, cwd: Path, pr: int | None, limit: int, repo: str | None) -> dict[str, Any]:
+    if pr is not None:
+        return _load_single_pr_packet(cwd=cwd, pr=pr, repo=repo)
+    return load_broad_packet_lazily(cwd=cwd, limit=limit, repo=repo)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -731,6 +1444,7 @@ def main(argv: list[str] | None = None) -> int:
             state_root=_state_repo_root(cwd),
             explicit_pr=args.pr,
             exclude_prs=exclude_prs,
+            repo=args.repo,
             live=not args.no_live,
             validate=not args.no_validate,
         )
