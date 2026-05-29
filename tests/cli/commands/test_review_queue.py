@@ -1764,17 +1764,147 @@ class TestBuildQueueAndPacket:
             "count": 0,
             "summary": "no checks reported",
         }
+        assert packet.checks_summary == "2/2 required green (direct check-runs fallback)"
+        assert "check rollup unavailable" not in packet.risk_flags
         assert direct["total"] == 3
         assert direct["successful_required_contexts"] == ["lint", "typecheck"]
         assert direct["missing_required_contexts"] == []
+        assert direct["non_success_required_contexts"] == []
+        assert direct["required_contexts_satisfied"] is True
         assert direct["non_green_sample"] == ["Python SDK Tests (3.11)"]
-        assert "PR statusCheckRollup is empty" in packet.check_surfaces["diagnosis"]
-        assert "PR-state/check-only nudge" in packet.check_surfaces["remediation_prompt"]
+        assert packet.check_surfaces["effective_gate"] == {
+            "source": "direct_commit_check_runs",
+            "summary": "2/2 required green (direct check-runs fallback)",
+        }
         assert (
-            "direct commit check-runs are visible, but PR statusCheckRollup is empty; "
-            "refresh the PR-facing check rollup before settlement"
+            "every branch-protection required context successful"
+            in packet.check_surfaces["diagnosis"]
+        )
+        assert packet.machine_recommendation == "approve_candidate"
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+        assert packet.model_review_quorum["status"] == "satisfied"
+        assert not any(
+            "checks are unavailable" in reason for reason in packet.model_review_quorum["reasons"]
+        )
+
+    def test_missing_check_rollup_fails_closed_when_required_context_missing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7465, files=["docs/status/open.md"])
+        pr_payload["statusCheckRollup"] = []
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:1] == ["api"] and "required_status_checks" in args[1]:
+                return {"contexts": ["lint", "typecheck"]}
+            if args[:1] == ["api"] and "check-runs" in args[1]:
+                return {
+                    "check_runs": [
+                        {"name": "lint", "status": "completed", "conclusion": "success"},
+                    ]
+                }
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        direct = packet.check_surfaces["direct_commit_check_runs"]
+
+        assert packet.checks_summary == "no checks reported"
+        assert direct["missing_required_contexts"] == ["typecheck"]
+        assert direct["required_contexts_satisfied"] is False
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert (
+            "checks are unavailable; wait for GitHub check rollup before settlement"
             in packet.model_review_quorum["reasons"]
         )
+
+    def test_missing_check_rollup_fails_closed_when_required_context_not_successful(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7465, files=["docs/status/open.md"])
+        pr_payload["statusCheckRollup"] = []
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:1] == ["api"] and "required_status_checks" in args[1]:
+                return {"contexts": ["lint", "typecheck"]}
+            if args[:1] == ["api"] and "check-runs" in args[1]:
+                return {
+                    "check_runs": [
+                        {"name": "lint", "status": "completed", "conclusion": "success"},
+                        {
+                            "name": "typecheck",
+                            "status": "completed",
+                            "conclusion": "failure",
+                        },
+                    ]
+                }
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        direct = packet.check_surfaces["direct_commit_check_runs"]
+
+        assert packet.checks_summary == "no checks reported"
+        assert direct["non_success_required_contexts"] == ["typecheck"]
+        assert direct["required_contexts_satisfied"] is False
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+
+    def test_missing_check_rollup_fails_closed_without_required_contexts(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7465, files=["docs/status/open.md"])
+        pr_payload["statusCheckRollup"] = []
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:1] == ["api"] and "required_status_checks" in args[1]:
+                return {"contexts": []}
+            if args[:1] == ["api"] and "check-runs" in args[1]:
+                return {
+                    "check_runs": [
+                        {"name": "lint", "status": "completed", "conclusion": "success"},
+                    ]
+                }
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        direct = packet.check_surfaces["direct_commit_check_runs"]
+
+        assert direct["required_contexts"] == []
+        assert direct["required_contexts_satisfied"] is False
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
 
     def test_cancelled_merge_quorum_blocks_admin_squash_authorization(
         self, monkeypatch: pytest.MonkeyPatch

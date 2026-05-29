@@ -1454,6 +1454,29 @@ def _direct_check_run_is_non_green(run: dict[str, Any]) -> bool:
     return status in {"QUEUED", "IN_PROGRESS", "PENDING", "EXPECTED"}
 
 
+def _latest_direct_check_runs_by_name(
+    runs: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    latest: dict[str, tuple[str, int, dict[str, Any]]] = {}
+    for index, run in enumerate(runs):
+        name = _direct_check_run_name(run)
+        if not name:
+            continue
+        timestamp = str(
+            run.get("completed_at")
+            or run.get("started_at")
+            or run.get("created_at")
+            or run.get("completedAt")
+            or run.get("startedAt")
+            or run.get("createdAt")
+            or ""
+        )
+        previous = latest.get(name)
+        if previous is None or (timestamp, index) >= (previous[0], previous[1]):
+            latest[name] = (timestamp, index, run)
+    return {name: item[2] for name, item in latest.items()}
+
+
 def _build_check_surface_diagnostics(
     pr: dict[str, Any],
     *,
@@ -1463,8 +1486,9 @@ def _build_check_surface_diagnostics(
 ) -> dict[str, Any]:
     """Explain PR-facing check rollup separately from direct commit check-runs.
 
-    Direct commit check-runs are diagnostic only. They intentionally do not make
-    a PR settlement-ready when GitHub's PR-facing rollup is empty.
+    Direct commit check-runs are a fail-closed fallback only when branch
+    protection required contexts are known and all are successful at the exact
+    PR head.
     """
     rollup = pr.get("statusCheckRollup")
     rollup_count = len(rollup) if isinstance(rollup, list) else None
@@ -1483,34 +1507,55 @@ def _build_check_surface_diagnostics(
     base_ref = str(pr.get("baseRefName") or "main").strip()
     required_contexts = _fetch_required_check_contexts(repo_slug, base_ref)
     direct_runs = _fetch_direct_commit_check_runs(repo_slug, head_sha)
-    direct_names = {_direct_check_run_name(run) for run in direct_runs}
+    latest_direct_runs = _latest_direct_check_runs_by_name(direct_runs)
+    direct_names = set(latest_direct_runs)
     successful_names = {
-        _direct_check_run_name(run) for run in direct_runs if _direct_check_run_is_success(run)
+        name for name, run in latest_direct_runs.items() if _direct_check_run_is_success(run)
     }
     non_green = [
-        _direct_check_run_name(run)
-        for run in direct_runs
-        if _direct_check_run_name(run) and _direct_check_run_is_non_green(run)
+        name for name, run in latest_direct_runs.items() if _direct_check_run_is_non_green(run)
     ]
+    missing_required_contexts = [
+        context for context in required_contexts if context not in direct_names
+    ]
+    successful_required_contexts = [
+        context for context in required_contexts if context in successful_names
+    ]
+    non_success_required_contexts = [
+        context
+        for context in required_contexts
+        if context in direct_names and context not in successful_names
+    ]
+    required_contexts_satisfied = bool(required_contexts) and not (
+        missing_required_contexts or non_success_required_contexts
+    )
     direct_summary = {
         "available": bool(direct_runs),
         "total": len(direct_runs),
         "required_contexts": required_contexts,
-        "successful_required_contexts": [
-            context for context in required_contexts if context in successful_names
-        ],
-        "missing_required_contexts": [
-            context for context in required_contexts if context not in direct_names
-        ],
+        "successful_required_contexts": successful_required_contexts,
+        "missing_required_contexts": missing_required_contexts,
+        "non_success_required_contexts": non_success_required_contexts,
+        "required_contexts_satisfied": required_contexts_satisfied,
         "non_green_sample": non_green[:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
         "non_green_count": len(non_green),
     }
     diagnostics["direct_commit_check_runs"] = direct_summary
-    if direct_runs:
+    if required_contexts_satisfied:
+        diagnostics["diagnosis"] = (
+            "GitHub PR statusCheckRollup is empty, but exact-head direct commit "
+            "check-runs show every branch-protection required context successful; "
+            "merge-packet uses the direct required check-run fallback."
+        )
+        diagnostics["remediation_prompt"] = (
+            "No check-rollup nudge is required for settlement; continue gating on "
+            "exact-head branch-protection required check-runs."
+        )
+    elif direct_runs:
         diagnostics["diagnosis"] = (
             "GitHub PR statusCheckRollup is empty while direct commit check-runs "
             "exist at the head; merge-packet fails closed because direct checks "
-            "do not replace the PR-facing rollup."
+            "do not satisfy all branch-protection required contexts."
         )
         diagnostics["remediation_prompt"] = (
             "Authorize only a PR-state/check-only nudge to refresh GitHub's PR "
@@ -1526,6 +1571,13 @@ def _build_check_surface_diagnostics(
             "settle or merge while the PR-facing rollup is unavailable."
         )
     return diagnostics
+
+
+def _direct_required_check_fallback_satisfied(check_surfaces: dict[str, Any]) -> bool:
+    direct = check_surfaces.get("direct_commit_check_runs")
+    if not isinstance(direct, dict):
+        return False
+    return bool(direct.get("required_contexts_satisfied"))
 
 
 def _latest_status_check_rollup(checks: list) -> list[dict[str, Any]]:
@@ -1679,6 +1731,30 @@ def _build_packet(
     if checks_unavailable:
         checks_summary = "no checks reported"
         has_pending = True
+    check_surfaces = _build_check_surface_diagnostics(
+        pr,
+        repo_override=repo_override,
+        checks_summary=checks_summary,
+        checks_unavailable=checks_unavailable,
+    )
+    direct_check_fallback_satisfied = (
+        checks_unavailable and _direct_required_check_fallback_satisfied(check_surfaces)
+    )
+    if direct_check_fallback_satisfied:
+        direct_summary = check_surfaces["direct_commit_check_runs"]
+        successful_required = direct_summary.get("successful_required_contexts") or []
+        required_contexts = direct_summary.get("required_contexts") or []
+        checks_summary = (
+            f"{len(successful_required)}/{len(required_contexts)} required green "
+            "(direct check-runs fallback)"
+        )
+        has_pending = False
+        has_failures = False
+        checks_unavailable = False
+        check_surfaces["effective_gate"] = {
+            "source": "direct_commit_check_runs",
+            "summary": checks_summary,
+        }
     additions = int(pr.get("additions", 0) or 0)
     deletions = int(pr.get("deletions", 0) or 0)
     is_draft = bool(pr.get("isDraft", False))
@@ -1726,12 +1802,6 @@ def _build_packet(
         risk_flags.append("check rollup unavailable")
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
-    check_surfaces = _build_check_surface_diagnostics(
-        pr,
-        repo_override=repo_override,
-        checks_summary=checks_summary,
-        checks_unavailable=checks_unavailable,
-    )
 
     if settlement_recorded:
         recommendation = "settled_noop"
