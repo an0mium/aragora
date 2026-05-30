@@ -40,6 +40,7 @@ DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 COMMIT_PREFIX_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 BRANCH_IDEMPOTENCY_PREFIXES = ("open-pr-", "already-satisfied-")
+DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS = 5
 SALVAGE_CATEGORIES = {
     "salvage_recent_unique",
     "salvage_stale_remote_unique",
@@ -953,6 +954,7 @@ def audit(
     include_patch_equivalence: bool,
     patch_equivalence_time_budget_seconds: float | None = None,
     publisher_backlog_limit: int,
+    github_health_timeout_seconds: int = DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS,
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
 ) -> dict[str, Any]:
@@ -971,7 +973,11 @@ def audit(
     remotes = remote_branch_names(root, prefix)
     merged_branches = merged_branch_names(root, base, prefix)
     worktrees = worktree_map(root)
-    github_health = check_github_cli_health(root)
+    github_health = check_github_cli_health(
+        root,
+        timeout_seconds=github_health_timeout_seconds,
+        prefer_app=False,
+    )
     open_pr_lookup_failed = False
     if github_health.ready:
         open_pr_result = open_pr_heads(root, repo, prefix)
@@ -1469,6 +1475,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--github-health-timeout-seconds",
+        type=int,
+        default=DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS,
+        help=(
+            "Timeout for each GitHub CLI health probe before skipping open PR lookup "
+            f"(default: {DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS})."
+        ),
+    )
+    parser.add_argument(
         "--state-root",
         type=Path,
         default=None,
@@ -1535,6 +1550,7 @@ def main(argv: list[str] | None = None) -> int:
         include_patch_equivalence=args.include_patch_equivalence,
         patch_equivalence_time_budget_seconds=patch_budget,
         publisher_backlog_limit=args.publisher_backlog_limit,
+        github_health_timeout_seconds=args.github_health_timeout_seconds,
         outbox_dir=outbox_dir,
         receipt_dir=receipt_dir,
     )
