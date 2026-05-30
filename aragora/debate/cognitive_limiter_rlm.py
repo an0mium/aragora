@@ -37,23 +37,30 @@ from aragora.debate.cognitive_limiter import (
 )
 
 # Check for official RLM library (use factory for consistent initialization)
-get_rlm: Any
-get_compressor: Any
-DebateContextAdapter: Any
-RLMBackendConfig: Any
-
 try:
-    from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
-    from aragora.rlm.bridge import DebateContextAdapter, RLMBackendConfig
+    from aragora.rlm import (
+        HAS_OFFICIAL_RLM,
+        get_compressor as _get_compressor,
+        get_rlm as _get_rlm,
+    )
+    from aragora.rlm.bridge import (
+        DebateContextAdapter as _DebateContextAdapter,
+        RLMBackendConfig as _RLMBackendConfig,
+    )
 
     HAS_RLM_FACTORY = True
 except ImportError:
     HAS_OFFICIAL_RLM = False
     HAS_RLM_FACTORY = False
-    get_rlm = None
-    get_compressor = None
-    DebateContextAdapter = None
-    RLMBackendConfig = None
+    _get_rlm = None
+    _get_compressor = None
+    _DebateContextAdapter = None
+    _RLMBackendConfig = None
+
+get_rlm: Any = _get_rlm
+get_compressor: Any = _get_compressor
+DebateContextAdapter: Any = _DebateContextAdapter
+RLMBackendConfig: Any = _RLMBackendConfig
 
 if TYPE_CHECKING:
     from aragora.rlm.compressor import HierarchicalCompressor
@@ -261,9 +268,13 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         try:
             # Format messages for RLM REPL
             formatted_context = self._format_messages_for_rlm(messages)
+            aragora_rlm = self._aragora_rlm
+            if aragora_rlm is None:
+                logger.warning("Real RLM unavailable after initialization; using fallback search")
+                return self._fallback_search(query, messages)
 
             # Use AragoraRLM for query
-            result = await self._aragora_rlm.compress_and_query(
+            result = await aragora_rlm.compress_and_query(
                 query=query,
                 content=formatted_context,
                 source_type="debate",

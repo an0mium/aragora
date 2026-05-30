@@ -56,11 +56,12 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Import create_agent for agent creation
-create_agent: Any
 try:
-    from aragora.agents.base import create_agent
+    from aragora.agents.base import create_agent as _create_agent
 except ImportError:
-    create_agent = None
+    _create_agent = None
+
+create_agent: Any = _create_agent
 
 if TYPE_CHECKING:
     from aragora.agents.base import AgentType
@@ -369,7 +370,11 @@ class DebateFactory:
         try:
             from aragora.server.stream.events import StreamEvent, StreamEventType
 
-            self.stream_emitter.emit(
+            emitter = self.stream_emitter
+            if emitter is None:
+                return
+
+            emitter.emit(
                 StreamEvent(
                     type=StreamEventType.ERROR,
                     data={

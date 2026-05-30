@@ -10,19 +10,17 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from aragora.agents.personas import DEFAULT_PERSONAS, EXPERTISE_DOMAINS
 
-if TYPE_CHECKING:
-    import anthropic
-
 # Use AsyncAnthropic for non-blocking API calls
-AsyncAnthropic: Any
 try:
-    from anthropic import AsyncAnthropic
+    from anthropic import AsyncAnthropic as _AsyncAnthropic
 except ImportError:
-    AsyncAnthropic = None
+    _AsyncAnthropic = None
+
+AsyncAnthropic: Any = _AsyncAnthropic
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +198,7 @@ class QuestionClassification:
 class QuestionClassifier:
     """Classifies questions and assigns appropriate debate personas."""
 
-    def __init__(self, client: anthropic.AsyncAnthropic | None = None):
+    def __init__(self, client: Any | None = None):
         """Initialize the classifier.
 
         Args:
@@ -210,7 +208,7 @@ class QuestionClassifier:
         self._client = client
 
     @property
-    def client(self) -> anthropic.AsyncAnthropic:
+    def client(self) -> Any:
         """Get or create the AsyncAnthropic client."""
         if self._client is None:
             if AsyncAnthropic is None:
