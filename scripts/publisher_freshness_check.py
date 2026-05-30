@@ -341,6 +341,14 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path to the publisher status cache JSON",
     )
+    parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help=(
+            "Directory containing publisher status cache latest.json. "
+            "Accepted for CLI compatibility with publisher helpers."
+        ),
+    )
     parser.add_argument("--outbox-dir", default=None)
     parser.add_argument(
         "--receipt-dir",
@@ -424,6 +432,10 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     repo_root = Path(args.repo).resolve()
     cache_path = _resolve_explicit_path(repo_root, args.cache_path)
+    if cache_path is None:
+        cache_dir = _resolve_explicit_path(repo_root, args.cache_dir)
+        if cache_dir is not None:
+            cache_path = cache_dir / "latest.json"
     outbox_dir = _resolve_explicit_path(repo_root, args.outbox_dir)
     state_root = Path(args.state_root).expanduser().resolve() if args.state_root else None
     report = evaluate(

@@ -297,6 +297,27 @@ def test_main_accepts_status_cache_alias(
     assert parsed["cache_path"] == str(cache_path.resolve())
 
 
+def test_main_accepts_cache_dir_alias(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cache_dir = stub_repo / ".aragora" / "automation-github-status"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / "latest.json"
+    cache_path.write_text(
+        json.dumps({"generated_at": "2026-05-05T12:00:00Z", "local_queue": {"outbox_count": 0}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+
+    rc = mod.main(["--repo", str(stub_repo), "--cache-dir", str(cache_dir), "--json"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["verdict"] == "ready"
+    assert parsed["cache_path"] == str(cache_path.resolve())
+
+
 def test_main_resolves_explicit_relative_paths_from_repo(
     monkeypatch: pytest.MonkeyPatch,
     stub_repo: Path,
