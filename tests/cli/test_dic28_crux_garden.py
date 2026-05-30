@@ -107,18 +107,14 @@ def test_jsonl_bad_line_exits_1(
 # ---------------------------------------------------------------------------
 
 
-def test_json_array_input_exits_0(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_json_array_input_exits_0(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv(_FLAG, "1")
     f = tmp_path / "r.json"
     f.write_text(json.dumps([_RECEIPT]))
     assert cmd_crux_garden(_ns(input_path=str(f))) == 0
 
 
-def test_jsonl_input_exits_0(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_jsonl_input_exits_0(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv(_FLAG, "1")
     f = tmp_path / "r.jsonl"
     f.write_text(json.dumps(_RECEIPT) + "\n")

@@ -93,7 +93,9 @@ def _format_text(report: GardeningReport) -> str:
         f"  resolved: {len(report.resolved_results)}  outstanding: {len(report.outstanding_results)}",
         "Summary: " + "  ".join(f"{k}={v}" for k, v in sorted(report.summary.items())),
     ]
-    findings = [r for r in report.resolved_results + report.outstanding_results if r.status != "healthy"]
+    findings = [
+        r for r in report.resolved_results + report.outstanding_results if r.status != "healthy"
+    ]
     if findings:
         lines.append("Findings:")
         for r in findings:
