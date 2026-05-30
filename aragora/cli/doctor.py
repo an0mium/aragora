@@ -15,9 +15,8 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
-from pathlib import Path
-
 from dataclasses import dataclass
+from pathlib import Path
 
 from aragora.config.provider_readiness import (
     PROVIDER_CREDENTIAL_SPECS,
@@ -38,6 +37,11 @@ class _AwsSecretsPosture:
     available: bool
     providers: tuple[str, ...]
     detail: str
+    # Whether the *runtime* credential path will actually honor AWS Secrets
+    # Manager (``SecretsConfig.from_env().use_aws``). When False, the keys exist
+    # in AWS but ``hydrate_env_from_secrets`` will NOT load them for this
+    # process, so doctor must warn rather than green-light the posture.
+    honored_by_runtime: bool = False
 
 
 def _aws_secrets_provider_posture() -> _AwsSecretsPosture:
@@ -63,6 +67,16 @@ def _aws_secrets_provider_posture() -> _AwsSecretsPosture:
         base = SecretsConfig.from_env()
     except (OSError, RuntimeError, ValueError):
         return _AwsSecretsPosture(False, (), "")
+
+    # Skip the AWS round-trip entirely when no region/secret is configured —
+    # the probe could not resolve anything and would only add latency to
+    # ``aragora doctor`` on machines with no AWS posture at all.
+    if not base.aws_region and not base.aws_regions and not base.secret_name:
+        return _AwsSecretsPosture(False, (), "")
+
+    # Does the *runtime* path honor AWS? hydrate_env_from_secrets respects the
+    # env-derived use_aws; if it's False the keys won't actually be loaded.
+    honored_by_runtime = bool(base.use_aws)
 
     # Force an AWS-backed lookup even in the default local opt-out posture, but
     # keep the bounded timeouts/region set from the environment configuration.
@@ -93,7 +107,7 @@ def _aws_secrets_provider_posture() -> _AwsSecretsPosture:
         return _AwsSecretsPosture(False, (), "")
 
     detail = "via AWS Secrets Manager: " + ", ".join(present)
-    return _AwsSecretsPosture(True, tuple(present), detail)
+    return _AwsSecretsPosture(True, tuple(present), detail, honored_by_runtime)
 
 
 def check_icon(ok: bool | None) -> str:
@@ -185,8 +199,20 @@ def check_api_keys(validate_live: bool = False) -> list[HealthCheck]:
         # local posture where keys live in AWS Secrets Manager (loaded via
         # aragora.config.secrets) instead of the process environment.
         posture = _aws_secrets_provider_posture()
-        if posture.available:
+        if posture.available and posture.honored_by_runtime:
             checks.append(("LLM Provider", posture.detail, True))
+        elif posture.available:
+            # Keys exist in AWS Secrets Manager but the runtime won't load them
+            # (use_aws is disabled). Warn (optional/None) rather than green-light
+            # a posture hydrate_env_from_secrets will not actually honor.
+            checks.append(
+                (
+                    "LLM Provider",
+                    posture.detail + " — present but ARAGORA_USE_SECRETS_MANAGER "
+                    "is not enabled for this runtime; keys will not be loaded",
+                    None,
+                )
+            )
         else:
             detail = "NO API KEY SET"
             if report.discovery_errors:
