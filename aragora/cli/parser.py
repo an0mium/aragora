@@ -221,6 +221,9 @@ Examples:
     # DIC-27: operator crux arbitration surface
     _add_crux_arbitrate_parser(subparsers)
 
+    # DIC-28: proactive crux gardening operator surface
+    _add_crux_garden_parser(subparsers)
+
     return parser
 
 
@@ -676,6 +679,29 @@ def _add_crux_arbitrate_parser(subparsers) -> None:
         help="Emit output as JSON instead of human-readable text",
     )
     p.set_defaults(func=_lazy("aragora.cli.commands.crux_arbitrate", "cmd_crux_arbitrate"))
+
+
+def _add_crux_garden_parser(subparsers) -> None:
+    """DIC-28: proactive crux gardening operator surface (issue #6222).
+
+    Flag-gated: ARAGORA_CRUX_GARDENING_ENABLED. Live queue effect: none.
+    """
+    p = subparsers.add_parser(
+        "crux-garden",
+        help="DIC-28: proactive re-examination of cruxes for staleness and contradictions",
+        description=(
+            "Load a JSONL or JSON-array of CruxReceipt dicts and run a gardening pass. "
+            "Report-only; no debates started, no issues created. "
+            "Requires ARAGORA_CRUX_GARDENING_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--input",
+        required=True,
+        help="Path to a JSONL or JSON-array file of CruxReceipt dicts.",
+    )
+    p.add_argument("--json", action="store_true", help="Emit report as JSON.")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic28_crux_garden", "cmd_crux_garden"))
 
 
 def _add_ask_parser(subparsers) -> None:
