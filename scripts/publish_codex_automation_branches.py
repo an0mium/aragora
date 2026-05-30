@@ -427,7 +427,10 @@ def _free_disk_gib(path: Path) -> float:
 
 
 def _codex_rss_gib() -> float | None:
-    proc = _run(["ps", "-axo", "rss=,comm="], cwd=REPO_ROOT)
+    try:
+        proc = _run(["ps", "-axo", "rss=,comm="], cwd=REPO_ROOT)
+    except OSError:
+        return None
     if proc.returncode != 0:
         return None
     rss_kib = 0
@@ -1053,6 +1056,28 @@ def select_publishable_branches(
     return decisions
 
 
+def _mark_github_unavailable(decisions: list[PublishDecision]) -> list[PublishDecision]:
+    unavailable: list[PublishDecision] = []
+    for decision in decisions:
+        if not decision.eligible:
+            unavailable.append(decision)
+            continue
+        unavailable.append(
+            PublishDecision(
+                branch=decision.branch,
+                eligible=False,
+                reason="github_unavailable",
+                subject=decision.subject,
+                head_sha=decision.head_sha,
+                unique_commit_count=decision.unique_commit_count,
+                upstream=decision.upstream,
+                committed_at=decision.committed_at,
+                worktree_paths=decision.worktree_paths,
+            )
+        )
+    return unavailable
+
+
 def _ensure_gh_auth(repo_root: Path) -> None:
     health = check_github_cli_health(repo_root)
     if not health.ready:
@@ -1404,6 +1429,26 @@ def main(argv: list[str] | None = None) -> int:
 
     github_health = check_github_cli_health(repo_root)
     if not github_health.ready:
+        decisions = _mark_github_unavailable(
+            select_publishable_branches(
+                hydrated_branches,
+                worktrees,
+                set(),
+                cutoff=cutoff,
+                base=args.base,
+                is_merged=merged_lookup,
+                is_patch_equivalent=patch_equivalent_lookup,
+                historical_pr_branches=set(),
+                resolved_related_branches=set(),
+                remote_head_lookup={
+                    branch.branch: _branch_remote_head(repo_root, branch.branch)
+                    for branch in hydrated_branches
+                },
+                has_pr_diff=pr_diff_lookup,
+                superseded_outbox_branches=superseded_outbox_lookup,
+                duplicate_open_pr_patch_branches=set(),
+            )
+        )
         unavailable_payload: dict[str, Any] = {
             "repo": str(repo_root),
             "base": args.base,
@@ -1412,8 +1457,11 @@ def main(argv: list[str] | None = None) -> int:
             "scanned_branch_count": len(hydrated_branches),
             "open_pr_count": 0,
             "max_open_prs": args.max_open_prs,
+            "open_pr_lookup_skipped": True,
+            "historical_pr_lookup_skipped": True,
+            "related_work_lookup_skipped": True,
             "github_health": github_health.to_dict(),
-            "decisions": [],
+            "decisions": [asdict(decision) for decision in decisions],
         }
         if args.json:
             print(json.dumps(unavailable_payload, indent=2))
