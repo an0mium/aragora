@@ -217,6 +217,7 @@ Examples:
     _add_cruxset_parser(subparsers)
     _add_crux_followup_parser(subparsers)
     _add_genealogy_parser(subparsers)  # DIC-24 / #6218
+    _add_coherence_scan_parser(subparsers)  # DIC-26 / #6220
 
     # DIC-27: operator crux arbitration surface
     _add_crux_arbitrate_parser(subparsers)
@@ -607,6 +608,48 @@ def _add_genealogy_parser(subparsers) -> None:
     )
     show.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     show.set_defaults(func=_lazy("aragora.cli.commands.dic24_genealogy", "cmd_genealogy_show"))
+
+
+def _add_coherence_scan_parser(subparsers) -> None:
+    """Add the 'coherence-scan' subcommand (DIC-26 / #6220).
+
+    Flag-gated: ARAGORA_COHERENCE_MONITOR_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "coherence-scan",
+        help="DIC-26: scan a belief ledger for contradictions, evidence conflicts, and confidence rot",
+        description=(
+            "Read-only operator surface for the belief coherence monitor. "
+            "Requires ARAGORA_COHERENCE_MONITOR_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--input",
+        required=True,
+        metavar="JSON",
+        help="Path to a JSON file containing a list of BeliefEntry dicts",
+    )
+    p.add_argument(
+        "--contradiction-gap",
+        dest="contradiction_gap",
+        type=float,
+        default=0.5,
+        metavar="FLOAT",
+        help="Confidence gap threshold for contradiction detection (default: 0.5)",
+    )
+    p.add_argument(
+        "--min-confidence",
+        dest="min_confidence",
+        type=float,
+        default=0.3,
+        metavar="FLOAT",
+        help="Minimum confidence threshold for rot detection (default: 0.3)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(
+        func=_lazy("aragora.cli.commands.dic26_coherence", "cmd_coherence_scan")
+    )
 
 
 def _add_crux_arbitrate_parser(subparsers) -> None:
