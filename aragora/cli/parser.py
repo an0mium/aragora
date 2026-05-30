@@ -271,6 +271,15 @@ def _add_metrics_parser(subparsers) -> None:
         help="Sidecar count of failed claims promoted without bounded repair (AGT-05)",
     )
     viah.add_argument("--json", action="store_true", help="Emit the report as JSON")
+    viah.add_argument(
+        "--persist",
+        action="store_true",
+        default=False,
+        help=(
+            "Persist a viah_snapshot entry to the ShiftLedger after computing. "
+            "Requires ARAGORA_VIAH_TREND_ENABLED=1; default off (AGT-06 SD-4 / #6067)."
+        ),
+    )
     viah.set_defaults(func=_lazy("aragora.cli.commands.agt_metrics", "cmd_metrics_viah"))
 
     status = metrics_sub.add_parser(
