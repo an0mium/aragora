@@ -12,15 +12,20 @@ import json
 import sys
 from pathlib import Path
 
-from aragora.metrics.viah import VIAH_TREND_FLAG, compute_viah, viah_trend_enabled
+from aragora.metrics.viah import (
+    VIAH_TREND_FLAG,
+    compute_viah,
+    persist_viah_snapshot,
+    viah_trend_enabled,
+)
 from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH, ShiftLedger
 
 
 def cmd_metrics_viah(args: argparse.Namespace) -> int:
     """Compute and print the VIAH report over a window.
 
-    Returns 0 on success; non-zero only on argparse-level usage error
-    (which argparse handles itself before reaching here).
+    Returns 0 on success; 1 when ``--persist`` is requested but
+    ``ARAGORA_VIAH_TREND_ENABLED`` is not set.
     """
     ledger_path: Path | None
     raw_path = getattr(args, "ledger_path", None)
@@ -42,6 +47,15 @@ def cmd_metrics_viah(args: argparse.Namespace) -> int:
         predictions_above_brier_threshold=predictions,
         failed_claims_promoted_without_repair=failed_claims,
     )
+
+    if getattr(args, "persist", False):
+        if not viah_trend_enabled():
+            print(
+                f"error: --persist requires {VIAH_TREND_FLAG}=1 to be set",
+                file=sys.stderr,
+            )
+            return 1
+        persist_viah_snapshot(ledger=ledger, report=report)
 
     if getattr(args, "json", False):
         print(json.dumps(report.to_dict(), sort_keys=True, indent=2))
