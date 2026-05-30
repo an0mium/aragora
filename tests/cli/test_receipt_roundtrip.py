@@ -23,8 +23,6 @@ from pathlib import Path
 
 import pytest
 
-import aragora_debate  # noqa: F401  (ensures the live-capable demo path is exercised)
-
 from aragora.cli.commands.receipt import cmd_receipt_verify
 from aragora.cli.demo import (
     _build_live_receipt_data,
@@ -74,10 +72,9 @@ def test_demo_receipt_verifies_end_to_end(tmp_path, capsys):
     assert "Result: VALID (3/3 checks passed)" in out
 
 
-@pytest.mark.parametrize("suffix", [".json"])
-def test_demo_receipt_survives_json_persistence(tmp_path, suffix, capsys):
+def test_demo_receipt_survives_json_persistence(tmp_path, capsys):
     """Receipt integrity holds across the file write/read JSON round-trip."""
-    receipt_path = tmp_path / f"receipt{suffix}"
+    receipt_path = tmp_path / "receipt.json"
     args = argparse.Namespace(
         name=None,
         topic=_TOPIC,
@@ -92,11 +89,14 @@ def test_demo_receipt_survives_json_persistence(tmp_path, suffix, capsys):
     assert DecisionReceipt.from_dict(reloaded).verify_integrity() is True
 
 
-def test_live_demo_receipt_is_verifiable(tmp_path, capsys):
-    """The live (API-backed) demo write path also produces a verifiable receipt.
+def test_live_demo_receipt_builder_is_verifiable(tmp_path, capsys):
+    """The live-demo receipt *builder* produces a verifiable receipt.
 
-    The live path builds the receipt from the playground debate response via
-    ``_build_live_receipt_data``; it must satisfy the same round-trip invariant.
+    This covers ``_build_live_receipt_data`` (the helper that maps a playground
+    debate response into receipt fields) and asserts the resulting receipt
+    satisfies the same round-trip invariant. It does not drive the full live
+    ``_run_real_demo`` → ``_save_live_demo_receipt`` path (which requires API
+    access); it guards the builder against the same hash/timestamp regression.
     """
     live_result = {
         "receipt_id": "DR-LIVE-7393",
