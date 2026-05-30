@@ -1698,9 +1698,11 @@ def _build_merge_authorization_packet(
     review_queue_root: str | Path | None = None,
     execute_reviewers: bool = False,
 ) -> dict[str, Any]:
+    scoped_pr_refs = False
     if pr_refs:
         refs = list(dict.fromkeys(str(ref).strip() for ref in pr_refs if str(ref).strip()))
-        queue_size = len(_build_queue(limit=max(limit, len(refs), MODEL_REVIEW_QUEUE_CAP + 1)))
+        queue_size = len(refs)
+        scoped_pr_refs = True
     else:
         queue = _build_queue(limit=limit)
         refs = [str(item.number) for item in queue]
@@ -1721,6 +1723,7 @@ def _build_merge_authorization_packet(
             "current_open_prs": queue_size,
             "cap": MODEL_REVIEW_QUEUE_CAP,
             "active": queue_pressure_active,
+            "scope": "explicit_pr_refs" if scoped_pr_refs else "open_pr_queue",
             "allowed_work_when_active": [
                 "review",
                 "dogfood",
@@ -1757,6 +1760,7 @@ def _build_merge_authorization_packet(
             "current_open_prs": queue_size,
             "cap": MODEL_REVIEW_QUEUE_CAP,
             "active": queue_pressure_active,
+            "scope": "explicit_pr_refs" if scoped_pr_refs else "open_pr_queue",
         },
         "authorization_sentence": (
             "I accept the model quorum evidence for Tier 0-2 PRs in this packet "

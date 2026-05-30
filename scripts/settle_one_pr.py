@@ -984,7 +984,11 @@ def build_report(
         repo_blocker, repo_command, cwd_repo = repo_cwd_blocker(cwd, repo)
         if repo_blocker:
             preselection_blockers.append(repo_blocker)
-        policy_metadata, metadata_command = load_open_pr_metadata(cwd, repo=repo)
+        if explicit_pr is not None:
+            metadata, metadata_command = load_pr_policy_metadata(cwd, explicit_pr, repo=repo)
+            policy_metadata = {explicit_pr: metadata} if metadata else {}
+        else:
+            policy_metadata, metadata_command = load_open_pr_metadata(cwd, repo=repo)
         policy_metadata_commands.append(metadata_command)
         active_owned_command: dict[str, Any] | None = None
         snapshot_preblocked = _has_operator_snapshot_load_blocker(preselection_blockers)
