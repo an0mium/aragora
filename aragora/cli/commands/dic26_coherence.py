@@ -51,9 +51,7 @@ def _load_entries(path: Path) -> list[BeliefEntry]:
                     subject=str(obj["subject"]),
                     confidence=float(obj["confidence"]),
                     status=str(obj.get("status", "unknown")),
-                    evidence_paths=tuple(
-                        str(p) for p in obj.get("evidence_paths") or []
-                    ),
+                    evidence_paths=tuple(str(p) for p in obj.get("evidence_paths") or []),
                 )
             )
         except (KeyError, ValueError, TypeError) as exc:

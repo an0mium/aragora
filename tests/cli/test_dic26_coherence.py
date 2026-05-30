@@ -59,7 +59,9 @@ def test_json_output_is_valid_for_coherent_ledger(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
-    entries = [{"belief_id": "b1", "subject": "claim.rate_limit", "confidence": 0.9, "status": "pass"}]
+    entries = [
+        {"belief_id": "b1", "subject": "claim.rate_limit", "confidence": 0.9, "status": "pass"}
+    ]
     assert cmd_coherence_scan(_args(str(_write(tmp_path, entries)), json_output=True)) == 0
     data = json.loads(capsys.readouterr().out)
     assert data["scanned"] == 1 and data["coherent"] is True and data["issue_count"] == 0
@@ -71,7 +73,7 @@ def test_contradiction_flagged_in_json(
     monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
     entries = [
         {"belief_id": "b_high", "subject": "claim.x", "confidence": 0.95, "status": "pass"},
-        {"belief_id": "b_low",  "subject": "claim.x", "confidence": 0.05, "status": "fail"},
+        {"belief_id": "b_low", "subject": "claim.x", "confidence": 0.05, "status": "fail"},
     ]
     assert cmd_coherence_scan(_args(str(_write(tmp_path, entries)), json_output=True)) == 0
     data = json.loads(capsys.readouterr().out)
@@ -82,8 +84,13 @@ def test_confidence_rot_flagged_in_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
-    entries = [{"belief_id": "b_rotten", "subject": "claim.stale", "confidence": 0.1, "status": "stale"}]
-    assert cmd_coherence_scan(_args(str(_write(tmp_path, entries)), json_output=True, min_conf=0.3)) == 0
+    entries = [
+        {"belief_id": "b_rotten", "subject": "claim.stale", "confidence": 0.1, "status": "stale"}
+    ]
+    assert (
+        cmd_coherence_scan(_args(str(_write(tmp_path, entries)), json_output=True, min_conf=0.3))
+        == 0
+    )
     data = json.loads(capsys.readouterr().out)
     assert data["confidence_rot_count"] == 1
 

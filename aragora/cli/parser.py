@@ -647,9 +647,7 @@ def _add_coherence_scan_parser(subparsers) -> None:
         help="Minimum confidence threshold for rot detection (default: 0.3)",
     )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
-    p.set_defaults(
-        func=_lazy("aragora.cli.commands.dic26_coherence", "cmd_coherence_scan")
-    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic26_coherence", "cmd_coherence_scan"))
 
 
 def _add_crux_arbitrate_parser(subparsers) -> None:
