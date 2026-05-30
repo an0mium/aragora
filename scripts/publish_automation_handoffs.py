@@ -159,9 +159,33 @@ class PublishDecision:
     source_file: str
     eligible: bool
     reason: str
+    branch: str | None = None
+    desired_head: str | None = None
     existing_issue_url: str | None = None
     existing_pr_url: str | None = None
     created_issue_url: str | None = None
+
+
+def _decision_for_handoff(
+    handoff: Handoff,
+    *,
+    eligible: bool,
+    reason: str,
+    existing_issue_url: str | None = None,
+    existing_pr_url: str | None = None,
+    created_issue_url: str | None = None,
+) -> PublishDecision:
+    return PublishDecision(
+        task_title=handoff.task_title,
+        source_file=handoff.source_file,
+        eligible=eligible,
+        reason=reason,
+        branch=handoff.branch,
+        desired_head=handoff.desired_head,
+        existing_issue_url=existing_issue_url,
+        existing_pr_url=existing_pr_url,
+        created_issue_url=created_issue_url,
+    )
 
 
 def summarize_decisions(decisions: Sequence[PublishDecision]) -> dict[str, Any]:
@@ -1471,9 +1495,8 @@ def main(argv: list[str] | None = None) -> int:
         decision_handoffs = handoffs[: max(args.limit, 0)]
         decisions = [
             _local_handoff_blocker(repo_root, handoff)
-            or PublishDecision(
-                task_title=handoff.task_title,
-                source_file=handoff.source_file,
+            or _decision_for_handoff(
+                handoff,
                 eligible=False,
                 reason="github_unavailable",
             )
