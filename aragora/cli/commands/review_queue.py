@@ -1399,8 +1399,16 @@ def _repo_slug_from_pr_payload(pr: dict[str, Any], repo_override: str | None) ->
 
 def _fetch_required_check_contexts(repo_slug: str, base_ref: str) -> list[str]:
     """Best-effort branch-protection required contexts for diagnostics only."""
+    return _fetch_required_status_check_protection(repo_slug, base_ref)["contexts"]
+
+
+def _fetch_required_status_check_protection(
+    repo_slug: str,
+    base_ref: str,
+) -> dict[str, Any]:
+    """Best-effort branch-protection required status-check settings."""
     if not repo_slug or not base_ref:
-        return []
+        return {"available": False, "contexts": [], "strict": None}
     try:
         payload = _gh_json(
             [
@@ -1410,11 +1418,15 @@ def _fetch_required_check_contexts(repo_slug: str, base_ref: str) -> list[str]:
             ]
         )
     except _GhError:
-        return []
+        return {"available": False, "contexts": [], "strict": None}
     if not isinstance(payload, dict):
-        return []
+        return {"available": False, "contexts": [], "strict": None}
     contexts = payload.get("contexts") or []
-    return [str(item).strip() for item in contexts if str(item).strip()]
+    return {
+        "available": True,
+        "contexts": [str(item).strip() for item in contexts if str(item).strip()],
+        "strict": bool(payload.get("strict")),
+    }
 
 
 def _fetch_direct_commit_check_runs(repo_slug: str, head_sha: str) -> list[dict[str, Any]]:
@@ -1505,7 +1517,9 @@ def _build_check_surface_diagnostics(
     head_sha = str(pr.get("headRefOid") or "").strip()
     repo_slug = _repo_slug_from_pr_payload(pr, repo_override)
     base_ref = str(pr.get("baseRefName") or "main").strip()
-    required_contexts = _fetch_required_check_contexts(repo_slug, base_ref)
+    required_status_checks = _fetch_required_status_check_protection(repo_slug, base_ref)
+    required_contexts = required_status_checks["contexts"]
+    strict_required = bool(required_status_checks["strict"])
     direct_runs = _fetch_direct_commit_check_runs(repo_slug, head_sha)
     latest_direct_runs = _latest_direct_check_runs_by_name(direct_runs)
     direct_names = set(latest_direct_runs)
@@ -1526,12 +1540,18 @@ def _build_check_surface_diagnostics(
         for context in required_contexts
         if context in direct_names and context not in successful_names
     ]
-    required_contexts_satisfied = bool(required_contexts) and not (
-        missing_required_contexts or non_success_required_contexts
+    required_contexts_satisfied = (
+        bool(required_contexts)
+        and not strict_required
+        and not (missing_required_contexts or non_success_required_contexts)
     )
     direct_summary = {
         "available": bool(direct_runs),
         "total": len(direct_runs),
+        "branch_protection_required_status_checks_available": bool(
+            required_status_checks["available"]
+        ),
+        "branch_protection_strict": strict_required,
         "required_contexts": required_contexts,
         "successful_required_contexts": successful_required_contexts,
         "missing_required_contexts": missing_required_contexts,
@@ -1552,16 +1572,29 @@ def _build_check_surface_diagnostics(
             "exact-head branch-protection required check-runs."
         )
     elif direct_runs:
-        diagnostics["diagnosis"] = (
-            "GitHub PR statusCheckRollup is empty while direct commit check-runs "
-            "exist at the head; merge-packet fails closed because direct checks "
-            "do not satisfy all branch-protection required contexts."
-        )
-        diagnostics["remediation_prompt"] = (
-            "Authorize only a PR-state/check-only nudge to refresh GitHub's PR "
-            "check rollup, or keep the PR blocked and open a bounded CI/tooling "
-            "repair lane. Do not merge from direct commit check-runs alone."
-        )
+        if strict_required:
+            diagnostics["diagnosis"] = (
+                "GitHub PR statusCheckRollup is empty while exact-head direct commit "
+                "check-runs exist, but branch protection requires strict base freshness; "
+                "merge-packet fails closed because direct commit check-runs alone do "
+                "not prove the PR is up to date with base."
+            )
+            diagnostics["remediation_prompt"] = (
+                "Refresh the PR-facing check rollup after the branch is current with "
+                "base, or keep the PR blocked. Do not settle from direct commit "
+                "check-runs alone when branch protection is strict."
+            )
+        else:
+            diagnostics["diagnosis"] = (
+                "GitHub PR statusCheckRollup is empty while direct commit check-runs "
+                "exist at the head; merge-packet fails closed because direct checks "
+                "do not satisfy all branch-protection required contexts."
+            )
+            diagnostics["remediation_prompt"] = (
+                "Authorize only a PR-state/check-only nudge to refresh GitHub's PR "
+                "check rollup, or keep the PR blocked and open a bounded CI/tooling "
+                "repair lane. Do not merge from direct commit check-runs alone."
+            )
     else:
         diagnostics["diagnosis"] = (
             "GitHub PR statusCheckRollup is empty and no direct commit check-runs were found."

@@ -1787,6 +1787,46 @@ class TestBuildQueueAndPacket:
             "checks are unavailable" in reason for reason in packet.model_review_quorum["reasons"]
         )
 
+    def test_missing_check_rollup_fails_closed_when_branch_protection_is_strict(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7465, files=["docs/status/open.md"])
+        pr_payload["statusCheckRollup"] = []
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:1] == ["api"] and "required_status_checks" in args[1]:
+                return {"contexts": ["lint", "typecheck"], "strict": True}
+            if args[:1] == ["api"] and "check-runs" in args[1]:
+                return {
+                    "check_runs": [
+                        {"name": "lint", "status": "completed", "conclusion": "success"},
+                        {"name": "typecheck", "status": "completed", "conclusion": "success"},
+                    ]
+                }
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        direct = packet.check_surfaces["direct_commit_check_runs"]
+
+        assert packet.checks_summary == "no checks reported"
+        assert direct["branch_protection_strict"] is True
+        assert direct["successful_required_contexts"] == ["lint", "typecheck"]
+        assert direct["required_contexts_satisfied"] is False
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert "strict base freshness" in packet.check_surfaces["diagnosis"]
+
     def test_missing_check_rollup_fails_closed_when_required_context_missing(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
