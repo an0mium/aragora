@@ -53,6 +53,52 @@ def test_build_status_uses_local_queue_when_github_unavailable(
     assert payload["local_queue"]["unreceipted_outbox_count"] == 1
 
 
+def test_build_status_keeps_local_queue_when_remote_query_fails(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "open-pr-example.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(repo_root),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("HTTP 504")),
+    )
+
+    payload = mod.build_status(
+        repo_root=tmp_path,
+        github_repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_prs=12,
+        max_open_issues=16,
+    )
+
+    assert payload["github_health"]["ready"] is True
+    assert payload["github_queue"] == {
+        "available": False,
+        "reason": "remote_query_failed",
+        "error": "HTTP 504",
+    }
+    assert payload["local_queue"]["outbox_count"] == 1
+    assert payload["local_queue"]["unreceipted_outbox_count"] == 1
+
+
 def test_local_queue_state_matches_receipts_by_idempotency_key(tmp_path: Path) -> None:
     outbox = tmp_path / ".aragora" / "automation-outbox"
     receipts = tmp_path / ".aragora" / "automation-receipts"
