@@ -34,6 +34,39 @@ def _local_env_value(name: str) -> str:
     return os.environ.get(name, "")
 
 
+# Provider keys that, if resolvable by any path (env, .env, or AWS Secrets
+# Manager), satisfy the "at least one API key" requirement.
+_PROVIDER_SECRET_NAMES = (
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "MISTRAL_API_KEY",
+    "GEMINI_API_KEY",
+    "XAI_API_KEY",
+)
+
+
+def _aws_provider_key_present() -> bool:
+    """Return True if any provider key is resolvable via AWS Secrets Manager.
+
+    Presence-only probe: it inspects the secrets layer's *source* classification
+    and never reads or logs a secret value. It never raises -- if boto3/AWS is
+    unavailable or the probe fails for any reason, it reports ``False`` so the
+    caller falls back to env/.env detection. The canonical local posture keeps
+    provider keys in AWS Secrets Manager (not os.environ or .env), so this
+    prevents non-interactive setup from failing when keys live only in AWS.
+    """
+    for name in _PROVIDER_SECRET_NAMES:
+        try:
+            if get_secret_presence(name).source == "aws":
+                return True
+        except Exception:  # noqa: BLE001 - presence probe must never fail setup
+            # AWS/boto3 unavailable or probe error: treat as "not present here"
+            # and let env/.env detection decide.
+            continue
+    return False
+
+
 def _prompt(message: str, default: str | None = None, secret: bool = False) -> str:
     """Prompt user for input with optional default and secret mode."""
     suffix = f" [{default}]" if default else ""
@@ -501,7 +534,12 @@ def run_setup(
             "xai_key",
         )
     )
-    if not has_any_key:
+    # A provider key may also be resolvable via AWS Secrets Manager (the
+    # canonical local posture), in which case it is NOT written to .env but
+    # still counts as "configured" so setup must not fail.
+    key_resolvable = has_any_key or _aws_provider_key_present()
+
+    if not key_resolvable:
         print("\n  Warning: No API keys configured. Aragora requires at least one.")
         if non_interactive:
             # Non-interactive setup cannot prompt for a key. Signal failure
@@ -509,7 +547,8 @@ def run_setup(
             # code (which would be a silent failure).
             raise SetupError(
                 "No API key configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY in "
-                "the environment before running non-interactive setup."
+                "the environment (or AWS Secrets Manager) before running "
+                "non-interactive setup."
             )
         if _confirm("  Continue anyway?", default=False):
             pass

@@ -534,6 +534,49 @@ class TestRunSetupNonInteractive:
         # Must NOT silently write a keyless .env.
         assert not (tmp_path / ".env").exists()
 
+    def test_aws_secrets_posture_satisfies_key_requirement(self, tmp_path, monkeypatch):
+        """No env keys but AWS Secrets Manager posture available -> must NOT raise.
+
+        Regression guard: the canonical local posture keeps provider keys in AWS
+        Secrets Manager (not os.environ or .env). Non-interactive setup must
+        treat such a key as resolvable and complete, without writing the
+        AWS-resolved secret value into .env.
+        """
+        for var in (
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "OPENROUTER_API_KEY",
+            "MISTRAL_API_KEY",
+            "GEMINI_API_KEY",
+            "XAI_API_KEY",
+        ):
+            monkeypatch.delenv(var, raising=False)
+
+        # Presence-only mock: ANTHROPIC_API_KEY is resolvable via AWS, the rest
+        # are absent. Mirrors the doctor secrets-posture probe.
+        def fake_presence(name):
+            source = "aws" if name == "ANTHROPIC_API_KEY" else "missing"
+            return MagicMock(source=source)
+
+        monkeypatch.setattr("aragora.cli.setup.get_secret_presence", fake_presence)
+
+        # Should complete without raising SetupError.
+        config = run_setup(
+            output_path=str(tmp_path),
+            minimal=True,
+            skip_test=True,
+            non_interactive=True,
+        )
+        assert isinstance(config, dict)
+
+        # .env is written but must NOT contain a real AWS-resolved secret value.
+        env_file = tmp_path / ".env"
+        assert env_file.exists()
+        content = env_file.read_text()
+        # The AWS-managed key is referenced only as a commented placeholder.
+        assert "ANTHROPIC_API_KEY=your-key-here" in content
+        assert "ANTHROPIC_API_KEY=sk-" not in content
+
 
 # ===========================================================================
 # Tests: cmd_setup
