@@ -1764,9 +1764,9 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         emit(f"  Criteria:   {len(criteria)}")
         emit(f"  Risks:      {len(risks)}")
         emit(f"  Pipeline:   {spec_payload.get('pipeline', 'unknown')}")
-        fallback_reason = str(spec_payload.get("fallback_reason", "") or "").strip()
-        if fallback_reason:
-            emit(f"  Note:       Starter spec fallback ({fallback_reason})")
+        spec_fallback_reason = str(spec_payload.get("fallback_reason", "") or "").strip()
+        if spec_fallback_reason:
+            emit(f"  Note:       Starter spec fallback ({spec_fallback_reason})")
         emit(f"  Elapsed:    {elapsed:.1f}s")
         if run_id:
             emit(f"  Run:        {run_id}")
