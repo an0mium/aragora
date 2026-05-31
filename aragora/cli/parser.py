@@ -221,6 +221,7 @@ Examples:
     _add_coherence_scan_parser(subparsers)  # DIC-26 / #6220
     _add_truth_map_parser(subparsers)  # DIC-18 / #6028
     _add_decay_monitor_parser(subparsers)  # DIC-20 / #6031
+    _add_epistemic_check_parser(subparsers)  # DIC-14 / #6024
 
     # DIC-27: operator crux arbitration surface
     _add_crux_arbitrate_parser(subparsers)
@@ -875,6 +876,51 @@ def _add_crux_garden_parser(subparsers) -> None:
     )
     p.add_argument("--json", action="store_true", help="Emit report as JSON.")
     p.set_defaults(func=_lazy("aragora.cli.commands.dic28_crux_garden", "cmd_crux_garden"))
+
+
+def _add_epistemic_check_parser(subparsers) -> None:
+    """Add the 'epistemic-check' subcommand for DIC-14 claim verification."""
+    p = subparsers.add_parser(
+        "epistemic-check",
+        help="DIC-14: verify executable claim manifests and emit a status report",
+        description=(
+            "Load *.yaml claim manifests from docs/status/claims/ (or a path you\n"
+            "supply) and verify each claim via the DIC-14 ClaimVerifier.  Outputs\n"
+            "a human-readable table or JSON.  No queue mutation, no issue creation.\n\n"
+            "Requires ARAGORA_EPISTEMIC_CLAIMS_ENABLED=1 to execute; otherwise exits\n"
+            "0 with an informational message."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        metavar="PATH",
+        help=(
+            "YAML manifest file or directory of manifests. "
+            "Defaults to docs/status/claims/"
+        ),
+    )
+    p.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Emit machine-readable JSON (schema_version, results, summary)",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Skip command execution; return UNSUPPORTED for command-kind claims",
+    )
+    p.add_argument(
+        "--repo-root",
+        default=None,
+        metavar="DIR",
+        help="Repository root for resolving relative evidence paths (defaults to cwd)",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.epistemic_check", "cmd_epistemic_check"))
 
 
 def _add_ask_parser(subparsers) -> None:
