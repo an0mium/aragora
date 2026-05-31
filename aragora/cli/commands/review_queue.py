@@ -1366,6 +1366,70 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     return ("no checks", False, False)
 
 
+def _fetch_required_pr_checks(pr_number: int, repo_override: str | None) -> list[dict[str, Any]]:
+    """Fetch GitHub's branch-protection-required PR checks."""
+    args = [
+        "pr",
+        "checks",
+        str(pr_number),
+        "--required",
+        "--json",
+        "name,state,bucket,workflow,link,startedAt,completedAt",
+    ]
+    if repo_override:
+        args.extend(["--repo", repo_override])
+    try:
+        payload = _gh_json(args)
+    except _GhError:
+        return []
+    if not isinstance(payload, list):
+        return []
+    return [item for item in payload if isinstance(item, dict)]
+
+
+def _required_pr_check_bucket(check: dict[str, Any]) -> str:
+    bucket = str(check.get("bucket") or "").strip().lower()
+    if bucket:
+        return bucket
+    state = str(check.get("state") or "").strip().upper()
+    if state in {"SUCCESS", "SUCCESSFUL", "COMPLETED"}:
+        return "pass"
+    if state in {"SKIPPED", "NEUTRAL"}:
+        return "skipping"
+    if state in {"FAILURE", "FAILED", "ERROR", "TIMED_OUT", "ACTION_REQUIRED"}:
+        return "fail"
+    if state in {"CANCELLED", "CANCELED"}:
+        return "cancel"
+    if state in {"PENDING", "QUEUED", "IN_PROGRESS", "EXPECTED", ""}:
+        return "pending"
+    return state.lower()
+
+
+def _summarize_required_pr_checks(checks: list[dict[str, Any]]) -> tuple[str, bool, bool]:
+    """Return ``(summary, has_failures, has_pending)`` for required PR checks."""
+    success = failure = pending = 0
+    for check in checks:
+        if _is_current_merge_quorum_self_check(check):
+            continue
+        bucket = _required_pr_check_bucket(check)
+        if bucket in {"pass", "skipping"}:
+            success += 1
+        elif bucket in {"fail", "cancel"}:
+            failure += 1
+        elif bucket == "pending":
+            pending += 1
+        else:
+            pending += 1
+    total = success + failure + pending
+    if failure > 0:
+        return (f"{failure} failing / {total} required", True, pending > 0)
+    if pending > 0:
+        return (f"{pending} pending / {total} required", False, True)
+    if success > 0:
+        return (f"{success}/{total} required green", False, False)
+    return ("no required checks", False, False)
+
+
 def _check_rollup_unavailable(pr: dict[str, Any]) -> bool:
     """Return true when an open PR has no GitHub PR-facing check rollup."""
     pr_state = str(pr.get("state") or "").strip().upper()
@@ -1832,6 +1896,48 @@ def _build_packet(
         checks_summary=checks_summary,
         checks_unavailable=checks_unavailable,
     )
+    required_pr_check_gate_satisfied = False
+    if not checks_unavailable and (has_failures or has_pending):
+        required_pr_checks = _fetch_required_pr_checks(number, repo_override)
+        if required_pr_checks:
+            required_summary, required_has_failures, required_has_pending = (
+                _summarize_required_pr_checks(required_pr_checks)
+            )
+            check_surfaces["required_pr_checks"] = {
+                "available": True,
+                "total": len(required_pr_checks),
+                "summary": required_summary,
+                "failing_or_cancelled": [
+                    str(check.get("name") or "").strip()
+                    for check in required_pr_checks
+                    if _required_pr_check_bucket(check) in {"fail", "cancel"}
+                ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+                "pending": [
+                    str(check.get("name") or "").strip()
+                    for check in required_pr_checks
+                    if _required_pr_check_bucket(check) == "pending"
+                    and not _is_current_merge_quorum_self_check(check)
+                ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+            }
+            if not required_has_failures and not required_has_pending:
+                required_pr_check_gate_satisfied = True
+                checks_summary = f"{required_summary} (required PR checks)"
+                has_pending = False
+                has_failures = False
+                checks_unavailable = False
+                check_surfaces["effective_gate"] = {
+                    "source": "required_pr_checks",
+                    "summary": checks_summary,
+                }
+                check_surfaces["diagnosis"] = (
+                    "The PR check rollup includes non-required non-green checks, "
+                    "but GitHub reports every branch-protection required check green; "
+                    "merge-packet uses the required PR checks gate."
+                )
+                check_surfaces["remediation_prompt"] = (
+                    "Continue gating on branch-protection required checks; keep "
+                    "non-required shadow/advisory check failures visible but non-blocking."
+                )
     direct_check_fallback_satisfied = (
         checks_unavailable and _direct_required_check_fallback_satisfied(check_surfaces)
     )
@@ -1897,6 +2003,12 @@ def _build_packet(
         risk_flags.append("check rollup unavailable")
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
+    required_pr_checks = check_surfaces.get("required_pr_checks") or {}
+    if required_pr_check_gate_satisfied and required_pr_checks:
+        risk_flags.append(
+            "non-required PR checks are non-green; "
+            "effective gate uses branch-protection required checks"
+        )
     direct_summary = check_surfaces.get("direct_commit_check_runs") or {}
     if direct_check_fallback_satisfied and direct_summary.get("non_green_count", 0):
         risk_flags.append(
@@ -1932,7 +2044,11 @@ def _build_packet(
         recommendation_reason = "checks still pending — wait for completion"
     else:
         recommendation = "approve_candidate"
-        if direct_check_fallback_satisfied and direct_summary.get("non_green_count", 0):
+        if required_pr_check_gate_satisfied:
+            recommendation_reason = (
+                "branch-protection required checks green; non-required PR checks are non-green"
+            )
+        elif direct_check_fallback_satisfied and direct_summary.get("non_green_count", 0):
             recommendation_reason = (
                 "branch-protection required contexts green via direct check-run fallback; "
                 "non-required direct check-runs are non-green"
@@ -3332,11 +3448,18 @@ def _render_packet(packet: ReviewPacket) -> None:
     if packet.check_surfaces:
         rollup = packet.check_surfaces.get("pr_rollup") or {}
         direct = packet.check_surfaces.get("direct_commit_check_runs") or {}
+        required = packet.check_surfaces.get("required_pr_checks") or {}
         print(
             "check surfaces:  "
             f"pr_rollup_available={str(bool(rollup.get('available'))).lower()} "
             f"pr_rollup_count={rollup.get('count')}"
         )
+        if required:
+            print(
+                "                 "
+                f"required_pr_checks={required.get('total', 0)} "
+                f"summary={required.get('summary')}"
+            )
         if direct:
             print(
                 "                 "

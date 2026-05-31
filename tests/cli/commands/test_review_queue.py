@@ -1805,6 +1805,69 @@ class TestBuildQueueAndPacket:
         assert "diagnosis:" in rendered_packet
         assert "remediation:" in rendered_packet
 
+    def test_non_required_rollup_failures_use_required_pr_checks_gate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7465,
+            files=["docs/status/open.md"],
+            checks=[
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {
+                    "name": "Mac TypeScript SDK Shadow",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                },
+                {"name": "Docs Consistency", "status": "COMPLETED", "conclusion": "FAILURE"},
+            ],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "lint",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                    {
+                        "name": "typecheck",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+
+        assert packet.checks_summary == "2/2 required green (required PR checks)"
+        assert packet.check_surfaces["effective_gate"] == {
+            "source": "required_pr_checks",
+            "summary": "2/2 required green (required PR checks)",
+        }
+        assert (
+            "non-required PR checks are non-green; "
+            "effective gate uses branch-protection required checks"
+        ) in packet.risk_flags
+        assert "non-required PR checks are non-green" in packet.machine_recommendation_reason
+        assert packet.machine_recommendation == "approve_candidate"
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+        assert packet.model_review_quorum["status"] == "satisfied"
+
     def test_missing_check_rollup_uses_modern_checks_field_and_skipped_neutral(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
