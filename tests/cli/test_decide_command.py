@@ -241,6 +241,86 @@ async def test_run_decide_forwards_wrapped_spec_artifacts(tmp_path) -> None:
     assert result["run_id"] == "run-cli-wrapped"
 
 
+@pytest.mark.parametrize("mode", ["redteam", "deep_audit", "prober"])
+@pytest.mark.asyncio
+async def test_run_decide_advertised_advanced_mode_does_not_crash(tmp_path, mode, capsys) -> None:
+    """Advertised --mode advanced modes (redteam/deep_audit/prober) are not in the
+    operational ModeRegistry, but the parser offers them as valid choices. They must
+    degrade gracefully with a clean notice rather than raising a raw KeyError traceback.
+    """
+    from aragora.cli.commands.decide import run_decide
+
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text('{"specification":{"title":"Spec","objective":"test"}}')
+
+    plan = MagicMock()
+    plan.id = "plan-mode"
+    plan.status = SimpleNamespace(value="approved")
+    plan.risk_register = None
+    plan.requires_human_approval = False
+
+    with (
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_specification",
+            return_value=plan,
+        ),
+        patch(
+            "aragora.cli.commands.decide._seed_cli_backbone_run",
+            return_value="run-mode",
+        ),
+    ):
+        # Must not raise KeyError for an advertised-but-unregistered mode.
+        result = await run_decide(
+            task="Ship the feature",
+            agents_str="claude,gemini",
+            dry_run=True,
+            spec_file=str(spec_path),
+            mode=mode,
+            verbose=True,
+        )
+
+    assert result["plan"] is plan
+    # A clean, human-readable notice is printed instead of a traceback.
+    out = capsys.readouterr().out
+    assert mode in out
+
+
+@pytest.mark.asyncio
+async def test_run_decide_unknown_mode_does_not_crash(tmp_path, capsys) -> None:
+    """A genuinely unknown mode should still degrade gracefully (no raw traceback)."""
+    from aragora.cli.commands.decide import run_decide
+
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text('{"specification":{"title":"Spec","objective":"test"}}')
+
+    plan = MagicMock()
+    plan.id = "plan-unknown-mode"
+    plan.status = SimpleNamespace(value="approved")
+    plan.risk_register = None
+    plan.requires_human_approval = False
+
+    with (
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_specification",
+            return_value=plan,
+        ),
+        patch(
+            "aragora.cli.commands.decide._seed_cli_backbone_run",
+            return_value="run-unknown-mode",
+        ),
+    ):
+        result = await run_decide(
+            task="Ship the feature",
+            agents_str="claude,gemini",
+            dry_run=True,
+            spec_file=str(spec_path),
+            mode="totally_unknown_mode",
+            verbose=True,
+        )
+
+    assert result["plan"] is plan
+
+
 @pytest.mark.asyncio
 async def test_run_decide_executes_via_backbone_helper(tmp_path) -> None:
     """run_decide should execute plans through the backbone helper and surface IDs."""
