@@ -124,7 +124,18 @@ def _owner_attribution(cwd: Path, *, branch: str, pr: int | None) -> dict[str, A
 
 
 def _process_attribution(patterns: list[str]) -> dict[str, Any]:
-    result = _run(["ps", "-axo", "pid,ppid,etime,state,time,%cpu,command"], cwd=Path.cwd())
+    command = ["ps", "-axo", "pid,ppid,etime,state,time,%cpu,command"]
+    try:
+        result = _run(command, cwd=Path.cwd())
+    except OSError as exc:
+        return {
+            "available": False,
+            "reason": f"{type(exc).__name__}: {exc}",
+            "patterns": patterns,
+            "matches": [],
+            "command": command,
+            "returncode": None,
+        }
     matches: list[str] = []
     current_pid = os.getpid()
     parent_pid = os.getppid()
@@ -139,6 +150,7 @@ def _process_attribution(patterns: list[str]) -> dict[str, Any]:
         if any(pattern in stripped for pattern in patterns):
             matches.append(stripped)
     return {
+        "available": True,
         "patterns": patterns,
         "matches": matches,
         "command": result.command,

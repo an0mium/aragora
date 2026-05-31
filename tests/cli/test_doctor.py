@@ -209,6 +209,173 @@ class TestCheckApiKeys:
         assert xai == [("XAI_API_KEY/GROK_API_KEY", "configured", True)]
         assert llm_provider == [("LLM Provider", "configured: gemini, xai", True)]
 
+    def test_aws_secrets_posture_recognized_when_no_env_keys(self, monkeypatch):
+        """Canonical local posture (keys in AWS Secrets Manager, not env) must not FAIL.
+
+        Per project policy, provider keys live in AWS Secrets Manager and are
+        loaded via aragora.config.secrets. When the AWS posture is configured and
+        a provider key is resolvable there, doctor must report OK/INFO, not FAIL.
+        """
+        _clear_provider_env(monkeypatch)
+
+        def fake_posture():
+            return SimpleNamespace(
+                available=True,
+                providers=("anthropic",),
+                detail="via AWS Secrets Manager",
+                honored_by_runtime=True,
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.doctor._aws_secrets_provider_posture",
+            fake_posture,
+        )
+
+        result = check_api_keys()
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert len(llm_provider) == 1
+        _name, status, ok = llm_provider[0]
+        # Must NOT be a hard failure.
+        assert ok is not False
+        assert "NO API KEY SET" not in status
+        assert "AWS Secrets Manager" in status
+
+    def test_no_env_keys_and_no_aws_posture_still_fails(self, monkeypatch):
+        """A genuinely keyless machine (no env keys, no AWS posture) must still FAIL."""
+        _clear_provider_env(monkeypatch)
+
+        def fake_posture():
+            return SimpleNamespace(
+                available=False, providers=(), detail="", honored_by_runtime=False
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.doctor._aws_secrets_provider_posture",
+            fake_posture,
+        )
+
+        result = check_api_keys()
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert llm_provider
+        assert llm_provider[0][2] is False
+        assert "NO API KEY SET" in llm_provider[0][1]
+
+    def test_aws_posture_present_but_runtime_disabled_warns_not_ok(self, monkeypatch):
+        """Keys in AWS but use_aws disabled => WARN (None), not a green OK.
+
+        Guards the P1 finding: doctor must not green-light a posture that
+        hydrate_env_from_secrets will not actually honor.
+        """
+        _clear_provider_env(monkeypatch)
+
+        def fake_posture():
+            return SimpleNamespace(
+                available=True,
+                providers=("anthropic",),
+                detail="via AWS Secrets Manager: anthropic",
+                honored_by_runtime=False,
+            )
+
+        monkeypatch.setattr("aragora.cli.doctor._aws_secrets_provider_posture", fake_posture)
+
+        result = check_api_keys()
+        _name, status, ok = [i for i in result if i[0] == "LLM Provider"][0]
+        assert ok is None  # optional/warn, not True and not False
+        assert "not enabled for this runtime" in status
+
+    def _patch_secrets(self, monkeypatch, *, base, source_for):
+        """Patch the secrets layer used by _aws_secrets_provider_posture."""
+        manager = MagicMock()
+        manager.presence.side_effect = lambda env_var: SimpleNamespace(source=source_for(env_var))
+        secrets_mod = MagicMock()
+        secrets_mod.SecretsConfig.from_env.return_value = base
+        secrets_mod.SecretsConfig.side_effect = lambda **kw: SimpleNamespace(**kw)
+        secrets_mod.SecretManager.return_value = manager
+        monkeypatch.setitem(sys.modules, "aragora.config.secrets", secrets_mod)
+        return secrets_mod
+
+    def _base(self, **over):
+        defaults = dict(
+            aws_region="us-east-1",
+            aws_regions=["us-east-1"],
+            secret_name="aragora/production",
+            use_aws=True,
+            cache_ttl_seconds=60,
+            aws_connect_timeout_seconds=2.0,
+            aws_read_timeout_seconds=2.0,
+            aws_max_attempts=1,
+        )
+        defaults.update(over)
+        return SimpleNamespace(**defaults)
+
+    def test_probe_honored_when_runtime_use_aws_true(self, monkeypatch):
+        from aragora.cli.doctor import _aws_secrets_provider_posture
+
+        self._patch_secrets(monkeypatch, base=self._base(use_aws=True), source_for=lambda e: "aws")
+        posture = _aws_secrets_provider_posture()
+        assert posture.available is True
+        assert posture.honored_by_runtime is True
+
+    def test_probe_available_but_not_honored_when_use_aws_false(self, monkeypatch):
+        from aragora.cli.doctor import _aws_secrets_provider_posture
+
+        monkeypatch.setenv("AWS_REGION", "us-east-1")
+        self._patch_secrets(monkeypatch, base=self._base(use_aws=False), source_for=lambda e: "aws")
+        posture = _aws_secrets_provider_posture()
+        assert posture.available is True
+        assert posture.honored_by_runtime is False
+
+    def test_probe_skips_default_local_without_explicit_aws_signal(self, monkeypatch):
+        from aragora.cli.doctor import _aws_secrets_provider_posture
+
+        for env_var in (
+            "ARAGORA_USE_SECRETS_MANAGER",
+            "ARAGORA_SECRET_NAME",
+            "ARAGORA_SECRET_REGIONS",
+            "AWS_REGION",
+            "AWS_DEFAULT_REGION",
+            "AWS_PROFILE",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_WEB_IDENTITY_TOKEN_FILE",
+            "AWS_ROLE_ARN",
+            "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+            "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+            "AWS_EXECUTION_ENV",
+            "AWS_LAMBDA_FUNCTION_NAME",
+        ):
+            monkeypatch.delenv(env_var, raising=False)
+
+        secrets_mod = self._patch_secrets(
+            monkeypatch,
+            base=self._base(use_aws=False),
+            source_for=lambda e: "aws",
+        )
+
+        posture = _aws_secrets_provider_posture()
+
+        assert posture.available is False
+        secrets_mod.SecretManager.assert_not_called()
+
+    def test_probe_skips_when_no_region_configured(self, monkeypatch):
+        from aragora.cli.doctor import _aws_secrets_provider_posture
+
+        self._patch_secrets(
+            monkeypatch,
+            base=self._base(aws_region="", aws_regions=[], secret_name=""),
+            source_for=lambda e: "aws",
+        )
+        posture = _aws_secrets_provider_posture()
+        assert posture.available is False
+
+    def test_probe_unavailable_when_no_provider_present(self, monkeypatch):
+        from aragora.cli.doctor import _aws_secrets_provider_posture
+
+        self._patch_secrets(monkeypatch, base=self._base(), source_for=lambda e: "env")
+        posture = _aws_secrets_provider_posture()
+        assert posture.available is False
+
     def test_live_validation_marks_rejected_provider_unready(self, monkeypatch):
         """doctor --validate should not treat an expired configured key as ready."""
         _clear_provider_env(monkeypatch)

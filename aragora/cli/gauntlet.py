@@ -171,7 +171,12 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         print(f"  - The file exists: ls -la {input_path.parent}")
         print("\nUsage:")
         print("  aragora gauntlet path/to/spec.md --input-type spec")
-        return
+        # Fatal: cannot run the gauntlet without an input file. Exit non-zero
+        # so callers/CI gates (e.g. `aragora gauntlet ... && deploy`) can tell
+        # "gauntlet never ran" apart from "gauntlet passed". Code 1 is distinct
+        # from the verdict-based exits (rejected=1 is a *ran* outcome, but a
+        # fatal pre-run failure is unambiguously not a pass either way).
+        sys.exit(1)
 
     input_content = input_path.read_text()
 
@@ -333,7 +338,10 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         print("  1. Set the required API key: export ANTHROPIC_API_KEY='your-key'")
         print("  2. Run 'aragora agents' to see available agents")
         print("  3. Run 'aragora doctor' to diagnose configuration issues")
-        return
+        # Fatal: the gauntlet cannot run at all without agents. Exit non-zero
+        # so callers/CI gates can distinguish "gauntlet never ran" from
+        # "gauntlet passed" (a bare return here yielded exit 0 — a false pass).
+        sys.exit(1)
 
     print(f"Agents: {', '.join(a.name for a in agents)}")
 

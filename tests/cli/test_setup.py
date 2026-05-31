@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aragora.cli.setup import (
+    SetupError,
     _confirm,
     _generate_env_content,
     _print_header,
@@ -454,6 +455,130 @@ class TestRunSetup:
 
 
 # ===========================================================================
+# Tests: run_setup non-interactive env-key adoption (regression: silent drop)
+# ===========================================================================
+
+
+class TestRunSetupNonInteractive:
+    """Non-interactive setup must adopt API keys already present in the env.
+
+    Regression for the silent-failure defect: ``aragora setup --yes`` discarded
+    an API key already present in ``os.environ`` and aborted without writing a
+    ``.env`` file, while still exiting 0.
+    """
+
+    def test_adopts_existing_anthropic_key_and_writes_env(self, tmp_path, monkeypatch):
+        """Non-interactive run adopts ANTHROPIC_API_KEY from env and writes .env."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-existing12345")
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+        config = run_setup(
+            output_path=str(tmp_path),
+            minimal=True,
+            skip_test=True,
+            non_interactive=True,
+        )
+
+        # Returned config must carry the adopted key, not an empty string.
+        assert config.get("anthropic_key") == "sk-ant-existing12345"
+
+        # .env must be written and contain the key.
+        env_file = tmp_path / ".env"
+        assert env_file.exists()
+        content = env_file.read_text()
+        assert "ANTHROPIC_API_KEY=sk-ant-existing12345" in content
+
+    def test_adopts_existing_openai_key_and_writes_env(self, tmp_path, monkeypatch):
+        """Non-interactive run adopts OPENAI_API_KEY from env and writes .env."""
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-existing999")
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+        config = run_setup(
+            output_path=str(tmp_path),
+            minimal=True,
+            skip_test=True,
+            non_interactive=True,
+        )
+
+        assert config.get("openai_key") == "sk-openai-existing999"
+        env_file = tmp_path / ".env"
+        assert env_file.exists()
+        assert "OPENAI_API_KEY=sk-openai-existing999" in env_file.read_text()
+
+    def test_no_keys_signals_failure_not_silent_success(self, tmp_path, monkeypatch):
+        """Non-interactive run with NO keys anywhere must signal failure clearly."""
+        for var in (
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "OPENROUTER_API_KEY",
+            "MISTRAL_API_KEY",
+            "GEMINI_API_KEY",
+            "XAI_API_KEY",
+        ):
+            monkeypatch.delenv(var, raising=False)
+
+        # Avoid AWS Secrets Manager being treated as a key source in CI/dev.
+        monkeypatch.setattr(
+            "aragora.cli.setup.get_secret_presence",
+            lambda name: MagicMock(source="env"),
+        )
+
+        with pytest.raises(SetupError):
+            run_setup(
+                output_path=str(tmp_path),
+                minimal=True,
+                skip_test=True,
+                non_interactive=True,
+            )
+
+        # Must NOT silently write a keyless .env.
+        assert not (tmp_path / ".env").exists()
+
+    def test_aws_secrets_posture_satisfies_key_requirement(self, tmp_path, monkeypatch):
+        """No env keys but AWS Secrets Manager posture available -> must NOT raise.
+
+        Regression guard: the canonical local posture keeps provider keys in AWS
+        Secrets Manager (not os.environ or .env). Non-interactive setup must
+        treat such a key as resolvable and complete, without writing the
+        AWS-resolved secret value into .env.
+        """
+        for var in (
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "OPENROUTER_API_KEY",
+            "MISTRAL_API_KEY",
+            "GEMINI_API_KEY",
+            "XAI_API_KEY",
+        ):
+            monkeypatch.delenv(var, raising=False)
+
+        # Presence-only mock: ANTHROPIC_API_KEY is resolvable via AWS, the rest
+        # are absent. Mirrors the doctor secrets-posture probe.
+        def fake_presence(name):
+            source = "aws" if name == "ANTHROPIC_API_KEY" else "missing"
+            return MagicMock(source=source)
+
+        monkeypatch.setattr("aragora.cli.setup.get_secret_presence", fake_presence)
+
+        # Should complete without raising SetupError.
+        config = run_setup(
+            output_path=str(tmp_path),
+            minimal=True,
+            skip_test=True,
+            non_interactive=True,
+        )
+        assert isinstance(config, dict)
+
+        # .env is written but must NOT contain a real AWS-resolved secret value.
+        env_file = tmp_path / ".env"
+        assert env_file.exists()
+        content = env_file.read_text()
+        # The AWS-managed key is referenced only as a commented placeholder.
+        assert "ANTHROPIC_API_KEY=your-key-here" in content
+        assert "ANTHROPIC_API_KEY=sk-" not in content
+
+
+# ===========================================================================
 # Tests: cmd_setup
 # ===========================================================================
 
@@ -479,6 +604,23 @@ class TestCmdSetup:
             skip_test=True,
             non_interactive=True,
         )
+
+    def test_cmd_setup_maps_setup_error_to_nonzero_exit(self, tmp_path):
+        """cmd_setup converts SetupError into a non-zero exit code."""
+        args = argparse.Namespace()
+        args.output = str(tmp_path)
+        args.minimal = True
+        args.skip_test = True
+        args.yes = True
+
+        with patch(
+            "aragora.cli.setup.run_setup",
+            side_effect=SetupError("no key"),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                cmd_setup(args)
+
+        assert exc_info.value.code != 0
 
     def test_cmd_setup_without_attributes(self, tmp_path, monkeypatch):
         """Test cmd_setup handles missing attributes."""

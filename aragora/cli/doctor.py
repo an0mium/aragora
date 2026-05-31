@@ -15,11 +15,132 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
-from aragora.config.provider_readiness import discover_provider_credentials
+from aragora.config.provider_readiness import (
+    PROVIDER_CREDENTIAL_SPECS,
+    discover_provider_credentials,
+)
 
 HealthCheck = tuple[str, str, bool | None]
+
+_AWS_SECRETS_PROBE_SIGNAL_ENV_VARS = (
+    "ARAGORA_SECRET_NAME",
+    "ARAGORA_SECRET_REGIONS",
+    "AWS_REGION",
+    "AWS_DEFAULT_REGION",
+    "AWS_PROFILE",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_WEB_IDENTITY_TOKEN_FILE",
+    "AWS_ROLE_ARN",
+    "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+    "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+    "AWS_EXECUTION_ENV",
+    "AWS_LAMBDA_FUNCTION_NAME",
+)
+
+
+@dataclass(frozen=True)
+class _AwsSecretsPosture:
+    """Presence-only summary of the AWS Secrets Manager provider posture.
+
+    Never carries secret values — only whether a provider credential is
+    resolvable from AWS Secrets Manager and which provider(s) are present.
+    """
+
+    available: bool
+    providers: tuple[str, ...]
+    detail: str
+    # Whether the *runtime* credential path will actually honor AWS Secrets
+    # Manager (``SecretsConfig.from_env().use_aws``). When False, the keys exist
+    # in AWS but ``hydrate_env_from_secrets`` will NOT load them for this
+    # process, so doctor must warn rather than green-light the posture.
+    honored_by_runtime: bool = False
+
+
+def _has_explicit_aws_secrets_probe_signal(
+    *, runtime_use_aws: bool, aws_region: str, aws_regions: list[str], secret_name: str
+) -> bool:
+    """Return whether doctor should spend time probing AWS Secrets Manager."""
+
+    if not aws_region and not aws_regions and not secret_name:
+        return False
+    if runtime_use_aws:
+        return True
+    return any(os.environ.get(name) for name in _AWS_SECRETS_PROBE_SIGNAL_ENV_VARS)
+
+
+def _aws_secrets_provider_posture() -> _AwsSecretsPosture:
+    """Detect whether provider keys are resolvable via AWS Secrets Manager.
+
+    Per project policy the canonical local posture keeps provider keys in AWS
+    Secrets Manager (not the process env), loaded via ``aragora.config.secrets``.
+    Local runs leave AWS opt-out by default, so ``discover_provider_credentials``
+    will not find env keys. This probe forces an AWS-backed ``SecretManager`` and
+    uses the presence-only API so no secret value is ever read or logged.
+
+    Returns an unavailable posture (never raises) when boto3 is missing, AWS is
+    unreachable, or no provider secret is present — so a genuinely keyless
+    machine still fails the doctor check.
+    """
+
+    try:
+        from aragora.config.secrets import SecretManager, SecretsConfig
+    except ImportError:
+        return _AwsSecretsPosture(False, (), "")
+
+    try:
+        base = SecretsConfig.from_env()
+    except (OSError, RuntimeError, ValueError):
+        return _AwsSecretsPosture(False, (), "")
+
+    # Does the *runtime* path honor AWS? hydrate_env_from_secrets respects the
+    # env-derived use_aws; if it's False the keys won't actually be loaded.
+    honored_by_runtime = bool(base.use_aws)
+
+    # SecretsConfig supplies default region/secret values, so post-default config
+    # fields cannot prove the user has an AWS posture. Avoid a network probe on
+    # ordinary keyless local machines unless AWS loading is active or explicit
+    # AWS/Secrets Manager environment is present.
+    if not _has_explicit_aws_secrets_probe_signal(
+        runtime_use_aws=honored_by_runtime,
+        aws_region=base.aws_region,
+        aws_regions=base.aws_regions,
+        secret_name=base.secret_name,
+    ):
+        return _AwsSecretsPosture(False, (), "")
+
+    # Force an AWS-backed lookup even in the default local opt-out posture, but
+    # keep the bounded timeouts/region set from the environment configuration.
+    config = SecretsConfig(
+        aws_region=base.aws_region,
+        aws_regions=list(base.aws_regions),
+        secret_name=base.secret_name,
+        use_aws=True,
+        cache_ttl_seconds=base.cache_ttl_seconds,
+        aws_connect_timeout_seconds=base.aws_connect_timeout_seconds,
+        aws_read_timeout_seconds=base.aws_read_timeout_seconds,
+        aws_max_attempts=base.aws_max_attempts,
+    )
+
+    try:
+        manager = SecretManager(config)
+        present: list[str] = []
+        for spec in PROVIDER_CREDENTIAL_SPECS:
+            for env_var in spec.env_vars:
+                # presence(...) returns the source only, never the secret value.
+                if manager.presence(env_var).source == "aws":
+                    present.append(spec.provider)
+                    break
+    except Exception:  # noqa: BLE001 — diagnostic probe must never crash doctor
+        return _AwsSecretsPosture(False, (), "")
+
+    if not present:
+        return _AwsSecretsPosture(False, (), "")
+
+    detail = "via AWS Secrets Manager: " + ", ".join(present)
+    return _AwsSecretsPosture(True, tuple(present), detail, honored_by_runtime)
 
 
 def check_icon(ok: bool | None) -> str:
@@ -107,10 +228,29 @@ def check_api_keys(validate_live: bool = False) -> list[HealthCheck]:
         configured = ", ".join(report.configured_providers)
         checks.append(("LLM Provider", f"configured: {configured}", True))
     else:
-        detail = "NO API KEY SET"
-        if report.discovery_errors:
-            detail += f" ({'; '.join(report.discovery_errors)})"
-        checks.append(("LLM Provider", detail, False))
+        # No provider key in env/.env. Before failing, recognize the canonical
+        # local posture where keys live in AWS Secrets Manager (loaded via
+        # aragora.config.secrets) instead of the process environment.
+        posture = _aws_secrets_provider_posture()
+        if posture.available and posture.honored_by_runtime:
+            checks.append(("LLM Provider", posture.detail, True))
+        elif posture.available:
+            # Keys exist in AWS Secrets Manager but the runtime won't load them
+            # (use_aws is disabled). Warn (optional/None) rather than green-light
+            # a posture hydrate_env_from_secrets will not actually honor.
+            checks.append(
+                (
+                    "LLM Provider",
+                    posture.detail + " — present but ARAGORA_USE_SECRETS_MANAGER "
+                    "is not enabled for this runtime; keys will not be loaded",
+                    None,
+                )
+            )
+        else:
+            detail = "NO API KEY SET"
+            if report.discovery_errors:
+                detail += f" ({'; '.join(report.discovery_errors)})"
+            checks.append(("LLM Provider", detail, False))
 
     return checks
 

@@ -34,27 +34,91 @@ repos:
         types_or: [python, pyi]
         exclude: ^sdk/python/aragora/generated_types\.py$  # Auto-generated, must stay stable
 
-  # Type checking with mypy (filtered through mypy-baseline).
-  # The repo carries ~4k pre-existing mypy errors tracked in `.mypy-baseline`.
-  # This hook runs mypy against `aragora/` and `scripts/` and fails the push
-  # only on NEW errors — existing debt is accepted. Regenerate the baseline
-  # via: `python scripts/ci/mypy_with_baseline.py --sync` (see
-  # `docs/plans/2026-04-18-mypy-debt-audit.md` for the operator workflow).
+  # Type checking with mypy on the same local planning surface as CI's REQUIRED
+  # phase-1 typecheck gate. Touched `aragora/**.py` files use CI's changed-file
+  # mypy flags; CI force-full trigger files run the same full typecheck script
+  # used by the workflow. This intentionally drops the old pre-push
+  # baseline-style cross-file scan so local pushes follow the required CI gate
+  # instead of failing on unrelated full-tree debt.
+  # CI remains authoritative because it installs the project and computes the
+  # changed-file plan from the PR/branch base; local pre-push remains a fast
+  # guardrail, not the source of truth.
+  #
+  # We intentionally do NOT run the manual `mypy_with_baseline.py` helper on
+  # pre-push. The required CI workflow uses `scripts/run_typecheck_gate.py` plus
+  # `scripts/test_tiers.sh typecheck`; the baseline helper is available only for
+  # explicit local baseline filtering or regeneration.
+  #
+  # This hook runs in an isolated `language: python` env, so pre-commit installs
+  # mypy and the same type-stub packages as CI — the gate does not depend on the
+  # developer's active environment having mypy (no "No module named mypy"
+  # surprises). The hook pins mypy to Aragora's current known-good local version
+  # so pre-commit env rebuilds are deterministic; CI remains authoritative.
+  #
+  # Run the full baseline check manually when you want it:
+  #   python scripts/ci/mypy_with_baseline.py        # report NEW errors only
+  #   python scripts/ci/mypy_with_baseline.py --sync  # regenerate .mypy-baseline
   - repo: local
     hooks:
-      - id: mypy-baseline
-        name: mypy (baseline-filtered)
-        entry: python scripts/ci/mypy_with_baseline.py
+      - id: typecheck-changed
+        name: mypy (changed aragora files or full CI trigger)
+        entry: >-
+          bash -c 'set -eo pipefail;
+          targets_file="$(mktemp)";
+          plan_file="$(mktemp)";
+          trap "rm -f \"$targets_file\" \"$plan_file\"" EXIT;
+          plan_files=();
+          for path in "$@"; do
+            plan_files+=("$path");
+          done;
+          if git rev-parse --verify origin/main >/dev/null 2>&1; then
+            while IFS= read -r deleted_path; do
+              case "$deleted_path" in
+                aragora/*.py) plan_files+=("$deleted_path") ;;
+              esac;
+            done < <(git diff --name-only --diff-filter=D origin/main...HEAD -- aragora/ 2>/dev/null || true);
+          else
+            echo "warning: origin/main is unavailable; deleted aragora Python files cannot be inferred locally" >&2;
+          fi;
+          python scripts/run_typecheck_gate.py --repo-root . --files "${plan_files[@]}" --targets-file "$targets_file" --json > "$plan_file";
+          mode="$(python -c "import json, sys; print(json.load(open(sys.argv[1]))[\"mode\"])" "$plan_file")";
+          if [[ "$mode" == "full" ]]; then
+            venv_bin="$(python -c "import os, sys; print(os.path.dirname(sys.executable))")";
+            export PATH="$venv_bin:$PATH";
+            bash scripts/test_tiers.sh typecheck;
+          elif [[ "$mode" == "changed" ]]; then
+            targets=();
+            while IFS= read -r target; do
+              [[ -n "$target" ]] && targets+=("$target");
+            done < "$targets_file";
+            if [[ "${#targets[@]}" -gt 0 ]]; then
+              mypy --ignore-missing-imports --follow-imports=skip --show-error-codes "${targets[@]}";
+            else
+              echo "warning: typecheck planner returned changed mode with no targets; skipping local mypy" >&2;
+            fi;
+          elif [[ "$mode" == "skip" ]]; then
+            cat "$plan_file";
+          else
+            echo "error: unknown typecheck planner mode: $mode" >&2;
+            cat "$plan_file" >&2;
+            exit 1;
+          fi' --
         language: python
-        pass_filenames: false
         additional_dependencies:
-          - mypy==1.10.0
-          - mypy-baseline==0.7.4
+          - mypy==1.19.1
           - types-requests
+          - types-redis
           - types-python-dateutil
-        # Only trigger when Python files under aragora/ or scripts/ change.
-        # (Full-tree mypy still runs — the filter just gates when it runs.)
-        files: ^(aragora/|scripts/).*\.py$
+          - types-setuptools
+          - types-jsonschema
+          - types-PyYAML
+        # `always_run` lets the entrypoint compute the same origin/main...HEAD
+        # plan as CI, including deleted aragora Python files and nested
+        # requirements files, instead of trusting pre-commit's existing-file
+        # list alone.
+        pass_filenames: true
+        always_run: true
+        files: ^(aragora/.*\.py|pyproject\.toml|\.github/workflows/lint\.yml|scripts/run_typecheck_gate\.py|scripts/test_tiers\.sh|(.*/)?requirements[^/]*\.txt|\.github/actions/pr-scope-classifier/.*)$
         # Run on pre-push to catch type errors before they hit CI.
         stages: [pre-push]
 

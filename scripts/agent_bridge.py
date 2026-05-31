@@ -2045,6 +2045,111 @@ def _collect_agent_heartbeats(
     }
 
 
+def _operator_pending_steering_count(pending_steering: dict[str, Any]) -> int:
+    try:
+        return max(0, int(pending_steering.get("count", 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _operator_queue_depth(summary: dict[str, Any], pending_steering: dict[str, Any]) -> int:
+    """Return the actionable operator-visible work count for the snapshot."""
+
+    return (
+        int(summary.get("active_lanes", 0))
+        + int(summary.get("active_broker_runs", 0))
+        + _operator_pending_steering_count(pending_steering)
+    )
+
+
+def _operator_boss_loop_alive(summary: dict[str, Any]) -> bool:
+    active_roles = set(summary.get("active_process_roles", []))
+    return bool(
+        int(summary.get("active_broker_runs", 0))
+        or int(summary.get("fresh_agent_heartbeats", 0))
+        or "boss_cycle" in active_roles
+    )
+
+
+def _operator_recent_blockers(
+    issues: list[dict[str, str]],
+    pending_steering: dict[str, Any],
+    *,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    blockers: list[dict[str, Any]] = []
+    if _operator_pending_steering_count(pending_steering):
+        for message in pending_steering.get("latest_three", []):
+            if not isinstance(message, dict):
+                continue
+            blockers.append(
+                {
+                    "type": "pending_steering",
+                    "source": "operator_steering",
+                    "detail": str(message.get("subject") or "(pending steering message)"),
+                    "priority": str(message.get("priority") or ""),
+                    "lane_id_hint": message.get("lane_id_hint"),
+                    "pr_hint": message.get("pr_hint"),
+                }
+            )
+
+    for issue in issues:
+        blockers.append(
+            {
+                "type": str(issue.get("type") or "health_issue"),
+                "source": "health",
+                "detail": str(issue.get("detail") or ""),
+                "session": str(issue.get("session") or ""),
+            }
+        )
+    return blockers[:limit]
+
+
+def _coerce_success_rate(raw_rate: Any) -> float | None:
+    if raw_rate is None or isinstance(raw_rate, bool):
+        return None
+    if isinstance(raw_rate, int | float):
+        return float(raw_rate)
+    try:
+        return float(str(raw_rate))
+    except ValueError:
+        return None
+
+
+def _collect_b0_success_rate(repo_root: Path | None = None) -> float | None:
+    root = repo_root or CANONICAL_REPO_ROOT
+    scorecard_script = root / "scripts" / "measure_b0_scorecard.py"
+    corpus_path = root / "docs" / "benchmarks" / "corpus.json"
+    if not scorecard_script.exists() or not corpus_path.exists():
+        return None
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(scorecard_script),
+                "--json",
+                "--corpus",
+                str(corpus_path),
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return _coerce_success_rate(payload.get("no_rescue_success_rate", payload.get("success_rate")))
+
+
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
@@ -2087,6 +2192,26 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     )
     pending_steering = _collect_pending_steering_messages(steering_recipient)
     agent_heartbeats = _collect_agent_heartbeats()
+    summary: dict[str, Any] = {
+        "total_sessions": len(sessions),
+        "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
+        "live_sessions": sum(1 for s in sessions if _is_current_session(s)),
+        "dead_sessions": sum(1 for s in sessions if s.status == "dead"),
+        "historical_sessions": sum(
+            1 for s in sessions if (s.lifecycle or s.status) in HISTORICAL_SESSION_LIFECYCLES
+        ),
+        "active_broker_runs": sum(
+            1 for run in broker_runs if run.get("status") in {"running", "awaiting_human"}
+        ),
+        "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
+        "conflict_lanes": sum(1 for r in records if r.status == "conflict")
+        + len(computed_conflict_lane_ids),
+        "health_issues": len(issues),
+        "active_processes": int(process_census.get("total", 0)),
+        "active_process_roles": sorted(process_census.get("by_role", {}).keys()),
+        "agent_heartbeats": int(agent_heartbeats.get("count", 0)),
+        "fresh_agent_heartbeats": int(agent_heartbeats.get("fresh_count", 0)),
+    }
 
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
@@ -2098,26 +2223,11 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "health": {"ok": len(issues) == 0, "issues": issues},
         "pending_steering_messages": pending_steering,
         "agent_heartbeats": agent_heartbeats,
-        "summary": {
-            "total_sessions": len(sessions),
-            "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
-            "live_sessions": sum(1 for s in sessions if _is_current_session(s)),
-            "dead_sessions": sum(1 for s in sessions if s.status == "dead"),
-            "historical_sessions": sum(
-                1 for s in sessions if (s.lifecycle or s.status) in HISTORICAL_SESSION_LIFECYCLES
-            ),
-            "active_broker_runs": sum(
-                1 for run in broker_runs if run.get("status") in {"running", "awaiting_human"}
-            ),
-            "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
-            "conflict_lanes": sum(1 for r in records if r.status == "conflict")
-            + len(computed_conflict_lane_ids),
-            "health_issues": len(issues),
-            "active_processes": int(process_census.get("total", 0)),
-            "active_process_roles": sorted(process_census.get("by_role", {}).keys()),
-            "agent_heartbeats": int(agent_heartbeats.get("count", 0)),
-            "fresh_agent_heartbeats": int(agent_heartbeats.get("fresh_count", 0)),
-        },
+        "queue_depth": _operator_queue_depth(summary, pending_steering),
+        "success_rate": _collect_b0_success_rate(),
+        "recent_blockers": _operator_recent_blockers(issues, pending_steering),
+        "boss_loop_alive": _operator_boss_loop_alive(summary),
+        "summary": summary,
     }
     if summary_only:
         snapshot.pop("sessions")
@@ -2129,7 +2239,6 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         print(json.dumps(snapshot, indent=2))
         return 0
 
-    summary = snapshot["summary"]
     print(f"Operator Snapshot @ {snapshot['timestamp']}")
     print("=" * 80)
     print(
@@ -2137,7 +2246,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     )
     print(f"Broker:   {summary['active_broker_runs']} active run(s)")
     print(f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict")
-    process_roles = ", ".join(summary["active_process_roles"]) or "-"
+    active_process_roles = [str(role) for role in summary.get("active_process_roles", [])]
+    process_roles = ", ".join(active_process_roles) or "-"
     print(f"Processes:{summary['active_processes']} recognized ({process_roles})")
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
     print(f"Health:   {health_status}")

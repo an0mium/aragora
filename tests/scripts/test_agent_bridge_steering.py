@@ -424,6 +424,11 @@ class TestOperatorSnapshotIntegration:
             "summary",
             # Phase C addition (will fail if Phase C ever silently removes it):
             "pending_steering_messages",
+            # B0 operator-snapshot contract fields from #5426:
+            "queue_depth",
+            "success_rate",
+            "recent_blockers",
+            "boss_loop_alive",
         }
         assert expected_keys.issubset(set(snap.keys())), (
             f"missing keys: {expected_keys - set(snap.keys())}"

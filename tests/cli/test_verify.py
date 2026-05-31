@@ -21,6 +21,7 @@ import pytest
 from aragora.cli.commands.verify import (
     _is_valid_iso_timestamp,
     _is_valid_verdict,
+    _recompute_artifact_hash,
     _recompute_checksum,
     _verify_receipt,
     cmd_verify,
@@ -163,7 +164,7 @@ class TestVerifyReceipt:
         data["verdict"] = "rejected"
         result = _verify_receipt(data)
         assert result["valid"] is False
-        checksum_check = next(c for c in result["checks"] if c["name"] == "checksum")
+        checksum_check = next(c for c in result["checks"] if c["name"] == "integrity")
         assert checksum_check["passed"] is False
 
     def test_tampered_confidence(self):
@@ -172,6 +173,33 @@ class TestVerifyReceipt:
         data["confidence"] = 0.1
         result = _verify_receipt(data)
         assert result["valid"] is False
+
+    def test_dual_integrity_fields_require_both_to_match(self):
+        """A valid artifact_hash must not mask a mismatched legacy checksum."""
+        data = _make_receipt_data()
+        data["artifact_hash"] = _recompute_artifact_hash(data)
+        data["timestamp"] = "2026-02-11T10:00:01+00:00"
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is False
+        integrity_check = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert integrity_check["passed"] is False
+        assert "checksum mismatch" in integrity_check["detail"]
+
+    def test_checksum_artifact_hash_alias_is_supported(self):
+        """Some canonicalized receipts mirror artifact_hash into checksum."""
+        data = _make_receipt_data(include_checksum=False)
+        artifact_hash = _recompute_artifact_hash(data)
+        data["artifact_hash"] = artifact_hash
+        data["checksum"] = artifact_hash
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is True
+        integrity_check = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert integrity_check["passed"] is True
+        assert "checksum artifact_hash alias" in integrity_check["detail"]
 
     def test_missing_schema_version(self):
         data = _make_receipt_data()
@@ -192,7 +220,7 @@ class TestVerifyReceipt:
         data = _make_receipt_data(include_checksum=False)
         result = _verify_receipt(data)
         assert result["valid"] is False
-        checksum_check = next(c for c in result["checks"] if c["name"] == "checksum")
+        checksum_check = next(c for c in result["checks"] if c["name"] == "integrity")
         assert checksum_check["passed"] is False
 
     def test_invalid_timestamp(self):
@@ -205,7 +233,7 @@ class TestVerifyReceipt:
     def test_verbose_shows_recomputed(self):
         data = _make_receipt_data()
         result = _verify_receipt(data, verbose=True)
-        checksum_check = next(c for c in result["checks"] if c["name"] == "checksum")
+        checksum_check = next(c for c in result["checks"] if c["name"] == "integrity")
         assert "recomputed=" in checksum_check["detail"]
 
 
