@@ -21,6 +21,7 @@ import pytest
 from aragora.cli.commands.verify import (
     _is_valid_iso_timestamp,
     _is_valid_verdict,
+    _recompute_artifact_hash,
     _recompute_checksum,
     _verify_receipt,
     cmd_verify,
@@ -172,6 +173,19 @@ class TestVerifyReceipt:
         data["confidence"] = 0.1
         result = _verify_receipt(data)
         assert result["valid"] is False
+
+    def test_dual_integrity_fields_require_both_to_match(self):
+        """A valid artifact_hash must not mask a mismatched legacy checksum."""
+        data = _make_receipt_data()
+        data["artifact_hash"] = _recompute_artifact_hash(data)
+        data["timestamp"] = "2026-02-11T10:00:01+00:00"
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is False
+        integrity_check = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert integrity_check["passed"] is False
+        assert "checksum mismatch" in integrity_check["detail"]
 
     def test_missing_schema_version(self):
         data = _make_receipt_data()

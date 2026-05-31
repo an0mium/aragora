@@ -5,9 +5,11 @@ Runs the following checks on a decision receipt JSON file:
 
 - **Decision-integrity hash** (``integrity`` check): recomputes the SHA-256
   content hash and compares it to the stored value. Receipts store this hash under
-  the canonical ``artifact_hash`` field (as emitted by ``DecisionReceipt.to_dict``);
-  a legacy ``checksum`` field is accepted as a fallback for older/alternate
-  producers. This hash covers the *decision-integrity fields* --
+  the canonical ``artifact_hash`` field (as emitted by ``DecisionReceipt.to_dict``).
+  A legacy ``checksum`` field is accepted as a fallback for older/alternate
+  producers, and is also validated when present alongside ``artifact_hash`` so
+  dual-field receipts cannot hide a mismatched proof. This hash covers the
+  *decision-integrity fields* --
   ``receipt_id``, ``gauntlet_id``, ``input_hash``, ``risk_summary``, ``verdict``,
   and ``confidence`` -- so tampering with any of those is detected. It does **not**
   cover presentational/metadata fields such as ``timestamp`` or ``schema_version``;
@@ -42,8 +44,8 @@ def create_verify_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Verify a decision receipt's integrity",
         description=(
             "Validate a decision receipt JSON file. Recomputes the SHA-256 "
-            "decision-integrity hash (artifact_hash, with legacy checksum fallback) "
-            "to detect tampering of the decision-integrity fields (receipt_id, "
+            "decision-integrity hash (artifact_hash, plus legacy checksum fallback; "
+            "both are checked when both are present) to detect tampering of the decision-integrity fields (receipt_id, "
             "gauntlet_id, input_hash, risk_summary, verdict, confidence); also checks "
             "schema_version presence, that the verdict is a valid enum value, and "
             "timestamp format. Note: the integrity hash does not cover presentational "
@@ -284,9 +286,10 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
     #     gauntlet). This is the authoritative integrity field and the one that
     #     ``aragora receipt verify`` checks.
     #   * ``checksum`` -- a legacy field some pipelines emit instead.
-    # We prefer ``artifact_hash`` when present so both verify commands agree, and
-    # fall back to ``checksum`` for older/alternate producers. The check fails only
-    # when neither valid proof is present, preserving tamper detection in both cases.
+    # ``artifact_hash`` is the canonical producer field, but when a receipt carries
+    # multiple integrity proofs every present proof must validate. Otherwise a
+    # dual-field receipt could hide tampering in fields covered only by the legacy
+    # checksum.
     #
     # IMPORTANT (honest coverage): this hash only covers the *decision-integrity
     # fields* listed in ``_INTEGRITY_HASH_FIELDS`` -- it does NOT cover presentational
@@ -296,64 +299,36 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
     # cryptographic signature (check #5 / ``aragora receipt verify``).
     stored_artifact_hash = data.get("artifact_hash")
     stored_checksum = data.get("checksum")
+    proof_details: list[str] = []
+    proof_failures: list[str] = []
+    covered_fields: list[str] = []
     if stored_artifact_hash:
-        expected = _recompute_artifact_hash(data)
-        if stored_artifact_hash == expected:
-            detail = (
-                "decision-integrity fields verified via artifact_hash="
-                f"{stored_artifact_hash[:16]}..."
-            )
+        expected_artifact_hash = _recompute_artifact_hash(data)
+        covered_fields.extend(_INTEGRITY_HASH_FIELDS)
+        if stored_artifact_hash == expected_artifact_hash:
+            detail = f"artifact_hash={stored_artifact_hash[:16]}..."
             if verbose:
-                detail += f" (recomputed={expected[:16]}...)"
-            checks.append(
-                {
-                    "name": "integrity",
-                    "passed": True,
-                    "detail": detail,
-                    "covers": list(_INTEGRITY_HASH_FIELDS),
-                }
-            )
+                detail += f" (recomputed={expected_artifact_hash[:16]}...)"
+            proof_details.append(detail)
         else:
-            checks.append(
-                {
-                    "name": "integrity",
-                    "passed": False,
-                    "detail": (
-                        f"artifact_hash mismatch: stored={stored_artifact_hash[:16]}..., "
-                        f"recomputed={expected[:16]}... (a decision-integrity field was altered)"
-                    ),
-                    "covers": list(_INTEGRITY_HASH_FIELDS),
-                }
+            proof_failures.append(
+                f"artifact_hash mismatch: stored={stored_artifact_hash[:16]}..., "
+                f"recomputed={expected_artifact_hash[:16]}..."
             )
-            overall_valid = False
-    elif stored_checksum:
-        expected = _recompute_checksum(data)
-        if stored_checksum == expected:
-            detail = f"decision-integrity fields verified via checksum={stored_checksum}"
+    if stored_checksum:
+        expected_checksum = _recompute_checksum(data)
+        covered_fields.extend(_LEGACY_CHECKSUM_FIELDS)
+        if stored_checksum == expected_checksum:
+            detail = f"checksum={stored_checksum}"
             if verbose:
-                detail += f" (recomputed={expected})"
-            checks.append(
-                {
-                    "name": "integrity",
-                    "passed": True,
-                    "detail": detail,
-                    "covers": list(_LEGACY_CHECKSUM_FIELDS),
-                }
-            )
+                detail += f" (recomputed={expected_checksum})"
+            proof_details.append(detail)
         else:
-            checks.append(
-                {
-                    "name": "integrity",
-                    "passed": False,
-                    "detail": (
-                        f"checksum mismatch: stored={stored_checksum}, recomputed={expected} "
-                        "(a decision-integrity field was altered)"
-                    ),
-                    "covers": list(_LEGACY_CHECKSUM_FIELDS),
-                }
+            proof_failures.append(
+                f"checksum mismatch: stored={stored_checksum}, recomputed={expected_checksum}"
             )
-            overall_valid = False
-    else:
+
+    if not stored_artifact_hash and not stored_checksum:
         checks.append(
             {
                 "name": "integrity",
@@ -363,6 +338,25 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
             }
         )
         overall_valid = False
+    elif proof_failures:
+        checks.append(
+            {
+                "name": "integrity",
+                "passed": False,
+                "detail": "; ".join(proof_failures) + " (a decision-integrity field was altered)",
+                "covers": list(dict.fromkeys(covered_fields)),
+            }
+        )
+        overall_valid = False
+    else:
+        checks.append(
+            {
+                "name": "integrity",
+                "passed": True,
+                "detail": "decision-integrity fields verified via " + " and ".join(proof_details),
+                "covers": list(dict.fromkeys(covered_fields)),
+            }
+        )
 
     # -- 5. signature chain (optional, only for signed receipts) ----------
     is_signed = False
