@@ -71,6 +71,16 @@ class TestSSNDetector:
         result = manager.check("SSN: 078-05-1120", frameworks=["hipaa"])
         assert any(i.rule_id == "hipaa-phi-ssn" for i in result.issues)
 
+    def test_labeled_compact_ssn(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("SSN: 078051120", frameworks=["hipaa"])
+        assert any(i.rule_id == "hipaa-phi-ssn" for i in result.issues)
+
+    def test_unlabeled_compact_ssn_is_not_detected(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("Ticket 078051120 was processed", frameworks=["hipaa"])
+        assert not any(i.rule_id == "hipaa-phi-ssn" for i in result.issues)
+
     def test_rejects_invalid_area_000(self):
         manager = ComplianceFrameworkManager()
         result = manager.check("Code 000-12-3456 here", frameworks=["hipaa"])
@@ -121,7 +131,7 @@ class TestICD10Detector:
 
     def test_icd10_without_decimal(self):
         manager = ComplianceFrameworkManager()
-        result = manager.check("Code I10 hypertension", frameworks=["hipaa"])
+        result = manager.check("Diagnosis I10 hypertension", frameworks=["hipaa"])
         assert any(i.rule_id == "hipaa-phi-icd10" for i in result.issues)
 
     def test_rejects_unlabeled_short_technical_tokens(self):
@@ -134,9 +144,19 @@ class TestICD10Detector:
         result = manager.check("module A10.2 and version B12.3 shipped", frameworks=["hipaa"])
         assert not any(i.rule_id == "hipaa-phi-icd10" for i in result.issues)
 
+    def test_rejects_technical_status_code_context(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("status code I10 returned by module R51", frameworks=["hipaa"])
+        assert not any(i.rule_id == "hipaa-phi-icd10" for i in result.issues)
+
     def test_u_prefixed_icd10_code_with_context(self):
         manager = ComplianceFrameworkManager()
         result = manager.check("Diagnosis U07.1 confirmed", frameworks=["hipaa"])
+        assert any(i.rule_id == "hipaa-phi-icd10" for i in result.issues)
+
+    def test_trailing_diagnosis_context_detects_icd10(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("U07.1 was the diagnosis", frameworks=["hipaa"])
         assert any(i.rule_id == "hipaa-phi-icd10" for i in result.issues)
 
 
@@ -150,6 +170,12 @@ class TestMRNDetector:
         manager = ComplianceFrameworkManager()
         result = manager.check("Medical Record Number 7654321", frameworks=["hipaa"])
         assert any(i.rule_id == "hipaa-phi-mrn" for i in result.issues)
+
+    def test_mrn_matched_text_is_identifier_value(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("MRN: ABCD-12345", frameworks=["hipaa"])
+        mrn_issues = [i for i in result.issues if i.rule_id == "hipaa-phi-mrn"]
+        assert mrn_issues[0].matched_text == "ABCD-12345"
 
 
 class TestNoFalsePositivesOnCleanContent:
@@ -183,7 +209,17 @@ class TestNoFalsePositivesOnCleanContent:
         result = manager.check("Patient DOB 1980-02-31", frameworks=["hipaa"])
         assert not any(i.rule_id == "hipaa-phi-dob" for i in result.issues)
 
+    def test_trailing_birth_context_detects_dob(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("1980-03-15 is the patient's date of birth", frameworks=["hipaa"])
+        assert any(i.rule_id == "hipaa-phi-dob" for i in result.issues)
+
     def test_common_parenthesized_phone_without_space_is_detected(self):
         manager = ComplianceFrameworkManager()
         result = manager.check("Call patient at (555)123-4567", frameworks=["hipaa"])
+        assert any(i.rule_id == "hipaa-phi-phone" for i in result.issues)
+
+    def test_plus_one_phone_is_detected(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("Call patient at +1 555-123-4567", frameworks=["hipaa"])
         assert any(i.rule_id == "hipaa-phi-phone" for i in result.issues)

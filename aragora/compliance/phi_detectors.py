@@ -58,8 +58,9 @@ def _luhn_is_valid(digits: str) -> bool:
 # SSN
 # ---------------------------------------------------------------------------
 
-# US SSN: AAA-GG-SSSS (dashes or spaces). Word-boundary anchored.
-_SSN_RE = re.compile(r"\b(\d{3})[- ](\d{2})[- ](\d{4})\b")
+# US SSN: AAA-GG-SSSS, optionally unseparated when explicitly labeled.
+_SSN_RE = re.compile(r"\b(\d{3})([- ]?)(\d{2})([- ]?)(\d{4})\b")
+_SSN_CONTEXT_RE = re.compile(r"\b(?:SSN|social\s+security)\b", re.IGNORECASE)
 
 
 def detect_ssn(content: str) -> list[DetectorMatch]:
@@ -70,7 +71,11 @@ def detect_ssn(content: str) -> list[DetectorMatch]:
     """
     matches: list[DetectorMatch] = []
     for m in _SSN_RE.finditer(content):
-        area, group, serial = m.group(1), m.group(2), m.group(3)
+        if not (m.group(2) or m.group(4)):
+            context = content[max(0, m.start() - 24) : m.start()]
+            if not _SSN_CONTEXT_RE.search(context):
+                continue
+        area, group, serial = m.group(1), m.group(3), m.group(5)
         if area in ("000", "666") or area[0] == "9":
             continue
         if group == "00" or serial == "0000":
@@ -114,14 +119,14 @@ def detect_npi(content: str) -> list[DetectorMatch]:
 # ICD-10-CM: letter, 2 digits, optional decimal + up to 4 alnum chars.
 # Context is required below because this format overlaps with technical tokens.
 _ICD10_RE = re.compile(r"\b([A-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?)\b")
-_ICD10_CONTEXT_RE = re.compile(r"\b(?:ICD-?10|diagnos(?:is|ed)|dx|condition|code)\b", re.IGNORECASE)
+_ICD10_CONTEXT_RE = re.compile(r"\b(?:ICD-?10|diagnos(?:is|ed)|dx|condition)\b", re.IGNORECASE)
 
 
 def detect_icd10(content: str) -> list[DetectorMatch]:
     """Detect ICD-10-CM diagnosis codes by format."""
     matches: list[DetectorMatch] = []
     for m in _ICD10_RE.finditer(content):
-        context = content[max(0, m.start() - 40) : m.start()]
+        context = content[max(0, m.start() - 40) : min(len(content), m.end() + 40)]
         if not _ICD10_CONTEXT_RE.search(context):
             continue
         matches.append(DetectorMatch(text=m.group(0), start=m.start()))
@@ -144,7 +149,7 @@ def detect_mrn(content: str) -> list[DetectorMatch]:
     """Detect labeled Medical Record Numbers."""
     matches: list[DetectorMatch] = []
     for m in _MRN_RE.finditer(content):
-        matches.append(DetectorMatch(text=m.group(0), start=m.start()))
+        matches.append(DetectorMatch(text=m.group(1), start=m.start(1)))
     return matches
 
 
@@ -171,7 +176,7 @@ def detect_dob(content: str) -> list[DetectorMatch]:
     """Detect dates of birth (ISO or US numeric formats) with range checks."""
     matches: list[DetectorMatch] = []
     for m in _DATE_RE.finditer(content):
-        context = content[max(0, m.start() - 40) : m.start()]
+        context = content[max(0, m.start() - 40) : min(len(content), m.end() + 40)]
         if not _DOB_CONTEXT_RE.search(context):
             continue
         if m.group(1):  # ISO
