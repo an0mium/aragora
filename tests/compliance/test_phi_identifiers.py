@@ -101,6 +101,11 @@ class TestNPIDetector:
         result = manager.check("Provider NPI 1234567890", frameworks=["hipaa"])
         assert not any(i.rule_id == "hipaa-phi-npi" for i in result.issues)
 
+    def test_luhn_passing_number_without_npi_context_is_not_npi(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("Customer account 1234567893 was updated", frameworks=["hipaa"])
+        assert not any(i.rule_id == "hipaa-phi-npi" for i in result.issues)
+
 
 class TestICD10Detector:
     def test_valid_icd10_code(self):
@@ -113,6 +118,11 @@ class TestICD10Detector:
         manager = ComplianceFrameworkManager()
         result = manager.check("Code I10 hypertension", frameworks=["hipaa"])
         assert any(i.rule_id == "hipaa-phi-icd10" for i in result.issues)
+
+    def test_rejects_unlabeled_short_technical_tokens(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("Built on 2024-01-15; see B12 in module A10.", frameworks=["hipaa"])
+        assert not any(i.rule_id == "hipaa-phi-icd10" for i in result.issues)
 
 
 class TestMRNDetector:
@@ -144,3 +154,16 @@ class TestNoFalsePositivesOnCleanContent:
             "hipaa-phi-phone",
         }
         assert not (phi_rule_ids & _rule_ids(result))
+
+    def test_clean_operational_dates_are_not_dates_of_birth(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check(
+            "Deployed on 2026-05-31 and reviewed 01/15/2025.",
+            frameworks=["hipaa"],
+        )
+        assert not any(i.rule_id == "hipaa-phi-dob" for i in result.issues)
+
+    def test_common_parenthesized_phone_without_space_is_detected(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("Call patient at (555)123-4567", frameworks=["hipaa"])
+        assert any(i.rule_id == "hipaa-phi-phone" for i in result.issues)

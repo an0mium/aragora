@@ -82,8 +82,10 @@ def detect_ssn(content: str) -> list[DetectorMatch]:
 # NPI (National Provider Identifier)
 # ---------------------------------------------------------------------------
 
-# 10-digit number, optionally labeled with "NPI".
+# 10-digit number, labeled with "NPI" to avoid false positives on arbitrary
+# account IDs, timestamps, or phone-like values that happen to pass Luhn.
 _NPI_RE = re.compile(r"\b(\d{10})\b")
+_NPI_CONTEXT_RE = re.compile(r"\bNPI\b", re.IGNORECASE)
 
 
 def detect_npi(content: str) -> list[DetectorMatch]:
@@ -94,6 +96,9 @@ def detect_npi(content: str) -> list[DetectorMatch]:
     """
     matches: list[DetectorMatch] = []
     for m in _NPI_RE.finditer(content):
+        context = content[max(0, m.start() - 24) : m.start()]
+        if not _NPI_CONTEXT_RE.search(context):
+            continue
         candidate = m.group(1)
         if _luhn_is_valid("80840" + candidate):
             matches.append(DetectorMatch(text=m.group(0), start=m.start()))
@@ -107,12 +112,17 @@ def detect_npi(content: str) -> list[DetectorMatch]:
 # ICD-10-CM: letter, 2 digits, optional decimal + up to 4 alnum chars.
 # Exclude I (capital i) ambiguity by requiring the trailing structure.
 _ICD10_RE = re.compile(r"\b([A-TV-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?)\b")
+_ICD10_CONTEXT_RE = re.compile(r"\b(?:ICD-?10|diagnos(?:is|ed)|dx|condition|code)\b", re.IGNORECASE)
 
 
 def detect_icd10(content: str) -> list[DetectorMatch]:
     """Detect ICD-10-CM diagnosis codes by format."""
     matches: list[DetectorMatch] = []
     for m in _ICD10_RE.finditer(content):
+        if "." not in m.group(0):
+            context = content[max(0, m.start() - 40) : m.start()]
+            if not _ICD10_CONTEXT_RE.search(context):
+                continue
         matches.append(DetectorMatch(text=m.group(0), start=m.start()))
     return matches
 
@@ -143,6 +153,7 @@ def detect_mrn(content: str) -> list[DetectorMatch]:
 
 # ISO (YYYY-MM-DD) or US (MM/DD/YYYY) numeric dates, optionally DOB-labeled.
 _DATE_RE = re.compile(r"\b(?:(\d{4})-(\d{2})-(\d{2})|(\d{1,2})/(\d{1,2})/(\d{4}))\b")
+_DOB_CONTEXT_RE = re.compile(r"\b(?:DOB|date\s+of\s+birth|birth\s+date|born)\b", re.IGNORECASE)
 
 
 def _valid_date_parts(year: int, month: int, day: int) -> bool:
@@ -153,6 +164,9 @@ def detect_dob(content: str) -> list[DetectorMatch]:
     """Detect dates of birth (ISO or US numeric formats) with range checks."""
     matches: list[DetectorMatch] = []
     for m in _DATE_RE.finditer(content):
+        context = content[max(0, m.start() - 40) : m.start()]
+        if not _DOB_CONTEXT_RE.search(context):
+            continue
         if m.group(1):  # ISO
             year, month, day = int(m.group(1)), int(m.group(2)), int(m.group(3))
         else:  # US
@@ -180,7 +194,7 @@ def detect_email(content: str) -> list[DetectorMatch]:
 
 # US/NANP phone numbers with common separators, optional +1 / parens.
 _PHONE_RE = re.compile(
-    r"(?<![\d-])(?:\+?1[-.\s]?)?(?:\(\d{3}\)|\d{3})[-.\s]\d{3}[-.\s]\d{4}(?![\d-])"
+    r"(?<![\d-])(?:\+?1[-.\s]?)?(?:(?:\(\d{3}\)[-.\s]?)|(?:\d{3}[-.\s]))\d{3}[-.\s]\d{4}(?![\d-])"
 )
 
 
