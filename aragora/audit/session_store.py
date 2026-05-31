@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -78,7 +79,7 @@ class AuditSessionStore:
         return conn
 
     def _init_db(self) -> None:
-        with self._connect() as conn:
+        with closing(self._connect()) as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS audit_sessions (
@@ -99,7 +100,7 @@ class AuditSessionStore:
         """Insert or update a session (upsert by id)."""
         payload = json.dumps(session.to_storage_dict())
         created_at = session.created_at.isoformat() if session.created_at else None
-        with self._connect() as conn:
+        with closing(self._connect()) as conn:
             conn.execute(
                 """
                 INSERT INTO audit_sessions (id, org_id, status, created_at, data)
@@ -116,7 +117,7 @@ class AuditSessionStore:
 
     def get(self, session_id: str) -> "AuditSession | None":
         """Load a single session by id, or None if absent."""
-        with self._connect() as conn:
+        with closing(self._connect()) as conn:
             row = conn.execute(
                 "SELECT data FROM audit_sessions WHERE id = ?", (session_id,)
             ).fetchone()
@@ -144,7 +145,7 @@ class AuditSessionStore:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
-        with self._connect() as conn:
+        with closing(self._connect()) as conn:
             rows = conn.execute(query, tuple(params)).fetchall()
         sessions = []
         for row in rows:
@@ -154,7 +155,7 @@ class AuditSessionStore:
         return sessions
 
     def delete(self, session_id: str) -> bool:
-        with self._connect() as conn:
+        with closing(self._connect()) as conn:
             cur = conn.execute("DELETE FROM audit_sessions WHERE id = ?", (session_id,))
             conn.commit()
             return cur.rowcount > 0
