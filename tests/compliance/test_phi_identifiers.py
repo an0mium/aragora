@@ -106,6 +106,11 @@ class TestNPIDetector:
         result = manager.check("Customer account 1234567893 was updated", frameworks=["hipaa"])
         assert not any(i.rule_id == "hipaa-phi-npi" for i in result.issues)
 
+    def test_trailing_npi_label_is_detected(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("Provider 1234567893 (NPI)", frameworks=["hipaa"])
+        assert any(i.rule_id == "hipaa-phi-npi" for i in result.issues)
+
 
 class TestICD10Detector:
     def test_valid_icd10_code(self):
@@ -123,6 +128,16 @@ class TestICD10Detector:
         manager = ComplianceFrameworkManager()
         result = manager.check("Built on 2024-01-15; see B12 in module A10.", frameworks=["hipaa"])
         assert not any(i.rule_id == "hipaa-phi-icd10" for i in result.issues)
+
+    def test_rejects_unlabeled_decimal_technical_tokens(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("module A10.2 and version B12.3 shipped", frameworks=["hipaa"])
+        assert not any(i.rule_id == "hipaa-phi-icd10" for i in result.issues)
+
+    def test_u_prefixed_icd10_code_with_context(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("Diagnosis U07.1 confirmed", frameworks=["hipaa"])
+        assert any(i.rule_id == "hipaa-phi-icd10" for i in result.issues)
 
 
 class TestMRNDetector:
@@ -161,6 +176,11 @@ class TestNoFalsePositivesOnCleanContent:
             "Deployed on 2026-05-31 and reviewed 01/15/2025.",
             frameworks=["hipaa"],
         )
+        assert not any(i.rule_id == "hipaa-phi-dob" for i in result.issues)
+
+    def test_invalid_calendar_dates_are_not_dates_of_birth(self):
+        manager = ComplianceFrameworkManager()
+        result = manager.check("Patient DOB 1980-02-31", frameworks=["hipaa"])
         assert not any(i.rule_id == "hipaa-phi-dob" for i in result.issues)
 
     def test_common_parenthesized_phone_without_space_is_detected(self):

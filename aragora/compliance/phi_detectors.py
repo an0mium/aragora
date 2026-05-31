@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from typing import Callable
 
 
@@ -96,8 +97,9 @@ def detect_npi(content: str) -> list[DetectorMatch]:
     """
     matches: list[DetectorMatch] = []
     for m in _NPI_RE.finditer(content):
-        context = content[max(0, m.start() - 24) : m.start()]
-        if not _NPI_CONTEXT_RE.search(context):
+        before = content[max(0, m.start() - 24) : m.start()]
+        after = content[m.end() : min(len(content), m.end() + 24)]
+        if not (_NPI_CONTEXT_RE.search(before) or _NPI_CONTEXT_RE.search(after)):
             continue
         candidate = m.group(1)
         if _luhn_is_valid("80840" + candidate):
@@ -110,8 +112,8 @@ def detect_npi(content: str) -> list[DetectorMatch]:
 # ---------------------------------------------------------------------------
 
 # ICD-10-CM: letter, 2 digits, optional decimal + up to 4 alnum chars.
-# Exclude I (capital i) ambiguity by requiring the trailing structure.
-_ICD10_RE = re.compile(r"\b([A-TV-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?)\b")
+# Context is required below because this format overlaps with technical tokens.
+_ICD10_RE = re.compile(r"\b([A-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?)\b")
 _ICD10_CONTEXT_RE = re.compile(r"\b(?:ICD-?10|diagnos(?:is|ed)|dx|condition|code)\b", re.IGNORECASE)
 
 
@@ -119,10 +121,9 @@ def detect_icd10(content: str) -> list[DetectorMatch]:
     """Detect ICD-10-CM diagnosis codes by format."""
     matches: list[DetectorMatch] = []
     for m in _ICD10_RE.finditer(content):
-        if "." not in m.group(0):
-            context = content[max(0, m.start() - 40) : m.start()]
-            if not _ICD10_CONTEXT_RE.search(context):
-                continue
+        context = content[max(0, m.start() - 40) : m.start()]
+        if not _ICD10_CONTEXT_RE.search(context):
+            continue
         matches.append(DetectorMatch(text=m.group(0), start=m.start()))
     return matches
 
@@ -157,7 +158,13 @@ _DOB_CONTEXT_RE = re.compile(r"\b(?:DOB|date\s+of\s+birth|birth\s+date|born)\b",
 
 
 def _valid_date_parts(year: int, month: int, day: int) -> bool:
-    return 1900 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31
+    if not 1900 <= year <= 2100:
+        return False
+    try:
+        date(year, month, day)
+    except ValueError:
+        return False
+    return True
 
 
 def detect_dob(content: str) -> list[DetectorMatch]:
