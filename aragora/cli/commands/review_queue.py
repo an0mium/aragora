@@ -1430,6 +1430,15 @@ def _summarize_required_pr_checks(checks: list[dict[str, Any]]) -> tuple[str, bo
     return ("no required checks", False, False)
 
 
+def _effective_required_pr_check_count(checks: list[dict[str, Any]]) -> int:
+    """Count required PR checks after excluding the current merge-quorum self-check."""
+    return sum(
+        1
+        for check in checks
+        if isinstance(check, dict) and not _is_current_merge_quorum_self_check(check)
+    )
+
+
 def _check_rollup_unavailable(pr: dict[str, Any]) -> bool:
     """Return true when an open PR has no GitHub PR-facing check rollup."""
     pr_state = str(pr.get("state") or "").strip().upper()
@@ -1541,6 +1550,8 @@ def _direct_check_run_is_non_green(run: dict[str, Any]) -> bool:
     if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL"}:
         return False
     if conclusion:
+        return True
+    if status in {"", "COMPLETED"}:
         return True
     return status in {"QUEUED", "IN_PROGRESS", "PENDING", "EXPECTED"}
 
@@ -1903,9 +1914,11 @@ def _build_packet(
             required_summary, required_has_failures, required_has_pending = (
                 _summarize_required_pr_checks(required_pr_checks)
             )
+            effective_required_count = _effective_required_pr_check_count(required_pr_checks)
             check_surfaces["required_pr_checks"] = {
                 "available": True,
                 "total": len(required_pr_checks),
+                "effective_total": effective_required_count,
                 "summary": required_summary,
                 "failing_or_cancelled": [
                     str(check.get("name") or "").strip()
@@ -1919,7 +1932,11 @@ def _build_packet(
                     and not _is_current_merge_quorum_self_check(check)
                 ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
             }
-            if not required_has_failures and not required_has_pending:
+            if (
+                effective_required_count > 0
+                and not required_has_failures
+                and not required_has_pending
+            ):
                 required_pr_check_gate_satisfied = True
                 checks_summary = f"{required_summary} (required PR checks)"
                 has_pending = False

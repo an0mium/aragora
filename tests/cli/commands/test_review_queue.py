@@ -1868,6 +1868,55 @@ class TestBuildQueueAndPacket:
         assert packet.model_review_quorum["admin_squash_allowed"] is True
         assert packet.model_review_quorum["status"] == "satisfied"
 
+    def test_required_pr_checks_gate_fails_closed_when_only_self_check_visible(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7465,
+            files=["docs/status/open.md"],
+            checks=[
+                {"name": "Docs Consistency", "status": "COMPLETED", "conclusion": "FAILURE"},
+            ],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "123456")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "state": "PENDING",
+                        "bucket": "pending",
+                        "workflow": "Aragora Merge Quorum",
+                        "link": "https://github.com/synaptent/aragora/actions/runs/123456/job/1",
+                    },
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        required = packet.check_surfaces["required_pr_checks"]
+
+        assert required["effective_total"] == 0
+        assert required["summary"] == "no required checks"
+        assert "effective_gate" not in packet.check_surfaces
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+
     def test_missing_check_rollup_uses_modern_checks_field_and_skipped_neutral(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
