@@ -2217,7 +2217,7 @@ def _lint_evidence_comment(
         problems.append("empty_body")
     if not grounded:
         problems.append("missing_current_head_grounding")
-    if str(author or "").strip() == "github-actions":
+    if _is_github_actions_author(author):
         problems.append("github_actions_author_not_counted")
     if inferred_reviewer == "unknown_model_reviewer":
         problems.append("missing_known_model_reviewer_heading")
@@ -2324,6 +2324,10 @@ def _known_model_reviewer_id(item: dict[str, Any]) -> str:
     provider = str(item.get("provider", "") or "")
     reviewer_id = str(item.get("reviewer_id", "") or "")
     return _normalize_model_reviewer_id(provider) or _normalize_model_reviewer_id(reviewer_id)
+
+
+def _is_github_actions_author(author: str) -> bool:
+    return str(author or "").strip().lower() in {"github-actions", "github-actions[bot]"}
 
 
 def _normalize_model_reviewer_id(value: str) -> str:
@@ -2505,7 +2509,7 @@ def _dogfood_evidence_from_comments(
         author = ""
         if isinstance(author_payload, dict):
             author = str(author_payload.get("login", "") or "")
-        if author == "github-actions":
+        if _is_github_actions_author(author):
             continue
         evidence.append(
             {
@@ -2553,7 +2557,7 @@ def _model_review_signals_from_comments(
         github_author = ""
         if isinstance(author_payload, dict):
             github_author = str(author_payload.get("login", "") or "")
-        if github_author == "github-actions":
+        if _is_github_actions_author(github_author):
             continue
         signals.append(
             {

@@ -1502,17 +1502,18 @@ class TestModelReviewQuorum:
         # And quorum still incomplete because dogfood is required but absent.
         assert quorum["admin_squash_allowed"] is False
 
-    def test_dogfood_from_github_actions_is_excluded_at_source(self) -> None:
+    @pytest.mark.parametrize("bot_login", ("github-actions", "github-actions[bot]"))
+    def test_dogfood_from_github_actions_is_excluded_at_source(self, bot_login: str) -> None:
         """Bot-authored dogfood comments must not count as model evidence,
         mirroring the existing filter in ``_model_review_signals_from_comments``."""
         files = ["aragora/agents/router.py"]
         pr = _make_pr(files=files)
         pr["comments"] = [
             {
-                "author": {"login": "github-actions"},
-                "body": "## Codex focused dogfood\nautomated regression sweep",
+                "author": {"login": bot_login},
+                "body": _codex_openai_body(body="automated regression sweep"),
             },
-            _dogfood_comment("## Codex focused dogfood (real reviewer)\nlocal checks pass"),
+            _codex_openai_comment(),
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
@@ -1525,6 +1526,35 @@ class TestModelReviewQuorum:
         # The bot comment is filtered; the real reviewer comment passes.
         assert len(quorum["dogfood_evidence"]) == 1
         assert quorum["dogfood_evidence"][0]["github_author"] == "an0mium"
+        assert quorum["counted_reviewer_ids"] == ["openai"]
+
+    def test_model_review_signal_from_github_actions_bot_is_excluded_at_source(
+        self,
+    ) -> None:
+        """The real GitHub Actions bot login must not count as a model reviewer."""
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "github-actions[bot]"},
+                "body": _codex_openai_body(
+                    heading="## Codex review",
+                    body="independent semantic review with structured lineage metadata",
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["reviewer_signals"] == []
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["counted_reviewer_ids"] == []
 
 
 # --- _parse_pr_number ------------------------------------------------------
@@ -2500,6 +2530,35 @@ class TestCommandDispatch:
         assert payload["dogfood_evidence"][0]["reviewer_id"] == "openai"
         assert payload["current_head_grounding_method"] == "head_sha_citation"
         assert payload["problems"] == []
+
+    def test_evidence_lint_rejects_github_actions_bot_author(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Automated structured evidence must remain advisory-only."
+                )
+            ),
+            body_file=None,
+            author="github-actions[bot]",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["reviewer_signals"] == []
+        assert payload["dogfood_evidence"] == []
+        assert "github_actions_author_not_counted" in payload["problems"]
+        assert "no_counted_model_family" in payload["problems"]
 
     def test_evidence_lint_rejects_ungrounded_comment(self) -> None:
         ns = argparse.Namespace(
