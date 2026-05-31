@@ -540,6 +540,29 @@ def test_operator_snapshot_exposes_b0_issue_contract_fields(
     ]
 
 
+def test_collect_b0_success_rate_times_out_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    repo_root = tmp_path / "repo"
+    (repo_root / "scripts").mkdir(parents=True)
+    (repo_root / "docs" / "benchmarks").mkdir(parents=True)
+    (repo_root / "scripts" / "measure_b0_scorecard.py").write_text("# fixture\n")
+    (repo_root / "docs" / "benchmarks" / "corpus.json").write_text("{}\n")
+    monkeypatch.setenv("AGENT_BRIDGE_B0_SCORECARD_TIMEOUT_SECONDS", "0.25")
+
+    def fake_run(args: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        assert "measure_b0_scorecard.py" in args[1]
+        assert kwargs["timeout"] == 0.25
+        raise subprocess.TimeoutExpired(args, kwargs["timeout"])
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    assert mod._collect_b0_success_rate(repo_root) is None
+
+
 def test_operator_snapshot_summary_counts_repo_local_lane_when_user_registry_exists(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1451,6 +1474,61 @@ def test_operator_snapshot_includes_broker_runs(
     payload = json.loads(capsys.readouterr().out)
     assert payload["summary"]["active_broker_runs"] == 1
     assert payload["broker_runs"][0]["run_id"] == "bridge-next-work"
+
+
+def test_load_broker_run_summaries_reads_json_without_package_import(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    repo_root = tmp_path / "repo"
+    run_dir = repo_root / ".aragora" / "agent_bridge" / "runs" / "bridge-next-work"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "run_id": "bridge-next-work",
+                "status": "running",
+                "updated_at": "2026-05-31T12:00:00Z",
+                "next_actor": "critic",
+                "last_turn_index": 2,
+                "participants": [{"role": "critic", "harness": "codex"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "sessions.json").write_text(
+        json.dumps(
+            {
+                "sessions": {
+                    "critic": {
+                        "role": "critic",
+                        "session_id": "session-critic",
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", repo_root)
+
+    assert mod._load_broker_run_summaries() == [
+        {
+            "run_id": "bridge-next-work",
+            "status": "running",
+            "updated_at": "2026-05-31T12:00:00Z",
+            "next_actor": "critic",
+            "last_turn_index": 2,
+            "participants": [{"role": "critic", "harness": "codex"}],
+            "sessions": {
+                "critic": {
+                    "role": "critic",
+                    "session_id": "session-critic",
+                }
+            },
+        }
+    ]
 
 
 def test_cmd_launch_invokes_tmux_launcher_for_droid(
