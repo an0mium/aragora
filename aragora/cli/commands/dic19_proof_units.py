@@ -40,9 +40,7 @@ def cmd_proof_units(args: argparse.Namespace) -> int:
         )
         return 1
 
-    proof_units_dir = Path(
-        getattr(args, "proof_units_dir", None) or _DEFAULT_DIR
-    ).expanduser()
+    proof_units_dir = Path(getattr(args, "proof_units_dir", None) or _DEFAULT_DIR).expanduser()
     impact_of: list[str] = list(getattr(args, "impact_of", None) or [])
     multi_hop: bool = bool(getattr(args, "multi_hop", False))
     as_json: bool = bool(getattr(args, "json", False))
