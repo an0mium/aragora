@@ -427,7 +427,10 @@ def _free_disk_gib(path: Path) -> float:
 
 
 def _codex_rss_gib() -> float | None:
-    proc = _run(["ps", "-axo", "rss=,comm="], cwd=REPO_ROOT)
+    try:
+        proc = _run(["ps", "-axo", "rss=,comm="], cwd=REPO_ROOT)
+    except OSError:
+        return None
     if proc.returncode != 0:
         return None
     rss_kib = 0
@@ -1308,11 +1311,19 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print machine-readable output",
     )
-    parser.add_argument(
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
         "--apply",
         action="store_true",
         help="Push eligible branches and open PRs; default is dry-run planning only",
     )
+    mode_group.add_argument(
+        "--dry-run",
+        dest="apply",
+        action="store_false",
+        help="Plan only without pushing branches or opening PRs; this is the default",
+    )
+    parser.set_defaults(apply=False)
     parser.add_argument(
         "--preflight-script",
         default=DEFAULT_PREFLIGHT_SCRIPT,

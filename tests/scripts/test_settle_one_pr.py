@@ -294,6 +294,34 @@ def test_policy_exclusion_reasons_does_not_flag_plain_unsafe_words_in_docs() -> 
     assert reasons == []
 
 
+def test_policy_exclusion_reasons_allows_docs_site_generated_secrets_deploy_docs() -> None:
+    docs = _entry(
+        7485,
+        tier=0,
+        reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"],
+    )
+
+    reasons = policy_exclusion_reasons(
+        docs,
+        policy_metadata={
+            7485: {
+                "title": "docs: refresh generated deployment status",
+                "headRefName": "codex/docs-site-status-refresh",
+                "files": [
+                    {"path": "docs-site/docs/contributing/b0-benchmark-truth-status.md"},
+                    {"path": "docs-site/docs/deployment/secrets-management.md"},
+                    {"path": "docs-site/docs/getting-started/environment.md"},
+                    {"path": "docs-site/docs/operations/overview.md"},
+                    {"path": "docs/FOCUS.md"},
+                    {"path": "docs/status/B0_BENCHMARK_TRUTH_STATUS.md"},
+                ],
+            }
+        },
+    )
+
+    assert reasons == []
+
+
 def test_policy_exclusion_reasons_scopes_adc_to_title_and_branch() -> None:
     entry = _entry(
         7461,
@@ -673,6 +701,55 @@ def test_build_report_threads_repo_to_policy_metadata(monkeypatch) -> None:
     view_command = next(args for args in commands if args[:3] == ["gh", "pr", "view"])
     assert list_command[-2:] == ["--repo", "example/repo"]
     assert view_command[-2:] == ["--repo", "example/repo"]
+
+
+def test_build_report_explicit_pr_loads_policy_metadata_without_broad_list(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        if args[:3] == ["gh", "pr", "list"]:
+            raise AssertionError("explicit --pr settlement must not call gh pr list")
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
+            return (
+                {
+                    "number": 7451,
+                    "title": "fix: candidate",
+                    "headRefName": "codex/candidate",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "aragora/server/routes.py"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                7451,
+                tier=3,
+                requires_human_risk_settlement=True,
+                reasons=["semantic, persistence, security, API, or SDK surface touched"],
+            )
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=7451,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["selected_pr"] == 7451
+    assert report["status"] == "blocked"
+    assert commands[0][:3] == ["gh", "pr", "view"]
+    assert all(command[:3] != ["gh", "pr", "list"] for command in commands)
 
 
 def test_build_report_fails_closed_when_operator_snapshot_fails(monkeypatch) -> None:

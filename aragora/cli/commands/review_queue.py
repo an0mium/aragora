@@ -1366,6 +1366,79 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     return ("no checks", False, False)
 
 
+def _fetch_required_pr_checks(pr_number: int, repo_override: str | None) -> list[dict[str, Any]]:
+    """Fetch GitHub's branch-protection-required PR checks."""
+    args = [
+        "pr",
+        "checks",
+        str(pr_number),
+        "--required",
+        "--json",
+        "name,state,bucket,workflow,link,startedAt,completedAt",
+    ]
+    if repo_override:
+        args.extend(["--repo", repo_override])
+    try:
+        payload = _gh_json(args)
+    except _GhError:
+        return []
+    if not isinstance(payload, list):
+        return []
+    return [item for item in payload if isinstance(item, dict)]
+
+
+def _required_pr_check_bucket(check: dict[str, Any]) -> str:
+    bucket = str(check.get("bucket") or "").strip().lower()
+    if bucket:
+        return bucket
+    state = str(check.get("state") or "").strip().upper()
+    if state in {"SUCCESS", "SUCCESSFUL", "COMPLETED"}:
+        return "pass"
+    if state in {"SKIPPED", "NEUTRAL"}:
+        return "skipping"
+    if state in {"FAILURE", "FAILED", "ERROR", "TIMED_OUT", "ACTION_REQUIRED"}:
+        return "fail"
+    if state in {"CANCELLED", "CANCELED"}:
+        return "cancel"
+    if state in {"PENDING", "QUEUED", "IN_PROGRESS", "EXPECTED", ""}:
+        return "pending"
+    return state.lower()
+
+
+def _summarize_required_pr_checks(checks: list[dict[str, Any]]) -> tuple[str, bool, bool]:
+    """Return ``(summary, has_failures, has_pending)`` for required PR checks."""
+    success = failure = pending = 0
+    for check in checks:
+        if _is_current_merge_quorum_self_check(check):
+            continue
+        bucket = _required_pr_check_bucket(check)
+        if bucket in {"pass", "skipping"}:
+            success += 1
+        elif bucket in {"fail", "cancel"}:
+            failure += 1
+        elif bucket == "pending":
+            pending += 1
+        else:
+            pending += 1
+    total = success + failure + pending
+    if failure > 0:
+        return (f"{failure} failing / {total} required", True, pending > 0)
+    if pending > 0:
+        return (f"{pending} pending / {total} required", False, True)
+    if success > 0:
+        return (f"{success}/{total} required green", False, False)
+    return ("no required checks", False, False)
+
+
+def _effective_required_pr_check_count(checks: list[dict[str, Any]]) -> int:
+    """Count required PR checks after excluding the current merge-quorum self-check."""
+    return sum(
+        1
+        for check in checks
+        if isinstance(check, dict) and not _is_current_merge_quorum_self_check(check)
+    )
+
+
 def _check_rollup_unavailable(pr: dict[str, Any]) -> bool:
     """Return true when an open PR has no GitHub PR-facing check rollup."""
     pr_state = str(pr.get("state") or "").strip().upper()
@@ -1397,10 +1470,13 @@ def _repo_slug_from_pr_payload(pr: dict[str, Any], repo_override: str | None) ->
     return ""
 
 
-def _fetch_required_check_contexts(repo_slug: str, base_ref: str) -> list[str]:
-    """Best-effort branch-protection required contexts for diagnostics only."""
+def _fetch_required_status_check_protection(
+    repo_slug: str,
+    base_ref: str,
+) -> dict[str, Any]:
+    """Best-effort branch-protection required status-check settings."""
     if not repo_slug or not base_ref:
-        return []
+        return {"available": False, "contexts": [], "strict": None}
     try:
         payload = _gh_json(
             [
@@ -1410,11 +1486,31 @@ def _fetch_required_check_contexts(repo_slug: str, base_ref: str) -> list[str]:
             ]
         )
     except Exception:
-        return []
+        return {"available": False, "contexts": [], "strict": None}
     if not isinstance(payload, dict):
-        return []
-    contexts = payload.get("contexts") or []
-    return [str(item).strip() for item in contexts if str(item).strip()]
+        return {"available": False, "contexts": [], "strict": None}
+    required_by_context: dict[str, dict[str, Any]] = {}
+    for item in payload.get("contexts") or []:
+        context = str(item).strip()
+        if context:
+            required_by_context.setdefault(context, {"context": context, "app_id": None})
+    for item in payload.get("checks") or []:
+        if not isinstance(item, dict):
+            continue
+        context = str(item.get("context") or "").strip()
+        if context:
+            app_id = item.get("app_id")
+            required_by_context[context] = {
+                "context": context,
+                "app_id": app_id if app_id is not None else None,
+            }
+    required_checks = list(required_by_context.values())
+    return {
+        "available": True,
+        "contexts": [item["context"] for item in required_checks],
+        "checks": required_checks,
+        "strict": bool(payload.get("strict")),
+    }
 
 
 def _fetch_direct_commit_check_runs(repo_slug: str, head_sha: str) -> list[dict[str, Any]]:
@@ -1441,7 +1537,11 @@ def _direct_check_run_name(run: dict[str, Any]) -> str:
 
 
 def _direct_check_run_is_success(run: dict[str, Any]) -> bool:
-    return str(run.get("conclusion") or "").strip().upper() == "SUCCESS"
+    return str(run.get("conclusion") or "").strip().upper() in {
+        "SUCCESS",
+        "SKIPPED",
+        "NEUTRAL",
+    }
 
 
 def _direct_check_run_is_non_green(run: dict[str, Any]) -> bool:
@@ -1450,6 +1550,8 @@ def _direct_check_run_is_non_green(run: dict[str, Any]) -> bool:
     if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL"}:
         return False
     if conclusion:
+        return True
+    if status in {"", "COMPLETED"}:
         return True
     return status in {"QUEUED", "IN_PROGRESS", "PENDING", "EXPECTED"}
 
@@ -1472,9 +1574,55 @@ def _latest_direct_check_runs_by_name(
             or ""
         )
         previous = latest.get(name)
-        if previous is None or (timestamp, index) >= (previous[0], previous[1]):
+        if (
+            previous is None
+            or timestamp > previous[0]
+            or (timestamp == previous[0] and index < previous[1])
+        ):
             latest[name] = (timestamp, index, run)
     return {name: item[2] for name, item in latest.items()}
+
+
+def _direct_check_run_app_id(run: dict[str, Any]) -> Any:
+    app = run.get("app")
+    if isinstance(app, dict):
+        return app.get("id")
+    return None
+
+
+def _direct_check_run_matches_required(run: dict[str, Any], required: dict[str, Any]) -> bool:
+    if _direct_check_run_name(run) != required.get("context"):
+        return False
+    required_app_id = required.get("app_id")
+    if required_app_id is None:
+        return True
+    return _direct_check_run_app_id(run) == required_app_id
+
+
+def _latest_direct_check_run_for_required(
+    runs: list[dict[str, Any]],
+    required: dict[str, Any],
+) -> dict[str, Any] | None:
+    latest: tuple[str, int, dict[str, Any]] | None = None
+    for index, run in enumerate(runs):
+        if not _direct_check_run_matches_required(run, required):
+            continue
+        timestamp = str(
+            run.get("completed_at")
+            or run.get("started_at")
+            or run.get("created_at")
+            or run.get("completedAt")
+            or run.get("startedAt")
+            or run.get("createdAt")
+            or ""
+        )
+        if (
+            latest is None
+            or timestamp > latest[0]
+            or (timestamp == latest[0] and index < latest[1])
+        ):
+            latest = (timestamp, index, run)
+    return latest[2] if latest else None
 
 
 def _build_check_surface_diagnostics(
@@ -1504,35 +1652,44 @@ def _build_check_surface_diagnostics(
 
     head_sha = str(pr.get("headRefOid") or "").strip()
     repo_slug = _repo_slug_from_pr_payload(pr, repo_override)
-    base_ref = str(pr.get("baseRefName") or "main").strip()
-    required_contexts = _fetch_required_check_contexts(repo_slug, base_ref)
+    base_ref = str(pr.get("baseRefName") or "").strip()
+    required_status_checks = _fetch_required_status_check_protection(repo_slug, base_ref)
+    required_contexts = required_status_checks["contexts"]
+    required_check_specs = required_status_checks.get("checks") or []
+    strict_required = bool(required_status_checks["strict"])
     direct_runs = _fetch_direct_commit_check_runs(repo_slug, head_sha)
     latest_direct_runs = _latest_direct_check_runs_by_name(direct_runs)
-    direct_names = set(latest_direct_runs)
-    successful_names = {
-        name for name, run in latest_direct_runs.items() if _direct_check_run_is_success(run)
-    }
     non_green = [
         name for name, run in latest_direct_runs.items() if _direct_check_run_is_non_green(run)
     ]
-    missing_required_contexts = [
-        context for context in required_contexts if context not in direct_names
-    ]
-    successful_required_contexts = [
-        context for context in required_contexts if context in successful_names
-    ]
-    non_success_required_contexts = [
-        context
-        for context in required_contexts
-        if context in direct_names and context not in successful_names
-    ]
-    required_contexts_satisfied = bool(required_contexts) and not (
-        missing_required_contexts or non_success_required_contexts
+    missing_required_contexts: list[str] = []
+    successful_required_contexts: list[str] = []
+    non_success_required_contexts: list[str] = []
+    for required in required_check_specs:
+        context = str(required.get("context") or "").strip()
+        if not context:
+            continue
+        run = _latest_direct_check_run_for_required(direct_runs, required)
+        if run is None:
+            missing_required_contexts.append(context)
+        elif _direct_check_run_is_success(run):
+            successful_required_contexts.append(context)
+        else:
+            non_success_required_contexts.append(context)
+    required_contexts_satisfied = (
+        bool(required_contexts)
+        and not strict_required
+        and not (missing_required_contexts or non_success_required_contexts)
     )
     direct_summary = {
         "available": bool(direct_runs),
         "total": len(direct_runs),
+        "branch_protection_required_status_checks_available": bool(
+            required_status_checks["available"]
+        ),
+        "branch_protection_strict": strict_required,
         "required_contexts": required_contexts,
+        "required_checks": required_check_specs,
         "successful_required_contexts": successful_required_contexts,
         "missing_required_contexts": missing_required_contexts,
         "non_success_required_contexts": non_success_required_contexts,
@@ -1552,16 +1709,29 @@ def _build_check_surface_diagnostics(
             "exact-head branch-protection required check-runs."
         )
     elif direct_runs:
-        diagnostics["diagnosis"] = (
-            "GitHub PR statusCheckRollup is empty while direct commit check-runs "
-            "exist at the head; merge-packet fails closed because direct checks "
-            "do not satisfy all branch-protection required contexts."
-        )
-        diagnostics["remediation_prompt"] = (
-            "Authorize only a PR-state/check-only nudge to refresh GitHub's PR "
-            "check rollup, or keep the PR blocked and open a bounded CI/tooling "
-            "repair lane. Do not merge from direct commit check-runs alone."
-        )
+        if strict_required:
+            diagnostics["diagnosis"] = (
+                "GitHub PR statusCheckRollup is empty while exact-head direct commit "
+                "check-runs exist, but branch protection requires strict base freshness; "
+                "merge-packet fails closed because direct commit check-runs alone do "
+                "not prove the PR is up to date with base."
+            )
+            diagnostics["remediation_prompt"] = (
+                "Refresh the PR-facing check rollup after the branch is current with "
+                "base, or keep the PR blocked. Do not settle from direct commit "
+                "check-runs alone when branch protection is strict."
+            )
+        else:
+            diagnostics["diagnosis"] = (
+                "GitHub PR statusCheckRollup is empty while direct commit check-runs "
+                "exist at the head; merge-packet fails closed because direct checks "
+                "do not satisfy all branch-protection required contexts."
+            )
+            diagnostics["remediation_prompt"] = (
+                "Authorize only a PR-state/check-only nudge to refresh GitHub's PR "
+                "check rollup, or keep the PR blocked and open a bounded CI/tooling "
+                "repair lane. Do not merge from direct commit check-runs alone."
+            )
     else:
         diagnostics["diagnosis"] = (
             "GitHub PR statusCheckRollup is empty and no direct commit check-runs were found."
@@ -1737,6 +1907,54 @@ def _build_packet(
         checks_summary=checks_summary,
         checks_unavailable=checks_unavailable,
     )
+    required_pr_check_gate_satisfied = False
+    if not checks_unavailable and (has_failures or has_pending):
+        required_pr_checks = _fetch_required_pr_checks(number, repo_override)
+        if required_pr_checks:
+            required_summary, required_has_failures, required_has_pending = (
+                _summarize_required_pr_checks(required_pr_checks)
+            )
+            effective_required_count = _effective_required_pr_check_count(required_pr_checks)
+            check_surfaces["required_pr_checks"] = {
+                "available": True,
+                "total": len(required_pr_checks),
+                "effective_total": effective_required_count,
+                "summary": required_summary,
+                "failing_or_cancelled": [
+                    str(check.get("name") or "").strip()
+                    for check in required_pr_checks
+                    if _required_pr_check_bucket(check) in {"fail", "cancel"}
+                ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+                "pending": [
+                    str(check.get("name") or "").strip()
+                    for check in required_pr_checks
+                    if _required_pr_check_bucket(check) == "pending"
+                    and not _is_current_merge_quorum_self_check(check)
+                ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+            }
+            if (
+                effective_required_count > 0
+                and not required_has_failures
+                and not required_has_pending
+            ):
+                required_pr_check_gate_satisfied = True
+                checks_summary = f"{required_summary} (required PR checks)"
+                has_pending = False
+                has_failures = False
+                checks_unavailable = False
+                check_surfaces["effective_gate"] = {
+                    "source": "required_pr_checks",
+                    "summary": checks_summary,
+                }
+                check_surfaces["diagnosis"] = (
+                    "The PR check rollup includes non-required non-green checks, "
+                    "but GitHub reports every branch-protection required check green; "
+                    "merge-packet uses the required PR checks gate."
+                )
+                check_surfaces["remediation_prompt"] = (
+                    "Continue gating on branch-protection required checks; keep "
+                    "non-required shadow/advisory check failures visible but non-blocking."
+                )
     direct_check_fallback_satisfied = (
         checks_unavailable and _direct_required_check_fallback_satisfied(check_surfaces)
     )
@@ -1802,6 +2020,18 @@ def _build_packet(
         risk_flags.append("check rollup unavailable")
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
+    required_pr_check_surface = check_surfaces.get("required_pr_checks") or {}
+    if required_pr_check_gate_satisfied and required_pr_check_surface:
+        risk_flags.append(
+            "non-required PR checks are non-green; "
+            "effective gate uses branch-protection required checks"
+        )
+    direct_summary = check_surfaces.get("direct_commit_check_runs") or {}
+    if direct_check_fallback_satisfied and direct_summary.get("non_green_count", 0):
+        risk_flags.append(
+            "non-required direct check-runs are non-green; "
+            "fallback gates only branch-protection required contexts"
+        )
 
     if settlement_recorded:
         recommendation = "settled_noop"
@@ -1831,7 +2061,17 @@ def _build_packet(
         recommendation_reason = "checks still pending — wait for completion"
     else:
         recommendation = "approve_candidate"
-        recommendation_reason = "all green, bounded diff, no high-risk paths"
+        if required_pr_check_gate_satisfied:
+            recommendation_reason = (
+                "branch-protection required checks green; non-required PR checks are non-green"
+            )
+        elif direct_check_fallback_satisfied and direct_summary.get("non_green_count", 0):
+            recommendation_reason = (
+                "branch-protection required contexts green via direct check-run fallback; "
+                "non-required direct check-runs are non-green"
+            )
+        else:
+            recommendation_reason = "all green, bounded diff, no high-risk paths"
 
     author = ""
     author_payload = pr.get("author")
@@ -1930,9 +2170,11 @@ def _build_merge_authorization_packet(
     review_queue_root: str | Path | None = None,
     execute_reviewers: bool = False,
 ) -> dict[str, Any]:
+    scoped_pr_refs = False
     if pr_refs:
         refs = list(dict.fromkeys(str(ref).strip() for ref in pr_refs if str(ref).strip()))
-        queue_size = len(_build_queue(limit=max(limit, len(refs), MODEL_REVIEW_QUEUE_CAP + 1)))
+        queue_size = len(refs)
+        scoped_pr_refs = True
     else:
         queue = _build_queue(limit=limit)
         refs = [str(item.number) for item in queue]
@@ -1953,6 +2195,7 @@ def _build_merge_authorization_packet(
             "current_open_prs": queue_size,
             "cap": MODEL_REVIEW_QUEUE_CAP,
             "active": queue_pressure_active,
+            "scope": "explicit_pr_refs" if scoped_pr_refs else "open_pr_queue",
             "allowed_work_when_active": [
                 "review",
                 "dogfood",
@@ -1991,6 +2234,7 @@ def _build_merge_authorization_packet(
             "current_open_prs": queue_size,
             "cap": MODEL_REVIEW_QUEUE_CAP,
             "active": queue_pressure_active,
+            "scope": "explicit_pr_refs" if scoped_pr_refs else "open_pr_queue",
         },
         "authorization_sentence": (
             "I accept the model quorum evidence for Tier 0-2 PRs in this packet "
@@ -3225,11 +3469,18 @@ def _render_packet(packet: ReviewPacket) -> None:
     if packet.check_surfaces:
         rollup = packet.check_surfaces.get("pr_rollup") or {}
         direct = packet.check_surfaces.get("direct_commit_check_runs") or {}
+        required = packet.check_surfaces.get("required_pr_checks") or {}
         print(
             "check surfaces:  "
             f"pr_rollup_available={str(bool(rollup.get('available'))).lower()} "
             f"pr_rollup_count={rollup.get('count')}"
         )
+        if required:
+            print(
+                "                 "
+                f"required_pr_checks={required.get('total', 0)} "
+                f"summary={required.get('summary')}"
+            )
         if direct:
             print(
                 "                 "

@@ -1,6 +1,6 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-05-13
+Last updated: 2026-05-28
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
@@ -22,6 +22,39 @@ Current May 28 proof-loop state:
 - The first `observe-outcomes --write` remains a separate Tier-4 operator decision over a bounded manually verifiable receipt slice.
 
 Operator commands only count as proof when they are run from a clean, current `origin/main` observer. A dirty or diverged founder checkout is planning context, not runtime truth.
+
+### Governance-substrate freeze (promoted from Sprint 2 anti-goals)
+
+Treat process tooling as saturated. Do **not** open new review-queue,
+settlement, merge-quorum, or steering meta-tooling work unless it either
+(a) directly unblocks B0 truth, external receipt proof, or the non-operator
+demo/product-proof path, **or** (b) explicitly closes or supersedes an
+existing open PR in the same surface. This rule is enforced operationally
+by the Sprint 2 anti-goals in [FOCUS.md](../FOCUS.md); it is recorded here
+because it outlives any single sprint window. Post-saturation process work
+is the dominant form of substrate-overbuild — every new PR in
+`aragora/cli/commands/review_queue.py`, `scripts/settle_*.py`,
+`scripts/*steering*.py`, or `.github/workflows/aragora-*-quorum.yml` must
+name the load-bearing target it advances or the open PR it net-closes, or
+stand down.
+
+### Model-quorum evidence is exact-head and countable, or it does not exist
+
+A model-review signal only counts toward `aragora-merge-quorum` when it is
+posted as an **exact-head PR comment** that the `review-queue merge-packet`
+parsers can read: a family-named first heading, a head-SHA citation
+(>= 7 chars), and a review/dogfood trigger phrase. Advisory
+`review-pr --no-publish-review` artifacts are persisted but **not** counted,
+and a *published* `review-pr` GitHub review object is also not counted
+(merge-packet fetches issue `comments`, not `reviews`, and the
+`## Aragora review-pr:` heading resolves to `unknown_model_reviewer`).
+Reaching quorum therefore requires genuinely distinct model **lineages** —
+router/product markers such as `codex` or `factory` do not count as separate
+families. The recognizable-header / lineage-counting fix is tracked by
+[#7472](https://github.com/synaptent/aragora/pull/7472) (Tier 4 pre-approval,
+awaiting operator design-review); until it lands, quorum-blocked PRs are a
+human merge gate, not an evidence-tooling task, and evidence comments must
+never be hand-fabricated.
 
 ### `B2` guard expansion criteria
 

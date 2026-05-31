@@ -213,6 +213,44 @@ def test_decision_packet_reports_active_owner_blocker(tmp_path: Path) -> None:
     assert "active owner exists for target" in packet["blockers"]
 
 
+def test_decision_packet_counts_shared_outbox_when_local_outbox_absent(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    state_root = tmp_path / "shared-checkout"
+    outbox = state_root / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "one.json").write_text("{}", encoding="utf-8")
+    (outbox / "two.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+
+    def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+        if command[:2] == ["git", "status"]:
+            return subprocess.CompletedProcess(command, 0, "## main...origin/main\n", "")
+        if command[:2] == ["df", "-h"]:
+            assert command[2] == str(outbox)
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                "Filesystem      Size   Used  Avail Capacity iused ifree %iused Mounted on\n",
+                "",
+            )
+        return subprocess.CompletedProcess(command, 0, "{}", "")
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        repo_root=repo_root,
+        command_runner=fake_runner,
+    )
+
+    assert packet["disk_outbox"]["outbox_file_count"] == 2
+    assert packet["disk_outbox"]["outbox_dir"] == str(outbox)
+    assert packet["disk_outbox"]["outbox_returncode"] == 0
+
+
 def _settlement_runner(
     *,
     live_head: str = "live-head",

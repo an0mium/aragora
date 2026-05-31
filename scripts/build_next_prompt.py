@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -15,6 +16,7 @@ from typing import Any
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
+DEFAULT_AUTOMATION_OUTBOX_DIR = Path(".aragora") / "automation-outbox"
 ACTIVE_STATUSES = {
     "active",
     "running",
@@ -154,14 +156,74 @@ def _root_packet(command_runner: CommandRunner) -> dict[str, Any]:
     return {"dirty": dirty, "status": lines, "returncode": status["returncode"]}
 
 
-def _disk_outbox_packet(command_runner: CommandRunner) -> dict[str, Any]:
-    df = _run_text(["df", "-h", "."], command_runner)
-    outbox = _run_text(["find", ".aragora/automation-outbox", "-type", "f"], command_runner)
-    files = [line for line in outbox["stdout"].splitlines() if line.strip()]
+def _state_dir(state_root: Path) -> Path:
+    expanded = state_root.expanduser()
+    return expanded if expanded.name == ".aragora" else expanded / ".aragora"
+
+
+def _has_automation_outbox(state_root: Path) -> bool:
+    return (_state_dir(state_root) / "automation-outbox").is_dir()
+
+
+def _automation_state_root(repo_root: Path) -> Path:
+    """Return the checkout or direct .aragora dir backing shared automation state."""
+
+    if _has_automation_outbox(repo_root):
+        return repo_root
+
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    candidates: list[Path] = []
+    if configured:
+        candidates.append(Path(configured).expanduser())
+    candidates.append(Path.home() / "Development" / "aragora")
+
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        if _has_automation_outbox(resolved):
+            return resolved
+    return repo_root
+
+
+def _automation_state_default_path(state_root: Path, default_relative: Path) -> Path:
+    expanded = state_root.expanduser()
+    if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
+        return expanded.joinpath(*default_relative.parts[1:])
+    return expanded / default_relative
+
+
+def _count_files(path: Path) -> tuple[int | None, int]:
+    if not path.is_dir():
+        return None, 1
+    try:
+        return sum(1 for item in path.rglob("*") if item.is_file()), 0
+    except OSError:
+        return None, 1
+
+
+def _existing_df_target(path: Path) -> Path:
+    expanded = path.expanduser()
+    for candidate in (expanded, *expanded.parents):
+        if candidate.exists():
+            return candidate
+    return Path(".")
+
+
+def _disk_outbox_packet(
+    command_runner: CommandRunner, repo_root: Path = DEFAULT_REPO_ROOT
+) -> dict[str, Any]:
+    outbox_dir = _automation_state_default_path(
+        _automation_state_root(repo_root), DEFAULT_AUTOMATION_OUTBOX_DIR
+    )
+    df = _run_text(["df", "-h", str(_existing_df_target(outbox_dir))], command_runner)
+    outbox_file_count, outbox_returncode = _count_files(outbox_dir)
     return {
         "df": df["stdout"].splitlines(),
-        "outbox_file_count": len(files) if outbox["returncode"] == 0 else None,
-        "outbox_returncode": outbox["returncode"],
+        "outbox_dir": str(outbox_dir),
+        "outbox_file_count": outbox_file_count,
+        "outbox_returncode": outbox_returncode,
     }
 
 
@@ -402,7 +464,7 @@ def build_decision_packet(
             ],
             runner,
         ),
-        "disk_outbox": _disk_outbox_packet(runner),
+        "disk_outbox": _disk_outbox_packet(runner, repo_root=repo_root),
         "pr": {},
         "checks": {"required": []},
         "merge_packet": {},

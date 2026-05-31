@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "class": "blocked_auth_failure",
+  "description": "Canonical scenario corpus for the blocked_auth_failure rescue class. Each scenario captures a real-world auth-failure shape observed in B0 ticks and asserts the existing terminal-truth classifier (aragora.swarm.terminal_truth.classify_from_metrics) folds it into BLOCKED_AUTH_FAILURE without requiring a per-shape branch in the classifier. The metrics_row field is the synthesizable boss_metrics.jsonl row shape so the productization test can exercise the live classifier without spawning workers or making network calls.",
+  "linkage": {
+    "classifier_module": "aragora.swarm.terminal_truth",
+    "classifier_function": "classify_from_metrics",
+    "terminal_class_enum": "TerminalClass.BLOCKED_AUTH_FAILURE",
+    "existing_terminal_truth_fixture": "benchmarks/fixtures/swarm/terminal_truth/blocked_auth_failure.json",
+    "existing_productization_test": "tests/benchmarks/test_blocked_auth_failure_productization.py",
+    "rescue_productization_ledger": "docs/benchmarks/rescue_productization.json",
+    "b0_status_doc": "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+    "rescue_productization_pipeline": "scripts/publish_rescue_productization_report.py"
+  },
+  "scenarios": [
+    {
+      "id": "auth-failure-401-midtool",
+      "description": "Agent receives 401 Unauthorized mid-tool-call after a credential rotation invalidated the in-flight token.",
+      "shape": {
+        "trigger": "tool_call_returned_401",
+        "tool_name_pattern": "*",
+        "error_pattern": "401 Unauthorized",
+        "agent_response_class": "halt_with_blocked_auth_failure"
+      },
+      "metrics_row": {
+        "worker_status": "failed",
+        "worker_outcome": "auth_failure_401",
+        "elapsed_seconds": 4.5,
+        "files_changed": 0,
+        "has_deliverable": false,
+        "publish_action": ""
+      },
+      "expected_classification": "blocked_auth_failure",
+      "expected_terminal_truth_class": "blocked_auth_failure"
+    },
+    {
+      "id": "auth-failure-403-quota-exceeded",
+      "description": "Vendor returns 403 Forbidden with quota_exceeded reason mid-debate; agent has no headroom to retry.",
+      "shape": {
+        "trigger": "tool_call_returned_403",
+        "tool_name_pattern": "anthropic_*|openai_*",
+        "error_pattern": "403 Forbidden quota_exceeded",
+        "agent_response_class": "halt_with_blocked_auth_failure"
+      },
+      "metrics_row": {
+        "worker_status": "failed",
+        "worker_outcome": "auth_quota_exceeded",
+        "elapsed_seconds": 6.0,
+        "files_changed": 0,
+        "has_deliverable": false,
+        "publish_action": ""
+      },
+      "expected_classification": "blocked_auth_failure",
+      "expected_terminal_truth_class": "blocked_auth_failure"
+    },
+    {
+      "id": "auth-failure-missing-env-var",
+      "description": "Required credential environment variable absent at worker boot; preflight reports provider_auth_required.",
+      "shape": {
+        "trigger": "missing_required_credential_env",
+        "tool_name_pattern": "preflight_credential_envelope",
+        "error_pattern": "ANTHROPIC_API_KEY|OPENAI_API_KEY missing",
+        "agent_response_class": "halt_with_blocked_auth_failure"
+      },
+      "metrics_row": {
+        "worker_status": "failed",
+        "worker_outcome": "provider_auth_required",
+        "elapsed_seconds": 1.0,
+        "files_changed": 0,
+        "has_deliverable": false,
+        "publish_action": ""
+      },
+      "expected_classification": "blocked_auth_failure",
+      "expected_terminal_truth_class": "blocked_auth_failure"
+    },
+    {
+      "id": "auth-failure-expired-token-refresh-failed",
+      "description": "OAuth-style token expired and the refresh round-trip itself returned an auth error; agent cannot continue.",
+      "shape": {
+        "trigger": "token_refresh_returned_auth_error",
+        "tool_name_pattern": "oauth_refresh|github_oauth_refresh",
+        "error_pattern": "auth token invalid|expired_token|refresh_failed",
+        "agent_response_class": "halt_with_blocked_auth_failure"
+      },
+      "metrics_row": {
+        "worker_status": "blocked",
+        "worker_outcome": "auth_token_invalid",
+        "elapsed_seconds": 3.0,
+        "files_changed": 0,
+        "has_deliverable": false,
+        "publish_action": ""
+      },
+      "expected_classification": "blocked_auth_failure",
+      "expected_terminal_truth_class": "blocked_auth_failure"
+    },
+    {
+      "id": "auth-failure-vendor-explicit-block",
+      "description": "Vendor explicitly blocks the credential (suspended/disabled key); needs_human is the only path forward.",
+      "shape": {
+        "trigger": "vendor_explicit_credential_block",
+        "tool_name_pattern": "*",
+        "error_pattern": "api key disabled|key revoked|account suspended",
+        "agent_response_class": "halt_with_blocked_auth_failure"
+      },
+      "metrics_row": {
+        "worker_status": "needs_human",
+        "worker_outcome": "blocked_auth_failure",
+        "elapsed_seconds": 0.0,
+        "files_changed": 0,
+        "has_deliverable": false,
+        "publish_action": ""
+      },
+      "expected_classification": "blocked_auth_failure",
+      "expected_terminal_truth_class": "blocked_auth_failure"
+    }
+  ]
+}

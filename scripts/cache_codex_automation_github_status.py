@@ -42,7 +42,23 @@ DEFAULT_MAX_OPEN_PRS = 12
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_OUTPUT = Path(".aragora/automation-github-status/latest.json")
-TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
+TERMINAL_RECEIPT_STATUSES = {
+    "already_satisfied",
+    "checkout_removed",
+    "checkout_removed_branch_preserved",
+    "checkout_retired",
+    "completed",
+    "local_branch_retired",
+    "published",
+    "retired",
+    "retired_local_merged",
+    "retired_local_superseded",
+    "skipped",
+}
+TERMINAL_RECEIPT_STATUS_PREFIXES = (
+    "patch_equivalent_to_",
+    "superseded_by_",
+)
 DUPLICATE_OUTBOX_EXAMPLE_LIMIT = 20
 LOCAL_QUEUE_DETAIL_KEYS = (
     "nonterminal_receipts",
@@ -365,12 +381,18 @@ def _terminal_receipts_by_key(
         if payload is None:
             continue
         status = str(payload.get("status") or "").strip().lower()
-        if status not in TERMINAL_RECEIPT_STATUSES:
+        if not _is_terminal_receipt_status(status):
             continue
         key = str(payload.get("idempotency_key") or path.stem).strip()
         if key:
             by_key[key].append((path, payload))
     return by_key
+
+
+def _is_terminal_receipt_status(status: str) -> bool:
+    return status in TERMINAL_RECEIPT_STATUSES or status.startswith(
+        TERMINAL_RECEIPT_STATUS_PREFIXES
+    )
 
 
 def _load_json_mapping(path: Path) -> dict[str, Any] | None:
@@ -419,7 +441,7 @@ def _local_queue_state(
     terminal_receipts_by_key = _terminal_receipts_by_key(receipt_files)
     terminal_receipt_keys = set(terminal_receipts_by_key)
     nonterminal_receipts = [
-        item for item in receipt_states if item["status"] not in TERMINAL_RECEIPT_STATUSES
+        item for item in receipt_states if not _is_terminal_receipt_status(item["status"])
     ]
     outbox_items = [
         (item, _queue_file_key(item), _queue_file_branch(item)) for item in outbox_files

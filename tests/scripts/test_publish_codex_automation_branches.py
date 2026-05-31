@@ -153,6 +153,12 @@ def test_parser_accepts_receipt_dir_for_shared_cli_compatibility(tmp_path: Path)
     assert args.receipt_dir == receipt_dir
 
 
+def test_parser_accepts_dry_run_alias_for_default_planning_mode() -> None:
+    args = _build_parser().parse_args(["--dry-run"])
+
+    assert args.apply is False
+
+
 def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() -> None:
     decisions = select_publishable_branches(
         [
@@ -263,6 +269,17 @@ def test_automation_guardrails_block_when_spend_caps_are_exhausted(
     assert report.ok is False
     assert report.metrics["spend_daily_usd"] == 51.25
     assert report.blockers == ["daily_spend_usd=51.25 at or above cap 50.00"]
+
+
+def test_codex_rss_probe_treats_blocked_process_census_as_unavailable(
+    monkeypatch: Any,
+) -> None:
+    def blocked_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise PermissionError("ps blocked by sandbox")
+
+    monkeypatch.setattr(mod, "_run", blocked_run)
+
+    assert mod._codex_rss_gib() is None
 
 
 def test_outbox_superseded_branches_reads_local_supersession_metadata(

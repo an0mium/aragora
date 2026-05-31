@@ -182,7 +182,15 @@ def _has_prefixed_component(component: str, stem: str) -> bool:
 
 
 def _is_docs_or_tests_path(segments: list[str]) -> bool:
-    return bool(segments) and segments[0] in {"doc", "docs", "test", "tests"}
+    if not segments:
+        return False
+    if segments[0] in {"doc", "docs", "test", "tests"}:
+        return True
+    return (
+        len(segments) >= 2
+        and segments[0] in {"docs-site", "documentation-site", "site", "website"}
+        and segments[1] in {"doc", "docs", "documentation"}
+    )
 
 
 def _is_dependabot_pr(entry: dict[str, Any], metadata: dict[str, Any]) -> bool:
@@ -984,7 +992,11 @@ def build_report(
         repo_blocker, repo_command, cwd_repo = repo_cwd_blocker(cwd, repo)
         if repo_blocker:
             preselection_blockers.append(repo_blocker)
-        policy_metadata, metadata_command = load_open_pr_metadata(cwd, repo=repo)
+        if explicit_pr is not None:
+            metadata, metadata_command = load_pr_policy_metadata(cwd, explicit_pr, repo=repo)
+            policy_metadata = {explicit_pr: metadata} if metadata else {}
+        else:
+            policy_metadata, metadata_command = load_open_pr_metadata(cwd, repo=repo)
         policy_metadata_commands.append(metadata_command)
         active_owned_command: dict[str, Any] | None = None
         snapshot_preblocked = _has_operator_snapshot_load_blocker(preselection_blockers)

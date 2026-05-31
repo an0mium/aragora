@@ -177,6 +177,20 @@ def _receipt_input_hash(payload: dict[str, Any]) -> str:
     ).hexdigest()
 
 
+def _demo_receipt_verdict(value: Any, *, consensus_reached: bool) -> str:
+    """Convert demo consensus state into the decision-verdict receipt contract."""
+    if value is None or str(value).strip() == "":
+        return "PASS" if consensus_reached else "FAIL"
+
+    verdict = str(value)
+    normalized = verdict.strip().lower().replace("-", "_").replace(" ", "_")
+    if normalized in {"consensus", "consensus_reached"}:
+        return "PASS"
+    if normalized in {"no_consensus", "consensus_failed", "failed_consensus"}:
+        return "FAIL"
+    return verdict
+
+
 def _canonical_demo_receipt(
     *,
     receipt_id: str,
@@ -257,9 +271,11 @@ def _canonical_demo_receipt(
 
 def _build_receipt_data(result: DebateResult, elapsed: float) -> dict[str, Any]:
     """Build a receipt dict from a DebateResult for saving/rendering."""
-    verdict_str = "consensus"
-    if result.verdict:
-        verdict_str = result.verdict.value
+    reached = bool(getattr(result, "consensus_reached", False))
+    verdict_str = _demo_receipt_verdict(
+        result.verdict.value if result.verdict else None,
+        consensus_reached=reached,
+    )
 
     receipt_id = ""
     artifact_hash = ""
@@ -286,7 +302,6 @@ def _build_receipt_data(result: DebateResult, elapsed: float) -> dict[str, Any]:
 
     summary = result.final_answer or ""
 
-    reached = bool(getattr(result, "consensus_reached", False))
     if consensus_proof:
         consensus = ConsensusProof(**consensus_proof)
     else:
@@ -571,7 +586,7 @@ def _build_builtin_demo_result(topic: str) -> Any:
         confidence=0.74,
         consensus=consensus,
         consensus_reached=True,
-        verdict=SimpleNamespace(value="consensus"),
+        verdict=SimpleNamespace(value="PASS"),
         rounds_used=2,
         participants=agent_names,
         proposals=proposals,
@@ -800,7 +815,10 @@ def _build_live_receipt_data(
     consensus_reached = _normalize_receipt_boolean(result.get("consensus_reached"))
     supporting_agents = list(result.get("participants") or []) if consensus_reached else []
     agents = list(result.get("participants") or [])
-    verdict = result.get("verdict") or ("consensus" if consensus_reached else "no_consensus")
+    verdict = _demo_receipt_verdict(
+        result.get("verdict"),
+        consensus_reached=consensus_reached,
+    )
     confidence = _receipt_confidence(result.get("confidence", 0.0))
     return _canonical_demo_receipt(
         receipt_id=str(result.get("receipt_id") or ""),
