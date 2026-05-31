@@ -31,6 +31,7 @@ from aragora.cli.commands.review_queue import (
     _is_high_risk_path,
     _parse_pr_number,
     _record_external_settlement,
+    _render_packet,
     _requested_action,
     _settle_packet,
     _subsystem_for,
@@ -1787,11 +1788,22 @@ class TestBuildQueueAndPacket:
             in packet.check_surfaces["diagnosis"]
         )
         assert packet.machine_recommendation == "approve_candidate"
+        assert (
+            "non-required direct check-runs are non-green" in packet.machine_recommendation_reason
+        )
         assert packet.model_review_quorum["admin_squash_allowed"] is True
         assert packet.model_review_quorum["status"] == "satisfied"
         assert not any(
             "checks are unavailable" in reason for reason in packet.model_review_quorum["reasons"]
         )
+        rendered = io.StringIO()
+        with redirect_stdout(rendered):
+            _render_packet(packet)
+        rendered_packet = rendered.getvalue()
+        assert "check surfaces:" in rendered_packet
+        assert "direct_commit_check_runs=3" in rendered_packet
+        assert "diagnosis:" in rendered_packet
+        assert "remediation:" in rendered_packet
 
     def test_missing_check_rollup_uses_modern_checks_field_and_skipped_neutral(
         self, monkeypatch: pytest.MonkeyPatch

@@ -1889,7 +1889,13 @@ def _build_packet(
         recommendation_reason = "checks still pending — wait for completion"
     else:
         recommendation = "approve_candidate"
-        recommendation_reason = "all green, bounded diff, no high-risk paths"
+        if direct_check_fallback_satisfied and direct_summary.get("non_green_count", 0):
+            recommendation_reason = (
+                "branch-protection required contexts green via direct check-run fallback; "
+                "non-required direct check-runs are non-green"
+            )
+        else:
+            recommendation_reason = "all green, bounded diff, no high-risk paths"
 
     author = ""
     author_payload = pr.get("author")
