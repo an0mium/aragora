@@ -187,6 +187,20 @@ class TestVerifyReceipt:
         assert integrity_check["passed"] is False
         assert "checksum mismatch" in integrity_check["detail"]
 
+    def test_checksum_artifact_hash_alias_is_supported(self):
+        """Some canonicalized receipts mirror artifact_hash into checksum."""
+        data = _make_receipt_data(include_checksum=False)
+        artifact_hash = _recompute_artifact_hash(data)
+        data["artifact_hash"] = artifact_hash
+        data["checksum"] = artifact_hash
+
+        result = _verify_receipt(data)
+
+        assert result["valid"] is True
+        integrity_check = next(c for c in result["checks"] if c["name"] == "integrity")
+        assert integrity_check["passed"] is True
+        assert "checksum artifact_hash alias" in integrity_check["detail"]
+
     def test_missing_schema_version(self):
         data = _make_receipt_data()
         del data["schema_version"]

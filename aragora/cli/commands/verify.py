@@ -184,6 +184,15 @@ def _recompute_artifact_hash(data: dict[str, Any]) -> str:
     return hashlib.sha256(content.encode()).hexdigest()
 
 
+def _looks_like_artifact_hash_alias(value: Any) -> bool:
+    """Return True when a ``checksum`` value is actually a full artifact hash."""
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(char in "0123456789abcdefABCDEF" for char in value)
+    )
+
+
 # ---------------------------------------------------------------------------
 # Core verification logic
 # ---------------------------------------------------------------------------
@@ -316,17 +325,31 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
                 f"recomputed={expected_artifact_hash[:16]}..."
             )
     if stored_checksum:
-        expected_checksum = _recompute_checksum(data)
-        covered_fields.extend(_LEGACY_CHECKSUM_FIELDS)
-        if stored_checksum == expected_checksum:
-            detail = f"checksum={stored_checksum}"
-            if verbose:
-                detail += f" (recomputed={expected_checksum})"
-            proof_details.append(detail)
+        if _looks_like_artifact_hash_alias(stored_checksum):
+            expected_checksum_alias = _recompute_artifact_hash(data)
+            covered_fields.extend(_INTEGRITY_HASH_FIELDS)
+            if stored_checksum == expected_checksum_alias:
+                detail = f"checksum artifact_hash alias={stored_checksum[:16]}..."
+                if verbose:
+                    detail += f" (recomputed={expected_checksum_alias[:16]}...)"
+                proof_details.append(detail)
+            else:
+                proof_failures.append(
+                    f"checksum artifact_hash alias mismatch: stored={stored_checksum[:16]}..., "
+                    f"recomputed={expected_checksum_alias[:16]}..."
+                )
         else:
-            proof_failures.append(
-                f"checksum mismatch: stored={stored_checksum}, recomputed={expected_checksum}"
-            )
+            expected_checksum = _recompute_checksum(data)
+            covered_fields.extend(_LEGACY_CHECKSUM_FIELDS)
+            if stored_checksum == expected_checksum:
+                detail = f"checksum={stored_checksum}"
+                if verbose:
+                    detail += f" (recomputed={expected_checksum})"
+                proof_details.append(detail)
+            else:
+                proof_failures.append(
+                    f"checksum mismatch: stored={stored_checksum}, recomputed={expected_checksum}"
+                )
 
     if not stored_artifact_hash and not stored_checksum:
         checks.append(
