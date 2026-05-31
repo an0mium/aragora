@@ -203,13 +203,21 @@ def _count_files(path: Path) -> tuple[int | None, int]:
         return None, 1
 
 
+def _existing_df_target(path: Path) -> Path:
+    expanded = path.expanduser()
+    for candidate in (expanded, *expanded.parents):
+        if candidate.exists():
+            return candidate
+    return Path(".")
+
+
 def _disk_outbox_packet(
     command_runner: CommandRunner, repo_root: Path = DEFAULT_REPO_ROOT
 ) -> dict[str, Any]:
-    df = _run_text(["df", "-h", "."], command_runner)
     outbox_dir = _automation_state_default_path(
         _automation_state_root(repo_root), DEFAULT_AUTOMATION_OUTBOX_DIR
     )
+    df = _run_text(["df", "-h", str(_existing_df_target(outbox_dir))], command_runner)
     outbox_file_count, outbox_returncode = _count_files(outbox_dir)
     return {
         "df": df["stdout"].splitlines(),

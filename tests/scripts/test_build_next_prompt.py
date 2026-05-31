@@ -231,14 +231,13 @@ def test_decision_packet_counts_shared_outbox_when_local_outbox_absent(
         if command[:2] == ["git", "status"]:
             return subprocess.CompletedProcess(command, 0, "## main...origin/main\n", "")
         if command[:2] == ["df", "-h"]:
+            assert command[2] == str(outbox)
             return subprocess.CompletedProcess(
                 command,
                 0,
                 "Filesystem      Size   Used  Avail Capacity iused ifree %iused Mounted on\n",
                 "",
             )
-        if command[:2] == ["find", ".aragora/automation-outbox"]:
-            return subprocess.CompletedProcess(command, 1, "", "No such file or directory")
         return subprocess.CompletedProcess(command, 0, "{}", "")
 
     packet = prompt_builder.build_decision_packet(
