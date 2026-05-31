@@ -25,6 +25,21 @@ from aragora.config.provider_readiness import (
 
 HealthCheck = tuple[str, str, bool | None]
 
+_AWS_SECRETS_PROBE_SIGNAL_ENV_VARS = (
+    "ARAGORA_SECRET_NAME",
+    "ARAGORA_SECRET_REGIONS",
+    "AWS_REGION",
+    "AWS_DEFAULT_REGION",
+    "AWS_PROFILE",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_WEB_IDENTITY_TOKEN_FILE",
+    "AWS_ROLE_ARN",
+    "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+    "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+    "AWS_EXECUTION_ENV",
+    "AWS_LAMBDA_FUNCTION_NAME",
+)
+
 
 @dataclass(frozen=True)
 class _AwsSecretsPosture:
@@ -42,6 +57,18 @@ class _AwsSecretsPosture:
     # in AWS but ``hydrate_env_from_secrets`` will NOT load them for this
     # process, so doctor must warn rather than green-light the posture.
     honored_by_runtime: bool = False
+
+
+def _has_explicit_aws_secrets_probe_signal(
+    *, runtime_use_aws: bool, aws_region: str, aws_regions: list[str], secret_name: str
+) -> bool:
+    """Return whether doctor should spend time probing AWS Secrets Manager."""
+
+    if not aws_region and not aws_regions and not secret_name:
+        return False
+    if runtime_use_aws:
+        return True
+    return any(os.environ.get(name) for name in _AWS_SECRETS_PROBE_SIGNAL_ENV_VARS)
 
 
 def _aws_secrets_provider_posture() -> _AwsSecretsPosture:
@@ -68,15 +95,21 @@ def _aws_secrets_provider_posture() -> _AwsSecretsPosture:
     except (OSError, RuntimeError, ValueError):
         return _AwsSecretsPosture(False, (), "")
 
-    # Skip the AWS round-trip entirely when no region/secret is configured —
-    # the probe could not resolve anything and would only add latency to
-    # ``aragora doctor`` on machines with no AWS posture at all.
-    if not base.aws_region and not base.aws_regions and not base.secret_name:
-        return _AwsSecretsPosture(False, (), "")
-
     # Does the *runtime* path honor AWS? hydrate_env_from_secrets respects the
     # env-derived use_aws; if it's False the keys won't actually be loaded.
     honored_by_runtime = bool(base.use_aws)
+
+    # SecretsConfig supplies default region/secret values, so post-default config
+    # fields cannot prove the user has an AWS posture. Avoid a network probe on
+    # ordinary keyless local machines unless AWS loading is active or explicit
+    # AWS/Secrets Manager environment is present.
+    if not _has_explicit_aws_secrets_probe_signal(
+        runtime_use_aws=honored_by_runtime,
+        aws_region=base.aws_region,
+        aws_regions=base.aws_regions,
+        secret_name=base.secret_name,
+    ):
+        return _AwsSecretsPosture(False, (), "")
 
     # Force an AWS-backed lookup even in the default local opt-out posture, but
     # keep the bounded timeouts/region set from the environment configuration.

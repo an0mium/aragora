@@ -294,6 +294,7 @@ class TestCheckApiKeys:
         secrets_mod.SecretsConfig.side_effect = lambda **kw: SimpleNamespace(**kw)
         secrets_mod.SecretManager.return_value = manager
         monkeypatch.setitem(sys.modules, "aragora.config.secrets", secrets_mod)
+        return secrets_mod
 
     def _base(self, **over):
         defaults = dict(
@@ -320,10 +321,42 @@ class TestCheckApiKeys:
     def test_probe_available_but_not_honored_when_use_aws_false(self, monkeypatch):
         from aragora.cli.doctor import _aws_secrets_provider_posture
 
+        monkeypatch.setenv("AWS_REGION", "us-east-1")
         self._patch_secrets(monkeypatch, base=self._base(use_aws=False), source_for=lambda e: "aws")
         posture = _aws_secrets_provider_posture()
         assert posture.available is True
         assert posture.honored_by_runtime is False
+
+    def test_probe_skips_default_local_without_explicit_aws_signal(self, monkeypatch):
+        from aragora.cli.doctor import _aws_secrets_provider_posture
+
+        for env_var in (
+            "ARAGORA_USE_SECRETS_MANAGER",
+            "ARAGORA_SECRET_NAME",
+            "ARAGORA_SECRET_REGIONS",
+            "AWS_REGION",
+            "AWS_DEFAULT_REGION",
+            "AWS_PROFILE",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_WEB_IDENTITY_TOKEN_FILE",
+            "AWS_ROLE_ARN",
+            "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+            "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+            "AWS_EXECUTION_ENV",
+            "AWS_LAMBDA_FUNCTION_NAME",
+        ):
+            monkeypatch.delenv(env_var, raising=False)
+
+        secrets_mod = self._patch_secrets(
+            monkeypatch,
+            base=self._base(use_aws=False),
+            source_for=lambda e: "aws",
+        )
+
+        posture = _aws_secrets_provider_posture()
+
+        assert posture.available is False
+        secrets_mod.SecretManager.assert_not_called()
 
     def test_probe_skips_when_no_region_configured(self, monkeypatch):
         from aragora.cli.doctor import _aws_secrets_provider_posture
