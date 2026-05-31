@@ -413,7 +413,6 @@ class DocumentAuditor:
                 self._session_store = AuditSessionStore()
             except (ImportError, OSError, sqlite3.Error) as exc:
                 logger.warning("Audit session persistence unavailable: %s", exc)
-                self._persist_sessions = False
                 return None
         return self._session_store
 
@@ -1087,9 +1086,8 @@ Is this a valid finding? Respond with:
             return False
 
         task = self._running_tasks.get(session_id)
-        if not task:
-            return False
-        task.cancel()
+        if task:
+            task.cancel()
 
         session.status = AuditStatus.PAUSED
         self.save_session(session)
