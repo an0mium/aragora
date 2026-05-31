@@ -938,7 +938,19 @@ class ComplianceFrameworkManager:
         if frameworks is None:
             frameworks_to_check = list(self._frameworks.values())
         else:
-            frameworks_to_check = [self._frameworks[f] for f in frameworks if f in self._frameworks]
+            # Fail loud on unknown/typo'd framework IDs rather than silently
+            # dropping them. Silently ignoring unknown IDs can yield a false
+            # "COMPLIANT / 100%" result for content that was never actually
+            # evaluated against any framework (e.g. a typo like "gdrp" for
+            # "gdpr"), which is a dangerous false negative for a compliance tool.
+            unknown = [f for f in frameworks if f not in self._frameworks]
+            if unknown:
+                available = ", ".join(sorted(self._frameworks))
+                raise ValueError(
+                    "Unknown compliance framework(s): "
+                    f"{', '.join(unknown)}. Available frameworks: {available}"
+                )
+            frameworks_to_check = [self._frameworks[f] for f in frameworks]
 
         if not frameworks_to_check:
             return ComplianceCheckResult(
