@@ -353,6 +353,75 @@ class TestDemoIntegration:
         assert exc.value.code == 0
         assert "Result: VALID" in capsys.readouterr().out
 
+    def test_demo_receipt_passes_top_level_verify(self, tmp_path, capsys):
+        """Saved demo receipts must verify VALID under the top-level ``aragora verify``.
+
+        Regression for the producer/consumer contract mismatch: ``_save_demo_receipt``
+        emits ``artifact_hash`` (the canonical content hash) but no ``checksum`` key,
+        while ``aragora verify`` previously treated a missing ``checksum`` as a hard
+        failure. The documented onboarding next-step (``aragora verify <receipt>``)
+        must report the demo receipt as valid. Drives the same code path the
+        ``aragora demo --offline`` CLI uses (``_run_demo_debate``).
+        """
+        import asyncio
+
+        from aragora.cli.commands.verify import _verify_receipt, cmd_verify
+        from aragora.cli.demo import _run_demo_debate
+
+        result, elapsed = asyncio.run(
+            _run_demo_debate("Should we adopt microservices or keep our monolith?")
+        )
+        capsys.readouterr()  # drain demo output
+
+        receipt_path = tmp_path / "aragora-demo-receipt.json"
+        _save_demo_receipt(result, elapsed, str(receipt_path))
+
+        saved = json.loads(receipt_path.read_text())
+        # The producer emits artifact_hash, not a literal checksum key.
+        assert saved.get("artifact_hash")
+        assert "checksum" not in saved
+
+        # Direct invariant: the verifier accepts the canonical artifact_hash.
+        report = _verify_receipt(saved)
+        checksum_check = next(c for c in report["checks"] if c["name"] == "checksum")
+        assert checksum_check["passed"] is True, checksum_check["detail"]
+        assert report["valid"] is True, report["checks"]
+
+        # End-to-end: the CLI entry point returns exit code 0.
+        args = argparse.Namespace(
+            receipt_path=str(receipt_path), output_format="json", verbose=False
+        )
+        rc = cmd_verify(args)
+        assert rc == 0
+        out = json.loads(capsys.readouterr().out)
+        assert out["valid"] is True
+
+    def test_demo_receipt_top_level_verify_detects_tampering(self, tmp_path, capsys):
+        """Tampering a demo receipt's verdict must be caught by ``aragora verify``."""
+        import asyncio
+
+        from aragora.cli.commands.verify import _verify_receipt
+        from aragora.cli.demo import _run_demo_debate
+
+        result, elapsed = asyncio.run(
+            _run_demo_debate("Should we adopt microservices or keep our monolith?")
+        )
+        capsys.readouterr()  # drain demo output
+
+        receipt_path = tmp_path / "aragora-demo-receipt.json"
+        _save_demo_receipt(result, elapsed, str(receipt_path))
+
+        saved = json.loads(receipt_path.read_text())
+        # Sanity: untampered receipt verifies.
+        assert _verify_receipt(saved)["valid"] is True
+
+        # Tamper the verdict without recomputing artifact_hash.
+        saved["verdict"] = "rejected" if saved["verdict"] != "rejected" else "approved"
+        report = _verify_receipt(saved)
+        checksum_check = next(c for c in report["checks"] if c["name"] == "checksum")
+        assert checksum_check["passed"] is False
+        assert report["valid"] is False
+
 
 class TestOfflineMockFallback:
     def test_builtin_fallback_prints_standard_markers(self, capsys):

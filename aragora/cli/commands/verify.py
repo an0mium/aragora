@@ -2,7 +2,10 @@
 CLI command: aragora verify -- validate decision receipt integrity.
 
 Verifies that a decision receipt JSON file has not been tampered with by:
-- Recomputing the SHA-256 checksum and comparing it to the stored value
+- Recomputing the SHA-256 content hash and comparing it to the stored value.
+  Receipts store this hash under the canonical ``artifact_hash`` field (as emitted
+  by ``DecisionReceipt.to_dict``); a legacy ``checksum`` field is accepted as a
+  fallback for older/alternate producers.
 - Checking that required fields (schema_version, verdict, timestamp) are present
 - Validating the verdict against the canonical Verdict enum
 - Validating the timestamp is valid ISO 8601 format
@@ -98,7 +101,7 @@ def _is_valid_iso_timestamp(value: str) -> bool:
 
 
 def _recompute_checksum(data: dict[str, Any]) -> str:
-    """Recompute the receipt checksum the same way DecisionReceipt does."""
+    """Recompute the legacy ``checksum`` field the same way the gauntlet pipeline does."""
     content = json.dumps(
         {
             "receipt_id": data.get("receipt_id", ""),
@@ -112,6 +115,31 @@ def _recompute_checksum(data: dict[str, Any]) -> str:
         sort_keys=True,
     )
     return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+
+def _recompute_artifact_hash(data: dict[str, Any]) -> str:
+    """Recompute the canonical content-addressable ``artifact_hash``.
+
+    Mirrors ``DecisionReceipt._calculate_hash`` so that receipts emitted by the
+    canonical producer (``DecisionReceipt.to_dict``, used by ``aragora demo`` and
+    the gauntlet) -- which store their integrity hash under ``artifact_hash`` and
+    do *not* emit a separate ``checksum`` key -- can be verified by this command.
+
+    Implemented inline (rather than importing ``DecisionReceipt``) so verification
+    never hard-depends on the gauntlet package being importable.
+    """
+    content = json.dumps(
+        {
+            "receipt_id": data.get("receipt_id", ""),
+            "gauntlet_id": data.get("gauntlet_id", ""),
+            "input_hash": data.get("input_hash", ""),
+            "risk_summary": data.get("risk_summary", {}),
+            "verdict": data.get("verdict", ""),
+            "confidence": data.get("confidence", 0.0),
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(content.encode()).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -209,9 +237,44 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
         )
         overall_valid = False
 
-    # -- 4. checksum integrity --------------------------------------------
+    # -- 4. content integrity ---------------------------------------------
+    # Receipts carry their integrity hash under one of two canonical fields:
+    #   * ``artifact_hash`` -- the content-addressable hash emitted by the
+    #     canonical producer ``DecisionReceipt.to_dict`` (``aragora demo`` and the
+    #     gauntlet). This is the authoritative integrity field and the one that
+    #     ``aragora receipt verify`` checks.
+    #   * ``checksum`` -- a legacy field some pipelines emit instead.
+    # We prefer ``artifact_hash`` when present so both verify commands agree, and
+    # fall back to ``checksum`` for older/alternate producers. The check fails only
+    # when neither valid proof is present, preserving tamper detection in both cases.
+    stored_artifact_hash = data.get("artifact_hash")
     stored_checksum = data.get("checksum")
-    if stored_checksum:
+    if stored_artifact_hash:
+        expected = _recompute_artifact_hash(data)
+        if stored_artifact_hash == expected:
+            detail = f"artifact_hash={stored_artifact_hash[:16]}..."
+            if verbose:
+                detail += f" (recomputed={expected[:16]}...)"
+            checks.append(
+                {
+                    "name": "checksum",
+                    "passed": True,
+                    "detail": detail,
+                }
+            )
+        else:
+            checks.append(
+                {
+                    "name": "checksum",
+                    "passed": False,
+                    "detail": (
+                        f"artifact_hash mismatch: stored={stored_artifact_hash[:16]}..., "
+                        f"recomputed={expected[:16]}..."
+                    ),
+                }
+            )
+            overall_valid = False
+    elif stored_checksum:
         expected = _recompute_checksum(data)
         if stored_checksum == expected:
             detail = f"checksum={stored_checksum}"
@@ -240,7 +303,7 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
             {
                 "name": "checksum",
                 "passed": False,
-                "detail": "checksum is missing",
+                "detail": "no integrity hash present (expected artifact_hash or checksum)",
             }
         )
         overall_valid = False
