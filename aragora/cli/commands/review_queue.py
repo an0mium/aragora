@@ -1397,11 +1397,6 @@ def _repo_slug_from_pr_payload(pr: dict[str, Any], repo_override: str | None) ->
     return ""
 
 
-def _fetch_required_check_contexts(repo_slug: str, base_ref: str) -> list[str]:
-    """Best-effort branch-protection required contexts for diagnostics only."""
-    return _fetch_required_status_check_protection(repo_slug, base_ref)["contexts"]
-
-
 def _fetch_required_status_check_protection(
     repo_slug: str,
     base_ref: str,
@@ -1421,21 +1416,26 @@ def _fetch_required_status_check_protection(
         return {"available": False, "contexts": [], "strict": None}
     if not isinstance(payload, dict):
         return {"available": False, "contexts": [], "strict": None}
-    contexts: list[str] = []
+    required_by_context: dict[str, dict[str, Any]] = {}
     for item in payload.get("contexts") or []:
         context = str(item).strip()
         if context:
-            contexts.append(context)
+            required_by_context.setdefault(context, {"context": context, "app_id": None})
     for item in payload.get("checks") or []:
         if not isinstance(item, dict):
             continue
         context = str(item.get("context") or "").strip()
         if context:
-            contexts.append(context)
-    deduped_contexts = list(dict.fromkeys(contexts))
+            app_id = item.get("app_id")
+            required_by_context[context] = {
+                "context": context,
+                "app_id": app_id if app_id is not None else None,
+            }
+    required_checks = list(required_by_context.values())
     return {
         "available": True,
-        "contexts": deduped_contexts,
+        "contexts": [item["context"] for item in required_checks],
+        "checks": required_checks,
         "strict": bool(payload.get("strict")),
     }
 
@@ -1508,6 +1508,48 @@ def _latest_direct_check_runs_by_name(
     return {name: item[2] for name, item in latest.items()}
 
 
+def _direct_check_run_app_id(run: dict[str, Any]) -> Any:
+    app = run.get("app")
+    if isinstance(app, dict):
+        return app.get("id")
+    return None
+
+
+def _direct_check_run_matches_required(run: dict[str, Any], required: dict[str, Any]) -> bool:
+    if _direct_check_run_name(run) != required.get("context"):
+        return False
+    required_app_id = required.get("app_id")
+    if required_app_id is None:
+        return True
+    return _direct_check_run_app_id(run) == required_app_id
+
+
+def _latest_direct_check_run_for_required(
+    runs: list[dict[str, Any]],
+    required: dict[str, Any],
+) -> dict[str, Any] | None:
+    latest: tuple[str, int, dict[str, Any]] | None = None
+    for index, run in enumerate(runs):
+        if not _direct_check_run_matches_required(run, required):
+            continue
+        timestamp = str(
+            run.get("completed_at")
+            or run.get("started_at")
+            or run.get("created_at")
+            or run.get("completedAt")
+            or run.get("startedAt")
+            or run.get("createdAt")
+            or ""
+        )
+        if (
+            latest is None
+            or timestamp > latest[0]
+            or (timestamp == latest[0] and index < latest[1])
+        ):
+            latest = (timestamp, index, run)
+    return latest[2] if latest else None
+
+
 def _build_check_surface_diagnostics(
     pr: dict[str, Any],
     *,
@@ -1538,27 +1580,27 @@ def _build_check_surface_diagnostics(
     base_ref = str(pr.get("baseRefName") or "").strip()
     required_status_checks = _fetch_required_status_check_protection(repo_slug, base_ref)
     required_contexts = required_status_checks["contexts"]
+    required_check_specs = required_status_checks.get("checks") or []
     strict_required = bool(required_status_checks["strict"])
     direct_runs = _fetch_direct_commit_check_runs(repo_slug, head_sha)
     latest_direct_runs = _latest_direct_check_runs_by_name(direct_runs)
-    direct_names = set(latest_direct_runs)
-    successful_names = {
-        name for name, run in latest_direct_runs.items() if _direct_check_run_is_success(run)
-    }
     non_green = [
         name for name, run in latest_direct_runs.items() if _direct_check_run_is_non_green(run)
     ]
-    missing_required_contexts = [
-        context for context in required_contexts if context not in direct_names
-    ]
-    successful_required_contexts = [
-        context for context in required_contexts if context in successful_names
-    ]
-    non_success_required_contexts = [
-        context
-        for context in required_contexts
-        if context in direct_names and context not in successful_names
-    ]
+    missing_required_contexts: list[str] = []
+    successful_required_contexts: list[str] = []
+    non_success_required_contexts: list[str] = []
+    for required in required_check_specs:
+        context = str(required.get("context") or "").strip()
+        if not context:
+            continue
+        run = _latest_direct_check_run_for_required(direct_runs, required)
+        if run is None:
+            missing_required_contexts.append(context)
+        elif _direct_check_run_is_success(run):
+            successful_required_contexts.append(context)
+        else:
+            non_success_required_contexts.append(context)
     required_contexts_satisfied = (
         bool(required_contexts)
         and not strict_required
@@ -1572,6 +1614,7 @@ def _build_check_surface_diagnostics(
         ),
         "branch_protection_strict": strict_required,
         "required_contexts": required_contexts,
+        "required_checks": required_check_specs,
         "successful_required_contexts": successful_required_contexts,
         "missing_required_contexts": missing_required_contexts,
         "non_success_required_contexts": non_success_required_contexts,

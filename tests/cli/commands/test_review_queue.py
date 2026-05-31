@@ -1824,17 +1824,26 @@ class TestBuildQueueAndPacket:
             if args[:1] == ["api"] and "required_status_checks" in args[1]:
                 return {
                     "contexts": [],
-                    "checks": [{"context": "lint"}, {"context": "typecheck"}],
+                    "checks": [
+                        {"context": "lint", "app_id": 15368},
+                        {"context": "typecheck", "app_id": 15368},
+                    ],
                     "strict": False,
                 }
             if args[:1] == ["api"] and "check-runs" in args[1]:
                 return {
                     "check_runs": [
-                        {"name": "lint", "status": "completed", "conclusion": "skipped"},
+                        {
+                            "name": "lint",
+                            "status": "completed",
+                            "conclusion": "skipped",
+                            "app": {"id": 15368},
+                        },
                         {
                             "name": "typecheck",
                             "status": "completed",
                             "conclusion": "neutral",
+                            "app": {"id": 15368},
                         },
                     ]
                 }
@@ -1847,10 +1856,61 @@ class TestBuildQueueAndPacket:
 
         assert packet.checks_summary == "2/2 required green (direct check-runs fallback)"
         assert direct["required_contexts"] == ["lint", "typecheck"]
+        assert direct["required_checks"] == [
+            {"context": "lint", "app_id": 15368},
+            {"context": "typecheck", "app_id": 15368},
+        ]
         assert direct["successful_required_contexts"] == ["lint", "typecheck"]
         assert direct["non_success_required_contexts"] == []
         assert direct["required_contexts_satisfied"] is True
         assert packet.model_review_quorum["admin_squash_allowed"] is True
+
+    def test_missing_check_rollup_fails_closed_when_required_app_binding_missing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7465, files=["docs/status/open.md"])
+        pr_payload["statusCheckRollup"] = []
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:1] == ["api"] and "required_status_checks" in args[1]:
+                return {
+                    "contexts": [],
+                    "checks": [{"context": "lint", "app_id": 15368}],
+                    "strict": False,
+                }
+            if args[:1] == ["api"] and "check-runs" in args[1]:
+                return {
+                    "check_runs": [
+                        {
+                            "name": "lint",
+                            "status": "completed",
+                            "conclusion": "success",
+                            "app": {"id": 99999},
+                        },
+                    ]
+                }
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        direct = packet.check_surfaces["direct_commit_check_runs"]
+
+        assert direct["required_contexts"] == ["lint"]
+        assert direct["required_checks"] == [{"context": "lint", "app_id": 15368}]
+        assert direct["missing_required_contexts"] == ["lint"]
+        assert direct["required_contexts_satisfied"] is False
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
 
     def test_missing_check_rollup_fails_closed_when_branch_protection_is_strict(
         self, monkeypatch: pytest.MonkeyPatch
