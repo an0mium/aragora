@@ -2003,8 +2003,8 @@ def _build_packet(
         risk_flags.append("check rollup unavailable")
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
-    required_pr_checks = check_surfaces.get("required_pr_checks") or {}
-    if required_pr_check_gate_satisfied and required_pr_checks:
+    required_pr_check_surface = check_surfaces.get("required_pr_checks") or {}
+    if required_pr_check_gate_satisfied and required_pr_check_surface:
         risk_flags.append(
             "non-required PR checks are non-green; "
             "effective gate uses branch-protection required checks"
