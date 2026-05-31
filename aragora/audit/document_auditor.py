@@ -421,7 +421,7 @@ class DocumentAuditor:
                 return None
         return self._session_store
 
-    def save_session(self, session: AuditSession) -> None:
+    def save_session(self, session: AuditSession, *, force: bool = False) -> None:
         """Persist a session to the durable store (no-op when persistence off).
 
         Keeps the in-memory cache in sync and writes through to disk so a
@@ -437,11 +437,20 @@ class DocumentAuditor:
         except (OSError, sqlite3.Error, ValueError) as exc:
             logger.warning("Failed to inspect persisted audit session %s: %s", session.id, exc)
             stored = None
-        if stored is not None and self._should_preserve_persisted_status(
-            stored.status,
-            session.status,
+        if (
+            not force
+            and stored is not None
+            and self._should_preserve_persisted_status(
+                stored.status,
+                session.status,
+            )
         ):
-            self._sessions[session.id] = stored
+            logger.info(
+                "Preserving persisted audit session %s status %s over stale incoming %s",
+                session.id,
+                stored.status.value,
+                session.status.value,
+            )
             return
         self._sessions[session.id] = session
         try:
@@ -461,16 +470,9 @@ class DocumentAuditor:
         Progress/finalization writes from the stale process must not overwrite
         that operator-visible control state.
         """
-        if persisted_status in _CONTROL_STATUSES and incoming_status in {
-            AuditStatus.RUNNING,
-            AuditStatus.COMPLETED,
-        }:
+        if persisted_status in _CONTROL_STATUSES and incoming_status != persisted_status:
             return True
-        return (
-            persisted_status in _TERMINAL_STATUSES
-            and persisted_status != AuditStatus.CANCELLED
-            and incoming_status == AuditStatus.CANCELLED
-        )
+        return persisted_status in _TERMINAL_STATUSES and incoming_status == AuditStatus.CANCELLED
 
     def _load_handlers(self) -> None:
         """Load audit type handlers."""
@@ -633,7 +635,7 @@ class DocumentAuditor:
         session.status = AuditStatus.RUNNING
         session.started_at = datetime.now(timezone.utc)
         session.current_phase = "initializing"
-        self.save_session(session)
+        self.save_session(session, force=True)
 
         try:
             await self._execute_audit(session)
@@ -1129,7 +1131,7 @@ Is this a valid finding? Respond with:
             task.cancel()
 
         session.status = AuditStatus.PAUSED
-        self.save_session(session)
+        self.save_session(session, force=True)
         return True
 
     async def resume_audit(self, session_id: str) -> AuditSession:
@@ -1153,7 +1155,7 @@ Is this a valid finding? Respond with:
 
         session.status = AuditStatus.CANCELLED
         session.completed_at = datetime.now(timezone.utc)
-        self.save_session(session)
+        self.save_session(session, force=True)
         return True
 
     def get_findings(

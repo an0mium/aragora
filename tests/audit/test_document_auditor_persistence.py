@@ -254,6 +254,57 @@ class TestCrossProcessControlPersistence:
         auditor3 = _make_persistent_auditor()
         assert auditor3.get_session(session.id).status == AuditStatus.PAUSED
 
+    def test_resume_after_cross_process_pause_persists_completion(
+        self,
+        patched_data_dir,
+        monkeypatch,
+    ):
+        auditor1 = _make_persistent_auditor()
+        session = asyncio.run(
+            auditor1.create_session(document_ids=["doc1"], name="Resume Persisted")
+        )
+        session.status = AuditStatus.RUNNING
+        auditor1.save_session(session)
+
+        auditor2 = _make_persistent_auditor()
+        assert asyncio.run(auditor2.pause_audit(session.id)) is True
+
+        auditor3 = _make_persistent_auditor()
+
+        async def fake_execute(session_arg):
+            session_arg.progress = 0.5
+            session_arg.findings = [
+                AuditFinding(session_id=session_arg.id, document_id="doc1", title="Resumed")
+            ]
+
+        monkeypatch.setattr(auditor3, "_execute_audit", fake_execute)
+        resumed = asyncio.run(auditor3.resume_audit(session.id))
+        assert resumed.status == AuditStatus.COMPLETED
+
+        auditor4 = _make_persistent_auditor()
+        loaded = auditor4.get_session(session.id)
+        assert loaded.status == AuditStatus.COMPLETED
+        assert loaded.progress == pytest.approx(0.5)
+        assert [finding.title for finding in loaded.findings] == ["Resumed"]
+
+    def test_external_cancel_survives_stale_runner_failure_write(self, patched_data_dir):
+        auditor1 = _make_persistent_auditor()
+        session = asyncio.run(auditor1.create_session(document_ids=["doc1"], name="Cancel Race"))
+        session.status = AuditStatus.RUNNING
+        auditor1.save_session(session)
+
+        auditor2 = _make_persistent_auditor()
+        assert asyncio.run(auditor2.cancel_audit(session.id)) is True
+
+        session.status = AuditStatus.FAILED
+        session.errors.append("late failure")
+        auditor1.save_session(session)
+
+        auditor3 = _make_persistent_auditor()
+        loaded = auditor3.get_session(session.id)
+        assert loaded.status == AuditStatus.CANCELLED
+        assert loaded.errors == []
+
     def test_cancel_preserves_terminal_sessions(self, patched_data_dir):
         auditor1 = _make_persistent_auditor()
         session = asyncio.run(
