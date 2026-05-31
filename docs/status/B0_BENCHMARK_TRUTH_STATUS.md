@@ -4,6 +4,10 @@ Last updated: 2026-05-28T17:12:36Z
 
 This is the repo-tracked recurring `TW-02` publication surface for the fixed benchmark corpus.
 
+> Evidence note: the rev-5 corpus and generated artifacts referenced below are
+> repo-tracked at the listed paths. This status page points at those artifacts;
+> it is not a standalone metric source.
+
 ## Corpus
 
 - Corpus manifest: `docs/benchmarks/corpus.json`
