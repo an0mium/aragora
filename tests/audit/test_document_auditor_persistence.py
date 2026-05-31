@@ -175,6 +175,44 @@ class TestCrossInvocationPersistence:
         sessions = auditor2.list_sessions(status=AuditStatus.COMPLETED, limit=1)
         assert [s.id for s in sessions] == [completed.id]
 
+    def test_progress_updates_persist_for_fresh_auditor(self, patched_data_dir):
+        auditor1 = _make_persistent_auditor()
+        session = asyncio.run(auditor1.create_session(document_ids=["doc1"], name="Progress"))
+        session.status = AuditStatus.RUNNING
+        session.current_phase = "verification"
+        auditor1._notify_progress(session, 0.7)
+
+        auditor2 = _make_persistent_auditor()
+        loaded = auditor2.get_session(session.id)
+        assert loaded is not None
+        assert loaded.status == AuditStatus.RUNNING
+        assert loaded.current_phase == "verification"
+        assert loaded.progress == pytest.approx(0.7)
+
+    def test_standard_pipeline_persists_intermediate_findings(self, patched_data_dir, monkeypatch):
+        auditor1 = _make_persistent_auditor()
+        session = asyncio.run(auditor1.create_session(document_ids=["doc1"], name="Findings"))
+
+        async def fake_initial_scan(session_arg, chunks):
+            return [AuditFinding(session_id=session_arg.id, document_id="doc1", title="Initial")]
+
+        async def fake_type_audit(session_arg, chunks, audit_type):
+            return []
+
+        async def fake_verify(session_arg, findings):
+            return findings
+
+        monkeypatch.setattr(auditor1, "_initial_scan", fake_initial_scan)
+        monkeypatch.setattr(auditor1, "_run_type_audit", fake_type_audit)
+        monkeypatch.setattr(auditor1, "_verify_findings", fake_verify)
+
+        asyncio.run(auditor1._execute_standard_pipeline(session, []))
+
+        auditor2 = _make_persistent_auditor()
+        loaded = auditor2.get_session(session.id)
+        assert loaded is not None
+        assert [finding.title for finding in loaded.findings] == ["Initial"]
+
 
 class TestInMemoryModeUnchanged:
     """API/server (non-persistent) behavior must be unchanged."""

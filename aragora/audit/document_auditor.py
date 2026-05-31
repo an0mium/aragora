@@ -669,6 +669,8 @@ class DocumentAuditor:
         self._notify_progress(session, 0.1)
 
         initial_findings = await self._initial_scan(session, chunks)
+        session.findings = list(initial_findings)
+        self.save_session(session)
 
         # Phase 3: Detailed analysis per audit type
         session.current_phase = "detailed_analysis"
@@ -677,6 +679,8 @@ class DocumentAuditor:
         for audit_type in self._get_effective_audit_types(session):
             type_findings = await self._run_type_audit(session, chunks, audit_type)
             initial_findings.extend(type_findings)
+            session.findings = list(initial_findings)
+            self.save_session(session)
 
         # Phase 4: Multi-agent verification
         session.current_phase = "verification"
@@ -1072,6 +1076,7 @@ Is this a valid finding? Respond with:
     def _notify_progress(self, session: AuditSession, progress: float) -> None:
         """Notify progress callback."""
         session.progress = progress
+        self.save_session(session)
         if self.on_progress:
             self.on_progress(session.id, progress, session.current_phase)
 
