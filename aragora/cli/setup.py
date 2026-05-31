@@ -21,6 +21,15 @@ from typing import Any
 from aragora.config.secrets import get_secret_presence
 
 
+class SetupError(Exception):
+    """Raised when setup cannot complete (e.g. no API key resolvable).
+
+    Distinct from a user-cancelled setup (which exits 0). The CLI entry point
+    maps this to a non-zero exit code so non-interactive callers can detect
+    failure instead of receiving a silent success.
+    """
+
+
 def _local_env_value(name: str) -> str:
     return os.environ.get(name, "")
 
@@ -435,12 +444,12 @@ def run_setup(
     existing_anthropic = _local_env_value("ANTHROPIC_API_KEY")
     if existing_anthropic:
         print(f"  Found existing ANTHROPIC_API_KEY: {existing_anthropic[:8]}...")
-        if not non_interactive and _confirm("  Use existing key?"):
+        # In non-interactive mode, adopt the key already present in the env so
+        # setup can complete with defaults. Interactively, confirm first.
+        if non_interactive or _confirm("  Use existing key?"):
             config["anthropic_key"] = existing_anthropic
         else:
-            config["anthropic_key"] = (
-                _prompt("  Anthropic API Key", secret=True) if not non_interactive else ""
-            )
+            config["anthropic_key"] = _prompt("  Anthropic API Key", secret=True)
     elif get_secret_presence("ANTHROPIC_API_KEY").source == "aws":
         print("  ANTHROPIC_API_KEY is configured via AWS Secrets Manager; not copying to .env.")
         config["anthropic_key"] = ""
@@ -453,12 +462,10 @@ def run_setup(
     existing_openai = _local_env_value("OPENAI_API_KEY")
     if existing_openai:
         print(f"  Found existing OPENAI_API_KEY: {existing_openai[:8]}...")
-        if not non_interactive and _confirm("  Use existing key?"):
+        if non_interactive or _confirm("  Use existing key?"):
             config["openai_key"] = existing_openai
         else:
-            config["openai_key"] = (
-                _prompt("  OpenAI API Key", secret=True) if not non_interactive else ""
-            )
+            config["openai_key"] = _prompt("  OpenAI API Key", secret=True)
     elif get_secret_presence("OPENAI_API_KEY").source == "aws":
         print("  OPENAI_API_KEY is configured via AWS Secrets Manager; not copying to .env.")
         config["openai_key"] = ""
@@ -467,10 +474,44 @@ def run_setup(
             _prompt("  OpenAI API Key", secret=True) if not non_interactive else ""
         )
 
-    # Check we have at least one
-    if not config.get("anthropic_key") and not config.get("openai_key"):
+    # Optional provider keys already present in the environment are adopted in
+    # non-interactive mode so they are persisted to .env alongside the primary
+    # keys. (Interactive flows configure these via the integrations steps.)
+    if non_interactive:
+        for env_name, config_key in (
+            ("OPENROUTER_API_KEY", "openrouter_key"),
+            ("MISTRAL_API_KEY", "mistral_key"),
+            ("GEMINI_API_KEY", "gemini_key"),
+            ("XAI_API_KEY", "xai_key"),
+        ):
+            existing_optional = _local_env_value(env_name)
+            if existing_optional:
+                print(f"  Found existing {env_name}: {existing_optional[:8]}...")
+                config[config_key] = existing_optional
+
+    # Check we have at least one resolvable provider key.
+    has_any_key = any(
+        config.get(k)
+        for k in (
+            "anthropic_key",
+            "openai_key",
+            "openrouter_key",
+            "mistral_key",
+            "gemini_key",
+            "xai_key",
+        )
+    )
+    if not has_any_key:
         print("\n  Warning: No API keys configured. Aragora requires at least one.")
-        if not non_interactive and _confirm("  Continue anyway?", default=False):
+        if non_interactive:
+            # Non-interactive setup cannot prompt for a key. Signal failure
+            # clearly instead of returning a keyless config with a zero exit
+            # code (which would be a silent failure).
+            raise SetupError(
+                "No API key configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY in "
+                "the environment before running non-interactive setup."
+            )
+        if _confirm("  Continue anyway?", default=False):
             pass
         else:
             print("  Please provide at least one API key.")
@@ -668,9 +709,13 @@ def run_setup(
 
 def cmd_setup(args) -> None:
     """Handle 'setup' command."""
-    run_setup(
-        output_path=getattr(args, "output", None),
-        minimal=getattr(args, "minimal", False),
-        skip_test=getattr(args, "skip_test", False),
-        non_interactive=getattr(args, "yes", False),
-    )
+    try:
+        run_setup(
+            output_path=getattr(args, "output", None),
+            minimal=getattr(args, "minimal", False),
+            skip_test=getattr(args, "skip_test", False),
+            non_interactive=getattr(args, "yes", False),
+        )
+    except SetupError as exc:
+        print(f"\nSetup failed: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
