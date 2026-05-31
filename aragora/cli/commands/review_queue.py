@@ -1421,10 +1421,21 @@ def _fetch_required_status_check_protection(
         return {"available": False, "contexts": [], "strict": None}
     if not isinstance(payload, dict):
         return {"available": False, "contexts": [], "strict": None}
-    contexts = payload.get("contexts") or []
+    contexts: list[str] = []
+    for item in payload.get("contexts") or []:
+        context = str(item).strip()
+        if context:
+            contexts.append(context)
+    for item in payload.get("checks") or []:
+        if not isinstance(item, dict):
+            continue
+        context = str(item.get("context") or "").strip()
+        if context:
+            contexts.append(context)
+    deduped_contexts = list(dict.fromkeys(contexts))
     return {
         "available": True,
-        "contexts": [str(item).strip() for item in contexts if str(item).strip()],
+        "contexts": deduped_contexts,
         "strict": bool(payload.get("strict")),
     }
 
@@ -1453,7 +1464,11 @@ def _direct_check_run_name(run: dict[str, Any]) -> str:
 
 
 def _direct_check_run_is_success(run: dict[str, Any]) -> bool:
-    return str(run.get("conclusion") or "").strip().upper() == "SUCCESS"
+    return str(run.get("conclusion") or "").strip().upper() in {
+        "SUCCESS",
+        "SKIPPED",
+        "NEUTRAL",
+    }
 
 
 def _direct_check_run_is_non_green(run: dict[str, Any]) -> bool:
@@ -1484,7 +1499,11 @@ def _latest_direct_check_runs_by_name(
             or ""
         )
         previous = latest.get(name)
-        if previous is None or (timestamp, index) >= (previous[0], previous[1]):
+        if (
+            previous is None
+            or timestamp > previous[0]
+            or (timestamp == previous[0] and index < previous[1])
+        ):
             latest[name] = (timestamp, index, run)
     return {name: item[2] for name, item in latest.items()}
 
@@ -1516,7 +1535,7 @@ def _build_check_surface_diagnostics(
 
     head_sha = str(pr.get("headRefOid") or "").strip()
     repo_slug = _repo_slug_from_pr_payload(pr, repo_override)
-    base_ref = str(pr.get("baseRefName") or "main").strip()
+    base_ref = str(pr.get("baseRefName") or "").strip()
     required_status_checks = _fetch_required_status_check_protection(repo_slug, base_ref)
     required_contexts = required_status_checks["contexts"]
     strict_required = bool(required_status_checks["strict"])
@@ -1835,6 +1854,12 @@ def _build_packet(
         risk_flags.append("check rollup unavailable")
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
+    direct_summary = check_surfaces.get("direct_commit_check_runs") or {}
+    if direct_check_fallback_satisfied and direct_summary.get("non_green_count", 0):
+        risk_flags.append(
+            "non-required direct check-runs are non-green; "
+            "fallback gates only branch-protection required contexts"
+        )
 
     if settlement_recorded:
         recommendation = "settled_noop"
