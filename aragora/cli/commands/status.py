@@ -157,15 +157,28 @@ def cmd_status(args: argparse.Namespace) -> None:
     print("\n\U0001f310 Server Status:")
     server_url = args.server if hasattr(args, "server") else DEFAULT_API_URL
     try:
-        from aragora.security.safe_http import safe_get
-
-        resp = safe_get(f"{server_url}/api/health", timeout=2)
-        if resp.status_code == 200:
-            print(f"  \u2713 Server running at {server_url}")
-        else:
-            print(f"  \u26a0 Server returned status {resp.status_code}")
-    except (ImportError, OSError, TimeoutError, ConnectionError, RuntimeError):
+        from aragora.security.safe_http import SSRFValidationError, safe_get
+    except ImportError:
         print(f"  \u2717 Server not reachable at {server_url}")
+    else:
+        try:
+            resp = safe_get(f"{server_url}/api/health", timeout=2)
+            if resp.status_code == 200:
+                print(f"  \u2713 Server running at {server_url}")
+            else:
+                print(f"  \u26a0 Server returned status {resp.status_code}")
+        except (
+            OSError,
+            TimeoutError,
+            ConnectionError,
+            RuntimeError,
+            SSRFValidationError,
+        ):
+            # SSRFValidationError (incl. SSRFBlockedError) fires on the default
+            # localhost URL, which safe_get rejects as an SSRF target. Treat it
+            # the same as any other unreachable-server failure rather than
+            # crashing with an uncaught traceback.
+            print(f"  \u2717 Server not reachable at {server_url}")
 
     # Check database
     print("\n\U0001f4be Databases:")
