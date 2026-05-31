@@ -91,9 +91,7 @@ def test_missing_claims_dir_exits_1(
     assert "not found" in capsys.readouterr().err
 
 
-def test_empty_claims_dir_exits_0(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_empty_claims_dir_exits_0(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv(_FLAG, "1")
     rc = cmd_truth_map(_make_args(str(tmp_path)))
     assert rc == 0
@@ -158,9 +156,7 @@ def test_text_output_contains_summary_line(
 # ---------------------------------------------------------------------------
 
 
-def test_two_passing_claims_exits_0(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_two_passing_claims_exits_0(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv(_FLAG, "1")
     _make_manifest(tmp_path, [_minimal_claim("a.one"), _minimal_claim("a.two")])
     rc = cmd_truth_map(_make_args(str(tmp_path)))
