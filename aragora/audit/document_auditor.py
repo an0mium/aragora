@@ -475,7 +475,7 @@ class DocumentAuditor:
         """
         if persisted_status in _CONTROL_STATUSES and incoming_status != persisted_status:
             return True
-        return persisted_status in _TERMINAL_STATUSES and incoming_status == AuditStatus.CANCELLED
+        return persisted_status in _TERMINAL_STATUSES and incoming_status != persisted_status
 
     def _load_handlers(self) -> None:
         """Load audit type handlers."""

@@ -332,6 +332,29 @@ class TestCrossProcessControlPersistence:
         assert loaded.status == AuditStatus.CANCELLED
         assert loaded.errors == []
 
+    def test_terminal_status_survives_stale_runner_progress_write(self, patched_data_dir):
+        auditor1 = _make_persistent_auditor()
+        session = asyncio.run(auditor1.create_session(document_ids=["doc1"], name="Terminal Race"))
+        session.status = AuditStatus.RUNNING
+        auditor1.save_session(session)
+
+        auditor2 = _make_persistent_auditor()
+        completed = auditor2.get_session(session.id)
+        assert completed is not None
+        completed.status = AuditStatus.COMPLETED
+        completed.progress = 1.0
+        completed.completed_at = datetime(2026, 1, 4, tzinfo=timezone.utc)
+        auditor2.save_session(completed, force=True)
+
+        # The stale runner must not make a terminal session appear active again.
+        session.current_phase = "verification"
+        auditor1._notify_progress(session, 0.5)
+
+        loaded = _make_persistent_auditor().get_session(session.id)
+        assert loaded is not None
+        assert loaded.status == AuditStatus.COMPLETED
+        assert loaded.progress == pytest.approx(1.0)
+
     def test_run_audit_rejects_terminal_sessions(self, patched_data_dir):
         auditor = _make_persistent_auditor()
         session = asyncio.run(auditor.create_session(document_ids=["doc1"], name="Terminal Start"))
