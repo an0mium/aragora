@@ -1106,9 +1106,8 @@ Is this a valid finding? Respond with:
 
         if session.status == AuditStatus.RUNNING:
             task = self._running_tasks.get(session_id)
-            if not task:
-                return False
-            task.cancel()
+            if task:
+                task.cancel()
 
         session.status = AuditStatus.CANCELLED
         session.completed_at = datetime.now(timezone.utc)

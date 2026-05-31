@@ -217,7 +217,7 @@ class TestInMemoryModeUnchanged:
         assert loaded is not None
         assert loaded.name == "Local"
 
-    def test_cross_process_pause_cancel_running_session_is_rejected(self, patched_data_dir):
+    def test_cross_process_pause_rejects_but_cancel_marks_stale_running(self, patched_data_dir):
         auditor1 = _make_persistent_auditor()
         pause_session = asyncio.run(
             auditor1.create_session(document_ids=["doc1"], name="Pause Running")
@@ -231,8 +231,8 @@ class TestInMemoryModeUnchanged:
 
         auditor2 = _make_persistent_auditor()
         assert asyncio.run(auditor2.pause_audit(pause_session.id)) is False
-        assert asyncio.run(auditor2.cancel_audit(cancel_session.id)) is False
+        assert asyncio.run(auditor2.cancel_audit(cancel_session.id)) is True
 
         auditor3 = _make_persistent_auditor()
         assert auditor3.get_session(pause_session.id).status == AuditStatus.RUNNING
-        assert auditor3.get_session(cancel_session.id).status == AuditStatus.RUNNING
+        assert auditor3.get_session(cancel_session.id).status == AuditStatus.CANCELLED
