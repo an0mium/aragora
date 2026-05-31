@@ -1409,7 +1409,7 @@ def _fetch_required_check_contexts(repo_slug: str, base_ref: str) -> list[str]:
                 "/protection/required_status_checks",
             ]
         )
-    except _GhError:
+    except Exception:
         return []
     if not isinstance(payload, dict):
         return []
@@ -1428,7 +1428,7 @@ def _fetch_direct_commit_check_runs(repo_slug: str, head_sha: str) -> list[dict[
                 f"repos/{repo_slug}/commits/{head_sha}/check-runs?per_page=100",
             ]
         )
-    except _GhError:
+    except Exception:
         return []
     if not isinstance(payload, dict):
         return []
