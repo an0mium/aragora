@@ -1409,7 +1409,7 @@ def _summarize_required_pr_checks(checks: list[dict[str, Any]]) -> tuple[str, bo
     """Return ``(summary, has_failures, has_pending)`` for required PR checks."""
     success = failure = pending = 0
     for check in checks:
-        if _is_current_merge_quorum_self_check(check):
+        if _is_required_pr_check_current_merge_quorum_self_check(check):
             continue
         bucket = _required_pr_check_bucket(check)
         if bucket in {"pass", "skipping"}:
@@ -1435,7 +1435,8 @@ def _effective_required_pr_check_count(checks: list[dict[str, Any]]) -> int:
     return sum(
         1
         for check in checks
-        if isinstance(check, dict) and not _is_current_merge_quorum_self_check(check)
+        if isinstance(check, dict)
+        and not _is_required_pr_check_current_merge_quorum_self_check(check)
     )
 
 
@@ -1829,6 +1830,24 @@ def _is_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
     )
 
 
+def _is_required_pr_check_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
+    """Return true for the merge-quorum job's own required PR check row.
+
+    ``gh pr checks --required`` can report the previous merge-quorum attempt
+    while the new merge-quorum job is computing its packet. For that required
+    PR-check fallback only, the workflow must ignore its own row regardless of
+    whether GitHub labels the stale row pending, failed, or cancelled. Other
+    call sites keep the stricter URL/status match so stale completed
+    merge-quorum failures still block local settlement.
+    """
+    if not _is_merge_quorum_check(check):
+        return False
+    return (
+        os.environ.get("GITHUB_WORKFLOW") == MERGE_QUORUM_WORKFLOW_NAME
+        and os.environ.get("GITHUB_JOB") == MERGE_QUORUM_JOB_ID
+    )
+
+
 def _filter_lanes(
     items: list[QueueItem],
     *,
@@ -1924,12 +1943,13 @@ def _build_packet(
                     str(check.get("name") or "").strip()
                     for check in required_pr_checks
                     if _required_pr_check_bucket(check) in {"fail", "cancel"}
+                    and not _is_required_pr_check_current_merge_quorum_self_check(check)
                 ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
                 "pending": [
                     str(check.get("name") or "").strip()
                     for check in required_pr_checks
                     if _required_pr_check_bucket(check) == "pending"
-                    and not _is_current_merge_quorum_self_check(check)
+                    and not _is_required_pr_check_current_merge_quorum_self_check(check)
                 ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
             }
             if (

@@ -1928,6 +1928,214 @@ class TestBuildQueueAndPacket:
         assert packet.model_review_quorum["admin_squash_allowed"] is True
         assert packet.model_review_quorum["status"] == "satisfied"
 
+    def test_required_pr_checks_gate_ignores_stale_self_row_inside_quorum_run(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7465,
+            files=["docs/status/open.md"],
+            checks=[
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {
+                    "name": "Mac TypeScript SDK Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                },
+                {
+                    "name": "Hetzner Offline Golden Path Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                },
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+            ],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "state": "FAILURE",
+                        "bucket": "fail",
+                        "workflow": "Aragora Merge Quorum",
+                        "link": "https://github.com/synaptent/aragora/actions/runs/old/job/1",
+                    },
+                    {
+                        "name": "lint",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                    {
+                        "name": "typecheck",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        required = packet.check_surfaces["required_pr_checks"]
+
+        assert packet.checks_summary == "2/2 required green (required PR checks)"
+        assert required["effective_total"] == 2
+        assert required["failing_or_cancelled"] == []
+        assert required["pending"] == []
+        assert packet.machine_recommendation == "approve_candidate"
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+        assert packet.model_review_quorum["status"] == "satisfied"
+
+    def test_required_pr_checks_gate_preserves_self_row_outside_quorum_run(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7465,
+            files=["docs/status/open.md"],
+            checks=[
+                {
+                    "name": "Mac TypeScript SDK Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                },
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            ],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "state": "FAILURE",
+                        "bucket": "fail",
+                        "workflow": "Aragora Merge Quorum",
+                    },
+                    {
+                        "name": "lint",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+
+        assert "effective_gate" not in packet.check_surfaces
+        assert packet.machine_recommendation == "repair_first"
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+
+    def test_required_pr_checks_gate_keeps_non_self_required_failure_blocking(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7465,
+            files=["docs/status/open.md"],
+            checks=[
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "status": "COMPLETED", "conclusion": "FAILURE"},
+                {
+                    "name": "Mac TypeScript SDK Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                },
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+            ],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "state": "FAILURE",
+                        "bucket": "fail",
+                        "workflow": "Aragora Merge Quorum",
+                    },
+                    {
+                        "name": "lint",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                    {
+                        "name": "typecheck",
+                        "state": "FAILURE",
+                        "bucket": "fail",
+                        "workflow": "Lint",
+                    },
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        required = packet.check_surfaces["required_pr_checks"]
+
+        assert "effective_gate" not in packet.check_surfaces
+        assert required["failing_or_cancelled"] == ["typecheck"]
+        assert packet.machine_recommendation == "repair_first"
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+
     def test_required_pr_checks_gate_fails_closed_when_only_self_check_visible(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2730,7 +2938,9 @@ class TestBuildQueueAndPacket:
         )
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_text",
-            lambda args: "diff --git a/aragora/cli/commands/review_pr.py b/aragora/cli/commands/review_pr.py",
+            lambda args: (
+                "diff --git a/aragora/cli/commands/review_pr.py b/aragora/cli/commands/review_pr.py"
+            ),
         )
         outputs = [
             _make_reviewer_output(
