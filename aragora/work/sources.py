@@ -13,6 +13,14 @@ from aragora.work.models import WorkItem
 from aragora.work.scoring import is_current_status, stale_factor
 
 _ACTIVE_LANE_STATUSES = {"active", "claimed", "in_progress", "in-progress", "running"}
+_OUTBOX_READY_METADATA_KEYS = (
+    "objective",
+    "context",
+    "acceptance_criteria",
+    "mutation_boundary",
+    "validation",
+    "dependencies_declared",
+)
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -260,6 +268,15 @@ def collect_automation_outbox(repo_root: Path) -> tuple[list[WorkItem], dict[str
             continue
         title = str(data.get("task") or data.get("title") or data.get("summary") or path.stem)
         branch = data.get("branch") or data.get("head_ref") or data.get("branch_name")
+        metadata: dict[str, Any] = {
+            "path": str(path),
+            "idempotency_key": data.get("idempotency_key"),
+        }
+        for key in _OUTBOX_READY_METADATA_KEYS:
+            if key in data:
+                metadata[key] = data[key]
+        owner = data.get("owner") or data.get("claimed_by") or data.get("assignee")
+        dependencies = data.get("dependencies")
         items.append(
             WorkItem(
                 id=f"automation-outbox:{path.stem}",
@@ -269,9 +286,13 @@ def collect_automation_outbox(repo_root: Path) -> tuple[list[WorkItem], dict[str
                 status=str(data.get("status") or data.get("reason") or "pending"),
                 scope="current",
                 branch=str(branch) if branch else None,
+                owner=str(owner) if owner else None,
                 updated_at=str(data.get("updated_at") or data.get("recorded_at") or "") or None,
+                dependencies=[str(dep) for dep in dependencies]
+                if isinstance(dependencies, list)
+                else [],
                 evidence_refs=[str(path.relative_to(repo_root))],
-                metadata={"path": str(path), "idempotency_key": data.get("idempotency_key")},
+                metadata=metadata,
             )
         )
     return items, _health("automation_outbox", "ok", f"{len(items)} pending handoff(s)")

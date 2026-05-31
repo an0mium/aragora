@@ -74,6 +74,41 @@ def test_work_list_reads_current_outbox(
     assert payload["items"][0]["branch"] == "codex/repair"
 
 
+def test_work_list_preserves_outbox_readiness_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "task": "Open PR for repair lane",
+                "branch": "codex/repair",
+                "owner": "codex-worker",
+                "dependencies": ["pr:123"],
+                "objective": "Repair queue health",
+                "context": "The work board needs a dispatchable handoff.",
+                "acceptance_criteria": ["robot classifies this handoff as ready"],
+                "mutation_boundary": "work-board source adapter only",
+                "validation": "tests/cli/test_work_board.py",
+                "dependencies_declared": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_list(_args(tmp_path, scope="current")) == 0
+    payload = _capture_json(capsys)
+    item = payload["items"][0]
+
+    assert item["owner"] == "codex-worker"
+    assert item["dependencies"] == ["pr:123"]
+    assert item["metadata"]["objective"] == "Repair queue health"
+    assert item["metadata"]["acceptance_criteria"] == ["robot classifies this handoff as ready"]
+    assert item["metadata"]["dependencies_declared"] is True
+
+
 def test_work_robot_marks_tier_four_pr_human_gated(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
 ) -> None:
@@ -364,6 +399,38 @@ def test_work_robot_ranks_actionable_current_work(tmp_path: Path, monkeypatch, c
     assert payload["recommendations"][0]["item_id"] == "automation-outbox:repair"
     assert payload["recommendations"][0]["classification"] == "needs-polish"
     assert payload["recommendations"][0]["action"] == "publish_or_reconcile_handoff"
+
+
+def test_work_robot_emits_ready_for_polished_outbox_handoff(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "repair.json").write_text(
+        json.dumps(
+            {
+                "task": "repair queue health",
+                "branch": "codex/repair",
+                "owner": "codex-worker",
+                "dependencies": [],
+                "objective": "Repair queue health",
+                "context": "The publisher needs a fully bounded handoff.",
+                "acceptance_criteria": ["draft PR is opened or existing PR is updated"],
+                "mutation_boundary": "publish one named handoff only",
+                "validation": "automation publisher dry-run",
+                "dependencies_declared": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_robot(_args(tmp_path)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["recommendations"][0]["item_id"] == "automation-outbox:repair"
+    assert payload["recommendations"][0]["classification"] == "ready"
+    assert payload["recommendations"][0]["blockers"] == []
 
 
 def test_work_robot_emits_ready_for_polished_bead(tmp_path: Path, monkeypatch, capsys) -> None:
