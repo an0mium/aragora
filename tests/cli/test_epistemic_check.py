@@ -36,8 +36,14 @@ def _ns(path=None, *, json_output=False, dry_run=False, repo_root=None):
 
 
 def _result(claim_id="c", status=ClaimStatus.PASS, severity="info"):
-    return ClaimResult(claim_id=claim_id, status=status, message="ok",
-                       severity=severity, allowed_action="report_only", elapsed_ms=1.0)
+    return ClaimResult(
+        claim_id=claim_id,
+        status=status,
+        message="ok",
+        severity=severity,
+        allowed_action="report_only",
+        elapsed_ms=1.0,
+    )
 
 
 def _mock(results):
@@ -100,8 +106,13 @@ def test_json_result_status_and_id(tmp_path, capsys):
     _run(tmp_path, [_result("my.claim", ClaimStatus.STALE)])
     payload = json.loads(capsys.readouterr().out)
     assert payload["results"][0] == {
-        "claim_id": "my.claim", "status": "stale", "message": "ok",
-        "severity": "info", "allowed_action": "report_only", "elapsed_ms": 1.0, "detail": {},
+        "claim_id": "my.claim",
+        "status": "stale",
+        "message": "ok",
+        "severity": "info",
+        "allowed_action": "report_only",
+        "elapsed_ms": 1.0,
+        "detail": {},
     }
 
 

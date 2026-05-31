@@ -93,8 +93,8 @@ def cmd_epistemic_check(args: argparse.Namespace) -> int:
 
     # Exit 1 only if a *blocking* claim failed or errored.
     blocking_failures = [
-        r for r in all_results
-        if r.status in (ClaimStatus.FAIL, ClaimStatus.ERROR)
-        and r.severity == "blocking"
+        r
+        for r in all_results
+        if r.status in (ClaimStatus.FAIL, ClaimStatus.ERROR) and r.severity == "blocking"
     ]
     return 1 if blocking_failures else 0

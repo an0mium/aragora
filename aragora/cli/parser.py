@@ -897,10 +897,7 @@ def _add_epistemic_check_parser(subparsers) -> None:
         nargs="?",
         default=None,
         metavar="PATH",
-        help=(
-            "YAML manifest file or directory of manifests. "
-            "Defaults to docs/status/claims/"
-        ),
+        help=("YAML manifest file or directory of manifests. Defaults to docs/status/claims/"),
     )
     p.add_argument(
         "--json",
