@@ -52,6 +52,10 @@ _TERMINAL_STATUSES = {AuditStatus.COMPLETED, AuditStatus.FAILED, AuditStatus.CAN
 _CANCELLABLE_STATUSES = {AuditStatus.PENDING, AuditStatus.RUNNING, AuditStatus.PAUSED}
 
 
+class _AuditPaused(Exception):
+    """Internal signal raised when another process pauses a local audit."""
+
+
 class AuditType(str, Enum):
     """Types of document audits."""
 
@@ -647,6 +651,9 @@ class DocumentAuditor:
         try:
             await self._execute_audit(session)
             session.status = AuditStatus.COMPLETED
+        except _AuditPaused:
+            session.status = AuditStatus.PAUSED
+            logger.info("Audit session %s paused by persisted control state", session_id)
         except asyncio.CancelledError:
             session.status = AuditStatus.CANCELLED
             logger.info("Audit session %s cancelled", session_id)
@@ -656,7 +663,8 @@ class DocumentAuditor:
             logger.error("Audit session %s failed: %s", session_id, e)
             raise
         finally:
-            session.completed_at = datetime.now(timezone.utc)
+            if session.status in _TERMINAL_STATUSES:
+                session.completed_at = datetime.now(timezone.utc)
             self.save_session(session)
 
         return session
@@ -1122,10 +1130,30 @@ Is this a valid finding? Respond with:
 
     def _notify_progress(self, session: AuditSession, progress: float) -> None:
         """Notify progress callback."""
+        self._enforce_persisted_control_state(session)
         session.progress = progress
         self.save_session(session)
         if self.on_progress:
             self.on_progress(session.id, progress, session.current_phase)
+
+    def _enforce_persisted_control_state(self, session: AuditSession) -> None:
+        """Abort local work when another CLI process paused/cancelled it."""
+        store = self._get_store()
+        if store is None:
+            return
+        try:
+            persisted = store.get(session.id)
+        except (OSError, sqlite3.Error, ValueError) as exc:
+            logger.warning("Failed to inspect audit session control state %s: %s", session.id, exc)
+            return
+        if persisted is None or persisted.status == session.status:
+            return
+        if persisted.status == AuditStatus.PAUSED:
+            session.status = AuditStatus.PAUSED
+            raise _AuditPaused
+        if persisted.status == AuditStatus.CANCELLED:
+            session.status = AuditStatus.CANCELLED
+            raise asyncio.CancelledError
 
     async def pause_audit(self, session_id: str) -> bool:
         """Pause a running audit."""

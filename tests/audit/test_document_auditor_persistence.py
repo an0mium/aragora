@@ -265,6 +265,8 @@ class TestCrossProcessControlPersistence:
         assert auditor3.get_session(cancel_session.id).status == AuditStatus.CANCELLED
 
     def test_external_pause_survives_stale_runner_progress_write(self, patched_data_dir):
+        import aragora.audit.document_auditor as document_auditor
+
         auditor1 = _make_persistent_auditor()
         session = asyncio.run(auditor1.create_session(document_ids=["doc1"], name="Pause Race"))
         session.status = AuditStatus.RUNNING
@@ -276,7 +278,8 @@ class TestCrossProcessControlPersistence:
         # The original process still has a stale RUNNING object. Progress writes
         # must not clobber the externally requested PAUSED durable state.
         session.current_phase = "verification"
-        auditor1._notify_progress(session, 0.5)
+        with pytest.raises(document_auditor._AuditPaused):
+            auditor1._notify_progress(session, 0.5)
 
         auditor3 = _make_persistent_auditor()
         assert auditor3.get_session(session.id).status == AuditStatus.PAUSED
@@ -354,6 +357,54 @@ class TestCrossProcessControlPersistence:
         assert loaded is not None
         assert loaded.status == AuditStatus.COMPLETED
         assert loaded.progress == pytest.approx(1.0)
+
+    def test_external_cancel_interrupts_running_process(
+        self,
+        patched_data_dir,
+        monkeypatch,
+    ):
+        runner = _make_persistent_auditor()
+        session = asyncio.run(runner.create_session(document_ids=["doc1"], name="Cancel Live"))
+
+        async def fake_execute(session_arg):
+            controller = _make_persistent_auditor()
+            assert await controller.cancel_audit(session_arg.id) is True
+            runner._notify_progress(session_arg, 0.5)
+            pytest.fail("cancelled persisted state should abort progress writes")
+
+        monkeypatch.setattr(runner, "_execute_audit", fake_execute)
+
+        result = asyncio.run(runner.run_audit(session.id))
+
+        assert result.status == AuditStatus.CANCELLED
+        loaded = _make_persistent_auditor().get_session(session.id)
+        assert loaded is not None
+        assert loaded.status == AuditStatus.CANCELLED
+
+    def test_external_pause_interrupts_running_process(
+        self,
+        patched_data_dir,
+        monkeypatch,
+    ):
+        runner = _make_persistent_auditor()
+        session = asyncio.run(runner.create_session(document_ids=["doc1"], name="Pause Live"))
+
+        async def fake_execute(session_arg):
+            controller = _make_persistent_auditor()
+            assert await controller.pause_audit(session_arg.id) is True
+            runner._notify_progress(session_arg, 0.5)
+            pytest.fail("paused persisted state should abort progress writes")
+
+        monkeypatch.setattr(runner, "_execute_audit", fake_execute)
+
+        result = asyncio.run(runner.run_audit(session.id))
+
+        assert result.status == AuditStatus.PAUSED
+        assert result.completed_at is None
+        loaded = _make_persistent_auditor().get_session(session.id)
+        assert loaded is not None
+        assert loaded.status == AuditStatus.PAUSED
+        assert loaded.completed_at is None
 
     def test_run_audit_rejects_terminal_sessions(self, patched_data_dir):
         auditor = _make_persistent_auditor()
