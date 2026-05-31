@@ -169,3 +169,53 @@ class TestInMemoryModeUnchanged:
 
         auditor2 = DocumentAuditor()
         assert auditor2.get_session(session.id) is None
+
+    def test_default_global_auditor_does_not_persist(self, patched_data_dir, monkeypatch):
+        import aragora.audit.document_auditor as document_auditor_module
+
+        monkeypatch.setattr(document_auditor_module, "_auditor", None)
+        monkeypatch.setattr(document_auditor_module, "_persistent_auditor", None)
+
+        auditor1 = document_auditor_module.get_document_auditor()
+        session = asyncio.run(auditor1.create_session(document_ids=["doc1"], name="Server"))
+
+        # Simulate a later process: the default singleton must remain in-memory only.
+        monkeypatch.setattr(document_auditor_module, "_auditor", None)
+        auditor2 = document_auditor_module.get_document_auditor()
+        assert auditor2.get_session(session.id) is None
+
+    def test_cli_opt_in_global_auditor_persists(self, patched_data_dir, monkeypatch):
+        import aragora.audit.document_auditor as document_auditor_module
+
+        monkeypatch.setattr(document_auditor_module, "_auditor", None)
+        monkeypatch.setattr(document_auditor_module, "_persistent_auditor", None)
+
+        auditor1 = document_auditor_module.get_document_auditor(persist_sessions=True)
+        session = asyncio.run(auditor1.create_session(document_ids=["doc1"], name="Local"))
+
+        # Simulate a separate local CLI invocation.
+        monkeypatch.setattr(document_auditor_module, "_persistent_auditor", None)
+        auditor2 = document_auditor_module.get_document_auditor(persist_sessions=True)
+        loaded = auditor2.get_session(session.id)
+        assert loaded is not None
+        assert loaded.name == "Local"
+
+    def test_cross_process_pause_cancel_running_session_is_rejected(self, patched_data_dir):
+        auditor1 = _make_persistent_auditor()
+        pause_session = asyncio.run(
+            auditor1.create_session(document_ids=["doc1"], name="Pause Running")
+        )
+        cancel_session = asyncio.run(
+            auditor1.create_session(document_ids=["doc2"], name="Cancel Running")
+        )
+        for session in (pause_session, cancel_session):
+            session.status = AuditStatus.RUNNING
+            auditor1.save_session(session)
+
+        auditor2 = _make_persistent_auditor()
+        assert asyncio.run(auditor2.pause_audit(pause_session.id)) is False
+        assert asyncio.run(auditor2.cancel_audit(cancel_session.id)) is False
+
+        auditor3 = _make_persistent_auditor()
+        assert auditor3.get_session(pause_session.id).status == AuditStatus.RUNNING
+        assert auditor3.get_session(cancel_session.id).status == AuditStatus.RUNNING

@@ -1078,8 +1078,9 @@ Is this a valid finding? Respond with:
             return False
 
         task = self._running_tasks.get(session_id)
-        if task:
-            task.cancel()
+        if not task:
+            return False
+        task.cancel()
 
         session.status = AuditStatus.PAUSED
         self.save_session(session)
@@ -1101,8 +1102,9 @@ Is this a valid finding? Respond with:
 
         if session.status == AuditStatus.RUNNING:
             task = self._running_tasks.get(session_id)
-            if task:
-                task.cancel()
+            if not task:
+                return False
+            task.cancel()
 
         session.status = AuditStatus.CANCELLED
         session.completed_at = datetime.now(timezone.utc)
@@ -1156,22 +1158,32 @@ Is this a valid finding? Respond with:
         return False
 
 
-# Global instance
+# Global instances. Keep local-CLI persistence isolated from server/scheduler callers
+# that use the default singleton for process-local coordination.
 _auditor: DocumentAuditor | None = None
+_persistent_auditor: DocumentAuditor | None = None
 
 
-def get_document_auditor(config: AuditConfig | None = None) -> DocumentAuditor:
+def get_document_auditor(
+    config: AuditConfig | None = None,
+    *,
+    persist_sessions: bool = False,
+) -> DocumentAuditor:
     """Get or create global document auditor instance.
 
-    The module-level singleton is used by local/air-gapped CLI runs, so it
-    enables durable session persistence: sessions created in one
-    ``aragora audit --local`` process remain readable by later processes.
-    Server/API mode constructs ``DocumentAuditor`` directly (persistence off)
-    and relies on server-side storage.
+    By default this preserves the historical in-memory singleton used by
+    server/scheduler call sites. Local/air-gapped CLI runs must opt into
+    ``persist_sessions=True`` so sessions created in one ``aragora audit
+    --local`` process remain readable by later processes without leaking that
+    disk-backed behavior into server paths.
     """
-    global _auditor
+    global _auditor, _persistent_auditor
+    if persist_sessions:
+        if _persistent_auditor is None:
+            _persistent_auditor = DocumentAuditor(config, persist_sessions=True)
+        return _persistent_auditor
     if _auditor is None:
-        _auditor = DocumentAuditor(config, persist_sessions=True)
+        _auditor = DocumentAuditor(config, persist_sessions=False)
     return _auditor
 
 
