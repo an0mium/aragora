@@ -163,7 +163,7 @@ class TestVerifyReceipt:
         data["verdict"] = "rejected"
         result = _verify_receipt(data)
         assert result["valid"] is False
-        checksum_check = next(c for c in result["checks"] if c["name"] == "checksum")
+        checksum_check = next(c for c in result["checks"] if c["name"] == "integrity")
         assert checksum_check["passed"] is False
 
     def test_tampered_confidence(self):
@@ -192,7 +192,7 @@ class TestVerifyReceipt:
         data = _make_receipt_data(include_checksum=False)
         result = _verify_receipt(data)
         assert result["valid"] is False
-        checksum_check = next(c for c in result["checks"] if c["name"] == "checksum")
+        checksum_check = next(c for c in result["checks"] if c["name"] == "integrity")
         assert checksum_check["passed"] is False
 
     def test_invalid_timestamp(self):
@@ -205,7 +205,7 @@ class TestVerifyReceipt:
     def test_verbose_shows_recomputed(self):
         data = _make_receipt_data()
         result = _verify_receipt(data, verbose=True)
-        checksum_check = next(c for c in result["checks"] if c["name"] == "checksum")
+        checksum_check = next(c for c in result["checks"] if c["name"] == "integrity")
         assert "recomputed=" in checksum_check["detail"]
 
 

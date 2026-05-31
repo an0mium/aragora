@@ -1,15 +1,24 @@
 """
 CLI command: aragora verify -- validate decision receipt integrity.
 
-Verifies that a decision receipt JSON file has not been tampered with by:
-- Recomputing the SHA-256 content hash and comparing it to the stored value.
-  Receipts store this hash under the canonical ``artifact_hash`` field (as emitted
-  by ``DecisionReceipt.to_dict``); a legacy ``checksum`` field is accepted as a
-  fallback for older/alternate producers.
-- Checking that required fields (schema_version, verdict, timestamp) are present
-- Validating the verdict against the canonical Verdict enum
-- Validating the timestamp is valid ISO 8601 format
-- If the receipt is signed, verifying the cryptographic signature chain
+Runs the following checks on a decision receipt JSON file:
+
+- **Decision-integrity hash** (``integrity`` check): recomputes the SHA-256
+  content hash and compares it to the stored value. Receipts store this hash under
+  the canonical ``artifact_hash`` field (as emitted by ``DecisionReceipt.to_dict``);
+  a legacy ``checksum`` field is accepted as a fallback for older/alternate
+  producers. This hash covers the *decision-integrity fields* --
+  ``receipt_id``, ``gauntlet_id``, ``input_hash``, ``risk_summary``, ``verdict``,
+  and ``confidence`` -- so tampering with any of those is detected. It does **not**
+  cover presentational/metadata fields such as ``timestamp`` or ``schema_version``;
+  for full-payload tamper-evidence, sign the receipt and use the signature check
+  (or ``aragora receipt verify``). The reported coverage is scoped accordingly so
+  the command does not overclaim.
+- **Presence/format checks** (non-integrity): confirms ``schema_version`` is
+  present, ``verdict`` is a recognised Verdict enum value, and ``timestamp`` is
+  valid ISO 8601. These validate well-formedness, not tamper-evidence.
+- **Signature** (optional): if the receipt is cryptographically signed, verifies
+  the signature chain, which covers the full serialised payload.
 """
 
 from __future__ import annotations
@@ -32,10 +41,15 @@ def create_verify_parser(subparsers: argparse._SubParsersAction) -> None:
         "verify",
         help="Verify a decision receipt's integrity",
         description=(
-            "Validate that a decision receipt JSON file has not been tampered with. "
-            "Recomputes the SHA-256 checksum, checks schema version, validates the "
-            "verdict against the canonical enum, and verifies timestamp format. "
-            "For signed receipts, also verifies the cryptographic signature chain."
+            "Validate a decision receipt JSON file. Recomputes the SHA-256 "
+            "decision-integrity hash (artifact_hash, with legacy checksum fallback) "
+            "to detect tampering of the decision-integrity fields (receipt_id, "
+            "gauntlet_id, input_hash, risk_summary, verdict, confidence); also checks "
+            "schema_version presence, that the verdict is a valid enum value, and "
+            "timestamp format. Note: the integrity hash does not cover presentational "
+            "fields like timestamp/schema_version -- for full-payload tamper-evidence "
+            "the receipt must be cryptographically signed (the signature is verified "
+            "when present)."
         ),
     )
     parser.add_argument(
@@ -96,8 +110,33 @@ def _is_valid_iso_timestamp(value: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Checksum helpers
+# Integrity-hash helpers
 # ---------------------------------------------------------------------------
+
+# The exact decision-integrity fields covered by the canonical ``artifact_hash``
+# (mirrors ``DecisionReceipt._calculate_hash``). These -- and ONLY these -- are the
+# fields whose tampering this command's integrity check detects. Reported to the
+# user via the ``covers`` key so the command does not overclaim coverage of
+# presentational fields (timestamp, schema_version, ...) the hash does not include.
+_INTEGRITY_HASH_FIELDS: tuple[str, ...] = (
+    "receipt_id",
+    "gauntlet_id",
+    "input_hash",
+    "risk_summary",
+    "verdict",
+    "confidence",
+)
+
+# Decision-integrity fields covered by the legacy ``checksum`` field.
+_LEGACY_CHECKSUM_FIELDS: tuple[str, ...] = (
+    "receipt_id",
+    "verdict",
+    "confidence",
+    "findings_count",
+    "critical_count",
+    "timestamp",
+    "audit_trail_id",
+)
 
 
 def _recompute_checksum(data: dict[str, Any]) -> str:
@@ -126,7 +165,8 @@ def _recompute_artifact_hash(data: dict[str, Any]) -> str:
     do *not* emit a separate ``checksum`` key -- can be verified by this command.
 
     Implemented inline (rather than importing ``DecisionReceipt``) so verification
-    never hard-depends on the gauntlet package being importable.
+    never hard-depends on the gauntlet package being importable. Covers exactly the
+    fields in :data:`_INTEGRITY_HASH_FIELDS`.
     """
     content = json.dumps(
         {
@@ -237,7 +277,7 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
         )
         overall_valid = False
 
-    # -- 4. content integrity ---------------------------------------------
+    # -- 4. decision-integrity hash ---------------------------------------
     # Receipts carry their integrity hash under one of two canonical fields:
     #   * ``artifact_hash`` -- the content-addressable hash emitted by the
     #     canonical producer ``DecisionReceipt.to_dict`` (``aragora demo`` and the
@@ -247,63 +287,79 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
     # We prefer ``artifact_hash`` when present so both verify commands agree, and
     # fall back to ``checksum`` for older/alternate producers. The check fails only
     # when neither valid proof is present, preserving tamper detection in both cases.
+    #
+    # IMPORTANT (honest coverage): this hash only covers the *decision-integrity
+    # fields* listed in ``_INTEGRITY_HASH_FIELDS`` -- it does NOT cover presentational
+    # fields like ``timestamp`` or ``schema_version``. The check is named
+    # ``integrity`` (not ``checksum``) and reports a ``covers`` list so the command
+    # does not imply whole-payload tamper-evidence. Full-payload coverage requires a
+    # cryptographic signature (check #5 / ``aragora receipt verify``).
     stored_artifact_hash = data.get("artifact_hash")
     stored_checksum = data.get("checksum")
     if stored_artifact_hash:
         expected = _recompute_artifact_hash(data)
         if stored_artifact_hash == expected:
-            detail = f"artifact_hash={stored_artifact_hash[:16]}..."
+            detail = (
+                "decision-integrity fields verified via artifact_hash="
+                f"{stored_artifact_hash[:16]}..."
+            )
             if verbose:
                 detail += f" (recomputed={expected[:16]}...)"
             checks.append(
                 {
-                    "name": "checksum",
+                    "name": "integrity",
                     "passed": True,
                     "detail": detail,
+                    "covers": list(_INTEGRITY_HASH_FIELDS),
                 }
             )
         else:
             checks.append(
                 {
-                    "name": "checksum",
+                    "name": "integrity",
                     "passed": False,
                     "detail": (
                         f"artifact_hash mismatch: stored={stored_artifact_hash[:16]}..., "
-                        f"recomputed={expected[:16]}..."
+                        f"recomputed={expected[:16]}... (a decision-integrity field was altered)"
                     ),
+                    "covers": list(_INTEGRITY_HASH_FIELDS),
                 }
             )
             overall_valid = False
     elif stored_checksum:
         expected = _recompute_checksum(data)
         if stored_checksum == expected:
-            detail = f"checksum={stored_checksum}"
+            detail = f"decision-integrity fields verified via checksum={stored_checksum}"
             if verbose:
                 detail += f" (recomputed={expected})"
             checks.append(
                 {
-                    "name": "checksum",
+                    "name": "integrity",
                     "passed": True,
                     "detail": detail,
+                    "covers": list(_LEGACY_CHECKSUM_FIELDS),
                 }
             )
         else:
             checks.append(
                 {
-                    "name": "checksum",
+                    "name": "integrity",
                     "passed": False,
                     "detail": (
-                        f"checksum mismatch: stored={stored_checksum}, recomputed={expected}"
+                        f"checksum mismatch: stored={stored_checksum}, recomputed={expected} "
+                        "(a decision-integrity field was altered)"
                     ),
+                    "covers": list(_LEGACY_CHECKSUM_FIELDS),
                 }
             )
             overall_valid = False
     else:
         checks.append(
             {
-                "name": "checksum",
+                "name": "integrity",
                 "passed": False,
                 "detail": "no integrity hash present (expected artifact_hash or checksum)",
+                "covers": [],
             }
         )
         overall_valid = False
@@ -423,14 +479,26 @@ def _print_text_report(result: dict[str, Any], *, verbose: bool = False) -> None
     for check in result["checks"]:
         icon = "PASS" if check["passed"] else "FAIL"
         print(f"  [{icon}] {check['name']}: {check['detail']}")
+        if verbose and check["name"] == "integrity" and check.get("covers"):
+            print(f"           covers: {', '.join(check['covers'])}")
 
     print("")
+    signed = result.get("signed")
     if result["valid"]:
-        print("Result: VALID -- receipt integrity verified")
+        if signed:
+            # Signature covers the full serialised payload.
+            print("Result: VALID -- full-payload integrity verified (signed)")
+        else:
+            # Unsigned: only the decision-integrity fields are tamper-evident.
+            print("Result: VALID -- decision-integrity fields verified")
+            print(
+                "  (unsigned: timestamp/schema_version are checked for "
+                "presence/format, not tamper-evidence)"
+            )
     else:
-        print("Result: INVALID -- receipt integrity check failed")
+        print("Result: INVALID -- integrity check failed")
 
-    if result.get("signed"):
+    if signed:
         print("  (receipt is cryptographically signed)")
     print("")
 
