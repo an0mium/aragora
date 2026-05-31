@@ -124,17 +124,28 @@ class AuditSessionStore:
             return None
         return self._deserialize(row["data"])
 
-    def list(self, org_id: str | None = None, limit: int = 100) -> list["AuditSession"]:
-        """List stored sessions, newest first, optionally filtered by org."""
+    def list(
+        self,
+        org_id: str | None = None,
+        status: str | None = None,
+        limit: int = 100,
+    ) -> list["AuditSession"]:
+        """List stored sessions, newest first, optionally filtered by org/status."""
         query = "SELECT data FROM audit_sessions"
-        params: tuple = ()
+        clauses: list[str] = []
+        params: list[object] = []
         if org_id:
-            query += " WHERE org_id = ?"
-            params = (org_id,)
+            clauses.append("org_id = ?")
+            params.append(org_id)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY created_at DESC LIMIT ?"
-        params = params + (limit,)
+        params.append(limit)
         with self._connect() as conn:
-            rows = conn.execute(query, params).fetchall()
+            rows = conn.execute(query, tuple(params)).fetchall()
         sessions = []
         for row in rows:
             session = self._deserialize(row["data"])

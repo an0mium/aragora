@@ -556,7 +556,11 @@ class DocumentAuditor:
         merged: dict[str, AuditSession] = {}
         store = self._get_store()
         if store is not None:
-            for stored in store.list(org_id=org_id, limit=limit):
+            for stored in store.list(
+                org_id=org_id,
+                status=status.value if status else None,
+                limit=limit,
+            ):
                 merged[stored.id] = stored
         # In-memory cache wins on conflict (most up-to-date within process).
         merged.update(self._sessions)

@@ -158,6 +158,23 @@ class TestCrossInvocationPersistence:
         assert len(public) == 1
         assert public[0].title == "Hardcoded credential"
 
+    def test_status_filter_applies_before_limit(self, patched_data_dir):
+        """Persisted status filtering must not under-return because of LIMIT."""
+        auditor1 = _make_persistent_auditor()
+        completed = asyncio.run(auditor1.create_session(document_ids=["old"], name="Completed"))
+        completed.status = AuditStatus.COMPLETED
+        completed.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        auditor1.save_session(completed)
+
+        pending = asyncio.run(auditor1.create_session(document_ids=["new"], name="Pending"))
+        pending.status = AuditStatus.PENDING
+        pending.created_at = datetime(2026, 1, 2, tzinfo=timezone.utc)
+        auditor1.save_session(pending)
+
+        auditor2 = _make_persistent_auditor()
+        sessions = auditor2.list_sessions(status=AuditStatus.COMPLETED, limit=1)
+        assert [s.id for s in sessions] == [completed.id]
+
 
 class TestInMemoryModeUnchanged:
     """API/server (non-persistent) behavior must be unchanged."""
