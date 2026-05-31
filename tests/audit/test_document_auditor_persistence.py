@@ -58,6 +58,33 @@ def _make_persistent_auditor() -> DocumentAuditor:
 class TestCrossInvocationPersistence:
     """Session created in one process must be readable in a later process."""
 
+    def test_default_store_path_survives_cwd_changes(self, tmp_path, monkeypatch):
+        """Default local audit storage is stable across CLI working dirs."""
+        import aragora.audit.session_store as session_store
+
+        home = tmp_path / "home"
+        cwd1 = tmp_path / "cwd1"
+        cwd2 = tmp_path / "cwd2"
+        home.mkdir()
+        cwd1.mkdir()
+        cwd2.mkdir()
+        monkeypatch.delenv("ARAGORA_DATA_DIR", raising=False)
+        monkeypatch.setattr(session_store.Path, "home", lambda: home)
+
+        monkeypatch.chdir(cwd1)
+        auditor1 = _make_persistent_auditor()
+        session = asyncio.run(
+            auditor1.create_session(document_ids=["doc1"], name="CWD Independent")
+        )
+
+        monkeypatch.chdir(cwd2)
+        auditor2 = _make_persistent_auditor()
+        loaded = auditor2.get_session(session.id)
+
+        assert loaded is not None
+        assert loaded.name == "CWD Independent"
+        assert session_store.AuditSessionStore().db_path == home / ".aragora" / "audit_sessions.db"
+
     def test_session_survives_fresh_auditor(self, patched_data_dir):
         # --- Process 1: create the session ---
         auditor1 = _make_persistent_auditor()
@@ -304,6 +331,19 @@ class TestCrossProcessControlPersistence:
         loaded = auditor3.get_session(session.id)
         assert loaded.status == AuditStatus.CANCELLED
         assert loaded.errors == []
+
+    def test_run_audit_rejects_terminal_sessions(self, patched_data_dir):
+        auditor = _make_persistent_auditor()
+        session = asyncio.run(auditor.create_session(document_ids=["doc1"], name="Terminal Start"))
+        session.status = AuditStatus.CANCELLED
+        auditor.save_session(session, force=True)
+
+        with pytest.raises(ValueError, match="Cannot start session"):
+            asyncio.run(auditor.run_audit(session.id))
+
+        fresh = _make_persistent_auditor().get_session(session.id)
+        assert fresh is not None
+        assert fresh.status == AuditStatus.CANCELLED
 
     def test_cancel_preserves_terminal_sessions(self, patched_data_dir):
         auditor1 = _make_persistent_auditor()

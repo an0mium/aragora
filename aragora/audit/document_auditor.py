@@ -451,6 +451,9 @@ class DocumentAuditor:
                 stored.status.value,
                 session.status.value,
             )
+            # Keep the process cache aligned with durable state; persistent
+            # get_session() remains store-first for cross-process freshness.
+            self._sessions[session.id] = stored
             return
         self._sessions[session.id] = session
         try:
@@ -630,6 +633,10 @@ class DocumentAuditor:
 
         if session.status == AuditStatus.RUNNING:
             raise ValueError(f"Session {session_id} is already running")
+        if session.status not in {AuditStatus.PENDING, AuditStatus.PAUSED}:
+            raise ValueError(
+                f"Cannot start session {session_id} with status {session.status.value}"
+            )
 
         # Start audit
         session.status = AuditStatus.RUNNING

@@ -7,8 +7,9 @@ in-memory session dict, so a session created by ``create`` is invisible to a
 later ``start``/``status`` call.
 
 This store persists full ``AuditSession`` state (including nested findings,
-enums, and datetimes) to a single SQLite database under the canonical data
-directory, mirroring the convention used by ``aragora/pipeline/plan_store.py``.
+enums, and datetimes) to a single SQLite database under ``ARAGORA_DATA_DIR`` or
+``~/.aragora``. The path is deliberately independent of the current working
+directory because local audit workflows span separate CLI invocations.
 
 Server/API mode does not use this store; it keeps its own server-side storage.
 """
@@ -29,22 +30,19 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 logger = logging.getLogger(__name__)
 
 _DB_FILENAME = "audit_sessions.db"
-_DEFAULT_DB_DIR = os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))
 
 
 def get_default_data_dir() -> Path:
-    """Resolve the canonical data directory for SQLite artifacts.
+    """Resolve the stable local audit data directory.
 
     Re-exported here (rather than imported at call sites) so tests can
     monkeypatch ``aragora.audit.session_store.get_default_data_dir`` directly,
     per the repo testing convention of patching the function, not a constant.
     """
-    try:
-        from aragora.persistence.db_config import get_default_data_dir as _impl
-
-        return _impl()
-    except ImportError:  # pragma: no cover - persistence pkg always present
-        return Path(_DEFAULT_DB_DIR)
+    override = os.environ.get("ARAGORA_DATA_DIR")
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".aragora"
 
 
 def _resolve_db_path() -> Path:
