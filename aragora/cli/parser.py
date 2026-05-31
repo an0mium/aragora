@@ -216,6 +216,7 @@ Examples:
     _add_calibration_parser(subparsers)
     _add_cruxset_parser(subparsers)
     _add_crux_followup_parser(subparsers)
+    _add_proof_units_parser(subparsers)  # DIC-19 / #6030
     _add_genealogy_parser(subparsers)  # DIC-24 / #6218
 
     # DIC-27: operator crux arbitration surface
@@ -580,6 +581,51 @@ def _add_cruxset_parser(subparsers) -> None:
         help="Re-emit the (verified) CruxSet as JSON instead of pretty-printing",
     )
     show.set_defaults(func=_lazy("aragora.cli.commands.agt_cruxset", "cmd_cruxset_show"))
+
+
+def _add_proof_units_parser(subparsers) -> None:
+    """Add the 'proof-units' subcommand for DIC-19 constraint graph surface.
+
+    Flag-gated: ARAGORA_PROOF_UNIT_SCAN_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "proof-units",
+        help="DIC-19: inspect proof-carrying code unit constraint graph",
+        description=(
+            "Read-only operator surface for the proof-carrying code unit constraint graph. "
+            "Requires ARAGORA_PROOF_UNIT_SCAN_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--proof-units-dir",
+        dest="proof_units_dir",
+        default=None,
+        help="Directory containing proof-unit YAML manifests (default: docs/status/proof_units)",
+    )
+    p.add_argument(
+        "--impact-of",
+        dest="impact_of",
+        nargs="+",
+        metavar="CLAIM_ID",
+        default=None,
+        help="Show units impacted by these claim IDs",
+    )
+    p.add_argument(
+        "--multi-hop",
+        dest="multi_hop",
+        action="store_true",
+        default=False,
+        help="Include transitively impacted units via dependency edges",
+    )
+    p.add_argument(
+        "--json",
+        dest="json",
+        action="store_true",
+        default=False,
+        help="Emit JSON output",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic19_proof_units", "cmd_proof_units"))
 
 
 def _add_genealogy_parser(subparsers) -> None:
