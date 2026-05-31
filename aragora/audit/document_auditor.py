@@ -47,6 +47,11 @@ class AuditStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+_CONTROL_STATUSES = {AuditStatus.PAUSED, AuditStatus.CANCELLED}
+_TERMINAL_STATUSES = {AuditStatus.COMPLETED, AuditStatus.FAILED, AuditStatus.CANCELLED}
+_CANCELLABLE_STATUSES = {AuditStatus.PENDING, AuditStatus.RUNNING, AuditStatus.PAUSED}
+
+
 class AuditType(str, Enum):
     """Types of document audits."""
 
@@ -423,14 +428,49 @@ class DocumentAuditor:
         later process can read the latest state. Safe to call after any
         state transition.
         """
-        self._sessions[session.id] = session
         store = self._get_store()
         if store is None:
+            self._sessions[session.id] = session
             return
+        try:
+            stored = store.get(session.id)
+        except (OSError, sqlite3.Error, ValueError) as exc:
+            logger.warning("Failed to inspect persisted audit session %s: %s", session.id, exc)
+            stored = None
+        if stored is not None and self._should_preserve_persisted_status(
+            stored.status,
+            session.status,
+        ):
+            self._sessions[session.id] = stored
+            return
+        self._sessions[session.id] = session
         try:
             store.save(session)
         except (OSError, sqlite3.Error, ValueError) as exc:
             logger.warning("Failed to persist audit session %s: %s", session.id, exc)
+
+    @staticmethod
+    def _should_preserve_persisted_status(
+        persisted_status: AuditStatus,
+        incoming_status: AuditStatus,
+    ) -> bool:
+        """Avoid clobbering cross-process control/terminal state.
+
+        A still-running process may hold an older in-memory RUNNING session while
+        a later CLI invocation has already paused or cancelled the durable row.
+        Progress/finalization writes from the stale process must not overwrite
+        that operator-visible control state.
+        """
+        if persisted_status in _CONTROL_STATUSES and incoming_status in {
+            AuditStatus.RUNNING,
+            AuditStatus.COMPLETED,
+        }:
+            return True
+        return (
+            persisted_status in _TERMINAL_STATUSES
+            and persisted_status != AuditStatus.CANCELLED
+            and incoming_status == AuditStatus.CANCELLED
+        )
 
     def _load_handlers(self) -> None:
         """Load audit type handlers."""
@@ -529,21 +569,17 @@ class DocumentAuditor:
     def get_session(self, session_id: str) -> AuditSession | None:
         """Get an audit session by ID.
 
-        Checks the in-memory cache first, then falls back to the durable store
-        (when persistence is enabled) so sessions created in a prior process
-        are retrievable. Loaded sessions are cached for the process lifetime.
+        Persistent local-mode callers prefer the durable store so repeated calls
+        in a long-lived process can observe state changes written by another CLI
+        process. Non-persistent/server callers remain in-memory only.
         """
-        session = self._sessions.get(session_id)
-        if session is not None:
-            return session
-
         store = self._get_store()
         if store is not None:
             loaded = store.get(session_id)
             if loaded is not None:
                 self._sessions[loaded.id] = loaded
                 return loaded
-        return None
+        return self._sessions.get(session_id)
 
     def list_sessions(
         self,
@@ -561,8 +597,11 @@ class DocumentAuditor:
                 limit=limit,
             ):
                 merged[stored.id] = stored
-        # In-memory cache wins on conflict (most up-to-date within process).
-        merged.update(self._sessions)
+        # Store wins on conflict so long-lived local processes see fresher
+        # cross-process state; include memory-only sessions for server/default
+        # behavior and unsaved local callers.
+        for session_id, session in self._sessions.items():
+            merged.setdefault(session_id, session)
         sessions = list(merged.values())
 
         if org_id:
@@ -1104,7 +1143,7 @@ Is this a valid finding? Respond with:
     async def cancel_audit(self, session_id: str) -> bool:
         """Cancel an audit session."""
         session = self.get_session(session_id)
-        if not session:
+        if not session or session.status not in _CANCELLABLE_STATUSES:
             return False
 
         if session.status == AuditStatus.RUNNING:

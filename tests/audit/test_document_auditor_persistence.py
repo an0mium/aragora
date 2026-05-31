@@ -237,6 +237,41 @@ class TestCrossProcessControlPersistence:
         assert auditor3.get_session(pause_session.id).status == AuditStatus.PAUSED
         assert auditor3.get_session(cancel_session.id).status == AuditStatus.CANCELLED
 
+    def test_external_pause_survives_stale_runner_progress_write(self, patched_data_dir):
+        auditor1 = _make_persistent_auditor()
+        session = asyncio.run(auditor1.create_session(document_ids=["doc1"], name="Pause Race"))
+        session.status = AuditStatus.RUNNING
+        auditor1.save_session(session)
+
+        auditor2 = _make_persistent_auditor()
+        assert asyncio.run(auditor2.pause_audit(session.id)) is True
+
+        # The original process still has a stale RUNNING object. Progress writes
+        # must not clobber the externally requested PAUSED durable state.
+        session.current_phase = "verification"
+        auditor1._notify_progress(session, 0.5)
+
+        auditor3 = _make_persistent_auditor()
+        assert auditor3.get_session(session.id).status == AuditStatus.PAUSED
+
+    def test_cancel_preserves_terminal_sessions(self, patched_data_dir):
+        auditor1 = _make_persistent_auditor()
+        session = asyncio.run(
+            auditor1.create_session(document_ids=["doc1"], name="Completed Terminal")
+        )
+        completed_at = datetime(2026, 1, 3, tzinfo=timezone.utc)
+        session.status = AuditStatus.COMPLETED
+        session.completed_at = completed_at
+        auditor1.save_session(session)
+
+        auditor2 = _make_persistent_auditor()
+        assert asyncio.run(auditor2.cancel_audit(session.id)) is False
+
+        auditor3 = _make_persistent_auditor()
+        loaded = auditor3.get_session(session.id)
+        assert loaded.status == AuditStatus.COMPLETED
+        assert loaded.completed_at == completed_at
+
 
 class TestInMemoryModeUnchanged:
     """API/server (non-persistent) behavior must be unchanged."""
