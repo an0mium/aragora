@@ -12,12 +12,34 @@ Covers two correctness/trust defects:
 from __future__ import annotations
 
 import argparse
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from aragora.cli.commands.stats import cmd_elo
 from aragora.ranking.elo import EloSystem
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _run_elo_cli(db_path: Path, *cli_args: str) -> subprocess.CompletedProcess[str]:
+    """Spawn the *real* ``aragora elo`` CLI process and return its result.
+
+    This drives the full dispatcher chain (``python -m aragora.cli.main`` ->
+    ``main()`` -> ``args.func(args)`` -> ``raise SystemExit(main())``) so the
+    assertion is on the actual OS-level process exit code, not just the value
+    ``cmd_elo`` returns in-process. A unit test that only inspects ``cmd_elo``'s
+    return value would pass even if the dispatcher dropped the int on the floor.
+    """
+    return subprocess.run(
+        [sys.executable, "-m", "aragora.cli.main", "elo", *cli_args, "--db", str(db_path)],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
 
 
 def _args(db_path: Path, **kwargs) -> argparse.Namespace:
@@ -105,3 +127,68 @@ class TestEloSystemHasRating:
         elo = EloSystem(db_path=str(tmp_path / "elo.db"))
         elo.has_rating("ghost")
         assert "ghost" not in elo.list_agents()
+
+
+class TestEloCliProcessExitCode:
+    """Process-level regression tests for ``aragora elo`` exit codes.
+
+    The unit tests above call ``cmd_elo`` directly and assert on its *return
+    value*. That alone does not prove a script running ``aragora elo ...`` sees a
+    non-zero exit: the dispatcher must propagate the int return into the process
+    exit code. These tests spawn the real CLI subprocess and assert on
+    ``returncode`` to lock that end-to-end contract.
+    """
+
+    def test_agent_unknown_process_exits_nonzero(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "elo.db"
+        EloSystem(db_path=str(db_path))  # create schema, no agents
+
+        result = _run_elo_cli(db_path, "agent", "--agent", "totally_made_up_xyz")
+
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert result.returncode == 1
+        assert "not found" in result.stdout.lower()
+        # Must not leak a fabricated default record.
+        assert "1500" not in result.stdout
+        assert "ELO Rating" not in result.stdout
+
+    def test_agent_missing_required_arg_process_exits_nonzero(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "elo.db"
+        EloSystem(db_path=str(db_path))
+
+        result = _run_elo_cli(db_path, "agent")
+
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert result.returncode == 2
+        assert "--agent is required" in result.stdout
+
+    def test_history_missing_required_arg_process_exits_nonzero(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "elo.db"
+        EloSystem(db_path=str(db_path))
+
+        result = _run_elo_cli(db_path, "history")
+
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert result.returncode == 2
+        assert "--agent is required" in result.stdout
+
+    def test_leaderboard_success_process_exits_zero(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "elo.db"
+        EloSystem(db_path=str(db_path))
+
+        result = _run_elo_cli(db_path)
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "Leaderboard" in result.stdout
+
+    def test_known_agent_process_exits_zero(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "elo.db"
+        elo = EloSystem(db_path=str(db_path))
+        elo.record_match(winner="real_agent", loser="other_agent")
+
+        result = _run_elo_cli(db_path, "agent", "--agent", "real_agent")
+
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "real_agent" in result.stdout
+        assert "ELO Rating" in result.stdout
+        assert "not found" not in result.stdout.lower()
