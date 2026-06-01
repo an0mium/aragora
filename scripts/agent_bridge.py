@@ -857,10 +857,18 @@ def _load_broker_run_summaries() -> list[dict[str, Any]]:
         return []
 
 
+def _is_current_broker_run(run: dict[str, Any]) -> bool:
+    return run.get("status") in ACTIVE_LANE_STATUSES or run.get("status") == "awaiting_human"
+
+
+def _filter_current_broker_runs(broker_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [run for run in broker_runs if _is_current_broker_run(run)]
+
+
 def _active_broker_session_ids(broker_runs: list[dict[str, Any]]) -> set[str]:
     ids: set[str] = set()
     for run in broker_runs:
-        if run.get("status") not in ACTIVE_LANE_STATUSES and run.get("status") != "awaiting_human":
+        if not _is_current_broker_run(run):
             continue
         sessions = run.get("sessions", {})
         if not isinstance(sessions, dict):
@@ -2224,6 +2232,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         include_summaries=not summary_only,
         include_historical=include_historical or not summary_only,
     )
+    if not include_historical:
+        broker_runs = _filter_current_broker_runs(broker_runs)
     sessions = (
         discovered_sessions if include_historical else _filter_current_sessions(discovered_sessions)
     )
