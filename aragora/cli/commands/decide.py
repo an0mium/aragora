@@ -232,18 +232,14 @@ async def run_decide(
             from aragora.modes.base import ModeRegistry
 
             load_builtins()
-            mode_def = ModeRegistry.get(mode)
-            if mode_def:
-                mode_config = {  # noqa: F841 — stored for future mode injection
-                    "mode": mode,
-                    "mode_definition": mode_def,
-                    "mode_system_prompt": mode_def.get_system_prompt(),
-                }
-                if verbose:
-                    print(f"[decide] Using mode: {mode}")
-            else:
-                available = ", ".join(ModeRegistry.list_all())
-                raise KeyError(f"Mode '{mode}' not found. Available: {available}")
+            mode_def = ModeRegistry.get_or_raise(mode)
+            mode_config = {  # noqa: F841 — stored for future mode injection
+                "mode": mode,
+                "mode_definition": mode_def,
+                "mode_system_prompt": mode_def.get_system_prompt(),
+            }
+            if verbose:
+                print(f"[decide] Using mode: {mode}")
         except KeyError:
             raise
         except ImportError:
