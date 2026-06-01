@@ -271,8 +271,34 @@ class TestMain:
         """Handle load error gracefully."""
         mock_args.debate_id = "nonexistent"
         mock_args.output = str(tmp_path)
-        mock_load.side_effect = Exception("Debate not found")
+        mock_load.side_effect = OSError("Debate not found")
 
+        main(mock_args)
+
+        captured = capsys.readouterr()
+        assert "Error loading debate" in captured.out
+        assert "--demo" in captured.out
+
+    @patch("aragora.cli.export.load_artifact_from_debate")
+    def test_load_error_sqlite_operational(self, mock_load, mock_args, tmp_path, capsys):
+        """A missing traces DB/table (sqlite3.OperationalError) is handled cleanly.
+
+        Regression: DebateReplayer.from_database opens the SQLite file without
+        creating the ``traces`` schema, so a fresh user running export against a
+        directory with no prior traced debates gets
+        ``sqlite3.OperationalError: no such table: traces``. That exception is not
+        a subclass of OSError/RuntimeError/ValueError/KeyError, so it previously
+        escaped the handler and dumped a raw traceback (exit 1). It must instead
+        print the friendly message and return cleanly.
+        """
+        import sqlite3
+
+        mock_args.debate_id = "abc123"
+        mock_args.output = str(tmp_path)
+        mock_args.db = None
+        mock_load.side_effect = sqlite3.OperationalError("no such table: traces")
+
+        # Must not raise; must print the friendly guidance.
         main(mock_args)
 
         captured = capsys.readouterr()
