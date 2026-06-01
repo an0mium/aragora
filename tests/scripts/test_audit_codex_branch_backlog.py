@@ -1751,6 +1751,7 @@ def test_audit_treats_superseded_branch_as_unresolved_handoff(
     assert payload["summary"]["handoff_outbox_branches"] == 1
     assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 2
     assert payload["summary"]["direct_handoff_outbox_branches"] == 1
+    assert payload["summary"]["unresolved_handoff_outbox_refs_outside_audit"] == 1
     assert payload["summary"]["patch_equivalent_handoff_outbox_branches"] == 0
     assert payload["summary"]["publishable_branch_backlog"] == 1
     original = next(
@@ -1818,6 +1819,7 @@ def test_audit_counts_direct_outbox_refs_even_when_active_worktree_wins_category
     assert payload["summary"]["handoff_outbox_branches"] == 0
     assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 1
     assert payload["summary"]["direct_handoff_outbox_branches"] == 1
+    assert payload["summary"]["unresolved_handoff_outbox_refs_outside_audit"] == 0
     assert payload["summary"]["patch_equivalent_handoff_outbox_branches"] == 0
 
 

@@ -1252,6 +1252,10 @@ def audit(
     direct_handoff_outbox_branches = sum(
         1 for record in records if record.name in handoff_outbox_branches
     )
+    audited_branch_names = {record.name for record in records}
+    unresolved_handoff_outbox_refs_outside_audit = len(
+        handoff_outbox_branches - audited_branch_names
+    )
     patch_equivalent_handoff_outbox_branches = sum(
         1
         for record in records
@@ -1289,6 +1293,9 @@ def audit(
             "handoff_outbox_branches": counts["protected_handoff_outbox"],
             "unresolved_handoff_outbox_branch_refs": len(handoff_outbox_branches),
             "direct_handoff_outbox_branches": direct_handoff_outbox_branches,
+            "unresolved_handoff_outbox_refs_outside_audit": (
+                unresolved_handoff_outbox_refs_outside_audit
+            ),
             "patch_equivalent_handoff_outbox_branches": (patch_equivalent_handoff_outbox_branches),
             "writer_should_pause_for_branch_backlog": (
                 publishable_branch_backlog >= publisher_backlog_limit
@@ -1358,6 +1365,10 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
             f"`{summary['unresolved_handoff_outbox_branch_refs']}`"
         )
         print(f"- Direct handoff-outbox branches: `{summary['direct_handoff_outbox_branches']}`")
+        print(
+            "- Unresolved handoff-outbox refs outside audit: "
+            f"`{summary['unresolved_handoff_outbox_refs_outside_audit']}`"
+        )
         print(
             "- Patch-equivalent handoff-outbox branches: "
             f"`{summary['patch_equivalent_handoff_outbox_branches']}`"
