@@ -30,6 +30,7 @@ except ImportError:
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 HEARTBEAT_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "heartbeats.json"
+AUTOMATION_STATE_ROOT_ENV = "ARAGORA_AUTOMATION_STATE_ROOT"
 SAFE_OWNER_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
@@ -71,6 +72,50 @@ def _atomic_write(path: Path, rows: list[dict[str, Any]]) -> None:
     except Exception:
         tmp_path.unlink(missing_ok=True)
         raise
+
+
+def _state_dir(root: Path) -> Path:
+    expanded = root.expanduser()
+    if expanded.name == ".aragora":
+        return expanded
+    return expanded / ".aragora"
+
+
+def _has_agent_bridge_state(root: Path) -> bool:
+    return (_state_dir(root) / "agent-bridge").is_dir()
+
+
+def _automation_state_root(repo_root: Path) -> Path:
+    """Return the checkout or direct .aragora dir backing heartbeat state."""
+
+    if _has_agent_bridge_state(repo_root):
+        return repo_root
+
+    configured = os.environ.get(AUTOMATION_STATE_ROOT_ENV)
+    candidates: list[Path] = []
+    if configured:
+        candidates.append(Path(configured).expanduser())
+    candidates.append(Path.home() / "Development" / "aragora")
+
+    for candidate in candidates:
+        if _has_agent_bridge_state(candidate):
+            return candidate
+    return repo_root
+
+
+def _automation_state_default_path(state_root: Path, default_relative: Path) -> Path:
+    expanded = state_root.expanduser()
+    if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
+        return expanded.joinpath(*default_relative.parts[1:])
+    return expanded / default_relative
+
+
+def resolve_heartbeat_path(*, repo_root: Path, explicit: Path | None = None) -> Path:
+    if explicit is not None:
+        return explicit
+    return _automation_state_default_path(
+        _automation_state_root(repo_root), HEARTBEAT_RELATIVE_PATH
+    )
 
 
 @contextmanager
@@ -165,7 +210,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--repo-root",
         type=Path,
         default=DEFAULT_REPO_ROOT,
-        help=f"Repo root (default: {DEFAULT_REPO_ROOT}).",
+        help=(
+            f"Repo root (default: {DEFAULT_REPO_ROOT}). Heartbeat state defaults to this "
+            f"root's .aragora, then ${AUTOMATION_STATE_ROOT_ENV}, then ~/Development/aragora."
+        ),
     )
     parser.add_argument("--json", action="store_true")
     return parser
@@ -173,7 +221,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    heartbeat_path = args.heartbeat_path or args.repo_root / HEARTBEAT_RELATIVE_PATH
+    heartbeat_path = resolve_heartbeat_path(repo_root=args.repo_root, explicit=args.heartbeat_path)
     try:
         row = record_heartbeat(
             heartbeat_path=heartbeat_path,
