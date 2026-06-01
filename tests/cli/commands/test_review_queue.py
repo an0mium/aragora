@@ -1689,6 +1689,185 @@ class TestModelReviewQuorum:
         assert quorum["dogfood_evidence"] == []
         assert quorum["counted_reviewer_ids"] == []
 
+    # --- Plain-headed dogfood with body-named model (PR #7587 regression) ---
+    #
+    # A dogfood comment headed `## Focused adversarial dogfood` (no `(claude)`
+    # in the heading) but whose BODY discloses the model family must count, so
+    # long as it is head-grounded, not bot-authored, and carries the dogfood
+    # tokens. This mirrors the model-review-signal recognizer, which already
+    # reads the model family from structured metadata rather than the heading.
+
+    def test_plain_headed_dogfood_with_model_family_line_counts(self) -> None:
+        """`## Focused adversarial dogfood` heading + `Model family: claude`
+        line in the body must be recognized as Claude dogfood evidence."""
+        files = ["aragora/agents/router.py"]  # Tier 1
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Focused adversarial dogfood\n\n"
+                    "**Reviewer harness:** claude-code\n"
+                    "**Model family:** claude\n"
+                    "**Model id:** claude-opus-4-8\n"
+                    "**Receipt artifact:** /tmp/claude-dogfood.md\n\n"
+                    "6/6 adversarial cases pass."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert len(quorum["dogfood_evidence"]) == 1
+        entry = quorum["dogfood_evidence"][0]
+        assert entry["model_family"] == "claude"
+        assert entry["reviewer_id"] == "claude"
+        assert "claude" in quorum["counted_reviewer_ids"]
+
+    def test_plain_headed_dogfood_with_far_model_family_line_counts(self) -> None:
+        """The `Model family:` disclosure may appear anywhere in the body,
+        not only in the first lines after the heading."""
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Focused adversarial dogfood\n\n"
+                    + ("Walked each adversarial case manually.\n" * 30)
+                    + "\n**Model family:** openai\n"
+                    + "**Model id:** gpt-5-codex\n"
+                    + "**Receipt artifact:** /tmp/openai-dogfood.md\n"
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert len(quorum["dogfood_evidence"]) == 1
+        assert quorum["dogfood_evidence"][0]["model_family"] == "openai"
+        assert "openai" in quorum["counted_reviewer_ids"]
+
+    def test_plain_headed_dogfood_without_model_named_still_excluded(self) -> None:
+        """A plain-headed dogfood comment that names NO model anywhere in the
+        body must still be excluded — the relaxation only applies when a known
+        model family is discoverable in the body."""
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Focused adversarial dogfood\n\n6/6 cases pass, no model named.",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["counted_reviewer_ids"] == []
+
+    def test_plain_headed_dogfood_not_head_grounded_still_excluded(self) -> None:
+        """Even with a body-named model, a stale (non-head-grounded) dogfood
+        comment must NOT count — head-grounding is preserved."""
+        head_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["headRefOid"] = head_sha
+        pr["commits"] = [{"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"}]
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                # Posted BEFORE head commit and does not cite the head SHA.
+                "createdAt": "2026-04-28T18:00:00Z",
+                "body": (
+                    "## Focused adversarial dogfood\n\n"
+                    "**Model family:** claude\n"
+                    "**Model id:** claude-opus-4-8\n"
+                    "**Receipt artifact:** /tmp/r.md\n\n"
+                    "6/6 cases pass."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["counted_reviewer_ids"] == []
+
+    def test_plain_headed_dogfood_from_github_actions_still_excluded(self) -> None:
+        """Even with a body-named model, a github-actions-authored dogfood
+        comment must NOT count — the bot exclusion is preserved."""
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "github-actions[bot]"},
+                "body": (
+                    "## Focused adversarial dogfood\n\n"
+                    "**Model family:** claude\n"
+                    "**Model id:** claude-opus-4-8\n"
+                    "**Receipt artifact:** /tmp/r.md\n\n"
+                    "6/6 cases pass."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["counted_reviewer_ids"] == []
+
+    def test_plain_headed_dogfood_with_unknown_model_family_excluded(self) -> None:
+        """A `Model family:` line that names something we cannot normalize to a
+        known family must NOT count (no phantom inflation)."""
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Focused adversarial dogfood\n\n"
+                    "**Model family:** acme-frontier-9000\n\n"
+                    "6/6 cases pass."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["counted_reviewer_ids"] == []
+
 
 # --- _parse_pr_number ------------------------------------------------------
 

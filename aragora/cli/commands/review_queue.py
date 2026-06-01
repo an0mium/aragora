@@ -2990,6 +2990,64 @@ def _resolve_model_review_identity(text: str) -> ModelReviewIdentity:
     )
 
 
+def _model_family_from_body(body: str) -> str:
+    """Resolve a known model family from a ``Model family:`` line anywhere.
+
+    The structured-metadata reader (:func:`_structured_identity_metadata`) only
+    inspects the lines immediately following the first heading. Dogfood comments
+    in the wild disclose the model family in a ``Model family: <name>`` bullet
+    that may appear lower in the body — or under a plain
+    ``## Focused adversarial dogfood`` heading that names no model. Scan the full
+    body for such a line and normalize it to a canonical family. Returns ``""``
+    when no recognizable family is disclosed (fail-closed: no phantom inflation).
+    """
+    for line in str(body).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("-"):
+            stripped = stripped[1:].strip()
+        label, sep, value = stripped.partition(":")
+        if not sep:
+            continue
+        normalized_label = label.strip().strip("*").strip().lower()
+        if normalized_label != "model family":
+            continue
+        candidate = value.strip().strip("*").strip().strip("`")
+        family = _normalize_model_family(candidate)
+        if family:
+            return family
+    return ""
+
+
+def _resolve_dogfood_identity(body: str) -> ModelReviewIdentity:
+    """Resolve dogfood-comment identity, allowing a body-named model family.
+
+    Starts from the shared :func:`_resolve_model_review_identity` (heading +
+    post-heading structured metadata). When that yields a countable model
+    reviewer, it is returned unchanged. Otherwise — e.g. a plain
+    ``## Focused adversarial dogfood`` heading whose body still discloses a
+    ``Model family:`` line — fall back to a full-body scan and, if a known
+    family is found, synthesize a countable identity. This mirrors how the
+    model-review-signal recognizer trusts the disclosed model family rather
+    than the heading, keeping the two recognizers consistent.
+    """
+    identity = _resolve_model_review_identity(body)
+    if _known_model_reviewer_id(identity.as_packet_fields()):
+        return identity
+
+    family = _model_family_from_body(body)
+    if not family:
+        return identity
+
+    metadata = _structured_identity_metadata(body, _first_heading_candidate(body)[1])
+    model_id = metadata.get("model id", "")
+    return ModelReviewIdentity(
+        surface_reviewer_id=family,
+        model_family=family,
+        model_id=model_id,
+        identity_source="dogfood_body_model_family",
+    )
+
+
 def _dogfood_evidence_from_comments(
     comments: list[Any],
     *,
@@ -3003,6 +3061,12 @@ def _dogfood_evidence_from_comments(
     comments whose first heading names a known surface but whose metadata
     is missing or conflicted remain visible in the evidence list with
     ``identity_problems``; counting remains fail-closed.
+
+    Identity is resolved via :func:`_resolve_dogfood_identity`, which accepts a
+    model family disclosed anywhere in the body (e.g. a ``Model family: claude``
+    line under a plain ``## Focused adversarial dogfood`` heading), not only one
+    named in the first heading. The head-grounding and github-actions exclusions
+    below are preserved unchanged.
     """
     evidence: list[dict[str, Any]] = []
     for comment in comments:
@@ -3016,7 +3080,7 @@ def _dogfood_evidence_from_comments(
             token in lower for token in ("dogfood", "adversarial", "cross-author", "recheck")
         ):
             continue
-        identity = _resolve_model_review_identity(body)
+        identity = _resolve_dogfood_identity(body)
         if identity.surface_reviewer_id == "unknown_model_reviewer":
             continue
         author_payload = comment.get("author")
