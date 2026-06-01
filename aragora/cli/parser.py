@@ -782,9 +782,7 @@ def _add_decay_monitor_parser(subparsers) -> None:
         help="Optional JSONL/JSON file of ClaimResult dicts (DIC-14 verifier output)",
     )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
-    p.set_defaults(
-        func=_lazy("aragora.cli.commands.dic20_decay_monitor", "cmd_decay_monitor")
-    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic20_decay_monitor", "cmd_decay_monitor"))
 
 
 def _add_crux_arbitrate_parser(subparsers) -> None:
