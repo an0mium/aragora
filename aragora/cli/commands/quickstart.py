@@ -1034,6 +1034,7 @@ async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
 
     return {
         "question": question,
+        "receipt_id": receipt_id,
         # Use a verdict value recognised by the bundled ``aragora verify``
         # (aragora.cli.commands.verify._VALID_VERDICTS). The demo represents a
         # successful consensus, so the canonical positive verdict is "approved".
