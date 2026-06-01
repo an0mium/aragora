@@ -318,6 +318,8 @@ def test_clean_checkout_packet_selects_clean_detached_origin_main_worktree(
     assert packet["selected_path"] == str(worktree)
     assert packet["candidates"][1]["status"] == "usable_clean_origin_main"
     assert packet["candidates"][1]["detached"] is True
+    assert f"git -C {worktree} fetch origin main" in packet["recommended_prompt"]
+    assert "HEAD equals the refreshed origin/main after fetch" in packet["recommended_prompt"]
 
 
 def test_clean_checkout_packet_rejects_stale_clean_worktree(tmp_path: Path) -> None:
@@ -408,7 +410,9 @@ def test_prompt_includes_selected_clean_checkout_path(tmp_path: Path) -> None:
 
     assert "Clean-checkout routing: root is not suitable" in prompt
     assert f"Run repo-native helpers only from this checkout: {worktree}" in prompt
+    assert f"git -C {worktree} fetch origin main" in prompt
     assert f"git -C {worktree} rev-parse HEAD origin/main" in prompt
+    assert "If it is dirty or stale after fetch, do not use it" in prompt
 
 
 def _settlement_runner(

@@ -309,6 +309,35 @@ def _clean_checkout_prompt(
     )
 
 
+def _selected_clean_checkout_prompt(
+    selected_path: str,
+    *,
+    pr: int | None,
+    expected_head: str | None,
+) -> str:
+    pr_fragment = f"PR #{pr}" if pr is not None else "the live queue"
+    head_guard = (
+        f"Stop if {pr_fragment} head drifted from {expected_head}."
+        if expected_head and pr is not None
+        else "Stop if the target head drifts from the operator-specified exact head."
+    )
+    return "\n".join(
+        [
+            "Before using the selected clean checkout, refresh remote truth and revalidate it:",
+            f"git -C {selected_path} fetch origin main",
+            f"git -C {selected_path} status --short --branch --untracked-files=all",
+            f"git -C {selected_path} rev-parse HEAD origin/main",
+            "",
+            (
+                "Use the selected checkout for repo-native helpers only if it remains clean "
+                "and HEAD equals the refreshed origin/main after fetch."
+            ),
+            "If it is dirty or stale after fetch, do not use it; create a disposable detached triage worktree from origin/main instead.",
+            head_guard,
+        ]
+    )
+
+
 def _clean_checkout_packet(
     repo_root: Path,
     command_runner: CommandRunner,
@@ -360,7 +389,11 @@ def _clean_checkout_packet(
             "status": "selected",
             "selected_path": selected_path,
             "candidates": candidates,
-            "recommended_prompt": None,
+            "recommended_prompt": _selected_clean_checkout_prompt(
+                selected_path,
+                pr=pr,
+                expected_head=expected_head,
+            ),
         }
 
     return {
@@ -810,8 +843,7 @@ def build_prompt(
                 "",
                 "Clean-checkout routing: root is not suitable for repo-native helpers, but a registered clean origin/main checkout is available.",
                 f"Run repo-native helpers only from this checkout: {selected_path}",
-                f"git -C {selected_path} status --short --branch --untracked-files=all",
-                f"git -C {selected_path} rev-parse HEAD origin/main",
+                clean_checkout.get("recommended_prompt") or "",
             ]
         )
     elif clean_checkout.get("status") == "needs_disposable_worktree":
