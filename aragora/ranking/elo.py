@@ -391,6 +391,23 @@ class EloSystem(KMAdapterMixin):
         self._rating_cache.set(cache_key, rating)
         return rating
 
+    def has_rating(self, agent_name: str) -> bool:
+        """Return True if a rating row exists for this agent.
+
+        Unlike :meth:`get_rating` (which is get-or-create and synthesises a
+        default 1500 rating for unknown agents), this performs a pure existence
+        check so callers can distinguish a real recorded rating from a
+        fabricated default.
+        """
+        _validate_agent_name(agent_name)
+        with self._db.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 1 FROM ratings WHERE agent_name = ? LIMIT 1",
+                (agent_name,),
+            )
+            return cursor.fetchone() is not None
+
     def _rating_from_row(self, row: tuple[Any, ...]) -> AgentRating:
         """Create AgentRating from a database row (leaderboard query format)."""
         return AgentRating(
