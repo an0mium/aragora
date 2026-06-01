@@ -24,6 +24,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -3000,9 +3001,30 @@ def _model_family_from_body(body: str) -> str:
     ``## Focused adversarial dogfood`` heading that names no model. Scan the full
     body for such a line and normalize it to a canonical family. Returns ``""``
     when no recognizable family is disclosed (fail-closed: no phantom inflation).
+
+    Fenced code blocks (```` ``` ````/``~~~``) and inline-code spans (`` `...` ``)
+    are skipped so a merely *quoted* ``Model family:`` example — e.g. someone
+    pasting the disclosure template into a code fence — cannot inflate quorum.
     """
-    for line in str(body).splitlines():
-        stripped = line.strip()
+    in_fence = False
+    fence_marker = ""
+    for raw_line in str(body).splitlines():
+        stripped = raw_line.strip()
+        # Track fenced code blocks and skip everything inside them.
+        if stripped.startswith(("```", "~~~")):
+            marker = stripped[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if in_fence:
+            continue
+        # Drop inline-code spans so a back-ticked example label is not parsed
+        # as a real disclosure line.
+        stripped = re.sub(r"`[^`]*`", "", stripped).strip()
         if stripped.startswith("-"):
             stripped = stripped[1:].strip()
         label, sep, value = stripped.partition(":")
@@ -3023,15 +3045,30 @@ def _resolve_dogfood_identity(body: str) -> ModelReviewIdentity:
 
     Starts from the shared :func:`_resolve_model_review_identity` (heading +
     post-heading structured metadata). When that yields a countable model
-    reviewer, it is returned unchanged. Otherwise — e.g. a plain
-    ``## Focused adversarial dogfood`` heading whose body still discloses a
-    ``Model family:`` line — fall back to a full-body scan and, if a known
-    family is found, synthesize a countable identity. This mirrors how the
-    model-review-signal recognizer trusts the disclosed model family rather
-    than the heading, keeping the two recognizers consistent.
+    reviewer, it is returned unchanged.
+
+    The body-family fallback is applied **only** when the original resolution
+    failed for the benign reason "no model was inferable from the heading or its
+    structured metadata" — i.e. the heading named no surface and the only
+    count-blocker is ``unknown_surface_reviewer``. If the original identity
+    carries a *real* problem — an unknown/unnormalizable disclosed family
+    (``unknown_model_family``), a router surface that disclosed no family
+    (``missing_model_family_disclosure``), or a heading/metadata family
+    *conflict* (``heading_model_family_conflict``) — we stay fail-closed and do
+    NOT count, exactly as the original resolver intended. Falling back in those
+    cases would let a body-scanned family silently override a deliberate block.
     """
     identity = _resolve_model_review_identity(body)
     if _known_model_reviewer_id(identity.as_packet_fields()):
+        return identity
+
+    # Only the benign "heading named no model" failure is eligible for the
+    # body-family fallback. Any other count-blocker is a real signal that the
+    # original resolver intentionally refused to count.
+    blockers = {
+        problem for problem in identity.identity_problems if problem in IDENTITY_COUNT_BLOCKERS
+    }
+    if blockers - {"unknown_surface_reviewer"}:
         return identity
 
     family = _model_family_from_body(body)

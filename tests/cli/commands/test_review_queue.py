@@ -1868,6 +1868,114 @@ class TestModelReviewQuorum:
         assert quorum["dogfood_evidence"] == []
         assert quorum["counted_reviewer_ids"] == []
 
+    def test_dogfood_heading_body_family_conflict_is_not_counted(self) -> None:
+        """Finding 1 (fail-closed bypass): when the heading names one family and
+        post-heading metadata names a *conflicting* family, the original
+        resolver blocks the comment with ``heading_model_family_conflict``. The
+        body-family fallback must NOT override that block — the comment stays
+        uncounted."""
+        from aragora.cli.commands.review_queue import _resolve_dogfood_identity
+
+        body = (
+            "## Claude focused adversarial dogfood\n\n"
+            "**Reviewer harness:** claude-code\n"
+            "**Model family:** openai\n"  # conflicts with the heading's "claude"
+            "**Model id:** gpt-5-codex\n"
+            "**Receipt artifact:** /tmp/r.md\n\n"
+            "6/6 cases pass."
+        )
+        identity = _resolve_dogfood_identity(body)
+        assert "heading_model_family_conflict" in identity.identity_problems
+        assert identity.identity_source != "dogfood_body_model_family"
+
+        files = ["aragora/agents/router.py"]  # Tier 1
+        pr = _make_pr(files=files)
+        pr["comments"] = [{"author": {"login": "an0mium"}, "body": body}]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["counted_reviewer_ids"] == []
+
+    def test_dogfood_model_family_inside_code_fence_is_not_counted(self) -> None:
+        """Finding 2 (code-fence inflation): a `Model family:` line that appears
+        only inside a fenced code block (e.g. a pasted example template) must NOT
+        be treated as a real disclosure."""
+        from aragora.cli.commands.review_queue import _model_family_from_body
+
+        body = (
+            "## Focused adversarial dogfood\n\n"
+            "Reviewers should disclose their model like this:\n\n"
+            "```\n"
+            "**Model family:** claude\n"
+            "```\n\n"
+            "6/6 cases pass (no real disclosure outside the fence)."
+        )
+        assert _model_family_from_body(body) == ""
+
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [{"author": {"login": "an0mium"}, "body": body}]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["counted_reviewer_ids"] == []
+
+    def test_dogfood_model_family_in_inline_code_span_is_not_counted(self) -> None:
+        """An inline-code back-ticked `Model family:` mention must not be parsed
+        as a disclosure either."""
+        from aragora.cli.commands.review_queue import _model_family_from_body
+
+        body = (
+            "## Focused adversarial dogfood\n\n"
+            "I left a note saying `Model family: claude` as an example only.\n\n"
+            "6/6 cases pass."
+        )
+        assert _model_family_from_body(body) == ""
+
+    def test_dogfood_real_family_line_outside_fence_still_counts(self) -> None:
+        """A genuine `Model family:` disclosure outside any code fence still
+        counts even when an example fence is also present — the fence stripping
+        must not eat the real line."""
+        from aragora.cli.commands.review_queue import _model_family_from_body
+
+        body = (
+            "## Focused adversarial dogfood\n\n"
+            "Template for reference:\n\n"
+            "```\n"
+            "**Model family:** <family>\n"
+            "```\n\n"
+            "**Model family:** claude\n"
+            "**Receipt artifact:** /tmp/r.md\n\n"
+            "6/6 cases pass."
+        )
+        assert _model_family_from_body(body) == "claude"
+
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [{"author": {"login": "an0mium"}, "body": body}]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert len(quorum["dogfood_evidence"]) == 1
+        assert quorum["dogfood_evidence"][0]["model_family"] == "claude"
+        assert "claude" in quorum["counted_reviewer_ids"]
+
 
 # --- _parse_pr_number ------------------------------------------------------
 
