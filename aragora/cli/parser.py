@@ -220,6 +220,7 @@ Examples:
     _add_genealogy_parser(subparsers)  # DIC-24 / #6218
     _add_coherence_scan_parser(subparsers)  # DIC-26 / #6220
     _add_truth_map_parser(subparsers)  # DIC-18 / #6028
+    _add_decay_monitor_parser(subparsers)  # DIC-20 / #6031
 
     # DIC-27: operator crux arbitration surface
     _add_crux_arbitrate_parser(subparsers)
@@ -750,6 +751,40 @@ def _add_truth_map_parser(subparsers) -> None:
     )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     p.set_defaults(func=_lazy("aragora.cli.commands.dic18_truth_map", "cmd_truth_map"))
+
+
+def _add_decay_monitor_parser(subparsers) -> None:
+    """Add the 'decay-monitor' subcommand (DIC-20 / #6031).
+
+    Flag-gated: ARAGORA_DECAY_MONITOR_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "decay-monitor",
+        help="DIC-20: report epistemic decay for proof-carrying code units",
+        description=(
+            "Read-only decay assessment over proof-carrying code units. "
+            "Requires ARAGORA_DECAY_MONITOR_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--units-dir",
+        dest="units_dir",
+        default=".aragora_proof_units",
+        metavar="DIR",
+        help="Directory of proof-unit YAML manifests (default: .aragora_proof_units)",
+    )
+    p.add_argument(
+        "--claim-results",
+        dest="claim_results",
+        default=None,
+        metavar="JSONL",
+        help="Optional JSONL/JSON file of ClaimResult dicts (DIC-14 verifier output)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(
+        func=_lazy("aragora.cli.commands.dic20_decay_monitor", "cmd_decay_monitor")
+    )
 
 
 def _add_crux_arbitrate_parser(subparsers) -> None:
