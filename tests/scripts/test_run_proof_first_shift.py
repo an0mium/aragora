@@ -225,6 +225,227 @@ def test_count_automation_backlog_ignores_draft_prs() -> None:
     assert mod.actionable_open_prs(prs) == prs[1:]
 
 
+def test_run_shift_cycle_defaults_to_single_merge_limit() -> None:
+    state = mod.ProofFirstRuntimeState()
+    repo_root = Path(".").resolve()
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [], "removed": []},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot", return_value={"ok": True}
+        ),
+        patch("scripts.run_proof_first_shift.list_open_prs", return_value=[]),
+        patch("scripts.run_proof_first_shift.process_running", return_value=True),
+        patch(
+            "scripts.run_proof_first_shift.run_merge_arbiter_apply", return_value={"merged": []}
+        ) as merge_mock,
+        patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=None),
+        patch(
+            "scripts.run_proof_first_shift.benchmark_truth_state_drift",
+            return_value={"issue_count": 0},
+        ),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=repo_root,
+            repo="synaptent/aragora",
+            benchmark_mode="disabled",
+            automation_backlog_limit=12,
+            runtime_state=state,
+        )
+
+    merge_mock.assert_called_once_with(
+        repo_root=repo_root,
+        repo="synaptent/aragora",
+        limit=1,
+    )
+    assert report["merge_limit"] == 1
+
+
+def test_automation_backlog_limit_does_not_broaden_merge_limit() -> None:
+    state = mod.ProofFirstRuntimeState()
+    repo_root = Path(".").resolve()
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [], "removed": []},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot", return_value={"ok": True}
+        ),
+        patch("scripts.run_proof_first_shift.list_open_prs", return_value=[]),
+        patch("scripts.run_proof_first_shift.process_running", return_value=True),
+        patch(
+            "scripts.run_proof_first_shift.run_merge_arbiter_apply", return_value={"merged": []}
+        ) as merge_mock,
+        patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=None),
+        patch(
+            "scripts.run_proof_first_shift.benchmark_truth_state_drift",
+            return_value={"issue_count": 0},
+        ),
+    ):
+        mod.run_shift_cycle(
+            repo_root=repo_root,
+            repo="synaptent/aragora",
+            benchmark_mode="disabled",
+            automation_backlog_limit=37,
+            runtime_state=state,
+        )
+
+    assert merge_mock.call_args.kwargs["limit"] == 1
+
+
+def test_run_shift_cycle_no_merge_skips_restart_and_apply() -> None:
+    state = mod.ProofFirstRuntimeState()
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [], "removed": []},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot", return_value={"ok": True}
+        ),
+        patch(
+            "scripts.run_proof_first_shift.list_open_prs",
+            return_value=[{"headRefName": "codex/ready", "isDraft": False}],
+        ),
+        patch("scripts.run_proof_first_shift.process_running", side_effect=[True, False]),
+        patch(
+            "scripts.run_proof_first_shift.restart_service_via_launchd",
+            side_effect=AssertionError("no-merge mode must not restart merge arbiter"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.run_merge_arbiter_apply",
+            side_effect=AssertionError("no-merge mode must not apply merge arbiter"),
+        ),
+        patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=None),
+        patch(
+            "scripts.run_proof_first_shift.benchmark_truth_state_drift",
+            return_value={"issue_count": 0},
+        ),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            benchmark_mode="disabled",
+            automation_backlog_limit=12,
+            no_merge=True,
+            runtime_state=state,
+        )
+
+    assert report["merge_limit"] == 0
+    assert report["merge_report"] == {"merged": [], "skipped": True, "reason": "no_merge"}
+    assert "merge_arbiter_restart_skipped:no_merge" in report["actions"]
+    assert "merge_arbiter_apply_skipped:no_merge" in report["actions"]
+
+
+def test_dry_run_uses_single_merge_limit_and_is_read_only() -> None:
+    state = mod.ProofFirstRuntimeState()
+    repo_root = Path(".").resolve()
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [{"id": 1}], "removed": []},
+        ) as reconcile_mock,
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot", return_value={"ok": True}
+        ),
+        patch(
+            "scripts.run_proof_first_shift.list_open_prs",
+            return_value=[{"headRefName": "codex/ready", "isDraft": False}],
+        ),
+        patch("scripts.run_proof_first_shift.process_running", side_effect=[False, False]),
+        patch(
+            "scripts.run_proof_first_shift.is_launchd_throttle_healthy",
+            return_value=(False, "not healthy"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.restart_boss_service",
+            side_effect=AssertionError("dry-run must not restart boss loop"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.restart_service_via_launchd",
+            side_effect=AssertionError("dry-run must not restart merge arbiter"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.run_merge_arbiter_apply",
+            side_effect=AssertionError("dry-run must not apply merge arbiter"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.latest_benchmark_run",
+            return_value={
+                "databaseId": 123,
+                "createdAt": "2026-04-14T00:00:00Z",
+                "status": "completed",
+                "conclusion": "success",
+            },
+        ),
+        patch(
+            "scripts.run_proof_first_shift.benchmark_truth_state_drift",
+            return_value={"issue_count": 0},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.trigger_benchmark_workflow",
+            side_effect=AssertionError("dry-run must not trigger benchmark workflow"),
+        ),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=repo_root,
+            repo="synaptent/aragora",
+            benchmark_mode="hybrid",
+            automation_backlog_limit=12,
+            dry_run=True,
+            runtime_state=state,
+            max_hours=1.0,
+        )
+
+    reconcile_mock.assert_called_once_with(
+        repo="synaptent/aragora",
+        repo_root=repo_root,
+        apply=False,
+    )
+    assert report["dry_run"] is True
+    assert report["merge_limit"] == 0
+    assert report["merge_report"] == {"merged": [], "skipped": True, "reason": "dry_run"}
+    assert "boss_restart_skipped:dry_run" in report["actions"]
+    assert "merge_arbiter_restart_skipped:dry_run" in report["actions"]
+    assert "merge_arbiter_apply_skipped:dry_run" in report["actions"]
+    assert "trigger_benchmark_skipped:dry_run:stale_publication_window" in report["actions"]
+
+
+def test_parser_defaults_to_single_merge_limit_independent_of_backlog_limit() -> None:
+    parser = mod._build_parser()
+
+    defaults = parser.parse_args([])
+    widened_backlog = parser.parse_args(["--automation-backlog-limit", "37"])
+
+    assert defaults.merge_limit == 1
+    assert widened_backlog.automation_backlog_limit == 37
+    assert widened_backlog.merge_limit == 1
+
+
+def test_main_rejects_broad_merge_limit_without_explicit_override(capsys) -> None:
+    assert mod.main(["--merge-limit", "2", "--once"]) == 2
+
+    captured = capsys.readouterr()
+    assert "--merge-limit above 1 is blocked" in captured.err
+
+
+def test_resolve_merge_limit_allows_explicit_multiple_merge_override() -> None:
+    assert (
+        mod.resolve_merge_limit(
+            merge_limit=2,
+            allow_multiple_merges=True,
+        )
+        == 2
+    )
+
+
 def test_should_restart_service_requires_pending_work_and_budget() -> None:
     assert (
         mod.should_restart_service(
