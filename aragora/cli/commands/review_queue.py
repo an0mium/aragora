@@ -1549,10 +1549,20 @@ def _queued_duration_seconds(check: dict[str, Any]) -> int:
         except (TypeError, ValueError):
             continue
 
-    started_at = _parse_github_datetime(check.get("startedAt") or check.get("started_at"))
-    if not started_at:
-        return 0
-    return max(0, int((datetime.now(UTC) - started_at).total_seconds()))
+    for key in (
+        "queuedAt",
+        "queued_at",
+        "createdAt",
+        "created_at",
+        "startedAt",
+        "started_at",
+        "updatedAt",
+        "updated_at",
+    ):
+        queued_at = _parse_github_datetime(check.get(key))
+        if queued_at:
+            return max(0, int((datetime.now(UTC) - queued_at).total_seconds()))
+    return 0
 
 
 def _self_hosted_shadow_check(check: dict[str, Any]) -> bool:
@@ -1569,14 +1579,17 @@ def _runner_unassigned(check: dict[str, Any]) -> bool:
         if key not in check:
             continue
         value = check.get(key)
-        if value is None:
-            return True
-        if str(value).strip() in {"", "0"}:
-            return True
+        if value is not None and str(value).strip() not in {"", "0"}:
+            return False
     for key in ("runner_name", "runnerName"):
-        if key in check and not str(check.get(key) or "").strip():
-            return True
-    return False
+        if key not in check:
+            continue
+        if str(check.get(key) or "").strip():
+            return False
+    # GitHub's PR statusCheckRollup omits runner metadata; treat absence as
+    # no visible assigned runner, but only after the caller has proven this is a
+    # long-queued non-required self-hosted shadow row.
+    return True
 
 
 def _is_optional_runner_capacity_noise(check: dict[str, Any], bucket: str) -> bool:

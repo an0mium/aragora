@@ -2084,6 +2084,79 @@ class TestBuildQueueAndPacket:
             "Self-Hosted Shadow CI / Hetzner Offline Golden Path Shadow",
         ]
 
+    def test_required_gate_classifies_real_rollup_shaped_shadow_queue_noise(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7465,
+            files=["docs/status/open.md"],
+            checks=[
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {
+                    "__typename": "CheckRun",
+                    "name": "Mac TypeScript SDK Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                    "createdAt": "2026-05-31T15:51:16Z",
+                    "startedAt": "",
+                    "detailsUrl": ("https://github.com/synaptent/aragora/actions/runs/1/job/10"),
+                },
+                {
+                    "__typename": "CheckRun",
+                    "name": "Hetzner Offline Golden Path Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                    "createdAt": "2026-05-31T15:51:16Z",
+                    "startedAt": "",
+                    "detailsUrl": ("https://github.com/synaptent/aragora/actions/runs/1/job/11"),
+                },
+            ],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "lint",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                    {
+                        "name": "typecheck",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        rollup = packet.check_surfaces["pr_rollup"]
+
+        assert packet.checks_summary == "2/2 required green (required PR checks)"
+        assert rollup["non_required_non_green_count"] == 2
+        assert rollup["optional_runner_capacity_noise_count"] == 2
+        assert rollup["optional_runner_capacity_noise_sample"] == [
+            "Self-Hosted Shadow CI / Mac TypeScript SDK Shadow",
+            "Self-Hosted Shadow CI / Hetzner Offline Golden Path Shadow",
+        ]
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+
     def test_required_pr_checks_gate_preserves_self_row_outside_quorum_run(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2099,6 +2172,18 @@ class TestBuildQueueAndPacket:
                     "runner_id": 0,
                     "runner_name": "",
                     "queuedDurationSeconds": 7200,
+                },
+                {
+                    "name": "Hetzner Offline Golden Path Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "COMPLETED",
+                    "conclusion": "CANCELLED",
+                },
+                {
+                    "name": "Smoke Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "COMPLETED",
+                    "conclusion": "SKIPPED",
                 },
                 {
                     "name": "aragora-merge-quorum",
