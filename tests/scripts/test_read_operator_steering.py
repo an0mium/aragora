@@ -199,3 +199,32 @@ def test_resolves_owner_by_lane_id(tmp_path: Path, capsys: Any) -> None:
     assert out["owner_session"] == "codex-lane-owner"
     assert out["resolved_via"] == "lane-id"
     assert out["message_count"] == 1
+
+
+def test_json_lane_selector_miss_is_machine_readable(tmp_path: Path, capsys: Any) -> None:
+    steering_root = tmp_path / "steering"
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]", encoding="utf-8")
+
+    rc = ros.main(
+        [
+            "--lane-id",
+            "engineering-autopilot-3-2",
+            "--registry-path",
+            str(registry),
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    out = json.loads(captured.out)
+    assert out["ok"] is False
+    assert out["error"] == "no lane matched the requested selector"
+    assert out["lane_id"] == "engineering-autopilot-3-2"
+    assert out["message_count"] == 0
+    assert out["receipt_count"] == 0
+    assert out["messages"] == []
