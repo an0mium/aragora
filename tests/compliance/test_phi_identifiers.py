@@ -191,6 +191,29 @@ class TestMRNDetector:
         result = manager.check("Medical Record no. 12345", frameworks=["hipaa"])
         assert any(i.rule_id == "hipaa-phi-mrn" for i in result.issues)
 
+    @pytest.mark.parametrize(
+        "content",
+        [
+            "MRN status PENDING for the patient",
+            "medical record number REDACTED in the chart",
+            "Medical Record no. attached to file",
+            "MRN: UNKNOWN",
+            "medical record # PENDING",
+            "medical record number SUMMARY",
+        ],
+    )
+    def test_label_followed_by_plain_word_is_not_mrn(self, content):
+        """Regression: requiring a digit in the captured identifier prevents the
+        detector from flagging an ordinary word that follows the label text.
+
+        The cycle-2 change that widened the trailing label boundary to support
+        ``#``/``no.`` variants also let the ``5..12``-char token greedily capture
+        any following word as an "MRN". A genuine MRN is numeric/alphanumeric, so
+        the identifier group now demands at least one digit."""
+        manager = ComplianceFrameworkManager()
+        result = manager.check(content, frameworks=["hipaa"])
+        assert not any(i.rule_id == "hipaa-phi-mrn" for i in result.issues)
+
 
 class TestNoFalsePositivesOnCleanContent:
     def test_clean_text_has_no_phi_findings(self):

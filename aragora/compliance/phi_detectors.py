@@ -146,10 +146,19 @@ def detect_icd10(content: str) -> list[DetectorMatch]:
 # "Medical Record no.") followed by whitespace, because there is no word/non-word
 # transition there -- which silently dropped those common labels. The lookahead
 # accepts the end of any variant (letter, ``.``, or ``#``) as long as the label
-# token is not glued to additional word chars. All quantifiers remain bounded so
-# the pattern stays linear (no ReDoS).
+# token is not glued to additional word chars.
+#
+# The captured identifier must contain at least one digit
+# (``(?=[A-Z0-9-]{0,11}\d)``). Without this constraint the ``5..12``-char token
+# greedily swallowed any ordinary word that happened to follow the label text
+# (e.g. "MRN status", "medical record number REDACTED"), producing false
+# positives. Real MRNs are numeric or alphanumeric, never plain English words,
+# so requiring a digit removes those matches while preserving genuine MRNs. All
+# quantifiers remain bounded (the digit lookahead spans at most 12 chars) so the
+# pattern stays linear (no ReDoS).
 _MRN_RE = re.compile(
-    r"\b(?:MRN|medical\s+record\s+(?:number|no\.?|#))(?![A-Za-z0-9])\s*[:#]?\s*([A-Z0-9-]{5,12})",
+    r"\b(?:MRN|medical\s+record\s+(?:number|no\.?|#))(?![A-Za-z0-9])\s*[:#]?\s*"
+    r"(?=[A-Z0-9-]{0,11}\d)([A-Z0-9-]{5,12})",
     re.IGNORECASE,
 )
 
