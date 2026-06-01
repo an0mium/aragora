@@ -33,6 +33,7 @@ def _clean_checkout_runner(
     worktree_dirty: bool = False,
     worktree_head: str = "clean-head",
     origin_main: str = "clean-head",
+    worktree_list_error: bool = False,
 ) -> Any:
     def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
         if command == ["git", "status", "--short", "--branch", "--untracked-files=all"]:
@@ -41,6 +42,8 @@ def _clean_checkout_runner(
                 status += " M dirty.py\n"
             return subprocess.CompletedProcess(command, 0, status, "")
         if command == ["git", "worktree", "list", "--porcelain"]:
+            if worktree_list_error:
+                return subprocess.CompletedProcess(command, 1, "", "worktree metadata locked")
             text = f"worktree {repo_root}\nHEAD root-head\nbranch refs/heads/main\n"
             if worktree is not None:
                 text += f"\nworktree {worktree}\nHEAD {worktree_head}\ndetached\n"
@@ -391,6 +394,44 @@ def test_prompt_emits_disposable_worktree_prompt_when_no_clean_checkout(
     assert "git worktree add --detach /private/tmp/aragora-pr7561-triage origin/main" in prompt
     assert "python3 scripts/read_operator_steering.py --pr 7561 --no-receipt --json" in prompt
     assert "Stop if PR #7561 head drifted from expected-head" in prompt
+
+
+def test_prompt_emits_disposable_worktree_prompt_when_worktree_scan_fails(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+
+    runner = _clean_checkout_runner(repo_root=repo_root, worktree_list_error=True)
+    packet = prompt_builder._clean_checkout_packet(
+        repo_root,
+        runner,
+        pr=7561,
+        expected_head="expected-head",
+    )
+    prompt = prompt_builder.build_prompt(
+        registry_path=registry,
+        repo_root=repo_root,
+        pr=7561,
+        expected_head="expected-head",
+        command_runner=runner,
+    )
+    decision = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        repo_root=repo_root,
+        pr=7561,
+        expected_head="expected-head",
+        command_runner=runner,
+    )
+
+    assert packet["status"] == "error"
+    assert packet["error"] == "worktree metadata locked"
+    assert "Clean-checkout routing: the registered clean-checkout scan failed" in prompt
+    assert "git worktree add --detach /private/tmp/aragora-pr7561-triage origin/main" in prompt
+    assert "Stop if PR #7561 head drifted from expected-head" in prompt
+    assert decision["selected_action"] == "create_clean_checkout_prompt"
 
 
 def test_prompt_includes_selected_clean_checkout_path(tmp_path: Path) -> None:

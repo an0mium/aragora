@@ -404,6 +404,13 @@ def _clean_checkout_packet(
     }
 
 
+def _clean_checkout_uses_disposable_prompt(clean_checkout: dict[str, Any]) -> bool:
+    return clean_checkout.get("status") in {
+        "needs_disposable_worktree",
+        "error",
+    } and bool(clean_checkout.get("recommended_prompt"))
+
+
 def _state_dir(state_root: Path) -> Path:
     expanded = state_root.expanduser()
     return expanded if expanded.name == ".aragora" else expanded / ".aragora"
@@ -729,7 +736,7 @@ def build_decision_packet(
         else "queue_prompt_from_clean_checkout"
         if root["dirty"] and clean_checkout.get("status") == "selected"
         else "create_clean_checkout_prompt"
-        if root["dirty"] and clean_checkout.get("status") == "needs_disposable_worktree"
+        if root["dirty"] and _clean_checkout_uses_disposable_prompt(clean_checkout)
         else "repair_or_stop"
         if root["dirty"]
         else "queue_prompt",
@@ -846,11 +853,16 @@ def build_prompt(
                 clean_checkout.get("recommended_prompt") or "",
             ]
         )
-    elif clean_checkout.get("status") == "needs_disposable_worktree":
+    elif _clean_checkout_uses_disposable_prompt(clean_checkout):
+        routing_reason = (
+            "the registered clean-checkout scan failed"
+            if clean_checkout.get("status") == "error"
+            else "no registered clean origin/main checkout is available"
+        )
         lines.extend(
             [
                 "",
-                "Clean-checkout routing: no registered clean origin/main checkout is available.",
+                f"Clean-checkout routing: {routing_reason}.",
                 "Use this bounded prompt before running repo-native queue helpers:",
                 clean_checkout.get("recommended_prompt") or "",
             ]
