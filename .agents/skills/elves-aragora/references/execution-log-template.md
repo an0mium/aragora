@@ -25,23 +25,31 @@
 ## Batch N: <name>
 
 - **Predicted tier / final tier:** [X / Y]
-- **Rollback tag:** `elves/pre-batch-N` (pushed: [yes])
+- **Tier 4 pre-approval (if applicable):** [n/a | obtained before implementation at <ts/ref>]
+- **Rollback tag:** `elves/<branch>/pre-batch-N` (pushed: [yes])
+- **Draft PR:** [#NNNN] — head SHA: [SHA]
 - **Scope delivered:** [bullets]
 - **Commands run + results:**
   - `pre-commit run --all-files` → [pass]
   - `mypy aragora` → [no new errors above baseline]
   - `pytest <slice>` → [N passed; total count not decreased]
-- **Adversarial review (aragora debate):**
+- **Required checks (`gh pr checks <pr> --required`):** [all green @ SHA / list reds]
+- **Model-quorum evidence (head-grounded):**
   - head SHA reviewed: [SHA]
-  - reviewer families: [anthropic / openai / grok / ...]
+  - `aragora review-pr` reviewers + families: [claude→anthropic / codex→openai / ...]
   - independent of authoring lane: [yes/no]
   - recommendation: [accept / changes]
   - dissent: [none / summary + disposition]
-  - evidence: [debate id / dogfood note]
+  - `review-queue evidence-lint` would_count: [true] — evidence comment: [link/id]
+  - adversarial dogfood: [note]
 - **Receipt:** [.aragora/receipts/<file>.json] — `aragora verify` → [PASS]
+- **Authorization surfaces:**
+  - `review-queue merge-packet --pr <pr>` → [satisfied / blocked: ...]
+  - `scripts/settle_one_pr.py --pr <pr>` → [blockers == ['PR is draft']]
 - **Settlement:**
-  - Tier 0-2 → [auto-settled, packet recorded]
-  - Tier 3-4 → [PAUSED — awaiting `aragora/human-settlement`; packet prepared at <path>]
+  - Tier 0-2 → [marked ready; protected squash (never --admin); settlement recorded]
+  - Tier 3 → [PAUSED — awaiting `aragora/human-settlement`; packet prepared at <path>; PR kept draft]
+  - Tier 4 → [pre-approved before impl; PAUSED for human merge approval; `settle_tier4_pr.py --check` <result>]
 - **Commit:** [SHA] (`Co-authored-by: codex[bot]`) — pushed: [yes]
 - **Decisions made:** [durable notes worth keeping]
 - **Docs touched:** [files / "none needed"]
@@ -58,5 +66,5 @@
 ## Open human-settlement queue
 
 | Batch | Tier | Receipt | Packet path | Requested at | Status |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- |
 | [N] | [3/4] | [path] | [path] | [ts] | [pending/accepted/rejected] |
