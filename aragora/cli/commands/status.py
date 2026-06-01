@@ -147,14 +147,20 @@ def _connectivity_check_result(
     """Classify a backend connectivity probe into a validate-env check entry.
 
     Distinguishes a skipped (unconfigured) backend from a real live connection
-    so an unconfigured datastore is never reported as ``connected``:
+    so an unconfigured datastore is never reported as ``connected``, and so a
+    *required* backend that is not even configured is never reported as a benign
+    pass:
 
-    * skipped   -> ``{"status": "skip", "connected": False}`` (ok, but no probe ran)
-    * connected -> ``{"status": "ok", "connected": True}`` (live probe succeeded)
-    * failed    -> ``{"status": "error" if required else optional_status,
+    * skipped, optional -> ``{"status": "skip", "connected": False}`` (no probe ran)
+    * skipped, required -> ``{"status": "error", "connected": False}`` (a required
+      datastore is absent; validate-env must fail rather than report ready)
+    * connected         -> ``{"status": "ok", "connected": True}`` (live probe ok)
+    * failed            -> ``{"status": "error" if required else optional_status,
       "connected": False}``
     """
     if ok and _connectivity_skipped(message):
+        if required:
+            return {"status": "error", "connected": False, "message": message}
         return {"status": "skip", "connected": False, "message": message}
     if ok:
         return {"status": "ok", "connected": True, "message": message}

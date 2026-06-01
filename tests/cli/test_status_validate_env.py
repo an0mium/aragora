@@ -272,6 +272,33 @@ def test_validate_env_live_backend_connection_is_reported_connected(monkeypatch,
     }
 
 
+def test_validate_env_required_unconfigured_redis_fails(monkeypatch, capsys) -> None:
+    """When Redis is required (distributed/multi-instance) but unconfigured,
+    validate-env must FAIL — not report a benign skip / 'ready'."""
+    _clear_provider_env(monkeypatch)
+    _patch_provider_valid(monkeypatch)
+    monkeypatch.setattr("aragora.control_plane.leader.is_distributed_state_required", lambda: True)
+
+    async def skipped_redis(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return True, "Redis not configured (skipping connectivity check)"
+
+    async def live_db(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return True, "PostgreSQL connected (version 16)"
+
+    monkeypatch.setattr("aragora.server.startup.validate_redis_connectivity", skipped_redis)
+    monkeypatch.setattr("aragora.server.startup.validate_database_connectivity", live_db)
+
+    with pytest.raises(SystemExit) as exc:
+        status_mod.cmd_validate_env(_validate_args(smoke=False))
+
+    assert exc.value.code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["checks"]["redis"]["status"] == "error"
+    assert payload["checks"]["redis"]["connected"] is False
+    assert payload["valid"] is False
+    assert any("Redis" in err for err in payload["errors"])
+
+
 class TestConnectivitySkipped:
     def test_not_configured_message_is_skipped(self) -> None:
         assert status_mod._connectivity_skipped(
@@ -299,7 +326,10 @@ class TestConnectivityCheckResult:
         assert result["connected"] is False
         assert result["status"] == "skip"
 
-    def test_skipped_takes_precedence_even_when_required(self) -> None:
+    def test_required_unconfigured_backend_is_error(self) -> None:
+        # A required backend that is not even configured must fail (not be a
+        # benign skip), so validate-env never reports ready while a required
+        # datastore is absent.
         result = status_mod._connectivity_check_result(
             True,
             "PostgreSQL not configured (skipping connectivity check)",
@@ -307,7 +337,7 @@ class TestConnectivityCheckResult:
             optional_status="info",
         )
         assert result["connected"] is False
-        assert result["status"] == "skip"
+        assert result["status"] == "error"
 
     def test_live_connection_is_connected(self) -> None:
         result = status_mod._connectivity_check_result(
