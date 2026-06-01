@@ -64,6 +64,8 @@ def test_dirty_root_blocks_command_without_running(tmp_path: Path) -> None:
     assert "dirty.txt" in report["before"]["dirty_paths"]
     assert not sentinel.exists()
     assert "preserve/revert/switch authorization" in report["next_prompt"]
+    assert "python3 scripts/build_next_prompt.py --pr 7466 --json" in report["next_prompt"]
+    assert "clean_checkout.selected_path" in report["next_prompt"]
 
 
 def test_detects_branch_drift_after_command(tmp_path: Path) -> None:
