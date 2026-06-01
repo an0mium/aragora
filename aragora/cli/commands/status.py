@@ -120,6 +120,51 @@ async def _run_provider_smoke_checks(
     }
 
 
+_SKIPPED_CONNECTIVITY_MARKERS = ("not configured", "skipping connectivity")
+
+
+def _connectivity_skipped(message: str) -> bool:
+    """Return True when a connectivity validator reported success only because
+    the backend is not configured (the probe was skipped), not because a live
+    connection actually succeeded.
+
+    The startup validators return ``(True, "<backend> not configured (skipping
+    connectivity check)")`` for optional, unconfigured backends. Treating that
+    ``True`` as a live connection mislabels an unconfigured datastore as
+    ``connected``.
+    """
+    lowered = str(message or "").lower()
+    return any(marker in lowered for marker in _SKIPPED_CONNECTIVITY_MARKERS)
+
+
+def _connectivity_check_result(
+    ok: bool,
+    message: str,
+    *,
+    required: bool,
+    optional_status: str,
+) -> dict[str, Any]:
+    """Classify a backend connectivity probe into a validate-env check entry.
+
+    Distinguishes a skipped (unconfigured) backend from a real live connection
+    so an unconfigured datastore is never reported as ``connected``:
+
+    * skipped   -> ``{"status": "skip", "connected": False}`` (ok, but no probe ran)
+    * connected -> ``{"status": "ok", "connected": True}`` (live probe succeeded)
+    * failed    -> ``{"status": "error" if required else optional_status,
+      "connected": False}``
+    """
+    if ok and _connectivity_skipped(message):
+        return {"status": "skip", "connected": False, "message": message}
+    if ok:
+        return {"status": "ok", "connected": True, "message": message}
+    return {
+        "status": "error" if required else optional_status,
+        "connected": False,
+        "message": message,
+    }
+
+
 def cmd_status(args: argparse.Namespace) -> None:
     """Handle 'status' command - show environment health and agent availability."""
     import shutil
@@ -315,26 +360,14 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
             from aragora.server.startup import validate_redis_connectivity
 
             redis_ok, redis_msg = await validate_redis_connectivity(timeout_seconds=5.0)
-            if redis_ok:
-                results["checks"]["redis"] = {
-                    "status": "ok",
-                    "connected": True,
-                    "message": redis_msg,
-                }
-            elif distributed_required:
-                results["checks"]["redis"] = {
-                    "status": "error",
-                    "connected": False,
-                    "message": redis_msg,
-                }
+            redis_check = _connectivity_check_result(
+                redis_ok, redis_msg, required=distributed_required, optional_status="warning"
+            )
+            results["checks"]["redis"] = redis_check
+            if redis_check["status"] == "error":
                 results["errors"].append(f"Redis: {redis_msg}")
                 results["valid"] = False
-            else:
-                results["checks"]["redis"] = {
-                    "status": "warning",
-                    "connected": False,
-                    "message": redis_msg,
-                }
+            elif redis_check["status"] == "warning":
                 results["warnings"].append(f"Redis: {redis_msg}")
         except ImportError as e:
             results["checks"]["redis"] = {
@@ -353,26 +386,13 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
                 "yes",
             )
 
-            if db_ok:
-                results["checks"]["postgresql"] = {
-                    "status": "ok",
-                    "connected": True,
-                    "message": db_msg,
-                }
-            elif require_database:
-                results["checks"]["postgresql"] = {
-                    "status": "error",
-                    "connected": False,
-                    "message": db_msg,
-                }
+            postgres_check = _connectivity_check_result(
+                db_ok, db_msg, required=require_database, optional_status="info"
+            )
+            results["checks"]["postgresql"] = postgres_check
+            if postgres_check["status"] == "error":
                 results["errors"].append(f"PostgreSQL: {db_msg}")
                 results["valid"] = False
-            else:
-                results["checks"]["postgresql"] = {
-                    "status": "info",
-                    "connected": False,
-                    "message": db_msg,
-                }
         except ImportError as e:
             results["checks"]["postgresql"] = {
                 "status": "skip",

@@ -199,3 +199,133 @@ def test_validate_env_smoke_passes_on_tiny_ok_response(monkeypatch, capsys) -> N
     smoke = payload["checks"]["ai_provider_smoke"]
     assert smoke["status"] == "ok"
     assert smoke["agents"][0]["response_preview"] == "ok"
+
+
+def _patch_provider_valid(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(
+        "aragora.cli.api_keys.validate_provider_key",
+        lambda _provider: SimpleNamespace(remote_status="valid", is_valid=True, message="ok"),
+    )
+
+
+def test_validate_env_unconfigured_backends_are_not_reported_connected(monkeypatch, capsys) -> None:
+    """Regression: an unconfigured (skipped) Redis/PostgreSQL must NOT be reported
+    as a live connection.
+
+    The startup validators return ``(True, "<backend> not configured (skipping
+    connectivity check)")`` for optional, unconfigured backends. Previously the
+    CLI mapped that ``True`` to ``connected: True`` / ``status: "ok"``, falsely
+    telling operators and machine consumers the datastore was reachable.
+    """
+    _clear_provider_env(monkeypatch)
+    _patch_provider_valid(monkeypatch)
+
+    async def skipped_redis(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return True, "Redis not configured (skipping connectivity check)"
+
+    async def skipped_db(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return True, "PostgreSQL not configured (skipping connectivity check)"
+
+    monkeypatch.setattr("aragora.server.startup.validate_redis_connectivity", skipped_redis)
+    monkeypatch.setattr("aragora.server.startup.validate_database_connectivity", skipped_db)
+
+    with pytest.raises(SystemExit):
+        status_mod.cmd_validate_env(_validate_args(smoke=False))
+
+    payload = json.loads(capsys.readouterr().out)
+    redis_check = payload["checks"]["redis"]
+    postgres_check = payload["checks"]["postgresql"]
+    assert redis_check["connected"] is False
+    assert redis_check["status"] == "skip"
+    assert postgres_check["connected"] is False
+    assert postgres_check["status"] == "skip"
+
+
+def test_validate_env_live_backend_connection_is_reported_connected(monkeypatch, capsys) -> None:
+    """A genuine live connection must still be reported as connected (no regression)."""
+    _clear_provider_env(monkeypatch)
+    _patch_provider_valid(monkeypatch)
+
+    async def live_redis(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return True, "Redis connected (version 7.0)"
+
+    async def live_db(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return True, "PostgreSQL connected (version 16)"
+
+    monkeypatch.setattr("aragora.server.startup.validate_redis_connectivity", live_redis)
+    monkeypatch.setattr("aragora.server.startup.validate_database_connectivity", live_db)
+
+    with pytest.raises(SystemExit):
+        status_mod.cmd_validate_env(_validate_args(smoke=False))
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["checks"]["redis"] == {
+        "status": "ok",
+        "connected": True,
+        "message": "Redis connected (version 7.0)",
+    }
+    assert payload["checks"]["postgresql"] == {
+        "status": "ok",
+        "connected": True,
+        "message": "PostgreSQL connected (version 16)",
+    }
+
+
+class TestConnectivitySkipped:
+    def test_not_configured_message_is_skipped(self) -> None:
+        assert status_mod._connectivity_skipped(
+            "Redis not configured (skipping connectivity check)"
+        )
+
+    def test_skipping_connectivity_message_is_skipped(self) -> None:
+        assert status_mod._connectivity_skipped("skipping connectivity check")
+
+    def test_live_connection_message_is_not_skipped(self) -> None:
+        assert not status_mod._connectivity_skipped("Redis connected (version 7.0)")
+
+    def test_empty_message_is_not_skipped(self) -> None:
+        assert not status_mod._connectivity_skipped("")
+
+
+class TestConnectivityCheckResult:
+    def test_skipped_backend_is_not_connected(self) -> None:
+        result = status_mod._connectivity_check_result(
+            True,
+            "Redis not configured (skipping connectivity check)",
+            required=False,
+            optional_status="warning",
+        )
+        assert result["connected"] is False
+        assert result["status"] == "skip"
+
+    def test_skipped_takes_precedence_even_when_required(self) -> None:
+        result = status_mod._connectivity_check_result(
+            True,
+            "PostgreSQL not configured (skipping connectivity check)",
+            required=True,
+            optional_status="info",
+        )
+        assert result["connected"] is False
+        assert result["status"] == "skip"
+
+    def test_live_connection_is_connected(self) -> None:
+        result = status_mod._connectivity_check_result(
+            True, "Redis connected (version 7.0)", required=False, optional_status="warning"
+        )
+        assert result["connected"] is True
+        assert result["status"] == "ok"
+
+    def test_failure_when_required_is_error(self) -> None:
+        result = status_mod._connectivity_check_result(
+            False, "Redis connection failed", required=True, optional_status="warning"
+        )
+        assert result["connected"] is False
+        assert result["status"] == "error"
+
+    def test_failure_when_optional_uses_optional_status(self) -> None:
+        result = status_mod._connectivity_check_result(
+            False, "PostgreSQL unreachable", required=False, optional_status="info"
+        )
+        assert result["connected"] is False
+        assert result["status"] == "info"
