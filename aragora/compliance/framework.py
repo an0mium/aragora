@@ -109,13 +109,20 @@ class ComplianceRule:
     severity: ComplianceSeverity
     pattern: str | None = None  # Regex pattern to match
     keywords: list[str] = field(default_factory=list)  # Keywords to detect
-    # Named validated-format detectors (e.g. "ssn", "npi") from PHI_DETECTORS.
-    # Used for structured identifiers whose precise format makes deterministic
-    # detection (with check-digit/range validation) the correct tool.
-    validators: list[str] = field(default_factory=list)
     recommendation: str = ""
     category: str = ""
     references: list[str] = field(default_factory=list)
+    # Named validated-format detectors (e.g. "ssn", "npi") from PHI_DETECTORS.
+    # Used for structured identifiers whose precise format makes deterministic
+    # detection (with check-digit/range validation) the correct tool.
+    #
+    # Appended at the END of the field list (after ``references``) so the
+    # generated ``__init__`` positional order matches pre-PHI callers that
+    # construct rules positionally (``ComplianceRule(..., pattern, keywords,
+    # recommendation, category, references)``). Adding it earlier would shift
+    # ``recommendation``/``category``/``references`` into the wrong slots and
+    # cause ``check()`` to iterate a recommendation string char-by-char.
+    validators: list[str] = field(default_factory=list)
 
     # Compiled regex (lazy)
     _compiled_pattern: Pattern | None = None

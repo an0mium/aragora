@@ -195,6 +195,39 @@ class TestComplianceRule:
         assert len(rule.keywords) == 3
         assert "sensitive" in rule.keywords
 
+    def test_positional_construction_preserves_field_assignment(self):
+        """Regression: positional args must keep their pre-PHI meaning.
+
+        ``validators`` was originally inserted *before* ``recommendation``/
+        ``category``/``references``, which shifted the generated ``__init__``
+        positional order. A pre-PHI caller passing ``recommendation`` /
+        ``category`` / ``references`` positionally (after ``pattern`` and
+        ``keywords``) would have had the recommendation string land in
+        ``validators`` -- then ``check()`` would iterate it char-by-char as
+        detector names. ``validators`` now lives at the end of the field list,
+        restoring the legacy positional ABI.
+        """
+        rule = ComplianceRule(
+            "POS-001",  # id
+            "custom",  # framework
+            "Positional Rule",  # name
+            "Built with positional args",  # description
+            ComplianceSeverity.HIGH,  # severity
+            r"secret\s*=",  # pattern
+            ["token"],  # keywords
+            "Redact secrets before logging",  # recommendation
+            "security",  # category
+            ["INTERNAL-1"],  # references
+        )
+        assert rule.recommendation == "Redact secrets before logging"
+        assert rule.category == "security"
+        assert rule.references == ["INTERNAL-1"]
+        # validators defaults to an empty list, NOT the recommendation string.
+        assert rule.validators == []
+        # check() must not treat the recommendation string as detector names.
+        issues = rule.check("password secret = 'x'")
+        assert all(i.recommendation == "Redact secrets before logging" for i in issues)
+
     def test_rule_get_pattern_compiles_regex(self):
         """Test that get_pattern compiles the regex."""
         rule = ComplianceRule(

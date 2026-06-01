@@ -177,6 +177,20 @@ class TestMRNDetector:
         mrn_issues = [i for i in result.issues if i.rule_id == "hipaa-phi-mrn"]
         assert mrn_issues[0].matched_text == "ABCD-12345"
 
+    def test_medical_record_hash_label(self):
+        """Regression: "Medical Record # 12345" was missed because the trailing
+        ``\\b`` after the label could not match between ``#`` and whitespace."""
+        manager = ComplianceFrameworkManager()
+        result = manager.check("Medical Record # 12345", frameworks=["hipaa"])
+        assert any(i.rule_id == "hipaa-phi-mrn" for i in result.issues)
+
+    def test_medical_record_no_dot_label(self):
+        """Regression: "Medical Record no. 12345" was missed because the trailing
+        ``\\b`` after the label could not match between ``.`` and whitespace."""
+        manager = ComplianceFrameworkManager()
+        result = manager.check("Medical Record no. 12345", frameworks=["hipaa"])
+        assert any(i.rule_id == "hipaa-phi-mrn" for i in result.issues)
+
 
 class TestNoFalsePositivesOnCleanContent:
     def test_clean_text_has_no_phi_findings(self):
