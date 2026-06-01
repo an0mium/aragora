@@ -380,20 +380,28 @@ def cmd_spec(args: argparse.Namespace) -> None:
     use_orchestrator = getattr(args, "orchestrator", False)
     to_mission = getattr(args, "to_mission", None)
 
-    print("\n" + "=" * 60)
-    print("  ARAGORA SPEC")
-    print("  Prompt-to-specification pipeline")
-    print("=" * 60)
-    print(f"\n  Prompt:  {prompt}")
-    print(f"  Depth:   {depth}")
-    print(f"  Profile: {profile}")
+    # When emitting machine-readable JSON, keep stdout reserved for the JSON
+    # document alone so it stays pipeable (e.g. `aragora spec ... --format json | jq`).
+    # All human-facing banner / progress / footer text is routed to stderr.
+    human_stream = sys.stderr if output_format == "json" else sys.stdout
+
+    def _echo(message: str = "") -> None:
+        print(message, file=human_stream)
+
+    _echo("\n" + "=" * 60)
+    _echo("  ARAGORA SPEC")
+    _echo("  Prompt-to-specification pipeline")
+    _echo("=" * 60)
+    _echo(f"\n  Prompt:  {prompt}")
+    _echo(f"  Depth:   {depth}")
+    _echo(f"  Profile: {profile}")
 
     if dry_run:
-        print("\n  [dry-run] Would run: decompose -> interrogate -> research -> specify")
-        print("  Use without --dry-run to execute.")
+        _echo("\n  [dry-run] Would run: decompose -> interrogate -> research -> specify")
+        _echo("  Use without --dry-run to execute.")
         return
 
-    print("\n[*] Running prompt-to-spec pipeline...\n")
+    _echo("\n[*] Running prompt-to-spec pipeline...\n")
 
     start_time = time.monotonic()
     try:
@@ -414,19 +422,20 @@ def cmd_spec(args: argparse.Namespace) -> None:
         logger.warning("spec_command_circuit_open", extra={"agent_name": agent_name})
         result = _build_spec_fallback(prompt, reason=reason)
     except (RuntimeError, ValueError, TypeError, ImportError) as e:
-        print(f"\n[!] Spec pipeline failed: {e}")
+        print(f"\n[!] Spec pipeline failed: {e}", file=sys.stderr)
         sys.exit(1)
 
     elapsed = time.monotonic() - start_time
-    print(f"  Elapsed: {elapsed:.1f}s")
+    _echo(f"  Elapsed: {elapsed:.1f}s")
 
+    # The rendered spec body always goes to stdout so JSON output stays pipeable.
     _print_spec_result(result, output_format)
 
     # Save spec artifact
     output_path = getattr(args, "output", None)
     if output_path:
         path = _save_spec_result(result, output_path, output_format)
-        print(f"\nSpec saved to: {path}")
+        _echo(f"\nSpec saved to: {path}")
 
     if to_mission:
         mission_path = _write_mission_from_spec_result(
@@ -434,9 +443,9 @@ def cmd_spec(args: argparse.Namespace) -> None:
             result=result,
             output_path=to_mission,
         )
-        print(f"\nConductor mission saved to: {mission_path}")
-        print(f"Run: python3 scripts/goal_conductor.py run-once --mission {mission_path} --json")
+        _echo(f"\nConductor mission saved to: {mission_path}")
+        _echo(f"Run: python3 scripts/goal_conductor.py run-once --mission {mission_path} --json")
 
-    print("\nNext steps:")
-    print("  aragora decide 'task' --spec <file>  # Execute from spec")
-    print("  aragora ask 'task'                    # Debate the approach")
+    _echo("\nNext steps:")
+    _echo("  aragora decide 'task' --spec <file>  # Execute from spec")
+    _echo("  aragora ask 'task'                    # Debate the approach")

@@ -741,20 +741,43 @@ class TestComplianceFrameworkManager:
         result = manager.check(content, frameworks=["hipaa"])
         assert result.frameworks_checked == ["hipaa"]
 
-    def test_manager_check_with_unknown_frameworks_ignores_them(self):
-        """Test that unknown framework IDs are ignored."""
-        manager = ComplianceFrameworkManager()
-        result = manager.check("test content", frameworks=["hipaa", "nonexistent"])
-        assert "hipaa" in result.frameworks_checked
-        assert "nonexistent" not in result.frameworks_checked
+    def test_manager_check_with_partially_unknown_frameworks_raises(self):
+        """Unknown framework IDs mixed with valid ones must raise, not be ignored.
 
-    def test_manager_check_with_empty_frameworks_returns_compliant(self):
-        """Test check with no valid frameworks returns compliant."""
+        Silently dropping an unknown/typo'd framework ID could lead a caller to
+        believe a framework was evaluated when it never was.
+        """
         manager = ComplianceFrameworkManager()
-        result = manager.check("test content", frameworks=["nonexistent"])
-        assert result.compliant is True
-        assert result.score == 1.0
-        assert len(result.issues) == 0
+        with pytest.raises(ValueError) as exc_info:
+            manager.check("test content", frameworks=["hipaa", "nonexistent"])
+        assert "nonexistent" in str(exc_info.value)
+
+    def test_manager_check_with_all_unknown_frameworks_raises_not_compliant(self):
+        """A request that names only unknown frameworks must raise.
+
+        Regression test: previously this returned a false COMPLIANT/100% result
+        for content that was never evaluated against any framework, hiding even
+        critical issues (e.g. exposed SSN/PHI) behind a green all-clear.
+        """
+        manager = ComplianceFrameworkManager()
+        # Content with a critical SSN/PHI exposure that should never be reported
+        # as compliant simply because the framework IDs were typo'd.
+        content = "store ssn 123-45-6789 unencrypted password=secret"
+        with pytest.raises(ValueError) as exc_info:
+            manager.check(content, frameworks=["gdrp", "hippa"])
+        msg = str(exc_info.value)
+        assert "gdrp" in msg
+        assert "hippa" in msg
+
+    def test_manager_check_unknown_framework_error_lists_available(self):
+        """The error should help the user by listing valid framework IDs."""
+        manager = ComplianceFrameworkManager()
+        with pytest.raises(ValueError) as exc_info:
+            manager.check("test content", frameworks=["bogus"])
+        msg = str(exc_info.value).lower()
+        # Mentions at least a couple of real frameworks as guidance
+        assert "gdpr" in msg
+        assert "hipaa" in msg
 
     def test_manager_check_min_severity_filter(self):
         """Test minimum severity filtering."""

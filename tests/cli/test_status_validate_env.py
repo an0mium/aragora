@@ -46,6 +46,32 @@ def _validate_args(**overrides: Any) -> argparse.Namespace:
     return argparse.Namespace(**values)
 
 
+def test_status_handles_ssrf_blocked_localhost(monkeypatch, capsys) -> None:
+    """`aragora status` must not crash when the health probe raises SSRFBlockedError.
+
+    The default server URL is http://localhost:8080, and safe_get() rejects
+    localhost with SSRFBlockedError (a subclass of SSRFValidationError -> Exception,
+    NOT of OSError/ConnectionError/RuntimeError). The command should render a
+    friendly 'not reachable' line and still print the remaining sections.
+    """
+    from aragora.security.safe_http import SSRFBlockedError
+
+    def fake_safe_get(*_args: Any, **_kwargs: Any) -> Any:
+        raise SSRFBlockedError("Localhost hostname detected", url="http://localhost:8080")
+
+    monkeypatch.setattr("aragora.security.safe_http.safe_get", fake_safe_get)
+
+    args = argparse.Namespace(server="http://localhost:8080")
+
+    # Must not raise (previously aborted with an uncaught traceback).
+    status_mod.cmd_status(args)
+
+    out = capsys.readouterr().out
+    assert "Server not reachable at http://localhost:8080" in out
+    # Sections after the server health probe must still render.
+    assert "Databases:" in out
+
+
 def test_validate_env_parser_accepts_smoke_agents() -> None:
     parser = cli_parser.build_parser()
 

@@ -532,7 +532,7 @@ async def create_audit(args: Any, use_api: bool, server_url: str, api_key: str |
         print(f"Audit types: {', '.join(audit_types)}")
 
     try:
-        auditor = get_document_auditor()
+        auditor = get_document_auditor(persist_sessions=True)
         session = await auditor.create_session(
             document_ids=document_ids,
             audit_types=audit_types,
@@ -562,7 +562,7 @@ async def start_audit(args: Any, use_api: bool, server_url: str, api_key: str | 
         # Local mode
         from aragora.audit import get_document_auditor
 
-        auditor = get_document_auditor()
+        auditor = get_document_auditor(persist_sessions=True)
 
         def on_progress(sid, progress, phase):
             print(f"  [{phase}] {progress * 100:.0f}%")
@@ -593,7 +593,7 @@ async def audit_status(args: Any, use_api: bool, server_url: str, api_key: str |
         # Local mode
         from aragora.audit import get_document_auditor
 
-        auditor = get_document_auditor()
+        auditor = get_document_auditor(persist_sessions=True)
         session = auditor.get_session(args.session_id)
 
         if not session:
@@ -640,7 +640,7 @@ async def audit_findings(args: Any, use_api: bool, server_url: str, api_key: str
         # Local mode
         from aragora.audit import get_document_auditor, FindingSeverity
 
-        auditor = get_document_auditor()
+        auditor = get_document_auditor(persist_sessions=True)
         severity = FindingSeverity(args.severity.lower()) if args.severity else None
         findings = auditor.get_findings(args.session_id, severity=severity)
 
@@ -690,7 +690,7 @@ async def export_audit(args: Any, use_api: bool, server_url: str, api_key: str |
         # Local mode
         from aragora.audit import get_document_auditor
 
-        auditor = get_document_auditor()
+        auditor = get_document_auditor(persist_sessions=True)
         session = auditor.get_session(args.session_id)
 
         if not session:
@@ -754,7 +754,7 @@ async def generate_report(args: Any, use_api: bool, server_url: str, api_key: st
             ReportTemplate,
         )
 
-        auditor = get_document_auditor()
+        auditor = get_document_auditor(persist_sessions=True)
         session = auditor.get_session(args.session_id)
 
         if not session:

@@ -14,6 +14,7 @@ import argparse
 import asyncio
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -254,62 +255,94 @@ def _cmd_dashboard(args: argparse.Namespace) -> None:
         print(f"  Monthly proj:   ${monthly:.2f}")
 
 
+def _period_bounds(days: int) -> tuple[datetime, datetime]:
+    """Translate a ``--days`` window into (period_start, period_end)."""
+    period_end = datetime.now(timezone.utc)
+    period_start = period_end - timedelta(days=max(1, days))
+    return period_start, period_end
+
+
 def _cmd_report(args: argparse.Namespace) -> None:
     """Generate a cost report (local, no server required)."""
     as_json = getattr(args, "json", False)
     days = getattr(args, "days", 30)
+    workspace_id = getattr(args, "workspace", None)
     tracker = _get_cost_tracker()
     if tracker is None:
         print("\nError: CostTracker not available. Install billing dependencies.")
         return
 
+    period_start, period_end = _period_bounds(days)
     try:
-        report = tracker.generate_report(days=days)
-    except (AttributeError, TypeError):
+        report_obj = asyncio.run(
+            tracker.generate_report(
+                workspace_id=workspace_id,
+                period_start=period_start,
+                period_end=period_end,
+            )
+        )
+    except AttributeError:
         print("\nError: CostTracker.generate_report() not available.")
         return
+
+    # CostReport is a dataclass; normalize to a plain dict for display/JSON.
+    report = report_obj.to_dict() if hasattr(report_obj, "to_dict") else dict(report_obj)
 
     if as_json:
         print(json.dumps(report, indent=2, default=str))
         return
 
+    total_cost = float(report.get("total_cost_usd", 0) or 0)
+    total_tokens = int(report.get("total_tokens_in", 0) or 0) + int(
+        report.get("total_tokens_out", 0) or 0
+    )
+    total_calls = int(report.get("total_api_calls", 0) or 0)
+
     print("\n" + "=" * 60)
     print(f"COST REPORT (Last {days} days)")
     print("=" * 60 + "\n")
 
-    print(f"  Period:         {report.get('period', f'{days} days')}")
-    print(f"  Total cost:     ${report.get('total_cost', 0):.4f}")
-    print(f"  Total tokens:   {report.get('total_tokens', 0):,}")
-    print(f"  Total debates:  {report.get('total_debates', 0)}")
+    print(f"  Period:         {report.get('period_start', '')} -> {report.get('period_end', '')}")
+    print(f"  Total cost:     ${total_cost:.4f}")
+    print(f"  Total tokens:   {total_tokens:,}")
+    print(f"  Total API calls:{total_calls:>8,}")
 
-    by_provider = report.get("by_provider", {})
+    by_provider = report.get("cost_by_provider", {})
     if by_provider:
         print("\n  By provider:")
         for provider, data in sorted(by_provider.items()):
-            cost = data.get("cost", 0) if isinstance(data, dict) else data
-            print(f"    {provider:20} ${cost:.4f}")
+            cost = data.get("cost", 0) if isinstance(data, dict) else float(data or 0)
+            print(f"    {provider:20} ${float(cost):.4f}")
 
-    by_day = report.get("by_day", [])
-    if by_day:
-        print("\n  Daily breakdown:")
-        for entry in by_day[-7:]:
-            day = entry.get("date", "")
-            cost = entry.get("cost", 0)
-            print(f"    {day:12} ${cost:.4f}")
+    top_agents = report.get("top_agents_by_cost", [])
+    if top_agents:
+        print("\n  Top agents by cost:")
+        for entry in top_agents[:7]:
+            name = entry.get("agent", "unknown")
+            cost = float(entry.get("cost_usd", 0) or 0)
+            print(f"    {name:25} ${cost:.4f}")
 
 
 def _cmd_agents(args: argparse.Namespace) -> None:
     """Show per-agent cost breakdown (local, no server required)."""
     as_json = getattr(args, "json", False)
     days = getattr(args, "days", 30)
+    workspace_id = getattr(args, "workspace", None) or "default"
     tracker = _get_cost_tracker()
     if tracker is None:
         print("\nError: CostTracker not available. Install billing dependencies.")
         return
 
+    period_start, period_end = _period_bounds(days)
     try:
-        agent_costs = tracker.get_agent_costs(days=days)
-    except (AttributeError, TypeError):
+        agent_costs = asyncio.run(
+            tracker.get_agent_costs(
+                workspace_id,
+                period_start=period_start,
+                period_end=period_end,
+            )
+        )
+    except AttributeError:
         print("\nError: CostTracker.get_agent_costs() not available.")
         return
 
@@ -325,14 +358,16 @@ def _cmd_agents(args: argparse.Namespace) -> None:
         print("  No agent cost data available.")
         return
 
-    print(f"  {'Agent':<25} {'Cost':>10} {'Tokens':>12} {'Debates':>8}")
-    print(f"  {'-' * 25} {'-' * 10} {'-' * 12} {'-' * 8}")
-    for entry in agent_costs:
-        name = entry.get("agent", "unknown")
-        cost = entry.get("cost", 0)
-        tokens = entry.get("tokens", 0)
-        debates = entry.get("debates", 0)
-        print(f"  {name:<25} ${cost:>9.4f} {tokens:>12,} {debates:>8}")
+    print(f"  {'Agent':<25} {'Cost':>12} {'Share':>8}")
+    print(f"  {'-' * 25} {'-' * 12} {'-' * 8}")
+    for name, data in sorted(
+        agent_costs.items(),
+        key=lambda kv: float(kv[1].get("cost_usd", 0) or 0),
+        reverse=True,
+    ):
+        cost = float(data.get("cost_usd", 0) or 0)
+        pct = float(data.get("percentage", 0) or 0)
+        print(f"  {name:<25} ${cost:>11.4f} {pct:>6.1f}%")
 
 
 def _print_api_error(e: httpx.HTTPStatusError) -> None:
@@ -382,11 +417,17 @@ def add_billing_ops_parser(subparsers: Any) -> None:
     report_p.add_argument(
         "--days", "-d", type=int, default=30, help="Report period in days (default: 30)"
     )
+    report_p.add_argument(
+        "--workspace", "-w", default=None, help="Filter by workspace ID (optional)"
+    )
     report_p.add_argument("--json", action="store_true", help="Output as JSON")
 
     # agents (local)
     agents_p = bp_sub.add_parser("agents", help="Per-agent cost breakdown (local)")
     agents_p.add_argument("--days", "-d", type=int, default=30, help="Period in days (default: 30)")
+    agents_p.add_argument(
+        "--workspace", "-w", default=None, help="Workspace ID to break down (default: 'default')"
+    )
     agents_p.add_argument("--json", action="store_true", help="Output as JSON")
 
 

@@ -65,6 +65,63 @@ PostMergeLaneAuditProvider = Callable[[int, bool], dict[str, Any]]
 LARGE_DIFF_THRESHOLD = 500  # additions + deletions, beyond which "needs_human_attention"
 MODEL_REVIEW_QUEUE_CAP = 6
 MODEL_REVIEW_QUORUM_VERSION = "model_review_quorum.v1"
+CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
+    "claude",
+    "openai",
+    "gemini",
+    "grok",
+    "mistral",
+    "deepseek",
+    "qwen",
+    "kimi",
+    "yi",
+    "glm",
+    "minimax",
+    "hermes",
+)
+DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
+    "claude": ("claude", "anthropic"),
+    "openai": ("openai",),
+    "gemini": ("gemini", "google"),
+    "grok": ("grok", "xai"),
+    "mistral": ("mistral", "codestral"),
+    "deepseek": ("deepseek",),
+    "qwen": ("qwen",),
+    "kimi": ("kimi", "moonshot"),
+    "yi": ("yi", "yi-large"),
+    "glm": ("glm", "zhipu", "z-ai"),
+    "minimax": ("minimax",),
+    "hermes": ("hermes", "nous hermes"),
+}
+ROUTER_SURFACE_REVIEWERS: frozenset[str] = frozenset(("factory", "codex", "tesla", "harvey"))
+IDENTITY_COUNT_BLOCKERS: frozenset[str] = frozenset(
+    (
+        "missing_model_family_disclosure",
+        "unknown_model_family",
+        "heading_model_family_conflict",
+        "unknown_surface_reviewer",
+    )
+)
+
+
+@dataclass(frozen=True)
+class ModelReviewIdentity:
+    surface_reviewer_id: str
+    model_family: str
+    model_id: str
+    identity_source: str
+    identity_problems: tuple[str, ...] = ()
+
+    def as_packet_fields(self) -> dict[str, Any]:
+        return {
+            "surface_reviewer_id": self.surface_reviewer_id,
+            "model_family": self.model_family,
+            "model_id": self.model_id,
+            "identity_source": self.identity_source,
+            "identity_problems": list(self.identity_problems),
+        }
+
+
 HIGH_RISK_PATHS: tuple[str, ...] = (
     "CLAUDE.md",
     "aragora/__init__.py",
@@ -136,6 +193,7 @@ MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"
 MERGE_QUORUM_WORKFLOW_NAME = "Aragora Merge Quorum"
 MERGE_QUORUM_JOB_ID = "merge-quorum"
 CHECK_SURFACE_DIAGNOSTIC_LIMIT = 12
+OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS = 60 * 60
 
 LANE_ORDER: dict[str, int] = {
     "ready_now": 0,
@@ -1427,7 +1485,7 @@ def _summarize_required_pr_checks(checks: list[dict[str, Any]]) -> tuple[str, bo
     """Return ``(summary, has_failures, has_pending)`` for required PR checks."""
     success = failure = pending = 0
     for check in checks:
-        if _is_current_merge_quorum_self_check(check):
+        if _is_required_pr_check_current_merge_quorum_self_check(check):
             continue
         bucket = _required_pr_check_bucket(check)
         if bucket in {"pass", "skipping"}:
@@ -1453,7 +1511,8 @@ def _effective_required_pr_check_count(checks: list[dict[str, Any]]) -> int:
     return sum(
         1
         for check in checks
-        if isinstance(check, dict) and not _is_current_merge_quorum_self_check(check)
+        if isinstance(check, dict)
+        and not _is_required_pr_check_current_merge_quorum_self_check(check)
     )
 
 
@@ -1463,6 +1522,70 @@ def _status_check_display_name(check: dict[str, Any]) -> str:
     if workflow and name:
         return f"{workflow} / {name}"
     return name or workflow
+
+
+def _parse_github_datetime(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _queued_duration_seconds(check: dict[str, Any]) -> int:
+    for key in ("queued_duration_seconds", "queuedDurationSeconds"):
+        value = check.get(key)
+        if value is None:
+            continue
+        try:
+            return max(0, int(float(value)))
+        except (TypeError, ValueError):
+            continue
+
+    started_at = _parse_github_datetime(check.get("startedAt") or check.get("started_at"))
+    if not started_at:
+        return 0
+    return max(0, int((datetime.now(UTC) - started_at).total_seconds()))
+
+
+def _self_hosted_shadow_check(check: dict[str, Any]) -> bool:
+    workflow = str(check.get("workflowName") or check.get("workflow") or "").lower()
+    name = str(check.get("name") or check.get("context") or "").lower()
+    labels = {str(label).lower() for label in check.get("labels") or []}
+    if "self-hosted shadow" in workflow:
+        return True
+    return "shadow" in name and ("self-hosted" in workflow or "self-hosted" in labels)
+
+
+def _runner_unassigned(check: dict[str, Any]) -> bool:
+    for key in ("runner_id", "runnerId"):
+        if key not in check:
+            continue
+        value = check.get(key)
+        if value is None:
+            return True
+        if str(value).strip() in {"", "0"}:
+            return True
+    for key in ("runner_name", "runnerName"):
+        if key in check and not str(check.get(key) or "").strip():
+            return True
+    return False
+
+
+def _is_optional_runner_capacity_noise(check: dict[str, Any], bucket: str) -> bool:
+    return (
+        bucket == "pending"
+        and _self_hosted_shadow_check(check)
+        and _runner_unassigned(check)
+        and _queued_duration_seconds(check) >= OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS
+    )
 
 
 def _rollup_non_green_bucket(check: dict[str, Any]) -> str:
@@ -1520,6 +1643,7 @@ def _rollup_non_green_diagnostics(
 ) -> dict[str, Any]:
     non_green: list[str] = []
     non_required_non_green: list[str] = []
+    optional_runner_capacity_noise: list[str] = []
     pending = failing_or_cancelled = 0
     for check in _latest_status_check_rollup(checks):
         if not isinstance(check, dict):
@@ -1535,10 +1659,13 @@ def _rollup_non_green_diagnostics(
             pending += 1
         else:
             failing_or_cancelled += 1
-        if required_checks is not None and not _rollup_check_matches_required(
+        is_non_required = required_checks is not None and not _rollup_check_matches_required(
             check, required_checks
-        ):
+        )
+        if is_non_required:
             non_required_non_green.append(name)
+            if _is_optional_runner_capacity_noise(check, bucket):
+                optional_runner_capacity_noise.append(name)
     diagnostics: dict[str, Any] = {
         "non_green_count": len(non_green),
         "non_green_sample": non_green[:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
@@ -1548,6 +1675,10 @@ def _rollup_non_green_diagnostics(
     if required_checks is not None:
         diagnostics["non_required_non_green_count"] = len(non_required_non_green)
         diagnostics["non_required_non_green_sample"] = non_required_non_green[
+            :CHECK_SURFACE_DIAGNOSTIC_LIMIT
+        ]
+        diagnostics["optional_runner_capacity_noise_count"] = len(optional_runner_capacity_noise)
+        diagnostics["optional_runner_capacity_noise_sample"] = optional_runner_capacity_noise[
             :CHECK_SURFACE_DIAGNOSTIC_LIMIT
         ]
     return diagnostics
@@ -1949,6 +2080,24 @@ def _is_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
     )
 
 
+def _is_required_pr_check_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
+    """Return true for the merge-quorum job's own required PR check row.
+
+    ``gh pr checks --required`` can report the previous merge-quorum attempt
+    while the new merge-quorum job is computing its packet. For that required
+    PR-check fallback only, the workflow must ignore its own row regardless of
+    whether GitHub labels the stale row pending, failed, or cancelled. Other
+    call sites keep the stricter URL/status match so stale completed
+    merge-quorum failures still block local settlement.
+    """
+    if not _is_merge_quorum_check(check):
+        return False
+    return (
+        os.environ.get("GITHUB_WORKFLOW") == MERGE_QUORUM_WORKFLOW_NAME
+        and os.environ.get("GITHUB_JOB") == MERGE_QUORUM_JOB_ID
+    )
+
+
 def _filter_lanes(
     items: list[QueueItem],
     *,
@@ -2046,7 +2195,8 @@ def _build_packet(
         ignored_self_check_count = sum(
             1
             for check in required_pr_checks
-            if isinstance(check, dict) and _is_current_merge_quorum_self_check(check)
+            if isinstance(check, dict)
+            and _is_required_pr_check_current_merge_quorum_self_check(check)
         )
         rollup_required_diagnostics = _rollup_non_green_diagnostics(
             pr.get("statusCheckRollup") or [],
@@ -2085,12 +2235,13 @@ def _build_packet(
                 str(check.get("name") or "").strip()
                 for check in required_pr_checks
                 if _required_pr_check_bucket(check) in {"fail", "cancel"}
+                and not _is_required_pr_check_current_merge_quorum_self_check(check)
             ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
             "pending": [
                 str(check.get("name") or "").strip()
                 for check in required_pr_checks
                 if _required_pr_check_bucket(check) == "pending"
-                and not _is_current_merge_quorum_self_check(check)
+                and not _is_required_pr_check_current_merge_quorum_self_check(check)
             ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
         }
         if required_surface.get("error"):
@@ -2392,6 +2543,9 @@ def _build_merge_authorization_packet(
             "reviewer_signals": quorum["reviewer_signals"],
             "dogfood_evidence": quorum["dogfood_evidence"],
             "counted_reviewer_ids": quorum["counted_reviewer_ids"],
+            "counted_model_families": quorum.get(
+                "counted_model_families", quorum["counted_reviewer_ids"]
+            ),
             "reasons": quorum["reasons"],
         }
         if packet.check_surfaces:
@@ -2560,6 +2714,7 @@ def _build_model_review_quorum(
         "reviewer_signals": reviewer_signals,
         "dogfood_evidence": dogfood_evidence,
         "counted_reviewer_ids": counted_reviewer_ids,
+        "counted_model_families": counted_reviewer_ids,
         "dissenting_views": dissenting_views,
         "unresolved_dissent": unresolved_dissent,
         "reasons": reasons,
@@ -2746,11 +2901,24 @@ def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, 
     signals = []
     for index, reviewer_id in enumerate(reviewer_ids):
         provider = providers[index] if index < len(providers) else ""
+        model_family = _normalize_model_reviewer_id(str(provider)) or _normalize_model_reviewer_id(
+            str(reviewer_id)
+        )
+        identity_problems: list[str] = []
+        if not model_family:
+            identity_problems.append("unknown_model_family")
         signals.append(
             {
                 "reviewer_id": str(reviewer_id),
                 "provider": str(provider),
                 "source": protocol.get("status", ""),
+                "surface_reviewer_id": _infer_surface_reviewer_from_candidate(
+                    str(provider) or str(reviewer_id)
+                ),
+                "model_family": model_family,
+                "model_id": "",
+                "identity_source": "protocol_provider",
+                "identity_problems": identity_problems,
             }
         )
     return signals
@@ -2758,7 +2926,7 @@ def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, 
 
 def _counted_model_reviewer_ids(
     reviewer_signals: list[dict[str, Any]],
-    dogfood_evidence: list[dict[str, str]],
+    dogfood_evidence: list[dict[str, Any]],
 ) -> list[str]:
     reviewer_ids: set[str] = set()
     for item in [*reviewer_signals, *dogfood_evidence]:
@@ -2791,7 +2959,8 @@ def _lint_evidence_comment(
         dogfood_evidence = []
         reviewer_signals = []
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
-    inferred_reviewer = _infer_model_reviewer_from_text(body)
+    identity = _resolve_model_review_identity(body)
+    inferred_reviewer = identity.surface_reviewer_id
     lower = body.lower()
 
     problems: list[str] = []
@@ -2799,10 +2968,13 @@ def _lint_evidence_comment(
         problems.append("empty_body")
     if not grounded:
         problems.append("missing_current_head_grounding")
-    if str(author or "").strip() == "github-actions":
+    if _is_github_actions_author(author):
         problems.append("github_actions_author_not_counted")
     if inferred_reviewer == "unknown_model_reviewer":
         problems.append("missing_known_model_reviewer_heading")
+    for problem in identity.identity_problems:
+        if problem in IDENTITY_COUNT_BLOCKERS:
+            problems.append(problem)
     if not any(
         token in lower
         for token in (
@@ -2821,6 +2993,7 @@ def _lint_evidence_comment(
     ):
         problems.append("missing_dogfood_or_review_trigger")
     if not counted_reviewer_ids:
+        problems.append("no_counted_model_family")
         problems.append("no_counted_model_reviewer")
 
     return {
@@ -2832,11 +3005,17 @@ def _lint_evidence_comment(
         "author": author,
         "comment_summary": _first_nonempty_line(body)[:240],
         "inferred_reviewer": inferred_reviewer,
+        "surface_reviewer_id": identity.surface_reviewer_id,
+        "model_family": identity.model_family,
+        "model_id": identity.model_id,
+        "identity_source": identity.identity_source,
+        "identity_problems": list(identity.identity_problems),
         "current_head_grounded": grounded,
         "current_head_grounding_method": grounding_method,
         "dogfood_evidence": dogfood_evidence,
         "reviewer_signals": reviewer_signals,
         "counted_reviewer_ids": counted_reviewer_ids,
+        "counted_model_families": counted_reviewer_ids,
         "would_count": bool(counted_reviewer_ids),
         "problems": problems,
     }
@@ -2887,9 +3066,19 @@ def _head_committed_at_from_pr(pr: dict[str, Any]) -> str:
 
 
 def _known_model_reviewer_id(item: dict[str, Any]) -> str:
+    problems = [str(problem) for problem in (item.get("identity_problems") or [])]
+    if any(problem in IDENTITY_COUNT_BLOCKERS for problem in problems):
+        return ""
+    model_family = _normalize_model_family(str(item.get("model_family", "") or ""))
+    if model_family:
+        return model_family
     provider = str(item.get("provider", "") or "")
     reviewer_id = str(item.get("reviewer_id", "") or "")
     return _normalize_model_reviewer_id(provider) or _normalize_model_reviewer_id(reviewer_id)
+
+
+def _is_github_actions_author(author: str) -> bool:
+    return str(author or "").strip().lower() in {"github-actions", "github-actions[bot]"}
 
 
 def _normalize_model_reviewer_id(value: str) -> str:
@@ -2898,7 +3087,6 @@ def _normalize_model_reviewer_id(value: str) -> str:
         return ""
     known_markers = (
         ("claude", ("claude", "anthropic")),
-        ("codex", ("codex",)),
         ("openai", ("openai", "gpt")),
         ("grok", ("grok", "xai")),
         ("gemini", ("gemini", "google")),
@@ -2906,9 +3094,10 @@ def _normalize_model_reviewer_id(value: str) -> str:
         ("deepseek", ("deepseek",)),
         ("qwen", ("qwen",)),
         ("kimi", ("kimi", "moonshot")),
-        ("tesla", ("tesla",)),
-        ("harvey", ("harvey",)),
-        ("factory", ("factory",)),
+        ("yi", ("yi",)),
+        ("glm", ("glm", "zhipu", "z-ai")),
+        ("minimax", ("minimax",)),
+        ("hermes", ("hermes", "nous hermes")),
     )
     for normalized, markers in known_markers:
         if any(marker in lower for marker in markers):
@@ -2916,24 +3105,143 @@ def _normalize_model_reviewer_id(value: str) -> str:
     return ""
 
 
+def _normalize_model_family(value: str) -> str:
+    lower = str(value or "").strip().lower()
+    if not lower:
+        return ""
+    if lower in CANONICAL_MODEL_FAMILIES:
+        return lower
+    aliases = {
+        "anthropic": "claude",
+        "google": "gemini",
+        "xai": "grok",
+        "codestral": "mistral",
+        "moonshot": "kimi",
+        "zhipu": "glm",
+        "z-ai": "glm",
+        "nous-hermes": "hermes",
+        "nous hermes": "hermes",
+    }
+    return aliases.get(lower, "")
+
+
+def _first_heading_candidate(text: str) -> tuple[str, int | None]:
+    for index, line in enumerate(str(text).splitlines()):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            candidate = stripped.lstrip("#").strip()
+            if candidate:
+                return candidate, index
+    return str(text)[:200], None
+
+
+def _infer_surface_reviewer_from_candidate(candidate: str) -> str:
+    lower = str(candidate or "").lower()
+    for name in ("claude", "codex", "tesla", "harvey", "factory", "grok", "gemini"):
+        if name in lower:
+            return name
+    for family, markers in DIRECT_MODEL_FAMILY_MARKERS.items():
+        if any(marker in lower for marker in markers):
+            return family
+    return "unknown_model_reviewer"
+
+
+def _structured_identity_metadata(text: str, heading_index: int | None) -> dict[str, str]:
+    if heading_index is None:
+        return {}
+    lines = str(text).splitlines()
+    metadata: dict[str, str] = {}
+    in_fence = False
+    fence_marker = ""
+    for line in lines[heading_index + 1 : heading_index + 26]:
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            marker = stripped[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if in_fence:
+            continue
+        if stripped.startswith("#"):
+            break
+        label, sep, value = stripped.partition(":")
+        if not sep:
+            continue
+        normalized_label = label.strip().strip("*").lower()
+        normalized_value = value.strip().strip("*").strip()
+        if normalized_label in {
+            "reviewer harness",
+            "model family",
+            "model id",
+            "receipt artifact",
+        }:
+            metadata[normalized_label] = normalized_value
+    return metadata
+
+
+def _resolve_model_review_identity(text: str) -> ModelReviewIdentity:
+    candidate, heading_index = _first_heading_candidate(text)
+    surface = _infer_surface_reviewer_from_candidate(candidate)
+    metadata = _structured_identity_metadata(text, heading_index)
+    explicit_family_raw = metadata.get("model family", "")
+    explicit_family = _normalize_model_family(explicit_family_raw)
+    model_id = metadata.get("model id", "")
+    receipt_artifact = metadata.get("receipt artifact", "")
+    problems: list[str] = []
+
+    if surface == "unknown_model_reviewer":
+        problems.append("unknown_surface_reviewer")
+
+    if explicit_family_raw and not explicit_family:
+        problems.append("unknown_model_family")
+
+    model_family = explicit_family
+    identity_source = "model_family_metadata" if explicit_family_raw else "none"
+
+    if surface in ROUTER_SURFACE_REVIEWERS:
+        if not explicit_family_raw:
+            problems.append("missing_model_family_disclosure")
+    elif surface != "unknown_model_reviewer":
+        direct_family = _normalize_model_family(surface)
+        if explicit_family and direct_family and explicit_family != direct_family:
+            problems.append("heading_model_family_conflict")
+        if not explicit_family_raw and direct_family:
+            model_family = direct_family
+            identity_source = "direct_heading"
+        elif explicit_family and direct_family == explicit_family:
+            identity_source = "model_family_metadata"
+
+    if not receipt_artifact:
+        problems.append("missing_receipt_artifact")
+
+    return ModelReviewIdentity(
+        surface_reviewer_id=surface,
+        model_family=model_family,
+        model_id=model_id,
+        identity_source=identity_source,
+        identity_problems=tuple(dict.fromkeys(problems)),
+    )
+
+
 def _dogfood_evidence_from_comments(
     comments: list[Any],
     *,
     head_sha: str = "",
     head_committed_at: str = "",
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     """Extract focused-adversarial dogfood signals from PR comments.
 
     Mirrors the source-side filtering of
-    :func:`_model_review_signals_from_comments` for symmetry: an entry is
-    only emitted when (a) the comment is SHA-grounded on the current head,
-    (b) a known model reviewer can be inferred from the comment's
-    structured header, and (c) the comment was not posted by GitHub
-    Actions. Unknowns are still neutralised at counting time by
-    :func:`_known_model_reviewer_id`, but excluding them at the source
-    keeps the evidence list interpretable for downstream consumers.
+    :func:`_model_review_signals_from_comments` for symmetry. Router
+    comments whose first heading names a known surface but whose metadata
+    is missing or conflicted remain visible in the evidence list with
+    ``identity_problems``; counting remains fail-closed.
     """
-    evidence: list[dict[str, str]] = []
+    evidence: list[dict[str, Any]] = []
     for comment in comments:
         if not isinstance(comment, dict):
             continue
@@ -2945,21 +3253,22 @@ def _dogfood_evidence_from_comments(
             token in lower for token in ("dogfood", "adversarial", "cross-author", "recheck")
         ):
             continue
-        reviewer = _infer_model_reviewer_from_text(body)
-        if reviewer == "unknown_model_reviewer":
+        identity = _resolve_model_review_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
             continue
         author_payload = comment.get("author")
         author = ""
         if isinstance(author_payload, dict):
             author = str(author_payload.get("login", "") or "")
-        if author == "github-actions":
+        if _is_github_actions_author(author):
             continue
         evidence.append(
             {
-                "reviewer_id": reviewer,
+                "reviewer_id": identity.model_family or identity.surface_reviewer_id,
                 "github_author": author,
                 "source": "pr_comment",
                 "summary": _first_nonempty_line(body)[:240],
+                **identity.as_packet_fields(),
             }
         )
     return evidence[:5]
@@ -2970,8 +3279,8 @@ def _model_review_signals_from_comments(
     *,
     head_sha: str = "",
     head_committed_at: str = "",
-) -> list[dict[str, str]]:
-    signals: list[dict[str, str]] = []
+) -> list[dict[str, Any]]:
+    signals: list[dict[str, Any]] = []
     for comment in comments:
         if not isinstance(comment, dict):
             continue
@@ -2992,21 +3301,23 @@ def _model_review_signals_from_comments(
             )
         ):
             continue
-        reviewer = _infer_model_reviewer_from_text(body)
-        if reviewer == "unknown_model_reviewer":
+        identity = _resolve_model_review_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
             continue
         author_payload = comment.get("author")
         github_author = ""
         if isinstance(author_payload, dict):
             github_author = str(author_payload.get("login", "") or "")
-        if github_author == "github-actions":
+        if _is_github_actions_author(github_author):
             continue
         signals.append(
             {
-                "reviewer_id": reviewer,
-                "provider": reviewer,
+                "reviewer_id": identity.model_family or identity.surface_reviewer_id,
+                "provider": identity.model_family,
                 "source": "pr_comment",
                 "summary": _first_nonempty_line(body)[:240],
+                "github_author": github_author,
+                **identity.as_packet_fields(),
             }
         )
     return signals[:5]
@@ -3023,20 +3334,8 @@ def _infer_model_reviewer_from_text(text: str) -> str:
     ``claude-mem`` in a file path.  Reviewers conventionally announce
     their identity in the comment's first heading.
     """
-    candidate = ""
-    for line in str(text).splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            candidate = stripped.lstrip("#").strip()
-            if candidate:
-                break
-    if not candidate:
-        candidate = str(text)[:200]
-    lower = candidate.lower()
-    for name in ("claude", "codex", "tesla", "harvey", "factory", "grok", "gemini"):
-        if name in lower:
-            return name
-    return "unknown_model_reviewer"
+    candidate, _ = _first_heading_candidate(text)
+    return _infer_surface_reviewer_from_candidate(candidate)
 
 
 def _is_comment_grounded_on_head(
@@ -3663,6 +3962,13 @@ def _render_packet(packet: ReviewPacket) -> None:
                 "                 "
                 "non_required_non_green_rollup="
                 + ", ".join(str(item) for item in non_required_rollup_sample[:3])
+            )
+        optional_noise_sample = rollup.get("optional_runner_capacity_noise_sample") or []
+        if optional_noise_sample:
+            print(
+                "                 "
+                "optional_runner_capacity_noise="
+                + ", ".join(str(item) for item in optional_noise_sample[:3])
             )
         if direct:
             print(

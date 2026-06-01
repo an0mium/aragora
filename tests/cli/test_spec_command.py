@@ -267,12 +267,17 @@ class TestCmdSpec:
         ) as run_spec:
             cmd_spec(args)
 
-        out = capsys.readouterr().out
-        assert "ARAGORA SPEC" in out
-        assert "Elapsed:" in out
-        assert '"total_duration_ms": 84.0' in out
-        assert '"stage": "specify"' in out
-        assert "Spec saved to:" in out
+        captured = capsys.readouterr()
+        out = captured.out
+        err = captured.err
+        # With --format json, stdout must be a single valid JSON document so it
+        # stays pipeable; all human banner/progress/footer text goes to stderr.
+        assert json.loads(out) == result
+        assert "ARAGORA SPEC" not in out
+        assert "Elapsed:" not in out
+        assert "ARAGORA SPEC" in err
+        assert "Elapsed:" in err
+        assert "Spec saved to:" in err
         run_spec.assert_awaited_once_with(
             "Make onboarding better",
             depth="quick",
@@ -283,6 +288,52 @@ class TestCmdSpec:
             use_orchestrator=False,
         )
         assert json.loads(output_path.read_text()) == result
+
+    def test_cmd_spec_json_format_emits_pure_json_on_stdout(self, capsys):
+        """Regression: `--format json` stdout must be a single parseable JSON
+        document (pipeable to jq); banner/progress/footer go to stderr."""
+        result = {
+            "intent": {"intent_type": "feature", "scope_estimate": "medium"},
+            "specification": {
+                "problem_statement": "Need a rate limiter.",
+                "proposed_solution": "Token bucket per client.",
+                "success_criteria": [{"description": "Caps request rate."}],
+                "confidence": 0.7,
+            },
+            "research": None,
+            "timing": {},
+        }
+        args = argparse.Namespace(
+            prompt="Design a rate limiter",
+            depth="quick",
+            profile="founder",
+            skip_research=False,
+            skip_interrogation=False,
+            format="json",
+            dry_run=False,
+            output=None,
+            orchestrator=False,
+            to_mission=None,
+        )
+
+        with patch(
+            "aragora.cli.commands.spec._run_spec_pipeline",
+            new_callable=AsyncMock,
+            return_value=result,
+        ):
+            cmd_spec(args)
+
+        captured = capsys.readouterr()
+        # The whole of stdout must parse as JSON and equal the result body.
+        assert json.loads(captured.out) == result
+        # No human banner/progress/footer leaks onto stdout.
+        assert "ARAGORA SPEC" not in captured.out
+        assert "[*] Running" not in captured.out
+        assert "Elapsed:" not in captured.out
+        assert "Next steps:" not in captured.out
+        # Human text is preserved on stderr.
+        assert "ARAGORA SPEC" in captured.err
+        assert "Next steps:" in captured.err
 
     def test_cmd_spec_writes_conductor_mission_without_dispatch(self, tmp_path, capsys):
         mission_path = tmp_path / "mission.yaml"
