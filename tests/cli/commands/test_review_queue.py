@@ -2083,8 +2083,9 @@ class TestBuildQueueAndPacket:
             "Self-Hosted Shadow CI / Mac TypeScript SDK Shadow",
             "Self-Hosted Shadow CI / Hetzner Offline Golden Path Shadow",
         ]
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
 
-    def test_required_gate_classifies_real_rollup_shaped_shadow_queue_noise(
+    def test_required_gate_classifies_real_rollup_shaped_long_queued_shadows(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         pr_payload = _make_pr(
@@ -2150,12 +2151,24 @@ class TestBuildQueueAndPacket:
 
         assert packet.checks_summary == "2/2 required green (required PR checks)"
         assert rollup["non_required_non_green_count"] == 2
-        assert rollup["optional_runner_capacity_noise_count"] == 2
-        assert rollup["optional_runner_capacity_noise_sample"] == [
+        assert rollup["optional_runner_capacity_noise_count"] == 0
+        assert rollup["optional_runner_capacity_noise_sample"] == []
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 2
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_sample"] == [
             "Self-Hosted Shadow CI / Mac TypeScript SDK Shadow",
             "Self-Hosted Shadow CI / Hetzner Offline Golden Path Shadow",
         ]
         assert packet.model_review_quorum["admin_squash_allowed"] is True
+
+        rendered = io.StringIO()
+        with redirect_stdout(rendered):
+            _render_packet(packet)
+        rendered_packet = rendered.getvalue()
+        assert "optional_runner_capacity_noise=" not in rendered_packet
+        assert (
+            "long_queued_self_hosted_shadow_without_runner_metadata=Self-Hosted Shadow CI"
+            in rendered_packet
+        )
 
     def test_required_pr_checks_gate_preserves_self_row_outside_quorum_run(
         self, monkeypatch: pytest.MonkeyPatch
@@ -2225,8 +2238,11 @@ class TestBuildQueueAndPacket:
         monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
 
         packet = _build_packet("7465", repo_override=None)
+        rollup = packet.check_surfaces["pr_rollup"]
 
         assert "effective_gate" not in packet.check_surfaces
+        assert rollup["optional_runner_capacity_noise_count"] == 1
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
         assert packet.machine_recommendation == "repair_first"
         assert packet.model_review_quorum["admin_squash_allowed"] is False
         assert packet.model_review_quorum["status"] == "repair_or_wait"
@@ -2305,6 +2321,7 @@ class TestBuildQueueAndPacket:
         assert rollup["optional_runner_capacity_noise_sample"] == [
             "Self-Hosted Shadow CI / Mac TypeScript SDK Shadow"
         ]
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
         assert packet.machine_recommendation == "repair_first"
         assert packet.model_review_quorum["admin_squash_allowed"] is False
         assert packet.model_review_quorum["status"] == "repair_or_wait"
@@ -2470,6 +2487,7 @@ class TestBuildQueueAndPacket:
             "Self-Hosted Shadow CI / Mac TypeScript SDK Shadow",
             "Self-Hosted Shadow CI / Hetzner Offline Golden Path Shadow",
         ]
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
         assert packet.model_review_quorum["status"] == "satisfied"
         assert packet.model_review_quorum["admin_squash_allowed"] is True
 

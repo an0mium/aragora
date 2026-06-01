@@ -1574,7 +1574,13 @@ def _self_hosted_shadow_check(check: dict[str, Any]) -> bool:
     return "shadow" in name and ("self-hosted" in workflow or "self-hosted" in labels)
 
 
+def _has_runner_metadata(check: dict[str, Any]) -> bool:
+    return any(key in check for key in ("runner_id", "runnerId", "runner_name", "runnerName"))
+
+
 def _runner_unassigned(check: dict[str, Any]) -> bool:
+    if not _has_runner_metadata(check):
+        return False
     for key in ("runner_id", "runnerId"):
         if key not in check:
             continue
@@ -1586,9 +1592,6 @@ def _runner_unassigned(check: dict[str, Any]) -> bool:
             continue
         if str(check.get(key) or "").strip():
             return False
-    # GitHub's PR statusCheckRollup omits runner metadata; treat absence as
-    # no visible assigned runner, but only after the caller has proven this is a
-    # long-queued non-required self-hosted shadow row.
     return True
 
 
@@ -1597,6 +1600,18 @@ def _is_optional_runner_capacity_noise(check: dict[str, Any], bucket: str) -> bo
         bucket == "pending"
         and _self_hosted_shadow_check(check)
         and _runner_unassigned(check)
+        and _queued_duration_seconds(check) >= OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS
+    )
+
+
+def _is_long_queued_self_hosted_shadow_without_runner_metadata(
+    check: dict[str, Any],
+    bucket: str,
+) -> bool:
+    return (
+        bucket == "pending"
+        and _self_hosted_shadow_check(check)
+        and not _has_runner_metadata(check)
         and _queued_duration_seconds(check) >= OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS
     )
 
@@ -1657,6 +1672,7 @@ def _rollup_non_green_diagnostics(
     non_green: list[str] = []
     non_required_non_green: list[str] = []
     optional_runner_capacity_noise: list[str] = []
+    long_queued_shadow_without_runner_metadata: list[str] = []
     pending = failing_or_cancelled = 0
     for check in _latest_status_check_rollup(checks):
         if not isinstance(check, dict):
@@ -1679,6 +1695,8 @@ def _rollup_non_green_diagnostics(
             non_required_non_green.append(name)
             if _is_optional_runner_capacity_noise(check, bucket):
                 optional_runner_capacity_noise.append(name)
+            if _is_long_queued_self_hosted_shadow_without_runner_metadata(check, bucket):
+                long_queued_shadow_without_runner_metadata.append(name)
     diagnostics: dict[str, Any] = {
         "non_green_count": len(non_green),
         "non_green_sample": non_green[:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
@@ -1694,6 +1712,12 @@ def _rollup_non_green_diagnostics(
         diagnostics["optional_runner_capacity_noise_sample"] = optional_runner_capacity_noise[
             :CHECK_SURFACE_DIAGNOSTIC_LIMIT
         ]
+        diagnostics["long_queued_self_hosted_shadow_without_runner_metadata_count"] = len(
+            long_queued_shadow_without_runner_metadata
+        )
+        diagnostics["long_queued_self_hosted_shadow_without_runner_metadata_sample"] = (
+            long_queued_shadow_without_runner_metadata[:CHECK_SURFACE_DIAGNOSTIC_LIMIT]
+        )
     return diagnostics
 
 
@@ -3982,6 +4006,15 @@ def _render_packet(packet: ReviewPacket) -> None:
                 "                 "
                 "optional_runner_capacity_noise="
                 + ", ".join(str(item) for item in optional_noise_sample[:3])
+            )
+        long_queued_shadow_sample = (
+            rollup.get("long_queued_self_hosted_shadow_without_runner_metadata_sample") or []
+        )
+        if long_queued_shadow_sample:
+            print(
+                "                 "
+                "long_queued_self_hosted_shadow_without_runner_metadata="
+                + ", ".join(str(item) for item in long_queued_shadow_sample[:3])
             )
         if direct:
             print(
