@@ -192,12 +192,38 @@ def detect_dob(content: str) -> list[DetectorMatch]:
 # Email
 # ---------------------------------------------------------------------------
 
-_EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+# Both the local part and the domain are matched as sequences of dot-separated
+# labels whose label class deliberately *excludes* ``.``. Because no character
+# class overlaps the literal ``.`` separator, a given dot in the input can only
+# be consumed one way -- there is no ambiguous split for the engine to backtrack
+# through. Every quantifier is additionally *bounded* to RFC-aligned limits
+# (local/domain labels up to 64/63 chars, at most a handful of dot-segments,
+# TLD 2-24 letters), so the per-position matching cost is a constant. Together
+# these make matching linear in the length of the input and immune to the
+# catastrophic backtracking (ReDoS) of an unbounded ``[A-Za-z0-9.-]+`` middle
+# class on adversarial input such as ``x@`` + ``a.`` * N or ``x`` + ``.x`` * N.
+_EMAIL_RE = re.compile(
+    r"\b[A-Za-z0-9_%+-]{1,64}(?:\.[A-Za-z0-9_%+-]{1,64}){0,8}"
+    r"@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){0,8}\.[A-Za-z]{2,24}\b"
+)
+
+# Defense-in-depth: a single contiguous run of email-ish characters longer than
+# this cannot be a real address (RFC limits a whole address to ~320 chars). The
+# detector skips over such runs rather than feeding them to the engine, which
+# bounds worst-case work even if the pattern above were ever weakened.
+_MAX_EMAIL_TOKEN_LEN = 512
+_EMAIL_TOKEN_RE = re.compile(r"[A-Za-z0-9._%+@-]{1," + str(_MAX_EMAIL_TOKEN_LEN) + r"}")
 
 
 def detect_email(content: str) -> list[DetectorMatch]:
     """Detect email addresses."""
-    return [DetectorMatch(text=m.group(0), start=m.start()) for m in _EMAIL_RE.finditer(content)]
+    matches: list[DetectorMatch] = []
+    # Scan in bounded email-ish tokens so no single regex application ever sees
+    # an unbounded adversarial run (defense-in-depth for the linear pattern).
+    for token in _EMAIL_TOKEN_RE.finditer(content):
+        for m in _EMAIL_RE.finditer(token.group(0)):
+            matches.append(DetectorMatch(text=m.group(0), start=token.start() + m.start()))
+    return matches
 
 
 # ---------------------------------------------------------------------------

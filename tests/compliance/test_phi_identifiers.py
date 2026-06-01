@@ -223,3 +223,94 @@ class TestNoFalsePositivesOnCleanContent:
         manager = ComplianceFrameworkManager()
         result = manager.check("Call patient at +1 555-123-4567", frameworks=["hipaa"])
         assert any(i.rule_id == "hipaa-phi-phone" for i in result.issues)
+
+
+class TestEmailDetectorReDoS:
+    """Regression tests for the email detector ReDoS (CWE-1333).
+
+    The original pattern ``[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}``
+    had an unbounded middle class that overlapped the literal ``.`` separator,
+    causing catastrophic (quadratic) backtracking. Crafted input such as
+    ``x@`` + ``a.`` * N or ``x`` + ``.x`` * N pinned a CPU for many seconds at
+    only tens of KB -- an authenticated DoS reachable via
+    ``POST /api/v1/compliance/check`` and ``compliance check --file``.
+
+    The hardened pattern uses non-overlapping, RFC-bounded labels so matching
+    is linear; these tests assert the adversarial inputs complete near-instantly
+    while normal emails are still detected and benign strings are not.
+    """
+
+    # Comfortably above linear cost, far below the multi-second pathological
+    # blowup of the original pattern (which took >5s at 64 KB).
+    _BUDGET_SECONDS = 1.0
+
+    @pytest.mark.parametrize(
+        "make_payload",
+        [
+            pytest.param(lambda n: "x@" + "a." * n + "!", id="domain-label-dots"),
+            pytest.param(lambda n: "x" + ".x" * n + "@!", id="local-part-dots"),
+            pytest.param(lambda n: ("a." * n) + "@" + ("b." * n) + "!", id="both-sides-dots"),
+        ],
+    )
+    def test_adversarial_email_input_is_linear(self, make_payload):
+        import time
+
+        from aragora.compliance.phi_detectors import detect_email
+
+        # ~64 KB crafted string: instant with the linear pattern, multi-second
+        # (and super-linear) with the original backtracking pattern.
+        payload = make_payload(16_000)
+        assert len(payload) >= 32_000  # ensure the input is genuinely large
+
+        start = time.perf_counter()
+        detect_email(payload)
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < self._BUDGET_SECONDS, (
+            f"detect_email took {elapsed:.3f}s on a {len(payload)}-char adversarial "
+            f"input; expected < {self._BUDGET_SECONDS}s (ReDoS regression)"
+        )
+
+    def test_normal_emails_still_detected(self):
+        from aragora.compliance.phi_detectors import detect_email
+
+        cases = {
+            "Contact jane.doe@example.com please": "jane.doe@example.com",
+            "user+tag@sub.domain.co.uk": "user+tag@sub.domain.co.uk",
+            "a_b%c@host-name.io": "a_b%c@host-name.io",
+            "x@y.z.example.org": "x@y.z.example.org",
+            "first.middle.last@dept.company.co": "first.middle.last@dept.company.co",
+        }
+        for content, expected in cases.items():
+            found = [m.text for m in detect_email(content)]
+            assert expected in found, f"{expected!r} not detected in {content!r}: {found}"
+
+    def test_email_match_offsets_are_correct(self):
+        from aragora.compliance.phi_detectors import detect_email
+
+        content = "hello jane.doe@example.com and user+tag@sub.domain.co.uk!"
+        for match in detect_email(content):
+            assert content[match.start : match.start + len(match.text)] == match.text
+
+    def test_benign_near_email_strings_not_matched_pathologically(self):
+        from aragora.compliance.phi_detectors import detect_email
+
+        for content in ["x@", "a@b.", "foo@bar..com", "@nope.com", "user@localhost"]:
+            assert detect_email(content) == [], f"unexpected email match in {content!r}"
+
+    def test_adversarial_input_via_compliance_check_is_linear(self):
+        import time
+
+        # Exercise the full reachable path: ComplianceFrameworkManager.check is
+        # what POST /api/v1/compliance/check and `compliance check --file` call.
+        payload = "x@" + "a." * 16_000 + "!"
+        manager = ComplianceFrameworkManager()
+
+        start = time.perf_counter()
+        manager.check(payload, frameworks=["hipaa"])
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < self._BUDGET_SECONDS, (
+            f"compliance check took {elapsed:.3f}s on adversarial email input; "
+            f"expected < {self._BUDGET_SECONDS}s (ReDoS regression)"
+        )
