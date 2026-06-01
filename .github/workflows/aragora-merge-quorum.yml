@@ -18,19 +18,6 @@ name: Aragora Merge Quorum
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  # Posting or editing a PR comment (e.g. a model-review signal or a dogfood
-  # report) auto-re-evaluates the quorum for that PR. This removes the need to
-  # manually rerun the check or wait for a push/synchronize event after posting
-  # evidence — the gate latches to the current head SHA automatically.
-  #
-  # SECURITY: an issue_comment ONLY triggers a RE-EVALUATION. It does not grant
-  # quorum. The evaluation (review-queue merge-packet) still reads only
-  # countable, head-grounded, non-github-actions evidence via the GitHub API
-  # against the PR's CURRENT head SHA. A comment cannot fake a quorum: the
-  # head-grounding, author-exclusion, dogfood-token, and fail-closed model-family
-  # filters are all unchanged. See docs/REVIEW_AUTHORITY_PRINCIPLES.md.
-  issue_comment:
-    types: [created, edited]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -39,11 +26,7 @@ on:
         type: string
 
 concurrency:
-  # Per-PR group, resolving the PR number from whichever trigger fired
-  # (pull_request -> .pull_request.number, issue_comment -> .issue.number,
-  # workflow_dispatch -> .inputs.pr_number). The comment-triggered run shares
-  # the per-PR group with push/synchronize runs.
-  group: aragora-merge-quorum-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
+  group: aragora-merge-quorum-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
   # cancel-in-progress is intentionally false. With true, two triggers for the
   # same PR (e.g. synchronize + reopened, or rapid pushes) cancel each other;
   # a cancelled run reports a "cancelled" conclusion, which turns this REQUIRED
@@ -52,8 +35,7 @@ concurrency:
   # non-required workflows to "stop the doom loop"; we do the same here so
   # concurrent runs run to completion instead of cancelling into a red status.
   # GitHub still evaluates the latest completed run per head SHA, so the gate is
-  # not weakened — only the self-cancel race is removed. A comment-triggered run
-  # must likewise never abort an in-flight push run for the same PR.
+  # not weakened — only the self-cancel race is removed.
   cancel-in-progress: false
 
 permissions:
@@ -66,21 +48,8 @@ jobs:
     name: aragora-merge-quorum
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # issue_comment events fire for BOTH issues and PRs. Only run when the
-    # comment is on a pull request (github.event.issue.pull_request is present);
-    # for pull_request / workflow_dispatch triggers there is no issue payload, so
-    # the guard short-circuits to true and the job runs as before.
-    if: >-
-      github.event_name != 'issue_comment' ||
-      github.event.issue.pull_request != null
 
     steps:
-      # For pull_request / workflow_dispatch this checks out the triggering ref;
-      # for issue_comment it checks out the default branch. The checkout is used
-      # ONLY to install the aragora CLI — the quorum is evaluated against the
-      # PR's CURRENT head SHA via `gh pr view` (live API lookup) in the
-      # merge-packet command below, never against the checked-out tree. So the
-      # comment-triggered run still reports status against the PR's current head.
       - uses: actions/checkout@v4
 
       - name: Set up Python
@@ -114,35 +83,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          # Resolve the PR number across all trigger types:
-          #   pull_request / ready_for_review -> github.event.pull_request.number
-          #   issue_comment (on a PR)         -> github.event.issue.number
-          #   workflow_dispatch (debug)       -> github.event.inputs.pr_number
-          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
-          # Draft state is only carried on pull_request payloads. For
-          # issue_comment / workflow_dispatch it is empty here and resolved live
-          # from the API below, so a draft PR that receives a comment is still
-          # deferred (exit 0) rather than reported as a failing required check.
-          IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft || '' }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+          IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft || 'false' }}
         shell: bash
         run: |
           set -euo pipefail
-
-          # Resolve draft state honestly across all trigger types. The
-          # pull_request payload carries it directly; for issue_comment /
-          # workflow_dispatch we look it up live so draft PRs stay deferred
-          # (the gate must never report a failing status on a draft PR — that
-          # is preserved unchanged behaviour from the pull_request path).
-          if [[ -z "$IS_DRAFT" ]]; then
-            if draft_live=$(gh pr view "$PR_NUMBER" --repo "$GH_REPO" --json isDraft --jq '.isDraft' 2>/dev/null); then
-              IS_DRAFT="$draft_live"
-            else
-              # Could not resolve draft state — do NOT silently skip; fall
-              # through to evaluation, which fails closed on anything unexpected.
-              echo "::warning::could not resolve draft state for PR #${PR_NUMBER}; proceeding to evaluation."
-              IS_DRAFT="false"
-            fi
-          fi
 
           if [[ "$IS_DRAFT" == "true" ]]; then
             echo "Draft PR — merge-quorum gate deferred until ready_for_review."
