@@ -26,13 +26,16 @@ decay_policy:
   unresolved_crux: report_only
 """
 
+
 @pytest.fixture()
 def units_dir(tmp_path: Path) -> Path:
     (tmp_path / "unit_a.yaml").write_text(_UNIT_YAML, encoding="utf-8")
     return tmp_path
 
 
-def _ns(units_dir: str, claim_results: str | None = None, json_out: bool = False) -> argparse.Namespace:
+def _ns(
+    units_dir: str, claim_results: str | None = None, json_out: bool = False
+) -> argparse.Namespace:
     return argparse.Namespace(units_dir=units_dir, claim_results=claim_results, json=json_out)
 
 
@@ -105,7 +108,9 @@ def test_json_signal_has_integrity_and_action(monkeypatch, units_dir: Path, caps
 # -- Claim results --
 
 
-def test_failed_claim_lowers_integrity(monkeypatch, units_dir: Path, tmp_path: Path, capsys) -> None:
+def test_failed_claim_lowers_integrity(
+    monkeypatch, units_dir: Path, tmp_path: Path, capsys
+) -> None:
     monkeypatch.setenv(_FLAG, "1")
     cr = tmp_path / "cr.jsonl"
     cr.write_text(
@@ -116,7 +121,9 @@ def test_failed_claim_lowers_integrity(monkeypatch, units_dir: Path, tmp_path: P
     assert json.loads(capsys.readouterr().out)["signals"][0]["integrity_score"] < 1.0
 
 
-def test_missing_claim_results_file_exits_1(monkeypatch, units_dir: Path, tmp_path: Path, capsys) -> None:
+def test_missing_claim_results_file_exits_1(
+    monkeypatch, units_dir: Path, tmp_path: Path, capsys
+) -> None:
     monkeypatch.setenv(_FLAG, "1")
     assert cmd_decay_monitor(_ns(str(units_dir), claim_results=str(tmp_path / "nope.jsonl"))) == 1
     assert "claim-results" in capsys.readouterr().err

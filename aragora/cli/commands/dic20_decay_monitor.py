@@ -110,17 +110,30 @@ def cmd_decay_monitor(args: argparse.Namespace) -> int:
 
         for data in manifests:
             try:
-                signals.append(evaluate_unit(load_proof_unit(data), claim_results=claim_results or None))
+                signals.append(
+                    evaluate_unit(load_proof_unit(data), claim_results=claim_results or None)
+                )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("unit %s skipped: %s", data.get("code_unit_id", "?"), exc)
 
     ts = datetime.now(timezone.utc).isoformat()
     if getattr(args, "json", False):
-        print(json.dumps({"generated_at": ts, "total": len(signals), "signals": [s.to_dict() for s in signals]}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "generated_at": ts,
+                    "total": len(signals),
+                    "signals": [s.to_dict() for s in signals],
+                },
+                indent=2,
+            )
+        )
     else:
         print(f"Decay monitor — {ts}\n{len(signals)} unit(s) evaluated\n")
         for s in signals:
-            print(f"  {s.code_unit_id}: integrity={s.integrity_score:.3f}  action={s.recommended_action}")
+            print(
+                f"  {s.code_unit_id}: integrity={s.integrity_score:.3f}  action={s.recommended_action}"
+            )
             for r in s.reasons:
                 print(f"    [{r.kind}] {r.detail}")
         if not signals:
