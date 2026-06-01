@@ -7,7 +7,11 @@ import scripts.github_cli_health as mod
 
 
 def test_run_uses_github_cli_env_for_gh(monkeypatch) -> None:
-    monkeypatch.setattr(mod, "github_cli_env", lambda env: {"GH_TOKEN": "app-token"})
+    monkeypatch.setattr(
+        mod,
+        "github_cli_env",
+        lambda env, prefer_app=True: {"GH_TOKEN": "app-token"},
+    )
 
     captured: dict[str, object] = {}
 
@@ -24,11 +28,39 @@ def test_run_uses_github_cli_env_for_gh(monkeypatch) -> None:
     assert captured["env"] == {"GH_TOKEN": "app-token"}
 
 
+def test_run_can_skip_app_env_for_diagnostic_health(monkeypatch) -> None:
+    prefer_app_values: list[bool] = []
+
+    def fake_github_cli_env(env, prefer_app=True):
+        prefer_app_values.append(prefer_app)
+        return {"BASE_ENV": "1"}
+
+    captured: dict[str, object] = {}
+
+    def fake_subprocess_run(*args, **kwargs):
+        captured["env"] = kwargs.get("env")
+        return subprocess.CompletedProcess(
+            args=kwargs.get("args", args[0]), returncode=0, stdout="", stderr=""
+        )
+
+    monkeypatch.setattr(mod, "github_cli_env", fake_github_cli_env)
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+
+    mod._run(["gh", "api", "rate_limit"], cwd=Path("."), timeout_seconds=5, prefer_app=False)
+
+    assert prefer_app_values == [False]
+    assert captured["env"] == {"BASE_ENV": "1"}
+
+
 def test_check_github_cli_health_ready(monkeypatch) -> None:
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 
     def fake_run(
-        args: list[str], *, cwd: Path, timeout_seconds: int
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout_seconds: int,
+        prefer_app: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(args=args, returncode=0, stdout="ok", stderr="")
 
@@ -50,7 +82,11 @@ def test_check_github_cli_health_ready_with_app_env_auth_even_if_auth_status_is_
     calls: list[list[str]] = []
 
     def fake_run(
-        args: list[str], *, cwd: Path, timeout_seconds: int
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout_seconds: int,
+        prefer_app: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         calls.append(args)
         if args[:3] == ["gh", "api", "rate_limit"]:
@@ -77,7 +113,11 @@ def test_check_github_cli_health_detects_connectivity_failure(monkeypatch) -> No
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 
     def fake_run(
-        args: list[str], *, cwd: Path, timeout_seconds: int
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout_seconds: int,
+        prefer_app: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "api", "rate_limit"]:
             return subprocess.CompletedProcess(
@@ -132,7 +172,11 @@ def test_check_github_cli_health_classifies_api_timeout_as_connectivity(
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 
     def fake_run(
-        args: list[str], *, cwd: Path, timeout_seconds: int
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout_seconds: int,
+        prefer_app: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "api", "rate_limit"]:
             return subprocess.CompletedProcess(
@@ -161,7 +205,11 @@ def test_check_github_cli_health_prefers_connectivity_error_when_auth_status_is_
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 
     def fake_run(
-        args: list[str], *, cwd: Path, timeout_seconds: int
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout_seconds: int,
+        prefer_app: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "api", "rate_limit"]:
             return subprocess.CompletedProcess(
@@ -196,7 +244,11 @@ def test_check_github_cli_health_classifies_auth_timeout_as_connectivity(
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 
     def fake_run(
-        args: list[str], *, cwd: Path, timeout_seconds: int
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout_seconds: int,
+        prefer_app: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "api", "rate_limit"]:
             return subprocess.CompletedProcess(
@@ -229,7 +281,11 @@ def test_check_github_cli_health_detects_auth_failure(monkeypatch) -> None:
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 
     def fake_run(
-        args: list[str], *, cwd: Path, timeout_seconds: int
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout_seconds: int,
+        prefer_app: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "api", "rate_limit"]:
             return subprocess.CompletedProcess(

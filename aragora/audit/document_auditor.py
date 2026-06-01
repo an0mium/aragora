@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -44,6 +45,15 @@ class AuditStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+_CONTROL_STATUSES = {AuditStatus.PAUSED, AuditStatus.CANCELLED}
+_TERMINAL_STATUSES = {AuditStatus.COMPLETED, AuditStatus.FAILED, AuditStatus.CANCELLED}
+_CANCELLABLE_STATUSES = {AuditStatus.PENDING, AuditStatus.RUNNING, AuditStatus.PAUSED}
+
+
+class _AuditPaused(Exception):
+    """Internal signal raised when another process pauses a local audit."""
 
 
 class AuditType(str, Enum):
@@ -253,6 +263,69 @@ class AuditSession:
             "org_id": self.org_id,
         }
 
+    def to_storage_dict(self) -> dict[str, Any]:
+        """Full-fidelity serialization for durable persistence.
+
+        Unlike :meth:`to_dict` (a summary view for API responses), this
+        preserves every field needed to faithfully reconstruct the session,
+        including the full list of findings, model/config, and timing.
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "document_ids": list(self.document_ids),
+            "total_chunks": self.total_chunks,
+            "processed_chunks": self.processed_chunks,
+            "audit_types": [t.value for t in self.audit_types],
+            "model": self.model,
+            "max_tokens_per_call": self.max_tokens_per_call,
+            "status": self.status.value,
+            "progress": self.progress,
+            "current_phase": self.current_phase,
+            "findings": [f.to_dict() for f in self.findings],
+            "errors": list(self.errors),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "created_by": self.created_by,
+            "org_id": self.org_id,
+        }
+
+    @classmethod
+    def from_storage_dict(cls, data: dict[str, Any]) -> AuditSession:
+        """Rebuild a session from :meth:`to_storage_dict` output."""
+
+        def _parse_dt(value: Any) -> datetime | None:
+            if isinstance(value, str) and value:
+                return datetime.fromisoformat(value)
+            return None
+
+        audit_types = [AuditType(t) for t in data.get("audit_types", [])] or [AuditType.ALL]
+        created_at = _parse_dt(data.get("created_at")) or datetime.now(timezone.utc)
+
+        return cls(
+            id=data.get("id", str(uuid4())),
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            document_ids=list(data.get("document_ids", [])),
+            total_chunks=data.get("total_chunks", 0),
+            processed_chunks=data.get("processed_chunks", 0),
+            audit_types=audit_types,
+            model=data.get("model", "gemini-3-pro"),
+            max_tokens_per_call=data.get("max_tokens_per_call", 500000),
+            status=AuditStatus(data.get("status", "pending")),
+            progress=data.get("progress", 0.0),
+            current_phase=data.get("current_phase", ""),
+            findings=[AuditFinding.from_dict(f) for f in data.get("findings", [])],
+            errors=list(data.get("errors", [])),
+            created_at=created_at,
+            started_at=_parse_dt(data.get("started_at")),
+            completed_at=_parse_dt(data.get("completed_at")),
+            created_by=data.get("created_by", ""),
+            org_id=data.get("org_id", ""),
+        )
+
 
 @dataclass
 class AuditConfig:
@@ -304,6 +377,7 @@ class DocumentAuditor:
         config: AuditConfig | None = None,
         on_finding: Callable[[AuditFinding], None] | None = None,
         on_progress: Callable[[str, float, str], None] | None = None,
+        persist_sessions: bool = False,
     ):
         """
         Initialize document auditor.
@@ -312,14 +386,21 @@ class DocumentAuditor:
             config: Audit configuration
             on_finding: Callback when finding is detected
             on_progress: Callback for progress updates (session_id, progress, phase)
+            persist_sessions: When True, sessions are persisted to a durable
+                SQLite store so they survive across separate processes. This is
+                used by local/air-gapped CLI runs where each ``aragora audit``
+                invocation is a fresh process. Server/API mode leaves this
+                False and relies on server-side storage instead.
         """
         self.config = config or AuditConfig()
         self.on_finding = on_finding
         self.on_progress = on_progress
 
-        # Session storage
+        # Session storage (in-memory cache; optionally backed by disk store).
         self._sessions: dict[str, AuditSession] = {}
         self._running_tasks: dict[str, asyncio.Task] = {}
+        self._persist_sessions = persist_sessions
+        self._session_store: Any | None = None
 
         # Audit type handlers
         self._handlers: dict[AuditType, Any] = {}
@@ -329,6 +410,76 @@ class DocumentAuditor:
         self._knowledge_adapter: Any | None = None
         if self.config.use_knowledge_pipeline:
             self._init_knowledge_adapter()
+
+    def _get_store(self) -> Any | None:
+        """Return the durable session store, lazily created when enabled."""
+        if not self._persist_sessions:
+            return None
+        if self._session_store is None:
+            try:
+                from aragora.audit.session_store import AuditSessionStore
+
+                self._session_store = AuditSessionStore()
+            except (ImportError, OSError, sqlite3.Error) as exc:
+                logger.warning("Audit session persistence unavailable: %s", exc)
+                return None
+        return self._session_store
+
+    def save_session(self, session: AuditSession, *, force: bool = False) -> None:
+        """Persist a session to the durable store (no-op when persistence off).
+
+        Keeps the in-memory cache in sync and writes through to disk so a
+        later process can read the latest state. Safe to call after any
+        state transition.
+        """
+        store = self._get_store()
+        if store is None:
+            self._sessions[session.id] = session
+            return
+        try:
+            stored = store.get(session.id)
+        except (OSError, sqlite3.Error, ValueError) as exc:
+            logger.warning("Failed to inspect persisted audit session %s: %s", session.id, exc)
+            stored = None
+        if (
+            not force
+            and stored is not None
+            and self._should_preserve_persisted_status(
+                stored.status,
+                session.status,
+            )
+        ):
+            logger.info(
+                "Preserving persisted audit session %s status %s over stale incoming %s",
+                session.id,
+                stored.status.value,
+                session.status.value,
+            )
+            # Keep the process cache aligned with durable state; persistent
+            # get_session() remains store-first for cross-process freshness.
+            self._sessions[session.id] = stored
+            return
+        self._sessions[session.id] = session
+        try:
+            store.save(session)
+        except (OSError, sqlite3.Error, ValueError) as exc:
+            logger.warning("Failed to persist audit session %s: %s", session.id, exc)
+
+    @staticmethod
+    def _should_preserve_persisted_status(
+        persisted_status: AuditStatus,
+        incoming_status: AuditStatus,
+    ) -> bool:
+        """Avoid clobbering cross-process control/terminal state.
+
+        A still-running process may hold an older in-memory RUNNING session while
+        a later CLI invocation has already paused or cancelled the durable row.
+        Progress/finalization writes from the stale process must not overwrite
+        that operator-visible control state.
+        """
+        if persisted_status in _CONTROL_STATUSES and incoming_status != persisted_status:
+            return True
+        return persisted_status in _TERMINAL_STATUSES and incoming_status != persisted_status
 
     def _load_handlers(self) -> None:
         """Load audit type handlers."""
@@ -419,13 +570,24 @@ class DocumentAuditor:
             org_id=org_id,
         )
 
-        self._sessions[session.id] = session
+        self.save_session(session)
         logger.info("Created audit session %s for %s documents", session.id, len(document_ids))
 
         return session
 
     def get_session(self, session_id: str) -> AuditSession | None:
-        """Get an audit session by ID."""
+        """Get an audit session by ID.
+
+        Persistent local-mode callers prefer the durable store so repeated calls
+        in a long-lived process can observe state changes written by another CLI
+        process. Non-persistent/server callers remain in-memory only.
+        """
+        store = self._get_store()
+        if store is not None:
+            loaded = store.get(session_id)
+            if loaded is not None:
+                self._sessions[loaded.id] = loaded
+                return loaded
         return self._sessions.get(session_id)
 
     def list_sessions(
@@ -435,7 +597,21 @@ class DocumentAuditor:
         limit: int = 100,
     ) -> list[AuditSession]:
         """List audit sessions with optional filtering."""
-        sessions = list(self._sessions.values())
+        merged: dict[str, AuditSession] = {}
+        store = self._get_store()
+        if store is not None:
+            for stored in store.list(
+                org_id=org_id,
+                status=status.value if status else None,
+                limit=limit,
+            ):
+                merged[stored.id] = stored
+        # Store wins on conflict so long-lived local processes see fresher
+        # cross-process state; include memory-only sessions for server/default
+        # behavior and unsaved local callers.
+        for session_id, session in self._sessions.items():
+            merged.setdefault(session_id, session)
+        sessions = list(merged.values())
 
         if org_id:
             sessions = [s for s in sessions if s.org_id == org_id]
@@ -455,21 +631,29 @@ class DocumentAuditor:
         Returns:
             Completed session with findings
         """
-        session = self._sessions.get(session_id)
+        session = self.get_session(session_id)
         if not session:
             raise ValueError(f"Session {session_id} not found")
 
         if session.status == AuditStatus.RUNNING:
             raise ValueError(f"Session {session_id} is already running")
+        if session.status not in {AuditStatus.PENDING, AuditStatus.PAUSED}:
+            raise ValueError(
+                f"Cannot start session {session_id} with status {session.status.value}"
+            )
 
         # Start audit
         session.status = AuditStatus.RUNNING
         session.started_at = datetime.now(timezone.utc)
         session.current_phase = "initializing"
+        self.save_session(session, force=True)
 
         try:
             await self._execute_audit(session)
             session.status = AuditStatus.COMPLETED
+        except _AuditPaused:
+            session.status = AuditStatus.PAUSED
+            logger.info("Audit session %s paused by persisted control state", session_id)
         except asyncio.CancelledError:
             session.status = AuditStatus.CANCELLED
             logger.info("Audit session %s cancelled", session_id)
@@ -479,7 +663,9 @@ class DocumentAuditor:
             logger.error("Audit session %s failed: %s", session_id, e)
             raise
         finally:
-            session.completed_at = datetime.now(timezone.utc)
+            if session.status in _TERMINAL_STATUSES:
+                session.completed_at = datetime.now(timezone.utc)
+            self.save_session(session)
 
         return session
 
@@ -538,6 +724,8 @@ class DocumentAuditor:
         self._notify_progress(session, 0.1)
 
         initial_findings = await self._initial_scan(session, chunks)
+        session.findings = list(initial_findings)
+        self.save_session(session)
 
         # Phase 3: Detailed analysis per audit type
         session.current_phase = "detailed_analysis"
@@ -546,6 +734,8 @@ class DocumentAuditor:
         for audit_type in self._get_effective_audit_types(session):
             type_findings = await self._run_type_audit(session, chunks, audit_type)
             initial_findings.extend(type_findings)
+            session.findings = list(initial_findings)
+            self.save_session(session)
 
         # Phase 4: Multi-agent verification
         session.current_phase = "verification"
@@ -940,13 +1130,34 @@ Is this a valid finding? Respond with:
 
     def _notify_progress(self, session: AuditSession, progress: float) -> None:
         """Notify progress callback."""
+        self._enforce_persisted_control_state(session)
         session.progress = progress
+        self.save_session(session)
         if self.on_progress:
             self.on_progress(session.id, progress, session.current_phase)
 
+    def _enforce_persisted_control_state(self, session: AuditSession) -> None:
+        """Abort local work when another CLI process paused/cancelled it."""
+        store = self._get_store()
+        if store is None:
+            return
+        try:
+            persisted = store.get(session.id)
+        except (OSError, sqlite3.Error, ValueError) as exc:
+            logger.warning("Failed to inspect audit session control state %s: %s", session.id, exc)
+            return
+        if persisted is None or persisted.status == session.status:
+            return
+        if persisted.status == AuditStatus.PAUSED:
+            session.status = AuditStatus.PAUSED
+            raise _AuditPaused
+        if persisted.status == AuditStatus.CANCELLED:
+            session.status = AuditStatus.CANCELLED
+            raise asyncio.CancelledError
+
     async def pause_audit(self, session_id: str) -> bool:
         """Pause a running audit."""
-        session = self._sessions.get(session_id)
+        session = self.get_session(session_id)
         if not session or session.status != AuditStatus.RUNNING:
             return False
 
@@ -955,11 +1166,12 @@ Is this a valid finding? Respond with:
             task.cancel()
 
         session.status = AuditStatus.PAUSED
+        self.save_session(session, force=True)
         return True
 
     async def resume_audit(self, session_id: str) -> AuditSession:
         """Resume a paused audit."""
-        session = self._sessions.get(session_id)
+        session = self.get_session(session_id)
         if not session or session.status != AuditStatus.PAUSED:
             raise ValueError(f"Cannot resume session {session_id}")
 
@@ -967,8 +1179,8 @@ Is this a valid finding? Respond with:
 
     async def cancel_audit(self, session_id: str) -> bool:
         """Cancel an audit session."""
-        session = self._sessions.get(session_id)
-        if not session:
+        session = self.get_session(session_id)
+        if not session or session.status not in _CANCELLABLE_STATUSES:
             return False
 
         if session.status == AuditStatus.RUNNING:
@@ -978,6 +1190,7 @@ Is this a valid finding? Respond with:
 
         session.status = AuditStatus.CANCELLED
         session.completed_at = datetime.now(timezone.utc)
+        self.save_session(session, force=True)
         return True
 
     def get_findings(
@@ -988,7 +1201,7 @@ Is this a valid finding? Respond with:
         status: FindingStatus | None = None,
     ) -> list[AuditFinding]:
         """Get findings for a session with optional filtering."""
-        session = self._sessions.get(session_id)
+        session = self.get_session(session_id)
         if not session:
             return []
 
@@ -1011,7 +1224,7 @@ Is this a valid finding? Respond with:
         note: str = "",
     ) -> bool:
         """Update the status of a finding."""
-        session = self._sessions.get(session_id)
+        session = self.get_session(session_id)
         if not session:
             return False
 
@@ -1021,20 +1234,38 @@ Is this a valid finding? Respond with:
                 finding.updated_at = datetime.now(timezone.utc)
                 if note:
                     finding.tags.append(f"status_note:{note}")
+                self.save_session(session)
                 return True
 
         return False
 
 
-# Global instance
+# Global instances. Keep local-CLI persistence isolated from server/scheduler callers
+# that use the default singleton for process-local coordination.
 _auditor: DocumentAuditor | None = None
+_persistent_auditor: DocumentAuditor | None = None
 
 
-def get_document_auditor(config: AuditConfig | None = None) -> DocumentAuditor:
-    """Get or create global document auditor instance."""
-    global _auditor
+def get_document_auditor(
+    config: AuditConfig | None = None,
+    *,
+    persist_sessions: bool = False,
+) -> DocumentAuditor:
+    """Get or create global document auditor instance.
+
+    By default this preserves the historical in-memory singleton used by
+    server/scheduler call sites. Local/air-gapped CLI runs must opt into
+    ``persist_sessions=True`` so sessions created in one ``aragora audit
+    --local`` process remain readable by later processes without leaking that
+    disk-backed behavior into server paths.
+    """
+    global _auditor, _persistent_auditor
+    if persist_sessions:
+        if _persistent_auditor is None:
+            _persistent_auditor = DocumentAuditor(config, persist_sessions=True)
+        return _persistent_auditor
     if _auditor is None:
-        _auditor = DocumentAuditor(config)
+        _auditor = DocumentAuditor(config, persist_sessions=False)
     return _auditor
 
 

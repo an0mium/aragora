@@ -307,6 +307,15 @@ def _add_work_parser(subparsers) -> None:
             "closes, or mutates work."
         ),
     )
+
+    def _work_parent_help(_args: argparse.Namespace) -> int:
+        work.print_help()
+        return 2
+
+    # Running ``aragora work`` with no subcommand prints help and exits cleanly
+    # (mirrors the sibling ``codex`` parser) instead of raising AttributeError
+    # when main.py dispatches args.func.
+    work.set_defaults(func=_work_parent_help)
     work_sub = work.add_subparsers(dest="work_cmd")
 
     def add_common(p) -> None:

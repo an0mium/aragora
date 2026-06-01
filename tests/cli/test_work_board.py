@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from aragora.cli.main import main as cli_main
 from aragora.cli.parser import build_parser
 from aragora.cli.commands.work_board import (
     cmd_work_graph,
@@ -53,6 +54,60 @@ def test_work_parser_registers_read_only_robot_command() -> None:
     assert args.command == "work"
     assert args.work_cmd == "robot"
     assert args.json is True
+
+
+def test_work_with_no_subcommand_prints_help_without_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """`aragora work` with no subcommand should exit cleanly with usage, not crash.
+
+    Regression: previously raised an uncaught AttributeError because the work
+    subparser group set no default ``func`` (parser.py:310), unlike the sibling
+    ``codex`` parser which prints help and returns a non-zero exit code.
+    """
+    monkeypatch.setattr("sys.argv", ["aragora", "work"])
+
+    exit_code = cli_main()
+
+    out = capsys.readouterr().out
+    # Non-zero so scripts can detect "no subcommand given", matching `codex`.
+    assert exit_code == 2
+    # Help/usage text is printed instead of a traceback.
+    assert "work" in out
+    assert "list" in out  # one of the documented subcommands appears in help
+
+
+def test_work_list_default_is_human_readable_not_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """Without ``--json`` the output must NOT be raw JSON.
+
+    Regression: the ``--json`` flag was a no-op (both branches of _emit printed
+    json.dumps), so default output was always JSON despite help text implying a
+    human-readable default.
+    """
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+
+    assert cmd_work_list(_args(tmp_path, scope="current", json=False)) == 0
+    out = capsys.readouterr().out
+
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(out)
+    # Human-readable rendering surfaces the schema-aware summary, not raw braces.
+    assert out.strip() != ""
+    assert not out.lstrip().startswith("{")
+
+
+def test_work_list_json_flag_emits_parseable_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """With ``--json`` the output must remain stable, parseable JSON."""
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+
+    assert cmd_work_list(_args(tmp_path, scope="current", json=True)) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["schema_version"] == "aragora.work.v1"
 
 
 def test_work_list_reads_current_outbox(

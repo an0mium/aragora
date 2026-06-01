@@ -12,17 +12,6 @@ from dataclasses import asdict, dataclass
 from collections.abc import Mapping
 from pathlib import Path
 
-try:
-    from aragora.swarm.github_app_auth import github_cli_env
-except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
-
-    def github_cli_env(
-        base_env: Mapping[str, str] | None = None,
-        *,
-        prefer_app: bool = True,
-    ) -> dict[str, str]:
-        return dict(os.environ if base_env is None else base_env)
-
 
 DEFAULT_TIMEOUT_SECONDS = 20
 CONNECTIVITY_ERROR_TOKENS = (
@@ -73,8 +62,29 @@ def _command_error(proc: subprocess.CompletedProcess[str], fallback: str) -> str
     return proc.stderr.strip() or proc.stdout.strip() or fallback
 
 
-def _run(args: list[str], *, cwd: Path, timeout_seconds: int) -> subprocess.CompletedProcess[str]:
-    env = github_cli_env(os.environ) if args and args[0] == "gh" else None
+def github_cli_env(
+    base_env: Mapping[str, str] | None = None,
+    *,
+    prefer_app: bool = True,
+) -> dict[str, str]:
+    env = dict(os.environ if base_env is None else base_env)
+    if not prefer_app:
+        return env
+    try:
+        from aragora.swarm.github_app_auth import github_cli_env as app_github_cli_env
+    except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
+        return env
+    return app_github_cli_env(env, prefer_app=True)
+
+
+def _run(
+    args: list[str],
+    *,
+    cwd: Path,
+    timeout_seconds: int,
+    prefer_app: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    env = github_cli_env(os.environ, prefer_app=prefer_app) if args and args[0] == "gh" else None
     try:
         return subprocess.run(
             args,
@@ -96,6 +106,7 @@ def check_github_cli_health(
     repo_root: Path,
     *,
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
+    prefer_app: bool = True,
 ) -> GitHubCLIHealth:
     repo_root = repo_root.resolve()
     repo_label = str(repo_root)
@@ -109,7 +120,12 @@ def check_github_cli_health(
             repo=repo_label,
         )
 
-    api_proc = _run(["gh", "api", "rate_limit"], cwd=repo_root, timeout_seconds=timeout_seconds)
+    api_proc = _run(
+        ["gh", "api", "rate_limit"],
+        cwd=repo_root,
+        timeout_seconds=timeout_seconds,
+        prefer_app=prefer_app,
+    )
     if api_proc.returncode == 0:
         return GitHubCLIHealth(
             ready=True,
@@ -121,7 +137,12 @@ def check_github_cli_health(
         )
 
     api_error = _command_error(api_proc, "gh api rate_limit failed")
-    auth_proc = _run(["gh", "auth", "status"], cwd=repo_root, timeout_seconds=timeout_seconds)
+    auth_proc = _run(
+        ["gh", "auth", "status"],
+        cwd=repo_root,
+        timeout_seconds=timeout_seconds,
+        prefer_app=prefer_app,
+    )
     if auth_proc.returncode != 0:
         auth_error = _command_error(auth_proc, "gh auth status failed")
         api_connectivity = is_github_connectivity_error(api_error)

@@ -224,7 +224,10 @@ async def run_decide(
             if verbose:
                 print("[decide] Template system not available")
 
+    spec_file = kwargs.pop("spec_file", None)
+
     # Apply mode overrides
+    _ADVANCED_MODES = {"redteam", "deep_audit", "prober"}
     mode_config: dict[str, Any] = {}
     if mode and mode != "standard":
         try:
@@ -232,16 +235,30 @@ async def run_decide(
             from aragora.modes.base import ModeRegistry
 
             load_builtins()
-            mode_def = ModeRegistry.get_or_raise(mode)
-            mode_config = {  # noqa: F841 — stored for future mode injection
-                "mode": mode,
-                "mode_definition": mode_def,
-                "mode_system_prompt": mode_def.get_system_prompt(),
-            }
-            if verbose:
-                print(f"[decide] Using mode: {mode}")
-        except KeyError:
-            raise
+            mode_def = ModeRegistry.get(mode)
+            if mode_def is None:
+                if spec_file:
+                    if mode in _ADVANCED_MODES:
+                        print(
+                            f"[decide] Advanced mode '{mode}' is not yet wired into "
+                            "the decide pipeline; proceeding with standard deliberation."
+                        )
+                    else:
+                        available = ", ".join(ModeRegistry.list_all())
+                        print(
+                            f"[decide] Mode '{mode}' not found "
+                            f"(available: {available}); proceeding with standard deliberation."
+                        )
+                else:
+                    ModeRegistry.get_or_raise(mode)
+            else:
+                mode_config = {  # noqa: F841 — stored for future mode injection
+                    "mode": mode,
+                    "mode_definition": mode_def,
+                    "mode_system_prompt": mode_def.get_system_prompt(),
+                }
+                if verbose:
+                    print(f"[decide] Using mode: {mode}")
         except ImportError:
             if verbose:
                 print(f"[decide] Mode system not available, ignoring --mode {mode}")
@@ -249,7 +266,6 @@ async def run_decide(
     approval_mode = ApprovalMode.NEVER if auto_approve else ApprovalMode.RISK_BASED
 
     # Spec-first path: skip debate and create plan from spec file
-    spec_file = kwargs.pop("spec_file", None)
     if spec_file:
         spec_path = _validate_spec_file(spec_file)
         with spec_path.open() as f:

@@ -43,9 +43,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from aragora.swarm.agent_bridge.exceptions import TransportError
-from aragora.swarm.agent_bridge.harnesses import create_transport
-
 try:
     # When run as `python3 scripts/agent_bridge.py`, Python adds scripts/ to
     # sys.path automatically, so this direct import works.  For package-style
@@ -93,6 +90,26 @@ DEFAULT_STALE_TTL_HOURS = 24
 HEARTBEAT_FRESH_SECONDS = 15 * 60
 DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
 DEFAULT_STEERING_OUTCOME = "unknown"
+DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS = 5.0
+
+
+class _LazyTransportError(Exception):
+    """Placeholder so tests can monkeypatch create_transport without eager imports."""
+
+
+TransportError: type[Exception] = _LazyTransportError
+create_transport: Any | None = None
+
+
+def _load_transport_runtime() -> tuple[type[Exception], Any]:
+    global TransportError, create_transport
+    if create_transport is None:
+        from aragora.swarm.agent_bridge.exceptions import TransportError as bridge_error
+        from aragora.swarm.agent_bridge.harnesses import create_transport as bridge_transport
+
+        TransportError = bridge_error
+        create_transport = bridge_transport
+    return TransportError, create_transport
 
 
 def _state_root_bridge_dir() -> Path:
@@ -791,35 +808,52 @@ def _active_owner_payload(
 
 
 def _load_broker_run_summaries() -> list[dict[str, Any]]:
-    try:
-        from aragora.swarm.agent_bridge.store import BridgeStore
-    except ImportError:
+    runs_root = CANONICAL_REPO_ROOT / ".aragora" / "agent_bridge" / "runs"
+    if not runs_root.exists():
         return []
-
+    runs: list[dict[str, Any]] = []
     try:
-        store = BridgeStore(CANONICAL_REPO_ROOT)
-        runs = []
-        for run_path in store.runs_root().glob("*/run.json"):
-            run = store.load_run(run_path.parent.name)
+        for run_path in runs_root.glob("*/run.json"):
+            run_payload = json.loads(run_path.read_text(encoding="utf-8"))
+            if not isinstance(run_payload, dict):
+                continue
+            run_id = str(run_payload.get("run_id") or run_path.parent.name)
+            sessions: dict[str, dict[str, Any]] = {}
+            sessions_path = run_path.parent / "sessions.json"
             try:
-                registry = store.load_sessions(run.run_id)
-                sessions = {role: session.to_dict() for role, session in registry.sessions.items()}
-            except (OSError, TypeError, json.JSONDecodeError, KeyError):
+                sessions_payload = json.loads(sessions_path.read_text(encoding="utf-8"))
+                raw_sessions = (
+                    sessions_payload.get("sessions", {})
+                    if isinstance(sessions_payload, dict)
+                    else {}
+                )
+                if isinstance(raw_sessions, dict):
+                    sessions = {
+                        str(role): session
+                        for role, session in raw_sessions.items()
+                        if isinstance(session, dict)
+                    }
+            except (OSError, TypeError, json.JSONDecodeError):
                 sessions = {}
+            participants = run_payload.get("participants", [])
+            if not isinstance(participants, list):
+                participants = []
             runs.append(
                 {
-                    "run_id": run.run_id,
-                    "status": run.status,
-                    "updated_at": run.updated_at,
-                    "next_actor": run.next_actor,
-                    "last_turn_index": run.last_turn_index,
-                    "participants": [participant.to_dict() for participant in run.participants],
+                    "run_id": run_id,
+                    "status": run_payload.get("status"),
+                    "updated_at": run_payload.get("updated_at"),
+                    "next_actor": run_payload.get("next_actor"),
+                    "last_turn_index": run_payload.get("last_turn_index"),
+                    "participants": [
+                        participant for participant in participants if isinstance(participant, dict)
+                    ],
                     "sessions": sessions,
                 }
             )
         runs.sort(key=lambda item: str(item.get("updated_at", "")), reverse=True)
         return runs
-    except (OSError, TypeError, json.JSONDecodeError, KeyError, ValueError):
+    except (OSError, TypeError, json.JSONDecodeError, ValueError):
         return []
 
 
@@ -1453,14 +1487,33 @@ def cmd_exec(args: argparse.Namespace) -> int:
     allowed_roles = set(args.allowed_role or ["reviewer"])
 
     try:
-        transport = create_transport(
+        transport_error, transport_factory = _load_transport_runtime()
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "agent": agent,
+                        "cwd": str(launch_cwd),
+                        "error": str(exc),
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(f"Exec failed: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        transport = transport_factory(
             agent,
             cwd=launch_cwd,
             model=str(args.model).strip() if args.model else None,
             harness_options=harness_options,
         )
         result = transport.launch(prompt, allowed_roles=allowed_roles)
-    except (TransportError, OSError, ValueError) as exc:
+    except (transport_error, OSError, ValueError) as exc:
         if args.json:
             print(
                 json.dumps(
@@ -2116,6 +2169,17 @@ def _coerce_success_rate(raw_rate: Any) -> float | None:
         return None
 
 
+def _b0_scorecard_timeout_seconds() -> float:
+    raw = os.environ.get("AGENT_BRIDGE_B0_SCORECARD_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS
+    try:
+        timeout = float(raw)
+    except ValueError:
+        return DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS
+    return max(0.1, timeout)
+
+
 def _collect_b0_success_rate(repo_root: Path | None = None) -> float | None:
     root = repo_root or CANONICAL_REPO_ROOT
     scorecard_script = root / "scripts" / "measure_b0_scorecard.py"
@@ -2134,7 +2198,7 @@ def _collect_b0_success_rate(repo_root: Path | None = None) -> float | None:
             cwd=root,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=_b0_scorecard_timeout_seconds(),
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired):

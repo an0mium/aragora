@@ -2018,6 +2018,68 @@ def test_main_summary_only_omits_decisions_when_github_unavailable(
     }
 
 
+def test_main_summary_only_reports_outbox_files_skipped_before_publish(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "active.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                idempotency_key="open-pr-active",
+                expires_at=None,
+            )
+        ),
+        encoding="utf-8",
+    )
+    (outbox / "expired.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                idempotency_key="open-pr-expired",
+                expires_at="2026-04-24T15:00:00+00:00",
+            )
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=True,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path),
+            "--outbox-dir",
+            str(outbox),
+            "--receipt-dir",
+            str(receipts),
+            "--json",
+            "--summary-only",
+        ]
+    )
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["outbox_file_count"] == 2
+    assert payload["outbox_handoff_count"] == 1
+    assert payload["outbox_skipped_count"] == 1
+    assert payload["handoff_count"] == 1
+
+
 def test_main_reports_stale_outbox_head_when_github_unavailable(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
