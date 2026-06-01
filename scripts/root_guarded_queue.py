@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -169,6 +170,16 @@ def _read_only_sequence(pr: int | None) -> str:
     )
 
 
+def _clean_checkout_routing_command(pr: int | None, expected_head: str | None) -> str:
+    command = ["python3", "scripts/build_next_prompt.py"]
+    if pr is not None:
+        command.extend(["--pr", str(pr)])
+    if expected_head:
+        command.extend(["--expected-head", expected_head])
+    command.append("--json")
+    return " ".join(shlex.quote(part) for part in command)
+
+
 def _next_prompt(
     *,
     status: str,
@@ -179,11 +190,14 @@ def _next_prompt(
 ) -> str:
     head_text = f" at exact head `{expected_head}`" if expected_head else ""
     if status == "blocked_dirty_root":
+        routing_command = _clean_checkout_routing_command(pr, expected_head)
         body = (
             f"Goal: resolve root hygiene for `{before.branch}`, then continue only after root is "
             f"clean or by using a clean isolated worktree. Dirty paths: "
             f"{', '.join(before.dirty_paths) or 'unknown'}. Do not reset, clean, stash, switch, "
-            "or commit without explicit preserve/revert/switch authorization."
+            "or commit without explicit preserve/revert/switch authorization. For clean-checkout "
+            f"queue routing, run `{routing_command}` and follow its clean_checkout.selected_path "
+            "or clean_checkout.recommended_prompt."
         )
     elif status == "blocked_root_drift":
         body = (
