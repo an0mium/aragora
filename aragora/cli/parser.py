@@ -1243,7 +1243,16 @@ def _add_doctor_parser(subparsers) -> None:
 def _add_validate_parser(subparsers) -> None:
     """Add the 'validate' subcommand parser."""
     validate_parser = subparsers.add_parser(
-        "validate", help="Validate API keys by making test calls"
+        "validate",
+        help="Run a full health check, including live API-key validation",
+        description=(
+            "Run Aragora's health check (Environment, Packages, API Keys, "
+            "Storage, and Server sections) with live API-key validation enabled. "
+            "Configured provider keys are probed against the provider where "
+            "possible; a key that cannot be verified is reported as present but "
+            "unverified rather than as a passing check. Exits 0 only when all "
+            "checks pass."
+        ),
     )
     validate_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_validate"))
 

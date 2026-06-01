@@ -407,6 +407,68 @@ class TestCheckApiKeys:
         ]
         assert llm_provider == [("LLM Provider", "invalid provider(s): gemini", False)]
 
+    def test_live_validation_unverified_key_is_not_a_green_pass(self, monkeypatch):
+        """A configured key whose live validation is skipped must render as
+        optional/unverified (ok is None), never a green pass (ok is True).
+
+        Regression: a fabricated DeepSeek key previously showed a green
+        ``✓ configured; live skipped`` check counting toward "ready to use".
+        """
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-totallyfakekey1234567890abcdef")
+
+        def fake_validate_provider_key(provider: str) -> SimpleNamespace:
+            assert provider == "deepseek"
+            return SimpleNamespace(
+                remote_status="skipped",
+                is_valid=False,
+                unverified=True,
+                message="live validation is unavailable",
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.api_keys.validate_provider_key",
+            fake_validate_provider_key,
+        )
+
+        result = check_api_keys(validate_live=True)
+        deepseek = [item for item in result if item[0] == "DEEPSEEK_API_KEY"]
+
+        assert len(deepseek) == 1
+        label, status, ok = deepseek[0]
+        # Must NOT be a green pass.
+        assert ok is not True
+        # Optional/unverified — yellow circle, not green check, not red X.
+        assert ok is None
+        assert "unverified" in status.lower()
+
+    def test_live_validation_marks_rejected_deepseek_unready(self, monkeypatch):
+        """A bogus DeepSeek key rejected by a real live probe is a failure,
+        not a pass — DeepSeek now makes an actual test call."""
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-totallyfakekey1234567890abcdef")
+
+        def fake_validate_provider_key(provider: str) -> SimpleNamespace:
+            assert provider == "deepseek"
+            return SimpleNamespace(
+                remote_status="invalid",
+                is_valid=False,
+                unverified=False,
+                message="Provider rejected the API key",
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.api_keys.validate_provider_key",
+            fake_validate_provider_key,
+        )
+
+        result = check_api_keys(validate_live=True)
+        deepseek = [item for item in result if item[0] == "DEEPSEEK_API_KEY"]
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert deepseek[0][2] is False
+        assert llm_provider == [("LLM Provider", "invalid provider(s): deepseek", False)]
+
 
 # ===========================================================================
 # Tests: check_storage
