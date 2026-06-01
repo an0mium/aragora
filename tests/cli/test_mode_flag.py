@@ -171,6 +171,10 @@ class TestModeInDecide:
     """Test mode injection into run_decide."""
 
     def setup_method(self):
+        ModeRegistry.clear()
+        load_builtins()
+
+    def teardown_method(self):
         load_builtins()
 
     @pytest.mark.asyncio
