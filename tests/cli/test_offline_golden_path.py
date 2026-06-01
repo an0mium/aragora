@@ -982,6 +982,79 @@ def test_cmd_ask_quality_fail_closed_requires_contract(monkeypatch, capsys):
     assert "--quality-fail-closed requires an explicit output contract" in err
 
 
+def test_cmd_ask_quality_fail_closed_conflicts_with_no_post_consensus_quality(
+    monkeypatch, capsys, tmp_path
+):
+    """--quality-fail-closed must not be silently dropped when post-consensus
+    quality is disabled.
+
+    Regression: combining --quality-fail-closed with --no-post-consensus-quality
+    used to bypass both the config-validation guard and the runtime gate, so the
+    command exited 0 even when output violated the contract (a false CI green).
+    The contradictory combination must now fail closed with a clear configuration
+    error.
+    """
+    from aragora.cli.commands import debate as debate_cmd
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+    contract_path = tmp_path / "contract.json"
+    contract_path.write_text(
+        '{"required_sections": ["Decision", "Rollback Plan", "Success Metrics"]}',
+        encoding="utf-8",
+    )
+
+    args = argparse.Namespace(
+        task="Should we adopt a four day work week for the team",
+        agents="claude,openai",
+        rounds=2,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=True,
+        api=False,
+        local=True,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        timeout=30,
+        post_consensus_quality=False,
+        upgrade_to_good=True,
+        quality_upgrade_max_loops=2,
+        quality_min_score=9.0,
+        quality_fail_closed=True,
+        required_sections=None,
+        output_contract_file=str(contract_path),
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        debate_cmd.cmd_ask(args)
+
+    assert exc_info.value.code == 2
+    err = capsys.readouterr().err
+    assert "--quality-fail-closed cannot be" in err
+    assert "--no-post-consensus-quality" in err
+
+
 def test_cmd_ask_quality_fail_closed_invalid_output_contract_file(monkeypatch, capsys):
     """Invalid output contract file path should fail fast with clear configuration error."""
     from aragora.cli.commands import debate as debate_cmd

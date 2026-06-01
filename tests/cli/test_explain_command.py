@@ -264,6 +264,41 @@ class TestExplainAPIPath:
 
         assert result is None
 
+    def test_api_aragora_api_error_returns_none(self):
+        """When the client raises AragoraAPIError (the real connection-error type), returns None.
+
+        Regression: the client's _get re-raises URLError as AragoraAPIError, which derives
+        only from AragoraError(Exception) -- not OSError/ConnectionError/RuntimeError. Before
+        the fix, this propagated as a raw traceback and bypassed the local fallback.
+        """
+        from aragora.client.errors import AragoraAPIError
+
+        mock_client = MagicMock()
+        mock_client.explainability.get_explanation.side_effect = AragoraAPIError(
+            "Connection error", "CONNECTION_ERROR", 0
+        )
+
+        with patch("aragora.client.client.AragoraClient") as mock_cls:
+            mock_cls.return_value = mock_client
+            result = _try_api_explanation("d1", _make_args())
+
+        assert result is None
+
+    def test_api_not_found_error_returns_none(self):
+        """When the API returns 404 (NotFoundError subclass of AragoraAPIError), returns None."""
+        from aragora.client.errors import NotFoundError
+
+        mock_client = MagicMock()
+        mock_client.explainability.get_explanation.side_effect = NotFoundError(
+            "Debate not found", "debate"
+        )
+
+        with patch("aragora.client.client.AragoraClient") as mock_cls:
+            mock_cls.return_value = mock_client
+            result = _try_api_explanation("d1", _make_args())
+
+        assert result is None
+
     def test_api_uses_custom_url_and_key(self):
         """API path uses --api-url and --api-key from args."""
         mock_explanation = MagicMock()

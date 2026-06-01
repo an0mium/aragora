@@ -1835,6 +1835,21 @@ def cmd_ask(args: argparse.Namespace) -> None:
         or "required sections" in task_lower
         or "section headings" in task_lower
     )
+    # Fail-closed cannot be honored when the post-consensus quality pipeline is
+    # disabled (and we are not in comparison mode, which has its own enforcement
+    # path). Both the config-validation guard below and the runtime gate inside
+    # _post_consensus_quality_pipeline are skipped when post_consensus_quality is
+    # False, so silently accepting --quality-fail-closed here would emit a false
+    # green in CI. Reject the contradictory combination explicitly instead.
+    if quality_fail_closed and not post_consensus_quality and not comparison_mode:
+        print(
+            "Debate configuration invalid: --quality-fail-closed cannot be "
+            "enforced together with --no-post-consensus-quality. The fail-closed "
+            "quality gate runs inside the post-consensus quality pipeline, which "
+            "is disabled. Remove --no-post-consensus-quality to enforce the gate.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
     if post_consensus_quality or comparison_mode:
         from aragora.debate.output_quality import build_contract_context_block
 

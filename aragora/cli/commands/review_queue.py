@@ -1948,6 +1948,7 @@ def _build_packet(
             "files",
             "body",
             "comments",
+            "reviews",
             "commits",
         ]
     )
@@ -2375,6 +2376,12 @@ def _build_model_review_quorum(
     blocking_workflow_state = bool(blocking_workflow_reasons)
     unresolved_dissent = bool(dissenting_views)
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
+    review_object_warnings = _review_object_quorum_warnings(
+        pr.get("reviews") or [],
+        counted_reviewer_ids=counted_reviewer_ids,
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+    )
     signal_count = len(counted_reviewer_ids)
     has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
         _known_model_reviewer_id(item) for item in dogfood_evidence
@@ -2412,6 +2419,7 @@ def _build_model_review_quorum(
         )
         if not has_required_dogfood:
             reasons.append("focused adversarial dogfood evidence is required")
+        reasons.extend(review_object_warnings)
 
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
@@ -3076,6 +3084,143 @@ def _model_review_signals_from_comments(
             }
         )
     return signals[:5]
+
+
+def _review_object_quorum_warnings(
+    reviews: list[Any],
+    *,
+    counted_reviewer_ids: list[str],
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> list[str]:
+    """Warn when ``review-pr`` evidence is present in non-countable form.
+
+    Merge quorum intentionally counts model evidence from PR comments because
+    comments are easier to audit, quote, and mirror across queue tooling. A
+    GitHub review object alone should therefore not satisfy quorum, but it
+    should produce an operator-visible warning instead of silently looking like
+    missing evidence.
+    """
+    counted = set(counted_reviewer_ids)
+    warnings: list[str] = []
+    warned: set[str] = set()
+    for review in reviews:
+        if not isinstance(review, dict):
+            continue
+        if not _is_review_grounded_on_head(review, head_sha, head_committed_at):
+            continue
+        body = str(review.get("body", "") or "")
+        identity = _resolve_review_object_model_identity(body)
+        reviewer_id = _known_model_reviewer_id(identity.as_packet_fields())
+        if reviewer_id:
+            if reviewer_id in counted or reviewer_id in warned:
+                continue
+            warnings.append(
+                "GitHub review object from "
+                f"{reviewer_id} is advisory-only for merge-packet model quorum; "
+                "mirror the review-pr output into a current-head PR comment before settlement"
+            )
+            warned.add(reviewer_id)
+            continue
+        surface = identity.surface_reviewer_id
+        if surface == "unknown_model_reviewer" or surface in warned:
+            continue
+        if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
+            warnings.append(
+                "GitHub review object from "
+                f"{surface} lacks lineage-bound model family metadata; mirror the "
+                "review-pr output into a current-head PR comment with Model family "
+                "metadata before settlement"
+            )
+            warned.add(surface)
+    return warnings
+
+
+def _resolve_review_object_model_identity(body: str) -> ModelReviewIdentity:
+    identity = _resolve_model_review_identity(body)
+    if _known_model_reviewer_id(identity.as_packet_fields()):
+        return identity
+
+    metadata = _review_pr_metadata_from_body(body)
+    reviewer = metadata.get("reviewer", "")
+    if not reviewer:
+        return identity
+
+    surface = _infer_surface_reviewer_from_candidate(reviewer)
+    explicit_family_raw = metadata.get("model family", "")
+    explicit_family = _normalize_model_family(explicit_family_raw)
+    model_id = metadata.get("model id", "")
+    problems: list[str] = []
+
+    if surface == "unknown_model_reviewer":
+        problems.append("unknown_surface_reviewer")
+    if explicit_family_raw and not explicit_family:
+        problems.append("unknown_model_family")
+
+    model_family = explicit_family
+    identity_source = "review_pr_model_family_metadata" if explicit_family_raw else "none"
+    if surface in ROUTER_SURFACE_REVIEWERS:
+        if not explicit_family_raw:
+            problems.append("missing_model_family_disclosure")
+    elif surface != "unknown_model_reviewer":
+        direct_family = _normalize_model_family(surface)
+        if explicit_family and direct_family and explicit_family != direct_family:
+            problems.append("heading_model_family_conflict")
+        if not explicit_family_raw and direct_family:
+            model_family = direct_family
+            identity_source = "review_pr_direct_reviewer"
+        elif explicit_family and direct_family == explicit_family:
+            identity_source = "review_pr_model_family_metadata"
+
+    return ModelReviewIdentity(
+        surface_reviewer_id=surface,
+        model_family=model_family,
+        model_id=model_id,
+        identity_source=identity_source,
+        identity_problems=tuple(dict.fromkeys(problems)),
+    )
+
+
+def _review_pr_metadata_from_body(body: str) -> dict[str, str]:
+    metadata: dict[str, str] = {}
+    for line in str(body).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("-"):
+            stripped = stripped[1:].strip()
+        label, sep, value = stripped.partition(":")
+        if not sep:
+            continue
+        normalized_label = label.strip().strip("*").lower()
+        if normalized_label not in {"reviewer", "model family", "model id"}:
+            continue
+        metadata[normalized_label] = value.strip().strip("*").strip().strip("`")
+    return metadata
+
+
+def _is_review_grounded_on_head(
+    review: dict[str, Any],
+    head_sha: str,
+    head_committed_at: str,
+) -> bool:
+    if not head_sha:
+        return True
+    commit = review.get("commit")
+    body = str(review.get("body", "") or "")
+    head_short = head_sha[:7]
+    if isinstance(commit, dict):
+        commit_oid = str(commit.get("oid", "") or "").strip()
+        if commit_oid:
+            if commit_oid == head_sha:
+                return True
+            return bool(head_short and head_short in body)
+    if head_short and head_short in body:
+        return True
+    if not head_committed_at:
+        return False
+    submitted = str(review.get("submittedAt", "") or "")
+    if not submitted:
+        return False
+    return submitted >= head_committed_at
 
 
 def _infer_model_reviewer_from_text(text: str) -> str:
