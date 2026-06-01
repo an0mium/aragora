@@ -312,10 +312,22 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
 
         # 4. Redis connectivity
         try:
-            from aragora.server.startup import validate_redis_connectivity
+            from aragora.server.startup import (
+                is_connectivity_skipped,
+                validate_redis_connectivity,
+            )
 
             redis_ok, redis_msg = await validate_redis_connectivity(timeout_seconds=5.0)
-            if redis_ok:
+            if redis_ok and is_connectivity_skipped(redis_msg):
+                # No backend configured: the connectivity probe was skipped, so
+                # do NOT report a validated connection (would mislead humans/CI).
+                results["checks"]["redis"] = {
+                    "status": "skip",
+                    "connected": False,
+                    "skipped": True,
+                    "message": redis_msg,
+                }
+            elif redis_ok:
                 results["checks"]["redis"] = {
                     "status": "ok",
                     "connected": True,
@@ -344,7 +356,10 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
 
         # 5. PostgreSQL connectivity
         try:
-            from aragora.server.startup import validate_database_connectivity
+            from aragora.server.startup import (
+                is_connectivity_skipped,
+                validate_database_connectivity,
+            )
 
             db_ok, db_msg = await validate_database_connectivity(timeout_seconds=5.0)
             require_database = os.environ.get("ARAGORA_REQUIRE_DATABASE", "").lower() in (
@@ -353,7 +368,16 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
                 "yes",
             )
 
-            if db_ok:
+            if db_ok and is_connectivity_skipped(db_msg):
+                # No backend configured: the connectivity probe was skipped, so
+                # do NOT report a validated connection (would mislead humans/CI).
+                results["checks"]["postgresql"] = {
+                    "status": "skip",
+                    "connected": False,
+                    "skipped": True,
+                    "message": db_msg,
+                }
+            elif db_ok:
                 results["checks"]["postgresql"] = {
                     "status": "ok",
                     "connected": True,
@@ -536,6 +560,8 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
                 details.append("configured")
         if "connected" in check_data and check_data["connected"]:
             details.append("connected")
+        if check_data.get("skipped"):
+            details.append("not configured, skipped")
         if "message" in check_data and verbose:
             details.append(check_data["message"])
 

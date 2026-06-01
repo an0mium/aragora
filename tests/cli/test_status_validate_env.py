@@ -199,3 +199,110 @@ def test_validate_env_smoke_passes_on_tiny_ok_response(monkeypatch, capsys) -> N
     smoke = payload["checks"]["ai_provider_smoke"]
     assert smoke["status"] == "ok"
     assert smoke["agents"][0]["response_preview"] == "ok"
+
+
+def _validate_provider_keys_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the configured provider validate cleanly so we can exit 0."""
+    monkeypatch.setattr(
+        "aragora.cli.api_keys.validate_provider_key",
+        lambda provider: SimpleNamespace(remote_status="valid", is_valid=True, message="ok"),
+    )
+
+
+def test_validate_env_reports_skip_not_connected_when_unconfigured(monkeypatch, capsys) -> None:
+    """Unconfigured Redis/PostgreSQL must NOT be reported as connected.
+
+    Regression: a skipped connectivity probe was surfaced as
+    ``status: ok, connected: true``, falsely implying a validated connection
+    to humans and CI parsing the JSON output.
+    """
+    from aragora.server.startup.validation import (
+        DATABASE_SKIP_MESSAGE,
+        REDIS_SKIP_MESSAGE,
+    )
+
+    _clear_provider_env(monkeypatch)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    _validate_provider_keys_ok(monkeypatch)
+
+    async def fake_redis(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return True, REDIS_SKIP_MESSAGE
+
+    async def fake_database(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return True, DATABASE_SKIP_MESSAGE
+
+    monkeypatch.setattr("aragora.server.startup.validate_redis_connectivity", fake_redis)
+    monkeypatch.setattr("aragora.server.startup.validate_database_connectivity", fake_database)
+
+    with pytest.raises(SystemExit):
+        status_mod.cmd_validate_env(_validate_args(smoke=False))
+
+    payload = json.loads(capsys.readouterr().out)
+    redis = payload["checks"]["redis"]
+    postgresql = payload["checks"]["postgresql"]
+
+    assert redis["status"] == "skip"
+    assert redis["connected"] is False
+    assert redis["skipped"] is True
+
+    assert postgresql["status"] == "skip"
+    assert postgresql["connected"] is False
+    assert postgresql["skipped"] is True
+
+
+def test_validate_env_pretty_does_not_print_connected_when_skipped(monkeypatch, capsys) -> None:
+    """Pretty output must read 'not configured, skipped', never 'connected'."""
+    from aragora.server.startup.validation import (
+        DATABASE_SKIP_MESSAGE,
+        REDIS_SKIP_MESSAGE,
+    )
+
+    _clear_provider_env(monkeypatch)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    _validate_provider_keys_ok(monkeypatch)
+
+    async def fake_redis(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return True, REDIS_SKIP_MESSAGE
+
+    async def fake_database(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return True, DATABASE_SKIP_MESSAGE
+
+    monkeypatch.setattr("aragora.server.startup.validate_redis_connectivity", fake_redis)
+    monkeypatch.setattr("aragora.server.startup.validate_database_connectivity", fake_database)
+
+    with pytest.raises(SystemExit):
+        status_mod.cmd_validate_env(_validate_args(json=False, smoke=False))
+
+    out = capsys.readouterr().out
+    # The two skipped backends must each render the skip hint ...
+    assert out.count("not configured, skipped") >= 2
+    # ... and must NOT claim a Redis/Postgres connection.
+    for line in out.splitlines():
+        lower = line.lower()
+        if "redis" in lower or "postgres" in lower:
+            assert "(connected)" not in lower
+
+
+def test_validate_env_reports_connected_on_real_redis_connection(monkeypatch, capsys) -> None:
+    """Success path: a genuine connection still reports connected=true."""
+    _clear_provider_env(monkeypatch)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    _validate_provider_keys_ok(monkeypatch)
+
+    async def fake_redis(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return True, "Redis connected (version 7.2.13)"
+
+    async def fake_database(*_a: Any, **_k: Any) -> tuple[bool, str]:
+        return False, "not configured in test"
+
+    monkeypatch.setattr("aragora.server.startup.validate_redis_connectivity", fake_redis)
+    monkeypatch.setattr("aragora.server.startup.validate_database_connectivity", fake_database)
+
+    with pytest.raises(SystemExit):
+        status_mod.cmd_validate_env(_validate_args(smoke=False))
+
+    payload = json.loads(capsys.readouterr().out)
+    redis = payload["checks"]["redis"]
+    assert redis["status"] == "ok"
+    assert redis["connected"] is True
+    assert "skipped" not in redis
