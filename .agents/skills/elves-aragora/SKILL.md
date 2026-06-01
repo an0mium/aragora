@@ -1,102 +1,107 @@
 ---
 name: elves-aragora
-description: Crash-resumable, plan-driven overnight execution bound to aragora's proof-first gates. Use when the user says "run overnight", "I'm going offline", "implement this plan", "keep going without me", "don't stop", "I'll be back in the morning", or otherwise asks for long unattended autonomous work in this repo. Unlike a generic overnight runner, every batch lands through aragora's real gates — model-quorum evidence, decision receipts, draft-PR only, never admin merge — and the run survives a crash or context compaction via an on-disk execution log.
+description: Autonomous multi-batch development for the aragora repo, with every batch's validation gate bound to aragora's own governance — adversarial debate, a verifiable DecisionReceipt, and tier-appropriate settlement — instead of a bare test run. Use when the user says "run overnight", "I'm going offline", "implement this plan", "keep going without me", "do not stop", "I'll be back in the morning", or "run this end-to-end" while working inside aragora. Takes a plan, breaks it into sprint-sized batches, implements with tests, then gates each batch on a receipt-backed model quorum and the operating contract's auto-halt rules. Tier 0-2 batches can settle autonomously; Tier 3-4 always stop for human risk acceptance.
 license: MIT
+compatibility: Works with Codex (.agents/skills) and Claude Code (.claude/skills). Requires git, gh CLI, and the aragora CLI on PATH (`aragora --help`).
 metadata:
-  author: Aragora Contributors
-  version: "0.1.0"
-  derived-from: aigorahub/elves (MIT) — survival-guide / execution-log scaffolding pattern
-  argument-hint: Path to a plan file (docs/plans/*.md), or plan text directly.
+  author: Synaptent (aragora) — forked from aigorahub/elves (MIT)
+  upstream: https://github.com/aigorahub/elves
+  version: "0.1.0-aragora"
+  argument-hint: Path to plan file, or plan text directly.
 ---
 
-# Elves-Aragora — governed overnight runs
+# Elves (aragora-native)
 
-You are the night shift. The user is the day manager who handed you a written plan
-before going offline. Execute it batch by batch — with testing, model-quorum review,
-receipts, and documentation — until the plan is done or you hit a genuine blocker.
+This is an aragora-bound fork of the Elves autonomous-development skill. The unattended Ralph
+Loop (try → check → feed back → repeat across sprint-sized batches, surviving context compaction)
+is unchanged. **What changes is the gate.** Upstream Elves closes a batch on `npm test` plus a
+GitHub PR comment. In aragora, "the tests are the watch" is necessary but not sufficient: a batch
+is only complete when it has passed aragora's own evidence-first governance.
 
-**You never admin-merge. You never bypass a gate. The user (or the quorum) merges.**
-**The run must survive a crash:** every batch's state lives in an on-disk execution
-log so a fresh session can resume from live truth, not transcript memory.
+> **Positioning.** aragora's README states it "does not sell lights-out autonomy as the default
+> story" and "does not advance work without evidence, review, and clear terminal states." This
+> fork honors that. It keeps Elves' overnight leverage but subordinates it to receipts, model
+> quorum, and human settlement. The elves work the night shift; aragora decides what is allowed
+> to land.
 
-This skill does **not** reinvent aragora's autonomy loop — that already exists
-(`AGENTS.md`, `docs/AGENT_OPERATING_CONTRACT.md`, `scripts/codex_worktree_autopilot.py`,
-the merge-quorum gate, decision receipts). It adds the missing piece: a **resumable,
-plan-driven wrapper** so those gates run unattended overnight and recover from interruption.
+## When to use
 
-## Install / location
+Trigger inside `~/development/aragora` (or any aragora checkout) when the user wants a long,
+unattended run: "run overnight", "I'm going offline until 8", "implement this plan end-to-end",
+"keep going without me", "do not stop". For one-off single edits, do not use this skill.
 
-This skill lives at `.agents/skills/elves-aragora/` (the Codex per-repo skills path —
-read by the Codex CLI, IDE extension, and desktop app). Claude Code reads
-`~/.claude/skills/`; because this repo `.gitignore`s `.claude/`, Claude Code users copy
-or symlink this directory into `~/.claude/skills/elves-aragora/`. Restart the agent to re-index.
+## The two-call handoff (unchanged from Elves)
 
-## Three documents (the scaffolding)
+1. **Stage** the run — clean the plan, generate the survival guide / learnings / execution log
+   from the templates in `references/`, claim a dedicated branch + worktree, run preflight, and
+   stop. See `references/kickoff-prompt-template.md`.
+2. **Launch** in a fresh call with a short, behavior-heavy prompt.
 
-Borrowed from elves (credit: `aigorahub/elves`, MIT), adapted to aragora gates:
+## The aragora validation gate (the core difference)
 
-1. **Plan** — `docs/plans/<name>.md`. The user authors this: goal, milestones broken
-   into sprint-sized batches, each batch independently shippable and testable.
-2. **Survival Guide** — `docs/plans/<name>.survival.md`. Per-project gates and invariants
-   the night shift must obey. For aragora the gate is NOT `npm test` — see "Batch gate" below.
-3. **Execution Log** — `docs/plans/<name>.log.md`. Append-only. After every batch step,
-   write: batch id, branch, head SHA, what changed, gate results, PR number, current
-   blocker. **This is the crash/compaction recovery anchor** — a resumed session reads
-   this first, re-derives live truth, and continues.
+Every batch runs through `references/validation-gate-aragora.md`. In short, a batch is **not**
+complete until all of the following hold, in order:
 
-Bootstrap missing docs from `~/.claude/skills/elves/references/` (plan-template.md,
-survival-guide-template.md, execution-log-template.md) then rewrite the gate sections per below.
+1. **Local truth.** Project validation passes against current HEAD:
+   `pre-commit run --all-files`, `mypy` (no new errors above `.mypy-baseline`), and the relevant
+   `pytest` slice. Total test count must never decrease.
+2. **Adversarial review = a debate, not a comment.** Run a heterogeneous-model adversarial review
+   of the batch diff via aragora itself (e.g. `aragora ask` framed as a review of
+   `git diff <default-branch>...HEAD`, or the repo's `aragora-review-gate` path). Capture the
+   exact head SHA reviewed, the model/provider families, independence from the authoring lane,
+   the recommendation, and any dissent. Unresolved dissent blocks the batch.
+3. **Receipt.** Produce a `DecisionReceipt` for the batch decision and verify it:
+   `aragora verify <receipt.json>` (and/or `aragora receipt verify`). The receipt binds the
+   decision to the reviewed SHA. No receipt → batch not closed.
+4. **Tier classification + settlement.** Classify the batch against
+   `docs/REVIEW_AUTHORITY_PRINCIPLES.md` (Tier 0-4):
+   - **Tier 0-2** (docs/tests, additive internal, live automation/CLI/observability): a green,
+     receipt-backed model quorum with no unresolved dissent is sufficient to record settlement
+     autonomously and continue. **Still never merge by default** — settlement records the
+     authorization packet; the human or a recorded merge-on-green preference does the merge.
+   - **Tier 3-4** (semantic correctness, persistence, security/RBAC/auth, public API/SDK,
+     migrations; or secrets/deployment/workflow policy/destructive ops/merge-authority
+     self-modification): **HARD STOP.** The model quorum prepares the packet, but the run must
+     pause and require explicit human risk acceptance (the `aragora/human-settlement` signal)
+     before that batch is considered landed. Continue with *other* non-blocked batches if any
+     exist; otherwise checkpoint and wait.
 
-## Loop (per batch)
+The Tier 3-4 hard stop is the aragora-native expression of Elves' "you never merge by default"
+non-negotiable: autonomy is granted exactly where the governance model grants it, and revoked
+exactly where it requires a human.
 
-0. **Recover state first.** Read the execution log. Run the gate-discovery commands
-   (below). Trust live truth over the transcript — a crash may have happened mid-batch.
-1. **Isolate.** Work in a fresh git worktree (never the shared root if dirty/owned).
-2. **Implement** the next batch with TDD. Keep batches small and independently shippable.
-3. **Batch gate (aragora-specific — this replaces a plain test run):**
-   - Required CI checks green (`gh pr checks <pr> --required`).
-   - Genuine model-quorum evidence at exact head: run `review-pr <pr> --reviewer claude`
-     and `--reviewer codex`; if a review returns `changes_requested`, **repair first** —
-     the findings are usually real. Post head-grounded countable evidence
-     (`review-queue evidence-lint` → `would_count` → `gh pr comment`).
-   - `settle_one_pr.py --pr <pr>` blockers reduce to `['PR is draft']` only.
-4. **Open a DRAFT PR** (`Closes #...`). Never mark ready unless the merge-packet and
-   settle agree the only blocker is draft status, and tier ≤ 2 with no human-risk settlement.
-5. **Log it** (append to the execution log) and notify (`scripts/notify.sh` if configured).
-6. **Stop conditions** (hand back to the human): publisher not ready, active-owner conflict,
-   Tier 3+/security/policy settlement, workflow/branch-protection change, normal merge rejected,
-   or no unowned high-value batch remains.
+## Operating-contract auto-halts (always active)
 
-## Batch gate — exact commands
+Beyond the per-batch gate, the run obeys `docs/AGENT_OPERATING_CONTRACT.md` at all times. Halt
+immediately and surface to the user when any of these fire:
 
-Gate discovery (run at start of every batch and after any resume):
-```
-git status --short --branch
-python3 scripts/publisher_freshness_check.py
-python3 scripts/agent_bridge.py --json health || true
-python3 -m aragora.cli.main work robot --json
-python3 scripts/identify_lane_owner.py --pr <PR> --json   # skip owned lanes
-python3 -m aragora.cli.main review-queue merge-packet --pr <PR> --json
-python3 scripts/settle_one_pr.py --pr <PR> --json
-```
+- **MAIN RED** — any required check on `origin/main` red >30 min: stop roadmap work, bisect/fix first.
+- Two consecutive same-wave PRs fail CI for distinct reasons.
+- A dep bump introduces >5 transitive changes, or a consolidation diff exceeds 800 LOC.
+- The work touches an **approval-required** item: GitHub Actions workflows, runner/CI matrix,
+  secrets/auth, pre-commit/pre-push hooks, release workflows, major-version dep bumps, public
+  API/SDK removals, schema drops/renames, branch deletion with unmerged commits, `git push
+  --force`, or edits to `CLAUDE.md` / `AGENTS.md` / `scripts/nomic_loop.py` / `.env` / `secrets/`.
+  These are never autonomous — pause and ask.
 
-Hard constraints (from `docs/AGENT_OPERATING_CONTRACT.md`):
-- Never admin-merge; never edit branch protection, workflows, labels, publisher/outbox,
-  launchd, or protected files (`CLAUDE.md`, `aragora/__init__.py`, `.env`, `scripts/nomic_loop.py`).
-- Tier 0 = 1 model signal; Tier 2 = 2 distinct-model signals + adversarial dogfood;
-  Tier 3 (semantic/security) = + human risk settlement → STOP.
-- Exact-head evidence expires on head drift. Re-review after any repair push.
+## Non-negotiables (aragora additions to the Elves base)
 
-## Crash / compaction recovery
+- Never merge by default; never approve a merge. Tier 3-4 always requires human settlement first.
+- Every closing commit carries a `Co-authored-by: codex[bot]` (or `claude[bot]`) trailer.
+- Never modify a test to make it pass; fix the code. Total test count never decreases.
+- One run owns one branch + one worktree. A surprise tip move = collision, not diverge → stop.
+- No destructive git (`reset --hard`, `checkout .`, `clean -fd`, `push --force`, rebase on shared).
+- Receipts are mandatory per batch. A batch with no verified receipt is not complete.
 
-If you wake with no memory of an in-flight run:
-1. Find the plan + `.log.md` under `docs/plans/`.
-2. Read the log's last entry → branch, head SHA, last gate result, open PR.
-3. Re-run gate discovery to confirm live state (the PR may have merged or drifted while you were gone).
-4. Resume at the first incomplete batch step. Do not re-do completed, logged work.
+## References
 
-## Notes
-- Reference implementation of the underlying gate mechanics: the proven no-admin
-  proof-first land loop, and `docs/prompts/MASTER_FANOUT_PROMPT.md` (idempotent Phase-0 discovery).
-- The generic upstream skill is installed at `~/.claude/skills/elves/` for its templates; this
-  aragora-native skill is the one to invoke for repo work because its gates are real, not placeholders.
+- `references/validation-gate-aragora.md` — the batch gate wired to aragora primitives (read first).
+- `references/survival-guide-template.md` — compaction-survival brief, tool config = aragora commands.
+- `references/execution-log-template.md` — per-batch log with SHA / receipt / tier / settlement fields.
+- `references/kickoff-prompt-template.md` — stage + launch templates for an aragora run.
+
+## Attribution
+
+Forked from [aigorahub/elves](https://github.com/aigorahub/elves) (MIT). Upstream license and
+credit recorded in `THIRD_PARTY_LICENSES.md` at the repo root. This fork rewrites the validation
+and review layer; the autonomy/compaction-survival framework is upstream's.
