@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import subprocess
 from datetime import UTC, datetime
@@ -260,6 +261,7 @@ def test_run_shift_cycle_defaults_to_single_merge_limit() -> None:
         repo_root=repo_root,
         repo="synaptent/aragora",
         limit=1,
+        timeout_seconds=mod.MERGE_ARBITER_APPLY_TIMEOUT_SECONDS,
     )
     assert report["merge_limit"] == 1
 
@@ -416,6 +418,200 @@ def test_dry_run_uses_single_merge_limit_and_is_read_only() -> None:
     assert "merge_arbiter_restart_skipped:dry_run" in report["actions"]
     assert "merge_arbiter_apply_skipped:dry_run" in report["actions"]
     assert "trigger_benchmark_skipped:dry_run:stale_publication_window" in report["actions"]
+
+
+def test_run_shift_cycle_fails_closed_when_time_budget_already_expired() -> None:
+    state = mod.ProofFirstRuntimeState()
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            side_effect=AssertionError("expired timebox must not reconcile queue"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.run_merge_arbiter_apply",
+            side_effect=AssertionError("expired timebox must not apply merges"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.trigger_benchmark_workflow",
+            side_effect=AssertionError("expired timebox must not trigger benchmark"),
+        ),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            benchmark_mode="hybrid",
+            automation_backlog_limit=12,
+            runtime_state=state,
+            remaining_time_seconds=0,
+        )
+
+    assert report["stop_reason"].startswith("TimeLimit:")
+    assert report["actions"] == ["timebox_exhausted_before_cycle"]
+    assert report["queue_report"] == {"kept": [], "removed": []}
+    assert report["merge_report"] == {"merged": [], "skipped": True, "reason": "timebox"}
+
+
+def test_run_shift_cycle_skips_expensive_apply_paths_when_remaining_time_is_too_low() -> None:
+    state = mod.ProofFirstRuntimeState()
+    repo_root = Path(".").resolve()
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [{"id": 1}], "removed": []},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot", return_value={"ok": True}
+        ),
+        patch(
+            "scripts.run_proof_first_shift.list_open_prs",
+            return_value=[{"headRefName": "codex/ready", "isDraft": False}],
+        ),
+        patch("scripts.run_proof_first_shift.process_running", return_value=True),
+        patch(
+            "scripts.run_proof_first_shift.run_merge_arbiter_apply",
+            side_effect=AssertionError("insufficient time must not apply merges"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.latest_benchmark_run",
+            return_value={
+                "databaseId": 123,
+                "createdAt": "2026-04-14T00:00:00Z",
+                "status": "completed",
+                "conclusion": "success",
+            },
+        ),
+        patch(
+            "scripts.run_proof_first_shift.benchmark_truth_state_drift",
+            return_value={"issue_count": 0},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.trigger_benchmark_workflow",
+            side_effect=AssertionError("insufficient time must not trigger benchmark"),
+        ),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=repo_root,
+            repo="synaptent/aragora",
+            benchmark_mode="hybrid",
+            automation_backlog_limit=12,
+            runtime_state=state,
+            remaining_time_seconds=1,
+        )
+
+    assert report["stop_reason"].startswith("TimeLimit:")
+    assert report["merge_report"] == {
+        "merged": [],
+        "skipped": True,
+        "reason": "timebox_insufficient",
+    }
+    assert "merge_arbiter_apply_skipped:timebox_insufficient" in report["actions"]
+    assert (
+        "trigger_benchmark_skipped:timebox_insufficient:stale_publication_window"
+        in report["actions"]
+    )
+
+
+def test_dry_run_still_uses_existing_read_only_skip_reasons_under_low_time_budget() -> None:
+    state = mod.ProofFirstRuntimeState()
+    repo_root = Path(".").resolve()
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [{"id": 1}], "removed": []},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot", return_value={"ok": True}
+        ),
+        patch(
+            "scripts.run_proof_first_shift.list_open_prs",
+            return_value=[{"headRefName": "codex/ready", "isDraft": False}],
+        ),
+        patch("scripts.run_proof_first_shift.process_running", side_effect=[False, False]),
+        patch(
+            "scripts.run_proof_first_shift.is_launchd_throttle_healthy",
+            return_value=(False, "not healthy"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.restart_boss_service",
+            side_effect=AssertionError("dry-run must not restart boss loop"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.restart_service_via_launchd",
+            side_effect=AssertionError("dry-run must not restart merge arbiter"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.run_merge_arbiter_apply",
+            side_effect=AssertionError("dry-run must not apply merge arbiter"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.latest_benchmark_run",
+            return_value={
+                "databaseId": 123,
+                "createdAt": "2026-04-14T00:00:00Z",
+                "status": "completed",
+                "conclusion": "success",
+            },
+        ),
+        patch(
+            "scripts.run_proof_first_shift.benchmark_truth_state_drift",
+            return_value={"issue_count": 0},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.trigger_benchmark_workflow",
+            side_effect=AssertionError("dry-run must not trigger benchmark workflow"),
+        ),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=repo_root,
+            repo="synaptent/aragora",
+            benchmark_mode="hybrid",
+            automation_backlog_limit=12,
+            dry_run=True,
+            runtime_state=state,
+            remaining_time_seconds=1,
+            max_hours=1.0,
+        )
+
+    assert report["dry_run"] is True
+    assert report["merge_report"] == {"merged": [], "skipped": True, "reason": "dry_run"}
+    assert "merge_arbiter_apply_skipped:dry_run" in report["actions"]
+    assert "trigger_benchmark_skipped:dry_run:stale_publication_window" in report["actions"]
+
+
+def test_run_shift_stops_before_starting_cycle_after_wall_clock_deadline(
+    tmp_path: Path,
+) -> None:
+    args = mod._build_parser().parse_args(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--repo",
+            "synaptent/aragora",
+            "--max-hours",
+            "0.0001",
+            "--interval-seconds",
+            "300",
+            "--benchmark-mode",
+            "disabled",
+            "--json",
+        ]
+    )
+
+    with (
+        patch("scripts.run_proof_first_shift.remaining_wall_clock_seconds", return_value=0.0),
+        patch(
+            "scripts.run_proof_first_shift.run_shift_cycle",
+            side_effect=AssertionError("expired wall-clock deadline must not start a cycle"),
+        ),
+    ):
+        summary = asyncio.run(mod._run_shift(args))
+
+    assert summary["shift"]["status"] == "completed"
+    assert str(summary["shift"]["stop_reason"]).startswith("TimeLimit:")
+    assert summary["cycles"] == []
 
 
 def test_parser_defaults_to_single_merge_limit_independent_of_backlog_limit() -> None:
