@@ -293,7 +293,6 @@ class TestGatherHealthStaleness:
             health_module,
             "_status_doc_last_updated_from_origin_main",
             fake_origin_last_updated,
-            raising=False,
         )
 
         report = gather_health(
@@ -351,6 +350,28 @@ class TestGatherHealthStaleness:
             raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
 
         monkeypatch.setattr(health_module.subprocess, "run", raise_decode_error)
+
+        assert (
+            health_module._status_doc_last_updated_from_origin_main(
+                tmp_path, health_module.DEFAULT_TW03_STATUS_REL
+            )
+            is None
+        )
+
+    def test_origin_main_missing_ref_degrades_to_none(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def return_missing_ref(
+            *_args: object, **_kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(
+                args=["git", "show"],
+                returncode=128,
+                stdout="",
+                stderr="fatal: invalid object name 'origin/main'",
+            )
+
+        monkeypatch.setattr(health_module.subprocess, "run", return_missing_ref)
 
         assert (
             health_module._status_doc_last_updated_from_origin_main(
