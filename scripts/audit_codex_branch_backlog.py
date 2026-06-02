@@ -41,6 +41,7 @@ TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "ski
 COMMIT_PREFIX_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 BRANCH_IDEMPOTENCY_PREFIXES = ("open-pr-", "already-satisfied-")
 DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS = 5
+DEFAULT_CHANGED_PATH_EXAMPLE_LIMIT = 8
 SALVAGE_CATEGORIES = {
     "salvage_recent_unique",
     "salvage_stale_remote_unique",
@@ -57,6 +58,9 @@ COMPACT_RECORD_EXAMPLE_FIELDS = (
     "subject",
     "ahead_count",
     "behind_count",
+    "changed_path_count",
+    "changed_path_examples",
+    "changed_paths_truncated",
     "divergence_lookup_failed",
     "patch_equivalence_skipped",
     "open_pr",
@@ -79,6 +83,9 @@ class BranchRecord:
     subject: str
     ahead_count: int | None
     behind_count: int | None
+    changed_path_count: int | None
+    changed_path_examples: list[str]
+    changed_paths_truncated: bool
     divergence_lookup_failed: bool
     merged_to_base: bool
     patch_equivalent_to_base: bool
@@ -803,6 +810,24 @@ def has_empty_branch_diff(
     return run_git(["diff", "--quiet", f"{base}...{branch}"], root, timeout=timeout).returncode == 0
 
 
+def branch_changed_paths(
+    root: Path,
+    base: str,
+    branch: str,
+    *,
+    example_limit: int = DEFAULT_CHANGED_PATH_EXAMPLE_LIMIT,
+    timeout: int = 60,
+) -> tuple[int | None, list[str], bool]:
+    """Return changed-path count plus compact examples for a branch diff."""
+
+    proc = run_git(["diff", "--name-only", "-z", f"{base}...{branch}"], root, timeout=timeout)
+    if proc.returncode != 0:
+        return None, [], False
+    paths = [path for path in proc.stdout.split("\0") if path]
+    limit = max(0, example_limit)
+    return len(paths), paths[:limit], len(paths) > limit
+
+
 def has_empty_changed_file_diff(
     root: Path,
     base: str,
@@ -1067,6 +1092,20 @@ def audit(
                 else:
                     ahead_count, behind_count = divergence
         merged_to_base = branch in merged_branches
+        changed_path_count: int | None = None
+        changed_path_examples: list[str] = []
+        changed_paths_truncated = False
+        if (
+            ahead_count is not None
+            and ahead_count > 0
+            and not merged_to_base
+            and not protected_before_patch_check
+        ):
+            (
+                changed_path_count,
+                changed_path_examples,
+                changed_paths_truncated,
+            ) = branch_changed_paths(root, base, branch, timeout=30)
         patch_equivalent = False
         patch_equivalence_skipped = False
         patch_id = None
@@ -1207,6 +1246,9 @@ def audit(
                 subject=row["subject"],
                 ahead_count=ahead_count,
                 behind_count=behind_count,
+                changed_path_count=changed_path_count,
+                changed_path_examples=changed_path_examples,
+                changed_paths_truncated=changed_paths_truncated,
                 divergence_lookup_failed=divergence_lookup_failed,
                 merged_to_base=merged_to_base,
                 patch_equivalent_to_base=patch_equivalent,
