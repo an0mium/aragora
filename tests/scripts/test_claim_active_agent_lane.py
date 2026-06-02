@@ -623,6 +623,7 @@ def test_resolve_registry_path_falls_back_to_user_home(
 ) -> None:
     repo_root = tmp_path / "no_aragora_dir"
     repo_root.mkdir()
+    monkeypatch.delenv(claim_module.AUTOMATION_STATE_ROOT_ENV, raising=False)
     monkeypatch.setattr(claim_module, "DEFAULT_SHARED_STATE_ROOT", tmp_path / "missing-shared")
     actual = claim_module.resolve_registry_path(repo_root=repo_root)
     assert actual == claim_module.USER_LANE_PATH
@@ -640,6 +641,23 @@ def test_resolve_registry_path_prefers_automation_state_root_env(
     actual = claim_module.resolve_registry_path(repo_root=repo_root)
 
     assert actual == state_root / ".aragora" / "agent-bridge" / "lanes.json"
+
+
+def test_resolve_registry_path_env_wins_over_default_shared_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "no_aragora_dir"
+    repo_root.mkdir()
+    default_root = tmp_path / "canonical-checkout"
+    env_root = tmp_path / "env-checkout"
+    (default_root / ".aragora" / "agent-bridge").mkdir(parents=True)
+    (env_root / ".aragora" / "agent-bridge").mkdir(parents=True)
+    monkeypatch.setattr(claim_module, "DEFAULT_SHARED_STATE_ROOT", default_root)
+    monkeypatch.setenv(claim_module.AUTOMATION_STATE_ROOT_ENV, str(env_root))
+
+    actual = claim_module.resolve_registry_path(repo_root=repo_root)
+
+    assert actual == env_root / ".aragora" / "agent-bridge" / "lanes.json"
 
 
 def test_resolve_registry_path_accepts_direct_aragora_state_root_env(
