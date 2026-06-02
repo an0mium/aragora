@@ -49,6 +49,10 @@ def _render_human(payload: dict[str, Any]) -> str:
         lines.append(f"scope: {payload['scope']}")
     if "count" in payload:
         lines.append(f"count: {payload['count']}")
+    if "emitted_count" in payload and payload.get("emitted_count") != payload.get("count"):
+        limit = payload.get("limit")
+        suffix = f" (limit: {limit})" if limit is not None else ""
+        lines.append(f"emitted_count: {payload['emitted_count']}{suffix}")
 
     if "items" in payload:
         items = payload.get("items") or []
@@ -111,12 +115,16 @@ def _emit(payload: dict[str, Any], *, as_json: bool) -> int:
 
 def cmd_work_list(args: argparse.Namespace) -> int:
     items, health = collect_work_items(_repo_root(args), scope=args.scope)
+    limit = getattr(args, "limit", None)
+    emitted_items = items[:limit] if limit is not None else items
     return _emit(
         {
             "schema_version": SCHEMA_VERSION,
             "scope": args.scope,
             "count": len(items),
-            "items": [item.to_dict() for item in items],
+            "emitted_count": len(emitted_items),
+            "limit": limit,
+            "items": [item.to_dict() for item in emitted_items],
             "source_health": health,
         },
         as_json=getattr(args, "json", False),
@@ -143,12 +151,16 @@ def cmd_work_graph(args: argparse.Namespace) -> int:
 
 def cmd_work_robot(args: argparse.Namespace) -> int:
     recommendations, health = build_robot_recommendations(_repo_root(args), scope="current")
+    limit = getattr(args, "limit", None)
+    emitted_recommendations = recommendations[:limit] if limit is not None else recommendations
     return _emit(
         {
             "schema_version": SCHEMA_VERSION,
             "scope": "current",
             "count": len(recommendations),
-            "recommendations": [rec.to_dict() for rec in recommendations],
+            "emitted_count": len(emitted_recommendations),
+            "limit": limit,
+            "recommendations": [rec.to_dict() for rec in emitted_recommendations],
             "source_health": health,
             "mutations": [],
         },

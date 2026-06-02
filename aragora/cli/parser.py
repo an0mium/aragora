@@ -298,6 +298,13 @@ def _add_metrics_parser(subparsers) -> None:
 
 def _add_work_parser(subparsers) -> None:
     """Add the read-only Aragora-native work board commands."""
+
+    def _nonnegative_int(raw: str) -> int:
+        value = int(raw)
+        if value < 0:
+            raise argparse.ArgumentTypeError("must be >= 0")
+        return value
+
     work = subparsers.add_parser(
         "work",
         help="Inspect the read-only Aragora work board",
@@ -322,6 +329,14 @@ def _add_work_parser(subparsers) -> None:
         p.add_argument("--repo", default=".", help="Repository root to inspect (default: cwd)")
         p.add_argument("--json", action="store_true", help="Emit stable JSON")
 
+    def add_limit(p) -> None:
+        p.add_argument(
+            "--limit",
+            type=_nonnegative_int,
+            default=None,
+            help="Maximum number of records to emit while preserving the total count",
+        )
+
     list_cmd = work_sub.add_parser("list", help="List normalized work items")
     add_common(list_cmd)
     list_cmd.add_argument(
@@ -330,6 +345,7 @@ def _add_work_parser(subparsers) -> None:
         default="current",
         help="current excludes terminal/historical noise; all includes context records",
     )
+    add_limit(list_cmd)
     list_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_list"))
 
     show_cmd = work_sub.add_parser("show", help="Show one normalized work item")
@@ -347,6 +363,7 @@ def _add_work_parser(subparsers) -> None:
         help="Rank current work into read-only actionable recommendations",
     )
     add_common(robot_cmd)
+    add_limit(robot_cmd)
     robot_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_robot"))
 
 
