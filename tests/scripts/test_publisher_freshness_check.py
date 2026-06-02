@@ -147,6 +147,7 @@ def test_degraded_when_cache_stale(monkeypatch: pytest.MonkeyPatch, stub_repo: P
     assert report.cache_stale is True
     assert any(b.startswith("cache:") for b in report.blockers)
     assert report.cache_age_human == "2.0h"
+    assert "cache: 2.0h stale" in report.summary
 
 
 def test_warming_when_loaded_but_drift(monkeypatch: pytest.MonkeyPatch, stub_repo: Path) -> None:

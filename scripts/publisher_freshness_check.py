@@ -304,7 +304,10 @@ def evaluate(
         summary_parts.append(f"launchd: loaded but failing exit_code={last_exit_code} ({name})")
     else:
         summary_parts.append(f"launchd: {detail}")
-    summary_parts.append(f"cache: {_human_age(cache_age) if cache_present else 'missing'}")
+    cache_summary = _human_age(cache_age) if cache_present else "missing"
+    if cache_present and cache_stale:
+        cache_summary = f"{cache_summary} stale"
+    summary_parts.append(f"cache: {cache_summary}")
     summary_parts.append(f"drift: {drift_detail}")
     summary = f"publisher: {verdict} ({'; '.join(summary_parts)})"
 
