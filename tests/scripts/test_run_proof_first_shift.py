@@ -374,6 +374,55 @@ def test_run_shift_stops_before_starting_cycle_after_deadline(tmp_path: Path) ->
     assert str(summary["shift"]["stop_reason"]).startswith("TimeLimit:")
 
 
+def test_run_shift_stops_before_controller_cycle_when_cycle_exhausts_deadline(
+    tmp_path: Path,
+) -> None:
+    args = mod._build_parser().parse_args(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--max-hours",
+            "0.01",
+            "--interval-seconds",
+            "1",
+        ]
+    )
+
+    cycle_completed = False
+
+    def fake_monotonic() -> float:
+        return 37.0 if cycle_completed else 0.0
+
+    def slow_cycle_report(**_: object) -> dict[str, object]:
+        nonlocal cycle_completed
+        cycle_completed = True
+        return {
+            "queue_report": {"kept": [], "removed": []},
+            "open_pr_count": 0,
+            "automation_backlog": 0,
+            "actions": ["slow_cycle"],
+            "stop_reason": "",
+            "green_shift_evaluation": {"is_green": False},
+        }
+
+    with (
+        patch("scripts.run_proof_first_shift.time.monotonic", side_effect=fake_monotonic),
+        patch(
+            "scripts.run_proof_first_shift.run_shift_cycle",
+            side_effect=slow_cycle_report,
+        ),
+        patch.object(
+            mod.ShiftController,
+            "run_cycle",
+            side_effect=AssertionError("expired shift must not start controller cycle"),
+        ),
+    ):
+        summary = asyncio.run(mod._run_shift(args))
+
+    assert len(summary["cycles"]) == 1
+    assert str(summary["shift"]["stop_reason"]).startswith("TimeLimit:")
+
+
 def test_run_shift_cycle_caps_merge_apply_timeout_to_remaining_shift_budget() -> None:
     state = mod.ProofFirstRuntimeState()
     repo_root = Path(".").resolve()

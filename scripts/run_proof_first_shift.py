@@ -1710,20 +1710,26 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
 
     cycle_reports: list[dict[str, Any]] = []
     cycle_count = 0
-    while True:
+
+    def stop_if_time_budget_exhausted(action: str) -> bool:
         deadline_reason = _time_budget_blocker(
             deadline_monotonic=deadline_monotonic,
             max_hours=max_hours,
-            action="shift_cycle",
+            action=action,
         )
-        if deadline_reason:
-            controller.complete_shift(deadline_reason)
-            ledger.record_shift_stop(
-                shift_id=shift_id,
-                reason=deadline_reason,
-                cycles=cycle_count,
-                duration_seconds=time.monotonic() - shift_start_time,
-            )
+        if not deadline_reason:
+            return False
+        controller.complete_shift(deadline_reason)
+        ledger.record_shift_stop(
+            shift_id=shift_id,
+            reason=deadline_reason,
+            cycles=cycle_count,
+            duration_seconds=time.monotonic() - shift_start_time,
+        )
+        return True
+
+    while True:
+        if stop_if_time_budget_exhausted("shift_cycle"):
             break
 
         should_stop, reason = controller.check_should_stop()
@@ -1770,8 +1776,12 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
         cycle_count += 1
         save_runtime_state(runtime_state_path, runtime_state)
 
+        if stop_if_time_budget_exhausted("controller_cycle"):
+            break
         objective = build_cycle_objective(report)
         await controller.run_cycle(objective)
+        if stop_if_time_budget_exhausted("post_cycle_wait"):
+            break
         if report["stop_reason"]:
             controller.complete_shift(str(report["stop_reason"]))
             ledger.record_shift_stop(
