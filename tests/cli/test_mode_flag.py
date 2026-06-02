@@ -182,11 +182,14 @@ class TestModeInDecide:
         """run_decide raises KeyError for unknown mode."""
         from aragora.cli.commands.decide import run_decide
 
+        missing_mode = "__missing_decide_mode_for_test__"
+        assert ModeRegistry.get(missing_mode) is None
+
         with pytest.raises(KeyError, match="not found"):
             await run_decide(
                 task="Decide something",
                 agents_str="claude,claude",
-                mode="nonexistent",
+                mode=missing_mode,
             )
 
     def test_decide_valid_mode_resolves_prompt(self):
