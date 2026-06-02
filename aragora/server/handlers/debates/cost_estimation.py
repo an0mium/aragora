@@ -23,6 +23,7 @@ SYSTEM_PROMPT_TOKENS = 500  # one-time system prompt overhead per agent
 MODEL_PROVIDER_MAP: dict[str, tuple[str, str]] = {
     "claude-opus-4": ("anthropic", "claude-opus-4"),
     "claude-opus-4.7": ("anthropic", "claude-opus-4.7"),
+    "claude-opus-4.8": ("anthropic", "claude-opus-4.8"),
     "claude-opus-4-8": ("anthropic", "claude-opus-4.8"),
     "claude-opus-4-7": ("anthropic", "claude-opus-4.7"),
     "claude-sonnet-4": ("anthropic", "claude-sonnet-4"),
