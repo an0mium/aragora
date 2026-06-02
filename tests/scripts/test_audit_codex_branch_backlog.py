@@ -374,6 +374,67 @@ def test_audit_skips_open_pr_lookup_when_github_health_degraded(
     assert payload["records"][0]["category"] == "salvage_recent_unique"
 
 
+def test_audit_uses_cached_open_pr_heads_when_github_health_degraded(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    row = _branch_row("codex/has-cached-pr")
+    _stub_git_inventory(monkeypatch, row)
+    cache_dir = tmp_path / ".aragora" / "automation-github-status"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "latest.json").write_text(
+        json.dumps(
+            {
+                "github_health": {"ready": True, "mode": "ready"},
+                "github_queue": {
+                    "available": True,
+                    "open_pr_heads": ["codex/has-cached-pr", "other/branch"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("live PR lookup should be skipped")
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    record = payload["records"][0]
+    assert payload["open_pr_lookup_skipped"] is True
+    assert payload["cached_open_pr_lookup_used"] is True
+    assert payload["cached_open_pr_head_count"] == 1
+    assert record["open_pr"] is None
+    assert record["open_pr_cached"] is True
+    assert record["category"] == "protected_open_pr"
+    assert payload["summary"]["protected"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 0
+
+
 def test_audit_passes_bounded_timeout_to_github_health(tmp_path: Path, monkeypatch: Any) -> None:
     _stub_git_inventory(monkeypatch, _branch_row())
     observed_timeouts: list[int] = []
