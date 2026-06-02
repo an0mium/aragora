@@ -316,6 +316,25 @@ def test_main_accepts_cache_file_alias(
     assert parsed["cache_path"] == str(cache_path.resolve())
 
 
+def test_main_preserves_cache_abbreviation_as_explicit_alias(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cache_path = stub_repo / "custom-cache-abbrev.json"
+    cache_path.write_text(
+        json.dumps({"generated_at": "2026-05-05T12:00:00Z", "local_queue": {"outbox_count": 0}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+
+    rc = mod.main(["--repo", str(stub_repo), "--cache", str(cache_path), "--json"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["verdict"] == "ready"
+    assert parsed["cache_path"] == str(cache_path.resolve())
+
+
 def test_main_resolves_explicit_relative_paths_from_repo(
     monkeypatch: pytest.MonkeyPatch,
     stub_repo: Path,

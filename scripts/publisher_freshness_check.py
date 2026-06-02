@@ -338,6 +338,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--cache-path",
         "--status-cache",
         "--cache-file",
+        "--cache",
         dest="cache_path",
         default=None,
         help="Path to the publisher status cache JSON",
