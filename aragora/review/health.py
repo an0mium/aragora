@@ -300,10 +300,12 @@ def _status_doc_last_updated_from_origin_main(repo: Path, rel_path: Path) -> dat
             cwd=str(repo),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
             timeout=GIT_SHOW_TIMEOUT_SECONDS,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError):
         return None
     if proc.returncode != 0:
         return None
@@ -339,7 +341,7 @@ def _check_status_doc(
     status = _classify_age(age, warn_h, crit_h)
     extra: dict[str, object] = {}
     detail: str | None = None
-    if repo_root is not None and rel_path is not None:
+    if status != STATUS_FRESH and repo_root is not None and rel_path is not None:
         origin_last = _status_doc_last_updated_from_origin_main(repo_root, rel_path)
         if origin_last is not None and origin_last > last:
             origin_age = _age_hours(origin_last, now)

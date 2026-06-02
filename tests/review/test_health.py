@@ -312,6 +312,53 @@ class TestGatherHealthStaleness:
         assert tw03.extra["origin_main_last_updated"] == fresh.isoformat()
         assert "origin/main has fresher Last updated" in str(tw03.detail)
 
+    def test_fresh_status_docs_do_not_probe_origin_main(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        fresh = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _write_status_doc(layout["docs_status"] / "B0_BENCHMARK_TRUTH_STATUS.md", fresh)
+        _write_status_doc(layout["docs_status"] / "TW03_RESCUE_PRODUCTIZATION_STATUS.md", fresh)
+
+        def fail_if_called(repo: Path, rel: Path) -> datetime | None:
+            raise AssertionError(f"unexpected origin/main lookup for {repo}:{rel}")
+
+        monkeypatch.setattr(
+            health_module,
+            "_status_doc_last_updated_from_origin_main",
+            fail_if_called,
+        )
+
+        report = gather_health(
+            repo_root=layout["repo"],
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+        )
+
+        by_name = {s.name: s for s in report.surfaces}
+        assert by_name["b0_publication"].status == STATUS_FRESH
+        assert by_name["tw03_rescue"].status == STATUS_FRESH
+        assert by_name["b0_publication"].extra == {}
+        assert by_name["tw03_rescue"].extra == {}
+
+    def test_origin_main_decode_failure_degrades_to_none(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def raise_decode_error(
+            *_args: object, **_kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+        monkeypatch.setattr(health_module.subprocess, "run", raise_decode_error)
+
+        assert (
+            health_module._status_doc_last_updated_from_origin_main(
+                tmp_path, health_module.DEFAULT_TW03_STATUS_REL
+            )
+            is None
+        )
+
     def test_origin_main_status_doc_parser_reads_local_ref(self, tmp_path: Path) -> None:
         repo = tmp_path / "repo"
         repo.mkdir()
