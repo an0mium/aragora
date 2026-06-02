@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **102**
-- Total top-level invocations (including aliases): **103**
+- Canonical top-level commands: **104**
+- Total top-level invocations (including aliases): **105**
 
 ## Installation
 
@@ -57,6 +57,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `calibration` | - | AGT-03.3: per-agent rolling-window Brier reports from market data | `leaderboard`, `report` |
 | `codebase-audit` | - | Run a staged repo audit with triage, threat-surface ranking, and deep audit | - |
 | `codex` | - | Read-only inspector for Codex Desktop local state | `insights`, `sessions` |
+| `coherence-scan` | - | DIC-26: scan a belief ledger for contradictions, evidence conflicts, and confidence rot | - |
 | `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `evidence`, `export`, `report`, `status` |
 | `computer-use` | - | Computer use task management | `list`, `run`, `status` |
 | `config` | - | Manage configuration | - |
@@ -106,6 +107,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `pipeline` | - | Run idea-to-execution pipeline operations | `dogfood`, `run`, `self-improve`, `status` |
 | `plans` | - | Manage decision plans | `approve`, `execute`, `list`, `reject`, `show` |
 | `playbook` | - | List and run decision playbooks | `list`, `run` |
+| `proof-units` | - | DIC-19: inspect proof-carrying code unit constraint graph | - |
 | `publish` | - | Build, test, and publish packages to PyPI/npm | - |
 | `quickstart` | - | Guided zero-to-receipt first debate (new user onboarding) | - |
 | `ralph` | - | Ralph campaign supervisor — autonomous incident commander | - |
