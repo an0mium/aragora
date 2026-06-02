@@ -20,6 +20,8 @@ from enum import Enum
 from typing import Any
 from re import Pattern
 
+from aragora.compliance.phi_detectors import PHI_DETECTORS
+
 
 class ComplianceSeverity(Enum):
     """Severity levels for compliance issues."""
@@ -110,6 +112,17 @@ class ComplianceRule:
     recommendation: str = ""
     category: str = ""
     references: list[str] = field(default_factory=list)
+    # Named validated-format detectors (e.g. "ssn", "npi") from PHI_DETECTORS.
+    # Used for structured identifiers whose precise format makes deterministic
+    # detection (with check-digit/range validation) the correct tool.
+    #
+    # Appended at the END of the field list (after ``references``) so the
+    # generated ``__init__`` positional order matches pre-PHI callers that
+    # construct rules positionally (``ComplianceRule(..., pattern, keywords,
+    # recommendation, category, references)``). Adding it earlier would shift
+    # ``recommendation``/``category``/``references`` into the wrong slots and
+    # cause ``check()`` to iterate a recommendation string char-by-char.
+    validators: list[str] = field(default_factory=list)
 
     # Compiled regex (lazy)
     _compiled_pattern: Pattern | None = None
@@ -166,6 +179,29 @@ class ComplianceRule:
                     )
                 )
                 break  # Only report once per keyword set
+
+        # Check validated structured-identifier detectors
+        for validator_name in self.validators:
+            detector = PHI_DETECTORS.get(validator_name)
+            if detector is None:
+                continue
+            for found in detector(content):
+                line_num = content[: found.start].count("\n") + 1
+                issues.append(
+                    ComplianceIssue(
+                        framework=self.framework,
+                        rule_id=self.id,
+                        severity=self.severity,
+                        description=self.description,
+                        recommendation=self.recommendation,
+                        matched_text=found.text,
+                        line_number=line_num,
+                        metadata={
+                            "category": self.category,
+                            "validator": validator_name,
+                        },
+                    )
+                )
 
         return issues
 
@@ -229,6 +265,80 @@ HIPAA_FRAMEWORK = ComplianceFramework(
                 "social security",
             ],
             recommendation="Ensure PHI is encrypted at rest and in transit. Apply minimum necessary standard.",
+            category="privacy",
+        ),
+        # Structured identifier detectors (validated formats, not keywords).
+        # These detect the actual PHI values in content -- SSNs, NPIs, ICD-10
+        # codes, MRNs, dates of birth, emails, phone numbers -- which the
+        # keyword/regex rules above cannot find.
+        ComplianceRule(
+            id="hipaa-phi-ssn",
+            framework="hipaa",
+            name="SSN in Content",
+            description="Social Security Number detected (direct PHI identifier)",
+            severity=ComplianceSeverity.CRITICAL,
+            validators=["ssn"],
+            recommendation="Remove or tokenize SSNs. Encrypt and restrict access under the minimum necessary standard.",
+            category="privacy",
+        ),
+        ComplianceRule(
+            id="hipaa-phi-npi",
+            framework="hipaa",
+            name="NPI in Content",
+            description="National Provider Identifier detected (provider PHI identifier)",
+            severity=ComplianceSeverity.HIGH,
+            validators=["npi"],
+            recommendation="Restrict and audit access to provider identifiers. Encrypt at rest and in transit.",
+            category="privacy",
+        ),
+        ComplianceRule(
+            id="hipaa-phi-icd10",
+            framework="hipaa",
+            name="ICD-10 Diagnosis Code",
+            description="ICD-10 diagnosis code detected (health condition PHI)",
+            severity=ComplianceSeverity.HIGH,
+            validators=["icd10"],
+            recommendation="Treat diagnosis codes as PHI. Encrypt and apply the minimum necessary standard.",
+            category="privacy",
+        ),
+        ComplianceRule(
+            id="hipaa-phi-mrn",
+            framework="hipaa",
+            name="Medical Record Number",
+            description="Medical Record Number detected (direct PHI identifier)",
+            severity=ComplianceSeverity.CRITICAL,
+            validators=["mrn"],
+            recommendation="Remove or tokenize MRNs. Encrypt and restrict access under the minimum necessary standard.",
+            category="privacy",
+        ),
+        ComplianceRule(
+            id="hipaa-phi-dob",
+            framework="hipaa",
+            name="Date of Birth",
+            description="Date of birth detected (PHI identifier under the Safe Harbor method)",
+            severity=ComplianceSeverity.HIGH,
+            validators=["dob"],
+            recommendation="De-identify dates per HIPAA Safe Harbor (retain year only) where feasible.",
+            category="privacy",
+        ),
+        ComplianceRule(
+            id="hipaa-phi-email",
+            framework="hipaa",
+            name="Email Address",
+            description="Email address detected (PHI identifier under the Safe Harbor method)",
+            severity=ComplianceSeverity.HIGH,
+            validators=["email"],
+            recommendation="Treat contact details as PHI. Encrypt and restrict access.",
+            category="privacy",
+        ),
+        ComplianceRule(
+            id="hipaa-phi-phone",
+            framework="hipaa",
+            name="Phone Number",
+            description="Telephone number detected (PHI identifier under the Safe Harbor method)",
+            severity=ComplianceSeverity.HIGH,
+            validators=["phone"],
+            recommendation="Treat contact details as PHI. Encrypt and restrict access.",
             category="privacy",
         ),
         ComplianceRule(

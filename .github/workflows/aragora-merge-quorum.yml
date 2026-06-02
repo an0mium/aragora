@@ -27,7 +27,16 @@ on:
 
 concurrency:
   group: aragora-merge-quorum-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
-  cancel-in-progress: true
+  # cancel-in-progress is intentionally false. With true, two triggers for the
+  # same PR (e.g. synchronize + reopened, or rapid pushes) cancel each other;
+  # a cancelled run reports a "cancelled" conclusion, which turns this REQUIRED
+  # check red and blocks the PR until a human manually reruns and wins a green
+  # window. The repo already set cancel-in-progress:false on its other
+  # non-required workflows to "stop the doom loop"; we do the same here so
+  # concurrent runs run to completion instead of cancelling into a red status.
+  # GitHub still evaluates the latest completed run per head SHA, so the gate is
+  # not weakened — only the self-cancel race is removed.
+  cancel-in-progress: false
 
 permissions:
   contents: read

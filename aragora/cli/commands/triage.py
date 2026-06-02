@@ -38,9 +38,16 @@ def _load_local_dotenv() -> None:
 def _get_secret_fallback(name: str) -> str:
     """Resolve a secret via Aragora's secret loader when available."""
     try:
-        from aragora.config.secrets import get_secret
+        from aragora.config.secrets import SecretNotFoundError, get_secret
 
         return str(get_secret(name) or "")
+    except SecretNotFoundError as exc:
+        # Strict-secrets / production posture: a CRITICAL_SECRET absent from
+        # AWS Secrets Manager raises rather than falling back to env. For
+        # read-only diagnostics ("is this key configured?") that simply means
+        # "not available" -- degrade to "" instead of crashing the command.
+        logger.debug("Secret %s not available in strict mode: %s", name, exc)
+        return ""
     except (ImportError, OSError, ValueError) as exc:
         logger.debug("Secret fallback for %s unavailable: %s", name, exc)
         return ""

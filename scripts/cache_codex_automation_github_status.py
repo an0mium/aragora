@@ -532,6 +532,16 @@ def _merge_state_counts(open_prs: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
+def _github_queue_unavailable(*, reason: str, error: str | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "available": False,
+        "reason": reason,
+    }
+    if error:
+        payload["error"] = error
+    return payload
+
+
 def build_status(
     *,
     repo_root: Path,
@@ -560,15 +570,20 @@ def build_status(
     }
 
     if not health.ready:
-        payload["github_queue"] = {
-            "available": False,
-            "reason": health.mode,
-        }
+        payload["github_queue"] = _github_queue_unavailable(reason=health.mode)
         return payload
 
-    open_prs = _open_codex_prs(repo_root, github_repo)
+    try:
+        open_prs = _open_codex_prs(repo_root, github_repo)
+        open_issue_count = _open_boss_ready_count(repo_root, github_repo, list(labels))
+    except RuntimeError as exc:
+        payload["github_queue"] = _github_queue_unavailable(
+            reason="remote_query_failed",
+            error=str(exc),
+        )
+        return payload
+
     unhealthy_open_pr_count = sum(1 for item in open_prs if _open_codex_pr_is_unhealthy(item))
-    open_issue_count = _open_boss_ready_count(repo_root, github_repo, list(labels))
     payload["github_queue"] = {
         "available": True,
         "open_codex_pr_count": len(open_prs),

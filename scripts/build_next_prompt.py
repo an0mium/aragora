@@ -156,6 +156,261 @@ def _root_packet(command_runner: CommandRunner) -> dict[str, Any]:
     return {"dirty": dirty, "status": lines, "returncode": status["returncode"]}
 
 
+def _worktree_entries(repo_root: Path, command_runner: CommandRunner) -> list[dict[str, Any]]:
+    """Return registered git worktrees from ``git worktree list --porcelain``."""
+
+    result = _run_text(["git", "worktree", "list", "--porcelain"], command_runner)
+    if result["returncode"] != 0:
+        raise RuntimeError(result["stderr"].strip() or "git worktree list failed")
+
+    entries: list[dict[str, Any]] = []
+    current: dict[str, Any] = {}
+    for line in result["stdout"].splitlines():
+        if not line:
+            if current:
+                entries.append(current)
+                current = {}
+            continue
+        key, _, value = line.partition(" ")
+        if key == "worktree":
+            if current:
+                entries.append(current)
+            current = {"path": value}
+        elif key == "HEAD":
+            current["listed_head"] = value
+        elif key == "branch":
+            current["branch"] = value
+        elif key == "detached":
+            current["detached"] = True
+        elif key == "bare":
+            current["bare"] = True
+    if current:
+        entries.append(current)
+
+    if not entries:
+        return [{"path": str(repo_root)}]
+    return entries
+
+
+def _worktree_clean_origin_main_status(
+    path: Path,
+    command_runner: CommandRunner,
+) -> dict[str, Any]:
+    """Classify whether ``path`` is clean and exactly at local ``origin/main``."""
+
+    summary: dict[str, Any] = {
+        "path": str(path),
+        "status": "missing",
+        "head": None,
+        "origin_main": None,
+        "status_lines": [],
+        "dirty_paths": [],
+    }
+    if not path.exists():
+        return summary
+
+    status = _run_text(
+        ["git", "-C", str(path), "status", "--short", "--branch", "--untracked-files=all"],
+        command_runner,
+    )
+    if status["returncode"] != 0:
+        summary.update(
+            {
+                "status": "git_error",
+                "error": status["stderr"].strip() or "git status failed",
+                "returncode": status["returncode"],
+            }
+        )
+        return summary
+
+    lines = [line for line in status["stdout"].splitlines() if line.strip()]
+    dirty_paths = [line[3:].strip() for line in lines if not line.startswith("##")]
+    summary["status_lines"] = lines
+    summary["dirty_paths"] = dirty_paths
+
+    revs = _run_text(["git", "-C", str(path), "rev-parse", "HEAD", "origin/main"], command_runner)
+    rev_lines = [line.strip() for line in revs["stdout"].splitlines() if line.strip()]
+    if revs["returncode"] == 0 and len(rev_lines) >= 2:
+        summary["head"] = rev_lines[0]
+        summary["origin_main"] = rev_lines[1]
+
+    if dirty_paths:
+        summary["status"] = "dirty"
+        return summary
+
+    if revs["returncode"] != 0 or len(rev_lines) < 2:
+        summary.update(
+            {
+                "status": "git_error",
+                "error": revs["stderr"].strip() or "git rev-parse HEAD origin/main failed",
+                "returncode": revs["returncode"],
+            }
+        )
+        return summary
+
+    summary["status"] = (
+        "usable_clean_origin_main"
+        if summary["head"] == summary["origin_main"]
+        else "stale_vs_origin_main"
+    )
+    return summary
+
+
+def _same_path(left: Path, right: Path) -> bool:
+    try:
+        return left.resolve() == right.resolve()
+    except OSError:
+        return left == right
+
+
+def _clean_checkout_prompt(
+    pr: int | None,
+    expected_head: str | None,
+    repo_root: Path,
+) -> str:
+    pr_fragment = f"PR #{pr}" if pr is not None else "the live queue"
+    worktree_name = f"aragora-pr{pr}-triage" if pr is not None else "aragora-queue-triage"
+    worktree_path = f"/private/tmp/{worktree_name}"
+    mailbox = (
+        f"python3 scripts/read_operator_steering.py --pr {pr} --no-receipt --json || true"
+        if pr is not None
+        else "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only || true"
+    )
+    head_guard = (
+        f"Stop if {pr_fragment} head drifted from {expected_head}."
+        if expected_head and pr is not None
+        else "Stop if the target head drifts from the operator-specified exact head."
+    )
+    return "\n".join(
+        [
+            f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+            "Do not use or mutate dirty root source files. Do not merge/admin-merge without separate explicit operator authorization.",
+            "",
+            f"Goal: continue {pr_fragment} from a trusted clean current origin/main checkout.",
+            "",
+            "First create a disposable detached triage worktree because no registered clean origin/main checkout is available:",
+            "git fetch origin main",
+            f"git worktree add --detach {worktree_path} origin/main",
+            "",
+            f"Run all repo-native helpers from {worktree_path} only.",
+            "",
+            "Before lane work, check operator-steering mailbox:",
+            mailbox,
+            "",
+            "Re-check clean checkout truth:",
+            f"git -C {worktree_path} status --short --branch --untracked-files=all",
+            f"git -C {worktree_path} rev-parse HEAD origin/main",
+            "",
+            head_guard,
+            "If the clean checkout is not exactly at origin/main or becomes dirty, stop and report the blocker.",
+            "If live gates are stable, continue only within the original bounded queue prompt. Do not mutate unrelated PRs.",
+            CONVERGENCE_SENTENCE,
+        ]
+    )
+
+
+def _selected_clean_checkout_prompt(
+    selected_path: str,
+    *,
+    pr: int | None,
+    expected_head: str | None,
+) -> str:
+    pr_fragment = f"PR #{pr}" if pr is not None else "the live queue"
+    head_guard = (
+        f"Stop if {pr_fragment} head drifted from {expected_head}."
+        if expected_head and pr is not None
+        else "Stop if the target head drifts from the operator-specified exact head."
+    )
+    return "\n".join(
+        [
+            "Before using the selected clean checkout, refresh remote truth and revalidate it:",
+            f"git -C {selected_path} fetch origin main",
+            f"git -C {selected_path} status --short --branch --untracked-files=all",
+            f"git -C {selected_path} rev-parse HEAD origin/main",
+            "",
+            (
+                "Use the selected checkout for repo-native helpers only if it remains clean "
+                "and HEAD equals the refreshed origin/main after fetch."
+            ),
+            "If it is dirty or stale after fetch, do not use it; create a disposable detached triage worktree from origin/main instead.",
+            head_guard,
+        ]
+    )
+
+
+def _clean_checkout_packet(
+    repo_root: Path,
+    command_runner: CommandRunner,
+    *,
+    pr: int | None = None,
+    expected_head: str | None = None,
+) -> dict[str, Any]:
+    root_summary = _worktree_clean_origin_main_status(repo_root, command_runner)
+    candidates: list[dict[str, Any]] = [{**root_summary, "role": "root"}]
+    if root_summary["status"] == "usable_clean_origin_main":
+        return {
+            "status": "root_usable",
+            "selected_path": str(repo_root),
+            "candidates": candidates,
+            "recommended_prompt": None,
+        }
+
+    try:
+        entries = _worktree_entries(repo_root, command_runner)
+    except RuntimeError as exc:
+        return {
+            "status": "error",
+            "selected_path": None,
+            "candidates": candidates,
+            "recommended_prompt": _clean_checkout_prompt(pr, expected_head, repo_root),
+            "error": str(exc),
+        }
+
+    selected_path: str | None = None
+    for entry in entries:
+        entry_path = Path(str(entry.get("path") or ""))
+        if not entry_path or _same_path(entry_path, repo_root):
+            continue
+        summary = _worktree_clean_origin_main_status(entry_path, command_runner)
+        summary.update(
+            {
+                "role": "worktree",
+                "branch": entry.get("branch"),
+                "detached": bool(entry.get("detached")),
+                "listed_head": entry.get("listed_head"),
+            }
+        )
+        candidates.append(summary)
+        if selected_path is None and summary["status"] == "usable_clean_origin_main":
+            selected_path = str(entry_path)
+
+    if selected_path is not None:
+        return {
+            "status": "selected",
+            "selected_path": selected_path,
+            "candidates": candidates,
+            "recommended_prompt": _selected_clean_checkout_prompt(
+                selected_path,
+                pr=pr,
+                expected_head=expected_head,
+            ),
+        }
+
+    return {
+        "status": "needs_disposable_worktree",
+        "selected_path": None,
+        "candidates": candidates,
+        "recommended_prompt": _clean_checkout_prompt(pr, expected_head, repo_root),
+    }
+
+
+def _clean_checkout_uses_disposable_prompt(clean_checkout: dict[str, Any]) -> bool:
+    return clean_checkout.get("status") in {
+        "needs_disposable_worktree",
+        "error",
+    } and bool(clean_checkout.get("recommended_prompt"))
+
+
 def _state_dir(state_root: Path) -> Path:
     expanded = state_root.expanduser()
     return expanded if expanded.name == ".aragora" else expanded / ".aragora"
@@ -434,6 +689,12 @@ def build_decision_packet(
     )
     blockers: list[str] = []
     root = _root_packet(runner)
+    clean_checkout = _clean_checkout_packet(
+        repo_root,
+        runner,
+        pr=pr,
+        expected_head=expected_head,
+    )
     if root["dirty"]:
         blockers.append("dirty root")
     if lane and str(lane.get("status") or "") in ACTIVE_STATUSES:
@@ -445,6 +706,7 @@ def build_decision_packet(
         "owner": _sanitize(lane) if lane else None,
         "target_active_lanes": target_active_lanes,
         "root": root,
+        "clean_checkout": clean_checkout,
         "owner_map": _active_owner_map(lanes),
         "bridge_health": _run_json(
             ["python3", "scripts/agent_bridge.py", "--json", "health"],
@@ -471,6 +733,10 @@ def build_decision_packet(
         "blockers": blockers,
         "selected_action": "read_only_owner_routing"
         if "active owner exists for target" in blockers
+        else "queue_prompt_from_clean_checkout"
+        if root["dirty"] and clean_checkout.get("status") == "selected"
+        else "create_clean_checkout_prompt"
+        if root["dirty"] and _clean_checkout_uses_disposable_prompt(clean_checkout)
         else "repair_or_stop"
         if root["dirty"]
         else "queue_prompt",
@@ -541,10 +807,19 @@ def build_prompt(
     lane_id: str | None = None,
     pr: int | None = None,
     branch: str | None = None,
+    expected_head: str | None = None,
+    command_runner: CommandRunner | None = None,
 ) -> str:
     lanes = _read_lanes(registry_path)
     lane = _find_lane(lanes, lane_id=lane_id, pr=pr, branch=branch)
     mailbox = _mailbox_command(lane, pr=pr, branch=branch)
+    runner = command_runner or _repo_runner(repo_root)
+    clean_checkout = _clean_checkout_packet(
+        repo_root,
+        runner,
+        pr=pr,
+        expected_head=expected_head,
+    )
     target = (
         f"lane {lane_id}"
         if lane_id
@@ -568,6 +843,30 @@ def build_prompt(
         "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only || true",
         "python3 scripts/list_active_agent_sessions.py --json --codex-session-scan-limit 120",
     ]
+    if clean_checkout.get("status") == "selected":
+        selected_path = clean_checkout.get("selected_path")
+        lines.extend(
+            [
+                "",
+                "Clean-checkout routing: root is not suitable for repo-native helpers, but a registered clean origin/main checkout is available.",
+                f"Run repo-native helpers only from this checkout: {selected_path}",
+                clean_checkout.get("recommended_prompt") or "",
+            ]
+        )
+    elif _clean_checkout_uses_disposable_prompt(clean_checkout):
+        routing_reason = (
+            "the registered clean-checkout scan failed"
+            if clean_checkout.get("status") == "error"
+            else "no registered clean origin/main checkout is available"
+        )
+        lines.extend(
+            [
+                "",
+                f"Clean-checkout routing: {routing_reason}.",
+                "Use this bounded prompt before running repo-native queue helpers:",
+                clean_checkout.get("recommended_prompt") or "",
+            ]
+        )
     if pr is not None:
         lines.extend(
             [
@@ -705,6 +1004,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         lane_id=args.lane_id,
         pr=args.pr,
         branch=args.branch,
+        expected_head=args.expected_head,
     )
     packet: dict[str, Any] | None = None
     guard_prompt: str | None = None

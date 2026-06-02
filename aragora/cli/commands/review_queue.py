@@ -24,6 +24,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -1767,7 +1768,7 @@ def _fetch_required_status_check_protection(
                 "/protection/required_status_checks",
             ]
         )
-    except _GhError:
+    except Exception:
         return {"available": False, "contexts": [], "strict": None}
     if not isinstance(payload, dict):
         return {"available": False, "contexts": [], "strict": None}
@@ -1806,7 +1807,7 @@ def _fetch_direct_commit_check_runs(repo_slug: str, head_sha: str) -> list[dict[
                 f"repos/{repo_slug}/commits/{head_sha}/check-runs?per_page=100",
             ]
         )
-    except _GhError:
+    except Exception:
         return []
     if not isinstance(payload, dict):
         return []
@@ -2178,6 +2179,7 @@ def _build_packet(
             "files",
             "body",
             "comments",
+            "reviews",
             "commits",
         ]
     )
@@ -2657,6 +2659,12 @@ def _build_model_review_quorum(
     blocking_workflow_state = bool(blocking_workflow_reasons)
     unresolved_dissent = bool(dissenting_views)
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
+    review_object_warnings = _review_object_quorum_warnings(
+        pr.get("reviews") or [],
+        counted_reviewer_ids=counted_reviewer_ids,
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+    )
     signal_count = len(counted_reviewer_ids)
     has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
         _known_model_reviewer_id(item) for item in dogfood_evidence
@@ -2694,6 +2702,7 @@ def _build_model_review_quorum(
         )
         if not has_required_dogfood:
             reasons.append("focused adversarial dogfood evidence is required")
+        reasons.extend(review_object_warnings)
 
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
@@ -3264,6 +3273,100 @@ def _resolve_model_review_identity(text: str) -> ModelReviewIdentity:
     )
 
 
+def _model_family_from_body(body: str) -> str:
+    """Resolve a known model family from a ``Model family:`` line anywhere.
+
+    The structured-metadata reader (:func:`_structured_identity_metadata`) only
+    inspects the lines immediately following the first heading. Dogfood comments
+    in the wild disclose the model family in a ``Model family: <name>`` bullet
+    that may appear lower in the body — or under a plain
+    ``## Focused adversarial dogfood`` heading that names no model. Scan the full
+    body for such a line and normalize it to a canonical family. Returns ``""``
+    when no recognizable family is disclosed (fail-closed: no phantom inflation).
+
+    Fenced code blocks (```` ``` ````/``~~~``) and inline-code spans (`` `...` ``)
+    are skipped so a merely *quoted* ``Model family:`` example — e.g. someone
+    pasting the disclosure template into a code fence — cannot inflate quorum.
+    """
+    in_fence = False
+    fence_marker = ""
+    for raw_line in str(body).splitlines():
+        stripped = raw_line.strip()
+        # Track fenced code blocks and skip everything inside them.
+        if stripped.startswith(("```", "~~~")):
+            marker = stripped[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if in_fence:
+            continue
+        # Drop inline-code spans so a back-ticked example label is not parsed
+        # as a real disclosure line.
+        stripped = re.sub(r"`[^`]*`", "", stripped).strip()
+        if stripped.startswith("-"):
+            stripped = stripped[1:].strip()
+        label, sep, value = stripped.partition(":")
+        if not sep:
+            continue
+        normalized_label = label.strip().strip("*").strip().lower()
+        if normalized_label != "model family":
+            continue
+        candidate = value.strip().strip("*").strip().strip("`")
+        family = _normalize_model_family(candidate)
+        if family:
+            return family
+    return ""
+
+
+def _resolve_dogfood_identity(body: str) -> ModelReviewIdentity:
+    """Resolve dogfood-comment identity, allowing a body-named model family.
+
+    Starts from the shared :func:`_resolve_model_review_identity` (heading +
+    post-heading structured metadata). When that yields a countable model
+    reviewer, it is returned unchanged.
+
+    The body-family fallback is applied **only** when the original resolution
+    failed for the benign reason "no model was inferable from the heading or its
+    structured metadata" — i.e. the heading named no surface and the only
+    count-blocker is ``unknown_surface_reviewer``. If the original identity
+    carries a *real* problem — an unknown/unnormalizable disclosed family
+    (``unknown_model_family``), a router surface that disclosed no family
+    (``missing_model_family_disclosure``), or a heading/metadata family
+    *conflict* (``heading_model_family_conflict``) — we stay fail-closed and do
+    NOT count, exactly as the original resolver intended. Falling back in those
+    cases would let a body-scanned family silently override a deliberate block.
+    """
+    identity = _resolve_model_review_identity(body)
+    if _known_model_reviewer_id(identity.as_packet_fields()):
+        return identity
+
+    # Only the benign "heading named no model" failure is eligible for the
+    # body-family fallback. Any other count-blocker is a real signal that the
+    # original resolver intentionally refused to count.
+    blockers = {
+        problem for problem in identity.identity_problems if problem in IDENTITY_COUNT_BLOCKERS
+    }
+    if blockers - {"unknown_surface_reviewer"}:
+        return identity
+
+    family = _model_family_from_body(body)
+    if not family:
+        return identity
+
+    metadata = _structured_identity_metadata(body, _first_heading_candidate(body)[1])
+    model_id = metadata.get("model id", "")
+    return ModelReviewIdentity(
+        surface_reviewer_id=family,
+        model_family=family,
+        model_id=model_id,
+        identity_source="dogfood_body_model_family",
+    )
+
+
 def _dogfood_evidence_from_comments(
     comments: list[Any],
     *,
@@ -3277,6 +3380,12 @@ def _dogfood_evidence_from_comments(
     comments whose first heading names a known surface but whose metadata
     is missing or conflicted remain visible in the evidence list with
     ``identity_problems``; counting remains fail-closed.
+
+    Identity is resolved via :func:`_resolve_dogfood_identity`, which accepts a
+    model family disclosed anywhere in the body (e.g. a ``Model family: claude``
+    line under a plain ``## Focused adversarial dogfood`` heading), not only one
+    named in the first heading. The head-grounding and github-actions exclusions
+    below are preserved unchanged.
     """
     evidence: list[dict[str, Any]] = []
     for comment in comments:
@@ -3290,7 +3399,7 @@ def _dogfood_evidence_from_comments(
             token in lower for token in ("dogfood", "adversarial", "cross-author", "recheck")
         ):
             continue
-        identity = _resolve_model_review_identity(body)
+        identity = _resolve_dogfood_identity(body)
         if identity.surface_reviewer_id == "unknown_model_reviewer":
             continue
         author_payload = comment.get("author")
@@ -3358,6 +3467,143 @@ def _model_review_signals_from_comments(
             }
         )
     return signals[:5]
+
+
+def _review_object_quorum_warnings(
+    reviews: list[Any],
+    *,
+    counted_reviewer_ids: list[str],
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> list[str]:
+    """Warn when ``review-pr`` evidence is present in non-countable form.
+
+    Merge quorum intentionally counts model evidence from PR comments because
+    comments are easier to audit, quote, and mirror across queue tooling. A
+    GitHub review object alone should therefore not satisfy quorum, but it
+    should produce an operator-visible warning instead of silently looking like
+    missing evidence.
+    """
+    counted = set(counted_reviewer_ids)
+    warnings: list[str] = []
+    warned: set[str] = set()
+    for review in reviews:
+        if not isinstance(review, dict):
+            continue
+        if not _is_review_grounded_on_head(review, head_sha, head_committed_at):
+            continue
+        body = str(review.get("body", "") or "")
+        identity = _resolve_review_object_model_identity(body)
+        reviewer_id = _known_model_reviewer_id(identity.as_packet_fields())
+        if reviewer_id:
+            if reviewer_id in counted or reviewer_id in warned:
+                continue
+            warnings.append(
+                "GitHub review object from "
+                f"{reviewer_id} is advisory-only for merge-packet model quorum; "
+                "mirror the review-pr output into a current-head PR comment before settlement"
+            )
+            warned.add(reviewer_id)
+            continue
+        surface = identity.surface_reviewer_id
+        if surface == "unknown_model_reviewer" or surface in warned:
+            continue
+        if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
+            warnings.append(
+                "GitHub review object from "
+                f"{surface} lacks lineage-bound model family metadata; mirror the "
+                "review-pr output into a current-head PR comment with Model family "
+                "metadata before settlement"
+            )
+            warned.add(surface)
+    return warnings
+
+
+def _resolve_review_object_model_identity(body: str) -> ModelReviewIdentity:
+    identity = _resolve_model_review_identity(body)
+    if _known_model_reviewer_id(identity.as_packet_fields()):
+        return identity
+
+    metadata = _review_pr_metadata_from_body(body)
+    reviewer = metadata.get("reviewer", "")
+    if not reviewer:
+        return identity
+
+    surface = _infer_surface_reviewer_from_candidate(reviewer)
+    explicit_family_raw = metadata.get("model family", "")
+    explicit_family = _normalize_model_family(explicit_family_raw)
+    model_id = metadata.get("model id", "")
+    problems: list[str] = []
+
+    if surface == "unknown_model_reviewer":
+        problems.append("unknown_surface_reviewer")
+    if explicit_family_raw and not explicit_family:
+        problems.append("unknown_model_family")
+
+    model_family = explicit_family
+    identity_source = "review_pr_model_family_metadata" if explicit_family_raw else "none"
+    if surface in ROUTER_SURFACE_REVIEWERS:
+        if not explicit_family_raw:
+            problems.append("missing_model_family_disclosure")
+    elif surface != "unknown_model_reviewer":
+        direct_family = _normalize_model_family(surface)
+        if explicit_family and direct_family and explicit_family != direct_family:
+            problems.append("heading_model_family_conflict")
+        if not explicit_family_raw and direct_family:
+            model_family = direct_family
+            identity_source = "review_pr_direct_reviewer"
+        elif explicit_family and direct_family == explicit_family:
+            identity_source = "review_pr_model_family_metadata"
+
+    return ModelReviewIdentity(
+        surface_reviewer_id=surface,
+        model_family=model_family,
+        model_id=model_id,
+        identity_source=identity_source,
+        identity_problems=tuple(dict.fromkeys(problems)),
+    )
+
+
+def _review_pr_metadata_from_body(body: str) -> dict[str, str]:
+    metadata: dict[str, str] = {}
+    for line in str(body).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("-"):
+            stripped = stripped[1:].strip()
+        label, sep, value = stripped.partition(":")
+        if not sep:
+            continue
+        normalized_label = label.strip().strip("*").lower()
+        if normalized_label not in {"reviewer", "model family", "model id"}:
+            continue
+        metadata[normalized_label] = value.strip().strip("*").strip().strip("`")
+    return metadata
+
+
+def _is_review_grounded_on_head(
+    review: dict[str, Any],
+    head_sha: str,
+    head_committed_at: str,
+) -> bool:
+    if not head_sha:
+        return True
+    commit = review.get("commit")
+    body = str(review.get("body", "") or "")
+    head_short = head_sha[:7]
+    if isinstance(commit, dict):
+        commit_oid = str(commit.get("oid", "") or "").strip()
+        if commit_oid:
+            if commit_oid == head_sha:
+                return True
+            return bool(head_short and head_short in body)
+    if head_short and head_short in body:
+        return True
+    if not head_committed_at:
+        return False
+    submitted = str(review.get("submittedAt", "") or "")
+    if not submitted:
+        return False
+    return submitted >= head_committed_at
 
 
 def _infer_model_reviewer_from_text(text: str) -> str:

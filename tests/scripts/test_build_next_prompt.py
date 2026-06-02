@@ -25,6 +25,57 @@ def _load_module(script_name: str) -> Any:
 prompt_builder = _load_module("build_next_prompt.py")
 
 
+def _clean_checkout_runner(
+    *,
+    repo_root: Path,
+    worktree: Path | None = None,
+    root_dirty: bool = True,
+    worktree_dirty: bool = False,
+    worktree_head: str = "clean-head",
+    origin_main: str = "clean-head",
+    worktree_list_error: bool = False,
+) -> Any:
+    def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+        if command == ["git", "status", "--short", "--branch", "--untracked-files=all"]:
+            status = "## feature...origin/main\n"
+            if root_dirty:
+                status += " M dirty.py\n"
+            return subprocess.CompletedProcess(command, 0, status, "")
+        if command == ["git", "worktree", "list", "--porcelain"]:
+            if worktree_list_error:
+                return subprocess.CompletedProcess(command, 1, "", "worktree metadata locked")
+            text = f"worktree {repo_root}\nHEAD root-head\nbranch refs/heads/main\n"
+            if worktree is not None:
+                text += f"\nworktree {worktree}\nHEAD {worktree_head}\ndetached\n"
+            return subprocess.CompletedProcess(command, 0, text, "")
+        if command[:3] == ["git", "-C", str(repo_root)]:
+            if command[3:6] == ["status", "--short", "--branch"]:
+                status = "## feature...origin/main\n"
+                if root_dirty:
+                    status += " M dirty.py\n"
+                return subprocess.CompletedProcess(command, 0, status, "")
+            if command[3:] == ["rev-parse", "HEAD", "origin/main"]:
+                return subprocess.CompletedProcess(command, 0, f"root-head\n{origin_main}\n", "")
+        if worktree is not None and command[:3] == ["git", "-C", str(worktree)]:
+            if command[3:6] == ["status", "--short", "--branch"]:
+                status = "## HEAD (no branch)\n"
+                if worktree_dirty:
+                    status += " M generated.py\n"
+                return subprocess.CompletedProcess(command, 0, status, "")
+            if command[3:] == ["rev-parse", "HEAD", "origin/main"]:
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    f"{worktree_head}\n{origin_main}\n",
+                    "",
+                )
+        if command[:2] == ["df", "-h"]:
+            return subprocess.CompletedProcess(command, 0, "Filesystem Size Used Avail\n", "")
+        return subprocess.CompletedProcess(command, 0, "{}", "")
+
+    return fake_runner
+
+
 def test_prompt_starts_with_mailbox_and_owner_verification(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
     registry.write_text(
@@ -249,6 +300,160 @@ def test_decision_packet_counts_shared_outbox_when_local_outbox_absent(
     assert packet["disk_outbox"]["outbox_file_count"] == 2
     assert packet["disk_outbox"]["outbox_dir"] == str(outbox)
     assert packet["disk_outbox"]["outbox_returncode"] == 0
+
+
+def test_clean_checkout_packet_selects_clean_detached_origin_main_worktree(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    worktree = tmp_path / "clean-wt"
+    repo_root.mkdir()
+    worktree.mkdir()
+
+    packet = prompt_builder._clean_checkout_packet(
+        repo_root,
+        _clean_checkout_runner(repo_root=repo_root, worktree=worktree),
+        pr=7561,
+        expected_head="expected-head",
+    )
+
+    assert packet["status"] == "selected"
+    assert packet["selected_path"] == str(worktree)
+    assert packet["candidates"][1]["status"] == "usable_clean_origin_main"
+    assert packet["candidates"][1]["detached"] is True
+    assert f"git -C {worktree} fetch origin main" in packet["recommended_prompt"]
+    assert "HEAD equals the refreshed origin/main after fetch" in packet["recommended_prompt"]
+
+
+def test_clean_checkout_packet_rejects_stale_clean_worktree(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    worktree = tmp_path / "stale-wt"
+    repo_root.mkdir()
+    worktree.mkdir()
+
+    packet = prompt_builder._clean_checkout_packet(
+        repo_root,
+        _clean_checkout_runner(
+            repo_root=repo_root,
+            worktree=worktree,
+            worktree_head="old-head",
+            origin_main="new-head",
+        ),
+        pr=7561,
+        expected_head="expected-head",
+    )
+
+    assert packet["status"] == "needs_disposable_worktree"
+    assert packet["selected_path"] is None
+    assert packet["candidates"][1]["status"] == "stale_vs_origin_main"
+    assert (
+        "git worktree add --detach /private/tmp/aragora-pr7561-triage origin/main"
+        in packet["recommended_prompt"]
+    )
+
+
+def test_clean_checkout_packet_rejects_dirty_worktree_even_when_head_matches(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    worktree = tmp_path / "dirty-wt"
+    repo_root.mkdir()
+    worktree.mkdir()
+
+    packet = prompt_builder._clean_checkout_packet(
+        repo_root,
+        _clean_checkout_runner(repo_root=repo_root, worktree=worktree, worktree_dirty=True),
+        pr=7561,
+        expected_head="expected-head",
+    )
+
+    assert packet["status"] == "needs_disposable_worktree"
+    assert packet["selected_path"] is None
+    assert packet["candidates"][1]["status"] == "dirty"
+    assert "generated.py" in packet["candidates"][1]["dirty_paths"]
+
+
+def test_prompt_emits_disposable_worktree_prompt_when_no_clean_checkout(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+
+    prompt = prompt_builder.build_prompt(
+        registry_path=registry,
+        repo_root=repo_root,
+        pr=7561,
+        expected_head="expected-head",
+        command_runner=_clean_checkout_runner(repo_root=repo_root, worktree=None),
+    )
+
+    assert "Clean-checkout routing: no registered clean origin/main checkout is available" in prompt
+    assert "git fetch origin main" in prompt
+    assert "git worktree add --detach /private/tmp/aragora-pr7561-triage origin/main" in prompt
+    assert "python3 scripts/read_operator_steering.py --pr 7561 --no-receipt --json" in prompt
+    assert "Stop if PR #7561 head drifted from expected-head" in prompt
+
+
+def test_prompt_emits_disposable_worktree_prompt_when_worktree_scan_fails(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+
+    runner = _clean_checkout_runner(repo_root=repo_root, worktree_list_error=True)
+    packet = prompt_builder._clean_checkout_packet(
+        repo_root,
+        runner,
+        pr=7561,
+        expected_head="expected-head",
+    )
+    prompt = prompt_builder.build_prompt(
+        registry_path=registry,
+        repo_root=repo_root,
+        pr=7561,
+        expected_head="expected-head",
+        command_runner=runner,
+    )
+    decision = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        repo_root=repo_root,
+        pr=7561,
+        expected_head="expected-head",
+        command_runner=runner,
+    )
+
+    assert packet["status"] == "error"
+    assert packet["error"] == "worktree metadata locked"
+    assert "Clean-checkout routing: the registered clean-checkout scan failed" in prompt
+    assert "git worktree add --detach /private/tmp/aragora-pr7561-triage origin/main" in prompt
+    assert "Stop if PR #7561 head drifted from expected-head" in prompt
+    assert decision["selected_action"] == "create_clean_checkout_prompt"
+
+
+def test_prompt_includes_selected_clean_checkout_path(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+    repo_root = tmp_path / "repo"
+    worktree = tmp_path / "clean-wt"
+    repo_root.mkdir()
+    worktree.mkdir()
+
+    prompt = prompt_builder.build_prompt(
+        registry_path=registry,
+        repo_root=repo_root,
+        pr=7561,
+        command_runner=_clean_checkout_runner(repo_root=repo_root, worktree=worktree),
+    )
+
+    assert "Clean-checkout routing: root is not suitable" in prompt
+    assert f"Run repo-native helpers only from this checkout: {worktree}" in prompt
+    assert f"git -C {worktree} fetch origin main" in prompt
+    assert f"git -C {worktree} rev-parse HEAD origin/main" in prompt
+    assert "If it is dirty or stale after fetch, do not use it" in prompt
 
 
 def _settlement_runner(

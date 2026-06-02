@@ -1436,6 +1436,137 @@ class TestModelReviewQuorum:
         assert len(quorum["reviewer_signals"]) == 0
         assert len(quorum["dogfood_evidence"]) == 1
 
+    def test_current_head_review_pr_object_warns_that_comment_form_is_required(
+        self,
+    ) -> None:
+        head_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head_sha
+        pr["commits"] = [
+            {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
+        ]
+        pr["comments"] = [
+            {
+                **_dogfood_comment("## Claude focused dogfood\n10/10 pass"),
+                "createdAt": "2026-04-28T20:05:00Z",
+            },
+        ]
+        pr["reviews"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Aragora review-pr: advisory pass\n\n"
+                    "- Reviewer: `codex`\n"
+                    "- Model family: `openai`\n"
+                    "- Model id: `gpt-5-codex`\n"
+                    f"- Head SHA: `{head_sha}`\n"
+                    "- Final status: `passed`\n"
+                ),
+                "commit": {"oid": head_sha},
+                "state": "COMMENTED",
+                "submittedAt": "2026-04-28T20:10:00Z",
+            }
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["counted_reviewer_ids"] == ["claude"]
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert any(
+            "GitHub review object from openai" in reason and "PR comment" in reason
+            for reason in quorum["reasons"]
+        )
+        assert not any("GitHub review object from codex" in reason for reason in quorum["reasons"])
+
+    def test_review_pr_object_with_router_reviewer_requires_model_family_metadata(
+        self,
+    ) -> None:
+        head_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head_sha
+        pr["commits"] = [
+            {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
+        ]
+        pr["comments"] = [
+            {
+                **_dogfood_comment("## Claude focused dogfood\n10/10 pass"),
+                "createdAt": "2026-04-28T20:05:00Z",
+            },
+        ]
+        pr["reviews"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Aragora review-pr: advisory pass\n\n"
+                    "- Reviewer: `codex`\n"
+                    f"- Head SHA: `{head_sha}`\n"
+                    "- Final status: `passed`\n"
+                ),
+                "commit": {"oid": head_sha},
+                "state": "COMMENTED",
+                "submittedAt": "2026-04-28T20:10:00Z",
+            }
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["counted_reviewer_ids"] == ["claude"]
+        assert any(
+            "GitHub review object from codex lacks lineage-bound model family metadata" in reason
+            for reason in quorum["reasons"]
+        )
+
+    def test_off_head_review_pr_object_does_not_warn_as_current_evidence(
+        self,
+    ) -> None:
+        head_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head_sha
+        pr["commits"] = [
+            {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
+        ]
+        pr["comments"] = [
+            {
+                **_dogfood_comment("## Claude focused dogfood\n10/10 pass"),
+                "createdAt": "2026-04-28T20:05:00Z",
+            },
+        ]
+        pr["reviews"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Aragora review-pr: advisory pass\n\n"
+                    "- Reviewer: `codex`\n"
+                    "- Model family: `openai`\n"
+                    "- Model id: `gpt-5-codex`\n"
+                    "- Final status: `passed`\n"
+                ),
+                "commit": {"oid": "0000000000000000000000000000000000000000"},
+                "state": "COMMENTED",
+                "submittedAt": "2026-04-28T20:10:00Z",
+            }
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["counted_reviewer_ids"] == ["claude"]
+        assert not any("GitHub review object" in reason for reason in quorum["reasons"])
+
     # --- Finding 6: merge-authority self-modification elevation ------------
 
     def test_review_queue_self_modification_classified_tier_four(self) -> None:
@@ -1557,6 +1688,293 @@ class TestModelReviewQuorum:
         assert quorum["reviewer_signals"] == []
         assert quorum["dogfood_evidence"] == []
         assert quorum["counted_reviewer_ids"] == []
+
+    # --- Plain-headed dogfood with body-named model (PR #7587 regression) ---
+    #
+    # A dogfood comment headed `## Focused adversarial dogfood` (no `(claude)`
+    # in the heading) but whose BODY discloses the model family must count, so
+    # long as it is head-grounded, not bot-authored, and carries the dogfood
+    # tokens. This mirrors the model-review-signal recognizer, which already
+    # reads the model family from structured metadata rather than the heading.
+
+    def test_plain_headed_dogfood_with_model_family_line_counts(self) -> None:
+        """`## Focused adversarial dogfood` heading + `Model family: claude`
+        line in the body must be recognized as Claude dogfood evidence."""
+        files = ["aragora/agents/router.py"]  # Tier 1
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Focused adversarial dogfood\n\n"
+                    "**Reviewer harness:** claude-code\n"
+                    "**Model family:** claude\n"
+                    "**Model id:** claude-opus-4-8\n"
+                    "**Receipt artifact:** /tmp/claude-dogfood.md\n\n"
+                    "6/6 adversarial cases pass."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert len(quorum["dogfood_evidence"]) == 1
+        entry = quorum["dogfood_evidence"][0]
+        assert entry["model_family"] == "claude"
+        assert entry["reviewer_id"] == "claude"
+        assert "claude" in quorum["counted_reviewer_ids"]
+
+    def test_plain_headed_dogfood_with_far_model_family_line_counts(self) -> None:
+        """The `Model family:` disclosure may appear anywhere in the body,
+        not only in the first lines after the heading."""
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Focused adversarial dogfood\n\n"
+                    + ("Walked each adversarial case manually.\n" * 30)
+                    + "\n**Model family:** openai\n"
+                    + "**Model id:** gpt-5-codex\n"
+                    + "**Receipt artifact:** /tmp/openai-dogfood.md\n"
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert len(quorum["dogfood_evidence"]) == 1
+        assert quorum["dogfood_evidence"][0]["model_family"] == "openai"
+        assert "openai" in quorum["counted_reviewer_ids"]
+
+    def test_plain_headed_dogfood_without_model_named_still_excluded(self) -> None:
+        """A plain-headed dogfood comment that names NO model anywhere in the
+        body must still be excluded — the relaxation only applies when a known
+        model family is discoverable in the body."""
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Focused adversarial dogfood\n\n6/6 cases pass, no model named.",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["counted_reviewer_ids"] == []
+
+    def test_plain_headed_dogfood_not_head_grounded_still_excluded(self) -> None:
+        """Even with a body-named model, a stale (non-head-grounded) dogfood
+        comment must NOT count — head-grounding is preserved."""
+        head_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["headRefOid"] = head_sha
+        pr["commits"] = [{"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"}]
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                # Posted BEFORE head commit and does not cite the head SHA.
+                "createdAt": "2026-04-28T18:00:00Z",
+                "body": (
+                    "## Focused adversarial dogfood\n\n"
+                    "**Model family:** claude\n"
+                    "**Model id:** claude-opus-4-8\n"
+                    "**Receipt artifact:** /tmp/r.md\n\n"
+                    "6/6 cases pass."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["counted_reviewer_ids"] == []
+
+    def test_plain_headed_dogfood_from_github_actions_still_excluded(self) -> None:
+        """Even with a body-named model, a github-actions-authored dogfood
+        comment must NOT count — the bot exclusion is preserved."""
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "github-actions[bot]"},
+                "body": (
+                    "## Focused adversarial dogfood\n\n"
+                    "**Model family:** claude\n"
+                    "**Model id:** claude-opus-4-8\n"
+                    "**Receipt artifact:** /tmp/r.md\n\n"
+                    "6/6 cases pass."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["counted_reviewer_ids"] == []
+
+    def test_plain_headed_dogfood_with_unknown_model_family_excluded(self) -> None:
+        """A `Model family:` line that names something we cannot normalize to a
+        known family must NOT count (no phantom inflation)."""
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Focused adversarial dogfood\n\n"
+                    "**Model family:** acme-frontier-9000\n\n"
+                    "6/6 cases pass."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["counted_reviewer_ids"] == []
+
+    def test_dogfood_heading_body_family_conflict_is_not_counted(self) -> None:
+        """Finding 1 (fail-closed bypass): when the heading names one family and
+        post-heading metadata names a *conflicting* family, the original
+        resolver blocks the comment with ``heading_model_family_conflict``. The
+        body-family fallback must NOT override that block — the comment stays
+        uncounted."""
+        from aragora.cli.commands.review_queue import _resolve_dogfood_identity
+
+        body = (
+            "## Claude focused adversarial dogfood\n\n"
+            "**Reviewer harness:** claude-code\n"
+            "**Model family:** openai\n"  # conflicts with the heading's "claude"
+            "**Model id:** gpt-5-codex\n"
+            "**Receipt artifact:** /tmp/r.md\n\n"
+            "6/6 cases pass."
+        )
+        identity = _resolve_dogfood_identity(body)
+        assert "heading_model_family_conflict" in identity.identity_problems
+        assert identity.identity_source != "dogfood_body_model_family"
+
+        files = ["aragora/agents/router.py"]  # Tier 1
+        pr = _make_pr(files=files)
+        pr["comments"] = [{"author": {"login": "an0mium"}, "body": body}]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["counted_reviewer_ids"] == []
+
+    def test_dogfood_model_family_inside_code_fence_is_not_counted(self) -> None:
+        """Finding 2 (code-fence inflation): a `Model family:` line that appears
+        only inside a fenced code block (e.g. a pasted example template) must NOT
+        be treated as a real disclosure."""
+        from aragora.cli.commands.review_queue import _model_family_from_body
+
+        body = (
+            "## Focused adversarial dogfood\n\n"
+            "Reviewers should disclose their model like this:\n\n"
+            "```\n"
+            "**Model family:** claude\n"
+            "```\n\n"
+            "6/6 cases pass (no real disclosure outside the fence)."
+        )
+        assert _model_family_from_body(body) == ""
+
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [{"author": {"login": "an0mium"}, "body": body}]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["counted_reviewer_ids"] == []
+
+    def test_dogfood_model_family_in_inline_code_span_is_not_counted(self) -> None:
+        """An inline-code back-ticked `Model family:` mention must not be parsed
+        as a disclosure either."""
+        from aragora.cli.commands.review_queue import _model_family_from_body
+
+        body = (
+            "## Focused adversarial dogfood\n\n"
+            "I left a note saying `Model family: claude` as an example only.\n\n"
+            "6/6 cases pass."
+        )
+        assert _model_family_from_body(body) == ""
+
+    def test_dogfood_real_family_line_outside_fence_still_counts(self) -> None:
+        """A genuine `Model family:` disclosure outside any code fence still
+        counts even when an example fence is also present — the fence stripping
+        must not eat the real line."""
+        from aragora.cli.commands.review_queue import _model_family_from_body
+
+        body = (
+            "## Focused adversarial dogfood\n\n"
+            "Template for reference:\n\n"
+            "```\n"
+            "**Model family:** <family>\n"
+            "```\n\n"
+            "**Model family:** claude\n"
+            "**Receipt artifact:** /tmp/r.md\n\n"
+            "6/6 cases pass."
+        )
+        assert _model_family_from_body(body) == "claude"
+
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [{"author": {"login": "an0mium"}, "body": body}]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert len(quorum["dogfood_evidence"]) == 1
+        assert quorum["dogfood_evidence"][0]["model_family"] == "claude"
+        assert "claude" in quorum["counted_reviewer_ids"]
 
 
 # --- _parse_pr_number ------------------------------------------------------
@@ -2730,6 +3148,85 @@ class TestBuildQueueAndPacket:
 
         assert direct["branch_protection_required_status_checks_available"] is False
         assert direct["required_contexts"] == []
+        assert direct["required_contexts_satisfied"] is False
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+
+    def test_missing_check_rollup_fails_closed_when_required_status_fetch_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7465, files=["docs/status/open.md"])
+        pr_payload["statusCheckRollup"] = []
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:1] == ["api"] and "required_status_checks" in args[1]:
+                raise RuntimeError("branch protection endpoint timed out")
+            if args[:1] == ["api"] and "check-runs" in args[1]:
+                return {
+                    "check_runs": [
+                        {"name": "lint", "status": "completed", "conclusion": "success"},
+                    ]
+                }
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        direct = packet.check_surfaces["direct_commit_check_runs"]
+
+        assert packet.checks_summary == "no checks reported"
+        assert packet.risk_flags == ["check rollup unavailable"]
+        assert direct["branch_protection_required_status_checks_available"] is False
+        assert direct["required_contexts"] == []
+        assert direct["required_contexts_satisfied"] is False
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+
+    def test_missing_check_rollup_fails_closed_when_direct_check_fetch_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(number=7465, files=["docs/status/open.md"])
+        pr_payload["statusCheckRollup"] = []
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:1] == ["api"] and "required_status_checks" in args[1]:
+                return {
+                    "contexts": ["lint"],
+                    "checks": [{"context": "lint", "app_id": None}],
+                    "strict": False,
+                }
+            if args[:1] == ["api"] and "check-runs" in args[1]:
+                raise RuntimeError("check-runs endpoint timed out")
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        direct = packet.check_surfaces["direct_commit_check_runs"]
+
+        assert packet.checks_summary == "no checks reported"
+        assert packet.risk_flags == ["check rollup unavailable"]
+        assert direct["branch_protection_required_status_checks_available"] is True
+        assert direct["required_contexts"] == ["lint"]
+        assert direct["missing_required_contexts"] == ["lint"]
         assert direct["required_contexts_satisfied"] is False
         assert packet.model_review_quorum["admin_squash_allowed"] is False
         assert packet.model_review_quorum["status"] == "repair_or_wait"

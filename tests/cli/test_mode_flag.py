@@ -2,12 +2,36 @@
 
 from __future__ import annotations
 
+import importlib
+import sys
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from aragora.modes import load_builtins
 from aragora.modes.base import ModeRegistry
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_ARAGORA_PACKAGE_ROOT = _REPO_ROOT / "aragora"
+
+
+def _import_checkout_decide_module():
+    """Import decide from this checkout even after editable-install/path churn."""
+    root = str(_REPO_ROOT)
+    if root in sys.path:
+        sys.path.remove(root)
+    sys.path.insert(0, root)
+
+    import aragora
+
+    package_root = str(_ARAGORA_PACKAGE_ROOT)
+    package_paths = getattr(aragora, "__path__", None)
+    if package_paths is not None and package_root not in package_paths:
+        package_paths.insert(0, package_root)
+
+    sys.modules.pop("aragora.cli.commands.decide", None)
+    return importlib.import_module("aragora.cli.commands.decide")
 
 
 class TestLoadBuiltins:
@@ -180,7 +204,13 @@ class TestModeInDecide:
     @pytest.mark.asyncio
     async def test_decide_unknown_mode_raises(self, capsys):
         """run_decide reports unknown modes without resolving them."""
-        from aragora.cli.commands.decide import run_decide
+        decide_module = _import_checkout_decide_module()
+        assert (
+            Path(decide_module.__file__)
+            .resolve()
+            .is_relative_to(_ARAGORA_PACKAGE_ROOT / "cli" / "commands")
+        )
+        run_decide = decide_module.run_decide
 
         missing_mode = "__missing_decide_mode_for_test__"
         assert ModeRegistry.get(missing_mode) is None

@@ -342,7 +342,7 @@ def test_audit_skips_open_pr_lookup_when_github_health_degraded(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -374,12 +374,47 @@ def test_audit_skips_open_pr_lookup_when_github_health_degraded(
     assert payload["records"][0]["category"] == "salvage_recent_unique"
 
 
+def test_audit_passes_bounded_timeout_to_github_health(tmp_path: Path, monkeypatch: Any) -> None:
+    _stub_git_inventory(monkeypatch, _branch_row())
+    observed_timeouts: list[int] = []
+
+    def fake_health(_root: Path, *, timeout_seconds: int, prefer_app: bool) -> GitHubCLIHealth:
+        observed_timeouts.append(timeout_seconds)
+        assert prefer_app is False
+        return GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", fake_health)
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+        github_health_timeout_seconds=3,
+    )
+
+    assert observed_timeouts == [3]
+    assert payload["github_health"]["mode"] == "connectivity_failed"
+    assert payload["open_pr_lookup_skipped"] is True
+
+
 def test_audit_reports_worktree_and_base_revisions(tmp_path: Path, monkeypatch: Any) -> None:
     _stub_git_inventory(monkeypatch, _branch_row())
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -430,7 +465,7 @@ def test_audit_uses_batched_divergence_before_fallback(tmp_path: Path, monkeypat
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -465,7 +500,7 @@ def test_audit_protects_branch_when_divergence_lookup_fails(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -510,7 +545,7 @@ def test_audit_uses_open_pr_lookup_when_github_health_is_ready(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=True,
             auth_ok=True,
             api_ok=True,
@@ -553,7 +588,7 @@ def test_audit_fails_closed_when_open_pr_lookup_times_out(tmp_path: Path, monkey
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=True,
             auth_ok=True,
             api_ok=True,
@@ -595,7 +630,7 @@ def test_audit_ignores_missing_worktree_paths(tmp_path: Path, monkeypatch: Any) 
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -666,7 +701,7 @@ def test_audit_skips_patch_equivalence_for_dirty_worktrees(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -709,7 +744,7 @@ def test_audit_publishable_backlog_excludes_stale_local_only_branches(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=True,
             auth_ok=True,
             api_ok=True,
@@ -763,7 +798,7 @@ def test_audit_excludes_diverged_branches_from_publishable_backlog(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -838,7 +873,7 @@ def test_audit_excludes_terminal_outbox_receipts_from_publishable_backlog(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -899,7 +934,7 @@ def test_audit_excludes_terminal_receipt_branch_without_outbox_payload(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -961,7 +996,7 @@ def test_audit_excludes_completed_and_skipped_terminal_receipts(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1024,7 +1059,7 @@ def test_audit_matches_terminal_receipt_by_idempotency_key_when_outbox_missing(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1090,7 +1125,7 @@ def test_audit_ignores_terminal_receipt_with_mismatched_explicit_head(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1169,7 +1204,7 @@ def test_audit_reads_archived_outbox_payload_for_terminal_receipt(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1229,7 +1264,7 @@ def test_audit_excludes_unresolved_outbox_handoffs_from_publishable_backlog(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1299,7 +1334,7 @@ def test_audit_protects_list_local_evidence_branch_handoffs(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1363,7 +1398,7 @@ def test_audit_protects_structured_action_branch_handoffs(tmp_path: Path, monkey
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1431,7 +1466,7 @@ def test_audit_protects_json_string_action_branch_handoffs(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1509,7 +1544,7 @@ def test_audit_protects_patch_equivalent_unresolved_handoff_branches(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1573,7 +1608,7 @@ def test_audit_checks_branch_equivalence_before_handoff_patch_ids(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1629,7 +1664,7 @@ def test_audit_does_not_spend_patch_ids_for_exact_outbox_branch(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1692,7 +1727,7 @@ def test_audit_treats_superseded_branch_as_unresolved_handoff(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1756,7 +1791,7 @@ def test_audit_counts_direct_outbox_refs_even_when_active_worktree_wins_category
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1821,7 +1856,7 @@ def test_audit_treats_superseded_branch_as_terminal_receipt(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1881,7 +1916,7 @@ def test_audit_reads_top_level_branch_for_terminal_outbox_receipts(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -1942,7 +1977,7 @@ def test_audit_excludes_unresolved_top_level_outbox_handoffs_from_publishable_ba
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -2019,7 +2054,7 @@ def test_audit_uses_automation_state_root_for_default_handoff_dirs(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -2110,7 +2145,7 @@ def test_audit_skips_patch_equivalence_after_time_budget(tmp_path: Path, monkeyp
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -2174,7 +2209,7 @@ def test_audit_skips_patch_checks_for_exact_handoff_protected_branches(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -2241,7 +2276,7 @@ def test_audit_skip_patch_equivalence_still_cleans_empty_branch_diff(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -2317,7 +2352,7 @@ def test_audit_skip_patch_equivalence_verifies_salvage_candidates(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda _root: GitHubCLIHealth(
+        lambda _root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,

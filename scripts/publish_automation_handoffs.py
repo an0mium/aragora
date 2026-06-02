@@ -1461,6 +1461,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.no_outbox
         else load_outbox_handoffs(repo_root, outbox_dir=outbox_dir, receipt_dir=receipt_dir)
     )
+    outbox_file_count = 0 if args.no_outbox else len(_outbox_files(outbox_dir))
+    outbox_skipped_count = max(outbox_file_count - len(outbox_handoffs), 0)
     handoffs = sorted(
         memory_handoffs + outbox_handoffs,
         key=lambda item: (_source_mtime(item.source_file), item.priority),
@@ -1488,7 +1490,9 @@ def main(argv: list[str] | None = None) -> int:
             "outbox_dir": str(outbox_dir),
             "receipt_dir": str(receipt_dir),
             "memory_handoff_count": len(memory_handoffs),
+            "outbox_file_count": outbox_file_count,
             "outbox_handoff_count": len(outbox_handoffs),
+            "outbox_skipped_count": outbox_skipped_count,
             "handoff_count": len(handoffs),
             "github_health": github_health.to_dict(),
             "decisions": [asdict(item) for item in decisions],
@@ -1540,7 +1544,9 @@ def main(argv: list[str] | None = None) -> int:
         "outbox_dir": str(outbox_dir),
         "receipt_dir": str(receipt_dir),
         "memory_handoff_count": len(memory_handoffs),
+        "outbox_file_count": outbox_file_count,
         "outbox_handoff_count": len(outbox_handoffs),
+        "outbox_skipped_count": outbox_skipped_count,
         "handoff_count": len(handoffs),
         "github_health": github_health.to_dict(),
         "decisions": [asdict(item) for item in results],

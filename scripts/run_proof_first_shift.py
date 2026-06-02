@@ -30,6 +30,8 @@ from scripts.watch_boss_lane import collect_snapshot  # noqa: E402
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_SHIFT_DIRNAME = "proof_first_shift"
 DEFAULT_AUTOMATION_BACKLOG_LIMIT = 12
+DEFAULT_MERGE_LIMIT = 1
+MAX_UNAUTHORIZED_MERGE_LIMIT = 1
 DEFAULT_REFRESH_MINUTES = 120
 DEFAULT_MAX_HOURS = 12.0
 DEFAULT_INTERVAL_SECONDS = 120
@@ -966,6 +968,23 @@ def run_merge_arbiter_apply(
     return payload
 
 
+def resolve_merge_limit(
+    *,
+    merge_limit: int,
+    no_merge: bool = False,
+    allow_multiple_merges: bool = False,
+) -> int:
+    """Return the effective merge limit, failing closed on broad merge requests."""
+
+    if merge_limit < 0:
+        raise ValueError("--merge-limit must be >= 0")
+    if no_merge:
+        return 0
+    if merge_limit > MAX_UNAUTHORIZED_MERGE_LIMIT and not allow_multiple_merges:
+        raise ValueError("--merge-limit above 1 is blocked without --allow-multiple-merges")
+    return merge_limit
+
+
 def trigger_benchmark_workflow(*, repo_root: Path, repo: str) -> None:
     proc = _run(
         ["gh", "workflow", "run", "Benchmark Truth Publication", "--repo", repo],
@@ -1042,10 +1061,19 @@ def run_shift_cycle(
     benchmark_mode: str,
     automation_backlog_limit: int,
     runtime_state: ProofFirstRuntimeState,
+    merge_limit: int = DEFAULT_MERGE_LIMIT,
+    no_merge: bool = False,
+    dry_run: bool = False,
+    allow_multiple_merges: bool = False,
     ledger: ShiftLedger | None = None,
     max_hours: float = DEFAULT_MAX_HOURS,
 ) -> dict[str, Any]:
-    queue_report = reconcile_proof_first_queue(repo=repo, repo_root=repo_root, apply=True)
+    effective_merge_limit = resolve_merge_limit(
+        merge_limit=merge_limit,
+        no_merge=no_merge or dry_run,
+        allow_multiple_merges=allow_multiple_merges,
+    )
+    queue_report = reconcile_proof_first_queue(repo=repo, repo_root=repo_root, apply=not dry_run)
     github_status = dict(queue_report.get("github_status") or {})
     queue_removed_count = len(queue_report.get("removed") or [])
     if github_status.get("available") is False:
@@ -1136,7 +1164,9 @@ def run_shift_cycle(
     service_failures: list[str] = []
     runtime_failures: list[str] = []
     repeated_failure_classes: list[str] = []
-    if should_restart_service(
+    if dry_run and (not boss_running) and canonical_queue_count > 0:
+        actions.append("boss_restart_skipped:dry_run")
+    elif should_restart_service(
         is_running=boss_running,
         pending_count=canonical_queue_count,
         restart_count=runtime_state.boss_restart_count,
@@ -1171,7 +1201,10 @@ def run_shift_cycle(
         repeated_failure_classes.append(BOSS_RESTART_FAILURE)
         service_failures.append(RECOVERY_STOP_REASONS[BOSS_RESTART_FAILURE])
 
-    if should_restart_service(
+    if (no_merge or dry_run) and (not merge_running) and open_pr_count > 0:
+        reason = "dry_run" if dry_run else "no_merge"
+        actions.append(f"merge_arbiter_restart_skipped:{reason}")
+    elif should_restart_service(
         is_running=merge_running,
         pending_count=open_pr_count,
         restart_count=runtime_state.merge_restart_count,
@@ -1205,11 +1238,16 @@ def run_shift_cycle(
         repeated_failure_classes.append(MERGE_RESTART_FAILURE)
         service_failures.append(RECOVERY_STOP_REASONS[MERGE_RESTART_FAILURE])
 
-    merge_report = run_merge_arbiter_apply(
-        repo_root=repo_root,
-        repo=repo,
-        limit=automation_backlog_limit,
-    )
+    if effective_merge_limit == 0:
+        reason = "dry_run" if dry_run else "no_merge"
+        merge_report = {"merged": [], "skipped": True, "reason": reason}
+        actions.append(f"merge_arbiter_apply_skipped:{reason}")
+    else:
+        merge_report = run_merge_arbiter_apply(
+            repo_root=repo_root,
+            repo=repo,
+            limit=effective_merge_limit,
+        )
     merged_numbers = list(merge_report.get("merged") or [])
     if merged_numbers:
         actions.append(f"merged_prs:{','.join(str(number) for number in merged_numbers)}")
@@ -1296,7 +1334,9 @@ def run_shift_cycle(
     )
     stop_reason = ""
     if should_trigger:
-        if trigger_reason == "retry_after_failed_run" and latest_failure_class:
+        if dry_run:
+            actions.append(f"trigger_benchmark_skipped:dry_run:{trigger_reason}")
+        elif trigger_reason == "retry_after_failed_run" and latest_failure_class:
             if recovery_budget_remaining(runtime_state, latest_failure_class) <= 0:
                 repeated_failure_classes.append(latest_failure_class)
                 stop_reason = RECOVERY_STOP_REASONS[latest_failure_class]
@@ -1408,6 +1448,9 @@ def run_shift_cycle(
         "automation_backlog": automation_backlog,
         "latest_benchmark_run": latest_run,
         "benchmark_truth_state_drift": benchmark_truth_drift,
+        "merge_report": merge_report,
+        "merge_limit": effective_merge_limit,
+        "dry_run": dry_run,
         "actions": actions,
         "stop_reason": stop_reason,
         "failure_policy": failure_policy,
@@ -1503,6 +1546,10 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
             repo=args.repo,
             benchmark_mode=args.benchmark_mode,
             automation_backlog_limit=int(args.automation_backlog_limit),
+            merge_limit=int(args.merge_limit),
+            no_merge=bool(args.no_merge),
+            dry_run=bool(args.dry_run),
+            allow_multiple_merges=bool(args.allow_multiple_merges),
             runtime_state=runtime_state,
             ledger=ledger,
             max_hours=float(args.max_hours),
@@ -1574,6 +1621,36 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_AUTOMATION_BACKLOG_LIMIT,
     )
+    parser.add_argument(
+        "--merge-limit",
+        type=int,
+        default=DEFAULT_MERGE_LIMIT,
+        help=(
+            "Maximum PRs this shift may merge per cycle. Defaults to 1 and fails "
+            "closed above 1 unless --allow-multiple-merges is explicitly set."
+        ),
+    )
+    parser.add_argument(
+        "--no-merge",
+        action="store_true",
+        help="Observer mode: skip merge arbiter restarts and merge apply calls.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Observer mode: do not apply queue reconciliation, restart services, "
+            "trigger benchmark workflows, or merge PRs."
+        ),
+    )
+    parser.add_argument(
+        "--allow-multiple-merges",
+        action="store_true",
+        help=(
+            "Explicitly allow --merge-limit above 1. Intended only for future "
+            "operator-authorized broad-drain runs."
+        ),
+    )
     parser.add_argument("--interval-seconds", type=float, default=DEFAULT_INTERVAL_SECONDS)
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--json", action="store_true")
@@ -1582,6 +1659,15 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    try:
+        resolve_merge_limit(
+            merge_limit=int(args.merge_limit),
+            no_merge=bool(args.no_merge) or bool(args.dry_run),
+            allow_multiple_merges=bool(args.allow_multiple_merges),
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     summary = asyncio.run(_run_shift(args))
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True))
