@@ -37,6 +37,13 @@ DEFAULT_MAX_HOURS = 12.0
 DEFAULT_INTERVAL_SECONDS = 120
 MIN_CYCLE_START_SECONDS = 60.0
 MIN_ACTION_BUDGET_SECONDS = 5.0
+QUEUE_RECONCILE_MIN_SECONDS = 60.0
+BOSS_LANE_SNAPSHOT_MIN_SECONDS = 120.0
+PROCESS_PROBE_MIN_SECONDS = 30.0
+BENCHMARK_DRIFT_MIN_SECONDS = 60.0
+LIST_OPEN_PRS_TIMEOUT_SECONDS = 45.0
+LATEST_BENCHMARK_TIMEOUT_SECONDS = 45.0
+FETCH_FAILURE_LOG_TIMEOUT_SECONDS = 60.0
 MERGE_APPLY_TIMEOUT_SECONDS = 120.0
 BENCHMARK_TRIGGER_TIMEOUT_SECONDS = 45.0
 DEFAULT_BOSS_LABEL = "com.aragora.swarm-boss-loop"
@@ -417,7 +424,12 @@ def collect_boss_lane_snapshot(*, repo_root: Path, repo: str) -> dict[str, Any]:
     return collect_snapshot(args)
 
 
-def list_open_prs(*, repo_root: Path, repo: str) -> list[dict[str, Any]]:
+def list_open_prs(
+    *,
+    repo_root: Path,
+    repo: str,
+    timeout_seconds: float = LIST_OPEN_PRS_TIMEOUT_SECONDS,
+) -> list[dict[str, Any]]:
     payload = _run_json(
         [
             "gh",
@@ -433,7 +445,7 @@ def list_open_prs(*, repo_root: Path, repo: str) -> list[dict[str, Any]]:
             "number,title,headRefName,isDraft,url",
         ],
         cwd=repo_root,
-        timeout=45,
+        timeout=timeout_seconds,
     )
     if not isinstance(payload, list):
         raise RuntimeError("gh pr list returned a non-list payload")
@@ -459,7 +471,12 @@ def has_open_benchmark_publication_pr(prs: list[dict[str, Any]]) -> bool:
     )
 
 
-def latest_benchmark_run(*, repo_root: Path, repo: str) -> dict[str, Any] | None:
+def latest_benchmark_run(
+    *,
+    repo_root: Path,
+    repo: str,
+    timeout_seconds: float = LATEST_BENCHMARK_TIMEOUT_SECONDS,
+) -> dict[str, Any] | None:
     payload = _run_json(
         [
             "gh",
@@ -475,7 +492,7 @@ def latest_benchmark_run(*, repo_root: Path, repo: str) -> dict[str, Any] | None
             "databaseId,createdAt,status,conclusion",
         ],
         cwd=repo_root,
-        timeout=45,
+        timeout=timeout_seconds,
     )
     if not isinstance(payload, list) or not payload:
         return None
@@ -632,11 +649,16 @@ def build_failure_policy_status(
     return status
 
 
-def fetch_benchmark_failure_log(*, repo_root: Path, run_id: int) -> str:
+def fetch_benchmark_failure_log(
+    *,
+    repo_root: Path,
+    run_id: int,
+    timeout_seconds: float = FETCH_FAILURE_LOG_TIMEOUT_SECONDS,
+) -> str:
     proc = _run(
         ["gh", "run", "view", str(run_id), "--log-failed"],
         cwd=repo_root,
-        timeout=60,
+        timeout=timeout_seconds,
     )
     return proc.stdout or proc.stderr or ""
 
@@ -1136,12 +1158,38 @@ def run_shift_cycle(
     max_hours: float = DEFAULT_MAX_HOURS,
     time_budget: ShiftTimeBudget | None = None,
 ) -> dict[str, Any]:
+    actions: list[str] = []
+    service_failures: list[str] = []
+    runtime_failures: list[str] = []
+    time_budget_failures: list[str] = []
+    repeated_failure_classes: list[str] = []
+    stop_reason = ""
+
+    def reserve_time(action: str, required_seconds: float) -> bool:
+        if time_budget is None or time_budget_failures:
+            return not time_budget_failures
+        reason = time_budget.insufficient_reason(action, required_seconds)
+        if reason:
+            time_budget_failures.append(reason)
+            actions.append(f"{action}_skipped:time_budget")
+            return False
+        return True
+
+    reserve_time("queue_reconciliation", QUEUE_RECONCILE_MIN_SECONDS)
     effective_merge_limit = resolve_merge_limit(
         merge_limit=merge_limit,
         no_merge=no_merge or dry_run,
         allow_multiple_merges=allow_multiple_merges,
     )
-    queue_report = reconcile_proof_first_queue(repo=repo, repo_root=repo_root, apply=not dry_run)
+    queue_report = (
+        reconcile_proof_first_queue(repo=repo, repo_root=repo_root, apply=not dry_run)
+        if not time_budget_failures
+        else {
+            "kept": [],
+            "removed": [],
+            "github_status": {"available": True, "skipped": "time_budget"},
+        }
+    )
     github_status = dict(queue_report.get("github_status") or {})
     queue_removed_count = len(queue_report.get("removed") or [])
     if github_status.get("available") is False:
@@ -1201,15 +1249,39 @@ def run_shift_cycle(
                 repeated_failure_classes=outage_repeated_failure_classes,
             ),
         }
-    snapshot = collect_boss_lane_snapshot(repo_root=repo_root, repo=repo)
-    prs = list_open_prs(repo_root=repo_root, repo=repo)
+    snapshot = (
+        collect_boss_lane_snapshot(repo_root=repo_root, repo=repo)
+        if reserve_time("boss_lane_snapshot", BOSS_LANE_SNAPSHOT_MIN_SECONDS)
+        else {}
+    )
+    list_timeout: float | None = None
+    if time_budget is not None and not time_budget_failures:
+        list_timeout, budget_reason = time_budget.bounded_timeout(
+            "list_open_prs",
+            LIST_OPEN_PRS_TIMEOUT_SECONDS,
+        )
+        if budget_reason:
+            time_budget_failures.append(budget_reason)
+            actions.append("list_open_prs_skipped:time_budget")
+    prs = (
+        list_open_prs(
+            repo_root=repo_root,
+            repo=repo,
+            **({"timeout_seconds": list_timeout} if list_timeout is not None else {}),
+        )
+        if not time_budget_failures
+        else []
+    )
     actionable_prs = actionable_open_prs(prs)
     automation_backlog = count_automation_backlog(actionable_prs)
     open_pr_count = len(actionable_prs)
     draft_pr_count = len(prs) - open_pr_count
     canonical_queue_count = len(queue_report["kept"])
 
-    boss_process_running = process_running(DEFAULT_BOSS_PROCESS_PATTERN)
+    reserve_time("process_probe", PROCESS_PROBE_MIN_SECONDS)
+    boss_process_running = (
+        process_running(DEFAULT_BOSS_PROCESS_PATTERN) if not time_budget_failures else False
+    )
     boss_throttle_healthy = False
     boss_throttle_reason = ""
     if not boss_process_running:
@@ -1220,9 +1292,10 @@ def run_shift_cycle(
     # and respawns after ThrottleInterval. Treat the throttle window as healthy
     # so the shift does not burn its restart budget on a non-failure.
     boss_running = boss_process_running or boss_throttle_healthy
-    merge_running = process_running(DEFAULT_MERGE_PROCESS_PATTERN)
+    merge_running = (
+        process_running(DEFAULT_MERGE_PROCESS_PATTERN) if not time_budget_failures else False
+    )
 
-    actions: list[str] = []
     # Surface the throttle-helper's verdict in the cycle_tick payload so that
     # transient launchd states (e.g. brief launchctl-print stalls right after
     # a kickstart) can be diagnosed without re-running the shift. The marker
@@ -1230,11 +1303,6 @@ def run_shift_cycle(
     if not boss_process_running and boss_throttle_reason:
         verdict = "throttle_healthy" if boss_throttle_healthy else "throttle_unhealthy"
         actions.append(f"boss_{verdict}: {boss_throttle_reason}")
-    service_failures: list[str] = []
-    runtime_failures: list[str] = []
-    time_budget_failures: list[str] = []
-    repeated_failure_classes: list[str] = []
-    stop_reason = ""
     if dry_run and (not boss_running) and canonical_queue_count > 0:
         actions.append("boss_restart_skipped:dry_run")
     elif should_restart_service(
@@ -1373,8 +1441,29 @@ def run_shift_cycle(
             for num in merged_numbers:
                 ledger.record_pr_merged(pr_number=int(num))
 
-    latest_run = latest_benchmark_run(repo_root=repo_root, repo=repo)
-    benchmark_truth_drift = benchmark_truth_state_drift(repo_root=repo_root, repo=repo)
+    latest_timeout: float | None = None
+    if time_budget is not None and not time_budget_failures:
+        latest_timeout, budget_reason = time_budget.bounded_timeout(
+            "latest_benchmark_run",
+            LATEST_BENCHMARK_TIMEOUT_SECONDS,
+        )
+        if budget_reason:
+            time_budget_failures.append(budget_reason)
+            actions.append("latest_benchmark_run_skipped:time_budget")
+    latest_run = (
+        latest_benchmark_run(
+            repo_root=repo_root,
+            repo=repo,
+            **({"timeout_seconds": latest_timeout} if latest_timeout is not None else {}),
+        )
+        if not time_budget_failures
+        else None
+    )
+    benchmark_truth_drift = (
+        benchmark_truth_state_drift(repo_root=repo_root, repo=repo)
+        if reserve_time("benchmark_truth_state_drift", BENCHMARK_DRIFT_MIN_SECONDS)
+        else {"status": "skipped_time_budget", "issue_count": 0, "issues": []}
+    )
     latest_failure_class = ""
     latest_failure_detail = ""
     if latest_run is not None:
@@ -1389,7 +1478,28 @@ def run_shift_cycle(
                     created_at=str(latest_run.get("createdAt", "")),
                 )
             if conclusion == "failure":
-                failure_log = fetch_benchmark_failure_log(repo_root=repo_root, run_id=run_id)
+                failure_timeout: float | None = None
+                if time_budget is not None and not time_budget_failures:
+                    failure_timeout, budget_reason = time_budget.bounded_timeout(
+                        "fetch_benchmark_failure_log",
+                        FETCH_FAILURE_LOG_TIMEOUT_SECONDS,
+                    )
+                    if budget_reason:
+                        time_budget_failures.append(budget_reason)
+                        actions.append("fetch_benchmark_failure_log_skipped:time_budget")
+                failure_log = (
+                    fetch_benchmark_failure_log(
+                        repo_root=repo_root,
+                        run_id=run_id,
+                        **(
+                            {"timeout_seconds": failure_timeout}
+                            if failure_timeout is not None
+                            else {}
+                        ),
+                    )
+                    if not time_budget_failures
+                    else ""
+                )
                 failure_class = classify_benchmark_failure_log(failure_log)
                 if failure_class == "auth_failure":
                     runtime_state.auth_failure_count += 1

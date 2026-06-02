@@ -463,13 +463,60 @@ def test_run_shift_stops_before_cycle_when_time_budget_is_too_small(tmp_path: Pa
     assert summary["shift"]["stop_reason"].startswith("TimeBudgetInsufficient")
 
 
+def test_run_shift_cycle_stops_before_probe_when_budget_drops_after_queue() -> None:
+    state = mod.ProofFirstRuntimeState()
+    now_values = iter([0.0, 970.0, 970.0])
+    time_budget = mod.ShiftTimeBudget(
+        deadline_time=1000.0,
+        max_hours=4.0,
+        now=lambda: next(now_values, 970.0),
+    )
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [], "removed": []},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot",
+            side_effect=AssertionError("must not collect snapshot without enough time"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.list_open_prs",
+            side_effect=AssertionError("must not list PRs after time-budget failure"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.run_merge_arbiter_apply",
+            side_effect=AssertionError("must not merge after time-budget failure"),
+        ),
+        patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=None),
+        patch(
+            "scripts.run_proof_first_shift.benchmark_truth_state_drift",
+            return_value={"issue_count": 0},
+        ),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            benchmark_mode="disabled",
+            automation_backlog_limit=12,
+            runtime_state=state,
+            time_budget=time_budget,
+        )
+
+    assert "boss_lane_snapshot_skipped:time_budget" in report["actions"]
+    assert report["stop_reason"].startswith("TimeBudgetInsufficient")
+    assert report["open_pr_count"] == 0
+
+
 def test_run_shift_cycle_bounds_merge_apply_timeout_to_remaining_budget() -> None:
     state = mod.ProofFirstRuntimeState()
     repo_root = Path(".").resolve()
+    now_values = iter([0.0, 0.0, 0.0, 0.0, 910.0, 910.0, 910.0])
     time_budget = mod.ShiftTimeBudget(
-        deadline_time=100.0,
+        deadline_time=1000.0,
         max_hours=4.0,
-        now=lambda: 10.0,
+        now=lambda: next(now_values, 910.0),
     )
 
     with (
@@ -515,10 +562,11 @@ def test_run_shift_cycle_bounds_merge_apply_timeout_to_remaining_budget() -> Non
 
 def test_run_shift_cycle_fails_closed_when_merge_apply_has_too_little_time() -> None:
     state = mod.ProofFirstRuntimeState()
+    now_values = iter([0.0, 0.0, 0.0, 0.0, 998.0, 998.0])
     time_budget = mod.ShiftTimeBudget(
-        deadline_time=103.0,
+        deadline_time=1000.0,
         max_hours=4.0,
-        now=lambda: 100.0,
+        now=lambda: next(now_values, 998.0),
     )
 
     with (
