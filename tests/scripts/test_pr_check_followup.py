@@ -288,6 +288,10 @@ def test_merge_quorum_model_quorum_failure_emits_evidence_prompt() -> None:
         "collecting exactly one current-head non-Codex model/dogfood evidence signal"
         in result.prompt
     )
+    assert "review-queue evidence-lint" in result.prompt
+    assert "would_count=true" in result.prompt
+    assert "## Codex focused adversarial dogfood" in result.prompt
+    assert "Model family: openai" in result.prompt
     assert "Post exactly one valid PR comment" in result.prompt
     assert "Do not merge" in result.prompt
 
