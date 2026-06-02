@@ -276,7 +276,7 @@ class TestGatherHealthStaleness:
 
 
 class TestBossLoopLogCounter:
-    def test_counts_crashes_and_exits(self, tmp_path: Path) -> None:
+    def test_counts_crashes_and_marks_latest_failed_exit_stale(self, tmp_path: Path) -> None:
         layout = _setup_proof_loop(tmp_path)
         log = layout["overnight"] / "boss-loop-launchd.log"
         log.write_text(
@@ -296,10 +296,39 @@ class TestBossLoopLogCounter:
         )
         by_name = {s.name: s for s in report.surfaces}
         bl = by_name["boss_loop_log"]
-        assert bl.status == STATUS_FRESH
+        assert bl.status == STATUS_STALE
+        assert bl.extra["tracebacks_total"] == 0
         assert bl.extra["crashes_total"] == 2
         assert bl.extra["exits_ok_total"] == 2
         assert bl.extra["exits_fail_total"] == 1
+        assert bl.extra["last_terminal_event"] == "exit_fail"
+        assert str(bl.extra["latest_failure"]) == "Boss loop exited with status 1"
+
+    def test_later_success_clears_historical_boss_loop_failures(self, tmp_path: Path) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        log = layout["overnight"] / "boss-loop-launchd.log"
+        log.write_text(
+            "Traceback (most recent call last):\n"
+            "AttributeError: boom\n"
+            "Boss loop exited with status 1\n"
+            "Starting boss-loop cycle for synaptent/aragora (label=boss-ready)...\n"
+            "Boss loop exited with status 0\n"
+        )
+        os.utime(log, (time.time() - 600, time.time() - 600))
+        report = gather_health(
+            repo_root=layout["repo"],
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+        )
+        by_name = {s.name: s for s in report.surfaces}
+        bl = by_name["boss_loop_log"]
+        assert bl.status == STATUS_FRESH
+        assert bl.extra["tracebacks_total"] == 1
+        assert bl.extra["crashes_total"] == 1
+        assert bl.extra["exits_ok_total"] == 1
+        assert bl.extra["exits_fail_total"] == 1
+        assert bl.extra["last_terminal_event"] == "exit_ok"
 
 
 class TestBossMetricsJsonlCounter:

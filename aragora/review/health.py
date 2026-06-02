@@ -315,7 +315,10 @@ def _check_status_doc(
     )
 
 
-_CRASH_PATTERN = re.compile(r"ModuleNotFoundError")
+_TRACEBACK_PATTERN = re.compile(r"Traceback \(most recent call last\):")
+_CRASH_PATTERN = re.compile(
+    r"\b(?:AttributeError|ImportError|ModuleNotFoundError|RuntimeError|ValueError|TypeError):"
+)
 _EXIT_OK_PATTERN = re.compile(r"Boss loop exited with status 0")
 _EXIT_FAIL_PATTERN = re.compile(r"Boss loop exited with status 1")
 
@@ -333,27 +336,51 @@ def _check_boss_loop_log(path: Path, warn_h: float, crit_h: float) -> SurfaceChe
     age = _age_hours(mtime, now) if mtime is not None else None
     status = _classify_age(age, warn_h, crit_h) if age is not None else STATUS_AGING
 
+    tracebacks_total = 0
     crashes_total = 0
     exits_ok_total = 0
     exits_fail_total = 0
+    last_terminal_event = ""
+    latest_failure = ""
     try:
         with path.open("r", encoding="utf-8", errors="replace") as handle:
             for line in handle:
-                if _CRASH_PATTERN.search(line):
+                stripped = line.strip()
+                if _TRACEBACK_PATTERN.search(line):
+                    tracebacks_total += 1
+                    last_terminal_event = "traceback"
+                    latest_failure = stripped
+                elif _CRASH_PATTERN.search(line):
                     crashes_total += 1
+                    latest_failure = stripped
                 elif _EXIT_OK_PATTERN.search(line):
                     exits_ok_total += 1
+                    last_terminal_event = "exit_ok"
                 elif _EXIT_FAIL_PATTERN.search(line):
                     exits_fail_total += 1
+                    last_terminal_event = "exit_fail"
+                    latest_failure = stripped
     except OSError:
         pass
 
+    if last_terminal_event in {"traceback", "exit_fail"}:
+        status = STATUS_STALE
+
     extra: dict[str, object] = {
+        "tracebacks_total": tracebacks_total,
         "crashes_total": crashes_total,
         "exits_ok_total": exits_ok_total,
         "exits_fail_total": exits_fail_total,
+        "last_terminal_event": last_terminal_event or None,
     }
-    detail = f"crashes={crashes_total} ok={exits_ok_total} fail={exits_fail_total}"
+    if latest_failure:
+        extra["latest_failure"] = latest_failure[-240:]
+    detail = (
+        f"tracebacks={tracebacks_total} crashes={crashes_total} "
+        f"ok={exits_ok_total} fail={exits_fail_total}"
+    )
+    if latest_failure:
+        detail = f"{detail}; latest_failure={latest_failure[-120:]}"
     return SurfaceCheck(
         name="boss_loop_log",
         status=status,
