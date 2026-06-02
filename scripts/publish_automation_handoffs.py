@@ -746,9 +746,8 @@ def _stale_outbox_head(repo_root: Path, handoff: Handoff) -> str | None:
 
 def _local_handoff_blocker(repo_root: Path, handoff: Handoff) -> PublishDecision | None:
     if _stale_outbox_head(repo_root, handoff):
-        return PublishDecision(
-            task_title=handoff.task_title,
-            source_file=handoff.source_file,
+        return _decision_for_handoff(
+            handoff,
             eligible=False,
             reason="stale_outbox_head",
         )

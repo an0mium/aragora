@@ -1349,6 +1349,8 @@ def test_decide_handoffs_blocks_stale_outbox_head_before_pr_lookup(
             source_file=handoff.source_file,
             eligible=False,
             reason="stale_outbox_head",
+            branch="codex/example",
+            desired_head=old_head,
         )
     ]
     assert mod._branch_tip(repo, "codex/example") == new_head
@@ -2120,6 +2122,8 @@ def test_main_reports_stale_outbox_head_when_github_unavailable(
     payload = json.loads(capsys.readouterr().out)
     assert payload["outbox_handoff_count"] == 1
     assert payload["decisions"][0]["reason"] == "stale_outbox_head"
+    assert payload["decisions"][0]["branch"] == "codex/example"
+    assert payload["decisions"][0]["desired_head"] == old_head
 
 
 def test_main_limits_github_unavailable_decision_preview(
