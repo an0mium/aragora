@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import subprocess
 from datetime import UTC, datetime
@@ -341,6 +342,77 @@ def test_run_shift_cycle_no_merge_skips_restart_and_apply() -> None:
     assert report["merge_report"] == {"merged": [], "skipped": True, "reason": "no_merge"}
     assert "merge_arbiter_restart_skipped:no_merge" in report["actions"]
     assert "merge_arbiter_apply_skipped:no_merge" in report["actions"]
+
+
+def test_run_shift_stops_before_starting_cycle_after_deadline(tmp_path: Path) -> None:
+    args = mod._build_parser().parse_args(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--max-hours",
+            "0.001",
+            "--interval-seconds",
+            "1",
+        ]
+    )
+
+    monotonic_values = iter([0.0])
+
+    def fake_monotonic() -> float:
+        return next(monotonic_values, 4.0)
+
+    with (
+        patch("scripts.run_proof_first_shift.time.monotonic", side_effect=fake_monotonic),
+        patch(
+            "scripts.run_proof_first_shift.run_shift_cycle",
+            side_effect=AssertionError("expired shift must not start another cycle"),
+        ),
+    ):
+        summary = asyncio.run(mod._run_shift(args))
+
+    assert summary["cycles"] == []
+    assert str(summary["shift"]["stop_reason"]).startswith("TimeLimit:")
+
+
+def test_run_shift_cycle_caps_merge_apply_timeout_to_remaining_shift_budget() -> None:
+    state = mod.ProofFirstRuntimeState()
+    repo_root = Path(".").resolve()
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [], "removed": []},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot", return_value={"ok": True}
+        ),
+        patch("scripts.run_proof_first_shift.list_open_prs", return_value=[]),
+        patch("scripts.run_proof_first_shift.process_running", return_value=True),
+        patch(
+            "scripts.run_proof_first_shift.run_merge_arbiter_apply", return_value={"merged": []}
+        ) as merge_mock,
+        patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=None),
+        patch(
+            "scripts.run_proof_first_shift.benchmark_truth_state_drift",
+            return_value={"issue_count": 0},
+        ),
+        patch("scripts.run_proof_first_shift.time.monotonic", return_value=100.0),
+    ):
+        mod.run_shift_cycle(
+            repo_root=repo_root,
+            repo="synaptent/aragora",
+            benchmark_mode="disabled",
+            automation_backlog_limit=12,
+            runtime_state=state,
+            deadline_monotonic=130.0,
+        )
+
+    merge_mock.assert_called_once_with(
+        repo_root=repo_root,
+        repo="synaptent/aragora",
+        limit=1,
+        timeout=29,
+    )
 
 
 def test_dry_run_uses_single_merge_limit_and_is_read_only() -> None:
