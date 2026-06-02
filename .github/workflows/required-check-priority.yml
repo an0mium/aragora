@@ -45,7 +45,7 @@ jobs:
               // administration scope -> 403), so this static keep-list is the
               // only thing that actually protects required checks from being
               // cancelled. Omitting the merge-quorum gate let it be cancelled
-              // into a red "cancelled" required status that needed a manual rerun.
+              // into a red cancelled required status that needed a manual rerun.
               '.github/workflows/aragora-merge-quorum.yml',
               '.github/workflows/aragora-review-gate.yml',
               '.github/workflows/autopilot-worktree-e2e.yml',
