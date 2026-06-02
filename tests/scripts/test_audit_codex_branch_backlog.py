@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -384,6 +384,7 @@ def test_audit_uses_cached_open_pr_heads_when_github_health_degraded(
     (cache_dir / "latest.json").write_text(
         json.dumps(
             {
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "github_health": {"ready": True, "mode": "ready"},
                 "github_queue": {
                     "available": True,
@@ -433,6 +434,118 @@ def test_audit_uses_cached_open_pr_heads_when_github_health_degraded(
     assert record["category"] == "protected_open_pr"
     assert payload["summary"]["protected"] == 1
     assert payload["summary"]["publishable_branch_backlog"] == 0
+
+
+def test_audit_does_not_let_cache_override_successful_live_open_pr_lookup(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    row = _branch_row("codex/closed-pr", ahead_count="0")
+    _stub_git_inventory(monkeypatch, row)
+    cache_dir = tmp_path / ".aragora" / "automation-github-status"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "latest.json").write_text(
+        json.dumps(
+            {
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "github_queue": {
+                    "available": True,
+                    "open_pr_heads": ["codex/closed-pr"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args, **_kwargs: {})
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    record = payload["records"][0]
+    assert payload["open_pr_lookup_skipped"] is False
+    assert payload["cached_open_pr_lookup_used"] is False
+    assert payload["cached_open_pr_head_count"] == 0
+    assert record["open_pr"] is None
+    assert record["open_pr_cached"] is False
+    assert record["category"] == "cleanup_local_merged"
+
+
+def test_audit_ignores_stale_cached_open_pr_heads_when_github_health_degraded(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    row = _branch_row("codex/stale-cached-pr")
+    _stub_git_inventory(monkeypatch, row)
+    cache_dir = tmp_path / ".aragora" / "automation-github-status"
+    cache_dir.mkdir(parents=True)
+    stale_at = datetime.now(timezone.utc) - timedelta(hours=48)
+    (cache_dir / "latest.json").write_text(
+        json.dumps(
+            {
+                "generated_at": stale_at.isoformat(),
+                "github_queue": {
+                    "available": True,
+                    "open_pr_heads": ["codex/stale-cached-pr"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("live PR lookup should be skipped")
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    record = payload["records"][0]
+    assert payload["open_pr_lookup_skipped"] is True
+    assert payload["cached_open_pr_lookup_used"] is False
+    assert payload["cached_open_pr_head_count"] == 0
+    assert record["open_pr_cached"] is False
+    assert record["category"] == "salvage_recent_unique"
 
 
 def test_audit_passes_bounded_timeout_to_github_health(tmp_path: Path, monkeypatch: Any) -> None:

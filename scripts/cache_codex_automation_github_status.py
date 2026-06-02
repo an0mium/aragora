@@ -653,7 +653,7 @@ def preserve_cached_github_queue(path: Path, payload: dict[str, Any]) -> dict[st
         if key in previous_queue:
             merged_queue[key] = previous_queue[key]
     merged_queue["open_pr_heads_preserved_from_cache"] = True
-    cached_at = previous.get("generated_at")
+    cached_at = previous_queue.get("open_pr_heads_cached_at") or previous.get("generated_at")
     if isinstance(cached_at, str) and cached_at:
         merged_queue["open_pr_heads_cached_at"] = cached_at
 
