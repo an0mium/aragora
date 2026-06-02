@@ -123,6 +123,24 @@ def test_exact_head_mismatch_blocks_before_required_checks() -> None:
     assert not any(command[:3] == ["gh", "pr", "checks"] for command in runner.commands)
 
 
+def test_apply_without_exact_head_blocks_before_pr_view() -> None:
+    runner = FakeRunner(
+        pr_payload=_pr_payload(rollup=[_cancelled_build_docs()]),
+        required_payload=[_required_pass()],
+    )
+
+    result = evaluate_rollup_cleanup(
+        pr_number=7561,
+        expected_head=None,
+        apply=True,
+        runner=runner,
+    )
+
+    assert result["blocker"] == "exact_head_required_for_apply"
+    assert result["safe_to_apply"] is False
+    assert runner.commands == []
+
+
 def test_required_check_failure_blocks_rerun() -> None:
     runner = FakeRunner(
         pr_payload=_pr_payload(rollup=[_cancelled_build_docs()]),

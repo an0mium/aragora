@@ -259,6 +259,9 @@ def evaluate_rollup_cleanup(
     runner: Runner = _run,
 ) -> dict[str, Any]:
     output = _base_output(pr_number, repo, expected_head)
+    if apply and not expected_head:
+        output["blocker"] = "exact_head_required_for_apply"
+        return output
 
     pr_payload, pr_command = _run_json(
         [
