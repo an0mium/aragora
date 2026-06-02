@@ -99,6 +99,46 @@ def test_build_status_keeps_local_queue_when_remote_query_fails(
     assert payload["local_queue"]["unreceipted_outbox_count"] == 1
 
 
+def test_preserves_cached_open_pr_heads_when_github_queue_unavailable(tmp_path: Path) -> None:
+    cache_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-06-02T07:49:13Z",
+                "github_queue": {
+                    "available": True,
+                    "open_codex_pr_count": 2,
+                    "open_pr_heads": ["codex/a", "codex/b"],
+                    "merge_state_counts": {"BLOCKED": 2},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "generated_at": "2026-06-02T08:01:18Z",
+        "github_queue": {
+            "available": False,
+            "reason": "connectivity_failed",
+        },
+        "local_queue": {"outbox_count": 3},
+    }
+
+    preserved = mod.preserve_cached_github_queue(cache_path, payload)
+
+    assert preserved["local_queue"] == {"outbox_count": 3}
+    assert preserved["github_queue"] == {
+        "available": False,
+        "reason": "connectivity_failed",
+        "open_pr_heads": ["codex/a", "codex/b"],
+        "open_codex_pr_count": 2,
+        "merge_state_counts": {"BLOCKED": 2},
+        "open_pr_heads_preserved_from_cache": True,
+        "open_pr_heads_cached_at": "2026-06-02T07:49:13Z",
+    }
+
+
 def test_local_queue_state_matches_receipts_by_idempotency_key(tmp_path: Path) -> None:
     outbox = tmp_path / ".aragora" / "automation-outbox"
     receipts = tmp_path / ".aragora" / "automation-receipts"
