@@ -321,6 +321,8 @@ _CRASH_PATTERN = re.compile(
 )
 _EXIT_OK_PATTERN = re.compile(r"Boss loop exited with status 0")
 _EXIT_FAIL_PATTERN = re.compile(r"Boss loop exited with status 1")
+_PYTHON_WARNING_PATTERN = re.compile(r"ARAGORA_PYTHON is set but not executable: .+")
+_PYTHON_INTERPRETER_PATTERN = re.compile(r"Using Python interpreter: .+")
 
 
 def _check_boss_loop_log(path: Path, warn_h: float, crit_h: float) -> SurfaceCheck:
@@ -342,17 +344,25 @@ def _check_boss_loop_log(path: Path, warn_h: float, crit_h: float) -> SurfaceChe
     exits_fail_total = 0
     last_terminal_event = ""
     latest_failure = ""
+    latest_failure_signature = ""
+    latest_python_warning = ""
+    latest_python_interpreter = ""
     try:
         with path.open("r", encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 stripped = line.strip()
-                if _TRACEBACK_PATTERN.search(line):
+                if _PYTHON_WARNING_PATTERN.search(line):
+                    latest_python_warning = stripped
+                elif _PYTHON_INTERPRETER_PATTERN.search(line):
+                    latest_python_interpreter = stripped
+                elif _TRACEBACK_PATTERN.search(line):
                     tracebacks_total += 1
                     last_terminal_event = "traceback"
                     latest_failure = stripped
                 elif _CRASH_PATTERN.search(line):
                     crashes_total += 1
                     latest_failure = stripped
+                    latest_failure_signature = stripped
                 elif _EXIT_OK_PATTERN.search(line):
                     exits_ok_total += 1
                     last_terminal_event = "exit_ok"
@@ -375,12 +385,20 @@ def _check_boss_loop_log(path: Path, warn_h: float, crit_h: float) -> SurfaceChe
     }
     if latest_failure:
         extra["latest_failure"] = latest_failure[-240:]
+    if latest_failure_signature:
+        extra["latest_failure_signature"] = latest_failure_signature[-240:]
+    if latest_python_warning:
+        extra["latest_python_warning"] = latest_python_warning[-240:]
+    if latest_python_interpreter:
+        extra["latest_python_interpreter"] = latest_python_interpreter[-240:]
     detail = (
         f"tracebacks={tracebacks_total} crashes={crashes_total} "
         f"ok={exits_ok_total} fail={exits_fail_total}"
     )
     if latest_failure:
         detail = f"{detail}; latest_failure={latest_failure[-120:]}"
+    if latest_failure_signature and latest_failure_signature != latest_failure:
+        detail = f"{detail}; failure_signature={latest_failure_signature[-120:]}"
     return SurfaceCheck(
         name="boss_loop_log",
         status=status,

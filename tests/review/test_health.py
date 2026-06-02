@@ -304,6 +304,42 @@ class TestBossLoopLogCounter:
         assert bl.extra["last_terminal_event"] == "exit_fail"
         assert str(bl.extra["latest_failure"]) == "Boss loop exited with status 1"
 
+    def test_failed_exit_keeps_actionable_boss_loop_failure_signature(self, tmp_path: Path) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        log = layout["overnight"] / "boss-loop-launchd.log"
+        log.write_text(
+            "ARAGORA_PYTHON is set but not executable: /repo/.venv/bin/python3\n"
+            "Starting boss-loop cycle for synaptent/aragora (label=boss-ready)...\n"
+            "Using Python interpreter: /Users/armand/miniforge3/bin/python\n"
+            "Traceback (most recent call last):\n"
+            "AttributeError: 'NoneType' object has no attribute 'ndarray'\n"
+            "Boss loop exited with status 1\n"
+        )
+        os.utime(log, (time.time() - 600, time.time() - 600))
+        report = gather_health(
+            repo_root=layout["repo"],
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+        )
+        by_name = {s.name: s for s in report.surfaces}
+        bl = by_name["boss_loop_log"]
+        assert bl.status == STATUS_STALE
+        assert bl.extra["latest_failure"] == "Boss loop exited with status 1"
+        assert (
+            bl.extra["latest_failure_signature"]
+            == "AttributeError: 'NoneType' object has no attribute 'ndarray'"
+        )
+        assert (
+            bl.extra["latest_python_warning"]
+            == "ARAGORA_PYTHON is set but not executable: /repo/.venv/bin/python3"
+        )
+        assert (
+            bl.extra["latest_python_interpreter"]
+            == "Using Python interpreter: /Users/armand/miniforge3/bin/python"
+        )
+        assert "failure_signature=AttributeError" in str(bl.detail)
+
     def test_later_success_clears_historical_boss_loop_failures(self, tmp_path: Path) -> None:
         layout = _setup_proof_loop(tmp_path)
         log = layout["overnight"] / "boss-loop-launchd.log"
