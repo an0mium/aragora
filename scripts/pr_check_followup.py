@@ -710,10 +710,10 @@ def build_prompt(
             "Before posting, lint the exact comment with `python3 -m aragora.cli.main review-queue evidence-lint --pr <PR> --head-sha <HEAD> --body-file <FILE> --author <GITHUB_LOGIN> --json` and require `would_count=true` with no problems."
         )
         lines.append(
-            "Use a countable header and metadata block, for example `## Codex focused adversarial dogfood`, `Exact head: <HEAD>`, `Reviewer harness: codex`, `Model family: openai`, `Model id: <MODEL>`, and `Receipt artifact: <PATH>`."
+            "Use a countable non-Codex header and metadata block, for example `## Claude focused adversarial dogfood`, `Exact head: <HEAD>`, `Reviewer harness: claude-code`, `Model family: claude`, `Model id: <MODEL>`, and `Receipt artifact: <PATH>`."
         )
         lines.append(
-            "Post exactly one valid PR comment only if the evidence is current-head, non-Codex/OpenAI-family, lists files reviewed, puts findings first, includes validation run/not-run reasons, includes focused adversarial dogfood verdict, and states that it is not merge authorization."
+            "Post exactly one valid PR comment only if the evidence is current-head, not Codex, not any OpenAI-family model, lists files reviewed, puts findings first, includes validation run/not-run reasons, includes focused adversarial dogfood verdict, and states that it is not merge authorization."
         )
         lines.append(
             "Then rerun review-queue merge-packet for the PR and report the next blocker. Do not merge."
