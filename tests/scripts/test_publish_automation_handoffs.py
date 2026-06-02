@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -1836,13 +1837,17 @@ def test_main_derives_outbox_dirs_from_explicit_aragora_state_root(
         repo_root: Path,
         outbox_dir: Path | None = None,
         receipt_dir: Path | None = None,
-    ) -> list[Handoff]:
+    ) -> tuple[list[Handoff], Counter[str]]:
         captured["repo_root"] = repo_root
         captured["outbox_dir"] = outbox_dir
         captured["receipt_dir"] = receipt_dir
-        return []
+        return [], Counter()
 
-    monkeypatch.setattr(mod, "load_outbox_handoffs", fake_load_outbox_handoffs)
+    monkeypatch.setattr(
+        mod,
+        "_load_outbox_handoffs_with_skip_reasons",
+        fake_load_outbox_handoffs,
+    )
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
@@ -2043,6 +2048,12 @@ def test_main_summary_only_reports_outbox_files_skipped_before_publish(
         ),
         encoding="utf-8",
     )
+    incomplete = _outbox_payload(idempotency_key="open-pr-incomplete")
+    del incomplete["validation"]
+    (outbox / "incomplete.json").write_text(
+        json.dumps(incomplete),
+        encoding="utf-8",
+    )
     monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
     monkeypatch.setattr(
         mod,
@@ -2074,9 +2085,13 @@ def test_main_summary_only_reports_outbox_files_skipped_before_publish(
 
     assert exit_code == 1
     payload = json.loads(capsys.readouterr().out)
-    assert payload["outbox_file_count"] == 2
+    assert payload["outbox_file_count"] == 3
     assert payload["outbox_handoff_count"] == 1
-    assert payload["outbox_skipped_count"] == 1
+    assert payload["outbox_skipped_count"] == 2
+    assert payload["outbox_skipped_reason_counts"] == {
+        "expired": 1,
+        "missing_required_contract": 1,
+    }
     assert payload["handoff_count"] == 1
 
 

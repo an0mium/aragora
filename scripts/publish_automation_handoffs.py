@@ -841,6 +841,22 @@ def load_outbox_handoffs(
     receipt_dir: Path | None = None,
     now: datetime | None = None,
 ) -> list[Handoff]:
+    handoffs, _skip_reasons = _load_outbox_handoffs_with_skip_reasons(
+        repo_root,
+        outbox_dir=outbox_dir,
+        receipt_dir=receipt_dir,
+        now=now,
+    )
+    return handoffs
+
+
+def _load_outbox_handoffs_with_skip_reasons(
+    repo_root: Path,
+    *,
+    outbox_dir: Path | None = None,
+    receipt_dir: Path | None = None,
+    now: datetime | None = None,
+) -> tuple[list[Handoff], Counter[str]]:
     outbox_root = _automation_state_path(repo_root, outbox_dir, DEFAULT_OUTBOX_DIR).resolve()
     receipt_root = _automation_state_path(repo_root, receipt_dir, DEFAULT_RECEIPT_DIR).resolve()
     current_time = now or datetime.now(UTC)
@@ -851,14 +867,18 @@ def load_outbox_handoffs(
         terminal_receipts,
     )
     handoffs_by_identity: dict[tuple[str, str], Handoff] = {}
+    skipped_reasons: Counter[str] = Counter()
     for source_file in _outbox_files(outbox_root):
         try:
             payload = json.loads(source_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
+            skipped_reasons["invalid_json"] += 1
             continue
         if not isinstance(payload, dict):
+            skipped_reasons["invalid_payload"] += 1
             continue
         if not _has_required_outbox_contract(payload):
+            skipped_reasons["missing_required_contract"] += 1
             continue
         task_title = str(payload.get("task") or payload.get("title") or "").strip()
         requested_action = _normalized_requested_action(payload.get("requested_action"))
@@ -867,11 +887,14 @@ def load_outbox_handoffs(
         if isinstance(requires_github, str):
             requires_github = requires_github.strip().lower() not in {"0", "false", "no"}
         if requires_github is False:
+            skipped_reasons["requires_github_false"] += 1
             continue
         if not task_title or not requested_action or not idempotency_key:
+            skipped_reasons["missing_identity"] += 1
             continue
         expires_at = str(payload.get("expires_at") or "").strip() or None
         if _is_expired(expires_at, now=current_time):
+            skipped_reasons["expired"] += 1
             continue
         branch_fingerprint = _outbox_branch_fingerprint(payload)
         receipt_payloads = terminal_receipts.get(idempotency_key, [])
@@ -879,12 +902,16 @@ def load_outbox_handoffs(
             _receipt_satisfies_outbox(repo_root, payload, receipt_payload)
             for receipt_payload in receipt_payloads
         ):
+            skipped_reasons["terminal_receipt"] += 1
             continue
         if branch_fingerprint and branch_fingerprint in terminal_fingerprints:
+            skipped_reasons["terminal_branch_receipt"] += 1
             continue
         if _outbox_branch_already_merged(repo_root, payload):
+            skipped_reasons["already_merged"] += 1
             continue
         if _outbox_branch_patch_equivalent(repo_root, payload):
+            skipped_reasons["patch_equivalent"] += 1
             continue
         handoff = Handoff(
             source_file=str(source_file),
@@ -911,12 +938,17 @@ def load_outbox_handoffs(
             _source_mtime(existing.source_file),
             existing.source_file,
         ):
+            if existing is not None:
+                skipped_reasons["duplicate_identity"] += 1
             handoffs_by_identity[identity] = handoff
-    return sorted(
+        else:
+            skipped_reasons["duplicate_identity"] += 1
+    handoffs = sorted(
         handoffs_by_identity.values(),
         key=lambda item: (_source_mtime(item.source_file), item.priority),
         reverse=True,
     )
+    return handoffs, skipped_reasons
 
 
 def _ensure_gh_auth(repo_root: Path) -> None:
@@ -1456,13 +1488,20 @@ def main(argv: list[str] | None = None) -> int:
     labels = list(dict.fromkeys(args.labels))
     automation_ids = set(args.automation_ids or DEFAULT_AUTOMATION_IDS)
     memory_handoffs = load_handoffs(codex_home, automation_ids=automation_ids)
-    outbox_handoffs = (
-        []
-        if args.no_outbox
-        else load_outbox_handoffs(repo_root, outbox_dir=outbox_dir, receipt_dir=receipt_dir)
-    )
+    if args.no_outbox:
+        outbox_handoffs = []
+        outbox_skipped_reason_counts: Counter[str] = Counter()
+    else:
+        outbox_handoffs, outbox_skipped_reason_counts = _load_outbox_handoffs_with_skip_reasons(
+            repo_root,
+            outbox_dir=outbox_dir,
+            receipt_dir=receipt_dir,
+        )
     outbox_file_count = 0 if args.no_outbox else len(_outbox_files(outbox_dir))
-    outbox_skipped_count = max(outbox_file_count - len(outbox_handoffs), 0)
+    outbox_skipped_count = sum(outbox_skipped_reason_counts.values())
+    if outbox_skipped_count == 0:
+        outbox_skipped_count = max(outbox_file_count - len(outbox_handoffs), 0)
+    outbox_skipped_reason_counts_payload = dict(sorted(outbox_skipped_reason_counts.items()))
     handoffs = sorted(
         memory_handoffs + outbox_handoffs,
         key=lambda item: (_source_mtime(item.source_file), item.priority),
@@ -1493,6 +1532,7 @@ def main(argv: list[str] | None = None) -> int:
             "outbox_file_count": outbox_file_count,
             "outbox_handoff_count": len(outbox_handoffs),
             "outbox_skipped_count": outbox_skipped_count,
+            "outbox_skipped_reason_counts": outbox_skipped_reason_counts_payload,
             "handoff_count": len(handoffs),
             "github_health": github_health.to_dict(),
             "decisions": [asdict(item) for item in decisions],
@@ -1547,6 +1587,7 @@ def main(argv: list[str] | None = None) -> int:
         "outbox_file_count": outbox_file_count,
         "outbox_handoff_count": len(outbox_handoffs),
         "outbox_skipped_count": outbox_skipped_count,
+        "outbox_skipped_reason_counts": outbox_skipped_reason_counts_payload,
         "handoff_count": len(handoffs),
         "github_health": github_health.to_dict(),
         "decisions": [asdict(item) for item in results],
