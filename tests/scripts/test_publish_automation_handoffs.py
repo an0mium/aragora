@@ -220,6 +220,42 @@ def test_load_outbox_handoffs_extracts_branch_from_list_local_evidence(
     )
 
 
+def test_load_outbox_handoffs_extracts_requested_issue_labels(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "repair-branch.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                labels="automation",
+                requested_action={
+                    "type": "open_pull_request",
+                    "branch": "codex/example",
+                    "base": "main",
+                    "labels": ["codex", "codex-automation"],
+                },
+                local_evidence={
+                    "branch": "codex/example",
+                    "head": "abc123",
+                    "labels": ["codex", "dogfood"],
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].issue_labels == (
+        "automation",
+        "codex",
+        "codex-automation",
+        "dogfood",
+    )
+
+
 def test_load_outbox_handoffs_uses_automation_state_root_for_default_dirs(
     tmp_path: Path,
     monkeypatch: Any,
@@ -1634,6 +1670,60 @@ def test_publish_handoffs_creates_issue_with_labels(monkeypatch: Any, tmp_path: 
     ]
 
 
+def test_publish_handoffs_merges_outbox_requested_labels(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / ".aragora" / "automation-outbox" / "handoff.json"),
+        task_title="Open draft PR for automation dogfood fix",
+        priority="MEDIUM",
+        body="body",
+        labels={},
+        expires_at=None,
+        source_kind="outbox",
+        issue_labels=("codex", "codex-automation", "boss-ready"),
+    )
+    created: list[list[str]] = []
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        created.append(args)
+        return subprocess.CompletedProcess(
+            args, 0, "https://github.com/synaptent/aragora/issues/5891\n", ""
+        )
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    published = mod.publish_handoffs(
+        [handoff],
+        [
+            PublishDecision(
+                task_title=handoff.task_title,
+                source_file=handoff.source_file,
+                eligible=True,
+                reason="eligible",
+            )
+        ],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        limit=1,
+    )
+
+    assert published[0].reason == "published"
+    assert created[0].count("--label") == 3
+    assert created[1] == [
+        "gh",
+        "issue",
+        "edit",
+        "5891",
+        "--repo",
+        "synaptent/aragora",
+        "--add-label",
+        "boss-ready,codex,codex-automation",
+    ]
+
+
 def test_publish_handoffs_writes_outbox_receipt(monkeypatch: Any, tmp_path: Path) -> None:
     source = tmp_path / ".aragora" / "automation-outbox" / "example.json"
     source.parent.mkdir(parents=True)
@@ -1970,8 +2060,8 @@ def test_main_reports_handoff_context_when_github_unavailable(
     monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
     monkeypatch.setattr(
         mod,
-        "load_outbox_handoffs",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: [handoff],
+        "_load_outbox_handoffs_with_skip_reasons",
+        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter()),
     )
     monkeypatch.setattr(
         mod,

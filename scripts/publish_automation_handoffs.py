@@ -151,6 +151,7 @@ class Handoff:
     source_kind: str = "memory"
     branch: str | None = None
     desired_head: str | None = None
+    issue_labels: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -606,6 +607,31 @@ def _structured_action(value: Any) -> Mapping[str, Any] | None:
     return None
 
 
+def _coerce_issue_labels(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        raw_labels = value.split(",")
+    elif isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
+        raw_labels = [str(item) for item in value]
+    else:
+        raw_labels = [str(value)]
+    return [label.strip() for label in raw_labels if label.strip()]
+
+
+def _outbox_issue_labels(payload: dict[str, Any]) -> tuple[str, ...]:
+    labels: list[str] = []
+    labels.extend(_coerce_issue_labels(payload.get("labels")))
+    requested_action = _structured_action(payload.get("requested_action"))
+    if requested_action is not None:
+        labels.extend(_coerce_issue_labels(requested_action.get("label")))
+        labels.extend(_coerce_issue_labels(requested_action.get("labels")))
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        labels.extend(_coerce_issue_labels(local_evidence.get("label")))
+        labels.extend(_coerce_issue_labels(local_evidence.get("labels")))
+    return tuple(dict.fromkeys(labels))
+
+
 def _normalized_requested_action(value: Any) -> str:
     structured = _structured_action(value)
     if structured is not None:
@@ -947,6 +973,7 @@ def _load_outbox_handoffs_with_skip_reasons(
             source_kind="outbox",
             branch=_outbox_evidence_value(payload, "branch") or None,
             desired_head=_outbox_desired_head(payload),
+            issue_labels=_outbox_issue_labels(payload),
         )
         identity = (
             ("branch", branch_fingerprint)
@@ -1215,6 +1242,7 @@ def _create_issue(
     *,
     labels: list[str],
 ) -> str:
+    issue_labels = list(dict.fromkeys([*labels, *handoff.issue_labels]))
     args = [
         "gh",
         "issue",
@@ -1226,13 +1254,13 @@ def _create_issue(
         "--body",
         _fit_issue_body(handoff.body),
     ]
-    for label in labels:
+    for label in issue_labels:
         args.extend(["--label", label])
     proc = _run(args, cwd=repo_root)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh issue create failed")
     url = str(proc.stdout or "").strip().splitlines()[-1].strip()
-    _add_issue_labels(repo_root, repo, url, labels)
+    _add_issue_labels(repo_root, repo, url, issue_labels)
     return url
 
 
