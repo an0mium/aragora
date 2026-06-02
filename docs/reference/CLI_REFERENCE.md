@@ -6,8 +6,8 @@
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **102**
-- Total top-level invocations (including aliases): **103**
+- Canonical top-level commands: **105**
+- Total top-level invocations (including aliases): **106**
 
 ## Installation
 
@@ -52,6 +52,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `calibration` | - | AGT-03.3: per-agent rolling-window Brier reports from market data | `leaderboard`, `report` |
 | `codebase-audit` | - | Run a staged repo audit with triage, threat-surface ranking, and deep audit | - |
 | `codex` | - | Read-only inspector for Codex Desktop local state | `insights`, `sessions` |
+| `coherence-scan` | - | DIC-26: scan a belief ledger for contradictions, evidence conflicts, and confidence rot | - |
 | `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `evidence`, `export`, `report`, `status` |
 | `computer-use` | - | Computer use task management | `list`, `run`, `status` |
 | `config` | - | Manage configuration | - |
@@ -101,6 +102,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `pipeline` | - | Run idea-to-execution pipeline operations | `dogfood`, `run`, `self-improve`, `status` |
 | `plans` | - | Manage decision plans | `approve`, `execute`, `list`, `reject`, `show` |
 | `playbook` | - | List and run decision playbooks | `list`, `run` |
+| `proof-units` | - | DIC-19: inspect proof-carrying code unit constraint graph | - |
 | `publish` | - | Build, test, and publish packages to PyPI/npm | - |
 | `quickstart` | - | Guided zero-to-receipt first debate (new user onboarding) | - |
 | `ralph` | - | Ralph campaign supervisor — autonomous incident commander | - |
@@ -130,6 +132,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `tenant` | - | Manage multi-tenant deployments | `activate`, `create`, `delete`, `export`, `list`, `quota-get`, `quota-set`, `suspend` |
 | `testfixer` | - | Run automated test-fix loop | - |
 | `triage` | - | Inbox triage via adversarial debate with receipt-gated actions | `audit`, `auth`, `calibrate`, `digest`, `label`, `queue`, `run`, `status` |
+| `truth-map` | - | DIC-18: read-only organizational truth map of claim and crux status | - |
 | `validate` | - | Run a full health check, including live API-key validation | - |
 | `validate-env` | - | Validate environment configuration and backend connectivity | - |
 | `verify` | - | Verify a decision receipt's integrity | - |
