@@ -97,7 +97,17 @@ def cmd_decay_monitor(args: argparse.Namespace) -> int:
         if not cr_path.exists():
             print(f"error: claim-results file not found: {cr_path}", file=sys.stderr)
             return 1
-        claim_results = _parse_claim_results(cr_path)
+        try:
+            claim_results = _parse_claim_results(cr_path)
+        except ImportError:
+            # ``_parse_claim_results`` imports the epistemic package, which pulls
+            # in pyyaml at module load. Fail closed with the same clear message
+            # rather than a raw ModuleNotFoundError traceback.
+            print(
+                "error: pyyaml is required but not installed; install it to use decay-monitor",
+                file=sys.stderr,
+            )
+            return 1
 
     try:
         manifests = _load_manifests(units_dir)

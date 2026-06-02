@@ -73,6 +73,34 @@ def test_missing_pyyaml_exits_1(monkeypatch, tmp_path: Path, capsys) -> None:
     assert "pyyaml" in capsys.readouterr().err
 
 
+def test_missing_pyyaml_with_claim_results_exits_1_cleanly(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    """Missing pyyaml on the --claim-results path must also fail closed cleanly.
+
+    Regression (codex finding): ``_parse_claim_results`` imports
+    ``aragora.epistemic.claim_verifier`` which imports ``yaml`` at module load.
+    With pyyaml unavailable this previously raised a raw ``ModuleNotFoundError``
+    traceback instead of the clear dependency error + exit 1.
+    """
+    monkeypatch.setenv(_FLAG, "1")
+    import unittest.mock
+
+    cr = tmp_path / "claims.jsonl"
+    cr.write_text('{"claim_id": "c1", "status": "verified"}\n', encoding="utf-8")
+
+    # Force the claim_verifier import (which pulls in yaml) to fail.
+    with unittest.mock.patch.dict(
+        "sys.modules",
+        {"yaml": None, "aragora.epistemic.claim_verifier": None},
+    ):
+        rc = cmd_decay_monitor(_ns(str(tmp_path), claim_results=str(cr)))
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "pyyaml" in err
+    assert "Traceback" not in err
+
+
 def test_missing_units_dir_exits_1(monkeypatch, tmp_path: Path, capsys) -> None:
     monkeypatch.setenv(_FLAG, "1")
     assert cmd_decay_monitor(_ns(str(tmp_path / "missing"))) == 1
