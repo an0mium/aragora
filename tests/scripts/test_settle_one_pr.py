@@ -75,10 +75,13 @@ def test_run_reports_timeout_and_terminates_process_group(monkeypatch) -> None:
         def __init__(self) -> None:
             self.communicate_calls = 0
 
-        def communicate(self, timeout: int | None = None) -> tuple[str, str]:
+        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
             self.communicate_calls += 1
             if self.communicate_calls == 1:
-                raise subprocess.TimeoutExpired(cmd=["slow"], timeout=timeout)
+                raise subprocess.TimeoutExpired(
+                    cmd=["slow"],
+                    timeout=timeout if timeout is not None else 0.0,
+                )
             self.returncode = -9
             return "", ""
 
