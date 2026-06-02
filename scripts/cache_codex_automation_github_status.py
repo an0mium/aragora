@@ -67,6 +67,16 @@ LOCAL_QUEUE_DETAIL_KEYS = (
     "unsatisfied_receipted_outbox",
     "stale_target_pr_receipted_outbox",
 )
+GITHUB_QUEUE_PRESERVED_KEYS = (
+    "open_pr_heads",
+    "open_codex_pr_count",
+    "unhealthy_open_pr_count",
+    "all_open_prs_unhealthy",
+    "merge_state_counts",
+    "open_issue_count",
+    "labels",
+    "pressure",
+)
 
 
 def _has_queue_state_dirs(state_root: Path) -> bool:
@@ -617,6 +627,41 @@ def write_status(path: Path, payload: dict[str, Any]) -> None:
     Path(temp_name).replace(path)
 
 
+def preserve_cached_github_queue(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    """Carry forward cached open PR heads when a refresh cannot query GitHub."""
+
+    github_queue = payload.get("github_queue")
+    if not isinstance(github_queue, Mapping) or github_queue.get("available") is not False:
+        return payload
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return payload
+    if not isinstance(previous, Mapping):
+        return payload
+    previous_queue = previous.get("github_queue")
+    if not isinstance(previous_queue, Mapping):
+        return payload
+    previous_heads = previous_queue.get("open_pr_heads")
+    if not isinstance(previous_heads, Sequence) or isinstance(
+        previous_heads, (str, bytes, bytearray)
+    ):
+        return payload
+
+    merged_queue = dict(github_queue)
+    for key in GITHUB_QUEUE_PRESERVED_KEYS:
+        if key in previous_queue:
+            merged_queue[key] = previous_queue[key]
+    merged_queue["open_pr_heads_preserved_from_cache"] = True
+    cached_at = previous.get("generated_at")
+    if isinstance(cached_at, str) and cached_at:
+        merged_queue["open_pr_heads_cached_at"] = cached_at
+
+    preserved = dict(payload)
+    preserved["github_queue"] = merged_queue
+    return preserved
+
+
 def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Return compact queue status for recurring automation startup logs."""
 
@@ -719,6 +764,7 @@ def main(argv: list[str] | None = None) -> int:
             else None
         ),
     )
+    payload = preserve_cached_github_queue(output, payload)
     write_status(output, payload)
     if args.json:
         output_payload = summary_only_payload(payload) if args.summary_only else payload
