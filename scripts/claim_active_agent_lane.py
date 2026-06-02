@@ -89,6 +89,8 @@ except ImportError:  # pragma: no cover - exercised only on non-POSIX systems.
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 REPO_LANE_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
 USER_LANE_PATH = Path.home() / ".aragora" / "agent-bridge" / "lanes.json"
+# Convention for this operator's canonical shared checkout; override in automation
+# lanes with ARAGORA_AUTOMATION_STATE_ROOT when the shared state lives elsewhere.
 DEFAULT_SHARED_STATE_ROOT = Path.home() / "Development" / "aragora"
 AUTOMATION_STATE_ROOT_ENV = "ARAGORA_AUTOMATION_STATE_ROOT"
 

@@ -681,6 +681,7 @@ def test_resolve_registry_path_uses_default_shared_state_before_user_home(
     repo_root.mkdir()
     state_root = tmp_path / "canonical-checkout"
     (state_root / ".aragora" / "agent-bridge").mkdir(parents=True)
+    monkeypatch.delenv(claim_module.AUTOMATION_STATE_ROOT_ENV, raising=False)
     monkeypatch.setattr(claim_module, "DEFAULT_SHARED_STATE_ROOT", state_root)
 
     actual = claim_module.resolve_registry_path(repo_root=repo_root)
