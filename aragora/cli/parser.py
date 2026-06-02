@@ -216,7 +216,9 @@ Examples:
     _add_calibration_parser(subparsers)
     _add_cruxset_parser(subparsers)
     _add_crux_followup_parser(subparsers)
+    _add_proof_units_parser(subparsers)  # DIC-19 / #6030
     _add_genealogy_parser(subparsers)  # DIC-24 / #6218
+    _add_coherence_scan_parser(subparsers)  # DIC-26 / #6220
 
     # DIC-27: operator crux arbitration surface
     _add_crux_arbitrate_parser(subparsers)
@@ -591,6 +593,51 @@ def _add_cruxset_parser(subparsers) -> None:
     show.set_defaults(func=_lazy("aragora.cli.commands.agt_cruxset", "cmd_cruxset_show"))
 
 
+def _add_proof_units_parser(subparsers) -> None:
+    """Add the 'proof-units' subcommand for DIC-19 constraint graph surface.
+
+    Flag-gated: ARAGORA_PROOF_UNIT_SCAN_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "proof-units",
+        help="DIC-19: inspect proof-carrying code unit constraint graph",
+        description=(
+            "Read-only operator surface for the proof-carrying code unit constraint graph. "
+            "Requires ARAGORA_PROOF_UNIT_SCAN_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--proof-units-dir",
+        dest="proof_units_dir",
+        default=None,
+        help="Directory containing proof-unit YAML manifests (default: docs/status/proof_units)",
+    )
+    p.add_argument(
+        "--impact-of",
+        dest="impact_of",
+        nargs="+",
+        metavar="CLAIM_ID",
+        default=None,
+        help="Show units impacted by these claim IDs",
+    )
+    p.add_argument(
+        "--multi-hop",
+        dest="multi_hop",
+        action="store_true",
+        default=False,
+        help="Include transitively impacted units via dependency edges",
+    )
+    p.add_argument(
+        "--json",
+        dest="json",
+        action="store_true",
+        default=False,
+        help="Emit JSON output",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic19_proof_units", "cmd_proof_units"))
+
+
 def _add_genealogy_parser(subparsers) -> None:
     """Add the 'genealogy' subcommand group (DIC-24 / #6218).
 
@@ -616,6 +663,46 @@ def _add_genealogy_parser(subparsers) -> None:
     )
     show.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     show.set_defaults(func=_lazy("aragora.cli.commands.dic24_genealogy", "cmd_genealogy_show"))
+
+
+def _add_coherence_scan_parser(subparsers) -> None:
+    """Add the 'coherence-scan' subcommand (DIC-26 / #6220).
+
+    Flag-gated: ARAGORA_COHERENCE_MONITOR_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "coherence-scan",
+        help="DIC-26: scan a belief ledger for contradictions, evidence conflicts, and confidence rot",
+        description=(
+            "Read-only operator surface for the belief coherence monitor. "
+            "Requires ARAGORA_COHERENCE_MONITOR_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--input",
+        required=True,
+        metavar="JSON",
+        help="Path to a JSON file containing a list of BeliefEntry dicts",
+    )
+    p.add_argument(
+        "--contradiction-gap",
+        dest="contradiction_gap",
+        type=float,
+        default=0.5,
+        metavar="FLOAT",
+        help="Confidence gap threshold for contradiction detection (default: 0.5)",
+    )
+    p.add_argument(
+        "--min-confidence",
+        dest="min_confidence",
+        type=float,
+        default=0.3,
+        metavar="FLOAT",
+        help="Minimum confidence threshold for rot detection (default: 0.3)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic26_coherence", "cmd_coherence_scan"))
 
 
 def _add_crux_arbitrate_parser(subparsers) -> None:

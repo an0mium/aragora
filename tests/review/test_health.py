@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import time
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+import aragora.review.health as health_module
 from aragora.cli.commands.review_queue import _cmd_health
 from aragora.review.health import (
     HealthReport,
@@ -274,6 +276,145 @@ class TestGatherHealthStaleness:
         by_name = {s.name: s for s in report.surfaces}
         assert by_name["b0_publication"].status == STATUS_AGING
 
+    def test_status_doc_reports_when_origin_main_has_fresher_surface(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        stale = (datetime.now(UTC) - timedelta(days=60)).strftime("%Y-%m-%d")
+        fresh = datetime.now(UTC).replace(microsecond=0)
+        _write_status_doc(layout["docs_status"] / "TW03_RESCUE_PRODUCTIZATION_STATUS.md", stale)
+
+        def fake_origin_last_updated(repo: Path, rel: Path) -> datetime | None:
+            assert repo == layout["repo"]
+            assert rel == health_module.DEFAULT_TW03_STATUS_REL
+            return fresh
+
+        monkeypatch.setattr(
+            health_module,
+            "_status_doc_last_updated_from_origin_main",
+            fake_origin_last_updated,
+        )
+
+        report = gather_health(
+            repo_root=layout["repo"],
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+            warn_hours_status_doc=168,
+        )
+
+        by_name = {s.name: s for s in report.surfaces}
+        tw03 = by_name["tw03_rescue"]
+        assert tw03.status == STATUS_STALE
+        assert tw03.extra["checkout_stale_possible"] is True
+        assert tw03.extra["origin_main_fresh"] is True
+        assert tw03.extra["origin_main_last_updated"] == fresh.isoformat()
+        assert "origin/main has fresher Last updated" in str(tw03.detail)
+
+    def test_fresh_status_docs_do_not_probe_origin_main(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        fresh = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        _write_status_doc(layout["docs_status"] / "B0_BENCHMARK_TRUTH_STATUS.md", fresh)
+        _write_status_doc(layout["docs_status"] / "TW03_RESCUE_PRODUCTIZATION_STATUS.md", fresh)
+
+        def fail_if_called(repo: Path, rel: Path) -> datetime | None:
+            raise AssertionError(f"unexpected origin/main lookup for {repo}:{rel}")
+
+        monkeypatch.setattr(
+            health_module,
+            "_status_doc_last_updated_from_origin_main",
+            fail_if_called,
+        )
+
+        report = gather_health(
+            repo_root=layout["repo"],
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+        )
+
+        by_name = {s.name: s for s in report.surfaces}
+        assert by_name["b0_publication"].status == STATUS_FRESH
+        assert by_name["tw03_rescue"].status == STATUS_FRESH
+        assert by_name["b0_publication"].extra == {}
+        assert by_name["tw03_rescue"].extra == {}
+
+    def test_origin_main_decode_failure_degrades_to_none(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def raise_decode_error(
+            *_args: object, **_kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+        monkeypatch.setattr(health_module.subprocess, "run", raise_decode_error)
+
+        assert (
+            health_module._status_doc_last_updated_from_origin_main(
+                tmp_path, health_module.DEFAULT_TW03_STATUS_REL
+            )
+            is None
+        )
+
+    def test_origin_main_missing_ref_degrades_to_none(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def return_missing_ref(
+            *_args: object, **_kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(
+                args=["git", "show"],
+                returncode=128,
+                stdout="",
+                stderr="fatal: invalid object name 'origin/main'",
+            )
+
+        monkeypatch.setattr(health_module.subprocess, "run", return_missing_ref)
+
+        assert (
+            health_module._status_doc_last_updated_from_origin_main(
+                tmp_path, health_module.DEFAULT_TW03_STATUS_REL
+            )
+            is None
+        )
+
+    def test_origin_main_status_doc_parser_reads_local_ref(self, tmp_path: Path) -> None:
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        status_doc = repo / health_module.DEFAULT_TW03_STATUS_REL
+        _write_status_doc(status_doc, "2026-06-01T16:51:59Z")
+        subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Aragora Test",
+                "-c",
+                "user.email=aragora-test@example.com",
+                "commit",
+                "-m",
+                "seed status doc",
+            ],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "update-ref", "refs/remotes/origin/main", "HEAD"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+
+        parsed = health_module._status_doc_last_updated_from_origin_main(
+            repo, health_module.DEFAULT_TW03_STATUS_REL
+        )
+
+        assert parsed == datetime(2026, 6, 1, 16, 51, 59, tzinfo=UTC)
+
 
 class TestBossLoopLogCounter:
     def test_counts_crashes_and_marks_latest_failed_exit_stale(self, tmp_path: Path) -> None:
@@ -303,6 +444,42 @@ class TestBossLoopLogCounter:
         assert bl.extra["exits_fail_total"] == 1
         assert bl.extra["last_terminal_event"] == "exit_fail"
         assert str(bl.extra["latest_failure"]) == "Boss loop exited with status 1"
+
+    def test_failed_exit_keeps_actionable_boss_loop_failure_signature(self, tmp_path: Path) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        log = layout["overnight"] / "boss-loop-launchd.log"
+        log.write_text(
+            "ARAGORA_PYTHON is set but not executable: /repo/.venv/bin/python3\n"
+            "Starting boss-loop cycle for synaptent/aragora (label=boss-ready)...\n"
+            "Using Python interpreter: /Users/armand/miniforge3/bin/python\n"
+            "Traceback (most recent call last):\n"
+            "AttributeError: 'NoneType' object has no attribute 'ndarray'\n"
+            "Boss loop exited with status 1\n"
+        )
+        os.utime(log, (time.time() - 600, time.time() - 600))
+        report = gather_health(
+            repo_root=layout["repo"],
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+        )
+        by_name = {s.name: s for s in report.surfaces}
+        bl = by_name["boss_loop_log"]
+        assert bl.status == STATUS_STALE
+        assert bl.extra["latest_failure"] == "Boss loop exited with status 1"
+        assert (
+            bl.extra["latest_failure_signature"]
+            == "AttributeError: 'NoneType' object has no attribute 'ndarray'"
+        )
+        assert (
+            bl.extra["latest_python_warning"]
+            == "ARAGORA_PYTHON is set but not executable: /repo/.venv/bin/python3"
+        )
+        assert (
+            bl.extra["latest_python_interpreter"]
+            == "Using Python interpreter: /Users/armand/miniforge3/bin/python"
+        )
+        assert "failure_signature=AttributeError" in str(bl.detail)
 
     def test_later_success_clears_historical_boss_loop_failures(self, tmp_path: Path) -> None:
         layout = _setup_proof_loop(tmp_path)

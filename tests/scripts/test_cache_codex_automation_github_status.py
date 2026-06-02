@@ -622,6 +622,98 @@ def test_main_accepts_cache_path_alias(
     assert cache_path.is_file()
 
 
+def test_main_accepts_status_cache_alias(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    cache_path = tmp_path / "status-cache.json"
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="sandboxed",
+            repo=str(repo_root),
+        ),
+    )
+
+    rc = mod.main(["--repo", str(repo_root), "--status-cache", str(cache_path)])
+
+    assert rc == 0
+    assert cache_path.is_file()
+
+
+def test_main_accepts_cache_dir_alias(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    cache_dir = tmp_path / "automation-github-status"
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="sandboxed",
+            repo=str(repo_root),
+        ),
+    )
+
+    rc = mod.main(["--repo", str(repo_root), "--cache-dir", str(cache_dir)])
+
+    assert rc == 0
+    assert (cache_dir / "latest.json").is_file()
+
+
+def test_main_status_cache_overrides_cache_dir_alias(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    cache_path = tmp_path / "custom-status-cache.json"
+    cache_dir = tmp_path / "automation-github-status"
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="sandboxed",
+            repo=str(repo_root),
+        ),
+    )
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(repo_root),
+            "--status-cache",
+            str(cache_path),
+            "--cache-dir",
+            str(cache_dir),
+        ]
+    )
+
+    assert rc == 0
+    assert cache_path.is_file()
+    assert not (cache_dir / "latest.json").exists()
+
+
 def test_refresh_entrypoint_delegates_to_cache_main(monkeypatch: Any) -> None:
     calls: list[list[str] | None] = []
 

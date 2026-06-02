@@ -663,10 +663,17 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         "--cache-path",
+        "--status-cache",
         dest="output",
         type=Path,
-        default=DEFAULT_OUTPUT,
+        default=None,
         help="Path to write the cached status payload.",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="Directory containing latest.json for compatibility with publisher probes.",
     )
     parser.add_argument(
         "--state-root",
@@ -695,11 +702,21 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = _repo_root(Path(args.repo))
     state_root = args.state_root.expanduser() if args.state_root is not None else None
     output_base = state_root if state_root is not None else _shared_state_root(repo_root)
-    output = (
-        args.output
-        if args.output.is_absolute()
-        else _automation_state_default_path(output_base, args.output)
-    )
+    if args.output is not None:
+        output = (
+            args.output
+            if args.output.is_absolute()
+            else _automation_state_default_path(output_base, args.output)
+        )
+    elif args.cache_dir is not None:
+        cache_dir = (
+            args.cache_dir
+            if args.cache_dir.is_absolute()
+            else _automation_state_default_path(output_base, args.cache_dir)
+        )
+        output = cache_dir / "latest.json"
+    else:
+        output = _automation_state_default_path(output_base, DEFAULT_OUTPUT)
     payload = build_status(
         repo_root=repo_root,
         github_repo=args.github_repo,

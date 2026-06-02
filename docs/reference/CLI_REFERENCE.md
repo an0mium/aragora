@@ -130,7 +130,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `tenant` | - | Manage multi-tenant deployments | `activate`, `create`, `delete`, `export`, `list`, `quota-get`, `quota-set`, `suspend` |
 | `testfixer` | - | Run automated test-fix loop | - |
 | `triage` | - | Inbox triage via adversarial debate with receipt-gated actions | `audit`, `auth`, `calibrate`, `digest`, `label`, `queue`, `run`, `status` |
-| `validate` | - | Validate API keys by making test calls | - |
+| `validate` | - | Run a full health check, including live API-key validation | - |
 | `validate-env` | - | Validate environment configuration and backend connectivity | - |
 | `verify` | - | Verify a decision receipt's integrity | - |
 | `verticals` | - | Manage vertical specialist configurations | - |

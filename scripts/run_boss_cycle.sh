@@ -13,6 +13,7 @@ resolve_python_bin() {
     local candidates=()
     local candidate=""
     local python_cmd=""
+    local probe='import pydantic; import aragora.cli.commands.swarm'
 
     if [[ -n "${ARAGORA_PYTHON:-}" ]]; then
         if [[ -x "${ARAGORA_PYTHON}" ]]; then
@@ -34,21 +35,25 @@ resolve_python_bin() {
         if [[ -z "${candidate}" || ! -x "${candidate}" ]]; then
             continue
         fi
-        if "${candidate}" -c 'import pydantic' >/dev/null 2>&1; then
+        if (cd "${REPO_ROOT}" && "${candidate}" -c "${probe}" >/dev/null 2>&1); then
             printf '%s\n' "${candidate}"
             return 0
         fi
+        echo "Skipping Python candidate without usable boss-loop imports: ${candidate}" >&2
     done
 
     if command -v pyenv >/dev/null 2>&1; then
         candidate="$(pyenv which python3 2>/dev/null || true)"
-        if [[ -n "${candidate}" && -x "${candidate}" ]] && "${candidate}" -c 'import pydantic' >/dev/null 2>&1; then
+        if [[ -n "${candidate}" && -x "${candidate}" ]] && (cd "${REPO_ROOT}" && "${candidate}" -c "${probe}" >/dev/null 2>&1); then
             printf '%s\n' "${candidate}"
             return 0
         fi
+        if [[ -n "${candidate}" && -x "${candidate}" ]]; then
+            echo "Skipping Python candidate without usable boss-loop imports: ${candidate}" >&2
+        fi
     fi
 
-    echo "No usable python interpreter with pydantic found for boss-loop runtime." >&2
+    echo "No usable python interpreter with pydantic and boss-loop imports found for boss-loop runtime." >&2
     return 1
 }
 

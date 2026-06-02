@@ -194,6 +194,7 @@ MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"
 MERGE_QUORUM_WORKFLOW_NAME = "Aragora Merge Quorum"
 MERGE_QUORUM_JOB_ID = "merge-quorum"
 CHECK_SURFACE_DIAGNOSTIC_LIMIT = 12
+OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS = 60 * 60
 
 LANE_ORDER: dict[str, int] = {
     "ready_now": 0,
@@ -1424,8 +1425,8 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     return ("no checks", False, False)
 
 
-def _fetch_required_pr_checks(pr_number: int, repo_override: str | None) -> list[dict[str, Any]]:
-    """Fetch GitHub's branch-protection-required PR checks."""
+def _fetch_required_pr_check_surface(pr_number: int, repo_override: str | None) -> dict[str, Any]:
+    """Fetch GitHub's branch-protection-required PR checks with diagnostics."""
     args = [
         "pr",
         "checks",
@@ -1438,11 +1439,29 @@ def _fetch_required_pr_checks(pr_number: int, repo_override: str | None) -> list
         args.extend(["--repo", repo_override])
     try:
         payload = _gh_json(args)
-    except _GhError:
-        return []
+    except _GhError as exc:
+        return {
+            "available": False,
+            "checks": [],
+            "error": str(exc),
+        }
     if not isinstance(payload, list):
-        return []
-    return [item for item in payload if isinstance(item, dict)]
+        return {
+            "available": False,
+            "checks": [],
+            "error": "gh pr checks --required returned a non-list payload",
+        }
+    return {
+        "available": True,
+        "checks": [item for item in payload if isinstance(item, dict)],
+        "error": "",
+    }
+
+
+def _fetch_required_pr_checks(pr_number: int, repo_override: str | None) -> list[dict[str, Any]]:
+    """Fetch GitHub's branch-protection-required PR checks."""
+    surface = _fetch_required_pr_check_surface(pr_number, repo_override)
+    return [item for item in surface.get("checks") or [] if isinstance(item, dict)]
 
 
 def _required_pr_check_bucket(check: dict[str, Any]) -> str:
@@ -1496,6 +1515,211 @@ def _effective_required_pr_check_count(checks: list[dict[str, Any]]) -> int:
         if isinstance(check, dict)
         and not _is_required_pr_check_current_merge_quorum_self_check(check)
     )
+
+
+def _status_check_display_name(check: dict[str, Any]) -> str:
+    workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
+    name = str(check.get("name") or check.get("context") or "").strip()
+    if workflow and name:
+        return f"{workflow} / {name}"
+    return name or workflow
+
+
+def _parse_github_datetime(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _queued_duration_seconds(check: dict[str, Any]) -> int:
+    for key in ("queued_duration_seconds", "queuedDurationSeconds"):
+        value = check.get(key)
+        if value is None:
+            continue
+        try:
+            return max(0, int(float(value)))
+        except (TypeError, ValueError):
+            continue
+
+    for key in (
+        "queuedAt",
+        "queued_at",
+        "createdAt",
+        "created_at",
+        "startedAt",
+        "started_at",
+        "updatedAt",
+        "updated_at",
+    ):
+        queued_at = _parse_github_datetime(check.get(key))
+        if queued_at:
+            return max(0, int((datetime.now(UTC) - queued_at).total_seconds()))
+    return 0
+
+
+def _self_hosted_shadow_check(check: dict[str, Any]) -> bool:
+    workflow = str(check.get("workflowName") or check.get("workflow") or "").lower()
+    name = str(check.get("name") or check.get("context") or "").lower()
+    labels = {str(label).lower() for label in check.get("labels") or []}
+    if "self-hosted shadow" in workflow:
+        return True
+    return "shadow" in name and ("self-hosted" in workflow or "self-hosted" in labels)
+
+
+def _has_runner_metadata(check: dict[str, Any]) -> bool:
+    return any(key in check for key in ("runner_id", "runnerId", "runner_name", "runnerName"))
+
+
+def _runner_unassigned(check: dict[str, Any]) -> bool:
+    if not _has_runner_metadata(check):
+        return False
+    for key in ("runner_id", "runnerId"):
+        if key not in check:
+            continue
+        value = check.get(key)
+        if value is not None and str(value).strip() not in {"", "0"}:
+            return False
+    for key in ("runner_name", "runnerName"):
+        if key not in check:
+            continue
+        if str(check.get(key) or "").strip():
+            return False
+    return True
+
+
+def _is_optional_runner_capacity_noise(check: dict[str, Any], bucket: str) -> bool:
+    return (
+        bucket == "pending"
+        and _self_hosted_shadow_check(check)
+        and _runner_unassigned(check)
+        and _queued_duration_seconds(check) >= OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS
+    )
+
+
+def _is_long_queued_self_hosted_shadow_without_runner_metadata(
+    check: dict[str, Any],
+    bucket: str,
+) -> bool:
+    return (
+        bucket == "pending"
+        and _self_hosted_shadow_check(check)
+        and not _has_runner_metadata(check)
+        and _queued_duration_seconds(check) >= OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS
+    )
+
+
+def _rollup_non_green_bucket(check: dict[str, Any]) -> str:
+    if _is_current_merge_quorum_self_check(check):
+        return ""
+    status = str(check.get("status") or check.get("state") or "").upper()
+    conclusion = str(check.get("conclusion") or "").upper()
+    if not conclusion and status in {
+        "SUCCESS",
+        "FAILURE",
+        "TIMED_OUT",
+        "ACTION_REQUIRED",
+        "CANCELLED",
+        "SKIPPED",
+        "NEUTRAL",
+        "STALE",
+    }:
+        conclusion = status
+    elif not conclusion and status in {"ERROR", "FAILED"}:
+        conclusion = "FAILURE"
+    if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL", "STALE"}:
+        return ""
+    if conclusion == "CANCELLED" and not _is_merge_quorum_check(check):
+        return ""
+    if conclusion in {"FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "CANCELLED"}:
+        return "failing_or_cancelled"
+    if status in {"IN_PROGRESS", "QUEUED", "PENDING", "EXPECTED"} or not conclusion:
+        return "pending"
+    return "pending"
+
+
+def _rollup_check_matches_required(
+    check: dict[str, Any],
+    required_checks: list[dict[str, Any]],
+) -> bool:
+    identity = _status_check_identity(check)
+    name = str(check.get("name") or check.get("context") or "").strip()
+    required_identities = {
+        _status_check_identity(required)
+        for required in required_checks
+        if isinstance(required, dict) and _status_check_identity(required)
+    }
+    required_names = {
+        str(required.get("name") or required.get("context") or "").strip()
+        for required in required_checks
+        if isinstance(required, dict)
+    }
+    return bool((identity and identity in required_identities) or (name and name in required_names))
+
+
+def _rollup_non_green_diagnostics(
+    checks: list,
+    *,
+    required_checks: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    non_green: list[str] = []
+    non_required_non_green: list[str] = []
+    optional_runner_capacity_noise: list[str] = []
+    long_queued_shadow_without_runner_metadata: list[str] = []
+    pending = failing_or_cancelled = 0
+    for check in _latest_status_check_rollup(checks):
+        if not isinstance(check, dict):
+            continue
+        bucket = _rollup_non_green_bucket(check)
+        if not bucket:
+            continue
+        name = _status_check_display_name(check)
+        if not name:
+            continue
+        non_green.append(name)
+        if bucket == "pending":
+            pending += 1
+        else:
+            failing_or_cancelled += 1
+        is_non_required = required_checks is not None and not _rollup_check_matches_required(
+            check, required_checks
+        )
+        if is_non_required:
+            non_required_non_green.append(name)
+            if _is_optional_runner_capacity_noise(check, bucket):
+                optional_runner_capacity_noise.append(name)
+            if _is_long_queued_self_hosted_shadow_without_runner_metadata(check, bucket):
+                long_queued_shadow_without_runner_metadata.append(name)
+    diagnostics: dict[str, Any] = {
+        "non_green_count": len(non_green),
+        "non_green_sample": non_green[:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+        "pending_count": pending,
+        "failing_or_cancelled_count": failing_or_cancelled,
+    }
+    if required_checks is not None:
+        diagnostics["non_required_non_green_count"] = len(non_required_non_green)
+        diagnostics["non_required_non_green_sample"] = non_required_non_green[
+            :CHECK_SURFACE_DIAGNOSTIC_LIMIT
+        ]
+        diagnostics["optional_runner_capacity_noise_count"] = len(optional_runner_capacity_noise)
+        diagnostics["optional_runner_capacity_noise_sample"] = optional_runner_capacity_noise[
+            :CHECK_SURFACE_DIAGNOSTIC_LIMIT
+        ]
+        diagnostics["long_queued_self_hosted_shadow_without_runner_metadata_count"] = len(
+            long_queued_shadow_without_runner_metadata
+        )
+        diagnostics["long_queued_self_hosted_shadow_without_runner_metadata_sample"] = (
+            long_queued_shadow_without_runner_metadata[:CHECK_SURFACE_DIAGNOSTIC_LIMIT]
+        )
+    return diagnostics
 
 
 def _check_rollup_unavailable(pr: dict[str, Any]) -> bool:
@@ -1699,11 +1923,17 @@ def _build_check_surface_diagnostics(
     """
     rollup = pr.get("statusCheckRollup")
     rollup_count = len(rollup) if isinstance(rollup, list) else None
+    rollup_diagnostics = (
+        _rollup_non_green_diagnostics(rollup)
+        if isinstance(rollup, list) and not checks_unavailable
+        else {}
+    )
     diagnostics: dict[str, Any] = {
         "pr_rollup": {
             "available": not checks_unavailable,
             "count": rollup_count,
             "summary": checks_summary,
+            **rollup_diagnostics,
         }
     }
     if not checks_unavailable:
@@ -1987,53 +2217,105 @@ def _build_packet(
     )
     required_pr_check_gate_satisfied = False
     if not checks_unavailable and (has_failures or has_pending):
-        required_pr_checks = _fetch_required_pr_checks(number, repo_override)
-        if required_pr_checks:
+        required_surface = _fetch_required_pr_check_surface(number, repo_override)
+        required_pr_checks = [
+            item for item in required_surface.get("checks") or [] if isinstance(item, dict)
+        ]
+        required_available = bool(required_surface.get("available"))
+        if required_available:
             required_summary, required_has_failures, required_has_pending = (
                 _summarize_required_pr_checks(required_pr_checks)
             )
-            effective_required_count = _effective_required_pr_check_count(required_pr_checks)
-            check_surfaces["required_pr_checks"] = {
-                "available": True,
-                "total": len(required_pr_checks),
-                "effective_total": effective_required_count,
-                "summary": required_summary,
-                "failing_or_cancelled": [
-                    str(check.get("name") or "").strip()
-                    for check in required_pr_checks
-                    if _required_pr_check_bucket(check) in {"fail", "cancel"}
-                    and not _is_required_pr_check_current_merge_quorum_self_check(check)
-                ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
-                "pending": [
-                    str(check.get("name") or "").strip()
-                    for check in required_pr_checks
-                    if _required_pr_check_bucket(check) == "pending"
-                    and not _is_required_pr_check_current_merge_quorum_self_check(check)
-                ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+        else:
+            required_summary = "required PR checks unavailable"
+            required_has_failures = False
+            required_has_pending = True
+        effective_required_count = _effective_required_pr_check_count(required_pr_checks)
+        ignored_self_check_count = sum(
+            1
+            for check in required_pr_checks
+            if isinstance(check, dict)
+            and _is_required_pr_check_current_merge_quorum_self_check(check)
+        )
+        rollup_required_diagnostics = _rollup_non_green_diagnostics(
+            pr.get("statusCheckRollup") or [],
+            required_checks=required_pr_checks if required_available else None,
+        )
+        check_surfaces["pr_rollup"].update(rollup_required_diagnostics)
+
+        gate_blocked_reason = ""
+        if not required_available:
+            gate_blocked_reason = (
+                "GitHub required PR checks surface is unavailable; merge-packet "
+                "cannot distinguish required checks from non-required PR rollup checks."
+            )
+        elif effective_required_count == 0:
+            gate_blocked_reason = (
+                "GitHub reported no effective branch-protection required checks "
+                "after ignoring the current merge-quorum self-check."
+            )
+        elif required_has_failures:
+            gate_blocked_reason = (
+                f"branch-protection required checks are failing ({required_summary})."
+            )
+        elif required_has_pending:
+            gate_blocked_reason = (
+                f"branch-protection required checks are pending ({required_summary})."
+            )
+        check_surfaces["required_pr_checks"] = {
+            "available": required_available,
+            "total": len(required_pr_checks),
+            "effective_total": effective_required_count,
+            "ignored_current_merge_quorum_self_check_count": ignored_self_check_count,
+            "summary": required_summary,
+            "gate_selected": False,
+            "gate_blocked_reason": gate_blocked_reason,
+            "failing_or_cancelled": [
+                str(check.get("name") or "").strip()
+                for check in required_pr_checks
+                if _required_pr_check_bucket(check) in {"fail", "cancel"}
+                and not _is_required_pr_check_current_merge_quorum_self_check(check)
+            ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+            "pending": [
+                str(check.get("name") or "").strip()
+                for check in required_pr_checks
+                if _required_pr_check_bucket(check) == "pending"
+                and not _is_required_pr_check_current_merge_quorum_self_check(check)
+            ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+        }
+        if required_surface.get("error"):
+            check_surfaces["required_pr_checks"]["error"] = str(required_surface.get("error"))
+        if effective_required_count > 0 and not required_has_failures and not required_has_pending:
+            required_pr_check_gate_satisfied = True
+            check_surfaces["required_pr_checks"]["gate_selected"] = True
+            check_surfaces["required_pr_checks"]["gate_blocked_reason"] = ""
+            checks_summary = f"{required_summary} (required PR checks)"
+            has_pending = False
+            has_failures = False
+            checks_unavailable = False
+            check_surfaces["effective_gate"] = {
+                "source": "required_pr_checks",
+                "summary": checks_summary,
             }
-            if (
-                effective_required_count > 0
-                and not required_has_failures
-                and not required_has_pending
-            ):
-                required_pr_check_gate_satisfied = True
-                checks_summary = f"{required_summary} (required PR checks)"
-                has_pending = False
-                has_failures = False
-                checks_unavailable = False
-                check_surfaces["effective_gate"] = {
-                    "source": "required_pr_checks",
-                    "summary": checks_summary,
-                }
-                check_surfaces["diagnosis"] = (
-                    "The PR check rollup includes non-required non-green checks, "
-                    "but GitHub reports every branch-protection required check green; "
-                    "merge-packet uses the required PR checks gate."
-                )
-                check_surfaces["remediation_prompt"] = (
-                    "Continue gating on branch-protection required checks; keep "
-                    "non-required shadow/advisory check failures visible but non-blocking."
-                )
+            check_surfaces["diagnosis"] = (
+                "The PR check rollup includes non-required non-green checks, "
+                "but GitHub reports every branch-protection required check green; "
+                "merge-packet uses the required PR checks gate."
+            )
+            check_surfaces["remediation_prompt"] = (
+                "Continue gating on branch-protection required checks; keep "
+                "non-required shadow/advisory check failures visible but non-blocking."
+            )
+        elif gate_blocked_reason:
+            check_surfaces["diagnosis"] = (
+                "The PR check rollup is non-green and merge-packet did not select "
+                f"the required PR checks gate: {gate_blocked_reason}"
+            )
+            check_surfaces["remediation_prompt"] = (
+                "Keep the PR blocked or authorize a bounded check-surface repair; "
+                "do not settle or merge until required checks can be separated from "
+                "non-required PR rollup checks."
+            )
     direct_check_fallback_satisfied = (
         checks_unavailable and _direct_required_check_fallback_satisfied(check_surfaces)
     )
@@ -3947,10 +4229,38 @@ def _render_packet(packet: ReviewPacket) -> None:
             f"pr_rollup_count={rollup.get('count')}"
         )
         if required:
+            gate_selected = str(bool(required.get("gate_selected"))).lower()
             print(
                 "                 "
                 f"required_pr_checks={required.get('total', 0)} "
-                f"summary={required.get('summary')}"
+                f"summary={required.get('summary')} "
+                f"gate_selected={gate_selected}"
+            )
+            gate_blocked_reason = str(required.get("gate_blocked_reason") or "").strip()
+            if gate_blocked_reason:
+                print(f"                 required_gate_blocker: {gate_blocked_reason}")
+        non_required_rollup_sample = rollup.get("non_required_non_green_sample") or []
+        if non_required_rollup_sample:
+            print(
+                "                 "
+                "non_required_non_green_rollup="
+                + ", ".join(str(item) for item in non_required_rollup_sample[:3])
+            )
+        optional_noise_sample = rollup.get("optional_runner_capacity_noise_sample") or []
+        if optional_noise_sample:
+            print(
+                "                 "
+                "optional_runner_capacity_noise="
+                + ", ".join(str(item) for item in optional_noise_sample[:3])
+            )
+        long_queued_shadow_sample = (
+            rollup.get("long_queued_self_hosted_shadow_without_runner_metadata_sample") or []
+        )
+        if long_queued_shadow_sample:
+            print(
+                "                 "
+                "long_queued_self_hosted_shadow_without_runner_metadata="
+                + ", ".join(str(item) for item in long_queued_shadow_sample[:3])
             )
         if direct:
             print(
