@@ -73,7 +73,7 @@ def _load_receipts(path: Path) -> list[CruxReceipt] | str:
         try:
             raw = json.loads(text)
             return [_parse_receipt(item) for item in (raw if isinstance(raw, list) else [])]
-        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        except (AttributeError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             return f"invalid JSON: {exc}"
     receipts: list[CruxReceipt] = []
     for lineno, line in enumerate(text.splitlines(), 1):
@@ -82,7 +82,7 @@ def _load_receipts(path: Path) -> list[CruxReceipt] | str:
             continue
         try:
             receipts.append(_parse_receipt(json.loads(line)))
-        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        except (AttributeError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             return f"line {lineno}: {exc}"
     return receipts
 

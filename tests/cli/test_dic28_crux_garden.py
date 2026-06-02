@@ -153,3 +153,34 @@ def test_parse_receipt_crux_fields(tmp_path: Path) -> None:
     assert crux.crux_id == "crux.soak.equivalence"
     assert crux.load_bearing_score == pytest.approx(0.82)
     assert "claim.b0.fresh" in crux.affected_claims
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "[1]",  # array with non-object scalar
+        "[null]",  # array with null entry
+        '["string"]',  # array with string entry
+    ],
+)
+def test_non_object_receipt_exits_1(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    content: str,
+) -> None:
+    monkeypatch.setenv(_FLAG, "1")
+    f = tmp_path / "r.json"
+    f.write_text(content)
+    assert cmd_crux_garden(_ns(input_path=str(f))) == 1
+    assert "error" in capsys.readouterr().err.lower()
+
+
+def test_jsonl_non_object_line_exits_1(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setenv(_FLAG, "1")
+    f = tmp_path / "r.jsonl"
+    f.write_text("1\n")
+    assert cmd_crux_garden(_ns(input_path=str(f))) == 1
+    assert "line 1" in capsys.readouterr().err
