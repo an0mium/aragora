@@ -33,11 +33,8 @@ def _flag_enabled() -> bool:
 
 
 def _load_manifests(units_dir: Path) -> list[dict[str, Any]]:
-    try:
-        import yaml  # type: ignore[import-untyped]
-    except ImportError:
-        logger.warning("pyyaml not installed; cannot load proof-unit manifests")
-        return []
+    import yaml  # type: ignore[import-untyped]  # ImportError propagates to cmd_decay_monitor
+
     out: list[dict[str, Any]] = []
     for p in sorted(units_dir.glob("*.yaml")):
         try:
@@ -102,7 +99,14 @@ def cmd_decay_monitor(args: argparse.Namespace) -> int:
             return 1
         claim_results = _parse_claim_results(cr_path)
 
-    manifests = _load_manifests(units_dir)
+    try:
+        manifests = _load_manifests(units_dir)
+    except ImportError:
+        print(
+            "error: pyyaml is required but not installed; install it to use decay-monitor",
+            file=sys.stderr,
+        )
+        return 1
     signals = []
     if manifests:
         from aragora.epistemic.proof_unit_model import load_proof_unit

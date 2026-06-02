@@ -62,6 +62,17 @@ def test_flag_truthy_values_exit_0(monkeypatch, units_dir: Path, val: str) -> No
 # -- Directory validation --
 
 
+def test_missing_pyyaml_exits_1(monkeypatch, tmp_path: Path, capsys) -> None:
+    """Missing pyyaml must not silently return empty — it must exit 1."""
+    monkeypatch.setenv(_FLAG, "1")
+    import unittest.mock
+
+    with unittest.mock.patch.dict("sys.modules", {"yaml": None}):
+        rc = cmd_decay_monitor(_ns(str(tmp_path)))
+    assert rc == 1
+    assert "pyyaml" in capsys.readouterr().err
+
+
 def test_missing_units_dir_exits_1(monkeypatch, tmp_path: Path, capsys) -> None:
     monkeypatch.setenv(_FLAG, "1")
     assert cmd_decay_monitor(_ns(str(tmp_path / "missing"))) == 1
