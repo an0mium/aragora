@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import time
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+import aragora.review.health as health_module
 from aragora.cli.commands.review_queue import _cmd_health
 from aragora.review.health import (
     HealthReport,
@@ -273,6 +275,77 @@ class TestGatherHealthStaleness:
         )
         by_name = {s.name: s for s in report.surfaces}
         assert by_name["b0_publication"].status == STATUS_AGING
+
+    def test_status_doc_reports_when_origin_main_has_fresher_surface(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        stale = (datetime.now(UTC) - timedelta(days=60)).strftime("%Y-%m-%d")
+        fresh = datetime.now(UTC).replace(microsecond=0)
+        _write_status_doc(layout["docs_status"] / "TW03_RESCUE_PRODUCTIZATION_STATUS.md", stale)
+
+        def fake_origin_last_updated(repo: Path, rel: Path) -> datetime | None:
+            assert repo == layout["repo"]
+            assert rel == health_module.DEFAULT_TW03_STATUS_REL
+            return fresh
+
+        monkeypatch.setattr(
+            health_module,
+            "_status_doc_last_updated_from_origin_main",
+            fake_origin_last_updated,
+            raising=False,
+        )
+
+        report = gather_health(
+            repo_root=layout["repo"],
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+            warn_hours_status_doc=168,
+        )
+
+        by_name = {s.name: s for s in report.surfaces}
+        tw03 = by_name["tw03_rescue"]
+        assert tw03.status == STATUS_STALE
+        assert tw03.extra["checkout_stale_possible"] is True
+        assert tw03.extra["origin_main_fresh"] is True
+        assert tw03.extra["origin_main_last_updated"] == fresh.isoformat()
+        assert "origin/main has fresher Last updated" in str(tw03.detail)
+
+    def test_origin_main_status_doc_parser_reads_local_ref(self, tmp_path: Path) -> None:
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        status_doc = repo / health_module.DEFAULT_TW03_STATUS_REL
+        _write_status_doc(status_doc, "2026-06-01T16:51:59Z")
+        subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Aragora Test",
+                "-c",
+                "user.email=aragora-test@example.com",
+                "commit",
+                "-m",
+                "seed status doc",
+            ],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "update-ref", "refs/remotes/origin/main", "HEAD"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+
+        parsed = health_module._status_doc_last_updated_from_origin_main(
+            repo, health_module.DEFAULT_TW03_STATUS_REL
+        )
+
+        assert parsed == datetime(2026, 6, 1, 16, 51, 59, tzinfo=UTC)
 
 
 class TestBossLoopLogCounter:

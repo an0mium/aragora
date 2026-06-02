@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -39,6 +40,7 @@ DEFAULT_BOSS_LOG_REL = DEFAULT_OVERNIGHT_REL / "boss-loop-launchd.log"
 DEFAULT_WATCHDOG_LOG_REL = DEFAULT_OVERNIGHT_REL / "watchdog.log"
 DEFAULT_B0_STATUS_REL = Path("docs") / "status" / "B0_BENCHMARK_TRUTH_STATUS.md"
 DEFAULT_TW03_STATUS_REL = Path("docs") / "status" / "TW03_RESCUE_PRODUCTIZATION_STATUS.md"
+GIT_SHOW_TIMEOUT_SECONDS = 5
 
 # Status severities (ordered ascending so max() returns worst).
 STATUS_FRESH = "fresh"
@@ -261,12 +263,8 @@ def _count_jsonl_rows(path: Path) -> dict[str, object]:
 _LAST_UPDATED_RE = re.compile(r"^Last updated:\s*(\S+)", re.MULTILINE)
 
 
-def _parse_status_doc_last_updated(path: Path) -> datetime | None:
-    """Read the 'Last updated:' line from a status markdown doc."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return None
+def _parse_status_doc_last_updated_text(text: str) -> datetime | None:
+    """Parse the 'Last updated:' line from a status markdown doc body."""
     match = _LAST_UPDATED_RE.search(text)
     if not match:
         return None
@@ -281,12 +279,45 @@ def _parse_status_doc_last_updated(path: Path) -> datetime | None:
         return None
 
 
+def _parse_status_doc_last_updated(path: Path) -> datetime | None:
+    """Read the 'Last updated:' line from a status markdown doc."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return _parse_status_doc_last_updated_text(text)
+
+
+def _status_doc_last_updated_from_origin_main(repo: Path, rel_path: Path) -> datetime | None:
+    """Best-effort parse of a status doc from the local ``origin/main`` ref.
+
+    This is intentionally local and timeout-bounded: no fetch, no network, no
+    mutation. Missing refs or non-git fixture repos simply return ``None``.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "show", f"origin/main:{rel_path.as_posix()}"],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=GIT_SHOW_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    return _parse_status_doc_last_updated_text(proc.stdout)
+
+
 def _check_status_doc(
     *,
     name: str,
     path: Path,
     warn_h: float,
     crit_h: float,
+    repo_root: Path | None = None,
+    rel_path: Path | None = None,
 ) -> SurfaceCheck:
     if not path.exists():
         return SurfaceCheck(
@@ -306,12 +337,34 @@ def _check_status_doc(
     now = _now()
     age = _age_hours(last, now)
     status = _classify_age(age, warn_h, crit_h)
+    extra: dict[str, object] = {}
+    detail: str | None = None
+    if repo_root is not None and rel_path is not None:
+        origin_last = _status_doc_last_updated_from_origin_main(repo_root, rel_path)
+        if origin_last is not None and origin_last > last:
+            origin_age = _age_hours(origin_last, now)
+            origin_status = _classify_age(origin_age, warn_h, crit_h)
+            extra.update(
+                {
+                    "checkout_stale_possible": True,
+                    "origin_main_last_updated": origin_last.isoformat(),
+                    "origin_main_age_hours": round(origin_age, 2),
+                    "origin_main_status": origin_status,
+                    "origin_main_fresh": origin_status == STATUS_FRESH,
+                }
+            )
+            detail = (
+                "origin/main has fresher Last updated "
+                f"({origin_last.isoformat()}); observer checkout may be stale"
+            )
     return SurfaceCheck(
         name=name,
         status=status,
         latest_mtime=last,
         age_hours=age,
         path=str(path),
+        detail=detail,
+        extra=extra,
     )
 
 
@@ -543,6 +596,8 @@ def gather_health(
             path=repo / DEFAULT_B0_STATUS_REL,
             warn_h=warn_hours_status_doc,
             crit_h=warn_hours_status_doc * crit_multiplier,
+            repo_root=repo,
+            rel_path=DEFAULT_B0_STATUS_REL,
         )
     )
 
@@ -553,6 +608,8 @@ def gather_health(
             path=repo / DEFAULT_TW03_STATUS_REL,
             warn_h=warn_hours_status_doc,
             crit_h=warn_hours_status_doc * crit_multiplier,
+            repo_root=repo,
+            rel_path=DEFAULT_TW03_STATUS_REL,
         )
     )
 
