@@ -355,6 +355,22 @@ def _local_evidence_mappings(value: Any) -> list[Mapping[str, Any]]:
     return []
 
 
+def _nested_evidence_mappings(value: Any) -> list[Mapping[str, Any]]:
+    mappings: list[Mapping[str, Any]] = []
+
+    def visit(item: Any) -> None:
+        if isinstance(item, Mapping):
+            mappings.append(item)
+            for child in item.values():
+                visit(child)
+        elif isinstance(item, Sequence) and not isinstance(item, (str, bytes, bytearray)):
+            for child in item:
+                visit(child)
+
+    visit(value)
+    return mappings
+
+
 def _outbox_payload_branch(payload: dict[str, Any]) -> str:
     for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
         branch = str(local_evidence.get("branch") or "").strip()
@@ -405,11 +421,12 @@ def _outbox_payload_branches(payload: dict[str, Any]) -> set[str]:
         _add_branch_reference(branches, requested_action.get("branch"))
 
     containers: list[Mapping[str, Any]] = [
-        *_local_evidence_mappings(payload.get("local_evidence")),
+        *_nested_evidence_mappings(payload.get("local_evidence")),
         payload,
     ]
 
     for container in containers:
+        _add_branch_reference(branches, container.get("branch"))
         _add_branch_reference(branches, container.get("supersedes_branch"))
         supersedes_branches = container.get("supersedes_branches")
         if isinstance(supersedes_branches, list):
@@ -452,7 +469,7 @@ def _outbox_payload_branch_heads(payload: dict[str, Any]) -> dict[str, set[str |
         if branch:
             refs[branch].add(head)
 
-    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+    for local_evidence in _nested_evidence_mappings(payload.get("local_evidence")):
         branch = str(local_evidence.get("branch") or "").strip()
         add(branch, _outbox_evidence_head(local_evidence))
 
