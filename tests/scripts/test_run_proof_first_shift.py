@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import subprocess
 from datetime import UTC, datetime
@@ -416,6 +417,145 @@ def test_dry_run_uses_single_merge_limit_and_is_read_only() -> None:
     assert "merge_arbiter_restart_skipped:dry_run" in report["actions"]
     assert "merge_arbiter_apply_skipped:dry_run" in report["actions"]
     assert "trigger_benchmark_skipped:dry_run:stale_publication_window" in report["actions"]
+
+
+def test_run_shift_stops_before_cycle_when_time_budget_is_too_small(tmp_path: Path) -> None:
+    parser = mod._build_parser()
+    args = parser.parse_args(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--max-hours",
+            "4",
+            "--dry-run",
+            "--once",
+            "--json",
+        ]
+    )
+    started_at = 1_000.0
+    now = started_at + 4 * 3600 - (mod.MIN_CYCLE_START_SECONDS / 2)
+    restored_state = ShiftState(
+        shift_id="restored-shift",
+        started_at=started_at,
+        config={"checkpoint_dir": str(tmp_path / "checkpoints")},
+        status="running",
+        current_cycle=0,
+        last_refresh_at=started_at,
+    )
+
+    def restore(controller: ShiftController, *, checkpoint_dir: Path) -> ShiftState:
+        controller._state = restored_state  # noqa: SLF001
+        return restored_state
+
+    with (
+        patch("scripts.run_proof_first_shift.restore_shift_controller", side_effect=restore),
+        patch("scripts.run_proof_first_shift.time.time", return_value=now),
+        patch("aragora.nomic.shift_controller.time.time", return_value=now),
+        patch(
+            "scripts.run_proof_first_shift.run_shift_cycle",
+            side_effect=AssertionError("must not start a cycle without enough time left"),
+        ),
+    ):
+        summary = asyncio.run(mod._run_shift(args))
+
+    assert summary["cycles"] == []
+    assert summary["shift"]["status"] == "completed"
+    assert summary["shift"]["stop_reason"].startswith("TimeBudgetInsufficient")
+
+
+def test_run_shift_cycle_bounds_merge_apply_timeout_to_remaining_budget() -> None:
+    state = mod.ProofFirstRuntimeState()
+    repo_root = Path(".").resolve()
+    time_budget = mod.ShiftTimeBudget(
+        deadline_time=100.0,
+        max_hours=4.0,
+        now=lambda: 10.0,
+    )
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [], "removed": []},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot", return_value={"ok": True}
+        ),
+        patch(
+            "scripts.run_proof_first_shift.list_open_prs",
+            return_value=[{"headRefName": "codex/ready", "isDraft": False}],
+        ),
+        patch("scripts.run_proof_first_shift.process_running", return_value=True),
+        patch(
+            "scripts.run_proof_first_shift.run_merge_arbiter_apply",
+            return_value={"merged": []},
+        ) as merge_mock,
+        patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=None),
+        patch(
+            "scripts.run_proof_first_shift.benchmark_truth_state_drift",
+            return_value={"issue_count": 0},
+        ),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=repo_root,
+            repo="synaptent/aragora",
+            benchmark_mode="disabled",
+            automation_backlog_limit=12,
+            runtime_state=state,
+            time_budget=time_budget,
+        )
+
+    merge_mock.assert_called_once_with(
+        repo_root=repo_root,
+        repo="synaptent/aragora",
+        limit=1,
+        timeout_seconds=85.0,
+    )
+    assert report["time_budget"]["remaining_seconds"] == 90.0
+
+
+def test_run_shift_cycle_fails_closed_when_merge_apply_has_too_little_time() -> None:
+    state = mod.ProofFirstRuntimeState()
+    time_budget = mod.ShiftTimeBudget(
+        deadline_time=103.0,
+        max_hours=4.0,
+        now=lambda: 100.0,
+    )
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [], "removed": []},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot", return_value={"ok": True}
+        ),
+        patch(
+            "scripts.run_proof_first_shift.list_open_prs",
+            return_value=[{"headRefName": "codex/ready", "isDraft": False}],
+        ),
+        patch("scripts.run_proof_first_shift.process_running", return_value=True),
+        patch(
+            "scripts.run_proof_first_shift.run_merge_arbiter_apply",
+            side_effect=AssertionError("must not apply merge without enough time"),
+        ),
+        patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=None),
+        patch(
+            "scripts.run_proof_first_shift.benchmark_truth_state_drift",
+            return_value={"issue_count": 0},
+        ),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            benchmark_mode="disabled",
+            automation_backlog_limit=12,
+            runtime_state=state,
+            time_budget=time_budget,
+        )
+
+    assert report["merge_report"] == {"merged": [], "skipped": True, "reason": "time_budget"}
+    assert "merge_arbiter_apply_skipped:time_budget" in report["actions"]
+    assert report["stop_reason"].startswith("TimeBudgetInsufficient")
 
 
 def test_parser_defaults_to_single_merge_limit_independent_of_backlog_limit() -> None:

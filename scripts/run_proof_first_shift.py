@@ -35,6 +35,10 @@ MAX_UNAUTHORIZED_MERGE_LIMIT = 1
 DEFAULT_REFRESH_MINUTES = 120
 DEFAULT_MAX_HOURS = 12.0
 DEFAULT_INTERVAL_SECONDS = 120
+MIN_CYCLE_START_SECONDS = 60.0
+MIN_ACTION_BUDGET_SECONDS = 5.0
+MERGE_APPLY_TIMEOUT_SECONDS = 120.0
+BENCHMARK_TRIGGER_TIMEOUT_SECONDS = 45.0
 DEFAULT_BOSS_LABEL = "com.aragora.swarm-boss-loop"
 DEFAULT_MERGE_LABEL = "com.aragora.swarm-merge-arbiter"
 DEFAULT_BOSS_PROCESS_PATTERN = r"aragora\.cli\.main swarm boss-loop|run_boss_cycle\.sh"
@@ -156,6 +160,54 @@ class LaunchdServiceStatus:
     last_exit_code: int | None = None
     stdout_path: str = ""
     detail: str = ""
+
+
+@dataclass(frozen=True)
+class ShiftTimeBudget:
+    deadline_time: float
+    max_hours: float
+    now: Callable[[], float] = time.time
+    min_action_seconds: float = MIN_ACTION_BUDGET_SECONDS
+
+    @classmethod
+    def from_controller(cls, controller: ShiftController) -> ShiftTimeBudget | None:
+        state = controller.state
+        if state is None:
+            return None
+        max_hours = float(controller.config.max_duration_hours)
+        return cls(
+            deadline_time=float(state.started_at) + max_hours * 3600.0,
+            max_hours=max_hours,
+        )
+
+    def remaining_seconds(self) -> float:
+        return max(0.0, float(self.deadline_time) - float(self.now()))
+
+    def elapsed_hours(self) -> float:
+        return max(0.0, float(self.max_hours) - self.remaining_seconds() / 3600.0)
+
+    def insufficient_reason(self, action: str, required_seconds: float) -> str:
+        remaining = self.remaining_seconds()
+        if remaining >= required_seconds:
+            return ""
+        return (
+            f"TimeBudgetInsufficient: {action} requires at least {required_seconds:.2f}s "
+            f"remaining ({remaining:.2f}s left before max {self.max_hours:.2f}h)"
+        )
+
+    def bounded_timeout(self, action: str, requested_seconds: float) -> tuple[float | None, str]:
+        remaining = self.remaining_seconds()
+        if remaining <= self.min_action_seconds:
+            return None, self.insufficient_reason(action, self.min_action_seconds)
+        return min(float(requested_seconds), remaining - self.min_action_seconds), ""
+
+    def to_report(self) -> dict[str, Any]:
+        return {
+            "bounded": True,
+            "max_hours": float(self.max_hours),
+            "remaining_seconds": round(self.remaining_seconds(), 2),
+            "min_action_seconds": float(self.min_action_seconds),
+        }
 
 
 def _utc_now() -> datetime:
@@ -307,7 +359,7 @@ def _run(
     args: list[str],
     *,
     cwd: Path,
-    timeout: int = 30,
+    timeout: float = 30,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         args,
@@ -319,7 +371,7 @@ def _run(
     )
 
 
-def _run_json(args: list[str], *, cwd: Path, timeout: int = 30) -> Any:
+def _run_json(args: list[str], *, cwd: Path, timeout: float = 30) -> Any:
     proc = _run(args, cwd=cwd, timeout=timeout)
     if proc.returncode != 0:
         raise RuntimeError(
@@ -905,18 +957,27 @@ def restart_boss_service(
     repo_root: Path,
     repo: str,
     process_pattern: str,
+    start_timeout_seconds: float | None = None,
 ) -> tuple[bool, str, str]:
     initial_status = inspect_launchd_service(DEFAULT_BOSS_LABEL)
     if launchd_service_missing(initial_status):
+        bootstrap_kwargs: dict[str, float] = {}
+        if start_timeout_seconds is not None:
+            bootstrap_kwargs["start_timeout_seconds"] = start_timeout_seconds
         restarted, detail = start_detached_boss_loop(
             repo_root=repo_root,
             repo=repo,
             process_pattern=process_pattern,
+            **bootstrap_kwargs,
         )
         return restarted, detail, "bootstrap_boss_loop_direct"
+    restart_kwargs: dict[str, float] = {}
+    if start_timeout_seconds is not None:
+        restart_kwargs["start_timeout_seconds"] = start_timeout_seconds
     restarted, detail = restart_service_via_launchd(
         label=DEFAULT_BOSS_LABEL,
         process_pattern=process_pattern,
+        **restart_kwargs,
     )
     return restarted, detail, "restart_boss_loop"
 
@@ -946,6 +1007,7 @@ def run_merge_arbiter_apply(
     repo_root: Path,
     repo: str,
     limit: int,
+    timeout_seconds: float = MERGE_APPLY_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     payload = _run_json(
         [
@@ -961,7 +1023,7 @@ def run_merge_arbiter_apply(
             "--json",
         ],
         cwd=repo_root,
-        timeout=120,
+        timeout=timeout_seconds,
     )
     if not isinstance(payload, dict):
         raise RuntimeError("merge arbiter helper returned a non-object payload")
@@ -985,11 +1047,16 @@ def resolve_merge_limit(
     return merge_limit
 
 
-def trigger_benchmark_workflow(*, repo_root: Path, repo: str) -> None:
+def trigger_benchmark_workflow(
+    *,
+    repo_root: Path,
+    repo: str,
+    timeout_seconds: float = BENCHMARK_TRIGGER_TIMEOUT_SECONDS,
+) -> None:
     proc = _run(
         ["gh", "workflow", "run", "Benchmark Truth Publication", "--repo", repo],
         cwd=repo_root,
-        timeout=45,
+        timeout=timeout_seconds,
     )
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh workflow run failed")
@@ -1067,6 +1134,7 @@ def run_shift_cycle(
     allow_multiple_merges: bool = False,
     ledger: ShiftLedger | None = None,
     max_hours: float = DEFAULT_MAX_HOURS,
+    time_budget: ShiftTimeBudget | None = None,
 ) -> dict[str, Any]:
     effective_merge_limit = resolve_merge_limit(
         merge_limit=merge_limit,
@@ -1118,6 +1186,7 @@ def run_shift_cycle(
             "actions": outage_actions,
             "stop_reason": stop_reason,
             "failure_policy": failure_policy,
+            "time_budget": time_budget.to_report() if time_budget else {"bounded": False},
             "green_shift_evaluation": evaluate_green_shift(
                 queue_report=queue_report,
                 queue_count=0,
@@ -1163,7 +1232,9 @@ def run_shift_cycle(
         actions.append(f"boss_{verdict}: {boss_throttle_reason}")
     service_failures: list[str] = []
     runtime_failures: list[str] = []
+    time_budget_failures: list[str] = []
     repeated_failure_classes: list[str] = []
+    stop_reason = ""
     if dry_run and (not boss_running) and canonical_queue_count > 0:
         actions.append("boss_restart_skipped:dry_run")
     elif should_restart_service(
@@ -1171,32 +1242,45 @@ def run_shift_cycle(
         pending_count=canonical_queue_count,
         restart_count=runtime_state.boss_restart_count,
     ):
-        restarted, detail, boss_restart_action = restart_boss_service(
-            repo_root=repo_root,
-            repo=repo,
-            process_pattern=DEFAULT_BOSS_PROCESS_PATTERN,
-        )
-        runtime_state.boss_restart_count += 1
-        record_recovery_attempt(
-            ledger,
-            runtime_state,
-            failure_class=BOSS_RESTART_FAILURE,
-            action=boss_restart_action,
-            success=restarted,
-            detail=detail,
-        )
-        if restarted:
-            boss_running = True
-            actions.append(boss_restart_action)
-            if ledger:
-                ledger.record_service_restart(service="boss_loop", success=True, detail=detail)
-        else:
-            actions.append(f"{boss_restart_action}_failed")
-            stop_reason = f"BossRestartFailed: {detail or 'boss loop restart did not produce a running process'}"
-            service_failures.append(stop_reason)
-            if ledger:
-                ledger.record_service_restart(service="boss_loop", success=False, detail=detail)
-                ledger.record_failure(failure_type="service_failure", detail=stop_reason)
+        restart_kwargs: dict[str, float] = {}
+        if time_budget is not None and not time_budget_failures:
+            restart_timeout, budget_reason = time_budget.bounded_timeout(
+                "restart_boss_loop",
+                DEFAULT_LAUNCHD_START_TIMEOUT_SECONDS,
+            )
+            if budget_reason:
+                actions.append("boss_restart_skipped:time_budget")
+                time_budget_failures.append(budget_reason)
+            elif restart_timeout is not None:
+                restart_kwargs["start_timeout_seconds"] = restart_timeout
+        if not time_budget_failures:
+            restarted, detail, boss_restart_action = restart_boss_service(
+                repo_root=repo_root,
+                repo=repo,
+                process_pattern=DEFAULT_BOSS_PROCESS_PATTERN,
+                **restart_kwargs,
+            )
+            runtime_state.boss_restart_count += 1
+            record_recovery_attempt(
+                ledger,
+                runtime_state,
+                failure_class=BOSS_RESTART_FAILURE,
+                action=boss_restart_action,
+                success=restarted,
+                detail=detail,
+            )
+            if restarted:
+                boss_running = True
+                actions.append(boss_restart_action)
+                if ledger:
+                    ledger.record_service_restart(service="boss_loop", success=True, detail=detail)
+            else:
+                actions.append(f"{boss_restart_action}_failed")
+                stop_reason = f"BossRestartFailed: {detail or 'boss loop restart did not produce a running process'}"
+                service_failures.append(stop_reason)
+                if ledger:
+                    ledger.record_service_restart(service="boss_loop", success=False, detail=detail)
+                    ledger.record_failure(failure_type="service_failure", detail=stop_reason)
     elif (not boss_running) and canonical_queue_count > 0 and runtime_state.boss_restart_count >= 1:
         repeated_failure_classes.append(BOSS_RESTART_FAILURE)
         service_failures.append(RECOVERY_STOP_REASONS[BOSS_RESTART_FAILURE])
@@ -1209,31 +1293,46 @@ def run_shift_cycle(
         pending_count=open_pr_count,
         restart_count=runtime_state.merge_restart_count,
     ):
-        restarted, detail = restart_service_via_launchd(
-            label=DEFAULT_MERGE_LABEL,
-            process_pattern=DEFAULT_MERGE_PROCESS_PATTERN,
-        )
-        runtime_state.merge_restart_count += 1
-        record_recovery_attempt(
-            ledger,
-            runtime_state,
-            failure_class=MERGE_RESTART_FAILURE,
-            action="restart_merge_arbiter",
-            success=restarted,
-            detail=detail,
-        )
-        if restarted:
-            merge_running = True
-            actions.append("restart_merge_arbiter")
-            if ledger:
-                ledger.record_service_restart(service="merge_arbiter", success=True)
-        else:
-            actions.append("restart_merge_arbiter_failed")
-            stop_reason = f"MergeArbiterRestartFailed: {detail or 'merge arbiter restart did not produce a running process'}"
-            service_failures.append(stop_reason)
-            if ledger:
-                ledger.record_service_restart(service="merge_arbiter", success=False, detail=detail)
-                ledger.record_failure(failure_type="service_failure", detail=stop_reason)
+        restart_kwargs = {}
+        if time_budget is not None and not time_budget_failures:
+            restart_timeout, budget_reason = time_budget.bounded_timeout(
+                "restart_merge_arbiter",
+                DEFAULT_LAUNCHD_START_TIMEOUT_SECONDS,
+            )
+            if budget_reason:
+                actions.append("merge_arbiter_restart_skipped:time_budget")
+                time_budget_failures.append(budget_reason)
+            elif restart_timeout is not None:
+                restart_kwargs["start_timeout_seconds"] = restart_timeout
+        if not time_budget_failures:
+            restarted, detail = restart_service_via_launchd(
+                label=DEFAULT_MERGE_LABEL,
+                process_pattern=DEFAULT_MERGE_PROCESS_PATTERN,
+                **restart_kwargs,
+            )
+            runtime_state.merge_restart_count += 1
+            record_recovery_attempt(
+                ledger,
+                runtime_state,
+                failure_class=MERGE_RESTART_FAILURE,
+                action="restart_merge_arbiter",
+                success=restarted,
+                detail=detail,
+            )
+            if restarted:
+                merge_running = True
+                actions.append("restart_merge_arbiter")
+                if ledger:
+                    ledger.record_service_restart(service="merge_arbiter", success=True)
+            else:
+                actions.append("restart_merge_arbiter_failed")
+                stop_reason = f"MergeArbiterRestartFailed: {detail or 'merge arbiter restart did not produce a running process'}"
+                service_failures.append(stop_reason)
+                if ledger:
+                    ledger.record_service_restart(
+                        service="merge_arbiter", success=False, detail=detail
+                    )
+                    ledger.record_failure(failure_type="service_failure", detail=stop_reason)
     elif (not merge_running) and open_pr_count > 0 and runtime_state.merge_restart_count >= 1:
         repeated_failure_classes.append(MERGE_RESTART_FAILURE)
         service_failures.append(RECOVERY_STOP_REASONS[MERGE_RESTART_FAILURE])
@@ -1242,12 +1341,31 @@ def run_shift_cycle(
         reason = "dry_run" if dry_run else "no_merge"
         merge_report = {"merged": [], "skipped": True, "reason": reason}
         actions.append(f"merge_arbiter_apply_skipped:{reason}")
+    elif time_budget_failures:
+        merge_report = {"merged": [], "skipped": True, "reason": "time_budget"}
+        actions.append("merge_arbiter_apply_skipped:time_budget")
     else:
-        merge_report = run_merge_arbiter_apply(
-            repo_root=repo_root,
-            repo=repo,
-            limit=effective_merge_limit,
-        )
+        merge_kwargs: dict[str, float] = {}
+        if time_budget is not None:
+            merge_timeout, budget_reason = time_budget.bounded_timeout(
+                "merge_arbiter_apply",
+                MERGE_APPLY_TIMEOUT_SECONDS,
+            )
+            if budget_reason:
+                merge_report = {"merged": [], "skipped": True, "reason": "time_budget"}
+                actions.append("merge_arbiter_apply_skipped:time_budget")
+                time_budget_failures.append(budget_reason)
+            elif merge_timeout is not None:
+                merge_kwargs["timeout_seconds"] = merge_timeout
+        if time_budget_failures:
+            merge_report = {"merged": [], "skipped": True, "reason": "time_budget"}
+        else:
+            merge_report = run_merge_arbiter_apply(
+                repo_root=repo_root,
+                repo=repo,
+                limit=effective_merge_limit,
+                **merge_kwargs,
+            )
     merged_numbers = list(merge_report.get("merged") or [])
     if merged_numbers:
         actions.append(f"merged_prs:{','.join(str(number) for number in merged_numbers)}")
@@ -1332,7 +1450,6 @@ def run_shift_cycle(
         truth_state_drift_detected=bool(int(benchmark_truth_drift.get("issue_count", 0) or 0)),
         max_age_hours=max_hours,
     )
-    stop_reason = ""
     if should_trigger:
         if dry_run:
             actions.append(f"trigger_benchmark_skipped:dry_run:{trigger_reason}")
@@ -1340,60 +1457,94 @@ def run_shift_cycle(
             if recovery_budget_remaining(runtime_state, latest_failure_class) <= 0:
                 repeated_failure_classes.append(latest_failure_class)
                 stop_reason = RECOVERY_STOP_REASONS[latest_failure_class]
+            elif time_budget_failures:
+                actions.append(f"trigger_benchmark_skipped:time_budget:{trigger_reason}")
             else:
+                trigger_kwargs: dict[str, float] = {}
+                if time_budget is not None:
+                    trigger_timeout, budget_reason = time_budget.bounded_timeout(
+                        "trigger_benchmark_workflow",
+                        BENCHMARK_TRIGGER_TIMEOUT_SECONDS,
+                    )
+                    if budget_reason:
+                        time_budget_failures.append(budget_reason)
+                        actions.append(f"trigger_benchmark_skipped:time_budget:{trigger_reason}")
+                    elif trigger_timeout is not None:
+                        trigger_kwargs["timeout_seconds"] = trigger_timeout
+                if not time_budget_failures:
+                    try:
+                        trigger_benchmark_workflow(
+                            repo_root=repo_root,
+                            repo=repo,
+                            **trigger_kwargs,
+                        )
+                    except RuntimeError as exc:
+                        detail = str(exc).strip() or "benchmark workflow trigger failed"
+                        runtime_state.runtime_failure_count += 1
+                        runtime_failures.append(f"RuntimeFailure: {detail}")
+                        actions.append(f"trigger_benchmark_failed:{trigger_reason}")
+                        record_recovery_attempt(
+                            ledger,
+                            runtime_state,
+                            failure_class=latest_failure_class,
+                            action="trigger_benchmark_workflow",
+                            success=False,
+                            detail=detail,
+                        )
+                        if ledger:
+                            ledger.record_failure(failure_type="runtime_failure", detail=detail)
+                    else:
+                        actions.append(f"trigger_benchmark:{trigger_reason}")
+                        record_recovery_attempt(
+                            ledger,
+                            runtime_state,
+                            failure_class=latest_failure_class,
+                            action="trigger_benchmark_workflow",
+                            success=True,
+                            detail=latest_failure_detail or trigger_reason,
+                        )
+                        if latest_run is not None:
+                            runtime_state.last_triggered_benchmark_run_id = int(
+                                latest_run.get("databaseId", 0) or 0
+                            )
+                        else:
+                            runtime_state.last_triggered_benchmark_run_id = -1
+        else:
+            trigger_kwargs = {}
+            if time_budget_failures:
+                actions.append(f"trigger_benchmark_skipped:time_budget:{trigger_reason}")
+            elif time_budget is not None:
+                trigger_timeout, budget_reason = time_budget.bounded_timeout(
+                    "trigger_benchmark_workflow",
+                    BENCHMARK_TRIGGER_TIMEOUT_SECONDS,
+                )
+                if budget_reason:
+                    time_budget_failures.append(budget_reason)
+                    actions.append(f"trigger_benchmark_skipped:time_budget:{trigger_reason}")
+                elif trigger_timeout is not None:
+                    trigger_kwargs["timeout_seconds"] = trigger_timeout
+            if not time_budget_failures:
                 try:
-                    trigger_benchmark_workflow(repo_root=repo_root, repo=repo)
+                    trigger_benchmark_workflow(repo_root=repo_root, repo=repo, **trigger_kwargs)
                 except RuntimeError as exc:
                     detail = str(exc).strip() or "benchmark workflow trigger failed"
                     runtime_state.runtime_failure_count += 1
                     runtime_failures.append(f"RuntimeFailure: {detail}")
                     actions.append(f"trigger_benchmark_failed:{trigger_reason}")
-                    record_recovery_attempt(
-                        ledger,
-                        runtime_state,
-                        failure_class=latest_failure_class,
-                        action="trigger_benchmark_workflow",
-                        success=False,
-                        detail=detail,
-                    )
                     if ledger:
                         ledger.record_failure(failure_type="runtime_failure", detail=detail)
                 else:
                     actions.append(f"trigger_benchmark:{trigger_reason}")
-                    record_recovery_attempt(
-                        ledger,
-                        runtime_state,
-                        failure_class=latest_failure_class,
-                        action="trigger_benchmark_workflow",
-                        success=True,
-                        detail=latest_failure_detail or trigger_reason,
-                    )
                     if latest_run is not None:
                         runtime_state.last_triggered_benchmark_run_id = int(
                             latest_run.get("databaseId", 0) or 0
                         )
                     else:
                         runtime_state.last_triggered_benchmark_run_id = -1
-        else:
-            try:
-                trigger_benchmark_workflow(repo_root=repo_root, repo=repo)
-            except RuntimeError as exc:
-                detail = str(exc).strip() or "benchmark workflow trigger failed"
-                runtime_state.runtime_failure_count += 1
-                runtime_failures.append(f"RuntimeFailure: {detail}")
-                actions.append(f"trigger_benchmark_failed:{trigger_reason}")
-                if ledger:
-                    ledger.record_failure(failure_type="runtime_failure", detail=detail)
-            else:
-                actions.append(f"trigger_benchmark:{trigger_reason}")
-                if latest_run is not None:
-                    runtime_state.last_triggered_benchmark_run_id = int(
-                        latest_run.get("databaseId", 0) or 0
-                    )
-                else:
-                    runtime_state.last_triggered_benchmark_run_id = -1
 
-    if not stop_reason and runtime_failures:
+    if not stop_reason and time_budget_failures:
+        stop_reason = time_budget_failures[0]
+    elif not stop_reason and runtime_failures:
         stop_reason = runtime_failures[0]
     elif not stop_reason and service_failures:
         stop_reason = service_failures[0]
@@ -1454,6 +1605,7 @@ def run_shift_cycle(
         "actions": actions,
         "stop_reason": stop_reason,
         "failure_policy": failure_policy,
+        "time_budget": time_budget.to_report() if time_budget else {"bounded": False},
         "green_shift_evaluation": evaluate_green_shift(
             queue_report=queue_report,
             queue_count=canonical_queue_count,
@@ -1541,6 +1693,22 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
                 )
                 break
 
+        time_budget = ShiftTimeBudget.from_controller(controller)
+        if time_budget is not None:
+            time_budget_reason = time_budget.insufficient_reason(
+                "next_shift_cycle",
+                MIN_CYCLE_START_SECONDS,
+            )
+            if time_budget_reason:
+                controller.complete_shift(time_budget_reason)
+                ledger.record_shift_stop(
+                    shift_id=shift_id,
+                    reason=time_budget_reason,
+                    cycles=cycle_count,
+                    duration_seconds=time.monotonic() - shift_start_time,
+                )
+                break
+
         report = run_shift_cycle(
             repo_root=repo_root,
             repo=args.repo,
@@ -1553,13 +1721,24 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
             runtime_state=runtime_state,
             ledger=ledger,
             max_hours=float(args.max_hours),
+            time_budget=time_budget,
         )
         cycle_reports.append(report)
         cycle_count += 1
         save_runtime_state(runtime_state_path, runtime_state)
 
         objective = build_cycle_objective(report)
-        await controller.run_cycle(objective)
+        cycle_result = await controller.run_cycle(objective)
+        controller_stop_reason = str(cycle_result.get("stop_reason") or "")
+        if controller_stop_reason:
+            controller.complete_shift(controller_stop_reason)
+            ledger.record_shift_stop(
+                shift_id=shift_id,
+                reason=controller_stop_reason,
+                cycles=cycle_count,
+                duration_seconds=time.monotonic() - shift_start_time,
+            )
+            break
         if report["stop_reason"]:
             controller.complete_shift(str(report["stop_reason"]))
             ledger.record_shift_stop(
