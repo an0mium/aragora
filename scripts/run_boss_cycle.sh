@@ -9,53 +9,8 @@ POST_LOOP_LABEL="${ARAGORA_POST_LOOP_LABEL:-}"
 boss_repo=""
 boss_label=""
 
-resolve_python_bin() {
-    local candidates=()
-    local candidate=""
-    local python_cmd=""
-    local probe='import pydantic; import aragora.cli.commands.swarm'
-
-    if [[ -n "${ARAGORA_PYTHON:-}" ]]; then
-        if [[ -x "${ARAGORA_PYTHON}" ]]; then
-            printf '%s\n' "${ARAGORA_PYTHON}"
-            return 0
-        fi
-        echo "ARAGORA_PYTHON is set but not executable: ${ARAGORA_PYTHON}" >&2
-    fi
-    if [[ -x "${REPO_ROOT}/.venv/bin/python3" ]]; then
-        candidates+=("${REPO_ROOT}/.venv/bin/python3")
-    fi
-    if python_cmd="$(command -v python3 2>/dev/null)"; then
-        candidates+=("${python_cmd}")
-    fi
-    if python_cmd="$(command -v python 2>/dev/null)"; then
-        candidates+=("${python_cmd}")
-    fi
-    for candidate in "${candidates[@]}"; do
-        if [[ -z "${candidate}" || ! -x "${candidate}" ]]; then
-            continue
-        fi
-        if (cd "${REPO_ROOT}" && "${candidate}" -c "${probe}" >/dev/null 2>&1); then
-            printf '%s\n' "${candidate}"
-            return 0
-        fi
-        echo "Skipping Python candidate without usable boss-loop imports: ${candidate}" >&2
-    done
-
-    if command -v pyenv >/dev/null 2>&1; then
-        candidate="$(pyenv which python3 2>/dev/null || true)"
-        if [[ -n "${candidate}" && -x "${candidate}" ]] && (cd "${REPO_ROOT}" && "${candidate}" -c "${probe}" >/dev/null 2>&1); then
-            printf '%s\n' "${candidate}"
-            return 0
-        fi
-        if [[ -n "${candidate}" && -x "${candidate}" ]]; then
-            echo "Skipping Python candidate without usable boss-loop imports: ${candidate}" >&2
-        fi
-    fi
-
-    echo "No usable python interpreter with pydantic and boss-loop imports found for boss-loop runtime." >&2
-    return 1
-}
+# shellcheck source=scripts/aragora_runtime.sh
+source "${REPO_ROOT}/scripts/aragora_runtime.sh"
 
 args=("$@")
 for ((i = 0; i < ${#args[@]}; i++)); do
@@ -75,7 +30,7 @@ done
 
 boss_repo="${boss_repo:-synaptent/aragora}"
 boss_label="${POST_LOOP_LABEL:-${boss_label:-boss-ready}}"
-PYTHON_BIN="$(resolve_python_bin)"
+PYTHON_BIN="$(resolve_aragora_python 'import pydantic; import aragora.cli.commands.swarm' 'boss-loop' 'boss-loop runtime')"
 
 cd "${REPO_ROOT}"
 
