@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import types
 from pathlib import Path
 from typing import Any
 
@@ -199,3 +200,47 @@ def test_resolves_owner_by_lane_id(tmp_path: Path, capsys: Any) -> None:
     assert out["owner_session"] == "codex-lane-owner"
     assert out["resolved_via"] == "lane-id"
     assert out["message_count"] == 1
+
+
+def test_default_paths_use_canonical_shared_state_from_linked_worktree(
+    tmp_path: Path,
+    capsys: Any,
+    monkeypatch: Any,
+) -> None:
+    linked_worktree = tmp_path / "linked-worktree"
+    canonical_repo = tmp_path / "canonical-repo"
+    registry = canonical_repo / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q-shared-state",
+                    "owner_session": "codex-shared-owner",
+                    "status": "blocked",
+                    "branch": "codex/shared-state",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    _write_message(canonical_repo / ".aragora" / "operator-steering", "codex-shared-owner")
+
+    monkeypatch.delenv("ARAGORA_AUTOMATION_STATE_ROOT", raising=False)
+    monkeypatch.setattr(ros, "REPO_ROOT", linked_worktree)
+    monkeypatch.setattr(
+        ros,
+        "agent_bridge_sessions",
+        types.SimpleNamespace(resolve_canonical_repo_root=lambda _path: canonical_repo),
+        raising=False,
+    )
+
+    rc = ros.main(["--lane-id", "Q-shared-state", "--no-receipt", "--json"])
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["owner_session"] == "codex-shared-owner"
+    assert out["message_count"] == 1
+    assert out["steering_inbox_path"] == str(
+        canonical_repo / ".aragora" / "operator-steering" / "codex-shared-owner"
+    )

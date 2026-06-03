@@ -2409,6 +2409,7 @@ class TestBuildQueueAndPacket:
         assert packet.machine_recommendation == "approve_candidate"
         assert packet.model_review_quorum["admin_squash_allowed"] is True
         assert packet.model_review_quorum["status"] == "satisfied"
+        assert packet.check_surfaces["required_pr_checks"]["gate_selected"] is True
 
     def test_required_pr_checks_gate_ignores_stale_self_row_inside_quorum_run(
         self, monkeypatch: pytest.MonkeyPatch
@@ -2424,12 +2425,18 @@ class TestBuildQueueAndPacket:
                     "workflowName": "Self-Hosted Shadow CI",
                     "status": "QUEUED",
                     "conclusion": "",
+                    "runner_id": 0,
+                    "runner_name": "",
+                    "queuedDurationSeconds": 7200,
                 },
                 {
                     "name": "Hetzner Offline Golden Path Shadow",
                     "workflowName": "Self-Hosted Shadow CI",
                     "status": "QUEUED",
                     "conclusion": "",
+                    "runner_id": 0,
+                    "runner_name": "",
+                    "queuedDurationSeconds": 7200,
                 },
                 {
                     "name": "aragora-merge-quorum",
@@ -2480,6 +2487,7 @@ class TestBuildQueueAndPacket:
 
         packet = _build_packet("7465", repo_override=None)
         required = packet.check_surfaces["required_pr_checks"]
+        rollup = packet.check_surfaces["pr_rollup"]
 
         assert packet.checks_summary == "2/2 required green (required PR checks)"
         assert required["effective_total"] == 2
@@ -2488,6 +2496,97 @@ class TestBuildQueueAndPacket:
         assert packet.machine_recommendation == "approve_candidate"
         assert packet.model_review_quorum["admin_squash_allowed"] is True
         assert packet.model_review_quorum["status"] == "satisfied"
+        assert rollup["optional_runner_capacity_noise_count"] == 2
+        assert rollup["optional_runner_capacity_noise_sample"] == [
+            "Self-Hosted Shadow CI / Mac TypeScript SDK Shadow",
+            "Self-Hosted Shadow CI / Hetzner Offline Golden Path Shadow",
+        ]
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
+
+    def test_required_gate_classifies_real_rollup_shaped_long_queued_shadows(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7465,
+            files=["docs/status/open.md"],
+            checks=[
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {
+                    "__typename": "CheckRun",
+                    "name": "Mac TypeScript SDK Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                    "createdAt": "2026-05-31T15:51:16Z",
+                    "startedAt": "",
+                    "detailsUrl": ("https://github.com/synaptent/aragora/actions/runs/1/job/10"),
+                },
+                {
+                    "__typename": "CheckRun",
+                    "name": "Hetzner Offline Golden Path Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                    "createdAt": "2026-05-31T15:51:16Z",
+                    "startedAt": "",
+                    "detailsUrl": ("https://github.com/synaptent/aragora/actions/runs/1/job/11"),
+                },
+            ],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Claude focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "lint",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                    {
+                        "name": "typecheck",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        rollup = packet.check_surfaces["pr_rollup"]
+
+        assert packet.checks_summary == "2/2 required green (required PR checks)"
+        assert rollup["non_required_non_green_count"] == 2
+        assert rollup["optional_runner_capacity_noise_count"] == 0
+        assert rollup["optional_runner_capacity_noise_sample"] == []
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 2
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_sample"] == [
+            "Self-Hosted Shadow CI / Mac TypeScript SDK Shadow",
+            "Self-Hosted Shadow CI / Hetzner Offline Golden Path Shadow",
+        ]
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+
+        rendered = io.StringIO()
+        with redirect_stdout(rendered):
+            _render_packet(packet)
+        rendered_packet = rendered.getvalue()
+        assert "optional_runner_capacity_noise=" not in rendered_packet
+        assert (
+            "long_queued_self_hosted_shadow_without_runner_metadata=Self-Hosted Shadow CI"
+            in rendered_packet
+        )
 
     def test_required_pr_checks_gate_preserves_self_row_outside_quorum_run(
         self, monkeypatch: pytest.MonkeyPatch
@@ -2501,6 +2600,21 @@ class TestBuildQueueAndPacket:
                     "workflowName": "Self-Hosted Shadow CI",
                     "status": "QUEUED",
                     "conclusion": "",
+                    "runner_id": 0,
+                    "runner_name": "",
+                    "queuedDurationSeconds": 7200,
+                },
+                {
+                    "name": "Hetzner Offline Golden Path Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "COMPLETED",
+                    "conclusion": "CANCELLED",
+                },
+                {
+                    "name": "Smoke Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "COMPLETED",
+                    "conclusion": "SKIPPED",
                 },
                 {
                     "name": "aragora-merge-quorum",
@@ -2542,8 +2656,11 @@ class TestBuildQueueAndPacket:
         monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
 
         packet = _build_packet("7465", repo_override=None)
+        rollup = packet.check_surfaces["pr_rollup"]
 
         assert "effective_gate" not in packet.check_surfaces
+        assert rollup["optional_runner_capacity_noise_count"] == 1
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
         assert packet.machine_recommendation == "repair_first"
         assert packet.model_review_quorum["admin_squash_allowed"] is False
         assert packet.model_review_quorum["status"] == "repair_or_wait"
@@ -2562,6 +2679,9 @@ class TestBuildQueueAndPacket:
                     "workflowName": "Self-Hosted Shadow CI",
                     "status": "QUEUED",
                     "conclusion": "",
+                    "runner_id": 0,
+                    "runner_name": "",
+                    "queuedDurationSeconds": 7200,
                 },
                 {
                     "name": "aragora-merge-quorum",
@@ -2611,9 +2731,15 @@ class TestBuildQueueAndPacket:
 
         packet = _build_packet("7465", repo_override=None)
         required = packet.check_surfaces["required_pr_checks"]
+        rollup = packet.check_surfaces["pr_rollup"]
 
         assert "effective_gate" not in packet.check_surfaces
         assert required["failing_or_cancelled"] == ["typecheck"]
+        assert rollup["optional_runner_capacity_noise_count"] == 1
+        assert rollup["optional_runner_capacity_noise_sample"] == [
+            "Self-Hosted Shadow CI / Mac TypeScript SDK Shadow"
+        ]
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
         assert packet.machine_recommendation == "repair_first"
         assert packet.model_review_quorum["admin_squash_allowed"] is False
         assert packet.model_review_quorum["status"] == "repair_or_wait"
@@ -2663,9 +2789,183 @@ class TestBuildQueueAndPacket:
 
         assert required["effective_total"] == 0
         assert required["summary"] == "no required checks"
+        assert required["gate_selected"] is False
+        assert required["ignored_current_merge_quorum_self_check_count"] == 1
+        assert "no effective branch-protection required checks" in required["gate_blocked_reason"]
         assert "effective_gate" not in packet.check_surfaces
         assert packet.model_review_quorum["admin_squash_allowed"] is False
         assert packet.model_review_quorum["status"] == "repair_or_wait"
+
+    def test_merge_quorum_self_check_uses_required_gate_despite_shadow_jobs(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7465,
+            files=["pyproject.toml", "uv.lock"],
+            checks=[
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                    "detailsUrl": (
+                        "https://github.com/synaptent/aragora/actions/runs/123456/job/1"
+                    ),
+                },
+                {
+                    "name": "lint",
+                    "workflowName": "Lint",
+                    "status": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                },
+                {
+                    "name": "TypeScript SDK Type Check",
+                    "workflowName": "SDK Tests",
+                    "status": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                },
+                {
+                    "name": "Mac TypeScript SDK Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                    "runner_id": 0,
+                    "runner_name": "",
+                    "queuedDurationSeconds": 7200,
+                },
+                {
+                    "name": "Hetzner Offline Golden Path Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                    "runner_id": 0,
+                    "runner_name": "",
+                    "queuedDurationSeconds": 7200,
+                },
+            ],
+        )
+        pr_payload["comments"] = [
+            _codex_openai_comment(),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+            },
+        ]
+        monkeypatch.setenv("GITHUB_WORKFLOW", "Aragora Merge Quorum")
+        monkeypatch.setenv("GITHUB_JOB", "merge-quorum")
+        monkeypatch.setenv("GITHUB_RUN_ID", "123456")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synaptent/aragora")
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "state": "PENDING",
+                        "bucket": "pending",
+                        "workflow": "Aragora Merge Quorum",
+                        "link": "https://github.com/synaptent/aragora/actions/runs/123456/job/1",
+                    },
+                    {
+                        "name": "lint",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                    {
+                        "name": "TypeScript SDK Type Check",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "SDK Tests",
+                    },
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        required = packet.check_surfaces["required_pr_checks"]
+        rollup = packet.check_surfaces["pr_rollup"]
+
+        assert packet.checks_summary == "2/2 required green (required PR checks)"
+        assert required["effective_total"] == 2
+        assert required["ignored_current_merge_quorum_self_check_count"] == 1
+        assert required["gate_selected"] is True
+        assert required["pending"] == []
+        assert rollup["non_required_non_green_count"] == 2
+        assert rollup["non_required_non_green_sample"] == [
+            "Self-Hosted Shadow CI / Mac TypeScript SDK Shadow",
+            "Self-Hosted Shadow CI / Hetzner Offline Golden Path Shadow",
+        ]
+        assert rollup["optional_runner_capacity_noise_count"] == 2
+        assert rollup["optional_runner_capacity_noise_sample"] == [
+            "Self-Hosted Shadow CI / Mac TypeScript SDK Shadow",
+            "Self-Hosted Shadow CI / Hetzner Offline Golden Path Shadow",
+        ]
+        assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
+        assert packet.model_review_quorum["status"] == "satisfied"
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+
+        rendered = io.StringIO()
+        with redirect_stdout(rendered):
+            _render_packet(packet)
+        rendered_packet = rendered.getvalue()
+        assert "gate_selected=true" in rendered_packet
+        assert "non_required_non_green_rollup=Self-Hosted Shadow CI" in rendered_packet
+        assert "optional_runner_capacity_noise=Self-Hosted Shadow CI" in rendered_packet
+
+    def test_required_pr_checks_unavailable_explains_gate_not_selected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7465,
+            files=["pyproject.toml", "uv.lock"],
+            checks=[
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {
+                    "name": "Mac TypeScript SDK Shadow",
+                    "workflowName": "Self-Hosted Shadow CI",
+                    "status": "QUEUED",
+                    "conclusion": "",
+                },
+            ],
+        )
+        pr_payload["comments"] = [
+            _dogfood_comment("## Codex focused dogfood\npass"),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Claude review\nVerdict: approve.",
+            },
+        ]
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                raise _GhError("required checks request timed out")
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7465", repo_override=None)
+        required = packet.check_surfaces["required_pr_checks"]
+
+        assert required["available"] is False
+        assert required["effective_total"] == 0
+        assert required["gate_selected"] is False
+        assert "cannot distinguish required checks" in required["gate_blocked_reason"]
+        assert "required checks request timed out" in required["error"]
+        assert "effective_gate" not in packet.check_surfaces
+        assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert packet.model_review_quorum["admin_squash_allowed"] is False
+
+        rendered = io.StringIO()
+        with redirect_stdout(rendered):
+            _render_packet(packet)
+        assert "required_gate_blocker:" in rendered.getvalue()
 
     def test_missing_check_rollup_uses_modern_checks_field_and_skipped_neutral(
         self, monkeypatch: pytest.MonkeyPatch

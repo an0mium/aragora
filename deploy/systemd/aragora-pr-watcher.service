@@ -9,7 +9,9 @@ User=aragora
 Group=aragora
 WorkingDirectory=/opt/aragora
 EnvironmentFile=-/etc/aragora/pr-watcher.env
-ExecStart=/opt/aragora/.venv/bin/python -m aragora.compat.openclaw.pr_watch_daemon
+# Resolves the interpreter at runtime (prefers /opt/aragora/.venv, falls back to
+# system python3); pin ARAGORA_PYTHON in the EnvironmentFile above to override.
+ExecStart=/opt/aragora/scripts/run_pr_watch.sh
 Restart=on-failure
 RestartSec=30
 StandardOutput=journal

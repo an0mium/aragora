@@ -132,7 +132,8 @@ async def rotate_gemini_key(
             config.aws_region,
         )
 
-    # Step 7: Update local .env if present
+    # Step 7: Optional legacy local .env mirror. Disabled by default so a
+    # successful rotation keeps AWS Secrets Manager as the source of truth.
     _update_local_env(svc_config.secret_manager_key, new_key)
 
     # Step 8: Delete old key (best-effort — new key is already propagated)
@@ -574,13 +575,32 @@ async def _update_standalone_secret(
         return False
 
 
-def _update_local_env(key_name: str, new_value: str) -> None:
-    """Update the local .env file if it exists and contains the key."""
+def _local_env_update_enabled() -> bool:
+    value = os.environ.get("ARAGORA_ROTATION_UPDATE_LOCAL_ENV", "")
+    return value.lower() in {"1", "true", "yes"}
+
+
+def _update_local_env(key_name: str, new_value: str) -> bool:
+    """Optionally update local .env for legacy development rotations.
+
+    Rotated provider keys should normally live in AWS Secrets Manager only.
+    Local .env writes are an explicit compatibility escape hatch, not the
+    default rotation behavior.
+    """
+    if not _local_env_update_enabled():
+        logger.info(
+            "Skipping local .env update for %s; set ARAGORA_ROTATION_UPDATE_LOCAL_ENV=true "
+            "only for explicit legacy development mirroring.",
+            key_name,
+        )
+        return False
+
     env_paths = [
         os.path.join(os.getcwd(), ".env"),
         os.path.expanduser("~/Development/aragora/.env"),
     ]
 
+    wrote_file = False
     for env_path in env_paths:
         if not os.path.exists(env_path):
             continue
@@ -606,6 +626,7 @@ def _update_local_env(key_name: str, new_value: str) -> None:
                 with open(env_path, "w") as f:
                     f.writelines(new_lines)
                 logger.info("Updated %s in %s", key_name, env_path)
+                wrote_file = True
 
         except (OSError, ValueError, TypeError, PermissionError) as e:
             logger.warning("Could not update %s: %s", env_path, e)
@@ -614,6 +635,7 @@ def _update_local_env(key_name: str, new_value: str) -> None:
     os.environ[key_name] = new_value
     if key_name == "GEMINI_API_KEY":
         os.environ["GOOGLE_API_KEY"] = new_value
+    return wrote_file
 
 
 # =============================================================================

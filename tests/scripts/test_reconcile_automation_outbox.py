@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -9,6 +10,9 @@ from typing import Any
 import pytest
 
 import scripts.reconcile_automation_outbox as mod
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+WRAPPER_SCRIPT_PATH = REPO_ROOT / "scripts" / "reconcile_automation_handoffs.py"
 
 
 def _unhealthy_github() -> SimpleNamespace:
@@ -165,7 +169,30 @@ def test_json_summary_only_omits_action_details(
     assert payload["kept"] == 0
     assert payload["action_count"] == 1
     assert payload["actions_omitted"] is True
+    assert payload["reason_counts"] == {"matching receipt exists": 1}
     assert "actions" not in payload
+
+
+def test_reconcile_automation_handoffs_wrapper_executes_primary_script(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(WRAPPER_SCRIPT_PATH),
+            "--repo",
+            str(tmp_path),
+            "--json",
+            "--summary-only",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["repo"] == str(tmp_path.resolve())
+    assert payload["outbox_count"] == 0
+    assert payload["actions_omitted"] is True
 
 
 def test_state_root_can_point_at_direct_dot_aragora(
@@ -440,6 +467,70 @@ def test_apply_archives_outbox_handoff_superseded_by_active_handoff(
     assert receipt_payload["synthetic_reason"] == f"superseded by active handoff {new_key}"
 
 
+def test_apply_archives_outbox_handoff_superseded_by_idempotency_key(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    old_key = "open-pr-codex-example-oldaaaa"
+    new_key = "open-pr-codex-example-restack-newbbbb"
+    old_path = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/example",
+        key=old_key,
+        local_evidence={
+            "branch": "codex/example",
+            "head_sha": "oldaaaa1111",
+        },
+    )
+    new_path = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/example-restack",
+        key=new_key,
+        local_evidence={
+            "branch": "codex/example-restack",
+            "head_sha": "newbbbb2222",
+            "supersedes_outbox_keys": [old_key],
+            "source_candidates": [
+                {
+                    "idempotency_key": old_key,
+                    "source_branch": "codex/example",
+                    "head_sha": "oldaaaa1111",
+                }
+            ],
+        },
+    )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+
+    def fake_run_git(args: list[str], *_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess:
+        if args[:2] == ["rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(args=["git"], returncode=0, stdout="head\n")
+        if args and args[0] == "merge-base":
+            return subprocess.CompletedProcess(args=["git"], returncode=1, stdout="")
+        if args and args[0] == "cherry":
+            return subprocess.CompletedProcess(args=["git"], returncode=0, stdout="+ newbbbb\n")
+        return subprocess.CompletedProcess(args=["git"], returncode=0, stdout="")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_superseded_handoff"] == 1
+    assert payload["archived"] == 1
+    assert old_path.exists() is False
+    assert new_path.exists() is True
+    archived = tmp_path / ".aragora" / "automation-outbox-archive" / old_path.name
+    receipt = tmp_path / ".aragora" / "automation-receipts" / f"{old_key}.json"
+    assert archived.exists()
+    receipt_payload = json.loads(receipt.read_text(encoding="utf-8"))
+    assert receipt_payload["status"] == "already_satisfied"
+    assert receipt_payload["synthetic_reason"] == f"superseded by active handoff {new_key}"
+
+
 def test_dry_run_can_write_report_when_requested(
     tmp_path: Path, monkeypatch: Any, capsys: Any
 ) -> None:
@@ -644,6 +735,15 @@ def test_reconcile_keeps_target_pr_receipt_when_desired_head_not_published(
             return subprocess.CompletedProcess(args=args, returncode=0, stdout=stale_remote_head)
         if args == ["rev-parse", "--verify", "codex/target-pr-refresh"]:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout=desired_head)
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"+ {desired_head}\n",
+                stderr="",
+            )
         raise AssertionError(f"unexpected git call: {args}")
 
     monkeypatch.setattr(mod, "run_git", fake_run_git)
@@ -958,6 +1058,81 @@ def test_landed_branch_archives_without_github_lookup(
     reports = sorted((tmp_path / ".aragora" / "cleanup-state").glob("*.json"))
     payload = json.loads(reports[-1].read_text(encoding="utf-8"))
     assert payload["counts"]["satisfied_by_landed_on_main"] == 1
+    assert payload["counts"]["still_protecting_active_work"] == 0
+    assert payload["actions"][0]["decision"] == "archive"
+    assert (
+        payload["actions"][0]["reason"] == "branch work landed on main (merge or patch-equivalent)"
+    )
+
+
+def test_patch_equivalent_target_pr_receipt_archives_before_remote_check(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-patch-equivalent-target-pr-abc123"
+    _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/landed-patch",
+        key=key,
+        local_evidence={"desired_head_sha": "abc1234"},
+    )
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "reason": "target_open_pr",
+                "status": "already_satisfied",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", "refs/remotes/origin/codex/landed-patch"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args == ["rev-parse", "--verify", "codex/landed-patch"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout="abc1234567890\n",
+                stderr="",
+            )
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="- abc1234\n")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: (_ for _ in ()).throw(
+            AssertionError("GitHub should not be queried for patch-equivalent work")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("open PR fetch should not run for patch-equivalent work")
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--write-report"]) == 0
+
+    reports = sorted((tmp_path / ".aragora" / "cleanup-state").glob("*.json"))
+    payload = json.loads(reports[-1].read_text(encoding="utf-8"))
+    assert payload["counts"]["satisfied_by_landed_on_main"] == 1
+    assert payload["counts"]["blocked_receipt_pr_head_mismatch"] == 0
     assert payload["counts"]["still_protecting_active_work"] == 0
     assert payload["actions"][0]["decision"] == "archive"
     assert (

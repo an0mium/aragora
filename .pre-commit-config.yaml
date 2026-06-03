@@ -169,6 +169,17 @@ repos:
         files: ^aragora/live/src/.*\.(ts|tsx)$
         stages: [pre-push]
 
+  # Portability guard: block new hardcoded private/legacy references
+  # (private home dirs, .venv/bin/python, an0mium/aragora slug). Baselined in
+  # scripts/portability_baseline.json so it only fails on NEW violations.
+  - repo: local
+    hooks:
+      - id: portability-guard
+        name: Portability guard (no new private/legacy references)
+        entry: python3 scripts/check_portability.py
+        language: system
+        types: [text]
+
   # Security checks
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.8

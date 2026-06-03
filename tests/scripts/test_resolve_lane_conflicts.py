@@ -76,6 +76,44 @@ def test_detects_completed_owner_conflict_without_mutating(tmp_path: Path) -> No
     assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "conflict"
 
 
+def test_cli_defaults_to_automation_state_root_for_registry(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    state_root = tmp_path / "state-root"
+    registry = state_root / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "P104-ssd-cleanup-continuation",
+                    "owner_session": "codex-P104",
+                    "status": "conflict",
+                    "conflict_session": "codex-R03",
+                    "conflict_reason": "stale cleanup overlap",
+                },
+                {
+                    "lane_id": "R03-post-p102-harvest-followthrough",
+                    "owner_session": "codex-R03",
+                    "status": "completed",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+
+    rc = resolver.main(["--json"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["registry_path"] == str(registry)
+    assert payload["candidate_count"] == 1
+    assert payload["candidates"][0]["lane_id"] == "P104-ssd-cleanup-continuation"
+
+
 def test_apply_marks_conflict_superseded_and_writes_receipt(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
     receipt_dir = tmp_path / "receipts"

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -94,6 +95,47 @@ def fake_snapshot_records(
     """Build a fake operator-snapshot payload matching the live contract."""
 
     return {"process_census": {"by_role": by_role or {}, "records": records}}
+
+
+def test_default_state_root_prefers_local_lane_registry(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    worktree = tmp_path / "worktree"
+    local_registry = worktree / ".aragora" / "agent-bridge" / "lanes.json"
+    local_registry.parent.mkdir(parents=True)
+    local_registry.write_text("[]", encoding="utf-8")
+
+    def fail_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise AssertionError("git lookup should not run when local registry exists")
+
+    monkeypatch.setattr(ilo.subprocess, "run", fail_run)
+
+    assert ilo._default_state_root(worktree) == worktree / ".aragora"
+
+
+def test_default_state_root_uses_git_common_dir_for_linked_worktree(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    worktree = tmp_path / "linked" / "aragora"
+    canonical = tmp_path / "main" / "aragora"
+    worktree.mkdir(parents=True)
+    canonical.mkdir(parents=True)
+
+    def fake_run(args: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args, 0, f"{canonical / '.git'}\n", "")
+
+    monkeypatch.setattr(ilo.subprocess, "run", fake_run)
+
+    assert ilo._default_state_root(worktree) == canonical / ".aragora"
+
+
+def test_default_state_root_honors_automation_state_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    state_root = tmp_path / "state-root"
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+
+    assert ilo._default_state_root(tmp_path / "worktree") == state_root / ".aragora"
 
 
 # ---------------------------------------------------------------------------
