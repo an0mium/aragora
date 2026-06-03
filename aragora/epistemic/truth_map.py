@@ -173,7 +173,12 @@ def build_truth_map(
         from aragora.epistemic.genealogy import get_genealogy
 
         for unit_id, store in genealogy_inputs:
-            gen = get_genealogy(unit_id, store, require_enabled=False)
+            try:
+                gen = get_genealogy(unit_id, store, require_enabled=False)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"failed to build genealogy row for code unit {unit_id!r}: {exc}"
+                ) from exc
             genealogy_rows.append(
                 GenealogyRow(
                     code_unit_id=gen.code_unit_id,
