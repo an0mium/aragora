@@ -102,6 +102,56 @@ def test_detect_recent_jsonl_files_returns_empty_for_missing_dir(tmp_path: Path)
     )
 
 
+def test_detect_recent_jsonl_files_reads_nested_handoff_branch(tmp_path: Path) -> None:
+    handoff = tmp_path / "handoff.json"
+    _write_json(
+        handoff,
+        {
+            "idempotency_key": "handoff-key",
+            "requested_action": {
+                "branch": "refs/heads/feature/nested",
+                "desired_head_sha": "abc123",
+            },
+        },
+    )
+
+    rows = detector.detect_recent_jsonl_files(
+        tmp_path,
+        now=_ts("2026-05-17T12:00:00Z"),
+        max_age_minutes=999999.0,
+    )
+
+    assert rows[0]["branch"] == "feature/nested"
+    assert rows[0]["head_sha"] == "abc123"
+
+
+def test_resolve_state_root_accepts_direct_aragora_dir(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    aragora_dir = tmp_path / "shared" / ".aragora"
+    aragora_dir.mkdir(parents=True)
+
+    state_root, resolved_aragora_dir = detector.resolve_state_root(repo_root, aragora_dir)
+
+    assert state_root == aragora_dir.parent
+    assert resolved_aragora_dir == aragora_dir
+
+
+def test_resolve_state_root_uses_automation_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    shared_root = tmp_path / "shared"
+    (shared_root / ".aragora" / "automation-outbox").mkdir(parents=True)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared_root))
+
+    state_root, aragora_dir = detector.resolve_state_root(repo_root)
+
+    assert state_root == shared_root
+    assert aragora_dir == shared_root / ".aragora"
+
+
 def test_detect_fleet_coordination_handles_missing(tmp_path: Path) -> None:
     assert detector.detect_fleet_coordination(tmp_path) == {}
 
@@ -437,8 +487,11 @@ def test_build_overlap_report_handles_empty_inputs() -> None:
 
 
 def test_build_payload_assembles_top_level_keys(tmp_path: Path) -> None:
+    state_root = tmp_path / "shared"
+    (state_root / ".aragora" / "automation-outbox").mkdir(parents=True)
     payload = detector.build_payload(
         repo_root=tmp_path,
+        state_root=state_root,
         codex_home=tmp_path / "codex",
         now=_ts("2026-05-17T12:00:00Z"),
         max_age_minutes=120.0,
@@ -450,6 +503,8 @@ def test_build_payload_assembles_top_level_keys(tmp_path: Path) -> None:
         "schema_version",
         "generated_at",
         "repo_root",
+        "state_root",
+        "aragora_state_dir",
         "codex_home",
         "max_age_minutes",
         "codex_session_scan_limit",
@@ -472,10 +527,60 @@ def test_build_payload_assembles_top_level_keys(tmp_path: Path) -> None:
     assert expected_keys.issubset(payload.keys())
     assert payload["schema_version"] == detector.SCHEMA_VERSION
     assert payload["generated_at"] == "2026-05-17T12:00:00Z"
+    assert payload["state_root"] == str(state_root)
+    assert payload["aragora_state_dir"] == str(state_root / ".aragora")
     assert payload["skip_gh"] is True
     assert payload["skip_process_census"] is True
     assert payload["include_user_lane_registry"] is False
     assert payload["overlap_report"]["overlap_count"] == 0
+
+
+def test_build_payload_reads_automation_outbox_from_state_root(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    state_root = tmp_path / "shared"
+    outbox_file = state_root / ".aragora" / "automation-outbox" / "handoff.json"
+    _write_json(
+        outbox_file,
+        {
+            "idempotency_key": "handoff-key",
+            "requested_action": {
+                "branch": "feature/shared",
+                "desired_head_sha": "abc123",
+            },
+        },
+    )
+
+    import os
+
+    now = _ts("2026-05-17T12:00:00Z")
+    os.utime(outbox_file, times=(now.timestamp() - 60, now.timestamp() - 60))
+
+    payload = detector.build_payload(
+        repo_root=repo_root,
+        state_root=state_root,
+        codex_home=tmp_path / "codex",
+        now=now,
+        max_age_minutes=120.0,
+        skip_gh=True,
+        skip_codex_desktop=True,
+        skip_process_census=True,
+    )
+
+    assert payload["repo_root"] == str(repo_root.resolve())
+    assert payload["state_root"] == str(state_root)
+    assert payload["automation_outbox"] == [
+        {
+            "path": str(outbox_file),
+            "name": "handoff.json",
+            "age_minutes": 1.0,
+            "branch": "feature/shared",
+            "head_sha": "abc123",
+            "idempotency_key": "handoff-key",
+        }
+    ]
+    overlaps_by_value = {row["value"]: row for row in payload["overlap_report"]["overlaps"]}
+    assert "feature/shared" not in overlaps_by_value
 
 
 def test_render_text_contains_expected_sections() -> None:
@@ -534,10 +639,14 @@ def test_render_text_contains_expected_sections() -> None:
 def test_main_json_mode_produces_parseable_output(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    state_root = tmp_path / "shared"
+    (state_root / ".aragora").mkdir(parents=True)
     rc = detector.main(
         [
             "--repo-root",
             str(tmp_path),
+            "--state-root",
+            str(state_root),
             "--codex-home",
             str(tmp_path / "codex"),
             "--skip-gh",
@@ -552,6 +661,7 @@ def test_main_json_mode_produces_parseable_output(
     out = capsys.readouterr().out
     payload = json.loads(out)
     assert payload["schema_version"] == detector.SCHEMA_VERSION
+    assert payload["state_root"] == str(state_root)
     assert payload["skip_gh"] is True
     assert payload["skip_codex_desktop"] is True
     assert payload["skip_process_census"] is True

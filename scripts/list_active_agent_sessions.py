@@ -61,6 +61,7 @@ from typing import Any
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CODEX_HOME = Path.home() / ".codex"
+DEFAULT_SHARED_STATE_ROOT = Path.home() / "Development" / "aragora"
 DEFAULT_MAX_AGE_MINUTES = 120
 DEFAULT_MAX_PR_FETCH = 30
 DEFAULT_GIT_TIMEOUT = 10
@@ -104,6 +105,62 @@ def _safe_read_json(path: Path) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _nested_value(payload: dict[str, Any], *path: str) -> object | None:
+    current: object = payload
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
+
+
+def _first_nested_value(payload: dict[str, Any], paths: Iterable[tuple[str, ...]]) -> object | None:
+    for path in paths:
+        value = _nested_value(payload, *path)
+        if value:
+            return value
+    return None
+
+
+def _split_state_root(value: Path) -> tuple[Path, Path]:
+    root = value.expanduser()
+    if root.name == ".aragora":
+        return root.parent.resolve(), root.resolve()
+    resolved = root.resolve()
+    return resolved, resolved / ".aragora"
+
+
+def _has_shared_state_markers(aragora_dir: Path) -> bool:
+    return any(
+        (aragora_dir / name).exists()
+        for name in (
+            "automation-outbox",
+            "automation-receipts",
+            "agent-bridge",
+            "operator-steering",
+        )
+    )
+
+
+def resolve_state_root(repo_root: Path, state_root: Path | None = None) -> tuple[Path, Path]:
+    """Resolve the shared Aragora state root without changing the code repo root."""
+    if state_root is not None:
+        return _split_state_root(state_root)
+    env_value = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT", "").strip()
+    if env_value:
+        return _split_state_root(Path(env_value))
+
+    repo_state_root, repo_aragora_dir = _split_state_root(repo_root)
+    if _has_shared_state_markers(repo_aragora_dir):
+        return repo_state_root, repo_aragora_dir
+
+    shared_state_root, shared_aragora_dir = _split_state_root(DEFAULT_SHARED_STATE_ROOT)
+    if _has_shared_state_markers(shared_aragora_dir):
+        return shared_state_root, shared_aragora_dir
+
+    return repo_state_root, repo_aragora_dir
+
+
 def _stable_branch_name(value: object | None) -> str | None:
     if not value:
         return None
@@ -113,6 +170,38 @@ def _stable_branch_name(value: object | None) -> str | None:
     if text.startswith("refs/heads/"):
         text = text[len("refs/heads/") :]
     return text
+
+
+def _payload_branch(payload: dict[str, Any]) -> str | None:
+    return _stable_branch_name(
+        _first_nested_value(
+            payload,
+            (
+                ("branch",),
+                ("head",),
+                ("head_ref",),
+                ("headRefName",),
+                ("requested_action", "branch"),
+                ("local_evidence", "branch"),
+                ("metadata", "branch"),
+            ),
+        )
+    )
+
+
+def _payload_head_sha(payload: dict[str, Any]) -> object | None:
+    return _first_nested_value(
+        payload,
+        (
+            ("head_sha",),
+            ("desired_head_sha",),
+            ("requested_action", "desired_head_sha"),
+            ("requested_action", "head_sha"),
+            ("local_evidence", "desired_head_sha"),
+            ("local_evidence", "head_sha"),
+            ("metadata", "head_sha"),
+        ),
+    )
 
 
 def detect_worktrees(
@@ -189,10 +278,16 @@ def detect_recent_jsonl_files(
         }
         payload = _safe_read_json(path)
         if payload is not None:
-            for key in ("issue", "issue_number", "branch", "head", "head_sha"):
+            for key in ("issue", "issue_number"):
                 value = payload.get(key)
                 if value is not None:
                     row[key] = value
+            branch = _payload_branch(payload)
+            if branch:
+                row["branch"] = branch
+            head_sha = _payload_head_sha(payload)
+            if head_sha is not None:
+                row["head_sha"] = head_sha
             if isinstance(payload.get("idempotency_key"), str):
                 row["idempotency_key"] = payload["idempotency_key"]
             if isinstance(payload.get("agent"), str):
@@ -759,6 +854,7 @@ def build_overlap_report(
 def build_payload(
     *,
     repo_root: Path = DEFAULT_REPO_ROOT,
+    state_root: Path | None = None,
     codex_home: Path = DEFAULT_CODEX_HOME,
     now: dt.datetime | None = None,
     max_age_minutes: float = DEFAULT_MAX_AGE_MINUTES,
@@ -770,11 +866,11 @@ def build_payload(
     include_user_lane_registry: bool = False,
 ) -> dict[str, Any]:
     repo_root = repo_root.resolve()
+    resolved_state_root, aragora_dir = resolve_state_root(repo_root, state_root)
     codex_home = codex_home.expanduser()
     timestamp = now or _utc_now()
 
     worktrees = detect_worktrees(repo_root)
-    aragora_dir = repo_root / ".aragora"
     dispatch_contracts = detect_recent_jsonl_files(
         aragora_dir / "dispatch_contracts",
         now=timestamp,
@@ -809,7 +905,7 @@ def build_payload(
     if not skip_process_census:
         process_census = detect_agent_process_census(repo_root)
     agent_bridge_lanes = detect_agent_bridge_lanes(
-        repo_root,
+        resolved_state_root,
         include_user_fallback=include_user_lane_registry,
     )
     open_prs: list[dict[str, Any]] = []
@@ -831,6 +927,8 @@ def build_payload(
         "schema_version": SCHEMA_VERSION,
         "generated_at": _isoformat(timestamp),
         "repo_root": str(repo_root),
+        "state_root": str(resolved_state_root),
+        "aragora_state_dir": str(aragora_dir),
         "codex_home": str(codex_home),
         "max_age_minutes": max_age_minutes,
         "codex_session_scan_limit": codex_session_scan_limit,
@@ -1077,6 +1175,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Path to the repository root (default: {DEFAULT_REPO_ROOT})",
     )
     parser.add_argument(
+        "--state-root",
+        type=Path,
+        default=None,
+        help=(
+            "Shared Aragora state root used for .aragora coordination files. "
+            "Accepts either a repo root containing .aragora or the .aragora directory itself. "
+            "Defaults to ARAGORA_AUTOMATION_STATE_ROOT, then repo-local state, then ~/Development/aragora."
+        ),
+    )
+    parser.add_argument(
         "--codex-home",
         type=Path,
         default=DEFAULT_CODEX_HOME,
@@ -1135,6 +1243,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     payload = build_payload(
         repo_root=args.repo_root,
+        state_root=args.state_root,
         codex_home=args.codex_home,
         max_age_minutes=float(args.max_age_minutes),
         skip_gh=bool(args.skip_gh),
