@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -10,6 +11,7 @@ from aragora.swarm.review_routing import (
     ReviewCandidate,
     ReviewRoutingError,
     generate_review_response,
+    preflight_review_candidate,
     resolve_review_candidates,
 )
 
@@ -30,6 +32,67 @@ def test_resolve_review_candidates_skips_worker_family_and_expands_claude_profil
         "claude:max-02",
         "openrouter",
     ]
+
+
+@pytest.mark.parametrize(
+    ("preferred_review_model", "expected_label"),
+    [
+        ("gemini", "gemini"),
+        ("gemini-cli", "gemini"),
+        ("grok", "grok"),
+        ("grok-cli", "grok"),
+    ],
+)
+def test_resolve_review_candidates_honors_requested_direct_provider_family(
+    monkeypatch: pytest.MonkeyPatch,
+    preferred_review_model: str,
+    expected_label: str,
+) -> None:
+    monkeypatch.setenv("ARAGORA_REVIEW_PROVIDER_ORDER", "codex,claude,openrouter")
+    monkeypatch.setenv("ARAGORA_CLAUDE_REVIEW_PROFILES", "max-01")
+
+    candidates = resolve_review_candidates(
+        worker_model="codex",
+        preferred_review_model=preferred_review_model,
+    )
+
+    assert [candidate.label for candidate in candidates] == [
+        expected_label,
+        "claude:max-01",
+        "openrouter",
+    ]
+
+
+def test_preflight_review_candidate_accepts_direct_provider_key() -> None:
+    def fake_secret_presence(name: str):
+        source = "env" if name == "GOOGLE_API_KEY" else "none"
+        return SimpleNamespace(source=source)
+
+    with patch(
+        "aragora.swarm.review_routing.get_secret_presence", side_effect=fake_secret_presence
+    ):
+        result = preflight_review_candidate(
+            ReviewCandidate(provider="gemini", label="gemini"),
+            repo_root=Path("/tmp/repo"),
+        )
+
+    assert result == {"ok": True, "detail": "gemini API key is configured"}
+
+
+def test_preflight_review_candidate_blocks_missing_direct_provider_key() -> None:
+    with patch(
+        "aragora.swarm.review_routing.get_secret_presence",
+        return_value=SimpleNamespace(source="none"),
+    ):
+        result = preflight_review_candidate(
+            ReviewCandidate(provider="grok", label="grok"),
+            repo_root=Path("/tmp/repo"),
+        )
+
+    assert result == {
+        "ok": False,
+        "detail": "XAI_API_KEY or GROK_API_KEY is not configured",
+    }
 
 
 @pytest.mark.asyncio
@@ -75,6 +138,46 @@ async def test_generate_review_response_fails_over_to_next_candidate() -> None:
     assert result["attempts"][0]["candidate"] == "codex"
     assert result["attempts"][0]["kind"] == "cli_failure"
     assert result["attempts"][1]["candidate"] == "claude:max-01"
+
+
+@pytest.mark.asyncio
+async def test_generate_review_response_runs_requested_direct_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_REVIEW_PROVIDER_ORDER", "codex,claude,openrouter")
+
+    agent = AsyncMock()
+    agent.generate = AsyncMock(return_value='{"status":"passed","findings":[]}')
+
+    with (
+        patch(
+            "aragora.swarm.review_routing.preflight_review_candidate",
+            return_value={"ok": True, "detail": "gemini available"},
+        ),
+        patch("aragora.swarm.review_routing.create_agent", return_value=agent) as create_agent,
+    ):
+        result = await generate_review_response(
+            "review this",
+            worker_model="codex",
+            preferred_review_model="gemini",
+            repo_root=Path("/tmp/repo"),
+        )
+
+    assert result["candidate"]["label"] == "gemini"
+    assert result["attempts"] == [
+        {
+            "candidate": "gemini",
+            "stage": "generate",
+            "detail": "ok",
+        }
+    ]
+    create_agent.assert_called_once_with(
+        "gemini",
+        name="campaign-review",
+        role="critic",
+        enable_fallback=False,
+    )
+    agent.generate.assert_awaited_once_with("review this")
 
 
 @pytest.mark.asyncio
