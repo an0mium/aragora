@@ -1883,6 +1883,71 @@ def test_audit_treats_superseded_branch_as_terminal_receipt(
     assert payload["records"][0]["category"] == "protected_handoff_receipt"
 
 
+def test_audit_treats_nested_refresh_branch_as_terminal_receipt(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-current-refresh-def456"
+    (outbox / "refresh.json").write_text(
+        json.dumps(
+            {
+                "task": "Publish refreshed branch",
+                "requires_github": True,
+                "requested_action": "open_pr",
+                "repo": "synaptent/aragora",
+                "local_evidence": {
+                    "branch": "codex/current-refresh",
+                    "head": "def456",
+                    "improver_refresh_20260601T1431Z": {
+                        "branch": "codex/previous-refresh",
+                        "head_sha": "abc1234",
+                    },
+                },
+                "validation": ["pytest tests/example.py -q"],
+                "idempotency_key": key,
+                "created_at": "2026-04-24T16:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "already_satisfied"}),
+        encoding="utf-8",
+    )
+    _stub_git_inventory(monkeypatch, _branch_row("codex/previous-refresh"))
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=1,
+    )
+
+    assert payload["summary"]["handoff_receipted_branches"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 0
+    assert payload["records"][0]["handoff_receipt_exists"] is True
+    assert payload["records"][0]["category"] == "protected_handoff_receipt"
+
+
 def test_audit_reads_top_level_branch_for_terminal_outbox_receipts(
     tmp_path: Path, monkeypatch: Any
 ) -> None:

@@ -473,6 +473,42 @@ def _superseded_targets(
     return targets
 
 
+def _string_list(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
+
+
+def _superseded_outbox_keys(
+    outbox_payloads: Sequence[tuple[Path, dict[str, Any]]],
+) -> dict[str, dict[str, str]]:
+    """Map explicitly superseded outbox idempotency keys to their replacement handoff."""
+    targets: dict[str, dict[str, str]] = {}
+    for path, payload in outbox_payloads:
+        superseder_key = str(payload.get("idempotency_key") or path.stem).strip()
+        superseder_branch = _branch_from_payload(payload)
+        for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+            keys = _string_list(local_evidence.get("supersedes_outbox_keys"))
+            source_candidates = local_evidence.get("source_candidates")
+            if isinstance(source_candidates, Sequence) and not isinstance(
+                source_candidates, (str, bytes, bytearray)
+            ):
+                for candidate in source_candidates:
+                    if isinstance(candidate, Mapping):
+                        keys.append(str(candidate.get("idempotency_key") or "").strip())
+            for key in keys:
+                if not key or key == superseder_key:
+                    continue
+                targets[key] = {
+                    "branch": superseder_branch,
+                    "idempotency_key": superseder_key,
+                    "path": str(path),
+                }
+    return targets
+
+
 def _write_synthetic_receipt(
     *,
     receipt_dir: Path,
@@ -672,7 +708,9 @@ def main(argv: list[str] | None = None) -> int:
         payload = _load_json(path)
         if isinstance(payload, dict):
             parsed_outbox_payloads[path] = payload
-    superseded_targets = _superseded_targets(list(parsed_outbox_payloads.items()))
+    parsed_outbox_items = list(parsed_outbox_payloads.items())
+    superseded_targets = _superseded_targets(parsed_outbox_items)
+    superseded_keys = _superseded_outbox_keys(parsed_outbox_items)
 
     target_keys = {str(key).strip() for key in args.idempotency_key if str(key).strip()}
     target_files = {_resolve_outbox_file_filter(outbox_dir, path) for path in args.outbox_file}
@@ -847,6 +885,31 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
             if args.apply:
+                shutil.move(str(path), str(archive_dir / path.name))
+            continue
+
+        key_superseder = superseded_keys.get(idem)
+        if key_superseder is not None and key_superseder["idempotency_key"] != idem:
+            reason = f"superseded by active handoff {key_superseder['idempotency_key']}"
+            counts["satisfied_by_superseded_handoff"] += 1
+            actions.append(
+                {
+                    "path": str(path),
+                    "branch": branch,
+                    "decision": "archive",
+                    "reason": reason,
+                    "superseded_by": key_superseder,
+                    "synthetic_receipt": True,
+                }
+            )
+            if args.apply:
+                _write_synthetic_receipt(
+                    receipt_dir=receipt_dir,
+                    outbox_payload=payload,
+                    reason=reason,
+                    pr_number=None,
+                    apply=True,
+                )
                 shutil.move(str(path), str(archive_dir / path.name))
             continue
 

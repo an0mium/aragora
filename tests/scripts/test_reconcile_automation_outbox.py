@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -9,6 +10,9 @@ from typing import Any
 import pytest
 
 import scripts.reconcile_automation_outbox as mod
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+WRAPPER_SCRIPT_PATH = REPO_ROOT / "scripts" / "reconcile_automation_handoffs.py"
 
 
 def _unhealthy_github() -> SimpleNamespace:
@@ -167,6 +171,28 @@ def test_json_summary_only_omits_action_details(
     assert payload["actions_omitted"] is True
     assert payload["reason_counts"] == {"matching receipt exists": 1}
     assert "actions" not in payload
+
+
+def test_reconcile_automation_handoffs_wrapper_executes_primary_script(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(WRAPPER_SCRIPT_PATH),
+            "--repo",
+            str(tmp_path),
+            "--json",
+            "--summary-only",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["repo"] == str(tmp_path.resolve())
+    assert payload["outbox_count"] == 0
+    assert payload["actions_omitted"] is True
 
 
 def test_state_root_can_point_at_direct_dot_aragora(
@@ -409,6 +435,70 @@ def test_apply_archives_outbox_handoff_superseded_by_active_handoff(
             "head_sha": "newbbbb2222",
             "supersedes_branch": "codex/example",
             "supersedes_head_sha": "oldaaaa1111",
+        },
+    )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+
+    def fake_run_git(args: list[str], *_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess:
+        if args[:2] == ["rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(args=["git"], returncode=0, stdout="head\n")
+        if args and args[0] == "merge-base":
+            return subprocess.CompletedProcess(args=["git"], returncode=1, stdout="")
+        if args and args[0] == "cherry":
+            return subprocess.CompletedProcess(args=["git"], returncode=0, stdout="+ newbbbb\n")
+        return subprocess.CompletedProcess(args=["git"], returncode=0, stdout="")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_superseded_handoff"] == 1
+    assert payload["archived"] == 1
+    assert old_path.exists() is False
+    assert new_path.exists() is True
+    archived = tmp_path / ".aragora" / "automation-outbox-archive" / old_path.name
+    receipt = tmp_path / ".aragora" / "automation-receipts" / f"{old_key}.json"
+    assert archived.exists()
+    receipt_payload = json.loads(receipt.read_text(encoding="utf-8"))
+    assert receipt_payload["status"] == "already_satisfied"
+    assert receipt_payload["synthetic_reason"] == f"superseded by active handoff {new_key}"
+
+
+def test_apply_archives_outbox_handoff_superseded_by_idempotency_key(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    old_key = "open-pr-codex-example-oldaaaa"
+    new_key = "open-pr-codex-example-restack-newbbbb"
+    old_path = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/example",
+        key=old_key,
+        local_evidence={
+            "branch": "codex/example",
+            "head_sha": "oldaaaa1111",
+        },
+    )
+    new_path = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/example-restack",
+        key=new_key,
+        local_evidence={
+            "branch": "codex/example-restack",
+            "head_sha": "newbbbb2222",
+            "supersedes_outbox_keys": [old_key],
+            "source_candidates": [
+                {
+                    "idempotency_key": old_key,
+                    "source_branch": "codex/example",
+                    "head_sha": "oldaaaa1111",
+                }
+            ],
         },
     )
 

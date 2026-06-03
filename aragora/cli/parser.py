@@ -219,9 +219,13 @@ Examples:
     _add_proof_units_parser(subparsers)  # DIC-19 / #6030
     _add_genealogy_parser(subparsers)  # DIC-24 / #6218
     _add_coherence_scan_parser(subparsers)  # DIC-26 / #6220
+    _add_truth_map_parser(subparsers)  # DIC-18 / #6028
 
     # DIC-27: operator crux arbitration surface
     _add_crux_arbitrate_parser(subparsers)
+
+    # DIC-28: proactive crux gardening operator surface
+    _add_crux_garden_parser(subparsers)
 
     return parser
 
@@ -722,6 +726,32 @@ def _add_coherence_scan_parser(subparsers) -> None:
     p.set_defaults(func=_lazy("aragora.cli.commands.dic26_coherence", "cmd_coherence_scan"))
 
 
+def _add_truth_map_parser(subparsers) -> None:
+    """Add the 'truth-map' subcommand (DIC-18 / #6028).
+
+    Flag-gated: ARAGORA_TRUTH_MAP_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "truth-map",
+        help="DIC-18: read-only organizational truth map of claim and crux status",
+        description=(
+            "Reads DIC-13 claim manifests, verifies them (dry-run), and emits "
+            "a read-only report of claim and crux health. "
+            "Requires ARAGORA_TRUTH_MAP_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--claims-dir",
+        dest="claims_dir",
+        default="docs/status/claims",
+        metavar="PATH",
+        help="Directory of *.yaml claim manifests (default: docs/status/claims)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic18_truth_map", "cmd_truth_map"))
+
+
 def _add_crux_arbitrate_parser(subparsers) -> None:
     """Add the 'crux-arbitrate' subcommand for DIC-27 operator arbitration."""
     p = subparsers.add_parser(
@@ -789,6 +819,29 @@ def _add_crux_arbitrate_parser(subparsers) -> None:
         help="Emit output as JSON instead of human-readable text",
     )
     p.set_defaults(func=_lazy("aragora.cli.commands.crux_arbitrate", "cmd_crux_arbitrate"))
+
+
+def _add_crux_garden_parser(subparsers) -> None:
+    """DIC-28: proactive crux gardening operator surface (issue #6222).
+
+    Flag-gated: ARAGORA_CRUX_GARDENING_ENABLED. Live queue effect: none.
+    """
+    p = subparsers.add_parser(
+        "crux-garden",
+        help="DIC-28: proactive re-examination of cruxes for staleness and contradictions",
+        description=(
+            "Load a JSONL or JSON-array of CruxReceipt dicts and run a gardening pass. "
+            "Report-only; no debates started, no issues created. "
+            "Requires ARAGORA_CRUX_GARDENING_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--input",
+        required=True,
+        help="Path to a JSONL or JSON-array file of CruxReceipt dicts.",
+    )
+    p.add_argument("--json", action="store_true", help="Emit report as JSON.")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic28_crux_garden", "cmd_crux_garden"))
 
 
 def _add_ask_parser(subparsers) -> None:
