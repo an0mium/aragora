@@ -20,66 +20,6 @@
     "benchmarks/bench_readiness/write_manifest.py": [
       "venv_python"
     ],
-    "deploy/argo-rollouts/rollout.yaml": [
-      "legacy_slug"
-    ],
-    "deploy/argocd/applications/applicationset.yaml": [
-      "legacy_slug"
-    ],
-    "deploy/argocd/install/values.yaml": [
-      "legacy_slug"
-    ],
-    "deploy/argocd/projects/aragora-project.yaml": [
-      "legacy_slug"
-    ],
-    "deploy/docker-compose.production.yml": [
-      "legacy_slug"
-    ],
-    "deploy/docker-compose.yml": [
-      "legacy_slug"
-    ],
-    "deploy/ec2-userdata.sh": [
-      "legacy_slug"
-    ],
-    "deploy/kubernetes/backend-deployment.yaml": [
-      "legacy_slug"
-    ],
-    "deploy/kubernetes/backup-verification-cronjob.yaml": [
-      "legacy_slug"
-    ],
-    "deploy/kubernetes/deployment.yaml": [
-      "legacy_slug"
-    ],
-    "deploy/kubernetes/frontend-deployment.yaml": [
-      "legacy_slug"
-    ],
-    "deploy/kubernetes/migration-job.yaml": [
-      "legacy_slug"
-    ],
-    "deploy/kubernetes/secrets-rotation/cronjob.yaml": [
-      "legacy_slug"
-    ],
-    "deploy/lightsail-setup.sh": [
-      "legacy_slug"
-    ],
-    "deploy/openclaw/docker-compose.devops.yml": [
-      "legacy_slug"
-    ],
-    "deploy/openclaw/docker-compose.pr-reviewer.yml": [
-      "legacy_slug"
-    ],
-    "deploy/openclaw/pr-reviewer-setup.sh": [
-      "legacy_slug"
-    ],
-    "deploy/quickstart.sh": [
-      "legacy_slug"
-    ],
-    "deploy/self-hosted/.env.example": [
-      "legacy_slug"
-    ],
-    "deploy/self-hosted/docker-compose.yml": [
-      "legacy_slug"
-    ],
     "docs-site/docs/guides/connectors.md": [
       "users_home"
     ],
@@ -101,9 +41,6 @@
     "docs/guides/ISSUE_TRIAGE.md": [
       "venv_python"
     ],
-    "docs/index.html": [
-      "legacy_slug"
-    ],
     "docs/integrations/CONNECTORS.md": [
       "users_home"
     ],
@@ -112,24 +49,6 @@
     ],
     "docs/status/P05-publication-freshness-probe-rebase_RECEIPT_droid-A5312D6A.md": [
       "venv_python"
-    ],
-    "examples/github-action/advanced.yml": [
-      "legacy_slug"
-    ],
-    "examples/github-action/aragora-review-strict.yml": [
-      "legacy_slug"
-    ],
-    "examples/github-action/aragora-review.yml": [
-      "legacy_slug"
-    ],
-    "examples/github-action/basic.yml": [
-      "legacy_slug"
-    ],
-    "examples/quickstart/code_review.py": [
-      "legacy_slug"
-    ],
-    "examples/typescript-web/index.html": [
-      "legacy_slug"
     ],
     "scripts/inspect_cold_review_surface.py": [
       "legacy_slug"

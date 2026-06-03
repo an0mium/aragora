@@ -29,7 +29,7 @@ services:
     container_name: aragora-pr-reviewer
     command: >
       python scripts/run_devops_agent.py
-        --repo ${GITHUB_REPO:-an0mium/aragora}
+        --repo ${GITHUB_REPO:-synaptent/aragora}
         --task review-prs
         --mode ${AGENT_MODE:-once}
         --poll-interval ${POLL_INTERVAL:-300}

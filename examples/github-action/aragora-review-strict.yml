@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Run Aragora Review
         id: review
-        uses: an0mium/aragora@main
+        uses: synaptent/aragora@main
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}

@@ -11,7 +11,7 @@ spec:
 
   # Source repositories
   sourceRepos:
-    - https://github.com/an0mium/aragora
+    - https://github.com/synaptent/aragora
     - https://charts.bitnami.com/bitnami  # For dependencies
 
   # Destination clusters and namespaces
@@ -146,7 +146,7 @@ spec:
   description: Aragora Staging Environment
 
   sourceRepos:
-    - https://github.com/an0mium/aragora
+    - https://github.com/synaptent/aragora
 
   destinations:
     - server: https://staging.aragora.k8s.local
