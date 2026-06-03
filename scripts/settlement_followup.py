@@ -328,7 +328,7 @@ def _prompt_for(packet: dict[str, Any]) -> str:
         )
 
     return (
-        "Start from live repo truth in `/Users/armand/Development/aragora`. "
+        f"Start from live repo truth in `{DEFAULT_REPO_ROOT}`. "
         "Do not trust prior transcript state. Check Aragora operator-steering mailbox "
         "before lane work. "
         f"Goal: continue #{pr} settlement follow-up from repaired branch "

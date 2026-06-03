@@ -275,7 +275,8 @@ def _autopilot_cleanup(repo: Path, args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _external_cleanup(repo: Path, args: argparse.Namespace) -> dict[str, Any]:
-    prefix = "/Users/armand/.codex/worktrees/"
+    codex_home = Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex"))
+    prefix = f"{codex_home}/worktrees/"
     active = _active_external_worktrees(prefix)
     quarantined = _load_quarantine(args.quarantine_file)
     paths = [

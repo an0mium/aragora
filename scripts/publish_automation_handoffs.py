@@ -30,7 +30,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.github_cli_health import check_github_cli_health
 
 UTC = timezone.utc
-DEFAULT_CODEX_HOME = Path("/Users/armand/.codex")
+DEFAULT_CODEX_HOME = Path.home() / ".codex"
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_LABELS = ("boss-ready",)
 DEFAULT_LIMIT = 2
@@ -1406,7 +1406,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--codex-home",
         default=None,
-        help="Codex home containing automations; defaults to $CODEX_HOME or /Users/armand/.codex",
+        help="Codex home containing automations; defaults to $CODEX_HOME or ~/.codex",
     )
     parser.add_argument(
         "--limit",

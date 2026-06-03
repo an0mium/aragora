@@ -12,12 +12,29 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
+
+
+def _repo_root() -> str:
+    env = os.environ.get("ARAGORA_REPO_ROOT")
+    if env:
+        return env
+    proc = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode == 0 and proc.stdout.strip():
+        return proc.stdout.strip()
+    return str(Path(__file__).resolve().parents[1])
 
 
 INCREMENTAL_PROGRESS_SENTENCE = (
@@ -595,7 +612,7 @@ def build_prompt(
 ) -> str:
     """Render the recursive best-next prompt."""
     lines = [
-        "Start from live repo truth in /Users/armand/Development/aragora. Do not trust prior transcript state. Check your Aragora operator-steering mailbox before lane work.",
+        f"Start from live repo truth in {_repo_root()}. Do not trust prior transcript state. Check your Aragora operator-steering mailbox before lane work.",
         "",
     ]
     pin = expected_head or head

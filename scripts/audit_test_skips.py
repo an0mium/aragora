@@ -24,6 +24,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 @dataclass
 class SkipMarker:
@@ -441,7 +443,7 @@ def generate_markdown(report: dict) -> str:
     )
 
     for item in report["high_skip_files"]:
-        short_path = item["file"].replace("/Users/armand/Development/aragora/", "")
+        short_path = item["file"].replace(f"{REPO_ROOT}/", "")
         lines.append(f"| `{short_path}` | {item['count']} |")
 
     lines.extend(
@@ -684,7 +686,7 @@ def main():
 
     print("\nTop 5 high-skip files:")
     for item in report["high_skip_files"][:5]:
-        short_path = item["file"].replace("/Users/armand/Development/aragora/", "")
+        short_path = item["file"].replace(f"{REPO_ROOT}/", "")
         print(f"  {short_path}: {item['count']}")
 
 
