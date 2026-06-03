@@ -2267,6 +2267,48 @@ def _add_review_queue_parser(subparsers) -> None:
         func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
     )
 
+    lint_comment_parser = queue_subparsers.add_parser(
+        "lint-comment",
+        help="Dry-run whether a proposed reviewer comment will count before posting",
+        description=(
+            "Lint a proposed PR reviewer comment against the same current-head evidence "
+            "parsers used by review-queue merge-packet. This is read-only."
+        ),
+    )
+    lint_comment_parser.add_argument("--pr", required=True, help="PR number the comment targets")
+    lint_comment_parser.add_argument(
+        "--head",
+        "--head-sha",
+        dest="head_sha",
+        required=True,
+        help="Exact PR head SHA the proposed comment must cite.",
+    )
+    lint_comment_parser.add_argument(
+        "--head-committed-at",
+        default="",
+        help="Optional current head committedDate for stricter current-head grounding.",
+    )
+    lint_body_group = lint_comment_parser.add_mutually_exclusive_group(required=True)
+    lint_body_group.add_argument("--body", help="Proposed reviewer comment body to lint")
+    lint_body_group.add_argument(
+        "--body-file",
+        help="Read proposed reviewer comment body from file",
+    )
+    lint_comment_parser.add_argument(
+        "--author",
+        default="local",
+        help="GitHub author login to simulate for the proposed comment.",
+    )
+    lint_comment_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output as JSON",
+    )
+    lint_comment_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
+
     baseline_parser = queue_subparsers.add_parser(
         "baseline",
         help="Measure empirical invalidation baseline from on-disk stores (#6375)",

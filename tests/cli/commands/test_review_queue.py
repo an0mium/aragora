@@ -4073,6 +4073,31 @@ class TestCommandDispatch:
         assert ns.body_file is None
         assert ns.json_output is True
 
+    def test_top_level_parser_registers_lint_comment_alias(self) -> None:
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        ns = parser.parse_args(
+            [
+                "review-queue",
+                "lint-comment",
+                "--pr",
+                "7445",
+                "--head",
+                "cd87c5a1b2db34f04167906553502db3ede9525e",
+                "--body-file",
+                "comment.md",
+                "--json",
+            ]
+        )
+
+        assert ns.command == "review-queue"
+        assert ns.review_queue_command == "lint-comment"
+        assert ns.pr == "7445"
+        assert ns.head_sha == "cd87c5a1b2db34f04167906553502db3ede9525e"
+        assert ns.body_file == "comment.md"
+        assert ns.json_output is True
+
     def test_evidence_lint_counts_current_head_dogfood(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="evidence-lint",
@@ -4206,6 +4231,39 @@ class TestCommandDispatch:
         assert payload["counted_reviewer_ids"] == ["claude"]
         assert payload["current_head_grounding_method"] == "head_sha_citation"
         assert payload["reviewer_signals"][0]["reviewer_id"] == "claude"
+
+    def test_lint_comment_alias_reads_body_file(self, tmp_path: Path) -> None:
+        body_file = tmp_path / "comment.md"
+        body_file.write_text(
+            "## Claude review - current head cd87c5a1b2db34f04167906553502db3ede9525e\n\n"
+            "**Reviewer harness:** droid\n"
+            "**Model family:** claude\n"
+            "**Model id:** claude-opus-4-7\n"
+            "**Receipt artifact:** droid exec --auto high\n\n"
+            "Focused adversarial dogfood found no blockers.",
+            encoding="utf-8",
+        )
+        ns = argparse.Namespace(
+            review_queue_command="lint-comment",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="",
+            body=None,
+            body_file=str(body_file),
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 0
+        assert payload["would_count"] is True
+        assert payload["counted_reviewer_ids"] == ["claude"]
+        assert payload["reviewer_signals"][0]["reviewer_id"] == "claude"
+        assert payload["dogfood_evidence"][0]["reviewer_id"] == "claude"
 
 
 class TestSettlementHelpers:

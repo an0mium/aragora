@@ -576,6 +576,43 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     evidence_lint_p.add_argument("--json", action="store_true", help="Output as JSON")
 
+    lint_comment_p = sub.add_parser(
+        "lint-comment",
+        help="Dry-run whether a proposed reviewer comment will count before posting",
+        description=(
+            "Lint a proposed PR reviewer comment against the same current-head evidence "
+            "parsers used by review-queue merge-packet. This is read-only: it does not "
+            "fetch GitHub, post comments, write receipts, or mutate state."
+        ),
+    )
+    lint_comment_p.add_argument("--pr", required=True, help="PR number the comment targets")
+    lint_comment_p.add_argument(
+        "--head",
+        "--head-sha",
+        dest="head_sha",
+        required=True,
+        help="Exact PR head SHA the proposed comment must cite.",
+    )
+    lint_comment_p.add_argument(
+        "--head-committed-at",
+        default="",
+        help=(
+            "Optional current head committedDate. When supplied, comments must either "
+            "cite --head or have a createdAt at/after this timestamp."
+        ),
+    )
+    lint_body_group = lint_comment_p.add_mutually_exclusive_group(required=True)
+    lint_body_group.add_argument("--body", help="Proposed reviewer comment body to lint")
+    lint_body_group.add_argument(
+        "--body-file", help="Read proposed reviewer comment body from file"
+    )
+    lint_comment_p.add_argument(
+        "--author",
+        default="local",
+        help="GitHub author login to simulate for the proposed comment (default: local)",
+    )
+    lint_comment_p.add_argument("--json", action="store_true", help="Output as JSON")
+
     baseline_p = sub.add_parser(
         "baseline",
         help="Measure empirical invalidation baseline from on-disk stores (#6375)",
@@ -762,7 +799,7 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_record_settlement(args)
     if command == "merge-packet":
         return _cmd_merge_packet(args)
-    if command == "evidence-lint":
+    if command in {"evidence-lint", "lint-comment"}:
         return _cmd_evidence_lint(args)
     if command == "baseline":
         return _cmd_baseline(args)
@@ -776,7 +813,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_health_alert(args)
     print(
         "Usage: aragora review-queue "
-        "{build,packet,run,act,record-settlement,merge-packet,evidence-lint,baseline,"
+        "{build,packet,run,act,record-settlement,merge-packet,evidence-lint,lint-comment,"
+        "baseline,"
         "observe-outcomes,"
         "health,health-alert} [...]\n"
         "Run 'aragora review-queue run --help' for the human settlement loop.",
