@@ -236,14 +236,24 @@ def cmd_review_local(args: argparse.Namespace) -> int:
     if diff_source == "-":
         diff_text = sys.stdin.read()
     else:
-        diff_text = Path(diff_source).expanduser().read_text(encoding="utf-8")
+        try:
+            diff_text = Path(diff_source).expanduser().read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"review-local: cannot read diff {diff_source!r}: {exc}", file=sys.stderr)
+            return 1
     if not diff_text.strip():
         print("review-local: empty diff input", file=sys.stderr)
         return 1
+    if len(diff_text) > MAX_DIFF_CHARS:
+        diff_text = diff_text[:MAX_DIFF_CHARS] + f"\n\n... [truncated at {MAX_DIFF_CHARS} chars]"
     spec_text = ""
     spec_path = getattr(args, "spec", None)
     if spec_path:
-        spec_text = Path(spec_path).expanduser().read_text(encoding="utf-8")
+        try:
+            spec_text = Path(spec_path).expanduser().read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"review-local: cannot read spec {spec_path!r}: {exc}", file=sys.stderr)
+            return 1
     result = asyncio.run(
         run_review_local(
             diff_text=diff_text,

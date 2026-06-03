@@ -160,6 +160,38 @@ async def test_run_review_local_records_routing_failure_actionable(
     assert (Path(result["artifact_dir"]) / "review.json").exists()
 
 
+def test_cmd_review_local_missing_diff_file_clean_error(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    args = build_parser().parse_args(["review-local", "--diff", str(tmp_path / "nope.diff")])
+    rc = review_pr.cmd_review_local(args)
+    assert rc == 1
+    assert "cannot read diff" in capsys.readouterr().err
+
+
+def test_cmd_review_local_truncates_oversized_diff(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    big = tmp_path / "big.diff"
+    big.write_text("diff --git a/x b/x\n" + ("+x\n" * 40000), encoding="utf-8")
+    assert big.stat().st_size > review_pr.MAX_DIFF_CHARS
+
+    captured: dict[str, str] = {}
+
+    async def _fake_run(**kwargs: object) -> dict[str, object]:
+        captured["diff_text"] = str(kwargs["diff_text"])
+        return {"final_status": "passed", "review": {}, "artifact_dir": str(tmp_path)}
+
+    monkeypatch.setattr(review_pr, "run_review_local", _fake_run)
+    args = build_parser().parse_args(["review-local", "--diff", str(big), "--json"])
+    rc = review_pr.cmd_review_local(args)
+    assert rc == 0
+    assert len(captured["diff_text"]) <= review_pr.MAX_DIFF_CHARS + 64
+    assert "[truncated at" in captured["diff_text"]
+
+
 def test_normalize_optional_agent_rejects_placeholder_none() -> None:
     assert review_pr._normalize_optional_agent(None) is None
     assert review_pr._normalize_optional_agent("") is None
