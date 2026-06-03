@@ -23,9 +23,6 @@
     "aragora-debate/README.md": [
       "legacy_slug"
     ],
-    "aragora-debate/pyproject.toml": [
-      "legacy_slug"
-    ],
     "aragora/live/e2e/admin.spec.ts": [
       "users_home"
     ],
@@ -286,17 +283,11 @@
     "examples/typescript-web/index.html": [
       "legacy_slug"
     ],
-    "pyproject.toml": [
-      "legacy_slug"
-    ],
     "scripts/inspect_cold_review_surface.py": [
       "legacy_slug"
     ],
     "scripts/run_offline_golden_path.sh": [
       "venv_python"
-    ],
-    "sdk/python/pyproject.toml": [
-      "legacy_slug"
     ],
     "sdk/python/tests/test_scim.py": [
       "users_home"
