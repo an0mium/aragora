@@ -21,6 +21,7 @@ Every automation should start from live repo evidence, not prior narration:
    - `python3 scripts/check_codex_desktop_automations.py --json --summary-only`
    - `python3 scripts/audit_codex_branch_backlog.py --max-branches 200 --json --summary-only --outbox-dir /Users/armand/Development/aragora/.aragora/automation-outbox --receipt-dir /Users/armand/Development/aragora/.aragora/automation-receipts`
    - `python3 scripts/agent_bridge.py operator-snapshot --json --summary-only` for gating, or omit `--summary-only` when detailed session context is needed.
+   - Optional work routing should use the checkout-local module form, for example `python3 -m aragora.cli.main work robot --json --limit 5`, so stale installed console scripts do not hide shared state.
 4. Treat sandboxed GitHub failure as expected. Use local git, shared outbox files, and receipts as the primary automation substrate.
 
 ## Writer Lanes
@@ -45,6 +46,7 @@ Writer rules:
 Automations should use Aragora's own coordination surfaces when they materially improve quality:
 
 - Use `scripts/agent_bridge.py operator-snapshot --json` for persistent session and lane context.
+- Treat `work robot` as a routing hint only; prefer the shared `.aragora` outbox, receipts, and owner registry for final lane selection.
 - Use `scripts/agent_bridge.py send ... --lane ...` only for a bounded cross-check with a live target session.
 - Use `scripts/agent_bridge_broker.py list-runs` or `show-run` when the backend bridge is already active.
 - Use `scripts/swarm_session_mux.py` only for explicitly bounded tmux sessions; do not launch broad worker swarms by default.
