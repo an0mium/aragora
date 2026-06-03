@@ -40,7 +40,9 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 | In-progress attempted issues | 8 |
 | In-progress successful issues | 2 |
 | In-progress graduation rate | 25.0% |
-| In-progress issue numbers | `#5426`, `#5427`, `#5428`, `#5764`, `#5789`, `#5790`, `#5839`, `#5844` |
+| Expected in-progress issue numbers | `#5426`, `#5427`, `#5428`, `#5764`, `#5789`, `#5790`, `#5839`, `#5844` |
+| Live-open expected issue numbers | `#5428`, `#5764`, `#5789`, `#5790`, `#5839`, `#5844` |
+| Live-closed expected issue numbers | `#5426`, `#5427` |
 
 ## Proxy Metrics
 
