@@ -60,7 +60,7 @@ WEB_SEARCH_INDICATORS = [
 
 @AgentRegistry.register(
     "anthropic-api",
-    default_model="claude-opus-4-7",
+    default_model="claude-opus-4-8",
     default_name="claude-api",
     agent_type="API",
     env_vars="ANTHROPIC_API_KEY",
@@ -76,25 +76,26 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
     """
 
     # Model mapping from Anthropic to OpenRouter format (used by QuotaFallbackMixin)
-    # Every legacy Anthropic ID maps to the current frontier (Opus 4.7) via
+    # Every legacy Anthropic ID maps to the current frontier (Opus 4.8) via
     # OpenRouter so a missing or revoked direct key never blocks a debate and
     # weaker historical models are transparently upgraded.
     OPENROUTER_MODEL_MAP = {
-        "claude-opus-4-7": "anthropic/claude-opus-4.7",
-        "claude-sonnet-4-6": "anthropic/claude-opus-4.7",
-        "claude-opus-4-5-20251101": "anthropic/claude-opus-4.7",
-        "claude-sonnet-4-20250514": "anthropic/claude-opus-4.7",
-        "claude-haiku-4-5-20251001": "anthropic/claude-opus-4.7",
-        "claude-3-5-sonnet-20241022": "anthropic/claude-opus-4.7",
-        "claude-3-opus-20240229": "anthropic/claude-opus-4.7",
-        "claude-3-haiku-20240307": "anthropic/claude-opus-4.7",
+        "claude-opus-4-8": "anthropic/claude-opus-4.8",
+        "claude-opus-4-7": "anthropic/claude-opus-4.8",
+        "claude-sonnet-4-6": "anthropic/claude-opus-4.8",
+        "claude-opus-4-5-20251101": "anthropic/claude-opus-4.8",
+        "claude-sonnet-4-20250514": "anthropic/claude-opus-4.8",
+        "claude-haiku-4-5-20251001": "anthropic/claude-opus-4.8",
+        "claude-3-5-sonnet-20241022": "anthropic/claude-opus-4.8",
+        "claude-3-opus-20240229": "anthropic/claude-opus-4.8",
+        "claude-3-haiku-20240307": "anthropic/claude-opus-4.8",
     }
-    DEFAULT_FALLBACK_MODEL = "anthropic/claude-opus-4.7"
+    DEFAULT_FALLBACK_MODEL = "anthropic/claude-opus-4.8"
 
     def __init__(
         self,
         name: str = "claude-api",
-        model: str = "claude-opus-4-7",
+        model: str = "claude-opus-4-8",
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

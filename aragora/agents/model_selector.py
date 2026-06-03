@@ -127,8 +127,8 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         supports_vision=True,
     ),
     "claude-opus": ModelProfile(
-        model_id="claude-opus-4-7",
-        display_name="Claude Opus 4.7",
+        model_id="claude-opus-4-8",
+        display_name="Claude Opus 4.8",
         provider="anthropic",
         capabilities={
             ModelCapability.REASONING: 0.99,
@@ -142,7 +142,7 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
             ModelCapability.INSTRUCTION_FOLLOWING: 0.99,
             ModelCapability.FACTUAL_ACCURACY: 0.98,
         },
-        max_context_tokens=200000,
+        max_context_tokens=1000000,
         max_output_tokens=128000,
         cost_input_per_1k=0.005,
         cost_output_per_1k=0.025,
