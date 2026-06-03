@@ -143,6 +143,7 @@ def test_parser_defaults_match_publisher_budget_constants() -> None:
     assert args.outbox_dir is None
     assert args.allow_unhealthy_queue_publish is False
     assert args.receipt_dir is None
+    assert args.state_root is None
     assert args.summary_only is False
 
 
@@ -160,7 +161,11 @@ def test_main_summary_only_omits_decisions_and_unhealthy_pr_details(
     )
     monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
     monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
-    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(
+        mod,
+        "outbox_superseded_branches",
+        lambda repo_root, outbox_dir=None, state_root=None: set(),
+    )
     monkeypatch.setattr(mod, "_duplicate_open_pr_patch_branches", lambda *args: set())
     monkeypatch.setattr(mod, "_branches_with_pr_history", lambda *args: set())
     monkeypatch.setattr(mod, "_branches_with_resolved_related_work", lambda *args: set())
@@ -223,6 +228,14 @@ def test_parser_accepts_receipt_dir_for_shared_cli_compatibility(tmp_path: Path)
     args = _build_parser().parse_args(["--receipt-dir", str(receipt_dir)])
 
     assert args.receipt_dir == receipt_dir
+
+
+def test_parser_accepts_state_root_for_shared_cli_compatibility(tmp_path: Path) -> None:
+    state_root = tmp_path / "shared-state"
+
+    args = _build_parser().parse_args(["--state-root", str(state_root)])
+
+    assert args.state_root == state_root
 
 
 def test_parser_accepts_dry_run_alias_for_default_planning_mode() -> None:
@@ -457,6 +470,31 @@ def test_outbox_superseded_branches_accepts_direct_aragora_state_root_env(
     monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
 
     assert mod.outbox_superseded_branches(repo_root) == {"codex/stale-local"}
+
+
+def test_outbox_superseded_branches_accepts_explicit_state_root(tmp_path: Path) -> None:
+    repo_root = tmp_path / "detached-worktree"
+    state_root = tmp_path / "shared-state"
+    repo_root.mkdir()
+    outbox = state_root / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "repair.json").write_text(
+        json.dumps(
+            {
+                "task": "Open PR for stronger repair branch",
+                "local_evidence": {
+                    "branch": "codex/stronger",
+                    "supersedes_branch": "codex/stale-local",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod.outbox_superseded_branches(repo_root, state_root=state_root) == {"codex/stale-local"}
+    assert mod.outbox_superseded_branches(repo_root, state_root=state_root / ".aragora") == {
+        "codex/stale-local"
+    }
 
 
 def test_select_publishable_branches_skips_dirty_and_active_worktrees() -> None:
@@ -782,7 +820,11 @@ def test_main_reports_github_health_failure_when_unavailable_with_local_candidat
     )
     monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
     monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
-    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(
+        mod,
+        "outbox_superseded_branches",
+        lambda repo_root, outbox_dir=None, state_root=None: set(),
+    )
     monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
     monkeypatch.setattr(
         mod,
@@ -1117,7 +1159,11 @@ def test_main_can_override_unhealthy_queue_pause_for_preflighted_branch(
     )
     monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
     monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
-    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(
+        mod,
+        "outbox_superseded_branches",
+        lambda repo_root, outbox_dir=None, state_root=None: set(),
+    )
     monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
     monkeypatch.setattr(
         mod,
@@ -1279,7 +1325,11 @@ def test_main_falls_back_to_cached_open_pr_heads_when_live_listing_504s(
     )
     monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
     monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
-    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(
+        mod,
+        "outbox_superseded_branches",
+        lambda repo_root, outbox_dir=None, state_root=None: set(),
+    )
     monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
     monkeypatch.setattr(
         mod,
@@ -1329,7 +1379,11 @@ def test_main_reports_open_pr_lookup_failure_when_cache_is_unusable(
         mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
     )
     monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
-    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(
+        mod,
+        "outbox_superseded_branches",
+        lambda repo_root, outbox_dir=None, state_root=None: set(),
+    )
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",

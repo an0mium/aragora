@@ -386,7 +386,17 @@ def _same_git_origin(left: Path, right: Path) -> bool:
     return bool(left_proc.stdout.strip()) and left_proc.stdout.strip() == right_proc.stdout.strip()
 
 
-def _automation_state_root(repo_root: Path) -> Path:
+def _normalize_state_root(candidate: Path) -> Path:
+    try:
+        return candidate.expanduser().resolve()
+    except OSError:
+        return candidate.expanduser()
+
+
+def _automation_state_root(repo_root: Path, *, state_root: Path | None = None) -> Path:
+    if state_root is not None:
+        return _normalize_state_root(state_root)
+
     if (repo_root / ".aragora").is_dir():
         return repo_root
 
@@ -410,10 +420,18 @@ def _automation_state_root(repo_root: Path) -> Path:
     return repo_root
 
 
-def _automation_state_path(repo_root: Path, path: Path | None, default_relative: Path) -> Path:
+def _automation_state_path(
+    repo_root: Path,
+    path: Path | None,
+    default_relative: Path,
+    *,
+    state_root: Path | None = None,
+) -> Path:
     if path is not None:
         return path if path.is_absolute() else repo_root / path
-    return _automation_state_default_path(_automation_state_root(repo_root), default_relative)
+    return _automation_state_default_path(
+        _automation_state_root(repo_root, state_root=state_root), default_relative
+    )
 
 
 def _automation_state_default_path(state_root: Path, default_relative: Path) -> Path:
@@ -624,8 +642,14 @@ def outbox_superseded_branches(
     repo_root: Path,
     *,
     outbox_dir: Path | None = None,
+    state_root: Path | None = None,
 ) -> set[str]:
-    outbox_root = _automation_state_path(repo_root, outbox_dir, DEFAULT_OUTBOX_DIR)
+    outbox_root = _automation_state_path(
+        repo_root,
+        outbox_dir,
+        DEFAULT_OUTBOX_DIR,
+        state_root=state_root,
+    )
     superseded: set[str] = set()
     for outbox_file in _json_files(outbox_root):
         try:
@@ -1555,6 +1579,16 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--state-root",
+        type=Path,
+        default=None,
+        help=(
+            "Shared automation state root for default outbox lookup. Accepts either "
+            "a repo root containing .aragora or the .aragora directory itself; "
+            "ignored when --outbox-dir is provided."
+        ),
+    )
+    parser.add_argument(
         "--receipt-dir",
         type=Path,
         default=None,
@@ -1600,7 +1634,11 @@ def main(argv: list[str] | None = None) -> int:
         for branch in branches
         if not merged_lookup.get(branch.branch, False)
     }
-    superseded_outbox_lookup = outbox_superseded_branches(repo_root, outbox_dir=args.outbox_dir)
+    superseded_outbox_lookup = outbox_superseded_branches(
+        repo_root,
+        outbox_dir=args.outbox_dir,
+        state_root=args.state_root,
+    )
     hydrated_branches = [
         BranchSnapshot(
             branch=branch.branch,
