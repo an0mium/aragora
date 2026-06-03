@@ -132,8 +132,7 @@ class TestGetV1DeprecationHeaders:
         headers = get_v1_deprecation_headers()
 
         assert "X-API-Version-Warning" in headers
-        warning = headers["X-API-Version-Warning"].lower()
-        assert "deprecated" in warning or "passed its sunset date" in warning
+        assert "deprecated" in headers["X-API-Version-Warning"].lower()
         assert "v2" in headers["X-API-Version-Warning"]
 
     def test_returns_x_api_sunset(self):
