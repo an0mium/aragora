@@ -51,6 +51,9 @@ ALWAYS_SKIP = (
     "scripts/portability_baseline.json",
     "tests/scripts/test_check_portability.py",
     "docs/audits/*",
+    # Sanctioned runtime interpreter resolver: legitimately references
+    # .venv/bin/python3 as an existence check (resolved at runtime, never baked).
+    "scripts/aragora_runtime.sh",
 )
 
 
