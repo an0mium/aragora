@@ -54,7 +54,7 @@ class ActionPlan:
 
 
 # Default model for rescue planning — cheap and fast
-_DEFAULT_MODEL = "anthropic/claude-opus-4.7"
+_DEFAULT_MODEL = "anthropic/claude-opus-4.8"
 _FALLBACK_MODEL = "deepseek/deepseek-v4-pro"
 
 _SYSTEM_PROMPT = """\

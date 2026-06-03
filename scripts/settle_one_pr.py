@@ -15,6 +15,7 @@ import argparse
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -32,6 +33,24 @@ VERSION = "settle_one_steward.v1"
 MERGE_QUORUM = "aragora-merge-quorum"
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
 BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD = 8
+
+
+def _env_timeout_seconds(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return default
+
+
+GH_METADATA_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_GH_TIMEOUT_SECONDS", 60)
+OPERATOR_SNAPSHOT_TIMEOUT_SECONDS = _env_timeout_seconds(
+    "SETTLE_ONE_OPERATOR_SNAPSHOT_TIMEOUT_SECONDS", 30
+)
+BROAD_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_BROAD_PACKET_TIMEOUT_SECONDS", 90)
+SINGLE_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_SINGLE_PACKET_TIMEOUT_SECONDS", 90)
 OPEN_PR_LIGHT_FIELDS = (
     "number,title,url,headRefName,headRefOid,isDraft,mergeable,mergeStateStatus,"
     "reviewDecision,labels,author,additions,deletions,changedFiles"
@@ -68,19 +87,37 @@ def _state_repo_root(cwd: Path) -> Path:
 
 
 def _run(args: list[str], *, cwd: Path, timeout: int = 120) -> dict[str, Any]:
-    proc = subprocess.run(
+    proc = subprocess.Popen(
         args,
         cwd=cwd,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=timeout,
-        check=False,
+        start_new_session=True,
     )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (AttributeError, OSError, ProcessLookupError):
+            proc.kill()
+        stdout, stderr = proc.communicate()
+        return {
+            "command": " ".join(args),
+            "returncode": 124,
+            "stdout": (stdout or "").strip(),
+            "stderr": (
+                (stderr or "").strip() or f"command timed out after {timeout}s and was terminated"
+            ),
+            "timed_out": True,
+            "timeout_seconds": timeout,
+        }
     return {
         "command": " ".join(args),
         "returncode": proc.returncode,
-        "stdout": proc.stdout.strip(),
-        "stderr": proc.stderr.strip(),
+        "stdout": (stdout or "").strip(),
+        "stderr": (stderr or "").strip(),
     }
 
 
@@ -753,6 +790,7 @@ def load_open_pr_metadata(
             repo,
         ),
         cwd=cwd,
+        timeout=GH_METADATA_TIMEOUT_SECONDS,
     )
     metadata: dict[int, dict[str, Any]] = {}
     if isinstance(payload, list):
@@ -774,6 +812,7 @@ def load_pr_policy_metadata(
             repo,
         ),
         cwd=cwd,
+        timeout=GH_METADATA_TIMEOUT_SECONDS,
     )
     if isinstance(payload, dict):
         return payload, command
@@ -784,6 +823,7 @@ def load_active_owned_prs(cwd: Path) -> tuple[set[int], dict[str, Any]]:
     payload, command = _run_json(
         ["python3", "scripts/agent_bridge.py", "operator-snapshot", "--json"],
         cwd=cwd,
+        timeout=OPERATOR_SNAPSHOT_TIMEOUT_SECONDS,
     )
     active_owned: set[int] = set()
     if isinstance(payload, dict):
@@ -1257,7 +1297,7 @@ def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str,
     ]
     if repo:
         command.extend(["--repo", repo])
-    payload, result = _run_json(command, cwd=cwd, timeout=600)
+    payload, result = _run_json(command, cwd=cwd, timeout=SINGLE_PACKET_TIMEOUT_SECONDS)
     if result["returncode"] != 0:
         raise RuntimeError(result["stderr"] or result["stdout"] or "merge-packet failed")
     if not isinstance(payload, dict):
@@ -1278,7 +1318,7 @@ def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[
     ]
     if repo:
         command.extend(["--repo", repo])
-    payload, result = _run_json(command, cwd=cwd, timeout=600)
+    payload, result = _run_json(command, cwd=cwd, timeout=BROAD_PACKET_TIMEOUT_SECONDS)
     if result["returncode"] != 0:
         raise RuntimeError(result["stderr"] or result["stdout"] or "merge-packet failed")
     if not isinstance(payload, dict):

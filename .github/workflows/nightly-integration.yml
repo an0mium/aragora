@@ -15,7 +15,7 @@ jobs:
     name: Live Debate E2E
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.repository == 'an0mium/aragora'
+    if: github.repository == 'synaptent/aragora'
 
     steps:
       - name: Checkout

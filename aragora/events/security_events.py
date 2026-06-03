@@ -577,7 +577,7 @@ async def _get_security_debate_agents() -> list[Any]:
                 agents.append(
                     AnthropicAgent(
                         name="claude-security",
-                        model="claude-opus-4-7",
+                        model="claude-opus-4-8",
                     )
                 )
             except (ValueError, RuntimeError) as e:

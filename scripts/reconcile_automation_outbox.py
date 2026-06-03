@@ -321,6 +321,42 @@ def _target_pr_state(
     return payload if isinstance(payload, Mapping) else None
 
 
+def _merged_target_pr_receipt_resolution(
+    root: Path,
+    repo_name: str,
+    payload: dict[str, Any],
+    receipt: Mapping[str, Any],
+) -> tuple[bool, str | None]:
+    """Resolve target-PR receipts whose referenced PR is already merged.
+
+    Returns (handled, keep_reason). When handled is True and keep_reason is None,
+    the receipt satisfies the handoff without needing any branch ref checks.
+    """
+
+    status = str(receipt.get("status") or "").strip().lower()
+    reason = str(receipt.get("reason") or "").strip().lower()
+    if status != "already_satisfied" or reason not in {"target_open_pr", "existing_pr"}:
+        return False, None
+    receipt_label = f"{reason} receipt"
+
+    desired_head = _desired_head_from_payload(payload)
+    if not desired_head:
+        return False, None
+
+    target_pr_state = _target_pr_state(root, repo_name, receipt)
+    if str((target_pr_state or {}).get("state") or "").strip().upper() != "MERGED":
+        return False, None
+
+    target_pr_head = str((target_pr_state or {}).get("headRefOid") or "").strip()
+    target_pr_number = str((target_pr_state or {}).get("number") or "").strip()
+    if _heads_match(desired_head, target_pr_head):
+        return True, None
+    return True, (
+        f"{receipt_label} points to merged PR #{target_pr_number} at "
+        f"{target_pr_head[:12] or 'unknown'}, not desired head {desired_head[:12]}"
+    )
+
+
 def _receipt_has_issue_reference(receipt: Mapping[str, Any]) -> bool:
     for key in (
         "created_issue_url",
@@ -388,16 +424,9 @@ def _receipt_handoff_keep_reason(
         return None
     receipt_label = f"{reason} receipt"
 
-    target_pr_state = _target_pr_state(root, repo_name, receipt)
-    if str((target_pr_state or {}).get("state") or "").strip().upper() == "MERGED":
-        target_pr_head = str((target_pr_state or {}).get("headRefOid") or "").strip()
-        target_pr_number = str((target_pr_state or {}).get("number") or "").strip()
-        if _heads_match(desired_head, target_pr_head):
-            return None
-        return (
-            f"{receipt_label} points to merged PR #{target_pr_number} at "
-            f"{target_pr_head[:12] or 'unknown'}, not desired head {desired_head[:12]}"
-        )
+    handled, keep_reason = _merged_target_pr_receipt_resolution(root, repo_name, payload, receipt)
+    if handled:
+        return keep_reason
 
     remote_ref = f"refs/remotes/origin/{branch}"
     remote_head = _git_ref_head(root, remote_ref)
@@ -443,6 +472,42 @@ def _superseded_targets(
                 "idempotency_key": superseder_key,
                 "path": str(path),
             }
+    return targets
+
+
+def _string_list(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
+
+
+def _superseded_outbox_keys(
+    outbox_payloads: Sequence[tuple[Path, dict[str, Any]]],
+) -> dict[str, dict[str, str]]:
+    """Map explicitly superseded outbox idempotency keys to their replacement handoff."""
+    targets: dict[str, dict[str, str]] = {}
+    for path, payload in outbox_payloads:
+        superseder_key = str(payload.get("idempotency_key") or path.stem).strip()
+        superseder_branch = _branch_from_payload(payload)
+        for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+            keys = _string_list(local_evidence.get("supersedes_outbox_keys"))
+            source_candidates = local_evidence.get("source_candidates")
+            if isinstance(source_candidates, Sequence) and not isinstance(
+                source_candidates, (str, bytes, bytearray)
+            ):
+                for candidate in source_candidates:
+                    if isinstance(candidate, Mapping):
+                        keys.append(str(candidate.get("idempotency_key") or "").strip())
+            for key in keys:
+                if not key or key == superseder_key:
+                    continue
+                targets[key] = {
+                    "branch": superseder_branch,
+                    "idempotency_key": superseder_key,
+                    "path": str(path),
+                }
     return targets
 
 
@@ -645,7 +710,9 @@ def main(argv: list[str] | None = None) -> int:
         payload = _load_json(path)
         if isinstance(payload, dict):
             parsed_outbox_payloads[path] = payload
-    superseded_targets = _superseded_targets(list(parsed_outbox_payloads.items()))
+    parsed_outbox_items = list(parsed_outbox_payloads.items())
+    superseded_targets = _superseded_targets(parsed_outbox_items)
+    superseded_keys = _superseded_outbox_keys(parsed_outbox_items)
 
     target_keys = {str(key).strip() for key in args.idempotency_key if str(key).strip()}
     target_files = {_resolve_outbox_file_filter(outbox_dir, path) for path in args.outbox_file}
@@ -749,6 +816,80 @@ def main(argv: list[str] | None = None) -> int:
                     }
                 )
                 continue
+            target_pr_handled, target_pr_keep_reason = _merged_target_pr_receipt_resolution(
+                root, args.repo_name, payload, receipt
+            )
+            if target_pr_handled:
+                if target_pr_keep_reason is not None:
+                    counts["blocked_receipt_pr_head_mismatch"] += 1
+                    counts["still_protecting_active_work"] += 1
+                    actions.append(
+                        {
+                            "path": str(path),
+                            "branch": branch,
+                            "decision": "keep",
+                            "reason": target_pr_keep_reason,
+                            "synthetic_receipt": False,
+                        }
+                    )
+                    continue
+                counts["satisfied_by_existing_receipt"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "archive",
+                        "reason": "matching receipt exists",
+                        "synthetic_receipt": False,
+                    }
+                )
+                if args.apply:
+                    shutil.move(str(path), str(archive_dir / path.name))
+                continue
+            if str(receipt.get("reason") or "").strip().lower() == "existing_pr":
+                keep_reason = _receipt_handoff_keep_reason(
+                    root, args.repo_name, payload, receipt, branch
+                )
+                if keep_reason is not None:
+                    counts["blocked_receipt_pr_head_mismatch"] += 1
+                    counts["still_protecting_active_work"] += 1
+                    actions.append(
+                        {
+                            "path": str(path),
+                            "branch": branch,
+                            "decision": "keep",
+                            "reason": keep_reason,
+                            "synthetic_receipt": False,
+                        }
+                    )
+                    continue
+                counts["satisfied_by_existing_receipt"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "archive",
+                        "reason": "matching receipt exists",
+                        "synthetic_receipt": False,
+                    }
+                )
+                if args.apply:
+                    shutil.move(str(path), str(archive_dir / path.name))
+                continue
+            if _branch_has_landed_on_main(root, args.base, branch):
+                counts["satisfied_by_landed_on_main"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "archive",
+                        "reason": "branch work landed on main (merge or patch-equivalent)",
+                        "synthetic_receipt": False,
+                    }
+                )
+                if args.apply:
+                    shutil.move(str(path), str(archive_dir / path.name))
+                continue
             keep_reason = _receipt_handoff_keep_reason(
                 root, args.repo_name, payload, receipt, branch
             )
@@ -776,6 +917,31 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
             if args.apply:
+                shutil.move(str(path), str(archive_dir / path.name))
+            continue
+
+        key_superseder = superseded_keys.get(idem)
+        if key_superseder is not None and key_superseder["idempotency_key"] != idem:
+            reason = f"superseded by active handoff {key_superseder['idempotency_key']}"
+            counts["satisfied_by_superseded_handoff"] += 1
+            actions.append(
+                {
+                    "path": str(path),
+                    "branch": branch,
+                    "decision": "archive",
+                    "reason": reason,
+                    "superseded_by": key_superseder,
+                    "synthetic_receipt": True,
+                }
+            )
+            if args.apply:
+                _write_synthetic_receipt(
+                    receipt_dir=receipt_dir,
+                    outbox_payload=payload,
+                    reason=reason,
+                    pr_number=None,
+                    apply=True,
+                )
                 shutil.move(str(path), str(archive_dir / path.name))
             continue
 
@@ -919,6 +1085,10 @@ def main(argv: list[str] | None = None) -> int:
         emit(f"  {k:>40}: {v}")
     archived = sum(1 for a in actions if a["decision"] == "archive")
     kept = sum(1 for a in actions if a["decision"] == "keep")
+    reason_counts: dict[str, int] = {}
+    for action in actions:
+        reason = str(action.get("reason") or "unknown").strip() or "unknown"
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
     emit(f"\n  total: {archived} archived, {kept} kept")
 
     should_write_report = args.apply or args.write_report or args.report_path is not None
@@ -958,6 +1128,7 @@ def main(argv: list[str] | None = None) -> int:
             "kept": kept,
             "outbox_count": len(outbox_files),
             "outbox_dir": str(outbox_dir),
+            "reason_counts": reason_counts,
             "receipt_dir": str(receipt_dir),
             "repo": str(root),
             "repo_name": args.repo_name,

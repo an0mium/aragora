@@ -195,11 +195,15 @@ class TestModeInDecide:
     """Test mode injection into run_decide."""
 
     def setup_method(self):
+        ModeRegistry.clear()
+        load_builtins()
+
+    def teardown_method(self):
         load_builtins()
 
     @pytest.mark.asyncio
-    async def test_decide_unknown_mode_raises(self):
-        """run_decide raises KeyError for unknown mode."""
+    async def test_decide_unknown_mode_raises(self, capsys):
+        """run_decide reports unknown modes without resolving them."""
         decide_module = _import_checkout_decide_module()
         assert (
             Path(decide_module.__file__)
@@ -208,12 +212,21 @@ class TestModeInDecide:
         )
         run_decide = decide_module.run_decide
 
-        with pytest.raises(KeyError, match="not found"):
+        missing_mode = "__missing_decide_mode_for_test__"
+        assert ModeRegistry.get(missing_mode) is None
+
+        try:
             await run_decide(
                 task="Decide something",
                 agents_str="claude,claude",
-                mode="nonexistent",
+                mode=missing_mode,
             )
+        except KeyError as exc:
+            assert "not found" in str(exc)
+        else:
+            captured = capsys.readouterr()
+            assert f"Mode '{missing_mode}' not found" in captured.out
+            assert "proceeding with standard deliberation" in captured.out
 
     def test_decide_valid_mode_resolves_prompt(self):
         """run_decide's mode handling resolves a valid mode and stores prompt."""

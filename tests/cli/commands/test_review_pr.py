@@ -299,6 +299,69 @@ async def test_run_review_pr_loop_skips_github_review_when_publish_disabled(
 
 
 @pytest.mark.asyncio
+async def test_run_review_pr_loop_records_routing_failure_without_traceback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sample_target: review_pr.PullRequestTarget,
+) -> None:
+    monkeypatch.setattr(review_pr, "_fetch_pr_target", lambda *_, **__: sample_target)
+    monkeypatch.setattr(review_pr, "_fetch_pr_diff", lambda *_: "diff --git a/foo b/foo\n+ok\n")
+
+    async def _routing_failure(*_: object, **__: object) -> dict[str, object]:
+        raise review_pr.ReviewRoutingError(
+            [
+                {
+                    "candidate": "claude:max-01",
+                    "stage": "generate",
+                    "kind": "auth_or_billing",
+                    "detail": "Credit balance is too low",
+                }
+            ],
+            category="billing_exhausted",
+            public_message="Reviewer capacity is exhausted.",
+        )
+
+    monkeypatch.setattr(review_pr, "generate_review_response", _routing_failure)
+
+    result = await review_pr.run_review_pr_loop(
+        pr_ref="1137",
+        repo_root=tmp_path,
+        reviewer="claude",
+        artifact_root=tmp_path / "artifacts",
+        publish_review=False,
+    )
+
+    assert result["final_status"] == "blocked_nonreviewable"
+    assert result["github_review"] == {
+        "posted": False,
+        "event": None,
+        "mode": "advisory",
+        "url": None,
+        "error": None,
+    }
+    review_run = result["review_runs"][0]
+    assert review_run["summary"] == "Reviewer capacity is exhausted."
+    assert review_run["findings"] == [
+        {
+            "title": "Review routing failed",
+            "body": "Reviewer capacity is exhausted.",
+            "priority": "P1",
+            "category": "billing_exhausted",
+        }
+    ]
+    assert review_run["attempts"] == [
+        {
+            "candidate": "claude:max-01",
+            "stage": "generate",
+            "kind": "auth_or_billing",
+            "detail": "Credit balance is too low",
+        }
+    ]
+    persisted = json.loads((Path(result["artifact_dir"]) / "run.json").read_text())
+    assert persisted["final_status"] == "blocked_nonreviewable"
+
+
+@pytest.mark.asyncio
 async def test_review_pr_loop_changes_requested_without_fixer_does_not_run_fix_pass(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

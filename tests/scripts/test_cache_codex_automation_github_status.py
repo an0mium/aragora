@@ -53,7 +53,7 @@ def test_build_status_uses_local_queue_when_github_unavailable(
     assert payload["local_queue"]["unreceipted_outbox_count"] == 1
 
 
-def test_build_status_keeps_local_queue_when_remote_query_fails(
+def test_build_status_uses_lightweight_fallback_when_remote_query_times_out(
     monkeypatch: Any,
     tmp_path: Path,
 ) -> None:
@@ -80,6 +80,72 @@ def test_build_status_keeps_local_queue_when_remote_query_fails(
         "_open_codex_prs",
         lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("HTTP 504")),
     )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_lightweight",
+        lambda repo_root, repo: [
+            {
+                "number": 123,
+                "title": "repair cache",
+                "headRefName": "codex/cache-fallback",
+                "isDraft": False,
+                "mergeStateStatus": "BLOCKED",
+                "reviewDecision": "REVIEW_REQUIRED",
+            }
+        ],
+    )
+    monkeypatch.setattr(mod, "_open_boss_ready_count", lambda repo_root, repo, labels: 3)
+
+    payload = mod.build_status(
+        repo_root=tmp_path,
+        github_repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_prs=12,
+        max_open_issues=16,
+    )
+
+    assert payload["github_health"]["ready"] is True
+    queue = payload["github_queue"]
+    assert queue["available"] is True
+    assert queue["degraded"] is True
+    assert queue["degraded_reason"] == "heavy_open_pr_query_failed:HTTP 504"
+    assert queue["open_codex_pr_count"] == 1
+    assert queue["merge_state_counts"] == {"BLOCKED": 1}
+    assert queue["open_issue_count"] == 3
+    assert queue["open_pr_heads"] == ["codex/cache-fallback"]
+    assert queue["unhealthy_open_pr_count"] is None
+    assert queue["all_open_prs_unhealthy"] is False
+    assert payload["local_queue"]["outbox_count"] == 1
+    assert payload["local_queue"]["unreceipted_outbox_count"] == 1
+
+
+def test_build_status_still_fails_closed_for_non_timeout_remote_query_errors(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "open-pr-example.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(repo_root),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("bad credentials")),
+    )
 
     payload = mod.build_status(
         repo_root=tmp_path,
@@ -93,10 +159,113 @@ def test_build_status_keeps_local_queue_when_remote_query_fails(
     assert payload["github_queue"] == {
         "available": False,
         "reason": "remote_query_failed",
-        "error": "HTTP 504",
+        "error": "bad credentials",
     }
     assert payload["local_queue"]["outbox_count"] == 1
     assert payload["local_queue"]["unreceipted_outbox_count"] == 1
+
+
+def test_preserves_cached_open_pr_heads_when_github_queue_unavailable(tmp_path: Path) -> None:
+    cache_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-06-02T07:49:13Z",
+                "github_queue": {
+                    "available": True,
+                    "open_codex_pr_count": 2,
+                    "open_pr_heads": ["codex/a", "codex/b"],
+                    "merge_state_counts": {"BLOCKED": 2},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "generated_at": "2026-06-02T08:01:18Z",
+        "github_queue": {
+            "available": False,
+            "reason": "connectivity_failed",
+        },
+        "local_queue": {"outbox_count": 3},
+    }
+
+    preserved = mod.preserve_cached_github_queue(cache_path, payload)
+
+    assert preserved["local_queue"] == {"outbox_count": 3}
+    assert preserved["github_queue"] == {
+        "available": False,
+        "reason": "connectivity_failed",
+        "open_pr_heads": ["codex/a", "codex/b"],
+        "open_codex_pr_count": 2,
+        "merge_state_counts": {"BLOCKED": 2},
+        "open_pr_heads_preserved_from_cache": True,
+        "open_pr_heads_cached_at": "2026-06-02T07:49:13Z",
+    }
+
+
+def test_preserve_cached_github_queue_leaves_available_queue_untouched(tmp_path: Path) -> None:
+    cache_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-06-02T07:49:13Z",
+                "github_queue": {
+                    "available": True,
+                    "open_pr_heads": ["codex/old"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "generated_at": "2026-06-02T08:01:18Z",
+        "github_queue": {
+            "available": True,
+            "open_pr_heads": ["codex/new"],
+        },
+    }
+
+    preserved = mod.preserve_cached_github_queue(cache_path, payload)
+
+    assert preserved == payload
+    assert "open_pr_heads_preserved_from_cache" not in preserved["github_queue"]
+
+
+def test_preserve_cached_github_queue_keeps_original_open_pr_heads_cached_at(
+    tmp_path: Path,
+) -> None:
+    cache_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-06-02T08:01:18Z",
+                "github_queue": {
+                    "available": False,
+                    "reason": "remote_query_failed",
+                    "open_pr_heads": ["codex/a"],
+                    "open_pr_heads_cached_at": "2026-06-02T07:49:13Z",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "generated_at": "2026-06-02T08:30:00Z",
+        "github_queue": {
+            "available": False,
+            "reason": "connectivity_failed",
+        },
+    }
+
+    preserved = mod.preserve_cached_github_queue(cache_path, payload)
+
+    assert preserved["github_queue"]["open_pr_heads"] == ["codex/a"]
+    assert preserved["github_queue"]["open_pr_heads_cached_at"] == "2026-06-02T07:49:13Z"
+    assert preserved["github_queue"]["open_pr_heads_preserved_from_cache"] is True
 
 
 def test_local_queue_state_matches_receipts_by_idempotency_key(tmp_path: Path) -> None:
@@ -622,6 +791,98 @@ def test_main_accepts_cache_path_alias(
     assert cache_path.is_file()
 
 
+def test_main_accepts_status_cache_alias(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    cache_path = tmp_path / "status-cache.json"
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="sandboxed",
+            repo=str(repo_root),
+        ),
+    )
+
+    rc = mod.main(["--repo", str(repo_root), "--status-cache", str(cache_path)])
+
+    assert rc == 0
+    assert cache_path.is_file()
+
+
+def test_main_accepts_cache_dir_alias(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    cache_dir = tmp_path / "automation-github-status"
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="sandboxed",
+            repo=str(repo_root),
+        ),
+    )
+
+    rc = mod.main(["--repo", str(repo_root), "--cache-dir", str(cache_dir)])
+
+    assert rc == 0
+    assert (cache_dir / "latest.json").is_file()
+
+
+def test_main_status_cache_overrides_cache_dir_alias(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    cache_path = tmp_path / "custom-status-cache.json"
+    cache_dir = tmp_path / "automation-github-status"
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="sandboxed",
+            repo=str(repo_root),
+        ),
+    )
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(repo_root),
+            "--status-cache",
+            str(cache_path),
+            "--cache-dir",
+            str(cache_dir),
+        ]
+    )
+
+    assert rc == 0
+    assert cache_path.is_file()
+    assert not (cache_dir / "latest.json").exists()
+
+
 def test_refresh_entrypoint_delegates_to_cache_main(monkeypatch: Any) -> None:
     calls: list[list[str] | None] = []
 
@@ -761,6 +1022,7 @@ def test_build_status_records_remote_pressure_when_github_available(
 
     queue = payload["github_queue"]
     assert queue["available"] is True
+    assert queue["degraded"] is False
     assert queue["open_codex_pr_count"] == 2
     assert queue["unhealthy_open_pr_count"] == 1
     assert queue["all_open_prs_unhealthy"] is False

@@ -219,6 +219,23 @@ def test_render_status_markdown_headlines_verified_rate_and_in_flight_metrics(
                 "in_progress_graduation_rate": 0.0,
                 "in_progress_issue_numbers": [5814],
             },
+            "issues": [
+                {
+                    "expected_status": "in_progress",
+                    "issue_number": 5814,
+                    "issue_state": "OPEN",
+                },
+                {
+                    "expected_status": "in_progress",
+                    "issue_number": 5815,
+                    "issue_state": "CLOSED",
+                },
+                {
+                    "expected_status": "verified",
+                    "issue_number": 5800,
+                    "issue_state": "CLOSED",
+                },
+            ],
         },
         scorecard_payload={
             "generated_at": "2026-04-17T06:05:00Z",
@@ -256,7 +273,9 @@ def test_render_status_markdown_headlines_verified_rate_and_in_flight_metrics(
     assert "| In-progress attempted issues | 0 |" in markdown
     assert "| In-progress successful issues | 0 |" in markdown
     assert "| In-progress graduation rate | 0.0% |" in markdown
-    assert "| In-progress issue numbers | `#5814` |" in markdown
+    assert "| Expected in-progress issue numbers | `#5814` |" in markdown
+    assert "| Live-open expected issue numbers | `#5814` |" in markdown
+    assert "| Live-closed expected issue numbers | `#5815` |" in markdown
 
 
 def test_render_status_markdown_surfaces_proxy_neutral_issue_classes(tmp_path: Path) -> None:

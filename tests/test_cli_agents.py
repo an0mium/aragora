@@ -1423,8 +1423,9 @@ class TestCLIAgentModelMapping:
 
     def test_claude_model_mapping(self):
         """Should map Claude models correctly."""
-        agent = ClaudeAgent(name="test", model="claude-opus-4-7")
-        assert agent.OPENROUTER_MODEL_MAP.get("claude-opus-4-7") == "anthropic/claude-opus-4.7"
+        agent = ClaudeAgent(name="test", model="claude-opus-4-8")
+        assert agent.OPENROUTER_MODEL_MAP.get("claude-opus-4-8") == "anthropic/claude-opus-4.8"
+        assert agent.OPENROUTER_MODEL_MAP.get("claude-opus-4-7") == "anthropic/claude-opus-4.8"
 
     def test_codex_model_mapping(self):
         """Should map Codex models correctly."""
@@ -1465,7 +1466,7 @@ class TestCLIAgentModelMapping:
 
                 call_kwargs = mock_or.call_args[1]
                 # Should default to the current frontier Claude model.
-                assert call_kwargs["model"] == "anthropic/claude-opus-4.7"
+                assert call_kwargs["model"] == "anthropic/claude-opus-4.8"
 
 
 # =============================================================================

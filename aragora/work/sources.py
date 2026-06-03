@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from datetime import UTC, datetime
@@ -46,9 +47,109 @@ def _health(source: str, status: str, detail: str, **extra: Any) -> dict[str, An
     return {"source": source, "status": status, "detail": detail, **extra}
 
 
+def _state_dir(root: Path) -> Path:
+    expanded = root.expanduser()
+    return expanded if expanded.name == ".aragora" else expanded / ".aragora"
+
+
+def _state_path(root: Path, *parts: str) -> Path:
+    return _state_dir(root).joinpath(*parts)
+
+
+def _state_evidence_ref(root: Path, path: Path) -> str:
+    base = _state_dir(root).parent
+    try:
+        return str(path.relative_to(base))
+    except ValueError:
+        return str(path)
+
+
+def _has_work_state_dirs(root: Path) -> bool:
+    state_dir = _state_dir(root)
+    return any(
+        (state_dir / dirname).is_dir()
+        for dirname in (
+            "automation-outbox",
+            "automation-receipts",
+            "agent-bridge",
+            "agent_bridge",
+        )
+    )
+
+
+def _git_root_for_origin(root: Path) -> Path:
+    return root.parent if root.expanduser().name == ".aragora" else root
+
+
+def _git_origin(root: Path) -> str | None:
+    try:
+        proc = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"],
+            cwd=_git_root_for_origin(root),
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    origin = proc.stdout.strip()
+    return origin or None
+
+
+def _same_git_origin(left: Path, right: Path) -> bool:
+    left_origin = _git_origin(left)
+    return bool(left_origin) and left_origin == _git_origin(right)
+
+
+def resolve_work_state_root(repo_root: Path | str) -> tuple[Path, dict[str, Any]]:
+    """Return the checkout or direct .aragora dir backing shared work-board state."""
+    root = Path(repo_root).expanduser().resolve()
+    if _has_work_state_dirs(root):
+        return root, _health(
+            "work_state_root",
+            "ok",
+            "using repo-local work state",
+            repo_root=str(root),
+            state_root=str(root),
+        )
+
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    candidates: list[tuple[Path, bool]] = []
+    if configured:
+        candidates.append((Path(configured).expanduser(), True))
+    candidates.append((Path.home() / "Development" / "aragora", False))
+
+    for candidate, explicit in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        if not _has_work_state_dirs(resolved):
+            continue
+        if explicit or _same_git_origin(root, resolved):
+            return resolved, _health(
+                "work_state_root",
+                "ok",
+                "using shared work state",
+                repo_root=str(root),
+                state_root=str(resolved),
+            )
+
+    return root, _health(
+        "work_state_root",
+        "missing",
+        "no repo-local or shared .aragora work state found",
+        repo_root=str(root),
+        state_root=str(root),
+    )
+
+
 def _read_agent_bridge_lane_rows(repo_root: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Read repo-local agent-bridge lane registry rows without mutating lane state."""
-    registry = repo_root / ".aragora" / "agent-bridge" / "lanes.json"
+    registry = _state_path(repo_root, "agent-bridge", "lanes.json")
     if not registry.exists():
         return [], _health("agent_bridge_lane", "missing", f"{registry} not found")
     try:
@@ -250,7 +351,7 @@ def collect_github_prs(repo_root: Path) -> tuple[list[WorkItem], dict[str, Any]]
 
 
 def collect_automation_outbox(repo_root: Path) -> tuple[list[WorkItem], dict[str, Any]]:
-    outbox = repo_root / ".aragora" / "automation-outbox"
+    outbox = _state_path(repo_root, "automation-outbox")
     if not outbox.exists():
         return [], _health("automation_outbox", "missing", f"{outbox} not found")
     items: list[WorkItem] = []
@@ -270,7 +371,7 @@ def collect_automation_outbox(repo_root: Path) -> tuple[list[WorkItem], dict[str
                 scope="current",
                 branch=str(branch) if branch else None,
                 updated_at=str(data.get("updated_at") or data.get("recorded_at") or "") or None,
-                evidence_refs=[str(path.relative_to(repo_root))],
+                evidence_refs=[_state_evidence_ref(repo_root, path)],
                 metadata={"path": str(path), "idempotency_key": data.get("idempotency_key")},
             )
         )
@@ -280,7 +381,7 @@ def collect_automation_outbox(repo_root: Path) -> tuple[list[WorkItem], dict[str
 def collect_automation_receipts(
     repo_root: Path, *, scope: str
 ) -> tuple[list[WorkItem], dict[str, Any]]:
-    receipts = repo_root / ".aragora" / "automation-receipts"
+    receipts = _state_path(repo_root, "automation-receipts")
     if not receipts.exists():
         return [], _health("automation_receipt", "missing", f"{receipts} not found")
     files = sorted(receipts.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:80]
@@ -307,7 +408,7 @@ def collect_automation_receipts(
                 or data.get("created_issue_url")
                 or data.get("existing_issue_url"),
                 updated_at=updated_at,
-                evidence_refs=[str(path.relative_to(repo_root))],
+                evidence_refs=[_state_evidence_ref(repo_root, path)],
                 metadata={
                     "reason": data.get("reason"),
                     "repo": data.get("repo"),
@@ -319,7 +420,7 @@ def collect_automation_receipts(
 
 
 def collect_broker_runs(repo_root: Path, *, scope: str) -> tuple[list[WorkItem], dict[str, Any]]:
-    runs_dir = repo_root / ".aragora" / "agent_bridge" / "runs"
+    runs_dir = _state_path(repo_root, "agent_bridge", "runs")
     if not runs_dir.exists():
         return [], _health("broker_run", "missing", f"{runs_dir} not found")
     items: list[WorkItem] = []
@@ -347,7 +448,7 @@ def collect_broker_runs(repo_root: Path, *, scope: str) -> tuple[list[WorkItem],
                 owner=owner,
                 created_at=str(data.get("created_at") or "") or None,
                 updated_at=str(data.get("updated_at") or data.get("completed_at") or "") or None,
-                evidence_refs=[str(run_path.relative_to(repo_root))],
+                evidence_refs=[_state_evidence_ref(repo_root, run_path)],
                 metadata={
                     "run_id": run_id,
                     "next_actor": data.get("next_actor"),
