@@ -89,7 +89,9 @@ def cmd_dialectical_loop(args: argparse.Namespace) -> int:
     print(f"  quarantine      : {event.quarantine_action}")
     print(f"  crux_probe      : {'skipped' if event.crux_probe_skipped else 'ran'}")
     if event.repair_spec is not None:
-        print(f"  repair_spec     : {event.repair_spec.code_unit_id} (kind={event.repair_spec.repair_kind})")
+        print(
+            f"  repair_spec     : {event.repair_spec.code_unit_id} (kind={event.repair_spec.repair_kind})"
+        )
     print(f"  created_at      : {event.created_at}")
     return 0
 

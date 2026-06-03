@@ -879,9 +879,7 @@ def _add_dialectical_loop_parser(subparsers) -> None:
         help="Propose a repair spec when quarantine action is repair_required.",
     )
     p.add_argument("--json", action="store_true", help="Emit event as JSON.")
-    p.set_defaults(
-        func=_lazy("aragora.cli.commands.dic23_runtime_loop", "cmd_dialectical_loop")
-    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic23_runtime_loop", "cmd_dialectical_loop"))
 
 
 def _add_ask_parser(subparsers) -> None:
