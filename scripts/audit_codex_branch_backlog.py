@@ -42,6 +42,7 @@ DEFAULT_CACHED_OPEN_PR_HEADS_MAX_AGE_HOURS = 24
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 COMMIT_PREFIX_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 BRANCH_IDEMPOTENCY_PREFIXES = ("open-pr-", "already-satisfied-")
+SQUASH_PR_SUFFIX_RE = re.compile(r"\s+\(#\d+\)$")
 DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS = 5
 SALVAGE_CATEGORIES = {
     "salvage_recent_unique",
@@ -61,6 +62,8 @@ COMPACT_RECORD_EXAMPLE_FIELDS = (
     "behind_count",
     "divergence_lookup_failed",
     "patch_equivalence_skipped",
+    "base_subject_match",
+    "base_subject_match_sha",
     "open_pr",
     "open_pr_cached",
     "worktree_paths",
@@ -87,6 +90,9 @@ class BranchRecord:
     patch_equivalent_to_base: bool
     patch_equivalence_skipped: bool
     remote_branch_exists: bool
+    base_subject_match: bool
+    base_subject_match_sha: str | None
+    base_subject_match_subject: str | None
     open_pr: int | None
     open_pr_cached: bool
     worktree_paths: list[str]
@@ -202,6 +208,48 @@ def merged_branch_names(root: Path, base: str, prefix: str) -> set[str]:
     if proc.returncode != 0:
         return set()
     return {line.strip() for line in proc.stdout.splitlines() if line.strip().startswith(prefix)}
+
+
+def canonical_commit_subject(subject: str) -> str:
+    """Normalize GitHub squash PR suffixes while keeping commit titles comparable."""
+
+    return SQUASH_PR_SUFFIX_RE.sub("", subject.strip())
+
+
+def base_subject_matches(
+    root: Path,
+    base: str,
+    subjects: set[str],
+    *,
+    timeout: int = 120,
+) -> dict[str, dict[str, str]]:
+    """Return base commits whose subject matches a branch subject.
+
+    This is an advisory routing hint only. GitHub squash commits append
+    ``(#1234)`` to subjects, so compare canonical subjects but keep the exact
+    base subject in the output for auditability.
+    """
+
+    wanted = {canonical_commit_subject(subject) for subject in subjects if subject.strip()}
+    if not wanted:
+        return {}
+
+    proc = run_git(["log", "--format=%H%x00%s", base], root, timeout=timeout)
+    if proc.returncode != 0:
+        return {}
+
+    matches: dict[str, dict[str, str]] = {}
+    for line in proc.stdout.splitlines():
+        if "\0" not in line:
+            continue
+        sha, subject = line.split("\0", 1)
+        canonical = canonical_commit_subject(subject)
+        if canonical not in wanted or canonical in matches:
+            continue
+        matches[canonical] = {"sha": sha, "subject": subject}
+        if len(matches) == len(wanted):
+            break
+    return matches
 
 
 def worktree_map(root: Path) -> dict[str, list[Path]]:
@@ -1084,6 +1132,11 @@ def audit(
     rows.sort(key=lambda row: parse_dt(row["committed_at"]), reverse=True)
     if max_branches is not None:
         rows = rows[:max_branches]
+    base_subjects = base_subject_matches(
+        root,
+        base,
+        {row["subject"] for row in rows},
+    )
     divergence_by_branch = branch_divergence_map(
         root,
         base,
@@ -1244,6 +1297,7 @@ def audit(
                         timeout=_patch_timeout(patch_deadline, 120),
                     )
         remote_exists = branch in remotes
+        base_subject_match = base_subjects.get(canonical_commit_subject(row["subject"]))
         if (
             not handoff_receipted
             and not handoff_outbox
@@ -1349,6 +1403,13 @@ def audit(
                 patch_equivalent_to_base=patch_equivalent,
                 patch_equivalence_skipped=patch_equivalence_skipped,
                 remote_branch_exists=remote_exists,
+                base_subject_match=base_subject_match is not None,
+                base_subject_match_sha=(
+                    base_subject_match["sha"] if base_subject_match is not None else None
+                ),
+                base_subject_match_subject=(
+                    base_subject_match["subject"] if base_subject_match is not None else None
+                ),
                 open_pr=open_pr,
                 open_pr_cached=open_pr_cached,
                 worktree_paths=[str(path) for path in paths],
@@ -1399,6 +1460,12 @@ def audit(
     skipped_counts = Counter(
         record.category for record in records if record.patch_equivalence_skipped
     )
+    base_subject_match_count = sum(1 for record in records if record.base_subject_match)
+    salvage_base_subject_match_count = sum(
+        1
+        for record in records
+        if record.base_subject_match and record.category in SALVAGE_CATEGORIES
+    )
     return {
         "repo": str(root),
         "worktree_head_sha": git_revision(root, "HEAD"),
@@ -1430,6 +1497,8 @@ def audit(
             "unresolved_handoff_outbox_branch_refs": len(handoff_outbox_branches),
             "direct_handoff_outbox_branches": direct_handoff_outbox_branches,
             "patch_equivalent_handoff_outbox_branches": (patch_equivalent_handoff_outbox_branches),
+            "base_subject_match_count": base_subject_match_count,
+            "salvage_base_subject_match_count": salvage_base_subject_match_count,
             "writer_should_pause_for_branch_backlog": (
                 publishable_branch_backlog >= publisher_backlog_limit
             ),
@@ -1502,6 +1571,12 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
             "- Patch-equivalent handoff-outbox branches: "
             f"`{summary['patch_equivalent_handoff_outbox_branches']}`"
         )
+    if "base_subject_match_count" in summary:
+        print(f"- Base subject matches: `{summary['base_subject_match_count']}`")
+        print(
+            "- Salvage candidates with base subject matches: "
+            f"`{summary['salvage_base_subject_match_count']}`"
+        )
     print(
         f"- Patch-equivalence budget exhausted: `{payload['patch_equivalence_budget_exhausted']}`"
     )
@@ -1548,6 +1623,7 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
                 f"ahead={record['ahead_count']} "
                 f"behind={record['behind_count']} "
                 f"sha={record['head_sha']} "
+                f"base_subject_match={record.get('base_subject_match', False)} "
                 f"subject={record['subject']}"
             )
 

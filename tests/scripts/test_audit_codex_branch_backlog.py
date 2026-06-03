@@ -144,6 +144,40 @@ def test_branch_divergence_map_honors_custom_prefix(tmp_path: Path, monkeypatch:
     ) == {"automation/example": (4, 1)}
 
 
+def test_base_subject_matches_accepts_github_squash_pr_suffix(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    def fake_run_git(
+        args: list[str], cwd: Path, *, timeout: int = 60
+    ) -> subprocess.CompletedProcess[str]:
+        assert args == ["log", "--format=%H%x00%s", "origin/main"]
+        assert timeout == 120
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=(
+                "deadbeef\x00fix(models): refresh Claude Opus default to 4.8 (#7702)\n"
+                "feedface\x00docs: unrelated\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    matches = mod.base_subject_matches(
+        tmp_path,
+        "origin/main",
+        {"fix(models): refresh Claude Opus default to 4.8"},
+    )
+
+    assert matches == {
+        "fix(models): refresh Claude Opus default to 4.8": {
+            "sha": "deadbeef",
+            "subject": "fix(models): refresh Claude Opus default to 4.8 (#7702)",
+        }
+    }
+
+
 def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     payload = {
         "branch_count": 2,
@@ -1006,6 +1040,63 @@ def test_audit_excludes_diverged_branches_from_publishable_backlog(
     )
     assert diverged["behind_count"] == 12
     assert diverged["category"] == "salvage_diverged_recent"
+
+
+def test_audit_reports_base_subject_matches_without_reclassifying_salvage(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row(
+            "codex/recent-diverged",
+            committed_at=now,
+            behind_count="12",
+            head_sha="abc1234",
+        )
+    ]
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "base_subject_matches",
+        lambda _root, _base, _subjects: {
+            "test branch": {"sha": "deadbeef", "subject": "test branch (#7000)"}
+        },
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    record = payload["records"][0]
+    assert record["category"] == "salvage_diverged_recent"
+    assert record["base_subject_match"] is True
+    assert record["base_subject_match_sha"] == "deadbeef"
+    assert record["base_subject_match_subject"] == "test branch (#7000)"
+    assert payload["summary"]["base_subject_match_count"] == 1
+    assert payload["summary"]["salvage_base_subject_match_count"] == 1
+    assert payload["summary"]["salvage_candidates"] == 1
 
 
 def test_audit_excludes_terminal_outbox_receipts_from_publishable_backlog(
