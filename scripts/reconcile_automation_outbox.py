@@ -335,8 +335,9 @@ def _merged_target_pr_receipt_resolution(
 
     status = str(receipt.get("status") or "").strip().lower()
     reason = str(receipt.get("reason") or "").strip().lower()
-    if status != "already_satisfied" or reason != "target_open_pr":
+    if status != "already_satisfied" or reason not in {"target_open_pr", "existing_pr"}:
         return False, None
+    receipt_label = f"{reason} receipt"
 
     desired_head = _desired_head_from_payload(payload)
     if not desired_head:
@@ -351,7 +352,7 @@ def _merged_target_pr_receipt_resolution(
     if _heads_match(desired_head, target_pr_head):
         return True, None
     return True, (
-        f"target_open_pr receipt points to merged PR #{target_pr_number} at "
+        f"{receipt_label} points to merged PR #{target_pr_number} at "
         f"{target_pr_head[:12] or 'unknown'}, not desired head {desired_head[:12]}"
     )
 
@@ -415,12 +416,13 @@ def _receipt_handoff_keep_reason(
 
     status = str(receipt.get("status") or "").strip().lower()
     reason = str(receipt.get("reason") or "").strip().lower()
-    if status != "already_satisfied" or reason != "target_open_pr":
+    if status != "already_satisfied" or reason not in {"target_open_pr", "existing_pr"}:
         return None
 
     desired_head = _desired_head_from_payload(payload)
     if not desired_head:
         return None
+    receipt_label = f"{reason} receipt"
 
     handled, keep_reason = _merged_target_pr_receipt_resolution(root, repo_name, payload, receipt)
     if handled:
@@ -436,11 +438,11 @@ def _receipt_handoff_keep_reason(
         short_desired = desired_head[:12]
         if remote_head:
             return (
-                f"target_open_pr receipt exists, but origin/{branch} is "
+                f"{receipt_label} exists, but origin/{branch} is "
                 f"{remote_head[:12]}, not desired head {short_desired}"
             )
         return (
-            f"target_open_pr receipt exists, but origin/{branch} is unavailable "
+            f"{receipt_label} exists, but origin/{branch} is unavailable "
             f"and local desired head {short_desired} still needs publication"
         )
     return None
@@ -827,6 +829,36 @@ def main(argv: list[str] | None = None) -> int:
                             "branch": branch,
                             "decision": "keep",
                             "reason": target_pr_keep_reason,
+                            "synthetic_receipt": False,
+                        }
+                    )
+                    continue
+                counts["satisfied_by_existing_receipt"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "archive",
+                        "reason": "matching receipt exists",
+                        "synthetic_receipt": False,
+                    }
+                )
+                if args.apply:
+                    shutil.move(str(path), str(archive_dir / path.name))
+                continue
+            if str(receipt.get("reason") or "").strip().lower() == "existing_pr":
+                keep_reason = _receipt_handoff_keep_reason(
+                    root, args.repo_name, payload, receipt, branch
+                )
+                if keep_reason is not None:
+                    counts["blocked_receipt_pr_head_mismatch"] += 1
+                    counts["still_protecting_active_work"] += 1
+                    actions.append(
+                        {
+                            "path": str(path),
+                            "branch": branch,
+                            "decision": "keep",
+                            "reason": keep_reason,
                             "synthetic_receipt": False,
                         }
                     )
