@@ -1,5 +1,5 @@
 {
-  "automations_root": "/Users/armand/.codex/automations",
+  "automations_root": "~/.codex/automations",
   "cluster_analysis": {
     "earliest_pause_utc": "2026-05-13T03:57:35.544000+00:00",
     "latest_pause_utc": "2026-05-16T19:07:08.678000+00:00",
@@ -30,11 +30,11 @@
   "total_writers_paused": 4,
   "writers": [
     {
-      "automation_toml_path": "/Users/armand/.codex/automations/engineering-autopilot/automation.toml",
+      "automation_toml_path": "~/.codex/automations/engineering-autopilot/automation.toml",
       "created_at_utc": "2026-03-25T19:22:58.282000+00:00",
       "cron_minute_of_hour": "5",
       "cwds": [
-        "/Users/armand/Development/aragora"
+        "~/aragora"
       ],
       "diagnosis_class": "operator_pause_during_session: paused within ~45min of two sibling writers on the same day, while the operator was actively merging/reviewing PRs; consistent with deliberate operator action to prevent autonomous writers from creating conflicts with in-flight manual work or consuming AI keys before rotation.",
       "execution_environment": "worktree",
@@ -52,11 +52,11 @@
       "status": "PAUSED"
     },
     {
-      "automation_toml_path": "/Users/armand/.codex/automations/engineering-autopilot-2/automation.toml",
+      "automation_toml_path": "~/.codex/automations/engineering-autopilot-2/automation.toml",
       "created_at_utc": "2026-04-16T00:13:47.171000+00:00",
       "cron_minute_of_hour": "20",
       "cwds": [
-        "/Users/armand/Development/aragora"
+        "~/aragora"
       ],
       "diagnosis_class": "operator_pause_during_session: paused within ~45min of two sibling writers on the same day, while the operator was actively merging/reviewing PRs; consistent with deliberate operator action to prevent autonomous writers from creating conflicts with in-flight manual work or consuming AI keys before rotation.",
       "execution_environment": "worktree",
@@ -74,11 +74,11 @@
       "status": "PAUSED"
     },
     {
-      "automation_toml_path": "/Users/armand/.codex/automations/engineering-autopilot-3/automation.toml",
+      "automation_toml_path": "~/.codex/automations/engineering-autopilot-3/automation.toml",
       "created_at_utc": "2026-04-15T22:58:25.780000+00:00",
       "cron_minute_of_hour": "35",
       "cwds": [
-        "/Users/armand/Development/aragora"
+        "~/aragora"
       ],
       "diagnosis_class": "long_pause: silent for 3d 21h; no sibling cluster pattern. Likely longer-term policy decision OR a real infrastructure issue (model gate, cwd accessibility, automation runner health). Investigate before resuming.",
       "execution_environment": "worktree",
@@ -96,11 +96,11 @@
       "status": "PAUSED"
     },
     {
-      "automation_toml_path": "/Users/armand/.codex/automations/engineering-autopilot-3-2/automation.toml",
+      "automation_toml_path": "~/.codex/automations/engineering-autopilot-3-2/automation.toml",
       "created_at_utc": "2026-04-16T01:08:11.639000+00:00",
       "cron_minute_of_hour": "50",
       "cwds": [
-        "/Users/armand/Development/aragora"
+        "~/aragora"
       ],
       "diagnosis_class": "operator_pause_during_session: paused within ~45min of two sibling writers on the same day, while the operator was actively merging/reviewing PRs; consistent with deliberate operator action to prevent autonomous writers from creating conflicts with in-flight manual work or consuming AI keys before rotation.",
       "execution_environment": "worktree",

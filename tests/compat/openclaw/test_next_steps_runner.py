@@ -585,8 +585,8 @@ class TestNextStepsRunner:
         assert runner._github_repo == "owner/repo"
 
     def test_extract_github_repo_from_https(self):
-        runner = NextStepsRunner(repo_url="https://github.com/an0mium/aragora")
-        assert runner._github_repo == "an0mium/aragora"
+        runner = NextStepsRunner(repo_url="https://github.com/synaptent/aragora")
+        assert runner._github_repo == "synaptent/aragora"
 
     def test_extract_github_repo_none(self):
         runner = NextStepsRunner(repo_path="/tmp/no-git-here-xyz")

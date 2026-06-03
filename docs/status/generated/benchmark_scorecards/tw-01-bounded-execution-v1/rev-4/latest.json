@@ -45,7 +45,7 @@
     "rescue_no_deliverable": 1
   },
   "generated_at": "2026-05-21T02:53:29Z",
-  "metrics_file": "/Users/armand/Development/aragora/.aragora/overnight/boss_metrics.jsonl",
+  "metrics_file": "~/aragora/.aragora/overnight/boss_metrics.jsonl",
   "previous_artifact": {
     "generated_at": "2026-05-19T04:09:29Z",
     "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-4/scorecard-20260519T040929Z.json"

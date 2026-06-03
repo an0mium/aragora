@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import platform
 import subprocess
 from datetime import datetime, timezone
@@ -25,6 +26,23 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
+
+
+def _portable_path(path: Path) -> tuple[str, bool]:
+    """Return a portability-safe string form of ``path``.
+
+    The manifest is a committed reproducibility snapshot in a public repo, so an
+    absolute home-dir path (``/Users/<name>/...``) would both leak the local
+    username and trip ``scripts/check_portability.py``. Collapse the home prefix
+    to ``~`` so the committed artifact is clone-agnostic. The second element is
+    ``True`` when the path was rewritten (i.e. it lives under ``$HOME``), which
+    callers use to decide whether a resolved-exists boolean is still meaningful.
+    """
+    raw = str(path)
+    home = os.path.expanduser("~")
+    if home and home != "~" and (raw == home or raw.startswith(home + os.sep)):
+        return "~" + raw[len(home) :], True
+    return raw, False
 
 
 # Models the ROADMAP / AGENTS.md treats as the canonical provider set.
@@ -130,11 +148,21 @@ def main() -> None:
     venv_python = REPO / ".venv" / "bin" / "python"
     frozen = _pip_freeze(venv_python)
 
+    # Capture the real existence check before sanitizing the path string. When
+    # the path lives under $HOME it is rewritten to a ``~``-relative placeholder
+    # for the committed snapshot, at which point a resolved-exists boolean is no
+    # longer meaningful (the placeholder string was never resolved) -> emit null.
+    python_bin_exists: bool | None = venv_python.exists()
+    repo_root_str, _ = _portable_path(REPO)
+    python_bin_str, python_bin_sanitized = _portable_path(venv_python)
+    if python_bin_sanitized:
+        python_bin_exists = None
+
     manifest = {
         "manifest_version": 1,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "repo": {
-            "root": str(REPO),
+            "root": repo_root_str,
             "git_sha": _run(["git", "rev-parse", "HEAD"]),
             "git_branch": _run(["git", "rev-parse", "--abbrev-ref", "HEAD"]),
             "git_short_sha": _run(["git", "rev-parse", "--short", "HEAD"]),
@@ -150,8 +178,8 @@ def main() -> None:
             "python_implementation": platform.python_implementation(),
         },
         "venv": {
-            "python_bin": str(venv_python),
-            "python_bin_exists": venv_python.exists(),
+            "python_bin": python_bin_str,
+            "python_bin_exists": python_bin_exists,
             "packages_count": len(frozen),
             "pip_freeze_hash": _freeze_hash(frozen),
         },

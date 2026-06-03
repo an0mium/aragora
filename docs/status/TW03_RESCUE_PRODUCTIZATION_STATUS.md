@@ -7,7 +7,7 @@ This is the repo-tracked recurring `TW-03` publication surface for repeated resc
 ## Summary
 
 - Latest report: `docs/status/generated/rescue_productization/latest.json`
-- Rescue ledger path: `/Users/armand/.aragora/rescue_events.jsonl`
+- Rescue ledger path: `~/.aragora/rescue_events.jsonl`
 - Productization map: `docs/benchmarks/rescue_productization.json`
 - Repeated rescue classes: `0`
 - Linked repeated classes: `0`

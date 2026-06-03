@@ -4,6 +4,6 @@
   "experiment_label": "p-claude_w-codex_r-claude (stale-lease-fix rerun)",
   "project_id": "B-1",
   "recorded_at": "2026-03-18T21:38:07.596842+00:00",
-  "runtime_manifest_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260318-213730-4a5bad8a/.aragora/phase0b_runtime_manifest.yaml",
-  "runtime_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260318-213730-4a5bad8a"
+  "runtime_manifest_path": "~/aragora/.worktrees/codex-auto/codex-20260318-213730-4a5bad8a/.aragora/phase0b_runtime_manifest.yaml",
+  "runtime_path": "~/aragora/.worktrees/codex-auto/codex-20260318-213730-4a5bad8a"
 }

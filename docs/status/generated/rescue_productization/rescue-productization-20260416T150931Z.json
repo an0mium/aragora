@@ -4,7 +4,7 @@
   "initial_issue_drafts": [],
   "issue_drafts": [],
   "issue_linkage_results": [],
-  "ledger_path": "/Users/armand/.aragora/rescue_events.jsonl",
+  "ledger_path": "~/.aragora/rescue_events.jsonl",
   "one_off_classes": [],
   "productization_map_path": "docs/benchmarks/rescue_productization.json",
   "repeated_classes": [],

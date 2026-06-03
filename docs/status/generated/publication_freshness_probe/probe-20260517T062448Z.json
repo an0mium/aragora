@@ -1,6 +1,6 @@
 {
   "generated_at": "2026-05-17T06:24:48Z",
-  "repo_root": "/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-062140-26e58382",
+  "repo_root": "~/aragora/.worktrees/codex-auto/claude-20260517-062140-26e58382",
   "schema_version": 1,
   "sources": {
     "benchmark_truth_artifacts": {
