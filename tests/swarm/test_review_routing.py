@@ -451,6 +451,70 @@ async def test_generate_review_response_reports_claude_pool_unauthenticated() ->
     assert exc_info.value.attempts[0]["kind"] == "claude_unauthenticated"
 
 
+def test_resolve_review_candidates_filters_unhealthy_profiles_from_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_REVIEW_PROVIDER_ORDER", "claude")
+    monkeypatch.setenv("ARAGORA_CLAUDE_REVIEW_PROFILES", "max-01,max-02,max-03")
+    _write_pool_health(
+        tmp_path,
+        [
+            {"name": "max-01", "email": "", "state": "expired"},
+            {"name": "max-02", "email": "", "state": "ok"},
+            {"name": "max-03", "email": "", "state": "ok"},
+        ],
+    )
+
+    candidates = resolve_review_candidates(
+        worker_model="codex",
+        preferred_review_model="claude",
+        repo_root=tmp_path,
+    )
+
+    assert [c.profile for c in candidates] == ["max-02", "max-03"]
+
+
+def test_resolve_review_candidates_rotates_by_start_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_REVIEW_PROVIDER_ORDER", "claude")
+    monkeypatch.setenv("ARAGORA_CLAUDE_REVIEW_PROFILES", "max-01,max-02,max-03")
+
+    candidates = resolve_review_candidates(
+        worker_model="codex",
+        preferred_review_model="claude",
+        rotate=True,
+        start_index=1,
+    )
+
+    assert [c.profile for c in candidates] == ["max-02", "max-03", "max-01"]
+
+
+def test_resolve_review_candidates_cursor_spreads_across_subscriptions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_REVIEW_PROVIDER_ORDER", "claude")
+    monkeypatch.setenv("ARAGORA_CLAUDE_REVIEW_PROFILES", "max-01,max-02")
+
+    def _first_profile() -> str:
+        candidates = resolve_review_candidates(
+            worker_model="codex",
+            preferred_review_model="claude",
+            repo_root=tmp_path,
+            rotate=True,
+        )
+        return next(c.profile for c in candidates if c.provider == "claude")
+
+    # Consecutive reviews start on different subscriptions, then wrap.
+    assert [_first_profile(), _first_profile(), _first_profile()] == [
+        "max-01",
+        "max-02",
+        "max-01",
+    ]
+    cursor = json.loads((tmp_path / ".aragora" / "claude_pool_cursor.json").read_text())
+    assert cursor["index"] in {0, 1}
+
+
 @pytest.mark.asyncio
 async def test_generate_review_response_marks_billing_exhaustion() -> None:
     with (

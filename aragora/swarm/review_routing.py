@@ -87,6 +87,9 @@ def resolve_review_candidates(
     *,
     worker_model: str,
     preferred_review_model: str,
+    repo_root: Path | None = None,
+    rotate: bool = False,
+    start_index: int | None = None,
 ) -> list[ReviewCandidate]:
     worker_family = _model_family(worker_model)
     preferred_family = _model_family(preferred_review_model)
@@ -105,10 +108,13 @@ def resolve_review_candidates(
         if provider not in families:
             families.append(provider)
 
+    claude_profiles = _ordered_claude_review_profiles(
+        repo_root=repo_root, rotate=rotate, start_index=start_index
+    )
     candidates: list[ReviewCandidate] = []
     for provider in families:
         if provider == "claude":
-            for profile in _claude_review_profiles():
+            for profile in claude_profiles:
                 candidates.append(
                     ReviewCandidate(
                         provider="claude",
@@ -152,6 +158,8 @@ async def generate_review_response(
     for candidate in resolve_review_candidates(
         worker_model=worker_model,
         preferred_review_model=preferred_review_model,
+        repo_root=repo_root,
+        rotate=_review_rotate_enabled(),
     ):
         preflight = preflight_review_candidate(candidate, repo_root=repo_root)
         if not preflight.get("ok", False):
@@ -581,6 +589,62 @@ def _claude_review_profiles() -> list[str]:
         if normalized and normalized not in result:
             result.append(normalized)
     return result or list(DEFAULT_CLAUDE_REVIEW_PROFILES)
+
+
+def _review_rotate_enabled() -> bool:
+    raw = str(os.environ.get("ARAGORA_CLAUDE_REVIEW_ROTATE", "")).strip().lower()
+    return raw not in {"0", "false", "no", "off"}
+
+
+def _ordered_claude_review_profiles(
+    *,
+    repo_root: Path | None,
+    rotate: bool,
+    start_index: int | None,
+) -> list[str]:
+    """Healthy-first, rotated ordering of the Claude Max review profiles.
+
+    When a fresh health snapshot exists, known-unhealthy profiles are dropped so
+    reviews are spread only across usable subscriptions. Rotation advances a
+    persisted cursor so each review starts on a different subscription instead of
+    always hammering the first profile.
+    """
+    profiles = _claude_review_profiles()
+    if repo_root is not None:
+        health = _load_pool_health(repo_root)
+        if health:
+            filtered = [p for p in profiles if health.get(p) not in _UNHEALTHY_PROFILE_STATES]
+            if filtered:
+                profiles = filtered
+    if rotate and len(profiles) > 1:
+        if start_index is not None:
+            offset = start_index % len(profiles)
+        elif repo_root is not None and repo_root.exists():
+            offset = _next_pool_cursor(repo_root, len(profiles))
+        else:
+            offset = 0
+        if offset:
+            profiles = profiles[offset:] + profiles[:offset]
+    return profiles
+
+
+def _next_pool_cursor(repo_root: Path, modulo: int) -> int:
+    """Return the current rotation offset and advance the persisted cursor."""
+    if modulo <= 0:
+        return 0
+    path = repo_root / ".aragora" / "claude_pool_cursor.json"
+    current = 0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        current = int(data.get("index", 0))
+    except (OSError, ValueError, TypeError):
+        current = 0
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"index": (current + 1) % modulo}), encoding="utf-8")
+    except OSError:
+        pass
+    return current % modulo
 
 
 def _model_family(model_type: str) -> str:
