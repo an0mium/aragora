@@ -217,6 +217,12 @@ def test_summary_only_payload_keeps_compact_category_examples() -> None:
                 "subject": "needs salvage",
                 "ahead_count": 2,
                 "behind_count": 4,
+                "changed_path_count": 2,
+                "changed_path_examples": [
+                    "aragora/live/package-lock.json",
+                    "aragora/live/package.json",
+                ],
+                "changed_paths_truncated": False,
                 "worktree_paths": ["/tmp/worktree"],
                 "active_worktree_paths": [],
                 "dirty_worktree_paths": [],
@@ -242,6 +248,12 @@ def test_summary_only_payload_keeps_compact_category_examples() -> None:
             "subject": "needs salvage",
             "ahead_count": 2,
             "behind_count": 4,
+            "changed_path_count": 2,
+            "changed_path_examples": [
+                "aragora/live/package-lock.json",
+                "aragora/live/package.json",
+            ],
+            "changed_paths_truncated": False,
             "worktree_paths": ["/tmp/worktree"],
             "active_worktree_paths": [],
             "dirty_worktree_paths": [],
@@ -1809,6 +1821,63 @@ def test_audit_checks_branch_equivalence_before_handoff_patch_ids(
     assert record["category"] == "cleanup_patch_equivalent"
 
 
+def test_audit_includes_changed_path_examples(tmp_path: Path, monkeypatch: Any) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [_branch_row("codex/stale-lockfile", committed_at=now, behind_count="2")]
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(mod, "is_patch_equivalent", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(mod, "branch_patch_id", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        mod,
+        "branch_changed_paths",
+        lambda _root, _base, _branch, **_kwargs: (
+            3,
+            [
+                "aragora/live/package-lock.json",
+                "aragora/live/package.json",
+                "tests/live/smoke.test.ts",
+            ],
+            False,
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=True,
+        publisher_backlog_limit=2,
+    )
+
+    record = payload["records"][0]
+    assert record["category"] == "salvage_diverged_recent"
+    assert record["changed_path_count"] == 3
+    assert record["changed_path_examples"] == [
+        "aragora/live/package-lock.json",
+        "aragora/live/package.json",
+        "tests/live/smoke.test.ts",
+    ]
+    assert record["changed_paths_truncated"] is False
+
+
 def test_audit_does_not_spend_patch_ids_for_exact_outbox_branch(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
@@ -1925,6 +1994,7 @@ def test_audit_treats_superseded_branch_as_unresolved_handoff(
     assert payload["summary"]["handoff_outbox_branches"] == 1
     assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 2
     assert payload["summary"]["direct_handoff_outbox_branches"] == 1
+    assert payload["summary"]["unresolved_handoff_outbox_refs_outside_audit"] == 1
     assert payload["summary"]["patch_equivalent_handoff_outbox_branches"] == 0
     assert payload["summary"]["publishable_branch_backlog"] == 1
     original = next(
@@ -1992,6 +2062,7 @@ def test_audit_counts_direct_outbox_refs_even_when_active_worktree_wins_category
     assert payload["summary"]["handoff_outbox_branches"] == 0
     assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 1
     assert payload["summary"]["direct_handoff_outbox_branches"] == 1
+    assert payload["summary"]["unresolved_handoff_outbox_refs_outside_audit"] == 0
     assert payload["summary"]["patch_equivalent_handoff_outbox_branches"] == 0
 
 

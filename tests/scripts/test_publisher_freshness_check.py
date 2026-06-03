@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import time
@@ -55,6 +56,10 @@ def _write_outbox_files(tmp_path: Path, count: int) -> None:
     outbox = tmp_path / ".aragora" / "automation-outbox"
     for i in range(count):
         (outbox / f"open-pr-codex-test-{i}.json").write_text("{}", encoding="utf-8")
+
+
+def _set_mtime(path: Path, timestamp: float) -> None:
+    os.utime(path, (timestamp, timestamp))
 
 
 def test_ready_when_loaded_fresh_no_drift(monkeypatch: pytest.MonkeyPatch, stub_repo: Path) -> None:
@@ -149,22 +154,25 @@ def test_degraded_when_cache_stale(monkeypatch: pytest.MonkeyPatch, stub_repo: P
     assert report.cache_age_human == "2.0h"
 
 
-def test_warming_when_loaded_but_drift(monkeypatch: pytest.MonkeyPatch, stub_repo: Path) -> None:
-    """When launchd is loaded and cache is fresh but drift exists, verdict is warming.
-
-    This represents the transient state right after a publisher cycle that ran
-    against a stale outbox snapshot — the cache should refresh on the next cycle.
-    """
+def test_warming_when_outbox_changed_after_fresh_cache(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path
+) -> None:
+    """Fresh count drift is warming when a newer outbox write explains it."""
     cache = _write_cache(stub_repo, outbox_count=2)
     _write_outbox_files(stub_repo, 5)  # real count > cache count
+    base = time.time() - 300
+    outbox = stub_repo / ".aragora" / "automation-outbox"
+    _set_mtime(cache, base)
+    for path in outbox.glob("*.json"):
+        _set_mtime(path, base + 10)
+    _set_mtime(outbox, base + 10)
     monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
-    now = cache.stat().st_mtime + 60
+    now = base + 60
     report = mod.evaluate(stub_repo, now=now)
-    # drift triggers degraded since drift means writes have happened that the
-    # cache hasn't reflected yet
     assert report.outbox_drift is True
-    assert "drift: outbox=5 cache=2" in report.blockers
-    assert report.verdict == "degraded"
+    assert report.outbox_changed_after_cache is True
+    assert [b for b in report.blockers if b.startswith("drift:")] == []
+    assert report.verdict == "warming"
 
 
 def test_warming_label_when_loaded_no_drift_but_cache_just_stale(
@@ -480,15 +488,22 @@ def test_fresh_cache_with_count_disagreement_still_flags_drift(
     AND counts disagree, drift IS a real blocker (the publisher wrote
     inconsistent data).
     """
-    cache = _write_cache(stub_repo, outbox_count=2)
     _write_outbox_files(stub_repo, 5)
+    cache = _write_cache(stub_repo, outbox_count=2)
+    base = time.time() - 300
+    outbox = stub_repo / ".aragora" / "automation-outbox"
+    for path in outbox.glob("*.json"):
+        _set_mtime(path, base)
+    _set_mtime(outbox, base)
+    _set_mtime(cache, base + 10)
     monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
     # Cache is 60s old → fresh at default 1800s threshold.
-    now = cache.stat().st_mtime + 60
+    now = base + 70
     report = mod.evaluate(stub_repo, now=now, stale_threshold_seconds=1800)
 
     assert report.cache_stale is False
     assert report.outbox_drift is True
+    assert report.outbox_changed_after_cache is False
     drift_blockers = [b for b in report.blockers if b.startswith("drift:")]
     assert drift_blockers == ["drift: outbox=5 cache=2"]
     assert report.verdict == "degraded"

@@ -783,6 +783,7 @@ def test_main_reports_github_health_failure_when_unavailable_with_local_candidat
     monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
     monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
     monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
@@ -802,7 +803,10 @@ def test_main_reports_github_health_failure_when_unavailable_with_local_candidat
     out = capsys.readouterr().out
     assert '"mode": "connectivity_failed"' in out
     assert '"scanned_branch_count": 1' in out
-    assert '"decisions": []' in out
+    assert '"open_pr_lookup_skipped": true' in out
+    assert '"branch": "codex/ready"' in out
+    assert '"eligible": false' in out
+    assert '"reason": "github_unavailable"' in out
 
 
 def test_publish_decisions_respects_open_pr_cap(monkeypatch: Any, tmp_path: Path) -> None:

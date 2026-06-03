@@ -21,13 +21,25 @@ logger = logging.getLogger(__name__)
 DEFAULT_REVIEW_PROVIDER_ORDER = ("codex", "claude", "openrouter")
 DEFAULT_CLAUDE_REVIEW_PROFILES = tuple(f"max-{index:02d}" for index in range(1, 13))
 _BILLING_MARKERS = ("credit balance", "billing", "payment required", "purchase credits")
+_DIRECT_API_PROVIDER_KEYS = {
+    "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+    "grok": ("XAI_API_KEY", "GROK_API_KEY"),
+}
+_SUPPORTED_REVIEW_PROVIDERS = frozenset(
+    (*DEFAULT_REVIEW_PROVIDER_ORDER, *_DIRECT_API_PROVIDER_KEYS)
+)
 _MODEL_FAMILY_OVERRIDES = {
     "anthropic-api": "claude",
     "claude": "claude",
     "codex": "codex",
+    "gemini-cli": "gemini",
+    "google": "gemini",
+    "grok-cli": "grok",
     "openai": "codex",
     "openai-api": "codex",
     "openrouter": "openrouter",
+    "x-ai": "grok",
+    "xai": "grok",
 }
 
 
@@ -78,7 +90,7 @@ def resolve_review_candidates(
 
     if (
         preferred_family
-        and preferred_family in configured_order
+        and preferred_family in _SUPPORTED_REVIEW_PROVIDERS
         and preferred_family != worker_family
     ):
         families.append(preferred_family)
@@ -115,6 +127,8 @@ def preflight_review_candidate(
         return _claude_profile_preflight(candidate, repo_root=repo_root)
     if candidate.provider == "openrouter":
         return _openrouter_preflight()
+    if candidate.provider in _DIRECT_API_PROVIDER_KEYS:
+        return _direct_api_provider_preflight(candidate.provider)
     return {
         "ok": False,
         "detail": f"Unsupported review provider: {candidate.provider}",
@@ -225,6 +239,22 @@ async def _run_review_candidate(
             enable_fallback=False,
         )
         return await agent.generate(prompt)
+    if candidate.provider == "gemini":
+        agent = create_agent(
+            "gemini",
+            name="campaign-review",
+            role="critic",
+            enable_fallback=False,
+        )
+        return await agent.generate(prompt)
+    if candidate.provider == "grok":
+        agent = create_agent(
+            "grok",
+            name="campaign-review",
+            role="critic",
+            enable_fallback=False,
+        )
+        return await agent.generate(prompt)
     raise RuntimeError(f"Unsupported review provider: {candidate.provider}")
 
 
@@ -267,6 +297,14 @@ def _openrouter_preflight() -> dict[str, Any]:
     except OSError as exc:
         return {"ok": False, "detail": f"OpenRouter TLS check failed: {exc}"}
     return {"ok": True, "detail": "OpenRouter API key and TLS look healthy"}
+
+
+def _direct_api_provider_preflight(provider: str) -> dict[str, Any]:
+    key_names = _DIRECT_API_PROVIDER_KEYS[provider]
+    for key_name in key_names:
+        if get_secret_presence(key_name).source in {"aws", "env"}:
+            return {"ok": True, "detail": f"{provider} API key is configured"}
+    return {"ok": False, "detail": f"{' or '.join(key_names)} is not configured"}
 
 
 def _claude_profile_script(repo_root: Path) -> Path | None:

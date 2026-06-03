@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -106,11 +108,21 @@ def _render_human(payload: dict[str, Any]) -> str:
 
 
 def _emit(payload: dict[str, Any], *, as_json: bool) -> int:
-    if as_json:
-        print(json.dumps(payload, sort_keys=True, indent=2))
-        return 0
-    print(_render_human(payload))
+    output = json.dumps(payload, sort_keys=True, indent=2) if as_json else _render_human(payload)
+    try:
+        print(output)
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
     return 0
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
 
 
 def cmd_work_list(args: argparse.Namespace) -> int:

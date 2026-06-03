@@ -143,12 +143,18 @@ def test_panel_prompt_rubric_explicit_about_automation_not_being_bad():
 
 def test_is_automation_generated_handles_bots_and_labels():
     assert is_automation_generated(author="github-actions[bot]")
-    assert is_automation_generated(author="an0mium")
+    # Personal logins are not automation by default (public-safe default).
+    assert not is_automation_generated(author="an0mium")
     assert is_automation_generated(author="alice", labels=("stage-gate-drift",))
     assert is_automation_generated(
         author="alice", labels=(), body="This issue was opened by the swarm boss loop."
     )
     assert not is_automation_generated(author="founder", labels=("bug",), body="repro: ...")
+
+
+def test_is_automation_generated_honors_trusted_authors_env(monkeypatch):
+    monkeypatch.setenv("ARAGORA_TRUSTED_AUTHORS", "an0mium")
+    assert is_automation_generated(author="an0mium")
 
 
 def test_extract_file_references_finds_python_paths():

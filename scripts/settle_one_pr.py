@@ -987,9 +987,10 @@ def select_candidate_with_lazy_policy_metadata(
 
 def recursive_prompt(report: dict[str, Any]) -> str:
     pr_number = report.get("selected_pr")
+    repo = _repo_root()
     if pr_number:
         prompt = (
-            f"Start from live truth in /Users/armand/Development/aragora. Goal: continue one-PR "
+            f"Start from live truth in {repo}. Goal: continue one-PR "
             f"settlement for #{pr_number} only using scripts/settle_one_pr.py as the steward. "
             "Do not broad-drain, do not touch #7407/#7425/#7438/#7439/#7443 unless live owner "
             "checks release them, no branch protection, labels, outbox, harvest, admin merge, or "
@@ -1001,7 +1002,7 @@ def recursive_prompt(report: dict[str, Any]) -> str:
         )
     else:
         prompt = (
-            "Start from live truth in /Users/armand/Development/aragora. Goal: make incremental "
+            f"Start from live truth in {repo}. Goal: make incremental "
             "progress without broad queue drain by selecting exactly one Tier 0-2 non-human-risk PR "
             "or one steward-tooling repair. Run scripts/settle_one_pr.py --json first; if it reports "
             "no candidate, improve the steward's candidate diagnostics or target provider bootstrap "
