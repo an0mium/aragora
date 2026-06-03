@@ -809,6 +809,76 @@ def test_main_reports_github_health_failure_when_unavailable_with_local_candidat
     assert '"reason": "github_unavailable"' in out
 
 
+def test_main_reports_cached_queue_counts_when_github_health_fails(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    branch = BranchSnapshot(
+        branch="codex/ready",
+        upstream=None,
+        head_sha="abc1234",
+        committed_at=datetime.now(UTC),
+        subject="ready branch",
+        unique_commit_count=1,
+    )
+    cache_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text(
+        json.dumps(
+            {
+                "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                "github_repo": "synaptent/aragora",
+                "github_queue": {
+                    "available": False,
+                    "reason": "connectivity_failed",
+                    "open_codex_pr_count": 2,
+                    "unhealthy_open_pr_count": 1,
+                    "all_open_prs_unhealthy": False,
+                    "merge_state_counts": {"CLEAN": 1, "DIRTY": 1},
+                    "open_pr_heads": ["codex/open-a", "codex/open-b"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=True,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--json", "--summary-only"])
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["open_pr_count"] == 2
+    assert payload["queue_health"]["open_pr_lookup_source"] == "cache"
+    assert payload["queue_health"]["open_codex_pr_count"] == 2
+    assert payload["queue_health"]["unhealthy_open_pr_count"] == 1
+    assert payload["queue_health"]["merge_state_counts"] == {"CLEAN": 1, "DIRTY": 1}
+    assert payload["queue_health"]["unhealthy_open_prs_omitted"] == 1
+    assert payload["open_pr_lookup"]["status"] == "github_unavailable"
+    assert payload["decision_reason_counts"] == {"github_unavailable": 1}
+
+
 def test_publish_decisions_respects_open_pr_cap(monkeypatch: Any, tmp_path: Path) -> None:
     calls: list[str] = []
 

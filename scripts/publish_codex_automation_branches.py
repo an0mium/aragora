@@ -770,12 +770,12 @@ def _parse_cache_timestamp(value: Any) -> datetime | None:
     return parsed.astimezone(UTC)
 
 
-def _open_codex_prs_from_status_cache(
+def _github_status_cache_payload(
     repo_root: Path,
     repo: str,
     *,
     max_age_seconds: float = DEFAULT_GITHUB_STATUS_CACHE_MAX_AGE_SECONDS,
-) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
+) -> tuple[Mapping[str, Any] | None, dict[str, Any]]:
     cache_path = _automation_state_path(repo_root, None, DEFAULT_GITHUB_STATUS_CACHE)
     meta: dict[str, Any] = {
         "cache_path": str(cache_path),
@@ -811,6 +811,22 @@ def _open_codex_prs_from_status_cache(
     meta["cache_age_seconds"] = round(age_seconds, 3)
     if age_seconds > max_age_seconds:
         meta["cache_reason"] = "cache_stale"
+        return None, meta
+    return payload, meta
+
+
+def _open_codex_prs_from_status_cache(
+    repo_root: Path,
+    repo: str,
+    *,
+    max_age_seconds: float = DEFAULT_GITHUB_STATUS_CACHE_MAX_AGE_SECONDS,
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
+    payload, meta = _github_status_cache_payload(
+        repo_root,
+        repo,
+        max_age_seconds=max_age_seconds,
+    )
+    if payload is None:
         return None, meta
 
     github_queue = payload.get("github_queue")
@@ -856,6 +872,74 @@ def _open_codex_prs_from_status_cache(
         "merge_state_counts": github_queue.get("merge_state_counts"),
     }
     return prs, meta
+
+
+def _github_unavailable_queue_snapshot(
+    repo_root: Path,
+    repo: str,
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    payload, meta = _github_status_cache_payload(repo_root, repo)
+    if payload is None:
+        return None, meta
+
+    github_queue = payload.get("github_queue")
+    if not isinstance(github_queue, Mapping):
+        meta["cache_reason"] = "cache_missing_github_queue"
+        return None, meta
+
+    raw_heads = github_queue.get("open_pr_heads")
+    open_pr_heads = (
+        [
+            head
+            for head in raw_heads
+            if isinstance(head, str) and head.startswith(CODEX_BRANCH_PREFIX)
+        ]
+        if isinstance(raw_heads, list)
+        else []
+    )
+    raw_open_count = github_queue.get("open_codex_pr_count")
+    open_codex_pr_count = raw_open_count if isinstance(raw_open_count, int) else len(open_pr_heads)
+    open_pr_count = len(open_pr_heads) if open_pr_heads else open_codex_pr_count
+
+    raw_merge_state_counts = github_queue.get("merge_state_counts")
+    merge_state_counts = (
+        {
+            str(key): int(value)
+            for key, value in raw_merge_state_counts.items()
+            if isinstance(value, int)
+        }
+        if isinstance(raw_merge_state_counts, Mapping)
+        else {}
+    )
+    raw_unhealthy_count = github_queue.get("unhealthy_open_pr_count")
+    unhealthy_open_pr_count = raw_unhealthy_count if isinstance(raw_unhealthy_count, int) else 0
+    raw_all_unhealthy = github_queue.get("all_open_prs_unhealthy")
+    all_open_prs_unhealthy = raw_all_unhealthy if isinstance(raw_all_unhealthy, bool) else False
+    unhealthy_open_prs = (
+        [{"reasons": ["details_unavailable_from_github_status_cache"]}]
+        if unhealthy_open_pr_count
+        else []
+    )
+
+    meta["cache_usable"] = True
+    meta["cache_reason"] = "usable_for_github_unavailable_queue_snapshot"
+    meta["cache_queue_available"] = github_queue.get("available")
+    return {
+        "open_pr_count": open_pr_count,
+        "queue_health": {
+            "open_pr_lookup_source": "cache",
+            "open_codex_pr_count": open_codex_pr_count,
+            "unhealthy_open_pr_count": unhealthy_open_pr_count,
+            "merge_state_counts": merge_state_counts,
+            "all_open_prs_unhealthy": all_open_prs_unhealthy,
+            "unhealthy_open_prs": unhealthy_open_prs,
+        },
+        "open_pr_lookup": {
+            "source": "cache",
+            "status": "github_unavailable",
+            **meta,
+        },
+    }, meta
 
 
 def _open_codex_prs_with_cache_fallback(
@@ -1615,6 +1699,10 @@ def main(argv: list[str] | None = None) -> int:
 
     github_health = check_github_cli_health(repo_root)
     if not github_health.ready:
+        queue_snapshot, _queue_cache_meta = _github_unavailable_queue_snapshot(
+            repo_root,
+            args.github_repo,
+        )
         decisions = _mark_github_unavailable(
             select_publishable_branches(
                 hydrated_branches,
@@ -1641,7 +1729,7 @@ def main(argv: list[str] | None = None) -> int:
             "cutoff": cutoff.isoformat(),
             "receipt_dir": str(args.receipt_dir) if args.receipt_dir else None,
             "scanned_branch_count": len(hydrated_branches),
-            "open_pr_count": 0,
+            "open_pr_count": (queue_snapshot["open_pr_count"] if queue_snapshot is not None else 0),
             "max_open_prs": args.max_open_prs,
             "open_pr_lookup_skipped": True,
             "historical_pr_lookup_skipped": True,
@@ -1649,6 +1737,9 @@ def main(argv: list[str] | None = None) -> int:
             "github_health": github_health.to_dict(),
             "decisions": [asdict(decision) for decision in decisions],
         }
+        if queue_snapshot is not None:
+            unavailable_payload["queue_health"] = queue_snapshot["queue_health"]
+            unavailable_payload["open_pr_lookup"] = queue_snapshot["open_pr_lookup"]
         if args.json:
             if args.summary_only:
                 unavailable_payload = summary_only_payload(unavailable_payload)
