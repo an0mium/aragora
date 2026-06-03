@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from aragora.connectors.github import GitHubConnector
-from aragora.swarm.review_routing import generate_review_response
+from aragora.swarm.review_routing import ReviewRoutingError, generate_review_response
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher
 from aragora.worktree.fleet import resolve_repo_root
 
@@ -393,13 +393,31 @@ async def _run_review_pass(
     repo_root: Path,
 ) -> ReviewPass:
     prompt = _build_review_prompt(target=target, diff_text=diff_text)
-    routing = await generate_review_response(
-        prompt,
-        worker_model=worker_model,
-        preferred_review_model=reviewer,
-        repo_root=repo_root,
-        candidate_blocker=_review_candidate_blocker(reviewer),
-    )
+    try:
+        routing = await generate_review_response(
+            prompt,
+            worker_model=worker_model,
+            preferred_review_model=reviewer,
+            repo_root=repo_root,
+            candidate_blocker=_review_candidate_blocker(reviewer),
+        )
+    except ReviewRoutingError as exc:
+        return ReviewPass(
+            reviewer=reviewer,
+            reviewed_at=_now_iso(),
+            status="blocked_nonreviewable",
+            summary=exc.public_message,
+            findings=[
+                {
+                    "title": "Review routing failed",
+                    "body": exc.public_message,
+                    "priority": "P1",
+                    "category": exc.category,
+                }
+            ],
+            attempts=[dict(item) for item in exc.attempts if isinstance(item, dict)],
+            raw_response="",
+        )
     candidate = dict(routing.get("candidate") or {})
     attempts = [dict(item) for item in routing.get("attempts", []) if isinstance(item, dict)]
     blocked = routing.get("blocked")
