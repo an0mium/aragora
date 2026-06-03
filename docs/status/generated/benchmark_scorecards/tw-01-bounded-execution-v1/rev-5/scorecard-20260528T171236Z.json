@@ -38,7 +38,7 @@
     "rescue_no_deliverable": 1
   },
   "generated_at": "2026-05-28T17:12:36Z",
-  "metrics_file": "/Users/armand/Development/aragora/.aragora/overnight/boss_metrics.jsonl",
+  "metrics_file": "~/aragora/.aragora/overnight/boss_metrics.jsonl",
   "proxy_metrics": {
     "corpus": {
       "corpus_id": "tw-01-bounded-execution-v1",

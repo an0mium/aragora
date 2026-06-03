@@ -56,6 +56,15 @@ def test_scan_paths_detects_skips_and_binary(cp, tmp_path):
     assert found == {"scripts/tool.py": ["users_home"]}
 
 
+def test_always_skip_covers_pattern_holding_tests(cp):
+    # Tests that intentionally hold the patterns as fixtures must be skipped,
+    # not flagged (e.g. the installer regression guard from the runtime PR).
+    assert cp._is_skipped("tests/scripts/test_launchd_installers.py")
+    assert cp._is_skipped("tests/scripts/test_check_portability.py")
+    assert cp._is_skipped(".gt/config.json")
+    assert not cp._is_skipped("tests/scripts/test_something_else.py")
+
+
 def test_new_violations_filters_baseline(cp):
     found = {"a.py": ["users_home", "venv_python"], "b.py": ["legacy_slug"]}
     baseline = {"a.py": ["users_home"]}

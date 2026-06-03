@@ -19,9 +19,6 @@
     ".github/workflows/templates/aragora-review-template.yml": [
       "legacy_slug"
     ],
-    ".gt/config.json": [
-      "users_home"
-    ],
     ".pre-commit-config.yaml": [
       "legacy_slug",
       "venv_python"
@@ -84,7 +81,6 @@
       "venv_python"
     ],
     "benchmarks/bench_readiness/manifest.json": [
-      "users_home",
       "venv_python"
     ],
     "benchmarks/bench_readiness/write_manifest.py": [
@@ -222,57 +218,6 @@
     "docs/examples/pmf-tranche-prompt-pack.yaml": [
       "users_home"
     ],
-    "docs/experiments/phase0b_role_benchmark/results.csv": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/results.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b3-commit-early-20260318/p-claude_w-codex_r-claude.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b3-validation-980-20260318/p-claude_w-codex_r-claude.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b6-matrix-20260317/p-claude_w-claude_r-claude.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b6-matrix-20260317/p-claude_w-claude_r-codex.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b6-matrix-20260317/p-claude_w-codex_r-claude.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b6-matrix-20260317/p-claude_w-codex_r-codex.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b6-matrix-20260317/p-codex_w-claude_r-claude.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b6-matrix-20260317/p-codex_w-claude_r-codex.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b6-matrix-20260317/p-codex_w-codex_r-claude.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b6-matrix-20260317/p-codex_w-codex_r-codex.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b6-phase2-20260317/p-claude_w-claude_r-claude.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b6-phase2-20260317/p-claude_w-codex_r-claude.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-b6-phase2-20260317/p-codex_w-claude_r-claude.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-engine-hardening-rerun-20260318/p-claude_w-codex_r-claude.json": [
-      "users_home"
-    ],
-    "docs/experiments/phase0b_role_benchmark/runs/phase0b-ralph-clean-v5-20260318/p-claude_w-codex_r-claude.json": [
-      "users_home"
-    ],
     "docs/guides/ISSUE_TRIAGE.md": [
       "venv_python"
     ],
@@ -312,61 +257,7 @@
     "docs/plans/2026-04-28-p8-parity-gap-audit.md": [
       "users_home"
     ],
-    "docs/plans/dogfood_benchmark_2026-03-01.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_benchmark_2026-03-01_final.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_benchmark_2026-03-01_post_fix.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_benchmark_2026-03-01_rebalanced.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_benchmark_2026-03-01_synthesis_guided.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_benchmark_2026-03-03.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_benchmark_2026-03-06_pipeline_hardening.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_timeout3600_single_run_analysis.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_timeout_gate_report_2026-02-28.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_timeout_gate_report_2026-02-28_5runs_contractfile_timeout600.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_timeout_gate_report_2026-02-28_timeout1200_api_roster.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_timeout_gate_report_2026-02-28_timeout1200_api_roster_reclassified.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_timeout_gate_report_2026-02-28_timeout1800_quality.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_timeout_gate_report_2026-02-28_timeout360.json": [
-      "users_home"
-    ],
-    "docs/plans/dogfood_timeout_gate_report_2026-02-28_timeout720_strict.json": [
-      "users_home"
-    ],
     "docs/prompts/MASTER_FANOUT_PROMPT.md": [
-      "users_home"
-    ],
-    "docs/receipts/heterogeneity/beta-live-rerun-calibrated-20260501T0125Z.receipt.json": [
-      "users_home"
-    ],
-    "docs/receipts/observe-outcomes/2026-05-13-three-model-verification-dialog.jsonl": [
-      "users_home"
-    ],
-    "docs/receipts/paused-writer-remediation-20260517T013316Z.json": [
       "users_home"
     ],
     "docs/runbooks/RUNBOOK_ROOT_GUARD_HYGIENE.md": [
@@ -429,141 +320,6 @@
       "users_home"
     ],
     "docs/status/WORKTREE_VALUE_INVENTORY_STATUS.md": [
-      "users_home"
-    ],
-    "docs/status/aft_manifest_v0.2.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/latest.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-2/scorecard-20260415T221228Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-3/latest.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-3/scorecard-20260422T113332Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-4/latest.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-4/scorecard-20260430T160156Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-4/scorecard-20260515T163115Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-4/scorecard-20260517T143651Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-4/scorecard-20260521T025329Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-5/latest.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-5/scorecard-20260528T171236Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-5/scorecard-20260602T235625Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/latest.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-2/truth-20260415T221227Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/latest.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/truth-20260422T113322Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/truth-20260422T113330Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/latest.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260430T160155Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260514T194033Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260517T143631Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260517T143642Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260521T025253Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-4/truth-20260521T025316Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-5/latest.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-5/truth-20260528T171224Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-5/truth-20260602T235612Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/publication_freshness_probe/latest.json": [
-      "users_home"
-    ],
-    "docs/status/generated/publication_freshness_probe/probe-20260517T062448Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/publication_freshness_probe/probe-20260517T204842Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/rescue_productization/latest.json": [
-      "users_home"
-    ],
-    "docs/status/generated/rescue_productization/rescue-productization-20260414T194547Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/rescue_productization/rescue-productization-20260415T044304Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/rescue_productization/rescue-productization-20260415T230542Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/rescue_productization/rescue-productization-20260416T150931Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/rescue_productization/rescue-productization-20260417T124142Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/rescue_productization/rescue-productization-20260417T125728Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/rescue_productization/rescue-productization-20260519T035802Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/rescue_productization/rescue-productization-20260601T165159Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/worktree_value_inventory/latest.json": [
-      "users_home"
-    ],
-    "docs/status/generated/worktree_value_inventory/worktree-value-inventory-20260517T040800Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/worktree_value_inventory/worktree-value-inventory-20260518T051014Z.json": [
-      "users_home"
-    ],
-    "docs/status/generated/worktree_value_inventory/worktree-value-inventory-20260518T170310Z.json": [
-      "users_home"
-    ],
-    "docs/status/inventories/codex_worktree_value_20260518T174656Z_droid-56778BD7_include-pr-state.json": [
       "users_home"
     ],
     "examples/github-action/advanced.yml": [

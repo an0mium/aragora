@@ -50,6 +50,12 @@ ALWAYS_SKIP = (
     "scripts/check_portability.py",
     "scripts/portability_baseline.json",
     "tests/scripts/test_check_portability.py",
+    # Regression test that asserts installers never bake .venv/bin/python; it
+    # holds the pattern as fixture/assertion data, not a real interpreter capture.
+    "tests/scripts/test_launchd_installers.py",
+    # Machine-local gt store config (gitignored; its `workspace` is a per-clone
+    # absolute path). Untracked, so never a portability concern.
+    ".gt/config.json",
     "docs/audits/*",
     # Sanctioned runtime interpreter resolver: legitimately references
     # .venv/bin/python3 as an existence check (resolved at runtime, never baked).
