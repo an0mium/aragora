@@ -1702,8 +1702,8 @@ def test_main_preview_does_not_write_outbox_receipt(
     monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
     monkeypatch.setattr(
         mod,
-        "load_outbox_handoffs",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: [handoff],
+        "_load_outbox_handoffs_with_skip_reasons",
+        lambda repo_root, outbox_dir, receipt_dir: ([handoff], Counter()),
     )
     monkeypatch.setattr(
         mod,
@@ -1773,8 +1773,8 @@ def test_main_accepts_explicit_dry_run_alias(monkeypatch: Any, tmp_path: Path, c
     monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
     monkeypatch.setattr(
         mod,
-        "load_outbox_handoffs",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: [handoff],
+        "_load_outbox_handoffs_with_skip_reasons",
+        lambda repo_root, outbox_dir, receipt_dir: ([handoff], Counter()),
     )
     monkeypatch.setattr(
         mod,
@@ -1970,8 +1970,8 @@ def test_main_reports_handoff_context_when_github_unavailable(
     monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
     monkeypatch.setattr(
         mod,
-        "load_outbox_handoffs",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: [handoff],
+        "_load_outbox_handoffs_with_skip_reasons",
+        lambda repo_root, outbox_dir, receipt_dir: ([handoff], Counter()),
     )
     monkeypatch.setattr(
         mod,
@@ -2201,6 +2201,73 @@ def test_main_reports_stale_outbox_head_when_github_unavailable(
     assert payload["decisions"][0]["reason"] == "stale_outbox_head"
     assert payload["decisions"][0]["branch"] == "codex/example"
     assert payload["decisions"][0]["desired_head"] == old_head
+
+
+def test_main_reports_github_unavailable_when_only_remote_tracking_head_is_stale(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    repo, old_head, new_head = _repo_with_stale_outbox_head(tmp_path)
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/codex/example", old_head],
+        cwd=repo,
+        check=True,
+    )
+    outbox = repo / ".aragora" / "automation-outbox"
+    receipts = repo / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "open-pr-codex-example-current-local.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                repo="synaptent/aragora",
+                requested_action={
+                    "type": "open_or_update_pr",
+                    "branch": "codex/example",
+                    "base": "main",
+                    "desired_head_sha": new_head,
+                },
+                local_evidence={
+                    "branch": "codex/example",
+                    "base": "main",
+                    "head_sha": new_head,
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(repo_root),
+        ),
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(repo),
+            "--codex-home",
+            str(tmp_path / "codex-home"),
+            "--outbox-dir",
+            str(outbox),
+            "--receipt-dir",
+            str(receipts),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["outbox_handoff_count"] == 1
+    assert payload["decisions"][0]["reason"] == "github_unavailable"
+    assert payload["decisions"][0]["branch"] == "codex/example"
+    assert payload["decisions"][0]["desired_head"] == new_head
 
 
 def test_main_limits_github_unavailable_decision_preview(

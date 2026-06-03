@@ -724,7 +724,7 @@ def _branch_tip(repo_root: Path, branch: str | None) -> str | None:
     if not branch:
         return None
 
-    refs = [branch] if branch.startswith("origin/") else [f"origin/{branch}", branch]
+    refs = [branch] if branch.startswith("origin/") else [branch, f"origin/{branch}"]
     for ref in dict.fromkeys(refs):
         proc = _run(["git", "rev-parse", "--verify", ref], cwd=repo_root)
         if proc.returncode != 0:
