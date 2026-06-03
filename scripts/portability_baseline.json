@@ -179,9 +179,6 @@
     "docs/missions/H1_DISCIPLINED_MISSION_PROMPT.md": [
       "users_home"
     ],
-    "docs/openapi.json": [
-      "legacy_slug"
-    ],
     "docs/plans/2026-03-01-doc-consolidation-dogfood.md": [
       "users_home"
     ],
@@ -289,9 +286,6 @@
     "examples/typescript-web/index.html": [
       "legacy_slug"
     ],
-    "openapi.json": [
-      "legacy_slug"
-    ],
     "pyproject.toml": [
       "legacy_slug"
     ],
@@ -306,9 +300,6 @@
     ],
     "sdk/python/tests/test_scim.py": [
       "users_home"
-    ],
-    "sdk/typescript/package.json": [
-      "legacy_slug"
     ],
     "sdk/typescript/src/namespaces/__tests__/scim.test.ts": [
       "users_home"
