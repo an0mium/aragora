@@ -181,6 +181,174 @@ def cmd_review_pr(args: argparse.Namespace) -> int:
     return 1
 
 
+def add_review_local_parser(subparsers) -> None:
+    parser = subparsers.add_parser(
+        "review-local",
+        help="Run a non-OpenAI (Claude Max pool) review on a LOCAL diff, no GitHub required",
+        description=(
+            "Read a local diff (file or stdin), route it to a non-worker reviewer family "
+            "(default: claude via the Max profile pool), and write a review receipt. Works "
+            "fully offline so OpenAI/codex sessions can attach a heterogeneous, non-OpenAI "
+            "verdict even when GitHub is degraded."
+        ),
+    )
+    parser.add_argument(
+        "--diff",
+        default="-",
+        help="Path to a unified diff, or - to read from stdin (default: -)",
+    )
+    parser.add_argument(
+        "--spec",
+        default=None,
+        help="Optional path to spec/context text to include in the review prompt",
+    )
+    parser.add_argument("--title", default=None, help="Optional short title for the change")
+    parser.add_argument(
+        "--worker-model",
+        dest="worker_model",
+        default="codex",
+        help="Model family that produced the change (excluded from review; default: codex)",
+    )
+    parser.add_argument(
+        "--review-model",
+        "--reviewer",
+        dest="reviewer",
+        default="claude",
+        help="Preferred non-worker review family (default: claude)",
+    )
+    parser.add_argument(
+        "--artifact-dir",
+        default=None,
+        help="Directory for run artifacts (default: .aragora/review-local under repo root)",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Print the review result as JSON",
+    )
+    parser.set_defaults(func=cmd_review_local)
+
+
+def cmd_review_local(args: argparse.Namespace) -> int:
+    repo_root = resolve_repo_root(Path.cwd())
+    diff_source = str(getattr(args, "diff", "-") or "-")
+    if diff_source == "-":
+        diff_text = sys.stdin.read()
+    else:
+        diff_text = Path(diff_source).expanduser().read_text(encoding="utf-8")
+    if not diff_text.strip():
+        print("review-local: empty diff input", file=sys.stderr)
+        return 1
+    spec_text = ""
+    spec_path = getattr(args, "spec", None)
+    if spec_path:
+        spec_text = Path(spec_path).expanduser().read_text(encoding="utf-8")
+    result = asyncio.run(
+        run_review_local(
+            diff_text=diff_text,
+            repo_root=repo_root,
+            reviewer=str(getattr(args, "reviewer", "claude") or "claude"),
+            worker_model=str(getattr(args, "worker_model", "codex") or "codex"),
+            spec_text=spec_text,
+            title=str(getattr(args, "title", "") or ""),
+            artifact_root=Path(getattr(args, "artifact_dir", "")).resolve()
+            if getattr(args, "artifact_dir", None)
+            else None,
+        )
+    )
+    if getattr(args, "json_output", False):
+        print(json.dumps(result, indent=2))
+    else:
+        _print_local_review_summary(result)
+    final_status = str(result.get("final_status", "")).strip().lower()
+    if final_status == "passed":
+        return 0
+    if final_status == "changes_requested":
+        return 2
+    return 1
+
+
+async def run_review_local(
+    *,
+    diff_text: str,
+    repo_root: Path,
+    reviewer: str = "claude",
+    worker_model: str = "codex",
+    spec_text: str = "",
+    title: str = "",
+    artifact_root: Path | None = None,
+) -> dict[str, Any]:
+    prompt = _build_local_review_prompt(diff_text=diff_text, spec_text=spec_text, title=title)
+    try:
+        routing = await generate_review_response(
+            prompt,
+            worker_model=worker_model,
+            preferred_review_model=reviewer,
+            repo_root=repo_root,
+            candidate_blocker=_review_candidate_blocker(reviewer),
+        )
+    except ReviewRoutingError as exc:
+        review = _review_pass_from_routing_error(reviewer, exc)
+    else:
+        review = _review_pass_from_routing(reviewer, routing)
+
+    run_dir = _local_artifact_run_dir(repo_root, artifact_root=artifact_root)
+    payload: dict[str, Any] = {
+        "kind": "review_local",
+        "generated_at": _now_iso(),
+        "worker_model": worker_model,
+        "reviewer": reviewer,
+        "final_status": review.status,
+        "review": asdict(review),
+    }
+    _write_text(run_dir / "input.diff", diff_text)
+    _write_json(run_dir / "review.json", payload)
+    payload["artifact_dir"] = str(run_dir)
+    return payload
+
+
+def _build_local_review_prompt(*, diff_text: str, spec_text: str = "", title: str = "") -> str:
+    header = title.strip() or "Local change under review"
+    spec_block = f"\nContext / spec:\n{spec_text.strip()}\n" if spec_text.strip() else ""
+    return (
+        "You are an independent reviewer providing a NON-OpenAI second opinion on a LOCAL change. "
+        "There is no GitHub context; review only the provided diff (and context if given).\n\n"
+        "Respond with strict JSON only using this schema:\n"
+        '{"status":"passed|changes_requested|blocked_nonreviewable",'
+        '"summary":"short summary",'
+        '"findings":[{"title":"...", "body":"...", "file":"optional/path", "priority":"P0|P1|P2|P3"}]}\n\n'
+        "Focus on bugs, regressions, security issues, missing tests, and truthfulness gaps. "
+        "Avoid style-only nits.\n\n"
+        f"Change: {header}\n"
+        f"{spec_block}\n"
+        f"--- DIFF START ---\n{diff_text}\n--- DIFF END ---"
+    )
+
+
+def _local_artifact_run_dir(repo_root: Path, *, artifact_root: Path | None) -> Path:
+    root = artifact_root or (repo_root / ".aragora" / "review-local")
+    run_dir = root / _timestamp_slug()
+    run_dir.mkdir(parents=True, exist_ok=True)
+    return run_dir
+
+
+def _print_local_review_summary(result: dict[str, Any]) -> None:
+    review = result.get("review", {}) or {}
+    print(f"review-local: {result.get('final_status', 'unknown')}")
+    candidate = review.get("candidate") or {}
+    if candidate:
+        print(f"  reviewer: {candidate.get('label', result.get('reviewer'))}")
+    summary = str(review.get("summary", "")).strip()
+    if summary:
+        print(f"  summary: {summary}")
+    for finding in review.get("findings", []) or []:
+        print(f"  - [{finding.get('priority', '')}] {finding.get('title', '')}")
+    artifact_dir = str(result.get("artifact_dir", "")).strip()
+    if artifact_dir:
+        print(f"  artifact: {artifact_dir}")
+
+
 async def run_review_pr_loop(
     *,
     pr_ref: str,
@@ -483,22 +651,30 @@ async def _run_review_pass(
             candidate_blocker=_review_candidate_blocker(reviewer),
         )
     except ReviewRoutingError as exc:
-        return ReviewPass(
-            reviewer=reviewer,
-            reviewed_at=_now_iso(),
-            status="blocked_nonreviewable",
-            summary=exc.public_message,
-            findings=[
-                {
-                    "title": "Review routing failed",
-                    "body": exc.public_message,
-                    "priority": "P1",
-                    "category": exc.category,
-                }
-            ],
-            attempts=[dict(item) for item in exc.attempts if isinstance(item, dict)],
-            raw_response="",
-        )
+        return _review_pass_from_routing_error(reviewer, exc)
+    return _review_pass_from_routing(reviewer, routing)
+
+
+def _review_pass_from_routing_error(reviewer: str, exc: ReviewRoutingError) -> ReviewPass:
+    return ReviewPass(
+        reviewer=reviewer,
+        reviewed_at=_now_iso(),
+        status="blocked_nonreviewable",
+        summary=exc.public_message,
+        findings=[
+            {
+                "title": "Review routing failed",
+                "body": exc.public_message,
+                "priority": "P1",
+                "category": exc.category,
+            }
+        ],
+        attempts=[dict(item) for item in exc.attempts if isinstance(item, dict)],
+        raw_response="",
+    )
+
+
+def _review_pass_from_routing(reviewer: str, routing: dict[str, Any]) -> ReviewPass:
     candidate = dict(routing.get("candidate") or {})
     attempts = [dict(item) for item in routing.get("attempts", []) if isinstance(item, dict)]
     blocked = routing.get("blocked")

@@ -62,6 +62,104 @@ def test_review_pr_parser_accepts_no_publish_flag() -> None:
     assert args.publish_review is False
 
 
+def test_review_local_parser_accepts_flags() -> None:
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "review-local",
+            "--diff",
+            "x.diff",
+            "--reviewer",
+            "claude",
+            "--worker-model",
+            "codex",
+            "--json",
+        ]
+    )
+    assert args.command == "review-local"
+    assert args.diff == "x.diff"
+    assert args.reviewer == "claude"
+    assert args.worker_model == "codex"
+    assert args.json_output is True
+
+
+@pytest.mark.asyncio
+async def test_run_review_local_writes_receipt_without_github(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _no_github(*_: object, **__: object) -> None:
+        raise AssertionError("review-local must not touch GitHub")
+
+    monkeypatch.setattr(review_pr, "_fetch_pr_target", _no_github)
+    monkeypatch.setattr(review_pr, "_fetch_pr_diff", _no_github)
+
+    async def _fake_generate(*_: object, **__: object) -> dict[str, object]:
+        return {
+            "candidate": {"provider": "claude", "label": "claude:max-02"},
+            "response": '{"status":"passed","summary":"LGTM","findings":[]}',
+            "attempts": [{"candidate": "claude:max-02", "stage": "generate", "detail": "ok"}],
+        }
+
+    monkeypatch.setattr(review_pr, "generate_review_response", _fake_generate)
+
+    result = await review_pr.run_review_local(
+        diff_text="diff --git a/foo b/foo\n+ok\n",
+        repo_root=tmp_path,
+        reviewer="claude",
+        worker_model="codex",
+    )
+
+    assert result["final_status"] == "passed"
+    assert result["review"]["candidate"] == {"provider": "claude", "label": "claude:max-02"}
+    run_dir = Path(result["artifact_dir"])
+    assert run_dir.is_relative_to(tmp_path / ".aragora" / "review-local")
+    assert (run_dir / "input.diff").read_text().startswith("diff --git")
+    persisted = json.loads((run_dir / "review.json").read_text())
+    assert persisted["kind"] == "review_local"
+    assert persisted["final_status"] == "passed"
+    assert persisted["worker_model"] == "codex"
+
+
+@pytest.mark.asyncio
+async def test_run_review_local_records_routing_failure_actionable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _routing_failure(*_: object, **__: object) -> dict[str, object]:
+        raise review_pr.ReviewRoutingError(
+            [
+                {
+                    "candidate": "claude:max-01",
+                    "stage": "preflight",
+                    "kind": "claude_unauthenticated",
+                    "detail": "expired",
+                }
+            ],
+            category="claude_pool_unauthenticated",
+            public_message=(
+                "No authenticated Claude Max profiles. "
+                "Run scripts/claude_profiles_bootstrap.sh login."
+            ),
+        )
+
+    monkeypatch.setattr(review_pr, "generate_review_response", _routing_failure)
+
+    result = await review_pr.run_review_local(
+        diff_text="diff --git a/foo b/foo\n+ok\n",
+        repo_root=tmp_path,
+        reviewer="claude",
+        worker_model="codex",
+    )
+
+    assert result["final_status"] == "blocked_nonreviewable"
+    review = result["review"]
+    assert review["summary"].startswith("No authenticated Claude Max profiles")
+    assert review["findings"][0]["category"] == "claude_pool_unauthenticated"
+    assert review["findings"][0]["priority"] == "P1"
+    assert (Path(result["artifact_dir"]) / "review.json").exists()
+
+
 def test_normalize_optional_agent_rejects_placeholder_none() -> None:
     assert review_pr._normalize_optional_agent(None) is None
     assert review_pr._normalize_optional_agent("") is None
