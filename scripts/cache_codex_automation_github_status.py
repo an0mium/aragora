@@ -30,6 +30,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.github_cli_health import check_github_cli_health
 from scripts.publish_automation_handoffs import _open_boss_ready_count
 from scripts.publish_codex_automation_branches import (
+    CODEX_BRANCH_PREFIX,
     _open_codex_pr_is_unhealthy,
     _open_codex_prs,
 )
@@ -60,6 +61,13 @@ TERMINAL_RECEIPT_STATUS_PREFIXES = (
     "superseded_by_",
 )
 DUPLICATE_OUTBOX_EXAMPLE_LIMIT = 20
+TRANSIENT_OPEN_PR_QUERY_ERROR_MARKERS = (
+    "504",
+    "gateway timeout",
+    "couldn't respond to your request in time",
+    "timed out",
+    "timeout",
+)
 LOCAL_QUEUE_DETAIL_KEYS = (
     "nonterminal_receipts",
     "outbox_duplicate_idempotency_keys",
@@ -542,6 +550,45 @@ def _github_queue_unavailable(*, reason: str, error: str | None = None) -> dict[
     return payload
 
 
+def _is_transient_open_pr_query_error(error: str) -> bool:
+    normalized = error.casefold()
+    return any(marker in normalized for marker in TRANSIENT_OPEN_PR_QUERY_ERROR_MARKERS)
+
+
+def _open_codex_prs_lightweight(repo_root: Path, repo: str) -> list[dict[str, Any]]:
+    """List open Codex PRs without check rollups for cache-refresh degraded mode."""
+
+    proc = subprocess.run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--limit",
+            "200",
+            "--json",
+            "number,title,headRefName,isDraft,mergeStateStatus,reviewDecision",
+        ],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.strip() or "failed to list open PRs")
+    payload = json.loads(proc.stdout or "[]")
+    return [
+        item
+        for item in payload
+        if isinstance(item, dict)
+        and isinstance(item.get("headRefName"), str)
+        and item["headRefName"].startswith(CODEX_BRANCH_PREFIX)
+    ]
+
+
 def build_status(
     *,
     repo_root: Path,
@@ -573,8 +620,31 @@ def build_status(
         payload["github_queue"] = _github_queue_unavailable(reason=health.mode)
         return payload
 
+    degraded = False
+    degraded_reason: str | None = None
     try:
         open_prs = _open_codex_prs(repo_root, github_repo)
+    except RuntimeError as exc:
+        heavy_error = str(exc)
+        if not _is_transient_open_pr_query_error(heavy_error):
+            payload["github_queue"] = _github_queue_unavailable(
+                reason="remote_query_failed",
+                error=heavy_error,
+            )
+            return payload
+        try:
+            open_prs = _open_codex_prs_lightweight(repo_root, github_repo)
+        except RuntimeError as fallback_exc:
+            payload["github_queue"] = _github_queue_unavailable(
+                reason="remote_query_failed",
+                error=str(fallback_exc),
+            )
+            payload["github_queue"]["fallback_from_error"] = heavy_error
+            return payload
+        degraded = True
+        degraded_reason = f"heavy_open_pr_query_failed:{heavy_error}"
+
+    try:
         open_issue_count = _open_boss_ready_count(repo_root, github_repo, list(labels))
     except RuntimeError as exc:
         payload["github_queue"] = _github_queue_unavailable(
@@ -583,12 +653,17 @@ def build_status(
         )
         return payload
 
-    unhealthy_open_pr_count = sum(1 for item in open_prs if _open_codex_pr_is_unhealthy(item))
+    unhealthy_open_pr_count = (
+        None if degraded else sum(1 for item in open_prs if _open_codex_pr_is_unhealthy(item))
+    )
     payload["github_queue"] = {
         "available": True,
+        "degraded": degraded,
         "open_codex_pr_count": len(open_prs),
         "unhealthy_open_pr_count": unhealthy_open_pr_count,
-        "all_open_prs_unhealthy": bool(open_prs) and unhealthy_open_pr_count == len(open_prs),
+        "all_open_prs_unhealthy": False
+        if degraded
+        else bool(open_prs) and unhealthy_open_pr_count == len(open_prs),
         "merge_state_counts": _merge_state_counts(open_prs),
         "open_issue_count": open_issue_count,
         "labels": list(labels),
@@ -600,6 +675,11 @@ def build_status(
             item.get("headRefName") for item in open_prs if isinstance(item.get("headRefName"), str)
         ],
     }
+    if degraded_reason:
+        payload["github_queue"]["degraded_reason"] = degraded_reason
+        payload["github_queue"]["unhealthy_open_pr_count_degraded_reason"] = (
+            "statusCheckRollup unavailable from lightweight fallback"
+        )
     return payload
 
 

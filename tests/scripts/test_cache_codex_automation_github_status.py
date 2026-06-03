@@ -53,7 +53,7 @@ def test_build_status_uses_local_queue_when_github_unavailable(
     assert payload["local_queue"]["unreceipted_outbox_count"] == 1
 
 
-def test_build_status_keeps_local_queue_when_remote_query_fails(
+def test_build_status_uses_lightweight_fallback_when_remote_query_times_out(
     monkeypatch: Any,
     tmp_path: Path,
 ) -> None:
@@ -80,6 +80,72 @@ def test_build_status_keeps_local_queue_when_remote_query_fails(
         "_open_codex_prs",
         lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("HTTP 504")),
     )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_lightweight",
+        lambda repo_root, repo: [
+            {
+                "number": 123,
+                "title": "repair cache",
+                "headRefName": "codex/cache-fallback",
+                "isDraft": False,
+                "mergeStateStatus": "BLOCKED",
+                "reviewDecision": "REVIEW_REQUIRED",
+            }
+        ],
+    )
+    monkeypatch.setattr(mod, "_open_boss_ready_count", lambda repo_root, repo, labels: 3)
+
+    payload = mod.build_status(
+        repo_root=tmp_path,
+        github_repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_prs=12,
+        max_open_issues=16,
+    )
+
+    assert payload["github_health"]["ready"] is True
+    queue = payload["github_queue"]
+    assert queue["available"] is True
+    assert queue["degraded"] is True
+    assert queue["degraded_reason"] == "heavy_open_pr_query_failed:HTTP 504"
+    assert queue["open_codex_pr_count"] == 1
+    assert queue["merge_state_counts"] == {"BLOCKED": 1}
+    assert queue["open_issue_count"] == 3
+    assert queue["open_pr_heads"] == ["codex/cache-fallback"]
+    assert queue["unhealthy_open_pr_count"] is None
+    assert queue["all_open_prs_unhealthy"] is False
+    assert payload["local_queue"]["outbox_count"] == 1
+    assert payload["local_queue"]["unreceipted_outbox_count"] == 1
+
+
+def test_build_status_still_fails_closed_for_non_timeout_remote_query_errors(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "open-pr-example.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(repo_root),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("bad credentials")),
+    )
 
     payload = mod.build_status(
         repo_root=tmp_path,
@@ -93,7 +159,7 @@ def test_build_status_keeps_local_queue_when_remote_query_fails(
     assert payload["github_queue"] == {
         "available": False,
         "reason": "remote_query_failed",
-        "error": "HTTP 504",
+        "error": "bad credentials",
     }
     assert payload["local_queue"]["outbox_count"] == 1
     assert payload["local_queue"]["unreceipted_outbox_count"] == 1
@@ -853,6 +919,7 @@ def test_build_status_records_remote_pressure_when_github_available(
 
     queue = payload["github_queue"]
     assert queue["available"] is True
+    assert queue["degraded"] is False
     assert queue["open_codex_pr_count"] == 2
     assert queue["unhealthy_open_pr_count"] == 1
     assert queue["all_open_prs_unhealthy"] is False
