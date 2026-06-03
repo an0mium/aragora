@@ -187,9 +187,7 @@ class TestGenealogyRows:
         assert d["chain_checksum"] == "deadbeef"
         assert len(d["entries"]) == 1
 
-    def test_genealogy_disabled_returns_empty_list(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_genealogy_disabled_returns_empty_list(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ARAGORA_GENEALOGY_ENABLED", raising=False)
         store, uid = self._store_with_entries()
         r = build_truth_map(
@@ -198,9 +196,7 @@ class TestGenealogyRows:
         )
         assert r.genealogies == []
 
-    def test_genealogy_enabled_populates_rows(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_genealogy_enabled_populates_rows(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("ARAGORA_GENEALOGY_ENABLED", "1")
         store, uid = self._store_with_entries()
         r = build_truth_map(
@@ -214,18 +210,14 @@ class TestGenealogyRows:
         assert len(row.chain_checksum) == 64  # SHA-256 hex
         assert len(row.entries) == 2
 
-    def test_proof_first_shift_unit_id_accepted(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_proof_first_shift_unit_id_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """The real DIC-24 target code unit ID round-trips through the report."""
         monkeypatch.setenv("ARAGORA_GENEALOGY_ENABLED", "1")
         store, uid = self._store_with_entries()
         r = build_truth_map(claim_results=[], genealogy_inputs=[(uid, store)])  # type: ignore[list-item]
         assert r.genealogies[0].code_unit_id == uid
 
-    def test_to_dict_includes_genealogies_key(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_to_dict_includes_genealogies_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("ARAGORA_GENEALOGY_ENABLED", "1")
         store, uid = self._store_with_entries()
         d = build_truth_map(
@@ -236,9 +228,7 @@ class TestGenealogyRows:
         assert len(d["genealogies"]) == 1
         assert d["genealogies"][0]["entry_count"] == 2
 
-    def test_genealogy_no_inputs_returns_empty_list(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_genealogy_no_inputs_returns_empty_list(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("ARAGORA_GENEALOGY_ENABLED", "1")
         r = build_truth_map(claim_results=[])
         assert r.genealogies == []
