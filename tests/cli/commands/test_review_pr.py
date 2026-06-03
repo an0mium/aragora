@@ -660,3 +660,75 @@ def test_cleanup_worktree_logs_parent_cleanup_failure(
     debug.assert_called_once()
     assert "review-pr parent cleanup skipped for" in debug.call_args.args[0]
     assert debug.call_args.args[1] == worktree_path.parent
+
+
+def test_is_generated_diff_path_flags_generated_and_lock_files() -> None:
+    assert review_pr._is_generated_diff_path(".mypy-baseline")
+    assert review_pr._is_generated_diff_path("sdk/python/aragora/generated_types.py")
+    assert review_pr._is_generated_diff_path("frontend/package-lock.json")
+    assert review_pr._is_generated_diff_path("uv.lock")
+    assert review_pr._is_generated_diff_path("tests/__snapshots__/foo.snap")
+    # Real source must NOT be flagged.
+    assert not review_pr._is_generated_diff_path("aragora/cli/commands/review_pr.py")
+    assert not review_pr._is_generated_diff_path("scripts/run_typecheck_gate.py")
+
+
+def test_strip_generated_file_diffs_drops_only_generated_sections() -> None:
+    diff = (
+        "diff --git a/.mypy-baseline b/.mypy-baseline\n"
+        "--- a/.mypy-baseline\n+++ b/.mypy-baseline\n@@ -1 +1 @@\n-old\n+new\n"
+        "diff --git a/aragora/foo.py b/aragora/foo.py\n"
+        "--- a/aragora/foo.py\n+++ b/aragora/foo.py\n@@ -1 +1 @@\n-x = 1\n+x = 2\n"
+    )
+    filtered, dropped = review_pr._strip_generated_file_diffs(diff)
+    assert dropped == [".mypy-baseline"]
+    assert "aragora/foo.py" in filtered
+    assert "x = 2" in filtered
+    assert ".mypy-baseline" not in filtered
+
+
+def _fake_gh_diff(raw: str):
+    return lambda *a, **k: subprocess.CompletedProcess(
+        args=["gh"], returncode=0, stdout=raw, stderr=""
+    )
+
+
+def test_fetch_pr_diff_preserves_code_when_generated_file_is_huge(
+    monkeypatch: pytest.MonkeyPatch, sample_target: review_pr.PullRequestTarget
+) -> None:
+    # Regression: a generated file larger than MAX_DIFF_CHARS must not crowd out
+    # the human-authored change (previously caused blocked_nonreviewable).
+    huge_baseline = "x" * (review_pr.MAX_DIFF_CHARS * 2)
+    raw = (
+        "diff --git a/.mypy-baseline b/.mypy-baseline\n"
+        "--- a/.mypy-baseline\n+++ b/.mypy-baseline\n"
+        f"@@ -1 +1 @@\n-{huge_baseline}\n+{huge_baseline}\n"
+        "diff --git a/aragora/foo.py b/aragora/foo.py\n"
+        "--- a/aragora/foo.py\n+++ b/aragora/foo.py\n@@ -1 +1 @@\n-x = 1\n+x = 2\n"
+    )
+    monkeypatch.setattr(review_pr, "_run_command", _fake_gh_diff(raw))
+    result = review_pr._fetch_pr_diff(sample_target)
+    assert "aragora/foo.py" in result
+    assert "x = 2" in result
+    assert "omitted 1 generated/lock file" in result
+    assert huge_baseline not in result  # the giant generated content is gone
+
+
+def test_fetch_pr_diff_all_generated_returns_informative_note(
+    monkeypatch: pytest.MonkeyPatch, sample_target: review_pr.PullRequestTarget
+) -> None:
+    raw = (
+        "diff --git a/.mypy-baseline b/.mypy-baseline\n"
+        "--- a/.mypy-baseline\n+++ b/.mypy-baseline\n@@ -1 +1 @@\n-a\n+b\n"
+    )
+    monkeypatch.setattr(review_pr, "_run_command", _fake_gh_diff(raw))
+    result = review_pr._fetch_pr_diff(sample_target)
+    assert "no human-authored source changes to review" in result
+
+
+def test_fetch_pr_diff_raises_on_truly_empty(
+    monkeypatch: pytest.MonkeyPatch, sample_target: review_pr.PullRequestTarget
+) -> None:
+    monkeypatch.setattr(review_pr, "_run_command", _fake_gh_diff("   \n"))
+    with pytest.raises(RuntimeError, match="no diff to review"):
+        review_pr._fetch_pr_diff(sample_target)

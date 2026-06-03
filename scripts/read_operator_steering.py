@@ -261,6 +261,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             steering_inbox_root=args.steering_inbox_root,
         )
     except ValueError as exc:
+        if args.json and not args.to:
+            out = {
+                "ok": False,
+                "error": str(exc),
+                "owner_session": None,
+                "resolved_via": None,
+                "lane_id": args.lane_id,
+                "pr_number": args.pr,
+                "branch": args.branch,
+                "steering_inbox_root": str(args.steering_inbox_root),
+                "registry_path": str(args.registry_path),
+                "message_count": 0,
+                "receipt_count": 0,
+                "messages": [],
+                "read_receipt_paths": [],
+                "no_receipt": bool(args.no_receipt),
+            }
+            print(json.dumps(out, indent=2, sort_keys=True))
+            return 2
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 

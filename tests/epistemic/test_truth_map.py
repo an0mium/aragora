@@ -210,6 +210,19 @@ class TestGenealogyRows:
         assert len(row.chain_checksum) == 64  # SHA-256 hex
         assert len(row.entries) == 2
 
+    def test_genealogy_enabled_surfaces_store_errors(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class BrokenStore:
+            def get_entries(self, code_unit_id: str) -> list[object]:
+                raise RuntimeError(f"broken lineage for {code_unit_id}")
+
+        monkeypatch.setenv("ARAGORA_GENEALOGY_ENABLED", "1")
+
+        with pytest.raises(RuntimeError, match="broken lineage"):
+            build_truth_map(
+                claim_results=[],
+                genealogy_inputs=[("unit.a", BrokenStore())],  # type: ignore[list-item]
+            )
+
     def test_proof_first_shift_unit_id_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """The real DIC-24 target code unit ID round-trips through the report."""
         monkeypatch.setenv("ARAGORA_GENEALOGY_ENABLED", "1")

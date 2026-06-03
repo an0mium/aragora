@@ -190,6 +190,45 @@ class TestModeInRunDebate:
         for agent in created_agents:
             assert agent.system_prompt == original_prompt
 
+    @pytest.mark.asyncio
+    async def test_single_agent_none_consensus_sets_direct_answer_protocol(self):
+        """One-agent ask runs with direct-answer prompt semantics."""
+        from aragora.cli.commands.debate import run_debate
+
+        def mock_create_agent(model_type, name, role, model=None, **kwargs):
+            agent = MagicMock()
+            agent.name = name
+            agent.role = role
+            agent.system_prompt = ""
+            agent.provider = model_type
+            return agent
+
+        mock_result = MagicMock()
+        mock_result.consensus_reached = True
+        mock_result.confidence = 0.9
+        mock_result.messages = []
+
+        with (
+            patch("aragora.cli.commands.debate.create_agent", side_effect=mock_create_agent),
+            patch("aragora.cli.commands.debate.CritiqueStore"),
+            patch("aragora.cli.commands.debate.Arena") as MockArena,
+        ):
+            MockArena.return_value.run = AsyncMock(return_value=mock_result)
+
+            await run_debate(
+                task="What is 2+2?",
+                agents_str="grok",
+                rounds=1,
+                consensus="none",
+                mode=None,
+                learn=False,
+                enable_audience=False,
+                offline=True,
+            )
+
+        protocol = MockArena.call_args.args[2]
+        assert protocol.single_agent_direct_answer is True
+
 
 class TestModeInDecide:
     """Test mode injection into run_decide."""
