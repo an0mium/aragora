@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from scripts.benchmark_publication_run_followup import classify_publication_runs
+from scripts.benchmark_publication_run_followup import (
+    _branch_heads_for_runs,
+    classify_publication_runs,
+)
 
 
 def test_classify_publication_runs_flags_stale_pending_main_run() -> None:
@@ -85,7 +88,7 @@ def test_classify_publication_runs_keeps_recent_or_current_runs() -> None:
     assert actions == []
 
 
-def test_classify_publication_runs_flags_unknown_branch_after_stale_window() -> None:
+def test_classify_publication_runs_reports_unknown_branch_after_stale_window() -> None:
     runs = [
         {
             "id": 42,
@@ -105,6 +108,54 @@ def test_classify_publication_runs_flags_unknown_branch_after_stale_window() -> 
         stale_after_minutes=30,
     )
 
+    assert actions[0]["action"] == "report"
+    assert actions[0]["reason"] == "unknown-branch-head"
+    assert actions[0]["run_id"] == 42
+
+
+def test_classify_publication_runs_can_explicitly_cancel_unknown_branch() -> None:
+    runs = [
+        {
+            "id": 42,
+            "status": "queued",
+            "event": "schedule",
+            "head_branch": "retired-branch",
+            "head_sha": "orphaned",
+            "created_at": "2026-06-02T20:00:00Z",
+            "updated_at": "2026-06-02T20:01:00Z",
+        }
+    ]
+
+    actions = classify_publication_runs(
+        runs,
+        branch_heads={},
+        now="2026-06-03T00:54:00Z",
+        stale_after_minutes=30,
+        allow_unknown_branch_cancel=True,
+    )
+
     assert actions[0]["action"] == "cancel"
     assert actions[0]["reason"] == "unknown-branch-head"
     assert actions[0]["run_id"] == 42
+
+
+def test_branch_heads_for_runs_url_encodes_branch_names() -> None:
+    class FakeClient:
+        repo = "synaptent/aragora"
+
+        def __init__(self) -> None:
+            self.paths: list[str] = []
+
+        def get(self, path: str) -> dict[str, object]:
+            self.paths.append(path)
+            return {"commit": {"sha": "head-sha"}}
+
+    client = FakeClient()
+
+    heads = _branch_heads_for_runs(
+        client,  # type: ignore[arg-type]
+        [{"head_branch": "codex/example/slash"}],
+    )
+
+    assert heads == {"codex/example/slash": "head-sha"}
+    assert client.paths == ["/repos/synaptent/aragora/branches/codex%2Fexample%2Fslash"]

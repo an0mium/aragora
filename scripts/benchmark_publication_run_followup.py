@@ -16,6 +16,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -79,8 +80,15 @@ def classify_publication_runs(
     now: str | datetime | None = None,
     stale_after_minutes: int = 30,
     events: set[str] | None = None,
+    allow_unknown_branch_cancel: bool = False,
 ) -> list[dict[str, Any]]:
-    """Return stale publication runs that are safe candidates to cancel."""
+    """Return stale-window publication run actions.
+
+    Missing branch-head truth is report-only by default because it is ambiguous:
+    the branch may be gone, or GitHub may have failed to answer the branch
+    lookup. Apply mode should only cancel when live branch truth proves staleness
+    unless the operator explicitly opts into unknown-branch cancellation.
+    """
     now_dt = _parse_timestamp(now) if now is not None else datetime.now(UTC)
     if now_dt is None:
         now_dt = datetime.now(UTC)
@@ -104,8 +112,10 @@ def classify_publication_runs(
         branch = str(run["head_branch"])
         current_sha = branch_heads.get(branch)
         reason = ""
+        action = "cancel"
         if not current_sha:
             reason = "unknown-branch-head"
+            action = "cancel" if allow_unknown_branch_cancel else "report"
         elif current_sha != run["head_sha"]:
             reason = "stale-branch-sha"
         else:
@@ -114,7 +124,7 @@ def classify_publication_runs(
         actions.append(
             {
                 "run_id": run["run_id"],
-                "action": "cancel",
+                "action": action,
                 "reason": reason,
                 "event": run["event"],
                 "status": run["status"],
@@ -151,8 +161,9 @@ def _branch_heads_for_runs(client: GitHubClient, runs: list[dict[str, Any]]) -> 
     }
     heads: dict[str, str] = {}
     for branch in sorted(branches):
+        encoded_branch = quote(branch, safe="")
         try:
-            data = client.get(f"/repos/{client.repo}/branches/{branch}")
+            data = client.get(f"/repos/{client.repo}/branches/{encoded_branch}")
         except GitHubApiError:
             continue
         commit = data.get("commit") if isinstance(data, dict) else {}
@@ -186,6 +197,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Cancel classified stale runs. Omit for dry-run report only.",
     )
+    parser.add_argument(
+        "--allow-unknown-branch-cancel",
+        action="store_true",
+        help=(
+            "Allow apply mode to cancel stale-window runs whose live branch head "
+            "could not be resolved. By default these are report-only."
+        ),
+    )
     parser.add_argument("--json", action="store_true")
     return parser.parse_args(argv)
 
@@ -212,11 +231,14 @@ def main(argv: list[str] | None = None) -> int:
             branch_heads=branch_heads,
             stale_after_minutes=int(args.stale_after_minutes),
             events=events,
+            allow_unknown_branch_cancel=bool(args.allow_unknown_branch_cancel),
         )
         cancelled: list[int] = []
         failed: list[dict[str, Any]] = []
         if args.apply:
             for action in actions:
+                if action.get("action") != "cancel":
+                    continue
                 ok, message = client.cancel_workflow_run(int(action["run_id"]))
                 if ok:
                     cancelled.append(int(action["run_id"]))
@@ -230,6 +252,10 @@ def main(argv: list[str] | None = None) -> int:
             "branch_heads": branch_heads,
             "stale_actions": actions,
             "stale_action_count": len(actions),
+            "cancel_eligible_count": sum(
+                1 for action in actions if action.get("action") == "cancel"
+            ),
+            "report_only_count": sum(1 for action in actions if action.get("action") != "cancel"),
             "cancelled": cancelled,
             "failed": failed,
         }
@@ -242,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             for action in actions:
                 print(
-                    f"- cancel run {action['run_id']} ({action['reason']}; "
+                    f"- {action['action']} run {action['run_id']} ({action['reason']}; "
                     f"{action['head_branch']} {action['head_sha']} != "
                     f"{action['current_branch_sha'] or 'unknown'})"
                 )
