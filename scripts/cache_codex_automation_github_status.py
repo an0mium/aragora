@@ -742,6 +742,44 @@ def preserve_cached_github_queue(path: Path, payload: dict[str, Any]) -> dict[st
     return preserved
 
 
+def _compact_summary(payload: Mapping[str, Any]) -> str:
+    github_health = payload.get("github_health")
+    github_queue = payload.get("github_queue")
+    local_queue = payload.get("local_queue")
+
+    github_label = "unknown"
+    if isinstance(github_queue, Mapping) and github_queue.get("available") is True:
+        github_label = "available"
+    elif isinstance(github_queue, Mapping):
+        reason = github_queue.get("reason")
+        if isinstance(reason, str) and reason:
+            github_label = reason
+    if github_label == "unknown" and isinstance(github_health, Mapping):
+        mode = github_health.get("mode")
+        if isinstance(mode, str) and mode:
+            github_label = mode
+
+    parts = [f"github={github_label}"]
+    if isinstance(local_queue, Mapping):
+        for key, label in (
+            ("outbox_count", "outbox"),
+            ("receipt_count", "receipts"),
+        ):
+            value = local_queue.get(key)
+            if isinstance(value, int):
+                parts.append(f"{label}={value}")
+    if isinstance(github_queue, Mapping):
+        for key, label in (
+            ("open_codex_pr_count", "open_prs"),
+            ("open_issue_count", "open_issues"),
+        ):
+            value = github_queue.get(key)
+            if isinstance(value, int):
+                parts.append(f"{label}={value}")
+
+    return "cache: " + "; ".join(parts)
+
+
 def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Return compact queue status for recurring automation startup logs."""
 
@@ -771,6 +809,7 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
         compact["github_queue"] = compact_github_queue
 
     compact["details_omitted"] = True
+    compact["summary"] = _compact_summary(payload)
     return compact
 
 

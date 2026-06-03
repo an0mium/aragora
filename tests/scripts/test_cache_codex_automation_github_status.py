@@ -898,6 +898,9 @@ def test_refresh_entrypoint_delegates_to_cache_main(monkeypatch: Any) -> None:
 
 def test_summary_only_payload_omits_detail_lists() -> None:
     payload = {
+        "github_health": {
+            "mode": "ready",
+        },
         "local_queue": {
             "outbox_count": 2,
             "receipt_count": 1,
@@ -928,6 +931,7 @@ def test_summary_only_payload_omits_detail_lists() -> None:
     assert compact["github_queue"]["open_pr_head_count"] == 2
     assert compact["github_queue"]["open_pr_heads_omitted"] is True
     assert "open_pr_heads" not in compact["github_queue"]
+    assert compact["summary"] == "cache: github=available; outbox=2; receipts=1; open_prs=2"
     assert compact["details_omitted"] is True
 
 
@@ -969,9 +973,11 @@ def test_main_summary_only_prints_compact_json_but_writes_full_cache(
     assert stdout_payload["local_queue"]["nonterminal_receipt_count"] == 1
     assert "nonterminal_receipts" not in stdout_payload["local_queue"]
     assert stdout_payload["local_queue"]["detail_lists_omitted"] is True
+    assert stdout_payload["summary"] == "cache: github=connectivity_failed; outbox=0; receipts=1"
     written_payload = json.loads(
         (state_root / "automation-github-status" / "latest.json").read_text(encoding="utf-8")
     )
+    assert "summary" not in written_payload
     assert written_payload["local_queue"]["nonterminal_receipts"] == [
         {
             "file": "failed-receipt.json",
