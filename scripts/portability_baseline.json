@@ -572,56 +572,11 @@
     "pyproject.toml": [
       "legacy_slug"
     ],
-    "scripts/_tighten_knowledge_exceptions.py": [
-      "users_home"
-    ],
-    "scripts/audit_branch_backlog_parallel.py": [
-      "users_home"
-    ],
-    "scripts/audit_test_skips.py": [
-      "users_home"
-    ],
-    "scripts/claim_active_agent_lane.py": [
-      "users_home"
-    ],
-    "scripts/create-sprint-worktrees.sh": [
-      "users_home"
-    ],
-    "scripts/demo_design_partner.sh": [
-      "users_home"
-    ],
-    "scripts/disk_recovery_coordinator.py": [
-      "users_home"
-    ],
     "scripts/inspect_cold_review_surface.py": [
       "legacy_slug"
     ],
-    "scripts/pr_check_followup.py": [
-      "users_home"
-    ],
-    "scripts/publish_automation_handoffs.py": [
-      "users_home"
-    ],
-    "scripts/rename_to_aragora.py": [
-      "users_home"
-    ],
-    "scripts/root_guarded_queue.py": [
-      "users_home"
-    ],
-    "scripts/run_codex_automation_publisher.sh": [
-      "users_home"
-    ],
     "scripts/run_offline_golden_path.sh": [
       "venv_python"
-    ],
-    "scripts/runners/com.aragora.runner-health.plist": [
-      "users_home"
-    ],
-    "scripts/settle_one_pr.py": [
-      "users_home"
-    ],
-    "scripts/settlement_followup.py": [
-      "users_home"
     ],
     "sdk/python/pyproject.toml": [
       "legacy_slug"
@@ -679,6 +634,9 @@
       "users_home"
     ],
     "tests/scripts/test_disk_recovery_coordinator.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_generate_runner_health_plist.py": [
       "users_home"
     ],
     "tests/scripts/test_identify_lane_owner.py": [
